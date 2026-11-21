@@ -17,7 +17,7 @@ When you type a theme's full name, the home screen shows a preview, with a banne
 
 `font <name>` and `config set font.size 18` work the same way.
 
-There are thirteen themes. Each has a dark and a light version. Nine of them have their own colours for the prompt, links, script output, errors and the
+There are thirteen themes. Each has a dark and a light version. Nine of them have their own colors for the prompt, links, script output, errors and the
 work and private profile tags:
 
 <div class="palettes">
@@ -55,14 +55,14 @@ work and private profile tags:
   background: linear-gradient(90deg, var(--a) 0 20%, var(--b) 20% 40%, var(--c) 40% 60%, var(--d) 60% 80%, var(--e) 80%); }
 `}</style>
 
-The colour strip shows the prompt, link, work, private and error colours. The settings screens also use the
-theme's colours.
+The color strip shows the prompt, link, work, private and error colors. The settings screens also use the
+theme's colors.
 
-The last four themes, `material-you` and its three variations, take their colours from your wallpaper. See [Material You](#material-you) below.
+The last four themes, `material-you` and its three variations, take their colors from your wallpaper. See [Material You](#material-you) below.
 
-`nord` uses the colours of [Nord](https://www.nordtheme.com/). Its light version has the same hues, but darker, so they are easy to read on a light background.
+`nord` uses the colors of [Nord](https://www.nordtheme.com/). Its light version has the same hues, but darker, so they are easy to read on a light background.
 
-`rose-pine` uses the colours of [Rosé Pine](https://rosepinetheme.com/). Its light version is Rosé Pine Dawn, with some colours a little darker, so they are easy to read.
+`rose-pine` uses the colors of [Rosé Pine](https://rosepinetheme.com/). Its light version is Rosé Pine Dawn, with some colors a little darker, so they are easy to read.
 
 ### Light and dark
 
@@ -80,29 +80,29 @@ config set theme.always-dark on
 theme material-you
 ```
 
-This theme has no colours of its own. It uses the colours that Android takes from your wallpaper, the same ones the phone's own screens use.
+This theme has no colors of its own. It uses the colors that Android takes from your wallpaper, the same ones the phone's own screens use.
 
-- **It changes with the wallpaper.** Set another wallpaper, or pick other colours in the phone's wallpaper settings, and Kolahal changes too.
+- **It changes with the wallpaper.** Set another wallpaper, or pick other colors in the phone's wallpaper settings, and Kolahal changes too.
 - **It follows dark mode**, like the other themes.
-- **Three colours do the work.** The wallpaper's main colour is for the prompt and personal apps. The second is for Kolahal's messages and the private space. The third is for links and work apps.
-- **Some colours stay the same.** Errors are red, and the good and warning colours of scripts are green and amber, with every wallpaper. So they keep their meaning.
-- **The theme builder can copy it.** **Start from → Material You** copies the colours as they are now. The copy is a theme of your own, so it doesn't change with the wallpaper.
+- **Three colors do the work.** The wallpaper's main color is for the prompt and personal apps. The second is for Kolahal's messages and the private space. The third is for links and work apps.
+- **Some colors stay the same.** Errors are red, and the good and warning colors of scripts are green and amber, with every wallpaper. So they keep their meaning.
+- **The theme builder can copy it.** **Start from → Material You** copies the colors as they are now. The copy is a theme of your own, so it doesn't change with the wallpaper.
 - **[`wallpaper match`](/reference/faq/#what-wallpaper-match-does) doesn't work with it.** The theme follows the wallpaper, so the wallpaper can't follow the theme.
 
-**Three variations** use the same wallpaper colours with another background. Text, accents and the
-good and warning colours stay as in `material-you`:
+**Three variations** use the same wallpaper colors with another background. Text, accents and the
+good and warning colors stay as in `material-you`:
 
 | Theme | Background |
 | --- | --- |
-| `material-you` | the darkest shade of the wallpaper's colours (the lightest in light mode) |
+| `material-you` | the darkest shade of the wallpaper's colors (the lightest in light mode) |
 | `material-you-soft` | one step lighter (darker in light mode), with cards one step lighter again. It is near Gboard's keyboard in its Material You theme |
-| `material-you-tinted` | some of the wallpaper's main colour mixed into the background |
+| `material-you-tinted` | some of the wallpaper's main color mixed into the background |
 | `material-you-black` | pure black, for an OLED screen. In light mode it is the same as `material-you` |
 
 Pick one in **Settings → Look & feel**, or run `theme material-you-soft`. Everything above is true
 of all four.
 
-**Android 9, 10 and 11** have no wallpaper colours. There the theme shows Material's standard colours, and they don't change:
+**Android 9, 10 and 11** have no wallpaper colors. There the theme shows Material's standard colors, and they don't change:
 
 <div class="palettes">
 	<div class="pal" style="--bg:#141218;--fg:#E6E0E9;--a:#D0BCFF;--b:#EFB8C8;--c:#EFB8C8;--d:#CCC2DC;--e:#F2B8B5"><b>material-you</b></div>
@@ -115,21 +115,21 @@ On those phones the four cards in Settings say **Android 12+**, and `theme mater
 
 To make a theme, open **Settings → Look & feel → Your themes → Create a theme**. This opens the theme builder.
 
-- The builder starts from the current theme. **Start from** copies the colours of any other theme.
-- A small home screen at the top shows your colours as you change them.
-- Tap a colour to change it. You can drag hue, saturation and lightness, or type a hex code (`#8FD18A`).
-  You can also tap a swatch. The swatches show the same colour from the built-in themes, and the theme's other colours,
+- The builder starts from the current theme. **Start from** copies the colors of any other theme.
+- A small home screen at the top shows your colors as you change them.
+- Tap a color to change it. You can drag hue, saturation and lightness, or type a hex code (`#8FD18A`).
+  You can also tap a swatch. The swatches show the same color from the built-in themes, and the theme's other colors,
   so you can match them easily.
 
-These are the colours, from the top of the builder:
+These are the colors, from the top of the builder:
 
-| Colour | Used for |
+| Color | Used for |
 | --- | --- |
 | Background, Surface | behind everything; chips, the key bar and raised panels |
 | Text, Muted text | commands and their output; times, hints and older output |
 | Accent | the prompt, `$` and highlights (Settings use it too) |
 | Links, Info, Script output, Errors | links and feed items; messages from Kolahal; your scripts' lines; errors |
-| Good, Warning | script success states and warnings ([`fmt.color`](/scripting/api/#styles-fmt)); a theme made before these colours existed uses its personal and work colours |
+| Good, Warning | script success states and warnings ([`fmt.color`](/scripting/api/#styles-fmt)); a theme made before these colors existed uses its personal and work colors |
 | Personal apps, Work apps, Private space | apps in each profile, if you have them |
 
 **Dark** and **Light** at the top choose which version you are editing. The preview shows that
@@ -145,7 +145,7 @@ The theme then appears with the built-in themes, in the theme strip and in `them
 To change or delete it, tap it under **Your themes**.
 
 A theme of yours can't have a built-in theme's name. If an update brings a built-in theme with the name of one of yours,
-Kolahal adds a number to your theme's name: a `nord` you made before 0.5.9 is now `nord-2`, and a `rose-pine` you made before 0.5.15 is now `rose-pine-2`. It keeps its colours, and stays in use if it was.
+Kolahal adds a number to your theme's name: a `nord` you made before 0.5.9 is now `nord-2`, and a `rose-pine` you made before 0.5.15 is now `rose-pine-2`. It keeps its colors, and stays in use if it was.
 
 - A light background works too. The status bar icons turn dark.
 - Your themes are included in [backups](/guides/backup/).

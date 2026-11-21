@@ -9,7 +9,7 @@ There are three ways to open the editor:
 - tap **Edit** in a script's sheet in the script manager,
 - tap a script error.
 
-The editor is a monospace text area with line numbers. It colours Lua and JavaScript code lightly,
+The editor is a monospace text area with line numbers. It colors Lua and JavaScript code lightly,
 in the terminal theme. [Parts of the app](/getting-started/parts/#script-editor) shows each part of
 it, numbered.
 

@@ -1,6 +1,6 @@
 /*
  * Kolahal's look for Starlight. Each part borrows a part of the app:
- * - colours: the app's default theme, "green", in its dark and light versions (ui/Theme.kt);
+ * - colors: the app's default theme, "green", in its dark and light versions (ui/Theme.kt);
  * - h2: a typed command, `$ ` and bold, with the log's gutter bar;
  * - the sidebar and "On this page": the suggestion list (the current row has the bar and ↵);
  * - group labels and the page's section: dividers, like "── Yesterday ──";
@@ -64,7 +64,7 @@
 	--sl-text-h4: var(--sl-text-lg);
 }
 
-/* Palettes.greenLight: the same greens, darker, on a pale green-grey. */
+/* Palettes.greenLight: the same greens, darker, on a pale green-gray. */
 :root[data-theme='light'] {
 	--k-bg: #f3f7f1;
 	--k-surface: #e3ebe0;
@@ -281,7 +281,7 @@ starlight-toc a[aria-current='true'] {
 	color: var(--k-prompt);
 }
 
-/* Links in the text: fmt.link, in the link colour, underlined. */
+/* Links in the text: fmt.link, in the link color, underlined. */
 .sl-markdown-content a:not(:where(.not-content *, .sl-link-button, .card a)) {
 	color: var(--k-link);
 	text-underline-offset: 0.18em;
@@ -290,7 +290,7 @@ starlight-toc a[aria-current='true'] {
 	text-decoration-thickness: 2px;
 }
 
-/* Inline code: the app's code style, mono on the surface colour. */
+/* Inline code: the app's code style, mono on the surface color. */
 .sl-markdown-content :not(pre) > code {
 	border-radius: 0.25rem;
 	padding: 0.1em 0.35em;
@@ -305,7 +305,7 @@ starlight-toc a[aria-current='true'] {
 	font-variant-ligatures: none;
 }
 
-/* Tables: log.tables boxed. The surface colour, rounded, a rule between rows, the header muted. */
+/* Tables: log.tables boxed. The surface color, rounded, a rule between rows, the header muted. */
 .sl-markdown-content table:not(:where(.not-content *)) {
 	width: 100%;
 	max-width: 100%;
@@ -340,7 +340,7 @@ starlight-toc a[aria-current='true'] {
 	background: var(--sl-color-bg);
 }
 
-/* Asides: a log line. The gutter bar in the kind's colour, the title as a tag chip. */
+/* Asides: a log line. The gutter bar in the kind's color, the title as a tag chip. */
 .starlight-aside {
 	border-inline-start-width: 2px;
 	border-radius: 0 0.5rem 0.5rem 0;
@@ -381,7 +381,7 @@ starlight-toc a[aria-current='true'] {
 	color: var(--k-link);
 }
 
-/* Expressive Code: frames on the surface colour, like the script editor. */
+/* Expressive Code: frames on the surface color, like the script editor. */
 .expressive-code .frame {
 	box-shadow: none;
 }

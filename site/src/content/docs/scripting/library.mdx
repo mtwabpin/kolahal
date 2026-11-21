@@ -38,7 +38,7 @@ opens the script:
 - what it is, its version and its author;
 - how it runs (a command, a timer, daily times, events), what private things it uses, and whether
   it uses the internet;
-- its code, as Kolahal would install it, coloured as in the editor. It is read-only: you can
+- its code, as Kolahal would install it, colored as in the editor. It is read-only: you can
   select a part to copy, but not change it.
 
 Install is there too. **Get more scripts** shows a shared script the same way.
@@ -110,7 +110,7 @@ as editing, so the script still updates with Kolahal.
   versions start ticked; edited copies with nothing newer don't.
 - **Compare** (in the card's details, the script's sheet, or the question before a reset) shows the
   differences. Lines only in the library version are red. Lines only in yours are in the theme's
-  colour. `script diff weather` prints the same in the log.
+  color. `script diff weather` prints the same in the log.
 - Your edited copy is replaced only when you ask: run `script install weather --replace`, or tap the
   pill, **Reset to library** in the card's details, or **Reset to library version** in the sheet or at
   the bottom of Compare. The app asks first, and offers **Compare first** and **Export your copy first**.
@@ -192,7 +192,7 @@ Twenty-three scripts have a [widget](/scripting/overview/#widgets): a card on th
 | --- | --- | --- |
 | [weather](#weather) | the temperature, large, with the sky, humidity and wind | runs `weather`, and home turns to the log |
 | [forecast](#forecast) | three days, each with its low and its high and a bar between them, all on one scale | runs `forecast`, and home turns to the log |
-| [aqi](#aqi) | the air quality figure in a ring, in its band's colour | runs `aqi`, and home turns to the log |
+| [aqi](#aqi) | the air quality figure in a ring, in its band's color | runs `aqi`, and home turns to the log |
 | [crypto](#crypto) | its coins, each with its price and the day's change | runs `crypto`, and home turns to the log |
 | [exchange](#exchange) | one unit of your currency in each of the others you chose | runs `exchange`, and home turns to the log |
 | [hn](#hn) | the first 8 stories of the front page, with their points | on a row: opens the story |
@@ -335,7 +335,7 @@ all on one scale, with the sky as a symbol and the chance of rain from 30%.
 
 **Air quality**: the US, Indian or European air quality index for a city, from Open-Meteo, with
 the last hour, the last 24 hours and the readings behind them. The last hour shows large, in its
-band's colour with the band's name under it, and the 24-hour figure and PM2.5 beside it; then a bar of
+band's color with the band's name under it, and the 24-hour figure and PM2.5 beside it; then a bar of
 it on the scale, and the other readings in a table. A typed `aqi` shows
 "Fetching…" at once, which turns into the answer.
 
@@ -343,12 +343,12 @@ it on the scale, and the other readings in a table. A typed `aqi` shows
 aqi Delhi
 script set aqi city Delhi      # the city when you type none
 script set aqi scale in        # us (default), in or eu
-script pin aqi                 # at the top of home, with a coloured bar
+script pin aqi                 # at the top of home, with a colored bar
 ```
 
-- Pinned, its status line has a bar in its band's colour. While the air is good, the bar fills
+- Pinned, its status line has a bar in its band's color. While the air is good, the bar fills
   toward the top of the good band (50, or 20 on the European scale). Past it, the air isn't safe,
-  so the bar is full and its colour, orange then red, says how bad.
+  so the bar is full and its color, orange then red, says how bad.
 - With a free token from aqicn.org (`script secret aqi WAQI_TOKEN`), it reads the nearest
   station instead of Open-Meteo's model.
 ## sun
@@ -612,7 +612,7 @@ habit done                   # mark today done
 habit undo                   # take today's mark away
 ```
 
-- A tap on the card marks today done. The card then turns to the theme's good colour, with
+- A tap on the card marks today done. The card then turns to the theme's good color, with
   "Done today" at the foot of a large card.
 - Once today is done, a tap on the card takes the mark away again, so a tap by mistake is easy to
   undo. The streak and the dots are then as they were before the mark. `habit undo` does the same.
@@ -638,7 +638,7 @@ counter undo                 # take one back
 
 - The card has two buttons. The first shows today's count, and a tap on it adds one. **Undo** takes
   one back, so a tap by mistake is easy to fix.
-- With a target, the count is "5 of 8", and the card turns to the theme's good colour once you
+- With a target, the count is "5 of 8", and the card turns to the theme's good color once you
   reach the target. Without one, it is the count with its unit: "5 glasses".
 - Its options say what it counts:
   - `name`: the card's title (Water).
@@ -746,7 +746,7 @@ Lua and in JavaScript: the JavaScript one has `-js` at the end of its name.
   can tap (here, a Wikipedia article's summary).
 - **template-logs** / **template-logs-js**: a reference for logging. Run it, and each of its lines
   shows one kind of line next to the code that makes it: plain lines and bodies, links and Copy
-  text, styles and colours, tags, Markdown, lists, tables, bars, big numbers, a picture, a list with
+  text, styles and colors, tags, Markdown, lists, tables, bars, big numbers, a picture, a list with
   a space between its items, buttons, `line.set`, and the status line.
 - **template-widget** / **template-widget-js**: a [widget](#widgets). It fills a card on the widgets
   page with a number from the web, large, with smaller ones under it (here, a GitHub project's

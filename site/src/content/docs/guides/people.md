@@ -7,7 +7,7 @@ description: Call, text and find contacts from the prompt, and see your calls in
 call mum                  # dial a contact (alias: dial)
 call +44 20 7946 0000     # or a number
 sms alex running late     # start a message with text (alias: text)
-contacts                  # favourites, or the first 20 contacts if you have none
+contacts                  # favorites, or the first 20 contacts if you have none
 contacts sam              # search (alias: contact)
 ```
 
@@ -15,7 +15,7 @@ contacts sam              # search (alias: contact)
   Kolahal uploads nothing. It reads contacts only to match names. The Play build never asks for this permission.
   It uses Android's contact picker instead ([see below](#in-the-play-build)).
 - When you type `call `, `sms ` or `contacts `, your contacts appear as suggestions right away.
-  Favourites (★) come first. The list gets shorter as you type a name or number.
+  Favorites (★) come first. The list gets shorter as you type a name or number.
 - A contact with several numbers gets one row per number. Choose a row to fill in that number.
   `sms` always completes to the number, so you can type the message right after it.
 - If a name matches several contacts, Kolahal lists them. Tap one to call. Long-press one to

@@ -10,9 +10,9 @@ Kolahal lists apps from every profile that Android shows to the launcher:
 - **private space** (Android 15+)
 - **clone** profiles ("dual apps")
 
-## Tags and colours
+## Tags and colors
 
-Each app has a tag for its profile, and each profile has its own colour:
+Each app has a tag for its profile, and each profile has its own color:
 
 | Tag | Profile | Flag |
 | --- | --- | --- |

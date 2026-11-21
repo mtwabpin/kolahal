@@ -1,0 +1,8 @@
+What's new:
+• World clocks show how far each place is, with day strips.
+• A month of dots for your habit, and Undo for a tap by mistake.
+• A daily counter, with or without a target.
+• Now playing shows the album cover and seeks at any size.
+• Cards give their title line to the content.
+• Undo for Reset to default and Mark all read.
+• Fixes: widgets after a restore to a new phone, dark mode for other apps' widgets, no accidental deletes by swipe.

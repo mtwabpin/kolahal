@@ -69,7 +69,7 @@ Kolahal is built with AI assistance, and contributions may use it too. Vibe codi
 AI assistance is fine as long as you stay the author:
 
 - You read every line you send, and can explain what it does and why in review.
-- You built it and tried it on a phone or the emulator; the tests pass, and new behaviour has tests.
+- You built it and tried it on a phone or the emulator; the tests pass, and new behavior has tests.
 - You say in the pull request what the AI did.
 
 Pull requests and issues that look generated and unchecked (large unexplained changes, calls to

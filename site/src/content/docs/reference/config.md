@@ -23,7 +23,7 @@ The old names still work in `config`, which tells you the new name. Older backup
 | Old name | New name |
 | --- | --- |
 | `theme` | `theme.name` |
-| `gui.colors` | removed in 0.3.1: Settings always use the theme's colours |
+| `gui.colors` | removed in 0.3.1: Settings always use the theme's colors |
 | `widgets.home`, `widgets.height` | removed: widgets are on the widgets page (`widgets.page`) |
 | `font` | `font.family` |
 | `statusbar` | `screen.bars` |
@@ -67,7 +67,7 @@ The `theme` and `font` commands didn't change.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `theme.name` | choice: `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`, or [one you made](/guides/themes-and-settings/#your-own-themes) | `green` | colour theme (also `theme <name>`). The phone's dark mode chooses its dark or [light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colours from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
+| `theme.name` | choice: `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`, or [one you made](/guides/themes-and-settings/#your-own-themes) | `green` | color theme (also `theme <name>`). The phone's dark mode chooses its dark or [light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colors from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
 | `theme.always-dark` | bool | `off` | always use the theme's dark version, even in light mode |
 | `screen.bars` | choice: `show` `hide` `immersive` | `show` | full screen: `hide` hides the status bar, and `immersive` hides both system bars. Swipe from the edge to show them |
 | `font.family` | choice: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom` | `jetbrains-mono` | terminal font (also `font <name>`). `custom` is a .ttf/.otf file you imported with `font import` |
@@ -81,13 +81,13 @@ The `theme` and `font` commands didn't change.
 | `log.time` | choice: `off` `commands` `groups` | `groups` | times on the right of log lines. `groups`: on the first line of each group and when the minute changes. `commands`: on the lines you type |
 | `log.dim` | bool | `on` | dim output older than the latest command |
 | `log.spacing` | number 0–40 | `5` | gap (dp) above each output group. A group is a command and its output, or a background batch (feeds, scripts) |
-| `log.item-spacing` | number 0–40 | `5` | gap (dp) between the items of a list in one group, such as stories, contacts or feed items. The colour bar runs through it |
-| `log.gutter` | bool | `on` | thin colour bar at the left of each log line: green for commands, the script's colour for background output, red for errors |
+| `log.item-spacing` | number 0–40 | `5` | gap (dp) between the items of a list in one group, such as stories, contacts or feed items. The color bar runs through it |
+| `log.gutter` | bool | `on` | thin color bar at the left of each log line: green for commands, the script's color for background output, red for errors |
 | `log.line-height` | number 10–56 | `22` | minimum height of a log line, in sp. 22 is 22 dp at the default text size, and it scales with the phone's text size. With `log.taller-taps`, lines you can tap get +10, and two-column rows get +14. A line has up to 3 dp of padding above and below. The padding gets smaller as the height gets close to one line of text (19 at text size 14), and there is none at that height. A line is never shorter than its text. Script status lines in the header also use this height |
 | `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height |
 | `log.tables` | choice: `boxed` `plain` | `boxed` | how tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only); wider tables scroll sideways |
 | `log.fold` | number 0–60 | `8` | fold a log line taller than this many lines of text, under "▾ N more lines"; a tap shows the rest. A line only a line or two longer shows whole. `0`: never fold |
-| `log.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the log, in percent. `0` is none. A higher number shows less of the theme's colour |
+| `log.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the log, in percent. `0` is none. A higher number shows less of the theme's color |
 | `chips.height` | number 20–64 | `44` | height (dp) of suggestion chips, the suggestion list's rows and app chips in the log |
 | `log.keep-days` | number 1–365 | `60` | delete log lines older than this many days (checked at least twice a day). Starred lines are kept |
 | `log.keep-lines` | number 500–50000 | `5000` | delete the oldest log lines beyond this number. Typed commands are counted separately, so ↑ history is kept. Starred lines are kept and not counted. Only with `config set`: the settings screen doesn't show it |
@@ -159,7 +159,7 @@ See [Widgets](/guides/widgets/).
 | --- | --- | --- | --- |
 | `widgets.page` | choice: `left` `right` `off` | `left` | a widgets page next to the terminal. Swipe sideways on the home screen to reach it |
 | `widgets.start` | bool | `off` | start on the widgets page. Home opens on it, and Home and Back return to it. Swipe sideways to see the log. Needs the app selector (`selector.rail`) |
-| `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent. `0` is none. A higher number shows less of the theme's colour |
+| `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent. `0` is none. A higher number shows less of the theme's color |
 | `widgets.agenda-days` | choice: `auto` `1` `3` `7` `14` | `auto` | the days the Agenda widget shows from today. `auto` looks up to 14 days ahead and shows as many events as the card fits |
 
 ## Keyboard and key bar

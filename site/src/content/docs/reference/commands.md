@@ -27,8 +27,8 @@ How to read the usage:
 | `uninstall <app> [-w]` | | uninstall an app |
 | `hide <app> [-w]` | | hide an app from lists and search |
 | `unhide <app>` | | show a hidden app again (`apps hidden` lists hidden apps) |
-| `pin <app>` | `fav` | make an app a favourite. Favourites come first in the suggestions on an empty prompt (`suggestions.idle`) and have a star in the app selector. `pin` alone lists them |
-| `unpin <app>` | `unfav` | remove a favourite |
+| `pin <app>` | `fav` | make an app a favorite. Favorites come first in the suggestions on an empty prompt (`suggestions.idle`) and have a star in the app selector. `pin` alone lists them |
+| `unpin <app>` | `unfav` | remove a favorite |
 | `pins` | `favs` | show a grid of pinned apps |
 | `rename <app> = <name>` | | give an app your own label; `rename <app> =` restores the original |
 | `usage [<days> \| <app>]` | `screentime` | screen time for each app (1–30 days), or one app in detail: today by hour and its last 7 days (needs Usage Access) |
@@ -42,7 +42,7 @@ How to read the usage:
 | --- | --- | --- |
 | `call <name\|number>` | `dial` | call a contact or number (in the Play build, without a name it opens the contact picker) |
 | `sms <name\|number> [<text>]` | `text` | start a text message (in the Play build, without a name it opens the contact picker) |
-| `contacts [<query>]` | `contact` | find contacts (without a query, shows favourites). In the Play build, pick a contact, or use `--forget <name>` |
+| `contacts [<query>]` | `contact` | find contacts (without a query, shows favorites). In the Play build, pick a contact, or use `--forget <name>` |
 | `calls [<n>]` | | recent incoming, outgoing and missed calls (20 by default; `calls --allow` asks for call log access) |
 
 ## Web
@@ -199,7 +199,7 @@ Script names can use lowercase letters, digits, `-` and `_` (up to 40 characters
 | `alias [name = command]` | | list or define aliases |
 | `unalias <name>` | | remove an alias |
 | `config [ls\|set\|get\|reset] <key> <v>` | `set` | settings (with no arguments, opens the settings screen) |
-| `theme <name>` | | `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`; each has a [dark and a light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colours from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
+| `theme <name>` | | `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`; each has a [dark and a light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colors from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
 | `font [<name>\|import\|sans [off\|prompt\|all]]` | | terminal font: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom`. With no arguments, lists them (tap one to use it). `import` picks a .ttf/.otf file. `sans prompt` uses the system font for the prompt, and `sans all` for everything (`font.sans`) |
 | `echo <text>` | | print text |
 | `date [<place>...]` | `time` | current date and time. With places, shows the time in each place and how far ahead or behind it is. A place can be a city (`tokyo`, `new york`), a zone (`Asia/Tokyo`), `utc`, or an offset like `+5:30` |
@@ -224,13 +224,13 @@ See [Widgets](/guides/widgets/).
 | `setup [text]` | | setup checklist page (`text`: print it in the log) |
 | `tour` | | a page-by-page tour of how Kolahal works, with a few first settings |
 | `source` | | Kolahal's source code on GitHub |
-| `wallpaper [match]` | | shows whether the home screen wallpaper is Kolahal's or yours. `match` sets it to this theme's colour, so the screen doesn't flash when you swipe home. The wallpaper then follows the theme until you set another one. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change. It doesn't work with the `material-you` theme on Android 12 and newer, which takes its colours from the wallpaper |
+| `wallpaper [match]` | | shows whether the home screen wallpaper is Kolahal's or yours. `match` sets it to this theme's color, so the screen doesn't flash when you swipe home. The wallpaper then follows the theme until you set another one. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change. It doesn't work with the `material-you` theme on Android 12 and newer, which takes its colors from the wallpaper |
 | `unlocks [<days> \| week \| month]` | | unlock counts (1–30 days); `week` and `month` as a chart; `month` also with the trend and a line per week |
-| `fetch` | `neofetch`, `fastfetch` | a summary of this phone and Kolahal, in fastfetch style, under `name@device` (`user.name`). It shows Kolahal's icon next to the Android version, device, kernel, uptime, Kolahal's version, apps, scripts, feeds, theme, font, display, CPU, memory, storage, battery, network and today's unlocks, then the theme's colours |
+| `fetch` | `neofetch`, `fastfetch` | a summary of this phone and Kolahal, in fastfetch style, under `name@device` (`user.name`). It shows Kolahal's icon next to the Android version, device, kernel, uptime, Kolahal's version, apps, scripts, feeds, theme, font, display, CPU, memory, storage, battery, network and today's unlocks, then the theme's colors |
 | `notifications [settings]` | | allow script notifications |
 | `usage-access` | | grant usage access (for the unlock count) |
 | `crashes [share\|clear] [<n>]` | | crash reports kept on this phone, newest first (tap one to share it). `share` opens the share sheet with report `n` (by default, the newest). `clear` deletes all reports. See [Privacy](/reference/privacy/#crash-reports) |
-| `battery` | | battery optimisation settings |
+| `battery` | | battery optimization settings |
 | `home` | | choose the default home app |
 | `lock` | | lock the screen (needs the accessibility service) |
 | `shade` | | pull down the notification shade |

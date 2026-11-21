@@ -14,7 +14,7 @@ the system file picker. The file contains:
 - [themes you made](/guides/themes-and-settings/#your-own-themes)
 - the font you imported with `font import`
 - aliases
-- hidden apps, custom labels and pinned favourites
+- hidden apps, custom labels and pinned favorites
 - every script with its code, timers, notification flag and on/off state
 - the [sources you added](/scripting/overview/#your-own-scripts-repository) to Get more scripts (their addresses only)
 - **everything else** under `data`:
