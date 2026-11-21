@@ -65,10 +65,14 @@ class TtyHomeTest {
     private val config = Config.get(app)
     private val logs = LogRepository.get(app)
 
+    /** The view home is drawn in, for putting the keyboard away ([keyboardDown]). */
+    private var view: android.view.View? = null
+
     private fun show(): TerminalViewModel {
         config.set(Keys.HOME_STYLE, "tty")
         val vm = vms.terminal(app)
         compose.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
             KolahalTheme {
                 Box(
                     Modifier
@@ -81,6 +85,20 @@ class TtyHomeTest {
         }
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("tty-home").fetchSemanticsNodes().isNotEmpty() }
         return vm
+    }
+
+    /**
+     * Puts the keyboard away, as a person does before sliding on the edge: home focuses the prompt,
+     * and the selector's strip shows only while the keyboard is down, in both styles.
+     */
+    private fun keyboardDown() {
+        val v = view ?: return
+        val ime = androidx.core.view.WindowInsetsCompat.Type.ime()
+        compose.runOnUiThread {
+            val window = (v.context as? android.app.Activity)?.window ?: return@runOnUiThread
+            androidx.core.view.WindowCompat.getInsetsController(window, v).hide(ime)
+        }
+        compose.waitUntil(5_000) { androidx.core.view.ViewCompat.getRootWindowInsets(v)?.isVisible(ime) != true }
     }
 
     /** A node whose words are [count] texts or more (a suggestion reads its name, then its description). */
@@ -151,6 +169,7 @@ class TtyHomeTest {
     fun theSelectorOpens() {
         config.set(Keys.SELECTOR_RAIL, "on")
         show()
+        keyboardDown()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("app-selector").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("app-selector").performTouchInput {
             down(center)
