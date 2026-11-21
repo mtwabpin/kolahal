@@ -723,3 +723,162 @@ picker. Nothing was run on a device for them.
 - Levels glide in Plain but jump in Bold, Split and Shape.
 - Two comments still say the bar never waves, and a paused media bar thickens at once.
 - Remark:
+
+* Architecture review (21 November 2026)
+A read-only review of the whole app on 0.5.16 (=805e4ffc=), by a Fable 5.2 agent. Nothing was built
+or run. It leaves out what the November scans above already have.
+
+- Paths are under =app/src/main/java/com/mtwabpin/kolahal/=.
+- Priority: =[#A]= a bug you can see, =[#B]= worth doing, =[#C]= polish or tidying.
+- /(checked)/: checked against the code again after the review. The others rest on its reading.
+- Not reviewed yet: the UX of home and of the other screens. Those two reviews are paused.
+- Write what to do after =Remark:= (do it, skip it, or change it), and I'll follow that.
+
+- Remark:
+
+** Correctness
+*** TODO [#B] A script's failure is told by its message text /(checked)/
+- =script/ScriptWorker.kt:165=: =timedOut = … || e.message.orEmpty().contains("script timed out")=.
+  The access-off case matches the denied message inside the text the same way (163).
+- What you'd see: a script that calls =error("script timed out")= is reported as "timed out after
+  60s", on its card and in the log.
+- The outcome is worked out in one 150-line function, =ScriptRun.runOne= (ScriptWorker.kt:60-207),
+  which only device tests reach.
+- Fix: record the cause where it happens, as =host.stoppedBy= (=TIMEOUT= or =DENIED(item)=), set in
+  =timedOut()=, =deny()= and the Lua hook. Read that, and move the outcome to a pure
+  =runOutcome(error, host state, repl)= with JVM tests.
+- Remark:
+
+*** TODO [#B] Failures are swallowed after the screen has shown success /(checked)/
+- =terminal/OwnWidgets.kt:318-320=: =saveShortcuts= sets =shortcuts.value=, then
+  =runCatching { Shortcuts.write(...) }=. A failed write leaves the card showing the new list until
+  a restart.
+- =script/ScriptScheduler.kt:139-144=: =syncAll= catches each script's failure itself, so the
+  =Quietly.run= around it (LauncherApp.kt:117) never hears that a timer wasn't set.
+- There are 99 bare =runCatching { }= statements, while =Quietly=, which logs once a day, is used in
+  six places.
+- Fix: use =Quietly.report= at these places. In =saveShortcuts=, put the old list back when the
+  write fails. Keep bare =runCatching= for unregistering and cleanup.
+- Remark:
+
+*** TODO [#B] A database error on the Feeds screen crashes home
+- =ui/FeedsScreen.kt:258=: =scope.launch(Dispatchers.IO) { repo.markRead(item.id) }= has no catch.
+  Nor have =produceState { repo.all() }= (120-122) and =repo.items(...)= (566). The same error
+  from a command becomes a log line (TerminalViewModel.kt:931-937).
+- About 25 =produceState= reads in ui/ do the same: some are guarded (ui/FeatureTabs.kt:47), some
+  are not (ui/ScriptSheet.kt:94, ui/SettingsScreen.kt:124).
+- Fix:
+  - a =FeedActions= class with a =Host=, as =ScriptActions= has, that owns the feed lists as
+    StateFlows and writes on the view model's =io=;
+  - for the rest, one =produceIo(default) { }= helper that catches, in =ui/GuiComponents.kt=.
+- Remark:
+
+*** TODO [#B] The script list has three writers on three threads
+- =scriptList.value= is set:
+  - by the reload collector (=terminal/TerminalViewModel.kt:489-490=);
+  - by =refreshScripts= on the serial queue (=terminal/ScriptActions.kt:79=);
+  - by =refreshScriptCaches= from =fileOp=, on plain =Dispatchers.IO= (TerminalViewModel.kt:1250).
+- Each reads =scripts.all()= first, so an older read can be written last. =scriptsPrint= then
+  matches, and the stale list stays until the next script change.
+- =setCommandScripts= (190-199) runs on two threads, and =commandsFrom= (187) is a plain var: its
+  four fields can come from two different lists.
+- Fix: one writer. The two refresh functions only ask for a fresh read (=scriptsPrint= cleared,
+  =requestReload()=), or all three run on one =limitedParallelism(1)= dispatcher.
+- Remark:
+
+*** TODO [#C] Which widgets are placed is kept three times, in two stores
+- The list is in the =widgets= preferences. The =:script= process reads two database copies, the
+  =widget.placed= row and the script's =widget= access, written later on an executor
+  (=widgets/WidgetHost.kt:204-210, 386-412=; =data/ScriptRepository.kt:296-349=).
+- If that write fails, it is caught without a word (WidgetHost.kt:408), and the widget stays empty
+  until the next start's =syncAccess=.
+- Fix: for now, report the failure and retry =syncAccess=. Later, keep the placed list in
+  kolahal.db, so the list, the row and the access change in one transaction.
+- Remark:
+
+*** TODO [#C] One event stream for every screen loses events no screen collects
+- =terminal/TerminalViewModel.kt:396-397=: 19 kinds of event go through one
+  =MutableSharedFlow(extraBufferCapacity = 8)= with =tryEmit=, and three collectors each ignore most
+  of them. An event sent while its collector is away is lost. =onHomePressed= already works around
+  that with a separate =arrival= field (1440-1443).
+- Fix: activity requests (pickers, permissions) on a =Channel=, which keeps them until they are
+  collected. The terminal's hints (ScrollToBottom, FocusPrompt, HideKeyboard) become state the
+  terminal reads when it appears, in place of =arrival=.
+- Remark:
+
+*** TODO [#C] Media commands and the card can pick different players
+- =control/MediaRepository.kt:316-325=: =recompute= shows the active session, else the one that
+  played last.
+- =controller()= (407-411), which =media= commands use before the listener runs, takes the active
+  one, else the first in Android's list.
+- With two paused players, =media play= can go to another app than the one the card shows.
+- Fix: one pure =pick(sessions, lastPlaying)= for both, tested beside NowPlayingTest.
+- Remark:
+
+** Structure
+*** TODO [#B] One view model serves every screen /(checked)/
+- =terminal/TerminalViewModel.kt= is 1488 lines, with about 130 public functions, and 43
+  composables in 29 ui files take the whole of it (FeedsScreen, OnboardingScreen, ThemeBuilder,
+  SettingsScreen…).
+- A screen test has to build the whole view model, which starts the media listener, a receiver
+  and the log's reload (423-455, 1464-1471).
+- The prompt's logic (=onInputChange=, =instantRun=, =submit=, history and completion: 680-895) and
+  the pause and resume bookkeeping (589-675) are plain logic that only the AndroidViewModel reaches.
+  Lines 1296-1327 are 20 one-line relays for permissions and pickers.
+- Fix: carry on with the =Host= pattern of =ScriptActions= and =LogLineActions=:
+  - move 680-895 to a =PromptActions= class, and 589-675 to a =HomeSession= class, each with JVM
+    tests;
+  - give Material screens only the part they use (=vm.scriptActions=, =vm.config=, or a small
+    interface).
+- Remark:
+
+*** TODO [#B] The model packages depend on each other in a circle
+- =data= imports =script= 20 times and =widgets= 5 times; =script= imports =data= 73 times and
+  =widgets= 14 times; =widgets= imports both. LayersTest only checks that the model never reaches
+  =terminal= or =ui=, so nothing stops a new cycle.
+- Example: =data/ScriptRepository.kt= (storage) calls =WidgetHost.get= (112), =ScriptScheduler.cancel=
+  (434) and =ScriptLibrary(context).forget= (428), and WidgetHost calls back into ScriptRepository
+  (WidgetHost.kt:387, 423). =script.Json= is a general helper that 13 files outside =script/= import.
+- Fix:
+  - move =Json= to =data/=;
+  - move =Backup= and =FullBackup= into a =backup/= package above the others;
+  - let ScriptRepository's delete and rename report what happened, so a caller cancels the timers
+    and tells the widget host;
+  - then add the order data < script < widgets to LayersTest.
+- Remark:
+
+*** TODO [#B] WidgetBodies.kt holds five widgets and two shared toolkits /(checked)/
+- =ui/WidgetBodies.kt= is 2655 lines:
+  - shared controls and grids (168-515);
+  - buttons and switches (516-895);
+  - the clock (897-1577);
+  - the agenda (1578-1964);
+  - the time (1965-2005);
+  - Now playing (2006-2655).
+- These change for unrelated reasons. Private helpers get written twice: =linesDp= (1017) and
+  =linesHeight= (2162) both add up line heights, and with no line height set one uses
+  =fontSize × 1.25=, the other 20 sp.
+- Fix: split it along its section comments into WidgetControls.kt, WidgetClock.kt,
+  WidgetAgenda.kt, WidgetMedia.kt and WidgetTime.kt, with the shared helpers =internal=. Keep one of
+  the two line-height helpers. WidgetKinds.kt and WidgetKindLooks.kt are already split by kind and
+  look.
+- Remark:
+
+*** TODO [#C] A list's bars repeat the rows' layout numbers, once for each look
+- =ui/WidgetKinds.kt:640-648=: =listBars= hard-codes 34 dp for a checkbox, 10 dp after an icon and
+  18 dp for a dot, while =ListRow= builds the same from its own paddings (592-597). Split and Shape
+  pass literals of their own (WidgetKindLooks.kt:800, 831, 920), and Bold has a third function with
+  26 dp (668). "Details from 200 dp" is written three times.
+- What you'd see: change a row's padding and the range bars overlap the text, in that look only.
+  Nothing fails.
+- Fix: a =RowMetrics(start, checked, mark, gap, trailingStyle)= for each look that both the row and
+  one =rowBars(rows, width, metrics)= read, and a =DETAILS_FROM= constant.
+- Remark:
+
+** In good shape
+- The three layers are enforced (LayersTest), and every preferences file and key-value scope is
+  declared once, with its backup rules (=data/Stores.kt=, StoresTest).
+- Pure logic is already pulled out and JVM-tested in many places (WidgetWords, SelectorMath,
+  EditorLogic, =mergePage=, InstantRun), across 180 unit-test files.
+- Script runs are well contained: a separate process, a lock for each script, limits in HostApi,
+  and careful threading in the view model.
