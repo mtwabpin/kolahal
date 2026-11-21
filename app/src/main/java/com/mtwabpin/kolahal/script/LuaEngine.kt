@@ -39,6 +39,7 @@ class LuaEngine : ScriptEngine {
             lua.openLibraries()
             lua.push(guarded("script stopped") { l ->
                 if (!ctx.isActive || System.currentTimeMillis() > deadline) {
+                    host.stopForTimeout()
                     l.push("script timed out after ${timeoutMs / 1000}s")
                     -1
                 } else 0

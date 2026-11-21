@@ -159,30 +159,12 @@ internal object ScriptRun {
             "timeout"
         } catch (e: Throwable) {
             host.flush()
-            // The switch itself stopped the run. This is not an error that the script caught and then went on.
-            val off = host.denied?.takeIf { host.deniedMessage?.let { m -> e.message.orEmpty().contains(m) } == true }
-            // QuickJS's interrupt, or Lua's own timeout error (raised by the hook or a host call that waits).
-            val timedOut = e is com.dokar.quickjs.QuickJsInterruptedException || e.message.orEmpty().contains("script timed out")
-            if (timedOut) {
-                fail("$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", errorCtx)
-                "timeout"
-            } else if (off != null) {
-                // A switch the user turned off stopped the run. Say which one, with a tap to allow it.
-                fail("$name: ${ScriptAccess.label(off).lowercase()} is off for this script — tap to allow", errorCtx + mapOf(LogContext.RUN to "script allow $name $off"))
-                "stopped: ${ScriptAccess.label(off).lowercase()} off"
-            } else {
-                // An error can quote a URL or a header, so mask it like everything else a run shows.
-                val message = e.message?.let(host::redact)
-                // The first line as the script made it. It can be any length, so cut it for the line and the status.
-                val msg = (message?.lines()?.firstOrNull { it.isNotBlank() } ?: e.javaClass.simpleName).take(ScriptRepository.STATUS_MAX)
-                val line = if (repl) null else errorLine(e, lang, name)
-                val extra = buildMap {
-                    put(LogContext.COPY, message ?: msg)
-                    line?.let { put(LogContext.LINE, it.toString()) }
-                }
-                fail("$name: $msg" + (line?.let { " (tap to edit line $it)" } ?: ""), errorCtx + extra)
-                "error: $msg" + (line?.let { " (line $it)" } ?: "")
-            }
+            // What stopped the run is recorded where it happened: Lua's hook or a host call that waits
+            // ([HostApi.stoppedBy]), or QuickJS's interrupt. The error's text is the script's own.
+            val stop = if (e is com.dokar.quickjs.QuickJsInterruptedException) RunStop.Timeout else host.stoppedBy
+            val outcome = runOutcome(name, e, stop, repl, host::redact, errorLine = { errorLine(it, lang, name) })
+            fail(outcome.line, if (outcome.extra.isEmpty()) errorCtx else errorCtx + outcome.extra)
+            outcome.status
         } finally {
             host.finish()
             // Here, so it happens however the run ends: with a result, an error, a timeout, or stopped by Android.
