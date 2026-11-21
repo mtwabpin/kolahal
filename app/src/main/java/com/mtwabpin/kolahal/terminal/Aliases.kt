@@ -61,7 +61,8 @@ object Aliases {
     fun parse(rest: String, reserved: Set<String>): Request {
         if (rest.isBlank()) return Request.ShowAll
         val name = rest.substringBefore('=').trim().substringBefore(' ').lowercase()
-        val expansion = rest.substringAfter('=', "").trim().removeSurrounding("\"").removeSurrounding("'")
+        val expansion =
+            rest.substringAfter('=', "").trim().removeSurrounding("\"").removeSurrounding("'")
         return when {
             '=' !in rest -> Request.Show(name)
             name.isEmpty() || expansion.isEmpty() -> Request.Usage

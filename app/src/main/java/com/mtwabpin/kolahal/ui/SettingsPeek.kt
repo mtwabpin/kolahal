@@ -7,15 +7,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +19,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -77,7 +77,11 @@ internal fun PeekButton(onHold: (Boolean) -> Unit, onTap: () -> Unit) {
                 })
             },
     ) {
-        Icon(painterResource(R.drawable.ic_visibility), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Icon(
+            painterResource(R.drawable.ic_visibility),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
     }
 }
 
@@ -91,7 +95,10 @@ internal fun PeekHint(modifier: Modifier) {
         modifier = modifier
             .statusBarsPadding()
             .padding(top = 8.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f), CircleShape)
+            .background(
+                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
+                CircleShape
+            )
             .padding(horizontal = 14.dp, vertical = 7.dp),
     )
 }

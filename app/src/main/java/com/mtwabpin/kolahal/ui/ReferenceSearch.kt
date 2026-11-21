@@ -37,7 +37,11 @@ internal object ReferenceSearch {
     /** The API of [lang] in groups, in the order the API lists them: [GLOBALS] first, as `log` is first. */
     fun groups(lang: ScriptLang): List<Group> =
         ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD }
-            .groupBy { if (it.kind == ApiDoc.Kind.NAMESPACE) it.name else it.qualifier?.substringBefore('.') ?: GLOBALS }
+            .groupBy {
+                if (it.kind == ApiDoc.Kind.NAMESPACE) it.name else it.qualifier?.substringBefore(
+                    '.'
+                ) ?: GLOBALS
+            }
             .map { (name, docs) ->
                 val head = docs.firstOrNull { it.kind == ApiDoc.Kind.NAMESPACE && it.name == name }
                 Group(name, head, docs.filter { it !== head })
@@ -65,14 +69,34 @@ internal object ReferenceSearch {
      */
     fun find(query: String, lang: ScriptLang): Results {
         val words = SearchWords.of(query)
-        if (words.isEmpty()) return Results(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        if (words.isEmpty()) return Results(
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            emptyList()
+        )
         fun has(vararg texts: String?) = SearchWords.allIn(words, texts.filterNotNull())
         return Results(
-            functions = ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD && has(it.name, it.signature, it.doc) },
+            functions = ApiDocs.forLang(lang)
+                .filter { it.kind != ApiDoc.Kind.KEYWORD && has(it.name, it.signature, it.doc) },
             directives = ApiDocs.directives.filter { has("@${it.name}", it.args, it.doc) },
-            widgets = allWidgets.filter { has(it.heading, it.variant, it.title, it.line, it.code(lang)) },
+            widgets = allWidgets.filter {
+                has(
+                    it.heading,
+                    it.variant,
+                    it.title,
+                    it.line,
+                    it.code(lang)
+                )
+            },
             logs = ReferenceExamples.logs.filter { ex ->
-                has(ex.heading, ex.code(lang), *ex.lines.flatMap { listOfNotNull(it.text, it.body) }.map(StyledText::plain).toTypedArray())
+                has(
+                    ex.heading,
+                    ex.code(lang),
+                    *ex.lines.flatMap { listOfNotNull(it.text, it.body) }.map(StyledText::plain)
+                        .toTypedArray()
+                )
             },
             icons = WidgetIcons.NAMES.filter { has(it) },
         )
@@ -80,7 +104,14 @@ internal object ReferenceSearch {
 
     /** The first line of [text] that has one of [words], trimmed; null when no line has one. */
     fun lineWith(text: String, words: List<String>): String? =
-        text.lineSequence().firstOrNull { line -> words.any { it.isNotEmpty() && line.contains(it, ignoreCase = true) } }?.trim()
+        text.lineSequence().firstOrNull { line ->
+            words.any {
+                it.isNotEmpty() && line.contains(
+                    it,
+                    ignoreCase = true
+                )
+            }
+        }?.trim()
 
     /** What a kind of widget shows, in one line, as the guide's table of kinds says it. */
     fun kindLine(kind: WidgetKind): String = when (kind) {

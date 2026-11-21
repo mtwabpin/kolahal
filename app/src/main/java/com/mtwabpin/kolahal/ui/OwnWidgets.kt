@@ -3,9 +3,7 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.Config
-import androidx.compose.ui.platform.LocalContext
+import android.media.session.PlaybackState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -21,9 +20,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import android.media.session.PlaybackState
 import com.mtwabpin.kolahal.control.LastPlayer
 import com.mtwabpin.kolahal.control.NowPlaying
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.takeWhole
@@ -63,18 +63,27 @@ import java.util.Locale
  */
 internal object OwnCards {
     /** The built-in widgets that [OwnWidget] draws. Battery and network has a card of its own. */
-    private val DRAWN = setOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES, WidgetSource.SHORTCUTS, WidgetSource.MEDIA, WidgetSource.AGENDA)
+    private val DRAWN = setOf(
+        WidgetSource.TODOS,
+        WidgetSource.REMINDERS,
+        WidgetSource.NOTES,
+        WidgetSource.SHORTCUTS,
+        WidgetSource.MEDIA,
+        WidgetSource.AGENDA
+    )
 
     /** Whether [OwnWidget] draws the built-in widget [id]. */
     fun draws(id: String?): Boolean = id in DRAWN
 
     /** The most todos a card holds. No card is tall enough for more. */
     const val MAX_TODOS = 50
+
     /** The Reminders card shows the next reminder and the two after it. */
     const val MAX_REMINDERS = 3
 
     /** A reminder's text in the lead's label, which is at most 60 characters with its time. */
     private const val MAX_LEAD_TEXT = 36
+
     /** A large Notes card shows the newest three notes. */
     const val MAX_NOTES = 3
     private const val MAX_NOTE = 500
@@ -82,11 +91,16 @@ internal object OwnCards {
 
     private val BREAKS = Regex("""\s*[\r\n]+\s*""")
 
-    private fun cut(text: String, max: Int): String = if (text.length <= max) text else text.takeWhole(max - 1).trimEnd() + "…"
+    private fun cut(text: String, max: Int): String =
+        if (text.length <= max) text else text.takeWhole(max - 1).trimEnd() + "…"
 
     /** A card that only says [words], in the middle: "No notes yet". */
     fun quiet(id: String, words: String): WidgetSpec.Rows =
-        WidgetSpec.Rows(base = WidgetBase(title = WidgetSource.builtinTitle(id)), items = emptyList(), empty = words)
+        WidgetSpec.Rows(
+            base = WidgetBase(title = WidgetSource.builtinTitle(id)),
+            items = emptyList(),
+            empty = words
+        )
 
     /**
      * A built-in card for a screen reader, in one sentence ([WidgetWords.description]).
@@ -95,8 +109,21 @@ internal object OwnCards {
      *   times of day are written as [clock24] says, as the card draws them.
      * - For any other card the moment and the clock's form are not read, so they can be left out.
      */
-    fun said(spec: WidgetSpec, nowMs: Long = 0L, zone: ZoneId = ZoneId.systemDefault(), clock24: Boolean = false, locale: Locale = Locale.getDefault()): String =
-        WidgetWords.description(spec.base.title, spec, if (WidgetWords.timed(spec)) nowMs / 1000 else 0L, zone, clock24, locale)
+    fun said(
+        spec: WidgetSpec,
+        nowMs: Long = 0L,
+        zone: ZoneId = ZoneId.systemDefault(),
+        clock24: Boolean = false,
+        locale: Locale = Locale.getDefault()
+    ): String =
+        WidgetWords.description(
+            spec.base.title,
+            spec,
+            if (WidgetWords.timed(spec)) nowMs / 1000 else 0L,
+            zone,
+            clock24,
+            locale
+        )
 
     // ---- shortcuts --------------------------------------------------------------------------
 
@@ -115,7 +142,11 @@ internal object OwnCards {
         return WidgetSpec.Buttons(
             base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.SHORTCUTS)),
             items = list.take(Shortcuts.MAX).mapIndexed { i, s ->
-                WidgetSpec.Button(label = s.label, tap = WidgetTap(args = OwnTaps.run(i), label = "run"), icon = s.icon)
+                WidgetSpec.Button(
+                    label = s.label,
+                    tap = WidgetTap(args = OwnTaps.run(i), label = "run"),
+                    icon = s.icon
+                )
             },
         )
     }
@@ -124,6 +155,7 @@ internal object OwnCards {
 
     /** What the Now playing card says with no media session to show. */
     const val NOTHING_PLAYING = "Nothing playing"
+
     /** What the Now playing card says without notification access. A tap on the card asks for it. */
     const val ALLOW_NOTIFICATIONS = "Allow notification access"
 
@@ -199,10 +231,12 @@ internal object OwnCards {
      * the theme, so a calendar's own colour can't be sent. These three say nothing good or bad:
      * "good", "warn" and "bad" on a birthday would read as a status.
      */
-    private val CALENDAR_COLOURS = listOf(StyledText.Colour.ACCENT, StyledText.Colour.INFO, StyledText.Colour.LINK)
+    private val CALENDAR_COLOURS =
+        listOf(StyledText.Colour.ACCENT, StyledText.Colour.INFO, StyledText.Colour.LINK)
 
     /** The colour of the calendar [id] on the Agenda card: the same for every event of that calendar. */
-    fun calendarColour(id: Long): StyledText.Colour = CALENDAR_COLOURS[Math.floorMod(id, CALENDAR_COLOURS.size.toLong()).toInt()]
+    fun calendarColour(id: Long): StyledText.Colour =
+        CALENDAR_COLOURS[Math.floorMod(id, CALENDAR_COLOURS.size.toLong()).toInt()]
 
     /**
      * The Agenda card for the calendar's [events], as [Agenda.query] gave them at [now] (in
@@ -226,7 +260,8 @@ internal object OwnCards {
                     starts = e.starts,
                     ends = e.ends,
                     allDay = e.allDay,
-                    where = e.where?.let { cut(it.trim(), MAX_EVENT_WHERE) }?.takeIf { it.isNotEmpty() },
+                    where = e.where?.let { cut(it.trim(), MAX_EVENT_WHERE) }
+                        ?.takeIf { it.isNotEmpty() },
                     color = calendarColour(e.calendar),
                     tap = WidgetTap(args = OwnTaps.event(e.id, e.begin), label = "open event"),
                 )
@@ -243,7 +278,8 @@ internal object OwnCards {
      * its place, shown as done, so that a second tap can undo a slip of the finger. It leaves the
      * card when the page is turned away.
      */
-    fun todosShown(list: List<Todo>, kept: Set<Long>): List<Todo> = list.filter { !it.done || it.id in kept }.sortedBy { it.id }
+    fun todosShown(list: List<Todo>, kept: Set<Long>): List<Todo> =
+        list.filter { !it.done || it.id in kept }.sortedBy { it.id }
 
     /**
      * The Todos card: a row for each of [todosShown], at most [MAX_TODOS], with its checkbox. A tap
@@ -255,7 +291,10 @@ internal object OwnCards {
         items = todosShown(list, kept).take(MAX_TODOS).map { t ->
             WidgetSpec.Row(
                 title = t.text,
-                tap = if (t.done) WidgetTap(args = OwnTaps.undo(t.id), label = "mark as not done") else WidgetTap(args = OwnTaps.done(t.id), label = "mark as done"),
+                tap = if (t.done) WidgetTap(
+                    args = OwnTaps.undo(t.id),
+                    label = "mark as not done"
+                ) else WidgetTap(args = OwnTaps.done(t.id), label = "mark as done"),
                 done = t.done,
             )
         },
@@ -274,7 +313,13 @@ internal object OwnCards {
      * When a reminder is due, short, for the end of a row: "18:30" today, "Mon" in the next six
      * days, else "20 Nov". [at] and [now] are in milliseconds.
      */
-    fun shortWhen(at: Long, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): String {
+    fun shortWhen(
+        at: Long,
+        now: Long,
+        zone: ZoneId,
+        clock24: Boolean,
+        locale: Locale = Locale.getDefault()
+    ): String {
         val t = Instant.ofEpochMilli(at).atZone(zone)
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val day = t.toLocalDate()
@@ -308,20 +353,45 @@ internal object OwnCards {
      *   ([shortWhen]), so the text keeps its room.
      * - The card is made again each minute, so the time counts down with no run.
      */
-    fun reminders(list: List<Reminder>, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): WidgetSpec.Rows {
+    fun reminders(
+        list: List<Reminder>,
+        now: Long,
+        zone: ZoneId,
+        clock24: Boolean,
+        locale: Locale = Locale.getDefault()
+    ): WidgetSpec.Rows {
         val next = list.firstOrNull()
         return WidgetSpec.Rows(
             // Orange, as the mockup has it: a reminder is something due.
-            base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.REMINDERS), color = StyledText.Colour.WARN),
+            base = WidgetBase(
+                title = WidgetSource.builtinTitle(WidgetSource.REMINDERS),
+                color = StyledText.Colour.WARN
+            ),
             items = list.drop(1).take(MAX_REMINDERS).map { r ->
-                WidgetSpec.Row(title = r.text, trailing = shortWhen(r.at, now, zone, clock24, locale))
+                WidgetSpec.Row(
+                    title = r.text,
+                    trailing = shortWhen(r.at, now, zone, clock24, locale)
+                )
             },
             empty = "No reminders",
             lead = next?.let { r ->
                 val (value, unit) = untilParts(r.at, now)
                 // A rule that can't be read has no words. It must not end the card: such a reminder fires once.
-                val repeat = r.repeat?.let { rule -> runCatching { " · ${Repeat.label(rule)}" }.getOrNull() }.orEmpty()
-                WidgetSpec.Lead(value, unit, cut(r.text.trim(), MAX_LEAD_TEXT) + " · " + TimeFormats.whenLabel(r.at, now, zone, clock24, locale, capital = true) + repeat)
+                val repeat =
+                    r.repeat?.let { rule -> runCatching { " · ${Repeat.label(rule)}" }.getOrNull() }
+                        .orEmpty()
+                WidgetSpec.Lead(
+                    value,
+                    unit,
+                    cut(r.text.trim(), MAX_LEAD_TEXT) + " · " + TimeFormats.whenLabel(
+                        r.at,
+                        now,
+                        zone,
+                        clock24,
+                        locale,
+                        capital = true
+                    ) + repeat
+                )
             },
         )
     }
@@ -336,13 +406,30 @@ internal object OwnCards {
      *   shown: "Fri 13 Nov 18:05 · +2 more". The date is always written out, never "today", so the
      *   caption is still right after midnight with no new read.
      */
-    fun notes(list: List<Note>, count: Int = 1, zone: ZoneId = ZoneId.systemDefault(), clock24: Boolean = true, locale: Locale = Locale.getDefault()): WidgetSpec.Text? {
+    fun notes(
+        list: List<Note>,
+        count: Int = 1,
+        zone: ZoneId = ZoneId.systemDefault(),
+        clock24: Boolean = true,
+        locale: Locale = Locale.getDefault()
+    ): WidgetSpec.Text? {
         if (list.isEmpty()) return null
         val shown = list.take(count.coerceIn(1, MAX_NOTES))
-        val text = if (shown.size == 1) cut(shown[0].text.trim(), MAX_NOTE) else shown.joinToString("\n") { "• " + cut(it.text.trim().replace(BREAKS, " "), MAX_NOTE_LINE) }
+        val text = if (shown.size == 1) cut(
+            shown[0].text.trim(),
+            MAX_NOTE
+        ) else shown.joinToString("\n") {
+            "• " + cut(
+                it.text.trim().replace(BREAKS, " "),
+                MAX_NOTE_LINE
+            )
+        }
         val more = list.size - shown.size
         val written = Instant.ofEpochMilli(list[0].created).atZone(zone)
-        val at = written.format(TimeFormats.dayFormat(locale)) + " " + TimeFormats.clockFormat(clock24, locale).format(written)
+        val at = written.format(TimeFormats.dayFormat(locale)) + " " + TimeFormats.clockFormat(
+            clock24,
+            locale
+        ).format(written)
         return WidgetSpec.Text(
             base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.NOTES)),
             text = text,
@@ -409,7 +496,12 @@ private fun OwnCard(
     if (actions != null && LocalWidgetsShown.current) LaunchedEffect(id, actions, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { actions.ownShown(id) }
     }
-    if (actions != null && againMs != null && cardSeen()) LaunchedEffect(id, actions, lifecycle, againMs) {
+    if (actions != null && againMs != null && cardSeen()) LaunchedEffect(
+        id,
+        actions,
+        lifecycle,
+        againMs
+    ) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 delay(againMs)
@@ -417,7 +509,8 @@ private fun OwnCard(
             }
         }
     }
-    val onClick: (() -> Unit)? = remember(actions, id, cardTap) { actions?.let { a -> { a.own(id, cardTap) } } }
+    val onClick: (() -> Unit)? =
+        remember(actions, id, cardTap) { actions?.let { a -> { a.own(id, cardTap) } } }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
     val onTap: ((WidgetTap) -> Unit)? = remember(actions, id, onRowTap) {
         actions?.let { a ->
@@ -458,9 +551,25 @@ private fun OwnCard(
 private fun ShortcutsWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val list by (own?.shortcuts ?: NOT_READ).collectAsStateWithLifecycle()
     val buttons = remember(list) { list?.let { OwnCards.shortcuts(it) } }
-    val spec: WidgetSpec? = remember(list, buttons) { list?.let { buttons ?: OwnCards.quiet(WidgetSource.SHORTCUTS, OwnCards.NO_SHORTCUTS) } }
+    val spec: WidgetSpec? = remember(list, buttons) {
+        list?.let {
+            buttons ?: OwnCards.quiet(
+                WidgetSource.SHORTCUTS,
+                OwnCards.NO_SHORTCUTS
+            )
+        }
+    }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Shortcuts" }
-    OwnCard(WidgetSource.SHORTCUTS, height, spec, description, actions, cardTap = OwnTaps.EDIT, cardTapLabel = "edit shortcuts", cardTaps = buttons == null)
+    OwnCard(
+        WidgetSource.SHORTCUTS,
+        height,
+        spec,
+        description,
+        actions,
+        cardTap = OwnTaps.EDIT,
+        cardTapLabel = "edit shortcuts",
+        cardTaps = buttons == null
+    )
 }
 
 /** For a card with no feed: nothing plays, nothing played before, and nothing says that access is missing. */
@@ -486,7 +595,8 @@ private fun MediaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
     val playing by (own?.playing ?: NO_SESSION).collectAsStateWithLifecycle()
     val allowed by (own?.mediaAllowed ?: ALLOWED).collectAsStateWithLifecycle()
     val last by (own?.lastPlayer ?: NO_PLAYER).collectAsStateWithLifecycle()
-    val spec: WidgetSpec = remember(playing, allowed, last) { OwnCards.nowPlaying(allowed, playing, last) }
+    val spec: WidgetSpec =
+        remember(playing, allowed, last) { OwnCards.nowPlaying(allowed, playing, last) }
     val description = remember(spec) { OwnCards.said(spec) }
     val app = (spec as? WidgetSpec.Media)?.app
     OwnCard(
@@ -539,7 +649,9 @@ private fun AgendaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?)
     // The agenda's words tell the time, so they are made again by the minute, as its body is drawn:
     // an event that has ended is not said. The times are in the form the card writes them.
     val now = if (WidgetWords.timed(spec)) minute.time else 0L
-    val description = remember(spec, now, zone, clock24) { spec?.let { OwnCards.said(it, now, zone, clock24) } ?: "Agenda" }
+    val description = remember(spec, now, zone, clock24) {
+        spec?.let { OwnCards.said(it, now, zone, clock24) } ?: "Agenda"
+    }
     val ask = known && !read.allowed
     OwnCard(
         id = WidgetSource.AGENDA,
@@ -571,10 +683,23 @@ private fun TodosWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
     val description = remember(list) { list?.let(OwnCards::todosSaid) ?: "Todos" }
     val onRowTap: (String) -> Unit = remember {
         { words ->
-            (OwnTaps.parse(WidgetSource.TODOS, words) as? OwnTap.SetTodo)?.let { kept = if (it.done) kept + it.id else kept - it.id }
+            (OwnTaps.parse(WidgetSource.TODOS, words) as? OwnTap.SetTodo)?.let {
+                kept = if (it.done) kept + it.id else kept - it.id
+            }
         }
     }
-    OwnCard(WidgetSource.TODOS, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open todos", onRowTap = onRowTap, cardTaps = false, listOpens = true)
+    OwnCard(
+        WidgetSource.TODOS,
+        height,
+        spec,
+        description,
+        actions,
+        cardTap = OwnTaps.OPEN,
+        cardTapLabel = "open todos",
+        onRowTap = onRowTap,
+        cardTaps = false,
+        listOpens = true
+    )
 }
 
 /**
@@ -589,9 +714,26 @@ private fun RemindersWidget(height: Dp, actions: WidgetCardActions?, own: OwnFee
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     // The rows hold their times as words, in the clock's form, so the description says them as they are drawn.
-    val spec = remember(list, minute, zone, clock24) { list?.let { OwnCards.reminders(it, minute.time, zone, clock24) } }
+    val spec = remember(list, minute, zone, clock24) {
+        list?.let {
+            OwnCards.reminders(
+                it,
+                minute.time,
+                zone,
+                clock24
+            )
+        }
+    }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Reminders" }
-    OwnCard(WidgetSource.REMINDERS, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open reminders")
+    OwnCard(
+        WidgetSource.REMINDERS,
+        height,
+        spec,
+        description,
+        actions,
+        cardTap = OwnTaps.OPEN,
+        cardTapLabel = "open reminders"
+    )
 }
 
 /**
@@ -603,8 +745,23 @@ private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
     val list by (own?.notes ?: NOT_READ).collectAsStateWithLifecycle()
     val count = if (height >= LARGE) OwnCards.MAX_NOTES else 1
     val clock24 = rememberClock24()
-    val spec: WidgetSpec? = remember(list, count, clock24) { list?.let { OwnCards.notes(it, count, clock24 = clock24) ?: OwnCards.quiet(WidgetSource.NOTES, "No notes yet") } }
+    val spec: WidgetSpec? = remember(list, count, clock24) {
+        list?.let {
+            OwnCards.notes(it, count, clock24 = clock24) ?: OwnCards.quiet(
+                WidgetSource.NOTES,
+                "No notes yet"
+            )
+        }
+    }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Notes" }
-    OwnCard(WidgetSource.NOTES, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open notes")
+    OwnCard(
+        WidgetSource.NOTES,
+        height,
+        spec,
+        description,
+        actions,
+        cardTap = OwnTaps.OPEN,
+        cardTapLabel = "open notes"
+    )
 }
 

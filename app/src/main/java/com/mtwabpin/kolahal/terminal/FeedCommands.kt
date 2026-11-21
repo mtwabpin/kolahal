@@ -3,11 +3,11 @@
  */
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.CommandParsing
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.ScriptLang
@@ -45,7 +45,8 @@ class FeedCommands(
 
     /** Returns whether feed [id] exists. If it doesn't, prints an error. */
     private fun exists(id: Long): Boolean =
-        (com.mtwabpin.kolahal.feeds.FeedRepository.get(context).byId(id) != null).also { if (!it) error("No feed #$id — 'feeds' lists them") }
+        (com.mtwabpin.kolahal.feeds.FeedRepository.get(context)
+            .byId(id) != null).also { if (!it) error("No feed #$id — 'feeds' lists them") }
 
     /** Built-in RSS/Atom subscriptions. No scripting is needed. */
     fun feeds(args: List<String>) {
@@ -60,88 +61,159 @@ class FeedCommands(
                 if (all.isEmpty()) return info("No feeds yet — feed add <url> (or 'feeds' for the manager and OPML import)")
                 all.forEach { f ->
                     val flags = listOfNotNull(
-                        "${f.unread}/${f.total} unread", "every ${CommandParsing.formatInterval(f.intervalMin)}",
-                        if (f.notify) "notify" else null, f.lastStatus,
+                        "${f.unread}/${f.total} unread",
+                        "every ${CommandParsing.formatInterval(f.intervalMin)}",
+                        if (f.notify) "notify" else null,
+                        f.lastStatus,
                     ).joinToString(" · ")
                     // A feed that is switched off says so in a tag after its name.
-                    val off = if (f.enabled) "" else " " + com.mtwabpin.kolahal.data.StyledText.tag(com.mtwabpin.kolahal.data.StyledText.Colour.MUTED, "off")
+                    val off = if (f.enabled) "" else " " + com.mtwabpin.kolahal.data.StyledText.tag(
+                        com.mtwabpin.kolahal.data.StyledText.Colour.MUTED,
+                        "off"
+                    )
                     out(
                         "#${f.id} ${f.title ?: f.url}$off",
-                        LogContext.of(LogContext.COMMAND to "feed read ${f.id}", LogContext.COPY to f.url, LogContext.DESC to flags) + LogContext.ITEM,
+                        LogContext.of(
+                            LogContext.COMMAND to "feed read ${f.id}",
+                            LogContext.COPY to f.url,
+                            LogContext.DESC to flags
+                        ) + LogContext.ITEM,
                     )
                 }
                 info("Tap a feed to read it · feed read = all unread · feed fetch = refresh now")
             }
+
             "add" -> {
                 val url = args.getOrNull(1) ?: return error("Usage: feed add <url>")
-                val (feed, isNew) = runCatching { subscriptions.subscribe(url) }.getOrElse { return error(it.message ?: "Invalid URL") }
-                if (!isNew) return info("Already subscribed: #${feed.id} ${feed.url}", LogContext.of(LogContext.URL to feed.url))
-                info("Subscribed #${feed.id} ${feed.url} — fetching…", LogContext.of(LogContext.URL to feed.url))
+                val (feed, isNew) = runCatching { subscriptions.subscribe(url) }.getOrElse {
+                    return error(
+                        it.message ?: "Invalid URL"
+                    )
+                }
+                if (!isNew) return info(
+                    "Already subscribed: #${feed.id} ${feed.url}",
+                    LogContext.of(LogContext.URL to feed.url)
+                )
+                info(
+                    "Subscribed #${feed.id} ${feed.url} — fetching…",
+                    LogContext.of(LogContext.URL to feed.url)
+                )
             }
+
             "url" -> {
                 val url = args.getOrNull(2)
                 if (id == null || url == null) return error("Usage: feed url <id> <address>")
-                val feed = runCatching { subscriptions.moveTo(id, url) }.getOrElse { return error((it.message ?: "Invalid URL") + if (repo.byId(id) == null) " — 'feeds' lists them" else "") }
-                info("Feed #${feed.id} is at ${feed.url} — fetching…", LogContext.of(LogContext.URL to feed.url))
+                val feed = runCatching {
+                    subscriptions.moveTo(
+                        id,
+                        url
+                    )
+                }.getOrElse {
+                    return error(
+                        (it.message
+                            ?: "Invalid URL") + if (repo.byId(id) == null) " — 'feeds' lists them" else ""
+                    )
+                }
+                info(
+                    "Feed #${feed.id} is at ${feed.url} — fetching…",
+                    LogContext.of(LogContext.URL to feed.url)
+                )
             }
+
             "rm", "remove" -> {
                 id ?: return error("Usage: feed rm <id>")
                 if (!exists(id)) return
                 subscriptions.remove(id)
                 info("Removed feed #$id")
             }
+
             "fetch", "refresh" -> {
                 scheduler.fetchNow(context, id)
                 info("Fetching ${id?.let { "feed #$it" } ?: "all feeds"}…")
             }
+
             "read", "all" -> {
                 val unreadOnly = args[0] == "read"
                 val items = repo.items(feedId = id, unreadOnly = unreadOnly, limit = 40)
                 if (items.isEmpty()) return info(if (unreadOnly) "Nothing unread" else "No items")
                 val names = repo.feeds().associate { it.id to it.shortName }
                 items.forEach {
-                    logs.add(LogKind.SCRIPT, it.title, names[it.feedId] ?: "feed", LogContext.of(LogContext.URL to it.link, LogContext.COPY to it.title, com.mtwabpin.kolahal.feeds.FeedWorker.CTX_ITEM to it.id.toString()) + LogContext.ITEM)
+                    logs.add(
+                        LogKind.SCRIPT,
+                        it.title,
+                        names[it.feedId] ?: "feed",
+                        LogContext.of(
+                            LogContext.URL to it.link,
+                            LogContext.COPY to it.title,
+                            com.mtwabpin.kolahal.feeds.FeedWorker.CTX_ITEM to it.id.toString()
+                        ) + LogContext.ITEM
+                    )
                 }
                 // Mark only the shown items as read. Older unread items beyond the limit stay unread.
                 if (unreadOnly) repo.markRead(items.map { it.id })
                 val left = if (unreadOnly) repo.unreadCount(id) else 0
-                if (left > 0) info("$left more unread — feed read${id?.let { " $it" }.orEmpty()} again")
+                if (left > 0) info(
+                    "$left more unread — feed read${
+                        id?.let { " $it" }.orEmpty()
+                    } again"
+                )
             }
+
             "open" -> {
                 // Open the newest unread items that have links in the browser. Mark only those as read.
                 val items = repo.items(feedId = id, unreadOnly = true, limit = 40)
                     .filter { it.link != null }.take(MAX_FEED_OPEN)
                 if (items.isEmpty()) return info("Nothing unread")
                 val opened = items.filter { item ->
-                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.link))) }.isSuccess
+                    runCatching {
+                        startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse(item.link)
+                            )
+                        )
+                    }.isSuccess
                 }
                 repo.markRead(opened.map { it.id })
                 val left = repo.unreadCount(id)
                 val failed = items.size - opened.size
                 info(
                     "Opened ${opened.size} item${if (opened.size == 1) "" else "s"}" +
-                        (if (failed > 0) " ($failed couldn't be opened)" else "") +
-                        (if (left > 0) " · $left still unread" else ""),
+                            (if (failed > 0) " ($failed couldn't be opened)" else "") +
+                            (if (left > 0) " · $left still unread" else ""),
                 )
             }
+
             "notify" -> {
                 id ?: return error("Usage: feed notify <id> on|off")
                 if (!exists(id)) return
                 repo.setNotify(id, args.getOrNull(2) != "off")
                 info("Feed #$id notifications ${args.getOrNull(2) ?: "on"}")
             }
+
             "every" -> {
                 val minutes = CommandParsing.parseInterval(args.getOrNull(2))
                 if (id == null || minutes == null || minutes <= 0) return error("Usage: feed every <id> <30m|2h|…>")
                 if (!exists(id)) return
-                info("Feed #$id every ${CommandParsing.formatInterval(subscriptions.setInterval(id, minutes))}")
+                info(
+                    "Feed #$id every ${
+                        CommandParsing.formatInterval(
+                            subscriptions.setInterval(
+                                id,
+                                minutes
+                            )
+                        )
+                    }"
+                )
             }
+
             "on", "off" -> {
                 id ?: return error("Usage: feed ${args[0]} <id>")
                 if (!exists(id)) return
                 subscriptions.setEnabled(id, args[0] == "on")
                 info("Feed #$id ${args[0]}")
             }
+
             else -> usage("feed")
         }
     }
@@ -156,13 +228,17 @@ class FeedCommands(
         }
         when (args.firstOrNull()) {
             null, "all" -> {
-                val list = if (args.firstOrNull() == "all") store.items.value.take(40) else store.active().take(40)
+                val list =
+                    if (args.firstOrNull() == "all") store.items.value.take(40) else store.active()
+                        .take(40)
                 if (list.isEmpty()) return info("No notifications")
                 list.forEach { n ->
                     logs.add(
                         LogKind.SCRIPT, n.line, n.app,
                         LogContext.of(
-                            LogContext.PKG to n.pkg, LogContext.USER to n.userSerial.toString(), LogContext.COPY to n.line,
+                            LogContext.PKG to n.pkg,
+                            LogContext.USER to n.userSerial.toString(),
+                            LogContext.COPY to n.line,
                             com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY to n.key,
                             LogContext.ICON to n.icon,
                         ) + LogContext.ITEM,
@@ -172,23 +248,34 @@ class FeedCommands(
             // If access is off, Kolahal first explains what it reads and asks (Play's prominent disclosure).
             // If access is already on, Android's screen opens at once, so the user can turn it off.
             "enable" -> if (actions.isEnabled(context)) startActivity(actions.settingsIntent(context)) else ui.askNotificationAccess()
-            "unmute" -> args.drop(1).joinToString(" ").takeIf { it in prefs.muted.value }?.let { pkg ->
-                prefs.unmute(pkg)
-                info("${apps.apps.value.firstOrNull { it.pkg == pkg }?.label ?: pkg}: notifications will appear in the log")
-            } ?: appCommands.withApp(args.drop(1)) { app -> prefs.unmute(app.pkg); info("${app.label}: notifications will appear in the log") }
+            "unmute" -> args.drop(1).joinToString(" ").takeIf { it in prefs.muted.value }
+                ?.let { pkg ->
+                    prefs.unmute(pkg)
+                    info("${apps.apps.value.firstOrNull { it.pkg == pkg }?.label ?: pkg}: notifications will appear in the log")
+                }
+                ?: appCommands.withApp(args.drop(1)) { app -> prefs.unmute(app.pkg); info("${app.label}: notifications will appear in the log") }
+
             "mute" -> appCommands.withApp(args.drop(1)) { app ->
                 prefs.mute(app.pkg)
                 info("${app.label}: notifications won't appear in the log")
             }
+
             "muted" -> {
                 val muted = prefs.muted.value
                 if (muted.isEmpty()) info("No muted apps")
-                muted.forEach { pkg -> out(apps.apps.value.firstOrNull { it.pkg == pkg }?.label ?: pkg, LogContext.of(LogContext.COMMAND to "notifs unmute $pkg")) }
+                muted.forEach { pkg ->
+                    out(
+                        apps.apps.value.firstOrNull { it.pkg == pkg }?.label ?: pkg,
+                        LogContext.of(LogContext.COMMAND to "notifs unmute $pkg")
+                    )
+                }
             }
+
             "log" -> {
                 prefs.logToTerminal = args.getOrNull(1) != "off"
                 info("Notifications ${if (prefs.logToTerminal) "appear" else "no longer appear"} in the log")
             }
+
             "clear" -> {
                 actions.dismissAll()
                 store.clear()
@@ -196,6 +283,7 @@ class FeedCommands(
                 com.mtwabpin.kolahal.notifications.KolahalNotificationListener.clearMirror(context)
                 info("Notifications cleared")
             }
+
             else -> usage("notifs")
         }
     }

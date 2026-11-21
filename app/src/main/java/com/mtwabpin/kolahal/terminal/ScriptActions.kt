@@ -3,15 +3,12 @@
  */
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.CommandCatalog
-import com.mtwabpin.kolahal.commands.CommandParsing
-import com.mtwabpin.kolahal.data.Stores
-import androidx.core.content.edit
 import android.content.Context
 import android.net.Uri
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.core.content.edit
 import androidx.lifecycle.SavedStateHandle
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -19,6 +16,7 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StatusLines
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFiles
@@ -62,6 +60,7 @@ class ScriptActions(
     interface Host {
         fun io(block: suspend () -> Unit)
         fun fileOp(label: String, block: suspend () -> Unit)
+
         /** Shows [text] on the page and logs it. With [undo], the page offers Undo for a while. */
         fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null)
         fun show(text: String)
@@ -75,7 +74,9 @@ class ScriptActions(
 
     private fun io(block: suspend () -> Unit) = host.io(block)
     private fun fileOp(label: String, block: suspend () -> Unit) = host.fileOp(label, block)
-    private fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null) = host.notice(text, error, undo)
+    private fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null) =
+        host.notice(text, error, undo)
+
     private fun show(text: String) = host.show(text)
     private fun openEditor(script: Script) = host.openEditor(script)
 
@@ -122,22 +123,37 @@ class ScriptActions(
     }
 
     /** Sets one access switch. Pinning or unpinning updates the top of home at once. */
-    fun setScriptAccess(s: Script, item: String, on: Boolean) = change { changes.access(s, item, on) }
+    fun setScriptAccess(s: Script, item: String, on: Boolean) =
+        change { changes.access(s, item, on) }
 
     /** The long-press menu of a pinned script's line at the top: run it, unpin it, or edit it. */
     fun statusActions(name: String): List<LogAction> {
         val s = scripts.byName(name) ?: return listOf(
-            LogAction("Clear this line") { io { StatusLines.clear(context, name); logs.onStatusChanged() } },
+            LogAction("Clear this line") {
+                io {
+                    StatusLines.clear(
+                        context,
+                        name
+                    ); logs.onStatusChanged()
+                }
+            },
         )
         return listOf(
             LogAction("Run $name now") { io { ScriptScheduler.runNow(context, s) } },
             LogAction("Unpin $name") {
                 setScriptAccess(s, ScriptAccess.HEADER, false)
-                io { logs.add(LogKind.INFO, "$name: unpinned — 'script pin $name' pins it again", ctx = LogContext.of(LogContext.SCRIPT to name)) }
+                io {
+                    logs.add(
+                        LogKind.INFO,
+                        "$name: unpinned — 'script pin $name' pins it again",
+                        ctx = LogContext.of(LogContext.SCRIPT to name)
+                    )
+                }
             },
             LogAction("Edit $name.${s.lang.ext}") { openEditor(s) },
         )
     }
+
     fun setScriptNotify(s: Script, on: Boolean) {
         change { scripts.setNotify(s.id, on) }
         if (on) host.emit(UiEvent.RequestNotificationPermission)
@@ -151,17 +167,22 @@ class ScriptActions(
      * [switchOn] the times don't switch the script on.
      */
     fun setScriptTimes(s: Script, raw: String, switchOn: Boolean = true): Boolean {
-        val times = when (val read = CommandParsing.dailyTimes(CommandParsing.clockWords(listOf(raw)))) {
-            null -> emptyList()
-            is CommandParsing.DailyTimes.Bad -> return false
-            is CommandParsing.DailyTimes.Times -> read.times
-        }
+        val times =
+            when (val read = CommandParsing.dailyTimes(CommandParsing.clockWords(listOf(raw)))) {
+                null -> emptyList()
+                is CommandParsing.DailyTimes.Bad -> return false
+                is CommandParsing.DailyTimes.Times -> read.times
+            }
         change { changes.times(s, times, switchOn) }
         return true
     }
 
     /** Runs [s] now, with [args] and as [event] when given (Run with… on its sheet). */
-    fun runScriptNow(s: Script, args: List<String> = emptyList(), event: Map<String, Any?>? = null) =
+    fun runScriptNow(
+        s: Script,
+        args: List<String> = emptyList(),
+        event: Map<String, Any?>? = null
+    ) =
         io { notice(runNowWithText(context, s, args, event)) }
 
     /** Renames [s] ([ScriptRepository.rename]). The sheet checks the name while the user types it. */
@@ -188,7 +209,10 @@ class ScriptActions(
             return
         }
         io {
-            if (scripts.byName(clean) != null) return@io notice("Script '$clean' already exists", error = true)
+            if (scripts.byName(clean) != null) return@io notice(
+                "Script '$clean' already exists",
+                error = true
+            )
             val s = changes.create(clean, lang, asCommand)
             listReads.read()
             openEditor(s)
@@ -206,7 +230,8 @@ class ScriptActions(
                     if (r.updated.isNotEmpty()) add("updated ${r.updated.joinToString()}")
                     if (r.created.isNotEmpty() || r.updated.isNotEmpty()) add("off until you turn them on (script on <name>)")
                     if (r.skipped.isNotEmpty()) add("skipped ${r.skipped.joinToString()}")
-                }.joinToString(" · ").ifEmpty { "nothing imported" }.replaceFirstChar { it.uppercase() },
+                }.joinToString(" · ").ifEmpty { "nothing imported" }
+                    .replaceFirstChar { it.uppercase() },
                 error = r.created.isEmpty() && r.updated.isEmpty(),
             )
         }
@@ -233,7 +258,8 @@ class ScriptActions(
     /** Installs [entry] from the library. If you have a copy already, it updates it as [restore] does. */
     fun installFromLibrary(entry: ScriptLibrary.Entry) {
         fileOp("install") {
-            scripts.byName(entry.name)?.let { return@fileOp restoreNow(listOf(Restore(it, library = entry))) }
+            scripts.byName(entry.name)
+                ?.let { return@fileOp restoreNow(listOf(Restore(it, library = entry))) }
             val s = changes.install(library, entry)
             refreshScriptCaches()
             notice("Installed ${s.name}.${s.lang.ext}" + if (entry.command) " — run it as '${s.name}'" else "")
@@ -243,7 +269,11 @@ class ScriptActions(
     // ---- updates and resets of library and shared copies ----------------------------------
 
     /** A copy to bring to its source's version: [library]'s, or [shared]'s from Get more scripts. */
-    class Restore(val script: Script, val library: ScriptLibrary.Entry? = null, val shared: ScriptCatalog.Entry? = null)
+    class Restore(
+        val script: Script,
+        val library: ScriptLibrary.Entry? = null,
+        val shared: ScriptCatalog.Entry? = null
+    )
 
     /**
      * Brings each copy in [list] to the library's or the shared version. Only the code changes: its
@@ -255,7 +285,12 @@ class ScriptActions(
     }
 
     /** A copy as it was before [restore], for Undo. */
-    private class Before(val script: Script, val libraryOriginal: String?, val sharedOrigin: String?, val secrets: Map<String, String>)
+    private class Before(
+        val script: Script,
+        val libraryOriginal: String?,
+        val sharedOrigin: String?,
+        val secrets: Map<String, String>
+    )
 
     private suspend fun restoreNow(list: List<Restore>) {
         val done = ArrayList<Before>()
@@ -264,19 +299,30 @@ class ScriptActions(
         var reset: String? = null
         for (r in list) {
             val now = scripts.byId(r.script.id) ?: continue
-            val before = Before(now, library.recorded(now.name), scriptCatalog.recorded(now.name), secretStore.kept(now.name))
+            val before = Before(
+                now,
+                library.recorded(now.name),
+                scriptCatalog.recorded(now.name),
+                secretStore.kept(now.name)
+            )
             runCatching {
                 when {
                     r.library != null -> {
                         val state = library.state(r.library, listOf(now))
-                        if (state == ScriptLibrary.State.MODIFIED && !library.hasNewer(r.library, state)) reset = "library"
+                        if (state == ScriptLibrary.State.MODIFIED && !library.hasNewer(
+                                r.library,
+                                state
+                            )
+                        ) reset = "library"
                         changes.install(library, r.library)
                     }
+
                     r.shared != null -> {
                         val copy = scriptCatalog.copy(now, r.shared)
                         if (copy != null && copy.edited && !copy.newer) reset = "shared"
                         scriptCatalog.install(r.shared, sharedScriptCode(r.shared), replace = true)
                     }
+
                     else -> throw IllegalStateException("it has nothing to update from")
                 }
             }.onSuccess { done += before }.onFailure { failed += "${now.name} (${it.reason()})" }
@@ -291,7 +337,9 @@ class ScriptActions(
                 file != null && list.size == 1 -> "$file is updated"
                 else -> "${done.size} ${if (done.size == 1) "script" else "scripts"} updated"
             },
-            if (failed.isEmpty()) null else (if (done.isEmpty()) "Not updated: " else "not updated: ") + failed.joinToString(", "),
+            if (failed.isEmpty()) null else (if (done.isEmpty()) "Not updated: " else "not updated: ") + failed.joinToString(
+                ", "
+            ),
         ).joinToString(" · ")
         if (done.isEmpty()) return notice(text, error = true)
         notice(text, error = failed.isNotEmpty(), undo = { io { putBack(done) } })
@@ -326,10 +374,14 @@ class ScriptActions(
     private val pagePrefs by lazy { Stores.SCRIPTS_PAGE.open(context) }
 
     private val _pageNotes = MutableStateFlow<PageNotes?>(null)
+
     /** Null until [loadPageNotes] read them. */
     val pageNotes: StateFlow<PageNotes?> = _pageNotes.asStateFlow()
 
-    fun loadPageNotes() = io { _pageNotes.value = PageNotes(library.selfUpdate(), pagePrefs.getString(KEY_BANNER_HIDDEN, null)) }
+    fun loadPageNotes() = io {
+        _pageNotes.value =
+            PageNotes(library.selfUpdate(), pagePrefs.getString(KEY_BANNER_HIDDEN, null))
+    }
 
     /** The user closed the note about the copies Kolahal updated by itself. */
     fun dismissSelfUpdate() {
@@ -352,7 +404,9 @@ class ScriptActions(
     val secretsVersion: StateFlow<Int> = _secretsVersion.asStateFlow()
 
     /** Returns the names from the `@secret` lines of [s] that have a value. */
-    fun secretsSet(s: Script): Set<String> = ScriptMeta.secrets(s.code).filter { secretStore.isSet(s.name, it) }.mapTo(HashSet()) { it.name }
+    fun secretsSet(s: Script): Set<String> =
+        ScriptMeta.secrets(s.code).filter { secretStore.isSet(s.name, it) }
+            .mapTo(HashSet()) { it.name }
 
     /**
      * Sets [secret] for [script], for the sites that its line names. A null value clears it.
@@ -361,7 +415,11 @@ class ScriptActions(
     fun setSecret(script: String, secret: ScriptMeta.Secret, value: String?) = io {
         secretStore.set(script, secret.name, value, secret.hosts)
         _secretsVersion.value++
-        logs.add(LogKind.INFO, "$script: ${secret.name} " + if (value.isNullOrBlank()) "cleared" else "set", ctx = LogContext.of(LogContext.SCRIPT to script))
+        logs.add(
+            LogKind.INFO,
+            "$script: ${secret.name} " + if (value.isNullOrBlank()) "cleared" else "set",
+            ctx = LogContext.of(LogContext.SCRIPT to script)
+        )
     }
 
     // ---- script options ------------------------------------------------------------------
@@ -382,7 +440,8 @@ class ScriptActions(
     }
 
     /** Sets [option] for [script]. A null value resets it to its default. */
-    fun setOption(script: String, option: String, value: String?) = io { writeOption(WidgetRef(script), option, value) }
+    fun setOption(script: String, option: String, value: String?) =
+        io { writeOption(WidgetRef(script), option, value) }
 
     /**
      * Sets [option] for the widget [ref], from its options sheet on the Widgets screen. Then it asks
@@ -398,11 +457,19 @@ class ScriptActions(
     fun setWidgetOption(ref: WidgetRef, option: String, value: String?) = io {
         writeOption(ref, option, value)
         // Without its `@widget` line, or switched off, a run stores nothing for a card.
-        val script = scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null } ?: return@io
+        val script =
+            scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }
+                ?: return@io
         val options = ScriptOptions(context)
         val declared = ScriptMeta.options(script.code)
         val placed = WidgetHost.get(context).placedOf(ref.script)
-        ScriptOptions.readers(ref, placed) { option in options.changed(script.name, declared, it.id) }
+        ScriptOptions.readers(ref, placed) {
+            option in options.changed(
+                script.name,
+                declared,
+                it.id
+            )
+        }
             .forEach { ScriptScheduler.refreshWidget(context, script, it.id, again = true) }
     }
 
@@ -411,7 +478,11 @@ class ScriptActions(
         ScriptOptions(context).set(ref.script, option, value, ref.id)
         _optionsVersion.value++
         val reset = if (ref.first) "reset to default" else "follows the script again"
-        logs.add(LogKind.INFO, "${ref.titled(ref.script)}: $option " + if (value == null) reset else "= $value", ctx = LogContext.of(LogContext.SCRIPT to ref.script))
+        logs.add(
+            LogKind.INFO,
+            "${ref.titled(ref.script)}: $option " + if (value == null) reset else "= $value",
+            ctx = LogContext.of(LogContext.SCRIPT to ref.script)
+        )
     }
 
     /** A secret that the terminal asks for (`script secret`). The prompt is shown over home. */
@@ -441,13 +512,17 @@ class ScriptActions(
         val loading: Boolean = false,
         val sources: List<ScriptCatalog.Listing> = emptyList(),
     ) {
-        constructor(sources: List<ScriptCatalog.Listing>) : this(sources.flatMap { it.entries }, sources = sources)
+        constructor(sources: List<ScriptCatalog.Listing>) : this(
+            sources.flatMap { it.entries },
+            sources = sources
+        )
 
         /** The sources that couldn't be read. */
         val failed: List<ScriptCatalog.Listing> get() = sources.filter { it.error != null }
     }
 
-    @androidx.annotation.VisibleForTesting internal val _shared = MutableStateFlow(SharedScripts())
+    @androidx.annotation.VisibleForTesting
+    internal val _shared = MutableStateFlow(SharedScripts())
     val sharedScripts: StateFlow<SharedScripts> = _shared.asStateFlow()
 
     /**
@@ -470,7 +545,8 @@ class ScriptActions(
             if (!scriptCatalog.add(source)) return@io notice("${source.name} is a source already")
             _shared.value = SharedScripts(scriptCatalog.kept()).copy(loading = true)
             val read = scriptCatalog.listing(source)
-            _shared.value = SharedScripts(scriptCatalog.kept().map { if (it.source == source) read else it })
+            _shared.value =
+                SharedScripts(scriptCatalog.kept().map { if (it.source == source) read else it })
             notice(
                 if (read.error != null) "Added ${source.name} · can't read it: ${read.error}"
                 else "Added ${source.name} · ${ScriptSources.scriptCount(read.entries.size)}",
@@ -489,7 +565,8 @@ class ScriptActions(
     }
 
     /** Downloaded code, keyed by SHA-256. It is downloaded once for a script's sheet, and then installed from this copy. */
-    @androidx.annotation.VisibleForTesting internal val sharedCode = java.util.concurrent.ConcurrentHashMap<String, String>()
+    @androidx.annotation.VisibleForTesting
+    internal val sharedCode = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     suspend fun sharedScriptCode(e: ScriptCatalog.Entry): String =
         withContext(Dispatchers.IO) { sharedCode.getOrPut(e.sha256) { scriptCatalog.download(e) } }
@@ -499,7 +576,11 @@ class ScriptActions(
      * - [allow]: the user's answers for the access it declares.
      * - [replace]: overwrite your own edits.
      */
-    fun installSharedScript(e: ScriptCatalog.Entry, allow: Map<String, Boolean> = emptyMap(), replace: Boolean = false) {
+    fun installSharedScript(
+        e: ScriptCatalog.Entry,
+        allow: Map<String, Boolean> = emptyMap(),
+        replace: Boolean = false
+    ) {
         fileOp("install") {
             val code = sharedScriptCode(e)
             val update = scripts.byName(e.name) != null

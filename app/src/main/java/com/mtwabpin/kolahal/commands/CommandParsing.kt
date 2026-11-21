@@ -6,7 +6,8 @@ package com.mtwabpin.kolahal.commands
 /** Pure helpers for reading and printing command arguments. */
 object CommandParsing {
     /** A command's words without its flags (`-w`, `--resume`): what is left names an app or a thing. */
-    fun withoutFlags(args: List<String>): String = args.filterNot { it.startsWith("-") }.joinToString(" ")
+    fun withoutFlags(args: List<String>): String =
+        args.filterNot { it.startsWith("-") }.joinToString(" ")
 
     /**
      * Splits [s] into words. Put "…" or '…' around a word that contains spaces.
@@ -21,7 +22,10 @@ object CommandParsing {
                 quote != null && ch == quote -> quote = null
                 quote != null -> cur.append(ch)
                 (ch == '"' || ch == '\'') && cur.isEmpty() -> quote = ch
-                ch.isWhitespace() -> if (cur.isNotEmpty()) { out += cur.toString(); cur.clear() }
+                ch.isWhitespace() -> if (cur.isNotEmpty()) {
+                    out += cur.toString(); cur.clear()
+                }
+
                 else -> cur.append(ch)
             }
         }
@@ -35,7 +39,7 @@ object CommandParsing {
      * whether it is sensitive.
      */
     fun spaces(line: String): String = if (line.none { it.isWhitespace() && it != ' ' }) line
-        else buildString(line.length) { line.forEach { append(if (it.isWhitespace()) ' ' else it) } }
+    else buildString(line.length) { line.forEach { append(if (it.isWhitespace()) ' ' else it) } }
 
     /** The longest timer or feed interval: one week. Backup import allows the same. */
     const val MAX_INTERVAL_MIN = 7L * 24 * 60
@@ -78,7 +82,11 @@ object CommandParsing {
     fun dailyTimes(words: List<String>): DailyTimes? {
         if (words.isEmpty()) return null
         if (words[0] == "off") return DailyTimes.Times(emptyList())
-        val times = words.map { com.mtwabpin.kolahal.script.ScriptScheduler.normalizeTime(it) ?: return DailyTimes.Bad(it) }
+        val times = words.map {
+            com.mtwabpin.kolahal.script.ScriptScheduler.normalizeTime(it) ?: return DailyTimes.Bad(
+                it
+            )
+        }
         return DailyTimes.Times(times.distinct().sorted())
     }
 
@@ -86,7 +94,8 @@ object CommandParsing {
      * Whether [typed] could be a typo of [name]: at most one letter off for a name of four letters
      * or fewer, two for a longer one.
      */
-    fun isNear(typed: String, name: String): Boolean = editDistance(typed, name) <= (if (name.length <= 4) 1 else 2)
+    fun isNear(typed: String, name: String): Boolean =
+        editDistance(typed, name) <= (if (name.length <= 4) 1 else 2)
 
     /**
      * The name in [names] that [typed] is most likely a typo of ([isNear]), for "did you mean".

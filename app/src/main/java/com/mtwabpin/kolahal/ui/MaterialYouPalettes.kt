@@ -33,13 +33,19 @@ object MaterialYouPalettes {
     private var fromWallpaper by mutableStateOf<Pair<ColorScheme, ColorScheme>?>(null)
 
     /** The palettes of every variation, worked out once for each pair of schemes. */
-    private var made: Pair<Pair<ColorScheme, ColorScheme>, Map<Pair<String, Boolean>, Palette>>? = null
+    private var made: Pair<Pair<ColorScheme, ColorScheme>, Map<Pair<String, Boolean>, Palette>>? =
+        null
 
     /** The [dark] or the light palette of the Material You theme [variant] (`material-you-soft`), one of [MaterialYou.VARIANTS]. */
     fun of(dark: Boolean, variant: String = MaterialYou.NAME): Palette {
         val schemes = fromWallpaper ?: standard
         val palettes = made?.takeIf { it.first === schemes }?.second
-            ?: MaterialYou.VARIANTS.flatMap { v -> listOf(true, false).map { d -> (v to d) to paletteFrom(if (d) schemes.first else schemes.second, v) } }
+            ?: MaterialYou.VARIANTS.flatMap { v ->
+                listOf(
+                    true,
+                    false
+                ).map { d -> (v to d) to paletteFrom(if (d) schemes.first else schemes.second, v) }
+            }
                 .toMap().also { made = schemes to it }
         return palettes.getValue(variant to dark)
     }
@@ -50,7 +56,8 @@ object MaterialYouPalettes {
      * configuration change. So the screen calls this at start and on every configuration change.
      */
     fun refresh(context: Context) {
-        if (MaterialYou.supported) fromWallpaper = dynamicDarkColorScheme(context) to dynamicLightColorScheme(context)
+        if (MaterialYou.supported) fromWallpaper =
+            dynamicDarkColorScheme(context) to dynamicLightColorScheme(context)
     }
 }
 
@@ -94,7 +101,8 @@ fun paletteFrom(scheme: ColorScheme, variant: String = MaterialYou.NAME): Palett
     val (bg, surface) = when (variant) {
         MaterialYou.SOFT -> scheme.surfaceContainer to scheme.surfaceContainerHigh
         MaterialYou.TINTED -> lerp(scheme.surface, scheme.primary, if (dark) 0.18f else 0.12f) to
-            lerp(scheme.surfaceContainer, scheme.primary, if (dark) 0.22f else 0.16f)
+                lerp(scheme.surfaceContainer, scheme.primary, if (dark) 0.22f else 0.16f)
+
         MaterialYou.BLACK -> if (dark) Color.Black to scheme.surfaceContainerLowest else scheme.surface to scheme.surfaceContainer
         else -> scheme.surface to scheme.surfaceContainer
     }
@@ -103,7 +111,11 @@ fun paletteFrom(scheme: ColorScheme, variant: String = MaterialYou.NAME): Palett
         surface = surface,
         fg = scheme.onSurface,
         // The plain theme keeps Material's own outline; on a variation's background it may need to be darker or lighter.
-        dim = if (variant == MaterialYou.NAME) scheme.outline else legible(scheme.outline, toward = scheme.onSurface, on = bg),
+        dim = if (variant == MaterialYou.NAME) scheme.outline else legible(
+            scheme.outline,
+            toward = scheme.onSurface,
+            on = bg
+        ),
         prompt = scheme.primary,
         error = scheme.error,
         info = scheme.secondary,
@@ -127,6 +139,7 @@ internal fun legible(colour: Color, toward: Color, on: Color): Color {
         val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
         return (hi + 0.05f) / (lo + 0.05f)
     }
+
     var c = colour
     var t = 0f
     while (contrast(c, on) < 4f && t < 1f) {

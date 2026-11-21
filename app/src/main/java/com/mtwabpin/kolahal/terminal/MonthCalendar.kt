@@ -30,10 +30,14 @@ object MonthCalendar {
         if (words.size > 2) return null
         YEAR_MONTH.matchEntire(words[0])?.let { m ->
             val month = m.groupValues[2].toInt()
-            return if (words.size == 1 && month in 1..12) YearMonth.of(m.groupValues[1].toInt(), month) else null
+            return if (words.size == 1 && month in 1..12) YearMonth.of(
+                m.groupValues[1].toInt(),
+                month
+            ) else null
         }
         val month = monthOf(words[0], locale) ?: return null
-        val year = words.getOrNull(1)?.let { it.toIntOrNull()?.takeIf { y -> y in 1900..2200 } ?: return null }
+        val year = words.getOrNull(1)
+            ?.let { it.toIntOrNull()?.takeIf { y -> y in 1900..2200 } ?: return null }
         if (year != null) return YearMonth.of(year, month)
         val thisYear = YearMonth.of(today.year, month)
         return if (thisYear.isBefore(YearMonth.from(today))) thisYear.plusYears(1) else thisYear
@@ -44,14 +48,16 @@ object MonthCalendar {
         word.toIntOrNull()?.let { return it.takeIf { n -> n in 1..12 } }
         if (word.length < 3) return null
         return Month.entries.firstOrNull { m ->
-            m.getDisplayName(TextStyle.FULL, locale).lowercase(locale).startsWith(word) || m.name.lowercase().startsWith(word)
+            m.getDisplayName(TextStyle.FULL, locale).lowercase(locale)
+                .startsWith(word) || m.name.lowercase().startsWith(word)
         }?.value
     }
 
     /** Returns the month names that start with [prefix] (any case), for completions. */
     fun suggest(prefix: String, locale: Locale = Locale.getDefault()): List<String> {
         val p = prefix.lowercase(locale)
-        return Month.entries.map { it.getDisplayName(TextStyle.FULL, locale).lowercase(locale) }.filter { it.startsWith(p) && it != p }
+        return Month.entries.map { it.getDisplayName(TextStyle.FULL, locale).lowercase(locale) }
+            .filter { it.startsWith(p) && it != p }
     }
 
     /**
@@ -63,13 +69,20 @@ object MonthCalendar {
      * If [today] is in the month, its number goes through [mark].
      * Every cell is two characters wide, so the columns line up in the terminal font.
      */
-    fun lines(month: YearMonth, today: LocalDate, locale: Locale = Locale.getDefault(), mark: (String) -> String = { it }): List<String> {
+    fun lines(
+        month: YearMonth,
+        today: LocalDate,
+        locale: Locale = Locale.getDefault(),
+        mark: (String) -> String = { it }
+    ): List<String> {
         val first = WeekFields.of(locale).firstDayOfWeek
         val days = (0 until 7).map { first.plus(it.toLong()) }
         val title = month.month.getDisplayName(TextStyle.FULL, locale) + " " + month.year
         val out = ArrayList<String>()
         out += title.padStart((20 + title.length) / 2)
-        out += days.joinToString(" ") { it.getDisplayName(TextStyle.SHORT, locale).take(2).padEnd(2) }
+        out += days.joinToString(" ") {
+            it.getDisplayName(TextStyle.SHORT, locale).take(2).padEnd(2)
+        }
         val cells = ArrayList<String>()
         repeat(((month.atDay(1).dayOfWeek.value - first.value) + 7) % 7) { cells += "  " }
         var day = month.atDay(1)

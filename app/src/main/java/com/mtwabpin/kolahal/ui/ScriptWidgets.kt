@@ -3,9 +3,9 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -39,15 +39,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -202,7 +201,11 @@ internal fun WidgetCard(
     onTap: ((WidgetTap) -> Unit)? = null,
     stamp: Long = 0,
 ) {
-    BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
+    BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .height(height)
+    ) {
         val widthDp = maxWidth.value.toInt()
         val heightDp = maxHeight.value.toInt()
         val box = WidgetSizes.box(widthDp, heightDp)
@@ -235,7 +238,11 @@ internal fun WidgetCard(
         val look = drawnLook(LocalWidgetLook.current, spec, note, footer)
         val colours = lookColors(look, roleColour(spec?.base))
         // The Shape look in a square box: the card is one Material shape, and the body sits in it.
-        val polygon = if (look == WidgetLook.SHAPE && squareBox(widthDp, heightDp)) cardPolygon(spec) else null
+        val polygon = if (look == WidgetLook.SHAPE && squareBox(
+                widthDp,
+                heightDp
+            )
+        ) cardPolygon(spec) else null
         // Split's tiles and Shape's shape are the card: the frame itself draws nothing there.
         val bare = look == WidgetLook.SPLIT || polygon != null
         val side = min(maxWidth, maxHeight)
@@ -243,16 +250,36 @@ internal fun WidgetCard(
             color = if (bare) Color.Transparent else colours.card,
             contentColor = colours.content,
             shape = if (bare) RectangleShape else RoundedCornerShape(if (box == WidgetSizes.Box.SMALL) 24.dp else 28.dp),
-            modifier = Modifier.fillMaxSize().testTag("widget-card"),
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("widget-card"),
         ) {
-            Box(Modifier.fillMaxSize().then(press).semantics { contentDescription = description }) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(press)
+                    .semantics { contentDescription = description }) {
                 // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
-                CompositionLocalProvider(LocalCardLongPress provides onLongClick, LocalWidgetLook provides look) {
+                CompositionLocalProvider(
+                    LocalCardLongPress provides onLongClick,
+                    LocalWidgetLook provides look
+                ) {
                     if (polygon != null && spec != null) {
                         ShapedCard(title, spec, polygon, side, box, onTap, stamp)
                     } else {
                         // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
-                        CardLayout(title, spec, note, failure, footer.takeUnless { look.untitled() }, box, onTap, stamp, look, colours)
+                        CardLayout(
+                            title,
+                            spec,
+                            note,
+                            failure,
+                            footer.takeUnless { look.untitled() },
+                            box,
+                            onTap,
+                            stamp,
+                            look,
+                            colours
+                        )
                     }
                 }
             }
@@ -267,7 +294,12 @@ internal fun WidgetCard(
  * content counts as old after a minute (Quick toggles) would change its look on most visits, until
  * its run fills it again. A look the kind doesn't offer draws Plain.
  */
-private fun drawnLook(chosen: WidgetLook, spec: WidgetSpec?, note: CardNote?, footer: WidgetWords.Footer?): WidgetLook = when {
+private fun drawnLook(
+    chosen: WidgetLook,
+    spec: WidgetSpec?,
+    note: CardNote?,
+    footer: WidgetWords.Footer?
+): WidgetLook = when {
     chosen == WidgetLook.PLAIN || chosen == WidgetLook.TONAL -> chosen
     note != null || spec == null || footer?.failed == true -> WidgetLook.PLAIN
     // A look this kind doesn't offer draws Plain ([WidgetLook.offeredFor]).
@@ -282,12 +314,29 @@ private fun drawnLook(chosen: WidgetLook, spec: WidgetSpec?, note: CardNote?, fo
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapedCard(title: String, spec: WidgetSpec, polygon: RoundedPolygon, side: Dp, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long) {
+private fun ShapedCard(
+    title: String,
+    spec: WidgetSpec,
+    polygon: RoundedPolygon,
+    side: Dp,
+    box: WidgetSizes.Box,
+    onTap: ((WidgetTap) -> Unit)?,
+    stamp: Long
+) {
     val shape = polygon.toShape()
-    val fill = if (spec is WidgetSpec.Progress) MaterialTheme.colorScheme.surfaceContainerHighest else lookColors(WidgetLook.SHAPE, roleColour(spec.base)).shapeFill
+    val fill =
+        if (spec is WidgetSpec.Progress) MaterialTheme.colorScheme.surfaceContainerHighest else lookColors(
+            WidgetLook.SHAPE,
+            roleColour(spec.base)
+        ).shapeFill
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // A little smaller than the box: the shape's points stay clear of the next card.
-        Box(Modifier.size(side - 8.dp).clip(shape).background(fill)) {
+        Box(
+            Modifier
+                .size(side - 8.dp)
+                .clip(shape)
+                .background(fill)
+        ) {
             CompositionLocalProvider(LocalCardShaped provides true, LocalUntitled provides title) {
                 KindBody(spec, box, onTap, stamp)
             }
@@ -327,17 +376,61 @@ private fun CardLayout(
         return
     }
     when (box) {
-        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                CompositionLocalProvider(LocalUntitled provides title) { CardBody(spec, note, failure, box, onTap, stamp) }
+        WidgetSizes.Box.LARGE -> Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                CompositionLocalProvider(LocalUntitled provides title) {
+                    CardBody(
+                        spec,
+                        note,
+                        failure,
+                        box,
+                        onTap,
+                        stamp
+                    )
+                }
             }
             FootLine(spec?.base?.takeIf { note == null }, footer, colours.muted)
         }
-        WidgetSizes.Box.WIDE -> Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            CompositionLocalProvider(LocalUntitled provides title) { CardBody(spec, note, failure, box, onTap, stamp) }
+
+        WidgetSizes.Box.WIDE -> Box(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            CompositionLocalProvider(LocalUntitled provides title) {
+                CardBody(
+                    spec,
+                    note,
+                    failure,
+                    box,
+                    onTap,
+                    stamp
+                )
+            }
         }
         // No room for a foot line: the content alone. A screen reader still hears the note and the age.
-        WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap, stamp) }
+        WidgetSizes.Box.SMALL -> Box(
+            Modifier
+                .fillMaxSize()
+                .padding(8.dp)
+        ) {
+            CardBody(
+                spec,
+                note,
+                failure,
+                box,
+                onTap,
+                stamp
+            )
+        }
     }
 }
 
@@ -349,11 +442,27 @@ private fun CardLayout(
 private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Color) {
     val note = base?.note
     if (note == null && footer == null) return
-    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         if (note != null) {
-            Text(note, style = MaterialTheme.typography.labelMedium, color = roleColour(base), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Text(
+                note,
+                style = MaterialTheme.typography.labelMedium,
+                color = roleColour(base),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
         }
-        if (footer != null) FooterLine(footer, muted, Modifier.padding(start = if (note != null) 8.dp else 0.dp))
+        if (footer != null) FooterLine(
+            footer,
+            muted,
+            Modifier.padding(start = if (note != null) 8.dp else 0.dp)
+        )
     }
 }
 
@@ -378,7 +487,13 @@ private fun UntitledLayout(
     val room = when {
         look == WidgetLook.SPLIT -> PaddingValues(0.dp)
         box == WidgetSizes.Box.SMALL -> PaddingValues(8.dp)
-        look == WidgetLook.SHAPE && box == WidgetSizes.Box.WIDE -> PaddingValues(start = 8.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
+        look == WidgetLook.SHAPE && box == WidgetSizes.Box.WIDE -> PaddingValues(
+            start = 8.dp,
+            top = 8.dp,
+            end = 16.dp,
+            bottom = 8.dp
+        )
+
         box == WidgetSizes.Box.WIDE -> PaddingValues(horizontal = 16.dp, vertical = 12.dp)
         else -> PaddingValues(horizontal = 16.dp, vertical = 14.dp)
     }
@@ -386,10 +501,29 @@ private fun UntitledLayout(
         // Bold's progress: the card fills from the bottom up to the level, in the role's container.
         if (look == WidgetLook.BOLD && spec is WidgetSpec.Progress && spec.items.isEmpty()) {
             val level = WidgetWords.fraction(spec.value, spec.max)
-            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(level).background(roleContainer(roleColour(spec.base))))
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .fillMaxHeight(level)
+                    .background(roleContainer(roleColour(spec.base)))
+            )
         }
-        Box(Modifier.fillMaxSize().padding(room)) {
-            CompositionLocalProvider(LocalUntitled provides title) { CardBody(spec, note, failure, box, onTap, stamp) }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(room)
+        ) {
+            CompositionLocalProvider(LocalUntitled provides title) {
+                CardBody(
+                    spec,
+                    note,
+                    failure,
+                    box,
+                    onTap,
+                    stamp
+                )
+            }
         }
     }
 }
@@ -401,19 +535,43 @@ private fun UntitledLayout(
  * shows. Without the picture the body says its `alt` text, and the chip stays.
  */
 @Composable
-private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: WidgetWords.Footer?, box: WidgetSizes.Box) {
+private fun BleedImageCard(
+    title: String,
+    spec: WidgetSpec.Image,
+    footer: WidgetWords.Footer?,
+    box: WidgetSizes.Box
+) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val caption = spec.caption.takeIf { box == WidgetSizes.Box.LARGE }
     Box(Modifier.fillMaxSize()) {
         ImageBody(spec, box, bleed = true)
         Column(
-            Modifier.align(Alignment.BottomStart).padding(8.dp).clip(RoundedCornerShape(16.dp))
-                .background(scheme.surfaceContainerHigh.copy(alpha = 0.92f)).padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(8.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(scheme.surfaceContainerHigh.copy(alpha = 0.92f))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
-            caption?.let { Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            caption?.let {
+                Text(
+                    cardText(it),
+                    style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = scheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(
+                    title,
+                    style = type.labelSmall,
+                    color = scheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
                 if (footer != null) FooterLine(footer, modifier = Modifier.padding(start = 8.dp))
             }
         }
@@ -425,7 +583,11 @@ private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: Widget
  * colour, and its words say it too. An age is in the card's quiet text [colour].
  */
 @Composable
-private fun FooterLine(footer: WidgetWords.Footer, colour: Color = MaterialTheme.colorScheme.onSurfaceVariant, modifier: Modifier = Modifier) {
+private fun FooterLine(
+    footer: WidgetWords.Footer,
+    colour: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier: Modifier = Modifier
+) {
     Text(
         footer.text,
         style = MaterialTheme.typography.labelSmall,
@@ -438,14 +600,25 @@ private fun FooterLine(footer: WidgetWords.Footer, colour: Color = MaterialTheme
 /** The content, or what the card says without any. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long) {
+private fun CardBody(
+    spec: WidgetSpec?,
+    note: CardNote?,
+    failure: String?,
+    box: WidgetSizes.Box,
+    onTap: ((WidgetTap) -> Unit)?,
+    stamp: Long
+) {
     val small = box == WidgetSizes.Box.SMALL
     when {
         note == CardNote.LOADING -> Named(small) {
             // The shape changes form for as long as it is drawn. So it is drawn only while the card can be seen.
             // The card's description says "loading", so the shape itself is no item for a screen reader.
-            if (cardSeen()) LoadingIndicator(Modifier.size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp).clearAndSetSemantics {})
+            if (cardSeen()) LoadingIndicator(
+                Modifier
+                    .size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp)
+                    .clearAndSetSemantics {})
         }
+
         note == CardNote.FAILED -> NoteLine(failure ?: WidgetWords.NOTHING, small)
         note == CardNote.NOTHING -> NoteLine(WidgetWords.NOTHING, small)
         note == CardNote.UNAVAILABLE -> NoteLine(WidgetWords.UNAVAILABLE, small)
@@ -473,7 +646,12 @@ private fun Named(small: Boolean, content: @Composable () -> Unit) = SplitWhole 
     } else {
         Column(Modifier.fillMaxSize()) {
             CardName()
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { content() }
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) { content() }
         }
     }
 }
@@ -489,10 +667,15 @@ private val NO_TAP = WidgetTap()
  *   switched on or edited.
  */
 private fun noteTap(note: CardNote, actions: WidgetCardActions): () -> Unit =
-    if (note == CardNote.REMOVED) { { actions.longPress() } } else { { actions.openScripts() } }
+    if (note == CardNote.REMOVED) {
+        { actions.longPress() }
+    } else {
+        { actions.openScripts() }
+    }
 
 /** What a screen reader says [noteTap] does. */
-private fun noteTapLabel(note: CardNote): String = if (note == CardNote.REMOVED) "arrange widgets" else "open scripts"
+private fun noteTapLabel(note: CardNote): String =
+    if (note == CardNote.REMOVED) "arrange widgets" else "open scripts"
 
 /** How long a card with nothing stored shows the loading shape. After that it says "Nothing to show": no spinner turns for ever. */
 private const val LOADING_MS = 20_000L
@@ -519,34 +702,42 @@ private const val MIN_REFRESH_S = 10
  * It brings its own [GuiTheme], because the widgets page is drawn in the terminal's styles.
  */
 @Composable
-internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed) {
+internal fun SourceWidget(
+    w: PlacedWidget,
+    height: Dp,
+    actions: WidgetCardActions?,
+    feed: WidgetFeed
+) {
     // Which widget of which script: a script can have several on the page ([WidgetRef]).
     val ref = WidgetSource.scriptRef(w.source)
     val builtin = WidgetSource.builtinId(w.source)
     // Every card inside draws in the widget's own look ([LocalWidgetLook]).
-    GuiTheme { CompositionLocalProvider(LocalWidgetLook provides w.look) {
-        if (ref != null) {
-            ScriptWidget(ref, height, actions, feed)
-        } else if (builtin == WidgetSource.BATTERY) {
-            BatteryWidget(height, actions)
-        } else if (builtin != null && OwnCards.draws(builtin)) {
-            OwnWidget(builtin, height, actions, feed.own)
-        } else {
-            val what = w.source?.let(WidgetSource::label).orEmpty()
-            // Nothing to tap here, so a tap opens the screen where the widget can be removed.
-            val arrange: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
-            WidgetCard(
-                title = what,
-                height = height,
-                spec = null,
-                note = CardNote.UNAVAILABLE,
-                description = "$what: ${WidgetWords.UNAVAILABLE}",
-                onClick = arrange,
-                onClickLabel = "arrange widgets",
-                onLongClick = arrange,
-            )
+    GuiTheme {
+        CompositionLocalProvider(LocalWidgetLook provides w.look) {
+            if (ref != null) {
+                ScriptWidget(ref, height, actions, feed)
+            } else if (builtin == WidgetSource.BATTERY) {
+                BatteryWidget(height, actions)
+            } else if (builtin != null && OwnCards.draws(builtin)) {
+                OwnWidget(builtin, height, actions, feed.own)
+            } else {
+                val what = w.source?.let(WidgetSource::label).orEmpty()
+                // Nothing to tap here, so a tap opens the screen where the widget can be removed.
+                val arrange: (() -> Unit)? =
+                    remember(actions) { actions?.let { a -> { a.longPress() } } }
+                WidgetCard(
+                    title = what,
+                    height = height,
+                    spec = null,
+                    note = CardNote.UNAVAILABLE,
+                    description = "$what: ${WidgetWords.UNAVAILABLE}",
+                    onClick = arrange,
+                    onClickLabel = "arrange widgets",
+                    onLongClick = arrange,
+                )
+            }
         }
-    } }
+    }
 }
 
 /**
@@ -562,8 +753,14 @@ private data class Known(val read: Boolean, val script: WidgetScript?)
  */
 @Composable
 private fun knownScript(feed: WidgetFeed, name: String): Known {
-    val changes = remember(feed, name) { feed.scripts.map { all -> Known(all != null, all?.get(name)) }.distinctUntilChanged() }
-    val known by changes.collectAsStateWithLifecycle(initialValue = remember(feed, name) { feed.scripts.value.let { Known(it != null, it?.get(name)) } })
+    val changes = remember(feed, name) {
+        feed.scripts.map { all -> Known(all != null, all?.get(name)) }.distinctUntilChanged()
+    }
+    val known by changes.collectAsStateWithLifecycle(
+        initialValue = remember(
+            feed,
+            name
+        ) { feed.scripts.value.let { Known(it != null, it?.get(name)) } })
     return known
 }
 
@@ -579,7 +776,12 @@ private fun knownScript(feed: WidgetFeed, name: String): Known {
  *   "Weather 2".
  */
 @Composable
-private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed) {
+private fun ScriptWidget(
+    ref: WidgetRef,
+    height: Dp,
+    actions: WidgetCardActions?,
+    feed: WidgetFeed
+) {
     val key = ref.key
     val context = LocalContext.current.applicationContext
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -622,7 +824,13 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
                     // time, and that state is then not old (WidgetAge.due).
                     val last = WidgetAge.last(s.setAt, s.triedAt)
                     while (last != asked) {
-                        if (WidgetAge.due(s.setAt, s.triedAt, s.spec?.base?.staleAfter, System.currentTimeMillis())) {
+                        if (WidgetAge.due(
+                                s.setAt,
+                                s.triedAt,
+                                s.spec?.base?.staleAfter,
+                                System.currentTimeMillis()
+                            )
+                        ) {
                             asked = last
                             actions.refresh(key)
                         } else {
@@ -636,14 +844,20 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
         // `refresh` in the description: run again that often, only while the card can be seen. A card
         // that comes back into view after that time runs at once.
         val every = state?.spec?.base?.refresh
-        val lastRun = rememberUpdatedState(state?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L)
+        val lastRun =
+            rememberUpdatedState(state?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L)
         if (every != null && cardSeen()) LaunchedEffect(key, actions, lifecycle, every) {
             val period = every.coerceAtLeast(MIN_REFRESH_S) * 1000L
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
                     // A card with no run yet is being filled: its first run is on its way. A clock set back
                     // counts as no time passed, so the card waits one period, not the jump as well.
-                    val since = lastRun.value.let { if (it == 0L) 0L else (System.currentTimeMillis() - it).coerceIn(0L, period) }
+                    val since = lastRun.value.let {
+                        if (it == 0L) 0L else (System.currentTimeMillis() - it).coerceIn(
+                            0L,
+                            period
+                        )
+                    }
                     if (since < period) delay(period - since)
                     actions.refresh(key)
                     // A run takes a while to end, and a request can be dropped: wait a period in any case.
@@ -686,7 +900,23 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
     val footer = remember(s, minute, zone, clock24) {
-        s?.let { WidgetWords.footer(it.hasContent, WidgetAge.saysAge(it.setAt, it.spec?.base?.staleAfter, it.spec is WidgetSpec.Toggles, minute.time), it.setAt, it.triedAt, it.error != null, minute.time, zone, clock24) }
+        s?.let {
+            WidgetWords.footer(
+                it.hasContent,
+                WidgetAge.saysAge(
+                    it.setAt,
+                    it.spec?.base?.staleAfter,
+                    it.spec is WidgetSpec.Toggles,
+                    minute.time
+                ),
+                it.setAt,
+                it.triedAt,
+                it.error != null,
+                minute.time,
+                zone,
+                clock24
+            )
+        }
     }
     // Only the words of a kind that tells the time change with it: a countdown, a clock, an agenda.
     val now = if (WidgetWords.timed(spec)) minute.time / 1000 else 0L
@@ -707,32 +937,39 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     }
     val tap = spec?.base?.tap
     val onClick: (() -> Unit)? = remember(actions, key, tap, missing) {
-        actions?.let { a -> if (missing != null) noteTap(missing, a) else { { a.tap(key, tap ?: NO_TAP) } } }
+        actions?.let { a ->
+            if (missing != null) noteTap(missing, a) else {
+                { a.tap(key, tap ?: NO_TAP) }
+            }
+        }
     }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
-    val onTap: ((WidgetTap) -> Unit)? = remember(actions, key) { actions?.let { a -> { t: WidgetTap -> a.tap(key, t) } } }
-    CompositionLocalProvider(LocalContentSetAt provides (s?.setAt ?: 0L)) { WidgetCard(
-        title = title,
-        height = height,
-        spec = spec,
-        note = note,
-        description = description,
-        modifier = Modifier.testTag("widget:$key"),
-        failure = failure,
-        footer = footer,
-        onClick = onClick,
-        // With no action of its own, a tap on the card refreshes it.
-        onClickLabel = when {
-            missing != null -> noteTapLabel(missing)
-            tap == null -> "refresh"
-            else -> tap.label
-        },
-        onLongClick = onLongClick,
-        onTap = onTap,
-        // The time of the last run that ended, whether it showed something or failed. A switch that
-        // waits for its script stops waiting when this moves.
-        stamp = s?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L,
-    ) }
+    val onTap: ((WidgetTap) -> Unit)? =
+        remember(actions, key) { actions?.let { a -> { t: WidgetTap -> a.tap(key, t) } } }
+    CompositionLocalProvider(LocalContentSetAt provides (s?.setAt ?: 0L)) {
+        WidgetCard(
+            title = title,
+            height = height,
+            spec = spec,
+            note = note,
+            description = description,
+            modifier = Modifier.testTag("widget:$key"),
+            failure = failure,
+            footer = footer,
+            onClick = onClick,
+            // With no action of its own, a tap on the card refreshes it.
+            onClickLabel = when {
+                missing != null -> noteTapLabel(missing)
+                tap == null -> "refresh"
+                else -> tap.label
+            },
+            onLongClick = onLongClick,
+            onTap = onTap,
+            // The time of the last run that ended, whether it showed something or failed. A switch that
+            // waits for its script stops waiting when this moves.
+            stamp = s?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L,
+        )
+    }
 }
 
 /** The Battery and network card's pure parts: what it draws and says for the device's [Status]. */
@@ -809,7 +1046,9 @@ internal object BatteryCards {
             (level ?: 0) >= 100 -> "charged"
             else -> "charging"
         }
-        return "Battery: " + listOfNotNull(level?.let { "$it%" } ?: "level unknown", power, network(status.network)).joinToString(", ")
+        return "Battery: " + listOfNotNull(level?.let { "$it%" } ?: "level unknown",
+            power,
+            network(status.network)).joinToString(", ")
     }
 }
 
@@ -824,7 +1063,11 @@ private fun BatteryWidget(height: Dp, actions: WidgetCardActions?) {
     val device = remember(context) { DeviceStatus.get(context) }
     val status by device.status.collectAsStateWithLifecycle()
     // The next alarm is in the status too. The card does not show it, so it is no reason to draw again.
-    val shown = remember(status.batteryPct, status.charging, status.network) { status.copy(nextAlarm = null) }
+    val shown = remember(
+        status.batteryPct,
+        status.charging,
+        status.network
+    ) { status.copy(nextAlarm = null) }
     val spec = remember(shown) { BatteryCards.spec(shown) }
     val description = remember(shown) { BatteryCards.said(shown) }
     val onClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.openBattery() } } }

@@ -35,9 +35,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.script.LibraryTag
@@ -45,9 +44,10 @@ import com.mtwabpin.kolahal.script.LibraryTags
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
-import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Scripts → Add script → From the library: the ready-made scripts that come with Kolahal.
@@ -71,8 +71,17 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
     // What the search and the chips keep is worked out in LibraryTags (plain functions, with JVM tests).
     val words = remember(query) { SearchWords.of(query) }
     val chosen = remember(chips) { LibraryTags.known(chips) }
-    val counts = remember(library, words) { LibraryTags.counts(library.orEmpty().map { it.entry }, words) }
-    val shown = remember(library, words, chosen) { library?.filter { LibraryTags.shows(it.entry, words, chosen) } }
+    val counts =
+        remember(library, words) { LibraryTags.counts(library.orEmpty().map { it.entry }, words) }
+    val shown = remember(library, words, chosen) {
+        library?.filter {
+            LibraryTags.shows(
+                it.entry,
+                words,
+                chosen
+            )
+        }
+    }
     // The library script whose copy shows a dialog, and which one: the question before Update or Reset, or Compare.
     var copyDialog by remember { mutableStateOf<Pair<String, CopyDialog>?>(null) }
     // The library script whose code is open to read, by name. It survives rotation.
@@ -82,8 +91,11 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
     val copiesByName = remember(scripts) { scripts.associateBy { it.name to it.lang } }
     fun mine(r: LibRow): Script? = copiesByName[r.entry.name to r.entry.lang]
     // The rows shown, in two groups: the copies that differ, then the rest. Worked out again only when they change.
-    val differ = remember(shown, copiesByName) { shown.orEmpty().filter { it.state.differs() && mine(it) != null } }
-    val rest = remember(shown, differ) { differ.toSet().let { d -> shown.orEmpty().filter { it !in d } } }
+    val differ = remember(shown, copiesByName) {
+        shown.orEmpty().filter { it.state.differs() && mine(it) != null }
+    }
+    val rest =
+        remember(shown, differ) { differ.toSet().let { d -> shown.orEmpty().filter { it !in d } } }
 
     // As on a card: an edited copy asks first; an unedited one updates at once, and the notice offers Undo.
     fun restore(r: LibRow) {
@@ -112,32 +124,52 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                     query,
                     { query = it },
                     "Search the library",
-                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
                     clear = "Clear",
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 )
             }
             if (counts.isNotEmpty()) {
                 item(key = "tags") {
-                    TagChips(counts, chosen) { tag -> chips = if (tag.id in chips) chips - tag.id else chips + tag.id }
+                    TagChips(counts, chosen) { tag ->
+                        chips = if (tag.id in chips) chips - tag.id else chips + tag.id
+                    }
                 }
             }
             if (rows.isEmpty() && (words.isNotEmpty() || chosen.isNotEmpty())) {
                 item(key = "none") {
                     // With chips on, the × of the search field is not enough to show everything again.
-                    NoLibraryMatch(libraryNoMatch(query, chosen), onShowAll = if (chosen.isEmpty()) null else ({ chips = emptyList(); query = "" }))
+                    NoLibraryMatch(
+                        libraryNoMatch(query, chosen),
+                        onShowAll = if (chosen.isEmpty()) null else ({
+                            chips = emptyList(); query = ""
+                        })
+                    )
                 }
             }
             if (differ.isNotEmpty()) {
                 item(key = "differs") { GroupHeader("Your copy differs · ${differ.size}") }
                 itemsIndexed(differ, key = { _, r -> "differs:" + r.entry.name }) { i, r ->
-                    DiffersRow(r, i, differ.size, onCompare = { copyDialog = r.entry.name to CopyDialog.COMPARE }) { restore(r) }
+                    DiffersRow(
+                        r,
+                        i,
+                        differ.size,
+                        onCompare = {
+                            copyDialog = r.entry.name to CopyDialog.COMPARE
+                        }) { restore(r) }
                 }
                 // The search or the chips can leave only copies that differ: then nothing comes under this title.
                 if (rest.isNotEmpty()) item(key = "all") { GroupHeader("All scripts") }
             }
             itemsIndexed(rest, key = { _, r -> "lib:" + r.entry.name }) { i, r ->
-                LibraryRow(r, i, rest.size, nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null, onRead = { reading = r.entry.name }) {
+                LibraryRow(
+                    r,
+                    i,
+                    rest.size,
+                    nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null,
+                    onRead = { reading = r.entry.name }) {
                     vm.scriptActions.installFromLibrary(r.entry)
                 }
             }
@@ -145,7 +177,12 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                 Column(Modifier.padding(top = 16.dp)) {
                     ActionGroup(
                         listOf(
-                            Action(R.drawable.ic_download, "Get more scripts", "Shared by people who use Kolahal, on GitHub", chevron = true) {
+                            Action(
+                                R.drawable.ic_download,
+                                "Get more scripts",
+                                "Shared by people who use Kolahal, on GitHub",
+                                chevron = true
+                            ) {
                                 vm.openScreen(Screen.GET_SCRIPTS)
                             },
                         )
@@ -169,7 +206,13 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
             val r = library.orEmpty().firstOrNull { it.entry.name == name }
             val s = r?.let { mine(it) }
             if (r != null && s != null) {
-                CopyDialogs(vm, s, ScriptCopy.of(r), dialog, onShow = { copyDialog = it?.let { d -> name to d } }, onExport = { vm.requestScriptExport(s) })
+                CopyDialogs(
+                    vm,
+                    s,
+                    ScriptCopy.of(r),
+                    dialog,
+                    onShow = { copyDialog = it?.let { d -> name to d } },
+                    onExport = { vm.requestScriptExport(s) })
             }
         }
     }
@@ -182,13 +225,24 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
  * - [chosen]: the chips that are on.
  */
 @Composable
-private fun TagChips(counts: Map<LibraryTag, Int>, chosen: Set<LibraryTag>, onToggle: (LibraryTag) -> Unit) {
+private fun TagChips(
+    counts: Map<LibraryTag, Int>,
+    chosen: Set<LibraryTag>,
+    onToggle: (LibraryTag) -> Unit
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
     ) {
         for ((tag, count) in counts) {
-            CountChip(tag.label, count, on = tag in chosen, modifier = Modifier.testTag("tag:${tag.id}")) { onToggle(tag) }
+            CountChip(
+                tag.label,
+                count,
+                on = tag in chosen,
+                modifier = Modifier.testTag("tag:${tag.id}")
+            ) { onToggle(tag) }
         }
     }
 }
@@ -201,7 +255,8 @@ private fun TagChips(counts: Map<LibraryTag, Int>, chosen: Set<LibraryTag>, onTo
  */
 internal fun libraryNoMatch(query: String, chosen: Collection<LibraryTag>): String {
     val labels = chosen.map { it.label }
-    val kinds = if (labels.size < 2) labels.joinToString() else labels.dropLast(1).joinToString() + " or " + labels.last()
+    val kinds = if (labels.size < 2) labels.joinToString() else labels.dropLast(1)
+        .joinToString() + " or " + labels.last()
     val scripts = if (kinds.isEmpty()) "No script" else "No $kinds script"
     return if (query.isBlank()) "$scripts in the library" else "$scripts matches “${query.trim()}”"
 }
@@ -212,7 +267,11 @@ private fun NoLibraryMatch(text: String, onShowAll: (() -> Unit)?) {
     Column {
         NoMatchNote(text)
         // The button's own padding puts its label where the line above starts.
-        if (onShowAll != null) TextButton(shapes = ButtonDefaults.shapes(), onClick = onShowAll, modifier = Modifier.padding(start = 4.dp)) { Text("Show all") }
+        if (onShowAll != null) TextButton(
+            shapes = ButtonDefaults.shapes(),
+            onClick = onShowAll,
+            modifier = Modifier.padding(start = 4.dp)
+        ) { Text("Show all") }
     }
 }
 
@@ -221,7 +280,7 @@ private fun overline(r: LibRow): String {
     val e = r.entry
     return "${e.name}.${e.lang.ext}" + (if (e.command) " · command" else
         if (e.suggestedEvery > 0) " · every ${CommandParsing.formatInterval(e.suggestedEvery)}" else "") +
-        e.events.let { if (it.isEmpty()) "" else " · on " + it.joinToString(", ") }
+            e.events.let { if (it.isEmpty()) "" else " · on " + it.joinToString(", ") }
 }
 
 /**
@@ -232,20 +291,38 @@ private fun overline(r: LibRow): String {
  * - [nameTaken]: one of your scripts has its name, in the other language.
  */
 @Composable
-private fun LibraryRow(r: LibRow, index: Int, count: Int, nameTaken: Boolean, onRead: () -> Unit, onInstall: () -> Unit) {
+private fun LibraryRow(
+    r: LibRow,
+    index: Int,
+    count: Int,
+    nameTaken: Boolean,
+    onRead: () -> Unit,
+    onInstall: () -> Unit
+) {
     var open by rememberSaveable(r.entry.name) { mutableStateOf(false) }
     val e = r.entry
     SegmentedListItem(
         onClick = { open = !open },
         shapes = segShapes(index, count),
         colors = segColors(),
-        overlineContent = { Text(overline(r), style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace)) },
+        overlineContent = {
+            Text(
+                overline(r),
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace)
+            )
+        },
         supportingContent = if (open) {
             { Text(e.description) }
         } else null,
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LabeledIconButton(R.drawable.ic_code, "Read the code of ${e.name}", onClick = onRead, modifier = Modifier.testTag("read ${e.name}"), tint = MaterialTheme.colorScheme.primary)
+                LabeledIconButton(
+                    R.drawable.ic_code,
+                    "Read the code of ${e.name}",
+                    onClick = onRead,
+                    modifier = Modifier.testTag("read ${e.name}"),
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 InstallState(r, nameTaken, onInstall)
             }
         },
@@ -257,13 +334,24 @@ private fun LibraryRow(r: LibRow, index: Int, count: Int, nameTaken: Boolean, on
  * version) or Reset (edited, nothing newer). Both ask first when the copy is edited.
  */
 @Composable
-private fun DiffersRow(r: LibRow, index: Int, count: Int, onCompare: () -> Unit, onRestore: () -> Unit) {
+private fun DiffersRow(
+    r: LibRow,
+    index: Int,
+    count: Int,
+    onCompare: () -> Unit,
+    onRestore: () -> Unit
+) {
     val update = ScriptCopy.of(r).state == CopyState.NEW_VERSION
     SegmentedListItem(
         onClick = onCompare,
         shapes = segShapes(index, count),
         colors = segColors(),
-        overlineContent = { Text(overline(r), style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace)) },
+        overlineContent = {
+            Text(
+                overline(r),
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace)
+            )
+        },
         supportingContent = {
             Text(
                 when {
@@ -275,8 +363,16 @@ private fun DiffersRow(r: LibRow, index: Int, count: Int, onCompare: () -> Unit,
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LabeledIconButton(R.drawable.ic_visibility, "Compare", onClick = onCompare, tint = MaterialTheme.colorScheme.primary)
-                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onRestore) { Text(if (update) "Update" else "Reset") }
+                LabeledIconButton(
+                    R.drawable.ic_visibility,
+                    "Compare",
+                    onClick = onCompare,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                FilledTonalButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onRestore
+                ) { Text(if (update) "Update" else "Reset") }
             }
         },
     ) { Text(r.entry.title) }
@@ -287,9 +383,21 @@ private fun DiffersRow(r: LibRow, index: Int, count: Int, onCompare: () -> Unit,
 private fun InstallState(r: LibRow, nameTaken: Boolean, onInstall: () -> Unit) {
     when {
         nameTaken -> Text("Name in use", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        r.state == ScriptLibrary.State.NOT_INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Install") }
-        r.state == ScriptLibrary.State.UPDATE_AVAILABLE -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Update") }
-        r.state == ScriptLibrary.State.MODIFIED -> Text("Edited", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        r.state == ScriptLibrary.State.NOT_INSTALLED -> FilledTonalButton(
+            shapes = ButtonDefaults.shapes(),
+            onClick = onInstall
+        ) { Text("Install") }
+
+        r.state == ScriptLibrary.State.UPDATE_AVAILABLE -> FilledTonalButton(
+            shapes = ButtonDefaults.shapes(),
+            onClick = onInstall
+        ) { Text("Update") }
+
+        r.state == ScriptLibrary.State.MODIFIED -> Text(
+            "Edited",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
         else -> Text("Installed", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -299,10 +407,17 @@ private fun InstallState(r: LibRow, nameTaken: Boolean, onInstall: () -> Unit) {
  * and its code, read-only ([ReadOnlyCode]). The code is read from the app, off the main thread.
  */
 @Composable
-private fun LibrarySheet(vm: TerminalViewModel, r: LibRow, nameTaken: Boolean, onInstall: () -> Unit, onDismiss: () -> Unit) {
+private fun LibrarySheet(
+    vm: TerminalViewModel,
+    r: LibRow,
+    nameTaken: Boolean,
+    onInstall: () -> Unit,
+    onDismiss: () -> Unit
+) {
     val e = r.entry
     val code by produceState<String?>(null, e.file) {
-        value = withContext(Dispatchers.IO) { runCatching { vm.scriptActions.library.code(e) }.getOrNull() }
+        value =
+            withContext(Dispatchers.IO) { runCatching { vm.scriptActions.library.code(e) }.getOrNull() }
     }
     GuiSheet(onDismiss, scroll = true) {
         Text(e.title, style = MaterialTheme.typography.titleLarge)
@@ -324,18 +439,34 @@ private fun LibrarySheet(vm: TerminalViewModel, r: LibRow, nameTaken: Boolean, o
             Spacer(Modifier.height(12.dp))
             val uses = remember(text) { ScriptMeta.uses(text).toList() }
             Fact("Runs", remember(text) { scriptRuns(text) }.ifEmpty { "manually" })
-            Fact("Uses", if (uses.isEmpty()) "nothing private" else uses.joinToString(", ") { ScriptAccess.label(it).lowercase() })
+            Fact(
+                "Uses",
+                if (uses.isEmpty()) "nothing private" else uses.joinToString(", ") {
+                    ScriptAccess.label(it).lowercase()
+                })
             Fact("Internet", if (ScriptMeta.usesInternet(text)) "yes" else "no")
             ScriptMeta.secrets(text).takeIf { it.isNotEmpty() }?.let { keys ->
-                Fact("Keys", keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
+                Fact(
+                    "Keys",
+                    keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
             }
         }
         Spacer(Modifier.height(16.dp))
-        androidx.compose.foundation.layout.Box(Modifier.testTag("library-sheet-install")) { InstallState(r, nameTaken, onInstall) }
+        androidx.compose.foundation.layout.Box(Modifier.testTag("library-sheet-install")) {
+            InstallState(
+                r,
+                nameTaken,
+                onInstall
+            )
+        }
         Spacer(Modifier.height(16.dp))
         SectionTitle("Code")
         Spacer(Modifier.height(8.dp))
-        if (text == null) Text("Reading…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (text == null) Text(
+            "Reading…",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         else ReadOnlyCode(text, e.lang)
     }
 }

@@ -17,9 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -57,7 +57,11 @@ internal fun HeaderPreview(vm: TerminalViewModel) {
                 testTag = "header-preview"
             },
     ) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
             Header(
                 status = status,
                 unlocks = unlocks,
@@ -73,7 +77,11 @@ internal fun HeaderPreview(vm: TerminalViewModel) {
             // On home, an empty pinned header takes no space. Here we show a note instead.
             val media = nowPlaying
             if (pinnedLines.isEmpty() && media?.showInHeader() != true) {
-                Text("Nothing playing or pinned", style = note, modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp))
+                Text(
+                    "Nothing playing or pinned",
+                    style = note,
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                )
             } else PinnedHeader(
                 nowPlaying = media,
                 lines = pinnedLines,

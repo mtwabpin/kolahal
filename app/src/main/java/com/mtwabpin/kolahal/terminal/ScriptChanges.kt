@@ -76,7 +76,14 @@ internal class ScriptChanges(private val context: Context) {
      * command template. The caller must check the name first.
      */
     fun create(name: String, lang: ScriptLang, asCommand: Boolean): Script =
-        scripts.create(name, lang, if (asCommand) ScriptTemplates.command(lang, name) else ScriptTemplates.forLang(lang, name))
+        scripts.create(
+            name,
+            lang,
+            if (asCommand) ScriptTemplates.command(lang, name) else ScriptTemplates.forLang(
+                lang,
+                name
+            )
+        )
 
     /** Installs [entry] from [library], or updates your copy. For each of its keys that is not set, a line asks for it. */
     fun install(library: ScriptLibrary, entry: ScriptLibrary.Entry): Script =
@@ -102,7 +109,12 @@ internal fun runningText(name: String) = "Running $name…"
  * the editor, a tap on a pinned line. It runs on the caller's thread, and the caller logs the text
  * or shows it.
  */
-internal fun runNowWithText(context: Context, script: Script, args: List<String> = emptyList(), event: Map<String, Any?>? = null): String {
+internal fun runNowWithText(
+    context: Context,
+    script: Script,
+    args: List<String> = emptyList(),
+    event: Map<String, Any?>? = null
+): String {
     ScriptScheduler.runNow(context, script, args, event = event)
     return runningText(script.name)
 }

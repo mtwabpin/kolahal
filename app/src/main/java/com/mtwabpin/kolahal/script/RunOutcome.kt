@@ -24,7 +24,11 @@ sealed interface RunStop {
  * - [extra]: what goes into that line's context, besides the script's own;
  * - [status]: the result the script's card keeps.
  */
-internal data class RunOutcome(val line: String, val status: String, val extra: Map<String, String> = emptyMap())
+internal data class RunOutcome(
+    val line: String,
+    val status: String,
+    val extra: Map<String, String> = emptyMap()
+)
 
 /**
  * Works out how the run of [name] that threw [error] ended.
@@ -57,7 +61,10 @@ internal fun runOutcome(
     // An error can quote a URL or a header, so mask it like everything else a run shows.
     val message = error.message?.let(redact)
     // The first line as the script made it. It can be any length, so cut it for the line and the status.
-    val msg = (message?.lines()?.firstOrNull { it.isNotBlank() } ?: error.javaClass.simpleName).take(ScriptRepository.STATUS_MAX)
+    val msg =
+        (message?.lines()?.firstOrNull { it.isNotBlank() } ?: error.javaClass.simpleName).take(
+            ScriptRepository.STATUS_MAX
+        )
     val line = if (repl) null else errorLine(error)
     val extra = buildMap {
         put(LogContext.COPY, message ?: msg)

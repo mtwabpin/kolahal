@@ -43,14 +43,16 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class TextEditorActivityTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    @get:Rule
+    val compose = createEmptyComposeRule()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val resolver = context.contentResolver
     private val drafts = Documents.drafts(context)
     private val made = mutableListOf<Uri>()
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         made.forEach {
             drafts.delete(it.toString())
             runCatching { resolver.delete(it, null, null) }
@@ -59,9 +61,15 @@ class TextEditorActivityTest {
 
     /** A file in Downloads holding [bytes]. Its name is new each time, so the media store doesn't change it. */
     private fun file(ending: String, bytes: ByteArray, type: String = "text/plain"): Uri {
-        assumeTrue("the media store takes any file in Downloads from Android 10", Build.VERSION.SDK_INT >= 29)
+        assumeTrue(
+            "the media store takes any file in Downloads from Android 10",
+            Build.VERSION.SDK_INT >= 29
+        )
         val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "kolahal-editor-test-${System.nanoTime()}$ending")
+            put(
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                "kolahal-editor-test-${System.nanoTime()}$ending"
+            )
             put(MediaStore.MediaColumns.MIME_TYPE, type)
         }
         val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)!!
@@ -72,33 +80,48 @@ class TextEditorActivityTest {
 
     private fun file(text: String) = file(".txt", text.toByteArray())
 
-    private fun name(uri: Uri): String = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)!!.use {
-        it.moveToFirst()
-        it.getString(0)
-    }
+    private fun name(uri: Uri): String =
+        resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)!!.use {
+            it.moveToFirst()
+            it.getString(0)
+        }
 
-    private fun onDisk(uri: Uri) = resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+    private fun onDisk(uri: Uri) =
+        resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
 
     /** Another app writes the file. */
-    private fun change(uri: Uri, text: String) = resolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+    private fun change(uri: Uri, text: String) =
+        resolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
 
     private fun launch(uri: Uri): ActivityScenario<TextEditorActivity> =
-        ActivityScenario.launch(Intent(Intent.ACTION_VIEW, uri, context, TextEditorActivity::class.java))
+        ActivityScenario.launch(
+            Intent(
+                Intent.ACTION_VIEW,
+                uri,
+                context,
+                TextEditorActivity::class.java
+            )
+        )
 
     /** Opens [uri] and waits for its text to show. */
     private fun edit(uri: Uri): ActivityScenario<TextEditorActivity> = launch(uri).also {
-        compose.waitFor("the editor shows the file", 10_000) { compose.onAllNodesWithTag("editor").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitFor("the editor shows the file", 10_000) {
+            compose.onAllNodesWithTag("editor").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
-    private fun text() = compose.onNodeWithTag("editor").fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+    private fun text() = compose.onNodeWithTag("editor")
+        .fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
     private fun type(text: String) = compose.onNodeWithTag("editor").performTextReplacement(text)
 
     private fun message() = runCatching {
-        compose.onNodeWithTag("message").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString()
+        compose.onNodeWithTag("message")
+            .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString()
     }.getOrDefault("")
 
-    @Test fun aFileOpensWithItsNameAndText() {
+    @Test
+    fun aFileOpensWithItsNameAndText() {
         val uri = file("one\ntwo\n")
         edit(uri).use {
             assertEquals("one\ntwo\n", text())
@@ -110,7 +133,8 @@ class TextEditorActivityTest {
      * Home, and back: the window is stopped and shown again. It is the same window with the same
      * text, the draft was written when it was hidden, and the file was not touched.
      */
-    @Test fun typedTextIsThereAfterHomeAndBack() {
+    @Test
+    fun typedTextIsThereAfterHomeAndBack() {
         val uri = file("one\n")
         edit(uri).use { scenario ->
             type("one\nand more")
@@ -128,7 +152,8 @@ class TextEditorActivityTest {
     }
 
     /** Save writes the file with its own line endings and its line break at the end, and the draft goes. */
-    @Test fun savingWritesTheFileInItsOwnFormat() {
+    @Test
+    fun savingWritesTheFileInItsOwnFormat() {
         val uri = file("one\r\ntwo\r\n")
         edit(uri).use {
             assertEquals("one\ntwo\n", text())
@@ -145,7 +170,8 @@ class TextEditorActivityTest {
     }
 
     /** The editor is closed by Android with unsaved text: a new window for the file brings the text back. */
-    @Test fun unsavedTextComesBackInANewWindow() {
+    @Test
+    fun unsavedTextComesBackInANewWindow() {
         val uri = file("one\n")
         edit(uri).use { scenario ->
             type("never saved")
@@ -160,12 +186,15 @@ class TextEditorActivityTest {
     }
 
     /** Android builds the window again (a new language, a font size): the text and the undo history stay. */
-    @Test fun theTextAndUndoLiveThroughARebuiltWindow() {
+    @Test
+    fun theTextAndUndoLiveThroughARebuiltWindow() {
         val uri = file("one\n")
         edit(uri).use { scenario ->
             type("one\ntwo")
             scenario.recreate()
-            compose.waitFor("the editor is back") { compose.onAllNodesWithTag("editor").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitFor("the editor is back") {
+                compose.onAllNodesWithTag("editor").fetchSemanticsNodes().isNotEmpty()
+            }
             assertEquals("one\ntwo", text())
             compose.onNodeWithContentDescription("Undo").performClick()
             assertEquals("one\n", text())
@@ -173,7 +202,8 @@ class TextEditorActivityTest {
     }
 
     /** Another app changed the file while it was open: save asks, and writes only after Overwrite. */
-    @Test fun aChangedFileIsNotOverwrittenUnasked() {
+    @Test
+    fun aChangedFileIsNotOverwrittenUnasked() {
         val uri = file("one\n")
         edit(uri).use {
             type("mine")
@@ -192,7 +222,8 @@ class TextEditorActivityTest {
     }
 
     /** Close with unsaved text asks. Cancel stays; Discard closes the window, and neither the file nor a draft has the text. */
-    @Test fun closeAsksAboutUnsavedText() {
+    @Test
+    fun closeAsksAboutUnsavedText() {
         val uri = file("one\n")
         edit(uri).use { scenario ->
             type("thrown away")
@@ -210,8 +241,10 @@ class TextEditorActivityTest {
     }
 
     /** A file that is not text doesn't open in the editor, and the page says why. */
-    @Test fun aBinaryFileIsRefused() {
-        val uri = file(".bin", byteArrayOf(0x50, 0x4B, 3, 4, 0, 0, 0, 8), "application/octet-stream")
+    @Test
+    fun aBinaryFileIsRefused() {
+        val uri =
+            file(".bin", byteArrayOf(0x50, 0x4B, 3, 4, 0, 0, 0, 8), "application/octet-stream")
         launch(uri).use {
             compose.waitForText("It is not a text file: it holds binary data.", ms = 10_000)
             compose.onNodeWithText("Can't edit ${name(uri)}").assertExists()
@@ -220,7 +253,8 @@ class TextEditorActivityTest {
     }
 
     /** A file whose app is gone: the page says it can't be opened. */
-    @Test fun aFileOutOfReachSaysSo() {
+    @Test
+    fun aFileOutOfReachSaysSo() {
         launch(Uri.parse("content://com.mtwabpin.kolahal.test.no.such.app/notes.txt")).use {
             compose.waitForText("Can't open notes.txt", ms = 10_000)
             compose.onNodeWithTag("editor").assertDoesNotExist()
@@ -228,12 +262,17 @@ class TextEditorActivityTest {
     }
 
     /** Another app can't make the editor open Kolahal's own files, or a path on disk. */
-    @Test fun kolahalsOwnFilesAreRefused() {
+    @Test
+    fun kolahalsOwnFilesAreRefused() {
         launch(Uri.parse("file://${context.filesDir}/crash/report.txt")).use {
-            compose.waitForText("Kolahal opens files from a file picker or another app (content: addresses) only.", ms = 10_000)
+            compose.waitForText(
+                "Kolahal opens files from a file picker or another app (content: addresses) only.",
+                ms = 10_000
+            )
         }
         // The full build shares its downloaded updates through a provider of its own.
-        val own = context.packageManager.resolveContentProvider("${context.packageName}.fileprovider", 0)
+        val own =
+            context.packageManager.resolveContentProvider("${context.packageName}.fileprovider", 0)
         assumeTrue("this build has no provider of its own", own != null)
         launch(Uri.parse("content://${context.packageName}.fileprovider/updates/kolahal.apk")).use {
             compose.waitForText("That is one of Kolahal's own files.", ms = 10_000)
@@ -241,22 +280,45 @@ class TextEditorActivityTest {
     }
 
     /** What the installed app says of the editor's window: a task of its own in Recents, one per file, and "Open with" for text. */
-    @Test fun theEditorHasItsOwnTaskAndOpensTextFromOtherApps() {
+    @Test
+    fun theEditorHasItsOwnTaskAndOpensTextFromOtherApps() {
         val pm = context.packageManager
-        val editor = pm.getActivityInfo(android.content.ComponentName(context, TextEditorActivity::class.java), 0)
-        val home = pm.getActivityInfo(android.content.ComponentName(context, MainActivity::class.java), 0)
+        val editor = pm.getActivityInfo(
+            android.content.ComponentName(
+                context,
+                TextEditorActivity::class.java
+            ), 0
+        )
+        val home =
+            pm.getActivityInfo(android.content.ComponentName(context, MainActivity::class.java), 0)
         assertEquals(ActivityInfo.DOCUMENT_LAUNCH_INTO_EXISTING, editor.documentLaunchMode)
         assertNotEquals(home.taskAffinity, editor.taskAffinity)
         assertEquals(0, editor.flags and ActivityInfo.FLAG_EXCLUDE_FROM_RECENTS)
         assertTrue(editor.exported)
 
         fun opens(type: String) = pm.queryIntentActivities(
-            Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://some.app/file"), type).setPackage(context.packageName),
+            Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://some.app/file"), type)
+                .setPackage(context.packageName),
             PackageManager.MATCH_DEFAULT_ONLY,
         ).any { it.activityInfo.name == TextEditorActivity::class.java.name }
-        for (type in listOf("text/plain", "text/markdown", "application/json", "application/xml")) assertTrue(type, opens(type))
-        for (type in listOf("image/png", "application/zip", "application/octet-stream")) assertFalse(type, opens(type))
+        for (type in listOf(
+            "text/plain",
+            "text/markdown",
+            "application/json",
+            "application/xml"
+        )) assertTrue(type, opens(type))
+        for (type in listOf(
+            "image/png",
+            "application/zip",
+            "application/octet-stream"
+        )) assertFalse(type, opens(type))
         // It reaches files through the picker or the sharing app only.
-        assertEquals(PackageManager.PERMISSION_DENIED, pm.checkPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE, context.packageName))
+        assertEquals(
+            PackageManager.PERMISSION_DENIED,
+            pm.checkPermission(
+                android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                context.packageName
+            )
+        )
     }
 }

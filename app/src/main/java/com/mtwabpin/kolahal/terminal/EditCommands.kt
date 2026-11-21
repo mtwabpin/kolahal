@@ -50,7 +50,13 @@ class EditCommands(context: Context, private val ui: TerminalUi) : CommandGroup(
         files.forEachIndexed { i, file ->
             val at = Instant.ofEpochMilli(file.time).atZone(zone)
             val time = "${TimeFormats.dayLabel(at.toLocalDate(), today)} ${at.format(clock)}"
-            out(file.name, LogContext.of(LogContext.RUN to tapCommand(files, i), LogContext.DESC to if (file.unsaved) "unsaved changes · $time" else time))
+            out(
+                file.name,
+                LogContext.of(
+                    LogContext.RUN to tapCommand(files, i),
+                    LogContext.DESC to if (file.unsaved) "unsaved changes · $time" else time
+                )
+            )
         }
     }
 
@@ -78,9 +84,15 @@ class EditCommands(context: Context, private val ui: TerminalUi) : CommandGroup(
          */
         internal fun tapCommand(files: List<Documents.Listed>, index: Int): String {
             val file = files[index]
-            val plain = CommandParsing.tokenize(file.name).joinToString(" ") == file.name && '|' !in file.name &&
-                file.name.lowercase() !in setOf("new", "recent") && !file.name.lowercase().startsWith("new ") && !file.name.startsWith("content://")
-            return if (plain && find(files, file.name) === file) "edit ${file.name}" else "edit ${file.uri}"
+            val plain = CommandParsing.tokenize(file.name)
+                .joinToString(" ") == file.name && '|' !in file.name &&
+                    file.name.lowercase() !in setOf("new", "recent") && !file.name.lowercase()
+                .startsWith("new ") && !file.name.startsWith("content://")
+            return if (plain && find(
+                    files,
+                    file.name
+                ) === file
+            ) "edit ${file.name}" else "edit ${file.uri}"
         }
     }
 }

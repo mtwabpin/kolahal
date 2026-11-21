@@ -15,7 +15,8 @@ import org.junit.rules.TemporaryFolder
  * the file's own format, and never writes over a file it has not seen.
  */
 class TextDocumentTest {
-    @get:Rule val folder = TemporaryFolder()
+    @get:Rule
+    val folder = TemporaryFolder()
 
     private val files = FakeFiles()
     private val drafts by lazy { Drafts(folder.newFolder("drafts")) }
@@ -26,7 +27,8 @@ class TextDocumentTest {
 
     private fun ready(doc: TextDocument) = doc.open() as Opened.Ready
 
-    @Test fun aFileOpensWithItsTextAndName() {
+    @Test
+    fun aFileOpensWithItsTextAndName() {
         files.put(notes, "one\r\ntwo\r\n")
         val doc = document()
         assertEquals("notes.txt", doc.name)
@@ -37,7 +39,8 @@ class TextDocumentTest {
     }
 
     /** Saving writes the file's own line endings, and keeps the line break at its end. */
-    @Test fun savingKeepsTheFilesFormat() {
+    @Test
+    fun savingKeepsTheFilesFormat() {
         files.put(notes, "one\r\ntwo\r\n")
         val doc = document()
         doc.open()
@@ -50,7 +53,8 @@ class TextDocumentTest {
     }
 
     /** Unsaved text is kept as a draft, and comes back in a new editor over the file's text. */
-    @Test fun unsavedTextComesBack() {
+    @Test
+    fun unsavedTextComesBack() {
         files.put(notes, "one\n")
         val first = document()
         first.open()
@@ -66,7 +70,8 @@ class TextDocumentTest {
     }
 
     /** Text typed back to what the file says leaves no draft. */
-    @Test fun textLikeTheFilesNeedsNoDraft() {
+    @Test
+    fun textLikeTheFilesNeedsNoDraft() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -81,7 +86,8 @@ class TextDocumentTest {
     }
 
     /** The user discards the changes: the draft goes, and the file opens as it is. */
-    @Test fun discardedChangesDontComeBack() {
+    @Test
+    fun discardedChangesDontComeBack() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -91,7 +97,8 @@ class TextDocumentTest {
     }
 
     /** Another app changed the file while it was open: saving writes nothing until told to overwrite. */
-    @Test fun aFileChangedSinceIsNotOverwritten() {
+    @Test
+    fun aFileChangedSinceIsNotOverwritten() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -105,7 +112,8 @@ class TextDocumentTest {
     }
 
     /** A quick look trusts a file whose app gives the same size and time, and doesn't read it. Saving always reads it. */
-    @Test fun aQuickLookDoesntReadAnUnchangedFile() {
+    @Test
+    fun aQuickLookDoesntReadAnUnchangedFile() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -120,7 +128,8 @@ class TextDocumentTest {
      * A file's app may still say the old size and time a moment after a change (the media store
      * does). A quick look misses that change. A save doesn't, as it reads the file.
      */
-    @Test fun aChangeTheAppHasntReportedIsFoundAtSave() {
+    @Test
+    fun aChangeTheAppHasntReportedIsFoundAtSave() {
         val file = files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -133,7 +142,8 @@ class TextDocumentTest {
     }
 
     /** A file whose app gives no time: even a quick look reads it, and finds a change of the same size. */
-    @Test fun aChangeIsFoundWithoutATime() {
+    @Test
+    fun aChangeIsFoundWithoutATime() {
         files.put(notes, "one\n", timed = false)
         val doc = document()
         doc.open()
@@ -147,7 +157,8 @@ class TextDocumentTest {
     }
 
     /** A new time with the same bytes (a sync app touched it) is no change, and isn't read twice. */
-    @Test fun aNewTimeAloneIsNoChange() {
+    @Test
+    fun aNewTimeAloneIsNoChange() {
         val file = files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -163,25 +174,33 @@ class TextDocumentTest {
      * A draft written for an older file: it comes back, the editor is told the file changed since,
      * and saving asks first. That holds after the editor is killed and opened once more.
      */
-    @Test fun aDraftForAnOlderFileAsksBeforeItOverwrites() {
+    @Test
+    fun aDraftForAnOlderFileAsksBeforeItOverwrites() {
         files.put(notes, "one\n")
         val first = document()
         first.open()
         first.keepDraft("mine\n")
         files.change(notes, "theirs\n")
         val second = document()
-        assertEquals(Opened.Ready("mine\n", "theirs\n", restored = true, changedSince = true), second.open())
+        assertEquals(
+            Opened.Ready("mine\n", "theirs\n", restored = true, changedSince = true),
+            second.open()
+        )
         // More typing, and killed again: the new draft is still one for the older file.
         second.keepDraft("mine too\n")
         val third = document()
-        assertEquals(Opened.Ready("mine too\n", "theirs\n", restored = true, changedSince = true), third.open())
+        assertEquals(
+            Opened.Ready("mine too\n", "theirs\n", restored = true, changedSince = true),
+            third.open()
+        )
         assertEquals(Saved.Changed, third.save("mine too\n"))
         assertEquals(Saved.Done("mine too\n"), third.save("mine too\n", overwrite = true))
         assertEquals(Opened.Ready("mine too\n", "mine too\n"), document().open())
     }
 
     /** A draft whose file is as it was comes back without that alarm, and saves at once. */
-    @Test fun aDraftForTheSameFileSavesAtOnce() {
+    @Test
+    fun aDraftForTheSameFileSavesAtOnce() {
         files.put(notes, "one\n")
         val first = document()
         first.open()
@@ -196,7 +215,8 @@ class TextDocumentTest {
      * typed while it was read, it isn't shown: a save still asks, and a draft still says it is for
      * the older file.
      */
-    @Test fun aFileReadAgainCountsOnlyOnceShown() {
+    @Test
+    fun aFileReadAgainCountsOnlyOnceShown() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -208,7 +228,10 @@ class TextDocumentTest {
         assertEquals(Saved.Changed, doc.save("one\nmine\n"))
         assertEquals("theirs\n", files.text(notes))
         doc.keepDraft("one\nmine\n")
-        assertEquals(Opened.Ready("one\nmine\n", "theirs\n", restored = true, changedSince = true), document().open())
+        assertEquals(
+            Opened.Ready("one\nmine\n", "theirs\n", restored = true, changedSince = true),
+            document().open()
+        )
         // Shown: the text is based on it now, and saves at once.
         doc.adopt(fresh)
         assertEquals("theirs\n", doc.fileText)
@@ -216,7 +239,8 @@ class TextDocumentTest {
     }
 
     /** Reading again says when the file can't be read, or is no longer text, and leaves the document as it was. */
-    @Test fun readingAgainSaysWhatIsWrong() {
+    @Test
+    fun readingAgainSaysWhatIsWrong() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -224,7 +248,10 @@ class TextDocumentTest {
         assertEquals("gone", (doc.reread() as TextDocument.Reread.Unavailable).why)
         files.unreachable = null
         files.files.getValue(notes).bytes = byteArrayOf(1, 0, 2)
-        assertEquals("It is not a text file: it holds binary data.", (doc.reread() as TextDocument.Reread.Refused).why)
+        assertEquals(
+            "It is not a text file: it holds binary data.",
+            (doc.reread() as TextDocument.Reread.Refused).why
+        )
         assertEquals("one\n", doc.fileText)
         assertEquals(Saved.Changed, doc.save("two\n"))
     }
@@ -233,7 +260,8 @@ class TextDocumentTest {
      * A save keeps the text as a draft before it touches the file. Typed and saved at once, with
      * no draft written yet: a write that fails leaves the text in a draft.
      */
-    @Test fun aSaveKeepsADraftFirst() {
+    @Test
+    fun aSaveKeepsADraftFirst() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -243,12 +271,16 @@ class TextDocumentTest {
         assertEquals(Opened.Ready("two\n", "one\n", restored = true), document().open())
         // Save as does the same.
         drafts.delete(notes)
-        assertEquals(Saved.Failed("No space left on device"), doc.saveCopy("content://files/document/copy.txt", "three\n"))
+        assertEquals(
+            Saved.Failed("No space left on device"),
+            doc.saveCopy("content://files/document/copy.txt", "three\n")
+        )
         assertEquals("three\n", drafts.read(notes)?.text)
     }
 
     /** A text that a save would write as what the file holds needs no draft: only its last line break is missing. */
-    @Test fun aMissingLastLineBreakNeedsNoDraft() {
+    @Test
+    fun aMissingLastLineBreakNeedsNoDraft() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -264,7 +296,8 @@ class TextDocumentTest {
     }
 
     /** A write that fails keeps the draft, and says why. */
-    @Test fun aFailedSaveKeepsTheDraft() {
+    @Test
+    fun aFailedSaveKeepsTheDraft() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
@@ -276,28 +309,36 @@ class TextDocumentTest {
     }
 
     /** Permission taken back, or the file's app gone: the editor is told why, and gets the draft. */
-    @Test fun aFileOutOfReachKeepsItsDraft() {
+    @Test
+    fun aFileOutOfReachKeepsItsDraft() {
         files.put(notes, "one\n")
         val first = document()
         first.open()
         first.keepDraft("two\n")
         files.unreachable = "Kolahal has no permission to read this file"
         val doc = document()
-        assertEquals(Opened.Unavailable("Kolahal has no permission to read this file", "two\n"), doc.open())
+        assertEquals(
+            Opened.Unavailable("Kolahal has no permission to read this file", "two\n"),
+            doc.open()
+        )
         assertEquals("notes.txt", doc.name)
         assertNull(doc.fileText)
         // Saving says why it can't, and the draft stays.
         assertEquals(Saved.Failed("Kolahal has no permission to read this file"), doc.save("two\n"))
         assertTrue(drafts.has(notes))
         // Without a draft there is nothing to show.
-        assertEquals(Opened.Unavailable("Kolahal has no permission to read this file", null), document("content://files/document/other.txt").open())
+        assertEquals(
+            Opened.Unavailable("Kolahal has no permission to read this file", null),
+            document("content://files/document/other.txt").open()
+        )
     }
 
     /**
      * The same file, opened again at an address Kolahal may write (from its folder): the unsaved
      * text moves there, and saves at once. Nothing is left at the old address.
      */
-    @Test fun unsavedTextMovesToTheSameFileAtAnotherAddress() {
+    @Test
+    fun unsavedTextMovesToTheSameFileAtAnotherAddress() {
         val folder = "content://files/document/folder/notes.txt"
         files.put(notes, "one\n", writable = false)
         files.files[folder] = files.files.getValue(notes)
@@ -313,7 +354,8 @@ class TextDocumentTest {
     }
 
     /** Another file was picked: its unsaved text is never overwritten, and a different file asks before a save. */
-    @Test fun movedTextNeverReplacesOtherUnsavedText() {
+    @Test
+    fun movedTextNeverReplacesOtherUnsavedText() {
         val other = "content://files/document/other.txt"
         files.put(notes, "one\n")
         files.put(other, "theirs\n")
@@ -328,12 +370,16 @@ class TextDocumentTest {
         document(other).discardDraft()
         assertTrue(doc.moveDraftTo(other, "two\n"))
         val moved = document(other)
-        assertEquals(Opened.Ready("two\n", "theirs\n", restored = true, changedSince = true), moved.open())
+        assertEquals(
+            Opened.Ready("two\n", "theirs\n", restored = true, changedSince = true),
+            moved.open()
+        )
         assertEquals(Saved.Changed, moved.save("two\n"))
     }
 
     /** The second way to write a file is tried only when the first can't open it, and a failure says the first one's reason. */
-    @Test fun aSecondWayToWriteIsTriedOnlyAfterTheFirstFails() {
+    @Test
+    fun aSecondWayToWriteIsTriedOnlyAfterTheFirstFails() {
         val tried = mutableListOf<String>()
         fun way(name: String, fails: Boolean): () -> String = {
             tried += name
@@ -344,12 +390,20 @@ class TextDocumentTest {
         tried.clear()
         assertEquals("media", firstOpen(sequenceOf(way("own", true), way("media", false))))
         assertEquals(listOf("own", "media"), tried)
-        val failed = runCatching { firstOpen(sequenceOf(way("own", true), way("media", true))) }.exceptionOrNull()
+        val failed = runCatching {
+            firstOpen(
+                sequenceOf(
+                    way("own", true),
+                    way("media", true)
+                )
+            )
+        }.exceptionOrNull()
         assertEquals("own refused", failed?.message)
     }
 
     /** Save as: the text goes to another file, in this file's format, and the draft goes once it is there. */
-    @Test fun saveAsWritesAnotherFile() {
+    @Test
+    fun saveAsWritesAnotherFile() {
         files.put(notes, "one\r\n")
         val doc = document()
         doc.open()
@@ -366,7 +420,8 @@ class TextDocumentTest {
     }
 
     /** The file came back within reach, with something in it that was never read: saving asks first. */
-    @Test fun aFileNeverReadIsNotOverwrittenUnasked() {
+    @Test
+    fun aFileNeverReadIsNotOverwrittenUnasked() {
         files.put(notes, "one\n")
         document().apply { open(); keepDraft("two\n") }
         files.unreachable = "gone"
@@ -380,20 +435,28 @@ class TextDocumentTest {
     }
 
     /** A binary file, or one too big, doesn't open; with unsaved text from when it was text, that text does. */
-    @Test fun aFileThatIsntTextIsRefused() {
+    @Test
+    fun aFileThatIsntTextIsRefused() {
         val picture = "content://files/document/picture.png"
         files.files[picture] = FakeFiles.File(byteArrayOf(1, 2, 0, 3), "picture.png", 1)
-        assertEquals(Opened.Refused("It is not a text file: it holds binary data."), document(picture).open())
+        assertEquals(
+            Opened.Refused("It is not a text file: it holds binary data."),
+            document(picture).open()
+        )
         files.put(notes, "one\n")
         document().apply { open(); keepDraft("two\n") }
         files.files.getValue(notes).bytes = byteArrayOf(1, 2, 0, 3)
         val doc = document()
-        assertEquals(Opened.Unavailable("It is not a text file: it holds binary data", "two\n"), doc.open())
+        assertEquals(
+            Opened.Unavailable("It is not a text file: it holds binary data", "two\n"),
+            doc.open()
+        )
         assertEquals(Saved.Changed, doc.save("two\n"))
     }
 
     /** A new, empty file: what is typed is saved with a line break at its end. */
-    @Test fun aNewFileIsSavedAsText() {
+    @Test
+    fun aNewFileIsSavedAsText() {
         files.put(notes, "")
         val doc = document()
         assertEquals(Opened.Ready("", ""), doc.open())
@@ -402,16 +465,24 @@ class TextDocumentTest {
     }
 
     /** Whether Kolahal may write the file comes from the file's app. */
-    @Test fun aReadOnlyFileSaysSo() {
+    @Test
+    fun aReadOnlyFileSaysSo() {
         files.put(notes, "one\n", writable = false)
         val doc = document()
         doc.open()
         assertFalse(doc.writable)
     }
 
-    @Test fun aNameFromTheAddress() {
-        assertEquals("notes.txt", TextDocument.nameIn("content://com.android.externalstorage.documents/document/primary%3ADocuments%2Fnotes.txt"))
-        assertEquals("todo.md", TextDocument.nameIn("content://com.android.externalstorage.documents/document/primary%3Atodo.md"))
+    @Test
+    fun aNameFromTheAddress() {
+        assertEquals(
+            "notes.txt",
+            TextDocument.nameIn("content://com.android.externalstorage.documents/document/primary%3ADocuments%2Fnotes.txt")
+        )
+        assertEquals(
+            "todo.md",
+            TextDocument.nameIn("content://com.android.externalstorage.documents/document/primary%3Atodo.md")
+        )
         assertEquals("42", TextDocument.nameIn("content://media/external/downloads/42"))
         assertEquals("file", TextDocument.nameIn(""))
     }

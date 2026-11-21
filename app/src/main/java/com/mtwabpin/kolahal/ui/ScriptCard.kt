@@ -119,20 +119,36 @@ internal fun ScriptCard(
             if (color == null) append(t) else withStyle(SpanStyle(color = color)) { append(t) }
         }
         // Leave out events that are switched off, because they don't run the script.
-        scheduleParts(s, info.isCommand, info.events.filter { info.grants.allows(it) }).forEach { part(it) }
+        scheduleParts(
+            s,
+            info.isCommand,
+            info.events.filter { info.grants.allows(it) }).forEach { part(it) }
         // Open, the card has a line for a failure and a missing key: say them only there.
         if (!(failed && expanded)) {
-            part(s.lastRun?.let { (if (failed) "Failed " else "Ran ") + relative(it, short = true) } ?: "Never run", if (failed) colors.error else null)
+            part(s.lastRun?.let { (if (failed) "Failed " else "Ran ") + relative(it, short = true) }
+                ?: "Never run", if (failed) colors.error else null)
         }
-        if (missingKeys.isNotEmpty() && !expanded) part("Needs " + missingKeys.joinToString(", "), colors.error)
+        if (missingKeys.isNotEmpty() && !expanded) part(
+            "Needs " + missingKeys.joinToString(", "),
+            colors.error
+        )
         if (selfUpdatedIn != null) part("Updated in $selfUpdatedIn", colors.primary)
     }
     // What needs doing, one tap away. A key comes first: without it, the script can't work.
     // Open, the lines below have the buttons, so there is no pill.
     val pills = if (expanded) emptyList() else listOfNotNull(
-        if (missingKeys.isNotEmpty()) Pill(null, "Add key", R.drawable.ic_key) { onAddKey(missingKeys.first()) } else null,
+        if (missingKeys.isNotEmpty()) Pill(null, "Add key", R.drawable.ic_key) {
+            onAddKey(
+                missingKeys.first()
+            )
+        } else null,
         copy?.takeIf { it.canRestore }?.let { c ->
-            if (c.state == CopyState.NEW_VERSION) Pill("New version", "Update", R.drawable.ic_arrow_up, onRestore)
+            if (c.state == CopyState.NEW_VERSION) Pill(
+                "New version",
+                "Update",
+                R.drawable.ic_arrow_up,
+                onRestore
+            )
             else Pill("Edited", "Reset", R.drawable.ic_refresh, onRestore)
         },
     )
@@ -141,13 +157,18 @@ internal fun ScriptCard(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = if (s.enabled) colors.primaryContainer else colors.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().animateContentSize().testTag("script-card"),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize()
+            .testTag("script-card"),
     ) {
         Column(Modifier.padding(start = CARD_SIDE, end = CARD_SIDE, top = 8.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(GUTTER), contentAlignment = Alignment.Center) {
                     Box(
-                        Modifier.size(8.dp).clip(CircleShape)
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
                             .background(if (!s.enabled) colors.outlineVariant else if (failed) colors.error else colors.primary)
                     )
                 }
@@ -172,10 +193,18 @@ internal fun ScriptCard(
                             ScriptSource.SHARED -> copy.addedSource ?: "Shared"
                             else -> "Yours"
                         }
-                        if (from != null) Text(" · $from", style = MaterialTheme.typography.labelSmall, color = colors.outline, maxLines = 1)
+                        if (from != null) Text(
+                            " · $from",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.outline,
+                            maxLines = 1
+                        )
                     }
                 }
-                if (info.isCommand && s.enabled) TextButton(shapes = ButtonDefaults.shapes(), onClick = onRun) { Text("Run") }
+                if (info.isCommand && s.enabled) TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onRun
+                ) { Text("Run") }
                 LabeledIconButton(
                     R.drawable.ic_expand_more,
                     if (expanded) "Hide details" else "Show details",
@@ -184,7 +213,10 @@ internal fun ScriptCard(
                 )
                 Switch(checked = s.enabled, onCheckedChange = onEnabled)
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = GUTTER)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = GUTTER)
+            ) {
                 Text(
                     summary,
                     style = MaterialTheme.typography.bodySmall,
@@ -197,9 +229,24 @@ internal fun ScriptCard(
             }
             // A second pill gets a line of its own, so the summary keeps its room.
             if (pills.size > 1) {
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) { CardPill(pills[1]) }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.End
+                ) { CardPill(pills[1]) }
             }
-            if (expanded) ScriptDetails(info, line, missingKeys, copy, onAccess, onNotify, onCompare, onRestore, onAddKey)
+            if (expanded) ScriptDetails(
+                info,
+                line,
+                missingKeys,
+                copy,
+                onAccess,
+                onNotify,
+                onCompare,
+                onRestore,
+                onAddKey
+            )
         }
     }
 }
@@ -216,16 +263,39 @@ private fun CardPill(pill: Pill) {
         shape = CircleShape,
         color = Color.Transparent,
         border = BorderStroke(1.dp, colors.outline),
-        modifier = Modifier.padding(start = 8.dp).testTag("script-pill"),
+        modifier = Modifier
+            .padding(start = 8.dp)
+            .testTag("script-pill"),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(28.dp).padding(horizontal = 10.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .height(28.dp)
+                .padding(horizontal = 10.dp)
+        ) {
             pill.label?.let {
-                Text(it, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant, maxLines = 1)
-                Box(Modifier.padding(horizontal = 8.dp).width(1.dp).height(16.dp).background(colors.outlineVariant))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1
+                )
+                Box(
+                    Modifier
+                        .padding(horizontal = 8.dp)
+                        .width(1.dp)
+                        .height(16.dp)
+                        .background(colors.outlineVariant)
+                )
             }
             Icon(painterResource(pill.icon), null, Modifier.size(14.dp), tint = colors.primary)
             Spacer(Modifier.width(4.dp))
-            Text(pill.action, style = MaterialTheme.typography.labelMedium, color = colors.primary, maxLines = 1)
+            Text(
+                pill.action,
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.primary,
+                maxLines = 1
+            )
         }
     }
 }
@@ -258,7 +328,11 @@ private fun ScriptDetails(
     val warn = Term.palette.warn
     Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         line?.let {
-            Surface(shape = MaterialTheme.shapes.small, color = colors.surfaceContainerHighest, modifier = Modifier.padding(start = GUTTER)) {
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = colors.surfaceContainerHighest,
+                modifier = Modifier.padding(start = GUTTER)
+            ) {
                 Text(
                     it,
                     style = type.bodySmall.copy(fontFamily = FontFamily.Monospace),
@@ -268,21 +342,40 @@ private fun ScriptDetails(
                 )
             }
         }
-        info.desc?.let { Text(it, style = type.bodyMedium, modifier = Modifier.padding(start = GUTTER)) }
+        info.desc?.let {
+            Text(
+                it,
+                style = type.bodyMedium,
+                modifier = Modifier.padding(start = GUTTER)
+            )
+        }
 
         // Problems first: they say what is wrong and offer the fix.
         // The last run's failure, said once: "Failed 10:42 · HTTP 401: invalid key".
         if (s.failed()) {
-            val result = EditorLogic.runResult(s.lastStatus, ScriptWorker.TIMEOUT_MS / 1000, tapHint = false).text.removePrefix("Error: ")
+            val result = EditorLogic.runResult(
+                s.lastStatus,
+                ScriptWorker.TIMEOUT_MS / 1000,
+                tapHint = false
+            ).text.removePrefix("Error: ")
             val text = buildAnnotatedString {
                 append("Failed ${s.lastRun?.let { runTime(it) }.orEmpty()}".trimEnd())
                 append(" · ")
-                withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp)) { append(result) }
+                withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp)) {
+                    append(
+                        result
+                    )
+                }
             }
             ProblemLine(R.drawable.ic_error, colors.error, text, textColor = colors.error)
         }
         for (key in missingKeys) {
-            ProblemLine(R.drawable.ic_key, colors.error, AnnotatedString("$key is not set"), textColor = colors.error) {
+            ProblemLine(
+                R.drawable.ic_key,
+                colors.error,
+                AnnotatedString("$key is not set"),
+                textColor = colors.error
+            ) {
                 TextAction("Add key") { onAddKey(key) }
             }
         }
@@ -307,13 +400,19 @@ private fun ScriptDetails(
 
         // When it runs. An event script has its event pills here, and the run info under them.
         val (events, access) = info.accessItems.partition { it in info.events }
-        val timed = scheduleParts(s, isCommand = false, events = emptyList(), manual = events.isEmpty() && !info.isCommand)
+        val timed = scheduleParts(
+            s,
+            isCommand = false,
+            events = emptyList(),
+            manual = events.isEmpty() && !info.isCommand
+        )
         val next = nextRun(s)?.let { (at, exact) ->
             val time = Config.get(LocalContext.current).shortTime(at)
             if (exact) "Next $time" else "Next about $time"
         }
         // A failed run is said in its own line above.
-        val last = if (s.failed()) null else s.lastRun?.let { "Ran " + relative(it, short = true) } ?: "Never run"
+        val last = if (s.failed()) null else s.lastRun?.let { "Ran " + relative(it, short = true) }
+            ?: "Never run"
         val runs = (timed + listOfNotNull(next, last)).joinToString(" · ")
         if (events.isNotEmpty()) {
             IconLine(R.drawable.ic_schedule, PILL_HEIGHT) {
@@ -321,10 +420,18 @@ private fun ScriptDetails(
                     Pills {
                         for (item in events) {
                             val allowed = grants.allows(item)
-                            AccessPill(item.replaceFirstChar { it.uppercase() }, allowed, PILL_ICONS[item]) { onAccess(item, !allowed) }
+                            AccessPill(
+                                item.replaceFirstChar { it.uppercase() },
+                                allowed,
+                                PILL_ICONS[item]
+                            ) { onAccess(item, !allowed) }
                         }
                     }
-                    if (runs.isNotEmpty()) Text(runs, style = type.bodySmall, color = colors.onSurfaceVariant)
+                    if (runs.isNotEmpty()) Text(
+                        runs,
+                        style = type.bodySmall,
+                        color = colors.onSurfaceVariant
+                    )
                 }
             }
         } else if (runs.isNotEmpty()) {
@@ -339,7 +446,12 @@ private fun ScriptDetails(
             IconLine(R.drawable.ic_terminal, mono.lineHeightDp()) {
                 FlowRow {
                     val parts = usage.split("|")
-                    parts.forEachIndexed { i, part -> Text(if (i < parts.lastIndex) "$part|" else part, style = mono) }
+                    parts.forEachIndexed { i, part ->
+                        Text(
+                            if (i < parts.lastIndex) "$part|" else part,
+                            style = mono
+                        )
+                    }
                 }
             }
         }
@@ -352,12 +464,22 @@ private fun ScriptDetails(
                 val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
                 for (item in base + listOfNotNull("notify".takeIf { info.notifies }) + declared) {
                     if (item == "notify") {
-                        AccessPill("Notifies", s.notify, R.drawable.ic_notifications) { onNotify(!s.notify) }
+                        AccessPill(
+                            "Notifies",
+                            s.notify,
+                            R.drawable.ic_notifications
+                        ) { onNotify(!s.notify) }
                         continue
                     }
-                    val name = (USES_SHORT[item] ?: if (item == ScriptAccess.HEADER) "pinned" else ScriptAccess.label(item).lowercase()).replaceFirstChar { it.uppercase() }
+                    val name = (USES_SHORT[item]
+                        ?: if (item == ScriptAccess.HEADER) "pinned" else ScriptAccess.label(item)
+                            .lowercase()).replaceFirstChar { it.uppercase() }
                     val allowed = grants.allows(item)
-                    AccessPill(if (item in grants.undecided) "$name · not allowed yet" else name, allowed, PILL_ICONS[item]) { onAccess(item, !allowed) }
+                    AccessPill(
+                        if (item in grants.undecided) "$name · not allowed yet" else name,
+                        allowed,
+                        PILL_ICONS[item]
+                    ) { onAccess(item, !allowed) }
                 }
             }
         }
@@ -367,7 +489,10 @@ private fun ScriptDetails(
 /** When a run was: "10:42" today, else how long ago ("3 days ago"). */
 @Composable
 private fun runTime(at: Long): String =
-    if (DateUtils.isToday(at)) Config.get(LocalContext.current).shortTime(at) else relative(at, short = true)
+    if (DateUtils.isToday(at)) Config.get(LocalContext.current).shortTime(at) else relative(
+        at,
+        short = true
+    )
 
 /** The line height of a text style, in dp. It follows the phone's font size. */
 @Composable
@@ -381,9 +506,18 @@ private val PILL_HEIGHT = 32.dp
  * [anchor] dp of the line: the first line of text, or the first row of pills.
  */
 @Composable
-private fun IconLine(icon: Int, anchor: Dp, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, content: @Composable () -> Unit) {
+private fun IconLine(
+    icon: Int,
+    anchor: Dp,
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    content: @Composable () -> Unit
+) {
     Row {
-        Box(Modifier.width(GUTTER).height(anchor), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .width(GUTTER)
+                .height(anchor), contentAlignment = Alignment.Center
+        ) {
             Icon(painterResource(icon), null, Modifier.size(LINE_ICON), tint = tint)
         }
         Box(Modifier.weight(1f)) { content() }
@@ -408,9 +542,18 @@ private fun ProblemLine(
         Row {
             Column(Modifier.weight(1f)) {
                 Text(text, style = type.bodyMedium, color = textColor)
-                hint?.let { Text(it, style = type.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                hint?.let {
+                    Text(
+                        it,
+                        style = type.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            Row(Modifier.padding(start = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { buttons() }
+            Row(
+                Modifier.padding(start = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) { buttons() }
         }
     }
 }
@@ -422,13 +565,22 @@ private fun ProblemLine(
  */
 @Composable
 private fun TextAction(label: String, onClick: () -> Unit) {
-    val style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = MaterialTheme.typography.bodyMedium.lineHeight)
+    val style = MaterialTheme.typography.labelLarge.copy(
+        fontSize = 13.sp,
+        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+    )
     val line = style.lineHeightDp()
     Box(
         Modifier
             .layout { measurable, constraints ->
                 val side = 6.dp.roundToPx()
-                val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0, maxWidth = constraints.maxWidth + 2 * side))
+                val p = measurable.measure(
+                    constraints.copy(
+                        minWidth = 0,
+                        minHeight = 0,
+                        maxWidth = constraints.maxWidth + 2 * side
+                    )
+                )
                 val h = minOf(p.height, line.roundToPx())
                 layout(p.width - 2 * side, h) { p.place(-side, (h - p.height) / 2) }
             }
@@ -445,7 +597,11 @@ private fun TextAction(label: String, onClick: () -> Unit) {
 /** A row of pills: they wrap to more rows when there are many. */
 @Composable
 private fun Pills(content: @Composable FlowRowScope.() -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        content = content
+    )
 }
 
 /**
@@ -459,17 +615,25 @@ internal fun CopyButton(copy: ScriptCopy, onClick: () -> Unit) {
     val label = when {
         copy.state == CopyState.EDITED -> if (copy.lib != null) "Reset to library version" else "Reset to shared version"
         copy.lib != null -> "Update from library"
-        else -> copy.shared?.version?.takeIf { it.isNotBlank() }?.let { "Update to $it" } ?: "Update"
+        else -> copy.shared?.version?.takeIf { it.isNotBlank() }?.let { "Update to $it" }
+            ?: "Update"
     }
-    OutlinedAction(label, R.drawable.ic_refresh, iconTint = if (copy.edited) MaterialTheme.colorScheme.error else null, onClick = onClick)
+    OutlinedAction(
+        label,
+        R.drawable.ic_refresh,
+        iconTint = if (copy.edited) MaterialTheme.colorScheme.error else null,
+        onClick = onClick
+    )
 }
 
 /** Whether a library copy is not this version's: it was edited, or it comes from an older Kolahal. */
-internal fun ScriptLibrary.State.differs() = this == ScriptLibrary.State.MODIFIED || this == ScriptLibrary.State.UPDATE_AVAILABLE
+internal fun ScriptLibrary.State.differs() =
+    this == ScriptLibrary.State.MODIFIED || this == ScriptLibrary.State.UPDATE_AVAILABLE
 
 /** The Compare button. It shows a library copy next to the library version. */
 @Composable
-internal fun CompareButton(onClick: () -> Unit) = OutlinedAction("Compare", R.drawable.ic_visibility, onClick = onClick)
+internal fun CompareButton(onClick: () -> Unit) =
+    OutlinedAction("Compare", R.drawable.ic_visibility, onClick = onClick)
 
 /**
  * The button for Compare and Reset, of the usual button height. It is outlined, in the theme's text and outline
@@ -488,7 +652,12 @@ private fun OutlinedAction(label: String, icon: Int, iconTint: Color? = null, on
         contentPadding = ButtonDefaults.contentPaddingFor(height),
         modifier = Modifier.heightIn(min = height),
     ) {
-        Icon(painterResource(icon), null, Modifier.size(ButtonDefaults.iconSizeFor(height)), tint = iconTint ?: colors.onSurface)
+        Icon(
+            painterResource(icon),
+            null,
+            Modifier.size(ButtonDefaults.iconSizeFor(height)),
+            tint = iconTint ?: colors.onSurface
+        )
         Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(height)))
         Text(label, style = ButtonDefaults.textStyleFor(height))
     }
@@ -507,7 +676,15 @@ private fun AccessPill(label: String, on: Boolean, icon: Int?, onToggle: () -> U
         onClick = onToggle,
         // One line: a long label is cut, so a pill never grows to two lines and breaks the row.
         label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        leadingIcon = icon?.let { { Icon(painterResource(it), null, Modifier.size(FilterChipDefaults.IconSize)) } },
+        leadingIcon = icon?.let {
+            {
+                Icon(
+                    painterResource(it),
+                    null,
+                    Modifier.size(FilterChipDefaults.IconSize)
+                )
+            }
+        },
         colors = FilterChipDefaults.filterChipColors(
             labelColor = colors.outline,
             iconColor = colors.outline,
@@ -515,7 +692,11 @@ private fun AccessPill(label: String, on: Boolean, icon: Int?, onToggle: () -> U
             selectedLabelColor = colors.onPrimary,
             selectedLeadingIconColor = colors.onPrimary,
         ),
-        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = on, borderColor = colors.outlineVariant),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = on,
+            borderColor = colors.outlineVariant
+        ),
         modifier = Modifier
             .layout { measurable, constraints ->
                 val p = measurable.measure(constraints.copy(minHeight = 0))
@@ -528,13 +709,26 @@ private fun AccessPill(label: String, on: Boolean, icon: Int?, onToggle: () -> U
 
 /** An icon for every access and event pill, so the pills look alike. ScriptUsesTest checks that each `@uses` item has one. */
 internal val PILL_ICONS = mapOf(
-    ScriptAccess.INTERNET to R.drawable.ic_public, "clipboard" to R.drawable.ic_clipboard, "dnd" to R.drawable.ic_do_not_disturb,
+    ScriptAccess.INTERNET to R.drawable.ic_public,
+    "clipboard" to R.drawable.ic_clipboard,
+    "dnd" to R.drawable.ic_do_not_disturb,
     "headset" to R.drawable.ic_headset,
-    ScriptAccess.HEADER to R.drawable.ic_home, "notifications" to R.drawable.ic_notifications, "apps" to R.drawable.ic_apps,
-    "commands" to R.drawable.ic_stat_terminal, "work" to R.drawable.ic_work,
-    "unlock" to R.drawable.ic_lock_open, "charger" to R.drawable.ic_battery, "unplug" to R.drawable.ic_battery,
-    "wifi" to R.drawable.ic_wifi, "offline" to R.drawable.ic_cloud_off, "notification" to R.drawable.ic_notifications,
+    ScriptAccess.HEADER to R.drawable.ic_home,
+    "notifications" to R.drawable.ic_notifications,
+    "apps" to R.drawable.ic_apps,
+    "commands" to R.drawable.ic_stat_terminal,
+    "work" to R.drawable.ic_work,
+    "unlock" to R.drawable.ic_lock_open,
+    "charger" to R.drawable.ic_battery,
+    "unplug" to R.drawable.ic_battery,
+    "wifi" to R.drawable.ic_wifi,
+    "offline" to R.drawable.ic_cloud_off,
+    "notification" to R.drawable.ic_notifications,
     "boot" to R.drawable.ic_restart,
-    "todos" to R.drawable.ic_check, "notes" to R.drawable.ic_edit, "reminders" to R.drawable.ic_alarm,
-    "calendar" to R.drawable.ic_calendar, "feeds" to R.drawable.ic_rss, "usage" to R.drawable.ic_schedule,
+    "todos" to R.drawable.ic_check,
+    "notes" to R.drawable.ic_edit,
+    "reminders" to R.drawable.ic_alarm,
+    "calendar" to R.drawable.ic_calendar,
+    "feeds" to R.drawable.ic_rss,
+    "usage" to R.drawable.ic_schedule,
 )

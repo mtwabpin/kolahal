@@ -36,7 +36,9 @@ fun WidgetHost.providerApps(context: Context): List<ProviderApp> {
         val user = list.first().user
         val ai = runCatching { launcherApps.getApplicationInfo(pkg, 0, user) }.getOrNull()
         val named = list.map { p ->
-            val description = if (Build.VERSION.SDK_INT >= 31) runCatching { p.info.loadDescription(context)?.toString() }.getOrNull() else null
+            val description = if (Build.VERSION.SDK_INT >= 31) runCatching {
+                p.info.loadDescription(context)?.toString()
+            }.getOrNull() else null
             Triple(p, p.info.loadLabel(pm).toString(), description)
         }.sortedBy { it.second.lowercase() }
         ProviderApp(

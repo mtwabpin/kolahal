@@ -47,14 +47,19 @@ import java.io.File
 /** Settings → Look & feel → Your themes: making, changing and deleting a theme. */
 @RunWith(AndroidJUnit4::class)
 class ThemeBuilderTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
     private lateinit var vm: TerminalViewModel
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         Term.palette = Palettes.green
         listOf("tb-test", "tb-test-2", "tb-renamed").forEach { CustomThemes.delete(app, it) }
         shared.delete()
@@ -68,17 +73,24 @@ class ThemeBuilderTest {
         }
         compose.setContent {
             KolahalTheme {
-                Box(Modifier.size(360.dp, 760.dp).consumeWindowInsets(WindowInsets.safeDrawing)) { ThemeBuilderScreen(vm) }
+                Box(
+                    Modifier
+                        .size(360.dp, 760.dp)
+                        .consumeWindowInsets(WindowInsets.safeDrawing)
+                ) { ThemeBuilderScreen(vm) }
             }
         }
     }
 
     private val shared = File(app.cacheDir, "shared theme.json")
 
-    private fun name(text: String) = compose.onNodeWithTag("theme-name").performTextReplacement(text)
+    private fun name(text: String) =
+        compose.onNodeWithTag("theme-name").performTextReplacement(text)
+
     private val save get() = compose.onNodeWithText("Save and apply")
 
-    @Test fun aNewThemeStartsFromTheOneInUseAndIsUsedWhenSaved() {
+    @Test
+    fun aNewThemeStartsFromTheOneInUseAndIsUsedWhenSaved() {
         config.set(Keys.THEME, "dracula")
         open(null)
         compose.onNodeWithTag("theme-name").assert(hasText("my-theme"))
@@ -90,7 +102,8 @@ class ThemeBuilderTest {
         assertTrue(File(app.filesDir, "themes/tb-test.json").exists())
     }
 
-    @Test fun startFromCopiesAnotherTheme() {
+    @Test
+    fun startFromCopiesAnotherTheme() {
         open(null)
         compose.onNodeWithText("Gruvbox").performScrollTo().performClick()
         name("tb-test")
@@ -99,29 +112,37 @@ class ThemeBuilderTest {
     }
 
     /** Dark and Light switch which version the colours change; each is saved. */
-    @Test fun theLightVersionIsChangedOnItsOwn() {
+    @Test
+    fun theLightVersionIsChangedOnItsOwn() {
         open(null)
         name("tb-test")
         compose.onNodeWithTag("version Light").performClick()
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("background")
         compose.onNodeWithTag("role background").performClick()
-        compose.onNode(hasSetTextAction() and hasText("#", substring = true)).performTextReplacement("#FAFAF0")
+        compose.onNode(hasSetTextAction() and hasText("#", substring = true))
+            .performTextReplacement("#FAFAF0")
         compose.onNodeWithText("Done").performClick()
         save.performClick()
         val saved = CustomThemes.colors("tb-test")!!
         assertEquals(0xFFFAFAF0.toInt(), CustomThemes.light(saved)!!.getValue("background"))
-        assertEquals(Palettes.colorsOf(Palettes.green).getValue("background"), saved.getValue("background"))
+        assertEquals(
+            Palettes.colorsOf(Palettes.green).getValue("background"),
+            saved.getValue("background")
+        )
     }
 
     /** A colour typed in the picker shows at once, in its row and in the preview, and is saved. */
-    @Test fun aColourIsPickedByHex() {
+    @Test
+    fun aColourIsPickedByHex() {
         open(null)
         name("tb-test")
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("background")
         compose.onNodeWithTag("role background").performClick()
-        compose.onNode(hasSetTextAction() and hasText("#", substring = true)).performTextReplacement("#123456")
+        compose.onNode(hasSetTextAction() and hasText("#", substring = true))
+            .performTextReplacement("#123456")
         compose.onNodeWithText("Done").performClick()
-        compose.onNode(hasText("#123456") and !hasSetTextAction(), useUnmergedTree = true).assertExists()
+        compose.onNode(hasText("#123456") and !hasSetTextAction(), useUnmergedTree = true)
+            .assertExists()
         // The preview's own background, left of its gutter.
         val preview = compose.onNodeWithTag("theme-preview").captureToImage().toPixelMap()
         assertEquals(Color(0xFF123456), preview[8, preview.height / 2])
@@ -130,7 +151,8 @@ class ThemeBuilderTest {
         assertEquals(0xFF123456.toInt(), CustomThemes.colors("tb-test")!!.getValue("background"))
     }
 
-    @Test fun aNameIsCheckedBeforeSaving() {
+    @Test
+    fun aNameIsCheckedBeforeSaving() {
         CustomThemes.save(app, "tb-renamed", Palettes.colorsOf(Palettes.mono))
         open(null)
         name("green")
@@ -148,7 +170,8 @@ class ThemeBuilderTest {
         save.assertIsEnabled()
     }
 
-    @Test fun renamingMovesTheTheme() {
+    @Test
+    fun renamingMovesTheTheme() {
         CustomThemes.save(app, "tb-test", Palettes.colorsOf(Palettes.amber))
         config.set(Keys.THEME, "tb-test")
         open("tb-test")
@@ -159,11 +182,15 @@ class ThemeBuilderTest {
         assertFalse(File(app.filesDir, "themes/tb-test.json").exists())
         // Saved with a light version, the same as its dark one: it looked the same in both modes before.
         val amber = Palettes.colorsOf(Palettes.amber)
-        assertEquals(amber + amber.mapKeys { CustomThemes.LIGHT + it.key }, CustomThemes.colors("tb-renamed"))
+        assertEquals(
+            amber + amber.mapKeys { CustomThemes.LIGHT + it.key },
+            CustomThemes.colors("tb-renamed")
+        )
         assertEquals("tb-renamed", config[Keys.THEME])
     }
 
-    @Test fun deletingTheThemeInUseGoesBackToGreen() {
+    @Test
+    fun deletingTheThemeInUseGoesBackToGreen() {
         CustomThemes.save(app, "tb-test", Palettes.colorsOf(Palettes.amber))
         config.set(Keys.THEME, "tb-test")
         open("tb-test")
@@ -175,7 +202,8 @@ class ThemeBuilderTest {
     }
 
     /** Exported, a theme's file carries its name; imported, it is kept as yours, under a free name, and used. */
-    @Test fun aThemeTravelsInAFile() {
+    @Test
+    fun aThemeTravelsInAFile() {
         CustomThemes.save(app, "tb-test", Palettes.colorsOf(Palettes.amber))
         val amber = CustomThemes.colors("tb-test")
         open("tb-test")
@@ -201,7 +229,15 @@ class ThemeBuilderTest {
         // Imported again: you already have it, so nothing new.
         config.set(Keys.THEME, "green")
         val before = CustomThemes.names
-        File(app.cacheDir, "again.json").apply { writeText(CustomThemes.encode(Palettes.colorsOf(Palettes.dracula), "tb-test")) }.let {
+        File(app.cacheDir, "again.json").apply {
+            writeText(
+                CustomThemes.encode(
+                    Palettes.colorsOf(
+                        Palettes.dracula
+                    ), "tb-test"
+                )
+            )
+        }.let {
             vm.importTheme(Uri.fromFile(it))
             compose.waitUntil(5_000) { config[Keys.THEME] == "tb-test" }
             it.delete()
@@ -216,13 +252,15 @@ class ThemeBuilderTest {
     }
 
     /** A new theme has nothing saved to export yet. */
-    @Test fun onlyASavedThemeExports() {
+    @Test
+    fun onlyASavedThemeExports() {
         open(null)
         compose.onNodeWithContentDescription("Export theme").assertDoesNotExist()
     }
 
     /** A saved theme is a theme like the built-in ones, and comes back from its file at start. */
-    @Test fun aSavedThemeIsATheme() {
+    @Test
+    fun aSavedThemeIsATheme() {
         val colours = Palettes.colorsOf(Palettes.solarized)
         CustomThemes.save(app, "tb-test", colours)
         assertTrue("tb-test" in Keys.THEME.choices)
@@ -238,7 +276,8 @@ class ThemeBuilderTest {
     }
 
     /** Back leaves at once when nothing changed. */
-    @Test fun backLeavesAnUnchangedTheme() {
+    @Test
+    fun backLeavesAnUnchangedTheme() {
         open(null)
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Discard changes?").assertDoesNotExist()
@@ -246,7 +285,8 @@ class ThemeBuilderTest {
     }
 
     /** After a change, Back asks; Keep editing stays, Discard leaves without saving. */
-    @Test fun backAsksBeforeDiscardingChanges() {
+    @Test
+    fun backAsksBeforeDiscardingChanges() {
         open(null)
         compose.onNodeWithText("Gruvbox").performScrollTo().performClick()
         compose.onNodeWithContentDescription("Back").performClick()
@@ -261,7 +301,8 @@ class ThemeBuilderTest {
         assertNull(CustomThemes.colors("my-theme"))
     }
 
-    @Test fun aChangedNameOrColourIsAChange() {
+    @Test
+    fun aChangedNameOrColourIsAChange() {
         val start = mapOf("background" to 1)
         assertFalse(ThemeDraft.changed(start, mapOf("background" to 1), "a", "a"))
         assertTrue(ThemeDraft.changed(start, mapOf("background" to 2), "a", "a"))

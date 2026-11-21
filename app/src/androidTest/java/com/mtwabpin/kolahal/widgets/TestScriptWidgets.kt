@@ -30,6 +30,7 @@ class TestScriptWidgets(private val prefix: String) {
     val host: WidgetHost = WidgetHost.get(context)
     val scripts: ScriptRepository = ScriptRepository.get(context)
     private val work = WorkManager.getInstance(context)
+
     /** Every name a widget's content was kept under: a script's first name, and the ones it was renamed to. */
     private val names = mutableSetOf<String>()
     private val hadKeys: Set<String>
@@ -43,7 +44,8 @@ class TestScriptWidgets(private val prefix: String) {
     fun name(suffix: String): String = (prefix + suffix).also { names += it }
 
     /** A new script, switched on. */
-    fun create(suffix: String, code: String, lang: ScriptLang = ScriptLang.LUA): Script = scripts.create(name(suffix), lang, code)
+    fun create(suffix: String, code: String, lang: ScriptLang = ScriptLang.LUA): Script =
+        scripts.create(name(suffix), lang, code)
 
     /** The source of [name]'s own widget, and its key in the placed list. */
     fun source(name: String): String = WidgetSource.script(name)
@@ -51,13 +53,15 @@ class TestScriptWidgets(private val prefix: String) {
     fun key(name: String): String = "s:" + source(name)
 
     /** [name]'s entry on the widgets page, or null. */
-    fun entry(name: String): PlacedWidget? = host.widgets.value.firstOrNull { it.source == source(name) }
+    fun entry(name: String): PlacedWidget? =
+        host.widgets.value.firstOrNull { it.source == source(name) }
 
     /** What is kept for [name]'s widget. */
     fun stored(name: String): WidgetState = WidgetStates.read(context, name)
 
     /** The entry of the widget [ref] on the widgets page, or null. */
-    fun entry(ref: WidgetRef): PlacedWidget? = host.widgets.value.firstOrNull { it.source == WidgetSource.script(ref) }
+    fun entry(ref: WidgetRef): PlacedWidget? =
+        host.widgets.value.firstOrNull { it.source == WidgetSource.script(ref) }
 
     /** What is kept for the widget [ref]: one of a script's widgets. */
     fun stored(ref: WidgetRef): WidgetState = WidgetStates.read(context, ref.key)
@@ -94,7 +98,10 @@ class TestScriptWidgets(private val prefix: String) {
     /** Waits for what follows placing [s]'s widget, here or on a screen ([place]). Returns the script as it is then. */
     fun placed(s: Script): Script {
         host.settle()
-        assertTrue("the run that placing ${s.name} queued didn't end", runEnded(s.id, queued = true))
+        assertTrue(
+            "the run that placing ${s.name} queued didn't end",
+            runEnded(s.id, queued = true)
+        )
         return scripts.byId(s.id)!!
     }
 
@@ -121,7 +128,11 @@ class TestScriptWidgets(private val prefix: String) {
         val data = if (widget) {
             workDataOf(
                 ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_SCHEDULED to true,
-                ScriptWorker.KEY_EVENT to Json.stringify(ScriptScheduler.refreshEvent(ScriptScheduler.widgetKind(id))),
+                ScriptWorker.KEY_EVENT to Json.stringify(
+                    ScriptScheduler.refreshEvent(
+                        ScriptScheduler.widgetKind(id)
+                    )
+                ),
             )
         } else {
             workDataOf(ScriptWorker.KEY_SCRIPT_ID to s.id)

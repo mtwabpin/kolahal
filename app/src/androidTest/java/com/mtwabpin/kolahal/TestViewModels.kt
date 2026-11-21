@@ -28,7 +28,8 @@ class TestViewModels : ExternalResource() {
         }
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T = TerminalViewModel(app, SavedStateHandle()) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                TerminalViewModel(app, SavedStateHandle()) as T
         }
         return ViewModelProvider(store, factory)["vm${made++}", TerminalViewModel::class.java]
     }

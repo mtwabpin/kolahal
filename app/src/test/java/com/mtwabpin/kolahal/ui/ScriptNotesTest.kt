@@ -13,27 +13,38 @@ class ScriptNotesTest {
     private val stat = ScriptMeta.Widget(WidgetKind.STAT, WidgetSize.S2X1)
     private val weather = WidgetScript("weather", "Weather", enabled = true, widget = stat)
 
-    @Test fun aScriptThatIsThereAndOnHasNoNote() {
+    @Test
+    fun aScriptThatIsThereAndOnHasNoNote() {
         assertNull(scriptNote(read = true, script = weather))
     }
 
-    @Test fun aScriptThatIsGoneSaysRemoved() {
+    @Test
+    fun aScriptThatIsGoneSaysRemoved() {
         assertEquals(CardNote.REMOVED, scriptNote(read = true, script = null))
     }
 
-    @Test fun aScriptThatIsOffSaysOff() {
+    @Test
+    fun aScriptThatIsOffSaysOff() {
         assertEquals(CardNote.OFF, scriptNote(read = true, script = weather.copy(enabled = false)))
         // Off is said first: switching it on comes before its `@widget` line matters.
-        assertEquals(CardNote.OFF, scriptNote(read = true, script = weather.copy(enabled = false, widget = null)))
+        assertEquals(
+            CardNote.OFF,
+            scriptNote(read = true, script = weather.copy(enabled = false, widget = null))
+        )
     }
 
     /** A widget needs its script's `@widget` line. */
-    @Test fun aScriptThatLostItsWidgetLineSaysSo() {
-        assertEquals(CardNote.NO_WIDGET, scriptNote(read = true, script = weather.copy(widget = null)))
+    @Test
+    fun aScriptThatLostItsWidgetLineSaysSo() {
+        assertEquals(
+            CardNote.NO_WIDGET,
+            scriptNote(read = true, script = weather.copy(widget = null))
+        )
     }
 
     /** At the start the script list is empty for a moment. That must not read as "removed". */
-    @Test fun nothingIsSaidBeforeTheScriptsAreRead() {
+    @Test
+    fun nothingIsSaidBeforeTheScriptsAreRead() {
         assertNull(scriptNote(read = false, script = null))
         assertNull(scriptNote(read = false, script = weather.copy(enabled = false)))
         assertNull(scriptNote(read = false, script = weather.copy(widget = null)))

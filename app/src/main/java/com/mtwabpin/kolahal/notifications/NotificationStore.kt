@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 /** In-memory feed of recent notifications, newest first. It exists only in the UI process. */
 object NotificationStore {
     const val CAP = 200
+
     /** Maximum characters of each notification's text in the copy that scripts get. */
     private const val MAX_TEXT = 2000
 
@@ -59,7 +60,10 @@ object NotificationStore {
     fun active(): List<Notif> = _items.value.filter { !it.removed }
 
     /** The view for scripts: simple maps, newest first. Notifications that were removed are in it too. */
-    fun recent(limit: Int = 20, skipProfile: (Long) -> Boolean = { false }): List<Map<String, Any?>> =
+    fun recent(
+        limit: Int = 20,
+        skipProfile: (Long) -> Boolean = { false }
+    ): List<Map<String, Any?>> =
         _items.value.asSequence()
             .filter { !skipProfile(it.userSerial) }
             .take(limit.coerceIn(0, CAP))

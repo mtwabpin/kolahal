@@ -71,7 +71,8 @@ class FeedRepository private constructor(private val context: Context) {
      * @throws IllegalArgumentException when the address isn't an http(s) URL.
      */
     fun add(url: String, title: String? = null): Feed {
-        val normalized = FeedUrl.normalize(url) ?: throw IllegalArgumentException("Not an http(s) URL: $url")
+        val normalized =
+            FeedUrl.normalize(url) ?: throw IllegalArgumentException("Not an http(s) URL: $url")
         byUrl(normalized)?.let { return it }
         db.writableDatabase.insertWithOnConflict("feeds", null, ContentValues().apply {
             put("url", normalized)
@@ -79,7 +80,10 @@ class FeedRepository private constructor(private val context: Context) {
             put("added_at", System.currentTimeMillis())
             // New subscriptions take their values from the Feeds settings (feeds.interval, feeds.notify).
             val config = com.mtwabpin.kolahal.data.Config.get(context)
-            put("interval_min", config[com.mtwabpin.kolahal.data.Keys.FEEDS_INTERVAL].coerceAtLeast(FeedScheduler.MIN_INTERVAL_MIN))
+            put(
+                "interval_min",
+                config[com.mtwabpin.kolahal.data.Keys.FEEDS_INTERVAL].coerceAtLeast(FeedScheduler.MIN_INTERVAL_MIN)
+            )
             put("notify", if (config[com.mtwabpin.kolahal.data.Keys.FEEDS_NOTIFY]) 1 else 0)
         }, SQLiteDatabase.CONFLICT_IGNORE)
         changed()
@@ -94,7 +98,8 @@ class FeedRepository private constructor(private val context: Context) {
      * or there's no feed [id].
      */
     fun setUrl(id: Long, url: String): Feed {
-        val normalized = FeedUrl.normalize(url) ?: throw IllegalArgumentException("Not an http(s) URL: $url")
+        val normalized =
+            FeedUrl.normalize(url) ?: throw IllegalArgumentException("Not an http(s) URL: $url")
         val feed = byId(id) ?: throw IllegalArgumentException("No feed #$id")
         if (normalized == feed.url) return feed
         if (byUrl(normalized) != null) throw IllegalArgumentException("Already subscribed to $normalized")
@@ -155,19 +160,28 @@ class FeedRepository private constructor(private val context: Context) {
         return out
     }
 
-    fun setNotify(id: Long, notify: Boolean) = updateFeed(id) { put("notify", if (notify) 1 else 0) }
+    fun setNotify(id: Long, notify: Boolean) =
+        updateFeed(id) { put("notify", if (notify) 1 else 0) }
 
     /** Sets a feed's refresh interval. It is never below [FeedScheduler.MIN_INTERVAL_MIN]. */
     fun setInterval(id: Long, minutes: Int) =
-        updateFeed(id) { put("interval_min", minutes.coerceAtLeast(FeedScheduler.MIN_INTERVAL_MIN)) }
+        updateFeed(id) {
+            put(
+                "interval_min",
+                minutes.coerceAtLeast(FeedScheduler.MIN_INTERVAL_MIN)
+            )
+        }
 
-    fun setEnabled(id: Long, enabled: Boolean) = updateFeed(id) { put("enabled", if (enabled) 1 else 0) }
+    fun setEnabled(id: Long, enabled: Boolean) =
+        updateFeed(id) { put("enabled", if (enabled) 1 else 0) }
 
     /** Returns items, newest first. It can limit them to one feed, to unread items, or both. */
     fun items(feedId: Long? = null, unreadOnly: Boolean = false, limit: Int = 100): List<FeedItem> {
         val where = ArrayList<String>()
         val args = ArrayList<String>()
-        if (feedId != null) { where += "feed_id = ?"; args += feedId.toString() }
+        if (feedId != null) {
+            where += "feed_id = ?"; args += feedId.toString()
+        }
         if (unreadOnly) where += "read = 0"
         val clause = if (where.isEmpty()) "" else "WHERE " + where.joinToString(" AND ")
         args += limit.toString()
@@ -181,7 +195,10 @@ class FeedRepository private constructor(private val context: Context) {
 
     fun markRead(itemId: Long) {
         val n = db.writableDatabase.update(
-            "items", ContentValues().apply { put("read", 1) }, "id = ? AND read = 0", arrayOf(itemId.toString()),
+            "items",
+            ContentValues().apply { put("read", 1) },
+            "id = ? AND read = 0",
+            arrayOf(itemId.toString()),
         )
         if (n > 0) changed()
     }
@@ -189,7 +206,10 @@ class FeedRepository private constructor(private val context: Context) {
     /** Marks one item unread again. Used for a second swipe in its feed's list, or a swipe on a read item. */
     fun markUnread(itemId: Long) {
         val n = db.writableDatabase.update(
-            "items", ContentValues().apply { put("read", 0) }, "id = ? AND read = 1", arrayOf(itemId.toString()),
+            "items",
+            ContentValues().apply { put("read", 0) },
+            "id = ? AND read = 1",
+            arrayOf(itemId.toString()),
         )
         if (n > 0) changed()
     }
@@ -201,15 +221,23 @@ class FeedRepository private constructor(private val context: Context) {
         val w = db.writableDatabase
         var n = 0
         w.transaction {
-            for (id in itemIds.distinct()) n += w.update("items", values, "id = ? AND read = 0", arrayOf(id.toString()))
+            for (id in itemIds.distinct()) n += w.update(
+                "items",
+                values,
+                "id = ? AND read = 0",
+                arrayOf(id.toString())
+            )
         }
         if (n > 0) changed()
     }
 
     /** Counts unread items, of all feeds or of one feed (the same scope as [items] with unreadOnly). */
     fun unreadCount(feedId: Long?): Int {
-        val (clause, args) = if (feedId == null) "" to emptyArray() else " AND feed_id = ?" to arrayOf(feedId.toString())
-        return db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE read = 0$clause", *args).toInt()
+        val (clause, args) = if (feedId == null) "" to emptyArray() else " AND feed_id = ?" to arrayOf(
+            feedId.toString()
+        )
+        return db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE read = 0$clause", *args)
+            .toInt()
     }
 
     /** Marks every item read, or only those of [feedId]. */
@@ -218,7 +246,12 @@ class FeedRepository private constructor(private val context: Context) {
         val n = if (feedId == null) {
             db.writableDatabase.update("items", values, "read = 0", null)
         } else {
-            db.writableDatabase.update("items", values, "feed_id = ? AND read = 0", arrayOf(feedId.toString()))
+            db.writableDatabase.update(
+                "items",
+                values,
+                "feed_id = ? AND read = 0",
+                arrayOf(feedId.toString())
+            )
         }
         if (n > 0) changed()
     }
@@ -231,10 +264,18 @@ class FeedRepository private constructor(private val context: Context) {
         val w = db.writableDatabase
         val ids = ArrayList<Long>()
         w.transaction {
-            w.rawQuery("SELECT id FROM items WHERE feed_id = ? AND read = 0", arrayOf(feedId.toString())).use { c ->
+            w.rawQuery(
+                "SELECT id FROM items WHERE feed_id = ? AND read = 0",
+                arrayOf(feedId.toString())
+            ).use { c ->
                 while (c.moveToNext()) ids += c.getLong(0)
             }
-            if (ids.isNotEmpty()) w.update("items", ContentValues().apply { put("read", 1) }, "feed_id = ? AND read = 0", arrayOf(feedId.toString()))
+            if (ids.isNotEmpty()) w.update(
+                "items",
+                ContentValues().apply { put("read", 1) },
+                "feed_id = ? AND read = 0",
+                arrayOf(feedId.toString())
+            )
         }
         if (ids.isNotEmpty()) changed()
         return ids
@@ -247,13 +288,21 @@ class FeedRepository private constructor(private val context: Context) {
         val w = db.writableDatabase
         var n = 0
         w.transaction {
-            for (id in itemIds.distinct()) n += w.update("items", values, "id = ? AND read = 1", arrayOf(id.toString()))
+            for (id in itemIds.distinct()) n += w.update(
+                "items",
+                values,
+                "id = ? AND read = 1",
+                arrayOf(id.toString())
+            )
         }
         if (n > 0) changed()
     }
 
     /** Counts the stored items of [feedId], read or not. 0 means no fetch has succeeded yet. */
-    fun itemCount(feedId: Long): Int = db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE feed_id = ?", feedId.toString()).toInt()
+    fun itemCount(feedId: Long): Int = db.readableDatabase.number(
+        "SELECT COUNT(*) FROM items WHERE feed_id = ?",
+        feedId.toString()
+    ).toInt()
 
     // ---- used by FeedFetcher ----
 
@@ -278,7 +327,17 @@ class FeedRepository private constructor(private val context: Context) {
                     put("fetched_at", now)
                 }, SQLiteDatabase.CONFLICT_IGNORE)
                 if (rowId != -1L) {
-                    inserted += FeedItem(rowId, feedId, guid, title, link, publishedText, summary, now, false)
+                    inserted += FeedItem(
+                        rowId,
+                        feedId,
+                        guid,
+                        title,
+                        link,
+                        publishedText,
+                        summary,
+                        now,
+                        false
+                    )
                 }
             }
             if (inserted.isNotEmpty()) prune(w, feedId, items.map { it.guid })
@@ -286,9 +345,10 @@ class FeedRepository private constructor(private val context: Context) {
         if (inserted.isEmpty()) return emptyList()
         changed()
         // Only items that the prune kept count as new. A "N new" line must not count dropped items.
-        val kept = w.rawQuery("SELECT id FROM items WHERE feed_id = ?", arrayOf(feedId.toString())).use { c ->
-            buildSet { while (c.moveToNext()) add(c.getLong(0)) }
-        }
+        val kept = w.rawQuery("SELECT id FROM items WHERE feed_id = ?", arrayOf(feedId.toString()))
+            .use { c ->
+                buildSet { while (c.moveToNext()) add(c.getLong(0)) }
+            }
         return inserted.filter { it.id in kept }.asReversed()
     }
 
@@ -328,12 +388,20 @@ class FeedRepository private constructor(private val context: Context) {
                 SELECT id FROM items WHERE feed_id = ? ORDER BY read ASC, id DESC LIMIT ?
             )
             """.trimIndent(),
-            (listOf<Any>(feedId) + listed + listOf(feedId, FeedDb.MAX_ITEMS_PER_FEED)).toTypedArray(),
+            (listOf<Any>(feedId) + listed + listOf(
+                feedId,
+                FeedDb.MAX_ITEMS_PER_FEED
+            )).toTypedArray(),
         )
     }
 
     private fun updateFeed(id: Long, block: ContentValues.() -> Unit) {
-        val n = db.writableDatabase.update("feeds", ContentValues().apply(block), "id = ?", arrayOf(id.toString()))
+        val n = db.writableDatabase.update(
+            "feeds",
+            ContentValues().apply(block),
+            "id = ?",
+            arrayOf(id.toString())
+        )
         if (n > 0) changed()
     }
 
@@ -381,6 +449,7 @@ class FeedRepository private constructor(private val context: Context) {
     private fun changed() = _version.update { it + 1 }
 
     companion object : Singleton<FeedRepository>(::FeedRepository) {
-        private const val ITEM_COLUMNS = "id, feed_id, guid, title, link, published_text, summary, fetched_at, read"
+        private const val ITEM_COLUMNS =
+            "id, feed_id, guid, title, link, published_text, summary, fetched_at, read"
     }
 }

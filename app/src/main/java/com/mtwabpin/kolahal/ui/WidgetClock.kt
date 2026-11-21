@@ -29,11 +29,11 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
-import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -119,16 +119,36 @@ private const val STRIPS_FROM_DP = 300
  *   that fits, and only again when they or their room change.
  */
 @Composable
-internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)? = null) {
+internal fun ClockBody(
+    spec: WidgetSpec.Clock,
+    box: WidgetSizes.Box,
+    onTap: ((WidgetTap) -> Unit)? = null
+) {
     val (_, zoneChanges) = rememberNow()
     val here = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
-    val format = remember(clock24, spec.seconds) { DateTimeFormatter.ofPattern(WidgetWords.clockPattern(clock24, spec.seconds), Locale.getDefault()) }
+    val format = remember(clock24, spec.seconds) {
+        DateTimeFormatter.ofPattern(
+            WidgetWords.clockPattern(
+                clock24,
+                spec.seconds
+            ), Locale.getDefault()
+        )
+    }
     val now = rememberMillis(seconds = spec.seconds)
     val places = remember(spec.zones) { WidgetWords.places(spec.zones) }
     // The times change with each tick; the places and their days rarely do. The card is laid out
     // from the places, and only the times are drawn again at a tick ([ClockTime]).
-    val ticking = remember(places, here, format) { derivedStateOf { WidgetWords.zoneTimesOf(places, now.value, here, format) } }
+    val ticking = remember(places, here, format) {
+        derivedStateOf {
+            WidgetWords.zoneTimesOf(
+                places,
+                now.value,
+                here,
+                format
+            )
+        }
+    }
     val times by remember(ticking) { derivedStateOf { ticking.value.map { it.copy(time = "") } } }
     fun time(i: Int): () -> String = { ticking.value.getOrNull(i)?.time.orEmpty() }
     if (times.isEmpty()) {
@@ -138,7 +158,16 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box, onTap: ((Wi
     val chars = WidgetWords.clockChars(clock24, spec.seconds)
     val zone = places.firstOrNull()?.second ?: here
     when (LocalWidgetLook.current) {
-        WidgetLook.BOLD -> return BoldClock(times, ::time, zone, now, box, chars, roleColour(spec.base))
+        WidgetLook.BOLD -> return BoldClock(
+            times,
+            ::time,
+            zone,
+            now,
+            box,
+            chars,
+            roleColour(spec.base)
+        )
+
         WidgetLook.SPLIT -> return SplitClock(times, ::time, box, chars)
         WidgetLook.SHAPE -> return ShapeClock(times, ::time, zone, now, box, roleColour(spec.base))
         else -> {}
@@ -162,12 +191,17 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box, onTap: ((Wi
                 ClockTime(time(0), WidgetWords.clockTextDp(width, chars, minOf(fits, 40)))
                 PlaceLabel(times[0])
             }
+
             box == WidgetSizes.Box.WIDE -> {
                 val columns = WidgetWords.clockColumns(times.size, width, chars)
                 val gap = WidgetWords.CONTROL_GAP_DP
                 val cell = (width - gap * (columns - 1)) / columns
                 val size = WidgetWords.clockTextDp(cell, chars, minOf(fits, 28))
-                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(gap.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     times.take(columns).forEachIndexed { i, time ->
                         key(i) {
                             Column(Modifier.weight(1f)) {
@@ -178,7 +212,20 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box, onTap: ((Wi
                     }
                 }
             }
-            width >= STRIPS_FROM_DP -> ClockStrips(places, here, format, now, clock24, chars, roleColour(spec.base), tappable = onTap != null, width, height)
+
+            width >= STRIPS_FROM_DP -> ClockStrips(
+                places,
+                here,
+                format,
+                now,
+                clock24,
+                chars,
+                roleColour(spec.base),
+                tappable = onTap != null,
+                width,
+                height
+            )
+
             else -> {
                 val gap = ROW_GAP_DP
                 val rows = WidgetWords.clockRows(times.size, height, gap)
@@ -189,13 +236,30 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box, onTap: ((Wi
                     times.take(rows).forEachIndexed { i, time ->
                         key(i) {
                             Row(
-                                Modifier.fillMaxWidth().height(row.dp).clip(segmentShape(i, rows)).background(tile).padding(horizontal = 12.dp),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(row.dp)
+                                    .clip(segmentShape(i, rows))
+                                    .background(tile)
+                                    .padding(horizontal = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Box(Modifier.weight(1f).padding(end = 8.dp)) {
+                                Box(
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
+                                ) {
                                     // A tall row has the difference on a second line, as the mockup has it.
-                                    if (row >= twoLines) PlaceAndDifference(time, nameStyle, type.bodySmall)
-                                    else PlaceLabel(time, style = type.labelLarge.copy(fontWeight = FontWeight.Bold), colour = MaterialTheme.colorScheme.onSurface)
+                                    if (row >= twoLines) PlaceAndDifference(
+                                        time,
+                                        nameStyle,
+                                        type.bodySmall
+                                    )
+                                    else PlaceLabel(
+                                        time,
+                                        style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        colour = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                                 ClockTime(time(i), size)
                             }
@@ -260,19 +324,45 @@ private fun ClockStrips(
     val seen = cardSeen()
     LaunchedEffect(seen) { if (!seen) picked = null }
     LifecycleStartEffect(Unit) { onStopOrDispose { picked = null } }
-    val today by remember(here, now) { derivedStateOf { Instant.ofEpochMilli(now.value).atZone(here).toLocalDate() } }
+    val today by remember(here, now) {
+        derivedStateOf {
+            Instant.ofEpochMilli(now.value).atZone(here).toLocalDate()
+        }
+    }
     // A new day starts at now: an hour picked yesterday would be one of today's without a word.
     LaunchedEffect(today) { picked = null }
     // The moment shown: the hour picked, or now.
-    val moment = remember(here, now) { derivedStateOf { picked?.let { WidgetWords.hourMoment(today, it, here) } ?: now.value } }
-    val ticking = remember(places, here, format, moment) { derivedStateOf { WidgetWords.zoneTimesOf(places, moment.value, here, format) } }
+    val moment = remember(here, now) {
+        derivedStateOf {
+            picked?.let {
+                WidgetWords.hourMoment(
+                    today,
+                    it,
+                    here
+                )
+            } ?: now.value
+        }
+    }
+    val ticking = remember(places, here, format, moment) {
+        derivedStateOf {
+            WidgetWords.zoneTimesOf(
+                places,
+                moment.value,
+                here,
+                format
+            )
+        }
+    }
     val times by remember(ticking) { derivedStateOf { ticking.value.map { it.copy(time = "") } } }
     fun time(i: Int): () -> String = { ticking.value.getOrNull(i)?.time.orEmpty() }
     // The line moves by the minute, also when the clock shows seconds.
     val minute = remember(moment) { derivedStateOf { moment.value / 60_000 } }
     val hour = picked
     val at = remember(hour, today, here, clock24) {
-        hour?.let { "At " + Instant.ofEpochMilli(WidgetWords.hourMoment(today, it, here)).atZone(here).format(TimeFormats.clockFormat(clock24)) }
+        hour?.let {
+            "At " + Instant.ofEpochMilli(WidgetWords.hourMoment(today, it, here)).atZone(here)
+                .format(TimeFormats.clockFormat(clock24))
+        }
     }
 
     val type = MaterialTheme.typography
@@ -287,16 +377,38 @@ private fun ClockStrips(
     val twoLines = row >= linesDp(nameStyle, lineStyle)
     val stripDp = maxOf(widthDp * 45 / 100, STRIP_MIN_DP)
     // The time gets up to half the room beside the strips. The place's name has the rest.
-    val size = WidgetWords.clockTextDp((widthDp - stripDp - STRIP_GAP_DP) * 45 / 100, chars, minOf(row * 3 / 5, 20))
+    val size = WidgetWords.clockTextDp(
+        (widthDp - stripDp - STRIP_GAP_DP) * 45 / 100,
+        chars,
+        minOf(row * 3 / 5, 20)
+    )
     val zones = remember(places, rows) { places.take(rows).map { it.second } }
     Row(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).padding(end = STRIP_GAP_DP.dp), verticalArrangement = Arrangement.spacedBy(gap.dp)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(end = STRIP_GAP_DP.dp),
+            verticalArrangement = Arrangement.spacedBy(gap.dp)
+        ) {
             times.take(rows).forEachIndexed { i, place ->
                 key(i) {
-                    Row(Modifier.fillMaxWidth().height(row.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(row.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        ) {
                             if (twoLines) PlaceAndDifference(place, nameStyle, lineStyle)
-                            else PlaceLabel(place, style = nameStyle, colour = MaterialTheme.colorScheme.onSurface)
+                            else PlaceLabel(
+                                place,
+                                style = nameStyle,
+                                colour = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                         ClockTime(time(i), size)
                     }
@@ -307,11 +419,15 @@ private fun ClockStrips(
             DayStrips(
                 zones, today, here, row, gap, role,
                 at = { WidgetWords.stripAt(minute.value * 60_000, today, here) },
-                onPick = if (tappable) { { h: Int? -> picked = h } } else null,
+                onPick = if (tappable) {
+                    { h: Int? -> picked = h }
+                } else null,
                 picking = picked != null,
             )
             // No title line: while an hour is picked, the hour and Now take the hours' line, and its gap.
-            if (at != null) PickedHour(at, linesDp(markStyle) + MARKS_GAP_DP, role) { picked = null }
+            if (at != null) PickedHour(at, linesDp(markStyle) + MARKS_GAP_DP, role) {
+                picked = null
+            }
             else HourMarks(clock24, markStyle, Modifier.padding(top = MARKS_GAP_DP.dp))
         }
     }
@@ -327,18 +443,39 @@ private fun ClockStrips(
 @Composable
 private fun PickedHour(at: String, heightDp: Int, role: Color, onNow: () -> Unit) {
     val looks = lookColors()
-    Row(Modifier.fillMaxWidth().height(heightDp.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(at, style = MaterialTheme.typography.labelSmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        val container = if (LocalWidgetLook.current == WidgetLook.TONAL) looks.tile else role.copy(alpha = 0.2f)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(heightDp.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            at,
+            style = MaterialTheme.typography.labelSmall,
+            color = looks.muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        val container =
+            if (LocalWidgetLook.current == WidgetLook.TONAL) looks.tile else role.copy(alpha = 0.2f)
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
             FilledTonalButton(
                 onClick = onNow,
                 shapes = ButtonDefaults.shapes(),
                 modifier = Modifier.height(heightDp.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(containerColor = container, contentColor = looks.content),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = container,
+                    contentColor = looks.content
+                ),
                 contentPadding = PaddingValues(horizontal = 10.dp),
             ) {
-                Text("Now", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1, softWrap = false)
+                Text(
+                    "Now",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    softWrap = false
+                )
             }
         }
     }
@@ -355,12 +492,28 @@ private fun PickedHour(at: String, heightDp: Int, role: Color, onNow: () -> Unit
  * - It is no item for a screen reader: the card's description says what it shows.
  */
 @Composable
-private fun DayStrips(zones: List<ZoneId>, day: LocalDate, here: ZoneId, rowDp: Int, gapDp: Int, role: Color, at: () -> Float, onPick: ((Int?) -> Unit)?, picking: Boolean = false) {
+private fun DayStrips(
+    zones: List<ZoneId>,
+    day: LocalDate,
+    here: ZoneId,
+    rowDp: Int,
+    gapDp: Int,
+    role: Color,
+    at: () -> Float,
+    onPick: ((Int?) -> Unit)?,
+    picking: Boolean = false
+) {
     val strips = remember(zones, day, here) { zones.map { WidgetWords.dayStrip(day, here, it) } }
     val scheme = MaterialTheme.colorScheme
     // The card's own colours: on Tonal the card is tinted by this card's role, not the theme's accent.
     val colours = lookColors(role = role)
-    val shades = remember(scheme.surface, colours.card, role) { stripShades(scheme.surface, colours.card, role) }
+    val shades = remember(scheme.surface, colours.card, role) {
+        stripShades(
+            scheme.surface,
+            colours.card,
+            role
+        )
+    }
     val outline = scheme.outlineVariant
     val ink = scheme.onSurface
     val ring = colours.card
@@ -382,44 +535,80 @@ private fun DayStrips(zones: List<ZoneId>, day: LocalDate, here: ZoneId, rowDp: 
                 // A tap on the line, with an hour picked, goes back to now; anywhere else picks the nearest hour, 00:00 to 23:00.
                 val along = lineAt().coerceIn(0f, 1f)
                 val lineX = size.width * if (rtl) 1f - along else along
-                if (picked && kotlin.math.abs(tap.x - lineX) <= 12.dp.toPx()) pick?.invoke(null)
-                else pick?.invoke(WidgetWords.hourAt(tap.x, size.width.toFloat(), rtl).coerceAtMost(23))
+                if (picked && abs(tap.x - lineX) <= 12.dp.toPx()) pick?.invoke(null)
+                else pick?.invoke(
+                    WidgetWords.hourAt(tap.x, size.width.toFloat(), rtl).coerceAtMost(23)
+                )
             },
         )
     }
     val height = (rowDp * strips.size + gapDp * (strips.size - 1)).dp
     Spacer(
-        Modifier.fillMaxWidth().height(height).testTag("clock-strips").then(taps).drawWithCache {
-            val rowPx = rowDp.dp.toPx()
-            val step = rowPx + gapDp.dp.toPx()
-            val tall = (rowPx * 0.45f).coerceIn(10.dp.toPx(), 16.dp.toPx())
-            val corner = CornerRadius(tall / 3)
-            val tops = List(strips.size) { it * step + (rowPx - tall) / 2 }
-            val outlines = tops.map { top -> Path().apply { addRoundRect(RoundRect(0f, top, size.width, top + tall, corner)) } }
-            fun x(along: Float) = size.width * if (rtl) 1f - along else along
-            val hair = 1.dp.toPx()
-            val line = 2.dp.toPx()
-            val from = (tops.firstOrNull() ?: 0f) - 4.dp.toPx()
-            val to = (tops.lastOrNull() ?: 0f) + tall + 4.dp.toPx()
-            onDrawBehind {
-                strips.forEachIndexed { i, stretches ->
-                    clipPath(outlines[i]) {
-                        for (s in stretches) {
-                            val a = x(s.from)
-                            val b = x(s.to)
-                            // A pixel more on each side, so two parts meet with no seam. The strip's outline clips them.
-                            drawRect(shades.of(s.part), Offset(minOf(a, b) - 1f, tops[i]), Size(abs(b - a) + 2f, tall))
-                        }
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .testTag("clock-strips")
+            .then(taps)
+            .drawWithCache {
+                val rowPx = rowDp.dp.toPx()
+                val step = rowPx + gapDp.dp.toPx()
+                val tall = (rowPx * 0.45f).coerceIn(10.dp.toPx(), 16.dp.toPx())
+                val corner = CornerRadius(tall / 3)
+                val tops = List(strips.size) { it * step + (rowPx - tall) / 2 }
+                val outlines = tops.map { top ->
+                    Path().apply {
+                        addRoundRect(
+                            RoundRect(
+                                0f,
+                                top,
+                                size.width,
+                                top + tall,
+                                corner
+                            )
+                        )
                     }
-                    drawPath(outlines[i], outline, style = Stroke(hair))
                 }
-                if (strips.isNotEmpty()) {
-                    val lx = x(at()).coerceIn(line, size.width - line)
-                    drawLine(ring, Offset(lx, from), Offset(lx, to), strokeWidth = line + 3.dp.toPx(), cap = StrokeCap.Round)
-                    drawLine(ink, Offset(lx, from), Offset(lx, to), strokeWidth = line, cap = StrokeCap.Round)
+
+                fun x(along: Float) = size.width * if (rtl) 1f - along else along
+                val hair = 1.dp.toPx()
+                val line = 2.dp.toPx()
+                val from = (tops.firstOrNull() ?: 0f) - 4.dp.toPx()
+                val to = (tops.lastOrNull() ?: 0f) + tall + 4.dp.toPx()
+                onDrawBehind {
+                    strips.forEachIndexed { i, stretches ->
+                        clipPath(outlines[i]) {
+                            for (s in stretches) {
+                                val a = x(s.from)
+                                val b = x(s.to)
+                                // A pixel more on each side, so two parts meet with no seam. The strip's outline clips them.
+                                drawRect(
+                                    shades.of(s.part),
+                                    Offset(minOf(a, b) - 1f, tops[i]),
+                                    Size(abs(b - a) + 2f, tall)
+                                )
+                            }
+                        }
+                        drawPath(outlines[i], outline, style = Stroke(hair))
+                    }
+                    if (strips.isNotEmpty()) {
+                        val lx = x(at()).coerceIn(line, size.width - line)
+                        drawLine(
+                            ring,
+                            Offset(lx, from),
+                            Offset(lx, to),
+                            strokeWidth = line + 3.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            ink,
+                            Offset(lx, from),
+                            Offset(lx, to),
+                            strokeWidth = line,
+                            cap = StrokeCap.Round
+                        )
+                    }
                 }
-            }
-        },
+            },
     )
 }
 
@@ -433,13 +622,28 @@ private fun HourMarks(clock24: Boolean, style: TextStyle, modifier: Modifier = M
     val marks = remember(clock24) { WidgetWords.hourMarks(clock24) }
     val colour = lookColors().muted
     Layout(
-        content = { marks.forEach { Text(it, style = style, color = colour, maxLines = 1, softWrap = false) } },
-        modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
+        content = {
+            marks.forEach {
+                Text(
+                    it,
+                    style = style,
+                    color = colour,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {},
     ) { measurables, constraints ->
         val placeables = measurables.map { it.measure(Constraints()) }
         val width = constraints.maxWidth
         val last = placeables.size - 1
-        val xs = placeables.mapIndexed { i, p -> (width * i / last.toFloat() - p.width / 2f).roundToInt().coerceIn(0, maxOf(0, width - p.width)) }
+        val xs = placeables.mapIndexed { i, p ->
+            (width * i / last.toFloat() - p.width / 2f).roundToInt()
+                .coerceIn(0, maxOf(0, width - p.width))
+        }
         val apart = 4.dp.roundToPx()
         val crowded = (1..last).any { xs[it] < xs[it - 1] + placeables[it - 1].width + apart }
         val shown = if (crowded) listOf(0, last / 2, last) else placeables.indices.toList()
@@ -456,11 +660,17 @@ private fun HourMarks(clock24: Boolean, style: TextStyle, modifier: Modifier = M
  * text again, not the whole card.
  */
 @Composable
-private fun ClockTime(time: () -> String, sizeDp: Int, colour: Color = MaterialTheme.colorScheme.onSurface, bold: Boolean = false) {
+private fun ClockTime(
+    time: () -> String,
+    sizeDp: Int,
+    colour: Color = MaterialTheme.colorScheme.onSurface,
+    bold: Boolean = false
+) {
     val size = with(LocalDensity.current) { sizeDp.dp.toSp() }
     val base = MaterialTheme.typography.titleLarge
     val style = remember(base, size, bold) {
-        if (bold) base.copy(fontSize = size, lineHeight = size).asBold() else base.copy(fontSize = size, lineHeight = size * 1.25f).asValue()
+        if (bold) base.copy(fontSize = size, lineHeight = size)
+            .asBold() else base.copy(fontSize = size, lineHeight = size * 1.25f).asValue()
     }
     Text(time(), style = style, color = colour, maxLines = 1, softWrap = false)
 }
@@ -469,7 +679,8 @@ private fun ClockTime(time: () -> String, sizeDp: Int, colour: Color = MaterialT
  * [style] for the Bold look's main value: the heaviest weight, tighter, with digits of one width.
  * Kolahal has no narrow variable font, so the value is as large as its room allows instead.
  */
-internal fun TextStyle.asBold(): TextStyle = copy(fontWeight = FontWeight.Black, letterSpacing = (-0.03).em, fontFeatureSettings = "tnum")
+internal fun TextStyle.asBold(): TextStyle =
+    copy(fontWeight = FontWeight.Black, letterSpacing = (-0.03).em, fontFeatureSettings = "tnum")
 
 /** Black type is wider than the size a clock's digits are measured for ([WidgetWords.clockTextDp]): it gets this much of the width. */
 private const val BOLD_WIDTH = 0.9f
@@ -480,16 +691,38 @@ private const val BOLD_WIDTH = 0.9f
  * as many as fit.
  */
 @Composable
-private fun BoldClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> String, zone: ZoneId, now: State<Long>, box: WidgetSizes.Box, chars: Int, accent: Color) {
+private fun BoldClock(
+    times: List<WidgetWords.ZoneTime>,
+    time: (Int) -> () -> String,
+    zone: ZoneId,
+    now: State<Long>,
+    box: WidgetSizes.Box,
+    chars: Int,
+    accent: Color
+) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = maxWidth.value.toInt()
         val height = maxHeight.value.toInt()
         val first = times[0]
         when (box) {
-            WidgetSizes.Box.SMALL -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                ClockTime(time(0), WidgetWords.clockTextDp((width * BOLD_WIDTH).toInt(), chars, (height - PLACE_DP) * 4 / 5), accent, bold = true)
+            WidgetSizes.Box.SMALL -> Column(
+                Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ClockTime(
+                    time(0),
+                    WidgetWords.clockTextDp(
+                        (width * BOLD_WIDTH).toInt(),
+                        chars,
+                        (height - PLACE_DP) * 4 / 5
+                    ),
+                    accent,
+                    bold = true
+                )
                 PlaceLabel(first)
             }
+
             WidgetSizes.Box.WIDE -> {
                 // The others need about 72 dp each beside the main time, which keeps at least 120.
                 val beside = ((width - 120) / 80).coerceIn(0, times.size - 1)
@@ -497,21 +730,58 @@ private fun BoldClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> St
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         PlaceAndDate(first, zone, now)
-                        ClockTime(time(0), WidgetWords.clockTextDp((mainWidth * BOLD_WIDTH).toInt(), chars, height - 20), accent, bold = true)
+                        ClockTime(
+                            time(0),
+                            WidgetWords.clockTextDp(
+                                (mainWidth * BOLD_WIDTH).toInt(),
+                                chars,
+                                height - 20
+                            ),
+                            accent,
+                            bold = true
+                        )
                     }
-                    for (i in 1..beside) key(i) { SmallPlace(times[i], time(i), Modifier.width(72.dp).padding(start = 8.dp)) }
+                    for (i in 1..beside) key(i) {
+                        SmallPlace(
+                            times[i],
+                            time(i),
+                            Modifier
+                                .width(72.dp)
+                                .padding(start = 8.dp)
+                        )
+                    }
                 }
             }
+
             WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
                 PlaceAndDate(first, zone, now)
                 val others = (times.size - 1).coerceAtMost(maxOf(1, (width + 16) / 88))
                 // The big time takes what the place line and the row of the others leave.
                 val room = height - 20 - if (others > 0) 44 else 0
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                    ClockTime(time(0), WidgetWords.clockTextDp((width * BOLD_WIDTH).toInt(), chars, minOf(room, 80)), accent, bold = true)
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth(), contentAlignment = Alignment.CenterStart
+                ) {
+                    ClockTime(
+                        time(0),
+                        WidgetWords.clockTextDp(
+                            (width * BOLD_WIDTH).toInt(),
+                            chars,
+                            minOf(room, 80)
+                        ),
+                        accent,
+                        bold = true
+                    )
                 }
                 if (others > 0) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    for (i in 1..others) key(i) { SmallPlace(times[i], time(i), Modifier.weight(1f, fill = false)) }
+                    for (i in 1..others) key(i) {
+                        SmallPlace(
+                            times[i],
+                            time(i),
+                            Modifier.weight(1f, fill = false)
+                        )
+                    }
                 }
             }
         }
@@ -523,14 +793,27 @@ private fun BoldClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> St
 private fun PlaceAndDate(time: WidgetWords.ZoneTime, zone: ZoneId, now: State<Long>) {
     val type = MaterialTheme.typography
     Row {
-        Text(time.label, style = type.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        Text(
+            time.label,
+            style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
         DateOf(zone, now, type.labelMedium, lookColors().muted, prefix = " · ")
     }
 }
 
 /** The date at [zone] ("Fri 20 Nov"). It reads the time itself, so a tick draws this text again, not the card. */
 @Composable
-private fun DateOf(zone: ZoneId, now: State<Long>, style: TextStyle, colour: Color, prefix: String = "") {
+private fun DateOf(
+    zone: ZoneId,
+    now: State<Long>,
+    style: TextStyle,
+    colour: Color,
+    prefix: String = ""
+) {
     val format = remember { TimeFormats.dayFormat() }
     val day = Instant.ofEpochMilli(now.value).atZone(zone).toLocalDate()
     val text = remember(day) { prefix + day.format(format) }
@@ -539,7 +822,11 @@ private fun DateOf(zone: ZoneId, now: State<Long>, style: TextStyle, colour: Col
 
 /** One of the other places of a clock, small: its name dim over its time. */
 @Composable
-private fun SmallPlace(place: WidgetWords.ZoneTime, time: () -> String, modifier: Modifier = Modifier) {
+private fun SmallPlace(
+    place: WidgetWords.ZoneTime,
+    time: () -> String,
+    modifier: Modifier = Modifier
+) {
     Column(modifier) {
         PlaceLabel(place)
         ClockTime(time, 16)
@@ -551,7 +838,12 @@ private fun SmallPlace(place: WidgetWords.ZoneTime, time: () -> String, modifier
  * tiles under it (large) or beside it (wide), as many as fit at 64 dp each.
  */
 @Composable
-private fun SplitClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> String, box: WidgetSizes.Box, chars: Int) {
+private fun SplitClock(
+    times: List<WidgetWords.ZoneTime>,
+    time: (Int) -> () -> String,
+    box: WidgetSizes.Box,
+    chars: Int
+) {
     val tile = lookColors().tile
     val gap = SplitCorners.GAP
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -559,47 +851,132 @@ private fun SplitClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> S
         val height = maxHeight.value.toInt()
         when (box) {
             WidgetSizes.Box.LARGE -> {
-                val others = (times.size - 1).coerceAtMost(maxOf(1, (width + 4) / 68)).coerceAtMost(3)
+                val others =
+                    (times.size - 1).coerceAtMost(maxOf(1, (width + 4) / 68)).coerceAtMost(3)
                 // The big tile takes three fifths of the height, as the mockup has it.
                 val bigDp = if (others > 0) (height - 4) * 3 / 5 else height
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
-                    val big = if (others > 0) SplitCorners.tile(topStart = true, topEnd = true, bottomEnd = false, bottomStart = false) else SplitCorners.inColumn(0, 1)
-                    Column(Modifier.fillMaxWidth().height(bigDp.dp).clip(big).background(tile).padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text(times[0].label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val big = if (others > 0) SplitCorners.tile(
+                        topStart = true,
+                        topEnd = true,
+                        bottomEnd = false,
+                        bottomStart = false
+                    ) else SplitCorners.inColumn(0, 1)
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(bigDp.dp)
+                            .clip(big)
+                            .background(tile)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            times[0].label,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Spacer(Modifier.weight(1f))
-                        ClockTime(time(0), WidgetWords.clockTextDp(width - 32, chars, minOf(44, (bigDp - 40) * 4 / 5)))
+                        ClockTime(
+                            time(0),
+                            WidgetWords.clockTextDp(
+                                width - 32,
+                                chars,
+                                minOf(44, (bigDp - 40) * 4 / 5)
+                            )
+                        )
                     }
-                    if (others > 0) Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    if (others > 0) Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(gap)
+                    ) {
                         val cell = (width - 4 * (others - 1)) / others
                         for (i in 1..others) key(i) {
-                            val shape = SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = i == others, bottomStart = i == 1)
-                            SplitPlace(times[i], time(i), WidgetWords.clockTextDp(cell - 16, chars, 18), shape, tile, Modifier.weight(1f))
+                            val shape = SplitCorners.tile(
+                                topStart = false,
+                                topEnd = false,
+                                bottomEnd = i == others,
+                                bottomStart = i == 1
+                            )
+                            SplitPlace(
+                                times[i],
+                                time(i),
+                                WidgetWords.clockTextDp(cell - 16, chars, 18),
+                                shape,
+                                tile,
+                                Modifier.weight(1f)
+                            )
                         }
                     }
                 }
             }
+
             WidgetSizes.Box.WIDE -> {
-                val others = (times.size - 1).coerceAtMost(maxOf(0, (width - 96) / 68)).coerceAtMost(3)
+                val others =
+                    (times.size - 1).coerceAtMost(maxOf(0, (width - 96) / 68)).coerceAtMost(3)
                 val count = others + 1
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     // The first tile is half as wide again as the others.
-                    val firstDp = if (others > 0) ((width - 4 * others) * 3 / (3 + 2 * others)) else width
-                    SplitPlace(times[0], time(0), WidgetWords.clockTextDp(firstDp - 24, chars, minOf(32, (height - 24) * 4 / 5)), SplitCorners.inRow(0, count), tile, Modifier.weight(1.5f), start = true)
+                    val firstDp =
+                        if (others > 0) ((width - 4 * others) * 3 / (3 + 2 * others)) else width
+                    SplitPlace(
+                        times[0],
+                        time(0),
+                        WidgetWords.clockTextDp(
+                            firstDp - 24,
+                            chars,
+                            minOf(32, (height - 24) * 4 / 5)
+                        ),
+                        SplitCorners.inRow(0, count),
+                        tile,
+                        Modifier.weight(1.5f),
+                        start = true
+                    )
                     for (i in 1..others) key(i) {
-                        SplitPlace(times[i], time(i), WidgetWords.clockTextDp((firstDp * 2 / 3) - 16, chars, 18), SplitCorners.inRow(i, count), tile, Modifier.weight(1f))
+                        SplitPlace(
+                            times[i],
+                            time(i),
+                            WidgetWords.clockTextDp((firstDp * 2 / 3) - 16, chars, 18),
+                            SplitCorners.inRow(i, count),
+                            tile,
+                            Modifier.weight(1f)
+                        )
                     }
                 }
             }
-            WidgetSizes.Box.SMALL -> SplitPlace(times[0], time(0), WidgetWords.clockTextDp(width - 16, chars, (height - PLACE_DP) * 4 / 5), SplitCorners.inColumn(0, 1), tile, Modifier.fillMaxSize())
+
+            WidgetSizes.Box.SMALL -> SplitPlace(
+                times[0],
+                time(0),
+                WidgetWords.clockTextDp(width - 16, chars, (height - PLACE_DP) * 4 / 5),
+                SplitCorners.inColumn(0, 1),
+                tile,
+                Modifier.fillMaxSize()
+            )
         }
     }
 }
 
 /** One of Split's clock tiles: the place's name, dim, over its time, in the middle or at the [start]. */
 @Composable
-private fun SplitPlace(place: WidgetWords.ZoneTime, time: () -> String, sizeDp: Int, shape: Shape, tile: Color, modifier: Modifier, start: Boolean = false) {
+private fun SplitPlace(
+    place: WidgetWords.ZoneTime,
+    time: () -> String,
+    sizeDp: Int,
+    shape: Shape,
+    tile: Color,
+    modifier: Modifier,
+    start: Boolean = false
+) {
     Column(
-        modifier.fillMaxHeight().clip(shape).background(tile).padding(horizontal = if (start) 12.dp else 8.dp),
+        modifier
+            .fillMaxHeight()
+            .clip(shape)
+            .background(tile)
+            .padding(horizontal = if (start) 12.dp else 8.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = if (start) Alignment.Start else Alignment.CenterHorizontally,
     ) {
@@ -618,7 +995,14 @@ private fun SplitPlace(place: WidgetWords.ZoneTime, time: () -> String, sizeDp: 
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> String, zone: ZoneId, now: State<Long>, box: WidgetSizes.Box, accent: Color) {
+private fun ShapeClock(
+    times: List<WidgetWords.ZoneTime>,
+    time: (Int) -> () -> String,
+    zone: ZoneId,
+    now: State<Long>,
+    box: WidgetSizes.Box,
+    accent: Color
+) {
     val looks = lookColors(WidgetLook.SHAPE, accent)
     if (LocalCardShaped.current) {
         ClockDial(times[0].label, zone, now, looks, Modifier.fillMaxSize(), filled = false)
@@ -631,16 +1015,33 @@ private fun ShapeClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> S
             ClockDial(null, zone, now, looks, Modifier.fillMaxSize(), filled = true)
             return@BoxWithConstraints
         }
-        val side = minOf(maxHeight, if (box == WidgetSizes.Box.WIDE) 72.dp else 140.dp, maxWidth / 3)
-        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        val side =
+            minOf(maxHeight, if (box == WidgetSizes.Box.WIDE) 72.dp else 140.dp, maxWidth / 3)
+        Row(
+            Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             ClockDial(null, zone, now, looks, Modifier.size(side), filled = true)
             if (box == WidgetSizes.Box.WIDE) {
                 Column(Modifier.weight(1f)) {
                     val first = time(0)
-                    Text("${times[0].label} ${first()}", style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = looks.content, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "${times[0].label} ${first()}",
+                        style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = looks.content,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     if (times.size > 1) {
                         val others = (1 until times.size).map { it to time(it) }
-                        Text(others.joinToString(" · ") { (i, t) -> "${times[i].label} ${t()}" }, style = type.labelMedium, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            others.joinToString(" · ") { (i, t) -> "${times[i].label} ${t()}" },
+                            style = type.labelMedium,
+                            color = looks.muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             } else {
@@ -673,32 +1074,60 @@ private val DIAL_SHAPE get() = MaterialShapes.Cookie9Sided
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ClockDial(name: String?, zone: ZoneId, now: State<Long>, looks: LookColors, modifier: Modifier, filled: Boolean) {
+private fun ClockDial(
+    name: String?,
+    zone: ZoneId,
+    now: State<Long>,
+    looks: LookColors,
+    modifier: Modifier,
+    filled: Boolean
+) {
     val hour = looks.content
     val minute = looks.accent
     val dots = looks.muted
     val fill = if (filled) Modifier.background(looks.shapeFill, DIAL_SHAPE.toShape()) else Modifier
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth, maxHeight)
-        Box(Modifier.size(side).then(fill).drawBehind {
-            val unit = size.minDimension / 100f
-            val middle = center
-            for (k in 0 until 4) {
-                val a = k * PI / 2
-                drawCircle(dots, 1.8f * unit, middle + Offset((sin(a) * 34 * unit).toFloat(), (-cos(a) * 34 * unit).toFloat()))
-            }
-            val at = Instant.ofEpochMilli(now.value).atZone(zone)
-            val minutes = at.minute
-            val hours = at.hour % 12 + minutes / 60f
-            fun hand(turns: Float, length: Float, width: Float, colour: Color) {
-                val a = turns * 2 * PI
-                val end = middle + Offset((sin(a) * length * unit).toFloat(), (-cos(a) * length * unit).toFloat())
-                drawLine(colour, middle, end, strokeWidth = width * unit, cap = StrokeCap.Round)
-            }
-            hand(hours / 12f, 20f, 5f, hour)
-            hand(minutes / 60f, 30f, 3.5f, minute)
-            drawCircle(hour, 3.5f * unit, middle)
-        }.clearAndSetSemantics {})
+        Box(
+            Modifier
+                .size(side)
+                .then(fill)
+                .drawBehind {
+                    val unit = size.minDimension / 100f
+                    val middle = center
+                    for (k in 0 until 4) {
+                        val a = k * PI / 2
+                        drawCircle(
+                            dots,
+                            1.8f * unit,
+                            middle + Offset(
+                                (sin(a) * 34 * unit).toFloat(),
+                                (-cos(a) * 34 * unit).toFloat()
+                            )
+                        )
+                    }
+                    val at = Instant.ofEpochMilli(now.value).atZone(zone)
+                    val minutes = at.minute
+                    val hours = at.hour % 12 + minutes / 60f
+                    fun hand(turns: Float, length: Float, width: Float, colour: Color) {
+                        val a = turns * 2 * PI
+                        val end = middle + Offset(
+                            (sin(a) * length * unit).toFloat(),
+                            (-cos(a) * length * unit).toFloat()
+                        )
+                        drawLine(
+                            colour,
+                            middle,
+                            end,
+                            strokeWidth = width * unit,
+                            cap = StrokeCap.Round
+                        )
+                    }
+                    hand(hours / 12f, 20f, 5f, hour)
+                    hand(minutes / 60f, 30f, 3.5f, minute)
+                    drawCircle(hour, 3.5f * unit, middle)
+                }
+                .clearAndSetSemantics {})
         if (name != null && side >= 96.dp) {
             Text(
                 name,
@@ -706,7 +1135,10 @@ private fun ClockDial(name: String?, zone: ZoneId, now: State<Long>, looks: Look
                 color = hour,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.offset(y = -side * 0.17f).widthIn(max = side * 0.5f).clearAndSetSemantics {},
+                modifier = Modifier
+                    .offset(y = -side * 0.17f)
+                    .widthIn(max = side * 0.5f)
+                    .clearAndSetSemantics {},
             )
         }
     }
@@ -717,10 +1149,20 @@ private fun ClockDial(name: String?, zone: ZoneId, now: State<Long>, looks: Look
  * lines ([WidgetWords.placeLines]) that fits whole, "5 h 30 min behind" or "−5:30".
  */
 @Composable
-private fun PlaceAndDifference(time: WidgetWords.ZoneTime, nameStyle: TextStyle, lineStyle: TextStyle) {
+private fun PlaceAndDifference(
+    time: WidgetWords.ZoneTime,
+    nameStyle: TextStyle,
+    lineStyle: TextStyle
+) {
     val lines = remember(time) { WidgetWords.placeLines(time) }
     Column {
-        Text(time.label, style = nameStyle, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            time.label,
+            style = nameStyle,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         FittingLine(lines, lineStyle, lookColors().muted)
     }
 }
@@ -736,9 +1178,22 @@ private fun FittingLine(lines: List<String>, style: TextStyle, colour: Color) {
     BoxWithConstraints {
         val room = constraints.maxWidth
         val text = remember(lines, style, room, measurer) {
-            lines.firstOrNull { measurer.measure(it, style, maxLines = 1, softWrap = false).size.width <= room } ?: lines.last()
+            lines.firstOrNull {
+                measurer.measure(
+                    it,
+                    style,
+                    maxLines = 1,
+                    softWrap = false
+                ).size.width <= room
+            } ?: lines.last()
         }
-        Text(text, style = style.copy(textDirection = TextDirection.ContentOrLtr), color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            text,
+            style = style.copy(textDirection = TextDirection.ContentOrLtr),
+            color = colour,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -750,24 +1205,44 @@ private fun FittingLine(lines: List<String>, style: TextStyle, colour: Color) {
  * - The words are a text of their own after the name, so they follow it in a right-to-left page.
  */
 @Composable
-private fun PlaceLabel(time: WidgetWords.ZoneTime, style: TextStyle = MaterialTheme.typography.labelSmall, colour: Color = lookColors().muted) {
+private fun PlaceLabel(
+    time: WidgetWords.ZoneTime,
+    style: TextStyle = MaterialTheme.typography.labelSmall,
+    colour: Color = lookColors().muted
+) {
     val muted = lookColors().muted
     val measurer = rememberTextMeasurer()
     val lines = remember(time) { WidgetWords.placeLines(time) }
+
     // A dot before words, a space before a number.
     fun gapBefore(words: String) = if (words.first() in "+−±") " " else " · "
     BoxWithConstraints {
         val room = constraints.maxWidth
         val words = remember(lines, time.label, style, room, measurer) {
-            fun width(text: String) = measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+            fun width(text: String) =
+                measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+
             val name = width(time.label)
             lines.firstOrNull { name + width(gapBefore(it)) + width(it) <= room }
         } ?: time.dayShort
         Row {
-            Text(time.label, style = style, color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Text(
+                time.label,
+                style = style,
+                color = colour,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
             if (words != null) {
                 Text(gapBefore(words), style = style, color = muted, maxLines = 1, softWrap = false)
-                Text(words, style = style.copy(textDirection = TextDirection.ContentOrLtr), color = muted, maxLines = 1, softWrap = false)
+                Text(
+                    words,
+                    style = style.copy(textDirection = TextDirection.ContentOrLtr),
+                    color = muted,
+                    maxLines = 1,
+                    softWrap = false
+                )
             }
         }
     }

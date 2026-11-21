@@ -13,21 +13,29 @@ internal class RecordingHost : ScriptActions.Host {
     data class Notice(val text: String, val error: Boolean)
 
     val notices = CopyOnWriteArrayList<Notice>()
+
     /** The Undo of the last notice that offered one, and the notice it came with. */
-    @Volatile var undo: Pair<Notice, () -> Unit>? = null
+    @Volatile
+    var undo: Pair<Notice, () -> Unit>? = null
         private set
     val shown = CopyOnWriteArrayList<String>()
     val events = CopyOnWriteArrayList<UiEvent>()
     val opened = CopyOnWriteArrayList<Script>()
     val failures = CopyOnWriteArrayList<Pair<String, String>>()
+
     /** The scripts list the command names were last read from, or null if they never were. */
-    @Volatile var commandList: List<Script>? = null
+    @Volatile
+    var commandList: List<Script>? = null
         private set
 
     override fun io(block: suspend () -> Unit) = runBlocking { block() }
 
     override fun fileOp(label: String, block: suspend () -> Unit) {
-        runBlocking { runCatching { block() }.onFailure { failures += label to (it.message ?: it.javaClass.simpleName) } }
+        runBlocking {
+            runCatching { block() }.onFailure {
+                failures += label to (it.message ?: it.javaClass.simpleName)
+            }
+        }
     }
 
     override fun notice(text: String, error: Boolean, undo: (() -> Unit)?) {

@@ -19,7 +19,8 @@ object Gestures {
     fun expandShade(context: Context) {
         runCatching {
             val sbm = context.getSystemService("statusbar")
-            Class.forName("android.app.StatusBarManager").getMethod("expandNotificationsPanel").invoke(sbm)
+            Class.forName("android.app.StatusBarManager").getMethod("expandNotificationsPanel")
+                .invoke(sbm)
         }
     }
 }

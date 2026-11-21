@@ -36,16 +36,20 @@ import org.junit.runner.RunWith
 /** Settings → Widgets → Add widget: each app's widgets with their names and sizes, a search, and a tap to pick one. */
 @RunWith(AndroidJUnit4::class)
 class WidgetPickerScreenTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private val t = TestWidgets()
     private val pm = app.packageManager
     private var picked: ProviderEntry? = null
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         config.reset(Keys.WIDGETS_PAGE)
         t.close()
     }
@@ -62,14 +66,20 @@ class WidgetPickerScreenTest {
         return vm
     }
 
-    private fun appName(p: ProviderEntry) = pm.getApplicationLabel(pm.getApplicationInfo(p.packageName, 0)).toString()
+    private fun appName(p: ProviderEntry) =
+        pm.getApplicationLabel(pm.getApplicationInfo(p.packageName, 0)).toString()
 
     /** [p]'s card: its name and its size in cells, a tap to pick it. */
-    private fun card(p: ProviderEntry): SemanticsMatcher = hasText(t.label(p)) and hasText(t.host.sizeLabel(p.info)) and hasClickAction()
+    private fun card(p: ProviderEntry): SemanticsMatcher =
+        hasText(t.label(p)) and hasText(t.host.sizeLabel(p.info)) and hasClickAction()
 
     /** Scrolls the list to [matcher] once the widgets are loaded. */
     private fun scrollTo(matcher: SemanticsMatcher) {
-        compose.waitUntil(10_000) { runCatching { compose.onNode(hasScrollToNodeAction()).performScrollToNode(matcher) }.isSuccess }
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNode(hasScrollToNodeAction()).performScrollToNode(matcher)
+            }.isSuccess
+        }
     }
 
     /** Types [text] in the search box at the top of the list. */
@@ -79,19 +89,24 @@ class WidgetPickerScreenTest {
     }
 
     /** Every clock widget is listed under the clock app, by name, with its size. */
-    @Test fun eachWidgetShowsItsNameAndSize() {
+    @Test
+    fun eachWidgetShowsItsNameAndSize() {
         val clocks = t.clocks()
         show()
         compose.onNodeWithText("Added to the widgets page").assertExists()
         scrollTo(hasText(appName(clocks.first())))
         clocks.forEach { p ->
             scrollTo(card(p))
-            assertTrue("no card for ${p.flat}", compose.onAllNodes(card(p)).fetchSemanticsNodes().isNotEmpty())
+            assertTrue(
+                "no card for ${p.flat}",
+                compose.onAllNodes(card(p)).fetchSemanticsNodes().isNotEmpty()
+            )
         }
     }
 
     /** Searching a widget's name leaves it and its app; the app's other widgets go. */
-    @Test fun searchingAWidgetsNameShowsOnlyIt() {
+    @Test
+    fun searchingAWidgetsNameShowsOnlyIt() {
         val clocks = t.clocks()
         assumeTrue("only one clock widget", clocks.size > 1)
         val mine = t.host.providers().filter { it.user == clocks.first().user }
@@ -114,7 +129,8 @@ class WidgetPickerScreenTest {
      * Searching the app's name shows all of its widgets, those whose own name doesn't hold it too
      * (a clock app's Stopwatch): one at least, or the test can't tell, and shows as skipped.
      */
-    @Test fun searchingAnAppsNameShowsAllItsWidgets() {
+    @Test
+    fun searchingAnAppsNameShowsAllItsWidgets() {
         val clocks = t.clocks()
         val name = appName(clocks.first())
         val onlyByApp = clocks.filter { name.lowercase() !in t.label(it).lowercase() }
@@ -127,7 +143,8 @@ class WidgetPickerScreenTest {
     }
 
     /** The search finds words in any order, a widget's own name with its app's: "<widget> <app>". */
-    @Test fun searchingFindsWordsInAnyOrder() {
+    @Test
+    fun searchingFindsWordsInAnyOrder() {
         val p = t.clocks().first()
         show()
         scrollTo(card(p))
@@ -138,7 +155,8 @@ class WidgetPickerScreenTest {
     }
 
     /** A search that finds nothing says so. */
-    @Test fun aSearchWithNoMatchSaysSo() {
+    @Test
+    fun aSearchWithNoMatchSaysSo() {
         val clock = t.clocks().first()
         show()
         scrollTo(card(clock))
@@ -148,7 +166,8 @@ class WidgetPickerScreenTest {
     }
 
     /** A tap on a card picks that widget. */
-    @Test fun aTapPicksTheWidget() {
+    @Test
+    fun aTapPicksTheWidget() {
         val clock = t.clocks().last()
         show()
         scrollTo(card(clock))
@@ -157,22 +176,27 @@ class WidgetPickerScreenTest {
     }
 
     /** With the widgets page off, the picker says where the widget goes is off. */
-    @Test fun itSaysWhenTheWidgetsPageIsOff() {
+    @Test
+    fun itSaysWhenTheWidgetsPageIsOff() {
         config.set(Keys.WIDGETS_PAGE, "off")
         show()
         compose.onNodeWithText("Added to the widgets page, which is off").assertExists()
     }
 
     /** A message waiting for a widget screen ("Widget not added") shows on the picker. */
-    @Test fun aWaitingMessageShowsHere() {
+    @Test
+    fun aWaitingMessageShowsHere() {
         t.host.message("Widget not added")
         show()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Widget not added").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Widget not added").fetchSemanticsNodes().isNotEmpty()
+        }
         assertTrue(t.host.messages.value.isEmpty())
     }
 
     /** Back returns to the Widgets screen the picker was opened from. */
-    @Test fun backReturnsToTheWidgetsScreen() {
+    @Test
+    fun backReturnsToTheWidgetsScreen() {
         val vm = show()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }

@@ -56,10 +56,23 @@ class TextEditorActivity : ComponentActivity() {
 
     // Any file may be picked, not only text/*: many apps call a .lua, .toml or .conf file a binary
     // one. The editor itself refuses what isn't text.
-    private val openFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> open(this, uri) } }
-    private val newFile = registerForActivityResult(CreateTextFile) { it?.let { uri -> open(this, uri) } }
+    private val openFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) {
+        it?.let { uri ->
+            open(
+                this,
+                uri
+            )
+        }
+    }
+    private val newFile =
+        registerForActivityResult(CreateTextFile) { it?.let { uri -> open(this, uri) } }
     private val saveAs = registerForActivityResult(CreateTextFile) { vm.saveAs(it) }
-    private val fromFolder = registerForActivityResult(OpenFileIn) { vm.reopened(it, openElsewhere = it != null && openInAnotherWindow(it)) }
+    private val fromFolder = registerForActivityResult(OpenFileIn) {
+        vm.reopened(
+            it,
+            openElsewhere = it != null && openInAnotherWindow(it)
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -142,10 +155,12 @@ class TextEditorActivity : ComponentActivity() {
 
     /** The window's name in Recents: the file's name, then the editor's. */
     private fun nameTask(file: String) {
-        val label = if (file.isEmpty()) getString(R.string.editor_name) else "$file · ${getString(R.string.editor_name)}"
+        val label =
+            if (file.isEmpty()) getString(R.string.editor_name) else "$file · ${getString(R.string.editor_name)}"
         @Suppress("DEPRECATION") // The builder is from Android 13.
         setTaskDescription(
-            if (Build.VERSION.SDK_INT >= 33) ActivityManager.TaskDescription.Builder().setLabel(label).build()
+            if (Build.VERSION.SDK_INT >= 33) ActivityManager.TaskDescription.Builder()
+                .setLabel(label).build()
             else ActivityManager.TaskDescription(label),
         )
     }
@@ -166,7 +181,11 @@ class TextEditorActivity : ComponentActivity() {
         try {
             launch()
         } catch (_: android.content.ActivityNotFoundException) {
-            android.widget.Toast.makeText(this, "This phone has no file picker", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(
+                this,
+                "This phone has no file picker",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -180,9 +199,10 @@ class TextEditorActivity : ComponentActivity() {
          */
         fun open(context: Context, uri: Uri) {
             Documents.keepPermission(context, uri)
-            fun intent(grant: Int) = Intent(Intent.ACTION_EDIT, uri, context, TextEditorActivity::class.java).addFlags(
-                Intent.FLAG_ACTIVITY_NEW_DOCUMENT or grant or if (context is android.app.Activity) 0 else Intent.FLAG_ACTIVITY_NEW_TASK,
-            )
+            fun intent(grant: Int) =
+                Intent(Intent.ACTION_EDIT, uri, context, TextEditorActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_DOCUMENT or grant or if (context is android.app.Activity) 0 else Intent.FLAG_ACTIVITY_NEW_TASK,
+                )
             try {
                 // The new window gets the permission too, in case it could not be kept.
                 context.startActivity(intent(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION))
@@ -202,14 +222,16 @@ class TextEditorActivity : ComponentActivity() {
  */
 object CreateTextFile : ActivityResultContract<String, Uri?>() {
     override fun createIntent(context: Context, input: String): Intent {
-        val type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(input.substringAfterLast('.', "").lowercase())
+        val type = MimeTypeMap.getSingleton()
+            .getMimeTypeFromExtension(input.substringAfterLast('.', "").lowercase())
         return Intent(Intent.ACTION_CREATE_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
             .setType(type ?: "application/octet-stream")
             .putExtra(Intent.EXTRA_TITLE, input)
     }
 
-    override fun parseResult(resultCode: Int, intent: Intent?): Uri? = intent?.data?.takeIf { resultCode == android.app.Activity.RESULT_OK }
+    override fun parseResult(resultCode: Int, intent: Intent?): Uri? =
+        intent?.data?.takeIf { resultCode == android.app.Activity.RESULT_OK }
 }
 
 /**
@@ -222,7 +244,13 @@ object OpenFileIn : ActivityResultContract<Uri?, Uri?>() {
         Intent(Intent.ACTION_OPEN_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
             .setType("*/*")
-            .apply { if (input != null) putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, input) }
+            .apply {
+                if (input != null) putExtra(
+                    android.provider.DocumentsContract.EXTRA_INITIAL_URI,
+                    input
+                )
+            }
 
-    override fun parseResult(resultCode: Int, intent: Intent?): Uri? = intent?.data?.takeIf { resultCode == android.app.Activity.RESULT_OK }
+    override fun parseResult(resultCode: Int, intent: Intent?): Uri? =
+        intent?.data?.takeIf { resultCode == android.app.Activity.RESULT_OK }
 }

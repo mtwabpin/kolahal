@@ -82,6 +82,7 @@ class AppSessions(
                 screens.clear()
                 awayAt = null
             }
+
             fun open(pkg: String, screen: String, at: Long) {
                 front = pkg
                 screens += screen
@@ -99,14 +100,21 @@ class AppSessions(
                     RESUMED -> {
                         val away = awayAt
                         when {
-                            front != e.pkg -> { close(away ?: e.time); open(e.pkg, e.screen, e.time) }
+                            front != e.pkg -> {
+                                close(away ?: e.time); open(e.pkg, e.screen, e.time)
+                            }
                             // Back after a while, with nothing between: opened again.
-                            away != null && e.time - away > SAME_SESSION_MS -> { close(away); open(e.pkg, e.screen, e.time) }
+                            away != null && e.time - away > SAME_SESSION_MS -> {
+                                close(away); open(e.pkg, e.screen, e.time)
+                            }
                             // Another screen of the app in front, or back to it at once.
-                            else -> { screens += e.screen; awayAt = null }
+                            else -> {
+                                screens += e.screen; awayAt = null
+                            }
                         }
                         started = true
                     }
+
                     PAUSED -> {
                         if (!started && front == null) {
                             // In front since before [from].
@@ -140,11 +148,12 @@ class AppSessions(
          * [sessions] cut to [from, until): a session over the edge keeps only its part inside. A part
          * that starts at [from] was opened before, so it is no open in the window.
          */
-        fun clip(sessions: List<Session>, from: Long, until: Long): List<Session> = sessions.mapNotNull { s ->
-            val start = maxOf(s.start, from)
-            val end = minOf(s.end, until)
-            if (end <= start) null else Session(s.pkg, start, end, s.opened && s.start >= from)
-        }
+        fun clip(sessions: List<Session>, from: Long, until: Long): List<Session> =
+            sessions.mapNotNull { s ->
+                val start = maxOf(s.start, from)
+                val end = minOf(s.end, until)
+                if (end <= start) null else Session(s.pkg, start, end, s.opened && s.start >= from)
+            }
 
         /** Each app's time in front in [sessions], by package. */
         fun totals(sessions: List<Session>): Map<String, Long> =
@@ -155,14 +164,21 @@ class AppSessions(
          * clock in [zone]: on a day the clock changes, an hour may get two hours' time, or none.
          * [inFront]: the app in front at the window's end, if any.
          */
-        fun of(sessions: List<Session>, pkg: String, inFront: String?, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): AppSessions {
+        fun of(
+            sessions: List<Session>,
+            pkg: String,
+            inFront: String?,
+            zone: java.time.ZoneId = java.time.ZoneId.systemDefault()
+        ): AppSessions {
             val mine = sessions.filter { it.pkg == pkg }
             val hours = LongArray(24)
             for (s in mine) {
                 var t = s.start
                 while (t < s.end) {
                     val at = java.time.Instant.ofEpochMilli(t).atZone(zone)
-                    val next = at.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusHours(1).toInstant().toEpochMilli()
+                    val next =
+                        at.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusHours(1).toInstant()
+                            .toEpochMilli()
                     val upTo = minOf(s.end, next)
                     hours[at.hour] += upTo - t
                     t = upTo

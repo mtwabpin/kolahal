@@ -39,13 +39,15 @@ class ContactsAwayTest {
 
     private fun known(name: String) = contacts.contacts.value.any { it.name == name }
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         assumeTrue("the Play build has no READ_CONTACTS", BuildConfig.CONTACTS)
         shell("pm grant ${context.packageName} android.permission.READ_CONTACTS")
         contacts.refresh()
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         shell("content delete --uri content://com.android.contacts/raw_contacts?caller_is_syncadapter=true --where account_name='$account'")
         // As a process with no home started has it.
         contacts.setActive(false)
@@ -54,7 +56,8 @@ class ContactsAwayTest {
         waitUntil("the test's contacts gone from the list") { added.none(::known) }
     }
 
-    @Test fun awayAChangeWaitsForACommandToNeedIt() {
+    @Test
+    fun awayAChangeWaitsForACommandToNeedIt() {
         contacts.setActive(false)
         val name = "AwayTest${System.nanoTime() % 100_000}"
         add(name, "5550198")
@@ -65,7 +68,8 @@ class ContactsAwayTest {
         assertTrue("not read when needed", contacts.current().any { it.name == name })
     }
 
-    @Test fun backTheChangeIsRead() {
+    @Test
+    fun backTheChangeIsRead() {
         contacts.setActive(false)
         val name = "BackTest${System.nanoTime() % 100_000}"
         add(name, "5550197")
@@ -76,7 +80,8 @@ class ContactsAwayTest {
     }
 
     /** Shown, a change is read as it comes. */
-    @Test fun shownAChangeIsRead() {
+    @Test
+    fun shownAChangeIsRead() {
         contacts.setActive(true)
         val name = "ShownTest${System.nanoTime() % 100_000}"
         add(name, "5550196")

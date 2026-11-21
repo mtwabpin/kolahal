@@ -68,7 +68,8 @@ private fun KeyBarKey.icon(): Int? = when (this) {
 private object CANCELLED
 
 /** Keys that repeat while held. */
-private val REPEATING = setOf(KeyBarKey.UP, KeyBarKey.DOWN, KeyBarKey.LEFT, KeyBarKey.RIGHT, KeyBarKey.BKSP)
+private val REPEATING =
+    setOf(KeyBarKey.UP, KeyBarKey.DOWN, KeyBarKey.LEFT, KeyBarKey.RIGHT, KeyBarKey.BKSP)
 
 /**
  * On-screen keys that touch keyboards don't have: history, cursor movement and a few symbols.
@@ -78,9 +79,16 @@ private val REPEATING = setOf(KeyBarKey.UP, KeyBarKey.DOWN, KeyBarKey.LEFT, KeyB
  * - Dragging sideways across a row that is not scrolling moves the cursor.
  */
 @Composable
-internal fun KeyBar(specs: List<String>, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onText: (String) -> Unit) {
+internal fun KeyBar(
+    specs: List<String>,
+    rowHeight: Dp,
+    onKey: (KeyBarKey) -> Unit,
+    onText: (String) -> Unit
+) {
     Column(
-        Modifier.fillMaxWidth().background(Term.surface),
+        Modifier
+            .fillMaxWidth()
+            .background(Term.surface),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         specs.filter { it.isNotBlank() }.forEach { KeyRow(it, rowHeight, onKey, onText) }
@@ -88,9 +96,15 @@ internal fun KeyBar(specs: List<String>, rowHeight: Dp, onKey: (KeyBarKey) -> Un
 }
 
 @Composable
-private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onText: (String) -> Unit) {
+private fun KeyRow(
+    spec: String,
+    rowHeight: Dp,
+    onKey: (KeyBarKey) -> Unit,
+    onText: (String) -> Unit
+) {
     val keys = remember(spec) {
-        spec.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map { token -> KeyBarKey.of(token) to token }
+        spec.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+            .map { token -> KeyBarKey.of(token) to token }
     }
     val haptics = LocalHapticFeedback.current
     // Read the callbacks through updated state. A key's gesture handler below lives longer than the
@@ -127,7 +141,9 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
                         press(named, token)
                         var delayMs = 400L
                         while (true) {
-                            val outcome = withTimeoutOrNull(delayMs) { waitForUpOrCancellation() ?: CANCELLED }
+                            val outcome = withTimeoutOrNull(delayMs) {
+                                waitForUpOrCancellation() ?: CANCELLED
+                            }
                             if (outcome != null) break // released or cancelled; null means still held
                             press(named, token)
                             delayMs = 50L
@@ -166,8 +182,12 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
                     detectHorizontalDragGestures(onDragStart = { acc = 0f }) { change, dx ->
                         change.consume()
                         acc += dx
-                        while (acc >= step) { currentOnKey(KeyBarKey.RIGHT); acc -= step }
-                        while (acc <= -step) { currentOnKey(KeyBarKey.LEFT); acc += step }
+                        while (acc >= step) {
+                            currentOnKey(KeyBarKey.RIGHT); acc -= step
+                        }
+                        while (acc <= -step) {
+                            currentOnKey(KeyBarKey.LEFT); acc += step
+                        }
                     }
                 }
             ) {
@@ -186,7 +206,14 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
                         .align(Alignment.CenterEnd)
                         .fillMaxHeight()
                         .width(24.dp)
-                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Term.surface)))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    Term.surface
+                                )
+                            )
+                        )
                 )
             }
         }

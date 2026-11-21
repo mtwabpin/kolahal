@@ -24,7 +24,8 @@ class ScriptRunTest {
     private val logs = LogRepository.get(context)
     private val before = logs.maxId()
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         scripts.byName("srtest")?.let { scripts.delete(it.id) }
         logs.recent(100).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
@@ -33,7 +34,8 @@ class ScriptRunTest {
      * Two runs of one script started together (its timer while you run it, a daily time meeting an
      * interval) go one after the other: each sees its store as the other left it.
      */
-    @Test fun twoRunsOfOneScriptGoOneAfterTheOther() {
+    @Test
+    fun twoRunsOfOneScriptGoOneAfterTheOther() {
         val code = """
             local was = store.get("busy")
             store.set("busy", "1")
@@ -43,12 +45,16 @@ class ScriptRunTest {
             if was then log("srtest overlapped") end
         """.trimIndent()
         val s = scripts.create("srtest", ScriptLang.LUA, code)
-        val data = workDataOf(ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_INTERACTIVE to true)
+        val data =
+            workDataOf(ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_INTERACTIVE to true)
         runBlocking(Dispatchers.IO) {
             (1..3).map { async { ScriptRun.run(context, data) } }.awaitAll()
         }
         val store = KvStore(context, ScriptRepository.scopeOf(s.id))
         assertEquals("3", store.get("runs"))
-        assertEquals(emptyList<String>(), logs.recent(100).filter { it.id > before && it.text == "srtest overlapped" }.map { it.text })
+        assertEquals(
+            emptyList<String>(),
+            logs.recent(100).filter { it.id > before && it.text == "srtest overlapped" }
+                .map { it.text })
     }
 }

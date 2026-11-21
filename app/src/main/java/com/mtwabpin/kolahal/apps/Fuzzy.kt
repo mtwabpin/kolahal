@@ -21,7 +21,16 @@ internal object Fuzzy {
 
     /** Latin letters that have no accent to remove, mapped to their plain-letter spelling. */
     private val LETTERS = mapOf(
-        'ł' to "l", 'ø' to "o", 'ß' to "ss", 'đ' to "d", 'ð' to "d", 'æ' to "ae", 'œ' to "oe", 'þ' to "th", 'ı' to "i", 'ħ' to "h",
+        'ł' to "l",
+        'ø' to "o",
+        'ß' to "ss",
+        'đ' to "d",
+        'ð' to "d",
+        'æ' to "ae",
+        'œ' to "oe",
+        'þ' to "th",
+        'ı' to "i",
+        'ħ' to "h",
     )
 
     /**
@@ -36,7 +45,12 @@ internal object Fuzzy {
         return names.any { name ->
             // One table covers every length. Its last row holds the edit count to each start of the name.
             val longest = minOf(name.length, q.length + max)
-            longest >= 1 && lastRow(q, name, longest).let { last -> (maxOf(1, q.length - max)..longest).any { n -> last[n] <= max } }
+            longest >= 1 && lastRow(q, name, longest).let { last ->
+                (maxOf(
+                    1,
+                    q.length - max
+                )..longest).any { n -> last[n] <= max }
+            }
         }
     }
 
@@ -55,7 +69,8 @@ internal object Fuzzy {
             for (j in 1..bLength) {
                 val cost = if (a[i - 1] == b[j - 1]) 0 else 1
                 row[j] = minOf(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost)
-                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) row[j] = minOf(row[j], older[j - 2] + 1)
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) row[j] =
+                    minOf(row[j], older[j - 2] + 1)
             }
             val spare = older
             older = prev

@@ -35,32 +35,32 @@ import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.feeds.FeedInfo
@@ -79,9 +80,7 @@ import com.mtwabpin.kolahal.feeds.FeedRepository
 import com.mtwabpin.kolahal.feeds.FeedScheduler
 import com.mtwabpin.kolahal.feeds.FeedUrl
 import com.mtwabpin.kolahal.feeds.exportOpml
-import com.mtwabpin.kolahal.feeds.importOpml
 import com.mtwabpin.kolahal.script.Files
-import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -91,7 +90,15 @@ import kotlinx.coroutines.withContext
 import java.net.URI
 
 /** Refresh interval presets for a feed, in minutes. */
-private val FEED_INTERVALS = listOf(15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 720 to "12 hours", 1440 to "24 hours")
+private val FEED_INTERVALS = listOf(
+    15 to "15 minutes",
+    30 to "30 minutes",
+    60 to "1 hour",
+    180 to "3 hours",
+    360 to "6 hours",
+    720 to "12 hours",
+    1440 to "24 hours"
+)
 
 /** Number of items shown per feed. The database keeps at most [com.mtwabpin.kolahal.feeds.FeedDb.MAX_ITEMS_PER_FEED]. */
 private const val ITEM_LIMIT = 300
@@ -122,10 +129,23 @@ fun FeedsScreen(vm: TerminalViewModel) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    val feeds by produceIo<List<FeedInfo>?>(null, repoVersion, what = "Reading the feeds") { repo.all() }
+    val feeds by produceIo<List<FeedInfo>?>(
+        null,
+        repoVersion,
+        what = "Reading the feeds"
+    ) { repo.all() }
     // The feeds settings, shown under the subscriptions. They are read here, not inside the list's content.
     val configVersion = vm.config.version.collectAsStateWithLifecycle()
-    val applicable by remember { derivedStateOf { configVersion.value; Keys.ALL.filterTo(HashSet()) { applies(it, vm.config) } } }
+    val applicable by remember {
+        derivedStateOf {
+            configVersion.value; Keys.ALL.filterTo(HashSet()) {
+            applies(
+                it,
+                vm.config
+            )
+        }
+        }
+    }
     var openFeedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var sheetFeedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
@@ -150,31 +170,44 @@ fun FeedsScreen(vm: TerminalViewModel) {
      */
     fun markFeedRead(feed: FeedInfo, sheet: Boolean) {
         scope.launch {
-            val ids = withContext(Dispatchers.IO) { runCatching { repo.markFeedRead(feed.id) } }.getOrElse {
-                snackbar.showSnackbar("Mark all read failed: ${it.message ?: it.javaClass.simpleName}")
-                return@launch
-            }
+            val ids =
+                withContext(Dispatchers.IO) { runCatching { repo.markFeedRead(feed.id) } }.getOrElse {
+                    snackbar.showSnackbar("Mark all read failed: ${it.message ?: it.javaClass.simpleName}")
+                    return@launch
+                }
             snackbar.currentSnackbarData?.dismiss()
-            if (ids.isEmpty()) { snackbar.showSnackbar("No unread items"); return@launch }
-            val text = if (sheet) "Marked ${feed.displayTitle()} read" else "Marked ${ids.size} read"
-            val r = snackbar.showSnackbar(text, actionLabel = "Undo", duration = SnackbarDuration.Long)
-            if (r == SnackbarResult.ActionPerformed) withContext(Dispatchers.IO) { runCatching { repo.markUnread(ids) } }
+            if (ids.isEmpty()) {
+                snackbar.showSnackbar("No unread items"); return@launch
+            }
+            val text =
+                if (sheet) "Marked ${feed.displayTitle()} read" else "Marked ${ids.size} read"
+            val r =
+                snackbar.showSnackbar(text, actionLabel = "Undo", duration = SnackbarDuration.Long)
+            if (r == SnackbarResult.ActionPerformed) withContext(Dispatchers.IO) {
+                runCatching {
+                    repo.markUnread(
+                        ids
+                    )
+                }
+            }
         }
     }
 
-    val importOpml = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) io("import") {
-            val added = subscriptions.importOpml(Files.readText(context, uri))
-            if (added == 0) "No new feeds in that file" else "Imported $added new feed${if (added == 1) "" else "s"} — fetching…"
+    val importOpml =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) io("import") {
+                val added = subscriptions.importOpml(Files.readText(context, uri))
+                if (added == 0) "No new feeds in that file" else "Imported $added new feed${if (added == 1) "" else "s"} — fetching…"
+            }
         }
-    }
-    val exportOpml = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
-        if (uri != null) io("export") {
-            Files.writeText(context, uri, repo.exportOpml())
-            val n = repo.feeds().size
-            "Exported $n feed${if (n == 1) "" else "s"}"
+    val exportOpml =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
+            if (uri != null) io("export") {
+                Files.writeText(context, uri, repo.exportOpml())
+                val n = repo.feeds().size
+                "Exported $n feed${if (n == 1) "" else "s"}"
+            }
         }
-    }
 
     GuiTheme {
         val open = openFeedId?.let { id -> feeds?.firstOrNull { it.id == id } }
@@ -185,12 +218,31 @@ fun FeedsScreen(vm: TerminalViewModel) {
                 version = repoVersion,
                 snackbar = snackbar,
                 onBack = { openFeedId = null },
-                onRefresh = { io("refresh") { FeedScheduler.fetchNow(context, open.id); "Fetching ${open.displayTitle()}…" } },
+                onRefresh = {
+                    io("refresh") {
+                        FeedScheduler.fetchNow(
+                            context,
+                            open.id
+                        ); "Fetching ${open.displayTitle()}…"
+                    }
+                },
                 onMarkAllRead = { markFeedRead(open, sheet = false) },
                 onOpenItem = { item ->
-                    if (openItem(context, scope, item, snackbar) && !item.read) io("mark read") { repo.markRead(item.id); null }
+                    if (openItem(
+                            context,
+                            scope,
+                            item,
+                            snackbar
+                        ) && !item.read
+                    ) io("mark read") { repo.markRead(item.id); null }
                 },
-                onToggleRead = { item -> io("mark read") { if (item.read) repo.markUnread(item.id) else repo.markRead(item.id); null } },
+                onToggleRead = { item ->
+                    io("mark read") {
+                        if (item.read) repo.markUnread(item.id) else repo.markRead(
+                            item.id
+                        ); null
+                    }
+                },
             )
         } else {
             FeedListPage(
@@ -214,7 +266,14 @@ fun FeedsScreen(vm: TerminalViewModel) {
             FeedSheet(
                 feed = sheetFeed,
                 onDismiss = { sheetFeedId = null },
-                onRefresh = { io("refresh") { FeedScheduler.fetchNow(context, sheetFeed.id); "Fetching ${sheetFeed.displayTitle()}…" } },
+                onRefresh = {
+                    io("refresh") {
+                        FeedScheduler.fetchNow(
+                            context,
+                            sheetFeed.id
+                        ); "Fetching ${sheetFeed.displayTitle()}…"
+                    }
+                },
                 onNotify = { on ->
                     if (on) vm.requestNotificationPermission()
                     io("notifications") { repo.setNotify(sheetFeed.id, on); null }
@@ -222,7 +281,14 @@ fun FeedsScreen(vm: TerminalViewModel) {
                 onEnabled = { on ->
                     io("update") { subscriptions.setEnabled(sheetFeed.id, on); null }
                 },
-                onInterval = { minutes -> io("update") { subscriptions.setInterval(sheetFeed.id, minutes); null } },
+                onInterval = { minutes ->
+                    io("update") {
+                        subscriptions.setInterval(
+                            sheetFeed.id,
+                            minutes
+                        ); null
+                    }
+                },
                 onMarkAllRead = { markFeedRead(sheetFeed, sheet = true) },
                 onEditAddress = { editingFeedId = sheetFeed.id },
                 onRemove = {
@@ -270,13 +336,23 @@ fun FeedsScreen(vm: TerminalViewModel) {
  * Opens [item] in the browser. True if it is to be marked read: it was opened, or it has no link.
  * False if no app could open its link.
  */
-private fun openItem(context: Context, scope: CoroutineScope, item: FeedItem, snackbar: SnackbarHostState): Boolean {
+private fun openItem(
+    context: Context,
+    scope: CoroutineScope,
+    item: FeedItem,
+    snackbar: SnackbarHostState
+): Boolean {
     val link = item.link
     if (link.isNullOrBlank()) {
         scope.launch { snackbar.showSnackbar("This item has no link") }
     } else {
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, link.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            context.startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    link.toUri()
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
         } catch (_: Exception) {
             // No app can handle it, the link is malformed, or the target activity threw a SecurityException.
             scope.launch { snackbar.showSnackbar("No app can open $link") }
@@ -319,9 +395,19 @@ private fun FeedListPage(
         onBack = onBack,
         snackbar = snackbar,
         actions = {
-            LabeledIconButton(R.drawable.ic_refresh, "Refresh all", onClick = onRefreshAll, enabled = !feeds.isNullOrEmpty())
+            LabeledIconButton(
+                R.drawable.ic_refresh,
+                "Refresh all",
+                onClick = onRefreshAll,
+                enabled = !feeds.isNullOrEmpty()
+            )
             LabeledIconButton(R.drawable.ic_upload, "Import OPML", onClick = onImport)
-            LabeledIconButton(R.drawable.ic_download, "Export OPML", onClick = onExport, enabled = !feeds.isNullOrEmpty())
+            LabeledIconButton(
+                R.drawable.ic_download,
+                "Export OPML",
+                onClick = onExport,
+                enabled = !feeds.isNullOrEmpty()
+            )
         },
         floatingActionButton = {
             SmallExtendedFloatingActionButton(
@@ -342,16 +428,32 @@ private fun FeedListPage(
                 item(key = "import") {
                     ActionGroup(
                         listOf(
-                            Action(R.drawable.ic_add, "Add a feed", "Paste a site or feed address (RSS or Atom)", onClick = onAdd),
-                            Action(R.drawable.ic_upload, "Import OPML", "Subscriptions exported from another feed reader", onClick = onImport),
+                            Action(
+                                R.drawable.ic_add,
+                                "Add a feed",
+                                "Paste a site or feed address (RSS or Atom)",
+                                onClick = onAdd
+                            ),
+                            Action(
+                                R.drawable.ic_upload,
+                                "Import OPML",
+                                "Subscriptions exported from another feed reader",
+                                onClick = onImport
+                            ),
                         )
                     )
                 }
             }
+
             else -> {
                 item(key = "h:subs") { GroupHeader("Subscriptions") }
                 itemsIndexed(feeds, key = { _, f -> f.id }) { i, f ->
-                    FeedRow(f, i, feeds.size, onClick = { onOpenFeed(f) }, onMenu = { onFeedMenu(f) })
+                    FeedRow(
+                        f,
+                        i,
+                        feeds.size,
+                        onClick = { onOpenFeed(f) },
+                        onMenu = { onFeedMenu(f) })
                 }
                 item(key = "hint") {
                     PageHint("Tap a feed to read it. Terminal: feed add <url> · feed read · feed fetch")
@@ -450,7 +552,12 @@ private fun FeedSheet(
 ) {
     var confirmRemove by remember(feed.id) { mutableStateOf(false) }
     GuiSheet(onDismiss) {
-        Text(feed.displayTitle(), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(
+            feed.displayTitle(),
+            style = MaterialTheme.typography.titleLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
         Text(
             feed.url,
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
@@ -470,17 +577,29 @@ private fun FeedSheet(
         )
 
         Spacer(Modifier.height(16.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Button(shapes = ButtonDefaults.shapes(), onClick = onRefresh) {
                 IconLabel(R.drawable.ic_refresh, "Refresh now")
             }
-            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
+            FilledTonalButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onMarkAllRead,
+                enabled = feed.unread > 0
+            ) {
                 IconLabel(R.drawable.ic_done_all, "Mark all read")
             }
         }
 
         Spacer(Modifier.height(8.dp))
-        SwitchRow("Notifications", "Post a notification for new items", feed.notify, onChange = onNotify)
+        SwitchRow(
+            "Notifications",
+            "Post a notification for new items",
+            feed.notify,
+            onChange = onNotify
+        )
         SwitchRow("Enabled", "Fetch this feed on its schedule", feed.enabled, onChange = onEnabled)
 
         Spacer(Modifier.height(12.dp))
@@ -560,7 +679,8 @@ private fun FeedAddressDialog(
                 isError = invalid || error != null,
                 supportingText = {
                     Text(
-                        error ?: if (invalid) "Enter an http(s) address" else "RSS or Atom; https:// is added if missing"
+                        error
+                            ?: if (invalid) "Enter an http(s) address" else "RSS or Atom; https:// is added if missing"
                     )
                 },
                 keyboardOptions = KeyboardOptions(
@@ -573,8 +693,19 @@ private fun FeedAddressDialog(
                 modifier = Modifier.fillMaxWidth(),
             )
         },
-        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = normalized != null && !busy, onClick = ::submit) { Text(confirm) } },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                enabled = normalized != null && !busy,
+                onClick = ::submit
+            ) { Text(confirm) }
+        },
+        dismissButton = {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onDismiss
+            ) { Text("Cancel") }
+        },
     )
 }
 
@@ -592,18 +723,34 @@ private fun FeedItemsPage(
     onOpenItem: (FeedItem) -> Unit,
     onToggleRead: (FeedItem) -> Unit,
 ) {
-    val items by produceIo<List<FeedItem>?>(null, feed.id, version, what = "Reading a feed's items") {
+    val items by produceIo<List<FeedItem>?>(
+        null,
+        feed.id,
+        version,
+        what = "Reading a feed's items"
+    ) {
         repo.items(feedId = feed.id, limit = ITEM_LIMIT)
     }
     val list = items
     GuiListPage(
         title = { Text(feed.displayTitle(), maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        subtitle = { Text("${feed.unread} unread · ${hostOf(feed.url)}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        subtitle = {
+            Text(
+                "${feed.unread} unread · ${hostOf(feed.url)}",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
         onBack = onBack,
         snackbar = snackbar,
         actions = {
             LabeledIconButton(R.drawable.ic_refresh, "Refresh feed", onClick = onRefresh)
-            LabeledIconButton(R.drawable.ic_done_all, "Mark all read", onClick = onMarkAllRead, enabled = feed.unread > 0)
+            LabeledIconButton(
+                R.drawable.ic_done_all,
+                "Mark all read",
+                onClick = onMarkAllRead,
+                enabled = feed.unread > 0
+            )
         },
     ) {
         if (list != null && list.isEmpty()) {
@@ -612,7 +759,12 @@ private fun FeedItemsPage(
             }
         }
         if (list != null) itemsIndexed(list, key = { _, it -> it.id }) { i, item ->
-            ItemRow(item, i, list.size, onClick = { onOpenItem(item) }, onToggleRead = { onToggleRead(item) })
+            ItemRow(
+                item,
+                i,
+                list.size,
+                onClick = { onOpenItem(item) },
+                onToggleRead = { onToggleRead(item) })
         }
         if (!list.isNullOrEmpty()) item(key = "hint") {
             PageHint("Tap an item to open it · swipe it to mark it read or unread")
@@ -628,7 +780,13 @@ private fun FeedItemsPage(
  * - Screen readers get the same toggle as an action.
  */
 @Composable
-private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit, onToggleRead: () -> Unit) {
+private fun ItemRow(
+    item: FeedItem,
+    index: Int,
+    count: Int,
+    onClick: () -> Unit,
+    onToggleRead: () -> Unit
+) {
     val date = item.publishedText?.takeIf { it.isNotBlank() } ?: relative(item.fetchedAt)
     val shapes = segShapes(index, count)
     val swipe = rememberSwipeToDismissBoxState()
@@ -658,13 +816,19 @@ private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit,
                     .padding(horizontal = 24.dp),
             ) {
                 val color = MaterialTheme.colorScheme.onSecondaryContainer
-                Icon(painterResource(if (item.read) R.drawable.ic_mail else R.drawable.ic_done_all), null, tint = color)
+                Icon(
+                    painterResource(if (item.read) R.drawable.ic_mail else R.drawable.ic_done_all),
+                    null,
+                    tint = color
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(label, style = MaterialTheme.typography.labelLarge, color = color)
             }
         },
         onDismiss = dismissed,
-        modifier = Modifier.semantics { customActions = listOf(CustomAccessibilityAction(label) { onToggleRead(); true }) },
+        modifier = Modifier.semantics {
+            customActions = listOf(CustomAccessibilityAction(label) { onToggleRead(); true })
+        },
     ) {
         SegmentedListItem(
             onClick = onClick,
@@ -672,9 +836,16 @@ private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit,
             colors = segColors(),
             leadingContent = {
                 // Unread dot. Its slot has a fixed size, so titles stay aligned when the dot is hidden.
-                Box(Modifier.size(10.dp).then(
-                    if (!item.read) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape) else Modifier
-                ))
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .then(
+                            if (!item.read) Modifier.background(
+                                MaterialTheme.colorScheme.primary,
+                                CircleShape
+                            ) else Modifier
+                        )
+                )
             },
             supportingContent = {
                 Text(

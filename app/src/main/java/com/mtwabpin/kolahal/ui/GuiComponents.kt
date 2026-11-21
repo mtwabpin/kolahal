@@ -126,7 +126,13 @@ fun <T> produceIo(initial: T, vararg keys: Any?, what: String, read: suspend () 
 
 /** Single-select connected button group (Material 3 Expressive). [label] gives the words shown for a choice; the test tag keeps the choice itself. */
 @Composable
-fun ConnectedChoices(choices: List<String>, selected: String, tagPrefix: String = "choice ", label: (String) -> String = { it }, onPick: (String) -> Unit) {
+fun ConnectedChoices(
+    choices: List<String>,
+    selected: String,
+    tagPrefix: String = "choice ",
+    label: (String) -> String = { it },
+    onPick: (String) -> Unit
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         modifier = Modifier.fillMaxWidth(),
@@ -140,7 +146,9 @@ fun ConnectedChoices(choices: List<String>, selected: String, tagPrefix: String 
                     choices.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
-                modifier = Modifier.weight(1f).testTag(tagPrefix + choice),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(tagPrefix + choice),
             ) {
                 Text(label(choice), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -148,7 +156,13 @@ fun ConnectedChoices(choices: List<String>, selected: String, tagPrefix: String 
     }
 }
 
-data class Action(val icon: Int, val title: String, val subtitle: String, val chevron: Boolean = false, val onClick: () -> Unit)
+data class Action(
+    val icon: Int,
+    val title: String,
+    val subtitle: String,
+    val chevron: Boolean = false,
+    val onClick: () -> Unit
+)
 
 /** A segmented group of clickable rows. */
 @Composable
@@ -159,10 +173,22 @@ fun ActionGroup(actions: List<Action>) {
                 colors = segColors(),
                 onClick = a.onClick,
                 shapes = segShapes(i, actions.size),
-                leadingContent = { Icon(painterResource(a.icon), null, tint = MaterialTheme.colorScheme.primary) },
+                leadingContent = {
+                    Icon(
+                        painterResource(a.icon),
+                        null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
                 supportingContent = { Text(a.subtitle) },
                 trailingContent = if (a.chevron) {
-                    { Icon(painterResource(R.drawable.ic_chevron_right), null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    {
+                        Icon(
+                            painterResource(R.drawable.ic_chevron_right),
+                            null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 } else null,
             ) { Text(a.title) }
         }
@@ -182,7 +208,11 @@ fun GroupHeader(title: String) {
 /** The title over a group of rows on a sheet. A page uses [GroupHeader]. */
 @Composable
 internal fun SectionTitle(title: String) {
-    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary
+    )
 }
 
 @Composable
@@ -231,7 +261,9 @@ internal fun GuiListPage(
             .nestedScroll(scroll.nestedScrollConnection),
         // When fading, the page draws its own background. A transparent container has no content colour, so set it here.
         containerColor = if (fade != null) Color.Transparent else surface,
-        contentColor = if (fade != null) MaterialTheme.colorScheme.onSurface else contentColorFor(surface),
+        contentColor = if (fade != null) MaterialTheme.colorScheme.onSurface else contentColorFor(
+            surface
+        ),
         snackbarHost = { if (snackbar != null) SnackbarHost(snackbar) },
         topBar = {
             LargeFlexibleTopAppBar(
@@ -240,7 +272,9 @@ internal fun GuiListPage(
                 navigationIcon = { BackButton(onBack) },
                 actions = actions,
                 scrollBehavior = scroll,
-                modifier = if (fade != null) Modifier.graphicsLayer { alpha = fade() } else Modifier,
+                modifier = if (fade != null) Modifier.graphicsLayer {
+                    alpha = fade()
+                } else Modifier,
             )
         },
         bottomBar = bottomBar,
@@ -257,7 +291,11 @@ internal fun GuiListPage(
                     bottom = padding.calculateBottomPadding() + bottom,
                 ),
                 verticalArrangement = verticalArrangement,
-                modifier = Modifier.fillMaxWidth().weight(1f).navigationBarScrim(fade ?: { 1f }).then(listModifier),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .navigationBarScrim(fade ?: { 1f })
+                    .then(listModifier),
                 content = content,
             )
         }
@@ -276,7 +314,12 @@ internal fun rememberNoticeSnackbar(vm: TerminalViewModel): SnackbarHostState {
         val n = notice ?: return@LaunchedEffect
         val undo = n.undo
         if (undo == null) snackbar.showSnackbar(n.text)
-        else if (snackbar.showSnackbar(n.text, actionLabel = "Undo", duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) undo()
+        else if (snackbar.showSnackbar(
+                n.text,
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Long
+            ) == SnackbarResult.ActionPerformed
+        ) undo()
     }
     return snackbar
 }
@@ -285,7 +328,10 @@ internal fun rememberNoticeSnackbar(vm: TerminalViewModel): SnackbarHostState {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun rememberExpandedSheetState(): SheetState =
-    rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    rememberBottomSheetState(
+        SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+    )
 
 /**
  * A bottom sheet over a GUI page. It is fully open or closed ([rememberExpandedSheetState]), in
@@ -323,20 +369,40 @@ internal fun GuiSheet(
  * - [icon], if given, shows above the [title].
  */
 @Composable
-internal fun ConfirmDialog(title: String, text: String, confirm: String, icon: Int? = null, dismiss: String = "Cancel", onDismiss: () -> Unit, onConfirm: () -> Unit) {
+internal fun ConfirmDialog(
+    title: String,
+    text: String,
+    confirm: String,
+    icon: Int? = null,
+    dismiss: String = "Cancel",
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = if (icon != null) { { Icon(painterResource(icon), null) } } else null,
+        icon = if (icon != null) {
+            { Icon(painterResource(icon), null) }
+        } else null,
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = { ErrorTextButton(onClick = onConfirm) { Text(confirm) } },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(dismiss) } },
+        dismissButton = {
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) {
+                Text(
+                    dismiss
+                )
+            }
+        },
     )
 }
 
 /** A text button in the error colour, for an action that removes or replaces something. */
 @Composable
-internal fun ErrorTextButton(onClick: () -> Unit, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
+internal fun ErrorTextButton(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit
+) {
     TextButton(
         shapes = ButtonDefaults.shapes(),
         onClick = onClick,
@@ -348,13 +414,20 @@ internal fun ErrorTextButton(onClick: () -> Unit, enabled: Boolean = true, conte
 
 /** The text a page shows when it has nothing to list. It is centred, with [top] and [bottom] space from the rows around it. */
 @Composable
-internal fun EmptyNote(text: String, modifier: Modifier = Modifier, top: Dp = 32.dp, bottom: Dp = top) {
+internal fun EmptyNote(
+    text: String,
+    modifier: Modifier = Modifier,
+    top: Dp = 32.dp,
+    bottom: Dp = top
+) {
     Text(
         text,
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
-        modifier = modifier.fillMaxWidth().padding(top = top, bottom = bottom),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = top, bottom = bottom),
     )
 }
 
@@ -364,7 +437,11 @@ internal fun EmptyNote(text: String, modifier: Modifier = Modifier, top: Dp = 32
  */
 @Composable
 internal fun NoMatchNote(text: String) {
-    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+    Text(
+        text,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(16.dp)
+    )
 }
 
 /** Small text under a page's rows. It explains how they work and names the terminal commands that do the same. */
@@ -388,14 +465,17 @@ internal fun IconLabel(icon: Int, text: String) {
 
 /** "5 minutes ago"; [short] gives "5 min. ago" for one-line rows. */
 internal fun relative(time: Long, short: Boolean = false): String =
-    if (System.currentTimeMillis() - time < DateUtils.MINUTE_IN_MILLIS) "just now" else relativeSpan(time, short)
+    if (System.currentTimeMillis() - time < DateUtils.MINUTE_IN_MILLIS) "just now" else relativeSpan(
+        time,
+        short
+    )
 
 private fun relativeSpan(time: Long, short: Boolean = false): String =
     DateUtils.getRelativeTimeSpanString(
         time, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
         // The same flags as the three-argument form, plus the short form when [short] is true.
         DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR or DateUtils.FORMAT_ABBREV_MONTH or
-            (if (short) DateUtils.FORMAT_ABBREV_RELATIVE else 0),
+                (if (short) DateUtils.FORMAT_ABBREV_RELATIVE else 0),
     ).toString()
 
 /** A full-width row (≥ 56dp). A tap anywhere on it toggles the switch. [color] is the background it sits on. */
@@ -411,12 +491,21 @@ internal fun SwitchRow(
         onClick = { onChange(!checked) },
         shape = MaterialTheme.shapes.large,
         color = color,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(Modifier.width(16.dp))
             Switch(checked = checked, onCheckedChange = null)
@@ -432,13 +521,35 @@ internal fun SwitchRow(
  *   and a longer one is cut with "…".
  */
 @Composable
-internal fun ValueRow(name: String, detail: String, value: String, valueColor: Color, valueMaxWidth: Dp? = null, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+internal fun ValueRow(
+    name: String,
+    detail: String,
+    value: String,
+    valueColor: Color,
+    valueMaxWidth: Dp? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
             Column(Modifier.weight(1f)) {
-                Text(name, style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace))
+                Text(
+                    name,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace)
+                )
                 if (detail.isNotBlank()) {
-                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             Spacer(Modifier.width(16.dp))
@@ -501,7 +612,13 @@ internal fun SearchField(
  * - A chip that keeps no row (0) is greyed while it is off. A tap on it still works.
  */
 @Composable
-internal fun CountChip(label: String, count: Int, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun CountChip(
+    label: String,
+    count: Int,
+    on: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     val muted = count == 0 && !on
     FilterChip(
@@ -511,11 +628,19 @@ internal fun CountChip(label: String, count: Int, on: Boolean, modifier: Modifie
             Text(buildAnnotatedString {
                 append(label)
                 append(" ")
-                withStyle(SpanStyle(color = if (muted) colors.outline else colors.onSurfaceVariant)) { append("$count") }
+                withStyle(SpanStyle(color = if (muted) colors.outline else colors.onSurfaceVariant)) {
+                    append(
+                        "$count"
+                    )
+                }
             })
         },
         colors = FilterChipDefaults.filterChipColors(labelColor = if (muted) colors.outline else colors.onSurfaceVariant),
-        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = on, borderColor = if (muted) colors.outlineVariant else colors.outline),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = on,
+            borderColor = if (muted) colors.outlineVariant else colors.outline
+        ),
         modifier = modifier,
     )
 }
@@ -526,23 +651,42 @@ internal fun CountChip(label: String, count: Int, on: Boolean, modifier: Modifie
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun IntervalSelector(label: String, selected: Int, onPick: (Int) -> Unit, choices: List<Pair<Int, String>>) {
+internal fun IntervalSelector(
+    label: String,
+    selected: Int,
+    onPick: (Int) -> Unit,
+    choices: List<Pair<Int, String>>
+) {
     var open by remember { mutableStateOf(false) }
-    val turn by animateFloatAsState(if (open) 180f else 0f, MaterialTheme.motionScheme.defaultSpatialSpec())
+    val turn by animateFloatAsState(
+        if (open) 180f else 0f,
+        MaterialTheme.motionScheme.defaultSpatialSpec()
+    )
     Surface(
         onClick = { open = !open },
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(16.dp))
             Box {
                 FilledTonalToggleButton(checked = open, onCheckedChange = { open = it }) {
-                    Text(choices.firstOrNull { it.first == selected }?.second ?: CommandParsing.formatInterval(selected))
+                    Text(
+                        choices.firstOrNull { it.first == selected }?.second
+                            ?: CommandParsing.formatInterval(selected)
+                    )
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Icon(painterResource(R.drawable.ic_expand_more), null, Modifier.size(ButtonDefaults.IconSize).rotate(turn))
+                    Icon(
+                        painterResource(R.drawable.ic_expand_more),
+                        null,
+                        Modifier
+                            .size(ButtonDefaults.IconSize)
+                            .rotate(turn)
+                    )
                 }
                 DropdownMenuPopup(expanded = open, onDismissRequest = { open = false }) {
                     DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1)) {

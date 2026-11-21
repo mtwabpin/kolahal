@@ -5,7 +5,8 @@ import org.junit.Test
 
 /** Cutting a text keeps its characters whole. */
 class TakeWholeTest {
-    @Test fun anEmojiIsKeptWholeOrLeftOut() {
+    @Test
+    fun anEmojiIsKeptWholeOrLeftOut() {
         assertEquals("ab", "ab😀c".takeWhole(2))
         // The cut falls inside the emoji: it's left out, not halved.
         assertEquals("ab", "ab😀c".takeWhole(3))

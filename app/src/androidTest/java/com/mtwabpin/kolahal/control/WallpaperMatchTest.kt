@@ -42,7 +42,8 @@ class WallpaperMatchTest {
     private val lock = WallpaperManager.FLAG_LOCK
     private var night = "yes"
 
-    private fun solid(colour: Int) = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(colour) }
+    private fun solid(colour: Int) =
+        Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(colour) }
 
     /**
      * The colour of the picture itself, not what getWallpaperColors says of it. Android drops a
@@ -54,7 +55,8 @@ class WallpaperMatchTest {
         instrumentation.uiAutomation.adoptShellPermissionIdentity("android.permission.READ_WALLPAPER_INTERNAL")
         try {
             val file = wallpapers.getWallpaperFile(which) ?: return null
-            val bitmap = file.use { BitmapFactory.decodeFileDescriptor(it.fileDescriptor) } ?: return null
+            val bitmap =
+                file.use { BitmapFactory.decodeFileDescriptor(it.fileDescriptor) } ?: return null
             return bitmap.getPixel(bitmap.width / 2, bitmap.height / 2)
         } finally {
             instrumentation.uiAutomation.dropShellPermissionIdentity()
@@ -64,28 +66,44 @@ class WallpaperMatchTest {
     /** Within a shade: scaling the picture to the screen can round it. */
     private fun shows(which: Int, colour: Int): Boolean {
         val c = picture(which) ?: return false
-        return abs(Color.red(c) - Color.red(colour)) <= 2 && abs(Color.green(c) - Color.green(colour)) <= 2 && abs(Color.blue(c) - Color.blue(colour)) <= 2
+        return abs(Color.red(c) - Color.red(colour)) <= 2 && abs(Color.green(c) - Color.green(colour)) <= 2 && abs(
+            Color.blue(c) - Color.blue(colour)
+        ) <= 2
     }
 
     private fun waitFor(what: String, check: () -> Boolean) {
-        if (!eventually(8_000, check)) fail("$what; matched ${WallpaperMatch.isMatched(context)}, set to ${Integer.toHexString(colourSet())}, picture ${picture(system)?.let(Integer::toHexString)}")
+        if (!eventually(
+                8_000,
+                check
+            )
+        ) fail(
+            "$what; matched ${WallpaperMatch.isMatched(context)}, set to ${
+                Integer.toHexString(
+                    colourSet()
+                )
+            }, picture ${picture(system)?.let(Integer::toHexString)}"
+        )
     }
 
     /** The colour of the wallpaper Kolahal last finished setting. */
-    private fun colourSet() = context.getSharedPreferences("wallpaper_match", Context.MODE_PRIVATE).getInt("colour", 0)
+    private fun colourSet() =
+        context.getSharedPreferences("wallpaper_match", Context.MODE_PRIVATE).getInt("colour", 0)
 
     /** The wallpaper ends up in [colour]: following goes off the main thread, and it's done when the colour is stored. */
-    private fun followsTo(what: String, colour: Int) = waitFor(what) { colourSet() == colour && shows(system, colour) }
+    private fun followsTo(what: String, colour: Int) =
+        waitFor(what) { colourSet() == colour && shows(system, colour) }
 
     /** A palette's background as the wallpaper has it. */
     private fun wallpaperOf(palette: Palette) = palette.bg.copy(alpha = 1f).toArgb()
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         night = shell("cmd uimode night").substringAfter(':').trim()
         WallpaperMatch.forget(context)
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         WallpaperMatch.forget(context)
         wallpapers.clear(system or lock)
         config.reset(Keys.THEME)
@@ -93,11 +111,13 @@ class WallpaperMatchTest {
     }
 
     /** A theme being tried leaves the wallpaper as it is: it changes when the theme is kept. */
-    @Test fun aPreviewLeavesItAloneUntilEnter() {
+    @Test
+    fun aPreviewLeavesItAloneUntilEnter() {
         ActivityScenario.launch(com.mtwabpin.kolahal.MainActivity::class.java).use { scenario ->
             lateinit var vm: com.mtwabpin.kolahal.terminal.TerminalViewModel
             scenario.onActivity {
-                vm = androidx.lifecycle.ViewModelProvider(it)[com.mtwabpin.kolahal.terminal.TerminalViewModel::class.java]
+                vm =
+                    androidx.lifecycle.ViewModelProvider(it)[com.mtwabpin.kolahal.terminal.TerminalViewModel::class.java]
                 vm.openScreen(com.mtwabpin.kolahal.terminal.Screen.TERMINAL)
             }
             val before = wallpaperOf(Term.palette)
@@ -105,7 +125,13 @@ class WallpaperMatchTest {
             followsTo("the theme in use", before)
             val id = wallpapers.getWallpaperId(system)
 
-            instrumentation.runOnMainSync { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue("theme dracula")) }
+            instrumentation.runOnMainSync {
+                vm.onInputChange(
+                    androidx.compose.ui.text.input.TextFieldValue(
+                        "theme dracula"
+                    )
+                )
+            }
             waitFor("the theme tried") { wallpaperOf(Term.palette) != before }
             Thread.sleep(1_500)
             assertEquals(id, wallpapers.getWallpaperId(system))
@@ -118,14 +144,16 @@ class WallpaperMatchTest {
         }
     }
 
-    @Test fun itKnowsTheWallpaperItSet() {
+    @Test
+    fun itKnowsTheWallpaperItSet() {
         assertFalse(WallpaperMatch.isMatched(context))
         assertTrue(WallpaperMatch.set(context, Color.RED))
         assertTrue(WallpaperMatch.isMatched(context))
         waitFor("red") { shows(system, Color.RED) }
     }
 
-    @Test fun itFollowsWhileTheWallpaperIsItsOwn() {
+    @Test
+    fun itFollowsWhileTheWallpaperIsItsOwn() {
         WallpaperMatch.set(context, Color.RED)
         val first = wallpapers.getWallpaperId(system)
         WallpaperMatch.follow(context, Color.BLUE)
@@ -135,7 +163,8 @@ class WallpaperMatchTest {
     }
 
     /** The heart of it: someone sets their own, and from then on Kolahal keeps its hands off. */
-    @Test fun itLeavesAWallpaperSetSinceAlone() {
+    @Test
+    fun itLeavesAWallpaperSetSinceAlone() {
         WallpaperMatch.set(context, Color.RED)
         wallpapers.setBitmap(solid(Color.GREEN), null, true, system)
         val theirs = wallpapers.getWallpaperId(system)
@@ -143,7 +172,12 @@ class WallpaperMatchTest {
 
         WallpaperMatch.follow(context, Color.BLUE)
         // Forgotten, not just skipped: it lets go of the wallpaper it had set, for good.
-        waitFor("forgotten") { !context.getSharedPreferences("wallpaper_match", android.content.Context.MODE_PRIVATE).contains("id") }
+        waitFor("forgotten") {
+            !context.getSharedPreferences(
+                "wallpaper_match",
+                android.content.Context.MODE_PRIVATE
+            ).contains("id")
+        }
         assertEquals(theirs, wallpapers.getWallpaperId(system))
         waitFor("still green") { shows(system, Color.GREEN) }
 
@@ -153,7 +187,8 @@ class WallpaperMatchTest {
         assertEquals(theirs, wallpapers.getWallpaperId(system))
     }
 
-    @Test fun withoutMatchItNeverTouchesTheWallpaper() {
+    @Test
+    fun withoutMatchItNeverTouchesTheWallpaper() {
         wallpapers.setBitmap(solid(Color.GREEN), null, true, system)
         val theirs = wallpapers.getWallpaperId(system)
         WallpaperMatch.follow(context, Color.BLUE)
@@ -161,7 +196,8 @@ class WallpaperMatchTest {
         assertEquals(theirs, wallpapers.getWallpaperId(system))
     }
 
-    @Test fun theSameColourSetsNothing() {
+    @Test
+    fun theSameColourSetsNothing() {
         WallpaperMatch.set(context, Color.RED)
         val first = wallpapers.getWallpaperId(system)
         WallpaperMatch.follow(context, Color.RED)
@@ -173,7 +209,8 @@ class WallpaperMatchTest {
      * material-you takes its colours from the wallpaper. If the wallpaper followed it too, each
      * would keep changing the other. So the wallpaper stays, and follows again with the next theme.
      */
-    @Test fun aThemeFromTheWallpaperIsNotFollowed() {
+    @Test
+    fun aThemeFromTheWallpaperIsNotFollowed() {
         WallpaperMatch.set(context, Color.RED)
         val first = wallpapers.getWallpaperId(system)
         WallpaperMatch.follow(context, Color.BLUE, fromWallpaper = true)
@@ -189,7 +226,8 @@ class WallpaperMatchTest {
     }
 
     /** Themes picked faster than wallpapers are set: it ends on the last one. */
-    @Test fun itEndsOnTheLastTheme() {
+    @Test
+    fun itEndsOnTheLastTheme() {
         WallpaperMatch.set(context, Color.RED)
         WallpaperMatch.follow(context, Color.GREEN)
         WallpaperMatch.follow(context, Color.YELLOW)
@@ -201,14 +239,18 @@ class WallpaperMatchTest {
     }
 
     /** Home, for real: a theme picked, then dark mode turning off; the lock screen stays out of it; home doesn't restart. */
-    @Test fun aThemeChangeOnHomeChangesTheWallpaper() {
+    @Test
+    fun aThemeChangeOnHomeChangesTheWallpaper() {
         wallpapers.setBitmap(solid(Color.MAGENTA), null, true, system or lock)
         waitFor("magenta first") { shows(system, Color.MAGENTA) }
         shell("cmd uimode night yes")
         config.set(Keys.THEME, "gruvbox")
         var created = 0
         val count = object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityCreated(a: Activity, b: Bundle?) { if (a is MainActivity) created++ }
+            override fun onActivityCreated(a: Activity, b: Bundle?) {
+                if (a is MainActivity) created++
+            }
+
             override fun onActivityStarted(a: Activity) = Unit
             override fun onActivityResumed(a: Activity) = Unit
             override fun onActivityPaused(a: Activity) = Unit

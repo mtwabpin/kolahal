@@ -12,7 +12,6 @@ import android.os.PowerManager
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.notify.Notifier
-import com.mtwabpin.kolahal.unlock.UnlockCounter
 
 /** One item of the setup checklist. [fix] is a terminal command that opens the matching system page. */
 data class SetupCheck(
@@ -26,7 +25,8 @@ data class SetupCheck(
 object SetupChecks {
     fun run(context: Context): List<SetupCheck> {
         val power = context.getSystemService(PowerManager::class.java)
-        val profiles = AppRepository.get(context).profiles.value.filter { it.kind != ProfileKind.PERSONAL }
+        val profiles =
+            AppRepository.get(context).profiles.value.filter { it.kind != ProfileKind.PERSONAL }
         return listOfNotNull(
             SetupCheck(
                 "Default home app",
@@ -116,7 +116,8 @@ object SetupChecks {
         context.getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_HOME)
     } else {
         context.packageManager.resolveActivity(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY,
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+            PackageManager.MATCH_DEFAULT_ONLY,
         )?.activityInfo?.packageName == context.packageName
     }
 

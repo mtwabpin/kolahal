@@ -16,23 +16,30 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class StarredLinesTest {
     // A trim or a clear here deletes the phone's own lines too: the whole log comes back after each test.
-    @get:Rule val logKept = LogKept()
+    @get:Rule
+    val logKept = LogKept()
     private val logs = LogRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val token = "star${System.nanoTime()}"
 
     /** This test's lines, oldest first: a search finds starred ones a clear took off the screen too. */
-    private fun mine() = logs.search(listOf(token), limit = 5_000).entries.filter { it.text.startsWith(token) }.sortedBy { it.id }
+    private fun mine() =
+        logs.search(listOf(token), limit = 5_000).entries.filter { it.text.startsWith(token) }
+            .sortedBy { it.id }
 
-    @After fun tearDown() = mine().forEach { logs.delete(it.id) }
+    @After
+    fun tearDown() = mine().forEach { logs.delete(it.id) }
 
-    @Test fun aTrimKeepsStarredLinesAndDoesntCountThem() {
+    @Test
+    fun aTrimKeepsStarredLinesAndDoesntCountThem() {
         val ids = (0 until 520).map { logs.add(LogKind.OUTPUT, "$token output $it") }
         listOf(0, 5, 515).forEach { logs.setStarred(ids[it], true) }
         logs.trim(keep = 500)
         val left = mine()
         // The 517 others keep their newest 500: 1 to 4 and 6 to 18 go.
         assertEquals(503, left.size)
-        assertEquals(listOf("$token output 0", "$token output 5", "$token output 19"), left.take(3).map { it.text })
+        assertEquals(
+            listOf("$token output 0", "$token output 5", "$token output 19"),
+            left.take(3).map { it.text })
         assertEquals(listOf(true, true, false), left.take(3).map { it.starred })
         assertTrue(left.single { it.id == ids[515] }.starred)
         // Nothing past the cap is left: a second trim takes nothing.
@@ -40,7 +47,8 @@ class StarredLinesTest {
         assertEquals(503, mine().size)
     }
 
-    @Test fun theAgeTrimKeepsStarredLines() {
+    @Test
+    fun theAgeTrimKeepsStarredLines() {
         val kept = logs.add(LogKind.OUTPUT, "$token kept")
         logs.add(LogKind.OUTPUT, "$token aged")
         logs.setStarred(kept, true)
@@ -49,7 +57,8 @@ class StarredLinesTest {
         assertEquals(listOf("$token kept"), mine().map { it.text })
     }
 
-    @Test fun anUnstarredLineGoesAsTheOthersDo() {
+    @Test
+    fun anUnstarredLineGoesAsTheOthersDo() {
         val id = logs.add(LogKind.OUTPUT, "$token line")
         logs.setStarred(id, true)
         assertTrue(mine().single().starred)
@@ -61,7 +70,8 @@ class StarredLinesTest {
     }
 
     /** A clear takes a starred line off the screen without deleting it; `@starred` still finds it. */
-    @Test fun aClearKeepsStarredLinesOffTheScreen() {
+    @Test
+    fun aClearKeepsStarredLinesOffTheScreen() {
         val starred = logs.add(LogKind.OUTPUT, "$token starred")
         logs.add(LogKind.OUTPUT, "$token plain")
         logs.setStarred(starred, true)
@@ -76,7 +86,8 @@ class StarredLinesTest {
     }
 
     /** A launch line moves down when the app is launched again, but a starred one stays where it is. */
-    @Test fun aRepeatedLineLeavesTheStarredOne() {
+    @Test
+    fun aRepeatedLineLeavesTheStarredOne() {
         val first = logs.addReplacing(LogKind.INFO, "$token Opened Maps")
         logs.setStarred(first, true)
         val second = logs.addReplacing(LogKind.INFO, "$token Opened Maps")
@@ -86,7 +97,8 @@ class StarredLinesTest {
     }
 
     /** Home reads its page again for a star, and a deleted starred line that comes back with Undo is still starred. */
-    @Test fun aStarRereadsThePageAndUndoKeepsIt() {
+    @Test
+    fun aStarRereadsThePageAndUndoKeepsIt() {
         val id = logs.add(LogKind.OUTPUT, "$token line")
         val structure = logs.structure
         logs.setStarred(id, true)

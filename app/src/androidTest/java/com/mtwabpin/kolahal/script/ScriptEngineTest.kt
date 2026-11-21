@@ -18,12 +18,14 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ScriptEngineTest {
     // The runs in the :script process log lines; a later class reads the log.
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private fun host() = HostApi(context, "test", scriptId = null, notifyEnabled = false)
 
     /** What the store tests set, in the store typed lines use: gone again after. */
-    @org.junit.After fun tearDown() {
+    @org.junit.After
+    fun tearDown() {
         val repl = com.mtwabpin.kolahal.data.KvStore(context, "repl")
         repl.set("k", null)
         repl.set("x", null)
@@ -35,9 +37,11 @@ class ScriptEngineTest {
     private fun js(code: String, repl: Boolean = true, timeout: Long = 5_000) =
         runBlocking { JsEngine().run(code, "t", host(), timeout, repl) }
 
-    @Test fun luaIsVersion54() = assertEquals("Lua 5.4", lua("_VERSION"))
+    @Test
+    fun luaIsVersion54() = assertEquals("Lua 5.4", lua("_VERSION"))
 
-    @Test fun luaExpressionAndTables() {
+    @Test
+    fun luaExpressionAndTables() {
         assertEquals("3", lua("1 + 2"))
         val out = lua("json.decode('{\"a\":1,\"b\":[1,2,3]}')")!!
         assertEquals(mapOf("a" to 1, "b" to listOf(1, 2, 3)), Json.parse(out))
@@ -47,18 +51,21 @@ class ScriptEngineTest {
      * A host function's error reaches the script as text, never as a Java object (`__jthrowable__`).
      * And the host functions still work with the Java metatables emptied.
      */
-    @Test fun luaHostErrorsAreTextOnly() {
+    @Test
+    fun luaHostErrorsAreTextOnly() {
         assertEquals(
             "false\tstring\tnil\ttrue",
             lua("local ok, err = pcall(json.decode, '{nope'); return tostring(ok) .. '\\t' .. type(err) .. '\\t' .. tostring(__jthrowable__) .. '\\t' .. tostring(json.decode('[1]')[1] == 1)"),
         )
     }
 
-    @Test fun luaSandboxRemovesDangerousGlobals() {
+    @Test
+    fun luaSandboxRemovesDangerousGlobals() {
         assertEquals("nil\tnil\tnil\tnil\tnil", lua("java, io, debug, require, os.execute"))
     }
 
-    @Test fun luaInfiniteLoopTimesOut() {
+    @Test
+    fun luaInfiniteLoopTimesOut() {
         val started = System.currentTimeMillis()
         try {
             lua("while true do end", repl = false, timeout = 1_000)
@@ -70,10 +77,15 @@ class ScriptEngineTest {
         assertTrue(System.currentTimeMillis() - started < 10_000)
     }
 
-    @Test fun luaPcallCannotSwallowTimeout() {
+    @Test
+    fun luaPcallCannotSwallowTimeout() {
         val started = System.currentTimeMillis()
         try {
-            lua("while true do pcall(function() while true do end end) end", repl = false, timeout = 1_000)
+            lua(
+                "while true do pcall(function() while true do end end) end",
+                repl = false,
+                timeout = 1_000
+            )
             fail("expected timeout")
         } catch (e: Exception) {
             assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("timed out"))
@@ -82,7 +94,8 @@ class ScriptEngineTest {
         assertTrue(System.currentTimeMillis() - started < 10_000)
     }
 
-    @Test fun luaXpcallAndResumeCannotSwallowTimeout() {
+    @Test
+    fun luaXpcallAndResumeCannotSwallowTimeout() {
         for (code in listOf(
             "while true do xpcall(function() while true do end end, function(e) return e end) end",
             "while true do local co = coroutine.create(function() while true do end end); coroutine.resume(co) end",
@@ -96,33 +109,48 @@ class ScriptEngineTest {
         }
     }
 
-    @Test fun luaPcallStillCatchesOrdinaryErrors() {
+    @Test
+    fun luaPcallStillCatchesOrdinaryErrors() {
         assertEquals("false\tboom", lua("pcall(error, 'boom', 0)"))
     }
 
-    @Test fun luaLoadKeepsGlobals() {
+    @Test
+    fun luaLoadKeepsGlobals() {
         assertEquals("2", lua("load('x = 1; return x + 1')()"))
         assertEquals("nil", lua("tostring(load('\\27Lua'))"))  // binary chunks are rejected
     }
 
-    @Test fun luaMemoryCap() {
+    @Test
+    fun luaMemoryCap() {
         try {
-            lua("local t = {} for i = 1, 1e8 do t[i] = ('x'):rep(64) .. i end", repl = false, timeout = 20_000)
+            lua(
+                "local t = {} for i = 1, 1e8 do t[i] = ('x'):rep(64) .. i end",
+                repl = false,
+                timeout = 20_000
+            )
             fail("expected memory limit")
         } catch (e: Exception) {
-            assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("memory limit", ignoreCase = true))
+            assertTrue(
+                e.message.orEmpty(),
+                e.message.orEmpty().contains("memory limit", ignoreCase = true)
+            )
         }
     }
 
     /** string.rep can't ask for gigabytes in one call. */
-    @Test fun luaRepIsCapped() {
+    @Test
+    fun luaRepIsCapped() {
         val out = lua("pcall(string.rep, 'x', 2^30)")!!
         assertTrue(out, out.startsWith("false") && out.contains("too large"))
-        assertEquals("true\t3", lua("local ok, s = pcall(string.rep, 'ab', 2, '-') return ok, #s - 2"))
+        assertEquals(
+            "true\t3",
+            lua("local ok, s = pcall(string.rep, 'ab', 2, '-') return ok, #s - 2")
+        )
     }
 
     /** The guards keep their own copies: a script that replaces the functions they use still can't swallow its timeout. */
-    @Test fun luaShadowedGlobalsKeepTheGuards() {
+    @Test
+    fun luaShadowedGlobalsKeepTheGuards() {
         val code = """
             error = function() end
             type = function() return "table" end
@@ -148,24 +176,33 @@ class ScriptEngineTest {
     private fun scriptRunsSettle() {
         val wm = androidx.work.WorkManager.getInstance(context)
         val until = System.currentTimeMillis() + 60_000
-        while (System.currentTimeMillis() < until && wm.getWorkInfosByTag(ScriptWorker::class.java.name).get().any { !it.state.isFinished }) Thread.sleep(250)
+        while (System.currentTimeMillis() < until && wm.getWorkInfosByTag(ScriptWorker::class.java.name)
+                .get().any { !it.state.isFinished }
+        ) Thread.sleep(250)
     }
 
     /**
      * A string doubling itself outruns any instruction count: in the :script process its memory cap or
      * the watchdog stops it, once (it doesn't run again), and the app lives on.
      */
-    @Test fun aRunawayStringIsStoppedInTheScriptProcess() {
+    @Test
+    fun aRunawayStringIsStoppedInTheScriptProcess() {
         val logs = LogRepository.get(context)
         val marker = "runaway-" + System.nanoTime()
-        ScriptScheduler.eval(context, ScriptLang.LUA, "log('$marker') local s = ('x'):rep(1024 * 1024) while true do s = s .. s end")
+        ScriptScheduler.eval(
+            context,
+            ScriptLang.LUA,
+            "log('$marker') local s = ('x'):rep(1024 * 1024) while true do s = s .. s end"
+        )
         fun stops(): List<String> {
             val recent = logs.recent(200)
             val at = recent.indexOfFirst { it.text == marker }
             if (at < 0) return emptyList()
             // recent() is oldest first: what the run logged after the marker.
-            return recent.drop(at + 1).map { it.text }.filter { "killed script process" in it || "memory" in it.lowercase() }
+            return recent.drop(at + 1).map { it.text }
+                .filter { "killed script process" in it || "memory" in it.lowercase() }
         }
+
         val deadline = System.currentTimeMillis() + 30_000
         while (System.currentTimeMillis() < deadline && stops().isEmpty()) Thread.sleep(250)
         assertTrue("never stopped", stops().isNotEmpty())
@@ -174,7 +211,8 @@ class ScriptEngineTest {
     }
 
     /** sleep and requests wait no longer than the run has left: a loop of them still ends on time. */
-    @Test fun aSleepLoopEndsAtTheTimeout() {
+    @Test
+    fun aSleepLoopEndsAtTheTimeout() {
         for (run in listOf<() -> Unit>(
             { lua("while true do sleep(5000) end", repl = false, timeout = 1_000) },
             { js("while (true) await sleep(5000);", repl = false, timeout = 1_000) },
@@ -185,14 +223,22 @@ class ScriptEngineTest {
                 fail("expected timeout")
             } catch (e: Exception) {
                 // Lua says so; QuickJS raises its interrupt.
-                assertTrue(e.toString(), e.message.orEmpty().contains("timed out") || e is com.dokar.quickjs.QuickJsInterruptedException)
+                assertTrue(
+                    e.toString(),
+                    e.message.orEmpty()
+                        .contains("timed out") || e is com.dokar.quickjs.QuickJsInterruptedException
+                )
             }
-            assertTrue("took ${System.currentTimeMillis() - started} ms", System.currentTimeMillis() - started < 3_000)
+            assertTrue(
+                "took ${System.currentTimeMillis() - started} ms",
+                System.currentTimeMillis() - started < 3_000
+            )
         }
     }
 
     /** A value nested deeper than the host's conversion can take is refused in JavaScript, before it gets there. */
-    @Test fun jsDeepValuesAreRefused() {
+    @Test
+    fun jsDeepValuesAreRefused() {
         val nested = "let a = []; for (let i = 0; i < 100000; i++) a = [a];"
         for (call in listOf("log(a)", "log('x', {deep: a})", "store.set('k', a)", "return a")) {
             try {
@@ -206,7 +252,8 @@ class ScriptEngineTest {
     }
 
     /** The guard keeps what it uses: a script replacing Array.prototype, Reflect.apply or an index setter can't switch it off. */
-    @Test fun jsGuardSurvivesTampering() {
+    @Test
+    fun jsGuardSurvivesTampering() {
         val code = """
             Array.prototype.map = function () { return this; };
             Reflect.apply = (f, t, a) => f(...a);
@@ -224,14 +271,21 @@ class ScriptEngineTest {
     }
 
     /** At most 64 requests or sleeps wait at once. */
-    @Test fun jsWaitingCallsAreCapped() {
+    @Test
+    fun jsWaitingCallsAreCapped() {
         try {
             js("await Promise.all(Array.from({ length: 100 }, () => sleep(10)));", repl = false)
             fail("expected a cap")
         } catch (e: Exception) {
             assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("more than 64"))
         }
-        assertEquals("64", js("await Promise.all(Array.from({ length: 64 }, () => sleep(1))); return 64", repl = false))
+        assertEquals(
+            "64",
+            js(
+                "await Promise.all(Array.from({ length: 64 }, () => sleep(1))); return 64",
+                repl = false
+            )
+        )
     }
 
     /**
@@ -240,15 +294,21 @@ class ScriptEngineTest {
      * rejection and ran the next job, and only the watchdog stopped it by killing the :script process.
      * The watchdog stays the last word for anything that never checks the interrupt.
      */
-    @Test fun aRunawayJsJobLoopIsStoppedInTheScriptProcess() {
+    @Test
+    fun aRunawayJsJobLoopIsStoppedInTheScriptProcess() {
         val logs = LogRepository.get(context)
         val marker = "jobloop-" + System.nanoTime()
-        ScriptScheduler.eval(context, ScriptLang.JS, "log('$marker'); function spin() { Promise.resolve().then(spin); for (;;) {} } spin();")
+        ScriptScheduler.eval(
+            context,
+            ScriptLang.JS,
+            "log('$marker'); function spin() { Promise.resolve().then(spin); for (;;) {} } spin();"
+        )
         fun after(): List<String> {
             val recent = logs.recent(200)
             val at = recent.indexOfFirst { it.text == marker }
             return if (at < 0) emptyList() else recent.drop(at + 1).map { it.text }
         }
+
         fun stops() = after().filter { "killed script process" in it || "timed out after" in it }
         val deadline = System.currentTimeMillis() + ScriptWorker.TIMEOUT_MS + 30_000
         while (System.currentTimeMillis() < deadline && stops().isEmpty()) Thread.sleep(500)
@@ -257,17 +317,38 @@ class ScriptEngineTest {
         assertEquals("ran again", 1, logs.recent(200).count { it.text == marker })
     }
 
-    @Test fun luaArgsAreExposed() {
-        val out = runBlocking { LuaEngine().run("return argline .. '|' .. #args .. '|' .. args[2]", "t", host(), 5_000, false, listOf("a", "b c")) }
+    @Test
+    fun luaArgsAreExposed() {
+        val out = runBlocking {
+            LuaEngine().run(
+                "return argline .. '|' .. #args .. '|' .. args[2]",
+                "t",
+                host(),
+                5_000,
+                false,
+                listOf("a", "b c")
+            )
+        }
         assertEquals("a b c|2|b c", out)
     }
 
-    @Test fun jsArgsAreExposed() {
-        val out = runBlocking { JsEngine().run("return argline + '|' + args.length + '|' + args[1]", "t", host(), 5_000, false, listOf("a", "b c")) }
+    @Test
+    fun jsArgsAreExposed() {
+        val out = runBlocking {
+            JsEngine().run(
+                "return argline + '|' + args.length + '|' + args[1]",
+                "t",
+                host(),
+                5_000,
+                false,
+                listOf("a", "b c")
+            )
+        }
         assertEquals("a b c|2|b c", out)
     }
 
-    @Test fun luaRssParseAndStore() {
+    @Test
+    fun luaRssParseAndStore() {
         val out = lua(
             """
             local feed = rss.parse([[<rss><channel><title>T</title>
@@ -282,19 +363,30 @@ class ScriptEngineTest {
         assertEquals("T:2:https://a/2:v", out)
     }
 
-    @Test fun luaLogWritesContext() {
+    @Test
+    fun luaLogWritesContext() {
         val logs = LogRepository.get(context)
         val h = host()
-        runBlocking { LuaEngine().run("log('hello from lua', { url = 'https://example.com' })", "t", h, 5_000, false) }
+        runBlocking {
+            LuaEngine().run(
+                "log('hello from lua', { url = 'https://example.com' })",
+                "t",
+                h,
+                5_000,
+                false
+            )
+        }
         h.flush() // the worker flushes buffered lines at the end of a run
         // Its own line, not whatever came last.
         val last = logs.recent(20).last { it.kind == LogKind.SCRIPT && it.text == "hello from lua" }
         assertEquals("https://example.com/", last.ctx.url)  // links are normalised
     }
 
-    @Test fun jsExpression() = assertEquals("42", js("6 * 7"))
+    @Test
+    fun jsExpression() = assertEquals("42", js("6 * 7"))
 
-    @Test fun jsAsyncScriptReturnsValue() {
+    @Test
+    fun jsAsyncScriptReturnsValue() {
         val out = js(
             """
             const feed = rss.parse('<feed><title>A</title><entry><title>E</title><link href="https://e"/></entry></feed>');
@@ -306,14 +398,18 @@ class ScriptEngineTest {
         assertEquals("A:https://e:y", out)
     }
 
-    @Test fun jsInfiniteLoopTimesOut() {
+    @Test
+    fun jsInfiniteLoopTimesOut() {
         val started = System.currentTimeMillis()
         try {
             js("while (true) {}", repl = false, timeout = 1_000)
             fail("expected timeout")
         } catch (e: Exception) {
             // Its interrupt or a cancellation, not an error in the script.
-            assertTrue(e.toString(), e is com.dokar.quickjs.QuickJsInterruptedException || e is kotlinx.coroutines.TimeoutCancellationException)
+            assertTrue(
+                e.toString(),
+                e is com.dokar.quickjs.QuickJsInterruptedException || e is kotlinx.coroutines.TimeoutCancellationException
+            )
         }
         // It ran until the limit, and no longer.
         val took = System.currentTimeMillis() - started
@@ -321,7 +417,8 @@ class ScriptEngineTest {
     }
 
     /** End to end: snippet goes through WorkManager into the :script process and back via the DB. */
-    @Test fun replEvalRunsInScriptProcess() {
+    @Test
+    fun replEvalRunsInScriptProcess() {
         val logs = LogRepository.get(context)
         val marker = "pid-check-" + System.nanoTime()
         ScriptScheduler.eval(context, ScriptLang.LUA, "log('$marker')")
@@ -339,6 +436,8 @@ class ScriptEngineTest {
         assertTrue("js snippet never logged", jsSeen)
         assertNotNull(logs.recent(50).firstOrNull { it.text == marker }?.source)
         val manager = context.getSystemService(android.app.ActivityManager::class.java)
-        assertTrue("no :script process", manager.runningAppProcesses.any { it.processName == "${context.packageName}:script" })
+        assertTrue(
+            "no :script process",
+            manager.runningAppProcesses.any { it.processName == "${context.packageName}:script" })
     }
 }

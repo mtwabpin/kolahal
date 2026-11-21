@@ -31,7 +31,12 @@ fun ResumeProfileDialog(app: AppEntry, onResume: () -> Unit, onDismiss: () -> Un
         AlertDialog(
             onDismissRequest = onDismiss,
             modifier = Modifier.testTag("resume-profile-dialog"),
-            icon = { Icon(painterResource(if (private) R.drawable.ic_lock else R.drawable.ic_work), null) },
+            icon = {
+                Icon(
+                    painterResource(if (private) R.drawable.ic_lock else R.drawable.ic_work),
+                    null
+                )
+            },
             title = { Text(if (private) "Unlock the private space?" else "Resume work apps?") },
             text = {
                 Text(
@@ -39,8 +44,18 @@ fun ResumeProfileDialog(app: AppEntry, onResume: () -> Unit, onDismiss: () -> Un
                     else "${app.label} is a work app, and work apps are paused. Kolahal turns them on, then opens ${app.label}.",
                 )
             },
-            confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onResume) { Text(if (private) "Unlock" else "Resume") } },
-            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+            confirmButton = {
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onResume
+                ) { Text(if (private) "Unlock" else "Resume") }
+            },
+            dismissButton = {
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onDismiss
+                ) { Text("Cancel") }
+            },
         )
     }
 }

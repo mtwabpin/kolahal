@@ -16,12 +16,17 @@ import com.mtwabpin.kolahal.data.MaterialYou
 internal object ChoiceLabels {
     private val LABELS: Map<String, Map<String, String>> = mapOf(
         // The setting is called "Full screen", so "show" (the bars) means it is off.
-        Keys.STATUS_BAR.key to mapOf("show" to "Off", "hide" to "Status bar", "immersive" to "Immersive"),
+        Keys.STATUS_BAR.key to mapOf(
+            "show" to "Off",
+            "hide" to "Status bar",
+            "immersive" to "Immersive"
+        ),
         Keys.FONT_SANS.key to mapOf("prompt" to "Prompt only"),
         Keys.SEARCH_ENGINE.key to mapOf("duckduckgo" to "DuckDuckGo"),
     )
 
-    fun of(key: ConfigKey.Choice, value: String): String = LABELS[key.key]?.get(value) ?: readable(value)
+    fun of(key: ConfigKey.Choice, value: String): String =
+        LABELS[key.key]?.get(value) ?: readable(value)
 
     /** Built-in themes whose names need more than capitals. */
     private val THEME_LABELS = mapOf("rose-pine" to "Rosé Pine")
@@ -32,7 +37,9 @@ internal object ChoiceLabels {
      */
     fun theme(name: String): String = when (name) {
         in THEME_LABELS -> THEME_LABELS.getValue(name)
-        in Keys.BUILT_IN_THEMES -> name.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+        in Keys.BUILT_IN_THEMES -> name.split('-')
+            .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+
         else -> name
     }
 

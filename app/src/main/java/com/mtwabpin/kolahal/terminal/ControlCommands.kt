@@ -16,13 +16,12 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import androidx.core.net.toUri
+import com.mtwabpin.kolahal.control.ControlArgs
+import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.productivity.TimeSpec
-import com.mtwabpin.kolahal.commands.ControlSpecs
-import com.mtwabpin.kolahal.control.ControlArgs
-import com.mtwabpin.kolahal.control.MediaRepository
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -51,15 +50,21 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             "rotate" -> rotate(a)
             "screen-timeout" -> screenTimeout(a)
             "wifi" -> wifi()
-            "bt", "bluetooth" -> open(Intent(Settings.ACTION_BLUETOOTH_SETTINGS), "Bluetooth settings")
+            "bt", "bluetooth" -> open(
+                Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+                "Bluetooth settings"
+            )
+
             "nfc" -> open(
                 Intent(if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_NFC else Settings.ACTION_NFC_SETTINGS),
                 "the NFC panel",
             )
+
             "data" -> open(
                 Intent(if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_INTERNET_CONNECTIVITY else Settings.ACTION_WIRELESS_SETTINGS),
                 "the internet panel",
             )
+
             "toggles" -> toggles()
         }
     }
@@ -133,7 +138,12 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         val id = t.cameraId ?: return error("No flashlight on this device")
         val on = want ?: !t.isOn()
         runCatching { t.camera.setTorchMode(id, on) }
-            .onSuccess { info("Torch ${if (on) "on" else "off"}", LogContext.of(LogContext.RUN to "torch")) }
+            .onSuccess {
+                info(
+                    "Torch ${if (on) "on" else "off"}",
+                    LogContext.of(LogContext.RUN to "torch")
+                )
+            }
             .onFailure { error("Torch: ${it.message ?: "camera in use"}") }
     }
 
@@ -142,23 +152,32 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         val camera: CameraManager = context.getSystemService(CameraManager::class.java)
         val cameraId: String? = runCatching {
             camera.cameraIdList.filter {
-                camera.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                camera.getCameraCharacteristics(it)
+                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
             }.minByOrNull {
-                if (camera.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK) 0 else 1
+                if (camera.getCameraCharacteristics(it)
+                        .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
+                ) 0 else 1
             }
         }.getOrNull()
 
-        @Volatile private var on: Boolean? = null
+        @Volatile
+        private var on: Boolean? = null
         private val first = CountDownLatch(1)
 
         init {
             if (cameraId != null) {
                 camera.registerTorchCallback(object : CameraManager.TorchCallback() {
                     override fun onTorchModeChanged(id: String, enabled: Boolean) {
-                        if (id == cameraId) { on = enabled; first.countDown() }
+                        if (id == cameraId) {
+                            on = enabled; first.countDown()
+                        }
                     }
+
                     override fun onTorchModeUnavailable(id: String) {
-                        if (id == cameraId) { on = false; first.countDown() }
+                        if (id == cameraId) {
+                            on = false; first.countDown()
+                        }
                     }
                 }, Handler(Looper.getMainLooper()))
             }
@@ -166,7 +185,10 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
         /** The callback reports the current state right after it is registered, so wait briefly for it. */
         fun isOn(): Boolean {
-            if (on == null && Looper.myLooper() != Looper.getMainLooper()) first.await(500, TimeUnit.MILLISECONDS)
+            if (on == null && Looper.myLooper() != Looper.getMainLooper()) first.await(
+                500,
+                TimeUnit.MILLISECONDS
+            )
             return on == true
         }
 
@@ -194,11 +216,36 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         runCatching {
             when (level) {
                 null -> Unit
-                is ControlArgs.Level.Percent -> audio.setStreamVolume(s, ControlArgs.toSteps(level.pct, audio.getStreamMaxVolume(s)), flags)
-                ControlArgs.Level.Up -> audio.adjustStreamVolume(s, AudioManager.ADJUST_RAISE, flags)
-                ControlArgs.Level.Down -> audio.adjustStreamVolume(s, AudioManager.ADJUST_LOWER, flags)
-                ControlArgs.Level.Mute -> audio.adjustStreamVolume(s, AudioManager.ADJUST_MUTE, flags)
-                ControlArgs.Level.Unmute -> audio.adjustStreamVolume(s, AudioManager.ADJUST_UNMUTE, flags)
+                is ControlArgs.Level.Percent -> audio.setStreamVolume(
+                    s,
+                    ControlArgs.toSteps(level.pct, audio.getStreamMaxVolume(s)),
+                    flags
+                )
+
+                ControlArgs.Level.Up -> audio.adjustStreamVolume(
+                    s,
+                    AudioManager.ADJUST_RAISE,
+                    flags
+                )
+
+                ControlArgs.Level.Down -> audio.adjustStreamVolume(
+                    s,
+                    AudioManager.ADJUST_LOWER,
+                    flags
+                )
+
+                ControlArgs.Level.Mute -> audio.adjustStreamVolume(
+                    s,
+                    AudioManager.ADJUST_MUTE,
+                    flags
+                )
+
+                ControlArgs.Level.Unmute -> audio.adjustStreamVolume(
+                    s,
+                    AudioManager.ADJUST_UNMUTE,
+                    flags
+                )
+
                 ControlArgs.Level.Auto -> Unit
             }
         }.onFailure { return error("Volume: ${it.reason()}") }
@@ -222,7 +269,11 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun ring(arg: String?) {
         val mode = when (arg) {
-            null -> return out("Ringer ${ringLabel()}", LogContext.of(LogContext.COMMAND to "ring "))
+            null -> return out(
+                "Ringer ${ringLabel()}",
+                LogContext.of(LogContext.COMMAND to "ring ")
+            )
+
             "normal", "on", "sound" -> AudioManager.RINGER_MODE_NORMAL
             "vibrate", "vib" -> AudioManager.RINGER_MODE_VIBRATE
             "silent", "off", "mute" -> AudioManager.RINGER_MODE_SILENT
@@ -234,7 +285,11 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         ) return
         runCatching { audio.ringerMode = mode }
             .onSuccess { info("Ringer ${ringLabel()}") }
-            .onFailure { if (it is SecurityException) needPolicyAccess("Changing the ringer") else error("Ring: ${it.message}") }
+            .onFailure {
+                if (it is SecurityException) needPolicyAccess("Changing the ringer") else error(
+                    "Ring: ${it.message}"
+                )
+            }
     }
 
     private fun dndLabel(filter: Int = notifications.currentInterruptionFilter) = when (filter) {
@@ -246,8 +301,14 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     }
 
     private fun dnd(arg: String?) {
-        if (arg == "access") return open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS), "Do Not Disturb access")
-        if (arg == "status") return out("Do Not Disturb ${shown(dndLabel())}", LogContext.of(LogContext.RUN to "dnd"))
+        if (arg == "access") return open(
+            Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+            "Do Not Disturb access"
+        )
+        if (arg == "status") return out(
+            "Do Not Disturb ${shown(dndLabel())}",
+            LogContext.of(LogContext.RUN to "dnd")
+        )
         val filter = when (arg) {
             null, "toggle" -> if (notifications.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL)
                 NotificationManager.INTERRUPTION_FILTER_PRIORITY else NotificationManager.INTERRUPTION_FILTER_ALL
@@ -257,8 +318,16 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         if (needPolicyAccess("dnd")) return
         val again = LogContext.of(LogContext.RUN to "dnd")
         when (com.mtwabpin.kolahal.control.Dnd.set(context, filter)) {
-            com.mtwabpin.kolahal.control.Dnd.Result.DONE -> info("Do Not Disturb ${dndLabel(filter)}", again)
-            com.mtwabpin.kolahal.control.Dnd.Result.STILL_ON -> error("Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there", again)
+            com.mtwabpin.kolahal.control.Dnd.Result.DONE -> info(
+                "Do Not Disturb ${dndLabel(filter)}",
+                again
+            )
+
+            com.mtwabpin.kolahal.control.Dnd.Result.STILL_ON -> error(
+                "Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there",
+                again
+            )
+
             com.mtwabpin.kolahal.control.Dnd.Result.NO_ACCESS -> needPolicyAccess("dnd")
             com.mtwabpin.kolahal.control.Dnd.Result.FAILED -> error("Do Not Disturb: Android refused the change")
         }
@@ -279,15 +348,23 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private val resolver get() = context.contentResolver
 
-    private fun brightnessAuto() = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, 0) ==
-        Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC
+    private fun brightnessAuto() =
+        Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, 0) ==
+                Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC
 
-    private fun brightnessPct() = ControlArgs.toPercent(Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 128), 255)
+    private fun brightnessPct() = ControlArgs.toPercent(
+        Settings.System.getInt(
+            resolver,
+            Settings.System.SCREEN_BRIGHTNESS,
+            128
+        ), 255
+    )
 
     private fun brightnessShort() = "${brightnessPct()}%" + if (brightnessAuto()) " · auto" else ""
 
     /** "Brightness 50% · auto", with the level as a bar after it. */
-    private fun brightnessLine() = "Brightness ${brightnessShort()}" to LogContext(LogContext.bar(brightnessPct() / 100.0))
+    private fun brightnessLine() =
+        "Brightness ${brightnessShort()}" to LogContext(LogContext.bar(brightnessPct() / 100.0))
 
     private fun brightness(arg: String?) {
         if (arg == "access") return open(writeSettingsIntent(), "modify system settings")
@@ -304,20 +381,36 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                 else -> null
             }
             if (target == null) {
-                Settings.System.putInt(resolver, mode, Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
+                Settings.System.putInt(
+                    resolver,
+                    mode,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC
+                )
             } else {
-                Settings.System.putInt(resolver, mode, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
-                Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, target.coerceAtLeast(1))
+                Settings.System.putInt(
+                    resolver,
+                    mode,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+                )
+                Settings.System.putInt(
+                    resolver,
+                    Settings.System.SCREEN_BRIGHTNESS,
+                    target.coerceAtLeast(1)
+                )
             }
         }
         val (line, bar) = brightnessLine()
         out(line, bar + mapOf(LogContext.COMMAND to "brightness "))
     }
 
-    private fun rotationOn() = Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0) == 1
+    private fun rotationOn() =
+        Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0) == 1
 
     private fun rotate(arg: String?) {
-        if (arg == "status") return out("Auto-rotate ${shown(if (rotationOn()) "on" else "off")}", LogContext.of(LogContext.RUN to "rotate"))
+        if (arg == "status") return out(
+            "Auto-rotate ${shown(if (rotationOn()) "on" else "off")}",
+            LogContext.of(LogContext.RUN to "rotate")
+        )
         val want = ControlArgs.onOff(arg)
         if (arg != null && want == null && arg != "toggle") return usage("rotate")
         if (needWrite("rotate")) return
@@ -326,13 +419,21 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         info("Auto-rotate ${if (on) "on" else "off"}", LogContext.of(LogContext.RUN to "rotate"))
     }
 
-    private fun timeoutMs() = Settings.System.getLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT, 30_000L)
+    private fun timeoutMs() =
+        Settings.System.getLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT, 30_000L)
 
     private fun screenTimeout(arg: String?) {
-        if (arg == null) return out("Screen timeout ${TimeSpec.formatDuration(timeoutMs() / 1000)}", LogContext.of(LogContext.COMMAND to "screen-timeout "))
+        if (arg == null) return out(
+            "Screen timeout ${TimeSpec.formatDuration(timeoutMs() / 1000)}",
+            LogContext.of(LogContext.COMMAND to "screen-timeout ")
+        )
         val ms = ControlArgs.duration(arg) ?: return usage("screen-timeout")
         if (needWrite("screen-timeout")) return
-        Settings.System.putLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT, ms.coerceAtMost(Int.MAX_VALUE.toLong()))
+        Settings.System.putLong(
+            resolver,
+            Settings.System.SCREEN_OFF_TIMEOUT,
+            ms.coerceAtMost(Int.MAX_VALUE.toLong())
+        )
         info("Screen timeout ${TimeSpec.formatDuration(ms / 1000)}")
     }
 
@@ -353,11 +454,18 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         context.applicationContext.getSystemService(WifiManager::class.java).isWifiEnabled
     }.getOrNull()
 
-    private fun btOn(): Boolean? = runCatching { Settings.Global.getInt(resolver, Settings.Global.BLUETOOTH_ON) != 0 }.getOrNull()
+    private fun btOn(): Boolean? = runCatching {
+        Settings.Global.getInt(
+            resolver,
+            Settings.Global.BLUETOOTH_ON
+        ) != 0
+    }.getOrNull()
 
-    private fun nfcOn(): Boolean? = runCatching { NfcAdapter.getDefaultAdapter(context)?.isEnabled }.getOrNull()
+    private fun nfcOn(): Boolean? =
+        runCatching { NfcAdapter.getDefaultAdapter(context)?.isEnabled }.getOrNull()
 
-    private fun dataOn(): Boolean? = runCatching { Settings.Global.getInt(resolver, "mobile_data") != 0 }.getOrNull()
+    private fun dataOn(): Boolean? =
+        runCatching { Settings.Global.getInt(resolver, "mobile_data") != 0 }.getOrNull()
 
     private fun word(b: Boolean?) = when (b) {
         true -> "on"
@@ -367,15 +475,31 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     /** "on" and "off" as tags, in the good and muted colours, so a state reads at a glance. Anything else stays as it is. */
     private fun shown(value: String) = when {
-        value == "on" || value.startsWith("on ") -> StyledText.tag(StyledText.Colour.GOOD, "on") + value.removePrefix("on")
+        value == "on" || value.startsWith("on ") -> StyledText.tag(
+            StyledText.Colour.GOOD,
+            "on"
+        ) + value.removePrefix("on")
+
         value == "off" -> StyledText.tag(StyledText.Colour.MUTED, "off")
         else -> value
     }
 
     /** Shows one line per toggle. A tap on a line toggles it, or opens its panel. */
     private fun toggles() {
-        fun row(name: String, value: String, run: String, hint: String, extra: Map<String, String> = emptyMap()) =
-            out(name.padEnd(15) + shown(value), LogContext.of(LogContext.RUN to run, LogContext.DESC to hint) + LogContext.ALIGNED + extra)
+        fun row(
+            name: String,
+            value: String,
+            run: String,
+            hint: String,
+            extra: Map<String, String> = emptyMap()
+        ) =
+            out(
+                name.padEnd(15) + shown(value),
+                LogContext.of(
+                    LogContext.RUN to run,
+                    LogContext.DESC to hint
+                ) + LogContext.ALIGNED + extra
+            )
 
         val torch = Torch.get(context)
         if (torch.cameraId != null) {
@@ -384,21 +508,62 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         }
         row("Wi-Fi", word(wifiOn()), "wifi", "Tap for the Wi-Fi panel")
         row("Bluetooth", word(btOn()), "bt", "Tap for Bluetooth settings")
-        if (NfcAdapter.getDefaultAdapter(context) != null) row("NFC", word(nfcOn()), "nfc", "Tap for the NFC panel")
+        if (NfcAdapter.getDefaultAdapter(context) != null) row(
+            "NFC",
+            word(nfcOn()),
+            "nfc",
+            "Tap for the NFC panel"
+        )
         row("Mobile data", word(dataOn()), "data", "Tap for the internet panel")
         val policy = hasPolicyAccess()
-        row("Do Not Disturb", dndLabel(), if (policy) "dnd" else "dnd access", if (policy) "Tap to toggle" else "Tap to grant access")
-        row("Ringer", ringLabel(), "ring " + if (audio.ringerMode == AudioManager.RINGER_MODE_NORMAL) "vibrate" else "normal", "Tap to cycle normal / vibrate")
+        row(
+            "Do Not Disturb",
+            dndLabel(),
+            if (policy) "dnd" else "dnd access",
+            if (policy) "Tap to toggle" else "Tap to grant access"
+        )
+        row(
+            "Ringer",
+            ringLabel(),
+            "ring " + if (audio.ringerMode == AudioManager.RINGER_MODE_NORMAL) "vibrate" else "normal",
+            "Tap to cycle normal / vibrate"
+        )
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val volume = ControlArgs.toPercent(audio.getStreamVolume(AudioManager.STREAM_MUSIC), max)
-        row("Volume", "$volume%", "volume mute", "Tap to mute · volume <0-100>", LogContext.bar(volume / 100.0))
+        row(
+            "Volume",
+            "$volume%",
+            "volume mute",
+            "Tap to mute · volume <0-100>",
+            LogContext.bar(volume / 100.0)
+        )
         val write = canWrite()
         row(
-            "Auto-rotate", if (rotationOn()) "on" else "off", if (write) "rotate" else "brightness access",
+            "Auto-rotate",
+            if (rotationOn()) "on" else "off",
+            if (write) "rotate" else "brightness access",
             if (write) "Tap to toggle" else "Tap to allow modifying system settings",
         )
-        row("Brightness", brightnessShort(), if (write) "brightness auto" else "brightness access", "Tap for auto · brightness <0-100>", LogContext.bar(brightnessPct() / 100.0))
-        row("Screen timeout", TimeSpec.formatDuration(timeoutMs() / 1000), "screen-timeout", "Set with screen-timeout <30s|1m|…>")
-        media.nowPlaying.value?.let { row("Media", "${it.stateLabel} · ${it.line}", "media toggle", "Tap to play / pause") }
+        row(
+            "Brightness",
+            brightnessShort(),
+            if (write) "brightness auto" else "brightness access",
+            "Tap for auto · brightness <0-100>",
+            LogContext.bar(brightnessPct() / 100.0)
+        )
+        row(
+            "Screen timeout",
+            TimeSpec.formatDuration(timeoutMs() / 1000),
+            "screen-timeout",
+            "Set with screen-timeout <30s|1m|…>"
+        )
+        media.nowPlaying.value?.let {
+            row(
+                "Media",
+                "${it.stateLabel} · ${it.line}",
+                "media toggle",
+                "Tap to play / pause"
+            )
+        }
     }
 }

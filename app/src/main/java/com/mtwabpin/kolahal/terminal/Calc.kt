@@ -54,7 +54,8 @@ object Calc {
         val tokens = tokenize(text) ?: return null
         if (tokens.isEmpty()) return null
         val parser = Parser(tokens)
-        val result = runCatching { parser.expression() }.getOrElse { e -> if (e is ArithmeticException) throw e else return null }
+        val result =
+            runCatching { parser.expression() }.getOrElse { e -> if (e is ArithmeticException) throw e else return null }
         if (!parser.done()) return null
         val v = result.value
         if (v.isNaN()) throw ArithmeticException("not a real number")
@@ -67,7 +68,8 @@ object Calc {
 
     fun format(v: Double): String {
         if (v == 0.0) return "0"
-        if (abs(v) !in 1e-9..<1e15) return BigDecimal(v).round(MathContext(10)).stripTrailingZeros().toString().replace("E", "e")
+        if (abs(v) !in 1e-9..<1e15) return BigDecimal(v).round(MathContext(10)).stripTrailingZeros()
+            .toString().replace("E", "e")
         return BigDecimal(v).round(MathContext(12)).stripTrailingZeros().toPlainString()
     }
 
@@ -86,6 +88,7 @@ object Calc {
         val last = before.lastOrNull()
         return !(last is Num && last.v == 0.0 && text.getOrNull(at - 1) == '0') && (last is Num || last in ENDS_A_VALUE)
     }
+
     private val TIMES_THEN_DIGITS = Regex("(x\\d+)+")
     private val ENDS_A_VALUE = setOf(Op(")"), Op("!"), Op("%"), Op("°"), Word("pi"), Word("e"))
 
@@ -96,6 +99,7 @@ object Calc {
      */
     private fun remainderBeforeSign(text: String, at: Int) =
         text.getOrNull(at - 1)?.isWhitespace() == true && SIGNED_NUMBER.matchesAt(text, at + 1)
+
     private val SIGNED_NUMBER = Regex("""\s*[-+−][\d.(]""")
 
     private fun tokenize(text: String): List<Token>? {
@@ -109,12 +113,15 @@ object Calc {
                 c.isWhitespace() -> i++
                 c.isDigit() || (c == '.' && i + 1 < text.length && text[i + 1].isDigit()) -> {
                     var j = i
+
                     // A comma between digits belongs to the number (`1,500`), except in a function's parentheses.
-                    fun commaInNumber() = text[j] == ',' && inFunction == 0 && text.getOrNull(j + 1)?.isDigit() == true
+                    fun commaInNumber() = text[j] == ',' && inFunction == 0 && text.getOrNull(j + 1)
+                        ?.isDigit() == true
                     while (j < text.length && (text[j].isDigit() || text[j] == '.' || commaInNumber())) j++
                     // `e` starts an exponent only when digits follow. `2e` is 2 × e.
                     if (j < text.length && (text[j] == 'e' || text[j] == 'E')) {
-                        val k = if (j + 1 < text.length && (text[j + 1] == '+' || text[j + 1] == '-')) j + 2 else j + 1
+                        val k =
+                            if (j + 1 < text.length && (text[j + 1] == '+' || text[j + 1] == '-')) j + 2 else j + 1
                         if (k < text.length && text[k].isDigit()) {
                             j = k
                             while (j < text.length && text[j].isDigit()) j++
@@ -123,6 +130,7 @@ object Calc {
                     out += Num(Units.number(text.substring(i, j)) ?: return null)
                     i = j
                 }
+
                 c.isLetter() && c != 'π' -> {
                     var j = i
                     while (j < text.length && text[j].isLetterOrDigit() && text[j] != 'π') j++
@@ -135,9 +143,19 @@ object Calc {
                         i = j
                     }
                 }
-                c == 'π' -> { out += Word("pi"); i++ }
-                c == '%' && remainderBeforeSign(text, i) -> { out += Word("mod"); i++ }
-                c == '*' && text.getOrNull(i + 1) == '*' -> { out += Op("^"); i += 2 }
+
+                c == 'π' -> {
+                    out += Word("pi"); i++
+                }
+
+                c == '%' && remainderBeforeSign(text, i) -> {
+                    out += Word("mod"); i++
+                }
+
+                c == '*' && text.getOrNull(i + 1) == '*' -> {
+                    out += Op("^"); i += 2
+                }
+
                 else -> {
                     val op = when (c) {
                         '+' -> "+"
@@ -185,13 +203,17 @@ object Calc {
             var left = unary()
             while (true) {
                 left = when {
-                    isOp("*") || isWord("x") || isWord("of") -> { pos++; Value(left.value * unary().value) }
+                    isOp("*") || isWord("x") || isWord("of") -> {
+                        pos++; Value(left.value * unary().value)
+                    }
+
                     isOp("/") -> {
                         pos++
                         val d = unary().value
                         if (d == 0.0) throw ArithmeticException("can't divide by zero")
                         Value(left.value / d)
                     }
+
                     isWord("mod") || isOp("%") -> {
                         pos++
                         val d = unary().value
@@ -206,8 +228,14 @@ object Calc {
         }
 
         private fun unary(): Value = when {
-            isOp("-") -> { pos++; Value(-unary().value) }
-            isOp("+") -> { pos++; unary() }
+            isOp("-") -> {
+                pos++; Value(-unary().value)
+            }
+
+            isOp("+") -> {
+                pos++; unary()
+            }
+
             else -> power()
         }
 
@@ -222,10 +250,19 @@ object Calc {
             var v = primary()
             while (true) {
                 v = when {
-                    isOp("!") -> { pos++; Value(factorial(v.value)) }
+                    isOp("!") -> {
+                        pos++; Value(factorial(v.value))
+                    }
                     // A percent, unless a number or `(` follows. Then it is the remainder (`10 % 3`).
-                    isOp("%") && (tokens.getOrNull(pos + 1).let { it !is Num && (it as? Op)?.c != "(" }) -> { pos++; Value(v.value / 100, percent = true) }
-                    isOp("°") -> { pos++; Value(Math.toRadians(v.value)) }
+                    isOp("%") && (tokens.getOrNull(pos + 1)
+                        .let { it !is Num && (it as? Op)?.c != "(" }) -> {
+                        pos++; Value(v.value / 100, percent = true)
+                    }
+
+                    isOp("°") -> {
+                        pos++; Value(Math.toRadians(v.value))
+                    }
+
                     else -> return v
                 }
             }
@@ -235,7 +272,10 @@ object Calc {
             val t = tokens.getOrNull(pos++) ?: throw IllegalStateException("ends early")
             return when (t) {
                 is Num -> Value(t.v)
-                is Op -> if (t.c == "(") expression().also { expectClose() } else throw IllegalStateException("unexpected ${t.c}")
+                is Op -> if (t.c == "(") expression().also { expectClose() } else throw IllegalStateException(
+                    "unexpected ${t.c}"
+                )
+
                 is Word -> when (t.w) {
                     "pi" -> Value(Math.PI)
                     "e" -> Value(Math.E)
@@ -250,7 +290,9 @@ object Calc {
             if (!isOp("(")) return listOf(power().value)
             pos++
             val args = arrayListOf(expression().value)
-            while (isOp(",")) { pos++; args += expression().value }
+            while (isOp(",")) {
+                pos++; args += expression().value
+            }
             expectClose()
             if (name !in MANY && args.size != 1) throw IllegalStateException("$name takes one value")
             return args

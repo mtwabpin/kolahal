@@ -20,7 +20,8 @@ object SharedSettings {
 
     fun <T> get(context: Context, key: ConfigKey<T>): T {
         if (BuildConfig.DEBUG) require(key in KEYS) { "${key.key} isn't shared with the :script process: add it to SharedSettings.KEYS" }
-        return KvStore(context, Stores.SHARED_SETTINGS).get(key.key)?.let { key.parse(it) } ?: key.default
+        return KvStore(context, Stores.SHARED_SETTINGS).get(key.key)?.let { key.parse(it) }
+            ?: key.default
     }
 
     /** Sets one shared setting directly: [mirror] copies them from the settings; a test sets one here. */

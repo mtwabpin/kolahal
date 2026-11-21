@@ -45,11 +45,23 @@ internal fun LivePreviewBand(live: LivePreview?) {
  */
 @Composable
 internal fun DefaultHomeBand(visible: Boolean, onClick: () -> Unit) =
-    PromptBand(visible, "Kolahal isn't your home app  ·  Tap to make it", "default-home", onClick, "make Kolahal the home app")
+    PromptBand(
+        visible,
+        "Kolahal isn't your home app  ·  Tap to make it",
+        "default-home",
+        onClick,
+        "make Kolahal the home app"
+    )
 
 /** A band right above the prompt, in the theme's solid colour, that slides in and out. */
 @Composable
-private fun PromptBand(visible: Boolean, text: String, tag: String, onClick: (() -> Unit)? = null, clickLabel: String? = null) {
+private fun PromptBand(
+    visible: Boolean,
+    text: String,
+    tag: String,
+    onClick: (() -> Unit)? = null,
+    clickLabel: String? = null
+) {
     AnimatedVisibility(
         visible = visible,
         enter = expandVertically(expandFrom = Alignment.Bottom),
@@ -59,7 +71,12 @@ private fun PromptBand(visible: Boolean, text: String, tag: String, onClick: (()
             Modifier
                 .fillMaxWidth()
                 .background(Term.prompt)
-                .then(if (onClick != null) Modifier.clickable(onClickLabel = clickLabel, onClick = onClick) else Modifier)
+                .then(
+                    if (onClick != null) Modifier.clickable(
+                        onClickLabel = clickLabel,
+                        onClick = onClick
+                    ) else Modifier
+                )
                 .padding(horizontal = 16.dp, vertical = 6.dp)
                 .testTag(tag)
                 .semantics { liveRegion = LiveRegionMode.Polite },

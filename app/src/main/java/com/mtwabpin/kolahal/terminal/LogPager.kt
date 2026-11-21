@@ -66,7 +66,8 @@ internal fun mergePage(
 
 /** True when a removed line ([gone], by id) may have been a command: it was one, or it wasn't on the page ([lines]) to tell. */
 internal fun mayRemoveCommand(lines: List<LogEntry>, gone: Set<Long>): Boolean =
-    gone.isNotEmpty() && lines.filter { it.id in gone }.let { had -> had.size < gone.size || had.any { it.kind == LogKind.COMMAND } }
+    gone.isNotEmpty() && lines.filter { it.id in gone }
+        .let { had -> had.size < gone.size || had.any { it.kind == LogKind.COMMAND } }
 
 /** What `log only …` shows: its newest lines, oldest first, and how many lines of the whole log the filter lets through ([count]). */
 internal data class FilterPage(val lines: List<LogEntry>, val count: Int)
@@ -98,7 +99,10 @@ internal fun patchFilterPage(
         val now = again[e.id] ?: return@mapNotNull e
         if (matches(now)) now else null.also { count-- }
     }
-    val more = (if (locked.isEmpty()) fresh else fresh.filterNot { it.ctx.userSerial in locked }).filter(matches)
+    val more =
+        (if (locked.isEmpty()) fresh else fresh.filterNot { it.ctx.userSerial in locked }).filter(
+            matches
+        )
     count += more.size
     return FilterPage((patched + more).takeLast(limit), count)
 }
@@ -118,7 +122,8 @@ internal fun canPatchFilter(
     removed: Boolean,
     locked: Set<Long>,
     filteredLocks: Set<Long>,
-): Boolean = incremental && filter == filteredFor && limit <= filteredLimit && !removed && locked == filteredLocks
+): Boolean =
+    incremental && filter == filteredFor && limit <= filteredLimit && !removed && locked == filteredLocks
 
 /**
  * The page of the log that home shows: the newest lines, and older ones as the user scrolls back.
@@ -153,41 +158,54 @@ class LogPager(
     )
 
     private val _entries = MutableStateFlow<List<LogEntry>>(emptyList())
+
     /** The lines shown, oldest first: the lines behind [rows]. */
     val entries: StateFlow<List<LogEntry>> = _entries.asStateFlow()
 
     private val _filterCount = MutableStateFlow(0)
+
     /** How many lines the filter ([only]) lets through, shown on its bar. */
     val filterCount: StateFlow<Int> = _filterCount.asStateFlow()
 
     private val _rows = MutableStateFlow<List<LogRow>>(emptyList())
+
     /** What the log list shows: entries (with dimming and gutter) and day separators. */
     val rows: StateFlow<List<LogRow>> = _rows.asStateFlow()
 
     private val _rowsLoaded = MutableStateFlow(false)
+
     /** False until the first reload has set [rows], so an empty list then means an empty log, not "not read yet". */
     val rowsLoaded: StateFlow<Boolean> = _rowsLoaded.asStateFlow()
 
     /** How many log lines are loaded. It grows as the user scrolls up (older lines load on demand). */
-    @Volatile private var pageLimit = PAGE
+    @Volatile
+    private var pageLimit = PAGE
 
     /** Every visible line loaded, before the private-space filter. The next reload builds on this. */
-    @Volatile private var loaded: List<LogEntry> = emptyList()
+    @Volatile
+    private var loaded: List<LogEntry> = emptyList()
+
     /** The newest line loaded so far. It is kept even if the page becomes empty (a pause records it as seen). */
-    @Volatile private var newestLoaded: Long? = null
+    @Volatile
+    private var newestLoaded: Long? = null
     private var loadedStructure = -1L
     private var loadedTrimmed = -1L
+
     /** The last removal ([LogRepository.removedSeq]) already dropped from the page. */
     private var removedSeen = 0L
+
     /** The last change in place ([LogRepository.updatedSeq]) already read again. */
     private var updatedSeen = 0L
+
     /** True when no visible line is older than the page's first line, so scrolling back has nothing more to read. */
     private var logStart = false
     private var fullAt = 0L
+
     /** The lines of `log only …` as last shown, with the filter and the page size they were found for. */
     private var filtered: List<LogEntry> = emptyList()
     private var filteredFor: LogFilter? = null
     private var filteredLimit = 0
+
     /** The locked private spaces when [filtered] was made. */
     private var filteredLocks: Set<Long> = emptySet()
 
@@ -256,15 +274,30 @@ class LogPager(
         // Trims keep starred lines. So the oldest non-starred line tells whether a trim reached into the page.
         val oldest = loaded.firstOrNull { !it.starred }?.id ?: Long.MAX_VALUE
         val incremental = newest != null && structure == loadedStructure && trimmed < oldest &&
-            removed != null && updated != null && now - fullAt < FULL_RELOAD_MS
+                removed != null && updated != null && now - fullAt < FULL_RELOAD_MS
         val fresh = if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit)
         // Lines changed in place since the last reload, read again once for the page and for `log only …`.
-        val again: Map<Long, LogEntry> = if (incremental && changed.isNotEmpty()) logs.byIds(changed).associateBy { it.id } else emptyMap()
+        val again: Map<Long, LogEntry> =
+            if (incremental && changed.isNotEmpty()) logs.byIds(changed)
+                .associateBy { it.id } else emptyMap()
         val page = if (!incremental) LogPage(fresh, atStart = fresh.size < limit) else {
-            mergePage(LogPage(loaded, logStart), gone, again, fresh, limit) { count, beforeId -> logs.recent(count, beforeId = beforeId) }
+            mergePage(
+                LogPage(loaded, logStart),
+                gone,
+                again,
+                fresh,
+                limit
+            ) { count, beforeId -> logs.recent(count, beforeId = beforeId) }
         }
         val all = page.lines
-        afterRead(Read(whole = !incremental, fresh = fresh, trimmed = trimmed != loadedTrimmed, commandGone = trimmed != loadedTrimmed || mayRemoveCommand(loaded, gone)))
+        afterRead(
+            Read(
+                whole = !incremental,
+                fresh = fresh,
+                trimmed = trimmed != loadedTrimmed,
+                commandGone = trimmed != loadedTrimmed || mayRemoveCommand(loaded, gone)
+            )
+        )
         // A locked private space hides its apps. Its lines (launches, notifications) are hidden too.
         val locked = locks()
         val list = if (locked.isEmpty()) all else all.filterNot { it.ctx.userSerial in locked }
@@ -275,7 +308,18 @@ class LogPager(
         //   changed line now matches but wasn't shown ([canPatchFilter]).
         val filter = only.value
         var count = _filterCount.value
-        val patched = filter?.takeIf { canPatchFilter(it, incremental, filteredFor, limit, filteredLimit, gone.isNotEmpty(), locked, filteredLocks) }?.let { f ->
+        val patched = filter?.takeIf {
+            canPatchFilter(
+                it,
+                incremental,
+                filteredFor,
+                limit,
+                filteredLimit,
+                gone.isNotEmpty(),
+                locked,
+                filteredLocks
+            )
+        }?.let { f ->
             patchFilterPage(FilterPage(filtered, count), again, fresh, limit, locked, f::matches)
         }
         val shown = when {
@@ -284,8 +328,12 @@ class LogPager(
             else -> {
                 val job = currentCoroutineContext()[kotlinx.coroutines.Job]
                 val found = logs.search(
-                    emptyList(), limit = limit, skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
-                    match = filter::matches, narrowBy = filter.sql, keepGoing = { job?.isActive != false },
+                    emptyList(),
+                    limit = limit,
+                    skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
+                    match = filter::matches,
+                    narrowBy = filter.sql,
+                    keepGoing = { job?.isActive != false },
                 )
                 count = found.total
                 found.entries.asReversed()
@@ -311,7 +359,8 @@ class LogPager(
         filteredLocks = locked
         _filterCount.value = count
         _entries.value = shown
-        _rows.value = withContext(Dispatchers.Default) { buildRows(shown, seenUpTo(), unreadUntil()) }
+        _rows.value =
+            withContext(Dispatchers.Default) { buildRows(shown, seenUpTo(), unreadUntil()) }
         _rowsLoaded.value = true
     }
 }

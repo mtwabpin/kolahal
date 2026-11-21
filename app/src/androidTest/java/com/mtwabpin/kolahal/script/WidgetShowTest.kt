@@ -38,9 +38,11 @@ class WidgetShowTest {
     private val scripts = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
     private val t = TestScriptWidgets("wshow")
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         t.close()
         // Code typed at the prompt is named by its language.
         for (lang in ScriptLang.entries) WidgetStates.forget(context, lang.ext)
@@ -50,12 +52,23 @@ class WidgetShowTest {
     private val sunnySpec = WidgetSpec.Stat(WidgetBase(), "24", label = "Sunny", unit = "°C")
     private val nothing = WidgetState(null, false)
 
-    private fun script(code: String = sunny, suffix: String = "", lang: ScriptLang = ScriptLang.LUA) = t.create(suffix, code, lang)
+    private fun script(
+        code: String = sunny,
+        suffix: String = "",
+        lang: ScriptLang = ScriptLang.LUA
+    ) = t.create(suffix, code, lang)
 
     /** A run's host for [s], as a run makes it: with its access as stored now, and its `@widget` line. */
     private fun host(s: Script): HostApi {
         val now = scripts.byId(s.id)!!
-        return HostApi(context, now.name, scriptId = now.id, notifyEnabled = false, grants = now.grants, widget = ScriptMeta.widget(now.code))
+        return HostApi(
+            context,
+            now.name,
+            scriptId = now.id,
+            notifyEnabled = false,
+            grants = now.grants,
+            widget = ScriptMeta.widget(now.code)
+        )
     }
 
     private fun stored(s: Script) = t.stored(s.name)
@@ -63,24 +76,33 @@ class WidgetShowTest {
     private fun stat(s: Script) = stored(s).spec as WidgetSpec.Stat
 
     /** The errors logged since the test began. */
-    private fun errors() = logs.recent(400, afterId = logLines.start).filter { it.kind == LogKind.ERROR }.map { it.text }
+    private fun errors() =
+        logs.recent(400, afterId = logLines.start).filter { it.kind == LogKind.ERROR }
+            .map { it.text }
 
     private fun refused(what: String, block: () -> Unit) {
         try {
             block()
             fail("expected a refusal: $what")
         } catch (e: IllegalArgumentException) {
-            assertTrue(e.message.orEmpty(), e.message.orEmpty().startsWith("widget") && e.message.orEmpty().contains(what))
+            assertTrue(
+                e.message.orEmpty(),
+                e.message.orEmpty().startsWith("widget") && e.message.orEmpty().contains(what)
+            )
         }
     }
 
     /** Until its widget is on the widgets page, a run's description is checked and not kept, and the call says false. */
-    @Test fun nothingIsKeptUntilTheWidgetIsPlaced() {
+    @Test
+    fun nothingIsKeptUntilTheWidgetIsPlaced() {
         val s = script()
         assertFalse(s.grants.allows(ScriptAccess.WIDGET))
         t.run(s)
         assertEquals(nothing, stored(s))
-        assertTrue(scripts.byId(s.id)!!.lastStatus.orEmpty(), scripts.byId(s.id)!!.lastStatus.orEmpty().startsWith("ok"))
+        assertTrue(
+            scripts.byId(s.id)!!.lastStatus.orEmpty(),
+            scripts.byId(s.id)!!.lastStatus.orEmpty().startsWith("ok")
+        )
         assertFalse(host(s).widgetShow(mapOf("value" to 24)))
         host(s).widgetClear()
         assertEquals(nothing, stored(s))
@@ -88,7 +110,8 @@ class WidgetShowTest {
     }
 
     /** Placed, the run that placing asks for fills it, and so does every run after. */
-    @Test fun placedItKeepsWhatTheScriptShows() {
+    @Test
+    fun placedItKeepsWhatTheScriptShows() {
         val began = System.currentTimeMillis()
         val s = t.place(script())
         assertTrue(s.grants.allows(ScriptAccess.WIDGET))
@@ -111,7 +134,8 @@ class WidgetShowTest {
     }
 
     /** `widget.clear` takes the content away. Its time stays, so the card says "Nothing to show" and not that it loads. */
-    @Test fun clearEmptiesIt() {
+    @Test
+    fun clearEmptiesIt() {
         val s = t.place(script())
         val h = host(s)
         assertTrue(h.widgetShow(mapOf("value" to 7)))
@@ -126,36 +150,68 @@ class WidgetShowTest {
     }
 
     /** A description that is wrong is the script's own error, and names the field. Nothing of it is kept. */
-    @Test fun aWrongDescriptionIsTheScriptsError() {
+    @Test
+    fun aWrongDescriptionIsTheScriptsError() {
         // Not placed: it is checked all the same.
         val s = script("-- @widget stat\nwidget.show{ value = 24, colour = 'red' }")
         t.run(s)
         val error = errors().single()
-        assertTrue(error, error.startsWith("${s.name}: ") && error.contains("widget: a stat widget has no field 'colour'; use kind, title, icon, color"))
+        assertTrue(
+            error,
+            error.startsWith("${s.name}: ") && error.contains("widget: a stat widget has no field 'colour'; use kind, title, icon, color")
+        )
         val status = scripts.byId(s.id)!!.lastStatus.orEmpty()
-        assertTrue(status, status.startsWith("error: ") && status.contains("a stat widget has no field 'colour'"))
+        assertTrue(
+            status,
+            status.startsWith("error: ") && status.contains("a stat widget has no field 'colour'")
+        )
         assertEquals(nothing, stored(s))
 
         val h = host(s)
         refused("value is needed: the big value") { h.widgetShow(mapOf("label" to "Sunny")) }
         refused("value must be text, not a table") { h.widgetShow(mapOf("value" to mapOf("now" to 24))) }
-        refused("trend must be up, down or flat, not 'sideways'") { h.widgetShow(mapOf("value" to 24, "trend" to "sideways")) }
+        refused("trend must be up, down or flat, not 'sideways'") {
+            h.widgetShow(
+                mapOf(
+                    "value" to 24,
+                    "trend" to "sideways"
+                )
+            )
+        }
         refused("no colour 'red'") { h.widgetShow(mapOf("value" to 24, "color" to "red")) }
-        refused("item 2 of more: value is needed") { h.widgetShow(mapOf("value" to 24, "more" to listOf(mapOf("value" to 1), mapOf("label" to "humidity")))) }
-        refused("tap: give args or url, not both") { h.widgetShow(mapOf("value" to 24, "tap" to mapOf("args" to "more", "url" to "https://example.com"))) }
+        refused("item 2 of more: value is needed") {
+            h.widgetShow(
+                mapOf(
+                    "value" to 24,
+                    "more" to listOf(mapOf("value" to 1), mapOf("label" to "humidity"))
+                )
+            )
+        }
+        refused("tap: give args or url, not both") {
+            h.widgetShow(
+                mapOf(
+                    "value" to 24,
+                    "tap" to mapOf("args" to "more", "url" to "https://example.com")
+                )
+            )
+        }
         refused("no kind 'gauge'") { h.widgetShow(mapOf("kind" to "gauge", "value" to 24)) }
         refused("widget.show expects a description") { h.widgetShow(null) }
         assertEquals(nothing, stored(s))
     }
 
     /** Placed, a wrong description leaves what the widget showed, and the page's run leaves its error for the card. */
-    @Test fun aWrongDescriptionKeepsWhatWasShown() {
+    @Test
+    fun aWrongDescriptionKeepsWhatWasShown() {
         val s = t.place(script("// @widget stat\nwidget.show({ value: 5 });", lang = ScriptLang.JS))
         assertEquals("5", stat(s).value)
         scripts.saveCode(s.id, "// @widget stat\nwidget.show({ value: 6, trend: \"sideways\" });")
         t.run(s)
         val error = errors().single()
-        assertTrue(error, error.startsWith("${s.name}: ") && error.contains("widget: trend must be up, down or flat, not 'sideways'"))
+        assertTrue(
+            error,
+            error.startsWith("${s.name}: ") && error.contains("widget: trend must be up, down or flat, not 'sideways'")
+        )
         assertEquals("5", stat(s).value)
         assertNull(stored(s).error)
 
@@ -164,7 +220,10 @@ class WidgetShowTest {
         t.run(s, widget = true)
         val failed = stored(s)
         assertEquals("5", stat(s).value)
-        assertTrue(failed.error.orEmpty(), failed.error.orEmpty().contains("trend must be up, down or flat"))
+        assertTrue(
+            failed.error.orEmpty(),
+            failed.error.orEmpty().contains("trend must be up, down or flat")
+        )
         assertTrue(failed.triedAt >= before)
         // A run that works forgets it.
         scripts.saveCode(s.id, "// @widget stat\nwidget.show({ value: 6 });")
@@ -179,17 +238,22 @@ class WidgetShowTest {
      * switch that waits for its script stops waiting, also when the run showed nothing. A button
      * under a log line and a run that you typed are not the widget's: they leave the card alone.
      */
-    @Test fun aTapsRunIsNotedForTheCard() {
-        val s = t.place(script("-- @widget stat\nif args[1] == 'fail' then error('no luck', 0) end\nwidget.show{ value = args[1] or 'none' }"))
+    @Test
+    fun aTapsRunIsNotedForTheCard() {
+        val s =
+            t.place(script("-- @widget stat\nif args[1] == 'fail' then error('no luck', 0) end\nwidget.show{ value = args[1] or 'none' }"))
         assertEquals("none", stat(s).value)
         /** A run that you started, with one word. [event] is its event as JSON, or null for a run that you typed. */
         fun run(word: String, event: String?) {
             val data = listOfNotNull(
-                ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_INTERACTIVE to true, ScriptWorker.KEY_ARGS to arrayOf(word),
+                ScriptWorker.KEY_SCRIPT_ID to s.id,
+                ScriptWorker.KEY_INTERACTIVE to true,
+                ScriptWorker.KEY_ARGS to arrayOf(word),
                 event?.let { ScriptWorker.KEY_EVENT to it },
             )
             runBlocking { ScriptRun.run(context, workDataOf(*data.toTypedArray())) }
         }
+
         val tap = "{\"name\":\"action\",\"label\":\"Try\",\"widget\":true}"
         val placedAt = stored(s)
 
@@ -215,29 +279,54 @@ class WidgetShowTest {
         val worked = stored(s)
         assertEquals("two", stat(s).value)
         assertNull(worked.error)
-        assertTrue("tried at ${worked.triedAt}, set at ${worked.setAt}", worked.triedAt >= worked.setAt && worked.setAt > failed.setAt)
+        assertTrue(
+            "tried at ${worked.triedAt}, set at ${worked.setAt}",
+            worked.triedAt >= worked.setAt && worked.setAt > failed.setAt
+        )
     }
 
     /** Code typed at the prompt has no script to keep a widget for: it gets a line that says so. */
-    @Test fun codeTypedAtThePromptGetsALine() {
-        val typed = mapOf(ScriptLang.LUA to "widget.show{ value = 1 }\nwidget.clear()", ScriptLang.JS to "widget.show({ value: 1 });\nwidget.clear();")
+    @Test
+    fun codeTypedAtThePromptGetsALine() {
+        val typed = mapOf(
+            ScriptLang.LUA to "widget.show{ value = 1 }\nwidget.clear()",
+            ScriptLang.JS to "widget.show({ value: 1 });\nwidget.clear();"
+        )
         for ((lang, code) in typed) {
             val from = logs.maxId()
-            runBlocking { ScriptRun.run(context, workDataOf(ScriptWorker.KEY_LANG to lang.ext, ScriptWorker.KEY_CODE to code)) }
+            runBlocking {
+                ScriptRun.run(
+                    context,
+                    workDataOf(ScriptWorker.KEY_LANG to lang.ext, ScriptWorker.KEY_CODE to code)
+                )
+            }
             val said = logs.recent(400, afterId = from).map { it.text }
             for (call in listOf("widget.show", "widget.clear")) {
-                assertTrue("$lang $call: $said", said.any { it.contains("$call() only works in saved scripts") })
+                assertTrue(
+                    "$lang $call: $said",
+                    said.any { it.contains("$call() only works in saved scripts") })
             }
-            assertTrue("$lang: $said", logs.recent(400, afterId = from).none { it.kind == LogKind.ERROR })
+            assertTrue(
+                "$lang: $said",
+                logs.recent(400, afterId = from).none { it.kind == LogKind.ERROR })
             assertEquals(nothing, t.stored(lang.ext))
         }
     }
 
     /** Lua's table and JavaScript's object both arrive as the description, lists inside them too, and both clear it. */
-    @Test fun bothLanguagesFillIt() {
-        val spec = sunnySpec.copy(more = listOf(WidgetSpec.Small("68%", "humidity"), WidgetSpec.Small("12", "km/h")), progress = 0.5f)
+    @Test
+    fun bothLanguagesFillIt() {
+        val spec = sunnySpec.copy(
+            more = listOf(
+                WidgetSpec.Small("68%", "humidity"),
+                WidgetSpec.Small("12", "km/h")
+            ), progress = 0.5f
+        )
         val lua = t.place(
-            script("-- @widget stat\nwidget.show{ value = 24, unit = '°C', label = 'Sunny', progress = 0.5,\n  more = { { value = '68%', label = 'humidity' }, { value = 12, label = 'km/h' } } }", "-lua"),
+            script(
+                "-- @widget stat\nwidget.show{ value = 24, unit = '°C', label = 'Sunny', progress = 0.5,\n  more = { { value = '68%', label = 'humidity' }, { value = 12, label = 'km/h' } } }",
+                "-lua"
+            ),
         )
         t.run(lua)
         assertEquals(spec, stored(lua).spec)
@@ -261,27 +350,41 @@ class WidgetShowTest {
     }
 
     /** The `@widget` line gives the kind, a description's own `kind` wins, and without the line the call is an error that says what to add. */
-    @Test fun theWidgetLineGivesTheKind() {
-        val s = t.place(script("-- @widget text 4x2\nwidget.show{ title = 'Quote', text = 'Simple is better.', caption = 'Tim Peters' }"))
+    @Test
+    fun theWidgetLineGivesTheKind() {
+        val s =
+            t.place(script("-- @widget text 4x2\nwidget.show{ title = 'Quote', text = 'Simple is better.', caption = 'Tim Peters' }"))
         t.run(s)
-        assertEquals(WidgetSpec.Text(WidgetBase(title = "Quote"), "Simple is better.", "Tim Peters"), stored(s).spec)
+        assertEquals(
+            WidgetSpec.Text(
+                WidgetBase(title = "Quote"),
+                "Simple is better.",
+                "Tim Peters"
+            ), stored(s).spec
+        )
         assertTrue(host(s).widgetShow(mapOf("kind" to "progress", "value" to 0.5)))
         assertEquals(WidgetSpec.Progress(WidgetBase(), 0.5f), stored(s).spec)
 
         val plain = script("widget.show{ value = 1 }", "-plain")
-        for (call in listOf<(HostApi) -> Unit>({ it.widgetShow(mapOf("value" to 1)) }, { it.widgetClear() })) {
+        for (call in listOf<(HostApi) -> Unit>(
+            { it.widgetShow(mapOf("value" to 1)) },
+            { it.widgetClear() })) {
             try {
                 call(host(plain))
                 fail("expected an error: the script has no @widget line")
             } catch (e: IllegalStateException) {
-                assertTrue(e.message.orEmpty(), e.message.orEmpty().endsWith("needs `@widget <kind>` at the top of the script"))
+                assertTrue(
+                    e.message.orEmpty(),
+                    e.message.orEmpty().endsWith("needs `@widget <kind>` at the top of the script")
+                )
             }
         }
         assertEquals(nothing, stored(plain))
     }
 
     /** One run's first twenty calls count. A loop of them changes nothing after that. */
-    @Test fun aRunsCallsAreCapped() {
+    @Test
+    fun aRunsCallsAreCapped() {
         val s = t.place(script())
         val h = host(s)
         for (i in 1..HostApi.MAX_WIDGET_PER_RUN + 5) assertTrue(h.widgetShow(mapOf("value" to i)))
@@ -294,13 +397,24 @@ class WidgetShowTest {
      * A run tells the cards once, when it ends, whatever it changed: not once for each call and once
      * more for its end. A run that changes nothing of the widget tells nobody.
      */
-    @Test fun aRunTellsTheCardsOnce() {
+    @Test
+    fun aRunTellsTheCardsOnce() {
         val calls = "widget.show{ value = 1 }\nwidget.clear()\nwidget.show{ value = 2 }"
         val s = script("-- @widget stat\n$calls", "-once")
         // The widget is placed as a backup places it: on the page with its access on, and no run queued.
         // Placing it from the picker queues a run in the other process, and that run would tell the
         // cards too, at a moment of its own.
-        t.host.importWidgets(listOf(mapOf("provider" to t.source(s.name), "profile" to 0, "height" to 120, "order" to 90, "span" to 6)))
+        t.host.importWidgets(
+            listOf(
+                mapOf(
+                    "provider" to t.source(s.name),
+                    "profile" to 0,
+                    "height" to 120,
+                    "order" to 90,
+                    "span" to 6
+                )
+            )
+        )
         t.host.settle()
         assertTrue(scripts.byId(s.id)!!.grants.allows(ScriptAccess.WIDGET))
         fun told() = WidgetStates.versions.value[s.name] ?: 0
@@ -327,7 +441,11 @@ class WidgetShowTest {
         assertEquals(before + 1, told())
 
         // A run that fails after it showed something: once, with its error.
-        scripts.saveCode(s.id, "-- @widget stat\nwidget.show{ value = 3 }\nerror('no network')", byUser = true)
+        scripts.saveCode(
+            s.id,
+            "-- @widget stat\nwidget.show{ value = 3 }\nerror('no network')",
+            byUser = true
+        )
         before = told()
         t.run(s, widget = true)
         assertEquals(before + 1, told())

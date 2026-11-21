@@ -29,13 +29,19 @@ import org.junit.runner.RunWith
 /** The editor's save message, a run's lines under the code, and Run with. */
 @RunWith(AndroidJUnit4::class)
 class ScriptEditorTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
 
-    private val script = Script(1, "edtest", ScriptLang.LUA, "log('hi')", 0, true, false, null, null)
+    private val script =
+        Script(1, "edtest", ScriptLang.LUA, "log('hi')", 0, true, false, null, null)
     private var lastRun by mutableStateOf<Long?>(null)
     private var ran: Pair<List<String>, Map<String, Any?>?>? = null
 
-    private fun show(code: String = script.code, changed: String? = null, saveFails: Throwable? = null) {
+    private fun show(
+        code: String = script.code,
+        changed: String? = null,
+        saveFails: Throwable? = null
+    ) {
         compose.setContent {
             KolahalTheme {
                 ScriptEditor(
@@ -53,33 +59,45 @@ class ScriptEditorTest {
                             lastRun = System.currentTimeMillis() + 1_000
                         }
                     },
-                    runLines = { listOf(line(LogKind.SCRIPT, "first"), line(LogKind.ERROR, "edtest: oops")) },
+                    runLines = {
+                        listOf(
+                            line(LogKind.SCRIPT, "first"),
+                            line(LogKind.ERROR, "edtest: oops")
+                        )
+                    },
                     onClose = {},
                 )
             }
         }
     }
 
-    private fun line(kind: LogKind, text: String) = LogEntry(1, System.currentTimeMillis(), kind, "edtest", text, LogContext.EMPTY)
+    private fun line(kind: LogKind, text: String) =
+        LogEntry(1, System.currentTimeMillis(), kind, "edtest", text, LogContext.EMPTY)
 
     /** The editor's code as last laid out. */
     private fun codeLayout(): androidx.compose.ui.text.TextLayoutResult {
         val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        compose.onNodeWithTag("editor").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+        compose.onNodeWithTag("editor")
+            .fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!.invoke(
+            results
+        )
         return results.single()
     }
 
     /** The colours the editor drew its code in. */
-    private fun codeColours(): Set<androidx.compose.ui.graphics.Color> = codeLayout().layoutInput.text.spanStyles.map { it.item.color }.toSet()
+    private fun codeColours(): Set<androidx.compose.ui.graphics.Color> =
+        codeLayout().layoutInput.text.spanStyles.map { it.item.color }.toSet()
 
     /** The lines (from 0) of [code] that have a colour. */
     private fun colouredLines(code: String): Set<Int> {
         val starts = listOf(0) + code.indices.filter { code[it] == '\n' }.map { it + 1 }
-        return codeLayout().layoutInput.text.spanStyles.map { r -> starts.indexOfLast { it <= r.start } }.toSet()
+        return codeLayout().layoutInput.text.spanStyles.map { r -> starts.indexOfLast { it <= r.start } }
+            .toSet()
     }
 
     /** The phone turning dark with the editor open: the code changes colour along with everything else. */
-    @Test fun codeFollowsTheThemeWhileOpen() {
+    @Test
+    fun codeFollowsTheThemeWhileOpen() {
         val before = Term.palette
         try {
             Term.palette = Palettes.green
@@ -95,22 +113,31 @@ class ScriptEditorTest {
     }
 
     /** Saving says what it changed beyond the code, and the first thing worth a look, with its line. */
-    @Test fun savingSaysWhatItFound() {
+    @Test
+    fun savingSaysWhatItFound() {
         show(changed = "runs every 1h")
-        compose.onNodeWithTag("editor").performTextReplacement("-- @every 1h\nlocal r = http.gte('x')")
+        compose.onNodeWithTag("editor")
+            .performTextReplacement("-- @every 1h\nlocal r = http.gte('x')")
         compose.onNodeWithContentDescription("Save").performClick()
         fun shown() = runCatching {
-            compose.onNodeWithTag("message").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
+            compose.onNodeWithTag("message")
+                .fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
         }.getOrDefault("")
         // The check runs off the main thread: waiting for idle doesn't wait for it.
         compose.waitUntil(5_000) { "line 2" in shown() }
-        assertEquals("Saved · runs every 1h · line 2: http.gte isn't in the API: http.get?", shown())
+        assertEquals(
+            "Saved · runs every 1h · line 2: http.gte isn't in the API: http.get?",
+            shown()
+        )
     }
 
-    @Test fun aRunsLinesShowUnderTheCode() {
+    @Test
+    fun aRunsLinesShowUnderTheCode() {
         show()
         compose.onNodeWithContentDescription("Run").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("output · 2 lines").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("output · 2 lines").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("first").assertExists()
         compose.onNodeWithText("edtest: oops").assertExists()
         compose.onNodeWithText("Ran in 12ms · 2 lines below").assertExists()
@@ -119,9 +146,11 @@ class ScriptEditorTest {
     }
 
     /** Run whose save failed: the script didn't run, so its next run (its timer's, old code) isn't shown as this one's. */
-    @Test fun aRunWhoseSaveFailedTakesNoLaterRun() {
+    @Test
+    fun aRunWhoseSaveFailedTakesNoLaterRun() {
         show(saveFails = java.io.IOException("disk full"))
-        fun shown() = compose.onNodeWithTag("message").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
+        fun shown() = compose.onNodeWithTag("message")
+            .fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
         compose.onNodeWithContentDescription("Run").performClick()
         compose.waitForIdle()
         assertEquals("Couldn't save: disk full", shown())
@@ -132,7 +161,8 @@ class ScriptEditorTest {
     }
 
     /** A long press on run: words for args, and one of its events with made-up values. */
-    @Test fun runWithArgsAndAnEvent() {
+    @Test
+    fun runWithArgsAndAnEvent() {
         show(code = "-- @on charger\nlog(argline)")
         compose.onNodeWithContentDescription("Run").performTouchInput { longClick() }
         compose.onNodeWithTag("run-args").performTextInput("one \"two three\"")
@@ -143,18 +173,23 @@ class ScriptEditorTest {
         assertEquals("charger", ran!!.second?.get("name"))
         assertEquals(64, ran!!.second?.get("level"))
         // Run with… was used: its result doesn't point to it.
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Ran in 12ms · 2 lines below").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Ran in 12ms · 2 lines below").fetchSemanticsNodes()
+                .isNotEmpty()
+        }
     }
 
     /**
      * A plain run of a command, or of a script with @on or @at, points to Run with… on the message
      * line. A script that takes neither isn't told (aRunsLinesShowUnderTheCode).
      */
-    @Test fun aPlainRunOfACommandPointsToRunWith() {
+    @Test
+    fun aPlainRunOfACommandPointsToRunWith() {
         show(code = "-- @command\nlog(argline)")
         compose.onNodeWithContentDescription("Run").performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("Ran in 12ms · 2 lines below · Long-press Run for arguments or an event").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Ran in 12ms · 2 lines below · Long-press Run for arguments or an event")
+                .fetchSemanticsNodes().isNotEmpty()
         }
         assertEquals(emptyList<String>() to null, ran)
     }
@@ -163,9 +198,12 @@ class ScriptEditorTest {
      * The field is as wide as its widest line, worked out by the editor: no line wraps, whether long,
      * in wide letters, with tabs, or in bold keywords (a small script keeps its bold).
      */
-    @Test fun noLineWrapsInASmallScript() = noLineWraps("$keywords\n$long\nlog(s)")
+    @Test
+    fun noLineWrapsInASmallScript() = noLineWraps("$keywords\n$long\nlog(s)")
 
-    @Test fun noLineWrapsInABigScript() = noLineWraps(List(700) { "local x$it = $it -- some words" }.joinToString("\n") + "\n$long")
+    @Test
+    fun noLineWrapsInABigScript() =
+        noLineWraps(List(700) { "local x$it = $it -- some words" }.joinToString("\n") + "\n$long")
 
     private val long = "local s = '" + "日本語🙂é".repeat(60) + "\t\tend'"
     private val keywords = List(40) { "local function return end" }.joinToString(" ")
@@ -177,7 +215,8 @@ class ScriptEditorTest {
     }
 
     /** A big script is coloured around the view, and the colours follow once it's scrolled elsewhere. */
-    @Test fun aBigScriptIsColouredAroundTheView() {
+    @Test
+    fun aBigScriptIsColouredAroundTheView() {
         val code = List(1_500) { "local x$it = $it -- line" }.joinToString("\n")
         show(code)
         compose.waitForIdle()
@@ -185,8 +224,17 @@ class ScriptEditorTest {
         assertTrue("top: ${top.min()}..${top.max()}", 0 in top && top.max() < 400)
         // To the end of the script.
         val height = codeLayout().size.height.toFloat()
-        compose.onAllNodes(androidx.compose.ui.test.hasScrollAction() and androidx.compose.ui.test.hasAnyDescendant(androidx.compose.ui.test.hasTestTag("editor")))[0]
-            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.ScrollBy) { it(0f, height) }
+        compose.onAllNodes(
+            androidx.compose.ui.test.hasScrollAction() and androidx.compose.ui.test.hasAnyDescendant(
+                androidx.compose.ui.test.hasTestTag("editor")
+            )
+        )[0]
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.ScrollBy) {
+                it(
+                    0f,
+                    height
+                )
+            }
         compose.waitUntil(5_000) { 1_499 in colouredLines(code) }
         val below = colouredLines(code)
         assertTrue("after scrolling: ${below.min()}..${below.max()}", 0 !in below)

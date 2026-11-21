@@ -25,11 +25,19 @@ class MaterialYouPalettesTest {
 
     /** A scheme with its own colour in every role the palette takes, so a role taken from the wrong place shows. */
     private val scheme = darkColorScheme(
-        primary = primary, secondary = secondary, tertiary = tertiary, error = error, surface = surface,
-        surfaceContainer = surfaceContainer, onSurface = onSurface, onSurfaceVariant = onSurfaceVariant, outline = outline,
+        primary = primary,
+        secondary = secondary,
+        tertiary = tertiary,
+        error = error,
+        surface = surface,
+        surfaceContainer = surfaceContainer,
+        onSurface = onSurface,
+        onSurfaceVariant = onSurfaceVariant,
+        outline = outline,
     )
 
-    @Test fun eachColourComesFromItsMaterialRole() {
+    @Test
+    fun eachColourComesFromItsMaterialRole() {
         val p = paletteFrom(scheme)
         assertEquals(surface, p.bg)
         assertEquals(surfaceContainer, p.surface)
@@ -51,7 +59,8 @@ class MaterialYouPalettesTest {
      * tinted with the primary colour, black on black (its light version is the plain one). Text and
      * accents are the plain theme's, and muted text still reads.
      */
-    @Test fun theVariationsMoveOnlyTheBackground() {
+    @Test
+    fun theVariationsMoveOnlyTheBackground() {
         for (s in listOf(darkColorScheme(), lightColorScheme())) {
             val plain = paletteFrom(s)
             val dark = s.surface.luminance() < 0.5f
@@ -60,20 +69,29 @@ class MaterialYouPalettesTest {
                 assertEquals("$v", plain.copy(bg = p.bg, surface = p.surface, dim = p.dim), p)
                 assertTrue("$v muted", contrast(p.dim, p.bg) >= 4f)
             }
-            assertEquals(s.surfaceContainer to s.surfaceContainerHigh, paletteFrom(s, MaterialYou.SOFT).let { it.bg to it.surface })
+            assertEquals(
+                s.surfaceContainer to s.surfaceContainerHigh,
+                paletteFrom(s, MaterialYou.SOFT).let { it.bg to it.surface })
             assertNotEquals(plain.bg, paletteFrom(s, MaterialYou.TINTED).bg)
             assertEquals(if (dark) Color.Black else plain.bg, paletteFrom(s, MaterialYou.BLACK).bg)
         }
     }
 
     /** Good and warn don't come from the wallpaper: one green and one amber for dark schemes, another pair for light ones. */
-    @Test fun goodAndWarnAreFixed() {
+    @Test
+    fun goodAndWarnAreFixed() {
         val dark = paletteFrom(darkColorScheme())
         val light = paletteFrom(lightColorScheme())
         assertEquals(dark.good, paletteFrom(scheme).good)
         assertEquals(dark.warn, paletteFrom(scheme).warn)
-        assertEquals(light.good, paletteFrom(lightColorScheme(primary = primary, tertiary = tertiary)).good)
-        assertEquals(light.warn, paletteFrom(lightColorScheme(primary = primary, tertiary = tertiary)).warn)
+        assertEquals(
+            light.good,
+            paletteFrom(lightColorScheme(primary = primary, tertiary = tertiary)).good
+        )
+        assertEquals(
+            light.warn,
+            paletteFrom(lightColorScheme(primary = primary, tertiary = tertiary)).warn
+        )
         assertNotEquals(dark.good, light.good)
         assertNotEquals(dark.warn, light.warn)
         for (p in listOf(dark, light)) {
@@ -84,7 +102,8 @@ class MaterialYouPalettesTest {
     }
 
     /** [schemeFrom] makes the GUI screens' colours from the palette. They get the scheme's own accents back. */
-    @Test fun theGuiScreensGetTheSchemesAccentsBack() {
+    @Test
+    fun theGuiScreensGetTheSchemesAccentsBack() {
         for (s in listOf(scheme, darkColorScheme(), lightColorScheme())) {
             val back = schemeFrom(paletteFrom(s))
             assertEquals(s.primary, back.primary)
@@ -98,12 +117,22 @@ class MaterialYouPalettesTest {
     }
 
     /** Material's standard colours, the ones Android 9 to 11 shows: both versions read well. */
-    @Test fun materialsStandardColoursAreReadable() {
-        for ((version, p) in listOf("dark" to paletteFrom(darkColorScheme()), "light" to paletteFrom(lightColorScheme()))) {
+    @Test
+    fun materialsStandardColoursAreReadable() {
+        for ((version, p) in listOf(
+            "dark" to paletteFrom(darkColorScheme()),
+            "light" to paletteFrom(lightColorScheme())
+        )) {
             assertTrue("$version text", contrast(p.fg, p.bg) >= 7f)
             assertTrue("$version muted", contrast(p.dim, p.bg) >= 4f)
-            assertTrue("$version: muted text is fainter than script output", contrast(p.dim, p.bg) < contrast(p.script, p.bg))
-            assertTrue("$version: script output is fainter than text", contrast(p.script, p.bg) < contrast(p.fg, p.bg))
+            assertTrue(
+                "$version: muted text is fainter than script output",
+                contrast(p.dim, p.bg) < contrast(p.script, p.bg)
+            )
+            assertTrue(
+                "$version: script output is fainter than text",
+                contrast(p.script, p.bg) < contrast(p.fg, p.bg)
+            )
             for ((role, c) in accents(p)) assertTrue("$version $role", contrast(c, p.bg) >= 4.5f)
             assertNotEquals("$version: the surface stands out", p.bg, p.surface)
         }
@@ -113,14 +142,31 @@ class MaterialYouPalettesTest {
      * The website draws this theme in Material's standard colours (site/src/components/ThemeCards.astro
      * and the themes guide). If a new Material version changes them, change the website too.
      */
-    @Test fun theWebsiteShowsMaterialsStandardColours() {
+    @Test
+    fun theWebsiteShowsMaterialsStandardColours() {
         fun shown(p: Palette) = listOf(p.bg, p.fg, p.dim, p.prompt, p.info, p.link, p.error)
         assertEquals(
-            listOf(0xFF141218, 0xFFE6E0E9, 0xFF938F99, 0xFFD0BCFF, 0xFFCCC2DC, 0xFFEFB8C8, 0xFFF2B8B5).map { Color(it) },
+            listOf(
+                0xFF141218,
+                0xFFE6E0E9,
+                0xFF938F99,
+                0xFFD0BCFF,
+                0xFFCCC2DC,
+                0xFFEFB8C8,
+                0xFFF2B8B5
+            ).map { Color(it) },
             shown(paletteFrom(darkColorScheme())),
         )
         assertEquals(
-            listOf(0xFFFEF7FF, 0xFF1D1B20, 0xFF79747E, 0xFF6750A4, 0xFF625B71, 0xFF7D5260, 0xFFB3261E).map { Color(it) },
+            listOf(
+                0xFFFEF7FF,
+                0xFF1D1B20,
+                0xFF79747E,
+                0xFF6750A4,
+                0xFF625B71,
+                0xFF7D5260,
+                0xFFB3261E
+            ).map { Color(it) },
             shown(paletteFrom(lightColorScheme())),
         )
     }
@@ -129,17 +175,24 @@ class MaterialYouPalettesTest {
      * Before the phone's colours are read, and on Android 9 to 11 where there are none, the theme
      * shows Material's standard colours. A unit test runs with no phone, so it sees just that.
      */
-    @Test fun withoutWallpaperColoursTheThemeShowsMaterialsStandardColours() {
+    @Test
+    fun withoutWallpaperColoursTheThemeShowsMaterialsStandardColours() {
         assertEquals(paletteFrom(darkColorScheme()), MaterialYouPalettes.of(dark = true))
         assertEquals(paletteFrom(lightColorScheme()), MaterialYouPalettes.of(dark = false))
         assertEquals(MaterialYouPalettes.of(dark = true), Palettes.named(MaterialYou.NAME))
-        assertEquals(MaterialYouPalettes.of(dark = false), Palettes.named(MaterialYou.NAME, dark = false))
+        assertEquals(
+            MaterialYouPalettes.of(dark = false),
+            Palettes.named(MaterialYou.NAME, dark = false)
+        )
         // The theme builder can start from it, like from any other theme.
-        assertEquals(Palettes.colorsOf(MaterialYouPalettes.of(dark = true)), Palettes.themeColors(MaterialYou.NAME).filterKeys { !it.startsWith("light-") })
+        assertEquals(
+            Palettes.colorsOf(MaterialYouPalettes.of(dark = true)),
+            Palettes.themeColors(MaterialYou.NAME).filterKeys { !it.startsWith("light-") })
     }
 
     /** The theme's card says what the phone lacks, only for this theme and only where it lacks it. */
-    @Test fun theCardSaysWhenThePhoneHasNoWallpaperColours() {
+    @Test
+    fun theCardSaysWhenThePhoneHasNoWallpaperColours() {
         assertEquals("Android 12+", ChoiceLabels.themeNote(MaterialYou.NAME, supported = false))
         assertNull(ChoiceLabels.themeNote(MaterialYou.NAME, supported = true))
         assertNull(ChoiceLabels.themeNote("nord", supported = false))

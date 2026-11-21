@@ -28,7 +28,8 @@ internal object DotCalendar {
      * True when every point is 0 or 1, as a habit's days are: a 1 is a day done and a 0 a day
      * missed. No points is no such list.
      */
-    fun yesNo(points: List<Float>): Boolean = points.isNotEmpty() && points.all { it == 0f || it == 1f }
+    fun yesNo(points: List<Float>): Boolean =
+        points.isNotEmpty() && points.all { it == 0f || it == 1f }
 
     /** The first day of the week where [locale] is: Monday in most places, Sunday in the US. */
     fun firstDay(locale: Locale): DayOfWeek = WeekFields.of(locale).firstDayOfWeek

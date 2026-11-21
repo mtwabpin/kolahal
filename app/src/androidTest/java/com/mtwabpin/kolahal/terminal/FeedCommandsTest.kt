@@ -43,9 +43,12 @@ class FeedCommandsTest {
     private val logs = LogRepository.get(context)
     private val feeds = FeedRepository.get(context)
     private val notifPrefs = NotifPrefs.get(context)
+
     // Last, once the feeds are gone and nothing more can come from them; whatever went wrong before.
-    @get:Rule val logLines = LogLinesSince()
-    @get:Rule val access = NotificationAccess()
+    @get:Rule
+    val logLines = LogLinesSince()
+    @get:Rule
+    val access = NotificationAccess()
     private val mutedBefore = notifPrefs.muted.value
     private val logToTerminalBefore = notifPrefs.logToTerminal
     private val storeBefore = NotificationStore.items.value
@@ -54,11 +57,17 @@ class FeedCommandsTest {
     private var asked = 0
     private val screens = mutableListOf<Screen>()
     private val commands = CommandRunner(context, object : TerminalUiStub() {
-        override fun openScreen(screen: Screen) { screens += screen }
-        override fun askNotificationAccess() { asked++ }
+        override fun openScreen(screen: Screen) {
+            screens += screen
+        }
+
+        override fun askNotificationAccess() {
+            asked++
+        }
     })
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         feeds.feeds().filter { it.url.startsWith(BASE) }.forEach { feeds.remove(it.id) }
         FeedScheduler.sync(context)
         (notifPrefs.muted.value - mutedBefore).forEach(notifPrefs::unmute)
@@ -90,11 +99,22 @@ class FeedCommandsTest {
 
     /** [n] items, newest first: `Llat item 1` is the newest. */
     private fun items(feed: Feed, n: Int, link: (Int) -> String? = { "${BASE}item/$it" }) =
-        feeds.insertItems(feed.id, (1..n).map { FeedRepository.NewItem("llat-$it", "Llat item $it", link(it), null, null) })
+        feeds.insertItems(
+            feed.id,
+            (1..n).map {
+                FeedRepository.NewItem(
+                    "llat-$it",
+                    "Llat item $it",
+                    link(it),
+                    null,
+                    null
+                )
+            })
 
     /** The error line a failed fetch of [name] logs after [after], once it has. */
     private fun failure(name: String, after: Long, ms: Long = 30_000): LogEntry {
-        fun find() = logs.recent(200, afterId = after).firstOrNull { it.kind == LogKind.ERROR && it.text.startsWith("$name: ") }
+        fun find() = logs.recent(200, afterId = after)
+            .firstOrNull { it.kind == LogKind.ERROR && it.text.startsWith("$name: ") }
         waitUntil("the fetch of $name fails", ms) { find() != null }
         return find()!!
     }
@@ -119,11 +139,15 @@ class FeedCommandsTest {
     /** Access on and the listener bound, so its first list, from what is really showing, is in. */
     private fun allowNotifications() {
         access.set(true)
-        waitUntil("notification access", ms = 15_000) { KolahalNotificationListener.connected != null }
+        waitUntil(
+            "notification access",
+            ms = 15_000
+        ) { KolahalNotificationListener.connected != null }
     }
 
     /** `feed add` subscribes, says it is fetching, and the failed fetch comes as the command's own line; the same address twice is one feed. */
-    @Test fun feedAddSubscribesAndFetches() {
+    @Test
+    fun feedAddSubscribesAndFetches() {
         val before = logs.maxId()
         val said = lines("feed add ${BASE}feed").filterNot { it.kind == LogKind.ERROR }
         val feed = feeds.byUrl("${BASE}feed")!!
@@ -137,18 +161,33 @@ class FeedCommandsTest {
 
         // Another spelling of the same address: the same feed, said so, and not fetched again. The
         // first fetch is done before the test ends.
-        assertEquals("Already subscribed: #${feed.id} ${BASE}feed", run("feed add HTTP://127.0.0.1:9/feed#top").first())
+        assertEquals(
+            "Already subscribed: #${feed.id} ${BASE}feed",
+            run("feed add HTTP://127.0.0.1:9/feed#top").first()
+        )
         assertEquals(1, feeds.feeds().count { it.url.startsWith(BASE) })
         val work = androidx.work.WorkManager.getInstance(context)
-        waitUntil("no fetch to come", ms = 30_000) { work.getWorkInfosForUniqueWork("feeds-now-${feed.id}").get().all { it.state.isFinished } }
+        waitUntil(
+            "no fetch to come",
+            ms = 30_000
+        ) {
+            work.getWorkInfosForUniqueWork("feeds-now-${feed.id}").get().all { it.state.isFinished }
+        }
 
         assertEquals(listOf("Usage: feed add <url>"), run("feed add"))
-        assertEquals(listOf("Not an http(s) URL: ftp://127.0.0.1/feed"), run("feed add ftp://127.0.0.1/feed"))
+        assertEquals(
+            listOf("Not an http(s) URL: ftp://127.0.0.1/feed"),
+            run("feed add ftp://127.0.0.1/feed")
+        )
     }
 
     /** `feed ls` is a line per feed, tapped to read it, with its counts and settings beside it; `feeds` alone opens the manager. */
-    @Test fun feedListShowsEachFeedWithItsCounts() {
-        if (feeds.all().isEmpty()) assertEquals(listOf("No feeds yet — feed add <url> (or 'feeds' for the manager and OPML import)"), run("feed"))
+    @Test
+    fun feedListShowsEachFeedWithItsCounts() {
+        if (feeds.all().isEmpty()) assertEquals(
+            listOf("No feeds yet — feed add <url> (or 'feeds' for the manager and OPML import)"),
+            run("feed")
+        )
         val news = feed("news", title = "Llat News")
         items(news, 3)
         feeds.markRead(feeds.items(news.id).last().id)
@@ -161,11 +200,21 @@ class FeedCommandsTest {
         val first = listed.single { it.text == "#${news.id} Llat News" }
         assertEquals("feed read ${news.id}", first.ctx.command)
         assertEquals(news.url, first.ctx.copy)
-        assertTrue(first.ctx.values[LogContext.DESC], first.ctx.values[LogContext.DESC]!!.startsWith("2/3 unread · every 1h"))
+        assertTrue(
+            first.ctx.values[LogContext.DESC],
+            first.ctx.values[LogContext.DESC]!!.startsWith("2/3 unread · every 1h")
+        )
         // Switched off: a tag after its name says so.
-        val second = listed.single { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == "#${quiet.id} ${BASE}quiet off" }
-        assertTrue(second.ctx.values[LogContext.DESC], second.ctx.values[LogContext.DESC]!!.startsWith("0/0 unread · every 2h · notify"))
-        assertEquals("Tap a feed to read it · feed read = all unread · feed fetch = refresh now", listed.last().text)
+        val second =
+            listed.single { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == "#${quiet.id} ${BASE}quiet off" }
+        assertTrue(
+            second.ctx.values[LogContext.DESC],
+            second.ctx.values[LogContext.DESC]!!.startsWith("0/0 unread · every 2h · notify")
+        )
+        assertEquals(
+            "Tap a feed to read it · feed read = all unread · feed fetch = refresh now",
+            listed.last().text
+        )
         assertEquals(listed.map { it.text }, run("feed list"))
         assertEquals(listed.map { it.text }, run("feed"))
         assertEquals(listed.map { it.text }, run("feeds ls"))
@@ -175,7 +224,8 @@ class FeedCommandsTest {
     }
 
     /** `feed read` shows the unread items once, each a link, and marks them read; `feed all` shows them again. */
-    @Test fun feedReadShowsUnreadItemsOnce() {
+    @Test
+    fun feedReadShowsUnreadItemsOnce() {
         val daily = feed("daily", title = "Llat Daily")
         val stored = items(daily, 3)
         val shown = lines("feed read ${daily.id}")
@@ -189,13 +239,17 @@ class FeedCommandsTest {
         }
         assertEquals(0, feeds.unreadCount(daily.id))
         assertEquals(listOf("Nothing unread"), run("feed read ${daily.id}"))
-        assertEquals(listOf("Llat item 1", "Llat item 2", "Llat item 3"), run("feed all ${daily.id}"))
+        assertEquals(
+            listOf("Llat item 1", "Llat item 2", "Llat item 3"),
+            run("feed all ${daily.id}")
+        )
         val empty = feed("empty")
         assertEquals(listOf("No items"), run("feed all ${empty.id}"))
     }
 
     /** Over forty unread, `feed read` shows forty and says how many are left; the rest stay unread for next time. */
-    @Test fun feedReadStopsAtFortyAndSaysHowManyAreLeft() {
+    @Test
+    fun feedReadStopsAtFortyAndSaysHowManyAreLeft() {
         val many = feed("many")
         items(many, 45)
         val first = run("feed read ${many.id}")
@@ -208,7 +262,8 @@ class FeedCommandsTest {
     }
 
     /** Exactly forty unread: `feed read` shows all forty and no line about more. */
-    @Test fun feedReadOfExactlyFortySaysNoMore() {
+    @Test
+    fun feedReadOfExactlyFortySaysNoMore() {
         val forty = feed("forty")
         items(forty, 40)
         assertEquals((1..40).map { "Llat item $it" }, run("feed read ${forty.id}"))
@@ -216,15 +271,31 @@ class FeedCommandsTest {
     }
 
     /** `feed read` with no id shows every feed's unread items, each under its own feed, and marks them all read. */
-    @Test fun feedReadWithNoIdReadsEveryFeed() {
+    @Test
+    fun feedReadWithNoIdReadsEveryFeed() {
         assumeTrue("other feeds on the emulator have unread items", feeds.unreadCount(null) == 0)
         val one = feed("one", title = "Llat One")
         items(one, 2)
         val two = feed("two", title = "Llat Two")
-        feeds.insertItems(two.id, listOf(FeedRepository.NewItem("llat-two", "Llat two's item", "${BASE}two/1", null, null)))
+        feeds.insertItems(
+            two.id,
+            listOf(
+                FeedRepository.NewItem(
+                    "llat-two",
+                    "Llat two's item",
+                    "${BASE}two/1",
+                    null,
+                    null
+                )
+            )
+        )
         val shown = lines("feed read")
         assertEquals(
-            setOf("Llat item 1" to "Llat One", "Llat item 2" to "Llat One", "Llat two's item" to "Llat Two"),
+            setOf(
+                "Llat item 1" to "Llat One",
+                "Llat item 2" to "Llat One",
+                "Llat two's item" to "Llat Two"
+            ),
             shown.map { it.text to it.source }.toSet(),
         )
         assertEquals(3, shown.size)
@@ -232,7 +303,8 @@ class FeedCommandsTest {
     }
 
     /** `feed open` opens the five newest unread links in the browser and marks only those read; a link nothing opens stays unread. */
-    @Test fun feedOpenOpensTheNewestUnreadLinks() {
+    @Test
+    fun feedOpenOpensTheNewestUnreadLinks() {
         val f = feed("open")
         items(f, 7) { if (it == 7) null else "${BASE}item/$it" }
         val opened = mutableListOf<Intent>()
@@ -248,14 +320,18 @@ class FeedCommandsTest {
 
             val bad = feed("bad")
             items(bad, 1) { "kolahal-none:nowhere" }
-            assertEquals(listOf("Opened 0 items (1 couldn't be opened) · 1 still unread"), run("feed open ${bad.id}"))
+            assertEquals(
+                listOf("Opened 0 items (1 couldn't be opened) · 1 still unread"),
+                run("feed open ${bad.id}")
+            )
             assertEquals(1, feeds.unreadCount(bad.id))
         }
         assertEquals(6, opened.size)
     }
 
     /** `feed notify`, `every`, `off` and `on` change one feed and say so; a wrong id or a missing one says how. */
-    @Test fun feedSettingsChangeOneFeed() {
+    @Test
+    fun feedSettingsChangeOneFeed() {
         val f = feed("set")
         // On, then off: whichever a new feed starts with, each one is a change.
         assertEquals(listOf("Feed #${f.id} notifications on"), run("feed notify ${f.id}"))
@@ -285,7 +361,8 @@ class FeedCommandsTest {
     }
 
     /** `feed rm` removes the feed and its items; then the id is unknown, and an unknown subcommand shows every one. */
-    @Test fun feedRmRemovesAFeedAndItsItems() {
+    @Test
+    fun feedRmRemovesAFeedAndItsItems() {
         val f = feed("rm")
         items(f, 2)
         assertEquals(listOf("Removed feed #${f.id}"), run("feed rm ${f.id}"))
@@ -294,52 +371,71 @@ class FeedCommandsTest {
         assertEquals(listOf("No feed #${f.id} — 'feeds' lists them"), run("feed remove ${f.id}"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm first"))
-        assertEquals(listOf("Usage: feed [add <url>|url <id> <url>|ls|rm|fetch|read|all|open|notify|every|on|off] [<id>]"), run("feed bogus"))
+        assertEquals(
+            listOf("Usage: feed [add <url>|url <id> <url>|ls|rm|fetch|read|all|open|notify|every|on|off] [<id>]"),
+            run("feed bogus")
+        )
     }
 
     /**
      * `feed url` moves a feed to another address, as for a typo: its items stay, what fetching the
      * old one learnt goes. One another feed has, one that isn't an address, or no feed, is said.
      */
-    @Test fun feedUrlChangesAFeedsAddress() {
+    @Test
+    fun feedUrlChangesAFeedsAddress() {
         val f = feed("typo")
         items(f, 2)
         feeds.recordFetch(f.id, "error: 404", etag = "\"old\"")
         val other = feed("other")
         val fixed = "${BASE}fixed"
-        assertEquals(listOf("Feed #${f.id} is at $fixed — fetching…"), run("feed url ${f.id} $fixed").take(1))
+        assertEquals(
+            listOf("Feed #${f.id} is at $fixed — fetching…"),
+            run("feed url ${f.id} $fixed").take(1)
+        )
         val moved = feeds.byId(f.id)!!
         assertEquals(fixed, moved.url)
         assertNull(moved.etag)
         assertEquals(2, feeds.itemCount(f.id))
         assertTrue(feeds.all().first { it.id == f.id }.lastStatus != "error: 404")
-        assertEquals(listOf("Already subscribed to ${other.url}"), run("feed url ${f.id} ${other.url}"))
+        assertEquals(
+            listOf("Already subscribed to ${other.url}"),
+            run("feed url ${f.id} ${other.url}")
+        )
         assertEquals(listOf("Not an http(s) URL: ftp://x"), run("feed url ${f.id} ftp://x"))
         assertEquals(listOf("No feed #999999 — 'feeds' lists them"), run("feed url 999999 $fixed"))
         assertEquals(listOf("Usage: feed url <id> <address>"), run("feed url ${f.id}"))
     }
 
     /** `feed fetch` says which feed it fetches, or all; a feed that can't be reached says so under that command. */
-    @Test fun feedFetchFetchesOneOrAll() {
+    @Test
+    fun feedFetchFetchesOneOrAll() {
         val f = feed("fetch", title = "Llat Fetch")
         val before = logs.maxId()
         assertEquals("Fetching feed #${f.id}…", run("feed fetch ${f.id}").first())
-        assertEquals(commandId("feed fetch ${f.id}"), failure("Llat Fetch", before).ctx.values[LogContext.FROM])
+        assertEquals(
+            commandId("feed fetch ${f.id}"),
+            failure("Llat Fetch", before).ctx.values[LogContext.FROM]
+        )
         val again = logs.maxId()
         assertEquals("Fetching all feeds…", run("feed refresh").first())
-        assertEquals(commandId("feed refresh"), failure("Llat Fetch", again).ctx.values[LogContext.FROM])
+        assertEquals(
+            commandId("feed refresh"),
+            failure("Llat Fetch", again).ctx.values[LogContext.FROM]
+        )
     }
 
     /**
      * `rss` with no address says how; an address it can't read ends in an error line from `rss`, and
      * subscribes to nothing. (A feed it can read isn't tried: the tests reach no server.)
      */
-    @Test fun rssWithNoAddressOrOneItCantRead() {
+    @Test
+    fun rssWithNoAddressOrOneItCantRead() {
         assertEquals(listOf("Usage: rss <url>"), run("rss"))
         val before = logs.maxId()
         commands.processor.run("rss ${BASE}feed")
         val command = commandId("rss ${BASE}feed")
-        fun failed() = logs.recent(200, afterId = before).firstOrNull { it.kind == LogKind.ERROR && it.source == "rss" }
+        fun failed() = logs.recent(200, afterId = before)
+            .firstOrNull { it.kind == LogKind.ERROR && it.source == "rss" }
         waitUntil("the script's error", ms = 30_000) { failed() != null }
         assertTrue(failed()!!.text, failed()!!.text.startsWith("rss: "))
         assertEquals(command, failed()!!.ctx.values[LogContext.FROM])
@@ -347,7 +443,8 @@ class FeedCommandsTest {
     }
 
     /** With notification access off, `notifs` says to tap to allow it, and `notifs enable` asks first. */
-    @Test fun notifsNeedNotificationAccess() {
+    @Test
+    fun notifsNeedNotificationAccess() {
         access.set(false)
         for (typed in listOf("notifs", "notifs muted", "notifications-feed all")) {
             val off = lines(typed).single()
@@ -360,12 +457,23 @@ class FeedCommandsTest {
     }
 
     /** `notifs` lists the notifications showing, `notifs all` the dismissed ones too, and `notifs clear` empties the list. */
-    @Test fun notifsListsAndClears() {
+    @Test
+    fun notifsListsAndClears() {
         allowNotifications()
-        val serial = context.getSystemService(UserManager::class.java).getSerialNumberForUser(Process.myUserHandle())
+        val serial = context.getSystemService(UserManager::class.java)
+            .getSerialNumberForUser(Process.myUserHandle())
         val now = System.currentTimeMillis()
         val live = Notif("0|llat|1", SETTINGS, serial, "Settings", "Llat title", "Llat body", now)
-        val gone = Notif("0|llat|2", SETTINGS, serial, "Settings", "Llat gone", null, now - 1_000, removed = true)
+        val gone = Notif(
+            "0|llat|2",
+            SETTINGS,
+            serial,
+            "Settings",
+            "Llat gone",
+            null,
+            now - 1_000,
+            removed = true
+        )
         // The listener replaces the list with what is really showing as it connects, at any moment
         // after access is on: the two are added again until both lists keep them.
         var shown: List<LogEntry>
@@ -397,13 +505,20 @@ class FeedCommandsTest {
     }
 
     /** `notifs mute` keeps an app's notifications out of the log until `unmute`; `notifs log off` keeps them all out. */
-    @Test fun notifsMuteAndLog() {
+    @Test
+    fun notifsMuteAndLog() {
         allowNotifications()
-        assertEquals(listOf("Settings: notifications won't appear in the log"), run("notifs mute Settings"))
+        assertEquals(
+            listOf("Settings: notifications won't appear in the log"),
+            run("notifs mute Settings")
+        )
         assertTrue(SETTINGS in notifPrefs.muted.value)
         val muted = lines("notifs muted").single { it.text == "Settings" }
         assertEquals("notifs unmute $SETTINGS", muted.ctx.command)
-        assertEquals(listOf("Settings: notifications will appear in the log"), run("notifs unmute Settings"))
+        assertEquals(
+            listOf("Settings: notifications will appear in the log"),
+            run("notifs unmute Settings")
+        )
         assertFalse(SETTINGS in notifPrefs.muted.value)
         if (mutedBefore.isEmpty()) assertEquals(listOf("No muted apps"), run("notifs muted"))
         assertEquals(listOf("No app matches 'zzqqxx'"), run("notifs mute zzqqxx"))
@@ -412,11 +527,19 @@ class FeedCommandsTest {
         assertFalse(notifPrefs.logToTerminal)
         assertEquals(listOf("Notifications appear in the log"), run("notifs log on"))
         assertTrue(notifPrefs.logToTerminal)
-        assertEquals(listOf("Usage: notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]"), run("notifs bogus"))
+        assertEquals(
+            listOf("Usage: notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]"),
+            run("notifs bogus")
+        )
 
         // On already, `enable` opens Android's screen, to turn it off there.
         val opened = mutableListOf<Intent>()
-        catching(setOf(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS, Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS), opened) {
+        catching(
+            setOf(
+                Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS,
+                Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
+            ), opened
+        ) {
             assertEquals(emptyList<String>(), run("notifs enable"))
         }
         assertEquals(1, opened.size)

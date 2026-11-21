@@ -33,14 +33,19 @@ class LockService : AccessibilityService() {
         private var instance: WeakReference<LockService>? = null
 
         /** Returns true when the screen was locked, false when the service isn't enabled. */
-        fun lock(): Boolean = instance?.get()?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) == true
+        fun lock(): Boolean =
+            instance?.get()?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) == true
 
         fun isEnabled(context: Context): Boolean {
             val me = ComponentName(context, LockService::class.java).flattenToString()
-            val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+            val enabled = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ).orEmpty()
             return enabled.split(':').any { it.equals(me, ignoreCase = true) }
         }
 
-        fun settingsIntent(): Intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        fun settingsIntent(): Intent =
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }

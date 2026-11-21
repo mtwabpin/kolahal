@@ -13,7 +13,8 @@ class CrashTextTest {
         body = "java.lang.IllegalStateException: boom\n\tat a.b.c(SourceFile:1)\n",
     )
 
-    @Test fun reportHasHeaderThenBody() {
+    @Test
+    fun reportHasHeaderThenBody() {
         val lines = report.lines()
         assertEquals("Kolahal crash report", lines[0])
         assertEquals("Kolahal 0.3.1 (9, play)", lines[1])
@@ -22,19 +23,31 @@ class CrashTextTest {
         assertEquals("java.lang.IllegalStateException: boom", lines[6])
     }
 
-    @Test fun summaryIsTheErrorsFirstLine() {
+    @Test
+    fun summaryIsTheErrorsFirstLine() {
         assertEquals("java.lang.IllegalStateException: boom", CrashText.summary(report))
         assertEquals("(no details)", CrashText.summary("Kolahal crash report\nno body"))
     }
 
-    @Test fun shortNameDropsThePackage() {
-        assertEquals("IllegalStateException: boom", CrashText.shortName("java.lang.IllegalStateException: boom"))
-        assertEquals("CrashedByAdbException: shell-induced crash", CrashText.shortName("android.app.RemoteServiceException\$CrashedByAdbException: shell-induced crash"))
+    @Test
+    fun shortNameDropsThePackage() {
+        assertEquals(
+            "IllegalStateException: boom",
+            CrashText.shortName("java.lang.IllegalStateException: boom")
+        )
+        assertEquals(
+            "CrashedByAdbException: shell-induced crash",
+            CrashText.shortName("android.app.RemoteServiceException\$CrashedByAdbException: shell-induced crash")
+        )
         assertEquals("c", CrashText.shortName("a.b.c"))
-        assertEquals("Signal 11 (SIGSEGV): crash", CrashText.shortName("Signal 11 (SIGSEGV): crash"))
+        assertEquals(
+            "Signal 11 (SIGSEGV): crash",
+            CrashText.shortName("Signal 11 (SIGSEGV): crash")
+        )
     }
 
-    @Test fun mainThreadIsCutFromTheDump() {
+    @Test
+    fun mainThreadIsCutFromTheDump() {
         val dump = """
             ----- pid 4148 at 2026-10-21 19:55:02 -----
             Cmd line: com.mtwabpin.kolahal

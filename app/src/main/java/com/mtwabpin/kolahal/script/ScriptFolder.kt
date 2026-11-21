@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -11,6 +10,7 @@ import androidx.core.content.edit
 import androidx.documentfile.provider.DocumentFile
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.Stores
 
 /**
  * Syncs scripts with a folder the user picks (Storage Access Framework). The user can then edit them
@@ -51,20 +51,23 @@ class ScriptFolder(private val context: Context) {
         // Remove the files of scripts deleted on this phone since its last export. Remove only those:
         // the folder can hold scripts that another phone exported and this one doesn't have.
         val current = all.map { "${it.name}.${it.lang.ext}" }.toSet()
-        val deleted = prefs.getStringSet(KEY_EXPORTED, emptySet()).orEmpty().filterTo(HashSet()) { it !in current }
+        val deleted = prefs.getStringSet(KEY_EXPORTED, emptySet()).orEmpty()
+            .filterTo(HashSet()) { it !in current }
         deleted.forEach { files[it]?.delete() }
         // Keep the manifest entries of other phones' scripts too. Otherwise a phone that imports them
         // later would give them the timers their code suggests, not the ones set for them.
         val mine = all.mapTo(HashSet()) { it.name }
-        val others = files[MANIFEST]?.let { readManifest(it.uri) }.orEmpty().values.filter { entry ->
-            val file = "${entry["name"]}.${entry["lang"]}"
-            entry["name"]?.toString()?.lowercase() !in mine && file in files && file !in deleted
-        }
+        val others =
+            files[MANIFEST]?.let { readManifest(it.uri) }.orEmpty().values.filter { entry ->
+                val file = "${entry["name"]}.${entry["lang"]}"
+                entry["name"]?.toString()?.lowercase() !in mine && file in files && file !in deleted
+            }
         for ((_, name, lang, code) in all) {
             val fileName = "$name.${lang.ext}"
             val file = files[fileName] ?: dir.createFile(MIME_TEXT, fileName)
-                ?: throw IllegalStateException("can't create $fileName")
-            context.contentResolver.openOutputStream(file.uri, "wt")!!.use { it.write(code.toByteArray()) }
+            ?: throw IllegalStateException("can't create $fileName")
+            context.contentResolver.openOutputStream(file.uri, "wt")!!
+                .use { it.write(code.toByteArray()) }
         }
         val manifest = mapOf(
             "version" to 1,
@@ -80,7 +83,7 @@ class ScriptFolder(private val context: Context) {
             } + others,
         )
         val manifestFile = files[MANIFEST] ?: dir.createFile("application/json", MANIFEST)
-            ?: throw IllegalStateException("can't create $MANIFEST")
+        ?: throw IllegalStateException("can't create $MANIFEST")
         context.contentResolver.openOutputStream(manifestFile.uri, "wt")!!.use {
             it.write(Json.stringify(manifest).toByteArray())
         }
@@ -96,7 +99,8 @@ class ScriptFolder(private val context: Context) {
 
     internal fun import(dir: DocumentFile): ImportResult {
         val files = dir.listFiles()
-        val settings = files.firstOrNull { it.name == MANIFEST }?.let { readManifest(it.uri) }.orEmpty()
+        val settings =
+            files.firstOrNull { it.name == MANIFEST }?.let { readManifest(it.uri) }.orEmpty()
 
         var created = 0
         // Counts only scripts the import changed. The same code and settings again are not an update.
@@ -123,6 +127,7 @@ class ScriptFolder(private val context: Context) {
                     is ScriptImport.Why.NeedsNewer -> "$fileName (needs Kolahal ${why.version})"
                     is ScriptImport.Why.OtherLanguage -> fileName
                 }
+
                 is ScriptImport.Outcome.Imported -> when (outcome.change) {
                     ScriptImport.Change.CREATED -> created++
                     ScriptImport.Change.UPDATED -> updated++
@@ -135,14 +140,22 @@ class ScriptFolder(private val context: Context) {
 
     /** Manifest entries keyed by script name. */
     private fun readManifest(uri: Uri): Map<String?, Map<*, *>> =
-        (readText(uri)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }?.get("scripts") as? List<*>)
-            .orEmpty().filterIsInstance<Map<*, *>>().associateBy { it["name"]?.toString()?.lowercase() }
+        (readText(uri)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
+            ?.get("scripts") as? List<*>)
+            .orEmpty().filterIsInstance<Map<*, *>>()
+            .associateBy { it["name"]?.toString()?.lowercase() }
 
     private fun readText(uri: Uri): String? =
-        runCatching { Files.readText(context, uri) }.getOrNull() // size-capped, like single-file import
+        runCatching {
+            Files.readText(
+                context,
+                uri
+            )
+        }.getOrNull() // size-capped, like single-file import
 
     private companion object {
         const val KEY_URI = "uri"
+
         /** The files this phone's last export wrote. */
         private const val KEY_EXPORTED = "exported"
         const val MANIFEST = "kolahal.json"

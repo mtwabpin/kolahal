@@ -3,14 +3,13 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -22,11 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextIndent
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.withLink
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.graphics.isSpecified
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -65,7 +61,12 @@ private fun AnnotatedString.Builder.appendTagged(text: String, color: Color) {
     }
     val kind = ProfileKind.entries.first { it.tag == tag.groupValues[1] }
     withStyle(SpanStyle(color = color)) { append(text.substring(0, tag.range.first)) }
-    withStyle(SpanStyle(color = Term.profileColor(kind), fontWeight = FontWeight.Bold)) { append(tag.value) }
+    withStyle(
+        SpanStyle(
+            color = Term.profileColor(kind),
+            fontWeight = FontWeight.Bold
+        )
+    ) { append(tag.value) }
     withStyle(SpanStyle(color = color)) { append(text.substring(tag.range.last + 1)) }
 }
 
@@ -73,7 +74,13 @@ private const val NOTIF_ICON = "notif-icon"
 
 /** The status bar icon at the end of a notification line. It has the same muted tint as the name it replaces. */
 internal fun notifIconContent(key: String) = mapOf(
-    NOTIF_ICON to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) { NotifIcon(key) },
+    NOTIF_ICON to InlineTextContent(
+        Placeholder(
+            1.15.em,
+            1.15.em,
+            PlaceholderVerticalAlign.TextCenter
+        )
+    ) { NotifIcon(key) },
 )
 
 /**
@@ -86,10 +93,16 @@ internal const val LINE_PADDING = 3
 
 /** For short lines (`log.line-height` below the text's own height): removes the space above the first line and below the last. */
 internal fun TextStyle.dense(on: Boolean) =
-    if (on) copy(lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both)) else this
+    if (on) copy(
+        lineHeightStyle = LineHeightStyle(
+            LineHeightStyle.Alignment.Center,
+            LineHeightStyle.Trim.Both
+        )
+    ) else this
 
 /** The terminal text style. A line that aligns columns ([LogContext.MONO]) always uses the terminal font. */
-internal fun LogEntry.style() = if (ctx.values.containsKey(LogContext.MONO)) Term.code else Term.text
+internal fun LogEntry.style() =
+    if (ctx.values.containsKey(LogContext.MONO)) Term.code else Term.text
 
 /** Indents for wrapped and detail lines: the width of `$ ` in the log's font and in the code font, and the width of `• `. */
 @androidx.compose.runtime.Immutable
@@ -106,9 +119,16 @@ internal fun rememberLineIndents(): LineIndents {
     val density = androidx.compose.ui.platform.LocalDensity.current
     return androidx.compose.runtime.remember(Term.fontSize, Term.fontFamily, Term.sans, density) {
         fun width(prefix: String, style: TextStyle) = with(density) {
-            (measurer.measure("${prefix}0", style).size.width - measurer.measure("0", style).size.width).toSp()
+            (measurer.measure("${prefix}0", style).size.width - measurer.measure(
+                "0",
+                style
+            ).size.width).toSp()
         }
-        LineIndents(text = width("$ ", Term.text), code = width("$ ", Term.code), bullet = width("• ", Term.text))
+        LineIndents(
+            text = width("$ ", Term.text),
+            code = width("$ ", Term.code),
+            bullet = width("• ", Term.text)
+        )
     }
 }
 
@@ -118,35 +138,72 @@ internal fun rememberLineIndents(): LineIndents {
  * - [icon]: end a script line with its notification icon instead of `· app`.
  * - [source]: show the source at all (true for the first line of a run).
  */
-internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, icon: Boolean = false, source: Boolean = true) = buildAnnotatedString {
+internal fun renderLine(
+    entry: LogEntry,
+    indents: LineIndents,
+    unread: Boolean,
+    icon: Boolean = false,
+    source: Boolean = true
+) = buildAnnotatedString {
     val indent = when (entry.kind) {
         LogKind.SCRIPT -> if (unread) indents.bullet else 0.sp
         else -> if (entry.ctx.values.containsKey(LogContext.MONO)) indents.code else indents.text
     }
     // A built-in command's big numbers, tables and bars are drawn under its text ([RichBody]), so
     // only the part above them is text here.
-    val text = if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) StyledText.splitAtBlocks(entry.text).first else entry.text
+    val text =
+        if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) StyledText.splitAtBlocks(
+            entry.text
+        ).first else entry.text
     withStyle(ParagraphStyle(textIndent = TextIndent(restLine = indent))) {
         when (entry.kind) {
             LogKind.COMMAND -> {
                 withStyle(SpanStyle(color = Term.prompt)) { append("$ ") }
-                withStyle(SpanStyle(color = Term.fg, fontWeight = FontWeight.Bold)) { append(entry.text) }
+                withStyle(
+                    SpanStyle(
+                        color = Term.fg,
+                        fontWeight = FontWeight.Bold
+                    )
+                ) { append(entry.text) }
             }
-            LogKind.ERROR -> withStyle(SpanStyle(color = Term.error)) { append(StyledText.plain(entry.text)) }
+
+            LogKind.ERROR -> withStyle(SpanStyle(color = Term.error)) {
+                append(
+                    StyledText.plain(
+                        entry.text
+                    )
+                )
+            }
+
             LogKind.INFO -> {
                 // Lines after the first are details, such as a package name under an app event. They are dimmed below.
                 val first = text.substringBefore('\n')
-                if (StyledText.has(first)) appendStyled(first, SpanStyle(color = Term.info)) else appendTagged(first, Term.info)
+                if (StyledText.has(first)) appendStyled(
+                    first,
+                    SpanStyle(color = Term.info)
+                ) else appendTagged(first, Term.info)
             }
+
             LogKind.SCRIPT -> {
-                if (unread) withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) { append("• ") }
+                if (unread) withStyle(
+                    SpanStyle(
+                        color = Term.prompt,
+                        fontWeight = FontWeight.Bold
+                    )
+                ) { append("• ") }
                 // A title with a body is a heading: bold, with the body muted below it. A title on its own
                 // (one HN story, one price) is in normal weight, so a list of them isn't a wall of bold.
-                val title = entry.ctx.values.containsKey(LogContext.TITLE) && entry.ctx.values.containsKey(LogContext.BODY)
+                val title =
+                    entry.ctx.values.containsKey(LogContext.TITLE) && entry.ctx.values.containsKey(
+                        LogContext.BODY
+                    )
                 // A heading is already bold, so its bold parts stand out in the text colour instead.
                 appendStyled(
                     entry.text,
-                    SpanStyle(color = if (entry.ctx.url != null) Term.link else Term.script, fontWeight = if (title) FontWeight.Bold else null),
+                    SpanStyle(
+                        color = if (entry.ctx.url != null) Term.link else Term.script,
+                        fontWeight = if (title) FontWeight.Bold else null
+                    ),
                     strong = Term.fg,
                 )
                 // The source goes at the end, muted, like other indicators (`… machine. · wikipedia`).
@@ -163,11 +220,15 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
                     }
                 }
             }
+
             LogKind.OUTPUT -> {
                 val first = text.substringBefore('\n')
                 val color = if (entry.ctx.url != null) Term.link else Term.fg
                 // A script's result can have styles ([StyledText]), and so can a command's tags.
-                if (StyledText.has(first)) appendStyled(first, SpanStyle(color = color)) else appendTagged(first, color)
+                if (StyledText.has(first)) appendStyled(
+                    first,
+                    SpanStyle(color = color)
+                ) else appendTagged(first, color)
             }
         }
         Unit
@@ -182,7 +243,11 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
     // A script line's body, below its title and aligned with it. Tables and bars, and what follows
     // them, are drawn under the text ([RichBody]), so only the part above them is text here.
     val body = entry.ctx.body?.let { StyledText.splitAtBlocks(it).first }
-    if (entry.kind == LogKind.SCRIPT && !body.isNullOrEmpty()) appendBody(body, indent, indents.bullet)
+    if (entry.kind == LogKind.SCRIPT && !body.isNullOrEmpty()) appendBody(
+        body,
+        indent,
+        indents.bullet
+    )
 }
 
 /**
@@ -192,33 +257,68 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
  * - Code shows on a shaded background.
  * - A list item shows its bullet or number in the accent colour.
  */
-private fun AnnotatedString.Builder.appendStyled(text: String, base: SpanStyle, strong: Color? = null) {
+private fun AnnotatedString.Builder.appendStyled(
+    text: String,
+    base: SpanStyle,
+    strong: Color? = null
+) {
     if (!StyledText.has(text)) {
         withStyle(base) { append(text) }
         return
     }
     StyledText.lines(text).forEachIndexed { i, line ->
         if (i > 0) append('\n')
-        if (line.level > 0) withStyle(base.merge(SpanStyle(color = Term.prompt))) { append("  ".repeat(line.level - 1) + line.prefix + " ") }
+        if (line.level > 0) withStyle(base.merge(SpanStyle(color = Term.prompt))) {
+            append(
+                "  ".repeat(
+                    line.level - 1
+                ) + line.prefix + " "
+            )
+        }
         appendSpans(line.spans, base, strong)
     }
 }
 
-internal fun AnnotatedString.Builder.appendSpans(spans: List<StyledText.Span>, base: SpanStyle, strong: Color?) {
+internal fun AnnotatedString.Builder.appendSpans(
+    spans: List<StyledText.Span>,
+    base: SpanStyle,
+    strong: Color?
+) {
     for ((text, styles, colour, url) in spans) {
-        val style = if (styles.isEmpty() && colour == null) base else base.merge(styleOf(styles, strong)).merge(SpanStyle(color = colourOf(colour)))
+        val style =
+            if (styles.isEmpty() && colour == null) base else base.merge(styleOf(styles, strong))
+                .merge(SpanStyle(color = colourOf(colour)))
         // A tag: in its colour (the accent colour without one), bold and a little smaller, on a
         // rounded chip that RichText draws behind it.
         val tag = StyledText.Style.TAG in styles
-        val shown = if (!tag) style else style.merge(SpanStyle(color = colourOf(colour ?: StyledText.Colour.ACCENT), fontWeight = FontWeight.Bold, fontSize = TAG_SIZE.em))
+        val shown = if (!tag) style else style.merge(
+            SpanStyle(
+                color = colourOf(
+                    colour ?: StyledText.Colour.ACCENT
+                ), fontWeight = FontWeight.Bold, fontSize = TAG_SIZE.em
+            )
+        )
         val start = length
         if (url != null) {
             // A link in the text (fmt.link): a tap on it opens its address, through home's LocalUriHandler.
             // Its look is a plain style on the text, not the link's own styles: those cost each link an
             // effect, a coroutine and a second composition of the line.
-            withLink(LinkAnnotation.Url(url)) { withStyle(shown.merge(SpanStyle(color = Term.link, textDecoration = TextDecoration.Underline))) { append(text) } }
+            withLink(LinkAnnotation.Url(url)) {
+                withStyle(
+                    shown.merge(
+                        SpanStyle(
+                            color = Term.link,
+                            textDecoration = TextDecoration.Underline
+                        )
+                    )
+                ) { append(text) }
+            }
         } else withStyle(shown) { append(text) }
-        if (tag) addStringAnnotation(TAG_CHIP, (shown.color.takeIf { it.isSpecified } ?: Term.prompt).toArgb().toString(), start, length)
+        if (tag) addStringAnnotation(
+            TAG_CHIP,
+            (shown.color.takeIf { it.isSpecified } ?: Term.prompt).toArgb().toString(),
+            start,
+            length)
     }
 }
 
@@ -260,7 +360,14 @@ private fun styleOf(styles: Set<StyledText.Style>, strong: Color?): SpanStyle {
 internal fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, bullet: TextUnit) {
     val base = SpanStyle(color = Term.dim)
     if (!StyledText.has(body)) {
-        withStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent, restLine = indent))) { withStyle(base) { append(body) } }
+        withStyle(
+            ParagraphStyle(
+                textIndent = TextIndent(
+                    firstLine = indent,
+                    restLine = indent
+                )
+            )
+        ) { withStyle(base) { append(body) } }
         return
     }
     val lines = StyledText.lines(body)
@@ -271,7 +378,14 @@ internal fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, 
         if (line.level == 0) {
             // Plain lines that follow each other share one paragraph.
             val run = lines.drop(i).takeWhile { it.level == 0 }
-            withStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent, restLine = indent))) {
+            withStyle(
+                ParagraphStyle(
+                    textIndent = TextIndent(
+                        firstLine = indent,
+                        restLine = indent
+                    )
+                )
+            ) {
                 run.forEachIndexed { k, l ->
                     if (k > 0) append('\n')
                     appendSpans(l.spans, base, Term.fg)
@@ -282,7 +396,14 @@ internal fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, 
         }
         val start = indent.value + char * 2 * (line.level - 1)
         val prefix = "${line.prefix} "
-        withStyle(ParagraphStyle(textIndent = TextIndent(firstLine = start.sp, restLine = (start + char * prefix.length).sp))) {
+        withStyle(
+            ParagraphStyle(
+                textIndent = TextIndent(
+                    firstLine = start.sp,
+                    restLine = (start + char * prefix.length).sp
+                )
+            )
+        ) {
             withStyle(SpanStyle(color = Term.prompt)) { append(prefix) }
             appendSpans(line.spans, base, Term.fg)
         }
@@ -298,7 +419,13 @@ internal const val TAG_CHIP = "tag-chip"
 
 /** [text] with its [StyledText] styles (tags, colours, links), in the style its [Text] gives; plain text as it is. */
 internal fun styledText(text: String): AnnotatedString =
-    if (!StyledText.has(text)) AnnotatedString(text) else buildAnnotatedString { appendStyled(text, SpanStyle(), Term.fg) }
+    if (!StyledText.has(text)) AnnotatedString(text) else buildAnnotatedString {
+        appendStyled(
+            text,
+            SpanStyle(),
+            Term.fg
+        )
+    }
 
 /**
  * A widget's text, with the styles a card draws: weight (bold), slant (italic), lines (underline,

@@ -3,13 +3,13 @@
  */
 package com.mtwabpin.kolahal.ui
 
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -53,11 +53,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import com.mtwabpin.kolahal.terminal.PinnedTurns
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.terminal.PinnedTurns
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
 
@@ -94,7 +94,8 @@ internal val PINNED_TOP = 4.dp
  * largest icon if that is taller. Every item uses it, so the items take turns without moving the log.
  */
 @Composable
-internal fun pinnedRow(): Dp = with(LocalDensity.current) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
+internal fun pinnedRow(): Dp =
+    with(LocalDensity.current) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
 
 /**
  * The pinned header: a line under the header (or at the top, when the header is off). It shows what
@@ -190,18 +191,40 @@ internal fun PinnedHeader(
             contentKey = { it.key },
             transitionSpec = { (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut()) },
             label = "pinned",
-            modifier = Modifier.padding(start = 12.dp, end = END_PADDING, top = PINNED_TOP, bottom = barBelow),
+            modifier = Modifier.padding(
+                start = 12.dp,
+                end = END_PADDING,
+                top = PINNED_TOP,
+                bottom = barBelow
+            ),
         ) { item ->
             when (item) {
-                is PinnedItem.Media -> NowPlayingLine(item.np, onMediaToggle, onMediaNext, endPadding = dotsRoom, barAbove = barAbove, onLongPress = onMediaLongPress?.let { f -> { f(item.np) } })
-                is PinnedItem.Script -> PinLine(item.line, onPinTap, onPinLongPress, dotsRoom, row, barAbove)
+                is PinnedItem.Media -> NowPlayingLine(
+                    item.np,
+                    onMediaToggle,
+                    onMediaNext,
+                    endPadding = dotsRoom,
+                    barAbove = barAbove,
+                    onLongPress = onMediaLongPress?.let { f -> { f(item.np) } })
+
+                is PinnedItem.Script -> PinLine(
+                    item.line,
+                    onPinTap,
+                    onPinLongPress,
+                    dotsRoom,
+                    row,
+                    barAbove
+                )
             }
         }
         // The dots' touch: the whole height of the line, over the room kept for them and the end padding.
         if (dots) PinnedDots(
             items.size, index, row,
             onNext = { current = PinnedTurns.next(keys, keys[index]) },
-            modifier = Modifier.matchParentSize().wrapContentWidth(Alignment.End).width(dotsRoom + END_PADDING),
+            modifier = Modifier
+                .matchParentSize()
+                .wrapContentWidth(Alignment.End)
+                .width(dotsRoom + END_PADDING),
         )
     }
 }
@@ -235,13 +258,22 @@ internal fun rememberScreenReader(): Boolean {
  * when there is a progress value.
  */
 @Composable
-private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (String) -> Unit, endPadding: Dp, row: Dp, barAbove: Dp) {
+private fun PinLine(
+    line: StatusLine,
+    onTap: (String) -> Unit,
+    onLongPress: (String) -> Unit,
+    endPadding: Dp,
+    row: Dp,
+    barAbove: Dp
+) {
     // The whole item takes the tap, the bar too: the row is short.
     Column(
         Modifier
             .fillMaxWidth()
             .testTag("pinned-${line.name}")
-            .combinedClickable(onLongClickLabel = "actions", onLongClick = { onLongPress(line.name) }) { onTap(line.name) }
+            .combinedClickable(
+                onLongClickLabel = "actions",
+                onLongClick = { onLongPress(line.name) }) { onTap(line.name) }
             .semantics { contentDescription = "${line.name}: ${line.text}" },
     ) {
         Text(
@@ -258,7 +290,10 @@ private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (Str
         Spacer(Modifier.height(barAbove))
         // Keep the bar's space even without a bar, so every item has the same height and the log does not move.
         val progress = line.progress
-        if (progress != null) ProgressTrack(progress, line.colour?.let(::colourOf) ?: Term.prompt) else Spacer(Modifier.height(2.dp))
+        if (progress != null) ProgressTrack(
+            progress,
+            line.colour?.let(::colourOf) ?: Term.prompt
+        ) else Spacer(Modifier.height(2.dp))
     }
 }
 
@@ -278,10 +313,18 @@ private fun PinnedDots(count: Int, index: Int, row: Dp, onNext: () -> Unit, modi
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = PINNED_TOP, end = END_PADDING).height(row),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = PINNED_TOP, end = END_PADDING)
+                .height(row),
         ) {
             repeat(count) { i ->
-                Box(Modifier.size(4.dp).clip(CircleShape).background(if (i == index) Term.prompt else Term.dim.copy(alpha = 0.45f)))
+                Box(
+                    Modifier
+                        .size(4.dp)
+                        .clip(CircleShape)
+                        .background(if (i == index) Term.prompt else Term.dim.copy(alpha = 0.45f))
+                )
             }
         }
     }

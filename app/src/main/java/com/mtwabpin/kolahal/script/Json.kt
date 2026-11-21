@@ -21,7 +21,11 @@ object Json {
         val value = tokener.nextValue()
         // The message says what kind of text it got, but does not quote it. The text may hold something a site sent back, even a key.
         if (value is String && !text.trimStart().startsWith('"')) {
-            throw org.json.JSONException(if (text.trimStart().startsWith('<')) "Not JSON: an HTML or XML page" else "Not JSON: ${text.trim().length} characters of text")
+            throw org.json.JSONException(
+                if (text.trimStart()
+                        .startsWith('<')
+                ) "Not JSON: an HTML or XML page" else "Not JSON: ${text.trim().length} characters of text"
+            )
         }
         if (tokener.nextClean() != 0.toChar()) throw org.json.JSONException("Unexpected text after the JSON value")
         return fromOrg(value)
@@ -43,7 +47,15 @@ object Json {
 
     private fun toOrg(v: Any?): Any? = when (v) {
         null -> JSONObject.NULL
-        is Map<*, *> -> JSONObject().also { o -> v.forEach { (k, value) -> o.put(k.toString(), toOrg(value)) } }
+        is Map<*, *> -> JSONObject().also { o ->
+            v.forEach { (k, value) ->
+                o.put(
+                    k.toString(),
+                    toOrg(value)
+                )
+            }
+        }
+
         is Collection<*> -> JSONArray().also { a -> v.forEach { a.put(toOrg(it)) } }
         is Array<*> -> JSONArray().also { a -> v.forEach { a.put(toOrg(it)) } }
         // NaN and infinity are not valid JSON. They become null, as JSON.stringify writes them.
@@ -57,7 +69,8 @@ object Json {
      * [v] as a whole number, or null when it has a fraction or is too big to be exact. Lua's numbers
      * are all doubles, so a script's `3` arrives as `3.0`.
      */
-    private fun whole(v: Double): Long? = if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong() else null
+    private fun whole(v: Double): Long? =
+        if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong() else null
 
     /** A number as a script shows it: a whole one without its ".0". */
     fun numberText(v: Double): String = whole(v)?.toString() ?: v.toString()
@@ -87,11 +100,13 @@ object Json {
                 (1..n).map { i -> normalizeLua(byIndex[i]) }
             } else {
                 v.entries.associate { (k, value) ->
-                    val key = if (k is Double && k % 1.0 == 0.0) k.toLong().toString() else k.toString()
+                    val key =
+                        if (k is Double && k % 1.0 == 0.0) k.toLong().toString() else k.toString()
                     key to normalizeLua(value)
                 }
             }
         }
+
         is Double -> whole(v) ?: v
         else -> v
     }
@@ -107,6 +122,7 @@ object Json {
                 else -> value.toString()
             }
         }.toMap()
+
         else -> emptyMap()
     }
 }

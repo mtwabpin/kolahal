@@ -75,16 +75,26 @@ fun ScriptSourcesScreen(vm: TerminalViewModel) {
             },
             bottom = 96.dp,
         ) {
-            if (shared.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp)) }
+            if (shared.loading) item(key = "loading") {
+                LinearProgressIndicator(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+            }
             itemsIndexed(sources, key = { _, l -> l.source.index }) { i, l ->
-                SourceRow(l, i, sources.size, onRemove = { vm.scriptActions.removeSource(l.source) })
+                SourceRow(
+                    l,
+                    i,
+                    sources.size,
+                    onRemove = { vm.scriptActions.removeSource(l.source) })
             }
             item(key = "about") {
                 PageHint(
                     "Get more scripts lists the scripts of each source, in this order. When two have a script " +
-                        "with the same name, 'script get <name>' installs the first one's. Updates come from the source " +
-                        "a script was installed from. Terminal: script sources · script source add <owner/name> · " +
-                        "script source rm <name>",
+                            "with the same name, 'script get <name>' installs the first one's. Updates come from the source " +
+                            "a script was installed from. Terminal: script sources · script source add <owner/name> · " +
+                            "script source rm <name>",
                 )
             }
         }
@@ -187,7 +197,18 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onAdd: (ScriptSources.Source)
                 )
             }
         },
-        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = source != null, onClick = ::submit) { Text("Add") } },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                enabled = source != null,
+                onClick = ::submit
+            ) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onDismiss
+            ) { Text("Cancel") }
+        },
     )
 }

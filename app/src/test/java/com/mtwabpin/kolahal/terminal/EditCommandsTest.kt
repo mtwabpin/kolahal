@@ -10,12 +10,21 @@ import org.junit.Test
 
 /** `edit <file>`: which of the listed files a name opens, and what a tap on a line of `edit recent` runs. */
 class EditCommandsTest {
-    private fun file(name: String, n: Int) = Listed("content://files/document/$n", name, 100L - n, unsaved = false)
+    private fun file(name: String, n: Int) =
+        Listed("content://files/document/$n", name, 100L - n, unsaved = false)
 
     // Newest first, as `edit recent` lists them.
-    private val files = listOf(file("notes.txt", 1), file("Todo.md", 2), file("notes.txt", 3), file("my notes.txt", 4), file("new", 5), file("a  b.txt", 6))
+    private val files = listOf(
+        file("notes.txt", 1),
+        file("Todo.md", 2),
+        file("notes.txt", 3),
+        file("my notes.txt", 4),
+        file("new", 5),
+        file("a  b.txt", 6)
+    )
 
-    @Test fun aNameOpensTheNewestFileOfThatName() {
+    @Test
+    fun aNameOpensTheNewestFileOfThatName() {
         assertEquals(files[0], EditCommands.find(files, "notes.txt"))
         // In another case, when no file has it exactly.
         assertEquals(files[1], EditCommands.find(files, "todo.md"))
@@ -28,7 +37,8 @@ class EditCommandsTest {
     }
 
     /** A tap runs `edit <name>` where that opens the line's own file, and `edit <address>` where it wouldn't. */
-    @Test fun aTapOpensTheLinesOwnFile() {
+    @Test
+    fun aTapOpensTheLinesOwnFile() {
         assertEquals("edit notes.txt", EditCommands.tapCommand(files, 0))
         assertEquals("edit Todo.md", EditCommands.tapCommand(files, 1))
         // An earlier line has the same name.
@@ -41,17 +51,24 @@ class EditCommandsTest {
     }
 
     /** What a tap runs reads back, as the command reads its words, as the name it was made from. */
-    @Test fun aTapsNameReadsBackAsTheName() {
+    @Test
+    fun aTapsNameReadsBackAsTheName() {
         for (i in files.indices) {
-            val words = CommandParsing.tokenize(EditCommands.tapCommand(files, i).removePrefix("edit "))
+            val words =
+                CommandParsing.tokenize(EditCommands.tapCommand(files, i).removePrefix("edit "))
             val target = words.joinToString(" ")
-            val opened = if (target.startsWith("content://")) files.first { it.uri == target } else EditCommands.find(files, target)
+            val opened =
+                if (target.startsWith("content://")) files.first { it.uri == target } else EditCommands.find(
+                    files,
+                    target
+                )
             assertEquals(files[i], opened)
         }
     }
 
     /** `edit` leaves the launcher, so it never runs without Enter, and a script can't send it. */
-    @Test fun editNeverRunsByItself() {
+    @Test
+    fun editNeverRunsByItself() {
         assertTrue(InstantRun.isSensitive("edit"))
         assertTrue(InstantRun.isSensitive("edit notes.txt"))
     }

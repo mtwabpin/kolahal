@@ -42,10 +42,13 @@ fun GuiTheme(content: @Composable () -> Unit) {
 private val LocalGuiPalette = staticCompositionLocalOf<Palette?> { null }
 
 /** The scheme made last, with its palette: the palette rarely changes, and every card asks. */
-@Volatile private var lastScheme: Pair<Palette, ColorScheme>? = null
+@Volatile
+private var lastScheme: Pair<Palette, ColorScheme>? = null
 
 private fun schemeOf(palette: Palette): ColorScheme =
-    lastScheme?.takeIf { it.first === palette }?.second ?: schemeFrom(palette).also { lastScheme = palette to it }
+    lastScheme?.takeIf { it.first === palette }?.second ?: schemeFrom(palette).also {
+        lastScheme = palette to it
+    }
 
 /** Maps a terminal palette to a full Material colour scheme (dark). */
 fun schemeFrom(p: Palette): ColorScheme {

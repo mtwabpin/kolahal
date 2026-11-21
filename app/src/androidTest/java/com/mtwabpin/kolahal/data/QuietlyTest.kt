@@ -15,12 +15,16 @@ import org.junit.runner.RunWith
 class QuietlyTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val logs = LogRepository.get(context)
-    @get:Rule val logLines = LogLinesSince()
+
+    @get:Rule
+    val logLines = LogLinesSince()
     private val what = "Quietly test step"
 
-    @After fun tearDown() = KvStore(context, "worker").set("failed:$what", null)
+    @After
+    fun tearDown() = KvStore(context, "worker").set("failed:$what", null)
 
-    @Test fun aFailureIsLoggedOnceADay() {
+    @Test
+    fun aFailureIsLoggedOnceADay() {
         val before = logs.maxId()
         var after = false
         Quietly.run(context, what) { error("no alarms left") }

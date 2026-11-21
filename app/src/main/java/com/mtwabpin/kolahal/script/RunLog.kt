@@ -47,12 +47,20 @@ internal class RunLog(
      * waits in [pending] ([slot], -1 once written), its id once written, its length as stored, and
      * its text and context as last logged or set.
      */
-    private class RunLine(var slot: Int, var length: Int, var text: String, var ctx: LogContext, var id: Long = 0)
+    private class RunLine(
+        var slot: Int,
+        var length: Int,
+        var text: String,
+        var ctx: LogContext,
+        var id: Long = 0
+    )
 
     /** The lines this run logged with `log` or `md.log`, in order. A script's line handle is its number here, from 1. */
     private val runLines = ArrayList<RunLine>()
+
     /** The line in [runLines] that each entry of [pending] is, if any. */
     private val pendingLines = ArrayList<RunLine?>()
+
     /** Changes to written lines, waiting for the next flush. */
     private val changes = LinkedHashMap<RunLine, Pair<String, LogContext>>()
     private var sets = 0
@@ -69,7 +77,12 @@ internal class RunLog(
                 return 0
             }
             pending += LogRepository.Pending(kind, text, source, ctx, now())
-            val line = if (kind == LogKind.SCRIPT) RunLine(pending.size - 1, size, text, ctx).also { runLines += it } else null
+            val line = if (kind == LogKind.SCRIPT) RunLine(
+                pending.size - 1,
+                size,
+                text,
+                ctx
+            ).also { runLines += it } else null
             pendingLines += line
             val number = if (line != null) runLines.size else 0
             if (pending.size >= 50 || now() - lastFlush > 300) flushLocked()
@@ -80,13 +93,25 @@ internal class RunLog(
     /** Past the run's limit of [what]: one line says so, and nothing more is logged or changed. Under the lock. */
     private fun stopLogging(what: String) {
         full = true
-        pending += LogRepository.Pending(LogKind.INFO, "More than $what in one run: the rest aren't logged", source, LogContext(baseCtx), now())
+        pending += LogRepository.Pending(
+            LogKind.INFO,
+            "More than $what in one run: the rest aren't logged",
+            source,
+            LogContext(baseCtx),
+            now()
+        )
         pendingLines += null
     }
 
     /** The characters a line takes as stored, as the run's limit counts them. */
     private fun stored(text: String, ctx: LogContext) =
-        minOf(text.length, LogRepository.MAX_FIELD) + minOf(ctx.values.entries.sumOf { (k, v) -> k.length + v.length }, LogRepository.MAX_FIELD)
+        minOf(
+            text.length,
+            LogRepository.MAX_FIELD
+        ) + minOf(
+            ctx.values.entries.sumOf { (k, v) -> k.length + v.length },
+            LogRepository.MAX_FIELD
+        )
 
     /** Writes buffered lines, and the changes to lines already written. The worker calls this when the run ends (success or failure). */
     fun flush() = synchronized(pending) { flushLocked() }
@@ -102,7 +127,8 @@ internal class RunLog(
         pending.clear()
         pendingLines.clear()
         // The changes of this flush in one write, and one notice to home.
-        change(changes.entries.filter { it.key.id > 0 }.associate { (line, change) -> line.id to change })
+        change(changes.entries.filter { it.key.id > 0 }
+            .associate { (line, change) -> line.id to change })
         changes.clear()
         lastFlush = now()
     }
@@ -117,7 +143,8 @@ internal class RunLog(
      * - Changes are written together with new lines, at most about every 300 ms.
      */
     fun set(number: Int, content: () -> Pair<String, LogContext>) {
-        val line = runLines.getOrNull(number - 1) ?: throw IllegalArgumentException("line.set: not a line this run logged")
+        val line = runLines.getOrNull(number - 1)
+            ?: throw IllegalArgumentException("line.set: not a line this run logged")
         val (text, lineCtx) = content()
         synchronized(pending) {
             // The same text again changes nothing, and doesn't count.
@@ -132,7 +159,9 @@ internal class RunLog(
             line.ctx = lineCtx
             line.length = size
             when {
-                line.slot >= 0 -> pending[line.slot] = pending[line.slot].copy(text = text, ctx = lineCtx)
+                line.slot >= 0 -> pending[line.slot] =
+                    pending[line.slot].copy(text = text, ctx = lineCtx)
+
                 line.id > 0 -> changes[line] = text to lineCtx
             }
             if (now() - lastFlush > 300) flushLocked()

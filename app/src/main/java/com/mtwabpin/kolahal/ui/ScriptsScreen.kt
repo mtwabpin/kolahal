@@ -33,6 +33,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
@@ -40,21 +41,33 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.commands.CommandParsing
-import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.Screen
+import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToLong
 
-internal val INTERVALS = listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 720 to "12 hours", 1440 to "1 day")
+internal val INTERVALS = listOf(
+    0 to "Off",
+    15 to "15 minutes",
+    30 to "30 minutes",
+    60 to "1 hour",
+    180 to "3 hours",
+    360 to "6 hours",
+    720 to "12 hours",
+    1440 to "1 day"
+)
 
 /**
  * A library script, and its state compared with the installed copy. [newer]: the
  * library has a newer version than the one the copy came from ([ScriptLibrary.hasNewer]).
  */
-internal data class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val newer: Boolean = false)
+internal data class LibRow(
+    val entry: ScriptLibrary.Entry,
+    val state: ScriptLibrary.State,
+    val newer: Boolean = false
+)
 
 /**
  * The library's scripts, each compared with [scripts]. Their files and directives come from assets
@@ -63,7 +76,10 @@ internal data class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibr
  *   at each run of a script.
  */
 @Composable
-internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): State<List<LibRow>?> {
+internal fun rememberLibraryRows(
+    vm: TerminalViewModel,
+    scripts: List<Script>
+): State<List<LibRow>?> {
     val codes = codesOf(scripts)
     return produceState<List<LibRow>?>(null, vm.scriptActions.library, codes) {
         value = withContext(Dispatchers.IO) {
@@ -115,12 +131,23 @@ internal data class ScriptCopy(
         /** A library copy of [lib]'s script. */
         fun of(lib: LibRow): ScriptCopy {
             val edited = lib.state == ScriptLibrary.State.MODIFIED
-            return ScriptCopy(ScriptSource.LIBRARY, CopyState.of(newer = lib.newer, edited = edited), edited, lib = lib)
+            return ScriptCopy(
+                ScriptSource.LIBRARY,
+                CopyState.of(newer = lib.newer, edited = edited),
+                edited,
+                lib = lib
+            )
         }
 
         /** A copy from Get more scripts. */
         fun of(shared: SharedCopy) =
-            ScriptCopy(ScriptSource.SHARED, CopyState.of(newer = shared.copy.newer, edited = shared.copy.edited), shared.copy.edited, shared = shared.entry, from = shared.copy.source)
+            ScriptCopy(
+                ScriptSource.SHARED,
+                CopyState.of(newer = shared.copy.newer, edited = shared.copy.edited),
+                shared.copy.edited,
+                shared = shared.entry,
+                from = shared.copy.source
+            )
     }
 }
 
@@ -140,10 +167,13 @@ internal class ScriptCode(code: String, name: String) {
     val uses = p.uses
     val secrets = p.secrets
     val notifies = p.postsNotifications
+
     /** Whether it uses the internet and a status line ([ScriptAccess.base]). */
     val base = ScriptAccess.base(code).toSet()
+
     /** The items its sheet and expanded card list: first its access, then its events ([ScriptAccess.switchable]). */
     val accessItems = ScriptAccess.switchable(code)
+
     /** `@version`. Only the script's sheet shows it, so it is read when the sheet first asks. */
     val version get() = p.version
 }
@@ -223,11 +253,13 @@ fun ScriptsScreen(vm: TerminalViewModel) {
 
     // If a script declares access that nobody has allowed yet, switching it on asks first. All access is on in that dialog.
     fun setEnabled(s: Script, on: Boolean) {
-        if (on && s.grants.undecided.isNotEmpty()) consentFor = s else vm.scriptActions.setScriptEnabled(s, on)
+        if (on && s.grants.undecided.isNotEmpty()) consentFor =
+            s else vm.scriptActions.setScriptEnabled(s, on)
     }
 
     // Update or Reset. An edited copy loses its edits, so it asks first. An unedited one has nothing to lose: Undo is enough.
-    fun restore(s: Script, copy: ScriptCopy) = restoreCopy(vm, s, copy) { copyDialog = s.id to CopyDialog.CONFIRM }
+    fun restore(s: Script, copy: ScriptCopy) =
+        restoreCopy(vm, s, copy) { copyDialog = s.id to CopyDialog.CONFIRM }
 
     val library by rememberLibraryRows(vm, scripts)
     val libByName = remember(library) { library.orEmpty().associateBy { it.entry.name } }
@@ -235,7 +267,12 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     val shared by produceState(emptyMap<String, SharedCopy>(), codesOf(scripts)) {
         value = withContext(Dispatchers.IO) {
             val catalog = vm.scriptActions.scriptCatalog
-            ScriptPage.sharedCopies(scripts, latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()), sourceOf = catalog::installedFrom, copyOf = catalog::copy)
+            ScriptPage.sharedCopies(
+                scripts,
+                latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()),
+                sourceOf = catalog::installedFrom,
+                copyOf = catalog::copy
+            )
         }
     }
 
@@ -243,31 +280,59 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     // The list is rebuilt when a script runs (its last run changes) or is saved. Only code that
     // changed is read again, also after the page was closed.
     val lastInfos = remember { arrayOf(emptyList<ScriptInfo>()) }
-    val infos = remember(scripts) { ScriptPage.infos(scripts, keptCodes, lastInfos[0]).also { lastInfos[0] = it } }
+    val infos = remember(scripts) {
+        ScriptPage.infos(scripts, keptCodes, lastInfos[0]).also { lastInfos[0] = it }
+    }
     // Library copies (the same name and language as a library script), then copies from Get more scripts. The rest are yours.
     // A copy that compares as before keeps its object, so its card is not drawn again.
     val lastCopies = remember { arrayOf(emptyMap<Long, ScriptCopy?>()) }
     val copies = remember(infos, libByName, shared) {
-        ScriptPage.keepingEqual(ScriptPage.copies(infos, libByName, shared), lastCopies[0]).also { lastCopies[0] = it }
+        ScriptPage.keepingEqual(ScriptPage.copies(infos, libByName, shared), lastCopies[0])
+            .also { lastCopies[0] = it }
     }
     // Declared secrets with and without a value, by script id. The lists stay the same when the
     // page is rebuilt, so a card can skip recomposition when nothing of its own changed.
     // By id, not by name: a script renamed on its sheet keeps its lists until they are read again.
     val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()
     val secretNames by produceState(emptyMap<Long, SecretNames>(), infos, secretsVersion) {
-        value = withContext(Dispatchers.IO) { ScriptPage.secretNames(infos, isSet = vm.scriptActions::secretsSet) }
+        value = withContext(Dispatchers.IO) {
+            ScriptPage.secretNames(
+                infos,
+                isSet = vm.scriptActions::secretsSet
+            )
+        }
     }
     // The library copies Kolahal updated by itself, while the note about them shows. Only those that are still here count.
     val selfUpdate = notes?.selfUpdate
-    val selfUpdated = remember(selfUpdate, scripts) { ScriptPage.selfUpdated(selfUpdate?.names.orEmpty(), scripts) }
-    val facts = remember(infos, copies, secretNames, shared, selfUpdated) { ScriptPage.facts(infos, copies, secretNames, shared, selfUpdated) }
+    val selfUpdated = remember(selfUpdate, scripts) {
+        ScriptPage.selfUpdated(
+            selfUpdate?.names.orEmpty(),
+            scripts
+        )
+    }
+    val facts = remember(infos, copies, secretNames, shared, selfUpdated) {
+        ScriptPage.facts(
+            infos,
+            copies,
+            secretNames,
+            shared,
+            selfUpdated
+        )
+    }
     val infoByName = remember(infos) { infos.associateBy { it.script.name } }
     // Only chips this version has: a saved id of an older one is left out.
     val chosen = remember(filters) { ScriptFilters.known(filters) }
     val found = remember(facts, query) { facts.filter { ScriptFilters.found(it, query) } }
     // Names only: facts are compared by value, so a change they don't hold (an access switch) keeps them
     // equal. The cards must still get the scripts as they are now.
-    val shownNames = remember(found, chosen, sort) { ScriptFilters.sorted(found.filter { ScriptFilters.matches(it, chosen) }, sort).map { it.name } }
+    val shownNames = remember(
+        found,
+        chosen,
+        sort
+    ) {
+        ScriptFilters.sorted(found.filter { ScriptFilters.matches(it, chosen) }, sort)
+            .map { it.name }
+    }
     val shown = shownNames.mapNotNull { infoByName[it] }
     // Copies that differ from where they came from, for the banner. It stays closed while the user closed it for these same ones.
     val differing = remember(infos, copies) { ScriptPage.differing(infos, copies) }
@@ -283,7 +348,10 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             subtitle = {
                 Text(
                     if (scripts.isEmpty()) "Lua 5.4 · JavaScript"
-                    else listOfNotNull("$on on", (scripts.size - on).takeIf { it > 0 }?.let { "$it off" }).joinToString(" · ")
+                    else listOfNotNull(
+                        "$on on",
+                        (scripts.size - on).takeIf { it > 0 }
+                            ?.let { "$it off" }).joinToString(" · ")
                 )
             },
             onBack = vm::closeScreen,
@@ -310,12 +378,21 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             item(key = "tabs") { FeatureTabs(vm, Screen.SCRIPTS) }
             if (scripts.isNotEmpty()) {
                 item(key = "search") {
-                    SearchRow(query, { query = it }, chosen.size, onFilters = { filtering = true }, sort) { sortName = it.name }
+                    SearchRow(
+                        query,
+                        { query = it },
+                        chosen.size,
+                        onFilters = { filtering = true },
+                        sort
+                    ) { sortName = it.name }
                 }
             }
             if (chosen.isNotEmpty()) {
                 item(key = "chosen") {
-                    ChosenFilters(chosen, selfUpdate?.version, onRemove = { id -> filters = filters - id }) { filters = emptyList() }
+                    ChosenFilters(
+                        chosen,
+                        selfUpdate?.version,
+                        onRemove = { id -> filters = filters - id }) { filters = emptyList() }
                 }
             }
             if (selfUpdate != null && selfUpdated.isNotEmpty()) {
@@ -343,20 +420,47 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                     )
                 }
             }
-            if (scripts.isNotEmpty()) item(key = "count") { CountLine(shown.size, scripts.size, sort) }
+            if (scripts.isNotEmpty()) item(key = "count") {
+                CountLine(
+                    shown.size,
+                    scripts.size,
+                    sort
+                )
+            }
             when {
                 scripts.isEmpty() -> item(key = "empty") {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        EmptyNote("No scripts yet. Write one, add one from the library, get a shared one, or import a file.", top = 24.dp, bottom = 0.dp)
-                        ActionGroup(addActions(vm, onNew = { creating = true }, onImportFiles = vm::requestScriptImport))
+                        EmptyNote(
+                            "No scripts yet. Write one, add one from the library, get a shared one, or import a file.",
+                            top = 24.dp,
+                            bottom = 0.dp
+                        )
+                        ActionGroup(
+                            addActions(
+                                vm,
+                                onNew = { creating = true },
+                                onImportFiles = vm::requestScriptImport
+                            )
+                        )
                     }
                 }
+
                 shown.isEmpty() -> item(key = "nomatch") {
-                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("No script matches", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(shapes = ButtonDefaults.shapes(), onClick = { filters = emptyList(); query = "" }) { Text("Show all") }
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "No script matches",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextButton(
+                            shapes = ButtonDefaults.shapes(),
+                            onClick = { filters = emptyList(); query = "" }) { Text("Show all") }
                     }
                 }
+
                 else -> items(shown, key = { it.script.id }) { info ->
                     val s = info.script
                     val copy = copies[s.id]
@@ -367,7 +471,9 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                         expanded = expandAll != (s.id in flipped),
                         copy = copy,
                         selfUpdatedIn = selfUpdate?.version?.takeIf { s.name in selfUpdated },
-                        onExpand = { flipped = if (s.id in flipped) flipped - s.id else flipped + s.id },
+                        onExpand = {
+                            flipped = if (s.id in flipped) flipped - s.id else flipped + s.id
+                        },
                         onClick = { sheetId = s.id },
                         onEnabled = { setEnabled(s, it) },
                         onRun = { vm.scriptActions.runScriptNow(s) },
@@ -381,7 +487,10 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             }
             if (scripts.isNotEmpty()) {
                 item(key = "hint") {
-                    PageHint("Tap a script for its timers, access, code and more. The arrow shows its details here.", top = 4.dp)
+                    PageHint(
+                        "Tap a script for its timers, access, code and more. The arrow shows its details here.",
+                        top = 4.dp
+                    )
                 }
             }
         }
@@ -412,21 +521,42 @@ fun ScriptsScreen(vm: TerminalViewModel) {
         }
 
         if (adding) {
-            ModalBottomSheet(onDismissRequest = { adding = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-                Column(Modifier.navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    ActionGroup(addActions(vm, onNew = { adding = false; creating = true }, onImportFiles = { adding = false; vm.requestScriptImport() }, close = { adding = false }))
+            ModalBottomSheet(
+                onDismissRequest = { adding = false },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                Column(
+                    Modifier
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                ) {
+                    ActionGroup(
+                        addActions(
+                            vm,
+                            onNew = { adding = false; creating = true },
+                            onImportFiles = { adding = false; vm.requestScriptImport() },
+                            close = { adding = false })
+                    )
                 }
             }
         }
 
         copyDialog?.let { (id, dialog) ->
             scripts.firstOrNull { it.id == id }?.let { s ->
-                CopyDialogs(vm, s, copies[s.id], dialog, onShow = { copyDialog = it?.let { d -> id to d } }, onExport = { vm.requestScriptExport(s) })
+                CopyDialogs(
+                    vm,
+                    s,
+                    copies[s.id],
+                    dialog,
+                    onShow = { copyDialog = it?.let { d -> id to d } },
+                    onExport = { vm.requestScriptExport(s) })
             }
         }
 
         if (updatingAll) {
-            UpdateAllDialog(differing.filter { it.second.canRestore }, onDismiss = { updatingAll = false }) { picked ->
+            UpdateAllDialog(
+                differing.filter { it.second.canRestore },
+                onDismiss = { updatingAll = false }) { picked ->
                 updatingAll = false
                 vm.scriptActions.restore(picked.map { (s, c) -> c.restore(s) })
             }
@@ -436,7 +566,11 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             val s = scripts.firstOrNull { it.id == id }
             val secret = s?.let { infoByName[it.name] }?.secrets?.firstOrNull { it.name == name }
             if (s != null && secret != null) {
-                SecretDialog(s.name, secret, isSet = false, onDismiss = { addingKey = null }) { value ->
+                SecretDialog(
+                    s.name,
+                    secret,
+                    isSet = false,
+                    onDismiss = { addingKey = null }) { value ->
                     addingKey = null
                     vm.scriptActions.setSecret(s.name, secret, value)
                 }
@@ -444,13 +578,19 @@ fun ScriptsScreen(vm: TerminalViewModel) {
         }
 
         consentFor?.let { s ->
-            AccessDialog("Turn on ${s.name}.${s.lang.ext}?", s.grants.undecided, "Turn on", onDismiss = { consentFor = null }) { choices ->
+            AccessDialog(
+                "Turn on ${s.name}.${s.lang.ext}?",
+                s.grants.undecided,
+                "Turn on",
+                onDismiss = { consentFor = null }) { choices ->
                 consentFor = null
                 vm.scriptActions.enableScript(s, choices)
             }
         }
 
-        if (creating) NewScriptDialog(scripts.map { it.name }.toSet(), onDismiss = { creating = false }) { name, lang, command ->
+        if (creating) NewScriptDialog(
+            scripts.map { it.name }.toSet(),
+            onDismiss = { creating = false }) { name, lang, command ->
             creating = false
             vm.scriptActions.newScript(name, lang, command)
         }
@@ -458,17 +598,37 @@ fun ScriptsScreen(vm: TerminalViewModel) {
 }
 
 /** The ways to add a script. Used in the Add script sheet, and in the Scripts tab while it is empty. */
-private fun addActions(vm: TerminalViewModel, onNew: () -> Unit, onImportFiles: () -> Unit, close: () -> Unit = {}) = listOf(
+private fun addActions(
+    vm: TerminalViewModel,
+    onNew: () -> Unit,
+    onImportFiles: () -> Unit,
+    close: () -> Unit = {}
+) = listOf(
     Action(R.drawable.ic_add, "New script", "Lua or JavaScript, from a template", onClick = onNew),
-    Action(R.drawable.ic_code, "From the library", "Ready-made scripts that come with Kolahal", chevron = true) {
+    Action(
+        R.drawable.ic_code,
+        "From the library",
+        "Ready-made scripts that come with Kolahal",
+        chevron = true
+    ) {
         close()
         vm.openScreen(Screen.SCRIPT_LIBRARY)
     },
-    Action(R.drawable.ic_download, "Get more scripts", "Shared by people who use Kolahal, on GitHub", chevron = true) {
+    Action(
+        R.drawable.ic_download,
+        "Get more scripts",
+        "Shared by people who use Kolahal, on GitHub",
+        chevron = true
+    ) {
         close()
         vm.openScreen(Screen.GET_SCRIPTS)
     },
-    Action(R.drawable.ic_upload, "Import a file", ".lua or .js; the file name becomes the script name", onClick = onImportFiles),
+    Action(
+        R.drawable.ic_upload,
+        "Import a file",
+        ".lua or .js; the file name becomes the script name",
+        onClick = onImportFiles
+    ),
 )
 
 /**
@@ -478,7 +638,12 @@ private fun addActions(vm: TerminalViewModel, onNew: () -> Unit, onImportFiles: 
  * - [events]: the events for "On …"; pass none to leave that part out.
  * - [manual]: say "Manual" when there is no other part.
  */
-internal fun scheduleParts(s: Script, isCommand: Boolean, events: List<String>, manual: Boolean = true): List<String> = buildList {
+internal fun scheduleParts(
+    s: Script,
+    isCommand: Boolean,
+    events: List<String>,
+    manual: Boolean = true
+): List<String> = buildList {
     if (isCommand) add("Command")
     if (s.intervalMin > 0) add("Every ${CommandParsing.formatInterval(s.intervalMin)}")
     if (s.atTimes.isNotEmpty()) add("Daily ${s.atTimes.joinToString(", ")}")
@@ -494,8 +659,10 @@ internal fun nextRun(s: Script): Pair<Long, Boolean>? {
     if (!s.enabled) return null
     val now = System.currentTimeMillis()
     // Round to the minute, so it shows the daily time itself and not a few seconds before it.
-    val daily = s.atTimes.minOfOrNull { ((now + ScriptScheduler.millisUntil(it)) / 60_000.0).roundToLong() * 60_000 }
-    val every = if (s.intervalMin > 0) maxOf(now, (s.lastRun ?: now) + s.intervalMin * 60_000L) else null
+    val daily =
+        s.atTimes.minOfOrNull { ((now + ScriptScheduler.millisUntil(it)) / 60_000.0).roundToLong() * 60_000 }
+    val every =
+        if (s.intervalMin > 0) maxOf(now, (s.lastRun ?: now) + s.intervalMin * 60_000L) else null
     return when {
         daily != null && (every == null || daily <= every) -> daily to true
         every != null -> every to false

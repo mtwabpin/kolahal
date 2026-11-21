@@ -34,44 +34,62 @@ class CommandProcessorTest {
     private val apps = AppRepository.get(context)
     private val opened = mutableListOf<Script>()
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
+
     // Its commands and what they print, and the screen its `clear` takes out of view.
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private val commands = CommandRunner(context, object : TerminalUiStub() {
-        override fun openEditor(script: Script) { opened += script }
-        override fun clearScreen() { logs.clearScreen() }
+        override fun openEditor(script: Script) {
+            opened += script
+        }
+
+        override fun clearScreen() {
+            logs.clearScreen()
+        }
     })
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         apps.refresh()
         eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         for (name in listOf("tt", "t2", "tself", "tsec")) prefs.setAlias(name, null)
-        ScriptRepository.get(context).byName("cptest")?.let { ScriptRepository.get(context).delete(it.id) }
+        ScriptRepository.get(context).byName("cptest")
+            ?.let { ScriptRepository.get(context).delete(it.id) }
     }
 
     /** Runs [line] and returns the non-command lines it printed. */
     private fun run(line: String) = commands.run(line)
 
-    @Test fun echoAndUnknown() {
+    @Test
+    fun echoAndUnknown() {
         assertEquals(listOf("hello world"), run("echo hello world"))
         assertTrue(run("definitely-not-an-app-zzz").single().startsWith("Command not found"))
     }
 
     /** A command turned off (commands.off) is as if it weren't there: its names open apps, and help leaves it out. */
-    @Test fun aCommandTurnedOffOpensTheAppOfItsName() {
+    @Test
+    fun aCommandTurnedOffOpensTheAppOfItsName() {
         assertTrue(config.set(Keys.COMMANDS_OFF, "yt,maps,wiki"))
         // Another name for it opens the app now; before, it ran the YouTube search.
         assertTrue(apps.apps.value.any { it.label == "YouTube" })
         assertEquals(listOf("Launched YouTube"), run("youtube"))
         // No app matches: it says why.
-        assertEquals(listOf("Command not found: maps cafe  (maps is turned off · Settings → Commands)"), run("maps cafe"))
+        assertEquals(
+            listOf("Command not found: maps cafe  (maps is turned off · Settings → Commands)"),
+            run("maps cafe")
+        )
         // help leaves them out, and names them at the end.
         val help = run("help").map(com.mtwabpin.kolahal.data.StyledText::plain)
         assertFalse(help.any { it == "yt" || it == "wiki" || it == "maps" })
-        assertTrue(help.toString(), help.any { it.startsWith("Turned off: ") && "yt" in it && "maps" in it && "wiki" in it })
+        assertTrue(
+            help.toString(),
+            help.any { it.startsWith("Turned off: ") && "yt" in it && "maps" in it && "wiki" in it })
         assertTrue(run("help youtube").single().startsWith("yt is turned off"))
         // A typo isn't corrected to it.
         assertTrue(run("wikk").none { "did you mean" in it })
@@ -82,7 +100,8 @@ class CommandProcessorTest {
     }
 
     /** What the prompt shows for an alias is what Enter runs: chained aliases expanded, nothing left to expand. */
-    @Test fun anAbbreviationIsWhatEnterRuns() {
+    @Test
+    fun anAbbreviationIsWhatEnterRuns() {
         val processor = commands.processor
         run("alias tt = t2 extra")
         run("alias t2 = help|grep x")
@@ -97,14 +116,16 @@ class CommandProcessorTest {
         assertEquals(null, processor.abbreviation("tsec"))
     }
 
-    @Test fun aliasExpands() {
+    @Test
+    fun aliasExpands() {
         run("alias tt = echo aliased")
         assertEquals(listOf("aliased extra"), run("tt extra"))
         run("unalias tt")
         assertFalse(run("tt").any { it.contains("aliased") })
     }
 
-    @Test fun configSetAndValidate() {
+    @Test
+    fun configSetAndValidate() {
         run("config set font.size 18")
         assertEquals(18, config[Keys.FONT_SIZE])
         assertTrue(run("config set font.size 99").single().startsWith("Invalid value"))
@@ -118,9 +139,13 @@ class CommandProcessorTest {
     }
 
     /** Home starts on the widgets page only with the app selector on, its way to open apps. */
-    @Test fun widgetsStartNeedsTheAppSelector() {
+    @Test
+    fun widgetsStartNeedsTheAppSelector() {
         config.reset(Keys.SELECTOR_RAIL)
-        assertEquals(listOf("widgets.start needs the app selector first: config set selector.rail on"), run("config set widgets.start on"))
+        assertEquals(
+            listOf("widgets.start needs the app selector first: config set selector.rail on"),
+            run("config set widgets.start on")
+        )
         assertFalse(config[Keys.WIDGETS_START])
         run("config set selector.rail on")
         assertEquals(listOf("widgets.start = on"), run("config set widgets.start on"))
@@ -131,27 +156,46 @@ class CommandProcessorTest {
     }
 
     /** Names from before 0.3.0 still work in `config`, and say what the setting is called now. */
-    @Test fun oldSettingNamesStillWork() {
-        assertEquals(listOf("theme.name = amber", "theme is now called theme.name"), run("config set theme amber"))
+    @Test
+    fun oldSettingNamesStillWork() {
+        assertEquals(
+            listOf("theme.name = amber", "theme is now called theme.name"),
+            run("config set theme amber")
+        )
         assertEquals("amber", config[Keys.THEME])
         run("config set keybar2 ESC,TAB,\",|")
         assertEquals("ESC,TAB,\",|", config[Keys.KEYBAR2])
         run("config reset theme")
         assertTrue(config.isDefault(Keys.THEME))
         // The swipe-up switch has no new name: it became gesture.swipe-up's none.
-        assertTrue(run("config set gesture.swipeup.on on").single().startsWith("gesture.swipeup.on was removed"))
+        assertTrue(
+            run("config set gesture.swipeup.on on").single()
+                .startsWith("gesture.swipeup.on was removed")
+        )
         assertTrue(config.isDefault(Keys.GESTURE_SWIPE_UP))
     }
 
     /** Settings that are gone (0.3.1) say where their job went. */
-    @Test fun removedSettingsSayWhereTheyWent() {
-        assertTrue(run("config set widgets.home on").single().startsWith("widgets.home was removed: widgets are on the widgets page"))
-        assertTrue(run("config set theme.settings-colors system").single().startsWith("theme.settings-colors was removed: Settings always use"))
+    @Test
+    fun removedSettingsSayWhereTheyWent() {
+        assertTrue(
+            run("config set widgets.home on").single()
+                .startsWith("widgets.home was removed: widgets are on the widgets page")
+        )
+        assertTrue(
+            run("config set theme.settings-colors system").single()
+                .startsWith("theme.settings-colors was removed: Settings always use")
+        )
     }
 
-    @Test fun themeTakesAThemeYouMade() {
+    @Test
+    fun themeTakesAThemeYouMade() {
         val themes = com.mtwabpin.kolahal.data.CustomThemes
-        themes.save(context, "cptest-theme", com.mtwabpin.kolahal.ui.Palettes.colorsOf(com.mtwabpin.kolahal.ui.Palettes.mono))
+        themes.save(
+            context,
+            "cptest-theme",
+            com.mtwabpin.kolahal.ui.Palettes.colorsOf(com.mtwabpin.kolahal.ui.Palettes.mono)
+        )
         try {
             run("theme cptest-theme")
             assertEquals("cptest-theme", config[Keys.THEME])
@@ -160,7 +204,8 @@ class CommandProcessorTest {
         }
     }
 
-    @Test fun scriptLifecycle() {
+    @Test
+    fun scriptLifecycle() {
         run("script new cptest --cmd")
         val script = ScriptRepository.get(context).byName("cptest")
         assertNotNull(script)
@@ -168,7 +213,10 @@ class CommandProcessorTest {
         run("script every cptest 5m")
         assertEquals(15, ScriptRepository.get(context).byName("cptest")!!.intervalMin)
         run("script at cptest 7:05,19:00")
-        assertEquals(listOf("07:05", "19:00"), ScriptRepository.get(context).byName("cptest")!!.atTimes)
+        assertEquals(
+            listOf("07:05", "19:00"),
+            ScriptRepository.get(context).byName("cptest")!!.atTimes
+        )
         assertTrue(run("script at cptest 25:00").single().startsWith("Invalid time"))
         run("script rm cptest")
         assertEquals(null, ScriptRepository.get(context).byName("cptest"))
@@ -176,7 +224,8 @@ class CommandProcessorTest {
     }
 
     /** Commas, spaces or both between the times, as the docs write them and as on an `@at` line. */
-    @Test fun scriptAtForms() {
+    @Test
+    fun scriptAtForms() {
         run("script new cptest")
         fun times() = ScriptRepository.get(context).byName("cptest")!!.atTimes
         run("script at cptest 22:30, 06:30")
@@ -195,17 +244,22 @@ class CommandProcessorTest {
     }
 
     /** Waits up to 5 s for the kept app list to reload into what [done] wants. */
-    private fun appsUntil(done: () -> Boolean) = waitUntil("the app list didn't reload", 5_000, done)
+    private fun appsUntil(done: () -> Boolean) =
+        waitUntil("the app list didn't reload", 5_000, done)
 
-    @Test fun hideAndRenameApp() {
-        val app = apps.apps.value.first { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
+    @Test
+    fun hideAndRenameApp() {
+        val app =
+            apps.apps.value.first { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
+
         fun now() = apps.apps.value.first { it.key == app.key }
         try {
             prefs.setHidden(app.key, true)
             apps.refresh()
             appsUntil { now().hidden }
             assertFalse(apps.search(app.originalLabel).any { it.key == app.key })
-            assertTrue(apps.search(app.originalLabel, includeHidden = true).any { it.key == app.key })
+            assertTrue(
+                apps.search(app.originalLabel, includeHidden = true).any { it.key == app.key })
             prefs.setLabel(app.key, "Zz Renamed")
             apps.refresh()
             appsUntil { now().label == "Zz Renamed" }

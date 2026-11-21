@@ -22,12 +22,14 @@ class AutoBackupFilesTest {
     private lateinit var folder: File
     private lateinit var dir: DocumentFile
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         folder = File(context.cacheDir, "autobackup-test").apply { deleteRecursively(); mkdirs() }
         dir = DocumentFile.fromFile(folder)
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         folder.deleteRecursively()
     }
 
@@ -40,7 +42,8 @@ class AutoBackupFilesTest {
     private fun writes(text: String): (Uri) -> Unit = { File(it.path!!).writeText(text) }
 
     /** Six empty files from failed days, then one good day: the real backups all stay. */
-    @Test fun emptyFilesDontPushRealBackupsOut() {
+    @Test
+    fun emptyFilesDontPushRealBackupsOut() {
         val real = (1..3).map { backup(it) }
         val empty = (10..15).map { backup(it, "") }
         val today = backup(20, "")
@@ -51,14 +54,16 @@ class AutoBackupFilesTest {
     }
 
     /** A provider that reports no size reads as if every file were empty: none goes for that. */
-    @Test fun filesThatReadAsEmptyStay() {
+    @Test
+    fun filesThatReadAsEmptyStay() {
         val old = (1..5).map { backup(it, "") }
         val name = "kolahal-backup-2026-10-20.json"
         AutoBackup.saveTo(dir, name, keep = 3, writes("today"))
         assertEquals(old.map { it.name } + name, names())
     }
 
-    @Test fun onlyRealBackupsCountTowardsKeep() {
+    @Test
+    fun onlyRealBackupsCountTowardsKeep() {
         (1..5).forEach { backup(it) }
         val today = backup(20)
         AutoBackup.saveTo(dir, today.name, keep = 3, writes("today"))
@@ -66,7 +71,8 @@ class AutoBackupFilesTest {
     }
 
     /** Written aside, then in place of the day's earlier one, with nothing else left in the folder. */
-    @Test fun aSecondBackupThatDayReplacesTheFirst() {
+    @Test
+    fun aSecondBackupThatDayReplacesTheFirst() {
         val today = backup(20, "earlier today")
         AutoBackup.saveTo(dir, today.name, keep = 7, writes("later"))
         assertEquals("later", today.readText())
@@ -74,10 +80,15 @@ class AutoBackupFilesTest {
     }
 
     /** The write fails: no file left behind, whatever was there stays, and the failure still shows. */
-    @Test fun aFailedWriteLeavesNothingNew() {
+    @Test
+    fun aFailedWriteLeavesNothingNew() {
         val old = backup(1)
         try {
-            AutoBackup.saveTo(dir, "kolahal-backup-2026-10-20.json", keep = 7) { throw IOException("disk full") }
+            AutoBackup.saveTo(
+                dir,
+                "kolahal-backup-2026-10-20.json",
+                keep = 7
+            ) { throw IOException("disk full") }
             fail("the failure must reach the caller, to be logged")
         } catch (e: IOException) {
             assertEquals("disk full", e.message)
@@ -86,7 +97,8 @@ class AutoBackupFilesTest {
     }
 
     /** Today's backup, already written, stays when writing it again fails partway. */
-    @Test fun aFailedWriteKeepsTodaysExistingFile() {
+    @Test
+    fun aFailedWriteKeepsTodaysExistingFile() {
         val today = backup(20, "earlier today")
         runCatching {
             AutoBackup.saveTo(dir, today.name, keep = 7) { uri ->

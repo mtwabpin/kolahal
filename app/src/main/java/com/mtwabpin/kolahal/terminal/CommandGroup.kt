@@ -3,9 +3,9 @@
  */
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import android.content.Context
 import android.content.Intent
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -17,15 +17,25 @@ internal fun Throwable.reason(): String = message ?: javaClass.simpleName
 abstract class CommandGroup(protected val context: Context) {
     protected val logs = LogRepository.get(context)
 
-    protected fun out(text: String, ctx: LogContext = LogContext.EMPTY) { logs.add(LogKind.OUTPUT, text, ctx = ctx) }
-    protected fun info(text: String, ctx: LogContext = LogContext.EMPTY) { logs.add(LogKind.INFO, text, ctx = ctx) }
-    protected fun error(text: String, ctx: LogContext = LogContext.EMPTY) { logs.add(LogKind.ERROR, text, ctx = ctx) }
+    protected fun out(text: String, ctx: LogContext = LogContext.EMPTY) {
+        logs.add(LogKind.OUTPUT, text, ctx = ctx)
+    }
+
+    protected fun info(text: String, ctx: LogContext = LogContext.EMPTY) {
+        logs.add(LogKind.INFO, text, ctx = ctx)
+    }
+
+    protected fun error(text: String, ctx: LogContext = LogContext.EMPTY) {
+        logs.add(LogKind.ERROR, text, ctx = ctx)
+    }
 
     /** Prints "Usage: " and the usage lines of the commands [names] as an error. The lines come from [CommandCatalog], the same ones that help shows. */
-    protected fun usage(vararg names: String) = error("Usage: " + names.joinToString(" · ") { CommandCatalog.COMMAND_USAGES.getValue(it) })
+    protected fun usage(vararg names: String) =
+        error("Usage: " + names.joinToString(" · ") { CommandCatalog.COMMAND_USAGES.getValue(it) })
 
     /** Prints [text] as an error that a tap fixes: the tap runs [command] ("… needs usage access — tap to allow it"). */
-    protected fun fix(text: String, command: String) = error(text, LogContext.of(LogContext.RUN to command))
+    protected fun fix(text: String, command: String) =
+        error(text, LogContext.of(LogContext.RUN to command))
 
     protected fun startActivity(intent: Intent) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

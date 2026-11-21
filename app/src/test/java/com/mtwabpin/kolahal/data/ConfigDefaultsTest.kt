@@ -5,7 +5,8 @@ import org.junit.Test
 
 /** Defaults the maintainer chose; a change here changes every phone that never set them. */
 class ConfigDefaultsTest {
-    @Test fun chosenDefaults() {
+    @Test
+    fun chosenDefaults() {
         // 30 again in 0.3.0, after 5 from 0.2.3.
         assertEquals(30, Keys.SUGGESTIONS.default)
         assertEquals(false, Keys.SUGGESTIONS_WRAP.default)
@@ -36,17 +37,23 @@ class ConfigDefaultsTest {
     }
 
     /** kolahal@device until you set your own name: one word, without an @ of its own. */
-    @Test fun yourNameIsOneWord() {
+    @Test
+    fun yourNameIsOneWord() {
         assertEquals("kolahal", Keys.USER_NAME.default)
         assertEquals("alex", Keys.USER_NAME.parse("  alex "))
         assertEquals("रवि_1", Keys.USER_NAME.parse("रवि_1"))
         assertEquals("a".repeat(32), Keys.USER_NAME.parse("a".repeat(32)))
-        for (bad in listOf("", "   ", "alex k", "alex@home", "a".repeat(33))) assertEquals(bad, null, Keys.USER_NAME.parse(bad))
+        for (bad in listOf("", "   ", "alex k", "alex@home", "a".repeat(33))) assertEquals(
+            bad,
+            null,
+            Keys.USER_NAME.parse(bad)
+        )
         // Other text settings take anything, an empty value too.
         assertEquals("", Keys.KEYBAR2.parse(""))
     }
 
-    @Test fun logKeepsFiveThousandLinesUnlessChanged() {
+    @Test
+    fun logKeepsFiveThousandLinesUnlessChanged() {
         assertEquals(5000, Keys.LOG_KEEP_LINES.default)
         assertEquals(500, Keys.LOG_KEEP_LINES.parse("500"))
         assertEquals(50_000, Keys.LOG_KEEP_LINES.parse("50000"))

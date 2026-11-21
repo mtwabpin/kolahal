@@ -31,7 +31,6 @@ import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.SetupCheck
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.waitForText
-import java.util.concurrent.CopyOnWriteArrayList
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -40,15 +39,19 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** The setup checklist: what each check shows, what Fix does, and the ways back. */
 @RunWith(AndroidJUnit4::class)
 class SetupScreenTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val logs = LogRepository.get(instrumentation.targetContext)
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private lateinit var vm: TerminalViewModel
 
     /** System pages a fix opened: caught, so none really opens over the test. */
@@ -69,16 +72,19 @@ class SetupScreenTest {
     )
 
     /** Where home notes that its first run's tour was shown. */
-    private val launcher = instrumentation.targetContext.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+    private val launcher =
+        instrumentation.targetContext.getSharedPreferences("launcher", Context.MODE_PRIVATE)
     private val toured = launcher.contains("intro_shown")
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         // Not a first run: the tour the first home opens then would take the checklist's place.
         launcher.edit().putBoolean("intro_shown", true).commit()
         instrumentation.addMonitor(monitor)
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         instrumentation.removeMonitor(monitor)
         if (!toured) launcher.edit().remove("intro_shown").commit()
     }
@@ -90,7 +96,16 @@ class SetupScreenTest {
             if (from != Screen.TERMINAL) vm.openScreen(from)
             vm.openScreen(Screen.SETUP)
         }
-        compose.setContent { KolahalTheme { Box(Modifier.size(360.dp, 720.dp)) { SetupScreen(vm) } } }
+        compose.setContent {
+            KolahalTheme {
+                Box(
+                    Modifier.size(
+                        360.dp,
+                        720.dp
+                    )
+                ) { SetupScreen(vm) }
+            }
+        }
     }
 
     /** The checks, once they are in and showing. */
@@ -105,11 +120,15 @@ class SetupScreenTest {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(check.title))
     }
 
-    private fun row(check: SetupCheck) = compose.onNode(hasText(check.title) and hasText(check.detail))
+    private fun row(check: SetupCheck) =
+        compose.onNode(hasText(check.title) and hasText(check.detail))
 
-    private fun fixButton(check: SetupCheck) = compose.onNode(hasText("Fix") and hasAnyAncestor(hasText(check.title)))
+    private fun fixButton(check: SetupCheck) =
+        compose.onNode(hasText("Fix") and hasAnyAncestor(hasText(check.title)))
 
-    private fun commands() = logs.recent(200, afterId = logLines.start).filter { it.kind == LogKind.COMMAND }.map { it.text }
+    private fun commands() =
+        logs.recent(200, afterId = logLines.start).filter { it.kind == LogKind.COMMAND }
+            .map { it.text }
 
     /** The first check that can be fixed by opening a page this test knows, if any is still to do here. */
     private fun fixable(checks: List<SetupCheck>): SetupCheck {
@@ -119,7 +138,8 @@ class SetupScreenTest {
     }
 
     /** Under the title: how many checks are done, a check with nothing to fix counting as done. */
-    @Test fun itSaysHowManyAreDone() {
+    @Test
+    fun itSaysHowManyAreDone() {
         show()
         val checks = checks()
         val done = checks.count { it.ok || it.fix == null }
@@ -128,7 +148,8 @@ class SetupScreenTest {
     }
 
     /** Each check says what it is for, with a tick when done, Fix when it can be, and a dash when there's nothing to do. */
-    @Test fun eachCheckShowsWhereItStands() {
+    @Test
+    fun eachCheckShowsWhereItStands() {
         show()
         for (check in checks()) {
             scrollTo(check)
@@ -138,10 +159,12 @@ class SetupScreenTest {
                     row.assert(hasContentDescription("Done"))
                     fixButton(check).assertDoesNotExist()
                 }
+
                 check.fix == null -> {
                     row.assert(hasText("–"))
                     fixButton(check).assertDoesNotExist()
                 }
+
                 else -> {
                     row.assert(hasText("!"))
                     fixButton(check).assertIsDisplayed()
@@ -151,7 +174,8 @@ class SetupScreenTest {
     }
 
     /** Fix runs the check's command, which opens its system page; tapping the row does the same. */
-    @Test fun fixOpensTheChecksSystemPage() {
+    @Test
+    fun fixOpensTheChecksSystemPage() {
         show()
         val check = fixable(checks())
         scrollTo(check)
@@ -167,11 +191,14 @@ class SetupScreenTest {
     }
 
     /** A check with nothing to fix, or one that's done, runs nothing when tapped. */
-    @Test fun aCheckWithNothingToFixDoesNothing() {
+    @Test
+    fun aCheckWithNothingToFixDoesNothing() {
         show()
         val checks = checks()
         // One that's done but has a fix (notifications allowed, say) is the one a missing guard would open.
-        val tapped = listOfNotNull(checks.first { it.fix == null }, checks.firstOrNull { it.ok && it.fix != null })
+        val tapped = listOfNotNull(
+            checks.first { it.fix == null },
+            checks.firstOrNull { it.ok && it.fix != null })
         for (check in tapped) {
             scrollTo(check)
             row(check).performClick()
@@ -185,17 +212,28 @@ class SetupScreenTest {
     }
 
     /** While the checks load, it says so, and the button isn't Done: none are done yet. */
-    @Test fun beforeTheChecksComeItIsntDone() {
+    @Test
+    fun beforeTheChecksComeItIsntDone() {
         vm = vms.terminal(compose.activity.application)
         // Not opened as `setup` opens it, nothing reads the checks: they stay loading.
-        compose.setContent { KolahalTheme { Box(Modifier.size(360.dp, 720.dp)) { SetupScreen(vm) } } }
+        compose.setContent {
+            KolahalTheme {
+                Box(
+                    Modifier.size(
+                        360.dp,
+                        720.dp
+                    )
+                ) { SetupScreen(vm) }
+            }
+        }
         compose.waitForText("Checking…")
         compose.onNodeWithText("Continue to terminal").assertExists()
         compose.onAllNodesWithText("Done").assertCountEquals(0)
     }
 
     /** With checks still to do, the button says the terminal is next, and goes there. */
-    @Test fun continueGoesToTheTerminal() {
+    @Test
+    fun continueGoesToTheTerminal() {
         show()
         val checks = checks()
         assumeTrue("every check is done on this device", checks.any { !it.ok && it.fix != null })
@@ -204,7 +242,8 @@ class SetupScreenTest {
     }
 
     /** The back arrow goes back to the page the checklist was opened from. */
-    @Test fun theBackArrowGoesBackToSettings() {
+    @Test
+    fun theBackArrowGoesBackToSettings() {
         show(from = Screen.SETTINGS)
         checks()
         compose.onNodeWithContentDescription("Back").performClick()
@@ -212,7 +251,8 @@ class SetupScreenTest {
     }
 
     /** Back leaves the checklist for the terminal it was opened from. */
-    @Test fun backLeavesForTheTerminal() {
+    @Test
+    fun backLeavesForTheTerminal() {
         show()
         checks()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }

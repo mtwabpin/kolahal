@@ -1,7 +1,7 @@
 package com.mtwabpin.kolahal.commands
 
-import com.mtwabpin.kolahal.terminal.Tips
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.terminal.Tips
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -10,7 +10,8 @@ import org.junit.Test
 
 /** `commands.off`: which built-in commands can be turned off, and how the setting reads what is typed. */
 class CommandsOffTest {
-    @Test fun namesAreCommandsInTheCatalogsOrder() {
+    @Test
+    fun namesAreCommandsInTheCatalogsOrder() {
         val ytFirst = CommandsOff.CHOICES.indexOf("yt") < CommandsOff.CHOICES.indexOf("maps")
         assertEquals(if (ytFirst) "yt,maps" else "maps,yt", CommandsOff.parse("maps, yt"))
         // Commas or spaces, any case, and a name twice counts once.
@@ -21,7 +22,8 @@ class CommandsOffTest {
         assertEquals("", CommandsOff.parse(""))
     }
 
-    @Test fun onlyCommandsThatCanBeTurnedOff() {
+    @Test
+    fun onlyCommandsThatCanBeTurnedOff() {
         assertNull("not a command", CommandsOff.parse("yt,nope"))
         for (name in CommandsOff.ALWAYS_ON) assertNull(name, CommandsOff.parse(name))
         assertNull("another name for config", CommandsOff.parse("set"))
@@ -32,7 +34,8 @@ class CommandsOffTest {
         assertEquals("yt", Keys.COMMANDS_OFF.parse("youtube"))
     }
 
-    @Test fun aCommandIsOffByAnyOfItsNames() {
+    @Test
+    fun aCommandIsOffByAnyOfItsNames() {
         val off = CommandsOff.names("yt,maps")
         assertTrue(CommandsOff.isOff("yt", off))
         assertTrue(CommandsOff.isOff("YouTube", off))
@@ -41,7 +44,8 @@ class CommandsOffTest {
         assertFalse(CommandsOff.isOff("yt", emptySet()))
     }
 
-    @Test fun aSwitchTurnsOneCommandOffOrOn() {
+    @Test
+    fun aSwitchTurnsOneCommandOffOrOn() {
         val value = CommandsOff.toggled("", "yt", off = true)
         assertEquals("yt", value)
         assertEquals(CommandsOff.parse("yt,wiki"), CommandsOff.toggled(value, "wiki", off = true))
@@ -50,7 +54,8 @@ class CommandsOffTest {
         assertEquals("yt", CommandsOff.toggled(value, "wiki", off = false))
     }
 
-    @Test fun aTipForACommandThatIsOffIsSkipped() {
+    @Test
+    fun aTipForACommandThatIsOffIsSkipped() {
         val first = Tips.next(emptyList(), emptySet())!!
         val head = InstantRun.canonical(first.example.substringBefore(' '))
         if (head !in CommandsOff.CHOICES) return

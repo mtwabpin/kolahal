@@ -3,7 +3,6 @@ package com.mtwabpin.kolahal.data
 import androidx.core.content.edit
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.SecretStore
 import org.junit.After
@@ -26,7 +25,8 @@ class ScriptLifecycleTest {
     private val status = KvStore(context, Stores.STATUS)
     private val names = listOf("lc-a", "lc-b", "lc-c", "lc-d")
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         for (name in names) {
             repo.byName(name)?.let { repo.delete(it.id) }
             secrets.clear(name)
@@ -36,13 +36,16 @@ class ScriptLifecycleTest {
 
     private val key = ScriptMeta.Secret("KEY", listOf("api.example.com"), "")
 
-    @Test fun renameKeepsTheScriptAndMovesWhatIsKeptByName() {
-        val s = repo.create("lc-a", ScriptLang.LUA, "-- @secret KEY api.example.com a key\nreturn 1")
+    @Test
+    fun renameKeepsTheScriptAndMovesWhatIsKeptByName() {
+        val s =
+            repo.create("lc-a", ScriptLang.LUA, "-- @secret KEY api.example.com a key\nreturn 1")
         secrets.set("lc-a", "KEY", "value-1234", key.hosts)
         status.set("lc-a", "its status line")
         // Left behind under the new name by an earlier script: replaced, not merged.
         status.set("lc-b", "stale line")
-        context.getSharedPreferences("script_catalog", android.content.Context.MODE_PRIVATE).edit { putString("installed:lc-a", "{}") }
+        context.getSharedPreferences("script_catalog", android.content.Context.MODE_PRIVATE)
+            .edit { putString("installed:lc-a", "{}") }
 
         repo.rename(s.id, "lc-b")
 
@@ -53,16 +56,24 @@ class ScriptLifecycleTest {
         assertEquals("its status line", status.get("lc-b"))
         assertNull(status.get("lc-a"))
         // Renamed, a shared script is yours: no updates for it under the old name.
-        assertNull(context.getSharedPreferences("script_catalog", android.content.Context.MODE_PRIVATE).getString("installed:lc-a", null))
+        assertNull(
+            context.getSharedPreferences(
+                "script_catalog",
+                android.content.Context.MODE_PRIVATE
+            ).getString("installed:lc-a", null)
+        )
     }
 
     /**
      * An update that drops a `@uses` line takes the permission with it: a later update that declares
      * it again asks, instead of finding it still allowed. What you switched off stays off.
      */
-    @Test fun aPermissionTheCodeDroppedIsAskedForAgain() {
+    @Test
+    fun aPermissionTheCodeDroppedIsAskedForAgain() {
         val s = repo.create("lc-d", ScriptLang.LUA, "-- @uses clipboard\n-- @uses apps\nreturn 1")
-        assertEquals(mapOf("clipboard" to true, "apps" to true), repo.byId(s.id)!!.access.filterKeys { it in setOf("clipboard", "apps") })
+        assertEquals(
+            mapOf("clipboard" to true, "apps" to true),
+            repo.byId(s.id)!!.access.filterKeys { it in setOf("clipboard", "apps") })
         repo.setAccess(s.id, "apps", false)
         repo.saveCode(s.id, "return 1")
         assertEquals(mapOf("apps" to false), repo.byId(s.id)!!.access)
@@ -78,7 +89,8 @@ class ScriptLifecycleTest {
      * A secret value from before 0.4.0 has no sites stored. It is no longer sent until it is set
      * again, so you see where it goes. A line that names no sites never sends it, so it still counts there.
      */
-    @Test fun aSecretFromBeforeSitesIsSetAgain() {
+    @Test
+    fun aSecretFromBeforeSitesIsSetAgain() {
         secrets.setWithoutSites("lc-a", "KEY", "value-1234")
         assertTrue(secrets.withoutSites("lc-a", key))
         assertFalse(secrets.isSet("lc-a", key))
@@ -89,7 +101,8 @@ class ScriptLifecycleTest {
         assertTrue(secrets.isSet("lc-a", key))
     }
 
-    @Test fun aNewScriptStartsWithNothingAnEarlierOneLeft() {
+    @Test
+    fun aNewScriptStartsWithNothingAnEarlierOneLeft() {
         status.set("lc-c", "left by a deleted script")
         secrets.set("lc-c", "KEY", "old-value-1234", key.hosts)
         repo.create("lc-c", ScriptLang.LUA, "return 1")
@@ -97,7 +110,8 @@ class ScriptLifecycleTest {
         assertNull(secrets.get("lc-c", "KEY"))
     }
 
-    @Test fun aValueIsUsedOnlyForTheSitesItWasSetFor() {
+    @Test
+    fun aValueIsUsedOnlyForTheSitesItWasSetFor() {
         secrets.set("lc-d", "KEY", "value-1234", listOf("api.example.com"))
         assertTrue(secrets.isSet("lc-d", key))
         val wider = ScriptMeta.Secret("KEY", listOf("api.example.com", "other.example"), "")
@@ -110,7 +124,8 @@ class ScriptLifecycleTest {
         assertTrue(secrets.isSet("lc-d", wider))
     }
 
-    @Test fun onlyAnExplicitGoAheadAllowsWhatItAsksFor() {
+    @Test
+    fun onlyAnExplicitGoAheadAllowsWhatItAsksFor() {
         val s = repo.create("lc-a", ScriptLang.LUA, "-- @uses clipboard\nreturn 1", enabled = false)
         repo.setEnabled(s.id, true)
         var now = repo.byId(s.id)!!
@@ -123,7 +138,8 @@ class ScriptLifecycleTest {
         assertTrue(now.grants.allows("clipboard"))
     }
 
-    @Test fun anEditAllowsOnlyWhatItAdds() {
+    @Test
+    fun anEditAllowsOnlyWhatItAdds() {
         val s = repo.create("lc-a", ScriptLang.LUA, "-- @uses clipboard\nreturn 1", enabled = false)
         repo.setEnabled(s.id, true)
         repo.saveCode(s.id, "-- @uses clipboard, apps\nreturn 1", byUser = true)
@@ -132,7 +148,8 @@ class ScriptLifecycleTest {
         assertFalse(now.grants.allows("clipboard"))
     }
 
-    @Test fun anUpdateLeavesNewEventsOff() {
+    @Test
+    fun anUpdateLeavesNewEventsOff() {
         val s = repo.create("lc-a", ScriptLang.LUA, "return 1")
         repo.saveCode(s.id, "-- @on unlock\nreturn 1")
         assertFalse(repo.byId(s.id)!!.grants.allows("unlock"))
@@ -142,8 +159,13 @@ class ScriptLifecycleTest {
         assertTrue(repo.byId(mine.id)!!.grants.allows("unlock"))
     }
 
-    @Test fun codeFromElsewhereSwitchesItOffAndAsksAgain() {
-        val s = repo.create("lc-a", ScriptLang.LUA, "-- @uses clipboard\nreturn http.get(\"https://example.com\")")
+    @Test
+    fun codeFromElsewhereSwitchesItOffAndAsksAgain() {
+        val s = repo.create(
+            "lc-a",
+            ScriptLang.LUA,
+            "-- @uses clipboard\nreturn http.get(\"https://example.com\")"
+        )
         repo.setAccess(s.id, "internet", false)
         status.set("lc-a", "a line")
         assertTrue(repo.byId(s.id)!!.grants.allows("clipboard"))

@@ -28,7 +28,8 @@ class AppUsage(private val context: Context) {
     /** The sessions of a range ([read]): cut to it, with the app still in front at its end. */
     class Read(val sessions: List<Session>, val inFront: String?) {
         /** The sessions in [from, until), cut to it. */
-        fun between(from: Long, until: Long): List<Session> = AppSessions.clip(sessions, from, until)
+        fun between(from: Long, until: Long): List<Session> =
+            AppSessions.clip(sessions, from, until)
     }
 
     /**
@@ -71,7 +72,8 @@ class AppUsage(private val context: Context) {
     }
 
     /** Today's screen time since local midnight: each app's time and the total, as `usage` and `usage.today` show it. */
-    fun today(label: (String) -> String?): Times = times(read(startOf(LocalDate.now(zone))).sessions, label)
+    fun today(label: (String) -> String?): Times =
+        times(read(startOf(LocalDate.now(zone))).sessions, label)
 
     /** The screen time of each of [days], in milliseconds, from one read of the events: what `usage N` and `usage.days` add up. */
     fun perDay(days: List<LocalDate>): List<Long> {
@@ -82,16 +84,30 @@ class AppUsage(private val context: Context) {
 
     /** Android's usage events in [from, until), only of the kinds [AppSessions] reads. */
     private fun events(from: Long, until: Long): List<AppSessions.Companion.Event> {
-        val kinds = intArrayOf(AppSessions.RESUMED, AppSessions.PAUSED, AppSessions.SCREEN_OFF, AppSessions.LOCKED, AppSessions.SHUTDOWN, AppSessions.STARTUP)
+        val kinds = intArrayOf(
+            AppSessions.RESUMED,
+            AppSessions.PAUSED,
+            AppSessions.SCREEN_OFF,
+            AppSessions.LOCKED,
+            AppSessions.SHUTDOWN,
+            AppSessions.STARTUP
+        )
         val read = runCatching {
-            if (Build.VERSION.SDK_INT >= 35) usage.queryEvents(UsageEventsQuery.Builder(from, until).setEventTypes(*kinds).build())
+            if (Build.VERSION.SDK_INT >= 35) usage.queryEvents(
+                UsageEventsQuery.Builder(from, until).setEventTypes(*kinds).build()
+            )
             else usage.queryEvents(from, until)
         }.getOrNull() ?: return emptyList()
         val out = ArrayList<AppSessions.Companion.Event>()
         val e = UsageEvents.Event()
         while (read.hasNextEvent()) {
             read.getNextEvent(e)
-            if (e.eventType in kinds) out += AppSessions.Companion.Event(e.eventType, e.packageName ?: "", e.timeStamp, e.className ?: "")
+            if (e.eventType in kinds) out += AppSessions.Companion.Event(
+                e.eventType,
+                e.packageName ?: "",
+                e.timeStamp,
+                e.className ?: ""
+            )
         }
         return out
     }

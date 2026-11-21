@@ -68,7 +68,16 @@ object FontFiles {
         val resolver = context.contentResolver
         var name: String? = null
         var size = -1L
-        resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)?.use { c ->
+        resolver.query(
+            uri,
+            arrayOf(
+                android.provider.OpenableColumns.DISPLAY_NAME,
+                android.provider.OpenableColumns.SIZE
+            ),
+            null,
+            null,
+            null
+        )?.use { c ->
             if (c.moveToFirst()) {
                 name = c.getString(0)
                 if (!c.isNull(1)) size = c.getLong(1)
@@ -83,7 +92,8 @@ object FontFiles {
         val dir = dir(context).apply { mkdirs() }
         val tmp = File(dir, "import.tmp")
         try {
-            val input = resolver.openInputStream(uri) ?: throw java.io.IOException("cannot open the file")
+            val input =
+                resolver.openInputStream(uri) ?: throw java.io.IOException("cannot open the file")
             input.use { inp ->
                 tmp.outputStream().use { out ->
                     val buf = ByteArray(64 * 1024)
@@ -99,13 +109,34 @@ object FontFiles {
             }
             val magic = tmp.inputStream().use { s -> ByteArray(4).also { s.read(it) } }
             val ext = when {
-                magic.contentEquals(byteArrayOf(0x4F, 0x54, 0x54, 0x4F)) -> "otf" // "OTTO": CFF outlines
-                magic.contentEquals(byteArrayOf(0, 1, 0, 0)) || magic.contentEquals("true".toByteArray()) -> "ttf"
+                magic.contentEquals(
+                    byteArrayOf(
+                        0x4F,
+                        0x54,
+                        0x54,
+                        0x4F
+                    )
+                ) -> "otf" // "OTTO": CFF outlines
+                magic.contentEquals(
+                    byteArrayOf(
+                        0,
+                        1,
+                        0,
+                        0
+                    )
+                ) || magic.contentEquals("true".toByteArray()) -> "ttf"
+
                 else -> throw IllegalArgumentException("${name ?: "the file"} is not a TrueType/OpenType font")
             }
             if (loadTypeface(tmp) == null) throw IllegalArgumentException("${name ?: "the file"} is not a font Android can load")
             listOf("custom.ttf", "custom.otf").forEach { File(dir, it).delete() }
-            if (!tmp.renameTo(File(dir, "custom.$ext"))) throw java.io.IOException("could not save the font")
+            if (!tmp.renameTo(
+                    File(
+                        dir,
+                        "custom.$ext"
+                    )
+                )
+            ) throw java.io.IOException("could not save the font")
         } finally {
             tmp.delete()
         }

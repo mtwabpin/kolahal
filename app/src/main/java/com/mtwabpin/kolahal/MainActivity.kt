@@ -48,10 +48,10 @@ import com.mtwabpin.kolahal.ui.SetupScreen
 import com.mtwabpin.kolahal.ui.Term
 import com.mtwabpin.kolahal.ui.TerminalScreen
 import com.mtwabpin.kolahal.ui.TextEditorActivity
-import com.mtwabpin.kolahal.ui.applyTermSettings
-import com.mtwabpin.kolahal.ui.darkTheme
 import com.mtwabpin.kolahal.ui.WidgetPickerScreen
 import com.mtwabpin.kolahal.ui.WidgetsScreen
+import com.mtwabpin.kolahal.ui.applyTermSettings
+import com.mtwabpin.kolahal.ui.darkTheme
 import com.mtwabpin.kolahal.widgets.WidgetBinder
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import kotlinx.coroutines.launch
@@ -60,53 +60,119 @@ class MainActivity : ComponentActivity() {
     private val vm: TerminalViewModel by viewModels()
 
     private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.onNotificationPermission(it) }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            vm.onNotificationPermission(
+                it
+            )
+        }
 
     private val contactsPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.onContactsPermission(it) }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            vm.onContactsPermission(
+                it
+            )
+        }
 
     private val contactPicker =
-        registerForActivityResult(com.mtwabpin.kolahal.contacts.ContactPicker) { vm.onContactPicked(it) }
+        registerForActivityResult(com.mtwabpin.kolahal.contacts.ContactPicker) {
+            vm.onContactPicked(
+                it
+            )
+        }
 
     private val calendarPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.onCalendarPermission(it) }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            vm.onCalendarPermission(
+                it
+            )
+        }
 
     private val callLogPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.onCallLogPermission(it) }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            vm.onCallLogPermission(
+                it
+            )
+        }
 
     private val pickFolder =
-        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { vm.onScriptFolderPicked(it) }
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
+            vm.onScriptFolderPicked(
+                it
+            )
+        }
 
     private val pickBackupFolder =
-        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { vm.backupActions.onBackupFolderPicked(it) }
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
+            vm.backupActions.onBackupFolderPicked(
+                it
+            )
+        }
 
     private val exportBackup =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { vm.backupActions.exportBackup(it) }
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
+            vm.backupActions.exportBackup(
+                it
+            )
+        }
 
     private val importBackup =
-        registerForActivityResult(ActivityResultContracts.OpenDocument()) { vm.backupActions.importBackup(it) }
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) {
+            vm.backupActions.importBackup(
+                it
+            )
+        }
 
     private val fontPicker =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { vm.importFont(it) }
 
     // File managers rarely set font MIME types correctly. importFont checks the name and header.
     private fun launchFontPicker() =
-        fontPicker.launch(arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/octet-stream", "*/*"))
+        fontPicker.launch(
+            arrayOf(
+                "font/ttf",
+                "font/otf",
+                "application/x-font-ttf",
+                "application/octet-stream",
+                "*/*"
+            )
+        )
 
     // Many file managers label .lua / .js files as octet-stream or text. So accept any file and filter by name.
     private val importScripts =
-        registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.scriptActions.importScriptFiles(it) }
+        registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
+            vm.scriptActions.importScriptFiles(
+                it
+            )
+        }
 
     private val exportScript =
-        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { vm.scriptActions.finishExportScript(it) }
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) {
+            vm.scriptActions.finishExportScript(
+                it
+            )
+        }
 
     // `edit`: the picked or new file opens in the text editor, which is a window of its own
     // ([TextEditorActivity]). Any file may be picked: the editor refuses what isn't text.
     private val pickTextFile =
-        registerForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> TextEditorActivity.open(this, uri) } }
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) {
+            it?.let { uri ->
+                TextEditorActivity.open(
+                    this,
+                    uri
+                )
+            }
+        }
 
     private val newTextFile =
-        registerForActivityResult(com.mtwabpin.kolahal.ui.CreateTextFile) { it?.let { uri -> TextEditorActivity.open(this, uri) } }
+        registerForActivityResult(com.mtwabpin.kolahal.ui.CreateTextFile) {
+            it?.let { uri ->
+                TextEditorActivity.open(
+                    this,
+                    uri
+                )
+            }
+        }
 
     /** Asks where to save [s], then saves it there ([com.mtwabpin.kolahal.terminal.ScriptActions.finishExportScript]). */
     private fun exportScriptFile(s: com.mtwabpin.kolahal.data.Script) {
@@ -169,7 +235,9 @@ class MainActivity : ComponentActivity() {
         // The theme follows settings without reading config state in composition. Reading it there
         // would recompose the whole tree on every settings change.
         lifecycleScope.launch { vm.config.version.collect { applyTheme() } }
-        lifecycleScope.launch { androidx.compose.runtime.snapshotFlow { vm.previewed }.collect { applyTheme() } }
+        lifecycleScope.launch {
+            androidx.compose.runtime.snapshotFlow { vm.previewed }.collect { applyTheme() }
+        }
         lifecycleScope.launch { vm.screen.collect { if (vm.livePreview != null) applyTheme() } }
         lifecycleScope.launch {
             vm.events.collect {
@@ -177,19 +245,34 @@ class MainActivity : ComponentActivity() {
                     UiEvent.RequestNotificationPermission -> requestNotifications()
                     UiEvent.RequestContactsPermission -> contactsPermission.launch(Manifest.permission.READ_CONTACTS)
                     UiEvent.PickContact ->
-                        try { contactPicker.launch(Unit) } catch (_: android.content.ActivityNotFoundException) { vm.onContactPickerMissing() }
+                        try {
+                            contactPicker.launch(Unit)
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            vm.onContactPickerMissing()
+                        }
+
                     UiEvent.RequestCalendarPermission -> calendarPermission.launch(Manifest.permission.READ_CALENDAR)
                     UiEvent.RequestCallLogPermission -> callLogPermission.launch(Manifest.permission.READ_CALL_LOG)
                     UiEvent.PickFont -> launchFontPicker()
                     UiEvent.PickBackupFolder -> pickBackupFolder.launch(null)
                     UiEvent.PickScriptFolder -> pickFolder.launch(null)
                     UiEvent.ExportBackup -> exportBackup.launch(Backup.FILE_NAME)
-                    UiEvent.ImportBackup -> importBackup.launch(arrayOf("application/json", "text/*", "application/octet-stream"))
+                    UiEvent.ImportBackup -> importBackup.launch(
+                        arrayOf(
+                            "application/json",
+                            "text/*",
+                            "application/octet-stream"
+                        )
+                    )
+
                     UiEvent.ImportScripts -> importScripts.launch(arrayOf("*/*"))
                     is UiEvent.ExportScript -> exportScriptFile(it.script)
                     UiEvent.PickTextFile -> pickTextFile.launch(arrayOf("*/*"))
                     is UiEvent.NewTextFile -> newTextFile.launch(it.name)
-                    is UiEvent.OpenTextFile -> TextEditorActivity.open(this@MainActivity, android.net.Uri.parse(it.uri))
+                    is UiEvent.OpenTextFile -> TextEditorActivity.open(
+                        this@MainActivity,
+                        android.net.Uri.parse(it.uri)
+                    )
                     // The terminal screen handles these: they are about its log, prompt and menu.
                     UiEvent.ScrollToBottom, UiEvent.FocusPrompt, UiEvent.HideKeyboard, UiEvent.ShowQuick -> Unit
                 }
@@ -212,17 +295,29 @@ class MainActivity : ComponentActivity() {
                     // When the window shows the phone's wallpaper (log.wallpaper, widgets.wallpaper),
                     // everything except home stays solid.
                     androidx.compose.foundation.layout.Box(
-                        androidx.compose.ui.Modifier.fillMaxSize().background(Term.bg),
-                    ) { ScriptEditor(
-                        script = script,
-                        jumpToLine = jumpLine,
-                        lastRun = stored?.lastRun,
-                        lastStatus = stored?.lastStatus,
-                        onSave = { code, done -> vm.saveScript(script, code, done) },
-                        onRun = { code, args, event, done -> vm.runScript(script, code, args, event, done) },
-                        runLines = { since -> vm.runLines(script.name, since) },
-                        onClose = vm::closeEditor,
-                    ) }
+                        androidx.compose.ui.Modifier
+                            .fillMaxSize()
+                            .background(Term.bg),
+                    ) {
+                        ScriptEditor(
+                            script = script,
+                            jumpToLine = jumpLine,
+                            lastRun = stored?.lastRun,
+                            lastStatus = stored?.lastStatus,
+                            onSave = { code, done -> vm.saveScript(script, code, done) },
+                            onRun = { code, args, event, done ->
+                                vm.runScript(
+                                    script,
+                                    code,
+                                    args,
+                                    event,
+                                    done
+                                )
+                            },
+                            runLines = { since -> vm.runLines(script.name, since) },
+                            onClose = vm::closeEditor,
+                        )
+                    }
                 } else {
                     val screen by vm.screen.collectAsStateWithLifecycle()
                     LaunchedEffect(screen) {
@@ -230,29 +325,52 @@ class MainActivity : ComponentActivity() {
                     }
                     if (screen == Screen.TERMINAL) HomePager(vm) {
                         TerminalScreen(vm)
-                    } else saved.SaveableStateProvider(screen.name) { androidx.compose.foundation.layout.Box(
-                        // Solid over the wallpaper too. Settings is the exception: it shows home through
-                        // it while you hold the eye button.
-                        androidx.compose.ui.Modifier.fillMaxSize().then(
-                            if (screen == Screen.SETTINGS) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.background(Term.bg),
-                        ),
-                    ) { when (screen) {
-                        // A screen asks for a picker or a permission through vm.events (above). Only the
-                        // widget screens get a callback, because adding a widget needs this activity.
-                        Screen.SETTINGS -> SettingsOverHome(vm)
-                        Screen.SCRIPTS -> ScriptsScreen(vm)
-                        Screen.GET_SCRIPTS -> com.mtwabpin.kolahal.ui.GetScriptsScreen(vm)
-                        Screen.SCRIPT_SOURCES -> com.mtwabpin.kolahal.ui.ScriptSourcesScreen(vm)
-                        Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(vm)
-                        Screen.FEEDS -> FeedsScreen(vm)
-                        Screen.SETUP -> SetupScreen(vm)
-                        Screen.ONBOARDING -> com.mtwabpin.kolahal.ui.OnboardingScreen(vm)
-                        Screen.WIDGETS -> WidgetsScreen(vm, onReAdd = { entry, w -> widgetBinder.add(entry, w.key) })
-                        Screen.WIDGET_PICKER -> WidgetPickerScreen(vm, onPick = { widgetBinder.add(it) })
-                        Screen.THEME_BUILDER -> com.mtwabpin.kolahal.ui.ThemeBuilderScreen(vm)
-                        Screen.HEADER_PARTS -> com.mtwabpin.kolahal.ui.HeaderPartsScreen(vm)
-                        Screen.TERMINAL -> Unit
-                    } } }
+                    } else saved.SaveableStateProvider(screen.name) {
+                        androidx.compose.foundation.layout.Box(
+                            // Solid over the wallpaper too. Settings is the exception: it shows home through
+                            // it while you hold the eye button.
+                            androidx.compose.ui.Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (screen == Screen.SETTINGS) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.background(
+                                        Term.bg
+                                    ),
+                                ),
+                        ) {
+                            when (screen) {
+                                // A screen asks for a picker or a permission through vm.events (above). Only the
+                                // widget screens get a callback, because adding a widget needs this activity.
+                                Screen.SETTINGS -> SettingsOverHome(vm)
+                                Screen.SCRIPTS -> ScriptsScreen(vm)
+                                Screen.GET_SCRIPTS -> com.mtwabpin.kolahal.ui.GetScriptsScreen(vm)
+                                Screen.SCRIPT_SOURCES -> com.mtwabpin.kolahal.ui.ScriptSourcesScreen(
+                                    vm
+                                )
+
+                                Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(
+                                    vm
+                                )
+
+                                Screen.FEEDS -> FeedsScreen(vm)
+                                Screen.SETUP -> SetupScreen(vm)
+                                Screen.ONBOARDING -> com.mtwabpin.kolahal.ui.OnboardingScreen(vm)
+                                Screen.WIDGETS -> WidgetsScreen(
+                                    vm,
+                                    onReAdd = { entry, w -> widgetBinder.add(entry, w.key) })
+
+                                Screen.WIDGET_PICKER -> WidgetPickerScreen(
+                                    vm,
+                                    onPick = { widgetBinder.add(it) })
+
+                                Screen.THEME_BUILDER -> com.mtwabpin.kolahal.ui.ThemeBuilderScreen(
+                                    vm
+                                )
+
+                                Screen.HEADER_PARTS -> com.mtwabpin.kolahal.ui.HeaderPartsScreen(vm)
+                                Screen.TERMINAL -> Unit
+                            }
+                        }
+                    }
                 }
                 // `notifs enable` from the prompt, Setup or the tour shows this dialog over whatever screen is open.
                 val askingNotifications by vm.notificationAccessAsk.collectAsStateWithLifecycle()
@@ -263,7 +381,10 @@ class MainActivity : ComponentActivity() {
                 // A tap on an app whose profile is paused or locked, on any page of home: resume it and open the app?
                 val resuming by vm.resumeAsk.collectAsStateWithLifecycle()
                 resuming?.let { app ->
-                    com.mtwabpin.kolahal.ui.ResumeProfileDialog(app, onResume = { vm.answerResume(true) }, onDismiss = { vm.answerResume(false) })
+                    com.mtwabpin.kolahal.ui.ResumeProfileDialog(
+                        app,
+                        onResume = { vm.answerResume(true) },
+                        onDismiss = { vm.answerResume(false) })
                 }
             }
         }
@@ -292,23 +413,28 @@ class MainActivity : ComponentActivity() {
         // Same check as Launcher3: only a Home press while home is showing resets the prompt.
         // Returning from another app keeps what was typed.
         val alreadyHome = hasWindowFocus() &&
-            (intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT) != Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT
+                (intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT) != Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT
         if (intent.hasCategory(Intent.CATEGORY_HOME) && alreadyHome) vm.onHomePressed()
     }
 
     /** Applies `screen.bars`: show, hide (status bar only) or immersive (status and navigation bars). */
     private fun applyBars() {
-        val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+        val controller =
+            androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
         val status = androidx.core.view.WindowInsetsCompat.Type.statusBars()
         val nav = androidx.core.view.WindowInsetsCompat.Type.navigationBars()
         // A swipe from the edge shows hidden bars for a moment, then they hide again.
-        controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.systemBarsBehavior =
+            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         // Dark icons on a light theme.
         val light = Term.bg.luminance() > 0.5f
         controller.isAppearanceLightStatusBars = light
         controller.isAppearanceLightNavigationBars = light
         when (vm.config[Keys.STATUS_BAR]) {
-            "hide" -> { controller.hide(status); controller.show(nav) }
+            "hide" -> {
+                controller.hide(status); controller.show(nav)
+            }
+
             "immersive" -> controller.hide(status or nav)
             else -> controller.show(status or nav)
         }
@@ -332,7 +458,9 @@ class MainActivity : ComponentActivity() {
         // Other apps' widgets took their colours from the configuration their views were made in.
         val changed = shownConfig?.diff(newConfig) ?: 0
         shownConfig = android.content.res.Configuration(newConfig)
-        if (changed and (android.content.pm.ActivityInfo.CONFIG_UI_MODE or CONFIG_ASSETS_PATHS) != 0) WidgetHost.get(this).redraw()
+        if (changed and (android.content.pm.ActivityInfo.CONFIG_UI_MODE or CONFIG_ASSETS_PATHS) != 0) WidgetHost.get(
+            this
+        ).redraw()
     }
 
     /**
@@ -351,19 +479,26 @@ class MainActivity : ComponentActivity() {
         val theme = live?.theme ?: vm.config[Keys.THEME]
         val font = live?.font ?: vm.config[Keys.FONT]
         val loaded = applyTermSettings(
-            this, vm.config, darkTheme(vm.config, resources.configuration), theme, live?.fontSize ?: vm.config[Keys.FONT_SIZE], font,
+            this,
+            vm.config,
+            darkTheme(vm.config, resources.configuration),
+            theme,
+            live?.fontSize ?: vm.config[Keys.FONT_SIZE],
+            font,
         )
         if (!loaded) vm.onFontUnavailable(font)
         // Skip this for a preview. The wallpaper changes only after the theme is kept.
         // - The wallpaper takes the theme's colour fully opaque: a wallpaper can't be see-through.
         // - A Material You theme took its colours from the wallpaper, so the wallpaper doesn't follow it.
         if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(
-            this, Term.bg.copy(alpha = 1f).toArgb(), fromWallpaper = MaterialYou.isOne(theme) && MaterialYou.supported,
+            this,
+            Term.bg.copy(alpha = 1f).toArgb(),
+            fromWallpaper = MaterialYou.isOne(theme) && MaterialYou.supported,
         )
         // log.wallpaper, widgets.wallpaper: the window shows the phone's wallpaper, and each home page
         // draws its colour over it, as faintly as its setting says (Modifier.page).
         val wallpaper = vm.config[Keys.LOG_WALLPAPER] > 0 ||
-            (vm.config[Keys.WIDGETS_PAGE] != "off" && vm.config[Keys.WIDGETS_WALLPAPER] > 0)
+                (vm.config[Keys.WIDGETS_PAGE] != "off" && vm.config[Keys.WIDGETS_WALLPAPER] > 0)
         // Change the window only when the look changes. Each flag change lays out the window again,
         // and dragging a slider in Settings previews (and calls this) on almost every frame.
         val look = wallpaper to Term.bg.toArgb()
@@ -400,7 +535,10 @@ class MainActivity : ComponentActivity() {
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // LocalBringIntoViewSpec
 @androidx.compose.runtime.Composable
-private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime.Composable () -> Unit) {
+private fun HomePager(
+    vm: TerminalViewModel,
+    terminal: @androidx.compose.runtime.Composable () -> Unit
+) {
     val version by vm.config.version.collectAsStateWithLifecycle()
     val side = androidx.compose.runtime.remember(version) { vm.config[Keys.WIDGETS_PAGE] }
     if (side == "off") {
@@ -420,12 +558,14 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     }
     val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = startPage) { 2 }
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
-        androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { vm.homeOnWidgets = it != terminalPage }
+        androidx.compose.runtime.snapshotFlow { pager.settledPage }
+            .collect { vm.homeOnWidgets = it != terminalPage }
     }
     val homePresses by vm.homePresses.collectAsStateWithLifecycle()
     // A Home press, or a change of the page's side, returns to home's first page. Not the first run:
     // that is home appearing again, on the page it had.
-    val firstRun = androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicBoolean(true) }
+    val firstRun =
+        androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicBoolean(true) }
     androidx.compose.runtime.LaunchedEffect(homePresses, side, widgetsFirst) {
         if (firstRun.getAndSet(false)) return@LaunchedEffect
         if (pager.currentPage != homePage) pager.animateScrollToPage(homePage)
@@ -446,7 +586,8 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     }
     // The page actions a screen reader or Switch Access offers: the swipe is the only other way across.
     // Left is the page before, as on the pager's own actions; in a right-to-left layout, the page after.
-    val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+    val rtl =
+        androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
     val onWidgets = pager.currentPage != terminalPage
     val otherPage = if (onWidgets) "Log" else "Widgets"
     val leftward = (pager.currentPage == 1) != rtl
@@ -456,13 +597,18 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     }
     if (widgetsFirst) {
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
-            androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { page -> vm.onHomePageShown(log = page == terminalPage) }
+            androidx.compose.runtime.snapshotFlow { pager.settledPage }
+                .collect { page -> vm.onHomePageShown(log = page == terminalPage) }
         }
         // The prompt keeps the focus on the widgets page, so a key typed there goes into the prompt.
         // Then the log page comes in to show it. This turn has its own coroutine too, for the same reason.
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
             androidx.compose.runtime.snapshotFlow { vm.input.text.isNotEmpty() }.collect { typed ->
-                if (typed && pager.currentPage != terminalPage) launch { pager.animateScrollToPage(terminalPage) }
+                if (typed && pager.currentPage != terminalPage) launch {
+                    pager.animateScrollToPage(
+                        terminalPage
+                    )
+                }
             }
         }
     } else {
@@ -476,54 +622,62 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     // The pages get the usual behaviour back, so the log's own list still scrolls to what has the focus.
     val pageFocusSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides StayOnPage) {
-    androidx.compose.foundation.pager.HorizontalPager(
-        state = pager,
-        beyondViewportPageCount = 1,
-        userScrollEnabled = false,
-        key = { it },
-        modifier = androidx.compose.ui.Modifier.testTag("home-pager").semantics {
-            customActions = listOf(CustomAccessibilityAction(otherPage, turn))
-            if (leftward) pageLeft(otherPage, turn) else pageRight(otherPage, turn)
-        }.pointerInput(pager) {
-            val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
-            detectHorizontalDragGestures(
-                onDragStart = { tracker.resetTracking() },
-                onDragEnd = {
-                    val v = tracker.calculateVelocity().x
-                    val target = when {
-                        v < -800f -> pager.currentPage + 1
-                        v > 800f -> pager.currentPage - 1
-                        else -> (pager.currentPage + pager.currentPageOffsetFraction).let { kotlin.math.round(it).toInt() }
-                    }.coerceIn(0, 1)
-                    scope.launch { pager.animateScrollToPage(target) }
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pager,
+            beyondViewportPageCount = 1,
+            userScrollEnabled = false,
+            key = { it },
+            modifier = androidx.compose.ui.Modifier
+                .testTag("home-pager")
+                .semantics {
+                    customActions = listOf(CustomAccessibilityAction(otherPage, turn))
+                    if (leftward) pageLeft(otherPage, turn) else pageRight(otherPage, turn)
+                }
+                .pointerInput(pager) {
+                    val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+                    detectHorizontalDragGestures(
+                        onDragStart = { tracker.resetTracking() },
+                        onDragEnd = {
+                            val v = tracker.calculateVelocity().x
+                            val target = when {
+                                v < -800f -> pager.currentPage + 1
+                                v > 800f -> pager.currentPage - 1
+                                else -> (pager.currentPage + pager.currentPageOffsetFraction).let {
+                                    kotlin.math.round(
+                                        it
+                                    ).toInt()
+                                }
+                            }.coerceIn(0, 1)
+                            scope.launch { pager.animateScrollToPage(target) }
+                        },
+                        onDragCancel = { scope.launch { pager.animateScrollToPage(pager.currentPage) } },
+                    ) { change, dx ->
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        change.consume()
+                        pager.dispatchRawDelta(-dx)
+                    }
                 },
-                onDragCancel = { scope.launch { pager.animateScrollToPage(pager.currentPage) } },
-            ) { change, dx ->
-                tracker.addPosition(change.uptimeMillis, change.position)
-                change.consume()
-                pager.dispatchRawDelta(-dx)
-            }
-        },
-    ) { page ->
-        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
-            if (page == terminalPage) {
-                androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
-            } else {
-                // The pager keeps this page composed beside the log. Its cards move and ask for runs only
-                // while the pager has settled on it.
-                androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalWidgetsShown provides (pager.settledPage == page)) {
-                    com.mtwabpin.kolahal.ui.WidgetPanel(vm)
+        ) { page ->
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
+                if (page == terminalPage) {
+                    androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
+                } else {
+                    // The pager keeps this page composed beside the log. Its cards move and ask for runs only
+                    // while the pager has settled on it.
+                    androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalWidgetsShown provides (pager.settledPage == page)) {
+                        com.mtwabpin.kolahal.ui.WidgetPanel(vm)
+                    }
                 }
             }
         }
-    }
     }
 }
 
 /** Home's pager never scrolls to bring something into view: it moves only when Kolahal turns it. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private object StayOnPage : androidx.compose.foundation.gestures.BringIntoViewSpec {
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+        0f
 }
 
 /** ActivityInfo.CONFIG_ASSETS_PATHS (hidden): new resource overlays, as a new wallpaper's colours bring. */

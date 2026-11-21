@@ -55,25 +55,30 @@ data class NowPlaying(
     /** The session has a track to control: it has a state, and no error. */
     val controllable: Boolean get() = state != PlaybackState.STATE_NONE && state != PlaybackState.STATE_ERROR
 
-    val stateLabel: String get() = when (state) {
-        PlaybackState.STATE_PLAYING -> "playing"
-        PlaybackState.STATE_PAUSED -> "paused"
-        PlaybackState.STATE_STOPPED -> "stopped"
-        PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> "buffering"
-        PlaybackState.STATE_ERROR -> "error"
-        PlaybackState.STATE_FAST_FORWARDING -> "seeking"
-        PlaybackState.STATE_REWINDING -> "rewinding"
-        else -> "idle"
-    }
+    val stateLabel: String
+        get() = when (state) {
+            PlaybackState.STATE_PLAYING -> "playing"
+            PlaybackState.STATE_PAUSED -> "paused"
+            PlaybackState.STATE_STOPPED -> "stopped"
+            PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> "buffering"
+            PlaybackState.STATE_ERROR -> "error"
+            PlaybackState.STATE_FAST_FORWARDING -> "seeking"
+            PlaybackState.STATE_REWINDING -> "rewinding"
+            else -> "idle"
+        }
 
     /** "Title — Artist", or the app name when both are missing. */
-    val line: String get() = listOfNotNull(title?.takeIf { it.isNotBlank() }, artist?.takeIf { it.isNotBlank() })
-        .joinToString(" — ").ifEmpty { app }
+    val line: String
+        get() = listOfNotNull(title?.takeIf { it.isNotBlank() }, artist?.takeIf { it.isNotBlank() })
+            .joinToString(" — ").ifEmpty { app }
 
     fun positionNow(now: Long = System.currentTimeMillis()): Long {
         if (position < 0) return -1
         // Never below 0: [positionAt] can be a moment after [now], because the two clocks are read at different times.
-        val p = if (state == PlaybackState.STATE_PLAYING) (position + ((now - positionAt) * speed).toLong()).coerceAtLeast(0) else position
+        val p =
+            if (state == PlaybackState.STATE_PLAYING) (position + ((now - positionAt) * speed).toLong()).coerceAtLeast(
+                0
+            ) else position
         return if (duration > 0) p.coerceAtMost(duration) else p
     }
 
@@ -91,14 +96,24 @@ data class NowPlaying(
  * nothing plays. [title] and [artist] are of its last track, when known. Only [pkg] is kept over a
  * restart, so after one the track is not known.
  */
-data class LastPlayer(val pkg: String, val app: String, val title: String? = null, val artist: String? = null) {
+data class LastPlayer(
+    val pkg: String,
+    val app: String,
+    val title: String? = null,
+    val artist: String? = null
+) {
     companion object {
         /**
          * The last player once [shown] is the session that now playing shows: a session with a track
          * to control ([NowPlaying.controllable]) becomes it, with its track. Anything else leaves [last].
          */
         fun after(last: LastPlayer?, shown: NowPlaying?): LastPlayer? =
-            if (shown != null && shown.controllable) LastPlayer(shown.pkg, shown.app, shown.title, shown.artist) else last
+            if (shown != null && shown.controllable) LastPlayer(
+                shown.pkg,
+                shown.app,
+                shown.title,
+                shown.artist
+            ) else last
     }
 }
 
@@ -131,7 +146,8 @@ internal object Covers {
      */
     fun of(meta: MediaMetadata?, px: Int, old: Bitmap?): Bitmap? {
         val art = meta?.let {
-            it.getBitmap(MediaMetadata.METADATA_KEY_ART) ?: it.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+            it.getBitmap(MediaMetadata.METADATA_KEY_ART)
+                ?: it.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: it.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
         } ?: return null
         val made = runCatching { scaled(art, px) }.getOrNull() ?: return null
@@ -144,11 +160,21 @@ internal object Covers {
      */
     private fun scaled(art: Bitmap, px: Int): Bitmap? {
         // A picture in graphics memory can't be cut in memory: it is copied out first.
-        val source = if (art.config == Bitmap.Config.HARDWARE) art.copy(Bitmap.Config.ARGB_8888, false) ?: return null else art
+        val source =
+            if (art.config == Bitmap.Config.HARDWARE) art.copy(Bitmap.Config.ARGB_8888, false)
+                ?: return null else art
         val (x, y, side) = square(source.width, source.height)
         if (side <= 0) return null
         val s = scale(side, px)
-        return Bitmap.createBitmap(source, x, y, side, side, Matrix().apply { setScale(s, s) }, true)
+        return Bitmap.createBitmap(
+            source,
+            x,
+            y,
+            side,
+            side,
+            Matrix().apply { setScale(s, s) },
+            true
+        )
     }
 }
 
@@ -198,15 +224,24 @@ class MediaRepository private constructor(private val context: Context) {
 
     private val main = Handler(Looper.getMainLooper())
     private val manager by lazy { context.getSystemService(MediaSessionManager::class.java) }
-    private val component by lazy { ComponentName(context, KolahalNotificationListener::class.java) }
+    private val component by lazy {
+        ComponentName(
+            context,
+            KolahalNotificationListener::class.java
+        )
+    }
 
-    @Volatile private var listening = false
+    @Volatile
+    private var listening = false
     private var watches: List<Watch> = emptyList()
-    @Volatile private var current: MediaController? = null
+
+    @Volatile
+    private var current: MediaController? = null
 
     private val lastPlaying = LastPlaying()
 
-    private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { list -> onSessions(list.orEmpty()) }
+    private val sessionsListener =
+        MediaSessionManager.OnActiveSessionsChangedListener { list -> onSessions(list.orEmpty()) }
 
     /**
      * A followed session, with the state its updates last reported. An update from any player picks
@@ -241,7 +276,9 @@ class MediaRepository private constructor(private val context: Context) {
             recompute()
         }
 
-        override fun onSessionDestroyed() { main.post { refresh() } }
+        override fun onSessionDestroyed() {
+            main.post { refresh() }
+        }
     }
 
     fun hasAccess(): Boolean = NotificationActions.isEnabled(context)
@@ -308,9 +345,19 @@ class MediaRepository private constructor(private val context: Context) {
     private fun onSessions(list: List<MediaController>) {
         // A session already followed keeps its callback and last state. Only new sessions are read.
         val kept = watches.associateBy { it.controller.sessionToken }
-        val next = list.map { c -> kept[c.sessionToken] ?: Watch(c).also { w -> runCatching { c.registerCallback(w, main) }; w.read() } }
+        val next = list.map { c ->
+            kept[c.sessionToken] ?: Watch(c).also { w ->
+                runCatching {
+                    c.registerCallback(
+                        w,
+                        main
+                    )
+                }; w.read()
+            }
+        }
         val still = next.toHashSet()
-        watches.filterNot { it in still }.forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
+        watches.filterNot { it in still }
+            .forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
         watches = next
         recompute()
     }
@@ -318,11 +365,13 @@ class MediaRepository private constructor(private val context: Context) {
     /** Main thread. Picks the session to show and publishes it. */
     private fun recompute() {
         val now = System.currentTimeMillis()
-        lastPlaying.update(watches.filter { it.state.isActive() }.map { it.controller.packageName }.toSet(), now)
+        lastPlaying.update(watches.filter { it.state.isActive() }.map { it.controller.packageName }
+            .toSet(), now)
         val chosen = watches.firstOrNull { it.state.isActive() }
             ?: watches.maxByOrNull { lastPlaying[it.controller.packageName] ?: 0L }
         current = chosen?.controller
-        val shown = chosen?.let { snapshot(it.controller.packageName, it.track, it.state, now, it.cover) }
+        val shown =
+            chosen?.let { snapshot(it.controller.packageName, it.track, it.state, now, it.cover) }
         _nowPlaying.value = shown
         keepLast(LastPlayer.after(_lastPlayer.value, shown))
     }
@@ -332,11 +381,16 @@ class MediaRepository private constructor(private val context: Context) {
         val before = _lastPlayer.value
         if (last == null || last == before) return
         _lastPlayer.value = last
-        if (last.pkg != before?.pkg) background.launch { runCatching { Stores.MEDIA.open(context).edit { putString(LAST_PLAYER, last.pkg) } } }
+        if (last.pkg != before?.pkg) background.launch {
+            runCatching {
+                Stores.MEDIA.open(context).edit { putString(LAST_PLAYER, last.pkg) }
+            }
+        }
     }
 
     /** The cover's side in pixels on this screen ([Covers.COVER_DP]). */
-    private fun coverPx(): Int = (Covers.COVER_DP * context.resources.displayMetrics.density).roundToInt()
+    private fun coverPx(): Int =
+        (Covers.COVER_DP * context.resources.displayMetrics.density).roundToInt()
 
     private fun PlaybackState?.isActive() =
         this?.state == PlaybackState.STATE_PLAYING || this?.state == PlaybackState.STATE_BUFFERING
@@ -346,7 +400,9 @@ class MediaRepository private constructor(private val context: Context) {
         companion object {
             fun of(meta: MediaMetadata?): Track? = meta?.let {
                 Track(
-                    title = it.getString(MediaMetadata.METADATA_KEY_TITLE) ?: it.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
+                    title = it.getString(MediaMetadata.METADATA_KEY_TITLE) ?: it.getString(
+                        MediaMetadata.METADATA_KEY_DISPLAY_TITLE
+                    ),
                     artist = it.getString(MediaMetadata.METADATA_KEY_ARTIST)
                         ?: it.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
                         ?: it.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE),
@@ -360,7 +416,8 @@ class MediaRepository private constructor(private val context: Context) {
      * Wall-clock time at boot, as last computed from the two clocks. It is kept while a new reading is
      * within one second of it (setting the clock moves it more). So an unchanged state gives an equal value.
      */
-    @Volatile private var bootedAt = 0L
+    @Volatile
+    private var bootedAt = 0L
 
     /** Converts [elapsed], a time on the boot clock, to wall-clock time. */
     private fun wallTime(elapsed: Long, now: Long): Long {
@@ -374,8 +431,15 @@ class MediaRepository private constructor(private val context: Context) {
      * update. An update that changes nothing shown gives a value equal to the last one, so home isn't
      * built again.
      */
-    private fun snapshot(pkg: String, track: Track?, ps: PlaybackState?, now: Long, cover: Bitmap?): NowPlaying {
-        val updatedAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { wallTime(it, now) } ?: now
+    private fun snapshot(
+        pkg: String,
+        track: Track?,
+        ps: PlaybackState?,
+        now: Long,
+        cover: Bitmap?
+    ): NowPlaying {
+        val updatedAt =
+            ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { wallTime(it, now) } ?: now
         val idleSince = if (ps.isActive()) {
             _nowPlaying.value?.takeIf { it.pkg == pkg && it.playing }?.idleSince ?: now
         } else {
@@ -398,13 +462,17 @@ class MediaRepository private constructor(private val context: Context) {
         // The same playback can be reported in two ways. When we ask, Android computes the position
         // for now. In a callback, it is the player's own position from earlier. Keep the last value.
         val last = _nowPlaying.value
-        val sameTrack = last != null && last.copy(position = fresh.position, positionAt = fresh.positionAt) == fresh
+        val sameTrack = last != null && last.copy(
+            position = fresh.position,
+            positionAt = fresh.positionAt
+        ) == fresh
         return if (sameTrack && kotlin.math.abs(last.positionNow(now) - fresh.positionNow(now)) < SAME_POSITION_MS) last else fresh
     }
 
 
     /** The player's name as the app list shows it ([AppNames]): a rename counts, and an update is seen. */
-    private fun appLabel(pkg: String): String = com.mtwabpin.kolahal.apps.AppNames.label(context, pkg) ?: pkg
+    private fun appLabel(pkg: String): String =
+        com.mtwabpin.kolahal.apps.AppNames.label(context, pkg) ?: pkg
 
     /** The controller that [nowPlaying] describes. When we aren't listening yet, it is read fresh. */
     private fun controller(): MediaController? {
@@ -461,7 +529,8 @@ class MediaRepository private constructor(private val context: Context) {
      */
     fun resume(): Resumed {
         val last = _lastPlayer.value ?: return Resumed.NOTHING
-        val session = runCatching { manager.getActiveSessions(component) }.getOrNull().orEmpty().firstOrNull { it.packageName == last.pkg }
+        val session = runCatching { manager.getActiveSessions(component) }.getOrNull().orEmpty()
+            .firstOrNull { it.packageName == last.pkg }
         if (session != null) {
             session.transportControls.play()
             return Resumed.SESSION
@@ -473,23 +542,49 @@ class MediaRepository private constructor(private val context: Context) {
         if (taker != last.pkg) return Resumed.NOTHING
         val audio = context.getSystemService(AudioManager::class.java) ?: return Resumed.NOTHING
         val at = SystemClock.uptimeMillis()
-        audio.dispatchMediaKeyEvent(KeyEvent(at, at, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY, 0))
-        audio.dispatchMediaKeyEvent(KeyEvent(at, at, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY, 0))
+        audio.dispatchMediaKeyEvent(
+            KeyEvent(
+                at,
+                at,
+                KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_MEDIA_PLAY,
+                0
+            )
+        )
+        audio.dispatchMediaKeyEvent(
+            KeyEvent(
+                at,
+                at,
+                KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_MEDIA_PLAY,
+                0
+            )
+        )
         return Resumed.KEY
     }
 
     /** A fresh snapshot for the `media` command, because positions move while playing. It has no cover. */
     fun snapshotNow(): NowPlaying? {
         val c = controller() ?: return null
-        return snapshot(c.packageName, Track.of(c.metadata), c.playbackState, System.currentTimeMillis(), cover = null)
+        return snapshot(
+            c.packageName,
+            Track.of(c.metadata),
+            c.playbackState,
+            System.currentTimeMillis(),
+            cover = null
+        )
     }
 
     // Last in the class: everything above is set when this starts.
     init {
         // The last player of an earlier start, until a session shows. An app that is gone is no player.
         background.launch {
-            val pkg = runCatching { Stores.MEDIA.open(context).getString(LAST_PLAYER, null) }.getOrNull() ?: return@launch
-            val app = runCatching { com.mtwabpin.kolahal.apps.AppNames.label(context, pkg) }.getOrNull() ?: return@launch
+            val pkg =
+                runCatching { Stores.MEDIA.open(context).getString(LAST_PLAYER, null) }.getOrNull()
+                    ?: return@launch
+            val app =
+                runCatching { com.mtwabpin.kolahal.apps.AppNames.label(context, pkg) }.getOrNull()
+                    ?: return@launch
             _lastPlayer.compareAndSet(null, LastPlayer(pkg, app))
         }
     }

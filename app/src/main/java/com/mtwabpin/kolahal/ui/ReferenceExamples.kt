@@ -59,11 +59,12 @@ internal object ReferenceExamples {
          * The line under its name in the reference: what the kind shows, or for the two examples that
          * show something more, what that is.
          */
-        val line: String get() = when (name) {
-            "styles" -> "Rows with styles: bold, a colour, struck-through text"
-            "water" -> "A tap that adds a glass, kept in the store"
-            else -> ReferenceSearch.kindLine(kind)
-        }
+        val line: String
+            get() = when (name) {
+                "styles" -> "Rows with styles: bold, a colour, struck-through text"
+                "water" -> "A tap that adds a glass, kept in the store"
+                else -> ReferenceSearch.kindLine(kind)
+            }
 
         fun code(lang: ScriptLang): String = (if (lang == ScriptLang.LUA) lua else js).trimIndent()
     }
@@ -97,7 +98,14 @@ internal object ReferenceExamples {
               ],
             });
             """,
-        ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240", label = "Steps today", more = listOf(WidgetSpec.Small("4.1 km", "walked"))) },
+        ) { _, _ ->
+            WidgetSpec.Stat(
+                WidgetBase(),
+                value = "6,240",
+                label = "Steps today",
+                more = listOf(WidgetSpec.Small("4.1 km", "walked"))
+            )
+        },
         Widget(
             "text", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
             lua = """
@@ -116,7 +124,13 @@ internal object ReferenceExamples {
               caption: "From Wiktionary",
             });
             """,
-        ) { _, _ -> WidgetSpec.Text(WidgetBase(title = "Word of the day"), "serendipity\nFinding something good without looking for it.", "From Wiktionary") },
+        ) { _, _ ->
+            WidgetSpec.Text(
+                WidgetBase(title = "Word of the day"),
+                "serendipity\nFinding something good without looking for it.",
+                "From Wiktionary"
+            )
+        },
         Widget(
             "list", WidgetKind.LIST, WidgetSize.S4X2, "List",
             lua = """
@@ -163,7 +177,11 @@ internal object ReferenceExamples {
             WidgetSpec.Rows(
                 WidgetBase(title = "Reading list"),
                 listOf(
-                    WidgetSpec.Row("Kolahal's guide", trailing = "docs", tap = WidgetTap(url = "https://mtwabpin.github.io/kolahal/")),
+                    WidgetSpec.Row(
+                        "Kolahal's guide",
+                        trailing = "docs",
+                        tap = WidgetTap(url = "https://mtwabpin.github.io/kolahal/")
+                    ),
                     WidgetSpec.Row("No link here", detail = "A row needs only its title"),
                 ),
                 empty = "Nothing to read",
@@ -193,7 +211,15 @@ internal object ReferenceExamples {
               color: "warn",
             });
             """,
-        ) { _, _ -> WidgetSpec.Progress(WidgetBase(title = "Pune air", color = Colour.WARN), value = 168f, max = 300f, text = "168", label = "Unhealthy") },
+        ) { _, _ ->
+            WidgetSpec.Progress(
+                WidgetBase(title = "Pune air", color = Colour.WARN),
+                value = 168f,
+                max = 300f,
+                text = "168",
+                label = "Unhealthy"
+            )
+        },
         Widget(
             "chart", WidgetKind.CHART, WidgetSize.S2X2, "Chart",
             lua = """
@@ -220,8 +246,12 @@ internal object ReferenceExamples {
             """,
         ) { _, _ ->
             WidgetSpec.Chart(
-                WidgetBase(title = "Unlocks"), listOf(12f, 30f, 0f, 45f, 7f, 1f, 8f), style = "bars",
-                value = "8", label = "Unlocks today", labels = listOf("Sun", "Today"),
+                WidgetBase(title = "Unlocks"),
+                listOf(12f, 30f, 0f, 45f, 7f, 1f, 8f),
+                style = "bars",
+                value = "8",
+                label = "Unlocks today",
+                labels = listOf("Sun", "Today"),
             )
         },
         Widget(
@@ -249,7 +279,12 @@ internal object ReferenceExamples {
               ).getTime() / 1000,
             });
             """,
-        ) { _, zone -> WidgetSpec.Countdown(WidgetBase(title = "Goa trip"), to = LocalDate.of(2026, 12, 20).atStartOfDay(zone).toEpochSecond()) },
+        ) { _, zone ->
+            WidgetSpec.Countdown(
+                WidgetBase(title = "Goa trip"),
+                to = LocalDate.of(2026, 12, 20).atStartOfDay(zone).toEpochSecond()
+            )
+        },
         Widget(
             "buttons", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
             lua = """
@@ -305,7 +340,12 @@ internal object ReferenceExamples {
                 WidgetBase(),
                 listOf(
                     WidgetSpec.Button("Start", WidgetTap(args = "start"), icon = "play"),
-                    WidgetSpec.Button("Stop", WidgetTap(args = "stop"), icon = "pause", color = Colour.BAD),
+                    WidgetSpec.Button(
+                        "Stop",
+                        WidgetTap(args = "stop"),
+                        icon = "pause",
+                        color = Colour.BAD
+                    ),
                     WidgetSpec.Button("Help", WidgetTap(url = "https://example.com/help")),
                 ),
             )
@@ -357,7 +397,16 @@ internal object ReferenceExamples {
             """,
         ) { _, _ ->
             // A switch counts as old after a minute when the code gives no staleAfter.
-            WidgetSpec.Toggles(WidgetBase(staleAfter = 60), listOf(WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd"))))
+            WidgetSpec.Toggles(
+                WidgetBase(staleAfter = 60),
+                listOf(
+                    WidgetSpec.Toggle(
+                        "Do Not Disturb",
+                        on = true,
+                        tap = WidgetTap(args = "dnd")
+                    )
+                )
+            )
         },
         Widget(
             "clock", WidgetKind.CLOCK, WidgetSize.S2X1, "Clock",
@@ -390,7 +439,10 @@ internal object ReferenceExamples {
             });
             """,
         ) { _, _ ->
-            WidgetSpec.Clock(WidgetBase(title = "Clocks", staleAfter = 604800), listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("America/New_York")))
+            WidgetSpec.Clock(
+                WidgetBase(title = "Clocks", staleAfter = 604800),
+                listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("America/New_York"))
+            )
         },
         Widget(
             "agenda", WidgetKind.AGENDA, WidgetSize.S4X2, "Agenda",
@@ -472,7 +524,12 @@ internal object ReferenceExamples {
             WidgetSpec.Agenda(
                 WidgetBase(title = "Plans"),
                 listOf(
-                    WidgetSpec.Event("Lunch with Asha", lunch, ends = lunch + 3600, where = "Cafe Goodluck"),
+                    WidgetSpec.Event(
+                        "Lunch with Asha",
+                        lunch,
+                        ends = lunch + 3600,
+                        where = "Cafe Goodluck"
+                    ),
                     WidgetSpec.Event("Goa trip", trip, allDay = true, color = Colour.GOOD),
                 ),
                 days = 3,
@@ -577,7 +634,12 @@ internal object ReferenceExamples {
             """,
         ) { _, _ ->
             // Five glasses of eight so far today.
-            WidgetSpec.Progress(WidgetBase(color = Colour.ACCENT, tap = WidgetTap(args = "add", label = "add a glass")), value = 5f, max = 8f, text = "5 / 8")
+            WidgetSpec.Progress(
+                WidgetBase(
+                    color = Colour.ACCENT,
+                    tap = WidgetTap(args = "add", label = "add a glass")
+                ), value = 5f, max = 8f, text = "5 / 8"
+            )
         },
     )
 
@@ -634,7 +696,11 @@ internal object ReferenceExamples {
         ) { _, _ ->
             WidgetSpec.Stat(
                 WidgetBase(), value = "8,120", label = "Steps today", delta = "+12%", trend = "up",
-                more = listOf(WidgetSpec.Small("5.6 km", "walked"), WidgetSpec.Small("310", "kcal"), WidgetSpec.Small("42 min", "active")),
+                more = listOf(
+                    WidgetSpec.Small("5.6 km", "walked"),
+                    WidgetSpec.Small("310", "kcal"),
+                    WidgetSpec.Small("42 min", "active")
+                ),
             )
         },
         Widget(
@@ -682,9 +748,9 @@ internal object ReferenceExamples {
             WidgetSpec.Text(
                 WidgetBase(title = "Before you leave"),
                 "Water the plants on the balcony before nine, while the sun is still low. " +
-                    "The basil needs a full glass; the cactus needs nothing until Sunday.\n" +
-                    "Call the plumber about the kitchen tap, and ask for the price first. " +
-                    "Bread and milk on the way home.",
+                        "The basil needs a full glass; the cactus needs nothing until Sunday.\n" +
+                        "Call the plumber about the kitchen tap, and ask for the price first. " +
+                        "Bread and milk on the way home.",
                 "Left on the fridge",
             )
         },
@@ -738,7 +804,18 @@ internal object ReferenceExamples {
             """,
             of = "list", variant = "10 rows",
         ) { _, _ ->
-            val things = listOf("Rice", "Lentils", "Onions", "Tomatoes", "Milk", "Bread", "Eggs", "Bananas", "Coffee", "Soap")
+            val things = listOf(
+                "Rice",
+                "Lentils",
+                "Onions",
+                "Tomatoes",
+                "Milk",
+                "Bread",
+                "Eggs",
+                "Bananas",
+                "Coffee",
+                "Soap"
+            )
             WidgetSpec.Rows(WidgetBase(title = "Groceries"), things.map { WidgetSpec.Row(it) })
         },
         Widget(
@@ -870,7 +947,11 @@ internal object ReferenceExamples {
             WidgetSpec.Rows(
                 WidgetBase(title = "Pune"),
                 listOf(
-                    WidgetSpec.Row("Today", trailing = "22–31°", range = WidgetSpec.Range(22f, 31f, 27f)),
+                    WidgetSpec.Row(
+                        "Today",
+                        trailing = "22–31°",
+                        range = WidgetSpec.Range(22f, 31f, 27f)
+                    ),
                     WidgetSpec.Row("Sun", trailing = "21–30°", range = WidgetSpec.Range(21f, 30f)),
                     WidgetSpec.Row("Mon", trailing = "20–27°", range = WidgetSpec.Range(20f, 27f)),
                 ),
@@ -979,8 +1060,27 @@ internal object ReferenceExamples {
             of = "chart", variant = "Line",
         ) { _, _ ->
             WidgetSpec.Chart(
-                WidgetBase(title = "Sleep"), listOf(7.2f, 6.8f, 7.5f, 6.1f, 8f, 7.4f, 6.9f, 7.8f, 7.1f, 6.5f, 7.9f, 8.2f, 7f, 7.6f), style = "line",
-                value = "7.6 h", label = "Slept last night", labels = listOf("2 weeks ago", "Today"),
+                WidgetBase(title = "Sleep"),
+                listOf(
+                    7.2f,
+                    6.8f,
+                    7.5f,
+                    6.1f,
+                    8f,
+                    7.4f,
+                    6.9f,
+                    7.8f,
+                    7.1f,
+                    6.5f,
+                    7.9f,
+                    8.2f,
+                    7f,
+                    7.6f
+                ),
+                style = "line",
+                value = "7.6 h",
+                label = "Slept last night",
+                labels = listOf("2 weeks ago", "Today"),
             )
         },
         Widget(
@@ -1022,8 +1122,11 @@ internal object ReferenceExamples {
             of = "chart", variant = "Dots",
         ) { _, _ ->
             WidgetSpec.Chart(
-                WidgetBase(title = "Exercise"), "11011111011101110111111011011110111".map { if (it == '1') 1f else 0f }, style = "dots",
-                value = "3", label = "Days in a row",
+                WidgetBase(title = "Exercise"),
+                "11011111011101110111111011011110111".map { if (it == '1') 1f else 0f },
+                style = "dots",
+                value = "3",
+                label = "Days in a row",
             )
         },
         Widget(
@@ -1064,8 +1167,14 @@ internal object ReferenceExamples {
             """,
             of = "countdown", variant = "Near, as a clock",
         ) { now, zone ->
-            val to = java.time.Instant.ofEpochSecond(now).atZone(zone).truncatedTo(ChronoUnit.HOURS).plusHours(3).toEpochSecond()
-            WidgetSpec.Countdown(WidgetBase(title = "Train to Mumbai"), to = to, label = "From platform 4", style = "clock")
+            val to = java.time.Instant.ofEpochSecond(now).atZone(zone).truncatedTo(ChronoUnit.HOURS)
+                .plusHours(3).toEpochSecond()
+            WidgetSpec.Countdown(
+                WidgetBase(title = "Train to Mumbai"),
+                to = to,
+                label = "From platform 4",
+                style = "clock"
+            )
         },
         Widget(
             "buttons-1", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
@@ -1094,7 +1203,18 @@ internal object ReferenceExamples {
             });
             """,
             of = "buttons", variant = "1 button",
-        ) { _, _ -> WidgetSpec.Buttons(WidgetBase(), listOf(WidgetSpec.Button("Log a coffee", WidgetTap(args = "coffee"), icon = "coffee"))) },
+        ) { _, _ ->
+            WidgetSpec.Buttons(
+                WidgetBase(),
+                listOf(
+                    WidgetSpec.Button(
+                        "Log a coffee",
+                        WidgetTap(args = "coffee"),
+                        icon = "coffee"
+                    )
+                )
+            )
+        },
         Widget(
             "buttons-8", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
             lua = """
@@ -1134,7 +1254,14 @@ internal object ReferenceExamples {
             """,
             of = "buttons", variant = "8 buttons",
         ) { _, _ ->
-            WidgetSpec.Buttons(WidgetBase(title = "Timer"), listOf(1, 2, 3, 5, 10, 15, 20, 30).map { WidgetSpec.Button("$it min", WidgetTap(args = "timer $it")) })
+            WidgetSpec.Buttons(
+                WidgetBase(title = "Timer"),
+                listOf(1, 2, 3, 5, 10, 15, 20, 30).map {
+                    WidgetSpec.Button(
+                        "$it min",
+                        WidgetTap(args = "timer $it")
+                    )
+                })
         },
         Widget(
             "toggles-2", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
@@ -1272,7 +1399,13 @@ internal object ReferenceExamples {
             val on = setOf("Morning", "Evening")
             WidgetSpec.Toggles(
                 WidgetBase(title = "Reminders", staleAfter = 60),
-                listOf("Morning", "Noon", "Evening", "Night").map { WidgetSpec.Toggle(it, on = it in on, tap = WidgetTap(args = it)) },
+                listOf("Morning", "Noon", "Evening", "Night").map {
+                    WidgetSpec.Toggle(
+                        it,
+                        on = it in on,
+                        tap = WidgetTap(args = it)
+                    )
+                },
             )
         },
         Widget(
@@ -1313,7 +1446,12 @@ internal object ReferenceExamples {
         ) { _, _ ->
             WidgetSpec.Clock(
                 WidgetBase(title = "Team", staleAfter = 604800),
-                listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("Europe/London"), WidgetSpec.Zone("America/New_York"), WidgetSpec.Zone("Asia/Tokyo")),
+                listOf(
+                    WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+                    WidgetSpec.Zone("Europe/London"),
+                    WidgetSpec.Zone("America/New_York"),
+                    WidgetSpec.Zone("Asia/Tokyo")
+                ),
             )
         },
         Widget(
@@ -1335,7 +1473,13 @@ internal object ReferenceExamples {
             });
             """,
             of = "agenda", variant = "Nothing planned",
-        ) { _, _ -> WidgetSpec.Agenda(WidgetBase(title = "Plans"), emptyList(), empty = "Nothing planned") },
+        ) { _, _ ->
+            WidgetSpec.Agenda(
+                WidgetBase(title = "Plans"),
+                emptyList(),
+                empty = "Nothing planned"
+            )
+        },
         Widget(
             "agenda-week", WidgetKind.AGENDA, WidgetSize.S4X2, "Agenda",
             lua = """
@@ -1452,16 +1596,32 @@ internal object ReferenceExamples {
             of = "agenda", variant = "A busy week",
         ) { now, zone ->
             val today = java.time.Instant.ofEpochSecond(now).atZone(zone).toLocalDate()
-            fun at(day: Long, hour: Int, min: Int = 0) = today.plusDays(day).atTime(hour, min).atZone(zone).toEpochSecond()
+            fun at(day: Long, hour: Int, min: Int = 0) =
+                today.plusDays(day).atTime(hour, min).atZone(zone).toEpochSecond()
             WidgetSpec.Agenda(
                 WidgetBase(title = "This week"),
                 listOf(
-                    WidgetSpec.Event("Dentist", at(1, 9, 30), ends = at(1, 10), where = "Main Street"),
+                    WidgetSpec.Event(
+                        "Dentist",
+                        at(1, 9, 30),
+                        ends = at(1, 10),
+                        where = "Main Street"
+                    ),
                     WidgetSpec.Event("Team lunch", at(1, 13), ends = at(1, 14)),
                     WidgetSpec.Event("Gym", at(2, 7), ends = at(2, 8), color = Colour.GOOD),
                     WidgetSpec.Event("Call with Ravi", at(2, 18)),
-                    WidgetSpec.Event("Mira's birthday", at(3, 0), allDay = true, color = Colour.ACCENT),
-                    WidgetSpec.Event("Flight to Delhi", at(3, 21, 15), where = "Terminal 2", color = Colour.WARN),
+                    WidgetSpec.Event(
+                        "Mira's birthday",
+                        at(3, 0),
+                        allDay = true,
+                        color = Colour.ACCENT
+                    ),
+                    WidgetSpec.Event(
+                        "Flight to Delhi",
+                        at(3, 21, 15),
+                        where = "Terminal 2",
+                        color = Colour.WARN
+                    ),
                 ),
                 days = 4,
             )
@@ -1517,7 +1677,8 @@ internal object ReferenceExamples {
     private fun colour(colour: Colour, text: String) = StyledText.colour(colour, text)
 
     /** The engines' `fmt` helpers, with numbers written as the scripts write them. */
-    private val styles = Fmt { v -> if (v is Double) Json.numberText(v) else v?.toString().orEmpty() }
+    private val styles =
+        Fmt { v -> if (v is Double) Json.numberText(v) else v?.toString().orEmpty() }
 
     private const val STORY_1 = "A launcher that is a terminal"
     private const val STORY_2 = "Lua 5.5 is out"
@@ -1626,7 +1787,11 @@ internal object ReferenceExamples {
             );
             """,
             lines = listOf(
-                Line("neovim/neovim", "Nvim 0.11.4", url = "https://github.com/neovim/neovim/releases"),
+                Line(
+                    "neovim/neovim",
+                    "Nvim 0.11.4",
+                    url = "https://github.com/neovim/neovim/releases"
+                ),
                 Line("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C"),
                 Line("Kolahal on GitHub", url = "https://github.com/mtwabpin/kolahal"),
                 Line(STORY_1, "128 points", url = "https://example.com/1", gap = true),
@@ -1683,8 +1848,14 @@ internal object ReferenceExamples {
             );
             """,
             lines = listOf(
-                Line(Markdown.inline("**3** new releases"), Markdown.block("- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119")),
-                Line(Markdown.inline("**HN** " + Markdown.escape("Show HN: Kolahal, a launcher")), url = "https://example.com/hn"),
+                Line(
+                    Markdown.inline("**3** new releases"),
+                    Markdown.block("- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119")
+                ),
+                Line(
+                    Markdown.inline("**HN** " + Markdown.escape("Show HN: Kolahal, a launcher")),
+                    url = "https://example.com/hn"
+                ),
             ),
         ),
         Log(
@@ -1749,7 +1920,10 @@ internal object ReferenceExamples {
             """,
             lines = listOf(
                 Line(bold("128") + " · " + STORY_1, url = "https://example.com/1"),
-                Line("Today", StyledText.list(listOf("standup " + code("10:00"), "review"), numbered = true)),
+                Line(
+                    "Today",
+                    StyledText.list(listOf("standup " + code("10:00"), "review"), numbered = true)
+                ),
                 Line("BTC 67,120 USD " + colour(Colour.GOOD, "▲ 1.2%")),
             ),
         ),
@@ -1850,7 +2024,10 @@ internal object ReferenceExamples {
             );
             """,
             lines = listOf(
-                Line("$STORY_1 · " + StyledText.link("https://example.com/c", "138 comments"), url = "https://example.com/1"),
+                Line(
+                    "$STORY_1 · " + StyledText.link("https://example.com/c", "138 comments"),
+                    url = "https://example.com/1"
+                ),
                 Line(Markdown.inline("New in [neovim](https://github.com/neovim/neovim/releases)")),
             ),
         ),
@@ -1878,7 +2055,12 @@ internal object ReferenceExamples {
             """,
             lines = listOf(
                 Line(StyledText.tag(Colour.BAD, "LIVE") + " IND v NZ"),
-                Line("neovim/neovim " + StyledText.tag(Colour.ACCENT, "v0.12.0") + " " + StyledText.tag(Colour.WARN, "pre-release")),
+                Line(
+                    "neovim/neovim " + StyledText.tag(
+                        Colour.ACCENT,
+                        "v0.12.0"
+                    ) + " " + StyledText.tag(Colour.WARN, "pre-release")
+                ),
             ),
         ),
         Log(
@@ -1942,11 +2124,34 @@ internal object ReferenceExamples {
             );
             """,
             lines = listOf(
-                Line("Pune · AQI 168", "Unhealthy\n" + styles.bar(listOf(168.0, mapOf("max" to 300.0, "color" to "bad")))),
-                Line("Unlocks", styles.bars(listOf(listOf(listOf("Mon", 42.0), listOf("Tue", 21.0)), mapOf("color" to "good")))),
+                Line(
+                    "Pune · AQI 168",
+                    "Unhealthy\n" + styles.bar(
+                        listOf(
+                            168.0,
+                            mapOf("max" to 300.0, "color" to "bad")
+                        )
+                    )
+                ),
+                Line(
+                    "Unlocks",
+                    styles.bars(
+                        listOf(
+                            listOf(listOf("Mon", 42.0), listOf("Tue", 21.0)),
+                            mapOf("color" to "good")
+                        )
+                    )
+                ),
                 Line(
                     "Pune · 3 days",
-                    styles.ranges(listOf(listOf(listOf("Today", 23.0, 31.0), listOf("Tomorrow", 22.0, 30.0)), mapOf("unit" to "°", "color" to "warn"))),
+                    styles.ranges(
+                        listOf(
+                            listOf(
+                                listOf("Today", 23.0, 31.0),
+                                listOf("Tomorrow", 22.0, 30.0)
+                            ), mapOf("unit" to "°", "color" to "warn")
+                        )
+                    ),
                 ),
             ),
         ),
@@ -1972,7 +2177,18 @@ internal object ReferenceExamples {
               ]),
             );
             """,
-            lines = listOf(Line("Pune", StyledText.stats(listOf("25°C" to "☀️ Sunny", "36%" to "humidity", "9 km/h" to "wind")))),
+            lines = listOf(
+                Line(
+                    "Pune",
+                    StyledText.stats(
+                        listOf(
+                            "25°C" to "☀️ Sunny",
+                            "36%" to "humidity",
+                            "9 km/h" to "wind"
+                        )
+                    )
+                )
+            ),
         ),
         Log(
             "buttons", "ctx.actions: buttons",
@@ -2001,7 +2217,16 @@ internal object ReferenceExamples {
             );
             """,
             lines = listOf(
-                Line("Battery at 92%", "Unplug the charger.", actions = Json.stringify(listOf(listOf("Snooze 30 min", "snooze 30"), listOf("Not today", "snooze 720")))),
+                Line(
+                    "Battery at 92%",
+                    "Unplug the charger.",
+                    actions = Json.stringify(
+                        listOf(
+                            listOf("Snooze 30 min", "snooze 30"),
+                            listOf("Not today", "snooze 720")
+                        )
+                    )
+                ),
             ),
         ),
     )
@@ -2034,7 +2259,14 @@ internal object ReferenceExamples {
                 + " · Dijkstra",
             );
             """,
-            lines = listOf(Line(StyledText.wrap(StyledText.Style.ITALIC, "Simplicity first") + " · Dijkstra")),
+            lines = listOf(
+                Line(
+                    StyledText.wrap(
+                        StyledText.Style.ITALIC,
+                        "Simplicity first"
+                    ) + " · Dijkstra"
+                )
+            ),
         ),
         Log(
             "fmt.underline", "fmt.underline",
@@ -2050,7 +2282,14 @@ internal object ReferenceExamples {
                 + " first",
             );
             """,
-            lines = listOf(Line("Read the " + StyledText.wrap(StyledText.Style.UNDERLINE, "terms") + " first")),
+            lines = listOf(
+                Line(
+                    "Read the " + StyledText.wrap(
+                        StyledText.Style.UNDERLINE,
+                        "terms"
+                    ) + " first"
+                )
+            ),
         ),
         Log(
             "fmt.strike", "fmt.strike",
@@ -2065,7 +2304,14 @@ internal object ReferenceExamples {
               "Price " + fmt.strike("520") + " 480",
             );
             """,
-            lines = listOf(Line("Price " + StyledText.wrap(StyledText.Style.STRIKE, "520") + " 480")),
+            lines = listOf(
+                Line(
+                    "Price " + StyledText.wrap(
+                        StyledText.Style.STRIKE,
+                        "520"
+                    ) + " 480"
+                )
+            ),
         ),
         Log(
             "fmt.code", "fmt.code",
@@ -2131,7 +2377,17 @@ internal object ReferenceExamples {
                 + fmt.tag("good", "v1.2"),
             );
             """,
-            lines = listOf(Line(StyledText.tag(Colour.BAD, "LIVE") + " " + StyledText.tag(Colour.ACCENT, "NEW") + " " + StyledText.tag(Colour.GOOD, "v1.2"))),
+            lines = listOf(
+                Line(
+                    StyledText.tag(
+                        Colour.BAD,
+                        "LIVE"
+                    ) + " " + StyledText.tag(Colour.ACCENT, "NEW") + " " + StyledText.tag(
+                        Colour.GOOD,
+                        "v1.2"
+                    )
+                )
+            ),
         ),
         Log(
             "fmt.link", "fmt.link",
@@ -2153,7 +2409,14 @@ internal object ReferenceExamples {
                 ),
             );
             """,
-            lines = listOf(Line("Read " + StyledText.link("https://mtwabpin.github.io/kolahal/", "the guide"))),
+            lines = listOf(
+                Line(
+                    "Read " + StyledText.link(
+                        "https://mtwabpin.github.io/kolahal/",
+                        "the guide"
+                    )
+                )
+            ),
         ),
         Log(
             "fmt.list", "fmt.list",
@@ -2172,7 +2435,12 @@ internal object ReferenceExamples {
               fmt.list(["standup", "review"], true),
             );
             """,
-            lines = listOf(Line("Today", StyledText.list(listOf("standup", "review"), numbered = true))),
+            lines = listOf(
+                Line(
+                    "Today",
+                    StyledText.list(listOf("standup", "review"), numbered = true)
+                )
+            ),
         ),
         Log(
             "fmt.table", "fmt.table",
@@ -2200,7 +2468,16 @@ internal object ReferenceExamples {
               ),
             );
             """,
-            lines = listOf(Line("Rates", StyledText.table(listOf(listOf("USD", "84.40"), listOf("EUR", "91.20")), header = false, align = "lr"))),
+            lines = listOf(
+                Line(
+                    "Rates",
+                    StyledText.table(
+                        listOf(listOf("USD", "84.40"), listOf("EUR", "91.20")),
+                        header = false,
+                        align = "lr"
+                    )
+                )
+            ),
         ),
         Log(
             "fmt.bar", "fmt.bar",
@@ -2235,7 +2512,12 @@ internal object ReferenceExamples {
               fmt.bars([["Mon", 42], ["Tue", 21]]),
             );
             """,
-            lines = listOf(Line("Unlocks", styles.bars(listOf(listOf(listOf("Mon", 42.0), listOf("Tue", 21.0)))))),
+            lines = listOf(
+                Line(
+                    "Unlocks",
+                    styles.bars(listOf(listOf(listOf("Mon", 42.0), listOf("Tue", 21.0))))
+                )
+            ),
         ),
         Log(
             "fmt.ranges", "fmt.ranges",
@@ -2263,7 +2545,19 @@ internal object ReferenceExamples {
               ),
             );
             """,
-            lines = listOf(Line("Pune", styles.ranges(listOf(listOf(listOf("Today", 23.0, 31.0), listOf("Tomorrow", 22.0, 30.0)), mapOf("unit" to "°"))))),
+            lines = listOf(
+                Line(
+                    "Pune",
+                    styles.ranges(
+                        listOf(
+                            listOf(
+                                listOf("Today", 23.0, 31.0),
+                                listOf("Tomorrow", 22.0, 30.0)
+                            ), mapOf("unit" to "°")
+                        )
+                    )
+                )
+            ),
         ),
         Log(
             "fmt.stats", "fmt.stats",
@@ -2285,7 +2579,12 @@ internal object ReferenceExamples {
               ]),
             );
             """,
-            lines = listOf(Line("Pune", StyledText.stats(listOf("25°C" to "Sunny", "36%" to "humidity")))),
+            lines = listOf(
+                Line(
+                    "Pune",
+                    StyledText.stats(listOf("25°C" to "Sunny", "36%" to "humidity"))
+                )
+            ),
         ),
     )
 

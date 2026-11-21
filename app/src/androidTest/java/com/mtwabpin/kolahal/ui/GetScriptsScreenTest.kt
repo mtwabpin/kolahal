@@ -6,26 +6,26 @@ import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.isDialog
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.core.content.edit
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -58,12 +58,16 @@ import java.security.MessageDigest
  */
 @RunWith(AndroidJUnit4::class)
 class GetScriptsScreenTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
 
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val scripts = ScriptRepository.get(app)
     private val catalog = ScriptCatalog(app)
+
     // Where ScriptCatalog keeps the list it downloaded, and when it did.
     private val cacheFile = File(app.filesDir, "script-catalog.json")
     private val prefs = app.getSharedPreferences("script_catalog", Context.MODE_PRIVATE)
@@ -71,28 +75,85 @@ class GetScriptsScreenTest {
     private val hadFetched = prefs.getLong("fetched", -1).takeIf { it >= 0 }
 
     private val tide = Shared(
-        "gstide", ScriptLang.LUA, "Tide times", "The next high and low tide", "ann", "1.0", listOf("sea", "weather"),
+        "gstide",
+        ScriptLang.LUA,
+        "Tide times",
+        "The next high and low tide",
+        "ann",
+        "1.0",
+        listOf("sea", "weather"),
         code = "-- @command\n-- @desc The next high and low tide\nlog(\"high tide at 14:02\")\n",
         command = true,
     )
-    private val tideNext = tide.copy(version = "1.1", code = tide.code + "log(\"low tide at 20:15\")\n")
+    private val tideNext =
+        tide.copy(version = "1.1", code = tide.code + "log(\"low tide at 20:15\")\n")
     private val joke = Shared(
-        "gsjoke", ScriptLang.JS, "Joke of the day", "A joke each morning", "bo", "2.1", listOf("fun"),
-        code = "// @every 1d\nlog('knock knock')\n", every = 1440, at = listOf("07:00"), on = listOf("unlock"),
+        "gsjoke",
+        ScriptLang.JS,
+        "Joke of the day",
+        "A joke each morning",
+        "bo",
+        "2.1",
+        listOf("fun"),
+        code = "// @every 1d\nlog('knock knock')\n",
+        every = 1440,
+        at = listOf("07:00"),
+        on = listOf("unlock"),
     )
     private val clip = Shared(
-        "gsclip", ScriptLang.LUA, "Clipboard cleaner", "Trims what you copy", "cy", "0.3", listOf("tools"),
-        code = "-- @uses clipboard\nlocal s = clipboard.get()\n", uses = listOf("clipboard"),
+        "gsclip",
+        ScriptLang.LUA,
+        "Clipboard cleaner",
+        "Trims what you copy",
+        "cy",
+        "0.3",
+        listOf("tools"),
+        code = "-- @uses clipboard\nlocal s = clipboard.get()\n",
+        uses = listOf("clipboard"),
     )
-    private val newer = Shared("gsnewer", ScriptLang.LUA, "From the future", "Needs a newer Kolahal", "di", "1.0", emptyList(), code = "log(1)\n", requires = "99.0")
-    private val taken = Shared("help", ScriptLang.LUA, "Help me", "Its name is a command's", "ed", "1.0", emptyList(), code = "log(2)\n")
+    private val newer = Shared(
+        "gsnewer",
+        ScriptLang.LUA,
+        "From the future",
+        "Needs a newer Kolahal",
+        "di",
+        "1.0",
+        emptyList(),
+        code = "log(1)\n",
+        requires = "99.0"
+    )
+    private val taken = Shared(
+        "help",
+        ScriptLang.LUA,
+        "Help me",
+        "Its name is a command's",
+        "ed",
+        "1.0",
+        emptyList(),
+        code = "log(2)\n"
+    )
 
     // A source of one's own, as `owner/name`. Its list is kept as if read a moment ago.
     private val other = (ScriptSources.parse("gsowner/gsscripts") as ScriptSources.Parsed.Ok).source
-    private val tideOther = tide.copy(title = "Tide tables", desc = "High and low water, another way", author = "gu", code = tide.code + "-- tables\n")
-    private val moon = Shared("gsmoon", ScriptLang.LUA, "Moon phase", "Tonight's moon", "gu", "1.0", listOf("sky"), code = "log('full moon')\n")
+    private val tideOther = tide.copy(
+        title = "Tide tables",
+        desc = "High and low water, another way",
+        author = "gu",
+        code = tide.code + "-- tables\n"
+    )
+    private val moon = Shared(
+        "gsmoon",
+        ScriptLang.LUA,
+        "Moon phase",
+        "Tonight's moon",
+        "gu",
+        "1.0",
+        listOf("sky"),
+        code = "log('full moon')\n"
+    )
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         // Adding it first makes sure its list is forgotten too, also when the test only kept its list.
         catalog.add(other)
         catalog.remove(other.name)
@@ -121,28 +182,57 @@ class GetScriptsScreenTest {
         val uses: List<String> = emptyList(),
         val requires: String? = null,
     ) {
-        val sha: String = MessageDigest.getInstance("SHA-256").digest(code.toByteArray()).joinToString("") { "%02x".format(it) }
+        val sha: String = MessageDigest.getInstance("SHA-256").digest(code.toByteArray())
+            .joinToString("") { "%02x".format(it) }
         val file = "$name.${lang.ext}"
 
         fun json() = JSONObject().apply {
             put("name", name); put("lang", lang.ext); put("path", "scripts/$name/$file")
             put("title", title); put("desc", desc); put("author", author); put("version", version)
-            put("tags", JSONArray(tags)); put("uses", JSONArray(uses)); put("on", JSONArray(on)); put("at", JSONArray(at))
-            put("command", command); every?.let { put("every", it) }; requires?.let { put("requires", it) }
+            put("tags", JSONArray(tags)); put("uses", JSONArray(uses)); put(
+            "on",
+            JSONArray(on)
+        ); put("at", JSONArray(at))
+            put("command", command); every?.let {
+            put(
+                "every",
+                it
+            )
+        }; requires?.let { put("requires", it) }
             put("sha256", sha)
         }
 
-        fun entry() = ScriptCatalog.Entry(name, lang, "scripts/$name/$file", title, desc, author, version, tags, uses, on, command, every, at, requires, sha)
+        fun entry() = ScriptCatalog.Entry(
+            name,
+            lang,
+            "scripts/$name/$file",
+            title,
+            desc,
+            author,
+            version,
+            tags,
+            uses,
+            on,
+            command,
+            every,
+            at,
+            requires,
+            sha
+        )
     }
 
     /** The list as last downloaded a moment ago: kept for an hour, so it is read without going online. */
     private fun listed(vararg shared: Shared) {
-        cacheFile.writeText(JSONObject().put("format", 1).put("scripts", JSONArray(shared.map { it.json() })).toString())
+        cacheFile.writeText(
+            JSONObject().put("format", 1).put("scripts", JSONArray(shared.map { it.json() }))
+                .toString()
+        )
         prefs.edit { putLong("fetched", System.currentTimeMillis()) }
         assertEquals(shared.map { it.name }, catalog.cached()?.map { it.name })
     }
 
-    private fun json(vararg shared: Shared) = JSONObject().put("format", 1).put("scripts", JSONArray(shared.map { it.json() })).toString()
+    private fun json(vararg shared: Shared) =
+        JSONObject().put("format", 1).put("scripts", JSONArray(shared.map { it.json() })).toString()
 
     /** [source]'s list as read a moment ago, and [source] added. */
     private fun listedIn(source: ScriptSources.Source, vararg shared: Shared) {
@@ -154,7 +244,9 @@ class GetScriptsScreenTest {
     /** Saves [node] as [file] in the app's external files, under sources-shots, to look at. */
     private fun shot(node: SemanticsNodeInteraction, file: String) {
         val out = checkNotNull(app.getExternalFilesDir("sources-shots")) { "no external files" }
-        File(out, file).outputStream().use { node.captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        File(out, file).outputStream().use {
+            node.captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
     }
 
     /** The screen, opened as Scripts opens it; [downloaded] code is there as if fetched for the sheet. */
@@ -190,13 +282,26 @@ class GetScriptsScreenTest {
     }
 
     /** Each shared script by its title, with its file, how it runs, what it does and whether it can be installed. */
-    @Test fun theListShowsEachScriptAndHowItRuns() {
+    @Test
+    fun theListShowsEachScriptAndHowItRuns() {
         listed(tide, joke, newer, taken)
         show()
         compose.waitForNode(row("Help me", "help.lua", "Its name is a command's · Name taken"))
         compose.waitForNode(row("Tide times", "gstide.lua · command", "The next high and low tide"))
-        compose.waitForNode(row("Joke of the day", "gsjoke.js · every 1d · daily 07:00 · on unlock", "A joke each morning"))
-        compose.waitForNode(row("From the future", "gsnewer.lua", "Needs a newer Kolahal · Needs Kolahal 99.0"))
+        compose.waitForNode(
+            row(
+                "Joke of the day",
+                "gsjoke.js · every 1d · daily 07:00 · on unlock",
+                "A joke each morning"
+            )
+        )
+        compose.waitForNode(
+            row(
+                "From the future",
+                "gsnewer.lua",
+                "Needs a newer Kolahal · Needs Kolahal 99.0"
+            )
+        )
         compose.onNodeWithText("Shared in ${ScriptCatalog.SOURCE} on GitHub").assertExists()
     }
 
@@ -205,9 +310,22 @@ class GetScriptsScreenTest {
      * Add script → From the library, where a copy of one is installed and updated. Here, each would
      * say "Name taken".
      */
-    @Test fun theAppsOwnScriptsAreLeftOut() {
-        val own = Shared("weather", ScriptLang.LUA, "Weather", "Kolahal's own", "Kolahal", "1.0", emptyList(), "log('weather')")
-        cacheFile.writeText(JSONObject().put("format", 1).put("scripts", JSONArray(listOf(tide, own).map { it.json() })).toString())
+    @Test
+    fun theAppsOwnScriptsAreLeftOut() {
+        val own = Shared(
+            "weather",
+            ScriptLang.LUA,
+            "Weather",
+            "Kolahal's own",
+            "Kolahal",
+            "1.0",
+            emptyList(),
+            "log('weather')"
+        )
+        cacheFile.writeText(
+            JSONObject().put("format", 1)
+                .put("scripts", JSONArray(listOf(tide, own).map { it.json() })).toString()
+        )
         prefs.edit { putLong("fetched", System.currentTimeMillis()) }
         assertEquals(listOf(tide.name), catalog.cached()?.map { it.name })
         show()
@@ -219,7 +337,8 @@ class GetScriptsScreenTest {
      * The search matches names, authors and tags, every word: two words that each match a different
      * script find neither. Nothing found says so.
      */
-    @Test fun theSearchMatchesNamesAuthorsAndTags() {
+    @Test
+    fun theSearchMatchesNamesAuthorsAndTags() {
         listed(tide, joke)
         show()
         compose.waitForText("Tide times")
@@ -240,7 +359,8 @@ class GetScriptsScreenTest {
     }
 
     /** An empty list says nothing is shared yet. */
-    @Test fun anEmptyListSaysSo() {
+    @Test
+    fun anEmptyListSaysSo() {
         cacheFile.writeText("""{"format":1,"scripts":[]}""")
         prefs.edit { putLong("fetched", System.currentTimeMillis()) }
         assertEquals(emptyList<ScriptCatalog.Entry>(), catalog.cached())
@@ -255,13 +375,15 @@ class GetScriptsScreenTest {
      * again. The failed read's state (the entries from before, and the error) is set here, as nothing
      * goes online: that a failed read keeps them isn't tried.
      */
-    @Test fun aListThatCantBeReadSaysWhyAndShowsTheLastOne() {
+    @Test
+    fun aListThatCantBeReadSaysWhyAndShowsTheLastOne() {
         listed(tide)
         val vm = show()
         compose.waitForText("Tide times")
         compose.runOnUiThread {
             val shared = vm.scriptActions._shared
-            shared.value = ScriptActions.SharedScripts(shared.value.sources.map { it.copy(error = "HTTP 503 from mtwabpin.github.io") })
+            shared.value =
+                ScriptActions.SharedScripts(shared.value.sources.map { it.copy(error = "HTTP 503 from mtwabpin.github.io") })
         }
         compose.waitForText("Can't read ${ScriptCatalog.SOURCE}: HTTP 503 from mtwabpin.github.io")
         compose.onNodeWithText("Try again").assertExists()
@@ -269,7 +391,8 @@ class GetScriptsScreenTest {
     }
 
     /** A script's sheet says what it is, how it runs, what it uses and shows its code before Install. */
-    @Test fun aScriptsSheetShowsItBeforeInstalling() {
+    @Test
+    fun aScriptsSheetShowsItBeforeInstalling() {
         listed(tide)
         show(tide)
         compose.waitForText("Tide times")
@@ -286,7 +409,8 @@ class GetScriptsScreenTest {
     }
 
     /** One that uses nothing private installs at the tap, says how to run it, and shows as Installed. */
-    @Test fun installingOneThatUsesNothingPrivateTakesOneTap() {
+    @Test
+    fun installingOneThatUsesNothingPrivateTakesOneTap() {
         listed(tide)
         show(tide)
         compose.waitForText("Tide times")
@@ -320,7 +444,8 @@ class GetScriptsScreenTest {
     }
 
     /** One that asks for something lists it to switch off before installing; it installs with that answer. */
-    @Test fun installingOneThatAsksLetsYouChoose() {
+    @Test
+    fun installingOneThatAsksLetsYouChoose() {
         installClip(switchOff = true)
         val s = scripts.byName(clip.name)!!
         assertEquals(clip.code, s.code)
@@ -329,7 +454,8 @@ class GetScriptsScreenTest {
     }
 
     /** Left on in the dialog, what it asks for is allowed. */
-    @Test fun installingWithItLeftOnAllowsIt() {
+    @Test
+    fun installingWithItLeftOnAllowsIt() {
         installClip(switchOff = false)
         val s = scripts.byName(clip.name)!!
         assertTrue(s.enabled)
@@ -337,7 +463,8 @@ class GetScriptsScreenTest {
     }
 
     /** A newer version of one installed from here shows as an update, and Update brings its code. */
-    @Test fun anUpdateShowsItsVersionAndBringsTheNewCode() {
+    @Test
+    fun anUpdateShowsItsVersionAndBringsTheNewCode() {
         catalog.install(tide.entry(), tide.code)
         listed(tideNext)
         show(tideNext)
@@ -351,7 +478,8 @@ class GetScriptsScreenTest {
     }
 
     /** A copy you edited is replaced only after asking: Cancel keeps your edits, Replace brings the shared code. */
-    @Test fun anEditedCopyIsReplacedOnlyAfterAsking() {
+    @Test
+    fun anEditedCopyIsReplacedOnlyAfterAsking() {
         val installed = catalog.install(tide.entry(), tide.code)
         val mine = tide.code + "-- mine\n"
         scripts.saveCode(installed.id, mine, byUser = true)
@@ -374,33 +502,50 @@ class GetScriptsScreenTest {
     // ---- sources of one's own ----------------------------------------------------------
 
     /** The scripts of a source you added show after kolahal-scripts', each saying where it is from. A name in both shows twice. */
-    @Test fun aSourceYouAddedListsItsScriptsWithItsName() {
+    @Test
+    fun aSourceYouAddedListsItsScriptsWithItsName() {
         listed(tide, joke)
         listedIn(other, tideOther, moon)
         show()
         compose.waitForNode(row("Tide times", "gstide.lua · command", "The next high and low tide"))
-        compose.waitForNode(row("Tide tables", "High and low water, another way · From gsowner/gsscripts"))
+        compose.waitForNode(
+            row(
+                "Tide tables",
+                "High and low water, another way · From gsowner/gsscripts"
+            )
+        )
         compose.waitForNode(row("Moon phase", "Tonight's moon · From gsowner/gsscripts"))
-        compose.onNodeWithText("Shared in ${ScriptCatalog.SOURCE} and 1 source you added").assertExists()
-        compose.onNodeWithText("Every script in ${ScriptCatalog.SOURCE} is reviewed", substring = true).assertExists()
+        compose.onNodeWithText("Shared in ${ScriptCatalog.SOURCE} and 1 source you added")
+            .assertExists()
+        compose.onNodeWithText(
+            "Every script in ${ScriptCatalog.SOURCE} is reviewed",
+            substring = true
+        ).assertExists()
         shot(compose.onRoot(), "get-more-scripts-two-sources.png")
     }
 
     /** A name installed from one source says so in the other, and its sheet says where it came from. */
-    @Test fun aNameInstalledFromAnotherSourceSaysSo() {
+    @Test
+    fun aNameInstalledFromAnotherSourceSaysSo() {
         catalog.install(tide.entry(), tide.code)
         listed(tide)
         listedIn(other, tideOther)
         show()
         compose.waitForNode(row("Tide times", "The next high and low tide · Installed"))
-        compose.waitForNode(row("Tide tables", "High and low water, another way · From gsowner/gsscripts · Installed from ${ScriptCatalog.SOURCE}"))
+        compose.waitForNode(
+            row(
+                "Tide tables",
+                "High and low water, another way · From gsowner/gsscripts · Installed from ${ScriptCatalog.SOURCE}"
+            )
+        )
         compose.onNodeWithText("Tide tables").performClick()
         compose.waitForText("You installed gstide from ${ScriptCatalog.SOURCE}.")
         compose.onNodeWithText("From: gsowner/gsscripts, a source you added").assertExists()
     }
 
     /** A script from a source you added installs from there, and updates follow that source. */
-    @Test fun aScriptFromASourceYouAddedRemembersIt() {
+    @Test
+    fun aScriptFromASourceYouAddedRemembersIt() {
         listed(tide)
         listedIn(other, moon)
         show(moon)
@@ -414,7 +559,8 @@ class GetScriptsScreenTest {
     }
 
     /** A source that can't be read says why, and the other sources' scripts still show. */
-    @Test fun aSourceThatCantBeReadDoesntHideTheOthers() {
+    @Test
+    fun aSourceThatCantBeReadDoesntHideTheOthers() {
         listed(tide)
         listedIn(other, moon)
         val vm = show()
@@ -422,7 +568,12 @@ class GetScriptsScreenTest {
         compose.runOnUiThread {
             val shared = vm.scriptActions._shared
             shared.value = ScriptActions.SharedScripts(
-                shared.value.sources.map { if (it.source == other) it.copy(entries = emptyList(), error = "HTTP 404 from gsowner.github.io") else it },
+                shared.value.sources.map {
+                    if (it.source == other) it.copy(
+                        entries = emptyList(),
+                        error = "HTTP 404 from gsowner.github.io"
+                    ) else it
+                },
             )
         }
         compose.waitForText("Can't read gsowner/gsscripts: HTTP 404 from gsowner.github.io")
@@ -431,7 +582,8 @@ class GetScriptsScreenTest {
     }
 
     /** Sources, in the top bar, opens the list of sources. */
-    @Test fun sourcesOpensFromTheTopBar() {
+    @Test
+    fun sourcesOpensFromTheTopBar() {
         listed(tide)
         val vm = show()
         compose.onNode(hasText("Sources") and hasClickAction()).performClick()
@@ -452,14 +604,26 @@ class GetScriptsScreenTest {
     }
 
     /** kolahal-scripts comes first and stays; a source you added shows its address, its scripts and when it was read, and Remove takes it off. */
-    @Test fun theSourcesPageListsEachAndRemovesOne() {
+    @Test
+    fun theSourcesPageListsEachAndRemovesOne() {
         listed(tide, joke)
         listedIn(other, tideOther, moon)
         showSources()
-        compose.waitForNode(hasText(ScriptCatalog.SOURCE) and hasText(ScriptSources.DEFAULT.index) and hasText("Reviewed · 2 scripts · Read just now"))
-        compose.waitForNode(hasText("gsowner/gsscripts") and hasText("https://gsowner.github.io/gsscripts/index.json") and hasText("2 scripts · Read just now"))
+        compose.waitForNode(
+            hasText(ScriptCatalog.SOURCE) and hasText(ScriptSources.DEFAULT.index) and hasText(
+                "Reviewed · 2 scripts · Read just now"
+            )
+        )
+        compose.waitForNode(
+            hasText("gsowner/gsscripts") and hasText("https://gsowner.github.io/gsscripts/index.json") and hasText(
+                "2 scripts · Read just now"
+            )
+        )
         // Only the one you added can be removed.
-        assertEquals(1, compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().size)
+        assertEquals(
+            1,
+            compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().size
+        )
         shot(compose.onRoot(), "sources.png")
         compose.onNodeWithContentDescription("Remove").performClick()
         compose.waitForText("Removed gsowner/gsscripts")
@@ -468,7 +632,8 @@ class GetScriptsScreenTest {
     }
 
     /** Add source shows the address it will read and the warning, then adds the source and reads it. */
-    @Test fun addingASourceShowsWhatItReadsAndWarns() {
+    @Test
+    fun addingASourceShowsWhatItReadsAndWarns() {
         listed(tide)
         // Its list is kept already, so adding it reads nothing online.
         catalog.keep(other, json(moon))
@@ -476,7 +641,8 @@ class GetScriptsScreenTest {
         compose.onNodeWithText("Add source", useUnmergedTree = true).performClick()
         compose.onNode(hasSetTextAction()).performTextInput("gsowner/gsscripts")
         compose.waitForText("Reads https://gsowner.github.io/gsscripts/index.json")
-        compose.onNodeWithText("Kolahal doesn't check scripts from it. Only add repositories you trust.").assertExists()
+        compose.onNodeWithText("Kolahal doesn't check scripts from it. Only add repositories you trust.")
+            .assertExists()
         shot(compose.onNode(isDialog()), "add-source.png")
         compose.onNode(hasText("Add") and hasClickAction()).performClick()
         compose.waitForText("Added gsowner/gsscripts · 1 script")
@@ -485,7 +651,8 @@ class GetScriptsScreenTest {
     }
 
     /** What isn't a source says why, and can't be added. */
-    @Test fun anAddressThatIsntASourceSaysWhy() {
+    @Test
+    fun anAddressThatIsntASourceSaysWhy() {
         listed(tide)
         showSources()
         compose.onNodeWithText("Add source", useUnmergedTree = true).performClick()

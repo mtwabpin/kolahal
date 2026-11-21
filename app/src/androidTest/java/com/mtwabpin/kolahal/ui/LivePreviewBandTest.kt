@@ -28,17 +28,23 @@ import org.junit.runner.RunWith
 /** The band that says it's a preview, on the home screen. */
 @RunWith(AndroidJUnit4::class)
 class LivePreviewBandTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
 
-    @Before fun show() {
+    @Before
+    fun show() {
         vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
-                Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
+                Box(Modifier
+                    .size(360.dp, 700.dp)
+                    .consumeWindowInsets(WindowInsets.safeDrawing)) {
                     TerminalScreen(vm)
                 }
             }
@@ -46,14 +52,16 @@ class LivePreviewBandTest {
         compose.waitForIdle()
     }
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
 
     private fun type(line: String) {
         compose.runOnUiThread { vm.onInputChange(TextFieldValue(line)) }
         compose.waitForIdle()
     }
 
-    @Test fun itSaysWhatItShowsRightAboveThePrompt() {
+    @Test
+    fun itSaysWhatItShowsRightAboveThePrompt() {
         compose.onNodeWithTag("live-preview").assertDoesNotExist()
         type("theme dra")
         compose.onNodeWithTag("live-preview").assertDoesNotExist()
@@ -61,7 +69,10 @@ class LivePreviewBandTest {
         compose.onNodeWithText("Preview: dracula  ·  Enter to apply").assertIsDisplayed()
         val band = compose.onNodeWithTag("live-preview").getUnclippedBoundsInRoot()
         val prompt = compose.onNodeWithTag("prompt").getUnclippedBoundsInRoot()
-        assertTrue("band ${band.bottom}, prompt ${prompt.top}", band.bottom <= prompt.top && prompt.top - band.bottom < 24.dp)
+        assertTrue(
+            "band ${band.bottom}, prompt ${prompt.top}",
+            band.bottom <= prompt.top && prompt.top - band.bottom < 24.dp
+        )
         type("font fira-code")
         compose.onNodeWithText("Preview: font fira-code  ·  Enter to apply").assertIsDisplayed()
         type("config set font.size 20")

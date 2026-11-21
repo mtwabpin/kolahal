@@ -25,18 +25,22 @@ class ScriptFolderTest {
     /** What it suggests: an hour, two daily times, notifications. */
     private val lines = "-- @every 1h\n-- @at 07:00, 18:30\n-- @notify\n"
 
-    private val settings = """{"version":1,"scripts":[{"name":"foldtest","lang":"lua","every":30,"at":["10:00"],"notify":true,"enabled":true}]}"""
+    private val settings =
+        """{"version":1,"scripts":[{"name":"foldtest","lang":"lua","every":30,"at":["10:00"],"notify":true,"enabled":true}]}"""
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         dir.deleteRecursively()
         dir.mkdirs()
     }
 
     /** What this phone's last export wrote, as Kolahal keeps it: put back after a test exports. */
-    private val folderPrefs = context.getSharedPreferences("script_folder", android.content.Context.MODE_PRIVATE)
+    private val folderPrefs =
+        context.getSharedPreferences("script_folder", android.content.Context.MODE_PRIVATE)
     private val exportedWas = folderPrefs.getStringSet("exported", null)
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         scripts.byName("foldtest")?.let {
             ScriptScheduler.cancel(context, it.id)
             scripts.delete(it.id)
@@ -62,7 +66,8 @@ class ScriptFolderTest {
     }
 
     /** Two files with one name (`Foldtest.lua`, `foldtest.lua`) can't switch a new script on: the second finds the first's code. */
-    @Test fun twoFilesOfOneNameLeaveTheScriptOff() {
+    @Test
+    fun twoFilesOfOneNameLeaveTheScriptOff() {
         File(dir, "Foldtest.lua").writeText("return 1")
         File(dir, "foldtest.lua").writeText("return 1")
         File(dir, "kolahal.json").writeText(settings)
@@ -70,7 +75,8 @@ class ScriptFolderTest {
         assertFalse(scripts.byName("foldtest")!!.enabled)
     }
 
-    @Test fun aNewScriptGetsWhatItsCodeSuggests() {
+    @Test
+    fun aNewScriptGetsWhatItsCodeSuggests() {
         val s = imported(lines + "return 1")
         assertEquals(60, s.intervalMin)
         assertEquals(listOf("07:00", "18:30"), s.atTimes)
@@ -78,14 +84,16 @@ class ScriptFolderTest {
         assertFalse(s.enabled)
     }
 
-    @Test fun aNewScriptWithSettingsGetsThoseInstead() {
+    @Test
+    fun aNewScriptWithSettingsGetsThoseInstead() {
         val s = imported(lines + "return 1", settings)
         assertEquals(30, s.intervalMin)
         assertEquals(listOf("10:00"), s.atTimes)
         assertFalse(s.enabled)
     }
 
-    @Test fun aChangedScriptKeepsWhatYouSet() {
+    @Test
+    fun aChangedScriptKeepsWhatYouSet() {
         yours(lines + "return 1", every = 120, at = listOf("09:00"))
         val s = imported(lines + "return 2")
         assertEquals(lines + "return 2", s.code)
@@ -96,14 +104,16 @@ class ScriptFolderTest {
         assertFalse(s.enabled)
     }
 
-    @Test fun timersYouSwitchedOffStayOff() {
+    @Test
+    fun timersYouSwitchedOffStayOff() {
         yours(lines + "return 1", every = 0, at = emptyList())
         val s = imported(lines + "return 2")
         assertEquals(0, s.intervalMin)
         assertEquals(emptyList<String>(), s.atTimes)
     }
 
-    @Test fun aChangedLineSetsTheTimer() {
+    @Test
+    fun aChangedLineSetsTheTimer() {
         yours(lines + "return 1", every = 120, at = listOf("09:00"))
         val s = imported("-- @every 30m\n-- @at 08:00\nreturn 1")
         assertEquals(30, s.intervalMin)
@@ -111,14 +121,16 @@ class ScriptFolderTest {
         assertFalse(s.enabled)
     }
 
-    @Test fun aLineTakenOutTakesBackOnlyWhatItSet() {
+    @Test
+    fun aLineTakenOutTakesBackOnlyWhatItSet() {
         yours(lines + "return 1", every = 60, at = listOf("09:00"))
         val s = imported("return 1")
         assertEquals("what the line had set", 0, s.intervalMin)
         assertEquals("what you had set", listOf("09:00"), s.atTimes)
     }
 
-    @Test fun settingsInTheFolderStillApplyToAChangedScript() {
+    @Test
+    fun settingsInTheFolderStillApplyToAChangedScript() {
         yours(lines + "return 1", every = 120, at = listOf("09:00"))
         val s = imported(lines + "return 2", settings)
         assertEquals(30, s.intervalMin)
@@ -129,7 +141,8 @@ class ScriptFolderTest {
     }
 
     /** The same code again isn't an update; changed code is. */
-    @Test fun onlyAChangedScriptCountsAsUpdated() {
+    @Test
+    fun onlyAChangedScriptCountsAsUpdated() {
         yours(lines + "return 1", every = 120, at = listOf("09:00"))
         File(dir, "foldtest.lua").writeText(lines + "return 1")
         assertEquals(0, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
@@ -138,10 +151,12 @@ class ScriptFolderTest {
     }
 
     /** The folder's settings (kolahal.json) count as an update only when they change what the script has. */
-    @Test fun onlyChangedSettingsCountAsUpdated() {
+    @Test
+    fun onlyChangedSettingsCountAsUpdated() {
         yours(lines + "return 1", every = 120, at = listOf("09:00"))
         File(dir, "foldtest.lua").writeText(lines + "return 1")
-        fun manifest(every: Int) = """{"version":1,"scripts":[{"name":"foldtest","lang":"lua","every":$every,"at":["09:00"],"notify":false,"enabled":true}]}"""
+        fun manifest(every: Int) =
+            """{"version":1,"scripts":[{"name":"foldtest","lang":"lua","every":$every,"at":["09:00"],"notify":false,"enabled":true}]}"""
         File(dir, "kolahal.json").writeText(manifest(120))
         assertEquals(0, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
         File(dir, "kolahal.json").writeText(manifest(30))
@@ -150,22 +165,29 @@ class ScriptFolderTest {
     }
 
     /** Another phone's script stays in the folder, and so do its settings; one whose file is gone doesn't. */
-    @Test fun exportKeepsTheSettingsOfScriptsItKeeps() {
+    @Test
+    fun exportKeepsTheSettingsOfScriptsItKeeps() {
         yours("return 1", every = 120, at = emptyList())
         File(dir, "otherphone.lua").writeText("return 1")
         File(dir, "kolahal.json").writeText(
             """{"version":1,"scripts":[{"name":"otherphone","lang":"lua","every":30,"at":["10:00"],"notify":true,"enabled":true},""" +
-                """{"name":"gone","lang":"lua","every":60,"at":[],"notify":false,"enabled":true}]}"""
+                    """{"name":"gone","lang":"lua","every":60,"at":[],"notify":false,"enabled":true}]}"""
         )
         ScriptFolder(context).export(DocumentFile.fromFile(dir))
-        val entries = ((Json.parse(File(dir, "kolahal.json").readText()) as Map<*, *>)["scripts"] as List<*>).map { it as Map<*, *> }.associateBy { it["name"] }
+        val entries = ((Json.parse(
+            File(
+                dir,
+                "kolahal.json"
+            ).readText()
+        ) as Map<*, *>)["scripts"] as List<*>).map { it as Map<*, *> }.associateBy { it["name"] }
         assertEquals(30, (entries.getValue("otherphone")["every"] as Number).toInt())
         assertEquals(listOf("10:00"), entries.getValue("otherphone")["at"])
         assertEquals(120, (entries.getValue("foldtest")["every"] as Number).toInt())
         assertFalse("gone" in entries)
     }
 
-    @Test fun anUnchangedScriptIsLeftAsItIs() {
+    @Test
+    fun anUnchangedScriptIsLeftAsItIs() {
         yours(lines + "return 1", every = 120, at = listOf("09:00"))
         val s = imported(lines + "return 1")
         assertEquals(120, s.intervalMin)

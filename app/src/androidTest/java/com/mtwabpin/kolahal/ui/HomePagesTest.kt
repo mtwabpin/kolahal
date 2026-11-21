@@ -9,9 +9,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -34,12 +33,15 @@ import kotlin.math.abs
 /** Home's two pages: the log, and the widgets page beside it (`widgets.page`), which can come first (`widgets.start`). */
 @RunWith(AndroidJUnit4::class)
 class HomePagesTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    @get:Rule
+    val compose = createEmptyComposeRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val config = Config.get(instrumentation.targetContext)
 
-    @After fun tearDown() = listOf(Keys.WIDGETS_PAGE, Keys.WIDGETS_START, Keys.SELECTOR_RAIL).forEach(config::reset)
+    @After
+    fun tearDown() =
+        listOf(Keys.WIDGETS_PAGE, Keys.WIDGETS_START, Keys.SELECTOR_RAIL).forEach(config::reset)
 
     private fun widgetsPage() = compose.onNodeWithTag("widgets-page")
 
@@ -48,9 +50,13 @@ class HomePagesTest {
         runCatching { if (shown) widgetsPage().assertIsDisplayed() else widgetsPage().assertIsNotDisplayed() }.isSuccess
     }
 
-    @Test fun homeOpensOnTheWidgetsPageAndTypingBringsUpTheLog() {
+    @Test
+    fun homeOpensOnTheWidgetsPageAndTypingBringsUpTheLog() {
         // Not a first run: right after an install, the welcome tour would open over home a moment after start.
-        instrumentation.targetContext.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+        instrumentation.targetContext.getSharedPreferences(
+            "launcher",
+            android.content.Context.MODE_PRIVATE
+        )
             .edit().putBoolean("intro_shown", true).commit()
         config.set(Keys.WIDGETS_PAGE, "left")
         config.set(Keys.WIDGETS_START, "on")
@@ -66,7 +72,8 @@ class HomePagesTest {
             compose.onNodeWithContentDescription("Add a widget").assertDoesNotExist()
             // The app selector on both pages, the same: as far down, and as high. Where each starts and how
             // high it is, not its bounds: the log page is off screen, and those are cut to the screen.
-            fun strips() = compose.onAllNodesWithTag("app-selector-strip", useUnmergedTree = true).fetchSemanticsNodes().map { it.positionInRoot.y to it.size.height }
+            fun strips() = compose.onAllNodesWithTag("app-selector-strip", useUnmergedTree = true)
+                .fetchSemanticsNodes().map { it.positionInRoot.y to it.size.height }
             runCatching {
                 compose.waitUntil(5_000) { strips().let { s -> s.size == 2 && abs(s[0].first - s[1].first) < 1f && s[0].second == s[1].second } }
             }
@@ -99,8 +106,12 @@ class HomePagesTest {
      * page they turn to, and `widgets page`, turn home across. Left is the page before: with the page on
      * the left, left leads to it.
      */
-    @Test fun pageActionsAndTheCommandTurnHomeWithoutASwipe() {
-        instrumentation.targetContext.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+    @Test
+    fun pageActionsAndTheCommandTurnHomeWithoutASwipe() {
+        instrumentation.targetContext.getSharedPreferences(
+            "launcher",
+            android.content.Context.MODE_PRIVATE
+        )
             .edit().putBoolean("intro_shown", true).commit()
         config.set(Keys.WIDGETS_PAGE, "left")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -134,8 +145,12 @@ class HomePagesTest {
      * Back from a screen returns to the home page it was opened from, not to home's first page:
      * Arrange widgets, opened from the widgets page, goes back there. Home still goes to the first page.
      */
-    @Test fun backFromAScreenReturnsToThePageItWasOpenedFrom() {
-        instrumentation.targetContext.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+    @Test
+    fun backFromAScreenReturnsToThePageItWasOpenedFrom() {
+        instrumentation.targetContext.getSharedPreferences(
+            "launcher",
+            android.content.Context.MODE_PRIVATE
+        )
             .edit().putBoolean("intro_shown", true).commit()
         config.set(Keys.WIDGETS_PAGE, "left")
         config.set(Keys.WIDGETS_START, "on")

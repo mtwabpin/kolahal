@@ -37,11 +37,21 @@ class BackupActionsTest {
     private val config = Config.get(context)
     private val prefs = AppPrefs.get(context)
     private val repo = ScriptRepository.get(context)
-    @get:Rule val logLines = LogLinesSince()
-    @get:Rule val configReset = ConfigReset()
+
+    @get:Rule
+    val logLines = LogLinesSince()
+
+    @get:Rule
+    val configReset = ConfigReset()
     private val host = RecordingHost()
     private val scope = CoroutineScope(SupervisorJob())
-    private val scripts = ScriptActions(context, SavedStateHandle(), scope, MutableStateFlow<List<Script>>(emptyList()), host)
+    private val scripts = ScriptActions(
+        context,
+        SavedStateHandle(),
+        scope,
+        MutableStateFlow<List<Script>>(emptyList()),
+        host
+    )
     private val actions = BackupActions(context, scripts, host)
     private val files = File(context.cacheDir, "backup-actions-test")
 
@@ -49,15 +59,19 @@ class BackupActionsTest {
     private val folderWas = autoBackup.getString("folder", null)
     private val lastWas = autoBackup.getLong("last", 0L)
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         // No folder chosen and no backup made, whatever this phone had.
         autoBackup.edit(commit = true) { remove("folder"); remove("last") }
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         scope.cancel()
         listOf("ba-al", "ba-al2", "help").forEach { prefs.setAlias(it, null) }
-        listOf("ba-bk", "ba-bk2").forEach { n -> repo.byName(n)?.let { ScriptScheduler.cancel(context, it.id); repo.delete(it.id) } }
+        listOf("ba-bk", "ba-bk2").forEach { n ->
+            repo.byName(n)?.let { ScriptScheduler.cancel(context, it.id); repo.delete(it.id) }
+        }
         files.deleteRecursively()
         autoBackup.edit(commit = true) {
             if (folderWas != null) putString("folder", folderWas) else remove("folder")
@@ -69,16 +83,21 @@ class BackupActionsTest {
         File(files.apply { mkdirs() }, name).apply { if (text != null) writeText(text) }
 
     /** A folder Kolahal was never given (or has lost): what a picked folder is without its grant. */
-    private val ungranted = Uri.parse("content://com.android.externalstorage.documents/tree/primary%3AKolahalTestBackups")
+    private val ungranted =
+        Uri.parse("content://com.android.externalstorage.documents/tree/primary%3AKolahalTestBackups")
 
     /** Export everything writes the backup to the file picked and says what it holds; nothing picked, nothing happens. */
-    @Test fun exportSavesTheFileAndSaysWhatItHolds() {
+    @Test
+    fun exportSavesTheFileAndSaysWhatItHolds() {
         actions.exportBackup(null)
         assertTrue(host.notices.isEmpty())
 
         val out = file("kolahal-backup.json")
         actions.exportBackup(Uri.fromFile(out))
-        assertTrue(out.readText(), out.readText().startsWith("{") && "\"kolahal\":3" in out.readText())
+        assertTrue(
+            out.readText(),
+            out.readText().startsWith("{") && "\"kolahal\":3" in out.readText()
+        )
         assertEquals(
             RecordingHost.Notice(
                 "Backup saved: settings, apps, ${repo.all().size} scripts, todos, notes, reminders, feeds and the log (without notifications and calls)",
@@ -89,18 +108,22 @@ class BackupActionsTest {
     }
 
     /** Importing a settings file says how much came back, and that a new script is off until turned on. */
-    @Test fun importSaysWhatCameBack() {
+    @Test
+    fun importSaysWhatCameBack() {
         actions.importBackup(null)
         assertTrue(host.notices.isEmpty())
 
         val backup = file(
             "settings.json",
             """{"kolahal":3,"config":{"theme.name":"amber"},"aliases":{"ba-al":"echo a","ba-al2":"echo b"},""" +
-                """"scripts":[{"name":"ba-bk","lang":"lua","code":"return 1","enabled":true}]}""",
+                    """"scripts":[{"name":"ba-bk","lang":"lua","code":"return 1","enabled":true}]}""",
         )
         actions.importBackup(Uri.fromFile(backup))
         assertEquals(
-            RecordingHost.Notice("Imported 1 setting, 2 aliases, 1 script (1 new script is off — turn it on in Scripts)", false),
+            RecordingHost.Notice(
+                "Imported 1 setting, 2 aliases, 1 script (1 new script is off — turn it on in Scripts)",
+                false
+            ),
             host.lastNotice(),
         )
         assertEquals("amber", config[Keys.THEME])
@@ -114,24 +137,40 @@ class BackupActionsTest {
      * A file that lists one script twice can't switch it on: the second entry finds the first one's
      * code in place, but the script is still new to this phone and stays off until reviewed.
      */
-    @Test fun aScriptListedTwiceStaysOff() {
+    @Test
+    fun aScriptListedTwiceStaysOff() {
         val entry = """{"name":"ba-bk","lang":"lua","code":"return 1","every":30,"enabled":true}"""
-        actions.importBackup(Uri.fromFile(file("twice.json", """{"kolahal":3,"scripts":[$entry,$entry]}""")))
+        actions.importBackup(
+            Uri.fromFile(
+                file(
+                    "twice.json",
+                    """{"kolahal":3,"scripts":[$entry,$entry]}"""
+                )
+            )
+        )
         assertFalse(repo.byName("ba-bk")!!.enabled)
 
         // And a script already here, whose code the file changes: off too, however often it's listed.
         repo.setEnabled(repo.byName("ba-bk")!!.id, true)
         val changed = """{"name":"ba-bk","lang":"lua","code":"return 2","enabled":true}"""
-        actions.importBackup(Uri.fromFile(file("changed.json", """{"kolahal":3,"scripts":[$changed,$changed]}""")))
+        actions.importBackup(
+            Uri.fromFile(
+                file(
+                    "changed.json",
+                    """{"kolahal":3,"scripts":[$changed,$changed]}"""
+                )
+            )
+        )
         assertFalse(repo.byName("ba-bk")!!.enabled)
     }
 
     /** What an import skipped and the settings from the file worth a look (where searches go) are named. */
-    @Test fun importNamesWhatItSkippedAndWhatToCheck() {
+    @Test
+    fun importNamesWhatItSkippedAndWhatToCheck() {
         val backup = file(
             "settings.json",
             """{"kolahal":3,"config":{"search.url":"https://example.com/?q=%s","no.such.key":"x"},"aliases":{"help":"clear all","ba-fine":"echo hi","ba-calc":"= os.time()"},""" +
-                """"scripts":[{"name":"ba-bk","lang":"lua","code":"return 1"},{"name":"ba-bk2","lang":"js","code":"log(1)"}]}""",
+                    """"scripts":[{"name":"ba-bk","lang":"lua","code":"return 1"},{"name":"ba-bk2","lang":"js","code":"log(1)"}]}""",
         )
         try {
             actions.importBackup(Uri.fromFile(backup))
@@ -139,8 +178,8 @@ class BackupActionsTest {
             assertEquals(
                 RecordingHost.Notice(
                     "Imported 1 setting, 2 aliases, 2 scripts (2 new scripts are off — turn them on in Scripts)" +
-                        " · skipped config no.such.key, alias help (built-in command)" +
-                        " · check these from the file: search.url = https://example.com/?q=%s, alias ba-calc = = os.time()",
+                            " · skipped config no.such.key, alias help (built-in command)" +
+                            " · check these from the file: search.url = https://example.com/?q=%s, alias ba-calc = = os.time()",
                     false,
                 ),
                 host.lastNotice(),
@@ -153,8 +192,12 @@ class BackupActionsTest {
     }
 
     /** A backup from a newer Kolahal imports what this version knows, and says the rest was skipped. */
-    @Test fun aNewerBackupSaysWhatItSkipped() {
-        val backup = file("newer.json", """{"kolahal":${com.mtwabpin.kolahal.data.Backup.VERSION + 1},"config":{"log.spacing":"20"},"later":{"x":1}}""")
+    @Test
+    fun aNewerBackupSaysWhatItSkipped() {
+        val backup = file(
+            "newer.json",
+            """{"kolahal":${com.mtwabpin.kolahal.data.Backup.VERSION + 1},"config":{"log.spacing":"20"},"later":{"x":1}}"""
+        )
         actions.importBackup(Uri.fromFile(backup))
         assertEquals(
             RecordingHost.Notice(
@@ -166,11 +209,22 @@ class BackupActionsTest {
     }
 
     /** A file that isn't a Kolahal backup fails, saying so, and changes nothing: not even a config section it has. */
-    @Test fun aFileThatIsntABackupSaysSo() {
+    @Test
+    fun aFileThatIsntABackupSaysSo() {
         actions.importBackup(Uri.fromFile(file("list.json", "[1, 2]")))
-        actions.importBackup(Uri.fromFile(file("other.json", """{"config":{"theme.name":"amber"},"aliases":{"ba-al":"echo a"}}""")))
+        actions.importBackup(
+            Uri.fromFile(
+                file(
+                    "other.json",
+                    """{"config":{"theme.name":"amber"},"aliases":{"ba-al":"echo a"}}"""
+                )
+            )
+        )
         assertEquals(
-            listOf("import" to "not a Kolahal backup", "import" to "not a Kolahal backup (missing \"kolahal\")"),
+            listOf(
+                "import" to "not a Kolahal backup",
+                "import" to "not a Kolahal backup (missing \"kolahal\")"
+            ),
             host.failures.toList(),
         )
         assertTrue(host.notices.isEmpty())
@@ -179,7 +233,8 @@ class BackupActionsTest {
     }
 
     /** Back up now with no folder chosen asks for one first; a picker closed with nothing picked changes nothing. */
-    @Test fun backUpNowWithNoFolderAsksForOne() {
+    @Test
+    fun backUpNowWithNoFolderAsksForOne() {
         assertNull(actions.backupFolderLine())
         actions.backUpNow()
         assertEquals(listOf<UiEvent>(UiEvent.PickBackupFolder), host.events.toList())
@@ -191,7 +246,8 @@ class BackupActionsTest {
     }
 
     /** A folder picked that Kolahal can't keep: the pick fails, saying why, and no folder is set or backup written. */
-    @Test fun aFolderThatCantBeKeptChangesNothing() {
+    @Test
+    fun aFolderThatCantBeKeptChangesNothing() {
         val version = actions.backupVersion.value
         actions.askBackupFolder(thenBackUp = true)
         assertEquals(listOf<UiEvent>(UiEvent.PickBackupFolder), host.events.toList())
@@ -207,12 +263,16 @@ class BackupActionsTest {
     }
 
     /** A backup folder Kolahal can no longer write: Settings and Back up now say to pick it again, without asking. */
-    @Test fun aFolderThatCantBeWrittenSaysToPickItAgain() {
+    @Test
+    fun aFolderThatCantBeWrittenSaysToPickItAgain() {
         autoBackup.edit(commit = true) { putString("folder", ungranted.toString()); remove("last") }
         assertEquals("Can't be written: tap to pick it again", actions.backupFolderLine())
         val version = actions.backupVersion.value
         actions.backUpNow()
-        assertEquals(listOf("backup" to "the backup folder can't be written: run 'backup dir'"), host.failures.toList())
+        assertEquals(
+            listOf("backup" to "the backup folder can't be written: run 'backup dir'"),
+            host.failures.toList()
+        )
         assertTrue(host.events.isEmpty())
         assertNull(AutoBackup.last(context))
         assertEquals(version, actions.backupVersion.value)

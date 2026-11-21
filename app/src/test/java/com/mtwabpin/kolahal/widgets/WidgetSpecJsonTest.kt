@@ -46,12 +46,17 @@ class WidgetSpecJsonTest {
     private val chart = WidgetSpec.Chart(bare, points = listOf(1f, 2f, 3f))
     private val countdown = WidgetSpec.Countdown(bare, to = 1_800_000_000L)
 
-    @Test fun statRoundTrips() {
+    @Test
+    fun statRoundTrips() {
         roundTrip(stat)
         roundTrip(
             WidgetSpec.Stat(
                 fullBase, value = "23°", label = "Paris", unit = "C", delta = "+2.4%", trend = "up",
-                more = listOf(WidgetSpec.Small("12°", "Low"), WidgetSpec.Small("68%", null), WidgetSpec.Small("", "")),
+                more = listOf(
+                    WidgetSpec.Small("12°", "Low"),
+                    WidgetSpec.Small("68%", null),
+                    WidgetSpec.Small("", "")
+                ),
                 progress = 0.68f, moving = true,
             )
         )
@@ -59,20 +64,35 @@ class WidgetSpecJsonTest {
         roundTrip(stat.copy(progress = 1f, trend = "down"))
     }
 
-    @Test fun textRoundTrips() {
+    @Test
+    fun textRoundTrips() {
         roundTrip(text)
-        roundTrip(WidgetSpec.Text(fullBase, text = "First line\nSecond \"quoted\" line \\ with a slash\n\tand a tab — 日本語 👨‍👩‍👧", caption = "An author"))
+        roundTrip(
+            WidgetSpec.Text(
+                fullBase,
+                text = "First line\nSecond \"quoted\" line \\ with a slash\n\tand a tab — 日本語 👨‍👩‍👧",
+                caption = "An author"
+            )
+        )
         roundTrip(WidgetSpec.Text(bare, text = "x".repeat(500), caption = "C" + "c".repeat(59)))
     }
 
-    @Test fun listRoundTrips() {
+    @Test
+    fun listRoundTrips() {
         roundTrip(rows)
         roundTrip(WidgetSpec.Rows(bare, items = emptyList(), empty = "Nothing new"))
         roundTrip(
             WidgetSpec.Rows(
                 fullBase,
                 items = listOf(
-                    WidgetSpec.Row("A story", detail = "120 points", trailing = "2h", icon = "1", color = StyledText.Colour.GOOD, tap = WidgetTap(url = "https://example.com/a?b=1&c=2")),
+                    WidgetSpec.Row(
+                        "A story",
+                        detail = "120 points",
+                        trailing = "2h",
+                        icon = "1",
+                        color = StyledText.Colour.GOOD,
+                        tap = WidgetTap(url = "https://example.com/a?b=1&c=2")
+                    ),
                     WidgetSpec.Row("Another", tap = WidgetTap(args = "open 2", label = "Open")),
                     WidgetSpec.Row("Plain"),
                 ),
@@ -82,9 +102,20 @@ class WidgetSpecJsonTest {
         roundTrip(WidgetSpec.Rows(bare, items = (1..12).map { WidgetSpec.Row("Row $it") }))
     }
 
-    @Test fun progressRoundTrips() {
+    @Test
+    fun progressRoundTrips() {
         roundTrip(progress)
-        roundTrip(WidgetSpec.Progress(fullBase, value = 68f, max = 100f, text = "68%", label = "Battery", style = "ring", moving = true))
+        roundTrip(
+            WidgetSpec.Progress(
+                fullBase,
+                value = 68f,
+                max = 100f,
+                text = "68%",
+                label = "Battery",
+                style = "ring",
+                moving = true
+            )
+        )
         roundTrip(
             WidgetSpec.Progress(
                 bare, value = 0f, style = "bar",
@@ -98,27 +129,71 @@ class WidgetSpecJsonTest {
         )
     }
 
-    @Test fun chartRoundTrips() {
+    @Test
+    fun chartRoundTrips() {
         roundTrip(chart)
         roundTrip(WidgetSpec.Chart(bare, points = emptyList()))
         roundTrip(
             WidgetSpec.Chart(
-                fullBase, points = listOf(0f, -1.5f, 0.1f, 1234.5677f, 1e-7f, 3f), style = "bars", min = -2f, max = 2000f,
-                value = "1,234", label = "Steps", labels = listOf("Mon", "Sun"), summary = "Rising all week",
+                fullBase,
+                points = listOf(0f, -1.5f, 0.1f, 1234.5677f, 1e-7f, 3f),
+                style = "bars",
+                min = -2f,
+                max = 2000f,
+                value = "1,234",
+                label = "Steps",
+                labels = listOf("Mon", "Sun"),
+                summary = "Rising all week",
             )
         )
         roundTrip(WidgetSpec.Chart(bare, points = (1..60).map { it / 7f }))
         // Dots: a habit's days, and values by size on a scale of their own.
-        roundTrip(WidgetSpec.Chart(fullBase.copy(note = "Done today"), points = List(35) { if (it % 4 == 0) 0f else 1f }, style = "dots", value = "5", label = "Days in a row"))
-        roundTrip(WidgetSpec.Chart(bare, points = listOf(44f, 26f, 62f, 42f), style = "dots", min = 0f, max = 100f))
-        assertEquals("dots", (Json.parse(WidgetJson.encode(chart.copy(style = "dots"))) as Map<*, *>)["style"])
+        roundTrip(
+            WidgetSpec.Chart(
+                fullBase.copy(note = "Done today"),
+                points = List(35) { if (it % 4 == 0) 0f else 1f },
+                style = "dots",
+                value = "5",
+                label = "Days in a row"
+            )
+        )
+        roundTrip(
+            WidgetSpec.Chart(
+                bare,
+                points = listOf(44f, 26f, 62f, 42f),
+                style = "dots",
+                min = 0f,
+                max = 100f
+            )
+        )
+        assertEquals(
+            "dots",
+            (Json.parse(WidgetJson.encode(chart.copy(style = "dots"))) as Map<*, *>)["style"]
+        )
     }
 
-    @Test fun countdownRoundTrips() {
+    @Test
+    fun countdownRoundTrips() {
         roundTrip(countdown)
-        roundTrip(WidgetSpec.Countdown(fullBase, to = 1_800_000_000L, from = 1_700_000_000L, label = "Trip", style = "days", reached = "Today!"))
+        roundTrip(
+            WidgetSpec.Countdown(
+                fullBase,
+                to = 1_800_000_000L,
+                from = 1_700_000_000L,
+                label = "Trip",
+                style = "days",
+                reached = "Today!"
+            )
+        )
         // A moment before 1970, and "clock".
-        roundTrip(WidgetSpec.Countdown(bare, to = -300_000_000L, from = -400_000_000L, style = "clock"))
+        roundTrip(
+            WidgetSpec.Countdown(
+                bare,
+                to = -300_000_000L,
+                from = -400_000_000L,
+                style = "clock"
+            )
+        )
         // The parser takes times up to the end of the year 9999; a card it showed reads back the same.
         roundTrip(WidgetSpec.Countdown(bare, to = WidgetParser.MAX_TIME))
         roundTrip(WidgetSpec.Countdown(bare, to = 200_000_000_000L))
@@ -126,18 +201,49 @@ class WidgetSpecJsonTest {
 
     private val go = WidgetTap(args = "go")
     private val buttons = WidgetSpec.Buttons(bare, items = listOf(WidgetSpec.Button("Go", go)))
-    private val toggles = WidgetSpec.Toggles(bare, items = listOf(WidgetSpec.Toggle("Mute", on = false, tap = go)))
+    private val toggles =
+        WidgetSpec.Toggles(bare, items = listOf(WidgetSpec.Toggle("Mute", on = false, tap = go)))
     private val clock = WidgetSpec.Clock(bare, zones = listOf(WidgetSpec.Zone("Asia/Kolkata")))
-    private val agenda = WidgetSpec.Agenda(bare, events = listOf(WidgetSpec.Event("Final", starts = 1_800_000_000L)))
-    private val media = WidgetSpec.Media(bare, title = "Song", artist = "Singer", app = "Player", playing = true, position = 1_000, positionAt = 2_000, speed = 1f, duration = 180_000)
-    private val picture = WidgetSpec.Image(bare, image = "https://example.com/a.png", alt = "A graph")
+    private val agenda =
+        WidgetSpec.Agenda(bare, events = listOf(WidgetSpec.Event("Final", starts = 1_800_000_000L)))
+    private val media = WidgetSpec.Media(
+        bare,
+        title = "Song",
+        artist = "Singer",
+        app = "Player",
+        playing = true,
+        position = 1_000,
+        positionAt = 2_000,
+        speed = 1f,
+        duration = 180_000
+    )
+    private val picture =
+        WidgetSpec.Image(bare, image = "https://example.com/a.png", alt = "A graph")
 
-    @Test fun imageRoundTrips() {
+    @Test
+    fun imageRoundTrips() {
         roundTrip(picture)
-        roundTrip(WidgetSpec.Image(fullBase, image = "https://example.com/comics/a%20b.png?size=2x&v=3#top", alt = "A \"graph\" — 日本語 👨‍👩‍👧", caption = "Monday", fit = "fit"))
+        roundTrip(
+            WidgetSpec.Image(
+                fullBase,
+                image = "https://example.com/comics/a%20b.png?size=2x&v=3#top",
+                alt = "A \"graph\" — 日本語 👨‍👩‍👧",
+                caption = "Monday",
+                fit = "fit"
+            )
+        )
         roundTrip(picture.copy(fit = "crop"))
-        roundTrip(picture.copy(image = "https://example.com/" + "x".repeat(WidgetJson.MAX_LINK - 20), alt = "a".repeat(200), caption = "C" + "c".repeat(59)))
-        assertEquals(setOf("v", "kind", "image", "alt"), (Json.parse(WidgetJson.encode(picture)) as Map<*, *>).keys)
+        roundTrip(
+            picture.copy(
+                image = "https://example.com/" + "x".repeat(WidgetJson.MAX_LINK - 20),
+                alt = "a".repeat(200),
+                caption = "C" + "c".repeat(59)
+            )
+        )
+        assertEquals(
+            setOf("v", "kind", "image", "alt"),
+            (Json.parse(WidgetJson.encode(picture)) as Map<*, *>).keys
+        )
         assertEquals("image", (Json.parse(WidgetJson.encode(picture)) as Map<*, *>)["kind"])
     }
 
@@ -145,81 +251,214 @@ class WidgetSpecJsonTest {
      * Home fetches a picture without a tap. So the stored link is checked again as `widget.show`
      * checked it: https only, and not too long. The words for the picture must be there too.
      */
-    @Test fun anImagesLinkAndWordsAreCheckedAgain() {
-        fun refused(key: String, vararg values: Any?) = values.forEach { v -> assertNull("$key = $v", WidgetJson.decode(changed(picture) { put(key, v) })) }
-        assertNotNull(WidgetJson.decode(changed(picture) { put("image", "HTTPS://example.com/a.png") }))
-        refused("image", null, 1, true, listOf("https://example.com/a.png"), mapOf("url" to "https://example.com/a.png"))
-        refused("image", "", "example.com/a.png", "http://example.com/a.png", "ftp://example.com/a.png", "file:///sdcard/a.png", "content://media/1", "data:image/png;base64,AAAA", " https://example.com/a.png")
-        assertNotNull(WidgetJson.decode(changed(picture) { put("image", "https://example.com/" + "x".repeat(WidgetJson.MAX_LINK - 20)) }))
+    @Test
+    fun anImagesLinkAndWordsAreCheckedAgain() {
+        fun refused(key: String, vararg values: Any?) = values.forEach { v ->
+            assertNull(
+                "$key = $v",
+                WidgetJson.decode(changed(picture) { put(key, v) })
+            )
+        }
+        assertNotNull(WidgetJson.decode(changed(picture) {
+            put(
+                "image",
+                "HTTPS://example.com/a.png"
+            )
+        }))
+        refused(
+            "image",
+            null,
+            1,
+            true,
+            listOf("https://example.com/a.png"),
+            mapOf("url" to "https://example.com/a.png")
+        )
+        refused(
+            "image",
+            "",
+            "example.com/a.png",
+            "http://example.com/a.png",
+            "ftp://example.com/a.png",
+            "file:///sdcard/a.png",
+            "content://media/1",
+            "data:image/png;base64,AAAA",
+            " https://example.com/a.png"
+        )
+        assertNotNull(WidgetJson.decode(changed(picture) {
+            put(
+                "image",
+                "https://example.com/" + "x".repeat(WidgetJson.MAX_LINK - 20)
+            )
+        }))
         refused("image", "https://example.com/" + "x".repeat(WidgetJson.MAX_LINK - 19))
         refused("alt", null, "", "   ", 1, listOf("a"), "a".repeat(WidgetJson.MAX_TEXT + 1))
         refused("caption", 1, listOf("a"), "c".repeat(WidgetJson.MAX_TEXT + 1))
         refused("fit", "stretch", "Fit", 1, true)
         // Left out, the caption and `fit` have no value: the card crops.
-        assertEquals(picture, WidgetJson.decode("{\"v\":1,\"kind\":\"image\",\"image\":\"https://example.com/a.png\",\"alt\":\"A graph\",\"extra\":1}"))
+        assertEquals(
+            picture,
+            WidgetJson.decode("{\"v\":1,\"kind\":\"image\",\"image\":\"https://example.com/a.png\",\"alt\":\"A graph\",\"extra\":1}")
+        )
     }
 
     /** A row's checkbox has three states: ticked, not ticked, and no checkbox. All three come back. */
-    @Test fun aRowsCheckboxRoundTrips() {
-        val spec = WidgetSpec.Rows(bare, items = listOf(WidgetSpec.Row("A", done = true), WidgetSpec.Row("B", done = false), WidgetSpec.Row("C")))
+    @Test
+    fun aRowsCheckboxRoundTrips() {
+        val spec = WidgetSpec.Rows(
+            bare,
+            items = listOf(
+                WidgetSpec.Row("A", done = true),
+                WidgetSpec.Row("B", done = false),
+                WidgetSpec.Row("C")
+            )
+        )
         roundTrip(spec)
         val stored = Json.parse(WidgetJson.encode(spec)) as Map<*, *>
-        assertEquals(listOf(mapOf("title" to "A", "done" to true), mapOf("title" to "B", "done" to false), mapOf("title" to "C")), stored["items"])
-        assertNull(WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to "a", "done" to "yes"))) }))
-        assertNull(WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to "a", "done" to 1))) }))
+        assertEquals(
+            listOf(
+                mapOf("title" to "A", "done" to true),
+                mapOf("title" to "B", "done" to false),
+                mapOf("title" to "C")
+            ), stored["items"]
+        )
+        assertNull(WidgetJson.decode(changed(rows) {
+            put(
+                "items",
+                listOf(mapOf("title" to "a", "done" to "yes"))
+            )
+        }))
+        assertNull(WidgetJson.decode(changed(rows) {
+            put(
+                "items",
+                listOf(mapOf("title" to "a", "done" to 1))
+            )
+        }))
     }
 
-    @Test fun buttonsRoundTrip() {
+    @Test
+    fun buttonsRoundTrip() {
         roundTrip(buttons)
         roundTrip(
             WidgetSpec.Buttons(
                 fullBase,
                 items = listOf(
-                    WidgetSpec.Button("On", WidgetTap(args = "on", label = "Switch on"), icon = "☀", color = StyledText.Colour.GOOD),
+                    WidgetSpec.Button(
+                        "On",
+                        WidgetTap(args = "on", label = "Switch on"),
+                        icon = "☀",
+                        color = StyledText.Colour.GOOD
+                    ),
                     WidgetSpec.Button("Report", WidgetTap(args = "report", toLog = true)),
                     WidgetSpec.Button("Docs", WidgetTap(url = "https://example.com/docs")),
                 ),
             )
         )
-        roundTrip(WidgetSpec.Buttons(bare, items = (1..8).map { WidgetSpec.Button("B$it", WidgetTap(args = "$it")) }))
-        assertEquals(setOf("v", "kind", "items"), (Json.parse(WidgetJson.encode(buttons)) as Map<*, *>).keys)
+        roundTrip(
+            WidgetSpec.Buttons(
+                bare,
+                items = (1..8).map { WidgetSpec.Button("B$it", WidgetTap(args = "$it")) })
+        )
+        assertEquals(
+            setOf("v", "kind", "items"),
+            (Json.parse(WidgetJson.encode(buttons)) as Map<*, *>).keys
+        )
     }
 
-    @Test fun togglesRoundTrip() {
+    @Test
+    fun togglesRoundTrip() {
         roundTrip(toggles)
         roundTrip(
             WidgetSpec.Toggles(
                 fullBase,
-                items = listOf(WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd off", label = "Turn off"), icon = "🌙"), WidgetSpec.Toggle("Work", on = false, tap = go)),
+                items = listOf(
+                    WidgetSpec.Toggle(
+                        "Do Not Disturb",
+                        on = true,
+                        tap = WidgetTap(args = "dnd off", label = "Turn off"),
+                        icon = "🌙"
+                    ), WidgetSpec.Toggle("Work", on = false, tap = go)
+                ),
             )
         )
-        roundTrip(WidgetSpec.Toggles(bare, items = (1..6).map { WidgetSpec.Toggle("T$it", on = it % 2 == 0, tap = WidgetTap(args = "$it")) }))
+        roundTrip(
+            WidgetSpec.Toggles(
+                bare,
+                items = (1..6).map {
+                    WidgetSpec.Toggle(
+                        "T$it",
+                        on = it % 2 == 0,
+                        tap = WidgetTap(args = "$it")
+                    )
+                })
+        )
         // "Off" is stored: a switch always has a state.
-        assertEquals(listOf(mapOf("label" to "Mute", "on" to false, "tap" to mapOf("args" to "go"))), (Json.parse(WidgetJson.encode(toggles)) as Map<*, *>)["items"])
+        assertEquals(
+            listOf(
+                mapOf(
+                    "label" to "Mute",
+                    "on" to false,
+                    "tap" to mapOf("args" to "go")
+                )
+            ), (Json.parse(WidgetJson.encode(toggles)) as Map<*, *>)["items"]
+        )
     }
 
-    @Test fun clockRoundTrips() {
+    @Test
+    fun clockRoundTrips() {
         roundTrip(clock)
-        roundTrip(WidgetSpec.Clock(fullBase, zones = listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("UTC"), WidgetSpec.Zone("America/New_York", "NYC"), WidgetSpec.Zone("+05:45")), seconds = true))
-        assertEquals(setOf("v", "kind", "zones"), (Json.parse(WidgetJson.encode(clock)) as Map<*, *>).keys)
+        roundTrip(
+            WidgetSpec.Clock(
+                fullBase,
+                zones = listOf(
+                    WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+                    WidgetSpec.Zone("UTC"),
+                    WidgetSpec.Zone("America/New_York", "NYC"),
+                    WidgetSpec.Zone("+05:45")
+                ),
+                seconds = true
+            )
+        )
+        assertEquals(
+            setOf("v", "kind", "zones"),
+            (Json.parse(WidgetJson.encode(clock)) as Map<*, *>).keys
+        )
     }
 
-    @Test fun agendaRoundTrips() {
+    @Test
+    fun agendaRoundTrips() {
         roundTrip(agenda)
         roundTrip(WidgetSpec.Agenda(bare, events = emptyList(), empty = "Nothing planned"))
         roundTrip(
             WidgetSpec.Agenda(
                 fullBase,
                 events = listOf(
-                    WidgetSpec.Event("Final", 1_800_000_000L, ends = 1_800_007_200L, where = "Pune", color = StyledText.Colour.GOOD, tap = WidgetTap(url = "https://example.com/final")),
-                    WidgetSpec.Event("Holiday", 1_800_050_000L, allDay = true, tap = WidgetTap(args = "open 2")),
+                    WidgetSpec.Event(
+                        "Final",
+                        1_800_000_000L,
+                        ends = 1_800_007_200L,
+                        where = "Pune",
+                        color = StyledText.Colour.GOOD,
+                        tap = WidgetTap(url = "https://example.com/final")
+                    ),
+                    WidgetSpec.Event(
+                        "Holiday",
+                        1_800_050_000L,
+                        allDay = true,
+                        tap = WidgetTap(args = "open 2")
+                    ),
                     WidgetSpec.Event("Long ago", -300_000_000L),
                 ),
                 days = 7,
                 empty = "Nothing planned",
             )
         )
-        roundTrip(WidgetSpec.Agenda(bare, events = (1..20).map { WidgetSpec.Event("E$it", 1_800_000_000L + it) }, days = 1))
+        roundTrip(
+            WidgetSpec.Agenda(
+                bare,
+                events = (1..20).map { WidgetSpec.Event("E$it", 1_800_000_000L + it) },
+                days = 1
+            )
+        )
     }
 
     // ---- styled text ------------------------------------------------------------------------
@@ -229,13 +468,40 @@ class WidgetSpecJsonTest {
     private val styled = "A " + bold("b") + " " + good("c")
 
     /** The fields that may be styled come back with their styles. */
-    @Test fun styledFieldsRoundTrip() {
-        roundTrip(WidgetSpec.Text(fullBase, text = styled + "\n" + bold("second line"), caption = good("Who")))
-        roundTrip(WidgetSpec.Rows(bare, items = listOf(WidgetSpec.Row(styled, detail = bold("D"), trailing = good("+2%")), WidgetSpec.Row("plain"))))
+    @Test
+    fun styledFieldsRoundTrip() {
+        roundTrip(
+            WidgetSpec.Text(
+                fullBase,
+                text = styled + "\n" + bold("second line"),
+                caption = good("Who")
+            )
+        )
+        roundTrip(
+            WidgetSpec.Rows(
+                bare,
+                items = listOf(
+                    WidgetSpec.Row(styled, detail = bold("D"), trailing = good("+2%")),
+                    WidgetSpec.Row("plain")
+                )
+            )
+        )
         roundTrip(stat.copy(label = styled))
         roundTrip(picture.copy(caption = styled))
         // Every style a card draws, on one piece.
-        val all = StyledText.colour(StyledText.Colour.WARN, StyledText.wrap(StyledText.Style.BOLD, StyledText.wrap(StyledText.Style.ITALIC, StyledText.wrap(StyledText.Style.UNDERLINE, StyledText.wrap(StyledText.Style.STRIKE, "x")))))
+        val all = StyledText.colour(
+            StyledText.Colour.WARN,
+            StyledText.wrap(
+                StyledText.Style.BOLD,
+                StyledText.wrap(
+                    StyledText.Style.ITALIC,
+                    StyledText.wrap(
+                        StyledText.Style.UNDERLINE,
+                        StyledText.wrap(StyledText.Style.STRIKE, "x")
+                    )
+                )
+            )
+        )
         roundTrip(text.copy(text = all))
     }
 
@@ -244,29 +510,107 @@ class WidgetSpecJsonTest {
      * again: a link, a tag, a code chip, a table and a bar come back as their words, whatever
      * the :script process wrote. So a stored text can't make a card draw one.
      */
-    @Test fun aStoredStyledFieldKeepsOnlyWhatACardDraws() {
+    @Test
+    fun aStoredStyledFieldKeepsOnlyWhatACardDraws() {
         val link = "see " + StyledText.link("https://evil.example/x", bold("here"))
-        val read = WidgetJson.decode(changed(text) { put("text", link); put("caption", StyledText.tag(StyledText.Colour.BAD, "LIVE") + StyledText.wrap(StyledText.Style.CODE, "x")) }) as WidgetSpec.Text
+        val read = WidgetJson.decode(changed(text) {
+            put("text", link); put(
+            "caption",
+            StyledText.tag(StyledText.Colour.BAD, "LIVE") + StyledText.wrap(
+                StyledText.Style.CODE,
+                "x"
+            )
+        )
+        }) as WidgetSpec.Text
         assertEquals("see " + bold("here"), read.text)
         assertEquals(emptyList<String>(), StyledText.linkTexts(read.text).map { it.second })
         assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + "x", read.caption)
-        val table = StyledText.table(listOf(listOf("a", "b")), header = true) + "\n" + StyledText.bar(0.5) + "\n" + StyledText.stats(listOf("1" to "one"))
-        val row = (WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to table, "detail" to link, "trailing" to StyledText.item(1) + "x"))) }) as WidgetSpec.Rows).items.single()
-        assertEquals(WidgetSpec.Row("a\tb\n1 One", detail = "See " + bold("here"), trailing = "• x"), row)
-        assertEquals("A\tb", (WidgetJson.decode(changed(stat) { put("label", StyledText.table(listOf(listOf("a", "b")), header = false)) }) as WidgetSpec.Stat).label)
-        assertEquals("Go", (WidgetJson.decode(changed(picture) { put("caption", StyledText.link("https://evil.example", "go")) }) as WidgetSpec.Image).caption)
+        val table = StyledText.table(
+            listOf(listOf("a", "b")),
+            header = true
+        ) + "\n" + StyledText.bar(0.5) + "\n" + StyledText.stats(listOf("1" to "one"))
+        val row = (WidgetJson.decode(changed(rows) {
+            put(
+                "items",
+                listOf(
+                    mapOf(
+                        "title" to table,
+                        "detail" to link,
+                        "trailing" to StyledText.item(1) + "x"
+                    )
+                )
+            )
+        }) as WidgetSpec.Rows).items.single()
+        assertEquals(
+            WidgetSpec.Row(
+                "a\tb\n1 One",
+                detail = "See " + bold("here"),
+                trailing = "• x"
+            ), row
+        )
+        assertEquals(
+            "A\tb",
+            (WidgetJson.decode(changed(stat) {
+                put(
+                    "label",
+                    StyledText.table(listOf(listOf("a", "b")), header = false)
+                )
+            }) as WidgetSpec.Stat).label
+        )
+        assertEquals(
+            "Go",
+            (WidgetJson.decode(changed(picture) {
+                put(
+                    "caption",
+                    StyledText.link("https://evil.example", "go")
+                )
+            }) as WidgetSpec.Image).caption
+        )
         // A style left open is closed, and only the first 32 styled pieces keep their styles.
-        assertEquals(bold("open"), (WidgetJson.decode(changed(text) { put("text", StyledText.open(StyledText.Style.BOLD) + "open") }) as WidgetSpec.Text).text)
-        val many = (WidgetJson.decode(changed(text) { put("text", (1..50).joinToString(" ") { bold("w$it") }) }) as WidgetSpec.Text).text
-        assertEquals(32, StyledText.lines(many).flatMap { it.spans }.count { it.styles.isNotEmpty() })
+        assertEquals(
+            bold("open"),
+            (WidgetJson.decode(changed(text) {
+                put(
+                    "text",
+                    StyledText.open(StyledText.Style.BOLD) + "open"
+                )
+            }) as WidgetSpec.Text).text
+        )
+        val many = (WidgetJson.decode(changed(text) {
+            put(
+                "text",
+                (1..50).joinToString(" ") { bold("w$it") })
+        }) as WidgetSpec.Text).text
+        assertEquals(
+            32,
+            StyledText.lines(many).flatMap { it.spans }.count { it.styles.isNotEmpty() })
         // A styled field still has the limit of every text.
-        assertNull(WidgetJson.decode(changed(text) { put("text", bold("x".repeat(WidgetJson.MAX_TEXT))) }))
+        assertNull(WidgetJson.decode(changed(text) {
+            put(
+                "text",
+                bold("x".repeat(WidgetJson.MAX_TEXT))
+            )
+        }))
     }
 
     /** Every other text is plain. One with a style marker in it was not written by `widget.show`, and is refused. */
-    @Test fun aMarkerInAPlainFieldIsRefused() {
-        val marked = listOf(bold("b"), good("g"), "x" + StyledText.close(StyledText.Style.ITALIC), StyledText.link("https://example.com", "l"), StyledText.tag(StyledText.Colour.BAD, "t"))
-        fun refused(spec: WidgetSpec, change: MutableMap<String, Any?>.(String) -> Unit) = marked.forEach { m -> assertNull("$m in ${WidgetJson.encode(spec)}", WidgetJson.decode(changed(spec) { change(m) })) }
+    @Test
+    fun aMarkerInAPlainFieldIsRefused() {
+        val marked = listOf(
+            bold("b"),
+            good("g"),
+            "x" + StyledText.close(StyledText.Style.ITALIC),
+            StyledText.link("https://example.com", "l"),
+            StyledText.tag(StyledText.Colour.BAD, "t")
+        )
+
+        fun refused(spec: WidgetSpec, change: MutableMap<String, Any?>.(String) -> Unit) =
+            marked.forEach { m ->
+                assertNull(
+                    "$m in ${WidgetJson.encode(spec)}",
+                    WidgetJson.decode(changed(spec) { change(m) })
+                )
+            }
         // The fields every kind has, and a tap's.
         refused(stat) { put("title", it) }
         refused(stat) { put("icon", it) }
@@ -290,24 +634,48 @@ class WidgetSpecJsonTest {
         refused(chart) { m -> put("labels", listOf("a", m)) }
         refused(countdown) { put("label", it) }
         refused(countdown) { put("reached", it) }
-        refused(buttons) { m -> put("items", listOf(mapOf("label" to m, "tap" to mapOf("args" to "x")))) }
-        refused(toggles) { m -> put("items", listOf(mapOf("label" to m, "on" to true, "tap" to mapOf("args" to "x")))) }
+        refused(buttons) { m ->
+            put(
+                "items",
+                listOf(mapOf("label" to m, "tap" to mapOf("args" to "x")))
+            )
+        }
+        refused(toggles) { m ->
+            put(
+                "items",
+                listOf(mapOf("label" to m, "on" to true, "tap" to mapOf("args" to "x")))
+            )
+        }
         refused(clock) { m -> put("zones", listOf(mapOf("zone" to "UTC", "label" to m))) }
         refused(agenda) { m -> put("events", listOf(mapOf("title" to m, "starts" to 1))) }
-        refused(agenda) { m -> put("events", listOf(mapOf("title" to "t", "starts" to 1, "where" to m))) }
+        refused(agenda) { m ->
+            put(
+                "events",
+                listOf(mapOf("title" to "t", "starts" to 1, "where" to m))
+            )
+        }
         refused(agenda) { put("empty", it) }
         refused(picture) { put("alt", it) }
         refused(picture) { m -> put("image", "https://example.com/$m.png") }
         // A character that only looks like a marker is plain text, and passes.
         val near = String(Character.toChars(0x10FB80))
-        assertEquals("a${near}b", (WidgetJson.decode(changed(stat) { put("value", "a${near}b") }) as WidgetSpec.Stat).value)
+        assertEquals(
+            "a${near}b",
+            (WidgetJson.decode(changed(stat) {
+                put(
+                    "value",
+                    "a${near}b"
+                )
+            }) as WidgetSpec.Stat).value
+        )
     }
 
     /**
      * `media` is made by Kolahal only, in the main process. It is never stored, so it has no stored
      * form, and no stored text reads back as one: the :script process can't hand one over.
      */
-    @Test fun mediaIsNeverStoredAndNeverRead() {
+    @Test
+    fun mediaIsNeverStoredAndNeverRead() {
         assertEquals("", WidgetJson.encode(media))
         assertEquals("", WidgetJson.encode(media.copy(base = fullBase)))
         assertNull(WidgetJson.decode(WidgetJson.encode(media)))
@@ -317,14 +685,27 @@ class WidgetSpecJsonTest {
             "{\"v\":1,\"kind\":\"MEDIA\",\"app\":\"Player\"}",
         ).forEach { assertNull("decoded: $it", WidgetJson.decode(it)) }
         // Every other kind's stored form names a kind a script can use.
-        listOf(stat, text, rows, progress, chart, countdown, buttons, toggles, clock, agenda, picture).forEach { spec ->
+        listOf(
+            stat,
+            text,
+            rows,
+            progress,
+            chart,
+            countdown,
+            buttons,
+            toggles,
+            clock,
+            agenda,
+            picture
+        ).forEach { spec ->
             val kind = (Json.parse(WidgetJson.encode(spec)) as Map<*, *>)["kind"]
             assertNotNull("$kind", WidgetKind.named(kind as String))
         }
     }
 
     /** Where `widget.show` refuses and does not cut, the stored form is refused too. */
-    @Test fun theNewKindsLimitsHoldAgain() {
+    @Test
+    fun theNewKindsLimitsHoldAgain() {
         fun button(i: Int) = mapOf("label" to "B$i", "tap" to mapOf("args" to "$i"))
         fun toggle(i: Int) = mapOf("label" to "T$i", "on" to true, "tap" to mapOf("args" to "$i"))
         // Buttons: 1 to 8.
@@ -337,24 +718,82 @@ class WidgetSpecJsonTest {
         assertNull(WidgetJson.decode(changed(toggles) { put("items", (1..7).map(::toggle)) }))
         assertNull(WidgetJson.decode(changed(toggles) { put("items", emptyList<Any>()) }))
         assertNull(WidgetJson.decode(changed(toggles) { remove("items") }))
-        assertNull(WidgetJson.decode(changed(toggles) { put("items", listOf(mapOf("label" to "T", "tap" to mapOf("args" to "x")))) }))
-        assertNull(WidgetJson.decode(changed(toggles) { put("items", listOf(mapOf("label" to "T", "on" to true, "tap" to mapOf("url" to "https://example.com")))) }))
-        assertNull(WidgetJson.decode(changed(toggles) { put("items", listOf(mapOf("label" to "T", "on" to true))) }))
+        assertNull(WidgetJson.decode(changed(toggles) {
+            put(
+                "items",
+                listOf(mapOf("label" to "T", "tap" to mapOf("args" to "x")))
+            )
+        }))
+        assertNull(WidgetJson.decode(changed(toggles) {
+            put(
+                "items",
+                listOf(
+                    mapOf(
+                        "label" to "T",
+                        "on" to true,
+                        "tap" to mapOf("url" to "https://example.com")
+                    )
+                )
+            )
+        }))
+        assertNull(WidgetJson.decode(changed(toggles) {
+            put(
+                "items",
+                listOf(mapOf("label" to "T", "on" to true))
+            )
+        }))
         // A clock: the first 4 zones, each one a zone the phone knows.
-        val zones = WidgetJson.decode(changed(clock) { put("zones", listOf("UTC", "Asia/Kolkata", "Europe/Paris", "Asia/Tokyo", "Not/AZone").map { mapOf("zone" to it) }) }) as WidgetSpec.Clock
-        assertEquals(listOf("UTC", "Asia/Kolkata", "Europe/Paris", "Asia/Tokyo"), zones.zones.map { it.zone })
-        assertNull(WidgetJson.decode(changed(clock) { put("zones", listOf(mapOf("zone" to "Asia/Poona"))) }))
+        val zones = WidgetJson.decode(changed(clock) {
+            put(
+                "zones",
+                listOf(
+                    "UTC",
+                    "Asia/Kolkata",
+                    "Europe/Paris",
+                    "Asia/Tokyo",
+                    "Not/AZone"
+                ).map { mapOf("zone" to it) })
+        }) as WidgetSpec.Clock
+        assertEquals(
+            listOf("UTC", "Asia/Kolkata", "Europe/Paris", "Asia/Tokyo"),
+            zones.zones.map { it.zone })
+        assertNull(WidgetJson.decode(changed(clock) {
+            put(
+                "zones",
+                listOf(mapOf("zone" to "Asia/Poona"))
+            )
+        }))
         assertNull(WidgetJson.decode(changed(clock) { put("zones", listOf(mapOf("zone" to ""))) }))
-        assertNull(WidgetJson.decode(changed(clock) { put("zones", listOf(mapOf("label" to "no zone"))) }))
+        assertNull(WidgetJson.decode(changed(clock) {
+            put(
+                "zones",
+                listOf(mapOf("label" to "no zone"))
+            )
+        }))
         assertNull(WidgetJson.decode(changed(clock) { put("zones", emptyList<Any>()) }))
         assertNull(WidgetJson.decode(changed(clock) { remove("zones") }))
         // An agenda: the first 20 events, times in seconds, 1 to 7 days.
-        val events = WidgetJson.decode(changed(agenda) { put("events", (1..30).map { mapOf("title" to "E$it", "starts" to it) }) }) as WidgetSpec.Agenda
+        val events = WidgetJson.decode(changed(agenda) {
+            put(
+                "events",
+                (1..30).map { mapOf("title" to "E$it", "starts" to it) })
+        }) as WidgetSpec.Agenda
         assertEquals((1..20).map { "E$it" }, events.events.map { it.title })
-        assertNull(WidgetJson.decode(changed(agenda) { put("events", listOf(mapOf("title" to "a", "starts" to 1_800_000_000_000L))) }))
-        assertNull(WidgetJson.decode(changed(agenda) { put("events", listOf(mapOf("title" to "a", "starts" to 1, "ends" to 1e30))) }))
+        assertNull(WidgetJson.decode(changed(agenda) {
+            put(
+                "events",
+                listOf(mapOf("title" to "a", "starts" to 1_800_000_000_000L))
+            )
+        }))
+        assertNull(WidgetJson.decode(changed(agenda) {
+            put(
+                "events",
+                listOf(mapOf("title" to "a", "starts" to 1, "ends" to 1e30))
+            )
+        }))
         assertNull(WidgetJson.decode(changed(agenda) { remove("events") }))
-        fun days(v: Any?) = (WidgetJson.decode(changed(agenda) { put("days", v) }) as WidgetSpec.Agenda).days
+        fun days(v: Any?) =
+            (WidgetJson.decode(changed(agenda) { put("days", v) }) as WidgetSpec.Agenda).days
         assertEquals(1, days(0))
         assertEquals(14, days(99))
         assertEquals(3, days(null))
@@ -362,58 +801,175 @@ class WidgetSpecJsonTest {
     }
 
     /** One check for each field of the new kinds: the wrong type is refused, not converted. */
-    @Test fun aFieldOfTheWrongTypeGivesNullInTheNewKinds() {
+    @Test
+    fun aFieldOfTheWrongTypeGivesNullInTheNewKinds() {
         fun refused(spec: WidgetSpec, key: String, vararg values: Any?) = values.forEach { v ->
             assertNull("$key = $v", WidgetJson.decode(changed(spec) { put(key, v) }))
         }
+
         val tap = mapOf("args" to "x")
-        refused(buttons, "items", "x", 1, mapOf("a" to 1), listOf("x"), listOf(mapOf("label" to "no tap")), listOf(mapOf("tap" to tap)), listOf(mapOf("label" to 1, "tap" to tap)))
-        refused(buttons, "items", listOf(mapOf("label" to "a", "tap" to tap, "color" to "pink")), listOf(mapOf("label" to "a", "tap" to tap, "icon" to 1)), listOf(mapOf("label" to "a", "tap" to mapOf("command" to "torch"))))
-        refused(toggles, "items", "x", listOf("x"), listOf(mapOf("label" to "a", "on" to "true", "tap" to tap)), listOf(mapOf("label" to "a", "on" to 1, "tap" to tap)), listOf(mapOf("on" to true, "tap" to tap)))
-        refused(clock, "zones", "UTC", 1, listOf("UTC"), listOf(mapOf("zone" to 5)), listOf(mapOf("zone" to "UTC", "label" to 1)))
+        refused(
+            buttons,
+            "items",
+            "x",
+            1,
+            mapOf("a" to 1),
+            listOf("x"),
+            listOf(mapOf("label" to "no tap")),
+            listOf(mapOf("tap" to tap)),
+            listOf(mapOf("label" to 1, "tap" to tap))
+        )
+        refused(
+            buttons,
+            "items",
+            listOf(mapOf("label" to "a", "tap" to tap, "color" to "pink")),
+            listOf(mapOf("label" to "a", "tap" to tap, "icon" to 1)),
+            listOf(mapOf("label" to "a", "tap" to mapOf("command" to "torch")))
+        )
+        refused(
+            toggles,
+            "items",
+            "x",
+            listOf("x"),
+            listOf(mapOf("label" to "a", "on" to "true", "tap" to tap)),
+            listOf(mapOf("label" to "a", "on" to 1, "tap" to tap)),
+            listOf(mapOf("on" to true, "tap" to tap))
+        )
+        refused(
+            clock,
+            "zones",
+            "UTC",
+            1,
+            listOf("UTC"),
+            listOf(mapOf("zone" to 5)),
+            listOf(mapOf("zone" to "UTC", "label" to 1))
+        )
         refused(clock, "seconds", "true", 1)
-        refused(agenda, "events", "x", 1, listOf("x"), listOf(mapOf("starts" to 1)), listOf(mapOf("title" to "a")), listOf(mapOf("title" to "a", "starts" to "noon")), listOf(mapOf("title" to 1, "starts" to 1)))
-        refused(agenda, "events", listOf(mapOf("title" to "a", "starts" to 1, "allDay" to "yes")), listOf(mapOf("title" to "a", "starts" to 1, "where" to 1)), listOf(mapOf("title" to "a", "starts" to 1, "color" to "pink")), listOf(mapOf("title" to "a", "starts" to 1, "tap" to "x")))
+        refused(
+            agenda,
+            "events",
+            "x",
+            1,
+            listOf("x"),
+            listOf(mapOf("starts" to 1)),
+            listOf(mapOf("title" to "a")),
+            listOf(mapOf("title" to "a", "starts" to "noon")),
+            listOf(mapOf("title" to 1, "starts" to 1))
+        )
+        refused(
+            agenda,
+            "events",
+            listOf(mapOf("title" to "a", "starts" to 1, "allDay" to "yes")),
+            listOf(mapOf("title" to "a", "starts" to 1, "where" to 1)),
+            listOf(mapOf("title" to "a", "starts" to 1, "color" to "pink")),
+            listOf(mapOf("title" to "a", "starts" to 1, "tap" to "x"))
+        )
         refused(agenda, "days", "3", true)
         refused(agenda, "empty", 1)
     }
 
-    @Test fun everyColourAndTapFormRoundTrips() {
+    @Test
+    fun everyColourAndTapFormRoundTrips() {
         StyledText.Colour.entries.forEach { roundTrip(text.copy(base = WidgetBase(color = it))) }
         roundTrip(text.copy(base = WidgetBase(tap = WidgetTap(args = "add 1"))))
         roundTrip(text.copy(base = WidgetBase(tap = WidgetTap(args = ""))))
-        roundTrip(text.copy(base = WidgetBase(tap = WidgetTap(url = "http://example.com", label = "Open the site"))))
+        roundTrip(
+            text.copy(
+                base = WidgetBase(
+                    tap = WidgetTap(
+                        url = "http://example.com",
+                        label = "Open the site"
+                    )
+                )
+            )
+        )
         roundTrip(text.copy(base = WidgetBase(staleAfter = 60, refresh = 10)))
         roundTrip(text.copy(base = WidgetBase(staleAfter = 604_800, refresh = 3_600)))
     }
 
     /** The keys are the script's field names, plus the format number and the kind. Empty fields are left out. */
-    @Test fun theStoredFormUsesTheScriptsFieldNames() {
+    @Test
+    fun theStoredFormUsesTheScriptsFieldNames() {
         val small = Json.parse(WidgetJson.encode(stat)) as Map<*, *>
         assertEquals(setOf("v", "kind", "value"), small.keys)
         assertEquals(WidgetJson.FORMAT, (small["v"] as Number).toInt())
         assertEquals("stat", small["kind"])
 
-        val full = Json.parse(WidgetJson.encode(WidgetSpec.Rows(fullBase, items = listOf(WidgetSpec.Row("A", tap = WidgetTap(url = "https://a.example"))), empty = "None"))) as Map<*, *>
-        assertEquals(setOf("v", "kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "items", "empty"), full.keys)
+        val full = Json.parse(
+            WidgetJson.encode(
+                WidgetSpec.Rows(
+                    fullBase,
+                    items = listOf(WidgetSpec.Row("A", tap = WidgetTap(url = "https://a.example"))),
+                    empty = "None"
+                )
+            )
+        ) as Map<*, *>
+        assertEquals(
+            setOf(
+                "v",
+                "kind",
+                "title",
+                "icon",
+                "color",
+                "tap",
+                "staleAfter",
+                "refresh",
+                "items",
+                "empty"
+            ), full.keys
+        )
         assertEquals("list", full["kind"])
         assertEquals("warn", full["color"])
-        assertEquals(mapOf("args" to "full report", "label" to "Open the report", "page" to "log"), full["tap"])
-        assertEquals(listOf(mapOf("title" to "A", "tap" to mapOf("url" to "https://a.example"))), full["items"])
+        assertEquals(
+            mapOf("args" to "full report", "label" to "Open the report", "page" to "log"),
+            full["tap"]
+        )
+        assertEquals(
+            listOf(mapOf("title" to "A", "tap" to mapOf("url" to "https://a.example"))),
+            full["items"]
+        )
 
         // A float is stored as it is written, not in its long double form.
         assertTrue(WidgetJson.encode(progress.copy(value = 0.68f)).contains("0.68"))
         assertTrue(!WidgetJson.encode(progress.copy(value = 0.68f)).contains("0.680000"))
-        assertEquals(setOf("v", "kind", "value", "max"), (Json.parse(WidgetJson.encode(progress)) as Map<*, *>).keys)
-        assertEquals(setOf("v", "kind", "points", "style"), (Json.parse(WidgetJson.encode(chart)) as Map<*, *>).keys)
-        assertEquals(setOf("v", "kind", "to"), (Json.parse(WidgetJson.encode(countdown)) as Map<*, *>).keys)
-        assertEquals(setOf("v", "kind", "text"), (Json.parse(WidgetJson.encode(text)) as Map<*, *>).keys)
+        assertEquals(
+            setOf("v", "kind", "value", "max"),
+            (Json.parse(WidgetJson.encode(progress)) as Map<*, *>).keys
+        )
+        assertEquals(
+            setOf("v", "kind", "points", "style"),
+            (Json.parse(WidgetJson.encode(chart)) as Map<*, *>).keys
+        )
+        assertEquals(
+            setOf("v", "kind", "to"),
+            (Json.parse(WidgetJson.encode(countdown)) as Map<*, *>).keys
+        )
+        assertEquals(
+            setOf("v", "kind", "text"),
+            (Json.parse(WidgetJson.encode(text)) as Map<*, *>).keys
+        )
     }
 
-    @Test fun rubbishGivesNull() {
+    @Test
+    fun rubbishGivesNull() {
         val rubbish = listOf(
-            null, "", " ", "null", "true", "12", "\"text\"", "[]", "[1,2]", "{}", "{", "}", "{\"v\":1", "not json", "<html></html>",
-            "{\"v\":1}", "{\"kind\":\"stat\",\"value\":\"1\"}",
+            null,
+            "",
+            " ",
+            "null",
+            "true",
+            "12",
+            "\"text\"",
+            "[]",
+            "[1,2]",
+            "{}",
+            "{",
+            "}",
+            "{\"v\":1",
+            "not json",
+            "<html></html>",
+            "{\"v\":1}",
+            "{\"kind\":\"stat\",\"value\":\"1\"}",
             "{\"v\":1,\"kind\":\"stat\"}",
             "{\"v\":1,\"kind\":\"hologram\",\"value\":\"1\"}",
             "{\"v\":1,\"kind\":\"STAT\",\"value\":\"1\"}",
@@ -429,16 +985,28 @@ class WidgetSpecJsonTest {
         assertNull(WidgetJson.decode("[".repeat(50_000)))
         assertNull(WidgetJson.decode("{\"a\":".repeat(20_000)))
         // Far longer than `widget.show` allows.
-        assertNull(WidgetJson.decode(changed(text) { put("text", "x".repeat(WidgetJson.MAX_TEXT + 1)) }))
-        assertNotNull(WidgetJson.decode(changed(text) { put("text", "x".repeat(WidgetJson.MAX_TEXT)) }))
+        assertNull(WidgetJson.decode(changed(text) {
+            put(
+                "text",
+                "x".repeat(WidgetJson.MAX_TEXT + 1)
+            )
+        }))
+        assertNotNull(WidgetJson.decode(changed(text) {
+            put(
+                "text",
+                "x".repeat(WidgetJson.MAX_TEXT)
+            )
+        }))
         assertNull(WidgetJson.decode(changed(rows) { put("pad", "x".repeat(WidgetJson.MAX_JSON)) }))
     }
 
     /** One check for each field: the wrong type is refused, not converted. */
-    @Test fun aFieldOfTheWrongTypeGivesNull() {
+    @Test
+    fun aFieldOfTheWrongTypeGivesNull() {
         fun refused(spec: WidgetSpec, key: String, vararg values: Any?) = values.forEach { v ->
             assertNull("$key = $v", WidgetJson.decode(changed(spec) { put(key, v) }))
         }
+
         val map = mapOf("a" to 1)
         val list = listOf(1)
         // Every kind's own fields.
@@ -447,21 +1015,66 @@ class WidgetSpecJsonTest {
         refused(stat, "unit", 1, list)
         refused(stat, "delta", 2.5, map)
         refused(stat, "trend", "sideways", "UP", 1, true)
-        refused(stat, "more", "x", 1, map, listOf("x"), listOf(mapOf("label" to "no value")), listOf(mapOf("value" to 1)), listOf(mapOf("value" to "1", "label" to 2)))
+        refused(
+            stat,
+            "more",
+            "x",
+            1,
+            map,
+            listOf("x"),
+            listOf(mapOf("label" to "no value")),
+            listOf(mapOf("value" to 1)),
+            listOf(mapOf("value" to "1", "label" to 2))
+        )
         refused(stat, "progress", "0.5", true, map)
         refused(stat, "moving", "true", 1, map)
         refused(text, "text", 1, true, list)
         refused(text, "caption", 1, map)
-        refused(rows, "items", "x", 1, map, listOf("x"), listOf(mapOf("detail" to "no title")), listOf(mapOf("title" to 1)), listOf(mapOf("title" to "a", "color" to "pink")))
-        refused(rows, "items", listOf(mapOf("title" to "a", "tap" to "x")), listOf(mapOf("title" to "a", "tap" to mapOf("label" to "nothing to do"))))
+        refused(
+            rows,
+            "items",
+            "x",
+            1,
+            map,
+            listOf("x"),
+            listOf(mapOf("detail" to "no title")),
+            listOf(mapOf("title" to 1)),
+            listOf(mapOf("title" to "a", "color" to "pink"))
+        )
+        refused(
+            rows,
+            "items",
+            listOf(mapOf("title" to "a", "tap" to "x")),
+            listOf(mapOf("title" to "a", "tap" to mapOf("label" to "nothing to do")))
+        )
         refused(rows, "empty", 1, list)
         refused(progress, "value", "0.5", true, map)
         refused(progress, "max", "1", 0, -1, list)
         refused(progress, "text", 1, map)
         refused(progress, "style", "circle", "Ring", 1)
-        refused(progress, "items", "x", map, listOf(1), listOf(mapOf("label" to "no value")), listOf(mapOf("value" to "1")), listOf(mapOf("value" to 1, "max" to 0)), listOf(mapOf("value" to 1, "color" to "pink")))
+        refused(
+            progress,
+            "items",
+            "x",
+            map,
+            listOf(1),
+            listOf(mapOf("label" to "no value")),
+            listOf(mapOf("value" to "1")),
+            listOf(mapOf("value" to 1, "max" to 0)),
+            listOf(mapOf("value" to 1, "color" to "pink"))
+        )
         refused(progress, "moving", "yes", 0)
-        refused(chart, "points", "1,2", 1, map, listOf("1"), listOf(1, null), listOf(1, true), listOf(listOf(1)))
+        refused(
+            chart,
+            "points",
+            "1,2",
+            1,
+            map,
+            listOf("1"),
+            listOf(1, null),
+            listOf(1, true),
+            listOf(listOf(1))
+        )
         refused(chart, "style", "pie", "Line", "Dots", "dot", 1)
         refused(chart, "min", "0", true)
         refused(chart, "max", "9", list)
@@ -479,17 +1092,32 @@ class WidgetSpecJsonTest {
         refused(text, "staleAfter", "3600", true, map)
         refused(text, "refresh", "60", false, list)
         // A needed field that is missing.
-        listOf(stat to "value", text to "text", rows to "items", progress to "value", chart to "points", countdown to "to").forEach { (spec, key) ->
+        listOf(
+            stat to "value",
+            text to "text",
+            rows to "items",
+            progress to "value",
+            chart to "points",
+            countdown to "to"
+        ).forEach { (spec, key) ->
             assertNull("no $key", WidgetJson.decode(changed(spec) { remove(key) }))
         }
     }
 
     /** A tap has exactly one of `args` and `url`, and a link is a web link. Nothing else is ever opened from a stored description. */
-    @Test fun aTapIsCheckedAgain() {
-        fun tap(vararg fields: Pair<String, Any?>) = WidgetJson.decode(changed(text) { put("tap", mapOf(*fields)) })
+    @Test
+    fun aTapIsCheckedAgain() {
+        fun tap(vararg fields: Pair<String, Any?>) =
+            WidgetJson.decode(changed(text) { put("tap", mapOf(*fields)) })
         assertEquals(WidgetTap(args = "add 1"), tap("args" to "add 1")!!.base.tap)
-        assertEquals(WidgetTap(url = "HTTPS://Example.com"), tap("url" to "HTTPS://Example.com")!!.base.tap)
-        assertEquals(WidgetTap(args = "report", toLog = true), tap("args" to "report", "page" to "log")!!.base.tap)
+        assertEquals(
+            WidgetTap(url = "HTTPS://Example.com"),
+            tap("url" to "HTTPS://Example.com")!!.base.tap
+        )
+        assertEquals(
+            WidgetTap(args = "report", toLog = true),
+            tap("args" to "report", "page" to "log")!!.base.tap
+        )
         // An unknown key is skipped, as a later version may add one.
         assertEquals(WidgetTap(args = "x"), tap("args" to "x", "later" to 1)!!.base.tap)
         assertNull(tap())
@@ -504,8 +1132,17 @@ class WidgetSpecJsonTest {
         assertNull(tap("args" to "x", "page" to "home"))
         assertNull(tap("args" to "x", "page" to true))
         listOf(
-            "intent://scan/#Intent;scheme=zxing;end", "file:///sdcard/a.txt", "content://contacts/1", "javascript:alert(1)",
-            "tel:123", "market://details?id=a", "example.com", "//example.com", " https://example.com", "ftp://example.com", "",
+            "intent://scan/#Intent;scheme=zxing;end",
+            "file:///sdcard/a.txt",
+            "content://contacts/1",
+            "javascript:alert(1)",
+            "tel:123",
+            "market://details?id=a",
+            "example.com",
+            "//example.com",
+            " https://example.com",
+            "ftp://example.com",
+            "",
         ).forEach { assertNull("url: $it", tap("url" to it)) }
         assertNull(WidgetJson.decode(changed(text) { put("tap", "add 1") }))
         assertNull(WidgetJson.decode(changed(text) { put("tap", listOf("add 1")) }))
@@ -514,48 +1151,113 @@ class WidgetSpecJsonTest {
     }
 
     /** A number outside its range is brought into it, and a list over its limit is cut as `widget.show` cuts it. */
-    @Test fun rangesAndLimitsHoldAgain() {
-        fun base(key: String, value: Any?) = WidgetJson.decode(changed(text) { put(key, value) })!!.base
+    @Test
+    fun rangesAndLimitsHoldAgain() {
+        fun base(key: String, value: Any?) =
+            WidgetJson.decode(changed(text) { put(key, value) })!!.base
         assertEquals(WidgetJson.MIN_STALE, base("staleAfter", 1).staleAfter)
         assertEquals(WidgetJson.MAX_STALE, base("staleAfter", 99_999_999).staleAfter)
         assertEquals(WidgetJson.MIN_REFRESH, base("refresh", 0).refresh)
         assertEquals(WidgetJson.MIN_REFRESH, base("refresh", -5).refresh)
         assertEquals(WidgetJson.MAX_REFRESH, base("refresh", 86_400).refresh)
         assertEquals(90, base("refresh", 90.0).refresh)
-        assertEquals(1f, (WidgetJson.decode(changed(stat) { put("progress", 7) }) as WidgetSpec.Stat).progress)
-        assertEquals(0f, (WidgetJson.decode(changed(stat) { put("progress", -0.5) }) as WidgetSpec.Stat).progress)
+        assertEquals(
+            1f,
+            (WidgetJson.decode(changed(stat) { put("progress", 7) }) as WidgetSpec.Stat).progress
+        )
+        assertEquals(
+            0f,
+            (WidgetJson.decode(changed(stat) { put("progress", -0.5) }) as WidgetSpec.Stat).progress
+        )
 
-        val manyRows = WidgetJson.decode(changed(rows) { put("items", (1..40).map { mapOf("title" to "Row $it") }) }) as WidgetSpec.Rows
+        val manyRows = WidgetJson.decode(changed(rows) {
+            put(
+                "items",
+                (1..40).map { mapOf("title" to "Row $it") })
+        }) as WidgetSpec.Rows
         assertEquals((1..WidgetJson.MAX_ROWS).map { "Row $it" }, manyRows.items.map { it.title })
-        val more = WidgetJson.decode(changed(stat) { put("more", (1..9).map { mapOf("value" to "$it") }) }) as WidgetSpec.Stat
+        val more = WidgetJson.decode(changed(stat) {
+            put(
+                "more",
+                (1..9).map { mapOf("value" to "$it") })
+        }) as WidgetSpec.Stat
         assertEquals(listOf("1", "2", "3"), more.more.map { it.value })
-        val bars = WidgetJson.decode(changed(progress) { put("items", (1..9).map { mapOf("value" to it) }) }) as WidgetSpec.Progress
+        val bars = WidgetJson.decode(changed(progress) {
+            put(
+                "items",
+                (1..9).map { mapOf("value" to it) })
+        }) as WidgetSpec.Progress
         assertEquals(listOf(1f, 2f, 3f, 4f), bars.items.map { it.value })
         assertEquals(listOf(1f, 1f, 1f, 1f), bars.items.map { it.max })
         // A chart keeps its last points: the newest.
-        val points = WidgetJson.decode(changed(chart) { put("points", (1..100).toList()) }) as WidgetSpec.Chart
+        val points = WidgetJson.decode(changed(chart) {
+            put(
+                "points",
+                (1..100).toList()
+            )
+        }) as WidgetSpec.Chart
         assertEquals((41..100).map { it.toFloat() }, points.points)
-        val labels = WidgetJson.decode(changed(chart) { put("labels", listOf("a", "b", "c")) }) as WidgetSpec.Chart
+        val labels = WidgetJson.decode(changed(chart) {
+            put(
+                "labels",
+                listOf("a", "b", "c")
+            )
+        }) as WidgetSpec.Chart
         assertEquals(listOf("A", "B"), labels.labels)
     }
 
     /** What a field has when the stored form leaves it out. */
-    @Test fun missingFieldsGetTheirDefaults() {
-        assertEquals(WidgetSpec.Progress(bare, value = 3f, max = 1f), WidgetJson.decode("{\"v\":1,\"kind\":\"progress\",\"value\":3}"))
-        assertEquals(WidgetSpec.Chart(bare, points = listOf(1f, 2.5f), style = "line"), WidgetJson.decode("{\"v\":1,\"kind\":\"chart\",\"points\":[1,2.5]}"))
-        assertEquals(WidgetSpec.Stat(bare, value = "7"), WidgetJson.decode("{\"v\":1,\"kind\":\"stat\",\"value\":\"7\",\"label\":null,\"more\":null,\"moving\":null,\"tap\":null}"))
-        assertEquals(WidgetSpec.Rows(bare, items = emptyList()), WidgetJson.decode("{\"v\":1,\"kind\":\"list\",\"items\":[]}"))
+    @Test
+    fun missingFieldsGetTheirDefaults() {
+        assertEquals(
+            WidgetSpec.Progress(bare, value = 3f, max = 1f),
+            WidgetJson.decode("{\"v\":1,\"kind\":\"progress\",\"value\":3}")
+        )
+        assertEquals(
+            WidgetSpec.Chart(bare, points = listOf(1f, 2.5f), style = "line"),
+            WidgetJson.decode("{\"v\":1,\"kind\":\"chart\",\"points\":[1,2.5]}")
+        )
+        assertEquals(
+            WidgetSpec.Stat(bare, value = "7"),
+            WidgetJson.decode("{\"v\":1,\"kind\":\"stat\",\"value\":\"7\",\"label\":null,\"more\":null,\"moving\":null,\"tap\":null}")
+        )
+        assertEquals(
+            WidgetSpec.Rows(bare, items = emptyList()),
+            WidgetJson.decode("{\"v\":1,\"kind\":\"list\",\"items\":[]}")
+        )
         // A key from a later version is skipped.
-        assertEquals(WidgetSpec.Text(bare, text = "Hi"), WidgetJson.decode("{\"v\":1,\"kind\":\"text\",\"text\":\"Hi\",\"later\":{\"a\":[1,2]}}"))
+        assertEquals(
+            WidgetSpec.Text(bare, text = "Hi"),
+            WidgetJson.decode("{\"v\":1,\"kind\":\"text\",\"text\":\"Hi\",\"later\":{\"a\":[1,2]}}")
+        )
     }
 
     /** A number that JSON can't hold never reaches the store as a number: the description reads back as nothing. */
-    @Test fun numbersThatAreNotFiniteAreNotStored() {
+    @Test
+    fun numbersThatAreNotFiniteAreNotStored() {
         assertNull(WidgetJson.decode(WidgetJson.encode(progress.copy(value = Float.NaN))))
-        assertEquals(progress, WidgetJson.decode(WidgetJson.encode(progress.copy(max = Float.POSITIVE_INFINITY))))
-        assertNull(WidgetJson.decode(WidgetJson.encode(chart.copy(points = listOf(1f, Float.NaN, 3f)))))
+        assertEquals(
+            progress,
+            WidgetJson.decode(WidgetJson.encode(progress.copy(max = Float.POSITIVE_INFINITY)))
+        )
+        assertNull(
+            WidgetJson.decode(
+                WidgetJson.encode(
+                    chart.copy(
+                        points = listOf(
+                            1f,
+                            Float.NaN,
+                            3f
+                        )
+                    )
+                )
+            )
+        )
         // An optional one is left out.
         assertEquals(stat, WidgetJson.decode(WidgetJson.encode(stat.copy(progress = Float.NaN))))
-        assertEquals(chart, WidgetJson.decode(WidgetJson.encode(chart.copy(min = Float.NEGATIVE_INFINITY))))
+        assertEquals(
+            chart,
+            WidgetJson.decode(WidgetJson.encode(chart.copy(min = Float.NEGATIVE_INFINITY)))
+        )
     }
 }

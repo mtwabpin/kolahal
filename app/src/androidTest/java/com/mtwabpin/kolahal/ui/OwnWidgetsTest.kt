@@ -41,8 +41,10 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class OwnWidgetsTest {
-    @get:Rule(order = 0) val vms = TestViewModels()
-    @get:Rule(order = 1) val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule(order = 0)
+    val vms = TestViewModels()
+    @get:Rule(order = 1)
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val host = WidgetHost.get(context)
@@ -55,9 +57,11 @@ class OwnWidgetsTest {
     private val wereOpen = todos.open().map { it.id }
     private val mine = mutableListOf<Long>()
 
-    @Before fun setUp() = wereOpen.forEach { todos.setDone(it, true) }
+    @Before
+    fun setUp() = wereOpen.forEach { todos.setDone(it, true) }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         mine.forEach { todos.remove(it) }
         wereOpen.forEach { todos.setDone(it, false) }
         host.widgets.value.filter { it.key !in hadKeys }.forEach { host.remove(it.key) }
@@ -73,15 +77,22 @@ class OwnWidgetsTest {
 
     private fun isCheckbox(ticked: Boolean) =
         SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox) and
-            SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, if (ticked) ToggleableState.On else ToggleableState.Off)
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.ToggleableState,
+                    if (ticked) ToggleableState.On else ToggleableState.Off
+                )
 
     /**
      * The Todos card lists the open todos, each with a checkbox, and follows the list. A tap on a
      * row marks its todo done. The row stays, ticked, and a second tap opens the todo again.
      */
-    @Test fun aTapOnATodosRowMarksItDone() {
+    @Test
+    fun aTapOnATodosRowMarksItDone() {
         val vm = vms.terminal(context.applicationContext as Application)
-        assertTrue("Todos was on the widgets page before the test", host.placeBuiltin("todos", WidgetSize.S4X2))
+        assertTrue(
+            "Todos was on the widgets page before the test",
+            host.placeBuiltin("todos", WidgetSize.S4X2)
+        )
         val source = WidgetSource.BUILTIN + "todos"
         val placed = host.widgets.value.single { it.source == source }
         // A text no other todo has.
@@ -91,7 +102,14 @@ class OwnWidgetsTest {
         compose.setContent {
             KolahalTheme {
                 CompositionLocalProvider(LocalWidgetsShown provides true) {
-                    Box(Modifier.width(360.dp)) { SourceWidget(placed, 320.dp, vm.widgetActions, vm.widgetFeed) }
+                    Box(Modifier.width(360.dp)) {
+                        SourceWidget(
+                            placed,
+                            320.dp,
+                            vm.widgetActions,
+                            vm.widgetFeed
+                        )
+                    }
                 }
             }
         }

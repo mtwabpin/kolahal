@@ -3,14 +3,8 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -20,8 +14,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -30,7 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,7 +75,12 @@ internal fun TermSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.(
 fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
     TermSheet(onDismiss) {
         // Scroll when the actions don't fit, so the user can reach the last one.
-        Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(vertical = 8.dp)) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(vertical = 8.dp)
+        ) {
             // The size follows the terminal's text size, like the icons.
             val menuStyle = MaterialTheme.typography.bodyLarge.copy(
                 fontSize = (Term.fontSize + 2).sp,
@@ -96,7 +100,9 @@ fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
                     style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).testTag("menu-detail"),
+                    modifier = Modifier
+                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                        .testTag("menu-detail"),
                 )
             }
             menu.url?.let { url ->
@@ -115,7 +121,10 @@ fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
             val iconColumn = menu.actions.any { it.icon != null }
             menu.actions.forEach { action ->
                 if (action.destructive && !dividerShown) {
-                    HorizontalDivider(color = Term.dim.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(
+                        color = Term.dim.copy(alpha = 0.3f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
                     dividerShown = true
                 }
                 val color = if (action.destructive) Term.error else Term.fg
@@ -145,6 +154,7 @@ fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
                                     ),
                                     modifier = Modifier.size(iconSize),
                                 )
+
                                 is ActionIcon.Battery -> BatteryGlyph(
                                     icon.pct,
                                     icon.charging,
@@ -155,6 +165,7 @@ fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
                                     },
                                     iconSize,
                                 )
+
                                 null -> Unit
                             }
                         }

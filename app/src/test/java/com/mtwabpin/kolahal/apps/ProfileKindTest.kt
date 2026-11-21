@@ -6,7 +6,8 @@ import org.junit.Test
 
 /** The profile flags, one table for every command and for completion. */
 class ProfileKindTest {
-    @Test fun eachFlagPicksItsProfile() {
+    @Test
+    fun eachFlagPicksItsProfile() {
         for (kind in ProfileKind.entries) {
             assertEquals(kind, ProfileKind.fromFlags(listOf("maps", kind.flag)))
             assertEquals(kind, ProfileKind.fromFlags(listOf(kind.longFlag, "maps")))

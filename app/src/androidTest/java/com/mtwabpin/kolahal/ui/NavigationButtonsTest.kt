@@ -43,16 +43,20 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class NavigationButtonsTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private lateinit var vm: TerminalViewModel
 
     /** Where home notes that its first run's tour was shown: set, so no tour takes a page's place. */
     private val launcher = app.getSharedPreferences("launcher", Context.MODE_PRIVATE)
     private val toured = launcher.contains("intro_shown")
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         if (!toured) launcher.edit().remove("intro_shown").commit()
     }
 
@@ -69,17 +73,25 @@ class NavigationButtonsTest {
         private fun switchTo(to: String, modeAfter: String) {
             shell("cmd overlay enable-exclusive --category $to")
             val until = System.currentTimeMillis() + 10_000
-            while (navigationMode() != modeAfter && System.currentTimeMillis() < until) Thread.sleep(200)
+            while (navigationMode() != modeAfter && System.currentTimeMillis() < until) Thread.sleep(
+                200
+            )
             Thread.sleep(2_000)
         }
 
-        @BeforeClass @JvmStatic fun threeButtons() {
+        @BeforeClass
+        @JvmStatic
+        fun threeButtons() {
             mode = navigationMode()
-            overlay = shell("cmd overlay list").lines().firstOrNull { "[x]" in it && ".navbar." in it }?.substringAfter("]")?.trim()
+            overlay =
+                shell("cmd overlay list").lines().firstOrNull { "[x]" in it && ".navbar." in it }
+                    ?.substringAfter("]")?.trim()
             if (overlay != THREE_BUTTONS) switchTo(THREE_BUTTONS, "0")
         }
 
-        @AfterClass @JvmStatic fun putBack() {
+        @AfterClass
+        @JvmStatic
+        fun putBack() {
             overlay?.takeIf { it != THREE_BUTTONS }?.let { switchTo(it, mode) }
         }
     }
@@ -88,7 +100,10 @@ class NavigationButtonsTest {
     private fun show(screen: Screen, content: @Composable () -> Unit) {
         launcher.edit().putBoolean("intro_shown", true).commit()
         compose.runOnUiThread {
-            compose.activity.enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
+            compose.activity.enableEdgeToEdge(
+                SystemBarStyle.dark(Color.TRANSPARENT),
+                SystemBarStyle.dark(Color.TRANSPARENT)
+            )
             vm = vms.terminal(app)
             vm.openScreen(screen)
         }
@@ -99,38 +114,56 @@ class NavigationButtonsTest {
 
     /** How tall the navigation buttons are: 0 with gesture navigation, whose handle takes no taps. */
     private fun buttonsHeight(): Dp = compose.runOnIdle {
-        val insets = ViewCompat.getRootWindowInsets(compose.activity.window.decorView) ?: return@runOnIdle 0.dp
+        val insets = ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+            ?: return@runOnIdle 0.dp
         (insets.getInsets(WindowInsetsCompat.Type.tappableElement()).bottom / compose.activity.resources.displayMetrics.density).dp
     }
 
     /** Where the buttons start, from the top of the window. */
-    private fun buttonsTop(): Dp = compose.onRoot().getUnclippedBoundsInRoot().bottom - buttonsHeight()
+    private fun buttonsTop(): Dp =
+        compose.onRoot().getUnclippedBoundsInRoot().bottom - buttonsHeight()
 
     private fun assertAboveTheButtons(what: String, bottom: Dp) =
-        assertTrue("$what ends at $bottom, the buttons start at ${buttonsTop()}", bottom <= buttonsTop())
+        assertTrue(
+            "$what ends at $bottom, the buttons start at ${buttonsTop()}",
+            bottom <= buttonsTop()
+        )
 
-    @Test fun setupsButtonIsAboveTheButtons() {
+    @Test
+    fun setupsButtonIsAboveTheButtons() {
         show(Screen.SETUP) { SetupScreen(vm) }
-        val button = compose.onNode(hasText("Continue to terminal") or hasText("Done")).getUnclippedBoundsInRoot()
+        val button = compose.onNode(hasText("Continue to terminal") or hasText("Done"))
+            .getUnclippedBoundsInRoot()
         assertAboveTheButtons("Continue to terminal", button.bottom)
     }
 
-    @Test fun theToursDotsAndNextAreAboveTheButtons() {
+    @Test
+    fun theToursDotsAndNextAreAboveTheButtons() {
         show(Screen.ONBOARDING) { OnboardingScreen(vm) }
-        assertAboveTheButtons("Next", compose.onNodeWithTag("tour-next").getUnclippedBoundsInRoot().bottom)
-        assertAboveTheButtons("the page dots", compose.onNodeWithContentDescription("Page 1 of", substring = true).getUnclippedBoundsInRoot().bottom)
+        assertAboveTheButtons(
+            "Next",
+            compose.onNodeWithTag("tour-next").getUnclippedBoundsInRoot().bottom
+        )
+        assertAboveTheButtons(
+            "the page dots",
+            compose.onNodeWithContentDescription("Page 1 of", substring = true)
+                .getUnclippedBoundsInRoot().bottom
+        )
     }
 
     /** Settings' rows run on under the buttons, and only the page's colour shows between them. */
-    @Test fun aListShowsNothingBetweenTheButtons() {
+    @Test
+    fun aListShowsNothingBetweenTheButtons() {
         show(Screen.SETTINGS) { SettingsOverHome(vm) }
         val density = compose.activity.resources.displayMetrics.density
         val top = (buttonsTop().value * density).toInt() + 1
-        val under = compose.onAllNodes(hasClickAction()).fetchSemanticsNodes().count { it.boundsInRoot.bottom > top }
+        val under = compose.onAllNodes(hasClickAction()).fetchSemanticsNodes()
+            .count { it.boundsInRoot.bottom > top }
         assertTrue("no row reaches the buttons", under > 0)
         val image = compose.onRoot().captureToImage().toPixelMap()
         val page = Term.palette.bg.toArgb()
-        val other = (top until image.height).sumOf { y -> (0 until image.width).count { x -> image[x, y].toArgb() != page } }
+        val other =
+            (top until image.height).sumOf { y -> (0 until image.width).count { x -> image[x, y].toArgb() != page } }
         assertEquals("pixels not the page's colour between the buttons", 0, other)
     }
 }

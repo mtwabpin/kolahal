@@ -40,13 +40,14 @@ enum class Syntax(val script: ScriptLang?) {
  */
 internal class LineTokens(val syntax: Syntax) {
     val keywords = syntax.script?.let { ApiDocs.keywords(it).toSet() } ?: emptySet()
+
     // Every token here is on one line. JS template strings (`…`) can span lines, so they are found separately.
     private val token = Regex(
         when (syntax) {
             // A key is a string followed by a colon (group 1). A value is a string, a number, true, false or null.
             Syntax.JSON -> "\"(?:\\\\.|[^\"\\\\\n])*\"(\\s*:)?|-?\\b\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b|\\b(?:true|false|null)\\b"
             else -> (if (syntax == Syntax.LUA) "--[^\n]*" else "//[^\n]*") +
-                "|\"(?:\\\\.|[^\"\\\\\n])*\"|'(?:\\\\.|[^'\\\\\n])*'|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                    "|\"(?:\\\\.|[^\"\\\\\n])*\"|'(?:\\\\.|[^'\\\\\n])*'|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b"
         }
     )
 
@@ -69,7 +70,8 @@ internal class LineTokens(val syntax: Syntax) {
     internal val keptChars: Long get() = lineTokens.chars + longLines.chars
 
     /** Returns the tokens of [line], from the cache or tokenised now. */
-    fun of(line: String): IntArray = (if (line.length > LONG_LINE) longLines else lineTokens).getOrPut(line) { tokenize(line) }
+    fun of(line: String): IntArray =
+        (if (line.length > LONG_LINE) longLines else lineTokens).getOrPut(line) { tokenize(line) }
 
     /** Tokens by line, least recently used first. The cached lines hold at most [maxChars] characters in total. */
     private class Kept(private val maxChars: Long) {
@@ -93,7 +95,8 @@ internal class LineTokens(val syntax: Syntax) {
         }
     }
 
-    private fun tokenize(line: String): IntArray = if (syntax == Syntax.JSON) tokenizeJson(line) else tokenizeScript(line)
+    private fun tokenize(line: String): IntArray =
+        if (syntax == Syntax.JSON) tokenizeJson(line) else tokenizeScript(line)
 
     /**
      * JSON has no keywords or comments, so its kinds mean other things:
@@ -137,8 +140,10 @@ internal class LineTokens(val syntax: Syntax) {
     companion object {
         /** Lines longer than this go to the separate cache ([longLines]). */
         const val LONG_LINE = 2_000
+
         /** Cache size in characters: a script of about 2 MB, or 4 MB of memory. */
         const val KEPT_CHARS = 2_000_000L
+
         /** Cache size in characters for the separate cache of [LONG_LINE]s. */
         const val KEPT_LONG_CHARS = 1_000_000L
         const val COMMENT = 0
@@ -209,7 +214,11 @@ internal class SyntaxHighlighter(
                     if (from < 0) from = lineStart
                     if (lineEnd - lineStart <= MAX_COLOURED_LINE) {
                         val t = tokens.of(src.substring(lineStart, lineEnd))
-                        for (i in t.indices step 3) addStyle(styles[t[i + 2]], lineStart + t[i], lineStart + t[i + 1])
+                        for (i in t.indices step 3) addStyle(
+                            styles[t[i + 2]],
+                            lineStart + t[i],
+                            lineStart + t[i + 1]
+                        )
                     }
                     to = lineEnd
                 } else if (line > window.last) {
@@ -240,8 +249,10 @@ internal class SyntaxHighlighter(
         const val MAX_COLOURED_LINE = 5_000
     }
 
-    override fun equals(other: Any?) = other is SyntaxHighlighter && other.tokens.syntax == tokens.syntax &&
-        other.palette == palette && other.window == window
+    override fun equals(other: Any?) =
+        other is SyntaxHighlighter && other.tokens.syntax == tokens.syntax &&
+                other.palette == palette && other.window == window
 
-    override fun hashCode() = 31 * (31 * tokens.syntax.hashCode() + palette.hashCode()) + window.hashCode()
+    override fun hashCode() =
+        31 * (31 * tokens.syntax.hashCode() + palette.hashCode()) + window.hashCode()
 }

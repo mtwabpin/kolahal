@@ -33,7 +33,8 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ContactPickerTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -44,25 +45,44 @@ class ContactPickerTest {
     private var picks = 0
 
     private val commands = CommandRunner(app, object : TerminalUiStub() {
-        override fun pickContact(then: (Contact) -> Unit) { picking = then; picks++ }
+        override fun pickContact(then: (Contact) -> Unit) {
+            picking = then; picks++
+        }
     })
 
     private val mum = contact("Kolahal Test Mum", "+15550100")
     private val sam = contact("Kolahal Test Sam", "+15550111")
 
     private fun contact(name: String, number: String) =
-        Contact(0, name, number, "mobile", false, Uri.parse("content://com.android.contacts/contacts/lookup/kt-$number"))
+        Contact(
+            0,
+            name,
+            number,
+            "mobile",
+            false,
+            Uri.parse("content://com.android.contacts/contacts/lookup/kt-$number")
+        )
 
     /** Dialer and messaging intents, caught before they leave the test. */
-    private val dial = instrumentation.addMonitor(IntentFilter(Intent.ACTION_DIAL).apply { addDataScheme("tel") }, null, true)
-    private val sms = instrumentation.addMonitor(IntentFilter(Intent.ACTION_SENDTO).apply { addDataScheme("smsto") }, null, true)
+    private val dial = instrumentation.addMonitor(
+        IntentFilter(Intent.ACTION_DIAL).apply { addDataScheme("tel") },
+        null,
+        true
+    )
+    private val sms = instrumentation.addMonitor(
+        IntentFilter(Intent.ACTION_SENDTO).apply { addDataScheme("smsto") },
+        null,
+        true
+    )
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         contacts.picker = true
         listOf(mum, sam).forEach { contacts.forget(it.name) }
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         listOf(mum, sam).forEach { contacts.forget(it.name) }
         contacts.picker = !com.mtwabpin.kolahal.BuildConfig.CONTACTS
         listOf(dial, sms).forEach(instrumentation::removeMonitor)
@@ -77,7 +97,8 @@ class ContactPickerTest {
     }
 
     /** `call` with no name, or one not picked before, opens the picker; the contact picked is dialled. */
-    @Test fun callPicksThenDials() {
+    @Test
+    fun callPicksThenDials() {
         run("call")
         assertEquals(1, picks)
         picking!!(mum)
@@ -89,7 +110,8 @@ class ContactPickerTest {
     }
 
     /** A contact picked before is found by name, without the picker. */
-    @Test fun aNamePickedBeforeDialsStraightAway() {
+    @Test
+    fun aNamePickedBeforeDialsStraightAway() {
         contacts.remember(listOf(mum))
         val out = run("call kolahal test mum")
         assertEquals("no picker for a name it knows", 0, picks)
@@ -98,7 +120,8 @@ class ContactPickerTest {
     }
 
     /** `sms` keeps the message for after the pick. */
-    @Test fun smsPicksAndKeepsTheMessage() {
+    @Test
+    fun smsPicksAndKeepsTheMessage() {
         run("sms kolahal test nobody running late")
         assertEquals(1, picks)
         picking!!(sam)
@@ -107,7 +130,8 @@ class ContactPickerTest {
     }
 
     /** Two picked contacts match a name: both are listed, to tap. */
-    @Test fun severalMatchesAreListed() {
+    @Test
+    fun severalMatchesAreListed() {
         contacts.remember(listOf(mum))
         contacts.remember(listOf(sam))
         val out = run("call kolahal test")
@@ -118,11 +142,14 @@ class ContactPickerTest {
     }
 
     /** `contacts` picks one and logs it; `contacts <name>` finds it later; `--forget` drops it. */
-    @Test fun contactsPicksFindsAndForgets() {
+    @Test
+    fun contactsPicksFindsAndForgets() {
         run("contacts")
         assertEquals(1, picks)
         picking!!(mum)
-        assertTrue(logs.recent(5).any { it.text == mum.name && it.ctx.values[LogContext.PHONE] == mum.number })
+        assertTrue(
+            logs.recent(5)
+                .any { it.text == mum.name && it.ctx.values[LogContext.PHONE] == mum.number })
 
         contacts.remember(listOf(mum))
         assertEquals(listOf(mum.name), run("contacts kolahal test mum").map { it.text })
@@ -133,16 +160,20 @@ class ContactPickerTest {
     }
 
     /** A picked contact's numbers replace what was kept for it; a forgotten one stays forgotten. */
-    @Test fun rememberReplacesTheContactsNumbers() {
+    @Test
+    fun rememberReplacesTheContactsNumbers() {
         contacts.remember(listOf(mum))
         contacts.remember(listOf(contact(mum.name, "+15550199"), contact(mum.name, "+15550198")))
-        assertEquals(listOf("+15550199", "+15550198"), contacts.contacts.value.filter { it.name == mum.name }.map { it.number })
+        assertEquals(
+            listOf("+15550199", "+15550198"),
+            contacts.contacts.value.filter { it.name == mum.name }.map { it.number })
         contacts.forget(mum.name)
         assertNull(contacts.contacts.value.firstOrNull { it.name == mum.name })
     }
 
     /** After `call `, the contacts picked before, and a line to pick another; no "Allow contacts access". */
-    @Test fun suggestionsOfferPickedContactsAndThePicker() {
+    @Test
+    fun suggestionsOfferPickedContactsAndThePicker() {
         contacts.remember(listOf(mum))
         val completer = Completer(app, object : Completer.Data {
             override val history = emptyList<String>()
@@ -159,24 +190,36 @@ class ContactPickerTest {
         assertEquals(listOf("call ${mum.name}", "call"), call.map { it.replacement })
         assertNotNull(call.lastOrNull { it.label == "Pick a contact" })
         assertTrue(completer.suggestions("call ").none { it.label == "Allow contacts access" })
-        val forget = completer.suggestions("contacts --forget kol").filterIsInstance<Suggestion.Completion>()
+        val forget =
+            completer.suggestions("contacts --forget kol").filterIsInstance<Suggestion.Completion>()
         assertEquals(listOf("contacts --forget ${mum.name}"), forget.map { it.replacement })
     }
 
     /** A contact picked from `call`'s suggestions opens the dialer at once, where you still press Call. */
-    @Test fun aContactPickedForCallOpensTheDialer() {
+    @Test
+    fun aContactPickedForCallOpensTheDialer() {
         contacts.remember(listOf(mum))
         val config = Config.get(app)
         try {
             val vm = vms.terminal(app)
+
             // The rows the prompt shows for what's typed, as a tap or Tab takes them.
             fun callRows(typed: String): List<Suggestion.Completion> {
-                instrumentation.runOnMainSync { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue(typed)) }
+                instrumentation.runOnMainSync {
+                    vm.onInputChange(
+                        androidx.compose.ui.text.input.TextFieldValue(
+                            typed
+                        )
+                    )
+                }
                 // A contact's rows, not earlier lines from the history.
                 return vm.suggestions(typed).filterIsInstance<Suggestion.Completion>()
                     .filter { it.replacement.startsWith("call ") && it.icon == com.mtwabpin.kolahal.R.drawable.ic_person }
             }
-            fun tap(row: Suggestion.Completion) = instrumentation.runOnMainSync { vm.onSuggestion(row) }
+
+            fun tap(row: Suggestion.Completion) =
+                instrumentation.runOnMainSync { vm.onSuggestion(row) }
+
             fun waitForDials(n: Int) {
                 val deadline = System.currentTimeMillis() + 5_000
                 while (dial.hits < n && System.currentTimeMillis() < deadline) Thread.sleep(100)
@@ -205,12 +248,16 @@ class ContactPickerTest {
             val work = contact(mum.name, "+15550122")
             contacts.remember(listOf(mum, work))
             val rows = callRows("call Kolahal Test Mu")
-            assertEquals(setOf("call ${mum.number}", "call ${work.number}"), rows.map { it.replacement }.toSet())
+            assertEquals(
+                setOf("call ${mum.number}", "call ${work.number}"),
+                rows.map { it.replacement }.toSet()
+            )
             val before = logs.maxId()
             tap(rows.first { it.replacement == "call ${work.number}" })
             waitForDials(2)
             assertEquals(2, dial.hits)
-            assertTrue(logs.recent(20).any { it.id > before && it.text == "Dialing ${work.number}" })
+            assertTrue(
+                logs.recent(20).any { it.id > before && it.text == "Dialing ${work.number}" })
         } finally {
             config.reset(Keys.LAUNCH_INSTANT)
         }

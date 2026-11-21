@@ -32,7 +32,12 @@ internal fun UpdateProgressLine() {
 /** Shows "Downloading update  4 MB / 10 MB  40%" above a progress bar, like [NowPlayingLine]. */
 @Composable
 internal fun UpdateProgressLine(progress: UpdateCommands.Progress) {
-    Column(Modifier.fillMaxWidth().testTag("update-progress").padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag("update-progress")
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
         Row(Modifier.fillMaxWidth()) {
             Text(
                 "Downloading update",
@@ -41,7 +46,11 @@ internal fun UpdateProgressLine(progress: UpdateCommands.Progress) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Text("${progress.downloaded / MB} MB / ${progress.total / MB} MB  ${progress.percent}%", style = Term.small, maxLines = 1)
+            Text(
+                "${progress.downloaded / MB} MB / ${progress.total / MB} MB  ${progress.percent}%",
+                style = Term.small,
+                maxLines = 1
+            )
         }
         ProgressTrack(progress.percent / 100f)
     }

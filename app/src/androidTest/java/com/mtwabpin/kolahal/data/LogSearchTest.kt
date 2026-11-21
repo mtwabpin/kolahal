@@ -19,11 +19,14 @@ class LogSearchTest {
         added += logs.add(LogKind.OUTPUT, text, source, ctx)
     }
 
-    @After fun tearDown() = added.forEach(logs::delete)
+    @After
+    fun tearDown() = added.forEach(logs::delete)
 
-    private fun texts(vararg words: String) = logs.search(words.toList()).entries.map { it.text }.toSet()
+    private fun texts(vararg words: String) =
+        logs.search(words.toList()).entries.map { it.text }.toSet()
 
-    @Test fun wordsAreFoundInTextSourceAndLink() {
+    @Test
+    fun wordsAreFoundInTextSourceAndLink() {
         add("$token one")
         add("two", source = "$token-feed")
         add("three", ctx = LogContext.of(LogContext.URL to "https://example.com/$token"))
@@ -32,25 +35,34 @@ class LogSearchTest {
         assertEquals(3, logs.search(listOf(token)).total)
     }
 
-    @Test fun aScriptLinesBodyIsSearchedToo() {
-        added += logs.add(LogKind.SCRIPT, "title", "s", LogContext.of(LogContext.TITLE to "1", LogContext.BODY to "$token in the body"))
+    @Test
+    fun aScriptLinesBodyIsSearchedToo() {
+        added += logs.add(
+            LogKind.SCRIPT,
+            "title",
+            "s",
+            LogContext.of(LogContext.TITLE to "1", LogContext.BODY to "$token in the body")
+        )
         assertEquals(setOf("title"), texts(token))
     }
 
-    @Test fun everyWordMustMatchIgnoringCase() {
+    @Test
+    fun everyWordMustMatchIgnoringCase() {
         add("$token Battery LOW")
         add("$token battery full")
         assertEquals(setOf("$token Battery LOW"), texts(token.uppercase(), "low", "battery"))
     }
 
-    @Test fun newestFirstAndCapped() {
+    @Test
+    fun newestFirstAndCapped() {
         repeat(5) { add("$token $it") }
         val found = logs.search(listOf(token), limit = 2)
         assertEquals(5, found.total)
         assertEquals(listOf("$token 4", "$token 3"), found.entries.map { it.text })
     }
 
-    @Test fun skippedLinesAreLeftOut() {
+    @Test
+    fun skippedLinesAreLeftOut() {
         add("$token personal")
         add("$token private", ctx = LogContext.of(LogContext.USER to "77"))
         val found = logs.search(listOf(token), skip = { it.ctx.userSerial == 77L })
@@ -61,20 +73,31 @@ class LogSearchTest {
     // The database rules most lines out before they are read (a LIKE per word): what that must not miss.
 
     /** Styled text matches as it reads: a word across a style's edge is still the word. */
-    @Test fun aWordAcrossAStyleEdgeIsFound() {
+    @Test
+    fun aWordAcrossAStyleEdgeIsFound() {
         add("$token ab" + StyledText.wrap(StyledText.Style.BOLD, "cd") + "ef")
         assertEquals(1, logs.search(listOf(token, "bcde")).total)
-        added += logs.add(LogKind.SCRIPT, "t", "s", LogContext.of(LogContext.TITLE to "1", LogContext.BODY to "$token xy" + StyledText.wrap(StyledText.Style.ITALIC, "z") + "w"))
+        added += logs.add(
+            LogKind.SCRIPT,
+            "t",
+            "s",
+            LogContext.of(
+                LogContext.TITLE to "1",
+                LogContext.BODY to "$token xy" + StyledText.wrap(StyledText.Style.ITALIC, "z") + "w"
+            )
+        )
         assertEquals(1, logs.search(listOf(token, "yzw")).total)
     }
 
     /** JSON escapes the slashes in a link. */
-    @Test fun aLinkWithSlashesIsFound() {
+    @Test
+    fun aLinkWithSlashesIsFound() {
         add("three", ctx = LogContext.of(LogContext.URL to "https://example.com/$token/path"))
         assertEquals(setOf("three"), texts("com/$token/path"))
     }
 
-    @Test fun likeWildcardsAreLiteral() {
+    @Test
+    fun likeWildcardsAreLiteral() {
         add("$token 100%")
         add("$token 100x")
         add("$token a_b")
@@ -84,13 +107,15 @@ class LogSearchTest {
         assertEquals(setOf("$token a_b"), texts(token, "a_b"))
     }
 
-    @Test fun nonAsciiWordsIgnoreCase() {
+    @Test
+    fun nonAsciiWordsIgnoreCase() {
         add("$token Éclair")
         assertEquals(setOf("$token Éclair"), texts(token, "éclair"))
         assertEquals(setOf("$token Éclair"), texts(token, "ÉCLAIR"))
     }
 
-    @Test fun everyLineCountsAsSearched() {
+    @Test
+    fun everyLineCountsAsSearched() {
         repeat(3) { add("$token $it") }
         val found = logs.search(listOf(token))
         assertEquals(3, found.total)

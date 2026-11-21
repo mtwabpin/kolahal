@@ -17,60 +17,78 @@ class RunOutcomeTest {
 
     private val denied = RunStop.Denied(ScriptAccess.INTERNET, "internet is off for this script")
 
-    @Test fun aTimeoutSaysSo() {
+    @Test
+    fun aTimeoutSaysSo() {
         val o = outcome(IllegalStateException("script timed out after 60s"), RunStop.Timeout)
         assertEquals(RunOutcome("hn: timed out after 60s", "timeout"), o)
     }
 
-    @Test fun aScriptsOwnErrorAboutATimeoutIsAnError() {
+    @Test
+    fun aScriptsOwnErrorAboutATimeoutIsAnError() {
         val o = outcome(RuntimeException("script timed out"))
         assertEquals("hn: script timed out", o.line)
         assertEquals("error: script timed out", o.status)
     }
 
-    @Test fun aSwitchThatIsOffSaysWhichWithATapToAllowIt() {
+    @Test
+    fun aSwitchThatIsOffSaysWhichWithATapToAllowIt() {
         val o = outcome(java.io.IOException("hn:3: internet is off for this script"), denied)
         assertEquals("hn: internet is off for this script — tap to allow", o.line)
         assertEquals("stopped: internet off", o.status)
         assertEquals(mapOf(LogContext.RUN to "script allow hn internet"), o.extra)
     }
 
-    @Test fun aDenialTheScriptCaughtIsNotWhatEndedTheRun() {
+    @Test
+    fun aDenialTheScriptCaughtIsNotWhatEndedTheRun() {
         val o = outcome(RuntimeException("no stories"), denied)
         assertEquals("hn: no stories", o.line)
         assertEquals("error: no stories", o.status)
     }
 
-    @Test fun aTimeoutAfterACaughtDenialIsATimeout() {
-        assertEquals("timeout", outcome(RuntimeException("internet is off for this script"), RunStop.Timeout).status)
+    @Test
+    fun aTimeoutAfterACaughtDenialIsATimeout() {
+        assertEquals(
+            "timeout",
+            outcome(RuntimeException("internet is off for this script"), RunStop.Timeout).status
+        )
     }
 
-    @Test fun anErrorGivesItsFirstLineAndALineToEdit() {
+    @Test
+    fun anErrorGivesItsFirstLineAndALineToEdit() {
         val o = outcome(RuntimeException("\nbad value\nstack"), line = 12)
         assertEquals("hn: bad value (tap to edit line 12)", o.line)
         assertEquals("error: bad value (line 12)", o.status)
-        assertEquals(mapOf(LogContext.COPY to "\nbad value\nstack", LogContext.LINE to "12"), o.extra)
+        assertEquals(
+            mapOf(LogContext.COPY to "\nbad value\nstack", LogContext.LINE to "12"),
+            o.extra
+        )
     }
 
-    @Test fun aReplRunHasNoLineToEdit() {
+    @Test
+    fun aReplRunHasNoLineToEdit() {
         val o = outcome(RuntimeException("bad value"), repl = true, line = 12)
         assertEquals("hn: bad value", o.line)
         assertEquals(mapOf(LogContext.COPY to "bad value"), o.extra)
     }
 
-    @Test fun theMessageIsMasked() {
-        val o = outcome(RuntimeException("GET https://x?key=s3cret failed"), redact = { it.replace("s3cret", "•••") })
+    @Test
+    fun theMessageIsMasked() {
+        val o = outcome(
+            RuntimeException("GET https://x?key=s3cret failed"),
+            redact = { it.replace("s3cret", "•••") })
         assertEquals("hn: GET https://x?key=••• failed", o.line)
         assertEquals("GET https://x?key=••• failed", o.extra[LogContext.COPY])
     }
 
-    @Test fun noMessageGivesTheErrorsKind() {
+    @Test
+    fun noMessageGivesTheErrorsKind() {
         val o = outcome(IllegalArgumentException())
         assertEquals("hn: IllegalArgumentException", o.line)
         assertEquals(mapOf(LogContext.COPY to "IllegalArgumentException"), o.extra)
     }
 
-    @Test fun aLongMessageIsCut() {
+    @Test
+    fun aLongMessageIsCut() {
         val o = outcome(RuntimeException("x".repeat(500)))
         assertEquals("error: " + "x".repeat(ScriptRepository.STATUS_MAX), o.status)
     }

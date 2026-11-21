@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.contacts
 
-import com.mtwabpin.kolahal.data.Stores
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -16,14 +15,15 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.Stores
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -41,7 +41,11 @@ data class Contact(
 ) {
     /** Values that [ContactsRepository.search] compares. They are computed at the first search, not on every key press. */
     internal val lowerName: String by lazy(LazyThreadSafetyMode.PUBLICATION) { name.lowercase() }
-    internal val nameWords: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { lowerName.split(' ') }
+    internal val nameWords: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        lowerName.split(
+            ' '
+        )
+    }
     internal val digits: String by lazy(LazyThreadSafetyMode.PUBLICATION) { number.filter { it.isDigit() } }
 }
 
@@ -64,10 +68,12 @@ class ContactsRepository private constructor(private val context: Context) {
      * false until home first starts, because a process started for a job (a feed, a reminder) has no
      * home to show them.
      */
-    @Volatile private var active = false
+    @Volatile
+    private var active = false
 
     /** True when a change came while home wasn't started. The list is reloaded on return, or when a command needs it. */
-    @Volatile private var stale = false
+    @Volatile
+    private var stale = false
 
     /**
      * Call when home starts or stops.
@@ -88,17 +94,24 @@ class ContactsRepository private constructor(private val context: Context) {
 
     /** True when contacts come from Android's contact picker, not READ_CONTACTS. This is the Play build. */
     var picker = !BuildConfig.CONTACTS
-        internal set(value) { field = value; _contacts.value = emptyList(); refresh() }
+        internal set(value) {
+            field = value; _contacts.value = emptyList(); refresh()
+        }
 
     private val prefs by lazy { Stores.PICKED_CONTACTS.open(context) }
 
-    fun hasPermission() = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
-        PackageManager.PERMISSION_GRANTED
+    fun hasPermission() =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+                PackageManager.PERMISSION_GRANTED
 
     fun refresh() {
         if (picker) {
             // Use the same lock as remember and forget, so a load that started earlier can't finish after them.
-            scope.launch { synchronized(this@ContactsRepository) { _contacts.value = loadPicked() } }
+            scope.launch {
+                synchronized(this@ContactsRepository) {
+                    _contacts.value = loadPicked()
+                }
+            }
             return
         }
         if (!hasPermission()) return
@@ -204,7 +217,14 @@ class ContactsRepository private constructor(private val context: Context) {
         val a = JSONArray(prefs.getString(KEY_PICKED, "[]"))
         (0 until a.length()).map { i ->
             val o = a.getJSONObject(i)
-            Contact(o.optLong("id"), o.getString("name"), o.getString("number"), o.optString("label"), o.optBoolean("starred"), Uri.parse(o.optString("lookup")))
+            Contact(
+                o.optLong("id"),
+                o.getString("name"),
+                o.getString("number"),
+                o.optString("label"),
+                o.optBoolean("starred"),
+                Uri.parse(o.optString("lookup"))
+            )
         }
     }.getOrDefault(emptyList())
 
@@ -213,7 +233,11 @@ class ContactsRepository private constructor(private val context: Context) {
         _contacts.value = kept
         val a = JSONArray()
         kept.forEach { c ->
-            a.put(JSONObject().put("id", c.id).put("name", c.name).put("number", c.number).put("label", c.label).put("starred", c.starred).put("lookup", c.lookupUri.toString()))
+            a.put(
+                JSONObject().put("id", c.id).put("name", c.name).put("number", c.number)
+                    .put("label", c.label).put("starred", c.starred)
+                    .put("lookup", c.lookupUri.toString())
+            )
         }
         prefs.edit { putString(KEY_PICKED, a.toString()) }
     }
@@ -247,6 +271,7 @@ class ContactsRepository private constructor(private val context: Context) {
         private const val KEY_PICKED = "list"
         private const val MAX_PICKED = 200
 
-        fun looksLikeNumber(s: String) = s.isNotBlank() && s.all { it.isDigit() || it in "+-() *#" } && s.count { it.isDigit() } >= 3
+        fun looksLikeNumber(s: String) =
+            s.isNotBlank() && s.all { it.isDigit() || it in "+-() *#" } && s.count { it.isDigit() } >= 3
     }
 }

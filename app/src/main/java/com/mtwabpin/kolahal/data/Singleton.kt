@@ -16,8 +16,12 @@ import com.mtwabpin.kolahal.BuildConfig
  * for it there throws, so a test finds the mistake. Settings that :script needs go through
  * [SharedSettings] or a [KvStore].
  */
-open class Singleton<T : Any>(private val create: (Context) -> T, private val mainOnly: Boolean = false) {
-    @Volatile private var instance: T? = null
+open class Singleton<T : Any>(
+    private val create: (Context) -> T,
+    private val mainOnly: Boolean = false
+) {
+    @Volatile
+    private var instance: T? = null
 
     fun get(context: Context): T = instance ?: synchronized(this) {
         instance ?: run {
@@ -31,7 +35,9 @@ open class Singleton<T : Any>(private val create: (Context) -> T, private val ma
     companion object {
         /** True in the :script process, where scripts run; false in the main one. */
         val inScriptProcess: Boolean by lazy {
-            runCatching { android.app.Application.getProcessName()?.endsWith(":script") == true }.getOrDefault(false)
+            runCatching {
+                android.app.Application.getProcessName()?.endsWith(":script") == true
+            }.getOrDefault(false)
         }
     }
 }

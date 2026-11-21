@@ -17,13 +17,22 @@ internal fun contrast(a: Color, b: Color): Float {
 
 /** A palette's coloured roles by name: every role but the background, the surface, the text and the muted text. */
 internal fun accents(p: Palette) = listOf(
-    "accent" to p.prompt, "error" to p.error, "info" to p.info, "link" to p.link, "script" to p.script,
-    "personal" to p.personal, "work" to p.work, "private" to p.private, "good" to p.good, "warn" to p.warn,
+    "accent" to p.prompt,
+    "error" to p.error,
+    "info" to p.info,
+    "link" to p.link,
+    "script" to p.script,
+    "personal" to p.personal,
+    "work" to p.work,
+    "private" to p.private,
+    "good" to p.good,
+    "warn" to p.warn,
 )
 
 /** Every built-in theme has a dark and a light version, and both read well. */
 class ThemeVersionsTest {
-    @Test fun eachThemeHasADarkAndALightVersion() {
+    @Test
+    fun eachThemeHasADarkAndALightVersion() {
         for (name in Keys.BUILT_IN_THEMES) {
             val dark = Palettes.named(name, dark = true)
             val light = Palettes.named(name, dark = false)
@@ -35,7 +44,8 @@ class ThemeVersionsTest {
         assertEquals(Palettes.greenLight, Palettes.named("no-such-theme", dark = false))
     }
 
-    @Test fun theLightVersionsAreReadable() {
+    @Test
+    fun theLightVersionsAreReadable() {
         for (name in Keys.BUILT_IN_THEMES) {
             val p = Palettes.named(name, dark = false)
             assertTrue("$name text", contrast(p.fg, p.bg) >= 7f)
@@ -45,9 +55,24 @@ class ThemeVersionsTest {
     }
 
     /** `theme <name>` and the theme cards take every built-in theme, and each has a name to show. */
-    @Test fun everyBuiltInThemeCanBePicked() {
+    @Test
+    fun everyBuiltInThemeCanBePicked() {
         assertEquals(
-            listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material", "nord", "rose-pine", "material-you", "material-you-soft", "material-you-tinted", "material-you-black"),
+            listOf(
+                "green",
+                "amber",
+                "mono",
+                "dracula",
+                "solarized",
+                "gruvbox",
+                "gruvbox-material",
+                "nord",
+                "rose-pine",
+                "material-you",
+                "material-you-soft",
+                "material-you-tinted",
+                "material-you-black"
+            ),
             Keys.BUILT_IN_THEMES,
         )
         for (name in Keys.BUILT_IN_THEMES) assertEquals(name, Keys.THEME.parse(name))
@@ -58,9 +83,12 @@ class ThemeVersionsTest {
         assertEquals("Gruvbox Material", ChoiceLabels.theme("gruvbox-material"))
     }
 
-    @Test fun theBuilderGetsBothVersions() {
+    @Test
+    fun theBuilderGetsBothVersions() {
         val colors = Palettes.themeColors("dracula")
-        assertEquals(Palettes.colorsOf(Palettes.dracula), colors.filterKeys { it in CustomThemes.ROLES })
+        assertEquals(
+            Palettes.colorsOf(Palettes.dracula),
+            colors.filterKeys { it in CustomThemes.ROLES })
         assertEquals(Palettes.colorsOf(Palettes.draculaLight), CustomThemes.light(colors))
     }
 }

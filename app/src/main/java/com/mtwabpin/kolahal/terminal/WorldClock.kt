@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.data.TimeFormats
+import com.mtwabpin.kolahal.terminal.WorldClock.key
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -23,7 +24,11 @@ object WorldClock {
      * A zone given by its id is loaded only when first used. Loading the rules of every zone for
      * the list of places was too slow: it took many frames when the user typed the first place.
      */
-    class Place private constructor(val name: String, private val id: String?, private val fixed: ZoneId?) {
+    class Place private constructor(
+        val name: String,
+        private val id: String?,
+        private val fixed: ZoneId?
+    ) {
         constructor(name: String, zone: ZoneId) : this(name, null, zone)
         constructor(name: String, id: String) : this(name, id, null)
 
@@ -32,7 +37,9 @@ object WorldClock {
         /** The name in the form that typed text is matched against ([key]). It is computed once, not for every place on every key press. */
         internal val folded: String by lazy(LazyThreadSafetyMode.PUBLICATION) { key(name) }
 
-        override fun equals(other: Any?) = other is Place && other.name == name && other.zone == zone
+        override fun equals(other: Any?) =
+            other is Place && other.name == name && other.zone == zone
+
         override fun hashCode() = 31 * name.hashCode() + zone.hashCode()
         override fun toString() = "Place(name=$name, zone=$zone)"
     }
@@ -41,7 +48,13 @@ object WorldClock {
      * The output for one place: its name, and its time with how far ahead or behind it is.
      * [detail] is [time], [day] (when it isn't today here) and [relative] together: `04:26 · 3h30 ahead`.
      */
-    data class Line(val place: String, val detail: String, val time: String = "", val day: String = "", val relative: String = "")
+    data class Line(
+        val place: String,
+        val detail: String,
+        val time: String = "",
+        val day: String = "",
+        val relative: String = ""
+    )
 
     private val OFFSET = Regex("^([+-])(\\d{1,2})(?::(\\d{2}))?$")
 
@@ -92,19 +105,35 @@ object WorldClock {
      * Returns `Tokyo` / `04:26 · 3h30 ahead`: the time at [place] at the moment [now], compared with [here].
      * It also shows the day when that day is not today here.
      */
-    fun line(place: Place, now: Instant, here: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): Line {
+    fun line(
+        place: Place,
+        now: Instant,
+        here: ZoneId,
+        clock24: Boolean,
+        locale: Locale = Locale.getDefault()
+    ): Line {
         val there = now.atZone(place.zone)
         val local = now.atZone(here)
         val time = there.format(TimeFormats.clockFormat(clock24, locale))
         val minutes = (there.offset.totalSeconds - local.offset.totalSeconds) / 60
-        val apart = abs(minutes).let { m -> "${m / 60}h" + if (m % 60 == 0) "" else (m % 60).toString().padStart(2, '0') }
+        val apart = abs(minutes).let { m ->
+            "${m / 60}h" + if (m % 60 == 0) "" else (m % 60).toString().padStart(2, '0')
+        }
         val relative = when {
             minutes == 0 -> "same time"
             minutes > 0 -> "$apart ahead"
             else -> "$apart behind"
         }
-        val day = if (there.toLocalDate() == local.toLocalDate()) "" else there.format(TimeFormats.dayFormat(locale))
-        return Line(place.name, time + (if (day.isEmpty()) "" else " $day") + " · $relative", time, day, relative)
+        val day = if (there.toLocalDate() == local.toLocalDate()) "" else there.format(
+            TimeFormats.dayFormat(locale)
+        )
+        return Line(
+            place.name,
+            time + (if (day.isEmpty()) "" else " $day") + " · $relative",
+            time,
+            day,
+            relative
+        )
     }
 
     /**

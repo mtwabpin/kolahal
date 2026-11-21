@@ -6,6 +6,7 @@ package com.mtwabpin.kolahal.data
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.mtwabpin.kolahal.data.Db.Companion.VERSION
 
 /**
  * A single SQLite database shared by the UI process and the `:script` process.
@@ -106,7 +107,8 @@ class Db internal constructor(context: Context, name: String) :
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = upgrade(db, oldVersion)
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) =
+        upgrade(db, oldVersion)
 
     /**
      * A database from a newer Kolahal (Android's transfer from a phone with a newer version, or a
@@ -121,21 +123,46 @@ class Db internal constructor(context: Context, name: String) :
     internal fun upgrade(db: SQLiteDatabase, oldVersion: Int) {
         // Both processes may open the database right after an update, and a database kept through a
         // downgrade ([onDowngrade]) runs the steps again later. So each step must be safe to run twice.
-        if (oldVersion < 2 && !hasColumn(db, "scripts", "at_times")) db.execSQL("ALTER TABLE scripts ADD COLUMN at_times TEXT")
+        if (oldVersion < 2 && !hasColumn(
+                db,
+                "scripts",
+                "at_times"
+            )
+        ) db.execSQL("ALTER TABLE scripts ADD COLUMN at_times TEXT")
         if (oldVersion < 3) createProductivityTables(db)
         if (oldVersion < 4) addScriptAccess(db)
         if (oldVersion < 5) dropRunHeaders(db)
         // Repeating reminders (version 6): how a reminder repeats, or null for once.
-        if (oldVersion < 6 && !hasColumn(db, "reminders", "repeat_rule")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT")
+        if (oldVersion < 6 && !hasColumn(
+                db,
+                "reminders",
+                "repeat_rule"
+            )
+        ) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT")
         // The time a repeating reminder was set for (version 7), so a daylight-saving gap or a trip doesn't move it for good.
-        if (oldVersion < 7 && !hasColumn(db, "reminders", "repeat_time")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_time TEXT")
+        if (oldVersion < 7 && !hasColumn(
+                db,
+                "reminders",
+                "repeat_time"
+            )
+        ) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_time TEXT")
         // Starred log lines (version 8), kept beyond the log's limits.
         if (oldVersion < 8) {
-            if (!hasColumn(db, "logs", "starred")) db.execSQL("ALTER TABLE logs ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
+            if (!hasColumn(
+                    db,
+                    "logs",
+                    "starred"
+                )
+            ) db.execSQL("ALTER TABLE logs ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
             db.execSQL(STARRED_INDEX)
         }
         // When a script's code or name last changed (version 9), for "Recently changed" in the Scripts tab. Older rows have none.
-        if (oldVersion < 9 && !hasColumn(db, "scripts", "changed_at")) db.execSQL("ALTER TABLE scripts ADD COLUMN changed_at INTEGER")
+        if (oldVersion < 9 && !hasColumn(
+                db,
+                "scripts",
+                "changed_at"
+            )
+        ) db.execSQL("ALTER TABLE scripts ADD COLUMN changed_at INTEGER")
     }
 
     private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean =
@@ -149,13 +176,24 @@ class Db internal constructor(context: Context, name: String) :
      * are switched on keep that. Scripts that are switched off ask when they are switched on.
      */
     private fun addScriptAccess(db: SQLiteDatabase) {
-        if (!hasColumn(db, "scripts", "access")) db.execSQL("ALTER TABLE scripts ADD COLUMN access TEXT")
+        if (!hasColumn(
+                db,
+                "scripts",
+                "access"
+            )
+        ) db.execSQL("ALTER TABLE scripts ADD COLUMN access TEXT")
         db.query("scripts", arrayOf("id", "code"), "enabled = 1", null, null, null, null).use { c ->
             while (c.moveToNext()) {
                 val uses = com.mtwabpin.kolahal.script.ScriptMeta.uses(c.getString(1))
                 if (uses.isEmpty()) continue
-                val access = com.mtwabpin.kolahal.script.ScriptAccess.encode(uses.associateWith { true })
-                db.update("scripts", android.content.ContentValues().apply { put("access", access) }, "id = ?", arrayOf(c.getLong(0).toString()))
+                val access =
+                    com.mtwabpin.kolahal.script.ScriptAccess.encode(uses.associateWith { true })
+                db.update(
+                    "scripts",
+                    android.content.ContentValues().apply { put("access", access) },
+                    "id = ?",
+                    arrayOf(c.getLong(0).toString())
+                )
             }
         }
     }
@@ -165,11 +203,16 @@ class Db internal constructor(context: Context, name: String) :
         private const val VERSION = 9
 
         /** An index of only the starred lines, by kind. A trim counts them with it instead of reading every line. */
-        private const val STARRED_INDEX = "CREATE INDEX IF NOT EXISTS logs_starred ON logs(kind) WHERE starred = 1"
+        private const val STARRED_INDEX =
+            "CREATE INDEX IF NOT EXISTS logs_starred ON logs(kind) WHERE starred = 1"
 
         /** Run headers (`── hn · 22:40 ──`) were removed in version 5. Every line now shows its time and its script. */
         internal fun dropRunHeaders(db: SQLiteDatabase): Int =
-            db.delete("logs", "kind = ? AND ctx LIKE ?", arrayOf(LogKind.INFO.key, "%\"${LogContext.RUN_HEADER}\"%"))
+            db.delete(
+                "logs",
+                "kind = ? AND ctx LIKE ?",
+                arrayOf(LogKind.INFO.key, "%\"${LogContext.RUN_HEADER}\"%")
+            )
     }
 }
 

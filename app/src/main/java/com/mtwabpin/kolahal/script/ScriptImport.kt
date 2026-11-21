@@ -42,7 +42,11 @@ internal class ScriptImport(private val context: Context) {
          * - [off]: its code is new here, so it was left switched off, whatever came with it.
          * - [timersFailed]: its timers could not be set.
          */
-        data class Imported(val change: Change, val off: Boolean, val timersFailed: Boolean = false) : Outcome
+        data class Imported(
+            val change: Change,
+            val off: Boolean,
+            val timersFailed: Boolean = false
+        ) : Outcome
 
         /** Nothing was changed, because of [why]. */
         data class Skipped(val why: Why) : Outcome
@@ -79,7 +83,13 @@ internal class ScriptImport(private val context: Context) {
         resync: Boolean = true,
     ): Outcome {
         val existing = scripts.byName(name)
-        val plan = when (val p = ImportPlan.plan(existing, lang, code, BuildConfig.VERSION_NAME, changedEarlier = name in changedHere)) {
+        val plan = when (val p = ImportPlan.plan(
+            existing,
+            lang,
+            code,
+            BuildConfig.VERSION_NAME,
+            changedEarlier = name in changedHere
+        )) {
             is ImportPlan.Skip -> return Outcome.Skipped(p.why)
             is ImportPlan.Place -> p
         }
@@ -92,12 +102,22 @@ internal class ScriptImport(private val context: Context) {
         }
         if (plan.step != ImportPlan.Step.KEEP) changedHere += name
         settings?.let { m ->
-            (m["every"] as? Number)?.toLong()?.let { scripts.setInterval(script.id, ImportPlan.minutes(it)) }
+            (m["every"] as? Number)?.toLong()
+                ?.let { scripts.setInterval(script.id, ImportPlan.minutes(it)) }
             (m["at"] as? List<*>)?.let { scripts.setAtTimes(script.id, ImportPlan.times(it)) }
             (m["notify"] as? Boolean)?.let { scripts.setNotify(script.id, it) }
-            if (accessOff) (m["access"] as? Map<*, *>)?.forEach { (item, on) -> if (on == false) scripts.setAccess(script.id, item.toString(), false) }
+            if (accessOff) (m["access"] as? Map<*, *>)?.forEach { (item, on) ->
+                if (on == false) scripts.setAccess(
+                    script.id,
+                    item.toString(),
+                    false
+                )
+            }
         }
-        if (plan.step == ImportPlan.Step.CREATE && settings == null) scripts.applySuggested(script.id, code)
+        if (plan.step == ImportPlan.Step.CREATE && settings == null) scripts.applySuggested(
+            script.id,
+            code
+        )
         // The one place for the rule: new or changed code stays off until you review it and switch it
         // on. Only a script whose code you already had follows the switch that came with it.
         if (plan.off) {
@@ -116,7 +136,7 @@ internal class ScriptImport(private val context: Context) {
             else -> Change.UNCHANGED
         }
         val timersSet = (!resync && plan.step != ImportPlan.Step.REPLACE) ||
-            runCatching { after?.let { ScriptScheduler.sync(context, it) } }.isSuccess
+                runCatching { after?.let { ScriptScheduler.sync(context, it) } }.isSuccess
         return Outcome.Imported(change, off = plan.off, timersFailed = !timersSet)
     }
 
@@ -125,7 +145,8 @@ internal class ScriptImport(private val context: Context) {
          * The name rule of a folder and a backup: the form of a script name, and not a built-in
          * command's name. An app's name is allowed, because these are your own scripts coming back.
          */
-        fun named(name: String): Boolean = ScriptNames.NAME.matches(name) && name !in CommandCatalog.RESERVED_NAMES
+        fun named(name: String): Boolean =
+            ScriptNames.NAME.matches(name) && name !in CommandCatalog.RESERVED_NAMES
     }
 }
 
@@ -149,8 +170,15 @@ internal object ImportPlan {
      * New or changed code arrives switched off: a new script, replaced code, and code that is only
      * the same because this import put it there a moment ago.
      */
-    fun plan(existing: Script?, lang: ScriptLang, code: String, current: String, changedEarlier: Boolean): Plan {
-        ScriptMeta.requires(code)?.takeIf { ScriptMeta.isNewer(it, current) }?.let { return Skip(ScriptImport.Why.NeedsNewer(it)) }
+    fun plan(
+        existing: Script?,
+        lang: ScriptLang,
+        code: String,
+        current: String,
+        changedEarlier: Boolean
+    ): Plan {
+        ScriptMeta.requires(code)?.takeIf { ScriptMeta.isNewer(it, current) }
+            ?.let { return Skip(ScriptImport.Why.NeedsNewer(it)) }
         return when {
             existing == null -> Place(Step.CREATE, off = true)
             existing.lang != lang -> Skip(ScriptImport.Why.OtherLanguage(existing.lang))
@@ -166,10 +194,11 @@ internal object ImportPlan {
     }
 
     /** Daily times from a file: the valid ones as "HH:mm", each once, in order. */
-    fun times(at: List<*>): List<String> = at.mapNotNull { ScriptScheduler.normalizeTime(it.toString()) }.distinct().sorted()
+    fun times(at: List<*>): List<String> =
+        at.mapNotNull { ScriptScheduler.normalizeTime(it.toString()) }.distinct().sorted()
 
     /** What an import can change in a script: its code, timers, notifications and switch. */
     fun changed(before: Script, after: Script): Boolean =
         before.code != after.code || before.intervalMin != after.intervalMin || before.atTimes != after.atTimes ||
-            before.notify != after.notify || before.enabled != after.enabled
+                before.notify != after.notify || before.enabled != after.enabled
 }

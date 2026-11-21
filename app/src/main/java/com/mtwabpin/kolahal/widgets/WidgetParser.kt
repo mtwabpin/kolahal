@@ -99,9 +99,11 @@ object WidgetParser {
     const val MIN_REFRESH = 10
     const val MAX_REFRESH = 3_600
 
-    private val COMMON = listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "note")
+    private val COMMON =
+        listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "note")
     private val TAP = listOf("args", "url", "label", "page")
-    private val STAT = listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving")
+    private val STAT =
+        listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving")
     private val SMALL = listOf("value", "label")
     private val TEXT = listOf("text", "caption")
     private val LIST = listOf("items", "empty", "lead")
@@ -110,7 +112,8 @@ object WidgetParser {
     private val RANGE = listOf("low", "high", "value")
     private val PROGRESS = listOf("value", "max", "text", "label", "style", "items", "moving")
     private val BAR = listOf("label", "value", "max", "text", "color")
-    private val CHART = listOf("points", "style", "min", "max", "value", "label", "labels", "summary")
+    private val CHART =
+        listOf("points", "style", "min", "max", "value", "label", "labels", "summary")
     private val COUNTDOWN = listOf("to", "from", "label", "style", "reached")
     private val BUTTONS = listOf("items")
     private val BUTTON = listOf("label", "icon", "color", "tap")
@@ -119,6 +122,7 @@ object WidgetParser {
     private val CLOCK = listOf("zones", "seconds")
     private val ZONE = listOf("zone", "label")
     private val AGENDA = listOf("events", "days", "empty")
+
     /**
      * An event may carry `id`. It is taken and not kept: `calendar.events()` gives its rows one, and
      * those rows go straight into `events`.
@@ -134,9 +138,9 @@ object WidgetParser {
      * switch on access items ([com.mtwabpin.kolahal.script.ScriptMeta.setsStatus]). A test checks this.
      */
     val FIELDS: Set<String> = (
-        COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + RANGE + PROGRESS + BAR + CHART + COUNTDOWN +
-            BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE
-        ).toSet()
+            COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + RANGE + PROGRESS + BAR + CHART + COUNTDOWN +
+                    BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE
+            ).toSet()
 
     /**
      * The fields whose text keeps its styles, as `<kind>.<field>`: bold, italic, underline, strike
@@ -146,7 +150,15 @@ object WidgetParser {
      * - A limit counts the characters that show, not the marks.
      * - Every other text is plain: all its styles are taken out.
      */
-    val STYLED: List<String> = listOf("text.text", "text.caption", "list.items.title", "list.items.detail", "list.items.trailing", "stat.label", "image.caption")
+    val STYLED: List<String> = listOf(
+        "text.text",
+        "text.caption",
+        "list.items.title",
+        "list.items.detail",
+        "list.items.trailing",
+        "stat.label",
+        "image.caption"
+    )
 
     /** The fields of a [kind] widget, after the common ones. */
     private fun own(kind: WidgetKind): List<String> = when (kind) {
@@ -165,7 +177,8 @@ object WidgetParser {
     }
 
     /** A kind only Kolahal fills has no description a script can write. */
-    private fun notForScripts(kind: WidgetKind): Nothing = throw IllegalArgumentException("widget: a script can't fill a ${kind.id} widget")
+    private fun notForScripts(kind: WidgetKind): Nothing =
+        throw IllegalArgumentException("widget: a script can't fill a ${kind.id} widget")
 
     /**
      * [raw] as a checked description.
@@ -175,9 +188,15 @@ object WidgetParser {
      * - [link] is called for every link, also a picture's. It returns the link as it may be stored,
      *   or throws for a link that is refused.
      */
-    fun parse(raw: Map<*, *>, default: WidgetKind, text: (String) -> String, link: (String) -> String): WidgetSpec {
+    fun parse(
+        raw: Map<*, *>,
+        default: WidgetKind,
+        text: (String) -> String,
+        link: (String) -> String
+    ): WidgetSpec {
         val kind = raw["kind"]?.let {
-            WidgetKind.named(it as? String) ?: throw IllegalArgumentException("widget: no kind ${shown(it)}; use ${WidgetKind.forScripts.joinToString { k -> k.id }}")
+            WidgetKind.named(it as? String)
+                ?: throw IllegalArgumentException("widget: no kind ${shown(it)}; use ${WidgetKind.forScripts.joinToString { k -> k.id }}")
         } ?: default
         // "an image widget", "an agenda widget".
         val a = if (kind.id.first() in "aeiou") "an" else "a"
@@ -198,6 +217,7 @@ object WidgetParser {
                 text = t.need("text", MAX_TEXT, "the text to show", lines = true, styled = true),
                 caption = t.label("caption", MAX_CAPTION, styled = true),
             )
+
             WidgetKind.LIST -> rows(t, base)
             WidgetKind.PROGRESS -> progress(t, base)
             WidgetKind.CHART -> chart(t, base)
@@ -234,7 +254,10 @@ object WidgetParser {
         delta = t.text("delta", MAX_DELTA),
         trend = t.choice("trend", TRENDS),
         more = t.items("more", MAX_MORE, "{ value, label }", SMALL).map { m ->
-            WidgetSpec.Small(m.need("value", MAX_SHORT, "the smaller value, as text or a number"), m.text("label", MAX_SHORT))
+            WidgetSpec.Small(
+                m.need("value", MAX_SHORT, "the smaller value, as text or a number"),
+                m.text("label", MAX_SHORT)
+            )
         },
         progress = t.number("progress", "a number from 0 to 1")?.coerceIn(0.0, 1.0)?.toFloat(),
         moving = t.flag("moving"),
@@ -272,10 +295,16 @@ object WidgetParser {
      * bar marks. A low above the high is an error. A value outside the range is held at its nearer end.
      */
     private fun range(r: Table): WidgetSpec.Range {
-        val low = r.number("low", "a number") ?: r.fail("low is needed: the lowest number of the range")
-        val high = r.number("high", "a number") ?: r.fail("high is needed: the highest number of the range")
+        val low =
+            r.number("low", "a number") ?: r.fail("low is needed: the lowest number of the range")
+        val high = r.number("high", "a number")
+            ?: r.fail("high is needed: the highest number of the range")
         if (low > high) r.fail("low must not be above high")
-        return WidgetSpec.Range(float(low), float(high), r.number("value", "a number")?.coerceIn(low, high)?.let(::float))
+        return WidgetSpec.Range(
+            float(low),
+            float(high),
+            r.number("value", "a number")?.coerceIn(low, high)?.let(::float)
+        )
     }
 
     /**
@@ -298,7 +327,8 @@ object WidgetParser {
             items = t.items("items", MAX_BUTTONS, shape, BUTTON).map { b ->
                 WidgetSpec.Button(
                     label = StyledText.capitalised(b.need("label", MAX_SHORT, "the button's text")),
-                    tap = b.tap() ?: b.fail("tap is needed: what the button does, { args } or { url }"),
+                    tap = b.tap()
+                        ?: b.fail("tap is needed: what the button does, { args } or { url }"),
                     icon = b.icon(),
                     color = b.colour(),
                 )
@@ -329,7 +359,8 @@ object WidgetParser {
     /** The time in up to [MAX_ZONES] places. The script gives the places once, and Kolahal ticks. */
     private fun clock(t: Table, base: WidgetBase): WidgetSpec.Clock {
         val shape = "{ ${ZONE.joinToString()} }"
-        val zones = t.items("zones", MAX_ZONES, shape, ZONE).map { z -> WidgetSpec.Zone(zone = z.zone("zone"), label = z.text("label", MAX_SHORT)) }
+        val zones = t.items("zones", MAX_ZONES, shape, ZONE)
+            .map { z -> WidgetSpec.Zone(zone = z.zone("zone"), label = z.text("label", MAX_SHORT)) }
         if (zones.isEmpty()) t.fail("zones is needed: a list of places, each $shape")
         return WidgetSpec.Clock(base, zones, seconds = t.flag("seconds"))
     }
@@ -342,12 +373,22 @@ object WidgetParser {
             base,
             events = t.items("events", MAX_EVENTS, shape, EVENT).map { e ->
                 val title = e.need("title", MAX_ROW_TITLE, "the event's name")
-                val starts = e.time("starts") ?: e.fail("starts is needed: when it starts, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)")
+                val starts = e.time("starts")
+                    ?: e.fail("starts is needed: when it starts, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)")
                 val ends = e.time("ends")
                 if (ends != null && ends < starts) e.fail("ends must not be before starts")
-                WidgetSpec.Event(title, starts, ends, allDay = e.flag("allDay"), where = e.text("where", MAX_LABEL), color = e.colour(), tap = e.tap())
+                WidgetSpec.Event(
+                    title,
+                    starts,
+                    ends,
+                    allDay = e.flag("allDay"),
+                    where = e.text("where", MAX_LABEL),
+                    color = e.colour(),
+                    tap = e.tap()
+                )
             },
-            days = t.number("days", "a number of days, from $MIN_DAYS to $MAX_DAYS")?.toInt()?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
+            days = t.number("days", "a number of days, from $MIN_DAYS to $MAX_DAYS")?.toInt()
+                ?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
             empty = t.label("empty", MAX_LABEL),
         )
     }
@@ -359,7 +400,12 @@ object WidgetParser {
     private fun progress(t: Table, base: WidgetBase): WidgetSpec.Progress {
         val max = t.above0("max")
         val bars = t.items("items", MAX_BARS, "{ ${BAR.joinToString()} }", BAR).map { b ->
-            Triple(b, b.number("value", "a number") ?: b.fail("value is needed: how far along this bar is"), b.above0("max"))
+            Triple(
+                b,
+                b.number("value", "a number")
+                    ?: b.fail("value is needed: how far along this bar is"),
+                b.above0("max")
+            )
         }
         if (!t.has("value") && bars.isEmpty()) t.fail("value is needed: how far along it is, from 0 to max. Or give items, for bars")
         // Bars are on one scale: the widget's max, or else the largest value among them.
@@ -374,7 +420,13 @@ object WidgetParser {
             style = t.choice("style", listOf("ring", "bar")),
             items = bars.map { (b, value, own) ->
                 val barTop = own ?: scale
-                WidgetSpec.Bar(b.label("label", MAX_BAR_LABEL), float(value.coerceIn(0.0, barTop)), float(barTop), b.text("text", MAX_SHORT), b.colour())
+                WidgetSpec.Bar(
+                    b.label("label", MAX_BAR_LABEL),
+                    float(value.coerceIn(0.0, barTop)),
+                    float(barTop),
+                    b.text("text", MAX_SHORT),
+                    b.colour()
+                )
             },
             moving = t.flag("moving"),
         )
@@ -382,9 +434,11 @@ object WidgetParser {
 
     /** Numbers over time. The last [MAX_POINTS] points are kept: the newest. */
     private fun chart(t: Table, base: WidgetBase): WidgetSpec.Chart {
-        val all = t.list("points", "numbers") ?: t.fail("points is needed: a list of numbers, the oldest first")
+        val all = t.list("points", "numbers")
+            ?: t.fail("points is needed: a list of numbers, the oldest first")
         val points = all.takeLast(MAX_POINTS).map { p ->
-            (p as? Number)?.toDouble()?.takeIf { it.isFinite() }?.let(::float) ?: t.fail("points must be a list of numbers; one of them is ${shown(p)}")
+            (p as? Number)?.toDouble()?.takeIf { it.isFinite() }?.let(::float)
+                ?: t.fail("points must be a list of numbers; one of them is ${shown(p)}")
         }
         val min = t.number("min", "a number")?.let(::float)
         val max = t.number("max", "a number")?.let(::float)
@@ -404,7 +458,8 @@ object WidgetParser {
 
     /** The time to a moment. The script gives the moment once, and Kolahal counts. */
     private fun countdown(t: Table, base: WidgetBase): WidgetSpec.Countdown {
-        val to = t.time("to") ?: t.fail("to is needed: the moment, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)")
+        val to = t.time("to")
+            ?: t.fail("to is needed: the moment, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)")
         val from = t.time("from")
         if (from != null && from >= to) t.fail("from must be before to")
         return WidgetSpec.Countdown(
@@ -431,7 +486,8 @@ object WidgetParser {
         private val clean: (String) -> String,
         private val link: (String) -> String,
     ) {
-        private val values: Map<String, Any?> = raw.entries.associate { (k, v) -> k.toString() to v }
+        private val values: Map<String, Any?> =
+            raw.entries.associate { (k, v) -> k.toString() to v }
 
         init {
             // A name with no value is still checked: `colour = nil` in JavaScript's form is a typo too.
@@ -457,7 +513,8 @@ object WidgetParser {
          * A text that stands on its own on the card: a label, a caption, a row's second line. It starts
          * with a capital, as all of Kolahal's text does ([StyledText.capitalised]), whatever the script wrote.
          */
-        fun label(key: String, max: Int, styled: Boolean = false): String? = text(key, max, styled = styled)?.let(StyledText::capitalised)
+        fun label(key: String, max: Int, styled: Boolean = false): String? =
+            text(key, max, styled = styled)?.let(StyledText::capitalised)
 
         /**
          * The `icon` field: a name from [WidgetIcons] ("sun"), or a text cut to [MAX_ICON]
@@ -472,20 +529,35 @@ object WidgetParser {
         }
 
         /** A text field that must be there. [what] says what it is for, in the error. It may be empty. */
-        fun need(key: String, max: Int, what: String, lines: Boolean = false, styled: Boolean = false): String =
+        fun need(
+            key: String,
+            max: Int,
+            what: String,
+            lines: Boolean = false,
+            styled: Boolean = false
+        ): String =
             textOrEmpty(key, max, lines, styled) ?: fail("$key is needed: $what")
 
-        private fun textOrEmpty(key: String, max: Int, lines: Boolean, styled: Boolean): String? = values[key]?.let { textOf(key, it, max, lines, styled) }
+        private fun textOrEmpty(key: String, max: Int, lines: Boolean, styled: Boolean): String? =
+            values[key]?.let { textOf(key, it, max, lines, styled) }
 
         /** [v] as the text of [key]. [key] is named in the error. */
-        private fun textOf(key: String, v: Any?, max: Int, lines: Boolean = false, styled: Boolean = false): String {
+        private fun textOf(
+            key: String,
+            v: Any?,
+            max: Int,
+            lines: Boolean = false,
+            styled: Boolean = false
+        ): String {
             val given = when (v) {
                 is String -> v
                 is Number -> numberText(v)
                 else -> fail("$key must be text, not ${shown(v)}")
             }
             val cleaned = (if (styled) styledClean(given) else clean(StyledText.plain(given)))
-                .let { if (lines) it.replace("\r\n", "\n").trim() else it.replace(BREAKS, " ").trim() }
+                .let {
+                    if (lines) it.replace("\r\n", "\n").trim() else it.replace(BREAKS, " ").trim()
+                }
             // The trim does not reach blanks inside a styled piece. A text that shows nothing but
             // blanks is an empty text all the same, as a plain one is: a field that can be left out is left out.
             if (styled && StyledText.has(cleaned) && StyledText.plain(cleaned).isBlank()) return ""
@@ -516,15 +588,20 @@ object WidgetParser {
         }
 
         /** A list of texts: its first [keep], each cut at [max]. An empty text stays, so the others keep their places. */
-        fun texts(key: String, keep: Int, max: Int): List<String> = list(key, "texts").orEmpty().take(keep).map { textOf(key, it, max) }
+        fun texts(key: String, keep: Int, max: Int): List<String> =
+            list(key, "texts").orEmpty().take(keep).map { textOf(key, it, max) }
 
         fun number(key: String, what: String): Double? {
             val v = values[key] ?: return null
-            return (v as? Number)?.toDouble()?.takeIf { it.isFinite() } ?: fail("$key must be $what, not ${shown(v)}")
+            return (v as? Number)?.toDouble()?.takeIf { it.isFinite() }
+                ?: fail("$key must be $what, not ${shown(v)}")
         }
 
         /** A number that must be above 0: the top of a scale. */
-        fun above0(key: String): Double? = number(key, "a number above 0")?.also { if (it <= 0) fail("$key must be a number above 0, not ${shown(it)}") }
+        fun above0(key: String): Double? = number(
+            key,
+            "a number above 0"
+        )?.also { if (it <= 0) fail("$key must be a number above 0, not ${shown(it)}") }
 
         /**
          * A moment, in seconds since 1970. A fraction is dropped: JavaScript's `Date.now() / 1000` has one.
@@ -560,8 +637,10 @@ object WidgetParser {
          */
         fun zone(key: String): String {
             val v = values[key] ?: fail("$key is needed: a time zone name, such as Asia/Kolkata")
-            val name = (v as? String)?.let { clean(StyledText.plain(it)).trim() } ?: fail("$key must be a time zone name, such as Asia/Kolkata, not ${shown(v)}")
-            runCatching { java.time.ZoneId.of(name) }.getOrNull() ?: fail("no time zone ${shown(name)}; use a name such as Asia/Kolkata or UTC")
+            val name = (v as? String)?.let { clean(StyledText.plain(it)).trim() }
+                ?: fail("$key must be a time zone name, such as Asia/Kolkata, not ${shown(v)}")
+            runCatching { java.time.ZoneId.of(name) }.getOrNull()
+                ?: fail("no time zone ${shown(name)}; use a name such as Asia/Kolkata or UTC")
             return name
         }
 
@@ -569,7 +648,11 @@ object WidgetParser {
         fun choice(key: String, words: List<String>): String? {
             val v = values[key] ?: return null
             return (v as? String)?.trim()?.lowercase()?.takeIf { it in words }
-                ?: fail("$key must be ${words.dropLast(1).joinToString()} or ${words.last()}, not ${shown(v)}")
+                ?: fail(
+                    "$key must be ${
+                        words.dropLast(1).joinToString()
+                    } or ${words.last()}, not ${shown(v)}"
+                )
         }
 
         /** `color`: a colour by its role. A script never gives a colour value. */
@@ -590,13 +673,20 @@ object WidgetParser {
             val map = v as? Map<*, *> ?: fail("$key must be $shape, not ${shown(v)}")
             return Table(map, "$at$key: ", "no field", known, clean, link)
         }
+
         fun items(key: String, keep: Int, shape: String, known: List<String>): List<Table> {
             val v = values[key] ?: return emptyList()
             val all = Json.listOrNull(v) ?: fail("$key must be a list of $shape, not ${shown(v)}")
             // Only the items that are kept are checked.
             return all.take(keep).mapIndexed { i, item ->
                 val where = "${at}item ${i + 1} of $key: "
-                val map = item as? Map<*, *> ?: throw IllegalArgumentException("widget: ${where}must be $shape, not ${shown(item)}")
+                val map = item as? Map<*, *> ?: throw IllegalArgumentException(
+                    "widget: ${where}must be $shape, not ${
+                        shown(
+                            item
+                        )
+                    }"
+                )
                 Table(map, where, "no field", known, clean, link)
             }
         }
@@ -611,7 +701,8 @@ object WidgetParser {
         fun picture(key: String): String {
             val what = "a link to a picture that starts with https://"
             val v = values[key] ?: fail("$key is needed: $what")
-            val given = (v as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: fail("$key must be $what, not ${if (v is String) "an empty text" else shown(v)}")
+            val given = (v as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                ?: fail("$key must be $what, not ${if (v is String) "an empty text" else shown(v)}")
             val checked = link(given)
             if (!WidgetJson.isHttps(checked)) fail("$key must start with https://: a widget's picture is not fetched over plain http")
             if (checked.length > WidgetJson.MAX_LINK) fail("$key is over ${WidgetJson.MAX_LINK} characters")
@@ -631,17 +722,32 @@ object WidgetParser {
             val map = v as? Map<*, *> ?: fail("tap must be { args } or { url }, not ${shown(v)}")
             val t = Table(map, "${at}tap: ", "no field", TAP, clean, link)
             val label = t.text("label", MAX_TAP_LABEL)
-            val toLog = t.values["page"]?.let { page -> if (page == "log") true else t.fail("page must be 'log', not ${shown(page)}") } ?: false
+            val toLog = t.values["page"]?.let { page ->
+                if (page == "log") true else t.fail(
+                    "page must be 'log', not ${
+                        shown(page)
+                    }"
+                )
+            } ?: false
             return when {
                 t.has("args") && t.has("url") -> t.fail("give args or url, not both")
-                t.has("args") -> WidgetTap(args = t.need("args", MAX_ARGS, "the arguments"), label = label, toLog = toLog)
+                t.has("args") -> WidgetTap(
+                    args = t.need("args", MAX_ARGS, "the arguments"),
+                    label = label,
+                    toLog = toLog
+                )
+
                 t.has("url") -> {
                     if (toLog) t.fail("page goes with args, not with url")
                     val given = t.values["url"]
-                    val url = link((given as? String ?: t.fail("url must be a web link, not ${shown(given)}")).trim())
+                    val url = link(
+                        (given as? String
+                            ?: t.fail("url must be a web link, not ${shown(given)}")).trim()
+                    )
                     if (url.length > WidgetJson.MAX_LINK) t.fail("url is over ${WidgetJson.MAX_LINK} characters")
                     WidgetTap(url = url, label = label)
                 }
+
                 else -> t.fail("give args or url")
             }
         }
@@ -651,10 +757,12 @@ object WidgetParser {
 
 
     /** [d] as the cards hold numbers. One too large for that is held at the largest there is. */
-    private fun float(d: Double): Float = d.coerceIn(-Float.MAX_VALUE.toDouble(), Float.MAX_VALUE.toDouble()).toFloat()
+    private fun float(d: Double): Float =
+        d.coerceIn(-Float.MAX_VALUE.toDouble(), Float.MAX_VALUE.toDouble()).toFloat()
 
     /** A number as a script shows it: a whole one without ".0". */
-    private fun numberText(n: Number): String = if (n is Double || n is Float) Json.numberText(n.toDouble()) else n.toString()
+    private fun numberText(n: Number): String =
+        if (n is Double || n is Float) Json.numberText(n.toDouble()) else n.toString()
 
     /** [v] as an error names it. A text is quoted, and cut short. */
     private fun shown(v: Any?): String = when (v) {

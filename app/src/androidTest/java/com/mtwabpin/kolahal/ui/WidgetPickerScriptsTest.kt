@@ -55,17 +55,23 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetPickerScriptsTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val logLines = LogLinesSince()
 
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val t = TestScriptWidgets("wpick")
 
-    @After fun tearDown() = t.close()
+    @After
+    fun tearDown() = t.close()
 
     private val title = "Wpick Weather"
-    private val code = "-- @title $title\n-- @widget stat 2x1\nwidget.show{ title = 'Weather', value = 24, label = 'Sunny' }"
+    private val code =
+        "-- @title $title\n-- @widget stat 2x1\nwidget.show{ title = 'Weather', value = 24, label = 'Sunny' }"
 
     /** A view model on [screen], reached from the Widgets screen, that has read [scripts]. */
     private fun model(screen: Screen, vararg scripts: Script): TerminalViewModel {
@@ -75,7 +81,9 @@ class WidgetPickerScriptsTest {
             vm.openScreen(Screen.WIDGETS)
             if (screen != Screen.WIDGETS) vm.openScreen(screen)
         }
-        waitUntil("the view model hasn't read the scripts") { vm.scriptList.value.map { it.name }.containsAll(scripts.map { it.name }) }
+        waitUntil("the view model hasn't read the scripts") {
+            vm.scriptList.value.map { it.name }.containsAll(scripts.map { it.name })
+        }
         return vm
     }
 
@@ -84,7 +92,11 @@ class WidgetPickerScriptsTest {
 
     /** Scrolls the picker's list to [matcher]. */
     private fun scrollTo(matcher: SemanticsMatcher) {
-        compose.waitUntil(10_000) { runCatching { compose.onNode(hasScrollToNodeAction()).performScrollToNode(matcher) }.isSuccess }
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNode(hasScrollToNodeAction()).performScrollToNode(matcher)
+            }.isSuccess
+        }
     }
 
     /** Types [text] in the search box at the top of the picker's list. */
@@ -101,7 +113,8 @@ class WidgetPickerScriptsTest {
      * A script that only sets a status line has no row: the line shows at the top of home, and
      * there are no Status cards since 0.5.9.
      */
-    @Test fun thePickerListsAScriptsWidgetAndSaysWhenItIsAdded() {
+    @Test
+    fun thePickerListsAScriptsWidgetAndSaysWhenItIsAdded() {
         val s = t.create("-weather", code)
         val line = t.create("-line", "-- @title Wpick Line\nstatus('3 new')")
         val plain = t.create("-plain", "-- @title Wpick Plain\nreturn 1")
@@ -133,7 +146,10 @@ class WidgetPickerScriptsTest {
         val placed = t.placed(s)
         assertEquals(6, t.entry(s.name)!!.span)
         assertTrue(placed.grants.allows(ScriptAccess.WIDGET))
-        assertEquals("24", (t.stored(s.name).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value)
+        assertEquals(
+            "24",
+            (t.stored(s.name).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value
+        )
         // The message waits for a widget screen. Here the picker is still up, and shows it.
         compose.waitForText("Added $title")
         scrollTo(row)
@@ -145,7 +161,10 @@ class WidgetPickerScriptsTest {
         val second = WidgetRef(s.name, "2")
         t.placed(s)
         assertEquals(listOf(WidgetRef(s.name), second), t.host.placedOf(s.name))
-        assertEquals("24", (t.stored(second).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value)
+        assertEquals(
+            "24",
+            (t.stored(second).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value
+        )
         compose.waitForText("Added $title 2", ms = 15_000)
         // This script declares no option, so there is nothing to open on the Widgets screen.
         compose.runOnIdle { assertNull(vm.widgetOptionsAsked.value) }
@@ -158,8 +177,14 @@ class WidgetPickerScriptsTest {
      * over to the Widgets screen. That screen opens the new widget's options, so you can set what
      * differs from the first one.
      */
-    @Test fun aTapOnAnAddedScriptAddsAnotherAndOpensItsOptions() {
-        val s = t.place(t.create("-city", "-- @title Wpick City\n-- @widget stat 2x1\n-- @option city London The city to show\nwidget.show{ value = options.city }"))
+    @Test
+    fun aTapOnAnAddedScriptAddsAnotherAndOpensItsOptions() {
+        val s = t.place(
+            t.create(
+                "-city",
+                "-- @title Wpick City\n-- @widget stat 2x1\n-- @option city London The city to show\nwidget.show{ value = options.city }"
+            )
+        )
         val vm = model(Screen.WIDGET_PICKER, s)
         compose.setContent {
             // As home does: the picker, and the Widgets screen once the picker has closed.
@@ -176,7 +201,10 @@ class WidgetPickerScriptsTest {
         t.placed(s)
         assertEquals(listOf(WidgetRef(s.name), second), t.host.placedOf(s.name))
         // It follows the script's options until one is set for it.
-        assertEquals("London", (t.stored(second).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value)
+        assertEquals(
+            "London",
+            (t.stored(second).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value
+        )
         // The Widgets screen shows its options, and says that they are this widget's own.
         compose.waitForText("Options for Wpick City 2")
         compose.onNodeWithText(WidgetOptionWords.WIDGET).assertExists()
@@ -187,7 +215,8 @@ class WidgetPickerScriptsTest {
      * The script's first widget was removed, and a further one is still on the page. A tap places
      * the first one again, not a third: only the first is filled by the runs on the script's timer.
      */
-    @Test fun aTapAddsTheFirstWidgetAgainWhenItIsGone() {
+    @Test
+    fun aTapAddsTheFirstWidgetAgainWhenItIsGone() {
         val s = t.place(t.create("-weather", code))
         val second = t.placeAnother(s)
         t.host.remove(t.key(s.name))
@@ -201,14 +230,25 @@ class WidgetPickerScriptsTest {
         compose.onNode(row).performClick()
         t.placed(s)
         assertEquals(setOf(WidgetRef(s.name), second), t.host.placedOf(s.name).toSet())
-        assertEquals("24", (t.stored(s.name).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value)
+        assertEquals(
+            "24",
+            (t.stored(s.name).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value
+        )
         compose.waitForText("Added $title")
     }
 
     /** At six widgets of one script the row counts them, and a tap places no more. */
-    @Test fun aScriptWithSixWidgetsGetsNoMore() {
+    @Test
+    fun aScriptWithSixWidgetsGetsNoMore() {
         val s = t.place(t.create("-weather", code))
-        repeat(WidgetRef.MAX_PER_SCRIPT - 1) { assertTrue(t.host.placeAnother(s, com.mtwabpin.kolahal.widgets.WidgetSize.S2X1) != null) }
+        repeat(WidgetRef.MAX_PER_SCRIPT - 1) {
+            assertTrue(
+                t.host.placeAnother(
+                    s,
+                    com.mtwabpin.kolahal.widgets.WidgetSize.S2X1
+                ) != null
+            )
+        }
         t.placed(s)
         val vm = model(Screen.WIDGET_PICKER, s)
         compose.setContent { WidgetPickerScreen(vm) { } }
@@ -225,7 +265,8 @@ class WidgetPickerScriptsTest {
      * The Widgets screen draws the script's card as the widgets page does, with what the script
      * showed. The card takes no taps of its own there: a tap selects it, to resize, move or remove it.
      */
-    @Test fun theWidgetsScreenDrawsTheCardAndATapSelectsIt() {
+    @Test
+    fun theWidgetsScreenDrawsTheCardAndATapSelectsIt() {
         val s = t.place(t.create("-weather", code))
         t.run(s)
         val height = t.entry(s.name)!!.heightDp
@@ -235,9 +276,20 @@ class WidgetPickerScriptsTest {
         compose.setContent { WidgetsScreen(vm) { _, _ -> } }
 
         val inCard = hasAnyAncestor(hasTestTag("widget:${s.name}"))
-        fun drawn() = compose.onAllNodes(inCard and SemanticsMatcher.keyIsDefined(SemanticsProperties.Text), useUnmergedTree = true)
-            .fetchSemanticsNodes().flatMap { node -> node.config[SemanticsProperties.Text].map { it.text } }
-        compose.waitFor("the card doesn't draw what the script showed") { drawn().containsAll(listOf("24", "Sunny")) }
+        fun drawn() = compose.onAllNodes(
+            inCard and SemanticsMatcher.keyIsDefined(SemanticsProperties.Text),
+            useUnmergedTree = true
+        )
+            .fetchSemanticsNodes()
+            .flatMap { node -> node.config[SemanticsProperties.Text].map { it.text } }
+        compose.waitFor("the card doesn't draw what the script showed") {
+            drawn().containsAll(
+                listOf(
+                    "24",
+                    "Sunny"
+                )
+            )
+        }
         compose.onNode(inCard and hasContentDescription("Weather: 24, Sunny")).assertExists()
         compose.onAllNodes(inCard and hasClickAction()).assertCountEquals(0)
         compose.onAllNodes(isSelected()).assertCountEquals(0)
@@ -254,7 +306,14 @@ class WidgetPickerScriptsTest {
         compose.onNodeWithText("1×1 · Plain").assertExists()
         assertEquals(3, t.entry(s.name)!!.span)
         assertTrue("1×1 is shorter than 2×1 here: $height", t.entry(s.name)!!.heightDp <= height)
-        compose.waitFor("the narrow card doesn't draw the value") { drawn().containsAll(listOf("24", "Sunny")) }
+        compose.waitFor("the narrow card doesn't draw the value") {
+            drawn().containsAll(
+                listOf(
+                    "24",
+                    "Sunny"
+                )
+            )
+        }
 
         // Remove asks first. Then the widget is off the page, and its script keeps nothing for it.
         compose.onNodeWithContentDescription("Remove").performClick()

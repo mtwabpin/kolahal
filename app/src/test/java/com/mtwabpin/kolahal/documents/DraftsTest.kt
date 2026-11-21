@@ -11,7 +11,8 @@ import org.junit.rules.TemporaryFolder
 
 /** Unsaved text kept in Kolahal's storage: it comes back as written, for its own file only, until it is deleted. */
 class DraftsTest {
-    @get:Rule val folder = TemporaryFolder()
+    @get:Rule
+    val folder = TemporaryFolder()
 
     private val dir by lazy { java.io.File(folder.root, "editor-drafts") }
     private val drafts by lazy { Drafts(dir) }
@@ -19,8 +20,15 @@ class DraftsTest {
     private val todo = "content://files/document/todo.md"
 
     /** The text comes back as written: line breaks, an empty first line, other scripts, and a name with a quote in it. */
-    @Test fun aDraftComesBackAsWritten() {
-        for (text in listOf("one\ntwo\n", "", "\n\nstarts with empty lines", "日本語 🙂 \"quoted\" {json: like}\n", "x".repeat(100_000))) {
+    @Test
+    fun aDraftComesBackAsWritten() {
+        for (text in listOf(
+            "one\ntwo\n",
+            "",
+            "\n\nstarts with empty lines",
+            "日本語 🙂 \"quoted\" {json: like}\n",
+            "x".repeat(100_000)
+        )) {
             val draft = Draft(notes, "my \"notes\".txt", text, "abc123", 42)
             drafts.write(draft)
             assertEquals(draft, drafts.read(notes))
@@ -30,12 +38,14 @@ class DraftsTest {
     }
 
     /** A draft for a file that was never read has no base. */
-    @Test fun aDraftWithoutABase() {
+    @Test
+    fun aDraftWithoutABase() {
         drafts.write(Draft(notes, "notes.txt", "one", null, 1))
         assertNull(drafts.read(notes)!!.base)
     }
 
-    @Test fun eachFileHasItsOwnDraft() {
+    @Test
+    fun eachFileHasItsOwnDraft() {
         assertNull(drafts.read(notes))
         assertFalse(drafts.has(notes))
         drafts.write(Draft(notes, "notes.txt", "one", null, 1))
@@ -52,15 +62,22 @@ class DraftsTest {
     }
 
     /** The list is newest first, and needs only each draft's first line. */
-    @Test fun theListIsNewestFirst() {
+    @Test
+    fun theListIsNewestFirst() {
         assertEquals(emptyList<Drafts.Entry>(), drafts.list())
         drafts.write(Draft(notes, "notes.txt", "one\ntwo", null, 10))
         drafts.write(Draft(todo, "todo.md", "", "base", 20))
-        assertEquals(listOf(Drafts.Entry(todo, "todo.md", 20), Drafts.Entry(notes, "notes.txt", 10)), drafts.list())
+        assertEquals(
+            listOf(
+                Drafts.Entry(todo, "todo.md", 20),
+                Drafts.Entry(notes, "notes.txt", 10)
+            ), drafts.list()
+        )
     }
 
     /** A file that isn't a draft, or a damaged one, reads as no draft and doesn't break the list. */
-    @Test fun aDamagedDraftIsNoDraft() {
+    @Test
+    fun aDamagedDraftIsNoDraft() {
         drafts.write(Draft(notes, "notes.txt", "one", null, 1))
         val file = dir.listFiles()!!.single()
         file.writeText("not json\nthe text")

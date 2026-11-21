@@ -42,7 +42,8 @@ import org.junit.runner.RunWith
 /** The pinned header: what it shows, the turns its items take, the dots, and what a touch does. */
 @RunWith(AndroidJUnit4::class)
 class PinnedHeaderTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
     private val config = Config.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val taps = mutableListOf<String>()
     private val presses = mutableListOf<String>()
@@ -51,30 +52,62 @@ class PinnedHeaderTest {
     private var np by mutableStateOf<NowPlaying?>(null)
     private var version by mutableIntStateOf(0)
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         config.reset(Keys.HEADER_PINNED_SECONDS)
         config.reset(Keys.HEADER_PINNED_DOTS)
         config.reset(Keys.HEADER_PINNED_BAR_ABOVE)
         config.reset(Keys.HEADER_PINNED_BAR_BELOW)
     }
 
-    private fun pin(name: String, text: String = "$name text", progress: Float? = null, refresh: Int? = null) =
+    private fun pin(
+        name: String,
+        text: String = "$name text",
+        progress: Float? = null,
+        refresh: Int? = null
+    ) =
         StatusLine(name, text, progress, refresh)
 
     private fun track(): NowPlaying {
         val now = System.currentTimeMillis()
-        return NowPlaying("com.example.player", "Player", "Song", "Band", PlaybackState.STATE_PLAYING, 0, now, 1f, 10_000, now)
+        return NowPlaying(
+            "com.example.player",
+            "Player",
+            "Song",
+            "Band",
+            PlaybackState.STATE_PLAYING,
+            0,
+            now,
+            1f,
+            10_000,
+            now
+        )
     }
 
     /** The header with [items], its clock driven by the test: nothing moves until [advance]. */
-    private fun show(vararg items: StatusLine, seconds: Int? = null, screenReader: Boolean = false) {
+    private fun show(
+        vararg items: StatusLine,
+        seconds: Int? = null,
+        screenReader: Boolean = false
+    ) {
         seconds?.let { config.set(Keys.HEADER_PINNED_SECONDS, it.toString()) }
         pins = items.toList()
         compose.mainClock.autoAdvance = false
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.width(360.dp)) {
-                    PinnedHeader(np, pins, config, version, {}, {}, { taps += it }, { presses += it }, { refreshes++ }, screenReader = screenReader)
+                    PinnedHeader(
+                        np,
+                        pins,
+                        config,
+                        version,
+                        {},
+                        {},
+                        { taps += it },
+                        { presses += it },
+                        { refreshes++ },
+                        screenReader = screenReader
+                    )
                 }
             }
         }
@@ -85,17 +118,21 @@ class PinnedHeaderTest {
 
     /** Only [name]'s item on screen, none of the others in [all]. */
     private fun showing(name: String, vararg all: String) {
-        compose.onNodeWithTag(if (name == "media") "header-media" else "pinned-$name").assertExists()
-        all.filter { it != name }.forEach { compose.onNodeWithTag("pinned-$it").assertDoesNotExist() }
+        compose.onNodeWithTag(if (name == "media") "header-media" else "pinned-$name")
+            .assertExists()
+        all.filter { it != name }
+            .forEach { compose.onNodeWithTag("pinned-$it").assertDoesNotExist() }
     }
 
-    @Test fun withNothingItTakesNoRoom() {
+    @Test
+    fun withNothingItTakesNoRoom() {
         show()
         compose.onNodeWithTag("pinned-header").assertDoesNotExist()
     }
 
     /** A script's item shows its text alone, for room; a screen reader hears the script's name first. */
-    @Test fun aScriptsItemShowsItsTextAlone() {
+    @Test
+    fun aScriptsItemShowsItsTextAlone() {
         show(pin("cricket", "NZ 136/8 (33.2 ov) v IND"))
         compose.onNodeWithText("NZ 136/8 (33.2 ov) v IND").assertExists()
         compose.onNodeWithText("cricket", substring = true).assertDoesNotExist()
@@ -105,7 +142,8 @@ class PinnedHeaderTest {
     }
 
     /** Each item for header.pinned-seconds, then the next, back round to the first. */
-    @Test fun itemsTakeTurns() {
+    @Test
+    fun itemsTakeTurns() {
         show(pin("a"), pin("b"), pin("c"), seconds = 3)
         showing("a", "a", "b", "c")
         advance(2_900)
@@ -119,7 +157,8 @@ class PinnedHeaderTest {
         showing("a", "a", "b", "c")
     }
 
-    @Test fun dotsShowUpToTheSetting() {
+    @Test
+    fun dotsShowUpToTheSetting() {
         show(pin("a"), pin("b"), pin("c"))
         compose.onNodeWithTag("pinned-dots").assertContentDescriptionEquals("1 of 3")
 
@@ -147,11 +186,15 @@ class PinnedHeaderTest {
      * 48 dp wide, the line's end padding included, and as high as the line: a tap at its start edge
      * and one at its top count too. The item's own tap doesn't run.
      */
-    @Test fun aTapOnTheDotsShowsTheNextItem() {
+    @Test
+    fun aTapOnTheDotsShowsTheNextItem() {
         show(pin("a"), pin("b"), pin("c"), seconds = 3)
         val dots = compose.onNodeWithTag("pinned-dots")
         dots.assertWidthIsAtLeast(48.dp)
-        assertEquals(compose.onNodeWithTag("pinned-header").fetchSemanticsNode().size.height, dots.fetchSemanticsNode().size.height)
+        assertEquals(
+            compose.onNodeWithTag("pinned-header").fetchSemanticsNode().size.height,
+            dots.fetchSemanticsNode().size.height
+        )
         dots.assertHasClickAction()
         dots.performTouchInput { click(Offset(1f, height / 2f)) }
         advance(1_000)
@@ -172,12 +215,14 @@ class PinnedHeaderTest {
      * While a screen reader is on, the items stay, so the one under its focus isn't replaced. The dots
      * show whatever header.pinned-dots says, and their action shows the next item.
      */
-    @Test fun aScreenReaderStopsTheTurns() {
+    @Test
+    fun aScreenReaderStopsTheTurns() {
         config.set(Keys.HEADER_PINNED_DOTS, "0")
         show(pin("a"), pin("b"), seconds = 2, screenReader = true)
         advance(10_000)
         showing("a", "a", "b")
-        compose.onNodeWithTag("pinned-dots").assertContentDescriptionEquals("1 of 2").performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNodeWithTag("pinned-dots").assertContentDescriptionEquals("1 of 2")
+            .performSemanticsAction(SemanticsActions.OnClick)
         advance(1_000)
         showing("b", "a", "b")
         advance(10_000)
@@ -185,7 +230,8 @@ class PinnedHeaderTest {
     }
 
     /** What's playing goes first, and the dots count it. */
-    @Test fun musicGoesFirst() {
+    @Test
+    fun musicGoesFirst() {
         np = track()
         show(pin("cricket"), seconds = 2)
         showing("media", "cricket")
@@ -197,7 +243,8 @@ class PinnedHeaderTest {
     }
 
     /** A finger on the line keeps the item showing; its turn starts again when it lifts. */
-    @Test fun holdingKeepsTheItem() {
+    @Test
+    fun holdingKeepsTheItem() {
         show(pin("a"), pin("b"), seconds = 2)
         compose.onNodeWithTag("pinned-header").performTouchInput { down(center) }
         advance(6_000)
@@ -210,7 +257,8 @@ class PinnedHeaderTest {
     }
 
     /** A new text shows in place, and the item keeps its turn's time. */
-    @Test fun aChangedTextShowsInPlace() {
+    @Test
+    fun aChangedTextShowsInPlace() {
         show(pin("a"), pin("b"), seconds = 3)
         advance(2_000)
         pins = listOf(pin("a", "a moved on"), pin("b"))
@@ -221,7 +269,8 @@ class PinnedHeaderTest {
         showing("b", "a", "b")
     }
 
-    @Test fun aTapRunsItsScriptAndALongPressOpensItsMenu() {
+    @Test
+    fun aTapRunsItsScriptAndALongPressOpensItsMenu() {
         show(pin("cricket"))
         compose.onNodeWithTag("pinned-cricket").performClick()
         compose.mainClock.advanceTimeBy(1_000)
@@ -232,17 +281,21 @@ class PinnedHeaderTest {
     }
 
     /** One line of the small text: the pinned row at the test's font size. */
-    private fun row() = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
+    private fun row() =
+        with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
 
     /**
      * The line is short (4 dp, the text row, the gaps and the 2 dp bar: 35 dp at font size 14), and
      * all of it takes the tap: the space above the text and the bar under it too.
      */
-    @Test fun theWholeShortLineTakesTheTap() {
+    @Test
+    fun theWholeShortLineTakesTheTap() {
         show(pin("cricket", progress = 0.5f))
-        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_TOP + row() + Keys.HEADER_PINNED_BAR_ABOVE.default.dp + 2.dp + Keys.HEADER_PINNED_BAR_BELOW.default.dp)
+        compose.onNodeWithTag("pinned-header")
+            .assertHeightIsEqualTo(PINNED_TOP + row() + Keys.HEADER_PINNED_BAR_ABOVE.default.dp + 2.dp + Keys.HEADER_PINNED_BAR_BELOW.default.dp)
         compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, 1f)) }
-        compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
+        compose.onNodeWithTag("pinned-header")
+            .performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
         compose.mainClock.advanceTimeBy(1_000)
         assertEquals(listOf("cricket", "cricket"), taps)
     }
@@ -251,13 +304,15 @@ class PinnedHeaderTest {
      * header.pinned-bar-above and -below set the space over and under the bar, and the bar stays
      * at the item's bottom; a change shows at once.
      */
-    @Test fun theBarsGapsComeFromConfig() {
+    @Test
+    fun theBarsGapsComeFromConfig() {
         show(pin("cricket", progress = 0.5f))
         config.set(Keys.HEADER_PINNED_BAR_ABOVE, "10")
         config.set(Keys.HEADER_PINNED_BAR_BELOW, "6")
         version++
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_TOP + row() + 10.dp + 2.dp + 6.dp)
+        compose.onNodeWithTag("pinned-header")
+            .assertHeightIsEqualTo(PINNED_TOP + row() + 10.dp + 2.dp + 6.dp)
         compose.onNodeWithTag("pinned-cricket").assertHeightIsEqualTo(row() + 10.dp + 2.dp)
         val half = filled("cricket")
         assertTrue("$half filled", half in 0.45f..0.55f)
@@ -267,10 +322,12 @@ class PinnedHeaderTest {
     private fun filled(name: String): Float {
         val pixels = compose.onNodeWithTag("pinned-$name").captureToImage().toPixelMap()
         val row = pixels.height - 1
-        return (0 until pixels.width).count { pixels[it, row] == Term.prompt }.toFloat() / pixels.width
+        return (0 until pixels.width).count { pixels[it, row] == Term.prompt }
+            .toFloat() / pixels.width
     }
 
-    @Test fun theBarShowsOnlyWithAProgress() {
+    @Test
+    fun theBarShowsOnlyWithAProgress() {
         show(pin("cricket", progress = 0.5f))
         val half = filled("cricket")
         assertTrue("$half filled", half in 0.45f..0.55f)
@@ -280,7 +337,8 @@ class PinnedHeaderTest {
     }
 
     /** Items that ask to run again are asked for each second; none ask, nothing runs. */
-    @Test fun aRefreshIsAskedForOnlyWhenAnItemWantsOne() {
+    @Test
+    fun aRefreshIsAskedForOnlyWhenAnItemWantsOne() {
         show(pin("still"))
         advance(3_500)
         assertEquals(0, refreshes)

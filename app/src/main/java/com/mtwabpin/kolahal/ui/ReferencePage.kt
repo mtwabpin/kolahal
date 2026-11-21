@@ -78,10 +78,14 @@ internal class ReferenceState {
     var query by mutableStateOf("")
         private set
     var tab by mutableStateOf(ReferenceSearch.Tab.FUNCTIONS)
+
     /** The Functions group the chips show; null for All. */
     var namespace by mutableStateOf<String?>(null)
+
     /** Each tab's list, kept while an example's view is open over it and while the page is closed. */
-    val lists: Map<ReferenceSearch.Tab, LazyListState> = ReferenceSearch.Tab.entries.associateWith { LazyListState() }
+    val lists: Map<ReferenceSearch.Tab, LazyListState> =
+        ReferenceSearch.Tab.entries.associateWith { LazyListState() }
+
     /** The search's results. A new search starts them at the top. */
     var resultsList by mutableStateOf(LazyListState())
         private set
@@ -129,26 +133,59 @@ internal fun ReferencePage(
     val resultsList = ref.resultsList
     BackHandler { if (opened != null) opened = null else onBack() }
 
-    Box(Modifier.fillMaxSize().testTag("reference")) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .testTag("reference")
+    ) {
         when (val o = opened) {
-            is Opened.Widget -> WidgetExampleView(o.ex, o.variant, lang, onBack = { opened = null }, onInsert = onExample)
-            is Opened.Log -> LogExampleView(o.ex, lang, onBack = { opened = null }, onInsert = onExample)
+            is Opened.Widget -> WidgetExampleView(
+                o.ex,
+                o.variant,
+                lang,
+                onBack = { opened = null },
+                onInsert = onExample
+            )
+
+            is Opened.Log -> LogExampleView(
+                o.ex,
+                lang,
+                onBack = { opened = null },
+                onInsert = onExample
+            )
+
             null -> Scaffold(
-                topBar = { ReferenceBar("Reference", if (lang == ScriptLang.LUA) "Lua" else "JavaScript", onBack) },
+                topBar = {
+                    ReferenceBar(
+                        "Reference",
+                        if (lang == ScriptLang.LUA) "Lua" else "JavaScript",
+                        onBack
+                    )
+                },
                 containerColor = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.imePadding(),
             ) { padding ->
                 val bottom = padding.calculateBottomPadding() + 16.dp
-                Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(top = padding.calculateTopPadding())
+                ) {
                     SearchField(
                         query, { ref.search(it) }, "Search functions, widgets, icons",
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("reference-search"),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .testTag("reference-search"),
                         clear = "Clear the search",
                     )
                     val words = SearchWords.of(query)
                     val openWidget = { w: ReferenceExamples.Widget ->
                         val guide = ReferenceExamples.widgets.firstOrNull { it.name == w.of } ?: w
-                        opened = Opened.Widget(guide, ReferenceExamples.variantsOf(guide.name).indexOf(w) + 1)
+                        opened = Opened.Widget(
+                            guide,
+                            ReferenceExamples.variantsOf(guide.name).indexOf(w) + 1
+                        )
                     }
                     if (words.isEmpty()) {
                         PrimaryScrollableTabRow(
@@ -171,31 +208,72 @@ internal fun ReferencePage(
                         }
                         val state = lists.getValue(tab)
                         when (tab) {
-                            RefTab.FUNCTIONS -> FunctionsTab(lang, namespace, { ref.namespace = it }, state, bottom, onPick)
+                            RefTab.FUNCTIONS -> FunctionsTab(
+                                lang,
+                                namespace,
+                                { ref.namespace = it },
+                                state,
+                                bottom,
+                                onPick
+                            )
+
                             RefTab.DIRECTIVES -> RefList(state, bottom) {
                                 item { TabHint("Comment lines at the top of a script. A tap puts one above the cursor's line.") }
-                                items(ApiDocs.directives) { DirectiveRow(it, lang, words, onDirective) }
+                                items(ApiDocs.directives) {
+                                    DirectiveRow(
+                                        it,
+                                        lang,
+                                        words,
+                                        onDirective
+                                    )
+                                }
                                 item { Keywords(lang) }
                             }
+
                             RefTab.WIDGETS -> RefList(state, bottom) {
                                 items(ReferenceExamples.widgets, key = { it.name }) { ex ->
-                                    WidgetExampleRow(ex, AnnotatedString(ex.heading), AnnotatedString(ex.line)) { opened = Opened.Widget(ex, 0) }
+                                    WidgetExampleRow(
+                                        ex,
+                                        AnnotatedString(ex.heading),
+                                        AnnotatedString(ex.line)
+                                    ) { opened = Opened.Widget(ex, 0) }
                                 }
                             }
+
                             RefTab.LOGS -> RefList(state, bottom) {
                                 items(ReferenceExamples.logs, key = { it.name }) { ex ->
-                                    LogExampleRow(ex, AnnotatedString(ex.heading), null) { opened = Opened.Log(ex) }
+                                    LogExampleRow(ex, AnnotatedString(ex.heading), null) {
+                                        opened = Opened.Log(ex)
+                                    }
                                 }
                             }
+
                             RefTab.ICONS -> RefList(state, bottom) {
                                 item { TabHint("For a widget's icon, such as icon = \"sun\". A tap puts the name in quotes.") }
-                                WidgetIcons.GROUPS.forEach { (group, names) -> iconGroup(group, names, words, onIcon) }
+                                WidgetIcons.GROUPS.forEach { (group, names) ->
+                                    iconGroup(
+                                        group,
+                                        names,
+                                        words,
+                                        onIcon
+                                    )
+                                }
                             }
                         }
                     } else {
                         Spacer(Modifier.height(8.dp))
                         val found = remember(query, lang) { ReferenceSearch.find(query, lang) }
-                        Results(found, words,lang, resultsList, bottom, onPick, onDirective, onIcon, openWidget) { opened = Opened.Log(it) }
+                        Results(
+                            found,
+                            words,
+                            lang,
+                            resultsList,
+                            bottom,
+                            onPick,
+                            onDirective,
+                            onIcon,
+                            openWidget
+                        ) { opened = Opened.Log(it) }
                     }
                 }
             }
@@ -209,7 +287,9 @@ private fun RefList(state: LazyListState, bottom: Dp, content: LazyListScope.() 
     LazyColumn(
         state = state,
         contentPadding = PaddingValues(bottom = bottom),
-        modifier = Modifier.fillMaxSize().testTag("reference-list"),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("reference-list"),
         content = content,
     )
 }
@@ -226,7 +306,8 @@ private fun TabHint(text: String) {
 }
 
 /** [text] with each place one of [words] is found marked. */
-private fun marked(text: String, words: List<String>): AnnotatedString = markMatches(AnnotatedString(text), words)
+private fun marked(text: String, words: List<String>): AnnotatedString =
+    markMatches(AnnotatedString(text), words)
 
 /**
  * The Functions tab: a chip for each group ([ReferenceSearch.groups]) over the list. "All" shows
@@ -261,7 +342,12 @@ private fun FunctionsTab(
                 FilterChip(
                     selected = namespace == g.name,
                     onClick = { onNamespace(g.name); state.requestScrollToItem(0) },
-                    label = { Text(g.name, fontFamily = if (g.head != null) Term.code.fontFamily else null) },
+                    label = {
+                        Text(
+                            g.name,
+                            fontFamily = if (g.head != null) Term.code.fontFamily else null
+                        )
+                    },
                     modifier = Modifier.testTag("namespace ${g.name}"),
                 )
             }
@@ -314,9 +400,20 @@ private fun EntryRow(d: ApiDoc, words: List<String>, onPick: (ApiDoc) -> Unit) {
             .padding(horizontal = 16.dp, vertical = 9.dp),
     ) {
         Text(marked(d.signature, words), style = codeStyle())
-        Text(marked(d.doc, words), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            marked(d.doc, words),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         ReferenceExamples.fmtSample(d.name)?.let { sample ->
-            LinesPreview(sample, Modifier.padding(top = 6.dp).clip(RoundedCornerShape(8.dp)).testTag("fmt-sample ${d.name}"), source = false)
+            LinesPreview(
+                sample,
+                Modifier
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .testTag("fmt-sample ${d.name}"),
+                source = false
+            )
         }
     }
     RowDivider()
@@ -324,7 +421,12 @@ private fun EntryRow(d: ApiDoc, words: List<String>, onPick: (ApiDoc) -> Unit) {
 
 /** A directive: its comment line and what it does, with [words] marked. A tap gives the line to [onDirective]. */
 @Composable
-private fun DirectiveRow(d: ApiDocs.Directive, lang: ScriptLang, words: List<String>, onDirective: (String) -> Unit) {
+private fun DirectiveRow(
+    d: ApiDocs.Directive,
+    lang: ScriptLang,
+    words: List<String>,
+    onDirective: (String) -> Unit
+) {
     val comment = if (lang == ScriptLang.LUA) "--" else "//"
     Column(
         Modifier
@@ -334,7 +436,11 @@ private fun DirectiveRow(d: ApiDocs.Directive, lang: ScriptLang, words: List<Str
             .padding(horizontal = 16.dp, vertical = 9.dp),
     ) {
         Text(marked("$comment @${d.name} ${d.args}".trimEnd(), words), style = codeStyle())
-        Text(marked(d.doc, words), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            marked(d.doc, words),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
     RowDivider()
 }
@@ -345,7 +451,11 @@ private fun Keywords(lang: ScriptLang) {
     Text(
         buildAnnotatedString {
             append("Keywords: ")
-            withStyle(SpanStyle(fontFamily = Term.code.fontFamily)) { append(ApiDocs.keywords(lang).joinToString(" ")) }
+            withStyle(SpanStyle(fontFamily = Term.code.fontFamily)) {
+                append(
+                    ApiDocs.keywords(lang).joinToString(" ")
+                )
+            }
         },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -357,19 +467,31 @@ private fun Keywords(lang: ScriptLang) {
 private const val ICON_COLUMNS = 5
 
 /** An icon group's name, then its icons, [ICON_COLUMNS] to a row, each with its name under it. */
-private fun LazyListScope.iconGroup(group: String?, names: List<String>, words: List<String>, onIcon: (String) -> Unit) {
+private fun LazyListScope.iconGroup(
+    group: String?,
+    names: List<String>,
+    words: List<String>,
+    onIcon: (String) -> Unit
+) {
     if (group != null) {
         item(key = "icons $group") {
             Text(
                 group,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 2.dp).semantics { heading() },
+                modifier = Modifier
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 2.dp)
+                    .semantics { heading() },
             )
         }
     }
     items(names.chunked(ICON_COLUMNS)) { row ->
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             row.forEach { name ->
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -381,8 +503,19 @@ private fun LazyListScope.iconGroup(group: String?, names: List<String>, words: 
                         .clickable(onClickLabel = "Insert") { onIcon(name) }
                         .testTag("icon $name"),
                 ) {
-                    widgetIconDrawable(name)?.let { Icon(painterResource(it), null, modifier = Modifier.size(22.dp)) }
-                    Text(marked(name, words), style = codeStyle().copy(fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    widgetIconDrawable(name)?.let {
+                        Icon(
+                            painterResource(it),
+                            null,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Text(
+                        marked(name, words),
+                        style = codeStyle().copy(fontSize = 11.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
             repeat(ICON_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
@@ -399,7 +532,9 @@ private fun ResultsHead(tab: RefTab, count: Int) {
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.06.em,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp).semantics { heading() },
+        modifier = Modifier
+            .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp)
+            .semantics { heading() },
     )
 }
 
@@ -424,7 +559,9 @@ private fun Results(
     LazyColumn(
         state = state,
         contentPadding = PaddingValues(bottom = bottom),
-        modifier = Modifier.fillMaxSize().testTag("reference-results"),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("reference-results"),
     ) {
         if (found.count == 0) item { NoMatchNote("Nothing found") }
         if (found.functions.isNotEmpty()) {
@@ -447,7 +584,10 @@ private fun Results(
             item { ResultsHead(RefTab.LOGS, found.logs.size) }
             items(found.logs, key = { "log ${it.name}" }) { ex ->
                 val line = ReferenceSearch.lineWith(ex.code(lang), words)
-                LogExampleRow(ex, marked(ex.heading, words), line?.let { marked(it, words) }) { onLog(ex) }
+                LogExampleRow(
+                    ex,
+                    marked(ex.heading, words),
+                    line?.let { marked(it, words) }) { onLog(ex) }
             }
         }
         if (found.icons.isNotEmpty()) {

@@ -44,12 +44,13 @@ object UsageLine {
     fun complete(line: String, usage: String): Boolean {
         val words = line.trim().lowercase().split(Regex("\\s+"))
         val places = tokens(usage).drop(1)
-        return words.size >= 2 && words.size - 1 == places.size && words.drop(1).zip(places).all { (word, place) ->
-            val choices = choices(place)
-            choices.all { it.word != null } &&
-                choices.any { it.word == word && !it.takesValue } &&
-                choices.none { it.word != word && it.word!!.startsWith(word) }
-        }
+        return words.size >= 2 && words.size - 1 == places.size && words.drop(1).zip(places)
+            .all { (word, place) ->
+                val choices = choices(place)
+                choices.all { it.word != null } &&
+                        choices.any { it.word == word && !it.takesValue } &&
+                        choices.none { it.word != word && it.word!!.startsWith(word) }
+            }
     }
 
     /** Splits on [sep] where it is not inside `[]` or `<>`. */
@@ -59,9 +60,18 @@ object UsageLine {
         val cur = StringBuilder()
         for (ch in s) {
             when (ch) {
-                '[', '<' -> { depth++; cur.append(ch) }
-                ']', '>' -> { depth--; cur.append(ch) }
-                sep if depth == 0 -> { out += cur.toString(); cur.clear() }
+                '[', '<' -> {
+                    depth++; cur.append(ch)
+                }
+
+                ']', '>' -> {
+                    depth--; cur.append(ch)
+                }
+
+                sep if depth == 0 -> {
+                    out += cur.toString(); cur.clear()
+                }
+
                 else -> cur.append(ch)
             }
         }

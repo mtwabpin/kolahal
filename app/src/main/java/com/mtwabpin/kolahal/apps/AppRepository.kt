@@ -37,6 +37,7 @@ enum class ProfileKind(val tag: String, val label: String, val flag: String, val
     PERSONAL("P", "personal", "-p", "--personal"),
     WORK("W", "work", "-w", "--work"),
     PRIVATE("S", "private", "-s", "--private"),
+
     /** App-clone profile ("dual apps"). Never treated as the work profile. */
     CLONE("C", "clone", "-c", "--clone"),
     ;
@@ -44,7 +45,12 @@ enum class ProfileKind(val tag: String, val label: String, val flag: String, val
     companion object {
         /** The profile [args] pick with a flag, or null. With several, the first of work, personal, private, clone. */
         fun fromFlags(args: List<String>): ProfileKind? =
-            listOf(WORK, PERSONAL, PRIVATE, CLONE).firstOrNull { it.flag in args || it.longFlag in args }
+            listOf(
+                WORK,
+                PERSONAL,
+                PRIVATE,
+                CLONE
+            ).firstOrNull { it.flag in args || it.longFlag in args }
     }
 }
 
@@ -75,12 +81,15 @@ data class AppEntry(
     /** For search: lowercase and without accents. Computed once per list load, not on every key press. */
     internal val lower: String = Fuzzy.fold(label)
     internal val words: List<String> = lower.split(' ', '-', '_', '.')
+
     /** Names that a typing mistake is checked against ([Fuzzy.slip]): the label, then its words. */
     internal val names: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { listOf(lower) + words }
 
     /** Its package and package/activity in lowercase. A search can also match these. Computed at the first search. */
     internal val lowerPkg: String by lazy(LazyThreadSafetyMode.PUBLICATION) { pkg.lowercase() }
-    internal val lowerComponent: String by lazy(LazyThreadSafetyMode.PUBLICATION) { component.flattenToShortString().lowercase() }
+    internal val lowerComponent: String by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        component.flattenToShortString().lowercase()
+    }
 }
 
 /**
@@ -111,7 +120,8 @@ class AppRepository private constructor(private val context: Context) {
      * Waits up to [ms] for this start's first load of the list. Until then the list holds what was
      * saved last time ([saved]), or nothing on a first start. Returns false when it didn't arrive.
      */
-    fun awaitLoaded(ms: Long): Boolean = firstLoad.await(ms, java.util.concurrent.TimeUnit.MILLISECONDS)
+    fun awaitLoaded(ms: Long): Boolean =
+        firstLoad.await(ms, java.util.concurrent.TimeUnit.MILLISECONDS)
 
     init {
         scope.launch {
@@ -128,11 +138,26 @@ class AppRepository private constructor(private val context: Context) {
         if (started) return
         started = true
         launcherApps.registerCallback(object : LauncherApps.Callback() {
-            override fun onPackageRemoved(packageName: String, user: UserHandle) = refreshSoon(listOf(packageName))
-            override fun onPackageAdded(packageName: String, user: UserHandle) = refreshSoon(listOf(packageName))
-            override fun onPackageChanged(packageName: String, user: UserHandle) = refreshSoon(listOf(packageName))
-            override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon(names.asList())
-            override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon(names.asList())
+            override fun onPackageRemoved(packageName: String, user: UserHandle) =
+                refreshSoon(listOf(packageName))
+
+            override fun onPackageAdded(packageName: String, user: UserHandle) =
+                refreshSoon(listOf(packageName))
+
+            override fun onPackageChanged(packageName: String, user: UserHandle) =
+                refreshSoon(listOf(packageName))
+
+            override fun onPackagesAvailable(
+                names: Array<out String>,
+                user: UserHandle,
+                replacing: Boolean
+            ) = refreshSoon(names.asList())
+
+            override fun onPackagesUnavailable(
+                names: Array<out String>,
+                user: UserHandle,
+                replacing: Boolean
+            ) = refreshSoon(names.asList())
         })
         // This receiver stays registered between visits to home, and each of these events reloads the
         // list. App names depend on the language.
@@ -202,7 +227,8 @@ class AppRepository private constructor(private val context: Context) {
                     .getOrDefault(emptyList())
                     .map { info ->
                         // Remove styling: an app's name must not style a log line.
-                        val original = com.mtwabpin.kolahal.data.StyledText.strip(info.label.toString())
+                        val original =
+                            com.mtwabpin.kolahal.data.StyledText.strip(info.label.toString())
                         val key = keyOf(info.componentName, profile)
                         AppEntry(
                             label = prefs.label(key) ?: original,
@@ -224,10 +250,11 @@ class AppRepository private constructor(private val context: Context) {
     }
 
     /** [apps] A–Z by name, each profile's after the personal one's. */
-    private fun sorted(apps: List<AppEntry>): List<AppEntry> = apps.map { it to it.label.lowercase() }
-        // Lowercase each label once, not at every comparison of the sort.
-        .sortedWith(compareBy({ it.second }, { it.first.profile.kind.ordinal }))
-        .map { it.first }
+    private fun sorted(apps: List<AppEntry>): List<AppEntry> =
+        apps.map { it to it.label.lowercase() }
+            // Lowercase each label once, not at every comparison of the sort.
+            .sortedWith(compareBy({ it.second }, { it.first.profile.kind.ordinal }))
+            .map { it.first }
 
     // ---- the list as last loaded, for the next start ------------------------------------------
 
@@ -239,15 +266,17 @@ class AppRepository private constructor(private val context: Context) {
     private val savedFile get() = java.io.File(context.noBackupFilesDir, "apps.tsv")
 
     /** What [savedFile] holds, so an unchanged list isn't written again. */
-    @Volatile private var savedText: String? = null
+    @Volatile
+    private var savedText: String? = null
 
     private fun save(apps: List<AppEntry>) {
-        val text = apps.filter { it.profile.kind != ProfileKind.PRIVATE }.joinToString("\n") { app ->
-            listOf(
-                app.profile.serial, app.profile.kind.name, if (app.profile.quiet) "1" else "0",
-                app.component.flattenToString(), app.originalLabel.replace(FIELD_BREAKS, " "),
-            ).joinToString("\t")
-        }
+        val text =
+            apps.filter { it.profile.kind != ProfileKind.PRIVATE }.joinToString("\n") { app ->
+                listOf(
+                    app.profile.serial, app.profile.kind.name, if (app.profile.quiet) "1" else "0",
+                    app.component.flattenToString(), app.originalLabel.replace(FIELD_BREAKS, " "),
+                ).joinToString("\t")
+            }
         if (text == savedText) return
         val tmp = java.io.File(savedFile.path + ".tmp")
         tmp.writeText(text)
@@ -268,11 +297,18 @@ class AppRepository private constructor(private val context: Context) {
             val serial = f[0].toLongOrNull() ?: return@mapNotNull null
             val kind = ProfileKind.entries.firstOrNull { it.name == f[1] } ?: return@mapNotNull null
             val profile = profiles.getOrPut(serial) {
-                runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull()?.let { Profile(it, serial, kind, quiet = f[2] == "1") }
+                runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull()
+                    ?.let { Profile(it, serial, kind, quiet = f[2] == "1") }
             } ?: return@mapNotNull null
             val component = ComponentName.unflattenFromString(f[3]) ?: return@mapNotNull null
             val key = keyOf(component, profile)
-            AppEntry(label = prefs.label(key) ?: f[4], component = component, profile = profile, originalLabel = f[4], hidden = prefs.isHidden(key))
+            AppEntry(
+                label = prefs.label(key) ?: f[4],
+                component = component,
+                profile = profile,
+                originalLabel = f[4],
+                hidden = prefs.isHidden(key)
+            )
         }.toList())
     }
 
@@ -283,41 +319,60 @@ class AppRepository private constructor(private val context: Context) {
                 user = user,
                 serial = userManager.getSerialNumberForUser(user),
                 kind = kindOf(context, launcherApps, user, me),
-                quiet = user != me && runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(false),
+                quiet = user != me && runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(
+                    false
+                ),
             )
         }.sortedBy { it.kind.ordinal }
     }
 
-    fun profileBySerial(serial: Long): Profile? = _profiles.value.firstOrNull { it.serial == serial }
+    fun profileBySerial(serial: Long): Profile? =
+        _profiles.value.firstOrNull { it.serial == serial }
 
     /**
      * The app list by package: the personal app where several profiles have the same app. A tap on
      * its line opens that one, and Android gives usage data for the personal profile only.
      */
     fun byPackage(): Map<String, AppEntry> =
-        _apps.value.groupBy { it.pkg }.mapValues { (_, list) -> list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first() }
+        _apps.value.groupBy { it.pkg }.mapValues { (_, list) ->
+            list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first()
+        }
 
     fun find(pkg: String, cls: String?, serial: Long?): AppEntry? = _apps.value.firstOrNull {
         it.pkg == pkg && (cls == null || it.component.className == cls) &&
-            (serial == null || it.profile.serial == serial)
+                (serial == null || it.profile.serial == serial)
     }
 
     /**
      * Ranked fuzzy match: exact > prefix > word prefix > substring > subsequence. A typing mistake
      * counts only when nothing else matches.
      */
-    fun search(query: String, kind: ProfileKind? = null, includeHidden: Boolean = false): List<AppEntry> =
+    fun search(
+        query: String,
+        kind: ProfileKind? = null,
+        includeHidden: Boolean = false
+    ): List<AppEntry> =
         searchRanked(query, kind, includeHidden).map { it.first }
 
     /** The last search. Instant run and the suggestions ask the same search on every key press. */
     private class Memo(
-        val q: String, val kind: ProfileKind?, val hidden: Boolean, val apps: List<AppEntry>, val version: Int,
+        val q: String,
+        val kind: ProfileKind?,
+        val hidden: Boolean,
+        val apps: List<AppEntry>,
+        val version: Int,
         val result: List<Pair<AppEntry, Int>>,
     )
-    @Volatile private var memo: Memo? = null
+
+    @Volatile
+    private var memo: Memo? = null
 
     /** Matches with their tier: 0 exact, 1 prefix, 2 word prefix, 3 substring, 4 subsequence, 5 typing mistake. */
-    fun searchRanked(query: String, kind: ProfileKind? = null, includeHidden: Boolean = false): List<Pair<AppEntry, Int>> {
+    fun searchRanked(
+        query: String,
+        kind: ProfileKind? = null,
+        includeHidden: Boolean = false
+    ): List<Pair<AppEntry, Int>> {
         val q = Fuzzy.fold(query.trim())
         if (q.isEmpty()) return emptyList()
         val apps = _apps.value
@@ -328,13 +383,21 @@ class AppRepository private constructor(private val context: Context) {
         return result
     }
 
-    private fun rank(apps: List<AppEntry>, q: String, kind: ProfileKind?, includeHidden: Boolean): List<Pair<AppEntry, Int>> {
+    private fun rank(
+        apps: List<AppEntry>,
+        q: String,
+        kind: ProfileKind?,
+        includeHidden: Boolean
+    ): List<Pair<AppEntry, Int>> {
         val now = System.currentTimeMillis()
-        val candidates = apps.asSequence().filter { (kind == null || it.profile.kind == kind) && (includeHidden || !it.hidden) }
+        val candidates = apps.asSequence()
+            .filter { (kind == null || it.profile.kind == kind) && (includeHidden || !it.hidden) }
         // Check typing mistakes only when nothing matches as typed. So they never push out a real
         // match, or stop the only match from launching (launch.single).
         return (candidates.mapNotNull { app -> score(app, q)?.let { Ranked(app, it) } }.toList()
-            .ifEmpty { candidates.filter { Fuzzy.slip(q, it.names) }.map { Ranked(it, SLIP) }.toList() })
+            .ifEmpty {
+                candidates.filter { Fuzzy.slip(q, it.names) }.map { Ranked(it, SLIP) }.toList()
+            })
             // Read frecency once per match, not on every comparison.
             .onEach { it.frecency = prefs.frecency(it.app.key, now) }
             .sortedWith(
@@ -350,7 +413,8 @@ class AppRepository private constructor(private val context: Context) {
     fun top(n: Int): List<AppEntry> {
         val now = System.currentTimeMillis()
         val byKey = _apps.value.associateBy { it.key }
-        val pinned = prefs.pinned().mapNotNull { byKey[it] }.filter { !it.hidden && !it.profile.quiet }
+        val pinned =
+            prefs.pinned().mapNotNull { byKey[it] }.filter { !it.hidden && !it.profile.quiet }
         val pinnedKeys = pinned.mapTo(HashSet()) { it.key }
         return pinned.take(n) + _apps.value.asSequence()
             .filter { !it.hidden && !it.profile.quiet && it.key !in pinnedKeys }
@@ -366,7 +430,8 @@ class AppRepository private constructor(private val context: Context) {
         var frecency = 0.0
     }
 
-    private fun score(app: AppEntry, q: String): Int? = tierOf(app.lower, app.words, app.lowerPkg, app.lowerComponent, q)
+    private fun score(app: AppEntry, q: String): Int? =
+        tierOf(app.lower, app.words, app.lowerPkg, app.lowerComponent, q)
 
     fun launch(app: AppEntry) {
         launcherApps.startMainActivity(app.component, app.profile.user, null, null)
@@ -383,8 +448,8 @@ class AppRepository private constructor(private val context: Context) {
             .setPackage(app.pkg)
             .setQueryFlags(
                 LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
-                    LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
-                    LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+                        LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                        LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
             )
         launcherApps.getShortcuts(query, app.profile.user).orEmpty()
             .filter { it.isEnabled }
@@ -399,11 +464,13 @@ class AppRepository private constructor(private val context: Context) {
         if (runCatching { launcherApps.hasShortcutHostPermission() }.getOrDefault(false) != true) return null
         val query = LauncherApps.ShortcutQuery().setQueryFlags(
             LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
-                LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
-                LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
         )
         return _profiles.value.filter { !it.quiet }.flatMap { profile ->
-            runCatching { launcherApps.getShortcuts(query, profile.user).orEmpty() }.getOrDefault(emptyList())
+            runCatching { launcherApps.getShortcuts(query, profile.user).orEmpty() }.getOrDefault(
+                emptyList()
+            )
                 .filter { it.isEnabled }.map { it.`package` to profile.serial }
         }.toSet()
     }
@@ -443,7 +510,13 @@ class AppRepository private constructor(private val context: Context) {
          * 4 subsequence, null no match. A typing mistake ([Fuzzy.slip], tier 5) is tried only when
          * nothing matched in these ways.
          */
-        internal fun tierOf(lower: String, words: List<String>, lowerPkg: String, lowerComponent: String, q: String): Int? = when {
+        internal fun tierOf(
+            lower: String,
+            words: List<String>,
+            lowerPkg: String,
+            lowerComponent: String,
+            q: String
+        ): Int? = when {
             lower == q -> 0
             // The package, or package/activity, names one app exactly. This tells apart two apps with the same name.
             lowerPkg == q || lowerComponent == q -> 0
@@ -467,10 +540,16 @@ class AppRepository private constructor(private val context: Context) {
          * Returns the kind of profile [user] is, as seen from [me] (this app's user). Any profile that
          * is not personal, a private space or a clone counts as work.
          */
-        fun kindOf(context: Context, launcherApps: LauncherApps, user: UserHandle, me: UserHandle): ProfileKind {
+        fun kindOf(
+            context: Context,
+            launcherApps: LauncherApps,
+            user: UserHandle,
+            me: UserHandle
+        ): ProfileKind {
             if (user == me) return ProfileKind.PERSONAL
             if (Build.VERSION.SDK_INT >= 35) {
-                val type = runCatching { launcherApps.getLauncherUserInfo(user)?.userType }.getOrNull()
+                val type =
+                    runCatching { launcherApps.getLauncherUserInfo(user)?.userType }.getOrNull()
                 when (type) {
                     UserManager.USER_TYPE_PROFILE_PRIVATE -> return ProfileKind.PRIVATE
                     USER_TYPE_PROFILE_CLONE -> return ProfileKind.CLONE
@@ -490,7 +569,8 @@ class AppRepository private constructor(private val context: Context) {
         private fun labelledAsClone(context: Context, user: UserHandle): Boolean = runCatching {
             val res = android.content.res.Resources.getSystem()
             val clone = res.getIdentifier("clone_profile_label_badge", "string", "android")
-            clone != 0 && context.packageManager.getUserBadgedLabel(PROBE_LABEL, user).toString() == res.getString(clone, PROBE_LABEL)
+            clone != 0 && context.packageManager.getUserBadgedLabel(PROBE_LABEL, user)
+                .toString() == res.getString(clone, PROBE_LABEL)
         }.getOrDefault(false)
 
         /** Any app name works. Only the text that Android adds to it for a profile matters. */

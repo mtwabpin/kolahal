@@ -12,7 +12,8 @@ import org.junit.runner.RunWith
 class ThisInstallTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    @Test fun aDatabaseFromAnotherPhoneLosesThatPhonesState() {
+    @Test
+    fun aDatabaseFromAnotherPhoneLosesThatPhonesState() {
         val scopes = Stores.THIS_PHONE
         val kept = scopes.associateWith { KvStore(context, it).all() }
         try {

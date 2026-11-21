@@ -18,11 +18,13 @@ import org.junit.runner.RunWith
 /** A widget's view is made once and used again when home is built again, until something it shows from changes. */
 @RunWith(AndroidJUnit4::class)
 class KeptWidgetViewsTest {
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
     private val t = TestWidgets()
     private val widgets = t.host
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         compose.runOnUiThread { widgets.releaseViews(compose.activity) }
         t.close()
     }
@@ -34,10 +36,17 @@ class KeptWidgetViewsTest {
         return t.place(clock).id!!
     }
 
-    private fun view(id: Int) = compose.runOnUiThread<android.appwidget.AppWidgetHostView> { widgets.view(compose.activity, id, widgets.cachedInfo(id)!!) }
+    private fun view(id: Int) = compose.runOnUiThread<android.appwidget.AppWidgetHostView> {
+        widgets.view(
+            compose.activity,
+            id,
+            widgets.cachedInfo(id)!!
+        )
+    }
 
     /** Built again in the same activity, home gets the same view back, out of the holder it was left in. */
-    @Test fun theSameViewComesBack() {
+    @Test
+    fun theSameViewComesBack() {
         val id = clock()
         val first = view(id)
         compose.runOnUiThread { FrameLayout(compose.activity).addView(first) }
@@ -51,7 +60,8 @@ class KeptWidgetViewsTest {
      * views aren't used again: the next one asked for is new. Same activity here; a view kept for
      * another one isn't tried.
      */
-    @Test fun releasedViewsAreMadeAgain() {
+    @Test
+    fun releasedViewsAreMadeAgain() {
         val id = clock()
         val first = view(id)
         compose.runOnUiThread { widgets.releaseViews(compose.activity) }
@@ -59,7 +69,8 @@ class KeptWidgetViewsTest {
     }
 
     /** The check at each start keeps details that didn't change, so the kept view is still used (Android 12 and later). */
-    @Test fun theCheckAtStartKeepsUnchangedDetails() {
+    @Test
+    fun theCheckAtStartKeepsUnchangedDetails() {
         assumeTrue("the install can't be told before Android 12", Build.VERSION.SDK_INT >= 31)
         val id = clock()
         val before = widgets.cachedInfo(id)

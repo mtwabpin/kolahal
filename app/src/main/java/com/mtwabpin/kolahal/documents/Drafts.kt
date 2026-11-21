@@ -4,8 +4,8 @@
 package com.mtwabpin.kolahal.documents
 
 import com.mtwabpin.kolahal.data.sha256Hex
-import java.io.File
 import org.json.JSONObject
+import java.io.File
 
 /**
  * Unsaved text of the editor, kept in Kolahal's own storage. The editor writes a draft while you
@@ -24,14 +24,22 @@ class Drafts(private val dir: File) {
      *   ([TextDocument]). If the file's hash is different now, the file changed since. Null: the
      *   file was never read.
      */
-    data class Draft(val uri: String, val name: String, val text: String, val base: String?, val time: Long)
+    data class Draft(
+        val uri: String,
+        val name: String,
+        val text: String,
+        val base: String?,
+        val time: Long
+    )
 
     /** A draft without its text, for a list. */
     data class Entry(val uri: String, val name: String, val time: Long)
 
     private fun file(uri: String) = File(dir, sha256Hex(uri.toByteArray()).take(32) + ".draft")
 
-    private fun header(d: Draft) = JSONObject().put("uri", d.uri).put("name", d.name).put("time", d.time).apply { d.base?.let { put("base", it) } }
+    private fun header(d: Draft) =
+        JSONObject().put("uri", d.uri).put("name", d.name).put("time", d.time)
+            .apply { d.base?.let { put("base", it) } }
 
     /** Writes [draft], replacing the document's earlier one. The file is written whole or not at all. */
     @Synchronized
@@ -53,7 +61,13 @@ class Drafts(private val dir: File) {
         val h = JSONObject(all.substringBefore('\n'))
         // Two addresses with the same hash: not this document's draft.
         if (h.getString("uri") != uri) return null
-        Draft(uri, h.getString("name"), all.substringAfter('\n', ""), h.optString("base").ifEmpty { null }, h.getLong("time"))
+        Draft(
+            uri,
+            h.getString("name"),
+            all.substringAfter('\n', ""),
+            h.optString("base").ifEmpty { null },
+            h.getLong("time")
+        )
     }.getOrNull()
 
     @Synchronized
@@ -66,10 +80,11 @@ class Drafts(private val dir: File) {
 
     /** Every draft, newest first. */
     @Synchronized
-    fun list(): List<Entry> = dir.listFiles { f -> f.isFile && f.name.endsWith(".draft") }.orEmpty().mapNotNull { f ->
-        runCatching {
-            val h = JSONObject(f.bufferedReader().use { it.readLine() })
-            Entry(h.getString("uri"), h.getString("name"), h.getLong("time"))
-        }.getOrNull()
-    }.sortedByDescending { it.time }
+    fun list(): List<Entry> =
+        dir.listFiles { f -> f.isFile && f.name.endsWith(".draft") }.orEmpty().mapNotNull { f ->
+            runCatching {
+                val h = JSONObject(f.bufferedReader().use { it.readLine() })
+                Entry(h.getString("uri"), h.getString("name"), h.getLong("time"))
+            }.getOrNull()
+        }.sortedByDescending { it.time }
 }

@@ -19,13 +19,21 @@ import org.junit.runner.RunWith
 /** An icon button shows its label on a long-press, and a tap still does what it does. */
 @RunWith(AndroidJUnit4::class)
 class LabeledIconButtonsUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
 
     /** The widgets page's + and pencil: a long-press says what each does, and does nothing else. */
-    @Test fun aLongPressShowsTheLabelAndATapActs() {
+    @Test
+    fun aLongPressShowsTheLabelAndATapActs() {
         var added by mutableIntStateOf(0)
         var edited by mutableIntStateOf(0)
-        compose.setContent { KolahalTheme { WidgetsTitleRow(onAdd = { added++ }, onEdit = { edited++ }) } }
+        compose.setContent {
+            KolahalTheme {
+                WidgetsTitleRow(
+                    onAdd = { added++ },
+                    onEdit = { edited++ })
+            }
+        }
         compose.onNodeWithText("Add a widget").assertDoesNotExist()
         compose.onNodeWithContentDescription("Add a widget").performTouchInput { longClick() }
         compose.waitUntil(3_000) { compose.onAllNodesWithTextCount("Add a widget") > 0 }
@@ -35,12 +43,18 @@ class LabeledIconButtonsUiTest {
     }
 
     /** The editor's Run keeps its own long-press (Run with…): no label covers it. Save shows its label. */
-    @Test fun aButtonWithALongPressOfItsOwnKeepsIt() {
+    @Test
+    fun aButtonWithALongPressOfItsOwnKeepsIt() {
         var runWith by mutableIntStateOf(0)
         compose.setContent {
             KolahalTheme {
                 androidx.compose.foundation.layout.Row {
-                    EditorIconButton(R.drawable.ic_play, "Run", onLongClick = { runWith++ }, longClickLabel = "Run with…") {}
+                    EditorIconButton(
+                        R.drawable.ic_play,
+                        "Run",
+                        onLongClick = { runWith++ },
+                        longClickLabel = "Run with…"
+                    ) {}
                     EditorIconButton(R.drawable.ic_save, "Save") {}
                 }
             }

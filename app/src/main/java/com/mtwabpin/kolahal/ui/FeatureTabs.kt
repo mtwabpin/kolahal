@@ -7,8 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,7 +47,11 @@ internal fun FeatureTabs(vm: TerminalViewModel, current: Screen, modifier: Modif
     val feeds = remember { FeedRepository.get(context) }
     val feedVersion by feeds.version.collectAsStateWithLifecycle()
     val unread by produceState(0, feedVersion) {
-        value = withContext(Dispatchers.IO) { runCatching { feeds.all().filter { it.enabled }.sumOf { it.unread } }.getOrDefault(0) }
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                feeds.all().filter { it.enabled }.sumOf { it.unread }
+            }.getOrDefault(0)
+        }
     }
     val colors = MaterialTheme.colorScheme
     Row(
@@ -77,7 +81,12 @@ internal fun FeatureTabs(vm: TerminalViewModel, current: Screen, modifier: Modif
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) colors.onPrimary else colors.onSurfaceVariant, maxLines = 1)
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (on) colors.onPrimary else colors.onSurfaceVariant,
+                    maxLines = 1
+                )
             }
         }
     }

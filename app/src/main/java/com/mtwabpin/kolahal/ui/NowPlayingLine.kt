@@ -3,17 +3,12 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.foundation.background
-import kotlin.math.sin
-import kotlin.math.PI
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -39,8 +34,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,7 +52,9 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Keys
 import kotlinx.coroutines.delay
+import kotlin.math.PI
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -110,7 +110,9 @@ internal fun NowPlayingLine(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(end = endPadding)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = endPadding)
         ) {
             val iconSize = (Term.fontSize + 2).dp
 
@@ -187,12 +189,16 @@ internal fun NowPlayingLine(
 /** The current progress of [NowPlaying], from 0 to 1. It is 0 if the length or position is unknown. */
 private fun NowPlaying.progressNow(): Float {
     val position = positionNow()
-    return if (duration > 0 && position >= 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    return if (duration > 0 && position >= 0) (position.toFloat() / duration).coerceIn(
+        0f,
+        1f
+    ) else 0f
 }
 
 /** A thin bar, filled up to [fraction] (0 to 1). */
 @Composable
-internal fun ProgressTrack(fraction: Float, fill: Color = Term.prompt) = ProgressTrack({ fraction }, fill = fill)
+internal fun ProgressTrack(fraction: Float, fill: Color = Term.prompt) =
+    ProgressTrack({ fraction }, fill = fill)
 
 /**
  * A thin bar, filled up to [fraction] (0 to 1), in [fill] (the theme's accent unless a script picks a role).
@@ -204,7 +210,12 @@ internal fun ProgressTrack(fraction: Float, fill: Color = Term.prompt) = Progres
  *   play ([WaveTrack]).
  */
 @Composable
-internal fun ProgressTrack(fraction: () -> Float, modifier: Modifier = Modifier, fill: Color = Term.prompt, moving: Boolean = false) {
+internal fun ProgressTrack(
+    fraction: () -> Float,
+    modifier: Modifier = Modifier,
+    fill: Color = Term.prompt,
+    moving: Boolean = false
+) {
     if (moving) {
         WaveTrack(fraction, modifier, fill)
         return
@@ -255,7 +266,13 @@ private fun WaveTrack(fraction: () -> Float, modifier: Modifier, fill: Color) {
                 val rtl = layoutDirection == LayoutDirection.Rtl
                 fun x(at: Float) = if (rtl) size.width - at else at
                 // The rest of the track, flat.
-                if (end < size.width) drawLine(track, Offset(x(end), mid), Offset(x(size.width), mid), strokeWidth = line, cap = StrokeCap.Round)
+                if (end < size.width) drawLine(
+                    track,
+                    Offset(x(end), mid),
+                    Offset(x(size.width), mid),
+                    strokeWidth = line,
+                    cap = StrokeCap.Round
+                )
                 if (end <= 0f) return@drawBehind
                 // The played part, as a wave that moves towards the end.
                 val shift = phase * wavelength
@@ -275,6 +292,7 @@ private fun WaveTrack(fraction: () -> Float, modifier: Modifier, fill: Color) {
 
 /** How long the wave takes to move by one wavelength. */
 private const val WAVE_PERIOD_MS = 1200
+
 /** The wave's height either side of the bar, and its length. */
 private val WAVE_AMPLITUDE = 1.5.dp
 private val WAVE_LENGTH = 16.dp
@@ -284,7 +302,10 @@ private val WAVE_LENGTH = 16.dp
  * Next track, Previous track, and Open <player> when the player's app has a screen to open.
  * A tap still plays or pauses, and ⏭ still skips.
  */
-internal fun mediaActions(context: android.content.Context, np: NowPlaying): List<com.mtwabpin.kolahal.terminal.LogAction> {
+internal fun mediaActions(
+    context: android.content.Context,
+    np: NowPlaying
+): List<com.mtwabpin.kolahal.terminal.LogAction> {
     val media = com.mtwabpin.kolahal.control.MediaRepository.get(context)
     val actions = mutableListOf(
         com.mtwabpin.kolahal.terminal.LogAction("Next track") { media.send(com.mtwabpin.kolahal.control.MediaRepository.Action.NEXT) },

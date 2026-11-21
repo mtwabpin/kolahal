@@ -23,10 +23,16 @@ object Repeat {
         rule == "day" -> true
         rule == "weekdays" -> d.dayOfWeek != DayOfWeek.SATURDAY && d.dayOfWeek != DayOfWeek.SUNDAY
         rule == "weekend" -> d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY
-        rule.startsWith("month:") -> d.dayOfMonth == minOf(rule.removePrefix("month:").toInt(), d.lengthOfMonth())
-        rule.startsWith("year:") -> rule.removePrefix("year:").split('-').map { it.toInt() }.let { (m, day) ->
-            d.monthValue == m && d.dayOfMonth == minOf(day, d.lengthOfMonth())
-        }
+        rule.startsWith("month:") -> d.dayOfMonth == minOf(
+            rule.removePrefix("month:").toInt(),
+            d.lengthOfMonth()
+        )
+
+        rule.startsWith("year:") -> rule.removePrefix("year:").split('-').map { it.toInt() }
+            .let { (m, day) ->
+                d.monthValue == m && d.dayOfMonth == minOf(day, d.lengthOfMonth())
+            }
+
         else -> d.dayOfWeek in days(rule)
     }
 
@@ -55,8 +61,10 @@ object Repeat {
             rule.startsWith("month:") -> rule.removePrefix("month:").toIntOrNull() in 1..31
             rule.startsWith("year:") -> rule.removePrefix("year:").split('-').let { p ->
                 val month = p.first().toIntOrNull()
-                p.size == 2 && month in 1..12 && p[1].toIntOrNull() in 1..Month.of(month!!).maxLength()
+                p.size == 2 && month in 1..12 && p[1].toIntOrNull() in 1..Month.of(month!!)
+                    .maxLength()
             }
+
             else -> rule.split(',').all { dayNamed(it) != null }
         }
         return shape && runCatching {
@@ -70,20 +78,30 @@ object Repeat {
         rule == "day" -> "every day"
         rule == "weekdays" -> "every weekday"
         rule == "weekend" -> "every Saturday and Sunday"
-        rule.startsWith("month:") -> "on the ${ordinal(rule.removePrefix("month:").toInt())} of every month"
-        rule.startsWith("year:") -> rule.removePrefix("year:").split('-').map { it.toInt() }.let { (m, day) ->
-            "every year on $day ${Month.of(m).getDisplayName(TextStyle.SHORT, Locale.ENGLISH)}"
-        }
-        else -> "every " + days(rule).map { it.getDisplayName(TextStyle.SHORT, Locale.ENGLISH) }.let { names ->
-            if (names.size == 1) names[0] else names.dropLast(1).joinToString(", ") + " and " + names.last()
-        }
+        rule.startsWith("month:") -> "on the ${
+            ordinal(
+                rule.removePrefix("month:").toInt()
+            )
+        } of every month"
+
+        rule.startsWith("year:") -> rule.removePrefix("year:").split('-').map { it.toInt() }
+            .let { (m, day) ->
+                "every year on $day ${Month.of(m).getDisplayName(TextStyle.SHORT, Locale.ENGLISH)}"
+            }
+
+        else -> "every " + days(rule).map { it.getDisplayName(TextStyle.SHORT, Locale.ENGLISH) }
+            .let { names ->
+                if (names.size == 1) names[0] else names.dropLast(1)
+                    .joinToString(", ") + " and " + names.last()
+            }
     }
 
     private fun days(rule: String): List<DayOfWeek> = rule.split(',').mapNotNull(::dayNamed)
 
     /** Reads a day name from a rule, such as `mon` or `monday`. It needs at least three letters, as `every` writes them. */
     private fun dayNamed(name: String): DayOfWeek? =
-        name.takeIf { it.length >= 3 }?.let { n -> DayOfWeek.entries.firstOrNull { it.name.lowercase().startsWith(n) } }
+        name.takeIf { it.length >= 3 }
+            ?.let { n -> DayOfWeek.entries.firstOrNull { it.name.lowercase().startsWith(n) } }
 
     private fun ordinal(n: Int): String = n.toString() + when {
         n % 100 in 11..13 -> "th"

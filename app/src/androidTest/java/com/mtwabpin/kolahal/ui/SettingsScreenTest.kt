@@ -1,7 +1,5 @@
 package com.mtwabpin.kolahal.ui
 
-import com.mtwabpin.kolahal.Links
-import com.mtwabpin.kolahal.data.FontFiles
 import android.app.Application
 import android.app.Instrumentation
 import android.content.Intent
@@ -17,6 +15,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -25,8 +25,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -43,9 +41,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.CrashReports
 import com.mtwabpin.kolahal.CrashReportsAside
+import com.mtwabpin.kolahal.Links
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
+import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -64,22 +64,32 @@ private const val TEST_THEME = "tb-test"
 /** Settings: home showing through while a look setting changes, and the setting rows. */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+
     // With its activity, so a test can press Back.
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
-    @get:Rule val configReset = ConfigReset()
-    @get:Rule val crashReports = CrashReportsAside()
 
-    @After fun tearDown() {
+    @get:Rule
+    val configReset = ConfigReset()
+
+    @get:Rule
+    val crashReports = CrashReportsAside()
+
+    @After
+    fun tearDown() {
         CustomThemes.delete(app, TEST_THEME)
     }
 
     private fun crashReport(id: String, error: String) {
         val dir = java.io.File(app.filesDir, "crash").apply { mkdirs() }
-        java.io.File(dir, "$id-crash.txt").writeText("Kolahal crash report\nKolahal\nAndroid\nWhen: x\nWhat: crash in test, thread main\n\n$error\n\tat a.b(c:1)\n")
+        java.io.File(dir, "$id-crash.txt")
+            .writeText("Kolahal crash report\nKolahal\nAndroid\nWhen: x\nWhat: crash in test, thread main\n\n$error\n\tat a.b(c:1)\n")
     }
 
     /** Settings open on [page] (null: the main page), on a phone-sized frame, as MainActivity shows it. */
@@ -94,19 +104,25 @@ class SettingsScreenTest {
         compose.setContent {
             focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             KolahalTheme {
-                Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
+                Box(
+                    Modifier
+                        .size(360.dp, 700.dp)
+                        .consumeWindowInsets(WindowInsets.safeDrawing)
+                ) {
                     SettingsOverHome(vm)
                 }
             }
         }
     }
 
-    private fun scrollTo(key: ConfigKey<*>) = compose.onNode(hasScrollToKeyAction()).performScrollToKey(key.key)
+    private fun scrollTo(key: ConfigKey<*>) =
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey(key.key)
 
     /** Home's `$`: there only while home is drawn under Settings. */
     private val home get() = compose.onNodeWithTag("prompt-quick")
 
-    @Test fun holdingTheEyeShowsHome() {
+    @Test
+    fun holdingTheEyeShowsHome() {
         show("look")
         home.assertDoesNotExist()
         val eye = compose.onNodeWithContentDescription("Hold to see the home screen")
@@ -132,7 +148,8 @@ class SettingsScreenTest {
     }
 
     /** Settings → Commands: a switch for each command that can be turned off; a tap writes commands.off. */
-    @Test fun theCommandsPageTurnsCommandsOffAndOn() {
+    @Test
+    fun theCommandsPageTurnsCommandsOffAndOn() {
         show(COMMANDS_CATEGORY)
         val list = compose.onNode(hasScrollToKeyAction())
         list.performScrollToKey("command:yt")
@@ -154,7 +171,8 @@ class SettingsScreenTest {
      * Settings → Commands: the search field keeps the commands it finds, under their sections.
      * The × button shows them all again, and so does Back, before it closes the page.
      */
-    @Test fun theCommandsPageSearchFindsCommands() {
+    @Test
+    fun theCommandsPageSearchFindsCommands() {
         show(COMMANDS_CATEGORY)
         val field = compose.onNode(hasSetTextAction())
         compose.onNodeWithText("Apps").assertExists()
@@ -194,7 +212,8 @@ class SettingsScreenTest {
         compose.onNodeWithText("Search settings").assertExists()
     }
 
-    @Test fun aTapOnTheEyeSaysToHold() {
+    @Test
+    fun aTapOnTheEyeSaysToHold() {
         show("suggestions")
         compose.onNodeWithContentDescription("Hold to see the home screen").performClick()
         compose.onNodeWithText("Tap and hold the eye to see the home screen").assertIsDisplayed()
@@ -206,7 +225,8 @@ class SettingsScreenTest {
      * prompt.height is a typing slider: while it is dragged, home shows under Settings as if typing,
      * at the height under the finger. The value is saved only when the finger lifts.
      */
-    @Test fun draggingALookSliderShowsHomeAtThatValue() {
+    @Test
+    fun draggingALookSliderShowsHomeAtThatValue() {
         show("keyboard")
         scrollTo(Keys.PROMPT_HEIGHT_TYPING)
         val slider = compose.onNodeWithTag("slider ${Keys.PROMPT_HEIGHT_TYPING.key}")
@@ -216,7 +236,10 @@ class SettingsScreenTest {
             repeat(8) { moveBy(Offset(width / 4f, 0f)) }
         }
         compose.waitForIdle()
-        assertEquals(TerminalViewModel.Peek(Keys.PROMPT_HEIGHT_TYPING.key, typing = true), vm.peek.value)
+        assertEquals(
+            TerminalViewModel.Peek(Keys.PROMPT_HEIGHT_TYPING.key, typing = true),
+            vm.peek.value
+        )
         // Shown everywhere, saved nowhere yet.
         assertEquals(72, config[Keys.PROMPT_HEIGHT_TYPING])
         assertTrue(config.isDefault(Keys.PROMPT_HEIGHT_TYPING))
@@ -240,7 +263,8 @@ class SettingsScreenTest {
      * The wallpaper sliders show home at the value under the finger: the log for log.wallpaper, the
      * widgets page for widgets.wallpaper (not the terminal).
      */
-    @Test fun wallpaperSlidersShowTheirPage() {
+    @Test
+    fun wallpaperSlidersShowTheirPage() {
         show("log")
         scrollTo(Keys.LOG_WALLPAPER)
         val log = compose.onNodeWithTag("slider ${Keys.LOG_WALLPAPER.key}")
@@ -265,7 +289,10 @@ class SettingsScreenTest {
             repeat(8) { moveBy(Offset(width / 4f, 0f)) }
         }
         compose.waitForIdle()
-        assertEquals(TerminalViewModel.Peek(Keys.WIDGETS_WALLPAPER.key, typing = false), vm.peek.value)
+        assertEquals(
+            TerminalViewModel.Peek(Keys.WIDGETS_WALLPAPER.key, typing = false),
+            vm.peek.value
+        )
         assertEquals(100, config[Keys.WIDGETS_WALLPAPER])
         compose.onNodeWithContentDescription("Add a widget").assertExists()
         home.assertDoesNotExist()
@@ -276,7 +303,8 @@ class SettingsScreenTest {
     }
 
     /** A slider found by searching peeks too, and the search results fade around it. */
-    @Test fun aSliderFoundBySearchShowsHome() {
+    @Test
+    fun aSliderFoundBySearchShowsHome() {
         show(null)
         compose.onNode(hasSetTextAction()).performTextInput(Keys.PROMPT_HEIGHT_TYPING.key)
         val slider = compose.onNodeWithTag("slider ${Keys.PROMPT_HEIGHT_TYPING.key}")
@@ -285,7 +313,10 @@ class SettingsScreenTest {
             repeat(8) { moveBy(Offset(-width / 4f, 0f)) }
         }
         compose.waitForIdle()
-        assertEquals(TerminalViewModel.Peek(Keys.PROMPT_HEIGHT_TYPING.key, typing = true), vm.peek.value)
+        assertEquals(
+            TerminalViewModel.Peek(Keys.PROMPT_HEIGHT_TYPING.key, typing = true),
+            vm.peek.value
+        )
         home.assertExists()
         slider.performTouchInput { up() }
         compose.waitForIdle()
@@ -294,20 +325,25 @@ class SettingsScreenTest {
     }
 
     /** The app selector has a page of its own; its settings show once it is on. */
-    @Test fun theAppSelectorHasItsOwnPage() {
-        assertTrue(allCategories().filter { it.id != "selector" }.none { c -> c.keys.any { it.key.startsWith("selector.") } })
+    @Test
+    fun theAppSelectorHasItsOwnPage() {
+        assertTrue(allCategories().filter { it.id != "selector" }
+            .none { c -> c.keys.any { it.key.startsWith("selector.") } })
         // All of them but the ones only `config set` changes (Keys.CONFIG_ONLY).
-        assertTrue(Keys.ALL.filter { it.key.startsWith("selector.") && it !in Keys.CONFIG_ONLY }.all { it in allCategories().first { c -> c.id == "selector" }.keys })
+        assertTrue(Keys.ALL.filter { it.key.startsWith("selector.") && it !in Keys.CONFIG_ONLY }
+            .all { it in allCategories().first { c -> c.id == "selector" }.keys })
         show("selector")
         compose.onNodeWithText(Keys.SELECTOR_RAIL.key, useUnmergedTree = true).assertExists()
-        compose.onNodeWithText(Keys.SELECTOR_LETTERS.key, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(Keys.SELECTOR_LETTERS.key, useUnmergedTree = true)
+            .assertDoesNotExist()
         compose.runOnIdle { config.set(Keys.SELECTOR_RAIL, "on") }
         scrollTo(Keys.SELECTOR_LETTERS)
         compose.onNodeWithText(Keys.SELECTOR_LETTERS.key, useUnmergedTree = true).assertExists()
     }
 
     /** A setting another one turns off (the key bar's rows while it is off) shows once it is on. */
-    @Test fun settingsThatDontApplyStayHidden() {
+    @Test
+    fun settingsThatDontApplyStayHidden() {
         show("keyboard")
         scrollTo(Keys.KEYBAR_SHOW)
         compose.onNodeWithText(Keys.KEYBAR.key, useUnmergedTree = true).assertDoesNotExist()
@@ -321,30 +357,39 @@ class SettingsScreenTest {
      * and the 24-hour clock stays, as the log's times use it. The pinned header's timing and the
      * sides' lists are never rows here (`config`, and Arrange the header).
      */
-    @Test fun headerOffHidesItsItems() {
+    @Test
+    fun headerOffHidesItsItems() {
         config.set(Keys.HEADER_SHOW, "on")
         show("header")
         compose.onNodeWithTag("header-preview").assertExists()
         compose.onNodeWithText(Keys.HEADER_BELOW_BAR.key, useUnmergedTree = true).assertExists()
         compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
         compose.onNodeWithTag("header-preview").assertDoesNotExist()
-        compose.onNodeWithText(Keys.HEADER_BELOW_BAR.key, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(Keys.HEADER_BELOW_BAR.key, useUnmergedTree = true)
+            .assertDoesNotExist()
         scrollTo(Keys.CLOCK_24H)
         compose.onNodeWithText(Keys.CLOCK_24H.key, useUnmergedTree = true).assertExists()
-        for (key in listOf(Keys.HEADER_PINNED_SECONDS, Keys.HEADER_PINNED_DOTS, Keys.HEADER_LEFT, Keys.HEADER_RIGHT)) {
+        for (key in listOf(
+            Keys.HEADER_PINNED_SECONDS,
+            Keys.HEADER_PINNED_DOTS,
+            Keys.HEADER_LEFT,
+            Keys.HEADER_RIGHT
+        )) {
             compose.onNodeWithText(key.key, useUnmergedTree = true).assertDoesNotExist()
         }
     }
 
     /** The header's parts are arranged on a screen of their own, from the top of the Header page. */
-    @Test fun arrangeTheHeaderOpensItsScreen() {
+    @Test
+    fun arrangeTheHeaderOpensItsScreen() {
         show("header")
         compose.onNodeWithText("Arrange the header").performClick()
         compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.HEADER_PARTS }
     }
 
     /** Your name, on the Header page: a name with a space turns the field red and isn't saved. */
-    @Test fun yourNameIsSetInItsField() {
+    @Test
+    fun yourNameIsSetInItsField() {
         show("header")
         scrollTo(Keys.USER_NAME)
         val field = hasSetTextAction() and hasText(Keys.USER_NAME.default)
@@ -359,7 +404,8 @@ class SettingsScreenTest {
         compose.runOnIdle { assertEquals("alex", config[Keys.USER_NAME]) }
     }
 
-    @Test fun searchSkipsSettingsThatDontApply() {
+    @Test
+    fun searchSkipsSettingsThatDontApply() {
         show(null)
         compose.onNode(hasSetTextAction()).performTextInput(Keys.SEARCH_URL.key)
         val row = hasText(Keys.SEARCH_URL.key) and !hasSetTextAction()
@@ -369,7 +415,8 @@ class SettingsScreenTest {
     }
 
     /** Backup has its own page: automatic backups, their folder and Back up now; search finds backup.auto from the main page. */
-    @Test fun backupsOnTheirOwn() {
+    @Test
+    fun backupsOnTheirOwn() {
         show(null)
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("more")
         compose.onNodeWithText("Backup").performClick()
@@ -380,29 +427,40 @@ class SettingsScreenTest {
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNode(hasScrollToKeyAction()).performScrollToIndex(0)
         compose.onNode(hasSetTextAction()).performTextInput("backup")
-        compose.onNode(hasText(Keys.BACKUP_AUTO.key) and !hasSetTextAction(), useUnmergedTree = true).assertExists()
+        compose.onNode(
+            hasText(Keys.BACKUP_AUTO.key) and !hasSetTextAction(),
+            useUnmergedTree = true
+        ).assertExists()
     }
 
     /** About lists the crash reports kept on the phone; a tap offers email or delete, and delete takes that one. */
-    @Test fun aboutCrashReportsCanBeDeletedOneByOne() {
+    @Test
+    fun aboutCrashReportsCanBeDeletedOneByOne() {
         crashReport("20261022-090000", "IllegalStateException: first sttest")
         crashReport("20261022-100000", "IllegalStateException: second sttest")
         show(ABOUT_PAGE)
         compose.onNodeWithText(VERSION_TEXT, substring = true).assertExists()
         compose.waitForText("2 reports kept on this phone")
-        compose.onNode(hasText("Crash reports") and hasText("2 reports kept on this phone")).performClick()
+        compose.onNode(hasText("Crash reports") and hasText("2 reports kept on this phone"))
+            .performClick()
         compose.waitForText("second sttest", substring = true)
 
         compose.onNodeWithText("second sttest", substring = true).performClick()
         compose.onNodeWithText("Email us").assertIsDisplayed()
         compose.onNodeWithContentDescription("Delete").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("second sttest", substring = true).fetchSemanticsNodes().isEmpty() }
-        assertEquals(listOf("IllegalStateException: first sttest"), CrashReports.list(app).map { it.text().lines()[6] })
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("second sttest", substring = true).fetchSemanticsNodes()
+                .isEmpty()
+        }
+        assertEquals(
+            listOf("IllegalStateException: first sttest"),
+            CrashReports.list(app).map { it.text().lines()[6] })
         compose.onNodeWithText("first sttest", substring = true).assertExists()
     }
 
     /** The main page leads to About and About to the crash reports; Back returns the same way. */
-    @Test fun crashReportsGoBackToAbout() {
+    @Test
+    fun crashReportsGoBackToAbout() {
         show(null)
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("more")
         compose.onNodeWithText("About").performClick()
@@ -429,11 +487,16 @@ class SettingsScreenTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val catch = Catch(action)
         instrumentation.addMonitor(catch)
-        try { block(catch) } finally { instrumentation.removeMonitor(catch) }
+        try {
+            block(catch)
+        } finally {
+            instrumentation.removeMonitor(catch)
+        }
     }
 
     /** About: Source code opens Kolahal's page on GitHub. */
-    @Test fun aboutOpensTheSourceCode() = catching(Intent.ACTION_VIEW) { browser ->
+    @Test
+    fun aboutOpensTheSourceCode() = catching(Intent.ACTION_VIEW) { browser ->
         show(ABOUT_PAGE)
         compose.onNodeWithText("Source code").performClick()
         compose.waitUntil(5_000) { browser.intents.isNotEmpty() }
@@ -441,16 +504,19 @@ class SettingsScreenTest {
     }
 
     /** A report's sheet: Share comes after Email and hands over the whole report, which stays kept. */
-    @Test fun aCrashReportCanBeShared() = catching(Intent.ACTION_CHOOSER) { sheet ->
+    @Test
+    fun aCrashReportCanBeShared() = catching(Intent.ACTION_CHOOSER) { sheet ->
         crashReport("20261022-090000", "IllegalStateException: shared sttest")
         show(ABOUT_PAGE)
         compose.waitForText("1 report kept on this phone")
-        compose.onNode(hasText("Crash reports") and hasText("1 report kept on this phone")).performClick()
+        compose.onNode(hasText("Crash reports") and hasText("1 report kept on this phone"))
+            .performClick()
         compose.waitForText("shared sttest", substring = true)
         compose.onNodeWithText("shared sttest", substring = true).performClick()
 
         val email = compose.onNodeWithText("Email us").getUnclippedBoundsInRoot()
-        val share = compose.onNodeWithContentDescription("Share").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val share = compose.onNodeWithContentDescription("Share").assertIsDisplayed()
+            .getUnclippedBoundsInRoot()
         val delete = compose.onNodeWithContentDescription("Delete").getUnclippedBoundsInRoot()
         // Icons alone: the names are for screen readers.
         compose.onNodeWithText("Share").assertDoesNotExist()
@@ -460,16 +526,21 @@ class SettingsScreenTest {
 
         compose.onNodeWithContentDescription("Share").performClick()
         compose.waitUntil(5_000) { sheet.intents.isNotEmpty() }
-        @Suppress("DEPRECATION") val send = sheet.intents.single().getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
+        @Suppress("DEPRECATION") val send =
+            sheet.intents.single().getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
         val report = send.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
-        assertTrue(report, "IllegalStateException: shared sttest" in report && "at a.b(c:1)" in report)
+        assertTrue(
+            report,
+            "IllegalStateException: shared sttest" in report && "at a.b(c:1)" in report
+        )
         assertEquals(1, CrashReports.list(app).size)
         // The sheet stays, so the report can be deleted once sent.
         compose.onNodeWithContentDescription("Delete").assertExists()
     }
 
     /** Your themes: made themes join the theme strip and the list, and open in the builder. */
-    @Test fun yourThemesOpenInTheBuilder() {
+    @Test
+    fun yourThemesOpenInTheBuilder() {
         CustomThemes.save(app, TEST_THEME, Palettes.colorsOf(Palettes.amber))
         show("look")
         compose.onNode(hasText(TEST_THEME) and hasText("\$ ls")).assertExists()
@@ -486,7 +557,8 @@ class SettingsScreenTest {
     }
 
     /** Home must not stay drawn under whatever comes next. */
-    @Test fun peekEndsWhenSettingsGoesAway() {
+    @Test
+    fun peekEndsWhenSettingsGoesAway() {
         compose.runOnUiThread {
             vm = vms.terminal(app)
             vm.peek(TerminalViewModel.Peek(null, typing = false))
@@ -499,7 +571,8 @@ class SettingsScreenTest {
     }
 
     /** A changed setting shows a reset icon right after its name; a switch has none (switching it resets it). */
-    @Test fun resetIconFollowsAChangedSettingsName() {
+    @Test
+    fun resetIconFollowsAChangedSettingsName() {
         config.set(Keys.LOG_DIM, "off")
         show("log")
         scrollTo(Keys.LOG_SPACING)
@@ -508,14 +581,24 @@ class SettingsScreenTest {
 
         compose.runOnIdle { config.set(Keys.LOG_SPACING, "20") }
         val icon = reset.assertIsDisplayed().getUnclippedBoundsInRoot()
-        val name = compose.onNodeWithText(Keys.LOG_SPACING.key, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val name = compose.onNodeWithText(Keys.LOG_SPACING.key, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
         // On the name's line, just after it: the 28 dp icon's centre is 4 + 14 dp past the name. Its
         // touch area is 48 dp, centred on the icon.
         val centre = (icon.left + icon.right) / 2
-        assertTrue("the icon's centre is at $centre, the name ends at ${name.right}", centre - name.right in 12.dp..24.dp)
-        assertTrue("the touch area is ${icon.width} × ${icon.height}", icon.width >= 47.dp && icon.height >= 47.dp)
+        assertTrue(
+            "the icon's centre is at $centre, the name ends at ${name.right}",
+            centre - name.right in 12.dp..24.dp
+        )
+        assertTrue(
+            "the touch area is ${icon.width} × ${icon.height}",
+            icon.width >= 47.dp && icon.height >= 47.dp
+        )
         val nameMiddle = (name.top + name.bottom) / 2
-        assertTrue("the icon spans ${icon.top}–${icon.bottom}, the name's middle is at $nameMiddle", nameMiddle in icon.top..icon.bottom)
+        assertTrue(
+            "the icon spans ${icon.top}–${icon.bottom}, the name's middle is at $nameMiddle",
+            nameMiddle in icon.top..icon.bottom
+        )
 
         reset.performClick()
         compose.waitForIdle()
@@ -524,33 +607,42 @@ class SettingsScreenTest {
     }
 
     /** Reset says what it reset, with Undo, which puts the value back. */
-    @Test fun resetOffersUndo() {
+    @Test
+    fun resetOffersUndo() {
         config.set(Keys.LOG_SPACING, "20")
         show("log")
         scrollTo(Keys.LOG_SPACING)
         compose.onNodeWithContentDescription("Reset to default").performClick()
         compose.runOnIdle { assertTrue(config.isDefault(Keys.LOG_SPACING)) }
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Reset “", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasText("Reset “", substring = true)).fetchSemanticsNodes()
+                .isNotEmpty()
+        }
         compose.onNodeWithText("Undo").performClick()
         compose.waitUntil(5_000) { config.display(Keys.LOG_SPACING) == "20" }
     }
 
     /** A text setting's typed value is applied when the field loses focus, without Done or Apply. */
-    @Test fun aTypedValueIsAppliedWhenTheFieldLosesFocus() {
+    @Test
+    fun aTypedValueIsAppliedWhenTheFieldLosesFocus() {
         show("header")
         scrollTo(Keys.USER_NAME)
-        compose.onNode(hasSetTextAction() and hasText(Keys.USER_NAME.default)).performTextReplacement("alex")
+        compose.onNode(hasSetTextAction() and hasText(Keys.USER_NAME.default))
+            .performTextReplacement("alex")
         compose.runOnIdle { focusManager.clearFocus() }
         compose.waitUntil(5_000) { config[Keys.USER_NAME] == "alex" }
     }
 
     /** A value that isn't valid stays in the field, marked, and is not applied when focus leaves. */
-    @Test fun anInvalidTypedValueStaysMarked() {
+    @Test
+    fun anInvalidTypedValueStaysMarked() {
         show("header")
         scrollTo(Keys.USER_NAME)
-        compose.onNode(hasSetTextAction() and hasText(Keys.USER_NAME.default)).performTextReplacement("alex k")
+        compose.onNode(hasSetTextAction() and hasText(Keys.USER_NAME.default))
+            .performTextReplacement("alex k")
         compose.runOnIdle { focusManager.clearFocus() }
-        compose.onNode(hasSetTextAction() and hasText("alex k")).assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
+        compose.onNode(hasSetTextAction() and hasText("alex k"))
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
         compose.runOnIdle { assertEquals(Keys.USER_NAME.default, config[Keys.USER_NAME]) }
     }
 
@@ -559,10 +651,12 @@ class SettingsScreenTest {
      * row inside a Settings row crashed Compose on a phone while Settings scrolled (22 October 2026,
      * "LayoutNode … not found in RectList").
      */
-    @Test fun lookPreviewsAreNotLazy() {
+    @Test
+    fun lookPreviewsAreNotLazy() {
         show("look")
         compose.onNodeWithText(ChoiceLabels.theme(Keys.THEME.choices.last())).assertExists()
         scrollTo(Keys.FONT)
-        compose.onNodeWithText(FontFiles.label(FontFiles.names.last { it != FontFiles.CUSTOM })).assertExists()
+        compose.onNodeWithText(FontFiles.label(FontFiles.names.last { it != FontFiles.CUSTOM }))
+            .assertExists()
     }
 }

@@ -14,12 +14,44 @@ package com.mtwabpin.kolahal.widgets
 object WidgetIcons {
     /** The names in groups, as the script editor's reference and the scripting guide show them. */
     val GROUPS: List<Pair<String, List<String>>> = listOf(
-        "Weather" to listOf("sun", "moon", "cloud", "rain", "snow", "storm", "wind", "fog", "temp", "drop"),
+        "Weather" to listOf(
+            "sun",
+            "moon",
+            "cloud",
+            "rain",
+            "snow",
+            "storm",
+            "wind",
+            "fog",
+            "temp",
+            "drop"
+        ),
         "Time" to listOf("alarm", "timer", "clock", "calendar", "bell"),
-        "Home and device" to listOf("home", "work", "lock", "unlock", "wifi", "battery", "bolt", "torch", "phone", "dnd"),
+        "Home and device" to listOf(
+            "home",
+            "work",
+            "lock",
+            "unlock",
+            "wifi",
+            "battery",
+            "bolt",
+            "torch",
+            "phone",
+            "dnd"
+        ),
         "People and talk" to listOf("person", "people", "mail", "chat", "quote"),
         "Media" to listOf("music", "play", "pause", "news", "book", "feed"),
-        "Signs" to listOf("heart", "star", "check", "flag", "fire", "leaf", "trophy", "ball", "cricket"),
+        "Signs" to listOf(
+            "heart",
+            "star",
+            "check",
+            "flag",
+            "fire",
+            "leaf",
+            "trophy",
+            "ball",
+            "cricket"
+        ),
         "Money and charts" to listOf("money", "cart", "chart", "up", "down", "parcel", "gift"),
         "Going places" to listOf("car", "bus", "train", "plane", "walk", "pin", "globe", "coffee"),
         "Work" to listOf("code", "bug", "link"),
@@ -37,5 +69,6 @@ object WidgetIcons {
     private val NAME_LIKE = Regex("[a-z]+(-[a-z]+)*")
 
     /** Whether [icon] looks like a name but is none: a typo, such as "sunn". Such an icon is an error. */
-    fun looksLikeName(icon: String): Boolean = icon.length > 4 && NAME_LIKE.matches(icon) && !isName(icon)
+    fun looksLikeName(icon: String): Boolean =
+        icon.length > 4 && NAME_LIKE.matches(icon) && !isName(icon)
 }

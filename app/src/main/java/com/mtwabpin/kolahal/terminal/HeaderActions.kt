@@ -29,16 +29,20 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
     interface Host {
         fun startActivity(intent: Intent)
         fun openScreen(screen: Screen)
+
         /** Runs [cmd] as if typed, without alias expansion. */
         fun runCommand(cmd: String)
         fun runScriptNamed(name: String)
         fun expandNotifications()
+
         /** Logs an info line, off the main thread. */
         fun logInfo(text: String, ctx: LogContext)
         val status: Status
         val profiles: List<Profile>
+
         /** Whether home has a widgets page (`widgets.page` isn't off). */
         val widgetsPage: Boolean
+
         /** Turns home to the widgets page. */
         fun showWidgetsPage()
     }
@@ -64,38 +68,78 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
         // Use the header's icons where it has them (battery and network as the header shows them now).
         fun icon(id: Int) = ActionIcon.Drawable(id)
         val s = host.status
-        add(LogAction("Settings", icon = icon(R.drawable.ic_settings)) { host.openScreen(Screen.SETTINGS) })
-        add(LogAction("Notifications", icon = icon(R.drawable.ic_notifications)) { host.expandNotifications() })
-        add(LogAction("Alarms & clock", icon = icon(R.drawable.ic_alarm)) { onHeaderTap(HeaderTarget.ALARM) })
-        add(LogAction("Battery", icon = s.batteryPct?.let { ActionIcon.Battery(it, s.charging) }) { onHeaderTap(HeaderTarget.BATTERY) })
+        add(
+            LogAction(
+                "Settings",
+                icon = icon(R.drawable.ic_settings)
+            ) { host.openScreen(Screen.SETTINGS) })
+        add(
+            LogAction(
+                "Notifications",
+                icon = icon(R.drawable.ic_notifications)
+            ) { host.expandNotifications() })
+        add(
+            LogAction(
+                "Alarms & clock",
+                icon = icon(R.drawable.ic_alarm)
+            ) { onHeaderTap(HeaderTarget.ALARM) })
+        add(
+            LogAction(
+                "Battery",
+                icon = s.batteryPct?.let { ActionIcon.Battery(it, s.charging) }) {
+                onHeaderTap(
+                    HeaderTarget.BATTERY
+                )
+            })
         val net = when (s.network) {
             "wifi" -> icon(R.drawable.ic_wifi)
             "offline" -> ActionIcon.Drawable(R.drawable.ic_cloud_off, alert = true)
             else -> icon(R.drawable.ic_signal)
         }
         add(LogAction("Network", icon = net) { onHeaderTap(HeaderTarget.NETWORK) })
-        add(LogAction("Unlocks this week", icon = icon(R.drawable.ic_lock_open)) { onHeaderTap(HeaderTarget.UNLOCKS) })
-        host.profiles.filter { it.kind == ProfileKind.WORK || it.kind == ProfileKind.PRIVATE }.forEach { p ->
-            val cmd = if (p.kind == ProfileKind.PRIVATE) "private" else "work"
-            // As in the header: the profile's colour while it runs, dim while it is paused.
-            val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
+        add(LogAction("Unlocks this week", icon = icon(R.drawable.ic_lock_open)) {
+            onHeaderTap(
+                HeaderTarget.UNLOCKS
+            )
+        })
+        host.profiles.filter { it.kind == ProfileKind.WORK || it.kind == ProfileKind.PRIVATE }
+            .forEach { p ->
+                val cmd = if (p.kind == ProfileKind.PRIVATE) "private" else "work"
+                // As in the header: the profile's colour while it runs, dim while it is paused.
+                val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
+                add(
+                    LogAction(
+                        if (p.quiet) "Resume ${p.kind.label} profile" else "Pause ${p.kind.label} profile",
+                        icon = ActionIcon.Drawable(res, profile = p.kind.takeUnless { p.quiet }),
+                    ) {
+                        host.runCommand("$cmd ${if (p.quiet) "on" else "off"}")
+                    },
+                )
+            }
+        add(LogAction("Apps", icon = icon(R.drawable.ic_apps)) { host.runCommand("apps") })
+        add(
+            LogAction(
+                "Widgets",
+                icon = icon(R.drawable.ic_widgets)
+            ) { host.openScreen(Screen.WIDGETS) })
+        // Arrange widgets above; this one turns home to the page itself, as `widgets page` does.
+        if (host.widgetsPage) add(
+            LogAction(
+                "Widgets page",
+                icon = icon(R.drawable.ic_widgets)
+            ) { host.showWidgetsPage() })
+        add(LogAction("Feeds", icon = icon(R.drawable.ic_rss)) { host.openScreen(Screen.FEEDS) })
+        add(
+            LogAction(
+                "Scripts",
+                icon = icon(R.drawable.ic_code)
+            ) { host.openScreen(Screen.SCRIPTS) })
+        if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {
             add(
                 LogAction(
-                    if (p.quiet) "Resume ${p.kind.label} profile" else "Pause ${p.kind.label} profile",
-                    icon = ActionIcon.Drawable(res, profile = p.kind.takeUnless { p.quiet }),
-                ) {
-                    host.runCommand("$cmd ${if (p.quiet) "on" else "off"}")
-                },
-            )
-        }
-        add(LogAction("Apps", icon = icon(R.drawable.ic_apps)) { host.runCommand("apps") })
-        add(LogAction("Widgets", icon = icon(R.drawable.ic_widgets)) { host.openScreen(Screen.WIDGETS) })
-        // Arrange widgets above; this one turns home to the page itself, as `widgets page` does.
-        if (host.widgetsPage) add(LogAction("Widgets page", icon = icon(R.drawable.ic_widgets)) { host.showWidgetsPage() })
-        add(LogAction("Feeds", icon = icon(R.drawable.ic_rss)) { host.openScreen(Screen.FEEDS) })
-        add(LogAction("Scripts", icon = icon(R.drawable.ic_code)) { host.openScreen(Screen.SCRIPTS) })
-        if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {
-            add(LogAction("Lock screen", icon = icon(R.drawable.ic_lock)) { if (!com.mtwabpin.kolahal.gesture.LockService.lock()) host.runCommand("lock") })
+                    "Lock screen",
+                    icon = icon(R.drawable.ic_lock)
+                ) { if (!com.mtwabpin.kolahal.gesture.LockService.lock()) host.runCommand("lock") })
         }
     }
 
@@ -104,6 +148,9 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
         if (!taps.allow("profile:${profile.kind}")) return
         val cmd = if (profile.kind == ProfileKind.PRIVATE) "private" else "work"
         if (profile.quiet) host.runCommand("$cmd on")
-        else host.logInfo("Tap to pause the ${profile.kind.label} profile", LogContext.of(LogContext.RUN to "$cmd off"))
+        else host.logInfo(
+            "Tap to pause the ${profile.kind.label} profile",
+            LogContext.of(LogContext.RUN to "$cmd off")
+        )
     }
 }

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
@@ -42,8 +41,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.shownText
@@ -92,7 +91,11 @@ fun ScriptEditor(
     onClose: (unsaved: String?) -> Unit,
 ) {
     val state = rememberSaveable(script.id, saver = EditorState.saver(script.code, jumpToLine)) {
-        EditorState(script.code, TextFieldValue(script.code, selectionAtLine(script.code, jumpToLine)), flashLine = jumpToLine)
+        EditorState(
+            script.code,
+            TextFieldValue(script.code, selectionAtLine(script.code, jumpToLine)),
+            flashLine = jumpToLine
+        )
     }
     val keyboard = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
@@ -102,7 +105,11 @@ fun ScriptEditor(
     val reference = remember(script.id) { ReferenceState() }
     var runWithOpen by remember { mutableStateOf(false) }
     // The last run's lines. They stay under the code until closed or until the next run.
-    var output by remember(script.id) { mutableStateOf<List<com.mtwabpin.kolahal.data.LogEntry>?>(null) }
+    var output by remember(script.id) {
+        mutableStateOf<List<com.mtwabpin.kolahal.data.LogEntry>?>(
+            null
+        )
+    }
 
     /** Counts saves, so a slow check's result can't show after a later save's result. */
     var saves by remember(script.id) { mutableIntStateOf(0) }
@@ -115,7 +122,9 @@ fun ScriptEditor(
         // If a run never reports (the worker didn't start), stop waiting after the time limit.
         if (m.kind == EditorMessage.Kind.BUSY) {
             delay((ScriptWorker.TIMEOUT_MS + 15_000).milliseconds)
-            if (state.message === m) { state.message = null; runSince = null }
+            if (state.message === m) {
+                state.message = null; runSince = null
+            }
         }
     }
     LaunchedEffect(lastRun, lastStatus) {
@@ -126,9 +135,16 @@ fun ScriptEditor(
         // The lines are written when the run ends, and its result just after, so they are ready here.
         val lines = runLines(since)
         output = lines
-        val ran = if (lines.isEmpty() || r.failed) r.text else r.text.replace("its output is in the log", "${lines.size} line${if (lines.size == 1) "" else "s"} below")
+        val ran = if (lines.isEmpty() || r.failed) r.text else r.text.replace(
+            "its output is in the log",
+            "${lines.size} line${if (lines.size == 1) "" else "s"} below"
+        )
         val text = if (runWithHint) "$ran · ${EditorLogic.RUN_WITH_HINT}" else ran
-        state.message = EditorMessage(text, if (r.failed) EditorMessage.Kind.ERROR else EditorMessage.Kind.OK, r.line)
+        state.message = EditorMessage(
+            text,
+            if (r.failed) EditorMessage.Kind.ERROR else EditorMessage.Kind.OK,
+            r.line
+        )
     }
 
     /** "Saved", what saving changed, and the first issue [com.mtwabpin.kolahal.script.ScriptCheck] finds (a tap goes to its line). */
@@ -137,7 +153,11 @@ fun ScriptEditor(
         val issues = com.mtwabpin.kolahal.script.ScriptCheck.check(text, script.lang)
         val first = issues.firstOrNull() ?: return EditorMessage(head, EditorMessage.Kind.OK)
         val more = if (issues.size > 1) " (and ${issues.size - 1} more)" else ""
-        return EditorMessage("$head · line ${first.line}: ${first.text}$more", EditorMessage.Kind.ERROR, first.line)
+        return EditorMessage(
+            "$head · line ${first.line}: ${first.text}$more",
+            EditorMessage.Kind.ERROR,
+            first.line
+        )
     }
 
     /** With [quiet], it saves without a message (used when leaving the app). */
@@ -157,12 +177,17 @@ fun ScriptEditor(
                     val before = state.message
                     val save = ++saves
                     scope.launch {
-                        val saidSaved = withContext(Dispatchers.Default) { savedMessage(text, changed) }
-                        if (save == saves && (state.message === before || state.message == null)) state.message = saidSaved
+                        val saidSaved =
+                            withContext(Dispatchers.Default) { savedMessage(text, changed) }
+                        if (save == saves && (state.message === before || state.message == null)) state.message =
+                            saidSaved
                     }
                 }
             } else {
-                state.message = EditorMessage("Couldn't save: ${failure.message ?: failure.javaClass.simpleName}", EditorMessage.Kind.ERROR)
+                state.message = EditorMessage(
+                    "Couldn't save: ${failure.message ?: failure.javaClass.simpleName}",
+                    EditorMessage.Kind.ERROR
+                )
             }
         }
     }
@@ -177,11 +202,17 @@ fun ScriptEditor(
         onRun(text, args, event) { failure, changed ->
             if (failure == null) {
                 state.saved = text
-                state.message = EditorMessage(listOfNotNull("Saved", changed, "running…").joinToString(" · "), EditorMessage.Kind.BUSY)
+                state.message = EditorMessage(
+                    listOfNotNull("Saved", changed, "running…").joinToString(" · "),
+                    EditorMessage.Kind.BUSY
+                )
             } else {
                 // It didn't run. A later run (for example, by its timer) is not the result of this one.
                 runSince = null
-                state.message = EditorMessage("Couldn't save: ${failure.message ?: failure.javaClass.simpleName}", EditorMessage.Kind.ERROR)
+                state.message = EditorMessage(
+                    "Couldn't save: ${failure.message ?: failure.javaClass.simpleName}",
+                    EditorMessage.Kind.ERROR
+                )
             }
         }
     }
@@ -205,7 +236,8 @@ fun ScriptEditor(
     }
     val inlineDoc = remember(value.text, value.selection.end, editorFocused, script.lang) {
         if (!editorFocused) null
-        else EditorLogic.docAt(value.text, value.selection.end, script.lang)?.takeIf { it.kind != ApiDoc.Kind.KEYWORD }
+        else EditorLogic.docAt(value.text, value.selection.end, script.lang)
+            ?.takeIf { it.kind != ApiDoc.Kind.KEYWORD }
     }
 
     fun accept(doc: ApiDoc) {
@@ -215,7 +247,11 @@ fun ScriptEditor(
 
     BackHandler { close() }
     // Leaving the app (or the system killing the process in the background) must not lose edits.
-    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { save(quiet = true) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+        save(
+            quiet = true
+        )
+    }
 
     // The reference is a page over the code. The code keeps its text, cursor and scroll under it,
     // but gives up the focus, so the keyboard can't type into it unseen.
@@ -227,6 +263,7 @@ fun ScriptEditor(
         keyboard?.hide()
         referenceOpen = true
     }
+
     /** Closes the reference. The editor gets the focus back if it had it, or when something went in ([inserted]). */
     fun closeReference(inserted: Boolean) {
         referenceOpen = false
@@ -243,21 +280,37 @@ fun ScriptEditor(
                 startLine = jumpToLine,
                 onKey = { e ->
                     when {
-                        e.isCtrlPressed && e.key == Key.S -> { save(); true }
-                        e.isCtrlPressed && e.isShiftPressed && e.key == Key.R -> { runWithOpen = true; true }
-                        e.isCtrlPressed && e.key == Key.R -> { run(); true }
+                        e.isCtrlPressed && e.key == Key.S -> {
+                            save(); true
+                        }
+
+                        e.isCtrlPressed && e.isShiftPressed && e.key == Key.R -> {
+                            runWithOpen = true; true
+                        }
+
+                        e.isCtrlPressed && e.key == Key.R -> {
+                            run(); true
+                        }
+
                         else -> false
                     }
                 },
                 onTab = { shift ->
                     val first = suggestions.firstOrNull()
-                    if (first != null && !shift) { accept(first); true } else false
+                    if (first != null && !shift) {
+                        accept(first); true
+                    } else false
                 },
                 onEscape = ::close,
                 buttons = {
                     EditorIconButton(R.drawable.ic_help, "API reference") { openReference() }
                     EditorIconButton(R.drawable.ic_save, "Save") { save() }
-                    EditorIconButton(R.drawable.ic_play, "Run", onLongClick = { runWithOpen = true }, longClickLabel = "Run with…") { run() }
+                    EditorIconButton(
+                        R.drawable.ic_play,
+                        "Run",
+                        onLongClick = { runWithOpen = true },
+                        longClickLabel = "Run with…"
+                    ) { run() }
                     EditorIconButton(R.drawable.ic_close, "Close") { close() }
                 },
                 belowCode = { maxHeight ->
@@ -269,7 +322,11 @@ fun ScriptEditor(
                         val small = Term.phoneText.fontSize * 0.85f
                         Text(
                             androidx.compose.ui.text.buildAnnotatedString {
-                                withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Term.code.fontFamily)) { append(inlineDoc.signature) }
+                                withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Term.code.fontFamily)) {
+                                    append(
+                                        inlineDoc.signature
+                                    )
+                                }
                                 append("  ")
                                 append(inlineDoc.doc)
                             },
@@ -285,7 +342,12 @@ fun ScriptEditor(
                 },
                 aboveSymbols = {
                     if (suggestions.isNotEmpty()) {
-                        LazyRow(Modifier.fillMaxWidth().background(Term.surface.copy(alpha = 0.6f)).testTag("completions")) {
+                        LazyRow(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(Term.surface.copy(alpha = 0.6f))
+                                .testTag("completions")
+                        ) {
                             items(suggestions.size) { i ->
                                 val d = suggestions[i]
                                 val label = d.member + when (d.kind) {
@@ -326,17 +388,28 @@ fun ScriptEditor(
                 },
                 onDirective = { line ->
                     // A directive is a line of its own. It goes above the line the cursor is on.
-                    val done = EditorLogic.insertDirective(state.value.text, state.value.selection.min, line)
+                    val done = EditorLogic.insertDirective(
+                        state.value.text,
+                        state.value.selection.min,
+                        line
+                    )
                     state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
                     closeReference(inserted = true)
                 },
                 onIcon = { name ->
-                    state.insert(EditorLogic.iconInsert(state.value.text, state.value.selection.min, name))
+                    state.insert(
+                        EditorLogic.iconInsert(
+                            state.value.text,
+                            state.value.selection.min,
+                            name
+                        )
+                    )
                     closeReference(inserted = true)
                 },
                 onExample = { code ->
                     // An example goes in on lines of its own.
-                    val done = EditorLogic.insertBlock(state.value.text, state.value.selection.min, code)
+                    val done =
+                        EditorLogic.insertBlock(state.value.text, state.value.selection.min, code)
                     state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
                     closeReference(inserted = true)
                 },
@@ -355,17 +428,42 @@ fun ScriptEditor(
 
 /** A run's lines under the code, in plain text as the log shows them, with errors in red. ✕ closes it. */
 @Composable
-private fun RunOutput(lines: List<com.mtwabpin.kolahal.data.LogEntry>, maxHeight: androidx.compose.ui.unit.Dp, onClose: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Term.surface.copy(alpha = 0.6f)).testTag("run-output")) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 12.dp)) {
+private fun RunOutput(
+    lines: List<com.mtwabpin.kolahal.data.LogEntry>,
+    maxHeight: androidx.compose.ui.unit.Dp,
+    onClose: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Term.surface.copy(alpha = 0.6f))
+            .testTag("run-output")
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp)
+        ) {
             Text(
                 if (lines.isEmpty()) "output · none" else "output · ${lines.size} line${if (lines.size == 1) "" else "s"}",
                 style = Term.phoneText.copy(color = Term.dim),
                 modifier = Modifier.weight(1f),
             )
-            LabeledIconButton(R.drawable.ic_close, "Close output", onClick = onClose, tint = Term.dim)
+            LabeledIconButton(
+                R.drawable.ic_close,
+                "Close output",
+                onClick = onClose,
+                tint = Term.dim
+            )
         }
-        Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+        ) {
             lines.forEach { e ->
                 Text(
                     e.shownText,

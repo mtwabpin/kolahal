@@ -18,31 +18,45 @@ class TimeFormatsTest {
     private val evening = LocalDateTime.of(2026, 10, 20, 22, 40)
     private val morning = LocalDateTime.of(2026, 10, 20, 9, 5)
 
-    @Test fun theClockFollowsThe24HourSetting() {
+    @Test
+    fun theClockFollowsThe24HourSetting() {
         assertEquals("22:40", TimeFormats.clockFormat(clock24 = true, Locale.US).format(evening))
         assertEquals("09:05", TimeFormats.clockFormat(clock24 = true, Locale.US).format(morning))
-        assertEquals("10:40 PM", TimeFormats.clockFormat(clock24 = false, Locale.US).format(evening))
+        assertEquals(
+            "10:40 PM",
+            TimeFormats.clockFormat(clock24 = false, Locale.US).format(evening)
+        )
         assertEquals("9:05 AM", TimeFormats.clockFormat(clock24 = false, Locale.US).format(morning))
     }
 
-    @Test fun theDayIsShort() {
+    @Test
+    fun theDayIsShort() {
         assertEquals("Tue 20 Oct", TimeFormats.dayFormat(Locale.UK).format(today))
         assertEquals("Tue 20 Oct", TimeFormats.dayFormat(Locale.UK).format(evening))
     }
 
     /** Workers and call lines use SimpleDateFormat, commands use java.time: one pattern, one text. */
-    @Test fun bothKindsOfFormatterWriteTheSame() {
+    @Test
+    fun bothKindsOfFormatterWriteTheSame() {
         val utc = TimeZone.getTimeZone("UTC")
         val at = Date(evening.toInstant(ZoneOffset.UTC).toEpochMilli())
-        fun old(pattern: String) = SimpleDateFormat(pattern, Locale.US).apply { timeZone = utc }.format(at)
-        assertEquals(TimeFormats.clockFormat(clock24 = true, Locale.US).format(evening), old(TimeFormats.clock(true)))
-        assertEquals(TimeFormats.clockFormat(clock24 = false, Locale.US).format(evening), old(TimeFormats.clock(false)))
+        fun old(pattern: String) =
+            SimpleDateFormat(pattern, Locale.US).apply { timeZone = utc }.format(at)
+        assertEquals(
+            TimeFormats.clockFormat(clock24 = true, Locale.US).format(evening),
+            old(TimeFormats.clock(true))
+        )
+        assertEquals(
+            TimeFormats.clockFormat(clock24 = false, Locale.US).format(evening),
+            old(TimeFormats.clock(false))
+        )
         assertEquals(TimeFormats.dayFormat(Locale.US).format(evening), old(TimeFormats.DAY))
         // A longer pattern built on the day, as a call line has it.
         assertEquals("Tue 20 Oct, ", old("${TimeFormats.DAY}, "))
     }
 
-    @Test fun aNearDayGoesByItsName() {
+    @Test
+    fun aNearDayGoesByItsName() {
         assertEquals("today", TimeFormats.dayLabel(today, today, Locale.UK))
         assertEquals("yesterday", TimeFormats.dayLabel(today.minusDays(1), today, Locale.UK))
         assertEquals("Sun 18 Oct", TimeFormats.dayLabel(today.minusDays(2), today, Locale.UK))
@@ -51,10 +65,17 @@ class TimeFormatsTest {
     }
 
     /** `unlocks` starts its rows with a capital. Only the two words change: a day stays as its language writes it. */
-    @Test fun aCapitalIsForTheTwoWordsOnly() {
+    @Test
+    fun aCapitalIsForTheTwoWordsOnly() {
         assertEquals("Today", TimeFormats.dayLabel(today, today, Locale.UK, capital = true))
-        assertEquals("Yesterday", TimeFormats.dayLabel(today.minusDays(1), today, Locale.UK, capital = true))
-        assertEquals("Sun 18 Oct", TimeFormats.dayLabel(today.minusDays(2), today, Locale.UK, capital = true))
+        assertEquals(
+            "Yesterday",
+            TimeFormats.dayLabel(today.minusDays(1), today, Locale.UK, capital = true)
+        )
+        assertEquals(
+            "Sun 18 Oct",
+            TimeFormats.dayLabel(today.minusDays(2), today, Locale.UK, capital = true)
+        )
         // French writes days and months in small letters.
         val french = TimeFormats.dayLabel(today.minusDays(2), today, Locale.FRANCE, capital = true)
         assertEquals(TimeFormats.dayFormat(Locale.FRANCE).format(today.minusDays(2)), french)
@@ -62,29 +83,79 @@ class TimeFormatsTest {
     }
 
     /** With no locale given, the phone's language now is used, not the one at start-up. */
-    @Test fun theLanguageIsReadWhenTheTextIsWritten() {
+    @Test
+    fun theLanguageIsReadWhenTheTextIsWritten() {
         val day = today.minusDays(2)
         withDefaultLocale(Locale.UK) {
             assertEquals("Sun 18 Oct", TimeFormats.dayLabel(day, today))
             assertEquals("Sun 18 Oct", TimeFormats.dayFormat().format(day))
         }
         withDefaultLocale(Locale.GERMANY) {
-            assertEquals(TimeFormats.dayFormat(Locale.GERMANY).format(day), TimeFormats.dayLabel(day, today))
-            assertEquals(TimeFormats.clockFormat(false, Locale.GERMANY).format(evening), TimeFormats.clockFormat(false).format(evening))
+            assertEquals(
+                TimeFormats.dayFormat(Locale.GERMANY).format(day),
+                TimeFormats.dayLabel(day, today)
+            )
+            assertEquals(
+                TimeFormats.clockFormat(false, Locale.GERMANY).format(evening),
+                TimeFormats.clockFormat(false).format(evening)
+            )
         }
     }
 
     /** When something is due: the time today, "tomorrow" (or "Tomorrow" at a line's start), the day this year, the day and year in another. */
-    @Test fun whenSomethingIsDue() {
+    @Test
+    fun whenSomethingIsDue() {
         val zone = ZoneOffset.UTC
-        fun ms(y: Int, m: Int, d: Int, h: Int) = LocalDateTime.of(y, m, d, h, 0).toInstant(zone).toEpochMilli()
+        fun ms(y: Int, m: Int, d: Int, h: Int) =
+            LocalDateTime.of(y, m, d, h, 0).toInstant(zone).toEpochMilli()
+
         val now = ms(2026, 12, 30, 10)
-        assertEquals("18:00", TimeFormats.whenLabel(ms(2026, 12, 30, 18), now, zone, clock24 = true, locale = Locale.US))
-        assertEquals("tomorrow 09:00", TimeFormats.whenLabel(ms(2026, 12, 31, 9), now, zone, clock24 = true, locale = Locale.US))
-        assertEquals("Tomorrow 09:00", TimeFormats.whenLabel(ms(2026, 12, 31, 9), now, zone, clock24 = true, locale = Locale.US, capital = true))
-        assertEquals("Mon 28 Dec 08:00", TimeFormats.whenLabel(ms(2026, 12, 28, 8), now, zone, clock24 = true, locale = Locale.US))
+        assertEquals(
+            "18:00",
+            TimeFormats.whenLabel(
+                ms(2026, 12, 30, 18),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US
+            )
+        )
+        assertEquals(
+            "tomorrow 09:00",
+            TimeFormats.whenLabel(
+                ms(2026, 12, 31, 9),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US
+            )
+        )
+        assertEquals(
+            "Tomorrow 09:00",
+            TimeFormats.whenLabel(
+                ms(2026, 12, 31, 9),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US,
+                capital = true
+            )
+        )
+        assertEquals(
+            "Mon 28 Dec 08:00",
+            TimeFormats.whenLabel(
+                ms(2026, 12, 28, 8),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US
+            )
+        )
         // In another year, the year too: a reminder a year ahead must not read as this year.
-        assertEquals("Sat 2 Jan 2027 08:00", TimeFormats.whenLabel(ms(2027, 1, 2, 8), now, zone, clock24 = true, locale = Locale.US))
+        assertEquals(
+            "Sat 2 Jan 2027 08:00",
+            TimeFormats.whenLabel(ms(2027, 1, 2, 8), now, zone, clock24 = true, locale = Locale.US)
+        )
         assertEquals("h:mm", TimeFormats.lineClock(false))
     }
 }

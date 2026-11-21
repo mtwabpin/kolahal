@@ -15,7 +15,7 @@ class LabeledIconButtonsTest {
 
     private val iconButton = Regex(
         """(?<![A-Za-z.])(?:androidx\.compose\.material3\.)?(IconButton|OutlinedIconButton|FilledIconButton|FilledTonalIconButton|""" +
-            """IconToggleButton|FilledIconToggleButton|FilledTonalIconToggleButton|OutlinedIconToggleButton)\(""",
+                """IconToggleButton|FilledIconToggleButton|FilledTonalIconToggleButton|OutlinedIconToggleButton)\(""",
     )
 
     /**
@@ -25,9 +25,11 @@ class LabeledIconButtonsTest {
      * - WidgetsScreen.kt: a step of a widget's size, which repeats while it is held.
      * - WidgetMedia.kt: a widget's buttons. A long-press on a card opens Arrange widgets.
      */
-    private val unlabeled = mapOf("EditorBars.kt" to 1, "WidgetsScreen.kt" to 1, "WidgetMedia.kt" to 3)
+    private val unlabeled =
+        mapOf("EditorBars.kt" to 1, "WidgetsScreen.kt" to 1, "WidgetMedia.kt" to 3)
 
-    @Test fun everyIconButtonShowsItsLabel() {
+    @Test
+    fun everyIconButtonShowsItsLabel() {
         val bare = HashMap<String, Int>()
         val unwrapped = ArrayList<String>()
         root.walkTopDown().filter { it.extension == "kt" }.forEach { f ->
@@ -41,7 +43,11 @@ class LabeledIconButtonsTest {
                 else unwrapped += "${f.name}:${i + 1}: ${line.trim()}"
             }
         }
-        assertEquals("icon buttons with no label on a long-press: use LabeledIconButton or Labeled", emptyList<String>(), unwrapped)
+        assertEquals(
+            "icon buttons with no label on a long-press: use LabeledIconButton or Labeled",
+            emptyList<String>(),
+            unwrapped
+        )
         assertEquals(unlabeled, bare)
     }
 }

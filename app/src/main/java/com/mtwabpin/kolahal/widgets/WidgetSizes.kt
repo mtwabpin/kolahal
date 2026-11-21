@@ -7,6 +7,7 @@ package com.mtwabpin.kolahal.widgets
 object WidgetSizes {
     /** One row is as tall as one cell is wide, and at least this. */
     const val MIN_ROW_DP = 88
+
     /** A script widget is at least this many of the page's columns wide: one cell. */
     const val MIN_SPAN = 3
     const val MIN_HEIGHT_DP = 72

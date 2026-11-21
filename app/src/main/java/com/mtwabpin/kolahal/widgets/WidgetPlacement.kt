@@ -19,8 +19,10 @@ package com.mtwabpin.kolahal.widgets
 object WidgetPlacement {
     /** A column or a top that is not set yet. */
     const val UNPLACED = -1
+
     /** The lowest top that is read back. Anything further down is a mistake, and the widget gets a place again. */
     const val MAX_TOP_DP = 100_000
+
     /** Tops move in these steps, as heights do. */
     const val STEP_DP = WidgetLayout.STEP_DP
     private const val GAP = WidgetLayout.GAP_DP
@@ -33,14 +35,18 @@ object WidgetPlacement {
     fun bottomDp(w: PlacedWidget): Int = w.topDp + w.heightDp
 
     /** How tall the page's content is: the lowest bottom edge. */
-    fun pageHeightDp(all: List<PlacedWidget>): Int = all.filter(::onPage).maxOfOrNull(::bottomDp) ?: 0
+    fun pageHeightDp(all: List<PlacedWidget>): Int =
+        all.filter(::onPage).maxOfOrNull(::bottomDp) ?: 0
 
     private fun columnsMeet(a: PlacedWidget, b: PlacedWidget): Boolean =
         a.column < b.column + b.span && b.column < a.column + a.span
 
     /** Whether [a] and [b] overlap, or sit closer than the gap above or below each other. */
     fun overlap(a: PlacedWidget, b: PlacedWidget): Boolean =
-        a.key != b.key && columnsMeet(a, b) && a.topDp < bottomDp(b) + GAP && b.topDp < bottomDp(a) + GAP
+        a.key != b.key && columnsMeet(
+            a,
+            b
+        ) && a.topDp < bottomDp(b) + GAP && b.topDp < bottomDp(a) + GAP
 
     /** [list] in reading order: from the top, then from the start edge. */
     fun readingOrder(list: List<PlacedWidget>): List<PlacedWidget> =
@@ -49,12 +55,16 @@ object WidgetPlacement {
     /** [all] with the page's widgets numbered 0..n−1 in reading order. Other entries keep theirs. */
     fun renumber(all: List<PlacedWidget>): List<PlacedWidget> {
         val order = readingOrder(all.filter(::onPage)).mapIndexed { i, w -> w.key to i }.toMap()
-        return all.map { w -> order[w.key]?.takeIf { it != w.order }?.let { w.copy(order = it) } ?: w }
+        return all.map { w ->
+            order[w.key]?.takeIf { it != w.order }?.let { w.copy(order = it) } ?: w
+        }
     }
 
-    private fun snap(topDp: Int): Int = (topDp.coerceIn(0, MAX_TOP_DP) + STEP_DP / 2) / STEP_DP * STEP_DP
+    private fun snap(topDp: Int): Int =
+        (topDp.coerceIn(0, MAX_TOP_DP) + STEP_DP / 2) / STEP_DP * STEP_DP
 
-    private fun fitColumn(column: Int, span: Int): Int = column.coerceIn(0, (COLUMNS - span).coerceAtLeast(0))
+    private fun fitColumn(column: Int, span: Int): Int =
+        column.coerceIn(0, (COLUMNS - span).coerceAtLeast(0))
 
     /**
      * Gives a place to each page widget that has none.
@@ -106,7 +116,16 @@ object WidgetPlacement {
         val tops = (listOf(0) + others.map { bottomDp(it) + GAP }).distinct().sorted()
         for (top in tops) {
             for (column in 0..COLUMNS - s) {
-                val probe = PlacedWidget(null, "probe:/", 0L, heightDp, 0, span = s, column = column, topDp = top)
+                val probe = PlacedWidget(
+                    null,
+                    "probe:/",
+                    0L,
+                    heightDp,
+                    0,
+                    span = s,
+                    column = column,
+                    topDp = top
+                )
                 if (others.none { overlap(probe, it) }) return column to top
             }
         }
@@ -154,7 +173,11 @@ object WidgetPlacement {
     fun resize(all: List<PlacedWidget>, key: String, span: Int, heightDp: Int): List<PlacedWidget> {
         val w = all.firstOrNull { it.key == key } ?: return all
         val s = span.coerceIn(1, COLUMNS)
-        val to = w.copy(span = s, heightDp = heightDp, column = if (w.positioned) fitColumn(w.column, s) else w.column)
+        val to = w.copy(
+            span = s,
+            heightDp = heightDp,
+            column = if (w.positioned) fitColumn(w.column, s) else w.column
+        )
         if (to == w) return all
         return settle(all.map { if (it.key == key) to else it }, key)
     }
@@ -164,7 +187,13 @@ object WidgetPlacement {
      * gap: for a screen reader's Move up, Move down, Move left and Move right. Widgets in the way
      * move down.
      */
-    fun nudge(all: List<PlacedWidget>, key: String, columns: Int, rows: Int, rowDp: Int): List<PlacedWidget> {
+    fun nudge(
+        all: List<PlacedWidget>,
+        key: String,
+        columns: Int,
+        rows: Int,
+        rowDp: Int
+    ): List<PlacedWidget> {
         val w = all.firstOrNull { it.key == key }?.takeIf { it.positioned } ?: return all
         return moveTo(all, key, w.column + columns, w.topDp + rows * (rowDp + GAP))
     }
@@ -195,7 +224,11 @@ object WidgetPlacement {
         val placed = HashMap<String, PlacedWidget>()
         WidgetOrder.sorted(merged.filter { it.key !in old && onPage(it) }).forEach { w ->
             val fits = w.positioned && done.none { overlap(w, it) }
-            val cur = if (fits) w else firstFree(done, w.span, w.heightDp).let { (c, t) -> w.copy(column = c, topDp = t) }
+            val cur = if (fits) w else firstFree(
+                done,
+                w.span,
+                w.heightDp
+            ).let { (c, t) -> w.copy(column = c, topDp = t) }
             placed[w.key] = cur
             done += cur
         }

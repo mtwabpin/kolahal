@@ -54,15 +54,30 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         kotlinx.coroutines.withTimeoutOrNull(FETCH_DEADLINE_MS.milliseconds) {
             val slots = Semaphore(PARALLEL_FETCHES)
             coroutineScope {
-                targets.forEachIndexed { i, feed -> launch { slots.withPermit { results[i] = fetcher.fetchOne(feed) } } }
+                targets.forEachIndexed { i, feed ->
+                    launch {
+                        slots.withPermit {
+                            results[i] = fetcher.fetchOne(feed)
+                        }
+                    }
+                }
             }
         }
-        report(ctx, results.filterNotNull(), explicit = force || feedId >= 0, from = inputData.getLong(KEY_FROM, -1L).takeIf { it >= 0 })
+        report(
+            ctx,
+            results.filterNotNull(),
+            explicit = force || feedId >= 0,
+            from = inputData.getLong(KEY_FROM, -1L).takeIf { it >= 0 })
         return Result.success()
     }
 
     /** Logs up to `feeds.log-lines` lines per feed. [from] is the `feed fetch` line that these lines answer. */
-    private fun report(ctx: Context, results: List<FeedFetcher.Result>, explicit: Boolean, from: Long?) {
+    private fun report(
+        ctx: Context,
+        results: List<FeedFetcher.Result>,
+        explicit: Boolean,
+        from: Long?
+    ) {
         val config = Config.get(ctx)
         val repo = FeedRepository.get(ctx)
         val toLog = config[Keys.FEEDS_LOG]
@@ -74,7 +89,9 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             // Read the feed again, so we use a title learned during this fetch.
             val feed = repo.byId(fetched.id) ?: fetched
             val source = feed.shortName
-            val feedCtx = mapOf(CTX_FEED to feed.id.toString()) + (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
+            val feedCtx =
+                mapOf(CTX_FEED to feed.id.toString()) + (from?.let { mapOf(LogContext.FROM to it.toString()) }
+                    ?: emptyMap())
             if (error != null) {
                 // Scheduled failures are only saved in last_status. Only a fetch the user asked for logs its error.
                 if (explicit) {
@@ -90,8 +107,11 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             if (first && config[Keys.FEEDS_BACKLOG_READ]) {
                 repo.markRead(newItems.map { it.id })
                 if (toLog) lines += LogRepository.Pending(
-                    LogKind.INFO, "$source: subscribed · ${newItems.size} earlier posts marked read", source,
-                    LogContext.of(LogContext.COMMAND to "feed all ${feed.id}") + feedCtx, ts,
+                    LogKind.INFO,
+                    "$source: subscribed · ${newItems.size} earlier posts marked read",
+                    source,
+                    LogContext.of(LogContext.COMMAND to "feed all ${feed.id}") + feedCtx,
+                    ts,
                 )
                 continue
             }
@@ -103,7 +123,11 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                         title,
                         source,
                         // An item each: a long title wraps, and the gap keeps the items apart.
-                        LogContext.of(LogContext.URL to link, LogContext.COPY to title, CTX_ITEM to id.toString()) + feedCtx + LogContext.ITEM,
+                        LogContext.of(
+                            LogContext.URL to link,
+                            LogContext.COPY to title,
+                            CTX_ITEM to id.toString()
+                        ) + feedCtx + LogContext.ITEM,
                         ts,
                     )
                 }
@@ -136,6 +160,7 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
     companion object {
         const val KEY_FEED_ID = "feed_id"
         const val KEY_FORCE = "force"
+
         /** Fetching stops after this time, well before the system stops the worker. */
         private const val FETCH_DEADLINE_MS = 8 * 60_000L
 

@@ -4,7 +4,6 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.data.Backup
@@ -32,16 +31,23 @@ class BackupActions(
             val r = Backup(context).import(uri)
             AppRepository.get(context).refresh()
             scripts.refreshScriptCaches()
-            fun count(n: Int, one: String, many: String = one + "s") = "$n ${if (n == 1) one else many}"
+            fun count(n: Int, one: String, many: String = one + "s") =
+                "$n ${if (n == 1) one else many}"
             notice(
-                "Imported ${count(r.settings, "setting")}, ${count(r.aliases, "alias", "aliases")}, ${count(r.scripts, "script")}" +
-                    (if (r.full) ", ${r.restored} saved items (todos, notes, reminders, feeds, log…)" else "") +
-                    (if (r.disabled == 1) " (1 new script is off — turn it on in Scripts)" else "") +
-                    (if (r.disabled > 1) " (${r.disabled} new scripts are off — turn them on in Scripts)" else "") +
-                    (if (r.skipped.isNotEmpty()) " · skipped ${r.skipped.joinToString()}" else "") +
-                    (if (r.review.isNotEmpty()) " · check these from the file: ${r.review.joinToString()}" else "") +
-                    (if (r.newer) " · this backup is from a newer Kolahal, so what this version doesn't know was skipped" else "") +
-                    if (r.full) " — restarting to load it all" else ""
+                "Imported ${count(r.settings, "setting")}, ${
+                    count(
+                        r.aliases,
+                        "alias",
+                        "aliases"
+                    )
+                }, ${count(r.scripts, "script")}" +
+                        (if (r.full) ", ${r.restored} saved items (todos, notes, reminders, feeds, log…)" else "") +
+                        (if (r.disabled == 1) " (1 new script is off — turn it on in Scripts)" else "") +
+                        (if (r.disabled > 1) " (${r.disabled} new scripts are off — turn them on in Scripts)" else "") +
+                        (if (r.skipped.isNotEmpty()) " · skipped ${r.skipped.joinToString()}" else "") +
+                        (if (r.review.isNotEmpty()) " · check these from the file: ${r.review.joinToString()}" else "") +
+                        (if (r.newer) " · this backup is from a newer Kolahal, so what this version doesn't know was skipped" else "") +
+                        if (r.full) " — restarting to load it all" else ""
             )
             // A full restore replaced the preferences and tables, so every in-memory cache is now stale.
             // Restart the app to load everything again.
@@ -52,10 +58,12 @@ class BackupActions(
     }
 
     private val _backupVersion = MutableStateFlow(0)
+
     /** Goes up by one when the backup folder changes or a backup is written. Settings uses it to refresh its backup line. */
     val backupVersion: StateFlow<Int> = _backupVersion.asStateFlow()
 
-    @Volatile private var backUpOncePicked = false
+    @Volatile
+    private var backUpOncePicked = false
 
     fun askBackupFolder(thenBackUp: Boolean) {
         backUpOncePicked = thenBackUp
@@ -67,9 +75,13 @@ class BackupActions(
         if (com.mtwabpin.kolahal.data.AutoBackup.folder(context) == null) return null
         // The folder is saved, but Kolahal may not be able to open it any more. For example, the backup was
         // restored on another phone, or the folder was deleted. Backups fail until the user picks it again.
-        val name = com.mtwabpin.kolahal.data.AutoBackup.folderName(context) ?: return "Can't be written: tap to pick it again"
+        val name = com.mtwabpin.kolahal.data.AutoBackup.folderName(context)
+            ?: return "Can't be written: tap to pick it again"
         val last = com.mtwabpin.kolahal.data.AutoBackup.last(context)?.let {
-            "last backup " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(it))
+            "last backup " + java.text.DateFormat.getDateTimeInstance(
+                java.text.DateFormat.MEDIUM,
+                java.text.DateFormat.SHORT
+            ).format(java.util.Date(it))
         }
         return listOfNotNull(name, last ?: "no backup yet").joinToString(" · ")
     }
@@ -88,7 +100,9 @@ class BackupActions(
 
     /** Settings' "Back up now": writes today's backup to the folder. If no folder is set, asks for one first. */
     fun backUpNow() {
-        if (com.mtwabpin.kolahal.data.AutoBackup.folder(context) == null) return askBackupFolder(true)
+        if (com.mtwabpin.kolahal.data.AutoBackup.folder(context) == null) return askBackupFolder(
+            true
+        )
         fileOp("backup") { backUp() }
     }
 

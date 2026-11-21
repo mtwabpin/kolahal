@@ -6,19 +6,28 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class UnitsTest {
-    private fun conv(s: String): String? = Units.parse(s)?.let { (a, f, t) -> Units.convert(a, f, t) }
+    private fun conv(s: String): String? =
+        Units.parse(s)?.let { (a, f, t) -> Units.convert(a, f, t) }
 
-    @Test fun temperature() {
+    @Test
+    fun temperature() {
         assertEquals("100 °C = 212 °F", conv("100 c to f"))
         // Where the two scales meet, below zero.
         assertEquals("-40 °C = -40 °F", conv("-40 c to f"))
     }
-    @Test fun kelvin() = assertEquals("0 K = -273.15 °C", conv("0 k in c"))
-    @Test fun mass() = assertEquals("1 kg = 2.2046 lb", conv("1 kg in lb"))
-    @Test fun data() = assertEquals("1 GiB = 1,073.7418 MB", conv("1 gib in mb"))
+
+    @Test
+    fun kelvin() = assertEquals("0 K = -273.15 °C", conv("0 k in c"))
+
+    @Test
+    fun mass() = assertEquals("1 kg = 2.2046 lb", conv("1 kg in lb"))
+
+    @Test
+    fun data() = assertEquals("1 GiB = 1,073.7418 MB", conv("1 gib in mb"))
 
     /** Up to 10^15 an amount is written in full, with separators; from there, in scientific notation. */
-    @Test fun bigAmountsInFull() {
+    @Test
+    fun bigAmountsInFull() {
         assertEquals("1 GB = 1,000,000,000 B", conv("1 gb in b"))
         assertEquals("999 TB = 999,000,000,000,000 B", conv("999 tb in b"))
         assertEquals("10,000 TB = 9,536,743,164.0625 MiB", conv("10000 tb in mib"))
@@ -26,20 +35,26 @@ class UnitsTest {
     }
 
     /** Four decimals at the most, and no digits past what a double holds. */
-    @Test fun decimalsAreCut() {
+    @Test
+    fun decimalsAreCut() {
         assertEquals("0.3333", Units.format(1.0 / 3))
         assertEquals("1,234,567,890,123.4", Units.format(1234567890123.4))
         assertEquals("0.3", Units.format(0.1 + 0.2))
         assertEquals("1.000e-05", Units.format(0.00001))
     }
-    @Test fun currencyIsParsedButNotConverted() {
+
+    @Test
+    fun currencyIsParsedButNotConverted() {
         assertEquals(Triple(100.0, "usd", "inr"), Units.parse("100 usd in inr"))
         assertNull(conv("100 usd in inr"))
     }
-    @Test fun notAConversion() = assertNull(Units.parse("2^10 / 4"))
+
+    @Test
+    fun notAConversion() = assertNull(Units.parse("2^10 / 4"))
 
     /** `in` is a unit and the connecting word: where it stands says which. */
-    @Test fun inches() {
+    @Test
+    fun inches() {
         assertEquals("5 in = 12.7 cm", conv("5 in to cm"))
         assertEquals("5 in = 12.7 cm", conv("5 in in cm"))
         assertEquals("5 in = 12.7 cm", conv("5 in as cm"))
@@ -52,20 +67,26 @@ class UnitsTest {
         assertEquals("5 in = 5 in", conv("5 in in in"))
     }
 
-    @Test fun inchesReadBackAsPrinted() {
+    @Test
+    fun inchesReadBackAsPrinted() {
         val printed = conv("1 ft to inch")!!.substringAfter("= ")
         assertEquals("12 in", printed)
         assertEquals("12 in = 1 ft", conv("$printed to ft"))
     }
 
     /** What an answer prints is the first thing to copy back, so each label reads as a unit. */
-    @Test fun whatAnAnswerPrintsReadsBack() {
+    @Test
+    fun whatAnAnswerPrintsReadsBack() {
         assertEquals("1 ha = 2.4711 ac", conv("1 ha to acre"))
         assertEquals("2 ac = 0.8094 ha", conv("2 ac to ha"))
-        for (label in listOf("m²", "km²", "ft²", "ac", "in")) assertEquals("3 $label = 3 $label", conv("3 $label to $label"))
+        for (label in listOf("m²", "km²", "ft²", "ac", "in")) assertEquals(
+            "3 $label = 3 $label",
+            conv("3 $label to $label")
+        )
     }
 
-    @Test fun inAsTheConnectingWordAndInchesByOtherNames() {
+    @Test
+    fun inAsTheConnectingWordAndInchesByOtherNames() {
         assertEquals("5 ft = 152.4 cm", conv("5 ft in cm"))
         assertEquals("5 km = 3.1069 mi", conv("5 km as mi"))
         assertEquals("5 km = 3.1069 mi", conv("5 km -> mi"))
@@ -79,7 +100,8 @@ class UnitsTest {
      * Nothing to convert to, a side with no unit, or two units that don't convert: not answered here,
      * so the line goes on to arithmetic and then Lua, as `5 km` alone does.
      */
-    @Test fun linesThatAreNoConversionAreLeftAlone() {
+    @Test
+    fun linesThatAreNoConversionAreLeftAlone() {
         listOf(
             "5 in", "5in", "5 in in", "5 in to", "5 ft in", "5 km", "5 km to",
             "5 in cm", "5 to cm", "in to cm", "in in cm", "in", "in in",
@@ -88,11 +110,17 @@ class UnitsTest {
         ).forEach { line ->
             assertNull(line, conv(line))
             assertNull(line, Calc.answer(line))
-            Units.parse(line)?.let { (_, from, to) -> assertFalse(line, Units.looksLikeCurrency(from) && Units.looksLikeCurrency(to)) }
+            Units.parse(line)?.let { (_, from, to) ->
+                assertFalse(
+                    line,
+                    Units.looksLikeCurrency(from) && Units.looksLikeCurrency(to)
+                )
+            }
         }
     }
 
-    @Test fun commasGroupDigits() {
+    @Test
+    fun commasGroupDigits() {
         assertEquals(1500.0, Units.number("1,500")!!, 1e-9)
         assertEquals(12500.0, Units.number("12,500")!!, 1e-9)
         assertEquals(123500.0, Units.number("123,500")!!, 1e-9)
@@ -104,7 +132,8 @@ class UnitsTest {
         assertEquals(-1500.0, Units.number("-1,500")!!, 1e-9)
     }
 
-    @Test fun aCommaThatCantBeGroupingIsADecimalComma() {
+    @Test
+    fun aCommaThatCantBeGroupingIsADecimalComma() {
         assertEquals(0.5, Units.number("0,500")!!, 1e-9)
         assertEquals(0.5, Units.number("0,5")!!, 1e-9)
         assertEquals(1.5, Units.number("1,5")!!, 1e-9)
@@ -115,14 +144,16 @@ class UnitsTest {
         assertEquals(1234.5, Units.number("1234,500")!!, 1e-9)
     }
 
-    @Test fun anyOtherCommaIsRejectedRatherThanMisread() {
+    @Test
+    fun anyOtherCommaIsRejectedRatherThanMisread() {
         listOf(
             "1,000,00", "1,00,00", "123,45,678", "0,500,000", "0,500.5", "1,5.5", "1.000,5",
             "1,", ",5", "1,,5", "01,500", "00,500", "007,5",
         ).forEach { assertNull(it, Units.number(it)) }
     }
 
-    @Test fun commasInAConversion() {
+    @Test
+    fun commasInAConversion() {
         assertEquals("0.5 kg = 500 g", conv("0,500 kg in g"))
         assertEquals("1,500 kg = 1,500,000 g", conv("1,500 kg in g"))
         assertEquals("100,000 m = 100 km", conv("1,00,000 m to km"))

@@ -12,16 +12,19 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
     /** This key's value in [config], as the text it is stored as. */
     fun valueText(config: Config): String = format(config[this])
 
-    class Bool(key: String, default: Boolean, help: String) : ConfigKey<Boolean>(key, default, help) {
+    class Bool(key: String, default: Boolean, help: String) :
+        ConfigKey<Boolean>(key, default, help) {
         override fun parse(raw: String) = when (raw.lowercase()) {
             "on", "true", "yes", "1" -> true
             "off", "false", "no", "0" -> false
             else -> null
         }
+
         override fun format(value: Boolean) = if (value) "on" else "off"
     }
 
-    class Num(key: String, default: Int, val range: IntRange, help: String) : ConfigKey<Int>(key, default, help) {
+    class Num(key: String, default: Int, val range: IntRange, help: String) :
+        ConfigKey<Int>(key, default, help) {
         override fun parse(raw: String) = raw.toIntOrNull()?.takeIf { it in range }
     }
 
@@ -45,49 +48,157 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
 
 object Keys {
     /** What the header can show. Each part is on one side at most ([HEADER_LEFT], [HEADER_RIGHT]). */
-    val HEADER_PARTS = listOf("time", "date", "battery", "alarm", "todo", "network", "unlocks", "profiles", "settings")
-    val HEADER_SHOW = ConfigKey.Bool("header.show", false, "Show the header, the line at the top of home: the time, the date, the battery and the parts you chose (off: only the pinned header, while music plays or a script is pinned; open settings with the settings command)")
-    val HEADER_BELOW_BAR = ConfigKey.Bool("header.below-bar", true, "In full screen, put the header below the status bar's area instead of beside the camera (with the status bar shown it is always below it)")
-    val HEADER_PADDING = ConfigKey.Num("header.padding", 6, 0..24, "Space (dp) above and below the header's text: the header is one line of text with this much above and below it")
+    val HEADER_PARTS = listOf(
+        "time",
+        "date",
+        "battery",
+        "alarm",
+        "todo",
+        "network",
+        "unlocks",
+        "profiles",
+        "settings"
+    )
+    val HEADER_SHOW = ConfigKey.Bool(
+        "header.show",
+        false,
+        "Show the header, the line at the top of home: the time, the date, the battery and the parts you chose (off: only the pinned header, while music plays or a script is pinned; open settings with the settings command)"
+    )
+    val HEADER_BELOW_BAR = ConfigKey.Bool(
+        "header.below-bar",
+        true,
+        "In full screen, put the header below the status bar's area instead of beside the camera (with the status bar shown it is always below it)"
+    )
+    val HEADER_PADDING = ConfigKey.Num(
+        "header.padding",
+        6,
+        0..24,
+        "Space (dp) above and below the header's text: the header is one line of text with this much above and below it"
+    )
+
     // The header's two sides. Each is a list of parts in the order they show; none leaves a side empty.
-    val HEADER_LEFT = ConfigKey.Text("header.left", "time,date", "The header's left side, from the left: $HEADER_PARTS_HELP", ::headerParts)
-    val HEADER_RIGHT = ConfigKey.Text("header.right", "alarm,todo,battery", "The header's right side, from the left: $HEADER_PARTS_HELP", ::headerParts)
-    val HEADER_PINNED_SECONDS = ConfigKey.Num("header.pinned-seconds", 5, 2..60, "How many seconds each item in the pinned header shows before the next one")
-    val HEADER_PINNED_DOTS = ConfigKey.Num("header.pinned-dots", 3, 0..10, "Dots at the end of the pinned header showing which item is on screen, for up to this many items (0: never); a tap on them shows the next one")
-    val HEADER_PINNED_BAR_ABOVE = ConfigKey.Num("header.pinned-bar-above", 5, 0..16, "Space (dp) between the pinned header's text and its progress bar")
-    val HEADER_PINNED_BAR_BELOW = ConfigKey.Num("header.pinned-bar-below", 5, 0..16, "Space (dp) under the pinned header's progress bar, before the log")
+    val HEADER_LEFT = ConfigKey.Text(
+        "header.left",
+        "time,date",
+        "The header's left side, from the left: $HEADER_PARTS_HELP",
+        ::headerParts
+    )
+    val HEADER_RIGHT = ConfigKey.Text(
+        "header.right",
+        "alarm,todo,battery",
+        "The header's right side, from the left: $HEADER_PARTS_HELP",
+        ::headerParts
+    )
+    val HEADER_PINNED_SECONDS = ConfigKey.Num(
+        "header.pinned-seconds",
+        5,
+        2..60,
+        "How many seconds each item in the pinned header shows before the next one"
+    )
+    val HEADER_PINNED_DOTS = ConfigKey.Num(
+        "header.pinned-dots",
+        3,
+        0..10,
+        "Dots at the end of the pinned header showing which item is on screen, for up to this many items (0: never); a tap on them shows the next one"
+    )
+    val HEADER_PINNED_BAR_ABOVE = ConfigKey.Num(
+        "header.pinned-bar-above",
+        5,
+        0..16,
+        "Space (dp) between the pinned header's text and its progress bar"
+    )
+    val HEADER_PINNED_BAR_BELOW = ConfigKey.Num(
+        "header.pinned-bar-below",
+        5,
+        0..16,
+        "Space (dp) under the pinned header's progress bar, before the log"
+    )
+
     // The name in name@device: no @ of its own and no spaces, like usernames.
     val USER_NAME = ConfigKey.Text(
         "user.name", "kolahal",
         "Your name in name@device, in fetch (up to 32 characters, no spaces or @)",
-    ) { raw -> raw.trim().takeIf { n -> n.length in 1..32 && n.none { it.isWhitespace() || it == '@' } } }
+    ) { raw ->
+        raw.trim().takeIf { n -> n.length in 1..32 && n.none { it.isWhitespace() || it == '@' } }
+    }
     val CLOCK_24H = ConfigKey.Bool("clock.24h", false, "Use 24-hour time in the header and log")
     val KEYBAR = ConfigKey.Text(
         "keybar.row1", DEFAULT_KEYBAR,
         "Touch keys, comma separated: ESC TAB UP DOWN LEFT RIGHT HOME END BKSP ENTER SPACE KBD or literal text",
     )
-    val KEYBAR2 = ConfigKey.Text("keybar.row2", DEFAULT_KEYBAR2, "Second key bar row (same syntax; empty by default)")
+    val KEYBAR2 = ConfigKey.Text(
+        "keybar.row2",
+        DEFAULT_KEYBAR2,
+        "Second key bar row (same syntax; empty by default)"
+    )
     val KEYBAR_SHOW = ConfigKey.Bool("keybar.show", false, "Show the touch key bar")
-    val KEYBAR_AUTO = ConfigKey.Bool("keybar.auto", true, "Show the key bar only while the on-screen keyboard is up for the prompt (off: always)")
-    val KEYBAR_HEIGHT = ConfigKey.Num("keybar.height", 40, 20..64, "Key bar row height (dp); smaller leaves more room for the log")
-    val PROMPT_HEIGHT_TYPING = ConfigKey.Num("prompt.height", 40, 20..72, "Prompt line height (dp); it never gets shorter than its text")
-    val PROMPT_BOTTOM_PADDING = ConfigKey.Num("prompt.bottom-padding", 0, 0..48, "Space under the prompt (dp) while the keyboard is closed, for screens whose rounded corners cut the $")
+    val KEYBAR_AUTO = ConfigKey.Bool(
+        "keybar.auto",
+        true,
+        "Show the key bar only while the on-screen keyboard is up for the prompt (off: always)"
+    )
+    val KEYBAR_HEIGHT = ConfigKey.Num(
+        "keybar.height",
+        40,
+        20..64,
+        "Key bar row height (dp); smaller leaves more room for the log"
+    )
+    val PROMPT_HEIGHT_TYPING = ConfigKey.Num(
+        "prompt.height",
+        40,
+        20..72,
+        "Prompt line height (dp); it never gets shorter than its text"
+    )
+    val PROMPT_BOTTOM_PADDING = ConfigKey.Num(
+        "prompt.bottom-padding",
+        0,
+        0..48,
+        "Space under the prompt (dp) while the keyboard is closed, for screens whose rounded corners cut the $"
+    )
+
     /**
      * The themes that come with Kolahal. [CustomThemes] holds the ones people make.
      * A name added here can't be a saved theme's name any more: [CustomThemes.load] renames that theme.
      */
-    val BUILT_IN_THEMES = listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material", "nord", "rose-pine") + MaterialYou.VARIANTS
+    val BUILT_IN_THEMES = listOf(
+        "green",
+        "amber",
+        "mono",
+        "dracula",
+        "solarized",
+        "gruvbox",
+        "gruvbox-material",
+        "nord",
+        "rose-pine"
+    ) + MaterialYou.VARIANTS
     val THEME = ConfigKey.Choice(
         "theme.name", "green", BUILT_IN_THEMES,
         "Colour theme: a built-in one or one you made; each has a dark and a light version, chosen by the phone's dark mode; " +
-            "${MaterialYou.NAME} takes its colours from your wallpaper (Android 12 and newer), and ${MaterialYou.SOFT}, ${MaterialYou.TINTED} and ${MaterialYou.BLACK} put them on a lighter, a tinted or a black background",
+                "${MaterialYou.NAME} takes its colours from your wallpaper (Android 12 and newer), and ${MaterialYou.SOFT}, ${MaterialYou.TINTED} and ${MaterialYou.BLACK} put them on a lighter, a tinted or a black background",
         added = { CustomThemes.names },
     )
-    val THEME_ALWAYS_DARK = ConfigKey.Bool("theme.always-dark", false, "Always use the theme's dark version, even in light mode")
-    val STATUS_BAR = ConfigKey.Choice("screen.bars", "show", listOf("show", "hide", "immersive"), "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them")
+    val THEME_ALWAYS_DARK = ConfigKey.Bool(
+        "theme.always-dark",
+        false,
+        "Always use the theme's dark version, even in light mode"
+    )
+    val STATUS_BAR = ConfigKey.Choice(
+        "screen.bars",
+        "show",
+        listOf("show", "hide", "immersive"),
+        "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them"
+    )
     val FONT = ConfigKey.Choice(
         "font.family", "jetbrains-mono",
-        listOf("system", "jetbrains-mono", "fira-code", "ibm-plex-mono", "source-code-pro", "iosevka", "custom"),
+        listOf(
+            "system",
+            "jetbrains-mono",
+            "fira-code",
+            "ibm-plex-mono",
+            "source-code-pro",
+            "iosevka",
+            "custom"
+        ),
         "Terminal font (custom: a .ttf/.otf imported with 'font import')",
     )
     val FONT_SANS = ConfigKey.Choice(
@@ -95,93 +206,336 @@ object Keys {
         "Use the system font instead of the terminal font: off, the prompt only, or all of the terminal (lists with aligned columns and the script editor stay monospace)",
     )
     val FONT_SIZE = ConfigKey.Num("font.size", 14, 10..24, "Terminal font size (sp)")
-    val SUGGESTIONS = ConfigKey.Num("suggestions.max", 30, 0..30, "Max suggestions shown while typing")
-    val AUTO_LAUNCH = ConfigKey.Bool("launch.single", true, "Launch automatically when only one app matches")
+    val SUGGESTIONS =
+        ConfigKey.Num("suggestions.max", 30, 0..30, "Max suggestions shown while typing")
+    val AUTO_LAUNCH =
+        ConfigKey.Bool("launch.single", true, "Launch automatically when only one app matches")
     val LAUNCH_INSTANT = ConfigKey.Choice(
         "launch.instant", "all", listOf("off", "apps", "all"),
         "Run without Enter once only one match is left: apps, or apps and commands (calls, uninstall and other sensitive commands always need Enter)",
     )
-    val LAUNCH_INSTANT_MIN = ConfigKey.Num("launch.instant-letters", 2, 1..6, "Letters to type before an instant launch")
-    val LAUNCH_TOP = ConfigKey.Bool("launch.top", true, "Enter launches the best match when it starts with what you typed")
-    val SUGGEST_ICONS = ConfigKey.Bool("suggestions.icons", true, "Show app icons next to app suggestions, in the list and on chips")
-    val SUGGESTIONS_WRAP = ConfigKey.Bool("suggestions.wrap", false, "Show a command's or setting's whole description in the suggestion list, over more lines (off: one line, cut short)")
-    val SUGGEST_IDLE = ConfigKey.Bool("suggestions.idle", false, "Show most-used apps when the prompt is empty")
-    val SUGGESTIONS_AUTO = ConfigKey.Bool("suggestions.auto", true, "Show suggestions only while typing (keyboard up or text in the prompt)")
-    val SUGGESTION_ROWS = ConfigKey.Num("suggestions.rows", 2, 1..2, "Rows of suggestion chips while typing (suggestions.style chips)")
-    val SUGGESTIONS_STYLE = ConfigKey.Choice("suggestions.style", "list", listOf("list", "chips"), "While typing: a list above the prompt (best match at the bottom, nearest the thumb) or a strip of chips")
-    val SELECTOR_RAIL = ConfigKey.Bool("selector.rail", false, "Slide along the screen's edge to a letter, then onto the list to pick an app; let go on one to launch")
-    val SELECTOR_BROWSE = ConfigKey.Choice("selector.browse", "apps", listOf("letters", "apps"), "Sliding along the edge: letters moves a letter at a time, with its apps beside your thumb; apps moves through the whole list, an app at a time when you slide slowly")
-    val SELECTOR_FILTER = ConfigKey.Bool("selector.filter", false, "With letters: the list shows only the letter's apps, not the whole list scrolled to it")
-    val SELECTOR_SIDE = ConfigKey.Choice("selector.side", "right", listOf("right", "left"), "The edge you slide on; the list of apps opens on the other side")
-    val SELECTOR_POSITION = ConfigKey.Choice("selector.position", "bottom", listOf("bottom", "middle", "top"), "Position of the slide area on the edge: keep it away from the back gesture")
-    val SELECTOR_HANDLE = ConfigKey.Bool("selector.handle", true, "Show the slim A–Z handle on the edge; off hides it while the selector keeps working")
-    val SELECTOR_LETTERS = ConfigKey.Bool("selector.letters", true, "Show the letters along the edge, so you can see where to touch")
-    val SELECTOR_HEIGHT = ConfigKey.Num("selector.height", 400, 200..900, "Length (dp) of the part of the edge you slide on: shorter means less thumb travel; the list uses the whole height")
-    val SELECTOR_ICONS = ConfigKey.Bool("selector.icons", true, "Show each app's icon in the app selector's list")
-    val SELECTOR_ROW_HEIGHT = ConfigKey.Num("selector.row-height", 50, 32..64, "Height (dp) of each app in the app selector's list: taller spaces the names out; it grows with a large text size")
-    val SELECTOR_AIM = ConfigKey.Num("selector.aim", 10, 0..40, "With selector.browse apps, a slow slide along the edge moves one app per this many dp (0: a slide always scrolls the whole list)")
-    val SELECTOR_AIM_SPEED = ConfigKey.Num("selector.aim-speed", 100, 20..400, "Slides slower than this (dp/s) move one app at a time; from 2.5 times this speed they scroll the whole list again")
-    val SELECTOR_SYSTEM_FONT = ConfigKey.Bool("selector.system-font", true, "Use the system font in the app selector instead of the terminal font: its list, the letters on the edge and the one beside your thumb")
-    val SELECTOR_ACTIONS = ConfigKey.Choice("selector.actions", "off", listOf("far-side", "off"), "App actions while picking: far-side opens them when you lift on the far side of the list; off: long-press in the open list only")
-    val SHOW_TIMESTAMPS = ConfigKey.Choice("log.time", "groups", listOf("off", "commands", "groups"), "Right-aligned times on log lines: groups shows one on each group's first line and when the minute changes, commands on the lines you type")
+    val LAUNCH_INSTANT_MIN =
+        ConfigKey.Num("launch.instant-letters", 2, 1..6, "Letters to type before an instant launch")
+    val LAUNCH_TOP = ConfigKey.Bool(
+        "launch.top",
+        true,
+        "Enter launches the best match when it starts with what you typed"
+    )
+    val SUGGEST_ICONS = ConfigKey.Bool(
+        "suggestions.icons",
+        true,
+        "Show app icons next to app suggestions, in the list and on chips"
+    )
+    val SUGGESTIONS_WRAP = ConfigKey.Bool(
+        "suggestions.wrap",
+        false,
+        "Show a command's or setting's whole description in the suggestion list, over more lines (off: one line, cut short)"
+    )
+    val SUGGEST_IDLE =
+        ConfigKey.Bool("suggestions.idle", false, "Show most-used apps when the prompt is empty")
+    val SUGGESTIONS_AUTO = ConfigKey.Bool(
+        "suggestions.auto",
+        true,
+        "Show suggestions only while typing (keyboard up or text in the prompt)"
+    )
+    val SUGGESTION_ROWS = ConfigKey.Num(
+        "suggestions.rows",
+        2,
+        1..2,
+        "Rows of suggestion chips while typing (suggestions.style chips)"
+    )
+    val SUGGESTIONS_STYLE = ConfigKey.Choice(
+        "suggestions.style",
+        "list",
+        listOf("list", "chips"),
+        "While typing: a list above the prompt (best match at the bottom, nearest the thumb) or a strip of chips"
+    )
+    val SELECTOR_RAIL = ConfigKey.Bool(
+        "selector.rail",
+        false,
+        "Slide along the screen's edge to a letter, then onto the list to pick an app; let go on one to launch"
+    )
+    val SELECTOR_BROWSE = ConfigKey.Choice(
+        "selector.browse",
+        "apps",
+        listOf("letters", "apps"),
+        "Sliding along the edge: letters moves a letter at a time, with its apps beside your thumb; apps moves through the whole list, an app at a time when you slide slowly"
+    )
+    val SELECTOR_FILTER = ConfigKey.Bool(
+        "selector.filter",
+        false,
+        "With letters: the list shows only the letter's apps, not the whole list scrolled to it"
+    )
+    val SELECTOR_SIDE = ConfigKey.Choice(
+        "selector.side",
+        "right",
+        listOf("right", "left"),
+        "The edge you slide on; the list of apps opens on the other side"
+    )
+    val SELECTOR_POSITION = ConfigKey.Choice(
+        "selector.position",
+        "bottom",
+        listOf("bottom", "middle", "top"),
+        "Position of the slide area on the edge: keep it away from the back gesture"
+    )
+    val SELECTOR_HANDLE = ConfigKey.Bool(
+        "selector.handle",
+        true,
+        "Show the slim A–Z handle on the edge; off hides it while the selector keeps working"
+    )
+    val SELECTOR_LETTERS = ConfigKey.Bool(
+        "selector.letters",
+        true,
+        "Show the letters along the edge, so you can see where to touch"
+    )
+    val SELECTOR_HEIGHT = ConfigKey.Num(
+        "selector.height",
+        400,
+        200..900,
+        "Length (dp) of the part of the edge you slide on: shorter means less thumb travel; the list uses the whole height"
+    )
+    val SELECTOR_ICONS =
+        ConfigKey.Bool("selector.icons", true, "Show each app's icon in the app selector's list")
+    val SELECTOR_ROW_HEIGHT = ConfigKey.Num(
+        "selector.row-height",
+        50,
+        32..64,
+        "Height (dp) of each app in the app selector's list: taller spaces the names out; it grows with a large text size"
+    )
+    val SELECTOR_AIM = ConfigKey.Num(
+        "selector.aim",
+        10,
+        0..40,
+        "With selector.browse apps, a slow slide along the edge moves one app per this many dp (0: a slide always scrolls the whole list)"
+    )
+    val SELECTOR_AIM_SPEED = ConfigKey.Num(
+        "selector.aim-speed",
+        100,
+        20..400,
+        "Slides slower than this (dp/s) move one app at a time; from 2.5 times this speed they scroll the whole list again"
+    )
+    val SELECTOR_SYSTEM_FONT = ConfigKey.Bool(
+        "selector.system-font",
+        true,
+        "Use the system font in the app selector instead of the terminal font: its list, the letters on the edge and the one beside your thumb"
+    )
+    val SELECTOR_ACTIONS = ConfigKey.Choice(
+        "selector.actions",
+        "off",
+        listOf("far-side", "off"),
+        "App actions while picking: far-side opens them when you lift on the far side of the list; off: long-press in the open list only"
+    )
+    val SHOW_TIMESTAMPS = ConfigKey.Choice(
+        "log.time",
+        "groups",
+        listOf("off", "commands", "groups"),
+        "Right-aligned times on log lines: groups shows one on each group's first line and when the minute changes, commands on the lines you type"
+    )
     val LOG_DIM = ConfigKey.Bool("log.dim", true, "Dim output older than the latest command")
-    val LOG_SPACING = ConfigKey.Num("log.spacing", 5, 0..40, "Gap (dp) above each output group: a command and its output, or a background batch (feeds, scripts)")
-    val LOG_ITEM_SPACING = ConfigKey.Num("log.item-spacing", 5, 0..40, "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the colour bar runs through it")
-    val LOG_GUTTER = ConfigKey.Bool("log.gutter", true, "Thin colour bar at the left of each log line: green for commands, script colour for background output, red for errors")
-    val DATA_PLAN = ConfigKey.Num("data.plan", 0, 0..2000, "Your mobile data plan for a month, in GB, for `data month`: how much is left, and the pace. 0: no plan")
-    val DATA_START_DAY = ConfigKey.Num("data.start-day", 1, 1..28, "The day of the month your mobile data plan starts again, for `data month`")
-    val LOG_LINE_HEIGHT = ConfigKey.Num("log.line-height", 22, 10..56, "Minimum height of a log line (22 is 22 dp at the default text size, and scales with it); a line is never shorter than its text")
-    val LOG_WALLPAPER = ConfigKey.Num("log.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's colour")
-    val LOG_TALLER_TAPS = ConfigKey.Bool("log.taller-taps", false, "Make tappable lines slightly taller, so they're easier to hit; off: every line is the same height")
-    val LOG_TABLES = ConfigKey.Choice("log.tables", "boxed", listOf("boxed", "plain"), "How tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only)")
-    val LOG_FOLD = ConfigKey.Num("log.fold", 8, 0..60, "Fold a log line taller than this many lines of text, with a tap to show the rest (0: never fold)")
-    val CHIP_HEIGHT = ConfigKey.Num("chips.height", 44, 20..64, "Height (dp) of suggestion chips, the suggestion list's rows and app chips in the log")
-    val LOG_KEEP_DAYS = ConfigKey.Num("log.keep-days", 60, 1..365, "Delete log lines older than this many days; starred lines are kept")
-    val LOG_KEEP_LINES = ConfigKey.Num("log.keep-lines", 5000, 500..50_000, "Delete the oldest log lines past this many; typed commands are counted separately, so ↑ history is kept, and starred lines are kept and not counted")
-    val LOG_FRESH = ConfigKey.Num("log.fresh", 10, 0..240, "Show a clean home screen after this many minutes away (0: never); earlier output is one tap away")
-    val LOG_TIPS = ConfigKey.Bool("log.tips", true, "A tip a day in the log for your first two weeks: something you haven't used yet")
+    val LOG_SPACING = ConfigKey.Num(
+        "log.spacing",
+        5,
+        0..40,
+        "Gap (dp) above each output group: a command and its output, or a background batch (feeds, scripts)"
+    )
+    val LOG_ITEM_SPACING = ConfigKey.Num(
+        "log.item-spacing",
+        5,
+        0..40,
+        "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the colour bar runs through it"
+    )
+    val LOG_GUTTER = ConfigKey.Bool(
+        "log.gutter",
+        true,
+        "Thin colour bar at the left of each log line: green for commands, script colour for background output, red for errors"
+    )
+    val DATA_PLAN = ConfigKey.Num(
+        "data.plan",
+        0,
+        0..2000,
+        "Your mobile data plan for a month, in GB, for `data month`: how much is left, and the pace. 0: no plan"
+    )
+    val DATA_START_DAY = ConfigKey.Num(
+        "data.start-day",
+        1,
+        1..28,
+        "The day of the month your mobile data plan starts again, for `data month`"
+    )
+    val LOG_LINE_HEIGHT = ConfigKey.Num(
+        "log.line-height",
+        22,
+        10..56,
+        "Minimum height of a log line (22 is 22 dp at the default text size, and scales with it); a line is never shorter than its text"
+    )
+    val LOG_WALLPAPER = ConfigKey.Num(
+        "log.wallpaper",
+        0,
+        0..100,
+        "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's colour"
+    )
+    val LOG_TALLER_TAPS = ConfigKey.Bool(
+        "log.taller-taps",
+        false,
+        "Make tappable lines slightly taller, so they're easier to hit; off: every line is the same height"
+    )
+    val LOG_TABLES = ConfigKey.Choice(
+        "log.tables",
+        "boxed",
+        listOf("boxed", "plain"),
+        "How tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only)"
+    )
+    val LOG_FOLD = ConfigKey.Num(
+        "log.fold",
+        8,
+        0..60,
+        "Fold a log line taller than this many lines of text, with a tap to show the rest (0: never fold)"
+    )
+    val CHIP_HEIGHT = ConfigKey.Num(
+        "chips.height",
+        44,
+        20..64,
+        "Height (dp) of suggestion chips, the suggestion list's rows and app chips in the log"
+    )
+    val LOG_KEEP_DAYS = ConfigKey.Num(
+        "log.keep-days",
+        60,
+        1..365,
+        "Delete log lines older than this many days; starred lines are kept"
+    )
+    val LOG_KEEP_LINES = ConfigKey.Num(
+        "log.keep-lines",
+        5000,
+        500..50_000,
+        "Delete the oldest log lines past this many; typed commands are counted separately, so ↑ history is kept, and starred lines are kept and not counted"
+    )
+    val LOG_FRESH = ConfigKey.Num(
+        "log.fresh",
+        10,
+        0..240,
+        "Show a clean home screen after this many minutes away (0: never); earlier output is one tap away"
+    )
+    val LOG_TIPS = ConfigKey.Bool(
+        "log.tips",
+        true,
+        "A tip a day in the log for your first two weeks: something you haven't used yet"
+    )
     val FEEDS_LOG = ConfigKey.Bool("feeds.log", true, "Post new feed items in the log")
-    val FEEDS_LOG_LINES = ConfigKey.Num("feeds.log-lines", 10, 1..50, "New items per feed and refresh shown in the log; the rest is one '+N more' line")
-    val FEEDS_READ_SHOWN = ConfigKey.Bool("feeds.read-shown", false, "Items posted in the log count as read (otherwise only opened or listed ones do)")
-    val FEEDS_BACKLOG_READ = ConfigKey.Bool("feeds.backlog-read", false, "When you subscribe, the posts already in the feed count as read; only newer ones are unread")
-    val FEEDS_INTERVAL = ConfigKey.Num("feeds.interval", 60, 15..1440, "Refresh interval for newly added feeds (minutes)")
-    val FEEDS_NOTIFY = ConfigKey.Bool("feeds.notify", false, "Newly added feeds notify about new items")
-    val FEEDS_WIFI = ConfigKey.Bool("feeds.wifi", false, "Scheduled refreshes only on Wi-Fi (unmetered networks); 'feed fetch' always runs")
+    val FEEDS_LOG_LINES = ConfigKey.Num(
+        "feeds.log-lines",
+        10,
+        1..50,
+        "New items per feed and refresh shown in the log; the rest is one '+N more' line"
+    )
+    val FEEDS_READ_SHOWN = ConfigKey.Bool(
+        "feeds.read-shown",
+        false,
+        "Items posted in the log count as read (otherwise only opened or listed ones do)"
+    )
+    val FEEDS_BACKLOG_READ = ConfigKey.Bool(
+        "feeds.backlog-read",
+        false,
+        "When you subscribe, the posts already in the feed count as read; only newer ones are unread"
+    )
+    val FEEDS_INTERVAL = ConfigKey.Num(
+        "feeds.interval",
+        60,
+        15..1440,
+        "Refresh interval for newly added feeds (minutes)"
+    )
+    val FEEDS_NOTIFY =
+        ConfigKey.Bool("feeds.notify", false, "Newly added feeds notify about new items")
+    val FEEDS_WIFI = ConfigKey.Bool(
+        "feeds.wifi",
+        false,
+        "Scheduled refreshes only on Wi-Fi (unmetered networks); 'feed fetch' always runs"
+    )
     val SEARCH_ENGINE = ConfigKey.Choice(
         "search.engine", "duckduckgo",
         listOf("duckduckgo", "google", "bing", "brave", "startpage", "kagi", "custom"),
         "Web search engine for search / g",
     )
-    val SEARCH_URL = ConfigKey.Text("search.url", "https://duckduckgo.com/?q=%s", "Custom search URL (%s = query), used when search.engine = custom")
+    val SEARCH_URL = ConfigKey.Text(
+        "search.url",
+        "https://duckduckgo.com/?q=%s",
+        "Custom search URL (%s = query), used when search.engine = custom"
+    )
+
     // Settings → Commands sets it with a switch per command.
     val COMMANDS_OFF = ConfigKey.Text(
         "commands.off", "",
         "Built-in commands turned off, separated by commas (none: all on). A command that is off isn't suggested or listed in help, and its name opens the app it matches (maps opens Maps). help, config and settings stay on",
         com.mtwabpin.kolahal.commands.CommandsOff::parse,
     )
-    val FOCUS_ON_HOME = ConfigKey.Bool("keyboard.on-home", false, "Open the on-screen keyboard whenever the home screen is shown")
-    val BACKUP_AUTO = ConfigKey.Choice("backup.auto", "off", listOf("off", "daily", "weekly"), "Write a backup file to a folder you pick, every day or every week")
-    val BACKUP_KEEP = ConfigKey.Num("backup.keep", 7, 1..60, "How many automatic backups to keep in the folder; older ones are deleted")
+    val FOCUS_ON_HOME = ConfigKey.Bool(
+        "keyboard.on-home",
+        false,
+        "Open the on-screen keyboard whenever the home screen is shown"
+    )
+    val BACKUP_AUTO = ConfigKey.Choice(
+        "backup.auto",
+        "off",
+        listOf("off", "daily", "weekly"),
+        "Write a backup file to a folder you pick, every day or every week"
+    )
+    val BACKUP_KEEP = ConfigKey.Num(
+        "backup.keep",
+        7,
+        1..60,
+        "How many automatic backups to keep in the folder; older ones are deleted"
+    )
     val IME_SUGGESTIONS = ConfigKey.Bool(
         "keyboard.suggestions", false,
         "Prompt keyboard suggestions (off uses a password-type field: no autocorrect, but Latin-only on some keyboards)",
     )
 
-    val WIDGETS_PAGE = ConfigKey.Choice("widgets.page", "left", listOf("left", "right", "off"), "A widgets page beside the terminal: swipe sideways on the home screen to reach it")
-    val WIDGETS_START = ConfigKey.Bool("widgets.start", false, "Start on the widgets page: home opens on it, and Home and Back return to it; swipe sideways for the log. Needs the app selector (selector.rail)")
+    val WIDGETS_PAGE = ConfigKey.Choice(
+        "widgets.page",
+        "left",
+        listOf("left", "right", "off"),
+        "A widgets page beside the terminal: swipe sideways on the home screen to reach it"
+    )
+    val WIDGETS_START = ConfigKey.Bool(
+        "widgets.start",
+        false,
+        "Start on the widgets page: home opens on it, and Home and Back return to it; swipe sideways for the log. Needs the app selector (selector.rail)"
+    )
 
     /**
      * Whether home starts on the widgets page: widgets.start, with the widgets page on, and the app
      * selector on. Without the selector, that page would have no way to open an app, so home starts on
      * the log; widgets.start keeps its value for when the selector is back.
      */
-    fun widgetsFirst(c: Config): Boolean = c[WIDGETS_START] && c[WIDGETS_PAGE] != "off" && c[SELECTOR_RAIL]
-    val WIDGETS_WALLPAPER = ConfigKey.Num("widgets.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the widgets page (%): 0 is none; higher shows less of the theme's colour")
-    val AGENDA_WIDGET_DAYS = ConfigKey.Choice("widgets.agenda-days", "auto", listOf("auto", "1", "3", "7", "14"), "Days the Agenda widget shows from today: auto looks ahead up to 14 days, as many events as the card fits")
+    fun widgetsFirst(c: Config): Boolean =
+        c[WIDGETS_START] && c[WIDGETS_PAGE] != "off" && c[SELECTOR_RAIL]
 
-    val GESTURE_DOUBLE_TAP = ConfigKey.Text("gesture.double-tap", if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "lock" else "none", "Double-tap empty log space: $GESTURE_ACTIONS, quick (quick actions) or none")
-    val GESTURE_SWIPE_DOWN = ConfigKey.Text("gesture.swipe-down", "shade", "Swipe down on the header: $GESTURE_ACTIONS, quick or none")
-    val GESTURE_SWIPE_UP = ConfigKey.Text("gesture.swipe-up", "none", "Swipe up on the prompt: $GESTURE_ACTIONS, quick or none (none by default: it's easy to trigger by accident; apps opens the app grid)")
+    val WIDGETS_WALLPAPER = ConfigKey.Num(
+        "widgets.wallpaper",
+        0,
+        0..100,
+        "How much of the phone's wallpaper shows behind the widgets page (%): 0 is none; higher shows less of the theme's colour"
+    )
+    val AGENDA_WIDGET_DAYS = ConfigKey.Choice(
+        "widgets.agenda-days",
+        "auto",
+        listOf("auto", "1", "3", "7", "14"),
+        "Days the Agenda widget shows from today: auto looks ahead up to 14 days, as many events as the card fits"
+    )
+
+    val GESTURE_DOUBLE_TAP = ConfigKey.Text(
+        "gesture.double-tap",
+        if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "lock" else "none",
+        "Double-tap empty log space: $GESTURE_ACTIONS, quick (quick actions) or none"
+    )
+    val GESTURE_SWIPE_DOWN = ConfigKey.Text(
+        "gesture.swipe-down",
+        "shade",
+        "Swipe down on the header: $GESTURE_ACTIONS, quick or none"
+    )
+    val GESTURE_SWIPE_UP = ConfigKey.Text(
+        "gesture.swipe-up",
+        "none",
+        "Swipe up on the prompt: $GESTURE_ACTIONS, quick or none (none by default: it's easy to trigger by accident; apps opens the app grid)"
+    )
 
     val ALL: List<ConfigKey<*>> = listOf(
         HEADER_SHOW,
@@ -277,7 +631,24 @@ object Keys {
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
      * of their own (the header's sides: Settings → Header → Arrange the header).
      */
-    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, LOG_LINE_HEIGHT, DATA_PLAN, DATA_START_DAY, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT, COMMANDS_OFF)
+    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(
+        LOG_KEEP_LINES,
+        LOG_LINE_HEIGHT,
+        DATA_PLAN,
+        DATA_START_DAY,
+        SELECTOR_AIM,
+        SELECTOR_AIM_SPEED,
+        SELECTOR_ACTIONS,
+        BACKUP_KEEP,
+        HEADER_PADDING,
+        HEADER_PINNED_SECONDS,
+        HEADER_PINNED_DOTS,
+        HEADER_PINNED_BAR_ABOVE,
+        HEADER_PINNED_BAR_BELOW,
+        HEADER_LEFT,
+        HEADER_RIGHT,
+        COMMANDS_OFF
+    )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
     fun byName(name: String): ConfigKey<*>? {
@@ -326,7 +697,8 @@ object Keys {
         // 0.4.16: always on.
         "header.media" to "what's playing always shows in the pinned header, with notification access",
         // 0.4.14: the header is one line, next to the camera.
-        *HEADER_GONE.map { it to "the header is one line: choose its parts with header.left and header.right" }.toTypedArray(),
+        *HEADER_GONE.map { it to "the header is one line: choose its parts with header.left and header.right" }
+            .toTypedArray(),
         // 0.4.16: two lists of parts instead of two items.
         "header.item-1" to "choose the header's parts, on each side, with header.left and header.right (Settings → Header → Arrange the header)",
         "header.item-2" to "choose the header's parts, on each side, with header.left and header.right (Settings → Header → Arrange the header)",
@@ -339,9 +711,38 @@ object Keys {
 
     // These are getters because [REMOVED], which is created first, reads them.
     /** The full header's own items before it became one line (0.4.14), in the order it showed them. */
-    private val OLD_ITEMS get() = listOf("unlocks", "battery", "network", "alarm", "todo", "settings", "profiles", "device")
-    private val HEADER_GONE get() = listOf("header.clock", "header.date") + OLD_ITEMS.map { "header.$it" }
-    private val COMPACT_GONE get() = listOf("clock", "date", "device", "unlocks", "battery", "network", "alarm", "media", "todo", "status", "settings", "profiles").map { "header.compact.$it" }
+    private val OLD_ITEMS
+        get() = listOf(
+            "unlocks",
+            "battery",
+            "network",
+            "alarm",
+            "todo",
+            "settings",
+            "profiles",
+            "device"
+        )
+    private val HEADER_GONE
+        get() = listOf(
+            "header.clock",
+            "header.date"
+        ) + OLD_ITEMS.map { "header.$it" }
+    private val COMPACT_GONE
+        get() = listOf(
+            "clock",
+            "date",
+            "device",
+            "unlocks",
+            "battery",
+            "network",
+            "alarm",
+            "media",
+            "todo",
+            "status",
+            "settings",
+            "profiles"
+        ).map { "header.compact.$it" }
+
     /** Which old items were on by default, for items never changed. */
     private val OLD_ON get() = setOf("unlocks", "battery", "alarm", "todo", "settings", "profiles")
 
@@ -361,7 +762,8 @@ object Keys {
         }
         val swipeUp = GESTURE_SWIPE_UP.key
         if (swipeUp !in saved) {
-            if (saved[OLD_SWIPE_UP_ON] == "on") out[swipeUp] = saved["gesture.swipeup"] ?: "apps" else out.remove(swipeUp)
+            if (saved[OLD_SWIPE_UP_ON] == "on") out[swipeUp] =
+                saved["gesture.swipeup"] ?: "apps" else out.remove(swipeUp)
         }
         carryRight(saved)?.let { if (HEADER_RIGHT.key !in saved) out[HEADER_RIGHT.key] = it }
         return out
@@ -373,11 +775,13 @@ object Keys {
      * showed them. Null if neither was changed: then the new default applies, unsaved.
      */
     private fun carryRight(saved: Map<String, String>): String? {
-        val items = carryItems(saved) + saved.filterKeys { it == "header.item-1" || it == "header.item-2" }
+        val items =
+            carryItems(saved) + saved.filterKeys { it == "header.item-1" || it == "header.item-2" }
         if (items.isEmpty()) return null
         val first = items["header.item-1"] ?: "alarm"
         val second = items["header.item-2"] ?: "todo"
-        return (listOf(first, second).filter { it in HEADER_PARTS }.distinct() + "battery").joinToString(",")
+        return (listOf(first, second).filter { it in HEADER_PARTS }
+            .distinct() + "battery").joinToString(",")
     }
 
     /**
@@ -389,11 +793,13 @@ object Keys {
         val items = OLD_ITEMS.filter { it != "battery" && it != "device" }
         if (items.none { "header.$it" in saved }) return emptyMap()
         val on = items.filter { saved["header.$it"]?.let(HEADER_SHOW::parse) ?: (it in OLD_ON) }
-        return listOf("header.item-1", "header.item-2").withIndex().associate { (i, key) -> key to (on.getOrNull(i) ?: "none") }
+        return listOf("header.item-1", "header.item-2").withIndex()
+            .associate { (i, key) -> key to (on.getOrNull(i) ?: "none") }
     }
 }
 
-private const val HEADER_PARTS_HELP = "parts separated by commas, from time, date, battery, alarm (the next one), todo (open todos), network, unlocks (today's count), profiles (work and private) and settings (a button), each on one side at most; none for an empty side"
+private const val HEADER_PARTS_HELP =
+    "parts separated by commas, from time, date, battery, alarm (the next one), todo (open todos), network, unlocks (today's count), profiles (work and private) and settings (a button), each on one side at most; none for an empty side"
 
 /** The parts in [raw] (separated by commas, spaces or both) as a header side's value. Returns none for an empty side, or null for an unknown or repeated part. */
 internal fun headerParts(raw: String): String? {
@@ -404,7 +810,8 @@ internal fun headerParts(raw: String): String? {
 }
 
 /** A header side's parts, read from its value ([Keys.HEADER_LEFT], [Keys.HEADER_RIGHT]). */
-internal fun headerSide(value: String): List<String> = value.split(',').filter { it in Keys.HEADER_PARTS }
+internal fun headerSide(value: String): List<String> =
+    value.split(',').filter { it in Keys.HEADER_PARTS }
 
 // What a keyboard's letters page doesn't have. The rest (`.`, backspace, Enter) is right below the bar.
 // From 0.4.16: the calculator's signs and @ instead of the left and right arrows (dragging across
@@ -413,4 +820,5 @@ private const val DEFAULT_KEYBAR = "/,@,|,=,+,-,*,UP,DOWN"
 private const val DEFAULT_KEYBAR2 = ""
 
 // The Play build has no screen lock to offer.
-private val GESTURE_ACTIONS = if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "a command, lock, shade" else "a command, shade"
+private val GESTURE_ACTIONS =
+    if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "a command, lock, shade" else "a command, shade"

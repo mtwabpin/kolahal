@@ -22,7 +22,11 @@ class LogPagerTest {
         val lines = ArrayList<LogEntry>()
         private var last = 0L
 
-        fun add(text: String = "x", kind: LogKind = LogKind.OUTPUT, ctx: LogContext = LogContext.EMPTY): LogEntry =
+        fun add(
+            text: String = "x",
+            kind: LogKind = LogKind.OUTPUT,
+            ctx: LogContext = LogContext.EMPTY
+        ): LogEntry =
             logEntry(kind, text, ctx = ctx, id = ++last).also { lines += it }
 
         fun remove(id: Long) = lines.removeAll { it.id == id }
@@ -47,32 +51,52 @@ class LogPagerTest {
     private fun ids(page: LogPage) = page.lines.map { it.id }
 
     /** No older line is read: the test fails if one is asked for. */
-    private val nothingOlder = { _: Int, _: Long -> throw AssertionError("no older line is needed") }
+    private val nothingOlder =
+        { _: Int, _: Long -> throw AssertionError("no older line is needed") }
 
-    private fun merge(log: FakeLog, page: LogPage, limit: Int, gone: Set<Long> = emptySet(), changed: Set<Long> = emptySet()) =
-        mergePage(page, gone, log.byIds(changed), log.recent(limit, afterId = page.lines.last().id), limit) { count, beforeId -> log.recent(count, beforeId = beforeId) }
+    private fun merge(
+        log: FakeLog,
+        page: LogPage,
+        limit: Int,
+        gone: Set<Long> = emptySet(),
+        changed: Set<Long> = emptySet()
+    ) =
+        mergePage(
+            page,
+            gone,
+            log.byIds(changed),
+            log.recent(limit, afterId = page.lines.last().id),
+            limit
+        ) { count, beforeId -> log.recent(count, beforeId = beforeId) }
 
     // ---- the log's page -------------------------------------------------------------------
 
-    @Test fun newLinesComeAtTheEnd() {
+    @Test
+    fun newLinesComeAtTheEnd() {
         val log = log(3)
         val page = log.page(5)
         assertTrue(page.atStart)
         val fresh = listOf(log.add(), log.add())
-        assertEquals(LogPage(log.lines, atStart = true), mergePage(page, emptySet(), emptyMap(), fresh, 5, nothingOlder))
+        assertEquals(
+            LogPage(log.lines, atStart = true),
+            mergePage(page, emptySet(), emptyMap(), fresh, 5, nothingOlder)
+        )
     }
 
     /** More lines than the page holds: the oldest leave it, and they are before the page from then on. */
-    @Test fun thePageKeepsItsNewestLines() {
+    @Test
+    fun thePageKeepsItsNewestLines() {
         val log = log(5)
         val page = log.page(5)
         val fresh = listOf(log.add(), log.add())
-        val merged = mergePage(page.copy(atStart = true), emptySet(), emptyMap(), fresh, 5, nothingOlder)
+        val merged =
+            mergePage(page.copy(atStart = true), emptySet(), emptyMap(), fresh, 5, nothingOlder)
         assertEquals(listOf(3L, 4L, 5L, 6L, 7L), ids(merged))
         assertFalse(merged.atStart)
     }
 
-    @Test fun olderLinesTakeThePlaceOfRemovedOnes() {
+    @Test
+    fun olderLinesTakeThePlaceOfRemovedOnes() {
         val log = log(10)
         val page = log.page(5)
         log.remove(7)
@@ -83,7 +107,8 @@ class LogPagerTest {
     }
 
     /** Fewer older lines than asked for: that is the log's start, and nothing older is read after it. */
-    @Test fun theLogsStartIsFoundOnce() {
+    @Test
+    fun theLogsStartIsFoundOnce() {
         val log = log(6)
         val page = log.page(5)
         assertFalse(page.atStart)
@@ -92,11 +117,15 @@ class LogPagerTest {
         val merged = merge(log, page, 5, gone = setOf(3, 4))
         assertEquals(LogPage(log.lines, atStart = true), merged)
         log.remove(5)
-        assertEquals(listOf(1L, 2L, 6L), ids(mergePage(merged, setOf(5), emptyMap(), emptyList(), 5, nothingOlder)))
+        assertEquals(
+            listOf(1L, 2L, 6L),
+            ids(mergePage(merged, setOf(5), emptyMap(), emptyList(), 5, nothingOlder))
+        )
     }
 
     /** Scrolling back raises the limit. The lines before the page are read, up to it. */
-    @Test fun scrollingBackReadsTheOlderLines() {
+    @Test
+    fun scrollingBackReadsTheOlderLines() {
         val log = log(10)
         val page = log.page(5)
         assertEquals(listOf(3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L), ids(merge(log, page, 8)))
@@ -106,7 +135,8 @@ class LogPagerTest {
         assertEquals(LogPage(log.recent(5), atStart = false), merge(log, all, 5))
     }
 
-    @Test fun aChangedLineIsReadAgainWhereItIs() {
+    @Test
+    fun aChangedLineIsReadAgainWhereItIs() {
         val log = log(10)
         val page = log.page(5)
         log.set(7, "seven")
@@ -117,14 +147,19 @@ class LogPagerTest {
     }
 
     /** Every line of the page went and none came: the page is empty, and nothing tells where to read from. */
-    @Test fun withNoLineLeftNothingOlderIsRead() {
+    @Test
+    fun withNoLineLeftNothingOlderIsRead() {
         val log = log(10)
         val page = log.page(2)
-        assertEquals(LogPage(emptyList(), atStart = false), mergePage(page, setOf(9, 10), emptyMap(), emptyList(), 2, nothingOlder))
+        assertEquals(
+            LogPage(emptyList(), atStart = false),
+            mergePage(page, setOf(9, 10), emptyMap(), emptyList(), 2, nothingOlder)
+        )
     }
 
     /** Against reading the page again: lines come, go and change, and the user scrolls back and returns. */
-    @Test fun itIsThePageThatReadingAgainGives() {
+    @Test
+    fun itIsThePageThatReadingAgainGives() {
         val random = Random(7)
         repeat(300) { round ->
             val log = log(random.nextInt(0, 30))
@@ -134,8 +169,13 @@ class LogPagerTest {
                 val gone = HashSet<Long>()
                 val changed = HashSet<Long>()
                 repeat(random.nextInt(0, 4)) { log.add() }
-                repeat(random.nextInt(0, 3)) { log.lines.randomOrNull(random)?.let { gone += it.id; log.remove(it.id) } }
-                repeat(random.nextInt(0, 3)) { log.lines.randomOrNull(random)?.let { changed += it.id; log.set(it.id, "changed $step") } }
+                repeat(random.nextInt(0, 3)) {
+                    log.lines.randomOrNull(random)?.let { gone += it.id; log.remove(it.id) }
+                }
+                repeat(random.nextInt(0, 3)) {
+                    log.lines.randomOrNull(random)
+                        ?.let { changed += it.id; log.set(it.id, "changed $step") }
+                }
                 if (random.nextInt(4) == 0) limit = listOf(3, 5, 8, 20).random(random)
                 val where = "round $round, step $step, limit $limit"
                 if (page.lines.isEmpty()) {
@@ -144,7 +184,13 @@ class LogPagerTest {
                     return@repeat
                 }
                 val fresh = log.recent(limit, afterId = page.lines.last().id)
-                val merged = mergePage(page, gone, log.byIds(changed), fresh, limit) { count, beforeId -> log.recent(count, beforeId = beforeId) }
+                val merged = mergePage(
+                    page,
+                    gone,
+                    log.byIds(changed),
+                    fresh,
+                    limit
+                ) { count, beforeId -> log.recent(count, beforeId = beforeId) }
                 if (merged.lines.isEmpty()) {
                     assertTrue(where, fresh.isEmpty() && page.lines.all { it.id in gone })
                 } else {
@@ -160,7 +206,8 @@ class LogPagerTest {
 
     // ---- a removed command ----------------------------------------------------------------
 
-    @Test fun aRemovedLineMayHaveBeenACommand() {
+    @Test
+    fun aRemovedLineMayHaveBeenACommand() {
         val log = FakeLog()
         val typed = log.add("ls", LogKind.COMMAND)
         val printed = log.add("a file")
@@ -181,26 +228,39 @@ class LogPagerTest {
 
     /** The whole log searched, as a reload searches it when it can't build on what it showed. */
     private fun search(log: FakeLog, limit: Int, locked: Set<Long> = emptySet()) =
-        log.lines.filter { it.ctx.userSerial !in locked && cats(it) }.let { FilterPage(it.takeLast(limit), it.size) }
+        log.lines.filter { it.ctx.userSerial !in locked && cats(it) }
+            .let { FilterPage(it.takeLast(limit), it.size) }
 
-    @Test fun newLinesTheFilterAcceptsAreAdded() {
+    @Test
+    fun newLinesTheFilterAcceptsAreAdded() {
         val log = FakeLog()
         val first = log.add("a cat")
         val shown = search(log, 5)
         val fresh = listOf(log.add("a dog"), log.add("two cats"))
-        assertEquals(FilterPage(listOf(first, fresh[1]), 2), patchFilterPage(shown, emptyMap(), fresh, 5, emptySet(), cats))
+        assertEquals(
+            FilterPage(listOf(first, fresh[1]), 2),
+            patchFilterPage(shown, emptyMap(), fresh, 5, emptySet(), cats)
+        )
     }
 
-    @Test fun linesOfALockedSpaceAreLeftOut() {
+    @Test
+    fun linesOfALockedSpaceAreLeftOut() {
         val log = FakeLog()
         val shown = search(log, 5, locked)
         val fresh = listOf(log.add("a cat", ctx = inPrivateSpace), log.add("my cat"))
-        assertEquals(FilterPage(listOf(fresh[1]), 1), patchFilterPage(shown, emptyMap(), fresh, 5, locked, cats))
-        assertEquals(FilterPage(fresh, 2), patchFilterPage(shown, emptyMap(), fresh, 5, emptySet(), cats))
+        assertEquals(
+            FilterPage(listOf(fresh[1]), 1),
+            patchFilterPage(shown, emptyMap(), fresh, 5, locked, cats)
+        )
+        assertEquals(
+            FilterPage(fresh, 2),
+            patchFilterPage(shown, emptyMap(), fresh, 5, emptySet(), cats)
+        )
     }
 
     /** More than the page holds: the newest stay, and the count is of them all. */
-    @Test fun theFiltersPageKeepsItsNewestLines() {
+    @Test
+    fun theFiltersPageKeepsItsNewestLines() {
         val log = FakeLog()
         repeat(3) { log.add("cat $it") }
         val shown = search(log, 3)
@@ -210,7 +270,8 @@ class LogPagerTest {
         assertEquals(5, patched.count)
     }
 
-    @Test fun aChangedLineIsPatchedOrGoes() {
+    @Test
+    fun aChangedLineIsPatchedOrGoes() {
         val log = FakeLog()
         val one = log.add("cat one")
         val two = log.add("cat two")
@@ -218,12 +279,20 @@ class LogPagerTest {
         val shown = search(log, 5)
         log.set(one.id, "the cat sleeps")
         log.set(two.id, "a dog now")
-        val patched = patchFilterPage(shown, log.byIds(setOf(one.id, two.id)), emptyList(), 5, emptySet(), cats)
+        val patched = patchFilterPage(
+            shown,
+            log.byIds(setOf(one.id, two.id)),
+            emptyList(),
+            5,
+            emptySet(),
+            cats
+        )
         assertEquals(FilterPage(listOf(one.copy(text = "the cat sleeps"), three), 2), patched)
     }
 
     /** Where it belongs among the lines shown isn't known, so the whole log is searched. */
-    @Test fun aChangedLineThatNowMatchesNeedsTheWholeLog() {
+    @Test
+    fun aChangedLineThatNowMatchesNeedsTheWholeLog() {
         val log = FakeLog()
         val dog = log.add("a dog")
         val hidden = log.add("a bird", ctx = inPrivateSpace)
@@ -234,28 +303,63 @@ class LogPagerTest {
         // A line of a locked space isn't shown, whatever it says now. Nor is one the filter still refuses.
         log.set(hidden.id, "a hidden cat")
         log.set(dog.id, "a bigger dog")
-        assertEquals(shown, patchFilterPage(shown, log.byIds(setOf(dog.id, hidden.id)), emptyList(), 5, locked, cats))
+        assertEquals(
+            shown,
+            patchFilterPage(
+                shown,
+                log.byIds(setOf(dog.id, hidden.id)),
+                emptyList(),
+                5,
+                locked,
+                cats
+            )
+        )
     }
 
     /** Against searching the whole log again, while every line the filter accepts is on its page. */
-    @Test fun itIsWhatSearchingAgainGives() {
+    @Test
+    fun itIsWhatSearchingAgainGives() {
         val random = Random(11)
         val words = listOf("a cat", "a dog", "two cats", "a bird")
         var patches = 0
         var searches = 0
         repeat(300) { round ->
             val log = FakeLog()
-            repeat(random.nextInt(0, 10)) { log.add(words.random(random), ctx = if (random.nextInt(4) == 0) inPrivateSpace else LogContext.EMPTY) }
+            repeat(random.nextInt(0, 10)) {
+                log.add(
+                    words.random(random),
+                    ctx = if (random.nextInt(4) == 0) inPrivateSpace else LogContext.EMPTY
+                )
+            }
             val limit = 1_000
             var shown = search(log, limit, locked)
             repeat(20) { step ->
                 val changed = HashSet<Long>()
                 val newest = log.lines.lastOrNull()?.id ?: 0
-                repeat(random.nextInt(0, 3)) { log.lines.randomOrNull(random)?.let { changed += it.id; log.set(it.id, words.random(random)) } }
-                repeat(random.nextInt(0, 3)) { log.add(words.random(random), ctx = if (random.nextInt(4) == 0) inPrivateSpace else LogContext.EMPTY) }
-                val patched = patchFilterPage(shown, log.byIds(changed), log.recent(limit, afterId = newest), limit, locked, cats)
+                repeat(random.nextInt(0, 3)) {
+                    log.lines.randomOrNull(random)
+                        ?.let { changed += it.id; log.set(it.id, words.random(random)) }
+                }
+                repeat(random.nextInt(0, 3)) {
+                    log.add(
+                        words.random(random),
+                        ctx = if (random.nextInt(4) == 0) inPrivateSpace else LogContext.EMPTY
+                    )
+                }
+                val patched = patchFilterPage(
+                    shown,
+                    log.byIds(changed),
+                    log.recent(limit, afterId = newest),
+                    limit,
+                    locked,
+                    cats
+                )
                 val expected = search(log, limit, locked)
-                if (patched == null) searches++ else assertEquals("round $round, step $step", expected, patched).also { patches++ }
+                if (patched == null) searches++ else assertEquals(
+                    "round $round, step $step",
+                    expected,
+                    patched
+                ).also { patches++ }
                 shown = expected
             }
         }
@@ -264,7 +368,8 @@ class LogPagerTest {
     }
 
     /** New lines only, and a page shorter than what the filter accepts: still what a search gives. */
-    @Test fun aShortPageFollowsNewLinesAsASearchWould() {
+    @Test
+    fun aShortPageFollowsNewLinesAsASearchWould() {
         val random = Random(3)
         repeat(200) { round ->
             val log = FakeLog()
@@ -272,8 +377,20 @@ class LogPagerTest {
             var shown = search(log, limit)
             repeat(20) { step ->
                 val newest = log.lines.lastOrNull()?.id ?: 0
-                repeat(random.nextInt(0, 4)) { log.add(if (random.nextBoolean()) "a cat" else "a dog") }
-                shown = patchFilterPage(shown, emptyMap(), log.recent(1_000, afterId = newest), limit, emptySet(), cats)!!
+                repeat(
+                    random.nextInt(
+                        0,
+                        4
+                    )
+                ) { log.add(if (random.nextBoolean()) "a cat" else "a dog") }
+                shown = patchFilterPage(
+                    shown,
+                    emptyMap(),
+                    log.recent(1_000, afterId = newest),
+                    limit,
+                    emptySet(),
+                    cats
+                )!!
                 assertEquals("round $round, step $step", search(log, limit), shown)
             }
         }
@@ -283,18 +400,72 @@ class LogPagerTest {
      * `log only` is searched again, not patched, once a private space is locked or unlocked: a patch
      * looks at new lines only, so the space's lines already shown would stay, or stay missing.
      */
-    @Test fun aLockedSpaceSearchesTheWholeLogAgain() {
+    @Test
+    fun aLockedSpaceSearchesTheWholeLogAgain() {
         val feeds = LogFilter.parse("feeds")!!
         fun can(locked: Set<Long>, filteredLocks: Set<Long>) =
-            canPatchFilter(feeds, incremental = true, filteredFor = feeds, limit = 100, filteredLimit = 100, removed = false, locked, filteredLocks)
+            canPatchFilter(
+                feeds,
+                incremental = true,
+                filteredFor = feeds,
+                limit = 100,
+                filteredLimit = 100,
+                removed = false,
+                locked,
+                filteredLocks
+            )
         assertTrue(can(emptySet(), emptySet()))
         assertTrue(can(setOf(11L), setOf(11L)))
         assertFalse("locked since", can(setOf(11L), emptySet()))
         assertFalse("unlocked since", can(emptySet(), setOf(11L)))
         // The other reasons still hold.
-        assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = feeds, limit = 100, filteredLimit = 100, removed = true, emptySet(), emptySet()))
-        assertFalse(canPatchFilter(feeds, incremental = false, filteredFor = feeds, limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
-        assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = LogFilter.parse("starred"), limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
-        assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = feeds, limit = 200, filteredLimit = 100, removed = false, emptySet(), emptySet()))
+        assertFalse(
+            canPatchFilter(
+                feeds,
+                incremental = true,
+                filteredFor = feeds,
+                limit = 100,
+                filteredLimit = 100,
+                removed = true,
+                emptySet(),
+                emptySet()
+            )
+        )
+        assertFalse(
+            canPatchFilter(
+                feeds,
+                incremental = false,
+                filteredFor = feeds,
+                limit = 100,
+                filteredLimit = 100,
+                removed = false,
+                emptySet(),
+                emptySet()
+            )
+        )
+        assertFalse(
+            canPatchFilter(
+                feeds,
+                incremental = true,
+                filteredFor = LogFilter.parse("starred"),
+                limit = 100,
+                filteredLimit = 100,
+                removed = false,
+                emptySet(),
+                emptySet()
+            )
+        )
+        assertFalse(
+            canPatchFilter(
+                feeds,
+                incremental = true,
+                filteredFor = feeds,
+                limit = 200,
+                filteredLimit = 100,
+                removed = false,
+                emptySet(),
+                emptySet()
+            )
+        )
     }
 }

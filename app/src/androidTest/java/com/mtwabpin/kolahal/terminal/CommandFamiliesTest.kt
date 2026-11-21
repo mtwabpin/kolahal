@@ -1,16 +1,20 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import android.app.WallpaperManager
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.CrashReportsAside
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.TableRows
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.control.WallpaperMatch
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Db
 import com.mtwabpin.kolahal.data.Keys
@@ -20,20 +24,16 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitUntil
-import java.io.File
-import com.mtwabpin.kolahal.CrashReportsAside
-import com.mtwabpin.kolahal.LogLinesSince
-import com.mtwabpin.kolahal.TableRows
-import com.mtwabpin.kolahal.control.WallpaperMatch
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /** One test per command family: what each prints and what it changes. */
 @RunWith(AndroidJUnit4::class)
@@ -48,22 +48,31 @@ class CommandFamiliesTest {
     private val noteStore = com.mtwabpin.kolahal.productivity.NoteStore.get(context)
     private val reminderStore = com.mtwabpin.kolahal.productivity.ReminderStore.get(context)
 
-    @get:Rule val configReset = ConfigReset()
-    @get:Rule val crashReports = CrashReportsAside()
+    @get:Rule
+    val configReset = ConfigReset()
+
+    @get:Rule
+    val crashReports = CrashReportsAside()
+
     // Its commands and what they print, and the ↑ recall `clear history` empties.
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private val commands = CommandRunner(context, object : TerminalUiStub() {
-        override fun clearScreen() { cleared++ }
+        override fun clearScreen() {
+            cleared++
+        }
     })
     private val crashDir = File(context.filesDir, "crash")
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         clearMine()
         apps.refresh()
         eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         prefs.setAlias("tt", null)
         clearMine()
     }
@@ -84,18 +93,25 @@ class CommandFamiliesTest {
     /** Runs [line] and returns the non-command lines it printed. */
     private fun run(line: String) = commands.run(line)
 
-    @Test fun helpListsEveryCommandAndPipesFilterIt() {
+    @Test
+    fun helpListsEveryCommandAndPipesFilterIt() {
         val help = run("help")
-        for (spec in CommandCatalog.OFFERED) assertTrue("${spec.name} missing from help", spec.name in help)
+        for (spec in CommandCatalog.OFFERED) assertTrue(
+            "${spec.name} missing from help",
+            spec.name in help
+        )
         val grepped = run("help | grep crashes")
-        assertTrue(grepped.toString(), grepped.isNotEmpty() && grepped.all { it.contains("crashes", ignoreCase = true) })
+        assertTrue(
+            grepped.toString(),
+            grepped.isNotEmpty() && grepped.all { it.contains("crashes", ignoreCase = true) })
         // A row is found by its description and its arguments too.
         assertTrue(run("help | grep vibrate").contains("ring"))
         assertEquals(2, run("help | grep -v zzz | head 2").size)
     }
 
     /** `help todo` is that command alone; a synonym finds its command, a near miss the nearest ones. */
-    @Test fun helpForOneCommand() {
+    @Test
+    fun helpForOneCommand() {
         val todo = CommandCatalog.COMMANDS.first { it.name == "todo" }
         val one = run("help todo").map(com.mtwabpin.kolahal.data.StyledText::plain)
         assertEquals("todo", one.first().trim())
@@ -107,13 +123,21 @@ class CommandFamiliesTest {
     }
 
     /** Arithmetic is answered at once, the number large with the sum under it; what has no answer says why. */
-    @Test fun calculatorAnswersHere() {
-        assertEquals(listOf(com.mtwabpin.kolahal.data.StyledText.stats(listOf("1024" to "2^10"))), run("= 2^10"))
-        assertEquals(listOf("12 15% of 80"), run("= 15% of 80").map(com.mtwabpin.kolahal.data.StyledText::plain))
+    @Test
+    fun calculatorAnswersHere() {
+        assertEquals(
+            listOf(com.mtwabpin.kolahal.data.StyledText.stats(listOf("1024" to "2^10"))),
+            run("= 2^10")
+        )
+        assertEquals(
+            listOf("12 15% of 80"),
+            run("= 15% of 80").map(com.mtwabpin.kolahal.data.StyledText::plain)
+        )
         assertEquals(listOf("1/0: can't divide by zero"), run("= 1/0"))
     }
 
-    @Test fun unitConversion() {
+    @Test
+    fun unitConversion() {
         val out = run("= 5 km in mi")
         assertTrue(out.toString(), out.single().contains("3.1"))
     }
@@ -121,14 +145,20 @@ class CommandFamiliesTest {
     /** [item]'s number in [list], as `todo`, `notes` and `reminders` number them: the phone's own may come first. */
     private fun <T> numberOf(list: List<T>, item: (T) -> Boolean) = list.indexOfFirst(item) + 1
 
-    @Test fun todoAddDoneClear() {
+    @Test
+    fun todoAddDoneClear() {
         assertTrue(run("todo cptest milk").any { it.endsWith("[ ] cptest milk") })
         assertTrue(run("todo").any { it.endsWith("[ ] cptest milk") })
         run("todo done ${numberOf(todoStore.all()) { it.text == "cptest milk" }}")
         assertTrue(todoStore.all().single { it.text == "cptest milk" }.done)
         assertTrue(run("todo").none { it.endsWith("cptest milk") })
         // `todo clear` takes every finished todo: the phone's own are set aside meanwhile.
-        val others = TableRows.take(Db.get(context).writableDatabase, "todos", "done = 1 AND text != ?", "cptest milk")
+        val others = TableRows.take(
+            Db.get(context).writableDatabase,
+            "todos",
+            "done = 1 AND text != ?",
+            "cptest milk"
+        )
         others.rows.forEach { todoStore.remove(it.getAsLong("id")) }
         try {
             assertEquals(listOf("Cleared 1 finished todo"), run("todo clear"))
@@ -139,42 +169,63 @@ class CommandFamiliesTest {
         assertTrue(run("todo all").none { it.endsWith("cptest milk") })
     }
 
-    @Test fun notesAddFindRemove() {
+    @Test
+    fun notesAddFindRemove() {
         assertTrue(run("note cptest idea").single().startsWith("Note saved"))
         assertTrue(run("notes").any { it.contains("cptest idea") })
         assertTrue(run("notes grep cptest").any { it.contains("cptest idea") })
-        assertTrue(run("notes rm ${numberOf(noteStore.all()) { "cptest idea" in it.text }}").single().contains("cptest idea"))
+        assertTrue(
+            run("notes rm ${numberOf(noteStore.all()) { "cptest idea" in it.text }}").single()
+                .contains("cptest idea")
+        )
         assertTrue(noteStore.all().none { "cptest idea" in it.text })
         assertTrue(run("notes").none { it.contains("cptest idea") })
     }
 
-    @Test fun remindListCancel() {
+    @Test
+    fun remindListCancel() {
         assertTrue(run("remind 10m cptest tea").first().contains("cptest tea"))
         assertTrue(run("reminders").any { it.contains("cptest tea") })
-        assertEquals("Cancelled reminder: cptest tea", run("remind rm ${numberOf(reminderStore.all()) { "cptest tea" in it.text }}").single())
+        assertEquals(
+            "Cancelled reminder: cptest tea",
+            run("remind rm ${numberOf(reminderStore.all()) { "cptest tea" in it.text }}").single()
+        )
         assertTrue(reminderStore.all().none { "cptest tea" in it.text })
         assertTrue(run("reminders").none { it.contains("cptest tea") })
         assertTrue(run("remind someday x").single().startsWith("Usage: remind"))
     }
 
     /** A time typed for before 6 AM sets nothing until it's tapped, and says what else it could mean. */
-    @Test fun aTimeBeforeSixAsksFirst() {
+    @Test
+    fun aTimeBeforeSixAsksFirst() {
         val store = com.mtwabpin.kolahal.productivity.ReminderStore.get(context)
         fun mine() = store.all().filter { "cptest" in it.text }
         fun time(r: com.mtwabpin.kolahal.productivity.Reminder) =
-            java.time.Instant.ofEpochMilli(r.at).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+            java.time.Instant.ofEpochMilli(r.at).atZone(java.time.ZoneId.systemDefault())
+                .toLocalTime()
+
         fun cancelAll() = mine().forEach {
             com.mtwabpin.kolahal.productivity.ReminderScheduler.cancel(context, it.id)
             store.remove(it.id)
         }
+
         /** What tapping the newest line starting with [start] runs. */
-        fun tap(start: String) = run(logs.recent(20).last { it.text.startsWith(start) }.ctx.values.getValue(com.mtwabpin.kolahal.data.LogContext.RUN))
+        fun tap(start: String) = run(
+            logs.recent(20)
+                .last { it.text.startsWith(start) }.ctx.values.getValue(com.mtwabpin.kolahal.data.LogContext.RUN)
+        )
         try {
             val asked = run("remind tomorrow 2 cptest tickets")
             assertEquals(asked.toString(), 3, asked.size)
-            assertTrue(asked[0], asked[0].startsWith("Not set yet, as tomorrow ") && asked[0].endsWith(" is before 6 AM: cptest tickets"))
+            assertTrue(
+                asked[0],
+                asked[0].startsWith("Not set yet, as tomorrow ") && asked[0].endsWith(" is before 6 AM: cptest tickets")
+            )
             assertTrue(asked[1], asked[1].startsWith("Tap to set it for tomorrow "))
-            assertTrue(asked[2], asked[2].startsWith("Or tap to set it for tomorrow ") && asked[2].endsWith(": 2 cptest tickets"))
+            assertTrue(
+                asked[2],
+                asked[2].startsWith("Or tap to set it for tomorrow ") && asked[2].endsWith(": 2 cptest tickets")
+            )
             assertEquals(emptyList<Any>(), mine())
 
             // Either reading, and tapped twice it's still one reminder.
@@ -194,7 +245,12 @@ class CommandFamiliesTest {
                 assertEquals(typed, 2, run("remind $typed cptest x").size)
                 assertEquals(typed, emptyList<Any>(), mine())
             }
-            run("remind every day 2:30 cptest pills").let { assertTrue(it.toString(), it[1].endsWith(", then every day")) }
+            run("remind every day 2:30 cptest pills").let {
+                assertTrue(
+                    it.toString(),
+                    it[1].endsWith(", then every day")
+                )
+            }
             assertEquals(emptyList<Any>(), mine())
             assertTrue(tap("Tap to set it").first().contains("then every day: cptest pills"))
             assertEquals("day", mine().single().repeat)
@@ -202,8 +258,18 @@ class CommandFamiliesTest {
             cancelAll()
 
             // From 6 on, a duration, or --yes: it's set at once.
-            for (typed in listOf("6:00", "tomorrow 9", "10m", "in 2h", "--yes 5:00", "--yes tomorrow 2")) {
-                assertTrue(typed, run("remind $typed cptest x").first().startsWith("Reminder set for"))
+            for (typed in listOf(
+                "6:00",
+                "tomorrow 9",
+                "10m",
+                "in 2h",
+                "--yes 5:00",
+                "--yes tomorrow 2"
+            )) {
+                assertTrue(
+                    typed,
+                    run("remind $typed cptest x").first().startsWith("Reminder set for")
+                )
                 assertEquals(typed, 1, mine().size)
                 cancelAll()
             }
@@ -213,56 +279,98 @@ class CommandFamiliesTest {
     }
 
     /** A repeating reminder is set again for its next time when it fires; Snooze adds a one-off copy. */
-    @Test fun aRepeatingReminderComesBack() {
+    @Test
+    fun aRepeatingReminderComesBack() {
         val store = com.mtwabpin.kolahal.productivity.ReminderStore.get(context)
         fun mine() = store.all().filter { it.text == "cptest pills" }
         try {
-            assertTrue(run("remind every day 8:00 cptest pills").first().contains("then every day: cptest pills"))
+            assertTrue(
+                run("remind every day 8:00 cptest pills").first()
+                    .contains("then every day: cptest pills")
+            )
             val r = mine().single()
             assertEquals("day", r.repeat)
             assertEquals("08:00", r.time)
-            assertTrue(run("reminders").toString(), logs.recent(20).any { it.ctx.values[com.mtwabpin.kolahal.data.LogContext.DESC]?.endsWith("every day") == true })
+            assertTrue(
+                run("reminders").toString(),
+                logs.recent(20)
+                    .any { it.ctx.values[com.mtwabpin.kolahal.data.LogContext.DESC]?.endsWith("every day") == true })
 
             context.sendBroadcast(
-                android.content.Intent(context, com.mtwabpin.kolahal.productivity.ReminderReceiver::class.java)
+                android.content.Intent(
+                    context,
+                    com.mtwabpin.kolahal.productivity.ReminderReceiver::class.java
+                )
                     .putExtra(com.mtwabpin.kolahal.productivity.ReminderScheduler.EXTRA_ID, r.id),
             )
             waitUntil("set for the next day") { mine().singleOrNull()?.at?.let { it > r.at } == true }
-            val next = java.time.Instant.ofEpochMilli(mine().single().at).atZone(java.time.ZoneId.systemDefault())
+            val next = java.time.Instant.ofEpochMilli(mine().single().at)
+                .atZone(java.time.ZoneId.systemDefault())
             assertEquals(java.time.LocalTime.of(8, 0), next.toLocalTime())
 
             context.sendBroadcast(
-                android.content.Intent(context, com.mtwabpin.kolahal.productivity.ReminderActionReceiver::class.java)
+                android.content.Intent(
+                    context,
+                    com.mtwabpin.kolahal.productivity.ReminderActionReceiver::class.java
+                )
                     .setAction(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.ACTION_SNOOZE)
                     .putExtra(com.mtwabpin.kolahal.productivity.ReminderScheduler.EXTRA_ID, r.id)
-                    .putExtra(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_TEXT, "cptest pills")
-                    .putExtra(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_MINUTES, 10),
+                    .putExtra(
+                        com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_TEXT,
+                        "cptest pills"
+                    )
+                    .putExtra(
+                        com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_MINUTES,
+                        10
+                    ),
             )
             waitUntil("a snoozed copy") { mine().size == 2 }
             val snoozed = mine().single { it.repeat == null }
             assertTrue(kotlin.math.abs(snoozed.at - (System.currentTimeMillis() + 600_000)) < 60_000)
         } finally {
-            mine().forEach { com.mtwabpin.kolahal.productivity.ReminderScheduler.cancel(context, it.id); store.remove(it.id) }
+            mine().forEach {
+                com.mtwabpin.kolahal.productivity.ReminderScheduler.cancel(
+                    context,
+                    it.id
+                ); store.remove(it.id)
+            }
         }
     }
 
     /** `script set` lists a script's options, changes one, and puts its default back. */
-    @Test fun scriptSetChangesAnOption() {
+    @Test
+    fun scriptSetChangesAnOption() {
         val repo = com.mtwabpin.kolahal.data.ScriptRepository.get(context)
-        val s = repo.create("cptestopt", com.mtwabpin.kolahal.data.ScriptLang.LUA, "-- @option city London The city\nreturn 1")
+        val s = repo.create(
+            "cptestopt",
+            com.mtwabpin.kolahal.data.ScriptLang.LUA,
+            "-- @option city London The city\nreturn 1"
+        )
         try {
-            assertTrue(run("script set cptestopt").toString(), run("script set cptestopt").any { it.startsWith("city") && it.endsWith("London (default)") })
-            assertEquals(listOf("cptestopt: city = New York"), run("script set cptestopt city New York"))
+            assertTrue(
+                run("script set cptestopt").toString(),
+                run("script set cptestopt").any { it.startsWith("city") && it.endsWith("London (default)") })
+            assertEquals(
+                listOf("cptestopt: city = New York"),
+                run("script set cptestopt city New York")
+            )
             assertTrue(run("script set cptestopt").any { it.startsWith("city") && it.endsWith("New York") })
-            assertEquals(listOf("cptestopt: city reset to default, London"), run("script set cptestopt city --reset"))
-            assertTrue(run("script set cptestopt town x").single().startsWith("cptestopt has no @option town"))
+            assertEquals(
+                listOf("cptestopt: city reset to default, London"),
+                run("script set cptestopt city --reset")
+            )
+            assertTrue(
+                run("script set cptestopt town x").single()
+                    .startsWith("cptestopt has no @option town")
+            )
         } finally {
             repo.delete(s.id)
         }
     }
 
     /** `backup every` sets automatic backups, which schedule themselves, and asks for a folder when there is none. */
-    @Test fun backupEverySchedulesBackups() {
+    @Test
+    fun backupEverySchedulesBackups() {
         val wm = androidx.work.WorkManager.getInstance(context)
         fun state() = wm.getWorkInfosForUniqueWork("auto-backup").get().lastOrNull()?.state
         // The first backup starts by itself, at any moment from here on. With no folder it fails, and says
@@ -273,19 +381,28 @@ class CommandFamiliesTest {
         try {
             assertTrue(said("backup every weekly").first().startsWith("Backing up weekly to "))
             assertEquals("weekly", config[Keys.BACKUP_AUTO])
-            val scheduled = setOf(androidx.work.WorkInfo.State.ENQUEUED, androidx.work.WorkInfo.State.RUNNING)
+            val scheduled =
+                setOf(androidx.work.WorkInfo.State.ENQUEUED, androidx.work.WorkInfo.State.RUNNING)
             assertTrue("scheduled: ${state()}", eventually(5_000) { state() in scheduled })
             // Over and done with, so its line can't turn up in the next test's output.
-            eventually(3_000) { logs.recent(50).any { it.id > before && it.text.startsWith(failed) } }
-            assertEquals(listOf("Usage: backup every <daily|weekly|off>"), said("backup every hourly"))
+            eventually(3_000) {
+                logs.recent(50).any { it.id > before && it.text.startsWith(failed) }
+            }
+            assertEquals(
+                listOf("Usage: backup every <daily|weekly|off>"),
+                said("backup every hourly")
+            )
             assertEquals(listOf("Automatic backups off"), said("backup every off"))
-            assertTrue("cancelled: ${state()}", eventually(5_000) { state() == androidx.work.WorkInfo.State.CANCELLED })
+            assertTrue(
+                "cancelled: ${state()}",
+                eventually(5_000) { state() == androidx.work.WorkInfo.State.CANCELLED })
         } finally {
             config.reset(Keys.BACKUP_AUTO)
         }
     }
 
-    @Test fun sourceOpensGitHub() {
+    @Test
+    fun sourceOpensGitHub() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val opened = mutableListOf<Intent>()
         val browser = object : android.app.Instrumentation.ActivityMonitor() {
@@ -306,12 +423,15 @@ class CommandFamiliesTest {
     }
 
     /** It says whose the wallpaper is, asks before replacing one, and doesn't ask twice. */
-    @Test fun wallpaperCommand() {
+    @Test
+    fun wallpaperCommand() {
         val wallpapers = WallpaperManager.getInstance(context)
         val system = WallpaperManager.FLAG_SYSTEM
         WallpaperMatch.forget(context)
         try {
-            assertTrue(run("wallpaper").single().startsWith("Your home screen wallpaper is your own"))
+            assertTrue(
+                run("wallpaper").single().startsWith("Your home screen wallpaper is your own")
+            )
             assertEquals(listOf("Usage: wallpaper [match]"), run("wallpaper bogus"))
 
             val before = wallpapers.getWallpaperId(system)
@@ -323,15 +443,23 @@ class CommandFamiliesTest {
 
             // Before home has shown a theme, the colour isn't known: it refuses and paints nothing.
             WallpaperMatch.themeColour = null
-            assertTrue(run("wallpaper match --yes").single().startsWith("Kolahal doesn't know the theme's colour yet"))
+            assertTrue(
+                run("wallpaper match --yes").single()
+                    .startsWith("Kolahal doesn't know the theme's colour yet")
+            )
             assertEquals("nothing painted", before, wallpapers.getWallpaperId(system))
             // Home applying a theme tells it the colour, as MainActivity does.
             WallpaperMatch.follow(context, android.graphics.Color.rgb(0x29, 0x28, 0x28))
-            assertTrue(run("wallpaper match --yes").single().startsWith("Home screen wallpaper set"))
+            assertTrue(
+                run("wallpaper match --yes").single().startsWith("Home screen wallpaper set")
+            )
             assertNotEquals(before, wallpapers.getWallpaperId(system))
             assertTrue(run("wallpaper").single().contains("follows the theme"))
             val ours = wallpapers.getWallpaperId(system)
-            assertEquals(listOf("Your home screen wallpaper already follows the theme"), run("wallpaper match"))
+            assertEquals(
+                listOf("Your home screen wallpaper already follows the theme"),
+                run("wallpaper match")
+            )
             assertEquals(ours, wallpapers.getWallpaperId(system))
         } finally {
             WallpaperMatch.forget(context)
@@ -343,7 +471,8 @@ class CommandFamiliesTest {
      * `calls` prints call lines, as the ones logged by themselves are, so they stay out of backups;
      * the newest call first.
      */
-    @Test fun callsPrintsCallLines() {
+    @Test
+    fun callsPrintsCallLines() {
         val older = "5550142"
         val newer = "5550143"
         shell("pm grant ${context.packageName} android.permission.READ_CALL_LOG")
@@ -357,29 +486,40 @@ class CommandFamiliesTest {
             val numbers = lines.mapNotNull { it.ctx.values[LogContext.PHONE] }
             assertTrue(lines.toString(), older in numbers && newer in numbers)
             assertTrue(numbers.toString(), numbers.indexOf(newer) < numbers.indexOf(older))
-            assertTrue(lines.toString(), lines.all { it.source == com.mtwabpin.kolahal.calls.CallEvents.SOURCE })
+            assertTrue(
+                lines.toString(),
+                lines.all { it.source == com.mtwabpin.kolahal.calls.CallEvents.SOURCE })
         } finally {
             logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
             // No shell runs these: no spaces or quotes round the condition, or it matches nothing.
-            for (number in listOf(older, newer)) shell("content delete --uri content://call_log/calls --where number='$number'")
+            for (number in listOf(
+                older,
+                newer
+            )) shell("content delete --uri content://call_log/calls --where number='$number'")
         }
     }
 
-    @Test fun crashesListAndClear() {
+    @Test
+    fun crashesListAndClear() {
         assertTrue(run("crashes").single().startsWith("No crash reports"))
         crashDir.mkdirs()
         File(crashDir, "20260101-120000-crash.txt").writeText(
             "Kolahal crash report\nKolahal 0.0 (1, debug)\nAndroid\nWhen: x\nWhat: crash in test, thread main\n\njava.lang.IllegalStateException: boom\n\tat a.b(c:1)\n",
         )
         val listed = run("crashes")
-        assertTrue(listed.toString(), listed.first().startsWith("#1 crash") && listed.first().endsWith("IllegalStateException: boom"))
+        assertTrue(
+            listed.toString(),
+            listed.first().startsWith("#1 crash") && listed.first()
+                .endsWith("IllegalStateException: boom")
+        )
         assertTrue(run("crashes share 5").single().startsWith("No crash report 5"))
         assertTrue(run("crashes bogus").single().startsWith("Usage: crashes"))
         assertEquals(listOf("Deleted 1 crash report"), run("crashes clear"))
         assertFalse(crashDir.listFiles().orEmpty().any())
     }
 
-    @Test fun configGetSetReset() {
+    @Test
+    fun configGetSetReset() {
         assertEquals(listOf("font.size = 14"), run("config get font.size"))
         run("config set clock.24h on")
         assertTrue(config[Keys.CLOCK_24H])
@@ -388,7 +528,8 @@ class CommandFamiliesTest {
         assertTrue(run("config set no.such.key 1").single().startsWith("Unknown setting"))
     }
 
-    @Test fun fontSansSetsTheMode() {
+    @Test
+    fun fontSansSetsTheMode() {
         assertEquals(listOf("font.sans = prompt"), run("font sans prompt"))
         assertEquals("prompt", config[Keys.FONT_SANS])
         assertTrue(run("font sans bogus").single().startsWith("Invalid value"))
@@ -397,7 +538,8 @@ class CommandFamiliesTest {
         assertTrue(run("font").any { it.startsWith("System font: prompt") })
     }
 
-    @Test fun historyAndClear() {
+    @Test
+    fun historyAndClear() {
         run("echo cptest-one")
         assertTrue(run("history").contains("echo cptest-one"))
         assertEquals(listOf("Command history cleared"), run("clear history"))
@@ -407,12 +549,14 @@ class CommandFamiliesTest {
         assertEquals(before + 1, cleared)
     }
 
-    @Test fun aliasesAreListed() {
+    @Test
+    fun aliasesAreListed() {
         run("alias tt = echo cptest")
         assertTrue(run("alias").any { it.contains("tt") && it.contains("echo cptest") })
     }
 
-    @Test fun pinAndUnpinApp() {
+    @Test
+    fun pinAndUnpinApp() {
         val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL }
         try {
             run("pin ${app.label}")
@@ -424,9 +568,13 @@ class CommandFamiliesTest {
         }
     }
 
-    @Test fun setupTextAndDeviceCommands() {
+    @Test
+    fun setupTextAndDeviceCommands() {
         val setup = run("setup text")
-        assertTrue(setup.toString(), setup.first().startsWith("Setup") && setup.size > 1 && setup.drop(1).all { it.startsWith("[") })
+        assertTrue(
+            setup.toString(),
+            setup.first().startsWith("Setup") && setup.size > 1 && setup.drop(1)
+                .all { it.startsWith("[") })
         assertTrue(run("date").single().isNotBlank())
         // The time elsewhere: each place on a line of its own, the detail in its second column.
         assertEquals(listOf("Tokyo", "New York"), run("date tokyo new york"))

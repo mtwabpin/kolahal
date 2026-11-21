@@ -44,20 +44,42 @@ import kotlin.math.abs
  */
 @RunWith(AndroidJUnit4::class)
 class RangeBarsTest {
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     /** Three days of a forecast: the scale is 20 to 31. */
     private val forecast = WidgetSpec.Rows(
         WidgetBase(title = "Pune"),
         listOf(
-            WidgetSpec.Row("Sat", trailing = "22–31°", icon = "sun", range = WidgetSpec.Range(22f, 31f)),
-            WidgetSpec.Row("Sun", trailing = "21–30°", icon = "cloud", range = WidgetSpec.Range(21f, 30f)),
-            WidgetSpec.Row("Mon", trailing = "20–27°", icon = "rain", range = WidgetSpec.Range(20f, 27f)),
+            WidgetSpec.Row(
+                "Sat",
+                trailing = "22–31°",
+                icon = "sun",
+                range = WidgetSpec.Range(22f, 31f)
+            ),
+            WidgetSpec.Row(
+                "Sun",
+                trailing = "21–30°",
+                icon = "cloud",
+                range = WidgetSpec.Range(21f, 30f)
+            ),
+            WidgetSpec.Row(
+                "Mon",
+                trailing = "20–27°",
+                icon = "rain",
+                range = WidgetSpec.Range(20f, 27f)
+            ),
         ),
     )
 
     /** What is drawn: [spec]'s card in [look], [width] by [height], left to right or not. */
-    private data class Card(val spec: WidgetSpec, val look: WidgetLook, val width: Dp, val height: Dp, val rtl: Boolean = false)
+    private data class Card(
+        val spec: WidgetSpec,
+        val look: WidgetLook,
+        val width: Dp,
+        val height: Dp,
+        val rtl: Boolean = false
+    )
 
     /** A 4×2 card and a 2×2 one, as the widgets page sizes them on a phone 411 dp wide. */
     private val wide = 395.dp
@@ -65,15 +87,30 @@ class RangeBarsTest {
 
     private var card by mutableStateOf(Card(forecast, WidgetLook.PLAIN, wide, square))
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         compose.setContent {
             KolahalTheme {
                 GuiTheme {
                     val c = card
                     val direction = if (c.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr
-                    CompositionLocalProvider(LocalWidgetLook provides c.look, LocalLayoutDirection provides direction) {
+                    CompositionLocalProvider(
+                        LocalWidgetLook provides c.look,
+                        LocalLayoutDirection provides direction
+                    ) {
                         Box(Modifier.width(c.width)) {
-                            WidgetCard(title = "Pune", height = c.height, spec = c.spec, note = null, description = WidgetWords.description("Pune", c.spec, 0L, ZoneId.systemDefault()))
+                            WidgetCard(
+                                title = "Pune",
+                                height = c.height,
+                                spec = c.spec,
+                                note = null,
+                                description = WidgetWords.description(
+                                    "Pune",
+                                    c.spec,
+                                    0L,
+                                    ZoneId.systemDefault()
+                                )
+                            )
                         }
                     }
                 }
@@ -89,13 +126,18 @@ class RangeBarsTest {
     private val density get() = compose.density.density
 
     /** Where each bar is, top to bottom. */
-    private fun bars(): List<Rect> = compose.onAllNodes(hasTestTag("range-bar"), useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
+    private fun bars(): List<Rect> =
+        compose.onAllNodes(hasTestTag("range-bar"), useUnmergedTree = true).fetchSemanticsNodes()
+            .map { it.boundsInRoot }
 
     /** The picture of bar [index]. */
-    private fun bar(index: Int): Bitmap = compose.onAllNodes(hasTestTag("range-bar"), useUnmergedTree = true)[index].captureToImage().asAndroidBitmap()
+    private fun bar(index: Int): Bitmap =
+        compose.onAllNodes(hasTestTag("range-bar"), useUnmergedTree = true)[index].captureToImage()
+            .asAndroidBitmap()
 
     /** The colour across [bar] at [fraction] of its length from its left, in the middle of its line. */
-    private fun colourAt(bar: Bitmap, fraction: Float): Int = bar.getPixel((bar.width * fraction).toInt().coerceIn(0, bar.width - 1), bar.height / 2)
+    private fun colourAt(bar: Bitmap, fraction: Float): Int =
+        bar.getPixel((bar.width * fraction).toInt().coerceIn(0, bar.width - 1), bar.height / 2)
 
     private fun near(a: Int, b: Int): Boolean =
         listOf(16, 8, 0).all { shift -> abs((a shr shift and 0xFF) - (b shr shift and 0xFF)) <= 3 }
@@ -105,14 +147,19 @@ class RangeBarsTest {
 
     /** How far [text] starts from the card's left, in dp. */
     private fun startOf(text: String): Float {
-        val left = compose.onNodeWithTag("widget-card", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left
-        return (compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left - left) / density
+        val left = compose.onNodeWithTag("widget-card", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.left
+        return (compose.onNodeWithText(text, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.left - left) / density
     }
 
     /** Whether [text] is drawn cut: with "…", or past its room. */
     private fun cut(text: String): Boolean {
         val results = mutableListOf<TextLayoutResult>()
-        compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        compose.onNodeWithText(text, useUnmergedTree = true)
+            .fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action?.invoke(
+            results
+        )
         val layout = results.single()
         return layout.hasVisualOverflow || layout.isLineEllipsized(0)
     }
@@ -121,7 +168,8 @@ class RangeBarsTest {
      * Each look draws a bar for each row it shows, at 4×2 and at 2×2, all in one column. Bold shows
      * its first row large, with its bar at the end of its second line, and one line under it.
      */
-    @Test fun eachLookDrawsItsBarsInOneColumn() {
+    @Test
+    fun eachLookDrawsItsBarsInOneColumn() {
         for (width in listOf(wide, square)) for (look in WidgetLook.entries) {
             show(Card(forecast, look, width, square))
             val bars = bars()
@@ -131,9 +179,17 @@ class RangeBarsTest {
                 assertEquals("$at: one start", bars[0].left, b.left, 1f)
                 assertEquals("$at: one length", bars[0].width, b.width, 1f)
             }
-            assertTrue("$at: a bar of ${bars[0].width / density} dp", bars[0].width / density >= WidgetWords.RANGE_MIN_DP - 0.5f)
+            assertTrue(
+                "$at: a bar of ${bars[0].width / density} dp",
+                bars[0].width / density >= WidgetWords.RANGE_MIN_DP - 0.5f
+            )
             // Bold's first row has its numbers in its second line, and Monday is under "+1 more".
-            val texts = if (look == WidgetLook.BOLD) listOf("Sat", "22–31°", "Sun", "21–30°") else listOf("Sat", "Sun", "Mon", "22–31°", "21–30°", "20–27°")
+            val texts = if (look == WidgetLook.BOLD) listOf(
+                "Sat",
+                "22–31°",
+                "Sun",
+                "21–30°"
+            ) else listOf("Sat", "Sun", "Mon", "22–31°", "21–30°", "20–27°")
             for (text in texts) assertFalse("$at: $text is cut", cut(text))
         }
     }
@@ -143,7 +199,8 @@ class RangeBarsTest {
      * not 12, and the icons give way. A narrower card has no room for a bar at all: it keeps its
      * icons, and the rows are as they were.
      */
-    @Test fun theIconsGiveWayFirstThenTheBars() {
+    @Test
+    fun theIconsGiveWayFirstThenTheBars() {
         show(Card(forecast, WidgetLook.PLAIN, square, square))
         assertEquals(3, bars().size)
         // The card's 16 dp and the row's 8 dp: no icon in front.
@@ -156,7 +213,8 @@ class RangeBarsTest {
     }
 
     /** Each range is on the card's scale: Monday's 20 to 27 is the left two thirds, Saturday's 22 to 31 the right four fifths. */
-    @Test fun theBarsShareOneScale() {
+    @Test
+    fun theBarsShareOneScale() {
         show(Card(forecast, WidgetLook.PLAIN, wide, square))
         val sat = bar(0)
         assertFalse("Saturday starts at 22", near(colourAt(sat, 0.08f), role))
@@ -169,7 +227,8 @@ class RangeBarsTest {
     }
 
     /** Right to left, the scale runs from the right: Monday's bar is the right two thirds. */
-    @Test fun rightToLeftTheScaleRunsFromTheRight() {
+    @Test
+    fun rightToLeftTheScaleRunsFromTheRight() {
         show(Card(forecast, WidgetLook.PLAIN, wide, square, rtl = true))
         val mon = bar(2)
         assertFalse(near(colourAt(mon, 0.15f), role))
@@ -178,8 +237,19 @@ class RangeBarsTest {
     }
 
     /** A value is a dot on its bar, with a ring in the row's colour around it, so it shows on the bar too. */
-    @Test fun aValueIsADotWithARing() {
-        val today = forecast.copy(items = listOf(forecast.items[0].copy(range = WidgetSpec.Range(22f, 31f, 27f))) + forecast.items.drop(1))
+    @Test
+    fun aValueIsADotWithARing() {
+        val today = forecast.copy(
+            items = listOf(
+                forecast.items[0].copy(
+                    range = WidgetSpec.Range(
+                        22f,
+                        31f,
+                        27f
+                    )
+                )
+            ) + forecast.items.drop(1)
+        )
         show(Card(today, WidgetLook.PLAIN, wide, square))
         val sat = bar(0)
         val dot = 7f / 11

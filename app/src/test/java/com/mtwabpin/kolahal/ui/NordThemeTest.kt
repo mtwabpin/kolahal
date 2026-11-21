@@ -34,13 +34,15 @@ class NordThemeTest {
         }
     }
 
-    @Test fun theNameGivesBothVersions() {
+    @Test
+    fun theNameGivesBothVersions() {
         assertEquals(Palettes.nord, Palettes.named("nord"))
         assertEquals(Palettes.nord, Palettes.named("nord", dark = true))
         assertEquals(Palettes.nordLight, Palettes.named("nord", dark = false))
     }
 
-    @Test fun theDarkVersionIsNord() {
+    @Test
+    fun theDarkVersionIsNord() {
         val p = Palettes.nord
         assertEquals(nord0, p.bg)
         assertEquals(nord1, p.surface)
@@ -58,7 +60,8 @@ class NordThemeTest {
     }
 
     /** Snow Storm behind, Polar Night text, and each accent in the hue it has in the dark version, only darker. */
-    @Test fun theLightVersionKeepsNordsHues() {
+    @Test
+    fun theLightVersionKeepsNordsHues() {
         val dark = Palettes.nord
         val light = Palettes.nordLight
         assertEquals(nord6, light.bg)
@@ -73,11 +76,15 @@ class NordThemeTest {
     }
 
     /** The dark version too: the other tests check only the light ones. */
-    @Test fun bothVersionsAreReadable() {
+    @Test
+    fun bothVersionsAreReadable() {
         for ((version, p) in listOf("dark" to Palettes.nord, "light" to Palettes.nordLight)) {
             assertTrue("$version text", contrast(p.fg, p.bg) >= 7f)
             assertTrue("$version muted", contrast(p.dim, p.bg) >= 4f)
-            assertTrue("$version: muted text is fainter than text", contrast(p.dim, p.bg) < contrast(p.fg, p.bg) - 2f)
+            assertTrue(
+                "$version: muted text is fainter than text",
+                contrast(p.dim, p.bg) < contrast(p.fg, p.bg) - 2f
+            )
             for ((role, c) in accents(p)) assertTrue("$version $role", contrast(c, p.bg) >= 3f)
         }
     }

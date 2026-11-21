@@ -32,6 +32,7 @@ object Shortcuts {
     /** The most buttons the widget has. */
     const val MAX = 8
     const val MAX_LABEL = 24
+
     /** A command is as long as the arguments of a widget's tap may be. */
     const val MAX_COMMAND = 200
     const val MAX_ICON = 4
@@ -59,8 +60,11 @@ object Shortcuts {
     fun clean(list: List<Shortcut>): List<Shortcut> = list.mapNotNull { s ->
         val command = oneLine(s.command).takeWhole(MAX_COMMAND).trim()
         if (command.isEmpty()) return@mapNotNull null
-        val label = oneLine(s.label).ifEmpty { command }.let { if (it.length <= MAX_LABEL) it else it.takeWhole(MAX_LABEL - 1).trimEnd() + "…" }
-        val icon = s.icon?.let(::oneLine)?.let { if (WidgetIcons.isName(it)) it else it.takeWhole(MAX_ICON) }?.takeIf { it.isNotEmpty() }
+        val label = oneLine(s.label).ifEmpty { command }
+            .let { if (it.length <= MAX_LABEL) it else it.takeWhole(MAX_LABEL - 1).trimEnd() + "…" }
+        val icon = s.icon?.let(::oneLine)
+            ?.let { if (WidgetIcons.isName(it)) it else it.takeWhole(MAX_ICON) }
+            ?.takeIf { it.isNotEmpty() }
         Shortcut(label, command, icon)
     }.take(MAX)
 
@@ -76,7 +80,8 @@ object Shortcuts {
     )
 
     /** [list] without the shortcut at [index]. */
-    fun without(list: List<Shortcut>, index: Int): List<Shortcut> = clean(list.filterIndexed { i, _ -> i != index })
+    fun without(list: List<Shortcut>, index: Int): List<Shortcut> =
+        clean(list.filterIndexed { i, _ -> i != index })
 
     /** [list] with the shortcut at [index] one place earlier ([direction] -1) or later (+1). No change at an end of the list. */
     fun moved(list: List<Shortcut>, index: Int, direction: Int): List<Shortcut> {
@@ -100,7 +105,8 @@ object Shortcuts {
     fun review(before: List<Shortcut>, after: List<Shortcut>): List<String> {
         val mine = before.map { it.label to it.command }.toSet()
         return after.filter { (it.label to it.command) !in mine }.map { s ->
-            val command = if (s.command.length > MAX_REVIEW) s.command.takeWhole(MAX_REVIEW - 1) + "…" else s.command
+            val command =
+                if (s.command.length > MAX_REVIEW) s.command.takeWhole(MAX_REVIEW - 1) + "…" else s.command
             // A shortcut with no label of its own has its command as the label: say it once.
             if (s.label == s.command) "shortcut $command" else "shortcut ${s.label} = $command"
         }
@@ -122,18 +128,30 @@ object Shortcuts {
             items.orEmpty().mapNotNull { item ->
                 val m = item as? Map<*, *> ?: return@mapNotNull null
                 val command = m["command"] as? String ?: return@mapNotNull null
-                Shortcut(label = m["label"] as? String ?: "", command = command, icon = m["icon"] as? String)
+                Shortcut(
+                    label = m["label"] as? String ?: "",
+                    command = command,
+                    icon = m["icon"] as? String
+                )
             },
         )
     }
 
     /** The JSON for [list], after [clean]: `[{"label":"Torch","command":"torch","icon":"🔦"}]`. An icon that is null is left out. */
     fun encode(list: List<Shortcut>): String = Json.stringify(
-        clean(list).map { s -> buildMap { put("label", s.label); put("command", s.command); s.icon?.let { put("icon", it) } } },
+        clean(list).map { s ->
+            buildMap {
+                put("label", s.label); put(
+                "command",
+                s.command
+            ); s.icon?.let { put("icon", it) }
+            }
+        },
     )
 
     /** The stored list. It reads a preferences file, so call it off the main thread. */
-    fun read(context: Context): List<Shortcut> = decode(Stores.LAUNCHER.open(context).getString(KEY, null))
+    fun read(context: Context): List<Shortcut> =
+        decode(Stores.LAUNCHER.open(context).getString(KEY, null))
 
     /**
      * Stores [list], after [clean]. Only the Widgets screen's editor calls this, through the view

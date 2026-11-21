@@ -14,7 +14,9 @@ class UndoHistoryTest {
 
         fun record(text: String) {
             val now = clock()
-            val newline = text.length > undo.last().length && text.count { it == '\n' } != undo.last().count { it == '\n' }
+            val newline =
+                text.length > undo.last().length && text.count { it == '\n' } != undo.last()
+                    .count { it == '\n' }
             if (now - lastRecord > 600 || newline || undo.size == 1) {
                 undo.addLast(text)
                 if (undo.size > 200) undo.removeFirst()
@@ -51,16 +53,24 @@ class UndoHistoryTest {
     private fun change(r: Random, text: String): String {
         val at = r.nextInt(text.length + 1)
         return when (r.nextInt(6)) {
-            0 -> text.substring(0, at) + "abcdefg".substring(0, 1 + r.nextInt(3)) + text.substring(at)
+            0 -> text.substring(0, at) + "abcdefg".substring(0, 1 + r.nextInt(3)) + text.substring(
+                at
+            )
+
             1 -> text.substring(0, at) + "\n" + text.substring(at)
-            2 -> if (text.isEmpty()) "x" else text.substring(0, at.coerceAtMost(text.length - 1)) + text.substring((at + 1 + r.nextInt(5)).coerceAtMost(text.length))
+            2 -> if (text.isEmpty()) "x" else text.substring(
+                0,
+                at.coerceAtMost(text.length - 1)
+            ) + text.substring((at + 1 + r.nextInt(5)).coerceAtMost(text.length))
+
             3 -> text.substring(0, at) + "local x = 1\nprint(x)\n" + text.substring(at)
             4 -> text.replace('a', 'b')
             else -> text.substring(0, at) + "aa" + text.substring(at)
         }.let { if (it == text) it + "z" else it }
     }
 
-    @Test fun undoAndRedoGiveWhatWholeCopiesGave() {
+    @Test
+    fun undoAndRedoGiveWhatWholeCopiesGave() {
         repeat(200) { seed ->
             val r = Random(seed)
             var now = 1_000L
@@ -77,15 +87,18 @@ class UndoHistoryTest {
                         copies.record(text)
                         steps.record(text)
                     }
+
                     6 -> {
                         copies.checkpoint()
                         steps.checkpoint()
                     }
+
                     7, 8 -> {
                         val back = copies.undo()
                         assertEquals("seed $seed, step $i: undo", back, steps.undo())
                         if (back != null) text = back
                     }
+
                     else -> {
                         val again = copies.redo()
                         assertEquals("seed $seed, step $i: redo", again, steps.redo())
@@ -110,7 +123,8 @@ class UndoHistoryTest {
     }
 
     /** More than 200 steps: the oldest go, as before. */
-    @Test fun onlyTheLast200StepsAreKept() {
+    @Test
+    fun onlyTheLast200StepsAreKept() {
         var now = 0L
         val steps = UndoHistory("") { now }
         var text = ""

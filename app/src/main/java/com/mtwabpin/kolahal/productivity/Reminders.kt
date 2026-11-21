@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.productivity
 
-import com.mtwabpin.kolahal.data.Stores
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -14,6 +13,7 @@ import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.notify.Notifier
 import java.time.Instant
 import java.time.LocalDateTime
@@ -26,7 +26,8 @@ object ReminderScheduler {
 
     /** On Android 12+, exact alarms need SCHEDULE_EXACT_ALARM, and the user may have turned it off. */
     fun canBeExact(context: Context): Boolean =
-        Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java)
+            .canScheduleExactAlarms()
 
     /**
      * Sets an alarm for [at] that also goes off while the phone is idle. Reminders and scripts' daily
@@ -45,10 +46,15 @@ object ReminderScheduler {
         }
     }
 
-    private fun pending(context: Context, id: Long, flags: Int = PendingIntent.FLAG_UPDATE_CURRENT): PendingIntent? =
+    private fun pending(
+        context: Context,
+        id: Long,
+        flags: Int = PendingIntent.FLAG_UPDATE_CURRENT
+    ): PendingIntent? =
         PendingIntent.getBroadcast(
             context, id.toInt(),
-            Intent(context, ReminderReceiver::class.java).putExtra(EXTRA_ID, id).setPackage(context.packageName),
+            Intent(context, ReminderReceiver::class.java).putExtra(EXTRA_ID, id)
+                .setPackage(context.packageName),
             PendingIntent.FLAG_IMMUTABLE or flags,
         )
 
@@ -75,7 +81,8 @@ object ReminderScheduler {
      */
     fun rescheduleAll(context: Context) {
         if (zoneChanged(context)) moveToZone(context)
-        ReminderStore.get(context).all().sortedBy { it.at }.take(MAX_ALARMS).forEach { schedule(context, it) }
+        ReminderStore.get(context).all().sortedBy { it.at }.take(MAX_ALARMS)
+            .forEach { schedule(context, it) }
     }
 
     /** Well below Android's limit of 500 alarms per app. */
@@ -123,7 +130,8 @@ object ReminderScheduler {
             val time = r.time?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: continue
             if (r.at <= now) continue
             val next = runCatching {
-                Repeat.next(rule, time, LocalDateTime.ofInstant(Instant.ofEpochMilli(now), zone)).atZone(zone).toInstant().toEpochMilli()
+                Repeat.next(rule, time, LocalDateTime.ofInstant(Instant.ofEpochMilli(now), zone))
+                    .atZone(zone).toInstant().toEpochMilli()
             }.getOrNull() ?: continue
             if (next == r.at) continue
             store.setAt(r.id, next)
@@ -151,23 +159,34 @@ class ReminderReceiver : BroadcastReceiver() {
                 // it skips to the next day in the future.
                 val next = rule?.let {
                     // An unreadable rule fires only this once. An exception here would crash the app at every start.
-                    runCatching { Repeat.next(it, time, maxOf(fired, LocalDateTime.now(zone))).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
+                    runCatching {
+                        Repeat.next(it, time, maxOf(fired, LocalDateTime.now(zone))).atZone(zone)
+                            .toInstant().toEpochMilli()
+                    }.getOrNull()
                 }
                 if (next == null) {
                     store.remove(id)
-                    if (rule != null) LogRepository.get(context).add(LogKind.ERROR, "Reminder '${r.text}' had an invalid repeat rule, so it won't repeat")
+                    if (rule != null) LogRepository.get(context).add(
+                        LogKind.ERROR,
+                        "Reminder '${r.text}' had an invalid repeat rule, so it won't repeat"
+                    )
                 } else {
                     // A reminder set before 0.4.12 keeps the time it fired at from now on, as if the user asked for it.
                     store.setAt(id, next, if (r.time == null) time.toString() else null)
                     ReminderScheduler.schedule(context, r.copy(at = next))
                 }
                 // If there are more reminders than alarms, the next waiting reminder gets its alarm now.
-                if (store.all().size >= ReminderScheduler.MAX_ALARMS) ReminderScheduler.rescheduleAll(context)
+                if (store.all().size >= ReminderScheduler.MAX_ALARMS) ReminderScheduler.rescheduleAll(
+                    context
+                )
                 Notifier.postReminder(context, id, r.text)
                 LogRepository.get(context).add(
                     LogKind.SCRIPT, "Reminder: ${r.text}", "remind",
                     // A tap puts a 10-minute snooze command in the prompt.
-                    LogContext.of(LogContext.COMMAND to "remind 10m ${r.text}", LogContext.COPY to r.text),
+                    LogContext.of(
+                        LogContext.COMMAND to "remind 10m ${r.text}",
+                        LogContext.COPY to r.text
+                    ),
                 )
             } finally {
                 result.finish()
@@ -191,10 +210,13 @@ class ReminderActionReceiver : BroadcastReceiver() {
         val result = goAsync()
         Thread {
             try {
-                val r = ReminderStore.get(context).add(System.currentTimeMillis() + minutes * 60_000L, text)
+                val r = ReminderStore.get(context)
+                    .add(System.currentTimeMillis() + minutes * 60_000L, text)
                 ReminderScheduler.schedule(context, r)
                 LogRepository.get(context).add(
-                    LogKind.SCRIPT, "Snoozed for ${TimeSpec.formatDuration(minutes * 60L)}: $text", "remind",
+                    LogKind.SCRIPT,
+                    "Snoozed for ${TimeSpec.formatDuration(minutes * 60L)}: $text",
+                    "remind",
                     LogContext.of(LogContext.REMINDER to r.id.toString(), LogContext.COPY to text),
                 )
             } finally {
@@ -220,9 +242,15 @@ class ReminderBootReceiver : BroadcastReceiver() {
                 val result = goAsync()
                 Thread {
                     try {
-                        com.mtwabpin.kolahal.data.Quietly.run(context, "Setting reminders again") { ReminderScheduler.rescheduleAll(context) }
+                        com.mtwabpin.kolahal.data.Quietly.run(
+                            context,
+                            "Setting reminders again"
+                        ) { ReminderScheduler.rescheduleAll(context) }
                         // Scripts' daily times are alarms too. They are exact once that is allowed.
-                        com.mtwabpin.kolahal.data.Quietly.run(context, "Scheduling scripts") { com.mtwabpin.kolahal.script.ScriptScheduler.syncAll(context) }
+                        com.mtwabpin.kolahal.data.Quietly.run(
+                            context,
+                            "Scheduling scripts"
+                        ) { com.mtwabpin.kolahal.script.ScriptScheduler.syncAll(context) }
                     } finally {
                         result.finish()
                     }

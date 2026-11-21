@@ -19,14 +19,16 @@ class EditorKeptTextTest {
     }
 
     /** A script of a usual size comes back as typed, unsaved edits and all. */
-    @Test fun aUsualScriptComesBackAsTyped() {
+    @Test
+    fun aUsualScriptComesBackAsTyped() {
         val typed = TextFieldValue("return 2", TextRange(7))
         assertEquals(typed, keptText("return 1").roundTrip(typed).second)
         assertEquals("return 2", keptSaved("return 1").roundTrip("return 2").second)
     }
 
     /** A very big one isn't kept, as all of it would stop the app: the script as saved comes back, the cursor where it was. */
-    @Test fun aVeryBigScriptKeepsOnlyTheCursor() {
+    @Test
+    fun aVeryBigScriptKeepsOnlyTheCursor() {
         val big = "x".repeat(KEPT_TEXT_MAX + 1)
         val (kept, back) = keptText(big).roundTrip(TextFieldValue(big, TextRange(500)))
         assertEquals(listOf(false, 500, 500), kept)

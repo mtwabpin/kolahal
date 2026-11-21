@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.waitFor
-import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetParser
@@ -34,7 +33,8 @@ import java.time.ZoneId
  */
 @RunWith(AndroidJUnit4::class)
 class StyledWidgetTextTest {
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
     private fun italic(s: String) = StyledText.wrap(StyledText.Style.ITALIC, s)
@@ -51,7 +51,12 @@ class StyledWidgetTextTest {
                             height = height,
                             spec = spec,
                             note = null,
-                            description = WidgetWords.description(spec.base.title, spec, 0L, ZoneId.systemDefault()),
+                            description = WidgetWords.description(
+                                spec.base.title,
+                                spec,
+                                0L,
+                                ZoneId.systemDefault()
+                            ),
                         )
                     }
                 }
@@ -60,10 +65,13 @@ class StyledWidgetTextTest {
     }
 
     private val hasWords = SemanticsMatcher.keyIsDefined(SemanticsProperties.Text)
-    private val hasDescription = SemanticsMatcher.keyIsDefined(SemanticsProperties.ContentDescription)
+    private val hasDescription =
+        SemanticsMatcher.keyIsDefined(SemanticsProperties.ContentDescription)
 
     /** Every text the card draws, with its styles. */
-    private fun drawn(): List<AnnotatedString> = compose.onAllNodes(hasWords, useUnmergedTree = true).fetchSemanticsNodes().flatMap { it.config[SemanticsProperties.Text] }
+    private fun drawn(): List<AnnotatedString> =
+        compose.onAllNodes(hasWords, useUnmergedTree = true).fetchSemanticsNodes()
+            .flatMap { it.config[SemanticsProperties.Text] }
 
     /** Waits for the text that reads [words], and returns it with its styles. */
     private fun text(words: String): AnnotatedString {
@@ -71,15 +79,33 @@ class StyledWidgetTextTest {
         return drawn().first { it.text == words }
     }
 
-    private fun said(): List<String> = compose.onAllNodes(hasDescription, useUnmergedTree = true).fetchSemanticsNodes().flatMap { it.config[SemanticsProperties.ContentDescription] }
+    private fun said(): List<String> =
+        compose.onAllNodes(hasDescription, useUnmergedTree = true).fetchSemanticsNodes()
+            .flatMap { it.config[SemanticsProperties.ContentDescription] }
 
     /** The description as `widget.show` checks it and as the card reads it back from what is stored. */
     private fun stored(kind: WidgetKind, vararg fields: Pair<String, Any?>): WidgetSpec =
-        WidgetJson.decode(WidgetJson.encode(WidgetParser.parse(mapOf(*fields), kind, { it }, { it })))!!
+        WidgetJson.decode(
+            WidgetJson.encode(
+                WidgetParser.parse(
+                    mapOf(*fields),
+                    kind,
+                    { it },
+                    { it })
+            )
+        )!!
 
     /** A text widget: bold and a colour in its lines, a slant in its caption. The words are plain for a screen reader. */
-    @Test fun aTextCardDrawsItsStyles() {
-        show(stored(WidgetKind.TEXT, "title" to "Quote", "text" to "Be " + bold("kind") + " to " + good("all") + ".", "caption" to italic("Anon")))
+    @Test
+    fun aTextCardDrawsItsStyles() {
+        show(
+            stored(
+                WidgetKind.TEXT,
+                "title" to "Quote",
+                "text" to "Be " + bold("kind") + " to " + good("all") + ".",
+                "caption" to italic("Anon")
+            )
+        )
         val lines = text("Be kind to all.")
         assertEquals(listOf(3 to 7, 11 to 14), lines.spanStyles.map { it.start to it.end })
         assertEquals(FontWeight.Bold, lines.spanStyles[0].item.fontWeight)
@@ -91,15 +117,25 @@ class StyledWidgetTextTest {
     }
 
     /** A list's row: its title, its second line and the text at its end keep their styles. */
-    @Test fun aRowDrawsItsStyles() {
+    @Test
+    fun aRowDrawsItsStyles() {
         show(
             stored(
                 WidgetKind.LIST, "title" to "Prices",
-                "items" to listOf(mapOf("title" to bold("BTC"), "detail" to good("up 1.2%"), "trailing" to StyledText.wrap(StyledText.Style.STRIKE, "67,000") + " 67,120")),
+                "items" to listOf(
+                    mapOf(
+                        "title" to bold("BTC"),
+                        "detail" to good("up 1.2%"),
+                        "trailing" to StyledText.wrap(StyledText.Style.STRIKE, "67,000") + " 67,120"
+                    )
+                ),
             ),
         )
         assertEquals(FontWeight.Bold, text("BTC").spanStyles.single().item.fontWeight)
-        assertEquals(colourOf(StyledText.Colour.GOOD), text("Up 1.2%").spanStyles.single().item.color)
+        assertEquals(
+            colourOf(StyledText.Colour.GOOD),
+            text("Up 1.2%").spanStyles.single().item.color
+        )
         val end = text("67,000 67,120")
         assertEquals(TextDecoration.LineThrough, end.spanStyles.single().item.textDecoration)
         assertEquals(0 to 6, end.spanStyles.single().let { it.start to it.end })
@@ -107,17 +143,37 @@ class StyledWidgetTextTest {
     }
 
     /** A stat's label keeps its styles. Its value, like every other text, is plain. */
-    @Test fun aStatsLabelDrawsItsStyles() {
-        show(stored(WidgetKind.STAT, "title" to "Weather", "value" to bold("24"), "unit" to "°C", "label" to good("Sunny") + " today"), height = 220.dp)
-        assertEquals(colourOf(StyledText.Colour.GOOD), text("Sunny today").spanStyles.single().item.color)
+    @Test
+    fun aStatsLabelDrawsItsStyles() {
+        show(
+            stored(
+                WidgetKind.STAT,
+                "title" to "Weather",
+                "value" to bold("24"),
+                "unit" to "°C",
+                "label" to good("Sunny") + " today"
+            ), height = 220.dp
+        )
+        assertEquals(
+            colourOf(StyledText.Colour.GOOD),
+            text("Sunny today").spanStyles.single().item.color
+        )
         assertEquals(0, text("24").spanStyles.size)
         assertEquals(listOf("Weather: 24°C, Sunny today"), said())
     }
 
     /** A link, a tag and a code chip in a styled field show as their words. Nothing on the card opens a link. */
-    @Test fun aCardsTextIsNeverALink() {
+    @Test
+    fun aCardsTextIsNeverALink() {
         val link = StyledText.link("https://example.com/x", bold("the page"))
-        show(stored(WidgetKind.TEXT, "title" to "Note", "text" to "see $link " + StyledText.tag(StyledText.Colour.BAD, "LIVE"), "caption" to StyledText.wrap(StyledText.Style.CODE, "v1.2")))
+        show(
+            stored(
+                WidgetKind.TEXT,
+                "title" to "Note",
+                "text" to "see $link " + StyledText.tag(StyledText.Colour.BAD, "LIVE"),
+                "caption" to StyledText.wrap(StyledText.Style.CODE, "v1.2")
+            )
+        )
         val lines = text("see the page LIVE")
         assertEquals(0, lines.getLinkAnnotations(0, lines.length).size)
         assertEquals(0, lines.getStringAnnotations(0, lines.length).size)

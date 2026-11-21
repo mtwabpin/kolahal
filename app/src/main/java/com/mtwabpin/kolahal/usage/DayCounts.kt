@@ -19,9 +19,15 @@ object DayCounts {
     }
 
     /** How many days [from] .. [to] days before [today] are in [days], and their average; null under [MIN_DAYS] days. */
-    private fun average(days: List<Pair<LocalDate, Int>>, today: LocalDate, from: Long, to: Long): Double? {
+    private fun average(
+        days: List<Pair<LocalDate, Int>>,
+        today: LocalDate,
+        from: Long,
+        to: Long
+    ): Double? {
         val inRange = days.filter { (d, _) -> d in today.minusDays(to)..today.minusDays(from) }
-        return if (inRange.size < MIN_DAYS) null else inRange.sumOf { it.second }.toDouble() / inRange.size
+        return if (inRange.size < MIN_DAYS) null else inRange.sumOf { it.second }
+            .toDouble() / inRange.size
     }
 
     /** At least this many days in each week for [trend] to say anything. */
@@ -45,6 +51,7 @@ object DayCounts {
 
     /** Each week of [days], the newest first, with its average over its finished days. A week with none (this week, on a Monday) is left out. */
     fun weeks(days: List<Pair<LocalDate, Int>>, today: LocalDate): List<Week> =
-        days.filter { it.first.isBefore(today) }.groupBy { monday(it.first) }.toSortedMap(compareByDescending { it })
+        days.filter { it.first.isBefore(today) }.groupBy { monday(it.first) }
+            .toSortedMap(compareByDescending { it })
             .map { (start, list) -> Week(start, list.sumOf { it.second } / list.size, list.size) }
 }

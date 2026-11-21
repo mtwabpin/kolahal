@@ -11,4 +11,5 @@ import java.util.Locale
  * script's in the script list, a library file's in its history, an APK's signer.
  */
 fun sha256Hex(bytes: ByteArray): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(Locale.ROOT, it) }
+    MessageDigest.getInstance("SHA-256").digest(bytes)
+        .joinToString("") { "%02x".format(Locale.ROOT, it) }

@@ -19,11 +19,14 @@ class RecentFiles(private val load: () -> String?, private val store: (String) -
     @Synchronized
     fun list(): List<Entry> = runCatching {
         val all = JSONArray(load() ?: return emptyList())
-        (0 until all.length()).map { all.getJSONObject(it) }.map { Entry(it.getString("uri"), it.getString("name"), it.getLong("opened")) }
+        (0 until all.length()).map { all.getJSONObject(it) }
+            .map { Entry(it.getString("uri"), it.getString("name"), it.getLong("opened")) }
     }.getOrDefault(emptyList())
 
     private fun save(entries: List<Entry>) {
-        store(JSONArray(entries.map { JSONObject().put("uri", it.uri).put("name", it.name).put("opened", it.opened) }).toString())
+        store(JSONArray(entries.map {
+            JSONObject().put("uri", it.uri).put("name", it.name).put("opened", it.opened)
+        }).toString())
     }
 
     /**

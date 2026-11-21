@@ -41,7 +41,8 @@ class RunLogTest {
     private fun set(number: Int, text: String) = log.set(number) { text to plain }
     private val texts get() = written.map { it.text }
 
-    @Test fun linesWaitForAFlush() {
+    @Test
+    fun linesWaitForAFlush() {
         assertEquals(1, line("a"))
         assertEquals(2, line("b"))
         assertEquals(emptyList<String>(), texts)
@@ -52,7 +53,8 @@ class RunLogTest {
     }
 
     /** Only a script's own line has a number for `line.set`. An error line is logged and counted, but has none. */
-    @Test fun onlyScriptLinesHaveANumber() {
+    @Test
+    fun onlyScriptLinesHaveANumber() {
         assertEquals(1, line("a"))
         assertEquals(0, log.add(LogKind.ERROR, "oops", LogContext(base)))
         assertEquals(2, line("b"))
@@ -60,14 +62,16 @@ class RunLogTest {
         assertEquals(listOf(LogKind.SCRIPT, LogKind.ERROR, LogKind.SCRIPT), written.map { it.kind })
     }
 
-    @Test fun fiftyLinesAreWrittenAtOnce() {
+    @Test
+    fun fiftyLinesAreWrittenAtOnce() {
         repeat(49) { line("$it") }
         assertEquals(0, written.size)
         line("49")
         assertEquals(50, written.size)
     }
 
-    @Test fun linesAreWrittenAboutEvery300Ms() {
+    @Test
+    fun linesAreWrittenAboutEvery300Ms() {
         line("a")
         clock += 300
         line("b")
@@ -81,7 +85,8 @@ class RunLogTest {
         assertEquals(3, written.size)
     }
 
-    @Test fun pastTheLineLimitTheRestAreDroppedWithOneNote() {
+    @Test
+    fun pastTheLineLimitTheRestAreDroppedWithOneNote() {
         repeat(HostApi.MAX_LINES_PER_RUN) { assertEquals(it + 1, line("$it")) }
         assertEquals(0, line("one too many"))
         assertEquals(0, line("and another"))
@@ -94,7 +99,8 @@ class RunLogTest {
     }
 
     /** A line counts as the log stores it: its text and its context, each up to what the log keeps of a field. */
-    @Test fun pastTheCharacterLimitTheRestAreDroppedWithOneNote() {
+    @Test
+    fun pastTheCharacterLimitTheRestAreDroppedWithOneNote() {
         val big = "x".repeat(1_000_000)
         // Four lines of 64K are exactly the limit, so the context's seven characters put the fourth over.
         repeat(3) { assertEquals(it + 1, log.add(LogKind.SCRIPT, big, LogContext(base))) }
@@ -102,10 +108,14 @@ class RunLogTest {
         assertEquals(0, line("small"))
         log.flush()
         assertEquals(4, written.size)
-        assertEquals("More than 256K characters in one run: the rest aren't logged", written.last().text)
+        assertEquals(
+            "More than 256K characters in one run: the rest aren't logged",
+            written.last().text
+        )
     }
 
-    @Test fun exactlyTheCharacterLimitIsStillLogged() {
+    @Test
+    fun exactlyTheCharacterLimitIsStillLogged() {
         repeat(4) { line("x".repeat(LogRepository.MAX_FIELD)) }
         assertEquals(4 * LogRepository.MAX_FIELD, HostApi.MAX_CHARS_PER_RUN)
         log.flush()
@@ -113,7 +123,8 @@ class RunLogTest {
         assertEquals(0, line("y"))
     }
 
-    @Test fun afterTheRunNothingIsLogged() {
+    @Test
+    fun afterTheRunNothingIsLogged() {
         line("a")
         over = true
         assertEquals(0, line("late"))
@@ -121,7 +132,8 @@ class RunLogTest {
         assertEquals(listOf("a"), texts)
     }
 
-    @Test fun aLineStillWaitingIsChangedBeforeItIsWritten() {
+    @Test
+    fun aLineStillWaitingIsChangedBeforeItIsWritten() {
         val n = line("Fetching…")
         set(n, "Fetched")
         log.flush()
@@ -129,7 +141,8 @@ class RunLogTest {
         assertTrue(changed.isEmpty())
     }
 
-    @Test fun aWrittenLineIsChangedInPlaceAtTheNextFlush() {
+    @Test
+    fun aWrittenLineIsChangedInPlaceAtTheNextFlush() {
         line("first")
         val n = line("Fetching…")
         log.flush()
@@ -144,7 +157,8 @@ class RunLogTest {
         assertEquals("nothing new, so nothing more is written", 1, changed.size)
     }
 
-    @Test fun aChangeIsWrittenOnceTheWaitIsOver() {
+    @Test
+    fun aChangeIsWrittenOnceTheWaitIsOver() {
         val n = line("a")
         log.flush()
         clock += 301
@@ -153,7 +167,8 @@ class RunLogTest {
     }
 
     /** Lines inside a pipe's capture aren't in the log, so they have no id to change. */
-    @Test fun aLineThatWasNotWrittenCantBeChangedLater() {
+    @Test
+    fun aLineThatWasNotWrittenCantBeChangedLater() {
         gotIds = false
         val n = line("a")
         log.flush()
@@ -163,32 +178,37 @@ class RunLogTest {
         assertTrue(changed.isEmpty())
     }
 
-    @Test fun onlyALineOfThisRunCanBeChanged() {
+    @Test
+    fun onlyALineOfThisRunCanBeChanged() {
         line("a")
         log.add(LogKind.ERROR, "oops", plain)
         for (number in listOf(0, -1, 2, 99)) {
             // The new text is not even looked at: it could stop the run for another reason.
-            val e = assertThrows(IllegalArgumentException::class.java) { log.set(number) { error("not reached") } }
+            val e =
+                assertThrows(IllegalArgumentException::class.java) { log.set(number) { error("not reached") } }
             assertEquals("line.set: not a line this run logged", e.message)
         }
     }
 
     /** The new text is checked (links, secrets) before anything changes; what that throws reaches the script. */
-    @Test fun aChangeThatIsRefusedLeavesTheLine() {
+    @Test
+    fun aChangeThatIsRefusedLeavesTheLine() {
         val n = line("a")
         assertThrows(java.io.IOException::class.java) { log.set(n) { throw java.io.IOException("KEY may only be sent to api.example.com") } }
         log.flush()
         assertEquals(listOf("a"), texts)
     }
 
-    @Test fun aRunCanChangeItsLinesSoManyTimes() {
+    @Test
+    fun aRunCanChangeItsLinesSoManyTimes() {
         val n = line("0")
         repeat(HostApi.MAX_SETS_PER_RUN + 5) { set(n, "${it + 1}") }
         log.flush()
         assertEquals(listOf("${HostApi.MAX_SETS_PER_RUN}"), texts)
     }
 
-    @Test fun theSameTextAgainDoesNotCount() {
+    @Test
+    fun theSameTextAgainDoesNotCount() {
         val n = line("same")
         repeat(HostApi.MAX_SETS_PER_RUN + 50) { set(n, "same") }
         set(n, "last")
@@ -197,7 +217,8 @@ class RunLogTest {
     }
 
     /** Only what a line grew by counts, and the run's character limit holds for changes too. */
-    @Test fun aChangeCountsWhatTheLineGrewBy() {
+    @Test
+    fun aChangeCountsWhatTheLineGrewBy() {
         val n = line("x".repeat(10))
         repeat(3) { line("y".repeat(LogRepository.MAX_FIELD)) }
         // 10 + 3 × 64K so far, of 4 × 64K. The first line grows by all but 10 of what is left.
@@ -214,12 +235,16 @@ class RunLogTest {
         assertEquals(0, line("more"))
         set(n, "late")
         log.flush()
-        assertEquals("More than 256K characters in one run: the rest aren't logged", written.last().text)
+        assertEquals(
+            "More than 256K characters in one run: the rest aren't logged",
+            written.last().text
+        )
         assertEquals(5, written.size)
         assertTrue(changed.isEmpty())
     }
 
-    @Test fun afterTheRunNothingIsChanged() {
+    @Test
+    fun afterTheRunNothingIsChanged() {
         val n = line("a")
         over = true
         set(n, "late")

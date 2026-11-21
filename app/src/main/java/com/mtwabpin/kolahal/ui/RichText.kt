@@ -3,17 +3,17 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.material3.Text
@@ -74,9 +74,20 @@ internal fun RichText(
     overflow: TextOverflow = TextOverflow.Clip,
 ) {
     // Each tag's range and colour, read once for this text.
-    val chips = remember(text) { text.getStringAnnotations(TAG_CHIP, 0, text.length).mapNotNull { a -> a.item.toIntOrNull()?.let { Chip(a.start, a.end, Color(it)) } } }
+    val chips = remember(text) {
+        text.getStringAnnotations(TAG_CHIP, 0, text.length)
+            .mapNotNull { a -> a.item.toIntOrNull()?.let { Chip(a.start, a.end, Color(it)) } }
+    }
     if (chips.isEmpty()) {
-        Text(text, modifier, style = style, inlineContent = inlineContent, maxLines = maxLines, softWrap = softWrap, overflow = overflow)
+        Text(
+            text,
+            modifier,
+            style = style,
+            inlineContent = inlineContent,
+            maxLines = maxLines,
+            softWrap = softWrap,
+            overflow = overflow
+        )
         return
     }
     // The text's layout, for the chips. Not state: the text lays out before it draws, and a new
@@ -86,7 +97,16 @@ internal fun RichText(
     val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
     Text(
         text,
-        modifier.drawBehind { layout.value?.let { drawChips(it, chips, dark, (size * TAG_SIZE).toPx()) } },
+        modifier.drawBehind {
+            layout.value?.let {
+                drawChips(
+                    it,
+                    chips,
+                    dark,
+                    (size * TAG_SIZE).toPx()
+                )
+            }
+        },
         style = style,
         inlineContent = inlineContent,
         maxLines = maxLines,
@@ -108,7 +128,12 @@ private class LayoutHolder(var value: TextLayoutResult? = null)
  * The chip behind each tag: a rounded box a little wider than its text, shaded in the tag's
  * colour, on each row the tag covers. [em] is the tag's text size in pixels.
  */
-private fun DrawScope.drawChips(layout: TextLayoutResult, chips: List<Chip>, dark: Boolean, em: Float) {
+private fun DrawScope.drawChips(
+    layout: TextLayoutResult,
+    chips: List<Chip>,
+    dark: Boolean,
+    em: Float
+) {
     val padX = 3.dp.toPx()
     val radius = CornerRadius(4.dp.toPx())
     val length = layout.layoutInput.text.length
@@ -128,7 +153,12 @@ private fun DrawScope.drawChips(layout: TextLayoutResult, chips: List<Chip>, dar
             val right = maxOf(a.right, b.right) + padX
             // Around the tag's letters, not the whole line: from a little above a capital to a little below the baseline.
             val baseline = layout.getLineBaseline(line)
-            drawRoundRect(fill, Offset(left, baseline - em * 0.92f), Size(right - left, em * 1.22f), radius)
+            drawRoundRect(
+                fill,
+                Offset(left, baseline - em * 0.92f),
+                Size(right - left, em * 1.22f),
+                radius
+            )
         }
     }
 }
@@ -146,9 +176,19 @@ internal fun RichBody(rest: String, style: TextStyle, start: Dp, bullet: TextUni
         for (block in blocks) when (block) {
             is Block.Table -> LogTable(block.rows, style, Modifier.padding(vertical = 4.dp))
             is Block.Bars -> Meters(block.meters, style, Modifier.padding(vertical = 2.dp))
-            is Block.Stats -> StatsRow(block.stats, style, Modifier.padding(top = 4.dp, bottom = 2.dp))
+            is Block.Stats -> StatsRow(
+                block.stats,
+                style,
+                Modifier.padding(top = 4.dp, bottom = 2.dp)
+            )
+
             is Block.Columns -> ColumnChart(block.columns, style, Modifier.padding(vertical = 4.dp))
-            is Block.Text -> RichText(remember(block.raw, Term.palette) { buildAnnotatedString { appendBody(block.raw, 0.sp, bullet) } }, style = style)
+            is Block.Text -> RichText(
+                remember(
+                    block.raw,
+                    Term.palette
+                ) { buildAnnotatedString { appendBody(block.raw, 0.sp, bullet) } }, style = style
+            )
         }
     }
 }
@@ -167,17 +207,39 @@ private fun blocks(rest: String): List<Block> {
     val text = ArrayList<String>()
     val rows = ArrayList<StyledText.Row>()
     val meters = ArrayList<StyledText.Meter>()
-    fun endText() { if (text.isNotEmpty()) out += Block.Text(text.joinToString("\n")); text.clear() }
-    fun endTable() { if (rows.isNotEmpty()) out += Block.Table(rows.toList()); rows.clear() }
-    fun endBars() { if (meters.isNotEmpty()) out += Block.Bars(meters.toList()); meters.clear() }
+    fun endText() {
+        if (text.isNotEmpty()) out += Block.Text(text.joinToString("\n")); text.clear()
+    }
+
+    fun endTable() {
+        if (rows.isNotEmpty()) out += Block.Table(rows.toList()); rows.clear()
+    }
+
+    fun endBars() {
+        if (meters.isNotEmpty()) out += Block.Bars(meters.toList()); meters.clear()
+    }
     for (raw in rest.split('\n')) {
         val line = if (StyledText.hasBlock(raw)) StyledText.lines(raw).single() else null
         when {
-            line?.row != null -> { endText(); endBars(); rows += line.row }
-            line?.meter != null -> { endText(); endTable(); meters += line.meter }
-            line?.stats != null -> { endText(); endTable(); endBars(); out += Block.Stats(line.stats) }
-            line?.columns != null -> { endText(); endTable(); endBars(); out += Block.Columns(line.columns) }
-            else -> { endTable(); endBars(); text += raw }
+            line?.row != null -> {
+                endText(); endBars(); rows += line.row
+            }
+
+            line?.meter != null -> {
+                endText(); endTable(); meters += line.meter
+            }
+
+            line?.stats != null -> {
+                endText(); endTable(); endBars(); out += Block.Stats(line.stats)
+            }
+
+            line?.columns != null -> {
+                endText(); endTable(); endBars(); out += Block.Columns(line.columns)
+            }
+
+            else -> {
+                endTable(); endBars(); text += raw
+            }
         }
     }
     endText()
@@ -198,7 +260,11 @@ private val COLUMN_GAP = 8.dp
  * the body's colour, the numbers in the text colour, each with its own styles. [meters] is never empty.
  */
 @Composable
-internal fun Meters(meters: List<StyledText.Meter>, style: TextStyle, modifier: Modifier = Modifier) {
+internal fun Meters(
+    meters: List<StyledText.Meter>,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
     val labels = meters.any { it.label.isNotEmpty() }
     val starts = meters.any { it.start.isNotEmpty() }
     val ends = meters.any { it.end.isNotEmpty() }
@@ -214,23 +280,45 @@ internal fun Meters(meters: List<StyledText.Meter>, style: TextStyle, modifier: 
                 if (ends) MeterText(m.end, style.copy(color = Term.fg), palette)
             }
         },
-        modifier = modifier.testTag("log-bars").clearAndSetSemantics { contentDescription = spoken },
+        modifier = modifier
+            .testTag("log-bars")
+            .clearAndSetSemantics { contentDescription = spoken },
     ) { measurables, constraints ->
         val gap = COLUMN_GAP.roundToPx()
-        val line = style.lineHeight.takeIf { it.isSp }?.toPx()?.roundToInt() ?: (style.fontSize.toPx() * 1.36f).roundToInt()
+        val line = style.lineHeight.takeIf { it.isSp }?.toPx()?.roundToInt()
+            ?: (style.fontSize.toPx() * 1.36f).roundToInt()
         // Texts first, at their own width; then each column is as wide as its widest text.
         val texts = HashMap<Int, androidx.compose.ui.layout.Placeable>()
         val trackColumn = listOf(labels, starts).count { it }
-        for (i in measurables.indices) if (i % columns != trackColumn) texts[i] = measurables[i].measure(Constraints())
-        val widths = IntArray(columns) { c -> if (c == trackColumn) 0 else meters.indices.maxOf { r -> texts[r * columns + c]?.width ?: 0 } }
-        val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else widths.sum() + gap * (columns - 1) + TRACK_MIN.roundToPx() * 4
-        val track = (maxWidth - widths.sum() - gap * (columns - 1)).coerceAtLeast(TRACK_MIN.roundToPx())
-        val trackHeight = TRACK.roundToPx()
-        val tracks = meters.indices.map { r -> measurables[r * columns + trackColumn].measure(Constraints.fixed(track, trackHeight)) }
-        val heights = IntArray(meters.size) { r ->
-            maxOf(line, (0 until columns).maxOf { c -> texts[r * columns + c]?.height ?: trackHeight })
+        for (i in measurables.indices) if (i % columns != trackColumn) texts[i] =
+            measurables[i].measure(Constraints())
+        val widths = IntArray(columns) { c ->
+            if (c == trackColumn) 0 else meters.indices.maxOf { r ->
+                texts[r * columns + c]?.width ?: 0
+            }
         }
-        layout(minOf(maxWidth, widths.sum() + track + gap * (columns - 1)).coerceAtLeast(0), heights.sum()) {
+        val maxWidth =
+            if (constraints.hasBoundedWidth) constraints.maxWidth else widths.sum() + gap * (columns - 1) + TRACK_MIN.roundToPx() * 4
+        val track =
+            (maxWidth - widths.sum() - gap * (columns - 1)).coerceAtLeast(TRACK_MIN.roundToPx())
+        val trackHeight = TRACK.roundToPx()
+        val tracks = meters.indices.map { r ->
+            measurables[r * columns + trackColumn].measure(
+                Constraints.fixed(
+                    track,
+                    trackHeight
+                )
+            )
+        }
+        val heights = IntArray(meters.size) { r ->
+            maxOf(
+                line,
+                (0 until columns).maxOf { c -> texts[r * columns + c]?.height ?: trackHeight })
+        }
+        layout(
+            minOf(maxWidth, widths.sum() + track + gap * (columns - 1)).coerceAtLeast(0),
+            heights.sum()
+        ) {
             var y = 0
             for (r in meters.indices) {
                 var x = 0
@@ -250,7 +338,15 @@ internal fun Meters(meters: List<StyledText.Meter>, style: TextStyle, modifier: 
 
 @Composable
 private fun MeterText(spans: List<StyledText.Span>, style: TextStyle, palette: Palette) {
-    val text = remember(spans, palette, style.color) { buildAnnotatedString { appendSpans(spans, SpanStyle(color = style.color), Term.fg) } }
+    val text = remember(spans, palette, style.color) {
+        buildAnnotatedString {
+            appendSpans(
+                spans,
+                SpanStyle(color = style.color),
+                Term.fg
+            )
+        }
+    }
     RichText(text, style, maxLines = 1, softWrap = false)
 }
 
@@ -288,7 +384,14 @@ internal fun lineBar(value: String?): StyledText.Meter? {
     val to = parts.getOrNull(1)?.toFloatOrNull() ?: return null
     if (from.isNaN() || to.isNaN()) return null
     val a = from.coerceIn(0f, 1f)
-    return StyledText.Meter(a, to.coerceIn(a, 1f), parts.getOrNull(2)?.let(StyledText.Colour::named), emptyList(), emptyList(), emptyList())
+    return StyledText.Meter(
+        a,
+        to.coerceIn(a, 1f),
+        parts.getOrNull(2)?.let(StyledText.Colour::named),
+        emptyList(),
+        emptyList(),
+        emptyList()
+    )
 }
 
 /**
@@ -297,7 +400,11 @@ internal fun lineBar(value: String?): StyledText.Meter? {
  * font) have their bars line up.
  */
 @Composable
-internal fun WithBar(bar: StyledText.Meter, modifier: Modifier = Modifier, text: @Composable () -> Unit) {
+internal fun WithBar(
+    bar: StyledText.Meter,
+    modifier: Modifier = Modifier,
+    text: @Composable () -> Unit
+) {
     Layout(
         content = {
             Box { text() }
@@ -308,9 +415,15 @@ internal fun WithBar(bar: StyledText.Meter, modifier: Modifier = Modifier, text:
         val gap = COLUMN_GAP.roundToPx()
         val min = TRACK_MIN.roundToPx()
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth else min * 4
-        val shown = measurables[0].measure(Constraints(maxWidth = (width - gap - min).coerceAtLeast(0)))
+        val shown =
+            measurables[0].measure(Constraints(maxWidth = (width - gap - min).coerceAtLeast(0)))
         val height = TRACK.roundToPx()
-        val track = measurables[1].measure(Constraints.fixed((width - shown.width - gap).coerceAtLeast(min), height))
+        val track = measurables[1].measure(
+            Constraints.fixed(
+                (width - shown.width - gap).coerceAtLeast(min),
+                height
+            )
+        )
         layout(width, shown.height) {
             shown.place(0, 0)
             // Beside the first line of the text.
@@ -334,13 +447,21 @@ internal const val FOLD_SLACK = 2
  * end ([cutLines] lines, estimated), so it isn't all laid out for the few lines that show.
  */
 @Composable
-internal fun Foldable(id: Long, style: TextStyle, enabled: Boolean = true, cutLines: Int = 0, content: @Composable (open: Boolean) -> Unit) {
+internal fun Foldable(
+    id: Long,
+    style: TextStyle,
+    enabled: Boolean = true,
+    cutLines: Int = 0,
+    content: @Composable (open: Boolean) -> Unit
+) {
     val lines = Term.foldLines
     if (!enabled) return content(true)
     var open by rememberSaveable(id) { mutableStateOf(false) }
     val toggle = remember(id) { { open = !open } }
     val density = LocalDensity.current
-    val line = with(density) { (style.lineHeight.takeIf { it.isSp } ?: (Term.fontSize * TEXT_LINE).sp).toPx() }
+    val line = with(density) {
+        (style.lineHeight.takeIf { it.isSp } ?: (Term.fontSize * TEXT_LINE).sp).toPx()
+    }
     // Remembered, so a measure without a new content or a toggle recomposes nothing.
     val shownContent: @Composable () -> Unit = remember(content, open) { { content(open) } }
     SubcomposeLayout(Modifier.testTag("fold-$id")) { constraints ->
@@ -352,9 +473,17 @@ internal fun Foldable(id: Long, style: TextStyle, enabled: Boolean = true, cutLi
         val folds = cutLines > 0 || body.height > limit + line * FOLD_SLACK
         val shown = if (folds && !open) minOf(limit, body.height) else body.height
         val hidden = ceil((body.height - limit) / line).toInt().coerceAtLeast(0) + cut
-        val link = if (!folds) null else subcompose(FoldSlot.LINK) { FoldLink(open, hidden, toggle) }.first().measure(constraints.copy(minHeight = 0))
+        val link = if (!folds) null else subcompose(FoldSlot.LINK) {
+            FoldLink(
+                open,
+                hidden,
+                toggle
+            )
+        }.first().measure(constraints.copy(minHeight = 0))
         layout(maxOf(body.width, link?.width ?: 0), shown + (link?.height ?: 0)) {
-            if (shown < body.height) body.placeWithLayer(0, 0) { clip = true; shape = TopPart(shown.toFloat()) } else body.place(0, 0)
+            if (shown < body.height) body.placeWithLayer(0, 0) {
+                clip = true; shape = TopPart(shown.toFloat())
+            } else body.place(0, 0)
             link?.place(0, shown)
         }
     }
@@ -374,7 +503,11 @@ private fun FoldLink(open: Boolean, hidden: Int, onClick: () -> Unit) {
         if (open) "▴ Show less" else "▾ $hidden more ${if (hidden == 1) "line" else "lines"}",
         style = Term.small.copy(color = Term.link),
         modifier = Modifier
-            .clickable(role = Role.Button, onClickLabel = if (open) "fold the line" else "show the whole line", onClick = onClick)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = if (open) "fold the line" else "show the whole line",
+                onClick = onClick
+            )
             .heightIn(min = 32.dp)
             .wrapContentHeight()
             .padding(end = 12.dp)
@@ -389,15 +522,26 @@ private fun FoldLink(open: Boolean, hidden: Int, onClick: () -> Unit) {
  * value with its label.
  */
 @Composable
-internal fun StatsRow(stats: List<StyledText.Stat>, style: TextStyle, modifier: Modifier = Modifier) {
+internal fun StatsRow(
+    stats: List<StyledText.Stat>,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
     if (stats.isEmpty()) return
     val palette = Term.palette
     val spoken = remember(stats) {
-        stats.joinToString(", ") { s -> listOf(s.value, s.label).joinToString(" ") { spans -> spans.joinToString("") { it.text } }.trim() }
+        stats.joinToString(", ") { s ->
+            listOf(
+                s.value,
+                s.label
+            ).joinToString(" ") { spans -> spans.joinToString("") { it.text } }.trim()
+        }
     }
     val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
     androidx.compose.foundation.layout.FlowRow(
-        modifier = modifier.testTag("log-stats").clearAndSetSemantics { contentDescription = spoken },
+        modifier = modifier
+            .testTag("log-stats")
+            .clearAndSetSemantics { contentDescription = spoken },
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(18.dp),
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
         itemVerticalAlignment = androidx.compose.ui.Alignment.Bottom,
@@ -410,10 +554,35 @@ internal fun StatsRow(stats: List<StyledText.Stat>, style: TextStyle, modifier: 
                     lineHeight = size * (if (i == 0) STAT_BIG else STAT_SMALL) * 1.1f,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                 )
-                RichText(remember(s.value, palette) { buildAnnotatedString { appendSpans(s.value, SpanStyle(color = Term.fg), Term.fg) } }, valueStyle, maxLines = 1, softWrap = false)
+                RichText(remember(s.value, palette) {
+                    buildAnnotatedString {
+                        appendSpans(
+                            s.value,
+                            SpanStyle(color = Term.fg),
+                            Term.fg
+                        )
+                    }
+                }, valueStyle, maxLines = 1, softWrap = false)
                 if (s.label.isNotEmpty()) {
-                    val labelStyle = TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Default, fontSize = (size.value - 2).sp, color = Term.dim)
-                    RichText(remember(s.label, palette) { buildAnnotatedString { appendSpans(s.label, SpanStyle(color = Term.dim), Term.fg) } }, labelStyle, maxLines = 1, softWrap = false)
+                    val labelStyle = TextStyle(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Default,
+                        fontSize = (size.value - 2).sp,
+                        color = Term.dim
+                    )
+                    RichText(
+                        remember(
+                            s.label,
+                            palette
+                        ) {
+                            buildAnnotatedString {
+                                appendSpans(
+                                    s.label,
+                                    SpanStyle(color = Term.dim),
+                                    Term.fg
+                                )
+                            }
+                        }, labelStyle, maxLines = 1, softWrap = false
+                    )
                 }
             }
         }
@@ -431,7 +600,11 @@ private const val STAT_SMALL = 1.3f
  * shows, muted, with a ✓, so it can't run twice.
  */
 @Composable
-internal fun ActionPills(entry: com.mtwabpin.kolahal.data.LogEntry, actions: List<Pair<String, String>>, onAction: (com.mtwabpin.kolahal.data.LogEntry, Int) -> Unit) {
+internal fun ActionPills(
+    entry: com.mtwabpin.kolahal.data.LogEntry,
+    actions: List<Pair<String, String>>,
+    onAction: (com.mtwabpin.kolahal.data.LogEntry, Int) -> Unit
+) {
     val done = entry.ctx.values[com.mtwabpin.kolahal.data.LogContext.ACTION_DONE]?.toIntOrNull()
     val dark = Term.bg.luminance() < 0.5f
     val accent = Term.prompt
@@ -442,7 +615,9 @@ internal fun ActionPills(entry: com.mtwabpin.kolahal.data.LogEntry, actions: Lis
         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
     )
     androidx.compose.foundation.layout.FlowRow(
-        Modifier.padding(top = 6.dp, bottom = 2.dp).testTag("line-actions"),
+        Modifier
+            .padding(top = 6.dp, bottom = 2.dp)
+            .testTag("line-actions"),
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
     ) {
@@ -454,12 +629,20 @@ internal fun ActionPills(entry: com.mtwabpin.kolahal.data.LogEntry, actions: Lis
                     .heightIn(min = 34.dp)
                     .clip(shape)
                     .background(accent.copy(alpha = if (tapped) 0.08f else if (dark) 0.22f else 0.14f))
-                    .then(if (tapped) Modifier else Modifier.clickable(role = Role.Button, onClickLabel = label) { onAction(entry, i) })
+                    .then(
+                        if (tapped) Modifier else Modifier.clickable(
+                            role = Role.Button,
+                            onClickLabel = label
+                        ) { onAction(entry, i) })
                     .padding(horizontal = 14.dp)
                     .testTag("line-action-$i"),
                 contentAlignment = androidx.compose.ui.Alignment.Center,
             ) {
-                Text(if (tapped) "✓ $label" else label, style = textStyle.copy(color = if (tapped) Term.dim else accent), maxLines = 1)
+                Text(
+                    if (tapped) "✓ $label" else label,
+                    style = textStyle.copy(color = if (tapped) Term.dim else accent),
+                    maxLines = 1
+                )
             }
         }
     }
@@ -473,7 +656,11 @@ internal fun ActionPills(entry: com.mtwabpin.kolahal.data.LogEntry, actions: Lis
  * hears its words ([StyledText.Columns.said]).
  */
 @Composable
-internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier: Modifier = Modifier) {
+internal fun ColumnChart(
+    columns: StyledText.Columns,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
     if (columns.heights.isEmpty()) return
     val accent = Term.prompt
     val faint = Term.prompt.copy(alpha = 0.4f)
@@ -482,13 +669,22 @@ internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier
     // A few columns are not stretched over the whole width: each is at most COLUMN_MAX wide, and the
     // chart keeps room for its labels.
     val widest = maxOf(COLUMN_MAX * columns.heights.size, COLUMNS_LEAST)
-    Column(modifier.widthIn(max = widest).fillMaxWidth().testTag("log-columns").clearAndSetSemantics { contentDescription = said }) {
-        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(COLUMNS_HEIGHT)) {
+    Column(
+        modifier
+            .widthIn(max = widest)
+            .fillMaxWidth()
+            .testTag("log-columns")
+            .clearAndSetSemantics { contentDescription = said }) {
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(COLUMNS_HEIGHT)
+        ) {
             val n = columns.heights.size
             val slot = size.width / n
             val gap = minOf(2.dp.toPx(), slot / 3)
             val w = (slot - gap).coerceAtLeast(1f)
-            val round = androidx.compose.ui.geometry.CornerRadius(minOf(2.dp.toPx(), w / 2))
+            val round = CornerRadius(minOf(2.dp.toPx(), w / 2))
             // A value of 0 still shows as a sliver above the baseline, so a quiet hour is not a gap.
             val least = 1.dp.toPx()
             // The newest column drawn stands out; slots still to come are empty.
@@ -496,14 +692,35 @@ internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier
             columns.heights.forEachIndexed { i, h ->
                 if (h == null) return@forEachIndexed
                 val tall = (size.height - least) * h + least
-                drawRoundRect(if (i == newest) accent else faint, Offset(i * slot + gap / 2, size.height - tall), Size(w, tall), round)
+                drawRoundRect(
+                    if (i == newest) accent else faint,
+                    Offset(i * slot + gap / 2, size.height - tall),
+                    Size(w, tall),
+                    round
+                )
             }
-            drawLine(base, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
+            drawLine(
+                base,
+                Offset(0f, size.height),
+                Offset(size.width, size.height),
+                strokeWidth = 1.dp.toPx()
+            )
         }
         if (columns.labels.isNotEmpty()) {
             val small = style.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp)
-            Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
-                columns.labels.forEach { label -> Text(label.joinToString("") { it.text }, style = small, maxLines = 1) }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+            ) {
+                columns.labels.forEach { label ->
+                    Text(
+                        label.joinToString("") { it.text },
+                        style = small,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }

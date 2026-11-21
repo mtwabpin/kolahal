@@ -71,10 +71,12 @@ internal class RunSecrets(
      * Values shorter than [SecretStore.MIN_LENGTH] can't be set.
      */
     private val secretForms: List<String> =
-        secrets?.values?.values.orEmpty().filter { it.length >= SecretStore.MIN_LENGTH }.flatMap(::forms).distinct().sortedByDescending { it.length }
+        secrets?.values?.values.orEmpty().filter { it.length >= SecretStore.MIN_LENGTH }
+            .flatMap(::forms).distinct().sortedByDescending { it.length }
 
     /** [text] with this script's secrets masked, both values and marks. So nothing a run shows ever shows a key. */
-    fun redact(text: String): String = secretForms.fold(marks.replace(text, "••••")) { t, v -> t.replace(v, "••••") }
+    fun redact(text: String): String =
+        secretForms.fold(marks.replace(text, "••••")) { t, v -> t.replace(v, "••••") }
 
     /**
      * [e] as the script may see it: with this script's secrets masked in its message, or [e] itself
@@ -103,7 +105,8 @@ internal class RunSecrets(
     fun check(host: String, carried: List<String>, https: Boolean) {
         val s = secrets ?: return
         for (secret in s.declared) {
-            val value = s.values[secret.name]?.takeIf { it.length >= SecretStore.MIN_LENGTH } ?: continue
+            val value =
+                s.values[secret.name]?.takeIf { it.length >= SecretStore.MIN_LENGTH } ?: continue
             val forms = forms(value)
             if (carried.none { text -> forms.any { it in text } }) continue
             if (!secret.allows(host)) throw java.io.IOException("${secret.name} may only be sent to ${secret.hosts.joinToString()}, not $host")
@@ -114,7 +117,12 @@ internal class RunSecrets(
 
     /** The forms a value can take in a URL, a body or a line: as typed, URL-encoded, and JSON-escaped (Lua's json.encode writes `\/`). */
     private fun forms(value: String): Set<String> =
-        setOf(value, java.net.URLEncoder.encode(value, "UTF-8"), uriEncode(value), value.replace("/", "\\/"))
+        setOf(
+            value,
+            java.net.URLEncoder.encode(value, "UTF-8"),
+            uriEncode(value),
+            value.replace("/", "\\/")
+        )
 
     /**
      * A store key for [url] ([prefix] + the URL).

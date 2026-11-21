@@ -9,7 +9,8 @@ import org.junit.Test
 
 /** The pinned header's turns, its dots, and which items run again. */
 class PinnedTurnsTest {
-    @Test fun dotsShowForTwoUpToTheSetting() {
+    @Test
+    fun dotsShowForTwoUpToTheSetting() {
         assertFalse("one item needs none", PinnedTurns.showsDots(1, 3))
         assertTrue(PinnedTurns.showsDots(2, 3))
         assertTrue(PinnedTurns.showsDots(3, 3))
@@ -18,7 +19,8 @@ class PinnedTurnsTest {
         assertFalse("0: never", PinnedTurns.showsDots(2, 0))
     }
 
-    @Test fun turnsGoRoundInOrder() {
+    @Test
+    fun turnsGoRoundInOrder() {
         val keys = listOf("media", "script:cricket", "script:football")
         assertEquals("script:cricket", PinnedTurns.next(keys, "media"))
         assertEquals("script:football", PinnedTurns.next(keys, "script:cricket"))
@@ -28,7 +30,8 @@ class PinnedTurnsTest {
     }
 
     /** An item that went is shown as the first, and the turn after it is the second. */
-    @Test fun aGoneItemFallsBackToTheFirst() {
+    @Test
+    fun aGoneItemFallsBackToTheFirst() {
         val keys = listOf("script:a", "script:b", "script:c")
         assertEquals(0, PinnedTurns.index(keys, "script:gone"))
         assertEquals(0, PinnedTurns.index(keys, null))
@@ -36,7 +39,8 @@ class PinnedTurnsTest {
         assertEquals("script:b", PinnedTurns.next(keys, "script:gone"))
     }
 
-    @Test fun onlyItemsAskingForARefreshRunAgain() {
+    @Test
+    fun onlyItemsAskingForARefreshRunAgain() {
         fun pin(name: String, refresh: Int?) = StatusLine(name, "x", null, refresh)
         val pins = listOf(pin("still", null), pin("cricket", 10), pin("football", 30))
         // Never run yet: at once.

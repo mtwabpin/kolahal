@@ -29,7 +29,12 @@ interface DocumentSource {
  * - [size], [modified]: its length in bytes and when it last changed (ms), or null when its app doesn't say.
  * - [writable]: whether Kolahal may write it, as far as Android says. Only a write shows it for sure.
  */
-data class DocumentInfo(val name: String, val size: Long? = null, val modified: Long? = null, val writable: Boolean = true)
+data class DocumentInfo(
+    val name: String,
+    val size: Long? = null,
+    val modified: Long? = null,
+    val writable: Boolean = true
+)
 
 /** The file can't be read or written. The message is a sentence for the user, without a full stop. */
 class DocumentUnavailable(message: String, cause: Throwable? = null) : IOException(message, cause)

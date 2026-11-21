@@ -67,13 +67,33 @@ import com.mtwabpin.kolahal.R
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun SearchRow(query: String, onQuery: (String) -> Unit, filters: Int, onFilters: () -> Unit, sort: ScriptSort, onSort: (ScriptSort) -> Unit) {
+internal fun SearchRow(
+    query: String,
+    onQuery: (String) -> Unit,
+    filters: Int,
+    onFilters: () -> Unit,
+    sort: ScriptSort,
+    onSort: (ScriptSort) -> Unit
+) {
     var sorting by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        SearchField(query, onQuery, "Search scripts", Modifier.weight(1f).testTag("script-search"), clear = "Clear the search")
+        SearchField(
+            query,
+            onQuery,
+            "Search scripts",
+            Modifier
+                .weight(1f)
+                .testTag("script-search"),
+            clear = "Clear the search"
+        )
         Labeled("Filters") {
             IconButton(shapes = IconButtonDefaults.shapes(), onClick = onFilters) {
-                BadgedBox(badge = { if (filters > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$filters") } }) {
+                BadgedBox(badge = {
+                    if (filters > 0) Badge(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) { Text("$filters") }
+                }) {
                     Icon(painterResource(R.drawable.ic_tune), contentDescription = "Filters")
                 }
             }
@@ -111,7 +131,12 @@ private fun chosenLabel(chip: ScriptFilter, version: String?): String = when (ch
 
 /** The chips that are on, in the sheet's order. × on a chip turns it off; Clear turns all off. */
 @Composable
-internal fun ChosenFilters(ids: Set<String>, version: String?, onRemove: (String) -> Unit, onClear: () -> Unit) {
+internal fun ChosenFilters(
+    ids: Set<String>,
+    version: String?,
+    onRemove: (String) -> Unit,
+    onClear: () -> Unit
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
@@ -122,7 +147,13 @@ internal fun ChosenFilters(ids: Set<String>, version: String?, onRemove: (String
                 selected = true,
                 onClick = { onRemove(chip.id) },
                 label = { Text(chosenLabel(chip, version)) },
-                trailingIcon = { Icon(painterResource(R.drawable.ic_close), contentDescription = "Remove", Modifier.size(InputChipDefaults.IconSize)) },
+                trailingIcon = {
+                    Icon(
+                        painterResource(R.drawable.ic_close),
+                        contentDescription = "Remove",
+                        Modifier.size(InputChipDefaults.IconSize)
+                    )
+                },
             )
         }
         TextButton(shapes = ButtonDefaults.shapes(), onClick = onClear) { Text("Clear") }
@@ -140,10 +171,20 @@ internal fun SelfUpdateNote(version: String, count: Int, onShow: () -> Unit, onC
         shape = MaterialTheme.shapes.medium,
         color = Color.Transparent,
         border = BorderStroke(1.dp, colors.outlineVariant),
-        modifier = Modifier.fillMaxWidth().testTag("self-update-note"),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("self-update-note"),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp)) {
-            Icon(painterResource(R.drawable.ic_info), null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 12.dp)
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_info),
+                null,
+                Modifier.size(18.dp),
+                tint = colors.onSurfaceVariant
+            )
             Spacer(Modifier.width(8.dp))
             Text(
                 "Kolahal $version updated $count ${if (count == 1) "script" else "scripts"}",
@@ -162,10 +203,23 @@ internal fun SelfUpdateNote(version: String, count: Int, onShow: () -> Unit, onC
  * × hides it until another copy differs.
  */
 @Composable
-internal fun CopiesBanner(newer: Int, edited: Int, canUpdate: Boolean, onReview: () -> Unit, onUpdateAll: () -> Unit, onHide: () -> Unit) {
+internal fun CopiesBanner(
+    newer: Int,
+    edited: Int,
+    canUpdate: Boolean,
+    onReview: () -> Unit,
+    onUpdateAll: () -> Unit,
+    onHide: () -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     val n = newer + edited
-    Surface(shape = MaterialTheme.shapes.large, color = colors.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().testTag("copies-banner")) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = colors.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("copies-banner")
+    ) {
         Column(Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp, end = 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_refresh), null, tint = colors.primary)
@@ -177,7 +231,8 @@ internal fun CopiesBanner(newer: Int, edited: Int, canUpdate: Boolean, onReview:
                     )
                     Text(
                         listOfNotNull(
-                            newer.takeIf { it > 0 }?.let { if (it == 1) "1 new version" else "$it new versions" },
+                            newer.takeIf { it > 0 }
+                                ?.let { if (it == 1) "1 new version" else "$it new versions" },
                             edited.takeIf { it > 0 }?.let { "$it edited" },
                         ).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
@@ -186,9 +241,17 @@ internal fun CopiesBanner(newer: Int, edited: Int, canUpdate: Boolean, onReview:
                 }
                 LabeledIconButton(R.drawable.ic_close, "Hide the banner", onClick = onHide)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.align(Alignment.End).padding(end = 8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .padding(end = 8.dp)
+            ) {
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onReview) { Text("Review") }
-                if (canUpdate) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onUpdateAll) { Text("Update all…") }
+                if (canUpdate) FilledTonalButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onUpdateAll
+                ) { Text("Update all…") }
             }
         }
     }
@@ -199,7 +262,11 @@ internal fun CopiesBanner(newer: Int, edited: Int, canUpdate: Boolean, onReview:
 internal fun CountLine(shown: Int, total: Int, sort: ScriptSort) {
     val style = MaterialTheme.typography.labelMedium
     val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp)
+    ) {
         Text(
             if (shown == total) "$total ${if (total == 1) "script" else "scripts"}" else "$shown of $total scripts",
             style = style,
@@ -227,10 +294,25 @@ internal fun FilterSheet(
     onDismiss: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberExpandedSheetState(), containerColor = colors.surfaceContainerLow) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 24.dp, end = 12.dp)) {
-            Text("Filters", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            TextButton(shapes = ButtonDefaults.shapes(), onClick = onClear, enabled = chosen.isNotEmpty()) { Text("Clear all") }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberExpandedSheetState(),
+        containerColor = colors.surfaceContainerLow
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 24.dp, end = 12.dp)
+        ) {
+            Text(
+                "Filters",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onClear,
+                enabled = chosen.isNotEmpty()
+            ) { Text("Clear all") }
         }
         Text(
             "In a group: any of the chips. Across groups: all of them.",
@@ -243,21 +325,37 @@ internal fun FilterSheet(
         Button(
             shapes = ButtonDefaults.shapes(),
             onClick = onDismiss,
-            modifier = Modifier.navigationBarsPadding().padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 16.dp)
+                .fillMaxWidth(),
         ) { Text(if (shown == 1) "Show 1 script" else "Show $shown scripts") }
     }
 }
 
 /** The groups of the filter sheet. They scroll when they are taller than the screen. */
 @Composable
-private fun ColumnScope.FilterGroups(groups: List<Pair<FilterGroup, List<ScriptFilter>>>, counts: Map<String, Int>, chosen: Set<String>, onToggle: (String) -> Unit) {
+private fun ColumnScope.FilterGroups(
+    groups: List<Pair<FilterGroup, List<ScriptFilter>>>,
+    counts: Map<String, Int>,
+    chosen: Set<String>,
+    onToggle: (String) -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     Column(
-        Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
+        Modifier
+            .weight(1f, fill = false)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         for ((group, chips) in groups) {
-            Text(group.title, style = MaterialTheme.typography.labelLarge, color = colors.primary, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                group.title,
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.primary,
+                modifier = Modifier.padding(top = 8.dp)
+            )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (chip in chips) {
                     // A chip at 0 is greyed, as nothing more would show. It still works: in a group it may add nothing yet keep the others.
@@ -265,7 +363,9 @@ private fun ColumnScope.FilterGroups(groups: List<Pair<FilterGroup, List<ScriptF
                         chip.label,
                         counts[chip.id] ?: 0,
                         on = chip.id in chosen,
-                        modifier = Modifier.height(FilterChipDefaults.Height).testTag("filter:${chip.id}"),
+                        modifier = Modifier
+                            .height(FilterChipDefaults.Height)
+                            .testTag("filter:${chip.id}"),
                     ) { onToggle(chip.id) }
                 }
             }

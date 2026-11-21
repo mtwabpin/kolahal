@@ -3,11 +3,11 @@
  */
 package com.mtwabpin.kolahal.control
 
-import com.mtwabpin.kolahal.data.Stores
 import android.app.WallpaperManager
 import android.content.Context
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
+import com.mtwabpin.kolahal.data.Stores
 
 /**
  * `wallpaper match`: sets the home screen's wallpaper to the theme's colour. The wallpaper follows
@@ -25,7 +25,8 @@ object WallpaperMatch {
     private const val KEY_COLOUR = "colour"
 
     /** The last colour asked for. When themes change faster than the wallpaper can, this is the one to end on. */
-    @Volatile private var wanted = 0
+    @Volatile
+    private var wanted = 0
 
     private fun prefs(context: Context) = Stores.WALLPAPER_MATCH.open(context.applicationContext)
 
@@ -34,20 +35,23 @@ object WallpaperMatch {
      * Null until home has applied a theme in this process: then `wallpaper match` refuses, rather
      * than paint over your wallpaper with a colour it doesn't know.
      */
-    @Volatile var themeColour: Int? = null
+    @Volatile
+    var themeColour: Int? = null
         @androidx.annotation.VisibleForTesting internal set
 
     /**
      * True when the theme on screen takes its colours from the wallpaper, as the screen last
      * reported it ([follow]). Then `wallpaper match` refuses, and the wallpaper stays as it is.
      */
-    @Volatile var themeFromWallpaper = false
+    @Volatile
+    var themeFromWallpaper = false
         private set
 
     /** True while the home screen's wallpaper is still the one [set] put there. */
     fun isMatched(context: Context): Boolean {
         val id = prefs(context).getInt(KEY_ID, 0)
-        return id != 0 && WallpaperManager.getInstance(context).getWallpaperId(WallpaperManager.FLAG_SYSTEM) == id
+        return id != 0 && WallpaperManager.getInstance(context)
+            .getWallpaperId(WallpaperManager.FLAG_SYSTEM) == id
     }
 
     /** Sets the home screen's wallpaper to [colour] and saves its id. Returns false if Android doesn't allow it. */
@@ -56,7 +60,14 @@ object WallpaperMatch {
         val wallpapers = WallpaperManager.getInstance(context)
         if (!wallpapers.isWallpaperSupported || !wallpapers.isSetWallpaperAllowed) return false
         val solid = createBitmap(64, 64).apply { eraseColor(colour) }
-        val id = runCatching { wallpapers.setBitmap(solid, null, true, WallpaperManager.FLAG_SYSTEM) }.getOrDefault(0)
+        val id = runCatching {
+            wallpapers.setBitmap(
+                solid,
+                null,
+                true,
+                WallpaperManager.FLAG_SYSTEM
+            )
+        }.getOrDefault(0)
         if (id == 0) return false
         prefs(context).edit { putInt(KEY_ID, id); putInt(KEY_COLOUR, colour) }
         return true

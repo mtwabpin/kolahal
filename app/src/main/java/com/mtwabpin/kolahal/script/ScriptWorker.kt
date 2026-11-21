@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.work.Data
 import androidx.work.WorkerParameters
@@ -14,6 +13,7 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -25,9 +25,11 @@ import kotlin.time.Duration.Companion.milliseconds
  * Runs one script (by id) or an inline REPL snippet. It runs inside the `:script` process through
  * WorkManager's RemoteWorkerService, so a native engine crash can't take down the launcher UI.
  */
-class ScriptWorker(context: Context, params: WorkerParameters) : RemoteCoroutineWorker(context, params) {
+class ScriptWorker(context: Context, params: WorkerParameters) :
+    RemoteCoroutineWorker(context, params) {
 
-    override suspend fun doRemoteWork(): Result = if (ScriptRun.run(applicationContext, inputData)) Result.success() else Result.failure()
+    override suspend fun doRemoteWork(): Result =
+        if (ScriptRun.run(applicationContext, inputData)) Result.success() else Result.failure()
 
     companion object {
         const val KEY_SCRIPT_ID = "script_id"
@@ -37,10 +39,13 @@ class ScriptWorker(context: Context, params: WorkerParameters) : RemoteCoroutine
         const val KEY_ARGS = "args"
         const val KEY_NAME = "name"
         const val KEY_INTERACTIVE = "interactive"
+
         /** Set when another script started this run, by sending a command with launcher.run. */
         const val KEY_BY_SCRIPT = "by_script"
+
         /** A JSON object for the script's `event` global (only for event and daily-time runs). */
         const val KEY_EVENT = "event"
+
         /** The line of the typed command that started this run ([LogContext.FROM]). */
         const val KEY_FROM = "from"
         const val TIMEOUT_MS = 60_000L
@@ -58,13 +63,15 @@ internal object ScriptRun {
      * later would overwrite rss.fresh's seen items from the other, so items would come back as new.
      * Every run is in the :script process, so a lock here covers them all. The next run waits its turn.
      */
-    private val running = java.util.concurrent.ConcurrentHashMap<Long, kotlinx.coroutines.sync.Mutex>()
+    private val running =
+        java.util.concurrent.ConcurrentHashMap<Long, kotlinx.coroutines.sync.Mutex>()
 
     /** Runs what [inputData] names ([ScriptWorker]'s keys). Returns false when it names nothing that can run. */
     suspend fun run(ctx: Context, inputData: Data): Boolean {
         val scriptId = inputData.getLong(ScriptWorker.KEY_SCRIPT_ID, -1L)
         if (scriptId < 0) return runOne(ctx, inputData, scriptId)
-        return running.getOrPut(scriptId) { kotlinx.coroutines.sync.Mutex() }.withLock { runOne(ctx, inputData, scriptId) }
+        return running.getOrPut(scriptId) { kotlinx.coroutines.sync.Mutex() }
+            .withLock { runOne(ctx, inputData, scriptId) }
     }
 
     private suspend fun runOne(ctx: Context, inputData: Data, scriptId: Long): Boolean {
@@ -72,22 +79,32 @@ internal object ScriptRun {
         val scripts = ScriptRepository.get(ctx)
 
         val script = if (scriptId >= 0) scripts.byId(scriptId) ?: return true else null
-        if (script != null && !script.enabled && inputData.getBoolean(ScriptWorker.KEY_SCHEDULED, false)) {
+        if (script != null && !script.enabled && inputData.getBoolean(
+                ScriptWorker.KEY_SCHEDULED,
+                false
+            )
+        ) {
             return true
         }
-        val lang = script?.lang ?: ScriptLang.of(inputData.getString(ScriptWorker.KEY_LANG).orEmpty())
+        val lang =
+            script?.lang ?: ScriptLang.of(inputData.getString(ScriptWorker.KEY_LANG).orEmpty())
             ?: return false
         val code = script?.code ?: inputData.getString(ScriptWorker.KEY_CODE) ?: return false
         val name = script?.name ?: inputData.getString(ScriptWorker.KEY_NAME) ?: lang.ext
         val repl = script == null
-        val args = inputData.getNullableStringArray(ScriptWorker.KEY_ARGS)?.filterNotNull().orEmpty()
-        val event = inputData.getString(ScriptWorker.KEY_EVENT)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
+        val args =
+            inputData.getNullableStringArray(ScriptWorker.KEY_ARGS)?.filterNotNull().orEmpty()
+        val event = inputData.getString(ScriptWorker.KEY_EVENT)
+            ?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
         val from = inputData.getLong(ScriptWorker.KEY_FROM, -1L).takeIf { it >= 0 }
         // The run may have been queued before a switch went off. So the event (or, for a notification,
         // reading notifications) is checked again when the run starts.
         val on = event?.get("name") as? String
         // A sample event run from the editor was asked for, so it always runs.
-        if (script != null && on != null && on in ScriptMeta.EVENTS && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false) &&
+        if (script != null && on != null && on in ScriptMeta.EVENTS && !inputData.getBoolean(
+                ScriptWorker.KEY_INTERACTIVE,
+                false
+            ) &&
             (!script.grants.allows(on) || (on == "notification" && !script.grants.allows("notifications")))
         ) return true
         // A pinned status line's refresh runs every few seconds while home shows it, and a widget's run
@@ -101,7 +118,11 @@ internal object ScriptRun {
         // The widget whose options the run reads and which `widget.show` fills. Every run that is
         // not for a further widget fills the first one, with the script's own options.
         val widgetId = forWidget.orEmpty()
-        val refresh = script != null && (on == ScriptScheduler.REFRESH || widgetRun) && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
+        val refresh =
+            script != null && (on == ScriptScheduler.REFRESH || widgetRun) && !inputData.getBoolean(
+                ScriptWorker.KEY_INTERACTIVE,
+                false
+            )
         val refreshes = KvStore(ctx, Stores.WORKER)
         val refreshKey = errorKey(script?.id, widgetId)
         val lastError = if (refresh) refreshes.get(refreshKey) else null
@@ -114,13 +135,23 @@ internal object ScriptRun {
         val host = HostApi(
             ctx, name, script?.id,
             // Its switch shows only when its code calls notify. So a script that hides the call can't post.
-            notifyEnabled = script?.let { it.notify && ScriptMeta.postsNotifications(it.code) } ?: true,
+            notifyEnabled = script?.let { it.notify && ScriptMeta.postsNotifications(it.code) }
+                ?: true,
             interactive = repl || inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false),
             byScript = inputData.getBoolean(ScriptWorker.KEY_BY_SCRIPT, false),
             from = from,
             grants = script?.grants,
-            secrets = script?.let { s -> ScriptMeta.secrets(s.code).let { d -> HostApi.Secrets(d, SecretStore(ctx).usable(s.name, d)) } },
-            options = script?.let { s -> ScriptOptions(ctx).values(s.name, ScriptMeta.options(s.code), widgetId) }.orEmpty(),
+            secrets = script?.let { s ->
+                ScriptMeta.secrets(s.code)
+                    .let { d -> HostApi.Secrets(d, SecretStore(ctx).usable(s.name, d)) }
+            },
+            options = script?.let { s ->
+                ScriptOptions(ctx).values(
+                    s.name,
+                    ScriptMeta.options(s.code),
+                    widgetId
+                )
+            }.orEmpty(),
             widget = script?.let { ScriptMeta.widget(it.code) },
             widgetId = widgetId,
         )
@@ -128,7 +159,7 @@ internal object ScriptRun {
         val started = System.currentTimeMillis()
         val errorCtx = LogContext(
             (if (script != null) mapOf(LogContext.SCRIPT to script.name) else emptyMap()) +
-                (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
+                    (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
         )
         // Android stopped the run (the worker was cancelled). It did not end by itself, so the card notes no end.
         var stopped = false
@@ -141,10 +172,19 @@ internal object ScriptRun {
             host.flush()
             if (result != null && !refresh) {
                 val shown = host.redact(result)
-                logs.add(LogKind.OUTPUT, shown, name, LogContext.of(LogContext.COPY to shown) + errorCtx.values)
+                logs.add(
+                    LogKind.OUTPUT,
+                    shown,
+                    name,
+                    LogContext.of(LogContext.COPY to shown) + errorCtx.values
+                )
             } else if (repl && host.effects == 0) {
                 logs.add(LogKind.OUTPUT, "nil", name, errorCtx)
-            } else if (script != null && host.effects == 0 && on != "action" && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
+            } else if (script != null && host.effects == 0 && on != "action" && inputData.getBoolean(
+                    ScriptWorker.KEY_INTERACTIVE,
+                    false
+                )
+            ) {
                 // A run you started showed nothing (hn with no new stories, say). Say it finished, so
                 // "Running hn…" isn't left without an answer. A button's run is left out: its line shows it done.
                 logs.add(LogKind.INFO, "$name ran: nothing to show", name, errorCtx)
@@ -167,17 +207,34 @@ internal object ScriptRun {
             // A host call's timeout counts only when the error is still that one: a script that caught it
             // and then failed otherwise ends in its own error.
             val stop = if (e is com.dokar.quickjs.QuickJsInterruptedException) RunStop.Timeout
-            else host.stoppedBy?.takeUnless { it == RunStop.Timeout && !e.message.orEmpty().contains("script timed out") }
-            val outcome = runOutcome(name, e, stop, repl, host::redact, errorLine = { errorLine(it, lang, name) })
+            else host.stoppedBy?.takeUnless {
+                it == RunStop.Timeout && !e.message.orEmpty().contains("script timed out")
+            }
+            val outcome = runOutcome(
+                name,
+                e,
+                stop,
+                repl,
+                host::redact,
+                errorLine = { errorLine(it, lang, name) })
             fail(outcome.line, if (outcome.extra.isEmpty()) errorCtx else errorCtx + outcome.extra)
             outcome.status
         } finally {
             host.finish()
             // Here, so it happens however the run ends: with a result, an error, a timeout, or stopped by Android.
-            if (script != null) widgetEnd(ctx, host, noteEnd = forWidget != null && !stopped, failed)
+            if (script != null) widgetEnd(
+                ctx,
+                host,
+                noteEnd = forWidget != null && !stopped,
+                failed
+            )
         }
         // A run you started asked for things nobody has allowed yet, and got empty answers. Offer to allow them.
-        if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
+        if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(
+                ScriptWorker.KEY_INTERACTIVE,
+                false
+            )
+        ) {
             ScriptAccess.askToAllow(ctx, name, host.undecided.toList(), "needs permission for")
         }
         if (refresh && failed != lastError) refreshes.set(refreshKey, failed)
@@ -228,8 +285,9 @@ internal object ScriptRun {
      */
     internal fun widgetOf(event: Map<*, *>?): String? {
         val name = event?.get("name")
-        if (name != ScriptScheduler.WIDGET && !(name == "action" && event?.get("widget") == true)) return null
-        return (event?.get(ScriptScheduler.INSTANCE) as? String)?.takeIf(WidgetRef.ID::matches).orEmpty()
+        if (name != ScriptScheduler.WIDGET && !(name == "action" && event.get("widget") == true)) return null
+        return (event.get(ScriptScheduler.INSTANCE) as? String)?.takeIf(WidgetRef.ID::matches)
+            .orEmpty()
     }
 
     /**
@@ -237,13 +295,17 @@ internal object ScriptRun {
      * logged once, until a run works. Each further widget has its own (`refresh-error:12#2`), so
      * one widget's failed run does not hide another's.
      */
-    internal fun errorKey(scriptId: Long?, widgetId: String): String = "refresh-error:" + WidgetRef(scriptId.toString(), widgetId).key
+    internal fun errorKey(scriptId: Long?, widgetId: String): String =
+        "refresh-error:" + WidgetRef(scriptId.toString(), widgetId).key
 
     /** The source line of a script error. Lua messages carry `name:LINE:`; QuickJS exceptions carry a line number. */
     private fun errorLine(e: Throwable, lang: ScriptLang, name: String): Int? = when (lang) {
-        ScriptLang.LUA -> Regex("(?:^|\\s)${Regex.escape(name)}:(\\d+):").find(e.message.orEmpty())?.groupValues?.get(1)?.toIntOrNull()
+        ScriptLang.LUA -> Regex("(?:^|\\s)${Regex.escape(name)}:(\\d+):").find(e.message.orEmpty())?.groupValues?.get(
+            1
+        )?.toIntOrNull()
         // Saved JS scripts are wrapped in one extra line (the async function header).
-        ScriptLang.JS -> (e as? com.dokar.quickjs.QuickJsException)?.lineNumber?.minus(1)?.takeIf { it > 0 }
+        ScriptLang.JS -> (e as? com.dokar.quickjs.QuickJsException)?.lineNumber?.minus(1)
+            ?.takeIf { it > 0 }
     }
 
     /** Logs one "tap to allow" line per day when notifications are blocked, instead of one per blocked call. */
@@ -252,6 +314,11 @@ internal object ScriptRun {
         val today = java.time.LocalDate.now().toString()
         if (store.get("notify-blocked") == today) return
         store.set("notify-blocked", today)
-        logs.add(LogKind.ERROR, "$name: notifications are blocked — tap to allow", name, LogContext.of(LogContext.RUN to "notifications"))
+        logs.add(
+            LogKind.ERROR,
+            "$name: notifications are blocked — tap to allow",
+            name,
+            LogContext.of(LogContext.RUN to "notifications")
+        )
     }
 }

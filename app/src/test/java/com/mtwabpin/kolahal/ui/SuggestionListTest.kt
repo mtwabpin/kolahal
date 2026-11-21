@@ -7,9 +7,13 @@ import org.junit.Test
 
 /** The short help beside a completion in the suggestion list. */
 class SuggestionListTest {
-    @Test fun completionHelpForCommandsAndKeys() {
+    @Test
+    fun completionHelpForCommandsAndKeys() {
         assertEquals("Show this list, or just one command", completionHelp("help", "help "))
-        assertEquals(Keys.SELECTOR_RAIL.help, completionHelp("selector.rail", "config set selector.rail "))
+        assertEquals(
+            Keys.SELECTOR_RAIL.help,
+            completionHelp("selector.rail", "config set selector.rail ")
+        )
         assertNull(completionHelp("on", "config set selector.rail on"))
     }
 }

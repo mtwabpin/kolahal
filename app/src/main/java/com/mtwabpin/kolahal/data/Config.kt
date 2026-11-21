@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.data
 
-import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,7 +71,12 @@ class Config private constructor(private val prefs: SharedPreferences) {
     fun <T> set(key: ConfigKey<T>, raw: String): Boolean {
         val value = key.parse(raw) ?: return false
         // Setting the default again means no change: no ↺, no `*`, not in backups, and a later new default applies.
-        prefs.edit { if (value == key.default) remove(key.key) else putString(key.key, key.format(value)) }
+        prefs.edit {
+            if (value == key.default) remove(key.key) else putString(
+                key.key,
+                key.format(value)
+            )
+        }
         _version.update { it + 1 }
         return true
     }
@@ -91,4 +95,7 @@ class Config private constructor(private val prefs: SharedPreferences) {
 
 /** "22:40" or "10:40 PM", based on [Keys.CLOCK_24H], for log lines written outside the UI (workers). */
 fun Config.shortTime(millis: Long = System.currentTimeMillis()): String =
-    java.text.SimpleDateFormat(TimeFormats.clock(this[Keys.CLOCK_24H]), java.util.Locale.getDefault()).format(java.util.Date(millis))
+    java.text.SimpleDateFormat(
+        TimeFormats.clock(this[Keys.CLOCK_24H]),
+        java.util.Locale.getDefault()
+    ).format(java.util.Date(millis))

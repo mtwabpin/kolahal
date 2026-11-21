@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.LogFilter
 import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -9,6 +8,7 @@ import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
@@ -31,21 +31,25 @@ class ActivityCommandsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val apps = AppRepository.get(context)
     private val logs = LogRepository.get(context)
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private val commands = CommandRunner(context)
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         apps.refresh()
         waitUntil("the app list") { apps.apps.value.isNotEmpty() }
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         shell("am force-stop $SETTINGS")
     }
 
     /** The personal Settings app, which every test phone has. */
     private fun settings(): AppEntry {
-        val s = apps.apps.value.firstOrNull { it.pkg == SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
+        val s =
+            apps.apps.value.firstOrNull { it.pkg == SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
         assumeTrue("Settings is installed", s != null)
         assumeTrue("Settings is called Settings", s!!.label == "Settings")
         return s
@@ -58,7 +62,8 @@ class ActivityCommandsTest {
         return logs.recent(5_000, afterId = from).filter { it.kind != LogKind.COMMAND }
     }
 
-    @Test fun listsTheActivitiesOtherAppsMayOpen() {
+    @Test
+    fun listsTheActivitiesOtherAppsMayOpen() {
         val app = settings()
         val lines = run("activity settings")
         val summary = lines.last()
@@ -69,7 +74,10 @@ class ActivityCommandsTest {
 
         // The same activities as Android reports: exported, enabled, no permission.
         @Suppress("DEPRECATION")
-        val expected = context.packageManager.getPackageInfo(SETTINGS, PackageManager.GET_ACTIVITIES).activities.orEmpty()
+        val expected = context.packageManager.getPackageInfo(
+            SETTINGS,
+            PackageManager.GET_ACTIVITIES
+        ).activities.orEmpty()
             .filter { it.exported && it.isEnabled && it.permission == null }.map { it.name }.toSet()
         assertEquals(expected, items.map { it.ctx.values[LogContext.ACTIVITY] }.toSet())
 
@@ -79,7 +87,12 @@ class ActivityCommandsTest {
             val (label, cls) = line.text.split('\n')
             // The app's own label says nothing: then it is the class name.
             assertTrue(line.text, label.isNotBlank() && (label != "Settings" || cls == ".Settings"))
-            assertEquals(ActivityMatch.shownClass(SETTINGS, line.ctx.values.getValue(LogContext.ACTIVITY)), cls)
+            assertEquals(
+                ActivityMatch.shownClass(
+                    SETTINGS,
+                    line.ctx.values.getValue(LogContext.ACTIVITY)
+                ), cls
+            )
             assertEquals(SETTINGS, line.ctx.pkg)
             assertEquals(app.profile.serial, line.ctx.userSerial)
         }
@@ -91,7 +104,8 @@ class ActivityCommandsTest {
         assertTrue(items.any { it.ctx.values[LogContext.ACTIVITY] == WIFI })
     }
 
-    @Test fun opensOneByName() {
+    @Test
+    fun opensOneByName() {
         val app = settings()
         val items = ActivityCommands.activities(context, app)
         assumeTrue("Settings has $WIFI", items.any { it.className == WIFI })
@@ -99,10 +113,17 @@ class ActivityCommandsTest {
         assertEquals(lines.toString(), 1, lines.size)
         val opened = lines.single()
         assertEquals(LogKind.INFO, opened.kind)
-        assertTrue(opened.text, opened.text.startsWith("Opened ") && opened.text.endsWith(" · Settings"))
+        assertTrue(
+            opened.text,
+            opened.text.startsWith("Opened ") && opened.text.endsWith(" · Settings")
+        )
         assertEquals(WIFI, opened.ctx.values[LogContext.ACTIVITY])
-        val resumed = Regex("ResumedActivity.{0,120}${Regex.escape("$SETTINGS/.Settings\$WifiSettingsActivity")}")
-        waitUntil("Wi-Fi settings in front", ms = 10_000) { resumed.containsMatchIn(shell("dumpsys activity activities")) }
+        val resumed =
+            Regex("ResumedActivity.{0,120}${Regex.escape("$SETTINGS/.Settings\$WifiSettingsActivity")}")
+        waitUntil(
+            "Wi-Fi settings in front",
+            ms = 10_000
+        ) { resumed.containsMatchIn(shell("dumpsys activity activities")) }
 
         // The copied command names it again, and resolves to the same activity.
         val command = ActivityCommands.commandFor(context, app, WIFI)
@@ -110,38 +131,56 @@ class ActivityCommandsTest {
         // The label works too, in any case.
         val label = items.first { it.className == WIFI }.label
         val byLabel = run("activity settings ${label.uppercase()}")
-        assertTrue(byLabel.toString(), byLabel.any { it.text.startsWith("Opened ") && it.ctx.values[LogContext.ACTIVITY] == WIFI } ||
-            byLabel.count { it.ctx.values[LogContext.ACTIVITY] != null } > 1)
+        assertTrue(
+            byLabel.toString(),
+            byLabel.any { it.text.startsWith("Opened ") && it.ctx.values[LogContext.ACTIVITY] == WIFI } ||
+                    byLabel.count { it.ctx.values[LogContext.ACTIVITY] != null } > 1)
     }
 
-    @Test fun severalMatchesAreListed() {
+    @Test
+    fun severalMatchesAreListed() {
         settings()
         val lines = run("activity settings wifi")
         val summary = lines.last()
-        assertTrue(summary.text, Regex("\\d+ activities in Settings match 'wifi' · tap one to open it").matches(summary.text))
+        assertTrue(
+            summary.text,
+            Regex("\\d+ activities in Settings match 'wifi' · tap one to open it").matches(summary.text)
+        )
         val items = lines.dropLast(1)
         assertTrue(items.size >= 2)
         assertTrue(items.all { it.ctx.values[LogContext.ACTIVITY] != null })
     }
 
-    @Test fun saysWhatWentWrong() {
+    @Test
+    fun saysWhatWentWrong() {
         settings()
         assertEquals(listOf("No app matches 'zzqqxx'"), run("activity zzqqxx").map { it.text })
-        assertEquals(listOf("Settings has no activity matching 'zzqqxx' · 'activity Settings' lists them"), run("activity settings zzqqxx").map { it.text })
-        assertEquals(listOf("activity works only with apps in the personal profile"), run("activity settings -w").map { it.text })
+        assertEquals(
+            listOf("Settings has no activity matching 'zzqqxx' · 'activity Settings' lists them"),
+            run("activity settings zzqqxx").map { it.text })
+        assertEquals(
+            listOf("activity works only with apps in the personal profile"),
+            run("activity settings -w").map { it.text })
         assertEquals(listOf("Usage: activity <app> [<name>]"), run("activity").map { it.text })
         // An activity that is gone, and one that other apps may not open: a clear line, no crash.
         val gone = ActivityCommands.start(context, SETTINGS, "$SETTINGS.NoSuchActivity", "Nothing")
         assertEquals("Can't open Nothing: the app no longer has it", gone)
         @Suppress("DEPRECATION")
-        val private = context.packageManager.getPackageInfo(SETTINGS, PackageManager.GET_ACTIVITIES).activities.orEmpty()
+        val private = context.packageManager.getPackageInfo(
+            SETTINGS,
+            PackageManager.GET_ACTIVITIES
+        ).activities.orEmpty()
             .firstOrNull { !it.exported }
         assertNotNull(private)
-        assertEquals("Can't open Hidden: the app doesn't let other apps open it", ActivityCommands.start(context, SETTINGS, private!!.name, "Hidden"))
+        assertEquals(
+            "Can't open Hidden: the app doesn't let other apps open it",
+            ActivityCommands.start(context, SETTINGS, private!!.name, "Hidden")
+        )
     }
 
     /** A tap on a listed activity opens it; a long-press offers to open it and to copy its command. */
-    @Test fun aLineOpensOnTapAndOffersItsCommand() {
+    @Test
+    fun aLineOpensOnTapAndOffersItsCommand() {
         settings()
         val line = run("activity settings").first { it.ctx.values[LogContext.ACTIVITY] == WIFI }
         val host = object : LogLineActions.Host {
@@ -161,12 +200,17 @@ class ActivityCommandsTest {
         val labels = actions.actionsFor(line).map { it.label }
         assertEquals(listOf("Open activity", "Copy command"), labels.take(2))
         actions.onTap(line)
-        val resumed = Regex("ResumedActivity.{0,120}${Regex.escape("$SETTINGS/.Settings\$WifiSettingsActivity")}")
-        waitUntil("Wi-Fi settings in front", ms = 10_000) { resumed.containsMatchIn(shell("dumpsys activity activities")) }
+        val resumed =
+            Regex("ResumedActivity.{0,120}${Regex.escape("$SETTINGS/.Settings\$WifiSettingsActivity")}")
+        waitUntil(
+            "Wi-Fi settings in front",
+            ms = 10_000
+        ) { resumed.containsMatchIn(shell("dumpsys activity activities")) }
     }
 
     /** `activity sett` offers apps; after the app and a space, its activities. */
-    @Test fun completesAppsThenActivities() {
+    @Test
+    fun completesAppsThenActivities() {
         settings()
         val completer = Completer(context, object : Completer.Data {
             override val history = emptyList<String>()
@@ -179,14 +223,24 @@ class ActivityCommandsTest {
             override val notes = emptyList<com.mtwabpin.kolahal.productivity.Note>()
             override val reminders = emptyList<com.mtwabpin.kolahal.productivity.Reminder>()
         })
-        fun lines(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>().map { it.replacement }
-        assertTrue(lines("activity sett").toString(), "activity Settings " in lines("activity sett"))
+
+        fun lines(text: String) =
+            completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
+                .map { it.replacement }
+        assertTrue(
+            lines("activity sett").toString(),
+            "activity Settings " in lines("activity sett")
+        )
         // The app's activities are read off the main thread: none at first, then they arrive.
         val loaded = completer.loaded.value
         assertEquals(emptyList<String>(), lines("activity settings "))
         waitUntil("the activities arrive") { completer.loaded.value > loaded }
         assertTrue(lines("activity settings ").size > 5)
-        assertEquals(lines("activity settings wifisettingsact").toString(), "activity Settings WifiSettingsActivity", lines("activity settings wifisettingsact").first())
+        assertEquals(
+            lines("activity settings wifisettingsact").toString(),
+            "activity Settings WifiSettingsActivity",
+            lines("activity settings wifisettingsact").first()
+        )
     }
 
     companion object {

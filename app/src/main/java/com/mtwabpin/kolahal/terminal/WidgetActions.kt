@@ -47,7 +47,8 @@ internal class WidgetScriptReader {
     /** [scripts] by name. A script that did not change keeps the object it had, so an equal list gives the same map's objects. */
     fun read(scripts: List<Script>): Map<String, WidgetScript> = scripts.associate { s ->
         val p = ScriptMeta.parse(s.code)
-        val fresh = WidgetScript(s.name, p.title, s.enabled, p.widget, hasOptions = p.options.isNotEmpty())
+        val fresh =
+            WidgetScript(s.name, p.title, s.enabled, p.widget, hasOptions = p.options.isNotEmpty())
         s.name to (known[s.name]?.takeIf { it == fresh } ?: fresh)
     }.also { known = it }
 }
@@ -115,7 +116,8 @@ internal object WidgetAge {
     /** The last time anything happened to the widget: its content was set, or a run was tried. 0 means never. */
     fun last(setAt: Long, triedAt: Long): Long = maxOf(setAt, triedAt)
 
-    private fun limit(staleAfter: Int?): Long = (staleAfter ?: DEFAULT_STALE_S).coerceAtLeast(1) * 1000L
+    private fun limit(staleAfter: Int?): Long =
+        (staleAfter ?: DEFAULT_STALE_S).coerceAtLeast(1) * 1000L
 
     /** True when content set at [setAt] is older than [staleAfter] seconds at [now]. The card then says its age. */
     fun old(setAt: Long, staleAfter: Int?, now: Long): Boolean = now - setAt >= limit(staleAfter)
@@ -127,7 +129,11 @@ internal object WidgetAge {
      * on most visits, until the run lands a moment later.
      */
     fun saysAge(setAt: Long, staleAfter: Int?, toggles: Boolean, now: Long): Boolean =
-        old(setAt, if (toggles) maxOf(staleAfter ?: DEFAULT_STALE_S, DEFAULT_STALE_S) else staleAfter, now)
+        old(
+            setAt,
+            if (toggles) maxOf(staleAfter ?: DEFAULT_STALE_S, DEFAULT_STALE_S) else staleAfter,
+            now
+        )
 
     /**
      * True when the page should ask for one run at [now].
@@ -167,19 +173,24 @@ class WidgetActions internal constructor(
     /** What these actions need from the view model. */
     interface Host {
         fun io(block: suspend () -> Unit)
+
         /** Opens a web link. Anything else is ignored. */
         fun openUrl(url: String)
         fun openScreen(screen: Screen)
+
         /** Turns home to the log page. */
         fun showLog()
+
         /**
          * Runs [command] as if you had typed it and pressed Enter, as a gesture runs the command you
          * set for it, and turns home to the log. So it may be a sensitive command. Only for a command
          * that you chose yourself (a Shortcuts button), or a fixed one of Kolahal's own (`todo`).
          */
         fun runTyped(command: String)
+
         /** Asks Android for the calendar permission, as `agenda --allow` does. */
         fun requestCalendar()
+
         /** Asks whether to open Android's Notification access screen, as `notifs enable` does. */
         fun requestNotificationAccess()
     }
@@ -191,7 +202,8 @@ class WidgetActions internal constructor(
         val ref = WidgetRef.parse(widget) ?: return
         host.io {
             // Without its `@widget` line a run stores nothing for the card, so there is nothing to run for.
-            scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }?.let { ScriptScheduler.refreshWidget(context, it, ref.id) }
+            scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }
+                ?.let { ScriptScheduler.refreshWidget(context, it, ref.id) }
         }
     }
 
@@ -211,9 +223,23 @@ class WidgetActions internal constructor(
                     host.io {
                         val s = scripts.byName(script)
                         when {
-                            s == null -> logs.add(LogKind.ERROR, "No script named '$script' — 'script ls'")
-                            !s.enabled -> logs.add(LogKind.INFO, "$script is off: script on $script", ctx = LogContext.of(LogContext.COMMAND to "script on $script"))
-                            else -> ScriptScheduler.runNow(context, s, words(args), event(tap.label, ref.id))
+                            s == null -> logs.add(
+                                LogKind.ERROR,
+                                "No script named '$script' — 'script ls'"
+                            )
+
+                            !s.enabled -> logs.add(
+                                LogKind.INFO,
+                                "$script is off: script on $script",
+                                ctx = LogContext.of(LogContext.COMMAND to "script on $script")
+                            )
+
+                            else -> ScriptScheduler.runNow(
+                                context,
+                                s,
+                                words(args),
+                                event(tap.label, ref.id)
+                            )
                         }
                     }
                 }
@@ -251,11 +277,13 @@ class WidgetActions internal constructor(
                 val shortcut = ownData.shortcut(tap.index) ?: return
                 if (taps.allow("own:$id:$what")) host.runTyped(shortcut.command)
             }
+
             OwnTap.EditShortcuts -> {
                 // The Widgets screen is where the list is changed. It opens with the editor.
                 ownData.askShortcutsEditor()
                 host.openScreen(Screen.WIDGETS)
             }
+
             OwnTap.OpenPlayer -> openPlayer(ownData.player ?: return)
             OwnTap.AllowNotifications -> host.requestNotificationAccess()
             OwnTap.AllowCalendar -> host.requestCalendar()
@@ -266,14 +294,20 @@ class WidgetActions internal constructor(
     /** Opens [player]'s app. When it has no screen to open, the log says so. */
     private fun openPlayer(player: LastPlayer) {
         val intent = context.packageManager.getLaunchIntentForPackage(player.pkg)
-        if (intent != null) start(intent) else host.io { logs.add(LogKind.ERROR, "Can't open ${player.app}") }
+        if (intent != null) start(intent) else host.io {
+            logs.add(
+                LogKind.ERROR,
+                "Can't open ${player.app}"
+            )
+        }
     }
 
     override fun ownShown(id: String) = ownData.shown(id)
 
     companion object {
         /** The arguments of a tap, split at spaces, as a line button's are. */
-        internal fun words(args: String): List<String> = args.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        internal fun words(args: String): List<String> =
+            args.split(Regex("\\s+")).filter { it.isNotEmpty() }
 
         /**
          * The `event` of a run that a tap on a widget starts: a line button's event, marked as a
@@ -292,11 +326,12 @@ class WidgetActions internal constructor(
          * Opens the calendar event [id] in the calendar app. [event] is the event as the Agenda card
          * last read it, or null. Its times say which time of a repeating event to show.
          */
-        internal fun eventIntent(id: Long, event: AgendaEvent?): Intent = Intent(Intent.ACTION_VIEW, Agenda.eventUri(id)).apply {
-            if (event != null) {
-                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, event.begin)
-                putExtra(CalendarContract.EXTRA_EVENT_END_TIME, event.end)
+        internal fun eventIntent(id: Long, event: AgendaEvent?): Intent =
+            Intent(Intent.ACTION_VIEW, Agenda.eventUri(id)).apply {
+                if (event != null) {
+                    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, event.begin)
+                    putExtra(CalendarContract.EXTRA_EVENT_END_TIME, event.end)
+                }
             }
-        }
     }
 }

@@ -15,7 +15,8 @@ class AppNamesTest {
     private val apps = AppRepository.get(context)
 
     /** A name set with `rename` is the name: the Now playing card and the notification log follow it too. */
-    @Test fun aRenameIsTheName() {
+    @Test
+    fun aRenameIsTheName() {
         val prefs = AppPrefs.get(context)
         apps.refresh()
         waitUntil("the app list") { apps.apps.value.isNotEmpty() }
@@ -35,7 +36,8 @@ class AppNamesTest {
     }
 
     /** A package Android doesn't know has no name: the caller shows the package, or leaves it out. */
-    @Test fun anUnknownPackageHasNoName() {
+    @Test
+    fun anUnknownPackageHasNoName() {
         assertNull(AppNames.android(context, "com.example.not.installed"))
         assertNull(AppNames.label(context, "com.example.not.installed"))
     }

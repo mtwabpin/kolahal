@@ -21,8 +21,10 @@ import org.junit.runner.RunWith
 /** The tour's previews. */
 @RunWith(AndroidJUnit4::class)
 class TourPreviewsTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
@@ -35,14 +37,24 @@ class TourPreviewsTest {
         .filter { "Text = " in it || "EditableText = " in it }.joinToString("\n")
 
     /** The typing demo plays only while it shows: behind another app it would wake twice a second and search the apps. */
-    @Test fun theTypingDemoStopsOffScreen() {
+    @Test
+    fun theTypingDemoStopsOffScreen() {
         val vm = vms.terminal(app)
         val owner = object : LifecycleOwner {
-            val registry = LifecycleRegistry.createUnsafe(this).apply { currentState = Lifecycle.State.RESUMED }
+            val registry = LifecycleRegistry.createUnsafe(this)
+                .apply { currentState = Lifecycle.State.RESUMED }
             override val lifecycle: Lifecycle get() = registry
         }
         compose.setContent {
-            CompositionLocalProvider(LocalLifecycleOwner provides owner) { KolahalTheme { Column { TypingPreview(vm) } } }
+            CompositionLocalProvider(LocalLifecycleOwner provides owner) {
+                KolahalTheme {
+                    Column {
+                        TypingPreview(
+                            vm
+                        )
+                    }
+                }
+            }
         }
         compose.waitForIdle()
         // On screen it types: something changes within a few seconds.

@@ -1,7 +1,5 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.InstantRun
-import com.mtwabpin.kolahal.data.FontFiles
 import android.app.Application
 import android.content.Context
 import androidx.compose.ui.text.TextRange
@@ -12,7 +10,9 @@ import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
@@ -49,9 +49,14 @@ import java.util.concurrent.TimeUnit
 /** Home's view model: permission answers, the quick menu and header, gestures, the prompt's keys and suggestions, log line taps and swipes, script runs. */
 @RunWith(AndroidJUnit4::class)
 class TerminalViewModelTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val logLines = LogLinesSince()
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+
+    @get:Rule
+    val logLines = LogLinesSince()
+
+    @get:Rule
+    val configReset = ConfigReset()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -67,7 +72,8 @@ class TerminalViewModelTest {
     /** Collects a view model's events; cancelled after the test. */
     private val collectors = CoroutineScope(Dispatchers.Default + Job())
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         // Not a first run: the tour and its welcome lines would land among the lines checked.
         launcher.edit().putBoolean("intro_shown", true).commit()
         // Typing at the prompt types; nothing launches on its own.
@@ -76,7 +82,8 @@ class TerminalViewModelTest {
         before = logs.maxId()
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         try {
             collectors.cancel()
         } finally {
@@ -113,10 +120,12 @@ class TerminalViewModelTest {
     }
 
     /** Puts [text] in the prompt, the cursor at its end. */
-    private fun TerminalViewModel.typed(text: String) = main { onInputChange(TextFieldValue(text, TextRange(text.length))) }
+    private fun TerminalViewModel.typed(text: String) =
+        main { onInputChange(TextFieldValue(text, TextRange(text.length))) }
 
     /** Turning down contacts, calendar, call log or notifications says so, each with a tap to where it's allowed. */
-    @Test fun deniedPermissionsSayWhereToAllowThem() {
+    @Test
+    fun deniedPermissionsSayWhereToAllowThem() {
         val vm = home()
         main {
             vm.onContactsPermission(false)
@@ -137,7 +146,8 @@ class TerminalViewModelTest {
     }
 
     /** Allowing the calendar or notifications says so; the calendar's line opens the agenda. */
-    @Test fun allowedPermissionsAreConfirmed() {
+    @Test
+    fun allowedPermissionsAreConfirmed() {
         val vm = home()
         main {
             vm.onCalendarPermission(true)
@@ -150,16 +160,19 @@ class TerminalViewModelTest {
     }
 
     /** A phone with no contact picker gets an error line instead of nothing. */
-    @Test fun aMissingContactPickerIsReported() {
+    @Test
+    fun aMissingContactPickerIsReported() {
         val vm = home()
         main { vm.onContactPickerMissing() }
         assertEquals(LogKind.ERROR, line("This phone has no contact picker").kind)
     }
 
     /** A font that can't be loaded is reported once per run, with a tap to import another. */
-    @Test fun anUnloadableFontIsReportedOnce() {
+    @Test
+    fun anUnloadableFontIsReportedOnce() {
         val vm = home()
-        val text = "Font '$token' could not be loaded — using the system monospace · tap to import one"
+        val text =
+            "Font '$token' could not be loaded — using the system monospace · tap to import one"
         main {
             vm.onFontUnavailable(token)
             vm.onFontUnavailable(token)
@@ -171,22 +184,39 @@ class TerminalViewModelTest {
     }
 
     /** Not now on the notification-access question closes it and leaves a line to ask again. */
-    @Test fun notNowForNotificationAccessLeavesALineToAskAgain() {
+    @Test
+    fun notNowForNotificationAccessLeavesALineToAskAgain() {
         val vm = home()
         main { vm.askNotificationAccess() }
         assertTrue(vm.notificationAccessAsk.value)
         main { vm.answerNotificationAccess(false) }
         assertFalse(vm.notificationAccessAsk.value)
-        assertEquals("notifs enable", line("Notification access is off · tap to turn it on").ctx.values[LogContext.RUN])
+        assertEquals(
+            "notifs enable",
+            line("Notification access is off · tap to turn it on").ctx.values[LogContext.RUN]
+        )
     }
 
     /** The quick menu lists the header's places, and its entries open their pages or run their commands. */
-    @Test fun quickActionsOpenTheirPlaces() {
+    @Test
+    fun quickActionsOpenTheirPlaces() {
         val vm = home()
         val actions = vm.quickActions()
         val labels = actions.map { it.label }
         assertEquals(
-            listOf("Settings", "Notifications", "Alarms & clock", "Battery", "Network", "Unlocks this week", "Apps", "Widgets", "Widgets page", "Feeds", "Scripts"),
+            listOf(
+                "Settings",
+                "Notifications",
+                "Alarms & clock",
+                "Battery",
+                "Network",
+                "Unlocks this week",
+                "Apps",
+                "Widgets",
+                "Widgets page",
+                "Feeds",
+                "Scripts"
+            ),
             labels.filter { !it.endsWith(" profile") && it != "Lock screen" },
         )
         fun tap(label: String) = main { actions.single { it.label == label }.run() }
@@ -197,7 +227,13 @@ class TerminalViewModelTest {
         main { vm.openScreen(Screen.TERMINAL) }
         // Widgets page turns home to it, and hides the keyboard; it opens no screen and logs no command.
         val turned = CompletableFuture<Unit>()
-        collectors.launch(start = CoroutineStart.UNDISPATCHED) { vm.widgetsTurns.collect { turned.complete(Unit) } }
+        collectors.launch(start = CoroutineStart.UNDISPATCHED) {
+            vm.widgetsTurns.collect {
+                turned.complete(
+                    Unit
+                )
+            }
+        }
         val seen = events(vm)
         tap("Widgets page")
         turned.get(5, TimeUnit.SECONDS)
@@ -210,12 +246,14 @@ class TerminalViewModelTest {
         tap("Unlocks this week")
         tap("Apps")
         waitUntil("both commands run") {
-            added().filter { it.kind == LogKind.COMMAND }.map { it.text }.containsAll(listOf("unlocks 7", "apps"))
+            added().filter { it.kind == LogKind.COMMAND }.map { it.text }
+                .containsAll(listOf("unlocks 7", "apps"))
         }
     }
 
     /** Header taps: the todo count runs `todo`, the gear opens Settings. */
-    @Test fun headerTapsRunTodoAndOpenSettings() {
+    @Test
+    fun headerTapsRunTodoAndOpenSettings() {
         val vm = home()
         main { vm.onHeaderTap(HeaderTarget.TODO) }
         waitUntil("todo run") { added().any { it.kind == LogKind.COMMAND && it.text == "todo" } }
@@ -227,14 +265,19 @@ class TerminalViewModelTest {
      * A command turned off (commands.off) still runs from Kolahal's own header and tap-to-run lines:
      * they need the command, not the app its name opens. A command a script sends is still refused.
      */
-    @Test fun aCommandTurnedOffStillRunsFromKolahalsOwnButtons() {
+    @Test
+    fun aCommandTurnedOffStillRunsFromKolahalsOwnButtons() {
         assertTrue(config.set(Keys.COMMANDS_OFF, "todo"))
         val vm = home()
         fun runs() = added().filter { it.kind == LogKind.COMMAND && it.text == "todo" }
         fun printedAfter(id: Long) = added().any { it.id > id && it.kind != LogKind.COMMAND }
         main { vm.onHeaderTap(HeaderTarget.TODO) }
         waitUntil("todo ran from the header") { runs().size == 1 && printedAfter(runs().single().id) }
-        val tapLine = logs.add(LogKind.INFO, "tvm tap to list todos", ctx = LogContext.of(LogContext.RUN to "todo"))
+        val tapLine = logs.add(
+            LogKind.INFO,
+            "tvm tap to list todos",
+            ctx = LogContext.of(LogContext.RUN to "todo")
+        )
         main { vm.onTap(logs.byIds(listOf(tapLine)).single()) }
         waitUntil("todo ran from a tap") { runs().size == 2 && printedAfter(runs().last().id) }
         assertTrue(added().none { it.text.startsWith("Command not found") })
@@ -248,13 +291,15 @@ class TerminalViewModelTest {
      * are now: an alias for a sensitive command is refused there, with a line that says so. The script's
      * process checks only without aliases, as it can't see them change.
      */
-    @Test fun aScriptsCommandHiddenInAnAliasIsRefusedAtHome() {
+    @Test
+    fun aScriptsCommandHiddenInAnAliasIsRefusedAtHome() {
         val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(app)
         prefs.setAlias("${token}wipe", "clear")
         try {
             home()
             app.sendBroadcast(
-                android.content.Intent(com.mtwabpin.kolahal.script.HostApi.ACTION_RUN_COMMAND).setPackage(app.packageName)
+                android.content.Intent(com.mtwabpin.kolahal.script.HostApi.ACTION_RUN_COMMAND)
+                    .setPackage(app.packageName)
                     .putExtra(com.mtwabpin.kolahal.script.HostApi.EXTRA_COMMAND, "${token}wipe"),
             )
             waitUntil("refused") { added().any { it.text == "launcher.run refused '${token}wipe': sensitive commands must be typed" } }
@@ -265,13 +310,15 @@ class TerminalViewModelTest {
     }
 
     /** The log says when its first read is done, so an empty list then means an empty log (the hint shows only then). */
-    @Test fun theFirstReadIsMarkedDone() {
+    @Test
+    fun theFirstReadIsMarkedDone() {
         val vm = home()
         waitUntil("read") { vm.rowsLoaded.value }
     }
 
     /** Tapping a running work profile asks for a second tap, on a line that pauses it. */
-    @Test fun pausingAProfileAsksForASecondTap() {
+    @Test
+    fun pausingAProfileAsksForASecondTap() {
         val vm = home()
         val work = Profile(android.os.Process.myUserHandle(), 0L, ProfileKind.WORK, quiet = false)
         main { vm.onProfileTap(work) }
@@ -281,7 +328,8 @@ class TerminalViewModelTest {
     }
 
     /** Tapping a paused work profile resumes it at once: `work on` runs. */
-    @Test fun resumingAProfileTakesOneTap() {
+    @Test
+    fun resumingAProfileTakesOneTap() {
         val vm = home()
         val work = Profile(android.os.Process.myUserHandle(), 0L, ProfileKind.WORK, quiet = true)
         main { vm.onProfileTap(work) }
@@ -289,7 +337,8 @@ class TerminalViewModelTest {
     }
 
     /** A gesture set to `quick` opens the quick menu, as `$` does; one set to `none` does nothing; one set to a command runs it. */
-    @Test fun gesturesOpenTheQuickMenuOrRunTheirCommand() {
+    @Test
+    fun gesturesOpenTheQuickMenuOrRunTheirCommand() {
         val vm = home()
         val seen = events(vm)
         main { vm.openQuick() }
@@ -303,43 +352,63 @@ class TerminalViewModelTest {
         main { vm.onGesture(Keys.GESTURE_SWIPE_UP) }
         assertEquals(LogKind.OUTPUT, line(token).kind)
         // Commands run in order: had `none` run anything, its line would be here before the echo's.
-        assertEquals(listOf("echo $token"), added().filter { it.kind == LogKind.COMMAND }.map { it.text })
+        assertEquals(
+            listOf("echo $token"),
+            added().filter { it.kind == LogKind.COMMAND }.map { it.text })
         assertEquals(2, seen.count { it == UiEvent.ShowQuick })
     }
 
     /** In `launch.instant all`, typing a command's name runs it once no other command or app starts that way. */
-    @Test fun aTypedCommandRunsOnceItIsTheOnlyMatch() {
+    @Test
+    fun aTypedCommandRunsOnceItIsTheOnlyMatch() {
         config.set(Keys.LAUNCH_INSTANT, InstantRun.ALL)
         val vm = home()
         // One letter at a time, as a keyboard types.
-        for (n in 1.."his".length) main { vm.onInputChange(TextFieldValue("his".take(n), TextRange(n))) }
+        for (n in 1.."his".length) main {
+            vm.onInputChange(
+                TextFieldValue(
+                    "his".take(n),
+                    TextRange(n)
+                )
+            )
+        }
         assertEquals("", vm.input.text)
         waitUntil("history run") { added().any { it.kind == LogKind.COMMAND && it.text == "history" } }
     }
 
     /** `log only` suggests where the log's lines came from. */
-    @Test fun logOnlySuggestsTheLogsSources() {
+    @Test
+    fun logOnlySuggestsTheLogsSources() {
         logs.add(LogKind.OUTPUT, "$token from a source", source = token)
         val vm = home()
-        waitUntil("the source suggested") { vm.suggestions("log only ${token.dropLast(1)}").any { it is Suggestion.Completion && it.replacement == "log only $token" } }
+        waitUntil("the source suggested") {
+            vm.suggestions("log only ${token.dropLast(1)}")
+                .any { it is Suggestion.Completion && it.replacement == "log only $token" }
+        }
     }
 
     /**
      * A feed added outside the terminal (the Feeds screen writes no log line) is suggested for
      * `feed rm` too: the suggestions read the same lists as the widget cards, at each write.
      */
-    @Test fun aFeedAddedOnTheFeedsScreenIsSuggested() {
+    @Test
+    fun aFeedAddedOnTheFeedsScreenIsSuggested() {
         val vm = home()
-        val (feed, _) = com.mtwabpin.kolahal.feeds.FeedSubscriptions(app).subscribe("http://127.0.0.1:9/$token")
+        val (feed, _) = com.mtwabpin.kolahal.feeds.FeedSubscriptions(app)
+            .subscribe("http://127.0.0.1:9/$token")
         try {
-            waitUntil("the feed suggested") { vm.suggestions("feed rm ").any { it is Suggestion.Completion && it.replacement.startsWith("feed rm ${feed.id}") } }
+            waitUntil("the feed suggested") {
+                vm.suggestions("feed rm ")
+                    .any { it is Suggestion.Completion && it.replacement.startsWith("feed rm ${feed.id}") }
+            }
         } finally {
             com.mtwabpin.kolahal.feeds.FeedSubscriptions(app).remove(feed.id)
         }
     }
 
     /** The header counts a todo written past the terminal (a card's checkbox, a script) too. */
-    @Test fun theHeaderCountsATodoWrittenElsewhere() {
+    @Test
+    fun theHeaderCountsATodoWrittenElsewhere() {
         val todos = com.mtwabpin.kolahal.productivity.TodoStore.get(app)
         val vm = home()
         waitUntil("the todos read") { vm.todoCount.value == todos.all().count { !it.done } }
@@ -353,14 +422,18 @@ class TerminalViewModelTest {
     }
 
     /** A script started by name (the script sheet's Run) runs and says so. */
-    @Test fun aScriptRunsByName() {
+    @Test
+    fun aScriptRunsByName() {
         val name = "${token}named"
         val s = scripts.create(name, ScriptLang.LUA, "log(\"$token by name\")")
         try {
             val vm = home()
             main { vm.runScriptNamed(name) }
             assertEquals(name, line("Running $name…").ctx.values[LogContext.SCRIPT])
-            waitUntil("its output", ms = 15_000) { added().any { it.text == "$token by name" && it.source == name } }
+            waitUntil(
+                "its output",
+                ms = 15_000
+            ) { added().any { it.text == "$token by name" && it.source == name } }
         } finally {
             ScriptScheduler.cancel(app, s.id)
             scripts.delete(s.id)
@@ -368,8 +441,12 @@ class TerminalViewModelTest {
     }
 
     /** Without the accessibility service, a lock gesture explains once, not on every double-tap. */
-    @Test fun aLockGestureWithoutTheServiceExplainsOnce() {
-        assumeFalse("the lock service is on: the gesture would lock the screen", com.mtwabpin.kolahal.gesture.LockService.isEnabled(app))
+    @Test
+    fun aLockGestureWithoutTheServiceExplainsOnce() {
+        assumeFalse(
+            "the lock service is on: the gesture would lock the screen",
+            com.mtwabpin.kolahal.gesture.LockService.isEnabled(app)
+        )
         val vm = home()
         config.set(Keys.GESTURE_DOUBLE_TAP, "lock")
         main {
@@ -382,7 +459,8 @@ class TerminalViewModelTest {
     }
 
     /** The touch key bar's arrows, Home, End, space and backspace edit the prompt as a keyboard does. */
-    @Test fun keyBarKeysEditThePrompt() {
+    @Test
+    fun keyBarKeysEditThePrompt() {
         val vm = home()
         vm.typed("ac")
         main { vm.onKeyBar(KeyBarKey.LEFT) }
@@ -413,7 +491,8 @@ class TerminalViewModelTest {
     }
 
     /** An alias typed as the first word, then a space, becomes what it stands for; elsewhere it stays. */
-    @Test fun anAliasExpandsWhenASpaceFollowsIt() {
+    @Test
+    fun anAliasExpandsWhenASpaceFollowsIt() {
         val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(app)
         prefs.setAlias("tvab", "echo expanded")
         try {
@@ -446,7 +525,8 @@ class TerminalViewModelTest {
     }
 
     /** The key bar's keyboard key opens the keyboard on the prompt. */
-    @Test fun theKeyboardKeyFocusesThePrompt() {
+    @Test
+    fun theKeyboardKeyFocusesThePrompt() {
         val vm = home()
         val seen = events(vm)
         main { vm.onKeyBar(KeyBarKey.KBD) }
@@ -454,7 +534,8 @@ class TerminalViewModelTest {
     }
 
     /** ↑ walks back through the commands run, newest first; ↓ walks forward again and ends on what was being typed. */
-    @Test fun historyKeysWalkBackAndReturnToTheDraft() {
+    @Test
+    fun historyKeysWalkBackAndReturnToTheDraft() {
         val vm = home()
         logs.add(LogKind.COMMAND, "echo $token-1")
         val newest = logs.add(LogKind.COMMAND, "echo $token-2")
@@ -473,7 +554,8 @@ class TerminalViewModelTest {
     }
 
     /** Tab puts the first suggestion in the prompt: an app's name, or the line a completion makes. */
-    @Test fun tabTakesTheFirstSuggestion() {
+    @Test
+    fun tabTakesTheFirstSuggestion() {
         val vm = home()
         for (text in listOf("ech", "config se")) {
             vm.typed(text)
@@ -487,16 +569,27 @@ class TerminalViewModelTest {
     }
 
     /** A font file that can't be read is reported, on the page and in the log, and the font stays as it was. */
-    @Test fun aFontThatCantBeReadIsReported() {
+    @Test
+    fun aFontThatCantBeReadIsReported() {
         val vm = home()
-        main { vm.importFont(android.net.Uri.fromFile(java.io.File(app.cacheDir, "$token-missing.ttf"))) }
+        main {
+            vm.importFont(
+                android.net.Uri.fromFile(
+                    java.io.File(
+                        app.cacheDir,
+                        "$token-missing.ttf"
+                    )
+                )
+            )
+        }
         waitUntil("the notice") { vm.notice.value?.text?.startsWith("font import failed: ") == true }
         assertEquals(LogKind.ERROR, line(vm.notice.value!!.text).kind)
         assertNotEquals(FontFiles.CUSTOM, config[Keys.FONT])
     }
 
     /** Enter in a `/` search hides the keyboard and keeps the search: nothing runs. */
-    @Test fun enterInALogSearchKeepsTheSearch() {
+    @Test
+    fun enterInALogSearchKeepsTheSearch() {
         val vm = home()
         val seen = events(vm)
         vm.typed("/$token")
@@ -507,7 +600,8 @@ class TerminalViewModelTest {
     }
 
     /** A swiped-away line goes from the log and comes back with Undo. */
-    @Test fun aSwipedLineComesBackWithUndo() {
+    @Test
+    fun aSwipedLineComesBackWithUndo() {
         val vm = home()
         val id = logs.add(LogKind.OUTPUT, "$token swiped")
         waitUntil("the line shown") { vm.entries.value.any { it.id == id } }
@@ -521,7 +615,8 @@ class TerminalViewModelTest {
     }
 
     /** A fresh screen hides the lines above it; showing them again brings them back. */
-    @Test fun hiddenLinesComeBackWithShowHidden() {
+    @Test
+    fun hiddenLinesComeBackWithShowHidden() {
         // Showing them again shows every hidden line, so only from a log with none hidden.
         assumeTrue("lines were hidden already", logs.hiddenCount() == 0)
         val vm = home()
@@ -539,7 +634,8 @@ class TerminalViewModelTest {
     }
 
     /** A search result that's gone by the time it's shown doesn't stay a pending jump. */
-    @Test fun aJumpToALineThatIsGoneIsDropped() {
+    @Test
+    fun aJumpToALineThatIsGoneIsDropped() {
         val vm = home()
         val id = logs.add(LogKind.OUTPUT, "$token gone")
         waitUntil("the line shown") { vm.entries.value.any { it.id == id } }
@@ -551,7 +647,8 @@ class TerminalViewModelTest {
     }
 
     /** The editor's Run saves the code, runs it, says so, and its lines come back for the editor. */
-    @Test fun runningFromTheEditorSavesAndRuns() {
+    @Test
+    fun runningFromTheEditorSavesAndRuns() {
         val name = "${token}run"
         val s = scripts.create(name, ScriptLang.LUA, "log(1)")
         try {
@@ -562,7 +659,14 @@ class TerminalViewModelTest {
             assertNull(done.get(10, TimeUnit.SECONDS))
             assertEquals("log(\"$token ran\")", scripts.byId(s.id)!!.code)
             assertEquals(name, line("Running $name…").ctx.values[LogContext.SCRIPT])
-            waitUntil("its output", ms = 15_000) { runBlocking { vm.runLines(name, since) }.any { it.text == "$token ran" } }
+            waitUntil("its output", ms = 15_000) {
+                runBlocking {
+                    vm.runLines(
+                        name,
+                        since
+                    )
+                }.any { it.text == "$token ran" }
+            }
         } finally {
             ScriptScheduler.cancel(app, s.id)
             scripts.delete(s.id)
@@ -570,7 +674,8 @@ class TerminalViewModelTest {
     }
 
     /** Settings, Feeds and Scripts are tabs: switching replaces the page, so Back goes home. */
-    @Test fun switchingTabsReplacesThePage() {
+    @Test
+    fun switchingTabsReplacesThePage() {
         val vm = home()
         main {
             vm.openScreen(Screen.SETTINGS)
@@ -582,7 +687,8 @@ class TerminalViewModelTest {
     }
 
     /** What commands ask of the screen (a permission, a picker) goes to it as the matching event. */
-    @Test fun requestsGoToTheScreen() {
+    @Test
+    fun requestsGoToTheScreen() {
         val vm = home()
         val seen = events(vm)
         main {
@@ -595,14 +701,20 @@ class TerminalViewModelTest {
             vm.pickContact { }
         }
         val asked = listOf(
-            UiEvent.RequestContactsPermission, UiEvent.RequestCalendarPermission, UiEvent.RequestCallLogPermission,
-            UiEvent.RequestNotificationPermission, UiEvent.PickScriptFolder, UiEvent.PickFont, UiEvent.PickContact,
+            UiEvent.RequestContactsPermission,
+            UiEvent.RequestCalendarPermission,
+            UiEvent.RequestCallLogPermission,
+            UiEvent.RequestNotificationPermission,
+            UiEvent.PickScriptFolder,
+            UiEvent.PickFont,
+            UiEvent.PickContact,
         )
         waitUntil("every request in $seen") { seen.toList() == asked }
     }
 
     /** Home from another page clears the prompt, lands on the terminal, and leaves one arrival for it to pick up. */
-    @Test fun homeFromAnotherPageLeavesAnArrival() {
+    @Test
+    fun homeFromAnotherPageLeavesAnArrival() {
         val vm = home()
         vm.typed("half typed")
         main {
@@ -616,7 +728,8 @@ class TerminalViewModelTest {
     }
 
     /** An Undo not taken goes after a few seconds, and the swiped line stays deleted. */
-    @Test fun anUndoNotTakenExpires() {
+    @Test
+    fun anUndoNotTakenExpires() {
         val vm = home()
         val id = logs.add(LogKind.OUTPUT, "$token expires")
         waitUntil("the line shown") { vm.entries.value.any { it.id == id } }
@@ -631,12 +744,15 @@ class TerminalViewModelTest {
      * In `launch.instant all` a tapped command line runs again, unless it's sensitive (`echo`): that
      * one goes to the prompt, and its long-press Run again runs it.
      */
-    @Test fun aCommandLineRunsAgain() {
+    @Test
+    fun aCommandLineRunsAgain() {
         config.set(Keys.LAUNCH_INSTANT, InstantRun.ALL)
         val vm = home()
         val unlocks = logs.add(LogKind.COMMAND, "unlocks 2")
         val echo = logs.add(LogKind.COMMAND, "echo $token again")
-        waitUntil("the lines shown") { vm.entries.value.map { it.id }.containsAll(listOf(unlocks, echo)) }
+        waitUntil("the lines shown") {
+            vm.entries.value.map { it.id }.containsAll(listOf(unlocks, echo))
+        }
         main { vm.onTap(vm.entries.value.single { it.id == unlocks }) }
         waitUntil("run by the tap") { added().count { it.kind == LogKind.COMMAND && it.text == "unlocks 2" } == 2 }
         val entry = vm.entries.value.single { it.id == echo }
@@ -648,12 +764,18 @@ class TerminalViewModelTest {
     }
 
     /** A script's error line opens the editor at that line; closing it with nothing unsaved just closes it. */
-    @Test fun aScriptErrorOpensTheEditorAtItsLine() {
+    @Test
+    fun aScriptErrorOpensTheEditorAtItsLine() {
         val name = "${token}err"
         val s = scripts.create(name, ScriptLang.LUA, "log(1)\nlog(2)\nerror(3)")
         try {
             val vm = home()
-            val id = logs.add(LogKind.ERROR, "$token failed", source = name, ctx = LogContext.of(LogContext.SCRIPT to name, LogContext.LINE to "3"))
+            val id = logs.add(
+                LogKind.ERROR,
+                "$token failed",
+                source = name,
+                ctx = LogContext.of(LogContext.SCRIPT to name, LogContext.LINE to "3")
+            )
             waitUntil("the line shown") { vm.entries.value.any { it.id == id } }
             main { vm.onTap(vm.entries.value.single { it.id == id }) }
             waitUntil("the editor open") { vm.editing.value?.id == s.id }
@@ -667,14 +789,22 @@ class TerminalViewModelTest {
     }
 
     /** A todo line's Mark done marks that todo done. */
-    @Test fun aTodoLineMarksItsTodoDone() {
+    @Test
+    fun aTodoLineMarksItsTodoDone() {
         val todos = com.mtwabpin.kolahal.productivity.TodoStore.get(app)
         val todo = todos.add("$token todo")
         try {
             val vm = home()
-            val id = logs.add(LogKind.OUTPUT, "$token todo", ctx = LogContext.of(LogContext.TODO to todo.toString()))
+            val id = logs.add(
+                LogKind.OUTPUT,
+                "$token todo",
+                ctx = LogContext.of(LogContext.TODO to todo.toString())
+            )
             waitUntil("the line shown") { vm.entries.value.any { it.id == id } }
-            main { vm.actionsFor(vm.entries.value.single { it.id == id }).single { it.label == "Mark done" }.run() }
+            main {
+                vm.actionsFor(vm.entries.value.single { it.id == id })
+                    .single { it.label == "Mark done" }.run()
+            }
             waitUntil("the todo done") { todos.all().single { it.id == todo }.done }
         } finally {
             todos.remove(todo)
@@ -682,7 +812,8 @@ class TerminalViewModelTest {
     }
 
     /** `todo rm`, `notes rm` and `remind rm` suggest the items there are, by number. */
-    @Test fun removingSuggestsTheItemsThereAre() {
+    @Test
+    fun removingSuggestsTheItemsThereAre() {
         val todos = com.mtwabpin.kolahal.productivity.TodoStore.get(app)
         val notes = com.mtwabpin.kolahal.productivity.NoteStore.get(app)
         val reminders = com.mtwabpin.kolahal.productivity.ReminderStore.get(app)
@@ -691,8 +822,14 @@ class TerminalViewModelTest {
         val reminder = reminders.add(System.currentTimeMillis() + 3_600_000L, "$token reminder")
         try {
             val vm = home()
-            for ((line, item) in listOf("todo rm $token" to "todo", "notes rm $token" to "note", "remind rm $token" to "reminder")) {
-                waitUntil("'$line' suggests the $item") { vm.suggestions(line).any { it.label.endsWith(". $token $item") } }
+            for ((line, item) in listOf(
+                "todo rm $token" to "todo",
+                "notes rm $token" to "note",
+                "remind rm $token" to "reminder"
+            )) {
+                waitUntil("'$line' suggests the $item") {
+                    vm.suggestions(line).any { it.label.endsWith(". $token $item") }
+                }
             }
         } finally {
             todos.remove(todo)

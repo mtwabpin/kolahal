@@ -3,13 +3,13 @@
  */
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.sha256Hex
 
 /** Ready-made scripts bundled in assets/library. Each one describes itself with its directives ([ScriptMeta]). */
@@ -65,7 +65,9 @@ class ScriptLibrary(private val context: Context) {
         private val codes = HashMap<String, String>()
 
         fun read(file: String): String = synchronized(codes) {
-            codes.getOrPut(file) { assets.open("library/$file").use { it.readBytes().toString(Charsets.UTF_8) } }
+            codes.getOrPut(file) {
+                assets.open("library/$file").use { it.readBytes().toString(Charsets.UTF_8) }
+            }
         }
 
         val entries: List<Entry> by lazy {
@@ -80,13 +82,16 @@ class ScriptLibrary(private val context: Context) {
             runCatching {
                 assets.open(HISTORY).bufferedReader().readLines()
                     .filter { it.isNotBlank() && !it.startsWith("#") }
-                    .mapNotNull { line -> line.trim().split(' ').takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+                    .mapNotNull { line ->
+                        line.trim().split(' ').takeIf { it.size == 2 }?.let { it[0] to it[1] }
+                    }
                     .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
             }.getOrDefault(emptyMap())
         }
 
         companion object {
-            @Volatile private var one: Bundled? = null
+            @Volatile
+            private var one: Bundled? = null
 
             fun of(context: Context): Bundled = one ?: synchronized(this) {
                 one ?: Bundled(context.applicationContext.assets).also { one = it }
@@ -125,7 +130,8 @@ class ScriptLibrary(private val context: Context) {
     }
 
     /** Whether [code] is a version of [entry] that the library had, now or before (assets/library-history.txt). */
-    fun shipped(entry: Entry, code: String): Boolean = fingerprint(code) in history[entry.file].orEmpty()
+    fun shipped(entry: Entry, code: String): Boolean =
+        fingerprint(code) in history[entry.file].orEmpty()
 
     private val history get() = bundled.history
 
@@ -147,9 +153,17 @@ class ScriptLibrary(private val context: Context) {
             // An update you didn't ask for keeps the timers you chose. The ones you left as the old
             // version had them follow the new version.
             if (followTimers) {
-                val every = { c: String -> ScriptMeta.every(c)?.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) ?: 0 }
-                if (existing.intervalMin == every(existing.code)) repo.setInterval(existing.id, every(code))
-                if (existing.atTimes == ScriptMeta.at(existing.code)) repo.setAtTimes(existing.id, ScriptMeta.at(code))
+                val every = { c: String ->
+                    ScriptMeta.every(c)?.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) ?: 0
+                }
+                if (existing.intervalMin == every(existing.code)) repo.setInterval(
+                    existing.id,
+                    every(code)
+                )
+                if (existing.atTimes == ScriptMeta.at(existing.code)) repo.setAtTimes(
+                    existing.id,
+                    ScriptMeta.at(code)
+                )
             }
             existing
         }
@@ -170,11 +184,17 @@ class ScriptLibrary(private val context: Context) {
         val installed = ScriptRepository.get(context).all()
         for (e in entries) {
             val script = installed.firstOrNull { it.name == e.name } ?: continue
-            if (recorded(e.name) == null && script.lang == e.lang && script.code == code(e)) prefs.edit { putString("installed:${e.name}", script.code) }
+            if (recorded(e.name) == null && script.lang == e.lang && script.code == code(e)) prefs.edit {
+                putString(
+                    "installed:${e.name}",
+                    script.code
+                )
+            }
         }
         // If one fails (a locked database), it is tried again on the next start.
         val updated = entries.filter { state(it, installed) == State.UPDATE_AVAILABLE }
-            .filter { e -> runCatching { install(e, followTimers = true) }.isSuccess }.map { it.name }
+            .filter { e -> runCatching { install(e, followTimers = true) }.isSuccess }
+            .map { it.name }
         recordSelfUpdate(updated)
         if (updated.isNotEmpty()) {
             com.mtwabpin.kolahal.data.LogRepository.get(context).add(
@@ -194,7 +214,12 @@ class ScriptLibrary(private val context: Context) {
     fun recorded(name: String): String? = prefs.getString("installed:$name", null)
 
     /** Sets the text your copy of [name] was installed from. Null forgets it. */
-    fun record(name: String, original: String?) = prefs.edit { if (original == null) remove("installed:$name") else putString("installed:$name", original) }
+    fun record(name: String, original: String?) = prefs.edit {
+        if (original == null) remove("installed:$name") else putString(
+            "installed:$name",
+            original
+        )
+    }
 
     /** Library copies that [updateUnedited] updated, and the Kolahal [version] that did it. */
     class SelfUpdate(val version: String, val names: List<String>)
@@ -202,7 +227,8 @@ class ScriptLibrary(private val context: Context) {
     /** The copies Kolahal updated by itself, until [dismissSelfUpdate]. The Scripts tab shows a note about them. */
     fun selfUpdate(): SelfUpdate? {
         val version = notePrefs.getString(SELF_UPDATED_IN, null) ?: return null
-        val names = notePrefs.getString(SELF_UPDATED, null)?.split(',')?.filter { it.isNotBlank() }.orEmpty()
+        val names = notePrefs.getString(SELF_UPDATED, null)?.split(',')?.filter { it.isNotBlank() }
+            .orEmpty()
         return if (names.isEmpty()) null else SelfUpdate(version, names)
     }
 
@@ -220,8 +246,14 @@ class ScriptLibrary(private val context: Context) {
             if (earlier != null && earlier.version != version) dismissSelfUpdate()
             return
         }
-        val names = (earlier?.takeIf { it.version == version }?.names.orEmpty() + updated).distinct()
-        notePrefs.edit { putString(SELF_UPDATED, names.joinToString(",")); putString(SELF_UPDATED_IN, version) }
+        val names =
+            (earlier?.takeIf { it.version == version }?.names.orEmpty() + updated).distinct()
+        notePrefs.edit {
+            putString(
+                SELF_UPDATED,
+                names.joinToString(",")
+            ); putString(SELF_UPDATED_IN, version)
+        }
     }
 
     /** Forgets that [name] is the library's copy, because it was renamed or deleted. */

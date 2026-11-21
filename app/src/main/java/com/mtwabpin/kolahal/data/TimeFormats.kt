@@ -26,7 +26,8 @@ object TimeFormats {
     fun clock(clock24: Boolean): String = if (clock24) "HH:mm" else "h:mm a"
 
     /** A formatter for [clock] in [locale]. */
-    fun clockFormat(clock24: Boolean, locale: Locale = Locale.getDefault()): DateTimeFormatter = DateTimeFormatter.ofPattern(clock(clock24), locale)
+    fun clockFormat(clock24: Boolean, locale: Locale = Locale.getDefault()): DateTimeFormatter =
+        DateTimeFormatter.ofPattern(clock(clock24), locale)
 
     /**
      * The pattern for the time beside a log line: `22:40`, or `10:40` without the 24-hour setting.
@@ -35,10 +36,15 @@ object TimeFormats {
     fun lineClock(clock24: Boolean): String = if (clock24) "HH:mm" else "h:mm"
 
     /** A formatter for [DAY] in [locale]. */
-    fun dayFormat(locale: Locale = Locale.getDefault()): DateTimeFormatter = DateTimeFormatter.ofPattern(DAY, locale)
+    fun dayFormat(locale: Locale = Locale.getDefault()): DateTimeFormatter =
+        DateTimeFormatter.ofPattern(DAY, locale)
 
     /** A formatter for a day of [year] seen in [thisYear]: [DAY], with the year when they differ (`Thu 2 Dec 2027`). */
-    fun dayFormat(year: Int, thisYear: Int, locale: Locale = Locale.getDefault()): DateTimeFormatter =
+    fun dayFormat(
+        year: Int,
+        thisYear: Int,
+        locale: Locale = Locale.getDefault()
+    ): DateTimeFormatter =
         DateTimeFormatter.ofPattern(if (year == thisYear) DAY else "$DAY yyyy", locale)
 
     /**
@@ -46,7 +52,14 @@ object TimeFormats {
      * or `Thu 2 Dec 2027 08:00` in another year. With [capital], `Tomorrow`, at the start of a line.
      * [at] and [now] are in milliseconds. `reminders` and the reminders card both say it this way.
      */
-    fun whenLabel(at: Long, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault(), capital: Boolean = false): String {
+    fun whenLabel(
+        at: Long,
+        now: Long,
+        zone: ZoneId,
+        clock24: Boolean,
+        locale: Locale = Locale.getDefault(),
+        capital: Boolean = false
+    ): String {
         val t = Instant.ofEpochMilli(at).atZone(zone)
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val time = clockFormat(clock24, locale).format(t)
@@ -62,7 +75,12 @@ object TimeFormats {
      * With [capital], the two words start with a capital letter: `Today`, `Yesterday`. The day
      * itself stays as [locale] writes it.
      */
-    fun dayLabel(day: LocalDate, today: LocalDate, locale: Locale = Locale.getDefault(), capital: Boolean = false): String = when (day) {
+    fun dayLabel(
+        day: LocalDate,
+        today: LocalDate,
+        locale: Locale = Locale.getDefault(),
+        capital: Boolean = false
+    ): String = when (day) {
         today -> if (capital) "Today" else "today"
         today.minusDays(1) -> if (capital) "Yesterday" else "yesterday"
         else -> day.format(dayFormat(locale))

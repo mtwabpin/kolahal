@@ -19,9 +19,11 @@ class SyntaxHighlighterTest {
         return 'done'
     """.trimIndent()
 
-    private val js = "// @every 1h\nconst x = `a\nb`;\nif (x) { http.get(\"https://example.com\"); }\nreturn 42.5;"
+    private val js =
+        "// @every 1h\nconst x = `a\nb`;\nif (x) { http.get(\"https://example.com\"); }\nreturn 42.5;"
 
-    @Test fun keptTokensColourAsAFreshHighlighter() {
+    @Test
+    fun keptTokensColourAsAFreshHighlighter() {
         for ((lang, code) in listOf(Syntax.LUA to lua, Syntax.JS to js)) {
             val tokens = LineTokens(lang)
             // Warm the shared tokens with other text first, as typing does.
@@ -32,32 +34,42 @@ class SyntaxHighlighterTest {
         }
     }
 
-    @Test fun theSameTextIsntColouredAgain() {
+    @Test
+    fun theSameTextIsntColouredAgain() {
         val h = SyntaxHighlighter(Syntax.LUA)
         val first = h.filter(AnnotatedString(lua))
         assertSame(first, h.filter(AnnotatedString(lua)))
         // A changed text is coloured for what it now says.
         val changed = h.filter(AnnotatedString("$lua\nprint(1)"))
-        assertEquals(SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString("$lua\nprint(1)")).text, changed.text)
+        assertEquals(
+            SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString("$lua\nprint(1)")).text,
+            changed.text
+        )
     }
 
     /** The last answer stands only for the theme it was coloured in. */
-    @Test fun aNewThemeColoursAgain() {
+    @Test
+    fun aNewThemeColoursAgain() {
         withValue(Term::palette, Palettes.green) {
             val h = SyntaxHighlighter(Syntax.LUA)
             val green = h.filter(AnnotatedString(lua))
             withValue(Term::palette, Palettes.dracula) {
                 val dracula = h.filter(AnnotatedString(lua))
                 assertNotSame(green, dracula)
-                assertEquals(SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(lua)).text, dracula.text)
+                assertEquals(
+                    SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(lua)).text,
+                    dracula.text
+                )
             }
         }
     }
 
     /** A big script is coloured without bold and italic, which make its layout far slower; a usual one keeps them. */
-    @Test fun aBigScriptIsColouredOnly() {
-        fun fonts(code: String) = SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(code)).text.spanStyles
-            .count { it.item.fontWeight != null || it.item.fontStyle != null }
+    @Test
+    fun aBigScriptIsColouredOnly() {
+        fun fonts(code: String) =
+            SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(code)).text.spanStyles
+                .count { it.item.fontWeight != null || it.item.fontStyle != null }
         assertTrue(fonts(lua) > 0)
         val big = buildString { while (length <= 8_000) append(lua).append('\n') }
         assertEquals(0, fonts(big))
@@ -66,7 +78,8 @@ class SyntaxHighlighterTest {
     }
 
     /** The kept tokens hold a bounded amount of text, not a number of lines: a long script stays whole. */
-    @Test fun keptTokensAreBoundedByText() {
+    @Test
+    fun keptTokensAreBoundedByText() {
         val tokens = LineTokens(Syntax.LUA)
         // More lines than the 8,000 once kept, all of them kept.
         val short = (0 until 9_000).map { "local x$it = $it" }
@@ -81,34 +94,58 @@ class SyntaxHighlighterTest {
     }
 
     /** A window colours its lines as the whole script would, and no others. */
-    @Test fun aWindowColoursOnlyItsLines() {
-        for ((lang, code) in listOf(Syntax.LUA to lua, Syntax.JS to "$js\nconst y = `x\ny`;\n// end")) {
+    @Test
+    fun aWindowColoursOnlyItsLines() {
+        for ((lang, code) in listOf(
+            Syntax.LUA to lua,
+            Syntax.JS to "$js\nconst y = `x\ny`;\n// end"
+        )) {
             val starts = listOf(0) + code.indices.filter { code[it] == '\n' }.map { it + 1 }
             fun lineOf(offset: Int) = starts.indexOfLast { it <= offset }
             val whole = SyntaxHighlighter(lang).filter(AnnotatedString(code)).text.spanStyles
             for (window in listOf(0..0, 1..2, 2..100, 50..60)) {
-                val part = SyntaxHighlighter(lang, window = window).filter(AnnotatedString(code)).text.spanStyles
+                val part = SyntaxHighlighter(
+                    lang,
+                    window = window
+                ).filter(AnnotatedString(code)).text.spanStyles
                 // Every colour in the window, as coloured whole; none outside it.
-                val expected = whole.filter { r -> (lineOf(r.start)..lineOf((r.end - 1).coerceAtLeast(r.start))).any { it in window } }
-                assertEquals("$lang $window", expected.map { Triple(it.start, it.end, it.item) }.toSet(), part.map { Triple(it.start, it.end, it.item) }.toSet())
+                val expected =
+                    whole.filter { r -> (lineOf(r.start)..lineOf((r.end - 1).coerceAtLeast(r.start))).any { it in window } }
+                assertEquals(
+                    "$lang $window",
+                    expected.map { Triple(it.start, it.end, it.item) }.toSet(),
+                    part.map { Triple(it.start, it.end, it.item) }.toSet()
+                )
             }
         }
-        assertNotEquals(SyntaxHighlighter(Syntax.LUA, window = 0..10), SyntaxHighlighter(Syntax.LUA, window = 5..15))
+        assertNotEquals(
+            SyntaxHighlighter(Syntax.LUA, window = 0..10),
+            SyntaxHighlighter(Syntax.LUA, window = 5..15)
+        )
     }
 
-    @Test fun findMatchesAreEqualByWhatTheyMark() {
-        assertEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 5))
-        assertNotEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 1))
+    @Test
+    fun findMatchesAreEqualByWhatTheyMark() {
+        assertEquals(
+            MatchHighlights(intArrayOf(1, 5), 2, 5),
+            MatchHighlights(intArrayOf(1, 5), 2, 5)
+        )
+        assertNotEquals(
+            MatchHighlights(intArrayOf(1, 5), 2, 5),
+            MatchHighlights(intArrayOf(1, 5), 2, 1)
+        )
     }
 
     /** Two languages' highlighters are not the same. */
-    @Test fun eachLanguageHasItsOwnHighlighter() {
+    @Test
+    fun eachLanguageHasItsOwnHighlighter() {
         assertNotEquals(SyntaxHighlighter(Syntax.LUA), SyntaxHighlighter(Syntax.JS))
         assertEquals(SyntaxHighlighter(Syntax.LUA), SyntaxHighlighter(Syntax.LUA))
     }
 
     /** A very long line (minified JSON) has no colours; the lines around it keep theirs. */
-    @Test fun aVeryLongLineIsNotColoured() {
+    @Test
+    fun aVeryLongLineIsNotColoured() {
         val long = "\"b\": [" + (1..2_000).joinToString(",") { "\"k$it\"" } + "],"
         assertTrue(long.length > SyntaxHighlighter.MAX_COLOURED_LINE)
         val code = "{\"a\": 1,\n$long\n\"c\": 2}"
@@ -121,17 +158,25 @@ class SyntaxHighlighterTest {
     }
 
     /** JSON: keys in the keyword colour, string values in the string colour, other values in the number colour. */
-    @Test fun jsonColoursKeysAndValues() {
-        val line = """  "name" : "Tea \"hot\"", "n": -1.5e3, "ok": true, "none": null, "list": ["a", 2]"""
+    @Test
+    fun jsonColoursKeysAndValues() {
+        val line =
+            """  "name" : "Tea \"hot\"", "n": -1.5e3, "ok": true, "none": null, "list": ["a", 2]"""
         val t = LineTokens(Syntax.JSON).of(line)
         val got = (t.indices step 3).map { line.substring(t[it], t[it + 1]) to t[it + 2] }
         assertEquals(
             listOf(
-                "\"name\"" to LineTokens.KEYWORD, "\"Tea \\\"hot\\\"\"" to LineTokens.STRING,
-                "\"n\"" to LineTokens.KEYWORD, "-1.5e3" to LineTokens.NUMBER,
-                "\"ok\"" to LineTokens.KEYWORD, "true" to LineTokens.NUMBER,
-                "\"none\"" to LineTokens.KEYWORD, "null" to LineTokens.NUMBER,
-                "\"list\"" to LineTokens.KEYWORD, "\"a\"" to LineTokens.STRING, "2" to LineTokens.NUMBER,
+                "\"name\"" to LineTokens.KEYWORD,
+                "\"Tea \\\"hot\\\"\"" to LineTokens.STRING,
+                "\"n\"" to LineTokens.KEYWORD,
+                "-1.5e3" to LineTokens.NUMBER,
+                "\"ok\"" to LineTokens.KEYWORD,
+                "true" to LineTokens.NUMBER,
+                "\"none\"" to LineTokens.KEYWORD,
+                "null" to LineTokens.NUMBER,
+                "\"list\"" to LineTokens.KEYWORD,
+                "\"a\"" to LineTokens.STRING,
+                "2" to LineTokens.NUMBER,
             ),
             got,
         )

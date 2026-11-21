@@ -28,19 +28,32 @@ class ReferenceLinesTest {
     private val name = "reflines${System.nanoTime()}"
     private val id = 930_000_000L + System.nanoTime() % 1_000_000
 
-    private fun lines(): List<LogEntry> = logs.recent(limit = 200).filter { it.source == name }.sortedBy { it.id }
+    private fun lines(): List<LogEntry> =
+        logs.recent(limit = 200).filter { it.source == name }.sortedBy { it.id }
 
-    @After fun tearDown() = lines().forEach { logs.delete(it.id) }
+    @After
+    fun tearDown() = lines().forEach { logs.delete(it.id) }
 
     /** What [ReferenceExamples.Line] holds of a line's context. */
-    private val shown = setOf(LogContext.TITLE, LogContext.BODY, LogContext.URL, LogContext.GAP, LogContext.COPY, LogContext.ACTIONS)
+    private val shown = setOf(
+        LogContext.TITLE,
+        LogContext.BODY,
+        LogContext.URL,
+        LogContext.GAP,
+        LogContext.COPY,
+        LogContext.ACTIONS
+    )
 
-    @Test fun eachExampleLogsTheLinesTheReferenceDraws() {
+    @Test
+    fun eachExampleLogsTheLinesTheReferenceDraws() {
         for (ex in ReferenceExamples.logs + ReferenceExamples.fmt) for (lang in ScriptLang.entries) {
             lines().forEach { logs.delete(it.id) }
             // A saved script: only its lines may have buttons.
             val host = HostApi(context, name, scriptId = id, notifyEnabled = false)
-            runBlocking { ScriptEngine.forLang(lang).run(ex.code(lang), name, host, 10_000, false, emptyList(), null) }
+            runBlocking {
+                ScriptEngine.forLang(lang)
+                    .run(ex.code(lang), name, host, 10_000, false, emptyList(), null)
+            }
             host.flush()
             assertEquals(
                 "${ex.name} in $lang",

@@ -25,8 +25,11 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class HomeAwayTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+
+    @get:Rule
+    val logLines = LogLinesSince()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -36,13 +39,15 @@ class HomeAwayTest {
     /** What the user had seen before the test: [away]'s pause writes the newest line over it. */
     private var seenUpTo = Long.MAX_VALUE
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         seenUpTo = logs.seenUpTo
         // No tip line on return, which would land among the lines checked.
         config.set(Keys.LOG_TIPS, "off")
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         logs.seenUpTo = seenUpTo
         // [back] started contacts' reloads; as a process with no home started has them.
         com.mtwabpin.kolahal.contacts.ContactsRepository.get(app).setActive(false)
@@ -69,7 +74,8 @@ class HomeAwayTest {
         vm.onResume()
     }
 
-    @Test fun theLogIsReadOnlyWhileShownThenOnReturn() {
+    @Test
+    fun theLogIsReadOnlyWhileShownThenOnReturn() {
         val vm = home()
         val shown = home()
         val seen = add("seen")
@@ -85,7 +91,8 @@ class HomeAwayTest {
     }
 
     /** A pause with no stop (a dialog, the shade pulled down) leaves home shown: it goes on reading. */
-    @Test fun aPauseWithoutAStopKeepsReading() {
+    @Test
+    fun aPauseWithoutAStopKeepsReading() {
         val vm = home()
         val first = add("first")
         waitUntil("the first line") { vm.entries.value.any { it.id == first } }
@@ -94,7 +101,8 @@ class HomeAwayTest {
         waitUntil("read while paused") { vm.entries.value.any { it.id == paused } }
     }
 
-    @Test fun aSearchLeftOpenWaitsForTheReturn() {
+    @Test
+    fun aSearchLeftOpenWaitsForTheReturn() {
         val vm = home()
         val shown = home()
         add("one")

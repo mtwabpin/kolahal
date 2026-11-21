@@ -11,7 +11,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,30 +25,40 @@ class ReminderFiringTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val store = ReminderStore.get(context)
     private val logs = LogRepository.get(context)
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
 
-    @After fun tearDown() {
-        store.all().filter { it.text.startsWith("firing-") }.forEach { ReminderScheduler.cancel(context, it.id); store.remove(it.id) }
+    @After
+    fun tearDown() {
+        store.all().filter { it.text.startsWith("firing-") }
+            .forEach { ReminderScheduler.cancel(context, it.id); store.remove(it.id) }
     }
 
-    private fun localTime(at: Long) = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).toLocalTime()
+    private fun localTime(at: Long) =
+        Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).toLocalTime()
 
     private fun fire(id: Long) = context.sendBroadcast(
-        Intent(context, ReminderReceiver::class.java).putExtra(ReminderScheduler.EXTRA_ID, id).setPackage(context.packageName),
+        Intent(context, ReminderReceiver::class.java).putExtra(ReminderScheduler.EXTRA_ID, id)
+            .setPackage(context.packageName),
     )
 
-    @Test fun aRuleItCantReadFiresOnceAndGoes() {
+    @Test
+    fun aRuleItCantReadFiresOnceAndGoes() {
         val r = store.add(System.currentTimeMillis() - 1_000, "firing-bad", "biweekly")
         fire(r.id)
         waitUntil("gone") { store.byId(r.id) == null }
         waitUntil("and it says so") {
-            logs.recent(50).any { it.id > logLines.start && it.kind == LogKind.ERROR && "firing-bad" in it.text && "won't repeat" in it.text }
+            logs.recent(50)
+                .any { it.id > logLines.start && it.kind == LogKind.ERROR && "firing-bad" in it.text && "won't repeat" in it.text }
         }
         // Logged after the notification is posted, a moment after the line above.
-        waitUntil("it still reminds") { logs.recent(50).any { it.id > logLines.start && it.text == "Reminder: firing-bad" } }
+        waitUntil("it still reminds") {
+            logs.recent(50).any { it.id > logLines.start && it.text == "Reminder: firing-bad" }
+        }
     }
 
-    @Test fun aRepeatingOneIsSetForItsNextTime() {
+    @Test
+    fun aRepeatingOneIsSetForItsNextTime() {
         val at = System.currentTimeMillis() - 1_000
         val r = store.add(at, "firing-good", "day")
         fire(r.id)
@@ -62,7 +71,8 @@ class ReminderFiringTest {
     }
 
     /** Its next time is at the time asked for, not the one it fired at (which a daylight-saving gap can move, 02:30 to 03:30). */
-    @Test fun aRepeatingOneKeepsTheTimeAskedFor() {
+    @Test
+    fun aRepeatingOneKeepsTheTimeAskedFor() {
         val r = store.add(System.currentTimeMillis() - 1_000, "firing-asked", "day", "02:30")
         fire(r.id)
         waitUntil("moved on") { store.byId(r.id)!!.at > System.currentTimeMillis() }
@@ -73,8 +83,11 @@ class ReminderFiringTest {
      * What a time-zone change runs (followZone): one whose time no longer reads as the time asked for
      * moves to it, as after a flight; one set without its time stays. The phone's zone itself isn't changed.
      */
-    @Test fun aNewZoneMovesItToTheTimeAskedFor() {
-        val elsewhere = LocalDate.now().plusDays(1).atTime(3, 30).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    @Test
+    fun aNewZoneMovesItToTheTimeAskedFor() {
+        val elsewhere =
+            LocalDate.now().plusDays(1).atTime(3, 30).atZone(ZoneId.systemDefault()).toInstant()
+                .toEpochMilli()
         val asked = store.add(elsewhere, "firing-zone", "day", "09:00")
         val older = store.add(elsewhere, "firing-older", "day")
         ReminderScheduler.followZone(context)
@@ -87,12 +100,16 @@ class ReminderFiringTest {
      * (rescheduleAll) moves them, once. The phone's zone itself isn't changed: the one they
      * followed is set to another.
      */
-    @Test fun aZoneChangedWhileKolahalWasntRunningMovesThemAtTheNextStart() {
+    @Test
+    fun aZoneChangedWhileKolahalWasntRunningMovesThemAtTheNextStart() {
         val prefs = com.mtwabpin.kolahal.data.Stores.REMINDERS.open(context)
         val was = prefs.getString(ReminderScheduler.KEY_ZONE, null)
-        val other = if (ZoneId.systemDefault().id == "Asia/Kolkata") "Europe/London" else "Asia/Kolkata"
+        val other =
+            if (ZoneId.systemDefault().id == "Asia/Kolkata") "Europe/London" else "Asia/Kolkata"
         try {
-            val elsewhere = LocalDate.now().plusDays(1).atTime(3, 30).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val elsewhere =
+                LocalDate.now().plusDays(1).atTime(3, 30).atZone(ZoneId.systemDefault()).toInstant()
+                    .toEpochMilli()
             val asked = store.add(elsewhere, "firing-zone", "day", "09:00")
             // The same zone as before: nothing moves.
             prefs.edit().putString(ReminderScheduler.KEY_ZONE, ZoneId.systemDefault().id).commit()
@@ -101,7 +118,10 @@ class ReminderFiringTest {
             prefs.edit().putString(ReminderScheduler.KEY_ZONE, other).commit()
             ReminderScheduler.rescheduleAll(context)
             assertEquals(LocalTime.of(9, 0), localTime(store.byId(asked.id)!!.at))
-            assertEquals(ZoneId.systemDefault().id, prefs.getString(ReminderScheduler.KEY_ZONE, null))
+            assertEquals(
+                ZoneId.systemDefault().id,
+                prefs.getString(ReminderScheduler.KEY_ZONE, null)
+            )
         } finally {
             prefs.edit().putString(ReminderScheduler.KEY_ZONE, was).commit()
         }

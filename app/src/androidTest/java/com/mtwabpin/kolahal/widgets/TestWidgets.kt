@@ -17,6 +17,7 @@ class TestWidgets {
     private val hadKeys = host.widgets.value.map { it.key }.toSet()
     private val hadIds = runCatching { host.host.appWidgetIds.toSet() }.getOrDefault(emptySet())
     private var granted = false
+
     /** This user's number, as `appwidget` takes it ("current" isn't looked up for a grant). */
     private val userId = Process.myUid() / 100_000
 
@@ -61,7 +62,14 @@ class TestWidgets {
     private fun mayBind(p: ProviderEntry): Boolean {
         val id = host.host.allocateAppWidgetId()
         return try {
-            runCatching { host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, null) }.getOrDefault(false)
+            runCatching {
+                host.manager!!.bindAppWidgetIdIfAllowed(
+                    id,
+                    p.user,
+                    p.info.provider,
+                    null
+                )
+            }.getOrDefault(false)
         } finally {
             host.host.deleteAppWidgetId(id)
         }
@@ -71,7 +79,10 @@ class TestWidgets {
     fun place(p: ProviderEntry): PlacedWidget {
         val id = host.allocate()
         val options = host.options(host.defaultHeightDp(p.info))
-        assertTrue("couldn't bind ${p.flat}", host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, options))
+        assertTrue(
+            "couldn't bind ${p.flat}",
+            host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, options)
+        )
         host.place(id, p.info)
         return host.widgets.value.single { it.id == id }
     }
@@ -82,13 +93,36 @@ class TestWidgets {
      */
     fun bound(p: ProviderEntry): Int {
         val id = host.host.allocateAppWidgetId()
-        assertTrue("couldn't bind ${p.flat}", host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, null))
+        assertTrue(
+            "couldn't bind ${p.flat}",
+            host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, null)
+        )
         return id
     }
 
     /** A widget restored from a backup on another phone: waiting to be added again. */
-    fun restore(provider: String, serial: Long, height: Int, order: Int = 90, span: Int = WidgetLayout.COLUMNS, column: Int? = null, top: Int? = null): PlacedWidget {
-        host.importWidgets(listOf(mapOf("provider" to provider, "profile" to serial, "height" to height, "order" to order, "span" to span, "column" to column, "top" to top)))
+    fun restore(
+        provider: String,
+        serial: Long,
+        height: Int,
+        order: Int = 90,
+        span: Int = WidgetLayout.COLUMNS,
+        column: Int? = null,
+        top: Int? = null
+    ): PlacedWidget {
+        host.importWidgets(
+            listOf(
+                mapOf(
+                    "provider" to provider,
+                    "profile" to serial,
+                    "height" to height,
+                    "order" to order,
+                    "span" to span,
+                    "column" to column,
+                    "top" to top
+                )
+            )
+        )
         return host.widgets.value.single { it.pending && it.provider == provider && it.order == order }
     }
 
@@ -102,7 +136,8 @@ class TestWidgets {
         host.chosen()
         host.widgets.value.filter { it.key !in hadKeys }.forEach { host.remove(it.key) }
         val used = host.widgets.value.mapNotNull { it.id }.toSet()
-        runCatching { host.host.appWidgetIds }.getOrNull()?.filter { it !in hadIds && it !in used }?.forEach { host.discard(it) }
+        runCatching { host.host.appWidgetIds }.getOrNull()?.filter { it !in hadIds && it !in used }
+            ?.forEach { host.discard(it) }
         if (granted) shell("appwidget revokebind --package ${context.packageName} --user $userId")
         if (revoked) shell("appwidget grantbind --package ${context.packageName} --user $userId")
     }

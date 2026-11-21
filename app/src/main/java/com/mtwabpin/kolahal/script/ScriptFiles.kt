@@ -13,7 +13,11 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 class ScriptFiles(private val context: Context) {
     private val scripts = ScriptRepository.get(context)
 
-    data class ImportResult(val created: List<String>, val updated: List<String>, val skipped: List<String>)
+    data class ImportResult(
+        val created: List<String>,
+        val updated: List<String>,
+        val skipped: List<String>
+    )
 
     /** Creates or updates one script per `.lua` / `.js` file. The file name becomes the script name. */
     fun import(uris: List<Uri>): ImportResult {
@@ -24,7 +28,9 @@ class ScriptFiles(private val context: Context) {
         for (uri in uris) {
             val fileName = Files.displayName(context, uri) ?: uri.lastPathSegment ?: "?"
             val lang = ScriptLang.of(fileName.substringAfterLast('.', ""))
-            val name = fileName.substringBeforeLast('.').lowercase().replace(Regex("[^a-z0-9_-]"), "-").trim('-').take(40)
+            val name =
+                fileName.substringBeforeLast('.').lowercase().replace(Regex("[^a-z0-9_-]"), "-")
+                    .trim('-').take(40)
             if (lang == null || name.isEmpty()) {
                 skipped += "$fileName (not .lua / .js)"
                 continue
@@ -48,6 +54,7 @@ class ScriptFiles(private val context: Context) {
                     is ScriptImport.Why.NeedsNewer -> "$fileName (needs Kolahal ${why.version})"
                     is ScriptImport.Why.OtherLanguage -> "$fileName (a ${why.has.ext} script '$name' exists)"
                 }
+
                 is ScriptImport.Outcome.Imported -> when (outcome.change) {
                     ScriptImport.Change.CREATED -> created += "$name.${lang.ext}"
                     ScriptImport.Change.UPDATED -> updated += "$name.${lang.ext}"

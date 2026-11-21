@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.widgets
 
-import com.mtwabpin.kolahal.data.Stores
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
@@ -30,10 +29,12 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.ThisInstall
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptRun
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.widgets.WidgetHost.Companion.KEY
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,12 +58,17 @@ data class ProviderEntry(val info: AppWidgetProviderInfo, val user: UserHandle, 
  */
 class WidgetHost private constructor(context: Context) {
     private val app = context.applicationContext
+
     /**
      * Null on a phone without app widgets: Android Go leaves the feature out, and then there is no
      * manager. Kolahal's own widgets still work there; the picker offers no apps' widgets ([supported]).
      */
     val manager: AppWidgetManager? =
-        if (app.packageManager.hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS)) runCatching { AppWidgetManager.getInstance(app) }.getOrNull() else null
+        if (app.packageManager.hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS)) runCatching {
+            AppWidgetManager.getInstance(
+                app
+            )
+        }.getOrNull() else null
 
     /** Whether this phone can show other apps' widgets ([manager]). */
     val supported: Boolean get() = manager != null
@@ -72,7 +78,11 @@ class WidgetHost private constructor(context: Context) {
     private val density get() = app.resources.displayMetrics.density
 
     val host: AppWidgetHost = object : AppWidgetHost(app, HOST_ID) {
-        override fun onCreateView(context: Context, appWidgetId: Int, appWidget: AppWidgetProviderInfo?): AppWidgetHostView =
+        override fun onCreateView(
+            context: Context,
+            appWidgetId: Int,
+            appWidget: AppWidgetProviderInfo?
+        ): AppWidgetHostView =
             KolahalWidgetView(context)
 
         // A provider was removed, updated, masked or unmasked. Drop widgets that no longer exist.
@@ -100,7 +110,7 @@ class WidgetHost private constructor(context: Context) {
      */
     private fun sameAs(a: AppWidgetProviderInfo, b: AppWidgetProviderInfo) =
         Build.VERSION.SDK_INT >= 31 && a.provider == b.provider && a.profile == b.profile && a.initialLayout == b.initialLayout &&
-            a.activityInfo.applicationInfo?.sourceDir == b.activityInfo.applicationInfo?.sourceDir
+                a.activityInfo.applicationInfo?.sourceDir == b.activityInfo.applicationInfo?.sourceDir
 
     /**
      * Views by id, kept for a return to home. Home is built again after a full-screen page (Settings,
@@ -111,13 +121,18 @@ class WidgetHost private constructor(context: Context) {
      */
     private val views = HashMap<Int, Kept>()
 
-    private class Kept(val view: AppWidgetHostView, val info: AppWidgetProviderInfo, val config: String)
+    private class Kept(
+        val view: AppWidgetHostView,
+        val info: AppWidgetProviderInfo,
+        val config: String
+    )
 
     private fun configOf(context: Context) = context.resources.configuration.let {
         "${it.uiMode}:${it.densityDpi}:${it.orientation}:${it.fontScale}:${it.locales.toLanguageTags()}:${_redrawn.value}"
     }
 
     private val _redrawn = MutableStateFlow(0)
+
     /**
      * Increases when the phone's dark mode or colours change ([redraw]). Each app's widget is drawn
      * again then: it took its colours from the configuration its view was made in.
@@ -164,14 +179,17 @@ class WidgetHost private constructor(context: Context) {
             widgets
         },
     )
+
     /** Every placed widget, including pending re-adds. */
     val widgets: StateFlow<List<PlacedWidget>> = _widgets.asStateFlow()
 
     private val _providersVersion = MutableStateFlow(0)
+
     /** Increases when installed providers change, so the picker reloads. */
     val providersVersion: StateFlow<Int> = _providersVersion.asStateFlow()
 
     private val _messages = MutableStateFlow<List<String>>(emptyList())
+
     /**
      * Short results ("Added Clock", errors) that the Widgets screen or the picker hasn't shown yet.
      * They wait for a screen to show them, because adding from the picker switches to the Widgets
@@ -180,6 +198,7 @@ class WidgetHost private constructor(context: Context) {
     val messages: StateFlow<List<String>> = _messages.asStateFlow()
 
     private val _toChoose = MutableStateFlow<String?>(null)
+
     /**
      * The key of the widget the Widgets screen should choose when it shows: one just placed, so it
      * can be dragged at once, or one long-pressed on the widgets page. Null when nothing is asked.
@@ -199,7 +218,9 @@ class WidgetHost private constructor(context: Context) {
 
     /** Ids allocated by a bind/configure flow that is still running. [prune] leaves them alone. */
     private val inFlight = HashSet<Int>()
-    @Volatile private var listening = false
+
+    @Volatile
+    private var listening = false
 
     fun message(text: String) = _messages.update { (it + text).takeLast(4) }
 
@@ -211,7 +232,8 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /** Whether home is showing: from [startListening] to [stopListening]. */
-    @Volatile private var shown = false
+    @Volatile
+    private var shown = false
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** Home shows. The host listens only while a widget is placed: with none, there's nothing to update. */
@@ -244,7 +266,8 @@ class WidgetHost private constructor(context: Context) {
         if (list.isNotEmpty() && !listening && shown) main.post { listenIfNeeded() }
     }
 
-    private fun update(change: (List<PlacedWidget>) -> List<PlacedWidget>) = synchronized(this) { save(change(_widgets.value)) }
+    private fun update(change: (List<PlacedWidget>) -> List<PlacedWidget>) =
+        synchronized(this) { save(change(_widgets.value)) }
 
     // ---- placing --------------------------------------------------------------------------
 
@@ -253,7 +276,8 @@ class WidgetHost private constructor(context: Context) {
      * which runs on its own thread. So the clean-up never reads an id from the host before the flow
      * has marked it in flight.
      */
-    fun allocate(): Int = synchronized(inFlight) { host.allocateAppWidgetId().also { inFlight += it } }
+    fun allocate(): Int =
+        synchronized(inFlight) { host.allocateAppWidgetId().also { inFlight += it } }
 
     /** Marks an id whose flow resumes after the process was stopped (WidgetBinder.restore), so [prune] leaves it alone again. */
     fun resume(id: Int) {
@@ -282,7 +306,9 @@ class WidgetHost private constructor(context: Context) {
                     id = id,
                     provider = info.provider.flattenToShortString(),
                     profileSerial = serialOf(info.profile),
-                    heightDp = old?.heightDp?.coerceAtLeast(minHeightDp(info)) ?: defaultHeightDp(info),
+                    heightDp = old?.heightDp?.coerceAtLeast(minHeightDp(info)) ?: defaultHeightDp(
+                        info
+                    ),
                     order = old?.order ?: WidgetOrder.nextOrder(all),
                     span = old?.span ?: WidgetLayout.COLUMNS,
                     column = old?.column ?: WidgetPlacement.UNPLACED,
@@ -290,7 +316,10 @@ class WidgetHost private constructor(context: Context) {
                 )
                 val rest = all.filterNot { it.key == old?.key }
                 // A restored entry keeps the place it had, and widgets in the way move down. A new one goes into the first free space.
-                if (placed.positioned) WidgetPlacement.settle(rest + placed, placed.key) else WidgetPlacement.add(rest, placed)
+                if (placed.positioned) WidgetPlacement.settle(
+                    rest + placed,
+                    placed.key
+                ) else WidgetPlacement.add(rest, placed)
             }
             inFlight -= id
         }
@@ -328,14 +357,18 @@ class WidgetHost private constructor(context: Context) {
         WidgetStates.forget(app, ref.key)
         if (ref.first) return
         ScriptOptions(app).clear(ref.script, ref.id)
-        if (script != null) KvStore(app, Stores.WORKER).set(ScriptRun.errorKey(script.id, ref.id), null)
+        if (script != null) KvStore(app, Stores.WORKER).set(
+            ScriptRun.errorKey(script.id, ref.id),
+            null
+        )
     }
 
     // ---- widgets Kolahal draws itself -------------------------------------------------------
 
     /** The widgets of the script [script] that are on the page, in page order. */
     fun placedOf(script: String): List<WidgetRef> =
-        WidgetOrder.sorted(_widgets.value).mapNotNull { WidgetSource.scriptRef(it.source) }.filter { it.script == script }
+        WidgetOrder.sorted(_widgets.value).mapNotNull { WidgetSource.scriptRef(it.source) }
+            .filter { it.script == script }
 
     /**
      * Places [script]'s first widget at the end of the page, at [size]: the one a timer's run fills,
@@ -345,7 +378,8 @@ class WidgetHost private constructor(context: Context) {
      * - Then, on [checks]' thread, the database's copies follow, and only after that a `"widget"`
      *   run is queued ([followAndRun]).
      */
-    fun placeScript(script: Script, size: WidgetSize): Boolean = placeWidget(script, size) { "" } != null
+    fun placeScript(script: Script, size: WidgetSize): Boolean =
+        placeWidget(script, size) { "" } != null
 
     /**
      * Places one more widget of [script] at the end of the page, at [size]: a further widget, with
@@ -355,7 +389,8 @@ class WidgetHost private constructor(context: Context) {
      *
      * What follows is as for [placeScript]: the copies, then a run for this widget only.
      */
-    fun placeAnother(script: Script, size: WidgetSize): WidgetRef? = placeWidget(script, size) { taken -> WidgetRef.nextId(taken) }
+    fun placeAnother(script: Script, size: WidgetSize): WidgetRef? =
+        placeWidget(script, size) { taken -> WidgetRef.nextId(taken) }
 
     /**
      * Places one widget of [script] at the end of the page, at [size]. [id] picks which one, from
@@ -363,10 +398,21 @@ class WidgetHost private constructor(context: Context) {
      * when [id] gave none or one that is placed already, and when the script has
      * [WidgetRef.MAX_PER_SCRIPT] widgets: this is the one place that keeps that limit.
      */
-    private fun placeWidget(script: Script, size: WidgetSize, id: (taken: Set<String>) -> String?): WidgetRef? {
+    private fun placeWidget(
+        script: Script,
+        size: WidgetSize,
+        id: (taken: Set<String>) -> String?
+    ): WidgetRef? {
         val source = placeNew(size) { all ->
             val taken = PlacedIds.of(all)[script.name].orEmpty()
-            if (WidgetRef.roomFor(taken)) id(taken)?.let { WidgetSource.script(WidgetRef(script.name, it)) } else null
+            if (WidgetRef.roomFor(taken)) id(taken)?.let {
+                WidgetSource.script(
+                    WidgetRef(
+                        script.name,
+                        it
+                    )
+                )
+            } else null
         }
         return WidgetSource.scriptRef(source)?.also(::followAndRun)
     }
@@ -376,7 +422,8 @@ class WidgetHost private constructor(context: Context) {
      * Returns false when it is already placed. Kolahal fills it from its own data, so it has no
      * script, no access item and no run.
      */
-    fun placeBuiltin(id: String, size: WidgetSize): Boolean = placeNew(size) { WidgetSource.builtin(id) } != null
+    fun placeBuiltin(id: String, size: WidgetSize): Boolean =
+        placeNew(size) { WidgetSource.builtin(id) } != null
 
     /**
      * Adds an entry at the end of the page, at [size]. [pick] chooses its source from the list as
@@ -387,7 +434,9 @@ class WidgetHost private constructor(context: Context) {
     private fun placeNew(size: WidgetSize, pick: (List<PlacedWidget>) -> String?): String? {
         var added: String? = null
         update { all ->
-            val source = pick(all)?.takeIf { s -> WidgetSource.isSource(s) && all.none { it.source == s } } ?: return@update all
+            val source =
+                pick(all)?.takeIf { s -> WidgetSource.isSource(s) && all.none { it.source == s } }
+                    ?: return@update all
             added = source
             WidgetPlacement.add(
                 all,
@@ -395,14 +444,17 @@ class WidgetHost private constructor(context: Context) {
                     id = null,
                     provider = source,
                     profileSerial = runCatching { serialOf(Process.myUserHandle()) }.getOrDefault(0L),
-                    heightDp = WidgetSizes.heightDp(size, pageWidthDp()).coerceIn(WidgetLayout.minDp(sourced = true), WidgetLayout.MAX_DP),
+                    heightDp = WidgetSizes.heightDp(size, pageWidthDp())
+                        .coerceIn(WidgetLayout.minDp(sourced = true), WidgetLayout.MAX_DP),
                     order = WidgetOrder.nextOrder(all),
                     span = size.span,
                 ),
             )
         }
         // The Widgets screen opens next, with the new widget chosen.
-        added?.let { source -> _widgets.value.firstOrNull { it.source == source }?.let { choose(it.key) } }
+        added?.let { source ->
+            _widgets.value.firstOrNull { it.source == source }?.let { choose(it.key) }
+        }
         return added
     }
 
@@ -430,7 +482,11 @@ class WidgetHost private constructor(context: Context) {
      * from the database, so they must be there first. A widget removed again in the meantime gets no run.
      */
     private fun followAndRun(ref: WidgetRef) = follow(ref.script) { script ->
-        if (script != null && ref in placedOf(ref.script)) ScriptScheduler.refreshWidget(app, script, ref.id)
+        if (script != null && ref in placedOf(ref.script)) ScriptScheduler.refreshWidget(
+            app,
+            script,
+            ref.id
+        )
     }
 
     /**
@@ -487,13 +543,15 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /** Moves the widget [key] to [column] and [topDp] on the page. Widgets in the way move down ([WidgetPlacement.moveTo]). */
-    fun moveTo(key: String, column: Int, topDp: Int) = update { WidgetPlacement.moveTo(it, key, column, topDp) }
+    fun moveTo(key: String, column: Int, topDp: Int) =
+        update { WidgetPlacement.moveTo(it, key, column, topDp) }
 
     /**
      * Moves the widget [key] by [columns] sideways and [rows] up or down, a row being one cell of the
      * page: a screen reader's Move up, Move down, Move left and Move right.
      */
-    fun nudge(key: String, columns: Int, rows: Int) = update { WidgetPlacement.nudge(it, key, columns, rows, rowDp()) }
+    fun nudge(key: String, columns: Int, rows: Int) =
+        update { WidgetPlacement.nudge(it, key, columns, rows, rowDp()) }
 
     /** Moves every widget up as far as it goes: no space left between widgets ([WidgetPlacement.closeGaps]). */
     fun closeGaps() = update { WidgetPlacement.closeGaps(it) }
@@ -507,7 +565,8 @@ class WidgetHost private constructor(context: Context) {
     fun setSize(key: String, size: WidgetSize) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
         val span = size.span.coerceAtLeast(WidgetLayout.minSpan(w.source != null))
-        val height = WidgetLayout.clampHeight(WidgetSizes.heightDp(size, pageWidthDp()), minHeightOf(w))
+        val height =
+            WidgetLayout.clampHeight(WidgetSizes.heightDp(size, pageWidthDp()), minHeightOf(w))
         update { WidgetPlacement.resize(it, key, span, height) }
     }
 
@@ -517,7 +576,12 @@ class WidgetHost private constructor(context: Context) {
      */
     fun sizeOf(w: PlacedWidget): WidgetSize? {
         val page = pageWidthDp()
-        return WidgetSize.entries.firstOrNull { it.span == w.span && WidgetSizes.heightDp(it, page) == w.heightDp }
+        return WidgetSize.entries.firstOrNull {
+            it.span == w.span && WidgetSizes.heightDp(
+                it,
+                page
+            ) == w.heightDp
+        }
     }
 
     /** One row of the page: as tall as one cell is wide ([WidgetSizes.heightDp] of a 1×1). */
@@ -532,7 +596,8 @@ class WidgetHost private constructor(context: Context) {
     fun resizeWidth(key: String, delta: Int) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
         // A widget Kolahal draws itself is at least one cell wide.
-        val span = WidgetLayout.resizeSpan(w.span, delta).coerceAtLeast(WidgetLayout.minSpan(w.source != null))
+        val span = WidgetLayout.resizeSpan(w.span, delta)
+            .coerceAtLeast(WidgetLayout.minSpan(w.source != null))
         if (span != w.span) update { WidgetPlacement.resize(it, key, span, w.heightDp) }
     }
 
@@ -581,7 +646,8 @@ class WidgetHost private constructor(context: Context) {
      * A widget Kolahal draws itself has no id, so it gets [WidgetLayout.minDp].
      */
     fun minHeightOf(w: PlacedWidget): Int =
-        w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.minDp(w.source != null)
+        w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) }
+            ?: WidgetLayout.minDp(w.source != null)
 
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
         val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
@@ -590,7 +656,8 @@ class WidgetHost private constructor(context: Context) {
 
     // ---- providers ------------------------------------------------------------------------
 
-    fun info(id: Int): AppWidgetProviderInfo? = runCatching { manager?.getAppWidgetInfo(id) }.getOrNull()
+    fun info(id: Int): AppWidgetProviderInfo? =
+        runCatching { manager?.getAppWidgetInfo(id) }.getOrNull()
 
     /**
      * A placed widget's name: its provider's label, or the last part of the provider's name. The
@@ -600,7 +667,8 @@ class WidgetHost private constructor(context: Context) {
     fun label(id: Int?, provider: String): String {
         id ?: return provider.substringAfterLast('.')
         synchronized(infos) { labels[id] }?.let { return it }
-        val label = cachedInfo(id)?.loadLabel(app.packageManager)?.toString() ?: return provider.substringAfterLast('.')
+        val label = cachedInfo(id)?.loadLabel(app.packageManager)?.toString()
+            ?: return provider.substringAfterLast('.')
         synchronized(infos) { labels[id] = label }
         return label
     }
@@ -619,17 +687,18 @@ class WidgetHost private constructor(context: Context) {
      * Returns the view for widget [id] in [context] (an activity). It is the view kept from the last time
      * home or the Widgets page showed it, or a new one from the host, which then gets the widget's updates.
      */
-    fun view(context: Context, id: Int, info: AppWidgetProviderInfo): AppWidgetHostView = synchronized(views) {
-        val config = configOf(context)
-        views[id]?.let { kept ->
-            if (kept.view.context === context && kept.info === info && kept.config == config) {
-                // It is still inside the holder of the last screen that showed it, and that screen is gone.
-                (kept.view.parent as? android.view.ViewGroup)?.removeView(kept.view)
-                return kept.view
+    fun view(context: Context, id: Int, info: AppWidgetProviderInfo): AppWidgetHostView =
+        synchronized(views) {
+            val config = configOf(context)
+            views[id]?.let { kept ->
+                if (kept.view.context === context && kept.info === info && kept.config == config) {
+                    // It is still inside the holder of the last screen that showed it, and that screen is gone.
+                    (kept.view.parent as? android.view.ViewGroup)?.removeView(kept.view)
+                    return kept.view
+                }
             }
+            host.createView(context, id, info).also { views[id] = Kept(it, info, config) }
         }
-        host.createView(context, id, info).also { views[id] = Kept(it, info, config) }
-    }
 
     /** Releases the views made in [context], an activity that is being destroyed. */
     fun releaseViews(context: Context) = synchronized(views) {
@@ -643,7 +712,11 @@ class WidgetHost private constructor(context: Context) {
     /** True when [serial]'s profile is paused (work apps off) or locked (private space). */
     fun isPaused(serial: Long): Boolean {
         val user = userFor(serial) ?: return false
-        return user != Process.myUserHandle() && runCatching { userManager.isQuietModeEnabled(user) || !userManager.isUserUnlocked(user) }.getOrDefault(false)
+        return user != Process.myUserHandle() && runCatching {
+            userManager.isQuietModeEnabled(user) || !userManager.isUserUnlocked(
+                user
+            )
+        }.getOrDefault(false)
     }
 
     /** Home-screen providers in every profile the launcher can see. */
@@ -689,19 +762,29 @@ class WidgetHost private constructor(context: Context) {
             putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
             putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp)
             putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp)
-            putInt(AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY, AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN)
+            putInt(
+                AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,
+                AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN
+            )
             if (Build.VERSION.SDK_INT >= 31) {
-                putParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES, arrayListOf(SizeF(widthDp.toFloat(), heightDp.toFloat())))
+                putParcelableArrayList(
+                    AppWidgetManager.OPTION_APPWIDGET_SIZES,
+                    arrayListOf(SizeF(widthDp.toFloat(), heightDp.toFloat()))
+                )
             }
         }
     }
 
     /** The widgets page's width inside its margins, as last laid out. 0 if it was never laid out. */
-    @Volatile var measuredPageDp: Int = 0
+    @Volatile
+    var measuredPageDp: Int = 0
 
     /** The widgets page's width inside its margins: the measured value, else computed from the screen. */
     private fun pageWidthDp(): Int =
-        measuredPageDp.takeIf { it > 0 } ?: (app.resources.configuration.screenWidthDp - 2 * WidgetLayout.GAP_DP).coerceAtLeast(120)
+        measuredPageDp.takeIf { it > 0 }
+            ?: (app.resources.configuration.screenWidthDp - 2 * WidgetLayout.GAP_DP).coerceAtLeast(
+                120
+            )
 
     /** Tells the provider the size before a view exists. The view reports its real size after layout. */
     private fun applySize(id: Int, heightDp: Int, span: Int) {
@@ -727,12 +810,18 @@ class WidgetHost private constructor(context: Context) {
             val fresh = info(id)
             synchronized(infos) {
                 val old = infos[id]
-                if (fresh == null) { infos.remove(id); labels.remove(id) } else if (old == null || !sameAs(old, fresh)) { infos[id] = fresh; labels.remove(id) }
+                if (fresh == null) {
+                    infos.remove(id); labels.remove(id)
+                } else if (old == null || !sameAs(old, fresh)) {
+                    infos[id] = fresh; labels.remove(id)
+                }
             }
             if (fresh != null) return@filter false
             val user = userFor(w.profileSerial) ?: return@filter true
             val available = runCatching {
-                userManager.isUserUnlocked(user) && (user == Process.myUserHandle() || !userManager.isQuietModeEnabled(user))
+                userManager.isUserUnlocked(user) && (user == Process.myUserHandle() || !userManager.isQuietModeEnabled(
+                    user
+                ))
             }.getOrDefault(false)
             available
         }
@@ -740,22 +829,31 @@ class WidgetHost private constructor(context: Context) {
             dead.forEach { w -> w.id?.let { forget(it); runCatching { host.deleteAppWidgetId(it) } } }
             // If its app still offers it, only the id was lost (Android's own backup restored the list
             // on a new phone, where ids differ). It waits on the Widgets page, and one tap adds it again.
-            val offered = runCatching { providers().map { it.flat to it.serial } }.getOrDefault(emptyList()).toSet()
+            val offered =
+                runCatching { providers().map { it.flat to it.serial } }.getOrDefault(emptyList())
+                    .toSet()
             val (lost, gone) = dead.partition { (it.provider to it.profileSerial) in offered }
             val goneKeys = gone.map { it.key }.toSet()
             val lostKeys = lost.map { it.key }.toSet()
-            update { all -> all.filterNot { it.key in goneKeys }.map { if (it.key in lostKeys) it.copy(id = null) else it } }
+            update { all ->
+                all.filterNot { it.key in goneKeys }
+                    .map { if (it.key in lostKeys) it.copy(id = null) else it }
+            }
             // Report it in the log. This runs when Kolahal starts (after a restore on a new phone), on
             // home, where no widget screen would show it.
             val logs = LogRepository.get(app)
-            if (gone.isNotEmpty()) logs.add(LogKind.INFO, "Removed ${gone.size} widget${if (gone.size == 1) "" else "s"} whose app was uninstalled")
+            if (gone.isNotEmpty()) logs.add(
+                LogKind.INFO,
+                "Removed ${gone.size} widget${if (gone.size == 1) "" else "s"} whose app was uninstalled"
+            )
             if (lost.isNotEmpty()) logAddAgain(lost.size)
         }
         // Free ids that nothing uses. Read them and the used ids under one lock, because [allocate]
         // and [place] change them.
         synchronized(inFlight) {
             val used = _widgets.value.mapNotNull { it.id }.toSet() + inFlight
-            runCatching { host.appWidgetIds }.getOrNull()?.filter { it !in used }?.forEach { runCatching { host.deleteAppWidgetId(it) } }
+            runCatching { host.appWidgetIds }.getOrNull()?.filter { it !in used }
+                ?.forEach { runCatching { host.deleteAppWidgetId(it) } }
         }
     }
 
@@ -778,7 +876,12 @@ class WidgetHost private constructor(context: Context) {
      */
     fun importWidgets(list: List<Map<String, Any?>>) {
         // Imported widgets without a place, or whose place is taken, go into the first free space.
-        update { all -> WidgetPlacement.placeImported(all, WidgetCodec.mergePending(all, WidgetOrder.onePage(WidgetCodec.fromExport(list)))) }
+        update { all ->
+            WidgetPlacement.placeImported(
+                all,
+                WidgetCodec.mergePending(all, WidgetOrder.onePage(WidgetCodec.fromExport(list)))
+            )
+        }
         syncAccess()
     }
 
@@ -786,6 +889,7 @@ class WidgetHost private constructor(context: Context) {
         /** "KO" in ASCII. */
         const val HOST_ID = 0x4B4F
         private const val KEY = "placed"
+
         /** The install ([ThisInstall.id]) that wrote [KEY]. */
         private const val KEY_INSTALL = "install"
     }
@@ -794,7 +898,10 @@ class WidgetHost private constructor(context: Context) {
 /** `widgets ls`: one (text, detail) pair per widget, in page order, with pending re-adds last. */
 fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
     val all = widgets.value
-    val ordered = WidgetOrder.inLocation(all, WidgetLocation.PANEL) + WidgetOrder.sorted(all.filter { it.pending })
+    val ordered = WidgetOrder.inLocation(
+        all,
+        WidgetLocation.PANEL
+    ) + WidgetOrder.sorted(all.filter { it.pending })
     return ordered.mapIndexed { i, w ->
         val source = w.source
         // A widget Kolahal draws itself: its name ("weather", "Battery and network"), and what it is ("script") where an app's widget has its package.
@@ -805,7 +912,11 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
             source == null && isPaused(w.profileSerial) -> "Paused"
             else -> null
         }
-        "${i + 1}. $label" to listOfNotNull(state, "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp", source?.substringBefore(':') ?: w.packageName).joinToString(" · ")
+        "${i + 1}. $label" to listOfNotNull(
+            state,
+            "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp",
+            source?.substringBefore(':') ?: w.packageName
+        ).joinToString(" · ")
     }
 }
 
@@ -837,9 +948,16 @@ class KolahalWidgetView(context: Context) : AppWidgetHostView(context) {
                 cancelSent = false
                 downX = ev.x
                 downY = ev.y
-                if (onLongPress != null) postDelayed(check, ViewConfiguration.getLongPressTimeout().toLong())
+                if (onLongPress != null) postDelayed(
+                    check,
+                    ViewConfiguration.getLongPressTimeout().toLong()
+                )
             }
-            MotionEvent.ACTION_MOVE -> if (abs(ev.x - downX) > slop || abs(ev.y - downY) > slop) removeCallbacks(check)
+
+            MotionEvent.ACTION_MOVE -> if (abs(ev.x - downX) > slop || abs(ev.y - downY) > slop) removeCallbacks(
+                check
+            )
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> removeCallbacks(check)
         }
         if (longPressed) {

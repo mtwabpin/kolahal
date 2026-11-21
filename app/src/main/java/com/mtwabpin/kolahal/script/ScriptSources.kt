@@ -34,7 +34,10 @@ object ScriptSources {
 
     // GitHub's rules for user and repository names.
     private val REPO = Regex("^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9._-]{1,100})$")
-    private val GITHUB_LINK = Regex("^(?:https://)?(?:www\\.)?github\\.com/([^/\\s]+/[^/\\s]+?)(?:\\.git)?/?$", RegexOption.IGNORE_CASE)
+    private val GITHUB_LINK = Regex(
+        "^(?:https://)?(?:www\\.)?github\\.com/([^/\\s]+/[^/\\s]+?)(?:\\.git)?/?$",
+        RegexOption.IGNORE_CASE
+    )
 
     /**
      * The source that [input] names:
@@ -46,19 +49,30 @@ object ScriptSources {
     fun parse(input: String): Parsed {
         val text = input.trim()
         if (text.isEmpty()) return Parsed.Bad("Enter owner/name or a link to an index.json")
-        val repo = GITHUB_LINK.find(text)?.groupValues?.get(1) ?: text.takeUnless { "://" in it }?.trimEnd('/')
+        val repo = GITHUB_LINK.find(text)?.groupValues?.get(1) ?: text.takeUnless { "://" in it }
+            ?.trimEnd('/')
         if (repo != null) {
-            val m = REPO.find(repo) ?: return Parsed.Bad("Enter owner/name or a link to an index.json")
+            val m =
+                REPO.find(repo) ?: return Parsed.Bad("Enter owner/name or a link to an index.json")
             val owner = m.groupValues[1].lowercase()
             val name = m.groupValues[2].removeSuffix(".git")
             if (name == "." || name == "..") return Parsed.Bad("Enter owner/name or a link to an index.json")
             val host = "$owner.github.io"
-            val index = if (name.equals(host, ignoreCase = true)) "https://$host/$INDEX" else "https://$host/$name/$INDEX"
+            val index = if (name.equals(
+                    host,
+                    ignoreCase = true
+                )
+            ) "https://$host/$INDEX" else "https://$host/$name/$INDEX"
             return Parsed.Ok(Source(nameOf(index), index))
         }
-        if (!text.startsWith("https://", ignoreCase = true)) return Parsed.Bad("Only https:// links")
+        if (!text.startsWith(
+                "https://",
+                ignoreCase = true
+            )
+        ) return Parsed.Bad("Only https:// links")
         val uri = runCatching { URI(text) }.getOrNull()
-        val authority = uri?.rawAuthority?.takeIf { it.isNotBlank() && uri.host != null } ?: return Parsed.Bad("That isn't a link")
+        val authority = uri?.rawAuthority?.takeIf { it.isNotBlank() && uri.host != null }
+            ?: return Parsed.Bad("That isn't a link")
         if (uri.rawQuery != null || uri.rawFragment != null) return Parsed.Bad("The link must end in $INDEX")
         val path = uri.rawPath.orEmpty().ifEmpty { "/" }
         val full = when {
@@ -108,7 +122,11 @@ object ScriptSources {
      * - A plain name: the first source that has it.
      * - `source/name`: that source's (the source as [find] reads it).
      */
-    fun pick(entries: List<ScriptCatalog.Entry>, ref: String, sources: List<Source>): ScriptCatalog.Entry? {
+    fun pick(
+        entries: List<ScriptCatalog.Entry>,
+        ref: String,
+        sources: List<Source>
+    ): ScriptCatalog.Entry? {
         val name = ref.substringAfterLast('/')
         if ('/' !in ref) return entries.firstOrNull { it.name == name }
         val source = find(sources, ref.substringBeforeLast('/')) ?: return null
@@ -129,7 +147,11 @@ object ScriptSources {
      * [added] with the sources of a backup's [saved] list that it doesn't have yet. An address that
      * isn't a source (not https, not an index.json) goes into [skipped].
      */
-    fun fromBackup(added: List<String>, saved: List<*>, skipped: MutableList<String> = ArrayList()): List<String> =
+    fun fromBackup(
+        added: List<String>,
+        saved: List<*>,
+        skipped: MutableList<String> = ArrayList()
+    ): List<String> =
         saved.fold(added) { list, item ->
             when (val p = parse(item?.toString().orEmpty())) {
                 is Parsed.Ok -> adding(list, p.source)

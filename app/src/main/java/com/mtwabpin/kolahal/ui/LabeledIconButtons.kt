@@ -31,7 +31,11 @@ import androidx.compose.ui.res.painterResource
 /** [content] (an icon button) with [label] shown in a bubble above it on a long-press. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun Labeled(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+internal fun Labeled(
+    label: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
     TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
         tooltip = { PlainTooltip { Text(label) } },
@@ -55,8 +59,22 @@ internal fun LabeledIconButton(
     tint: Color? = null,
     iconModifier: Modifier = Modifier,
 ) = Labeled(label) {
-    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClick, enabled = enabled, modifier = modifier) {
-        if (tint == null) Icon(painterResource(icon), contentDescription = label, modifier = iconModifier)
-        else Icon(painterResource(icon), contentDescription = label, tint = tint, modifier = iconModifier)
+    IconButton(
+        shapes = IconButtonDefaults.shapes(),
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+    ) {
+        if (tint == null) Icon(
+            painterResource(icon),
+            contentDescription = label,
+            modifier = iconModifier
+        )
+        else Icon(
+            painterResource(icon),
+            contentDescription = label,
+            tint = tint,
+            modifier = iconModifier
+        )
     }
 }

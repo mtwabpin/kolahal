@@ -5,11 +5,11 @@ package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
 import android.os.Build
-import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.script.Json
@@ -41,7 +41,8 @@ class AppCommands(
         return listOfNotNull(
             "it comes first in suggestions on an empty prompt".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SUGGEST_IDLE] },
             "it is a ★ favourite in the app selector".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SELECTOR_RAIL] },
-        ).joinToString(", and ").ifEmpty { "pinned apps come first on an empty prompt with config set suggestions.idle on" }
+        ).joinToString(", and ")
+            .ifEmpty { "pinned apps come first on an empty prompt with config set suggestions.idle on" }
     }
 
     /** Runs one of [NAMES]. */
@@ -50,24 +51,42 @@ class AppCommands(
             // Each acts on the best match it can change: `unpin ma` unpins Maps, even when Mail matches better
             // but isn't pinned. When none can be changed, it says so. The suggestions offer the same apps.
             "hide" -> withAppItCanChange(args, can = { !it.hidden }) { app ->
-                if (app.hidden) info("${app.label} is hidden already · unhide ${app.label}") else setHidden(app, true)
+                if (app.hidden) info("${app.label} is hidden already · unhide ${app.label}") else setHidden(
+                    app,
+                    true
+                )
             }
-            "pin", "fav" -> if (args.isEmpty()) listPinned() else prefs.pinned().toSet().let { pinned ->
-                withAppItCanChange(args, can = { it.key !in pinned }) { app ->
-                    if (app.key in pinned) info("${app.label} is pinned already")
-                    else { prefs.setPinned(app.key, true); info("Pinned ${app.label} — ${pinnedWhere()}") }
+
+            "pin", "fav" -> if (args.isEmpty()) listPinned() else prefs.pinned().toSet()
+                .let { pinned ->
+                    withAppItCanChange(args, can = { it.key !in pinned }) { app ->
+                        if (app.key in pinned) info("${app.label} is pinned already")
+                        else {
+                            prefs.setPinned(
+                                app.key,
+                                true
+                            ); info("Pinned ${app.label} — ${pinnedWhere()}")
+                        }
+                    }
                 }
-            }
+
             "unpin", "unfav" -> prefs.pinned().toSet().let { pinned ->
                 withAppItCanChange(args, can = { it.key in pinned }) { app ->
                     if (app.key !in pinned) info("${app.label} isn't pinned · pins lists them")
-                    else { prefs.setPinned(app.key, false); info("Unpinned ${app.label}") }
+                    else {
+                        prefs.setPinned(app.key, false); info("Unpinned ${app.label}")
+                    }
                 }
             }
+
             "pins", "favs" -> listPinned()
             "unhide" -> withAppItCanChange(args, can = { prefs.isHidden(it.key) }) { app ->
-                if (!prefs.isHidden(app.key)) info("${app.label} isn't hidden · apps hidden lists them") else setHidden(app, false)
+                if (!prefs.isHidden(app.key)) info("${app.label} isn't hidden · apps hidden lists them") else setHidden(
+                    app,
+                    false
+                )
             }
+
             "rename" -> rename(args)
             "apps", "ls" -> listApps(args)
             "open", "launch" -> open(args)
@@ -85,10 +104,20 @@ class AppCommands(
         val n = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 200) ?: 20
         val list = com.mtwabpin.kolahal.apps.PackageEvents.get(context).history().take(n)
         if (list.isEmpty()) return info("No app installs, updates or uninstalls recorded yet")
-        val clock24 = com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.CLOCK_24H]
-        val fmt = java.text.SimpleDateFormat("${com.mtwabpin.kolahal.data.TimeFormats.DAY} ${com.mtwabpin.kolahal.data.TimeFormats.clock(clock24)}", java.util.Locale.getDefault())
+        val clock24 =
+            com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.CLOCK_24H]
+        val fmt = java.text.SimpleDateFormat(
+            "${com.mtwabpin.kolahal.data.TimeFormats.DAY} ${
+                com.mtwabpin.kolahal.data.TimeFormats.clock(clock24)
+            }", java.util.Locale.getDefault()
+        )
         // Each event is an item: its app, then the package and the versions under it.
-        list.forEach { (t, text) -> out(text, LogContext.of(LogContext.DESC to fmt.format(Date(t))) + LogContext.ITEM) }
+        list.forEach { (t, text) ->
+            out(
+                text,
+                LogContext.of(LogContext.DESC to fmt.format(Date(t))) + LogContext.ITEM
+            )
+        }
     }
 
     private fun listPinned() {
@@ -120,10 +149,9 @@ class AppCommands(
     /** Returns `Maps [W]`. A personal app gets a tag only when the same app also exists in another profile. */
     private fun appLine(app: AppEntry): String {
         val twin = app.profile.kind == ProfileKind.PERSONAL &&
-            apps.apps.value.any { it.pkg == app.pkg && it.profile.serial != app.profile.serial }
+                apps.apps.value.any { it.pkg == app.pkg && it.profile.serial != app.profile.serial }
         return if (app.profile.kind != ProfileKind.PERSONAL || twin) "${app.label} [${app.profile.kind.tag}]" else app.label
     }
-
 
 
     private fun listApps(args: List<String>) {
@@ -149,6 +177,7 @@ class AppCommands(
                 info("── ${k.label} ──", LogContext(LogContext.ITEM))
                 appGrid(list.filter { it.profile.kind == k })
             }
+
             else -> appGrid(list)
         }
         info("${list.size} ${if (list.size == 1) "app" else "apps"} · " + kinds.joinToString("  ") { "${it.label} [${it.tag}]" })
@@ -170,7 +199,11 @@ class AppCommands(
      * Runs [action] on the best match for [args] that [can] keeps: an app the command can change. If
      * none can be, on the best match of all (hidden ones too), so the command can say why it does nothing.
      */
-    private fun withAppItCanChange(args: List<String>, can: (AppEntry) -> Boolean, action: (AppEntry) -> Unit) {
+    private fun withAppItCanChange(
+        args: List<String>,
+        can: (AppEntry) -> Boolean,
+        action: (AppEntry) -> Unit
+    ) {
         val matches = resolveApp(args, includeHidden = true)
         if (matches.isEmpty()) return error("No app matches '${CommandParsing.withoutFlags(args)}'")
         action(matches.firstOrNull(can) ?: matches.first())
@@ -180,9 +213,12 @@ class AppCommands(
         // `open maps:navigate` starts the shortcut whose label best matches "navigate".
         val joined = CommandParsing.withoutFlags(args)
         // But "Duolingo: Language Lessons" is an app's name, not a Duolingo shortcut.
-        if (joined.contains(':') && apps.search(joined, ProfileKind.fromFlags(args)).none { it.label.equals(joined, ignoreCase = true) }) {
-            val app = apps.search(joined.substringBefore(':'), ProfileKind.fromFlags(args)).firstOrNull()
-                ?: return error("No app matches '${joined.substringBefore(':')}'")
+        if (joined.contains(':') && apps.search(joined, ProfileKind.fromFlags(args))
+                .none { it.label.equals(joined, ignoreCase = true) }
+        ) {
+            val app =
+                apps.search(joined.substringBefore(':'), ProfileKind.fromFlags(args)).firstOrNull()
+                    ?: return error("No app matches '${joined.substringBefore(':')}'")
             val wanted = joined.substringAfter(':').trim().lowercase()
             val shortcut = apps.shortcuts(app).minByOrNull { s ->
                 val label = (s.shortLabel ?: s.longLabel ?: "").toString().lowercase()
@@ -192,7 +228,10 @@ class AppCommands(
                     label.contains(wanted) -> 2
                     else -> 9
                 }
-            }?.takeIf { s -> (s.shortLabel ?: "").toString().lowercase().contains(wanted) || (s.longLabel ?: "").toString().lowercase().contains(wanted) }
+            }?.takeIf { s ->
+                (s.shortLabel ?: "").toString().lowercase().contains(wanted) || (s.longLabel
+                    ?: "").toString().lowercase().contains(wanted)
+            }
                 ?: return error("${app.label} has no shortcut matching '$wanted' — 'shortcuts ${app.label}'")
             apps.startShortcut(app, shortcut.id)
             return info("${app.label} › ${shortcut.shortLabel}", appContext(app))
@@ -220,7 +259,10 @@ class AppCommands(
         runCatching { apps.launch(app) }
             // Launched by a tap (no typed command above it), it is an event of its own in the log.
             .onSuccess {
-                val ctx = if (logs.currentCause == null) appContext(app) + mapOf(LogContext.APART to "1") else appContext(app)
+                val ctx =
+                    if (logs.currentCause == null) appContext(app) + mapOf(LogContext.APART to "1") else appContext(
+                        app
+                    )
                 logs.addReplacing(LogKind.INFO, "Launched ${appLine(app)}", ctx)
             }
             .onFailure { error("Can't launch ${app.label}: ${it.reason()}") }
@@ -243,7 +285,8 @@ class AppCommands(
                 Thread.sleep(500)
                 val profile = apps.profileBySerial(app.profile.serial)
                 if (profile != null && !profile.quiet) {
-                    val fresh = apps.find(app.pkg, app.component.className, app.profile.serial) ?: app
+                    val fresh =
+                        apps.find(app.pkg, app.component.className, app.profile.serial) ?: app
                     launch(fresh)
                     return@background
                 }
@@ -254,10 +297,18 @@ class AppCommands(
 
     /** Prints one log line shown as tappable app chips. Long-press a chip for its actions. */
     fun appGrid(list: List<AppEntry>) {
-        val refs = list.map { mapOf("pkg" to it.pkg, "cls" to it.component.className, "user" to it.profile.serial) }
+        val refs = list.map {
+            mapOf(
+                "pkg" to it.pkg,
+                "cls" to it.component.className,
+                "user" to it.profile.serial
+            )
+        }
         out(
             list.joinToString(", ") { it.label },
-            LogContext.of(LogContext.APPS to Json.stringify(refs), LogContext.COPY to list.joinToString("\n") { appLine(it) }),
+            LogContext.of(
+                LogContext.APPS to Json.stringify(refs),
+                LogContext.COPY to list.joinToString("\n") { appLine(it) }),
         )
     }
 
@@ -269,7 +320,16 @@ class AppCommands(
         }
         when (args.firstOrNull()) {
             // On or paused as a tag, as toggles shows on and off.
-            null, "status" -> info("${kind.title} profile: " + if (profile.quiet) com.mtwabpin.kolahal.data.StyledText.tag(com.mtwabpin.kolahal.data.StyledText.Colour.MUTED, "paused") else com.mtwabpin.kolahal.data.StyledText.tag(com.mtwabpin.kolahal.data.StyledText.Colour.GOOD, "on"))
+            null, "status" -> info(
+                "${kind.title} profile: " + if (profile.quiet) com.mtwabpin.kolahal.data.StyledText.tag(
+                    com.mtwabpin.kolahal.data.StyledText.Colour.MUTED,
+                    "paused"
+                ) else com.mtwabpin.kolahal.data.StyledText.tag(
+                    com.mtwabpin.kolahal.data.StyledText.Colour.GOOD,
+                    "on"
+                )
+            )
+
             "on", "off" -> {
                 val quiet = args[0] == "off"
                 if (Build.VERSION.SDK_INT < 29) {
@@ -280,6 +340,7 @@ class AppCommands(
                     com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED -> error("Couldn't change ${kind.label} profile (is Kolahal the default launcher? run 'home')")
                 }
             }
+
             else -> error("Usage: ${kind.name.lowercase()} [on|off|status]")
         }
     }
@@ -295,7 +356,10 @@ class AppCommands(
         list.forEach { s ->
             out(
                 "${app.label} › ${s.shortLabel}",
-                appContext(app) + mapOf(LogContext.SHORTCUT to s.id, LogContext.DESC to (s.longLabel ?: s.shortLabel ?: "").toString()),
+                appContext(app) + mapOf(
+                    LogContext.SHORTCUT to s.id,
+                    LogContext.DESC to (s.longLabel ?: s.shortLabel ?: "").toString()
+                ),
             )
         }
     }
@@ -308,8 +372,26 @@ class AppCommands(
     companion object {
         /** Commands handled by [run]. */
         val NAMES = setOf(
-            "hide", "pin", "fav", "unpin", "unfav", "pins", "favs", "unhide", "rename", "apps", "ls", "open", "launch",
-            "info", "uninstall", "work", "private", "installs", "updates", "shortcuts",
+            "hide",
+            "pin",
+            "fav",
+            "unpin",
+            "unfav",
+            "pins",
+            "favs",
+            "unhide",
+            "rename",
+            "apps",
+            "ls",
+            "open",
+            "launch",
+            "info",
+            "uninstall",
+            "work",
+            "private",
+            "installs",
+            "updates",
+            "shortcuts",
             "activity",
         )
     }

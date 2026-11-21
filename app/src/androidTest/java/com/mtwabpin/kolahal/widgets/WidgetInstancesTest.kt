@@ -40,15 +40,20 @@ class WidgetInstancesTest {
     private val host = t.host
     private val scripts = t.scripts
     private val options = ScriptOptions(context)
-    // Only the backup test replaces the log, and only it has the log put back.
-    @get:Rule val logKept = LogKept(eachTest = false)
-    // Only the tap test makes a view model, for the cards' actions as home has them.
-    @get:Rule val vms = TestViewModels()
 
-    @After fun tearDown() = t.close()
+    // Only the backup test replaces the log, and only it has the log put back.
+    @get:Rule
+    val logKept = LogKept(eachTest = false)
+
+    // Only the tap test makes a view model, for the cards' actions as home has them.
+    @get:Rule
+    val vms = TestViewModels()
+
+    @After
+    fun tearDown() = t.close()
 
     private val code = "-- @widget stat 2x1\n-- @option city London The city to show\n" +
-        "widget.show{ value = options.city, label = (event and event.instance) or 'first' }"
+            "widget.show{ value = options.city, label = (event and event.instance) or 'first' }"
     private val declared = ScriptMeta.options(code)
     private val nothing = WidgetState(null, false)
 
@@ -58,19 +63,22 @@ class WidgetInstancesTest {
     private fun on(s: Script) = now(s).grants.allows(ScriptAccess.WIDGET)
 
     /** What the widget [ref] shows: its value and its label. Null when it shows nothing. */
-    private fun shown(ref: WidgetRef): Pair<String, String?>? = (t.stored(ref).spec as? WidgetSpec.Stat)?.let { it.value to it.label }
+    private fun shown(ref: WidgetRef): Pair<String, String?>? =
+        (t.stored(ref).spec as? WidgetSpec.Stat)?.let { it.value to it.label }
 
     /** What is set in the option scope of the widget [ref]. */
-    private fun scope(ref: WidgetRef) = KvStore(context, ScriptOptions.scope(ref.script, ref.id)).all()
+    private fun scope(ref: WidgetRef) =
+        KvStore(context, ScriptOptions.scope(ref.script, ref.id)).all()
 
     /**
      * A tap on a button of one widget's card runs the script for that widget: with that widget's
      * options, into that widget, and the run's end is noted for that card. The same button on the
      * script's other widget is a tap of its own: the two don't share the 2-second gate.
      */
-    @Test fun aTapOnACardRunsTheScriptForThatWidget() {
+    @Test
+    fun aTapOnACardRunsTheScriptForThatWidget() {
         val tapped = "-- @widget stat 2x1\n-- @option city London The city to show\n" +
-            "widget.show{ value = options.city .. ':' .. (args[1] or 'none'), label = (event and event.instance) or 'first' }"
+                "widget.show{ value = options.city .. ':' .. (args[1] or 'none'), label = (event and event.instance) or 'first' }"
         val s = t.place(t.create("-t", tapped))
         val first = WidgetRef(s.name)
         val second = t.placeAnother(s)
@@ -86,21 +94,33 @@ class WidgetInstancesTest {
             vm.widgetActions.tap(second.key, go)
             vm.widgetActions.tap(first.key, go)
         }
-        waitUntil("the tap on the second card didn't fill the second widget", 30_000) { shown(second) == ("Tokyo:go" to "2") }
-        waitUntil("the tap on the first card didn't fill the first widget", 30_000) { shown(first) == ("London:go" to "First") }
+        waitUntil(
+            "the tap on the second card didn't fill the second widget",
+            30_000
+        ) { shown(second) == ("Tokyo:go" to "2") }
+        waitUntil(
+            "the tap on the first card didn't fill the first widget",
+            30_000
+        ) { shown(first) == ("London:go" to "First") }
         // Each run's end is noted for the card that was tapped.
-        waitUntil("the runs' ends weren't noted", 30_000) { t.stored(first).triedAt > tried.first && t.stored(second).triedAt > tried.second }
+        waitUntil(
+            "the runs' ends weren't noted",
+            30_000
+        ) { t.stored(first).triedAt > tried.first && t.stored(second).triedAt > tried.second }
         assertNull(t.stored(second).error)
     }
 
     /** Two widgets of one script, each filled by a real run in the `:script` process, each with its own option value. */
-    @Test fun twoWidgetsOfOneScriptShowTwoOptionValues() {
+    @Test
+    fun twoWidgetsOfOneScriptShowTwoOptionValues() {
         val s = t.place(t.create("-a", code))
         val first = WidgetRef(s.name)
         val second = t.placeAnother(s)
         assertEquals(WidgetRef(s.name, "2"), second)
         // Each is an entry of its own, and the database knows both.
-        assertEquals(listOf("script:${s.name}", "script:${s.name}#2"), host.placedOf(s.name).map { WidgetSource.script(it) })
+        assertEquals(
+            listOf("script:${s.name}", "script:${s.name}#2"),
+            host.placedOf(s.name).map { WidgetSource.script(it) })
         assertEquals("s:script:${s.name}#2", t.entry(second)!!.key)
         assertEquals(setOf("", "2"), WidgetStates.placedIds(context, s.name))
         assertTrue(on(s))
@@ -140,14 +160,23 @@ class WidgetInstancesTest {
     }
 
     /** A run that fails for one widget says so on that widget's card only, and its error is logged once for that widget. */
-    @Test fun aFailedRunIsNotedForItsOwnWidget() {
-        val s = t.place(t.create("-f", "-- @widget stat 2x1\nif event and event.instance then error('no second') end\nwidget.show{ value = 1 }"))
+    @Test
+    fun aFailedRunIsNotedForItsOwnWidget() {
+        val s = t.place(
+            t.create(
+                "-f",
+                "-- @widget stat 2x1\nif event and event.instance then error('no second') end\nwidget.show{ value = 1 }"
+            )
+        )
         val first = WidgetRef(s.name)
         val second = t.placeAnother(s)
         assertEquals("1", shown(first)?.first)
         assertNull(t.stored(first).error)
         assertNull(shown(second))
-        assertTrue(t.stored(second).error.orEmpty(), t.stored(second).error.orEmpty().contains("no second"))
+        assertTrue(
+            t.stored(second).error.orEmpty(),
+            t.stored(second).error.orEmpty().contains("no second")
+        )
         val worker = KvStore(context, Stores.WORKER)
         assertNull(worker.get("refresh-error:${s.id}"))
         assertTrue(worker.get("refresh-error:${s.id}#2").orEmpty().contains("no second"))
@@ -160,7 +189,8 @@ class WidgetInstancesTest {
     }
 
     /** Removing one widget leaves the other as it is. A further widget takes the options set for it with it. */
-    @Test fun removingOneLeavesTheOther() {
+    @Test
+    fun removingOneLeavesTheOther() {
         val s = t.place(t.create("-b", code))
         val first = WidgetRef(s.name)
         val second = t.placeAnother(s)
@@ -212,7 +242,8 @@ class WidgetInstancesTest {
     }
 
     /** One script may have six widgets. The seventh is refused, and nothing changes. */
-    @Test fun aScriptHasSixWidgetsAtMost() {
+    @Test
+    fun aScriptHasSixWidgetsAtMost() {
         val s = t.place(t.create("-m", code))
         val refs = (2..WidgetRef.MAX_PER_SCRIPT).map { host.placeAnother(s, WidgetSize.S2X1) }
         assertEquals((2..6).map { WidgetRef(s.name, it.toString()) }, refs)
@@ -221,7 +252,9 @@ class WidgetInstancesTest {
         assertEquals(6, host.placedOf(s.name).size)
         assertEquals(setOf("", "2", "3", "4", "5", "6"), WidgetStates.placedIds(context, s.name))
         // Every one got its own run.
-        assertEquals(listOf("First", "2", "3", "4", "5", "6"), host.placedOf(s.name).map { shown(it)?.second })
+        assertEquals(
+            listOf("First", "2", "3", "4", "5", "6"),
+            host.placedOf(s.name).map { shown(it)?.second })
         // One is removed: its id is free again.
         host.remove(t.entry(WidgetRef(s.name, "4"))!!.key)
         assertEquals(WidgetRef(s.name, "4"), host.placeAnother(s, WidgetSize.S2X1))
@@ -235,7 +268,8 @@ class WidgetInstancesTest {
     }
 
     /** Renamed, the script keeps both widgets: the entries, what each shows, and the second one's own options. */
-    @Test fun aRenameKeepsBoth() {
+    @Test
+    fun aRenameKeepsBoth() {
         val s = t.place(t.create("-c", code))
         val second = t.placeAnother(s)
         options.set(s.name, "city", "Tokyo", second.id)
@@ -248,7 +282,12 @@ class WidgetInstancesTest {
         val first2 = WidgetRef(to)
         val second2 = WidgetRef(to, "2")
         assertEquals(emptyList<WidgetRef>(), host.placedOf(s.name))
-        assertEquals(listOf(entries[0].copy(provider = "script:$to"), entries[1].copy(provider = "script:$to#2")), listOf(t.entry(first2), t.entry(second2)))
+        assertEquals(
+            listOf(
+                entries[0].copy(provider = "script:$to"),
+                entries[1].copy(provider = "script:$to#2")
+            ), listOf(t.entry(first2), t.entry(second2))
+        )
         // What each showed, and the copies of the list, are under the new name.
         assertEquals("London" to "First", shown(first2))
         assertEquals("Tokyo" to "2", shown(second2))
@@ -269,7 +308,8 @@ class WidgetInstancesTest {
     }
 
     /** A script whose name is the start of another's keeps its own: nothing of `name_x` moves or goes with `name`. */
-    @Test fun aLongerNameIsAnotherScript() {
+    @Test
+    fun aLongerNameIsAnotherScript() {
         val s = t.place(t.create("-u", code))
         val other = t.place(t.create("-u_x", code))
         val second = t.placeAnother(s)
@@ -290,7 +330,8 @@ class WidgetInstancesTest {
     }
 
     /** A backup brings both widgets back, and the second one's own options with them. What they showed stays behind. */
-    @Test fun aBackupBringsBothBackWithTheirOptions() {
+    @Test
+    fun aBackupBringsBothBackWithTheirOptions() {
         logKept.keep()
         val s = t.place(t.create("-d", code))
         val first = WidgetRef(s.name)
@@ -321,7 +362,9 @@ class WidgetInstancesTest {
             Backup(context).import(Uri.fromFile(file))
             host.settle()
             assertEquals(listOf(first, second), host.placedOf(s.name))
-            assertEquals(entries.map { it.heightDp to it.span }, listOf(t.entry(first)!!, t.entry(second)!!).map { it.heightDp to it.span })
+            assertEquals(
+                entries.map { it.heightDp to it.span },
+                listOf(t.entry(first)!!, t.entry(second)!!).map { it.heightDp to it.span })
             assertEquals(mapOf("city" to "Paris"), scope(first))
             assertEquals(mapOf("city" to "Tokyo"), scope(second))
             // The list wrote its copies again, so the script may fill both.
@@ -341,7 +384,8 @@ class WidgetInstancesTest {
      * `script:<name>`, its script's `widget` access is on, and the name has no `widget.placed` row.
      * It is the script's first widget, and it still fills. The next start writes its row.
      */
-    @Test fun anEntryFromBeforeStillFills() {
+    @Test
+    fun anEntryFromBeforeStillFills() {
         val s = t.place(t.create("-e", code))
         val first = WidgetRef(s.name)
         val rows = KvStore(context, Stores.WIDGET_PLACED)
@@ -372,7 +416,8 @@ class WidgetInstancesTest {
      * A widget can wait on the page for a script. When the only widget of a name is `#2`, the script
      * that takes the name fills `#2`, and not a first widget that is not there.
      */
-    @Test fun aScriptThatTakesANameWithOnlyASecondWidgetFillsThatOne() {
+    @Test
+    fun aScriptThatTakesANameWithOnlyASecondWidgetFillsThatOne() {
         val old = t.place(t.create("-g", code))
         val first = WidgetRef(old.name)
         val second = t.placeAnother(old)
@@ -414,11 +459,13 @@ class WidgetInstancesTest {
     }
 
     /** `script deny <name> widget` is refused as before when the script has several widgets: the placed list sets the access. */
-    @Test fun theSwitchIsStillNotSetByHand() {
+    @Test
+    fun theSwitchIsStillNotSetByHand() {
         val s = t.place(t.create("-k", code))
         t.placeAnother(s)
         val commands = CommandRunner(context)
-        val refusal = "${s.name}'s widget is on while it is placed: add or remove it on the widgets page"
+        val refusal =
+            "${s.name}'s widget is on while it is placed: add or remove it on the widgets page"
         assertEquals(listOf(refusal), commands.run("script deny ${s.name} widget"))
         assertTrue(on(s))
     }

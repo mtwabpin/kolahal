@@ -10,7 +10,8 @@ import org.junit.Test
 class TextFormatTest {
     private fun text(bytes: ByteArray) = TextFiles.decode(bytes) as TextFiles.Decoded.Text
     private fun text(s: String) = text(s.toByteArray())
-    private fun refusal(bytes: ByteArray) = (TextFiles.decode(bytes) as TextFiles.Decoded.Refused).why
+    private fun refusal(bytes: ByteArray) =
+        (TextFiles.decode(bytes) as TextFiles.Decoded.Refused).why
 
     /** Read and written back without a change, the bytes are the same. */
     private fun roundTrips(bytes: ByteArray) {
@@ -18,17 +19,25 @@ class TextFormatTest {
         assertArrayEquals(String(bytes), bytes, read.format.encode(read.format.complete(read.text)))
     }
 
-    @Test fun unchangedTextIsWrittenBackByteForByte() {
+    @Test
+    fun unchangedTextIsWrittenBackByteForByte() {
         for (s in listOf(
             "", "\n", "one", "one\n", "one\ntwo", "one\ntwo\n", "one\n\n\n",
             "one\r\ntwo\r\n", "one\r\ntwo", "\r\n", "one\rtwo\r", "tab\there\n", "日本語 🙂 é\n",
         )) roundTrips(s.toByteArray())
         // With a byte-order mark, which stays.
-        roundTrips(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + "one\r\ntwo\r\n".toByteArray())
+        roundTrips(
+            byteArrayOf(
+                0xEF.toByte(),
+                0xBB.toByte(),
+                0xBF.toByte()
+            ) + "one\r\ntwo\r\n".toByteArray()
+        )
     }
 
     /** The editor's text has `\n` only, whatever the file ends its lines with. */
-    @Test fun theEditorsTextHasPlainLineBreaks() {
+    @Test
+    fun theEditorsTextHasPlainLineBreaks() {
         assertEquals("one\ntwo\n", text("one\r\ntwo\r\n").text)
         assertEquals(LineEnding.CRLF, text("one\r\ntwo\r\n").format.lineEnding)
         assertEquals("one\ntwo", text("one\rtwo").text)
@@ -39,13 +48,15 @@ class TextFormatTest {
     }
 
     /** New lines typed in the editor get the file's own line ending. */
-    @Test fun newLinesGetTheFilesLineEnding() {
+    @Test
+    fun newLinesGetTheFilesLineEnding() {
         val read = text("one\r\ntwo\r\n")
         assertEquals("one\r\ntwo\r\nthree\r\n", String(read.format.encode(read.text + "three\n")))
     }
 
     /** A file that ended with a line break still does after a save; one that didn't isn't given one. */
-    @Test fun theLastLineBreakIsKept() {
+    @Test
+    fun theLastLineBreakIsKept() {
         val with = text("one\n").format
         assertTrue(with.finalNewline)
         assertEquals("one\ntwo\n", with.complete("one\ntwo"))
@@ -62,7 +73,8 @@ class TextFormatTest {
     }
 
     /** Mixed line endings are all written as the most common one, and the format says so. */
-    @Test fun mixedLineEndingsBecomeTheMostCommon() {
+    @Test
+    fun mixedLineEndingsBecomeTheMostCommon() {
         val read = text("one\r\ntwo\r\nthree\nfour\r\n")
         assertTrue(read.format.mixed)
         assertEquals(LineEnding.CRLF, read.format.lineEnding)
@@ -74,29 +86,52 @@ class TextFormatTest {
     }
 
     /** Text pasted with `\r\n` in it doesn't end up with a doubled `\r`. */
-    @Test fun pastedCarriageReturnsAreLineBreaks() {
+    @Test
+    fun pastedCarriageReturnsAreLineBreaks() {
         assertEquals("a\r\nb\r\nc\r\n", String(TextFormat(LineEnding.CRLF).encode("a\r\nb\rc\n")))
         assertEquals("a\nb\nc\n", String(TextFormat(LineEnding.LF).encode("a\r\nb\rc\n")))
     }
 
-    @Test fun binaryFilesAreRefused() {
-        assertEquals("It is not a text file: it holds binary data.", refusal(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x00, 0x00)))
+    @Test
+    fun binaryFilesAreRefused() {
+        assertEquals(
+            "It is not a text file: it holds binary data.",
+            refusal(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x00, 0x00))
+        )
         // Bytes that are not UTF-8: Latin-1 "café", and a cut-off sequence.
         val notUtf8 = "It is not UTF-8 text. It may be a binary file, or text in an older encoding."
-        assertEquals(notUtf8, refusal(byteArrayOf('c'.code.toByte(), 'a'.code.toByte(), 'f'.code.toByte(), 0xE9.toByte())))
+        assertEquals(
+            notUtf8,
+            refusal(
+                byteArrayOf(
+                    'c'.code.toByte(),
+                    'a'.code.toByte(),
+                    'f'.code.toByte(),
+                    0xE9.toByte()
+                )
+            )
+        )
         assertEquals(notUtf8, refusal("日本".toByteArray().copyOf(5)))
-        assertEquals("It is UTF-16 text. The editor reads and writes UTF-8 only.", refusal("hi".toByteArray(Charsets.UTF_16)))
-        assertEquals("It is UTF-16 text. The editor reads and writes UTF-8 only.", refusal(byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 'h'.code.toByte(), 0)))
+        assertEquals(
+            "It is UTF-16 text. The editor reads and writes UTF-8 only.",
+            refusal("hi".toByteArray(Charsets.UTF_16))
+        )
+        assertEquals(
+            "It is UTF-16 text. The editor reads and writes UTF-8 only.",
+            refusal(byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 'h'.code.toByte(), 0))
+        )
     }
 
-    @Test fun filesTooBigAreRefused() {
+    @Test
+    fun filesTooBigAreRefused() {
         val tooLong = "It is too long to edit here: the editor takes up to 500,000 characters."
         text("x".repeat(TextFiles.MAX_CHARS))
         assertEquals(tooLong, refusal("x".repeat(TextFiles.MAX_CHARS + 1).toByteArray()))
         // Characters count, not bytes: half a million three-byte letters are still taken.
         text("日".repeat(TextFiles.MAX_CHARS))
         assertEquals(tooLong, refusal(ByteArray(TextFiles.MAX_BYTES + 1) { 'x'.code.toByte() }))
-        val tooManyLines = "It has too many lines to edit here: the editor takes up to 50,000 lines."
+        val tooManyLines =
+            "It has too many lines to edit here: the editor takes up to 50,000 lines."
         text("\n".repeat(TextFiles.MAX_LINES - 1))
         assertEquals(tooManyLines, refusal("\n".repeat(TextFiles.MAX_LINES).toByteArray()))
         assertEquals(tooManyLines, refusal("\r\n".repeat(TextFiles.MAX_LINES).toByteArray()))

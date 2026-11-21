@@ -1,9 +1,9 @@
 package com.mtwabpin.kolahal.commands
 
+import com.mtwabpin.kolahal.commands.LogFilter.Kind
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.logEntry
-import com.mtwabpin.kolahal.commands.LogFilter.Kind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -18,15 +18,22 @@ class LogFilterTest {
     private val printed = line(LogKind.OUTPUT, null, LogContext.FROM to "7")
     private val oldOutput = line(LogKind.OUTPUT)
     private val timerComic = line(LogKind.SCRIPT, "xkcd", LogContext.SCRIPT to "xkcd")
-    private val askedComic = line(LogKind.SCRIPT, "xkcd", LogContext.SCRIPT to "xkcd", LogContext.FROM to "7")
+    private val askedComic =
+        line(LogKind.SCRIPT, "xkcd", LogContext.SCRIPT to "xkcd", LogContext.FROM to "7")
     private val scriptError = line(LogKind.ERROR, "xkcd", LogContext.SCRIPT to "xkcd")
-    private val story = line(LogKind.SCRIPT, "Hacker News", com.mtwabpin.kolahal.feeds.FeedWorker.CTX_FEED to "3")
-    private val message = line(LogKind.SCRIPT, "WhatsApp", com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY to "k")
+    private val story =
+        line(LogKind.SCRIPT, "Hacker News", com.mtwabpin.kolahal.feeds.FeedWorker.CTX_FEED to "3")
+    private val message = line(
+        LogKind.SCRIPT,
+        "WhatsApp",
+        com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY to "k"
+    )
     private val install = line(LogKind.INFO, "apps")
     private val call = line(LogKind.INFO, "calls")
     private val reminder = line(LogKind.SCRIPT, "remind")
 
-    @Test fun eachLineHasItsKinds() {
+    @Test
+    fun eachLineHasItsKinds() {
         assertEquals(setOf(Kind.COMMANDS), LogFilter.kindsOf(typed))
         assertEquals(setOf(Kind.COMMANDS), LogFilter.kindsOf(printed))
         assertEquals(setOf(Kind.COMMANDS), LogFilter.kindsOf(oldOutput))
@@ -41,7 +48,8 @@ class LogFilterTest {
         assertEquals(setOf(Kind.REMINDERS), LogFilter.kindsOf(reminder))
     }
 
-    @Test fun aKindsWordIsTheKindAnythingElseAName() {
+    @Test
+    fun aKindsWordIsTheKindAnythingElseAName() {
         assertEquals(LogFilter.OfKind(Kind.FEEDS), LogFilter.parse("@feeds"))
         assertEquals(LogFilter.OfKind(Kind.NOTIFICATIONS), LogFilter.parse("Notifications"))
         assertEquals(LogFilter.Named("Hacker News"), LogFilter.parse(" Hacker News "))
@@ -49,28 +57,41 @@ class LogFilterTest {
         assertNull(LogFilter.parse("  "))
     }
 
-    @Test fun aNameMatchesAnyCaseWithoutSpaces() {
+    @Test
+    fun aNameMatchesAnyCaseWithoutSpaces() {
         assertTrue(LogFilter.Named("hackernews").matches(story))
         assertTrue(LogFilter.Named("HACKER news").matches(story))
         assertFalse(LogFilter.Named("hacker").matches(story))
         // A script's lines, its errors and what it logged for a command alike.
         val xkcd = LogFilter.parse("xkcd")!!
-        assertEquals(listOf(true, true, true, false), listOf(timerComic, askedComic, scriptError, typed).map(xkcd::matches))
+        assertEquals(
+            listOf(true, true, true, false),
+            listOf(timerComic, askedComic, scriptError, typed).map(xkcd::matches)
+        )
         assertTrue(LogFilter.OfKind(Kind.COMMANDS).matches(askedComic))
         assertFalse(LogFilter.OfKind(Kind.COMMANDS).matches(timerComic))
     }
 
     /** `@starred`: the lines you starred, whatever they are; starring doesn't change what a line is. */
-    @Test fun starredIsEveryStarredLine() {
+    @Test
+    fun starredIsEveryStarredLine() {
         val starred = LogFilter.parse("@starred")!!
         assertEquals(LogFilter.OfKind(Kind.STARRED), starred)
-        assertEquals(listOf(true, true, false), listOf(timerComic.copy(starred = true), typed.copy(starred = true), timerComic).map(starred::matches))
+        assertEquals(
+            listOf(true, true, false),
+            listOf(timerComic.copy(starred = true), typed.copy(starred = true), timerComic).map(
+                starred::matches
+            )
+        )
         assertEquals(setOf(Kind.SCRIPTS), LogFilter.kindsOf(timerComic.copy(starred = true)))
         assertEquals(LogFilter.Named("xkcd"), LogFilter.forLine(timerComic.copy(starred = true)))
-        assertEquals(listOf("scripts", "starred"), LogFilter.suggestions("@s", emptyList()).map { it.word })
+        assertEquals(
+            listOf("scripts", "starred"),
+            LogFilter.suggestions("@s", emptyList()).map { it.word })
     }
 
-    @Test fun longPressOffersTheLinesNameElseItsKind() {
+    @Test
+    fun longPressOffersTheLinesNameElseItsKind() {
         assertEquals(LogFilter.Named("xkcd"), LogFilter.forLine(askedComic))
         assertEquals(LogFilter.Named("Hacker News"), LogFilter.forLine(story))
         assertEquals(LogFilter.Named("WhatsApp"), LogFilter.forLine(message))
@@ -80,9 +101,12 @@ class LogFilterTest {
         assertEquals(LogFilter.OfKind(Kind.COMMANDS), LogFilter.forLine(printed))
     }
 
-    @Test fun suggestionsAreKindsThenNames() {
+    @Test
+    fun suggestionsAreKindsThenNames() {
         val names = listOf("releases", "Hacker News", "apps", "xkcd", "Releases")
-        assertEquals(listOf("reminders", "releases"), LogFilter.suggestions("@re", names).map { it.word })
+        assertEquals(
+            listOf("reminders", "releases"),
+            LogFilter.suggestions("@re", names).map { it.word })
         assertEquals(listOf("hackernews"), LogFilter.suggestions("hack", names).map { it.word })
         val all = LogFilter.suggestions("", names).map { it.word }
         assertEquals(Kind.entries.map { it.word } + listOf("releases", "hackernews", "xkcd"), all)

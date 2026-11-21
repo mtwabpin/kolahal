@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.ui
 
-import com.mtwabpin.kolahal.data.Stores
 import android.app.Application
 import android.os.Build
 import android.os.SystemClock
@@ -45,15 +44,12 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.terminal.lineTimeFormat
-import java.time.Instant
-import java.time.ZoneId
-import java.util.Date
-import java.util.TimeZone
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
@@ -63,16 +59,24 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Instant
+import java.time.ZoneId
+import java.util.Date
+import java.util.TimeZone
 
 /** The home screen's layout rules, on a frame smaller than the phone. */
 @RunWith(AndroidJUnit4::class)
 class HomeScreenTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
 
     private fun show(width: Dp, height: Dp): TerminalViewModel {
         // On the main thread, as the activity makes it.
@@ -81,7 +85,12 @@ class HomeScreenTest {
             // The frame is all the room there is: the keyboard (the emulator shows one for the
             // focused prompt) and the system bars are taken out of the window, not of the frame.
             KolahalTheme {
-                Box(Modifier.size(width, height).testTag("frame").consumeWindowInsets(WindowInsets.safeDrawing)) {
+                Box(
+                    Modifier
+                        .size(width, height)
+                        .testTag("frame")
+                        .consumeWindowInsets(WindowInsets.safeDrawing)
+                ) {
                     TerminalScreen(vm)
                 }
             }
@@ -96,7 +105,9 @@ class HomeScreenTest {
 
     private fun SemanticsNodeInteraction.layout(): TextLayoutResult {
         val results = mutableListOf<TextLayoutResult>()
-        fetchSemanticsNode().config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(results)
+        fetchSemanticsNode().config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(
+            results
+        )
         return results.single()
     }
 
@@ -104,7 +115,8 @@ class HomeScreenTest {
      * The suggestion list is capped at 40% of the window, which can be more than the room left
      * above the key bar and prompt: the list must give way, not push them out (21 October 2026).
      */
-    @Test fun longSuggestionListKeepsKeyBarAndPromptInside() {
+    @Test
+    fun longSuggestionListKeepsKeyBarAndPromptInside() {
         config.set(Keys.SUGGESTIONS, "30")
         config.set(Keys.KEYBAR_SHOW, "on")
         config.set(Keys.KEYBAR_AUTO, "off")
@@ -113,22 +125,37 @@ class HomeScreenTest {
         compose.onNodeWithTag("suggestions").assertExists()
         val frame = compose.onNodeWithTag("frame").getUnclippedBoundsInRoot()
         // Pushed out, or squeezed to nothing at the bottom: both lose the prompt.
-        val prompt = compose.onNodeWithTag("prompt", useUnmergedTree = true).getUnclippedBoundsInRoot()
-        assertTrue("the prompt ends at ${prompt.bottom}, the frame at ${frame.bottom}", prompt.bottom <= frame.bottom)
-        assertTrue("the prompt is ${prompt.bottom - prompt.top} tall", prompt.bottom - prompt.top >= 16.dp)
+        val prompt =
+            compose.onNodeWithTag("prompt", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertTrue(
+            "the prompt ends at ${prompt.bottom}, the frame at ${frame.bottom}",
+            prompt.bottom <= frame.bottom
+        )
+        assertTrue(
+            "the prompt is ${prompt.bottom - prompt.top} tall",
+            prompt.bottom - prompt.top >= 16.dp
+        )
         val rows = compose.onAllNodesWithTag("keybar", useUnmergedTree = true).fetchSemanticsNodes()
         assertTrue(rows.isNotEmpty())
         for (row in rows) {
             val bottom = with(compose.density) { row.boundsInRoot.bottom.toDp() }
-            assertTrue("a key bar row ends at $bottom, the frame at ${frame.bottom}", bottom <= frame.bottom && row.size.height > 0)
+            assertTrue(
+                "a key bar row ends at $bottom, the frame at ${frame.bottom}",
+                bottom <= frame.bottom && row.size.height > 0
+            )
         }
     }
 
     /** The suggestions follow each key: read where they show, not by all of home, they still change as you type. */
-    @Test fun theSuggestionsFollowEachKey() {
+    @Test
+    fun theSuggestionsFollowEachKey() {
         val vm = show(360.dp, 700.dp)
         fun suggested(text: String) = compose.onAllNodes(
-            hasText(text, substring = true, ignoreCase = true) and androidx.compose.ui.test.hasAnyAncestor(hasTestTag("suggestions")),
+            hasText(
+                text,
+                substring = true,
+                ignoreCase = true
+            ) and androidx.compose.ui.test.hasAnyAncestor(hasTestTag("suggestions")),
             useUnmergedTree = true,
         ).fetchSemanticsNodes().isNotEmpty()
         type(vm, "sett")
@@ -143,7 +170,11 @@ class HomeScreenTest {
         val scripts = com.mtwabpin.kolahal.data.ScriptRepository.get(app)
         val s = scripts.create(name, com.mtwabpin.kolahal.data.ScriptLang.LUA, "status('x')")
         try {
-            if (pinned) scripts.setAccess(s.id, com.mtwabpin.kolahal.script.ScriptAccess.HEADER, true)
+            if (pinned) scripts.setAccess(
+                s.id,
+                com.mtwabpin.kolahal.script.ScriptAccess.HEADER,
+                true
+            )
             com.mtwabpin.kolahal.data.KvStore(app, Stores.STATUS).set(name, text)
             block()
         } finally {
@@ -169,20 +200,23 @@ class HomeScreenTest {
     }
 
     /** The header stays one line while typing; the pinned header steps aside for the suggestions. */
-    @Test fun whileTypingThePinnedHeaderStepsAside() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
-        config.set(Keys.HEADER_SHOW, "on")
-        val vm = showResting()
-        compose.onNodeWithTag("header").assertExists()
-        compose.onNodeWithText("NZ 136/8").assertExists()
-        type(vm, "s")
-        compose.onNodeWithTag("header").assertExists()
-        compose.onNodeWithTag("pinned-header").assertDoesNotExist()
-        type(vm, "")
-        compose.onNodeWithText("NZ 136/8").assertExists()
-    }
+    @Test
+    fun whileTypingThePinnedHeaderStepsAside() =
+        withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
+            config.set(Keys.HEADER_SHOW, "on")
+            val vm = showResting()
+            compose.onNodeWithTag("header").assertExists()
+            compose.onNodeWithText("NZ 136/8").assertExists()
+            type(vm, "s")
+            compose.onNodeWithTag("header").assertExists()
+            compose.onNodeWithTag("pinned-header").assertDoesNotExist()
+            type(vm, "")
+            compose.onNodeWithText("NZ 136/8").assertExists()
+        }
 
     /** header.show off (the default): no header, and it comes back when turned on. */
-    @Test fun headerCanBeTurnedOff() {
+    @Test
+    fun headerCanBeTurnedOff() {
         assertEquals(false, Keys.HEADER_SHOW.default)
         val vm = show(360.dp, 700.dp)
         compose.onNodeWithTag("header").assertDoesNotExist()
@@ -193,12 +227,15 @@ class HomeScreenTest {
     }
 
     /** Only a script you pinned shows its line at the top, with the header on or off. */
-    @Test fun onlyPinnedScriptsShowAtTheTop() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
+    @Test
+    fun onlyPinnedScriptsShowAtTheTop() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
         withStatusLine("unpinned-home", "US AQI 131", pinned = false) {
             showResting()
             // The status may sit inside a tappable row that merges its text: look in the unmerged tree,
             // and wait for it, as the header lays out again when it hides.
-            fun shown(text: String) = compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+            fun shown(text: String) =
+                compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes()
+                    .isNotEmpty()
             compose.waitUntil(5_000) { shown("NZ 136/8") }
             assertFalse(shown("US AQI 131"))
             compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
@@ -207,7 +244,8 @@ class HomeScreenTest {
     }
 
     /** The settings item, when you choose it, opens Settings. */
-    @Test fun theSettingsItemOpensSettings() {
+    @Test
+    fun theSettingsItemOpensSettings() {
         config.set(Keys.HEADER_SHOW, "on")
         config.set(Keys.HEADER_RIGHT, "settings,battery")
         val vm = show(360.dp, 700.dp)
@@ -216,7 +254,8 @@ class HomeScreenTest {
     }
 
     /** log.taller-taps: a line you can tap is taller than plain output, unless it's turned off. */
-    @Test fun tappableLinesAreTallerUnlessTurnedOff() {
+    @Test
+    fun tappableLinesAreTallerUnlessTurnedOff() {
         val logs = LogRepository.get(app)
         val command = logs.add(com.mtwabpin.kolahal.data.LogKind.COMMAND, "lh echo")
         val output = logs.add(com.mtwabpin.kolahal.data.LogKind.OUTPUT, "lh plain")
@@ -224,8 +263,11 @@ class HomeScreenTest {
             Term.lineHeight = 25
             Term.tallerTaps = true
             show(360.dp, 700.dp)
-            compose.waitUntil(5_000) { compose.onAllNodesWithTag("line-$output").fetchSemanticsNodes().isNotEmpty() }
-            fun height(id: Long) = compose.onNodeWithTag("line-$id").getUnclippedBoundsInRoot().let { it.bottom - it.top }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithTag("line-$output").fetchSemanticsNodes().isNotEmpty()
+            }
+            fun height(id: Long) = compose.onNodeWithTag("line-$id").getUnclippedBoundsInRoot()
+                .let { it.bottom - it.top }
             // In sp: a larger system text size makes the lines taller with the text.
             val scale = app.resources.configuration.fontScale
             assertEquals(35f * scale, height(command).value, 1f)
@@ -253,7 +295,8 @@ class HomeScreenTest {
     }
 
     /** The phone changing time zone under a home that stays up: a line's time and day follow at once, as the header's do. */
-    @Test fun theLogFollowsThePhonesTimeZone() {
+    @Test
+    fun theLogFollowsThePhonesTimeZone() {
         // It changes a real setting, so it never runs on a phone.
         assumeTrue("only on an emulator", Build.HARDWARE == "ranchu")
         val logs = LogRepository.get(app)
@@ -264,17 +307,30 @@ class HomeScreenTest {
         // Only this line shows, and being days old it has a day divider.
         logs.hideScreen()
         val at = System.currentTimeMillis() - 3 * 86_400_000L
-        logs.addAll(listOf(LogRepository.Pending(LogKind.COMMAND, "tz line", null, LogContext.EMPTY, at)))
+        logs.addAll(
+            listOf(
+                LogRepository.Pending(
+                    LogKind.COMMAND,
+                    "tz line",
+                    null,
+                    LogContext.EMPTY,
+                    at
+                )
+            )
+        )
         val line = logs.recent(limit = 10).single { it.text == "tz line" }.id
         try {
             assumeTrue("this device can't set its time zone from a test", setZone(east))
             val vm = show(360.dp, 700.dp)
             fun shows(zone: String) {
-                val time = lineTimeFormat(config[Keys.CLOCK_24H]).apply { timeZone = TimeZone.getTimeZone(zone) }.format(Date(at))
+                val time = lineTimeFormat(config[Keys.CLOCK_24H]).apply {
+                    timeZone = TimeZone.getTimeZone(zone)
+                }.format(Date(at))
                 val day = Instant.ofEpochMilli(at).atZone(ZoneId.of(zone)).toLocalDate()
                 compose.waitUntil(5_000) {
-                    compose.onAllNodes(hasTestTag("line-$line") and hasText(time)).fetchSemanticsNodes().isNotEmpty() &&
-                        vm.rows.value.any { it is LogRow.Day && it.day == day }
+                    compose.onAllNodes(hasTestTag("line-$line") and hasText(time))
+                        .fetchSemanticsNodes().isNotEmpty() &&
+                            vm.rows.value.any { it is LogRow.Day && it.day == day }
                 }
             }
             shows(east)
@@ -288,16 +344,30 @@ class HomeScreenTest {
     }
 
     /** Changed while another screen is up: the days are right on coming back, with no new line to bring that on. */
-    @Test fun theDaysFollowAZoneThatChangedElsewhere() {
+    @Test
+    fun theDaysFollowAZoneThatChangedElsewhere() {
         assumeTrue("only on an emulator", Build.HARDWARE == "ranchu")
         val logs = LogRepository.get(app)
         val before = TimeZone.getDefault().id
         logs.hideScreen()
         val at = System.currentTimeMillis() - 3 * 86_400_000L
-        logs.addAll(listOf(LogRepository.Pending(LogKind.COMMAND, "tz away", null, LogContext.EMPTY, at)))
+        logs.addAll(
+            listOf(
+                LogRepository.Pending(
+                    LogKind.COMMAND,
+                    "tz away",
+                    null,
+                    LogContext.EMPTY,
+                    at
+                )
+            )
+        )
         val line = logs.recent(limit = 10).single { it.text == "tz away" }.id
         try {
-            assumeTrue("this device can't set its time zone from a test", setZone("Pacific/Kiritimati"))
+            assumeTrue(
+                "this device can't set its time zone from a test",
+                setZone("Pacific/Kiritimati")
+            )
             val vm = vms.terminal(app)
             val onHome = androidx.compose.runtime.mutableStateOf(true)
             compose.setContent { KolahalTheme { if (onHome.value) TerminalScreen(vm) } }
@@ -319,14 +389,16 @@ class HomeScreenTest {
     }
 
     /** The header's ⚙ shows no word; a screen reader still has one to say. */
-    @Test fun headerSettingsHasANameForScreenReaders() {
+    @Test
+    fun headerSettingsHasANameForScreenReaders() {
         config.set(Keys.HEADER_SHOW, "on")
         config.set(Keys.HEADER_LEFT, "time,settings")
         show(360.dp, 700.dp)
         compose.onNodeWithContentDescription("Settings").assertExists()
     }
 
-    @Test fun dollarOpensQuickActions() {
+    @Test
+    fun dollarOpensQuickActions() {
         show(360.dp, 700.dp)
         // A screen reader hears "Quick actions", not "dollar".
         compose.onNodeWithTag("prompt-quick").assertContentDescriptionEquals("Quick actions")
@@ -339,19 +411,25 @@ class HomeScreenTest {
      * suggestions.wrap: a setting's description is cut to one line, or (on) shown whole over more
      * lines in its own column, its first line level with the setting's name.
      */
-    @Test fun wrappedDescriptionsShowWhole() {
+    @Test
+    fun wrappedDescriptionsShowWhole() {
         val vm = show(360.dp, 700.dp)
         type(vm, "config set header.sh")
-        val help = compose.onNodeWithText(Keys.HEADER_SHOW.help, substring = true, useUnmergedTree = true)
+        val help =
+            compose.onNodeWithText(Keys.HEADER_SHOW.help, substring = true, useUnmergedTree = true)
         assertEquals(1, help.layout().lineCount)
 
         compose.runOnIdle { config.set(Keys.SUGGESTIONS_WRAP, "on") }
         val wrapped = help.layout()
         assertTrue("${wrapped.lineCount} lines", wrapped.lineCount > 1)
-        val name = compose.onNodeWithText(Keys.HEADER_SHOW.key, substring = true, useUnmergedTree = true)
+        val name =
+            compose.onNodeWithText(Keys.HEADER_SHOW.key, substring = true, useUnmergedTree = true)
         val nameBounds = name.getUnclippedBoundsInRoot()
         val helpBounds = help.getUnclippedBoundsInRoot()
-        assertTrue("the description starts at ${helpBounds.left}, the name ends at ${nameBounds.right}", helpBounds.left >= nameBounds.right)
+        assertTrue(
+            "the description starts at ${helpBounds.left}, the name ends at ${nameBounds.right}",
+            helpBounds.left >= nameBounds.right
+        )
         with(compose.density) {
             val nameBaseline = nameBounds.top + name.layout().firstBaseline.toDp()
             val helpBaseline = helpBounds.top + wrapped.firstBaseline.toDp()
@@ -360,12 +438,14 @@ class HomeScreenTest {
     }
 
     /** keyboard.on-home: coming back to home (from an app, or unlocking) focuses the prompt, not only Home. */
-    @Test fun keyboardOnHomeAlsoOnReturn() {
+    @Test
+    fun keyboardOnHomeAlsoOnReturn() {
         val vm = show(360.dp, 700.dp)
         val asked = java.util.concurrent.atomic.AtomicInteger()
         val subscribed = java.util.concurrent.CountDownLatch(1)
         val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-            vm.events.onSubscription { subscribed.countDown() }.collect { if (it == UiEvent.FocusPrompt) asked.incrementAndGet() }
+            vm.events.onSubscription { subscribed.countDown() }
+                .collect { if (it == UiEvent.FocusPrompt) asked.incrementAndGet() }
         }
         try {
             subscribed.await()
@@ -373,34 +453,52 @@ class HomeScreenTest {
             Thread.sleep(300)
             assertEquals("off: nothing asks for the keyboard", 0, asked.get())
 
-            compose.runOnIdle { config.set(Keys.FOCUS_ON_HOME, "on"); vm.onResume(); vm.onWindowFocused() }
+            compose.runOnIdle {
+                config.set(
+                    Keys.FOCUS_ON_HOME,
+                    "on"
+                ); vm.onResume(); vm.onWindowFocused()
+            }
             compose.waitUntil(5_000) { asked.get() == 1 }
             // Once per return: focus coming back otherwise (the shade closing) leaves the keyboard be.
             compose.runOnIdle { vm.onWindowFocused() }
             Thread.sleep(300)
             assertEquals(1, asked.get())
-            compose.waitUntil(5_000) { runCatching { compose.onNodeWithTag("prompt").assertIsFocused() }.isSuccess }
+            compose.waitUntil(5_000) {
+                runCatching {
+                    compose.onNodeWithTag("prompt").assertIsFocused()
+                }.isSuccess
+            }
         } finally {
             job.cancel()
         }
     }
 
     /** `clear` (and Ctrl+L) offers Undo, which brings the lines back. */
-    @Test fun aClearedScreenComesBackWithUndo() {
+    @Test
+    fun aClearedScreenComesBackWithUndo() {
         val logs = LogRepository.get(app)
         val mark = "before the clear ${System.nanoTime()}"
         val id = logs.add(com.mtwabpin.kolahal.data.LogKind.OUTPUT, mark)
         val vm = show(360.dp, 700.dp)
         try {
-            compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty()
+            }
             compose.runOnIdle { vm.clearScreen() }
-            compose.waitUntil(5_000) { compose.onAllNodesWithText("Screen cleared").fetchSemanticsNodes().isNotEmpty() }
-            compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("Screen cleared").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText(mark).fetchSemanticsNodes().isEmpty()
+            }
             // The empty log's hint: what to do on a line of its own, the other tips under it.
             compose.onNodeWithText("Type an app name or a command").assertExists()
             compose.onNodeWithText("help lists everything", substring = true).assertExists()
             compose.onNodeWithText("Undo").performClick()
-            compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithText("Screen cleared").assertDoesNotExist()
         } finally {
             // Failed before the tap: the log stays cleared for every later test unless it's undone.
@@ -413,35 +511,46 @@ class HomeScreenTest {
      * A line copied by a swipe says "Copied" where Undo shows, with no Undo, for a moment. The row
      * is a polite live region, so TalkBack reads it.
      */
-    @Test fun aSwipeCopySaysCopied() {
+    @Test
+    fun aSwipeCopySaysCopied() {
         val logs = LogRepository.get(app)
         val mark = "copy me ${System.nanoTime()}"
         val id = logs.add(LogKind.OUTPUT, mark)
         show(360.dp, 700.dp)
         try {
-            compose.waitUntil(5_000) { compose.onAllNodesWithTag("line-$id").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithTag("line-$id").fetchSemanticsNodes().isNotEmpty()
+            }
             // widgets.page is on the left by default: a swipe right copies.
-            compose.onNodeWithTag("line-$id").performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
-            compose.waitUntil(5_000) { compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("line-$id")
+                .performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithText("Undo").assertDoesNotExist()
             assertEquals(
                 androidx.compose.ui.semantics.LiveRegionMode.Polite,
-                compose.onNodeWithTag("undo-row").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.LiveRegion],
+                compose.onNodeWithTag("undo-row")
+                    .fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.LiveRegion],
             )
-            compose.waitUntil(COPIED_MS + 3_000) { compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(COPIED_MS + 3_000) {
+                compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isEmpty()
+            }
         } finally {
             logs.delete(id)
         }
     }
 
     /** gesture.swipe-up is none by default, which turns swiping up off; an action turns it on. */
-    @Test fun swipeUpRunsOnlyWhenGivenAnAction() {
+    @Test
+    fun swipeUpRunsOnlyWhenGivenAnAction() {
         val logs = LogRepository.get(app)
         val mark = "swiped up ${System.nanoTime()}"
         show(360.dp, 700.dp)
         fun swipe() = compose.onNodeWithTag("prompt-quick").performTouchInput {
             swipeUp(startY = height - 1f, endY = height - 1f - 120.dp.toPx(), durationMillis = 200)
         }
+
         fun ran() = logs.recent(50).any { it.text == mark }
 
         // Nothing at all runs, not only the action set later.
@@ -451,7 +560,8 @@ class HomeScreenTest {
         Thread.sleep(500)
         assertFalse(
             "swiping up ran something while it was none",
-            logs.recent(20).any { it.id > before && (it.kind == com.mtwabpin.kolahal.data.LogKind.COMMAND || it.kind == com.mtwabpin.kolahal.data.LogKind.ERROR) },
+            logs.recent(20)
+                .any { it.id > before && (it.kind == com.mtwabpin.kolahal.data.LogKind.COMMAND || it.kind == com.mtwabpin.kolahal.data.LogKind.ERROR) },
         )
 
         compose.runOnIdle { config.set(Keys.GESTURE_SWIPE_UP, "echo $mark") }
@@ -460,12 +570,19 @@ class HomeScreenTest {
     }
 
     /** Pinching the log sets the font size and keeps it (the toast saying so can't be seen from here). */
-    @Test fun pinchingTheLogSetsAndSavesTheFontSize() {
+    @Test
+    fun pinchingTheLogSetsAndSavesTheFontSize() {
         val before = Term.fontSize
         try {
             show(360.dp, 640.dp)
             compose.onNodeWithTag("log").performTouchInput {
-                pinch(center - Offset(40f, 0f), center - Offset(160f, 0f), center + Offset(40f, 0f), center + Offset(160f, 0f), 400)
+                pinch(
+                    center - Offset(40f, 0f),
+                    center - Offset(160f, 0f),
+                    center + Offset(40f, 0f),
+                    center + Offset(160f, 0f),
+                    400
+                )
             }
             compose.waitForIdle()
             assertTrue(Term.fontSize > before)

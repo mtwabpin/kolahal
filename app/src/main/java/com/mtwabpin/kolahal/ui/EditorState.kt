@@ -19,7 +19,12 @@ import androidx.compose.ui.text.input.TextFieldValue
  * - otherwise jumps to [line], if it has one;
  * - otherwise dismisses it.
  */
-internal class EditorMessage(val text: String, val kind: Kind, val line: Int? = null, val action: (() -> Unit)? = null) {
+internal class EditorMessage(
+    val text: String,
+    val kind: Kind,
+    val line: Int? = null,
+    val action: (() -> Unit)? = null
+) {
     /**
      * - [INFO] and [OK] go away after a few seconds.
      * - [ERROR] and [NOTE] stay until the next message or a tap: something to read and act on.
@@ -36,8 +41,20 @@ internal class EditorMessage(val text: String, val kind: Kind, val line: Int? = 
 internal class EditorLimit(val maxChars: Int, val maxLines: Int) {
     /** Why [text] is too much, or null. */
     fun over(text: String): String? = when {
-        text.length > maxChars -> "The editor takes up to ${"%,d".format(java.util.Locale.ROOT, maxChars)} characters"
-        text.count { it == '\n' } >= maxLines -> "The editor takes up to ${"%,d".format(java.util.Locale.ROOT, maxLines)} lines"
+        text.length > maxChars -> "The editor takes up to ${
+            "%,d".format(
+                java.util.Locale.ROOT,
+                maxChars
+            )
+        } characters"
+
+        text.count { it == '\n' } >= maxLines -> "The editor takes up to ${
+            "%,d".format(
+                java.util.Locale.ROOT,
+                maxLines
+            )
+        } lines"
+
         else -> null
     }
 }
@@ -69,6 +86,7 @@ internal class EditorState(
 
     /** Gives the code field the focus. */
     val focus = FocusRequester()
+
     /** Whether the code field has the focus. The find bar's fields do not count. */
     var focused by mutableStateOf(false)
 
@@ -78,6 +96,7 @@ internal class EditorState(
     var replacement by mutableStateOf(TextFieldValue(""))
     var ignoreCase by mutableStateOf(true)
     var matches by mutableStateOf(EditorLogic.Matches.EMPTY)
+
     /** The index of the match the cursor is on, or -1. */
     var current by mutableIntStateOf(-1)
 
@@ -103,11 +122,19 @@ internal class EditorState(
     /** Puts [s] in place of the selection, or at the cursor. */
     fun insert(s: String) {
         val sel = value.selection
-        edit(TextFieldValue(value.text.replaceRange(sel.min, sel.max, s), TextRange(sel.min + s.length)))
+        edit(
+            TextFieldValue(
+                value.text.replaceRange(sel.min, sel.max, s),
+                TextRange(sel.min + s.length)
+            )
+        )
     }
 
-    fun undo() = history.undo()?.let { value = TextFieldValue(it, TextRange(it.length.coerceAtMost(value.selection.end))) }
-    fun redo() = history.redo()?.let { value = TextFieldValue(it, TextRange(it.length.coerceAtMost(value.selection.end))) }
+    fun undo() = history.undo()
+        ?.let { value = TextFieldValue(it, TextRange(it.length.coerceAtMost(value.selection.end))) }
+
+    fun redo() = history.redo()
+        ?.let { value = TextFieldValue(it, TextRange(it.length.coerceAtMost(value.selection.end))) }
 
     companion object {
         /**
@@ -131,7 +158,8 @@ internal class EditorState(
             },
             restore = { kept ->
                 kept as List<*>
-                fun field(i: Int) = kept[i]?.let { TextFieldValue.Saver.restore(it) } ?: TextFieldValue("")
+                fun field(i: Int) =
+                    kept[i]?.let { TextFieldValue.Saver.restore(it) } ?: TextFieldValue("")
                 EditorState(
                     initial = stored,
                     value = kept[0]?.let { keptText(stored).restore(it) } ?: TextFieldValue(stored),
@@ -163,11 +191,21 @@ internal const val KEPT_TEXT_MAX = 100_000
  * to the background, so [stored] is the same text.
  */
 internal fun keptText(stored: String) = Saver<TextFieldValue, Any>(
-    save = { arrayListOf(it.text.takeIf { text -> text.length <= KEPT_TEXT_MAX } ?: false, it.selection.start, it.selection.end) },
+    save = {
+        arrayListOf(it.text.takeIf { text -> text.length <= KEPT_TEXT_MAX } ?: false,
+            it.selection.start,
+            it.selection.end)
+    },
     restore = { kept ->
         val (text, start, end) = kept as List<*>
         val back = text as? String ?: stored
-        TextFieldValue(back, TextRange((start as Int).coerceIn(0, back.length), (end as Int).coerceIn(0, back.length)))
+        TextFieldValue(
+            back,
+            TextRange(
+                (start as Int).coerceIn(0, back.length),
+                (end as Int).coerceIn(0, back.length)
+            )
+        )
     },
 )
 
@@ -179,4 +217,9 @@ internal fun keptSaved(stored: String) = Saver<String, Any>(
 
 /** A cursor at the start of [line] (1-based), or at the end of the text if there is no line. */
 internal fun selectionAtLine(text: String, line: Int?): TextRange =
-    if (line == null || line < 1) TextRange(text.length) else TextRange(EditorLogic.lineStart(text, line))
+    if (line == null || line < 1) TextRange(text.length) else TextRange(
+        EditorLogic.lineStart(
+            text,
+            line
+        )
+    )

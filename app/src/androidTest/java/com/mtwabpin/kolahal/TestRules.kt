@@ -8,10 +8,10 @@ import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import androidx.core.content.edit
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.data.LogMarks
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Db
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.LogMarks
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import org.junit.rules.ExternalResource
@@ -40,8 +40,14 @@ class ConfigReset : ExternalResource() {
  */
 class LogLinesSince : ExternalResource() {
     private val logs = LogRepository.get(target)
+
     // The marks that say what the screen and ↑ recall leave out.
-    private val pointers = listOf(LogMarks.CLEARED_UP_TO, LogMarks.HIDDEN_UP_TO, LogMarks.PURGE_UP_TO, LogMarks.HISTORY_FROM)
+    private val pointers = listOf(
+        LogMarks.CLEARED_UP_TO,
+        LogMarks.HIDDEN_UP_TO,
+        LogMarks.PURGE_UP_TO,
+        LogMarks.HISTORY_FROM
+    )
     private var saved = emptyMap<String, String?>()
 
     /** The newest line before the test: every line after it is the test's. */
@@ -95,13 +101,17 @@ class CrashReportsAside : ExternalResource() {
         dir.listFiles { f -> f.isFile }?.forEach { f ->
             aside.mkdirs()
             // Said in logcat, so a run can tell what wrote it.
-            Log.w("CrashReportsAside", "set aside ${f.name}: ${f.readLines().take(8).joinToString(" | ")}")
+            Log.w(
+                "CrashReportsAside",
+                "set aside ${f.name}: ${f.readLines().take(8).joinToString(" | ")}"
+            )
             f.renameTo(File(aside, f.name))
         }
     }
 
     override fun after() {
-        dir.listFiles { f -> f.isFile }?.filter { TEST_REPORT in it.readText() }?.forEach { it.delete() }
+        dir.listFiles { f -> f.isFile }?.filter { TEST_REPORT in it.readText() }
+            ?.forEach { it.delete() }
         putBack()
         prefs.restore(saved)
     }
@@ -132,7 +142,8 @@ class NotificationAccess : ExternalResource() {
      * is written after, so just after a change it can still say the old.
      */
     val on: Boolean
-        get() = target.getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(component)
+        get() = target.getSystemService(NotificationManager::class.java)
+            .isNotificationListenerAccessGranted(component)
 
     override fun before() {
         had = on
@@ -184,10 +195,16 @@ class LogKept(private val eachTest: Boolean = true) : ExternalResource() {
         db.beginTransaction()
         try {
             // Ids are never reused: lines to come are numbered on from the newest there has been.
-            val newest = maxOf(sequence(db), db.compileStatement("SELECT COALESCE(MAX(id), 0) FROM logs").simpleQueryForLong(), kept.maxOf("id"))
+            val newest = maxOf(
+                sequence(db),
+                db.compileStatement("SELECT COALESCE(MAX(id), 0) FROM logs").simpleQueryForLong(),
+                kept.maxOf("id")
+            )
             db.delete("logs", null, null)
             kept.putBack()
-            if (db.compileStatement("UPDATE sqlite_sequence SET seq = $newest WHERE name = 'logs'").executeUpdateDelete() == 0) {
+            if (db.compileStatement("UPDATE sqlite_sequence SET seq = $newest WHERE name = 'logs'")
+                    .executeUpdateDelete() == 0
+            ) {
                 db.execSQL("INSERT INTO sqlite_sequence(name, seq) VALUES('logs', $newest)")
             }
             db.setTransactionSuccessful()
@@ -199,5 +216,6 @@ class LogKept(private val eachTest: Boolean = true) : ExternalResource() {
     }
 
     private fun sequence(db: SQLiteDatabase): Long =
-        db.rawQuery("SELECT seq FROM sqlite_sequence WHERE name = 'logs'", null).use { if (it.moveToFirst()) it.getLong(0) else 0L }
+        db.rawQuery("SELECT seq FROM sqlite_sequence WHERE name = 'logs'", null)
+            .use { if (it.moveToFirst()) it.getLong(0) else 0L }
 }

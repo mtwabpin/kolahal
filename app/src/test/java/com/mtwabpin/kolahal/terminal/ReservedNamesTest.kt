@@ -1,22 +1,27 @@
 package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.commands.CommandCatalog
-import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.ControlSpecs
+import com.mtwabpin.kolahal.commands.InstantRun
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** A built-in always wins, so every name it answers to is kept from aliases and scripts. */
 class ReservedNamesTest {
-    @Test fun everyNameACommandAnswersToIsReserved() {
+    @Test
+    fun everyNameACommandAnswersToIsReserved() {
         for (name in AppCommands.NAMES + UsageCommands.NAMES + UsageSummaryCommands.NAMES + ControlSpecs.NAMES + CommandCatalog.PRODUCTIVITY) {
             assertTrue("$name isn't reserved", name in CommandCatalog.RESERVED_NAMES)
         }
     }
 
     /** `help favs` shows the command it's another name for, so that has to be a command. */
-    @Test fun everyOtherNameIsForACommand() {
-        for ((other, name) in CommandCatalog.SYNONYMS) assertTrue("$other names $name", name in CommandCatalog.COMMAND_NAMES)
+    @Test
+    fun everyOtherNameIsForACommand() {
+        for ((other, name) in CommandCatalog.SYNONYMS) assertTrue(
+            "$other names $name",
+            name in CommandCatalog.COMMAND_NAMES
+        )
     }
 }
 
@@ -30,7 +35,9 @@ class ReservedNamesTest {
 class DispatchNamesTest {
     /** The string labels of the `when (name)` in `execute`, read from the source. */
     private val dispatched: Set<String> by lazy {
-        val lines = com.mtwabpin.kolahal.sourceFile("src/main/java/com/mtwabpin/kolahal/terminal/CommandProcessor.kt").readLines()
+        val lines =
+            com.mtwabpin.kolahal.sourceFile("src/main/java/com/mtwabpin/kolahal/terminal/CommandProcessor.kt")
+                .readLines()
         val start = lines.indexOfFirst { it.trim() == "when (name) {" }
         assertTrue("no `when (name) {` in CommandProcessor.kt", start >= 0)
         val end = (start + 1 until lines.size).first { lines[it].trim().startsWith("else ->") }
@@ -40,23 +47,37 @@ class DispatchNamesTest {
             .toSet()
     }
 
-    @Test fun theSourceIsRead() = assertTrue(dispatched.toString(), dispatched.size > 50 && "alias" in dispatched && "maps" in dispatched)
+    @Test
+    fun theSourceIsRead() = assertTrue(
+        dispatched.toString(),
+        dispatched.size > 50 && "alias" in dispatched && "maps" in dispatched
+    )
 
-    @Test fun everyNameDispatchedIsACommandOrAnotherNameForOne() {
+    @Test
+    fun everyNameDispatchedIsACommandOrAnotherNameForOne() {
         for (name in dispatched) {
-            assertTrue("$name is dispatched but isn't a command or a synonym (CommandCatalog.COMMANDS, CommandCatalog.SYNONYMS)", name in CommandCatalog.RESERVED_NAMES)
-            assertTrue("$name stands for ${InstantRun.canonical(name)}, which isn't a command", InstantRun.canonical(name) in CommandCatalog.COMMAND_NAMES)
+            assertTrue(
+                "$name is dispatched but isn't a command or a synonym (CommandCatalog.COMMANDS, CommandCatalog.SYNONYMS)",
+                name in CommandCatalog.RESERVED_NAMES
+            )
+            assertTrue(
+                "$name stands for ${InstantRun.canonical(name)}, which isn't a command",
+                InstantRun.canonical(name) in CommandCatalog.COMMAND_NAMES
+            )
         }
     }
 
-    @Test fun everyCommandIsDispatched() {
-        val groups = AppCommands.NAMES + UsageCommands.NAMES + UsageSummaryCommands.NAMES + com.mtwabpin.kolahal.commands.ControlSpecs.NAMES + CommandCatalog.PRODUCTIVITY
+    @Test
+    fun everyCommandIsDispatched() {
+        val groups =
+            AppCommands.NAMES + UsageCommands.NAMES + UsageSummaryCommands.NAMES + com.mtwabpin.kolahal.commands.ControlSpecs.NAMES + CommandCatalog.PRODUCTIVITY
         // `=` is the calculator, before the `when`.
         val missing = CommandCatalog.COMMAND_NAMES - dispatched - groups - "="
         assertTrue("in the catalog but not dispatched: $missing", missing.isEmpty())
     }
 
-    @Test fun everySensitiveNameIsACommand() {
+    @Test
+    fun everySensitiveNameIsACommand() {
         val unknown = CommandCatalog.SENSITIVE - CommandCatalog.RESERVED_NAMES - "="
         assertTrue("sensitive but not a command: $unknown", unknown.isEmpty())
     }

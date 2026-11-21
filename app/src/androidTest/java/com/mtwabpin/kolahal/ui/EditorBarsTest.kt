@@ -1,29 +1,26 @@
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertIsNotSelected
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -34,7 +31,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.data.Script
@@ -49,7 +45,8 @@ import org.junit.runner.RunWith
 /** The script editor's find and replace bar, Go to line, the reference page and the symbol bar. */
 @RunWith(AndroidJUnit4::class)
 class EditorBarsTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
 
     // "apple" at 0 and 17, "Apple" at 23.
     private val code = "apple pie\nbanana apple\nApple cider"
@@ -73,14 +70,18 @@ class EditorBarsTest {
     }
 
     // The unmerged tree: under the reference page, TalkBack (the merged tree) skips the code.
-    private fun editor() = compose.onNodeWithTag("editor", useUnmergedTree = true).fetchSemanticsNode().config
+    private fun editor() =
+        compose.onNodeWithTag("editor", useUnmergedTree = true).fetchSemanticsNode().config
+
     private fun text() = editor()[SemanticsProperties.EditableText].text
     private fun selection() = editor()[SemanticsProperties.TextSelectionRange]
 
     /** Where the code is marked as found ([EditorMarks]): each match's start, and the current one's. */
     private fun marks(): Pair<List<Int>, Int?> =
-        compose.onAllNodesWithTag("editor-marks", useUnmergedTree = true).fetchSemanticsNodes().firstOrNull()
-            ?.config?.getOrNull(MarkedMatches)?.let { (starts, current) -> starts.sorted() to current } ?: (emptyList<Int>() to null)
+        compose.onAllNodesWithTag("editor-marks", useUnmergedTree = true).fetchSemanticsNodes()
+            .firstOrNull()
+            ?.config?.getOrNull(MarkedMatches)
+            ?.let { (starts, current) -> starts.sorted() to current } ?: (emptyList<Int>() to null)
 
     /** Opens find and types [query]; matches are found a beat after typing. */
     private fun find(query: String, count: String) {
@@ -95,7 +96,8 @@ class EditorBarsTest {
     }
 
     /** Find marks every match and selects the first; ↓, Enter and ↑ step through them, wrapping at the ends. */
-    @Test fun findMarksEveryMatchAndStepsThroughThem() {
+    @Test
+    fun findMarksEveryMatchAndStepsThroughThem() {
         show()
         find("apple", "1/3")
         assertEquals(TextRange(0, 5), selection())
@@ -115,7 +117,8 @@ class EditorBarsTest {
     }
 
     /** Aa matches case: "Apple" drops out of "apple"'s matches until it's tapped again. */
-    @Test fun matchCaseLeavesOnlyTheExactOnes() {
+    @Test
+    fun matchCaseLeavesOnlyTheExactOnes() {
         show()
         find("apple", "1/3")
         compose.onNodeWithText("Aa").performClick()
@@ -129,7 +132,8 @@ class EditorBarsTest {
      * Text that isn't there counts 0/0 and marks nothing. A word that is there is found first, so the
      * 0/0 waited for is the search's answer, not what shows before the search has run.
      */
-    @Test fun aSearchWithNoMatchCountsZero() {
+    @Test
+    fun aSearchWithNoMatchCountsZero() {
         show()
         find("apple", "1/3")
         compose.onNodeWithTag("find").performTextReplacement("plum")
@@ -138,7 +142,8 @@ class EditorBarsTest {
     }
 
     /** × closes the bar and the marks go with it. */
-    @Test fun closingFindTakesTheMarksAway() {
+    @Test
+    fun closingFindTakesTheMarksAway() {
         show()
         find("apple", "1/3")
         compose.onNodeWithContentDescription("Close find").performClick()
@@ -147,7 +152,8 @@ class EditorBarsTest {
     }
 
     /** All replaces every match at once and says how many. */
-    @Test fun replaceAllReplacesEveryMatch() {
+    @Test
+    fun replaceAllReplacesEveryMatch() {
         show()
         find("apple", "1/3")
         openReplace("pear")
@@ -159,7 +165,8 @@ class EditorBarsTest {
     }
 
     /** Replace changes the selected match and selects the next; Enter in the replace box does the same. */
-    @Test fun replaceChangesOneMatchAtATime() {
+    @Test
+    fun replaceChangesOneMatchAtATime() {
         show()
         find("apple", "1/3")
         openReplace("pear")
@@ -174,7 +181,8 @@ class EditorBarsTest {
     }
 
     /** All with nothing found says so and leaves the code alone. */
-    @Test fun replaceAllWithNoMatchSaysSo() {
+    @Test
+    fun replaceAllWithNoMatchSaysSo() {
         show()
         find("plum", "0/0")
         openReplace("pear")
@@ -188,10 +196,15 @@ class EditorBarsTest {
      * Ln asks for a line, takes only digits, refuses one past the end (4 of 3 lines) and takes the
      * last, and puts the cursor at the start of the one given.
      */
-    @Test fun goToLinePutsTheCursorOnTheLine() {
+    @Test
+    fun goToLinePutsTheCursorOnTheLine() {
         show()
         // The symbol bar: the last list that scrolls sideways (suggestions, when shown, sit above it).
-        compose.onAllNodes(hasScrollToNodeAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
+        compose.onAllNodes(
+            hasScrollToNodeAction() and SemanticsMatcher.keyIsDefined(
+                SemanticsProperties.HorizontalScrollAxisRange
+            )
+        )
             .onLast().performScrollToNode(hasText("Ln"))
         compose.onNodeWithText("Ln").performClick()
         compose.onNodeWithText("Go to line").assertExists()
@@ -233,24 +246,33 @@ class EditorBarsTest {
     }
 
     /** [text] somewhere in the card or lines of the example's view, as drawn. */
-    private fun inPreview(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag("example-preview")), useUnmergedTree = true)
+    private fun inPreview(text: String) = compose.onNode(
+        hasText(text) and hasAnyAncestor(hasTestTag("example-preview")),
+        useUnmergedTree = true
+    )
 
     private fun clipboard(): String? {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val context =
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         var copied: String? = null
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            copied = context.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.text?.toString()
+            copied =
+                context.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(
+                    0
+                )?.text?.toString()
         }
         return copied
     }
 
     private fun pressBack() {
-        androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()).pressBack()
+        androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation())
+            .pressBack()
         compose.waitForIdle()
     }
 
     /** A function picked from the reference goes in at the cursor, ready for its arguments, and the page closes. */
-    @Test fun theReferenceInsertsAFunctionAtTheCursor() {
+    @Test
+    fun theReferenceInsertsAFunctionAtTheCursor() {
         show()
         cursorAt(10)
         openReference()
@@ -262,7 +284,8 @@ class EditorBarsTest {
     }
 
     /** A directive picked from the reference goes on a line of its own above the cursor's. */
-    @Test fun theReferencePutsADirectiveAboveTheLine() {
+    @Test
+    fun theReferencePutsADirectiveAboveTheLine() {
         show()
         // Inside the second line.
         cursorAt(13)
@@ -274,12 +297,17 @@ class EditorBarsTest {
     }
 
     /** Each tab shows its own list; the chosen tab is marked. */
-    @Test fun theTabsSwitch() {
+    @Test
+    fun theTabsSwitch() {
         show()
         openReference()
         compose.onNodeWithTag("tab Functions").assertIsSelected()
         compose.onNodeWithTag("namespace All").assertExists()
-        for ((label, tag) in listOf("Widgets" to "widget-row steps", "Log lines" to "log-row log", "Icons" to "icon sun")) {
+        for ((label, tag) in listOf(
+            "Widgets" to "widget-row steps",
+            "Log lines" to "log-row log",
+            "Icons" to "icon sun"
+        )) {
             tab(label)
             compose.onNodeWithTag("tab $label").assertIsSelected()
             compose.onNodeWithTag("tab Functions").assertIsNotSelected()
@@ -291,7 +319,8 @@ class EditorBarsTest {
     }
 
     /** After an insert closes the reference, it reopens on the tab it was on, and keeps its search. */
-    @Test fun theReferenceReopensWhereItWas() {
+    @Test
+    fun theReferenceReopensWhereItWas() {
         show()
         openReference()
         tab("Icons")
@@ -309,7 +338,8 @@ class EditorBarsTest {
     }
 
     /** A namespace's chip shows only that group, from its top; All shows them all again. */
-    @Test fun aNamespaceChipShowsItsGroup() {
+    @Test
+    fun aNamespaceChipShowsItsGroup() {
         show()
         openReference()
         compose.onNodeWithText("log(title, body?, ctx?) -> line").assertExists()
@@ -330,7 +360,8 @@ class EditorBarsTest {
      * one of its buttons, runs nothing and puts nothing in; Insert puts the example in, on lines of
      * its own, and closes the page.
      */
-    @Test fun aWidgetExampleShowsItsCardAndGoesInWithInsert() {
+    @Test
+    fun aWidgetExampleShowsItsCardAndGoesInWithInsert() {
         show()
         // The start of the second line.
         cursorAt(10)
@@ -347,15 +378,22 @@ class EditorBarsTest {
     }
 
     /** Only the sizes the kind is made for, its own chosen; another size redraws the card. Copy puts the code on the clipboard and nothing in the script. */
-    @Test fun aWidgetExampleCopiesItsCodeAndChangesSize() {
+    @Test
+    fun aWidgetExampleCopiesItsCodeAndChangesSize() {
         show()
         openReference()
         openWidget("toggles")
-        listOf("2×1", "2×2", "4×1").forEach { compose.onNodeWithTag("size toggles $it").assertExists() }
+        listOf("2×1", "2×2", "4×1").forEach {
+            compose.onNodeWithTag("size toggles $it").assertExists()
+        }
         compose.onNodeWithTag("size toggles 4×2").assertDoesNotExist()
         compose.onNodeWithTag("size toggles 4×1").assertIsOn()
-        fun cardWidth() = compose.onNode(hasTestTag("widget-card") and hasAnyAncestor(hasTestTag("example-preview")), useUnmergedTree = true)
+        fun cardWidth() = compose.onNode(
+            hasTestTag("widget-card") and hasAnyAncestor(hasTestTag("example-preview")),
+            useUnmergedTree = true
+        )
             .fetchSemanticsNode().size.width
+
         val wide = cardWidth()
         compose.onNodeWithTag("size toggles 2×1").performClick()
         compose.onNodeWithTag("size toggles 2×1").assertIsOn()
@@ -363,7 +401,10 @@ class EditorBarsTest {
         assertTrue("the card got narrower", cardWidth() < wide)
         compose.onNodeWithTag("example-copy").performClick()
         compose.waitForIdle()
-        assertEquals(ReferenceExamples.widgets.single { it.name == "toggles" }.code(ScriptLang.LUA), clipboard())
+        assertEquals(
+            ReferenceExamples.widgets.single { it.name == "toggles" }.code(ScriptLang.LUA),
+            clipboard()
+        )
         compose.onNodeWithTag("widget-view toggles").assertExists()
         assertEquals(code, text())
     }
@@ -373,13 +414,20 @@ class EditorBarsTest {
      * and Copy and Insert take its code. Pictures of the view go to the app's files ("reference"),
      * to look at.
      */
-    @Test fun aWidgetExampleShowsItsVariants() {
+    @Test
+    fun aWidgetExampleShowsItsVariants() {
         show()
         cursorAt(10)
         openReference()
-        val out = checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("reference"))
+        val out = checkNotNull(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(
+                "reference"
+            )
+        )
+
         fun picture(name: String) = java.io.File(out, "$name.png").outputStream().use {
-            compose.onNodeWithTag("reference").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            compose.onNodeWithTag("reference").captureToImage().asAndroidBitmap()
+                .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
         openWidget("toggles")
         compose.onNodeWithTag("variant toggles As in the guide").assertIsOn()
@@ -388,7 +436,8 @@ class EditorBarsTest {
         compose.onNodeWithTag("variant toggles 4 switches").assertIsOn()
         compose.waitForIdle()
         picture("view-toggles-4")
-        val example = ReferenceExamples.variantsOf("toggles").single { it.variant == "4 switches" }.code(ScriptLang.LUA)
+        val example = ReferenceExamples.variantsOf("toggles").single { it.variant == "4 switches" }
+            .code(ScriptLang.LUA)
         compose.onNodeWithTag("example-copy").performClick()
         compose.waitForIdle()
         assertEquals(example, clipboard())
@@ -397,11 +446,17 @@ class EditorBarsTest {
     }
 
     /** The Look row offers only the looks of the example's kind: switches have no Bold, a stat does. */
-    @Test fun aWidgetExampleOffersItsKindsLooks() {
+    @Test
+    fun aWidgetExampleOffersItsKindsLooks() {
         show()
         openReference()
         openWidget("toggles")
-        listOf("Plain", "Tonal", "Split", "Shape").forEach { compose.onNodeWithTag("look toggles $it").assertExists() }
+        listOf(
+            "Plain",
+            "Tonal",
+            "Split",
+            "Shape"
+        ).forEach { compose.onNodeWithTag("look toggles $it").assertExists() }
         compose.onNodeWithTag("look toggles Bold").assertDoesNotExist()
         compose.onNodeWithTag("look toggles Plain").assertIsOn()
         compose.onNodeWithContentDescription("Back").performClick()
@@ -414,7 +469,8 @@ class EditorBarsTest {
      * A log example opens in a view of its own, with its lines. A tap on a line, even on one of its
      * buttons, runs nothing; Insert puts the example in, on lines of its own.
      */
-    @Test fun aLogExampleShowsItsLinesAndGoesInWithInsert() {
+    @Test
+    fun aLogExampleShowsItsLinesAndGoesInWithInsert() {
         show()
         cursorAt(10)
         openReference()
@@ -434,17 +490,23 @@ class EditorBarsTest {
      * An example's card or lines have nothing to tap, also with TalkBack: not a link in a line, not a
      * button of a card. TalkBack reads the card as its description.
      */
-    @Test fun anExamplesCardAndLinesHaveNoActionsOfTheirOwn() {
+    @Test
+    fun anExamplesCardAndLinesHaveNoActionsOfTheirOwn() {
         show()
         openReference()
-        fun acting() = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag("example-preview"))).fetchSemanticsNodes()
+        fun acting() =
+            compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag("example-preview")))
+                .fetchSemanticsNodes()
         openWidget("buttons")
         assertEquals(0, acting().size)
         compose.onNode(hasTestTag("example-preview")).assertExists()
         assertTrue(
             "the card is read as its description",
             compose.onAllNodes(hasAnyAncestor(hasTestTag("example-preview"))).fetchSemanticsNodes()
-                .any { it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { d -> d.isNotBlank() } },
+                .any {
+                    it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+                        .any { d -> d.isNotBlank() }
+                },
         )
         compose.onNodeWithContentDescription("Back").performClick()
         for (name in listOf("links", "buttons")) {
@@ -460,7 +522,8 @@ class EditorBarsTest {
      * A fmt function's entry shows what it makes, as the log draws it. A tap on the sample, even on
      * its link, picks the function, as a tap on its entry does.
      */
-    @Test fun aFmtSampleShowsWhatItMakesAndPicksTheFunction() {
+    @Test
+    fun aFmtSampleShowsWhatItMakesAndPicksTheFunction() {
         show()
         cursorAt(10)
         openReference()
@@ -473,7 +536,8 @@ class EditorBarsTest {
     }
 
     /** An icon goes in by its name, in quotes. */
-    @Test fun anIconGoesInByName() {
+    @Test
+    fun anIconGoesInByName() {
         show()
         cursorAt(10)
         openReference()
@@ -488,14 +552,16 @@ class EditorBarsTest {
      * The search looks in every tab at once and lists what it finds by tab, with counts. A result
      * opens where it lives; Back returns to the results, and clearing the search to the tabs.
      */
-    @Test fun theSearchFindsInEveryTabAndOpensAResult() {
+    @Test
+    fun theSearchFindsInEveryTabAndOpensAResult() {
         show()
         openReference()
         compose.onNodeWithTag("reference-search").performTextInput("store")
         compose.waitForText("FUNCTIONS · ", substring = true)
         compose.onNodeWithText("WIDGETS · ", substring = true).assertExists()
         compose.onNodeWithTag("tab Functions").assertDoesNotExist()
-        compose.onNodeWithTag("reference-results").performScrollToNode(hasTestTag("widget-row toggles-2"))
+        compose.onNodeWithTag("reference-results")
+            .performScrollToNode(hasTestTag("widget-row toggles-2"))
         compose.onNodeWithTag("widget-row toggles-2").performClick()
         // The variant found is the one chosen.
         compose.onNodeWithTag("widget-view toggles").assertExists()
@@ -509,7 +575,8 @@ class EditorBarsTest {
     }
 
     /** A function found by the search goes in as from its tab. */
-    @Test fun aFunctionFoundGoesIn() {
+    @Test
+    fun aFunctionFoundGoesIn() {
         show()
         cursorAt(10)
         openReference()
@@ -521,7 +588,8 @@ class EditorBarsTest {
     }
 
     /** Back closes an example's view, then the page; the script is as it was, with the cursor where it was. */
-    @Test fun backReturnsToTheScriptUnchanged() {
+    @Test
+    fun backReturnsToTheScriptUnchanged() {
         show()
         cursorAt(13)
         openReference()
@@ -543,14 +611,21 @@ class EditorBarsTest {
     }
 
     /** Pictures of the page, to compare with its design: they go to the app's files ("reference"). */
-    @Test fun picturesOfThePage() {
+    @Test
+    fun picturesOfThePage() {
         show()
         openReference()
-        val out = checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("reference"))
+        val out = checkNotNull(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(
+                "reference"
+            )
+        )
+
         fun picture(name: String) {
             compose.waitForIdle()
             java.io.File(out, "$name.png").outputStream().use {
-                compose.onNodeWithTag("reference").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                compose.onNodeWithTag("reference").captureToImage().asAndroidBitmap()
+                    .compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
             }
         }
         picture("1-functions")
@@ -579,7 +654,8 @@ class EditorBarsTest {
     }
 
     /** A symbol goes in at the cursor and marks the script changed; undo takes it out again. */
-    @Test fun theSymbolBarInsertsAndUndoes() {
+    @Test
+    fun theSymbolBarInsertsAndUndoes() {
         show()
         cursorAt(5)
         compose.onNodeWithText("(").performClick()

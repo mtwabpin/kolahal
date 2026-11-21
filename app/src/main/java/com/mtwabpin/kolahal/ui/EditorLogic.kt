@@ -49,7 +49,12 @@ object EditorLogic {
     /** How many matches are highlighted around the current one. The others are only counted, but you can still move to them. */
     const val MAX_HIGHLIGHTS = 2_000
 
-    fun findMatches(text: String, query: String, ignoreCase: Boolean, limit: Int = MAX_MATCHES): Matches {
+    fun findMatches(
+        text: String,
+        query: String,
+        ignoreCase: Boolean,
+        limit: Int = MAX_MATCHES
+    ): Matches {
         if (query.isEmpty() || query.length > text.length) return Matches.EMPTY
         var out = IntArray(16)
         var n = 0
@@ -68,19 +73,33 @@ object EditorLogic {
      * [current] is the index of the current match. With none (-1), the first ones are drawn, and
      * none is marked as current.
      */
-    internal fun highlights(matches: Matches, current: Int, max: Int = MAX_HIGHLIGHTS): MatchHighlights? {
+    internal fun highlights(
+        matches: Matches,
+        current: Int,
+        max: Int = MAX_HIGHLIGHTS
+    ): MatchHighlights? {
         if (matches.size == 0) return null
         val c = current.coerceIn(0, matches.size - 1)
         val from = (c - max / 2).coerceAtLeast(0)
         val to = (from + max).coerceAtMost(matches.size)
-        return MatchHighlights(matches.starts.copyOfRange(from, to), matches.length, if (current >= 0) matches.starts[c] else -1)
+        return MatchHighlights(
+            matches.starts.copyOfRange(from, to),
+            matches.length,
+            if (current >= 0) matches.starts[c] else -1
+        )
     }
 
     /** Replaces every match of [query] in [text]. Returns the new text and the number of replacements. */
-    fun replaceAll(text: String, query: String, replacement: String, ignoreCase: Boolean): Pair<String, Int> {
+    fun replaceAll(
+        text: String,
+        query: String,
+        replacement: String,
+        ignoreCase: Boolean
+    ): Pair<String, Int> {
         val m = findMatches(text, query, ignoreCase, Int.MAX_VALUE)
         if (m.size == 0) return text to 0
-        val sb = StringBuilder(text.length + (replacement.length - query.length).coerceAtLeast(0) * m.size)
+        val sb =
+            StringBuilder(text.length + (replacement.length - query.length).coerceAtLeast(0) * m.size)
         var last = 0
         for (s in m.starts) {
             sb.append(text, last, s).append(replacement)
@@ -157,8 +176,8 @@ object EditorLogic {
     fun rank(docs: List<ApiDoc>, p: Prefix, limit: Int = 30): List<ApiDoc> {
         val candidates = docs.filter { d ->
             d.qualifier == p.qualifier && d.member.startsWith(p.partial, ignoreCase = true) &&
-                // A keyword or value that is already complete has nothing left to insert.
-                !(d.member == p.partial && (d.kind == ApiDoc.Kind.KEYWORD || d.kind == ApiDoc.Kind.VALUE))
+                    // A keyword or value that is already complete has nothing left to insert.
+                    !(d.member == p.partial && (d.kind == ApiDoc.Kind.KEYWORD || d.kind == ApiDoc.Kind.VALUE))
         }
         return candidates.sortedWith(
             compareBy(
@@ -311,8 +330,10 @@ object EditorLogic {
             val end = text.indexOf('\n', starts[line]).let { if (it < 0) text.length else it }
             return measure(text.substring(starts[line], end))
         }
+
         var widest = width(top)
-        val wider = (0 until lines).filter { it != top && guesses[it] > widest }.sortedByDescending { guesses[it] }
+        val wider = (0 until lines).filter { it != top && guesses[it] > widest }
+            .sortedByDescending { guesses[it] }
         for (line in wider) {
             if (guesses[line] <= widest) break
             widest = maxOf(widest, width(line))
@@ -361,7 +382,8 @@ object EditorLogic {
      * Whether a file's lines wrap when it opens, from its [name]: writing does (notes, Markdown, a
      * file with no ending such as README), and code and data don't, as each of their lines means one thing.
      */
-    fun wrapsByDefault(name: String): Boolean = name.substringAfterLast('.', "").lowercase().let { it.isEmpty() || it in PROSE }
+    fun wrapsByDefault(name: String): Boolean =
+        name.substringAfterLast('.', "").lowercase().let { it.isEmpty() || it in PROSE }
 
     /** A finished run as the editor shows it: what happened, whether it failed, and the line that failed. */
     data class RunResult(val text: String, val failed: Boolean, val line: Int? = null)
@@ -377,19 +399,39 @@ object EditorLogic {
      *
      * Set [tapHint] for the editor's line, where a tap jumps to the failing line.
      */
-    fun runResult(status: String?, timeoutSeconds: Long, tapHint: Boolean = true): RunResult = when {
-        status == null -> RunResult("Ran · its output is in the log", failed = false)
-        status.startsWith("ok in ") -> RunResult("Ran in ${status.removePrefix("ok in ")} · its output is in the log", failed = false)
-        status == "timeout" -> RunResult("Stopped after ${timeoutSeconds}s (the time limit)", failed = true)
-        status.startsWith("stopped: ") -> RunResult("Stopped: ${status.removePrefix("stopped: ")}", failed = true)
-        else -> {
-            val line = LINE_SUFFIX.find(status)?.groupValues?.get(1)?.toIntOrNull()
-            val message = status.removePrefix("error: ").replace(LINE_SUFFIX, "")
-            // Lua puts the location first (`etest:13: attempt to …`). Remove it, because the line number is already shown.
-            if (line != null) RunResult("Line $line: ${message.replace(Regex("""^\S+:$line:\s*"""), "")}" + if (tapHint) " · tap to go there" else "", failed = true, line = line)
-            else RunResult("Error: $message", failed = true)
+    fun runResult(status: String?, timeoutSeconds: Long, tapHint: Boolean = true): RunResult =
+        when {
+            status == null -> RunResult("Ran · its output is in the log", failed = false)
+            status.startsWith("ok in ") -> RunResult(
+                "Ran in ${status.removePrefix("ok in ")} · its output is in the log",
+                failed = false
+            )
+
+            status == "timeout" -> RunResult(
+                "Stopped after ${timeoutSeconds}s (the time limit)",
+                failed = true
+            )
+
+            status.startsWith("stopped: ") -> RunResult(
+                "Stopped: ${status.removePrefix("stopped: ")}",
+                failed = true
+            )
+
+            else -> {
+                val line = LINE_SUFFIX.find(status)?.groupValues?.get(1)?.toIntOrNull()
+                val message = status.removePrefix("error: ").replace(LINE_SUFFIX, "")
+                // Lua puts the location first (`etest:13: attempt to …`). Remove it, because the line number is already shown.
+                if (line != null) RunResult(
+                    "Line $line: ${
+                        message.replace(
+                            Regex("""^\S+:$line:\s*"""),
+                            ""
+                        )
+                    }" + if (tapHint) " · tap to go there" else "", failed = true, line = line
+                )
+                else RunResult("Error: $message", failed = true)
+            }
         }
-    }
 
     /** What the editor's message line adds after a plain Run of a script that takes arguments or events. */
     const val RUN_WITH_HINT = "Long-press Run for arguments or an event"
@@ -409,11 +451,17 @@ object EditorLogic {
  * Only the current text is stored in full. Each step stores only what changed from the step before
  * ([Edit]), so the history of a big script is not 200 copies of it.
  */
-internal class UndoHistory(initial: String, private val clock: () -> Long = System::currentTimeMillis) {
+internal class UndoHistory(
+    initial: String,
+    private val clock: () -> Long = System::currentTimeMillis
+) {
     /** At offset [at], [removed] was replaced by [inserted]. The rest of the text did not change. */
     private class Edit(val at: Int, val removed: String, val inserted: String) {
-        fun redo(text: String) = text.substring(0, at) + inserted + text.substring(at + removed.length)
-        fun undo(text: String) = text.substring(0, at) + removed + text.substring(at + inserted.length)
+        fun redo(text: String) =
+            text.substring(0, at) + inserted + text.substring(at + removed.length)
+
+        fun undo(text: String) =
+            text.substring(0, at) + removed + text.substring(at + inserted.length)
 
         companion object {
             fun between(before: String, after: String): Edit {
@@ -422,7 +470,11 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
                 while (start < most && before[start] == after[start]) start++
                 var end = 0
                 while (end < most - start && before[before.length - 1 - end] == after[after.length - 1 - end]) end++
-                return Edit(start, before.substring(start, before.length - end), after.substring(start, after.length - end))
+                return Edit(
+                    start,
+                    before.substring(start, before.length - end),
+                    after.substring(start, after.length - end)
+                )
             }
         }
     }
@@ -430,11 +482,14 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
     /** The text after the last step. [undo] steps back from this. */
     private var top = initial
     private var topNewlines = initial.count { it == '\n' }
+
     /** The steps that led to [top], oldest first. */
     private val undo = ArrayDeque<Edit>()
+
     /** Undone steps. The most recently undone step is last. */
     private val redo = ArrayDeque<Edit>()
     private var lastRecord = 0L
+
     /**
      * The text before the step that is still being typed. It is kept so it is not rebuilt on every
      * key press. The first [record] of each step sets it: after undo, redo or [checkpoint],

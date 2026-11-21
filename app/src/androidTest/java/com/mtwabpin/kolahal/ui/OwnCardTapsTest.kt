@@ -28,13 +28,13 @@ import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetTap
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * A tap that misses on the Todos and Shortcuts cards: it stays on the widgets page. Only "+3 more"
@@ -42,7 +42,8 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class OwnCardTapsTest {
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     /** What the cards hand their actions, in order: `todos open`, `arrange`. */
     private class Asked : WidgetCardActions {
@@ -51,8 +52,13 @@ class OwnCardTapsTest {
         override fun tap(widget: String, tap: WidgetTap) {}
         override fun openBattery() {}
         override fun openScripts() {}
-        override fun longPress() { all += "arrange" }
-        override fun own(id: String, what: String) { all += "$id $what" }
+        override fun longPress() {
+            all += "arrange"
+        }
+
+        override fun own(id: String, what: String) {
+            all += "$id $what"
+        }
     }
 
     private val todos = MutableStateFlow<List<Todo>?>(null)
@@ -84,39 +90,66 @@ class OwnCardTapsTest {
         SemanticsMatcher("click label \"$label\"") { it.config.getOrNull(SemanticsActions.OnClick)?.label == label }
 
     private val longPressOnly =
-        SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick) and SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick)
+        SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick) and SemanticsMatcher.keyNotDefined(
+            SemanticsActions.OnClick
+        )
 
     /**
      * The Todos card has no tap of its own: a tap between rows or on its edge does nothing. "+5 more"
      * opens the list, and the long-press still arranges the widgets.
      */
-    @Test fun onlyMoreOpensTheTodoList() {
+    @Test
+    fun onlyMoreOpensTheTodoList() {
         val asked = Asked()
         todos.value = (1L..8L).map { Todo(it, "Todo $it", done = false) }
         show(WidgetSource.TODOS, asked)
         compose.waitForNode(inCard(WidgetSource.TODOS) and hasText("Todo 1"))
-        compose.onAllNodes(inCard(WidgetSource.TODOS) and hasClickLabel("open todos")).assertCountEquals(0)
+        compose.onAllNodes(inCard(WidgetSource.TODOS) and hasClickLabel("open todos"))
+            .assertCountEquals(0)
 
-        compose.onAllNodes(inCard(WidgetSource.TODOS) and longPressOnly).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
+        compose.onAllNodes(inCard(WidgetSource.TODOS) and longPressOnly).onFirst()
+            .performSemanticsAction(SemanticsActions.OnLongClick)
         compose.runOnIdle { assertEquals(listOf("arrange"), asked.all.toList()) }
 
-        compose.onNode(hasTestTag("list-open") and hasText("more", substring = true), useUnmergedTree = true).performClick()
-        compose.runOnIdle { assertEquals(listOf("arrange", "${WidgetSource.TODOS} ${OwnTaps.OPEN}"), asked.all.toList()) }
+        compose.onNode(
+            hasTestTag("list-open") and hasText("more", substring = true),
+            useUnmergedTree = true
+        ).performClick()
+        compose.runOnIdle {
+            assertEquals(
+                listOf("arrange", "${WidgetSource.TODOS} ${OwnTaps.OPEN}"),
+                asked.all.toList()
+            )
+        }
     }
 
     /** With buttons, the Shortcuts card takes no tap of its own; empty, a tap on it opens the editor. */
-    @Test fun theSpaceBetweenShortcutsDoesNothing() {
+    @Test
+    fun theSpaceBetweenShortcutsDoesNothing() {
         val asked = Asked()
-        shortcuts.value = listOf(Shortcut("torch", "torch", "torch"), Shortcut("dnd", "dnd", "moon"))
+        shortcuts.value =
+            listOf(Shortcut("torch", "torch", "torch"), Shortcut("dnd", "dnd", "moon"))
         show(WidgetSource.SHORTCUTS, asked)
-        compose.waitForNode(inCard(WidgetSource.SHORTCUTS) and (hasText("torch") or hasContentDescription("torch")))
-        compose.onAllNodes(inCard(WidgetSource.SHORTCUTS) and hasClickLabel("edit shortcuts")).assertCountEquals(0)
-        compose.onAllNodes(inCard(WidgetSource.SHORTCUTS) and longPressOnly).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
+        compose.waitForNode(
+            inCard(WidgetSource.SHORTCUTS) and (hasText("torch") or hasContentDescription(
+                "torch"
+            ))
+        )
+        compose.onAllNodes(inCard(WidgetSource.SHORTCUTS) and hasClickLabel("edit shortcuts"))
+            .assertCountEquals(0)
+        compose.onAllNodes(inCard(WidgetSource.SHORTCUTS) and longPressOnly).onFirst()
+            .performSemanticsAction(SemanticsActions.OnLongClick)
         compose.runOnIdle { assertEquals(listOf("arrange"), asked.all.toList()) }
 
         compose.runOnIdle { shortcuts.value = emptyList() }
         compose.waitForNode(inCard(WidgetSource.SHORTCUTS) and hasClickLabel("edit shortcuts"))
-        compose.onNode(inCard(WidgetSource.SHORTCUTS) and hasClickLabel("edit shortcuts")).performClick()
-        compose.runOnIdle { assertTrue(asked.all.toString(), "${WidgetSource.SHORTCUTS} ${OwnTaps.EDIT}" in asked.all) }
+        compose.onNode(inCard(WidgetSource.SHORTCUTS) and hasClickLabel("edit shortcuts"))
+            .performClick()
+        compose.runOnIdle {
+            assertTrue(
+                asked.all.toString(),
+                "${WidgetSource.SHORTCUTS} ${OwnTaps.EDIT}" in asked.all
+            )
+        }
     }
 }

@@ -20,9 +20,12 @@ class RunWatchdogTest {
     private fun host(name: String) = HostApi(context, name, scriptId = null, notifyEnabled = false)
     private fun lines(name: String) = logs.recent(200).filter { it.source == name }.map { it.text }
 
-    @After fun tearDown() = logs.recent(200).filter { it.source in setOf(stuck, other, done) }.forEach { logs.delete(it.id) }
+    @After
+    fun tearDown() = logs.recent(200).filter { it.source in setOf(stuck, other, done) }
+        .forEach { logs.delete(it.id) }
 
-    @Test fun otherRunsSayTheyWereStoppedToo() {
+    @Test
+    fun otherRunsSayTheyWereStoppedToo() {
         val stuckRun = host(stuck)
         val otherRun = host(other)
         val doneRun = host(done)
@@ -34,7 +37,12 @@ class RunWatchdogTest {
                 RunWatchdog.stopOthers(stuckRun)
             }
         }
-        assertEquals(listOf("half way", "$other: stopped, because $stuck had to be stopped (scripts run in one process)"), lines(other))
+        assertEquals(
+            listOf(
+                "half way",
+                "$other: stopped, because $stuck had to be stopped (scripts run in one process)"
+            ), lines(other)
+        )
         assertEquals(emptyList<String>(), lines(stuck))
         assertEquals(emptyList<String>(), lines(done))
     }

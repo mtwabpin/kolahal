@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.LogFilter
 import android.app.Instrumentation
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -24,6 +23,7 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
@@ -42,8 +42,6 @@ import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitUntil
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -55,6 +53,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /** What a tap and a long-press on a log line do, as the line's context says. */
 @RunWith(AndroidJUnit4::class)
@@ -67,8 +67,12 @@ class LogLineActionsTest {
     private val scripts = ScriptRepository.get(context)
     private val feeds = FeedRepository.get(context)
     private val notifPrefs = NotifPrefs.get(context)
-    @get:Rule val logLines = LogLinesSince()
-    @get:Rule val access = NotificationAccess()
+
+    @get:Rule
+    val logLines = LogLinesSince()
+
+    @get:Rule
+    val access = NotificationAccess()
     private val pinnedBefore = prefs.pinned()
     private val mutedBefore = notifPrefs.muted.value
     private val storeBefore = NotificationStore.items.value
@@ -94,14 +98,34 @@ class LogLineActionsTest {
         override val entries get() = lines
         override val scripts get() = scriptList
         override fun io(block: suspend () -> Unit) = runBlocking { block() }
-        override fun setText(text: String) { prompt = text }
-        override fun submit() { submits++ }
-        override fun emit(event: UiEvent) { events += event }
+        override fun setText(text: String) {
+            prompt = text
+        }
+
+        override fun submit() {
+            submits++
+        }
+
+        override fun emit(event: UiEvent) {
+            events += event
+        }
+
         override fun runsOnTap(line: String) = instant
-        override fun runCommand(cmd: String) { commands += cmd }
-        override fun openEditorAt(script: Script, line: Int?) { editors += script.name to line }
-        override fun startActivity(intent: Intent) { intents += intent }
-        override fun filterLog(filter: LogFilter?) { this.filter = filter }
+        override fun runCommand(cmd: String) {
+            commands += cmd
+        }
+
+        override fun openEditorAt(script: Script, line: Int?) {
+            editors += script.name to line
+        }
+
+        override fun startActivity(intent: Intent) {
+            intents += intent
+        }
+
+        override fun filterLog(filter: LogFilter?) {
+            this.filter = filter
+        }
 
         fun forget() {
             prompt = null
@@ -113,16 +137,19 @@ class LogLineActionsTest {
             editors.clear()
         }
     }
+
     private val home = Home()
     private val actions = LogLineActions(context, processor, home)
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         apps.refresh()
         waitUntil("the app list") { apps.apps.value.isNotEmpty() }
     }
 
     // The lines go after this, by the rule: also when a wait here times out.
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         // A tap on an app's line leaves Settings in front.
         shell("am force-stop $SETTINGS")
         prefs.setAlias(ALIAS, null)
@@ -134,7 +161,8 @@ class LogLineActionsTest {
         prefs.pinned().forEach { prefs.setPinned(it, false) }
         pinnedBefore.forEach { prefs.setPinned(it, true) }
         val launches = usage.edit()
-        usage.all.keys.filter { it.startsWith("launch:") && it !in launchesBefore }.forEach { launches.remove(it) }
+        usage.all.keys.filter { it.startsWith("launch:") && it !in launchesBefore }
+            .forEach { launches.remove(it) }
         launchesBefore.forEach { (k, v) -> launches.putString(k, v as String) }
         launches.commit()
         apps.apps.value.firstOrNull { it.pkg == SETTINGS }?.let { s ->
@@ -145,44 +173,55 @@ class LogLineActionsTest {
     }
 
     /** Logs a line and returns it as the log reads it back. */
-    private fun line(kind: LogKind, text: String, vararg ctx: Pair<String, String?>, source: String? = null): LogEntry {
+    private fun line(
+        kind: LogKind,
+        text: String,
+        vararg ctx: Pair<String, String?>,
+        source: String? = null
+    ): LogEntry {
         val id = logs.add(kind, text, source, LogContext.of(*ctx))
         return logs.recent(400, afterId = id - 1).single { it.id == id }
     }
 
     private fun labels(e: LogEntry) = actions.actionsFor(e).map { it.label }
 
-    private fun action(e: LogEntry, label: String) = actions.actionsFor(e).single { it.label == label }
+    private fun action(e: LogEntry, label: String) =
+        actions.actionsFor(e).single { it.label == label }
 
     /** The personal Settings app, which every test phone has. */
     private fun settings(): AppEntry {
-        val s = apps.apps.value.firstOrNull { it.pkg == SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
+        val s =
+            apps.apps.value.firstOrNull { it.pkg == SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
         assumeTrue("Settings is installed", s != null)
         assumeTrue("Settings is called Settings", s!!.label == "Settings")
         return s
     }
 
     private fun appCtx(app: AppEntry) = arrayOf(
-        LogContext.PKG to app.pkg, LogContext.CLS to app.component.className, LogContext.USER to app.profile.serial.toString(),
+        LogContext.PKG to app.pkg,
+        LogContext.CLS to app.component.className,
+        LogContext.USER to app.profile.serial.toString(),
     )
 
     private val clipboard = context.getSystemService(ClipboardManager::class.java)
 
     /** Runs [block] with a window of Kolahal's in front: Android lets only the app in front read the clipboard. */
-    private fun <T> inFront(block: () -> T): T = ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
-        waitUntil("a window of ours in front") {
-            var focused = false
-            scenario.onActivity { focused = it.hasWindowFocus() }
-            focused
+    private fun <T> inFront(block: () -> T): T =
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            waitUntil("a window of ours in front") {
+                var focused = false
+                scenario.onActivity { focused = it.hasWindowFocus() }
+                focused
+            }
+            block()
         }
-        block()
-    }
 
     private fun clip(): ClipData = clipboard.primaryClip!!
 
     private fun clipText() = clip().getItemAt(0).text.toString()
 
-    private fun clipSensitive() = clip().description.extras?.getBoolean("android.content.extra.IS_SENSITIVE") == true
+    private fun clipSensitive() =
+        clip().description.extras?.getBoolean("android.content.extra.IS_SENSITIVE") == true
 
     /** Catches the uninstall screen, so none really opens. */
     private fun <T> catchingUninstall(opened: MutableList<Intent>, block: () -> T): T {
@@ -205,24 +244,32 @@ class LogLineActionsTest {
      * A tap on a hint runs its command, as written: one that names an alias doesn't run the alias,
      * which typed would. On a command it fills the prompt, or runs it where taps run commands.
      */
-    @Test fun tappingRunsOrRecallsTheLinesCommand() {
+    @Test
+    fun tappingRunsOrRecallsTheLinesCommand() {
         val hint = line(LogKind.INFO, "Tap to say hi", LogContext.RUN to "echo llat hi")
         actions.onTap(hint)
         assertEquals(listOf(UiEvent.ScrollToBottom), home.events)
         assertNull(home.prompt)
-        assertTrue(logs.recent(50, afterId = hint.id).any { it.kind == LogKind.OUTPUT && it.text == "llat hi" })
+        assertTrue(
+            logs.recent(50, afterId = hint.id)
+                .any { it.kind == LogKind.OUTPUT && it.text == "llat hi" })
 
         prefs.setAlias(ALIAS, "echo llat expanded")
         val typedAlias = logs.maxId()
         processor.run(ALIAS)
-        assertTrue("the alias, typed", logs.recent(50, afterId = typedAlias).any { it.text == "llat expanded" })
+        assertTrue(
+            "the alias, typed",
+            logs.recent(50, afterId = typedAlias).any { it.text == "llat expanded" })
         val aliasHint = line(LogKind.INFO, "Tap for the alias", LogContext.RUN to ALIAS)
         actions.onTap(aliasHint)
         val after = logs.recent(50, afterId = aliasHint.id)
-        assertTrue(after.joinToString { it.text }, after.isNotEmpty() && after.none { it.text == "llat expanded" })
+        assertTrue(
+            after.joinToString { it.text },
+            after.isNotEmpty() && after.none { it.text == "llat expanded" })
 
         home.forget()
-        val typed = line(LogKind.COMMAND, "echo llat again", LogContext.COMMAND to "echo llat again")
+        val typed =
+            line(LogKind.COMMAND, "echo llat again", LogContext.COMMAND to "echo llat again")
         actions.onTap(typed)
         assertEquals("echo llat again", home.prompt)
         assertEquals(listOf(UiEvent.FocusPrompt), home.events)
@@ -238,18 +285,34 @@ class LogLineActionsTest {
         // A line that names a command to read more fills the prompt with it.
         home.forget()
         home.instant = false
-        actions.onTap(line(LogKind.SCRIPT, "+3 more", LogContext.COMMAND to "feed read 1", source = "Llat Feed"))
+        actions.onTap(
+            line(
+                LogKind.SCRIPT,
+                "+3 more",
+                LogContext.COMMAND to "feed read 1",
+                source = "Llat Feed"
+            )
+        )
         assertEquals("feed read 1", home.prompt)
     }
 
     /** A tap opens what the line is about: a reminder's cancel in the prompt, an event, a number to dial, a link, which marks its feed item read. */
-    @Test fun tappingOpensWhatTheLineIsAbout() {
+    @Test
+    fun tappingOpensWhatTheLineIsAbout() {
         actions.onTap(line(LogKind.INFO, "Llat tea at 5", LogContext.REMINDER to "7"))
         assertEquals("remind rm #7", home.prompt)
         assertEquals(listOf(UiEvent.FocusPrompt), home.events)
 
         home.forget()
-        actions.onTap(line(LogKind.OUTPUT, "Llat meeting", LogContext.EVENT to "42", LogContext.BEGIN to "1000", LogContext.END to "2000"))
+        actions.onTap(
+            line(
+                LogKind.OUTPUT,
+                "Llat meeting",
+                LogContext.EVENT to "42",
+                LogContext.BEGIN to "1000",
+                LogContext.END to "2000"
+            )
+        )
         val event = home.intents.single()
         assertEquals(Intent.ACTION_VIEW, event.action)
         assertEquals(Agenda.eventUri(42), event.data)
@@ -263,8 +326,19 @@ class LogLineActionsTest {
 
         home.forget()
         val feed = feeds.add("${BASE}llat")
-        val item = feeds.insertItems(feed.id, listOf(FeedRepository.NewItem("llat-post", "Llat post", "${BASE}post", null, null))).single()
-        actions.onTap(line(LogKind.SCRIPT, "Llat post", LogContext.URL to item.link, FeedWorker.CTX_ITEM to item.id.toString(), source = "Llat Feed"))
+        val item = feeds.insertItems(
+            feed.id,
+            listOf(FeedRepository.NewItem("llat-post", "Llat post", "${BASE}post", null, null))
+        ).single()
+        actions.onTap(
+            line(
+                LogKind.SCRIPT,
+                "Llat post",
+                LogContext.URL to item.link,
+                FeedWorker.CTX_ITEM to item.id.toString(),
+                source = "Llat Feed"
+            )
+        )
         assertEquals(Intent.ACTION_VIEW, home.intents.single().action)
         assertEquals("${BASE}post", home.intents.single().dataString)
         assertEquals(0, feeds.unreadCount(feed.id))
@@ -278,13 +352,17 @@ class LogLineActionsTest {
     }
 
     /** A tap on an app's line launches it; on a shortcut that can't start, it says so. */
-    @Test fun tappingAnAppLineLaunchesIt() {
+    @Test
+    fun tappingAnAppLineLaunchesIt() {
         val s = settings()
         val before = logs.maxId()
         actions.onTap(line(LogKind.INFO, "Llat app", *appCtx(s)))
-        assertTrue(logs.recent(50, afterId = before).any { it.text == "Launched Settings" && it.ctx.pkg == SETTINGS })
+        assertTrue(
+            logs.recent(50, afterId = before)
+                .any { it.text == "Launched Settings" && it.ctx.pkg == SETTINGS })
 
-        val shortcut = line(LogKind.OUTPUT, "Settings › Llat", *appCtx(s), LogContext.SHORTCUT to "llat-none")
+        val shortcut =
+            line(LogKind.OUTPUT, "Settings › Llat", *appCtx(s), LogContext.SHORTCUT to "llat-none")
         actions.onTap(shortcut)
         val failed = logs.recent(50, afterId = shortcut.id).single()
         assertEquals(LogKind.ERROR, failed.kind)
@@ -292,7 +370,8 @@ class LogLineActionsTest {
     }
 
     /** A tap on a notification runs the notification's own tap action, not the app. */
-    @Test fun tappingANotificationRunsItsOwnTapAction() {
+    @Test
+    fun tappingANotificationRunsItsOwnTapAction() {
         // With access, Android is asked for the notification, and this one isn't there. A listener
         // still bound just after access went can't ask, so the tap kept in the store is used.
         access.set(false)
@@ -302,13 +381,38 @@ class LogLineActionsTest {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) = tapped.countDown()
         }
-        ContextCompat.registerReceiver(context, receiver, IntentFilter(action), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         try {
-            val pi = PendingIntent.getBroadcast(context, 0, Intent(action).setPackage(context.packageName), PendingIntent.FLAG_IMMUTABLE)
-            val serial = context.getSystemService(UserManager::class.java).getSerialNumberForUser(Process.myUserHandle())
-            NotificationStore.put(Notif("0|llat|tap", SETTINGS, serial, "Settings", "Llat ping", null, System.currentTimeMillis()), pi)
+            val pi = PendingIntent.getBroadcast(
+                context,
+                0,
+                Intent(action).setPackage(context.packageName),
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            val serial = context.getSystemService(UserManager::class.java)
+                .getSerialNumberForUser(Process.myUserHandle())
+            NotificationStore.put(
+                Notif(
+                    "0|llat|tap",
+                    SETTINGS,
+                    serial,
+                    "Settings",
+                    "Llat ping",
+                    null,
+                    System.currentTimeMillis()
+                ), pi
+            )
             val ping = line(
-                LogKind.SCRIPT, "Llat ping", *appCtx(s), KolahalNotificationListener.CTX_KEY to "0|llat|tap", source = "Settings",
+                LogKind.SCRIPT,
+                "Llat ping",
+                *appCtx(s),
+                KolahalNotificationListener.CTX_KEY to "0|llat|tap",
+                source = "Settings",
             )
             actions.onTap(ping)
             action(ping, "Open notification").run()
@@ -320,30 +424,64 @@ class LogLineActionsTest {
     }
 
     /** A tap on a note copies it; a swipe copies what a line shows, and a call's line as sensitive. */
-    @Test fun copyingPutsWhatTheLineSaysOnTheClipboard() {
+    @Test
+    fun copyingPutsWhatTheLineSaysOnTheClipboard() {
         inFront {
-            actions.onTap(line(LogKind.OUTPUT, "#5 Llat idea · Tue", LogContext.NOTE to "5", LogContext.COPY to "Llat idea"))
+            actions.onTap(
+                line(
+                    LogKind.OUTPUT,
+                    "#5 Llat idea · Tue",
+                    LogContext.NOTE to "5",
+                    LogContext.COPY to "Llat idea"
+                )
+            )
             assertEquals("Llat idea", clipText())
-            actions.swipeCopy(line(LogKind.SCRIPT, StyledText.wrap(StyledText.Style.BOLD, "Llat title"), LogContext.BODY to "Llat body", source = "llatx"))
+            actions.swipeCopy(
+                line(
+                    LogKind.SCRIPT,
+                    StyledText.wrap(StyledText.Style.BOLD, "Llat title"),
+                    LogContext.BODY to "Llat body",
+                    source = "llatx"
+                )
+            )
             assertEquals("Llat title\nLlat body", clipText())
             assertFalse(clipSensitive())
-            actions.swipeCopy(line(LogKind.INFO, "Llat missed call 5550100", source = com.mtwabpin.kolahal.calls.CallEvents.SOURCE))
+            actions.swipeCopy(
+                line(
+                    LogKind.INFO,
+                    "Llat missed call 5550100",
+                    source = com.mtwabpin.kolahal.calls.CallEvents.SOURCE
+                )
+            )
             assertEquals("Llat missed call 5550100", clipText())
             assertTrue(clipSensitive())
         }
     }
 
     /** A command's long-press runs it again, edits it, copies its output or it, shows only commands, stars it, and deletes it with its output. */
-    @Test fun aCommandsLongPressOffersItsCommandAndOutput() {
-        val command = line(LogKind.COMMAND, "echo llat block", LogContext.COMMAND to "echo llat block")
+    @Test
+    fun aCommandsLongPressOffersItsCommandAndOutput() {
+        val command =
+            line(LogKind.COMMAND, "echo llat block", LogContext.COMMAND to "echo llat block")
         val one = line(LogKind.OUTPUT, "llat one", LogContext.FROM to command.id.toString())
         val two = line(LogKind.OUTPUT, "llat two", LogContext.FROM to command.id.toString())
         home.lines = listOf(command, one, two)
         assertEquals(
-            listOf("Run again", "Edit in prompt", "Copy output", "Show only commands", "Star line", "Copy text", "Delete command and output", "Delete line"),
+            listOf(
+                "Run again",
+                "Edit in prompt",
+                "Copy output",
+                "Show only commands",
+                "Star line",
+                "Copy text",
+                "Delete command and output",
+                "Delete line"
+            ),
             labels(command),
         )
-        assertEquals(listOf(false, false, false, false, false, false, true, true), actions.actionsFor(command).map { it.destructive })
+        assertEquals(
+            listOf(false, false, false, false, false, false, true, true),
+            actions.actionsFor(command).map { it.destructive })
 
         action(command, "Run again").run()
         assertEquals("echo llat block", home.prompt)
@@ -368,12 +506,20 @@ class LogLineActionsTest {
     }
 
     /** An output line's long-press offers the command that printed it, to run again or edit, and deletes just that line. */
-    @Test fun anOutputLinesLongPressOffersTheCommandThatPrintedIt() {
+    @Test
+    fun anOutputLinesLongPressOffersTheCommandThatPrintedIt() {
         val command = line(LogKind.COMMAND, "echo llat x", LogContext.COMMAND to "echo llat x")
         val output = line(LogKind.OUTPUT, "llat x", LogContext.FROM to command.id.toString())
         home.lines = listOf(command, output)
         assertEquals(
-            listOf("Run 'echo llat x' again", "Edit 'echo llat x' in prompt", "Show only commands", "Star line", "Copy text", "Delete line"),
+            listOf(
+                "Run 'echo llat x' again",
+                "Edit 'echo llat x' in prompt",
+                "Show only commands",
+                "Star line",
+                "Copy text",
+                "Delete line"
+            ),
             labels(output),
         )
         action(output, "Run 'echo llat x' again").run()
@@ -389,16 +535,30 @@ class LogLineActionsTest {
     }
 
     /** An app line's long-press launches, pins, hides, copies or uninstalls it; each label says which way it toggles. */
-    @Test fun anAppLinesLongPressOffersTheAppsActions() {
+    @Test
+    fun anAppLinesLongPressOffersTheAppsActions() {
         val s = settings()
         prefs.setPinned(s.key, false)
         val launched = line(LogKind.INFO, "Llat launched Settings", *appCtx(s))
         fun shown() = labels(launched).filterNot { it.startsWith("Settings › ") }
         assertEquals(
-            listOf("Launch Settings [P]", "App info", "Copy package name", "Pin to favourites", "Hide from lists", "Show only commands", "Star line", "Copy text", "Uninstall", "Delete line"),
+            listOf(
+                "Launch Settings [P]",
+                "App info",
+                "Copy package name",
+                "Pin to favourites",
+                "Hide from lists",
+                "Show only commands",
+                "Star line",
+                "Copy text",
+                "Uninstall",
+                "Delete line"
+            ),
             shown(),
         )
-        assertEquals(listOf("Uninstall", "Delete line"), actions.actionsFor(launched).filter { it.destructive }.map { it.label })
+        assertEquals(
+            listOf("Uninstall", "Delete line"),
+            actions.actionsFor(launched).filter { it.destructive }.map { it.label })
 
         action(launched, "Pin to favourites").run()
         assertTrue(prefs.isPinned(s.key))
@@ -425,24 +585,40 @@ class LogLineActionsTest {
      * A notification's long-press offers to open, mute or dismiss it; muting it, showing only that
      * app's lines and copying it (as sensitive) are run here, the others only listed.
      */
-    @Test fun aNotificationsLongPressOffersOpenMuteAndDismiss() {
+    @Test
+    fun aNotificationsLongPressOffersOpenMuteAndDismiss() {
         val s = settings()
         prefs.setPinned(s.key, false)
         val n = line(
-            LogKind.SCRIPT, "Llat title — Llat body", *appCtx(s), LogContext.COPY to "Llat title — Llat body",
-            KolahalNotificationListener.CTX_KEY to "0|llat|lp", source = "Settings",
+            LogKind.SCRIPT,
+            "Llat title — Llat body",
+            *appCtx(s),
+            LogContext.COPY to "Llat title — Llat body",
+            KolahalNotificationListener.CTX_KEY to "0|llat|lp",
+            source = "Settings",
         )
         assertEquals(
             listOf(
-                "Launch Settings [P]", "App info", "Copy package name", "Pin to favourites", "Hide from lists",
-                "Open notification", "Mute this app's notifications", "Show only Settings", "Star line", "Copy text",
-                "Uninstall", "Dismiss notification", "Delete line",
+                "Launch Settings [P]",
+                "App info",
+                "Copy package name",
+                "Pin to favourites",
+                "Hide from lists",
+                "Open notification",
+                "Mute this app's notifications",
+                "Show only Settings",
+                "Star line",
+                "Copy text",
+                "Uninstall",
+                "Dismiss notification",
+                "Delete line",
             ),
             labels(n).filterNot { it.startsWith("Settings › ") },
         )
         action(n, "Mute this app's notifications").run()
         assertTrue(SETTINGS in notifPrefs.muted.value)
-        assertTrue(logs.recent(50, afterId = n.id).any { it.text == "Muted notifications from Settings" })
+        assertTrue(
+            logs.recent(50, afterId = n.id).any { it.text == "Muted notifications from Settings" })
         action(n, "Show only Settings").run()
         assertEquals(LogFilter.Named("Settings"), home.filter)
         inFront {
@@ -453,16 +629,38 @@ class LogLineActionsTest {
     }
 
     /** A number's long-press calls it, texts it, opens the contact or copies the number. */
-    @Test fun aNumbersLongPressCallsTextsOrCopies() {
+    @Test
+    fun aNumbersLongPressCallsTextsOrCopies() {
         val contact = "content://com.android.contacts/contacts/lookup/llat/1"
-        val ann = line(LogKind.OUTPUT, "Llat Ann", LogContext.PHONE to "5550100", LogContext.CONTACT to contact)
+        val ann = line(
+            LogKind.OUTPUT,
+            "Llat Ann",
+            LogContext.PHONE to "5550100",
+            LogContext.CONTACT to contact
+        )
         assertEquals(
-            listOf("Call 5550100", "Send a message", "Open contact", "Copy number", "Show only commands", "Star line", "Copy text", "Delete line"),
+            listOf(
+                "Call 5550100",
+                "Send a message",
+                "Open contact",
+                "Copy number",
+                "Show only commands",
+                "Star line",
+                "Copy text",
+                "Delete line"
+            ),
             labels(ann),
         )
-        for (label in listOf("Call 5550100", "Send a message", "Open contact")) action(ann, label).run()
-        assertEquals(listOf(Intent.ACTION_DIAL, Intent.ACTION_SENDTO, Intent.ACTION_VIEW), home.intents.map { it.action })
-        assertEquals(listOf("tel:5550100", "smsto:5550100", contact), home.intents.map { it.dataString })
+        for (label in listOf("Call 5550100", "Send a message", "Open contact")) action(
+            ann,
+            label
+        ).run()
+        assertEquals(
+            listOf(Intent.ACTION_DIAL, Intent.ACTION_SENDTO, Intent.ACTION_VIEW),
+            home.intents.map { it.action })
+        assertEquals(
+            listOf("tel:5550100", "smsto:5550100", contact),
+            home.intents.map { it.dataString })
         inFront {
             action(ann, "Copy number").run()
             assertEquals("5550100", clipText())
@@ -470,12 +668,28 @@ class LogLineActionsTest {
     }
 
     /** A link's long-press opens, shares or copies it, and opens the picture under it. */
-    @Test fun aLinksLongPressOpensSharesOrCopies() {
+    @Test
+    fun aLinksLongPressOpensSharesOrCopies() {
         val story = line(
-            LogKind.SCRIPT, StyledText.wrap(StyledText.Style.BOLD, "Llat") + " story",
-            LogContext.URL to "${BASE}story", LogContext.IMAGE to "${BASE}story.png", FeedWorker.CTX_FEED to "1", source = "Llat Feed",
+            LogKind.SCRIPT,
+            StyledText.wrap(StyledText.Style.BOLD, "Llat") + " story",
+            LogContext.URL to "${BASE}story",
+            LogContext.IMAGE to "${BASE}story.png",
+            FeedWorker.CTX_FEED to "1",
+            source = "Llat Feed",
         )
-        assertEquals(listOf("Open link", "Share link", "Copy link", "Open image", "Show only Llat Feed", "Star line", "Copy text", "Delete line"), labels(story))
+        assertEquals(
+            listOf(
+                "Open link",
+                "Share link",
+                "Copy link",
+                "Open image",
+                "Show only Llat Feed",
+                "Star line",
+                "Copy text",
+                "Delete line"
+            ), labels(story)
+        )
         action(story, "Open link").run()
         action(story, "Share link").run()
         action(story, "Open image").run()
@@ -494,23 +708,43 @@ class LogLineActionsTest {
             assertEquals("${BASE}story", clipText())
         }
         // A picture that is the link itself isn't offered twice.
-        val same = line(LogKind.SCRIPT, "Llat picture", LogContext.URL to "${BASE}p.png", LogContext.IMAGE to "${BASE}p.png", source = "Llat Feed")
+        val same = line(
+            LogKind.SCRIPT,
+            "Llat picture",
+            LogContext.URL to "${BASE}p.png",
+            LogContext.IMAGE to "${BASE}p.png",
+            source = "Llat Feed"
+        )
         assertTrue(labels(same).none { it == "Open image" })
     }
 
     /** A script's line opens the editor at its error when tapped; long-pressed, it runs, edits and switches the script. */
-    @Test fun aScriptsLineRunsEditsAndSwitchesIt() {
+    @Test
+    fun aScriptsLineRunsEditsAndSwitchesIt() {
         val s = scripts.create(SCRIPT, ScriptLang.LUA, "log('llat ran')")
         assertTrue(s.enabled)
         assertFalse(s.notify)
         home.scriptList = listOf(s)
-        val error = line(LogKind.ERROR, "$SCRIPT: boom (tap to edit line 4)", LogContext.SCRIPT to SCRIPT, LogContext.LINE to "4", source = SCRIPT)
+        val error = line(
+            LogKind.ERROR,
+            "$SCRIPT: boom (tap to edit line 4)",
+            LogContext.SCRIPT to SCRIPT,
+            LogContext.LINE to "4",
+            source = SCRIPT
+        )
         actions.onTap(error)
         assertEquals(listOf(SCRIPT to 4), home.editors)
         assertEquals(
             listOf(
-                "Run $SCRIPT now", "Edit $SCRIPT at line 4", "Edit $SCRIPT.lua", "Turn off $SCRIPT", "Notify on new items",
-                "Show only $SCRIPT", "Star line", "Copy text", "Delete line",
+                "Run $SCRIPT now",
+                "Edit $SCRIPT at line 4",
+                "Edit $SCRIPT.lua",
+                "Turn off $SCRIPT",
+                "Notify on new items",
+                "Show only $SCRIPT",
+                "Star line",
+                "Copy text",
+                "Delete line",
             ),
             labels(error),
         )
@@ -521,9 +755,12 @@ class LogLineActionsTest {
         assertEquals(listOf(SCRIPT to 4, SCRIPT to null), home.editors)
 
         action(error, "Run $SCRIPT now").run()
-        waitUntil("the script's run", ms = 30_000) { logs.recent(100, afterId = error.id).any { it.text == "llat ran" } }
+        waitUntil("the script's run", ms = 30_000) {
+            logs.recent(100, afterId = error.id).any { it.text == "llat ran" }
+        }
 
-        fun said(text: String) = logs.recent(100, afterId = error.id).any { it.text == text && it.ctx.script == SCRIPT }
+        fun said(text: String) =
+            logs.recent(100, afterId = error.id).any { it.text == text && it.ctx.script == SCRIPT }
         action(error, "Turn off $SCRIPT").run()
         assertFalse(scripts.byId(s.id)!!.enabled)
         assertTrue(said("$SCRIPT: turned off"))
@@ -545,9 +782,25 @@ class LogLineActionsTest {
     }
 
     /** Todo, note, reminder and event lines offer their own actions, each run as the command it stands for. */
-    @Test fun productivityLinesOfferTheirActions() {
-        val todo = line(LogKind.OUTPUT, "[ ] Llat milk", LogContext.TODO to "3", LogContext.COPY to "Llat milk")
-        assertEquals(listOf("Mark done", "Edit in prompt", "Show only commands", "Star line", "Copy text", "Delete todo", "Delete line"), labels(todo))
+    @Test
+    fun productivityLinesOfferTheirActions() {
+        val todo = line(
+            LogKind.OUTPUT,
+            "[ ] Llat milk",
+            LogContext.TODO to "3",
+            LogContext.COPY to "Llat milk"
+        )
+        assertEquals(
+            listOf(
+                "Mark done",
+                "Edit in prompt",
+                "Show only commands",
+                "Star line",
+                "Copy text",
+                "Delete todo",
+                "Delete line"
+            ), labels(todo)
+        )
         action(todo, "Mark done").run()
         action(todo, "Delete todo").run()
         assertEquals(listOf("todo done #3", "todo rm #3"), home.commands)
@@ -556,7 +809,14 @@ class LogLineActionsTest {
         assertEquals(listOf(UiEvent.FocusPrompt), home.events)
 
         home.forget()
-        action(line(LogKind.OUTPUT, "[x] Llat milk", LogContext.TODO to "3", LogContext.TODO_DONE to "1"), "Mark not done").run()
+        action(
+            line(
+                LogKind.OUTPUT,
+                "[x] Llat milk",
+                LogContext.TODO to "3",
+                LogContext.TODO_DONE to "1"
+            ), "Mark not done"
+        ).run()
         val note = line(LogKind.OUTPUT, "#5 Llat idea", LogContext.NOTE to "5")
         assertTrue(action(note, "Delete note").destructive)
         action(note, "Delete note").run()
@@ -570,25 +830,56 @@ class LogLineActionsTest {
     }
 
     /** A grid line stands for its apps, the ones still installed; a chip of one has its app's actions and nothing to copy or delete. */
-    @Test fun aGridLineNamesItsApps() {
+    @Test
+    fun aGridLineNamesItsApps() {
         val s = settings()
-        val other = apps.apps.value.first { !it.hidden && it.pkg != SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
-        val refs = listOf(s, other).map { mapOf("pkg" to it.pkg, "cls" to it.component.className, "user" to it.profile.serial) } +
-            mapOf("pkg" to "com.example.kolahal.gone", "cls" to "x.Y", "user" to s.profile.serial)
-        val grid = line(LogKind.OUTPUT, "Settings, ${other.label}", LogContext.APPS to Json.stringify(refs))
+        val other =
+            apps.apps.value.first { !it.hidden && it.pkg != SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
+        val refs = listOf(s, other).map {
+            mapOf(
+                "pkg" to it.pkg,
+                "cls" to it.component.className,
+                "user" to it.profile.serial
+            )
+        } +
+                mapOf(
+                    "pkg" to "com.example.kolahal.gone",
+                    "cls" to "x.Y",
+                    "user" to s.profile.serial
+                )
+        val grid = line(
+            LogKind.OUTPUT,
+            "Settings, ${other.label}",
+            LogContext.APPS to Json.stringify(refs)
+        )
         assertEquals(listOf(s.key, other.key), actions.appsOf(grid).map { it.key })
-        assertEquals(emptyList<AppEntry>(), actions.appsOf(line(LogKind.OUTPUT, "Llat broken grid", LogContext.APPS to "not json")))
+        assertEquals(
+            emptyList<AppEntry>(),
+            actions.appsOf(line(LogKind.OUTPUT, "Llat broken grid", LogContext.APPS to "not json"))
+        )
         assertEquals(emptyList<AppEntry>(), actions.appsOf(line(LogKind.OUTPUT, "Llat no grid")))
 
-        val chip = LogEntry(-1, System.currentTimeMillis(), LogKind.OUTPUT, null, s.label, LogContext.of(*appCtx(s)))
+        val chip = LogEntry(
+            -1,
+            System.currentTimeMillis(),
+            LogKind.OUTPUT,
+            null,
+            s.label,
+            LogContext.of(*appCtx(s))
+        )
         assertEquals(actions.appActions(s).map { it.label }, labels(chip))
-        assertTrue(labels(chip).none { it == "Copy text" || it == "Delete line" || it == "Star line" || it.startsWith("Show only") })
+        assertTrue(labels(chip).none {
+            it == "Copy text" || it == "Delete line" || it == "Star line" || it.startsWith(
+                "Show only"
+            )
+        })
     }
 
     private companion object {
         const val SETTINGS = "com.android.settings"
         const val SCRIPT = "llatest"
         const val BASE = "http://127.0.0.1:9/"
+
         /** An alias no app's name is near, so run literally it launches nothing. */
         const val ALIAS = "zqllat"
     }
