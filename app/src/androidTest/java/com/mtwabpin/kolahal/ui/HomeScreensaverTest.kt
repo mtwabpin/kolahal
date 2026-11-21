@@ -59,12 +59,16 @@ class HomeScreensaverTest {
 
     private val saverNode = hasContentDescription("Screensaver: Matrix rain")
 
-    /** Home as MainActivity shows it: the terminal, with the screens over it. */
+    /** The view home is drawn in, for putting the keyboard away ([keyboardDown]). */
+    private var view: android.view.View? = null
+
+    /** Home as MainActivity shows it: the terminal, with the screens over it, the keyboard down. */
     private fun show(saver: String = "matrix"): TerminalViewModel {
         config.set(Keys.SCREEN_SAVER, saver)
         config.set(Keys.SCREEN_SAVER_AFTER, "1")
         val vm = vms.terminal(app)
         compose.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
             KolahalTheme {
                 CompositionLocalProvider(LocalScreenSaverTiming provides fast) {
                     Box(Modifier.fillMaxSize()) {
@@ -74,7 +78,23 @@ class HomeScreensaverTest {
                 }
             }
         }
+        keyboardDown()
         return vm
+    }
+
+    /**
+     * Puts the keyboard away, as on an idle home: the keyboard up counts as typing, and the test's
+     * home focuses the prompt, so the screensaver would never come.
+     */
+    private fun keyboardDown() {
+        compose.waitForIdle()
+        val v = view ?: return
+        val ime = androidx.core.view.WindowInsetsCompat.Type.ime()
+        compose.runOnUiThread {
+            val window = (v.context as? android.app.Activity)?.window ?: return@runOnUiThread
+            androidx.core.view.WindowCompat.getInsetsController(window, v).hide(ime)
+        }
+        compose.waitUntil(5_000) { androidx.core.view.ViewCompat.getRootWindowInsets(v)?.isVisible(ime) != true }
     }
 
     /** Lets [ms] of real time go by, with frames running. */
