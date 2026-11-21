@@ -1133,3 +1133,24 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
 - Destructive actions on scripts and feeds ask first and name what is lost; Update, Reset and
   removing a source offer Undo.
 - Empty, loading and error states are written out nearly everywhere, with the next step beside them.
+
+* Release review of 0.5.16 (21 November 2026)
+A two-minute read-only Fable 5.2 review of =v0.5.15..0.5.16=, after the fixes above. It found no bug
+in the slim seek bar's reach or the clock's picked hour. It didn't reach =ui/ScriptWidgets.kt= or
+the rest of =counter.lua=.
+
+- Remark:
+
+*** TODO [#C] A waiting tap can't be called back
+- =terminal/TapGate.kt= =runOrWait=, called from =terminal/WidgetActions.kt=: a second quick tap
+  waits on the main looper for the first one's 2 seconds. Nothing cancels it, so it runs even if the
+  card was removed in between: the script runs once more.
+- Fix: inside the waiting action, check the widget is still placed, or give TapGate a =cancel(item)=
+  that removing a widget calls.
+- Remark:
+
+*** TODO [#C] TapGate never forgets an item
+- =terminal/TapGate.kt=: =last= keeps an entry for each item ever tapped, and a widget item's key
+  has the button's full args, so it grows with each distinct one. It is small in practice.
+- Fix: drop entries older than the window when one is added.
+- Remark:
