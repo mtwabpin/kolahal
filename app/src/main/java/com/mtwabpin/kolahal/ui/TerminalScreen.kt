@@ -230,6 +230,12 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     // `script secret <name> <NAME>` opens a masked input box for the value, over home.
     val secretPrompt by vm.scriptActions.secretPrompt.collectAsStateWithLifecycle()
     secretPrompt?.let { p -> TerminalSecretPrompt(vm, p, tty) }
+    // screen.saver: a screen over home after some idle minutes, while nothing is open and nothing is typed.
+    if (preview == null) ScreenSaverWatch(
+        vm,
+        sheetOpen = state.menu != null || secretPrompt != null,
+        typing = imeUp || hasInput,
+    )
     val zone = rememberZoneChanges()
     val lineTimeFormat = remember(configVersion, zone) {
         com.mtwabpin.kolahal.terminal.lineTimeFormat(config[Keys.CLOCK_24H])

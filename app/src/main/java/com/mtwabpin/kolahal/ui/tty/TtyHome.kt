@@ -139,12 +139,15 @@ internal fun TtyHome(
     val doubleTapOn = remember(configVersion) {
         config[Keys.GESTURE_DOUBLE_TAP].trim().let { it.isNotEmpty() && it != com.mtwabpin.kolahal.gesture.Gestures.NONE }
     }
+    // tty.crt: scanlines, a vignette and a glow over the whole of home, its bars and margins too.
+    val crt = rememberCrt(remember(configVersion) { config[Keys.TTY_CRT] }, grid.palette, grid.metrics.cellH)
 
     CompositionLocalProvider(LocalTtyFrame provides frame) {
         Column(
             Modifier
                 .fillMaxSize()
                 .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
+                .then(crt)
                 .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal))
                 .windowInsetsPadding(
                     WindowInsets.navigationBars
