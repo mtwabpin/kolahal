@@ -46,8 +46,17 @@ fun SetupScreen(vm: TerminalViewModel) {
             subtitle = { Text(if (checks.isEmpty()) "Checking…" else "$done of ${checks.size} done") },
             onBack = vm::closeScreen,
             bottomBar = {
-                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
-                    Button(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen) { Text(if (checks.isNotEmpty() && done == checks.size) "Done" else "Continue to terminal") }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Button(
+                        shapes = ButtonDefaults.shapes(),
+                        onClick = vm::closeScreen
+                    ) { Text(if (checks.isNotEmpty() && done == checks.size) "Done" else "Continue to terminal") }
                 }
             },
             imePadding = false,
@@ -63,7 +72,11 @@ fun SetupScreen(vm: TerminalViewModel) {
                     leadingContent = { StatusDot(c.ok, c.fix == null) },
                     supportingContent = { Text(c.detail) },
                     trailingContent = if (fixable) {
-                        { FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.fixSetup(c) }) { Text("Fix") } }
+                        {
+                            FilledTonalButton(
+                                shapes = ButtonDefaults.shapes(),
+                                onClick = { vm.fixSetup(c) }) { Text("Fix") }
+                        }
                     } else null,
                 ) { Text(c.title) }
             }
@@ -80,12 +93,23 @@ internal fun StatusDot(ok: Boolean, informational: Boolean) {
     }
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.size(32.dp).background(color.copy(alpha = 0.18f), CircleShape),
+        modifier = Modifier
+            .size(32.dp)
+            .background(color.copy(alpha = 0.18f), CircleShape),
     ) {
         if (ok) {
-            Icon(painterResource(R.drawable.ic_check), contentDescription = "Done", tint = color, modifier = Modifier.size(20.dp))
+            Icon(
+                painterResource(R.drawable.ic_check),
+                contentDescription = "Done",
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
         } else {
-            Text(if (informational) "–" else "!", color = color, style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (informational) "–" else "!",
+                color = color,
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }

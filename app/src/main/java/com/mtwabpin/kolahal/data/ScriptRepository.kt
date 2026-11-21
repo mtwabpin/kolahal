@@ -8,7 +8,6 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import androidx.core.database.sqlite.transaction
-import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptLibrary
@@ -16,8 +15,8 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
-import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.PlacedIds
+import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetStates
 
@@ -66,7 +65,10 @@ class ScriptRepository private constructor(private val context: Context) {
 
     /** Only the access of script [id] ([Script.access]), or null when it is gone: a check a run makes at each call, with no code to read. */
     fun accessOf(id: Long): Map<String, Boolean>? =
-        db.readableDatabase.rawQuery("SELECT access FROM scripts WHERE id = ?", arrayOf(id.toString())).use { c ->
+        db.readableDatabase.rawQuery(
+            "SELECT access FROM scripts WHERE id = ?",
+            arrayOf(id.toString())
+        ).use { c ->
             if (c.moveToFirst()) ScriptAccess.parse(c.getString(0)) else null
         }
 
@@ -86,7 +88,15 @@ class ScriptRepository private constructor(private val context: Context) {
             put("code", code)
             put("enabled", if (enabled) 1 else 0)
             val placed = placedAccess(name, code)
-            if (enabled || placed.isNotEmpty()) put("access", ScriptAccess.encode((if (enabled) ScriptAccess.allowUndecided(code, emptyMap()) else emptyMap()) + placed))
+            if (enabled || placed.isNotEmpty()) put(
+                "access",
+                ScriptAccess.encode(
+                    (if (enabled) ScriptAccess.allowUndecided(
+                        code,
+                        emptyMap()
+                    ) else emptyMap()) + placed
+                )
+            )
             put("changed_at", System.currentTimeMillis())
         })
         version.incrementAndGet()
@@ -104,7 +114,9 @@ class ScriptRepository private constructor(private val context: Context) {
      * ([setWidgetPlaced]). So a script that takes a name whose only widget is `#2` fills that one.
      */
     private fun widgetPlaced(name: String, code: String): Boolean =
-        ScriptMeta.widget(code) != null && runCatching { widgetsPage?.placedOf(name)?.isNotEmpty() }.getOrNull() == true
+        ScriptMeta.widget(code) != null && runCatching {
+            widgetsPage?.placedOf(name)?.isNotEmpty()
+        }.getOrNull() == true
 
     /**
      * The widgets page's list of placed widgets. It belongs to the main process: null in the
@@ -112,7 +124,10 @@ class ScriptRepository private constructor(private val context: Context) {
      * two things: whether a name's widget is placed ([widgetPlaced]), and a rename ([rename]).
      * The access itself is written from there, never asked for from here ([setWidgetPlaced]).
      */
-    private val widgetsPage: WidgetHost? get() = if (Singleton.inScriptProcess) null else WidgetHost.get(context)
+    private val widgetsPage: WidgetHost?
+        get() = if (Singleton.inScriptProcess) null else WidgetHost.get(
+            context
+        )
 
     /**
      * The `widget` access that [code] gets under [name]: on when its widget is placed ([widgetPlaced]),
@@ -142,9 +157,11 @@ class ScriptRepository private constructor(private val context: Context) {
         var asks = emptyList<String>()
         val s = change(id) { found ->
             val declared = ScriptAccess.items(code).toSet()
-            val kept = found.copy(access = found.access.filter { (item, on) -> !on || item in declared || item == ScriptAccess.HEADER || item == ScriptAccess.WIDGET })
+            val kept =
+                found.copy(access = found.access.filter { (item, on) -> !on || item in declared || item == ScriptAccess.HEADER || item == ScriptAccess.WIDGET })
             val newUses = ScriptMeta.uses(code) - ScriptMeta.uses(kept.code) - kept.access.keys
-            val newEvents = ScriptMeta.events(code) - ScriptMeta.events(kept.code).toSet() - kept.access.keys
+            val newEvents =
+                ScriptMeta.events(code) - ScriptMeta.events(kept.code).toSet() - kept.access.keys
             val newInternet = newInternet(kept, code)
             val access = when {
                 byUser -> if (kept.enabled) kept.access + newUses.associateWith { true } else kept.access
@@ -156,9 +173,15 @@ class ScriptRepository private constructor(private val context: Context) {
             asks = newUses.toList() + newEvents + newInternet
         } ?: return
         // Code that no longer sets a status line leaves none behind on its card, in `status` or pinned.
-        if (ScriptMeta.setsStatus(s.code) && !ScriptMeta.setsStatus(code)) StatusLines.clear(context, s.name)
+        if (ScriptMeta.setsStatus(s.code) && !ScriptMeta.setsStatus(code)) StatusLines.clear(
+            context,
+            s.name
+        )
         // The same for its widgets: code without its `@widget` line leaves no content behind, on any of them.
-        if (ScriptMeta.widget(s.code) != null && ScriptMeta.widget(code) == null) WidgetStates.forgetScript(context, s.name)
+        if (ScriptMeta.widget(s.code) != null && ScriptMeta.widget(code) == null) WidgetStates.forgetScript(
+            context,
+            s.name
+        )
         forgetRemovedSecrets(s.name, code)
         if (!byUser && s.enabled) ScriptAccess.askToAllow(context, s.name, asks, "now requests")
     }
@@ -195,7 +218,11 @@ class ScriptRepository private constructor(private val context: Context) {
      * without asking.
      */
     private fun newInternet(s: Script, code: String): List<String> =
-        listOf(ScriptAccess.INTERNET).filter { it in ScriptAccess.items(code) && it !in ScriptAccess.items(s.code) && it !in s.access }
+        listOf(ScriptAccess.INTERNET).filter {
+            it in ScriptAccess.items(code) && it !in ScriptAccess.items(
+                s.code
+            ) && it !in s.access
+        }
 
     /** Forgets the values of `@secret` lines that the code no longer has, instead of keeping them unseen. */
     private fun forgetRemovedSecrets(script: String, code: String) {
@@ -217,7 +244,12 @@ class ScriptRepository private constructor(private val context: Context) {
         val s = change(id) { now ->
             put("code", code)
             put("enabled", 0)
-            put("access", ScriptAccess.encode(now.access.filter { (item, on) -> !on || item == ScriptAccess.WIDGET } + newInternet(now, code).associateWith { false } + placed))
+            put(
+                "access",
+                ScriptAccess.encode(now.access.filter { (item, on) -> !on || item == ScriptAccess.WIDGET } + newInternet(
+                    now,
+                    code
+                ).associateWith { false } + placed))
             put("changed_at", System.currentTimeMillis())
         } ?: return
         // Its timers follow a changed `@every` or `@at` line, as after an edit. A timer set in its sheet stays.
@@ -235,7 +267,8 @@ class ScriptRepository private constructor(private val context: Context) {
      * reading every script again.
      */
     fun fingerprint(): String = db.readableDatabase.rawQuery(
-        "SELECT COUNT(*), COALESCE(MAX(last_run), 0), COALESCE(SUM(enabled), 0), COALESCE(MAX(id), 0) FROM scripts", null,
+        "SELECT COUNT(*), COALESCE(MAX(last_run), 0), COALESCE(SUM(enabled), 0), COALESCE(MAX(id), 0) FROM scripts",
+        null,
     ).use { c ->
         c.moveToFirst()
         "${version.get()}:${c.getLong(0)}:${c.getLong(1)}:${c.getLong(2)}:${c.getLong(3)}"
@@ -250,8 +283,14 @@ class ScriptRepository private constructor(private val context: Context) {
     fun putBack(before: Script) {
         change(before.id) { now ->
             put("code", before.code)
-            put("access", ScriptAccess.encode(ScriptAccess.keepingWidget(before.access, now.access)))
-            if (before.changedAt == null) putNull("changed_at") else put("changed_at", before.changedAt)
+            put(
+                "access",
+                ScriptAccess.encode(ScriptAccess.keepingWidget(before.access, now.access))
+            )
+            if (before.changedAt == null) putNull("changed_at") else put(
+                "changed_at",
+                before.changedAt
+            )
         }
     }
 
@@ -265,7 +304,10 @@ class ScriptRepository private constructor(private val context: Context) {
     fun setEnabled(id: Long, enabled: Boolean, grant: Boolean = false) {
         val s = change(id) { now ->
             put("enabled", if (enabled) 1 else 0)
-            if (enabled && grant) put("access", ScriptAccess.encode(ScriptAccess.allowUndecided(now.code, now.access)))
+            if (enabled && grant) put(
+                "access",
+                ScriptAccess.encode(ScriptAccess.allowUndecided(now.code, now.access))
+            )
         } ?: return
         // Clear its status line either way. If switched off, the line would come back stale. If switched on,
         // a line left by a run while it was off would show.
@@ -278,7 +320,8 @@ class ScriptRepository private constructor(private val context: Context) {
 
     /** Applies the timers and notifications that [code] suggests (`@every`, `@at`, `@notify`), for a script just added. */
     fun applySuggested(id: Long, code: String) {
-        ScriptMeta.every(code)?.let { setInterval(id, it.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN)) }
+        ScriptMeta.every(code)
+            ?.let { setInterval(id, it.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN)) }
         ScriptMeta.at(code).takeIf { it.isNotEmpty() }?.let { setAtTimes(id, it) }
         if (ScriptMeta.notifies(code)) setNotify(id, true)
     }
@@ -318,8 +361,14 @@ class ScriptRepository private constructor(private val context: Context) {
             placedRows.set(name, ids.takeIf { it.isNotEmpty() }?.let(PlacedIds::encode))
             // The script as stored now: a switch set a moment ago is in it, and a rename has moved it away.
             val now = byName(name) ?: return@transaction null
-            val access = ScriptAccess.following(now.access, ids.isNotEmpty()) ?: return@transaction now
-            update("scripts", ContentValues().apply { put("access", ScriptAccess.encode(access)) }, "id = ?", arrayOf(now.id.toString()))
+            val access =
+                ScriptAccess.following(now.access, ids.isNotEmpty()) ?: return@transaction now
+            update(
+                "scripts",
+                ContentValues().apply { put("access", ScriptAccess.encode(access)) },
+                "id = ?",
+                arrayOf(now.id.toString())
+            )
             wrote = true
             now.copy(access = access)
         }
@@ -335,7 +384,8 @@ class ScriptRepository private constructor(private val context: Context) {
      * It writes only what differs.
      */
     fun followPlaced(placed: Map<String, Set<String>>) {
-        val wanted = placed.filterValues { it.isNotEmpty() }.mapValues { PlacedIds.encode(it.value) }
+        val wanted =
+            placed.filterValues { it.isNotEmpty() }.mapValues { PlacedIds.encode(it.value) }
         var wrote = false
         db.writableDatabase.transaction {
             val rows = placedRows.all()
@@ -343,9 +393,17 @@ class ScriptRepository private constructor(private val context: Context) {
             // Only the name and the access are read: no script's code is held while the database is locked.
             val changes = ArrayList<Pair<Long, Map<String, Boolean>>>()
             rawQuery("SELECT id, name, access FROM scripts", null).use { c ->
-                while (c.moveToNext()) ScriptAccess.following(ScriptAccess.parse(c.getString(2)), c.getString(1) in wanted)?.let { changes += c.getLong(0) to it }
+                while (c.moveToNext()) ScriptAccess.following(
+                    ScriptAccess.parse(c.getString(2)),
+                    c.getString(1) in wanted
+                )?.let { changes += c.getLong(0) to it }
             }
-            for ((id, access) in changes) update("scripts", ContentValues().apply { put("access", ScriptAccess.encode(access)) }, "id = ?", arrayOf(id.toString()))
+            for ((id, access) in changes) update(
+                "scripts",
+                ContentValues().apply { put("access", ScriptAccess.encode(access)) },
+                "id = ?",
+                arrayOf(id.toString())
+            )
             wrote = changes.isNotEmpty()
         }
         if (wrote) version.incrementAndGet()
@@ -375,20 +433,53 @@ class ScriptRepository private constructor(private val context: Context) {
         if (s.name == to) return
         val w = db.writableDatabase
         w.transaction {
-            update("scripts", ContentValues().apply { put("name", to); put("changed_at", System.currentTimeMillis()) }, "id = ?", arrayOf(id.toString()))
+            update(
+                "scripts",
+                ContentValues().apply {
+                    put("name", to); put(
+                    "changed_at",
+                    System.currentTimeMillis()
+                )
+                },
+                "id = ?",
+                arrayOf(id.toString())
+            )
             delete("kv", "scope = ?", arrayOf(SecretStore.scope(to)))
-            update("kv", ContentValues().apply { put("scope", SecretStore.scope(to)) }, "scope = ?", arrayOf(SecretStore.scope(s.name)))
+            update(
+                "kv",
+                ContentValues().apply { put("scope", SecretStore.scope(to)) },
+                "scope = ?",
+                arrayOf(SecretStore.scope(s.name))
+            )
             // Its options, and what you set for each of its further widgets.
-            moveNamed("scope", ScriptOptions.scope(s.name), ScriptOptions.furtherScopes(s.name), ScriptOptions.scope(to), ScriptOptions.furtherScopes(to))
+            moveNamed(
+                "scope",
+                ScriptOptions.scope(s.name),
+                ScriptOptions.furtherScopes(s.name),
+                ScriptOptions.scope(to),
+                ScriptOptions.furtherScopes(to)
+            )
             // Its status line, and which of its widgets are on the page. The placed list writes that row
             // again in a moment ([WidgetHost.renameScript]). Moved here, a run in between does not find the
             // script with its `widget` access on and no row, which would read as "the first widget is placed".
             for (scope in listOf(Stores.STATUS, Stores.STATUS_EXTRAS, Stores.WIDGET_PLACED)) {
                 delete("kv", "scope = ? AND k = ?", arrayOf(scope, to))
-                update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(scope, s.name))
+                update(
+                    "kv",
+                    ContentValues().apply { put("k", to) },
+                    "scope = ? AND k = ?",
+                    arrayOf(scope, s.name)
+                )
             }
             // What each of its widgets shows, and when it was set.
-            for (scope in listOf(Stores.WIDGET, Stores.WIDGET_META)) moveNamed("k", s.name, WidgetRef.further(s.name), to, WidgetRef.further(to), scope)
+            for (scope in listOf(Stores.WIDGET, Stores.WIDGET_META)) moveNamed(
+                "k",
+                s.name,
+                WidgetRef.further(s.name),
+                to,
+                WidgetRef.further(to),
+                scope
+            )
         }
         forgetOrigin(s.name)
         version.incrementAndGet()
@@ -403,7 +494,11 @@ class ScriptRepository private constructor(private val context: Context) {
      * kept for a script and for each of its widgets, and nothing of a script with a longer name.
      * The match is exact, never LIKE: `_` is in script names, and LIKE reads it as any character.
      */
-    private fun namedOrFurther(column: String, name: String, further: String): Pair<String, List<String>> =
+    private fun namedOrFurther(
+        column: String,
+        name: String,
+        further: String
+    ): Pair<String, List<String>> =
         "($column = ? OR substr($column, 1, ${further.length}) = ?)" to listOf(name, further)
 
     /**
@@ -414,12 +509,24 @@ class ScriptRepository private constructor(private val context: Context) {
      *   then starts with [toFurther] (`sky#2`).
      * - What was kept under the new name goes first ([namedOrFurther]).
      */
-    private fun SQLiteDatabase.moveNamed(column: String, from: String, fromFurther: String, to: String, toFurther: String, scope: String? = null) {
+    private fun SQLiteDatabase.moveNamed(
+        column: String,
+        from: String,
+        fromFurther: String,
+        to: String,
+        toFurther: String,
+        scope: String? = null
+    ) {
         val inScope = if (scope == null) "" else "scope = ? AND "
         val scopeArgs = listOfNotNull(scope)
         val (target, targetArgs) = namedOrFurther(column, to, toFurther)
         delete("kv", inScope + target, (scopeArgs + targetArgs).toTypedArray())
-        update("kv", ContentValues().apply { put(column, to) }, "$inScope$column = ?", (scopeArgs + from).toTypedArray())
+        update(
+            "kv",
+            ContentValues().apply { put(column, to) },
+            "$inScope$column = ?",
+            (scopeArgs + from).toTypedArray()
+        )
         execSQL(
             "UPDATE kv SET $column = ? || substr($column, ${fromFurther.length + 1}) WHERE ${inScope}substr($column, 1, ${fromFurther.length}) = ?",
             (listOf(toFurther) + scopeArgs + fromFurther).toTypedArray(),
@@ -438,7 +545,11 @@ class ScriptRepository private constructor(private val context: Context) {
         byId(id)?.let {
             SecretStore(context).clear(it.name)
             // Its options, and what you set for each of its further widgets.
-            val (options, args) = namedOrFurther("scope", ScriptOptions.scope(it.name), ScriptOptions.furtherScopes(it.name))
+            val (options, args) = namedOrFurther(
+                "scope",
+                ScriptOptions.scope(it.name),
+                ScriptOptions.furtherScopes(it.name)
+            )
             db.writableDatabase.delete("kv", options, args.toTypedArray())
             StatusLines.clear(context, it.name)
             // What its widgets showed goes. The widgets stay on the page and say the script was removed,
@@ -453,7 +564,12 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     private fun update(id: Long, block: ContentValues.() -> Unit) {
-        db.writableDatabase.update("scripts", ContentValues().apply(block), "id = ?", arrayOf(id.toString()))
+        db.writableDatabase.update(
+            "scripts",
+            ContentValues().apply(block),
+            "id = ?",
+            arrayOf(id.toString())
+        )
         version.incrementAndGet()
     }
 
@@ -478,9 +594,14 @@ class ScriptRepository private constructor(private val context: Context) {
             notify = getInt(getColumnIndexOrThrow("notify")) != 0,
             lastRun = if (isNull(lastRunIdx)) null else getLong(lastRunIdx),
             lastStatus = getString(getColumnIndexOrThrow("last_status")),
-            atTimes = getString(getColumnIndexOrThrow("at_times"))?.split(',')?.filter { it.isNotBlank() }.orEmpty(),
+            atTimes = getString(getColumnIndexOrThrow("at_times"))?.split(',')
+                ?.filter { it.isNotBlank() }.orEmpty(),
             access = ScriptAccess.parse(getString(getColumnIndexOrThrow("access"))),
-            changedAt = getColumnIndexOrThrow("changed_at").let { if (isNull(it)) null else getLong(it) },
+            changedAt = getColumnIndexOrThrow("changed_at").let {
+                if (isNull(it)) null else getLong(
+                    it
+                )
+            },
         )
     }
 

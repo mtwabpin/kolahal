@@ -18,16 +18,26 @@ import org.junit.runner.RunWith
 /** Turning notification access on, Kolahal first says what it reads and asks (Play's prominent disclosure). */
 @RunWith(AndroidJUnit4::class)
 class NotificationAccessTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
-    @get:Rule val access = NotificationAccess()
-    @get:Rule val logLines = LogLinesSince()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
+    @get:Rule
+    val access = NotificationAccess()
+    @get:Rule
+    val logLines = LogLinesSince()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
 
     /** What it reads, what for and that it stays on the phone; Not now and Allow each answer. */
-    @Test fun theDialogSaysWhatItReadsAndAsks() {
+    @Test
+    fun theDialogSaysWhatItReadsAndAsks() {
         var answer: Boolean? = null
-        compose.setContent { NotificationAccessDialog(onAllow = { answer = true }, onDismiss = { answer = false }) }
+        compose.setContent {
+            NotificationAccessDialog(
+                onAllow = { answer = true },
+                onDismiss = { answer = false })
+        }
         compose.onNodeWithText("Let Kolahal read your notifications?").assertExists()
         compose.onNodeWithText("which app, the title and the text", substring = true).assertExists()
         compose.onNodeWithText("They stay on this phone", substring = true).assertExists()
@@ -38,7 +48,8 @@ class NotificationAccessTest {
     }
 
     /** `notifs enable` with access off asks before anything opens; Not now leaves a line to ask again. */
-    @Test fun notifsEnableAsksFirst() {
+    @Test
+    fun notifsEnableAsksFirst() {
         access.set(false)
         val vm = vms.terminal(app)
         val logs = LogRepository.get(app)
@@ -47,6 +58,9 @@ class NotificationAccessTest {
         compose.waitUntil(5_000) { vm.notificationAccessAsk.value }
         compose.runOnUiThread { vm.answerNotificationAccess(false) }
         assertFalse(vm.notificationAccessAsk.value)
-        compose.waitUntil(5_000) { logs.recent(50).any { it.id > before && it.text.startsWith("Notification access is off") } }
+        compose.waitUntil(5_000) {
+            logs.recent(50)
+                .any { it.id > before && it.text.startsWith("Notification access is off") }
+        }
     }
 }

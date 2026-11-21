@@ -3,8 +3,6 @@
  */
 package com.mtwabpin.kolahal.unlock
 
-import com.mtwabpin.kolahal.data.Stores
-import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageEventsQuery
 import android.app.usage.UsageStatsManager
@@ -13,20 +11,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
-import android.os.Process
-import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.usage.UsageAccess
 import com.mtwabpin.kolahal.usage.UsageHistory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -58,8 +55,8 @@ class UnlockCounter private constructor(private val context: Context) {
                 com.mtwabpin.kolahal.script.TriggerDispatcher.get(context).fire("unlock")
                 refresh()
             }
-        // USER_PRESENT comes from SystemUI, not from the system's own uid, so a receiver that isn't
-        // exported never gets it. It is a protected broadcast, so only the system can send it anyway.
+            // USER_PRESENT comes from SystemUI, not from the system's own uid, so a receiver that isn't
+            // exported never gets it. It is a protected broadcast, so only the system can send it anyway.
         }, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_EXPORTED)
         refresh()
     }
@@ -117,7 +114,10 @@ class UnlockCounter private constructor(private val context: Context) {
         val usage = context.getSystemService(UsageStatsManager::class.java)
         // From Android 15, we can ask for unlock events only, instead of reading every event of the day.
         val events = if (Build.VERSION.SDK_INT >= 35) {
-            usage.queryEvents(UsageEventsQuery.Builder(from, until).setEventTypes(UsageEvents.Event.KEYGUARD_HIDDEN).build())
+            usage.queryEvents(
+                UsageEventsQuery.Builder(from, until)
+                    .setEventTypes(UsageEvents.Event.KEYGUARD_HIDDEN).build()
+            )
         } else {
             usage.queryEvents(from, until)
         } ?: return 0 to null
@@ -148,7 +148,9 @@ class UnlockCounter private constructor(private val context: Context) {
         savedCount(day)?.let { return it }
         // Without Android's data for the day: what Kolahal counted while it ran, if anything; this keeps
         // the counts from before usage access was allowed.
-        if (!hasUsageAccess() || !UsageHistory.hasData(context, day, today)) return counts.get(dayKey(day))?.toIntOrNull()
+        if (!hasUsageAccess() || !UsageHistory.hasData(context, day, today)) return counts.get(
+            dayKey(day)
+        )?.toIntOrNull()
         return countFor(day).also { counts.set(savedKey(day), it.toString()) }
     }
 
@@ -160,7 +162,8 @@ class UnlockCounter private constructor(private val context: Context) {
      */
     fun history(days: Int): List<Pair<LocalDate, Int>> {
         val today = LocalDate.now()
-        val all = (days - 1 downTo 0).map { today.minusDays(it.toLong()) }.map { d -> d to countOrNull(d) }
+        val all = (days - 1 downTo 0).map { today.minusDays(it.toLong()) }
+            .map { d -> d to countOrNull(d) }
         return all.dropWhile { it.second == null }.map { (d, n) -> d to (n ?: 0) }
     }
 
@@ -182,6 +185,5 @@ class UnlockCounter private constructor(private val context: Context) {
         prefs.edit(commit = true) { clear() }
     }
 
-    companion object : Singleton<UnlockCounter>(::UnlockCounter) {
-    }
+    companion object : Singleton<UnlockCounter>(::UnlockCounter)
 }

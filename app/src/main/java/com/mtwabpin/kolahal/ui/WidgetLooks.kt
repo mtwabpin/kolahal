@@ -60,19 +60,27 @@ val LocalInTile = staticCompositionLocalOf { false }
 internal fun SplitWhole(content: @Composable () -> Unit) {
     if (LocalWidgetLook.current != WidgetLook.SPLIT || LocalInTile.current) return content()
     // Split's card has no room around its body: the words keep some from the tile's edges.
-    Box(Modifier.fillMaxSize().clip(SplitCorners.inColumn(0, 1)).background(lookColors(WidgetLook.SPLIT).tile).padding(horizontal = 12.dp, vertical = 10.dp)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .clip(SplitCorners.inColumn(0, 1))
+            .background(lookColors(WidgetLook.SPLIT).tile)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
         CompositionLocalProvider(LocalInTile provides true) { content() }
     }
 }
 
 /** Whether a box is square enough for the card to be one shape: a 1×1 or a 2×2. */
-fun squareBox(widthDp: Int, heightDp: Int): Boolean = heightDp > 0 && widthDp.toFloat() / heightDp in 0.75f..1.34f
+fun squareBox(widthDp: Int, heightDp: Int): Boolean =
+    heightDp > 0 && widthDp.toFloat() / heightDp in 0.75f..1.34f
 
 /**
  * Whether the card frame leaves the title to the body: Bold, Split and Shape have no title line.
  * The frame then gives the title through [LocalUntitled], for the body to place where it fits.
  */
-fun WidgetLook.untitled(): Boolean = this == WidgetLook.BOLD || this == WidgetLook.SPLIT || this == WidgetLook.SHAPE
+fun WidgetLook.untitled(): Boolean =
+    this == WidgetLook.BOLD || this == WidgetLook.SPLIT || this == WidgetLook.SHAPE
 
 /**
  * The colours a card draws with, for its look and its colour [role] ([roleColour]).
@@ -103,7 +111,10 @@ fun roleContainer(role: Color): Color = lerp(MaterialTheme.colorScheme.surface, 
 
 /** The colours for [look] and the card's colour [role]. */
 @Composable
-fun lookColors(look: WidgetLook = LocalWidgetLook.current, role: Color = MaterialTheme.colorScheme.primary): LookColors {
+fun lookColors(
+    look: WidgetLook = LocalWidgetLook.current,
+    role: Color = MaterialTheme.colorScheme.primary
+): LookColors {
     val scheme = MaterialTheme.colorScheme
     val container = roleContainer(role)
     return when (look) {
@@ -117,6 +128,7 @@ fun lookColors(look: WidgetLook = LocalWidgetLook.current, role: Color = Materia
             onAccent = scheme.surface,
             shapeFill = container,
         )
+
         WidgetLook.SPLIT -> LookColors(
             card = Color.Transparent,
             content = scheme.onSurface,
@@ -126,6 +138,7 @@ fun lookColors(look: WidgetLook = LocalWidgetLook.current, role: Color = Materia
             onAccent = scheme.surface,
             shapeFill = container,
         )
+
         else -> LookColors(
             card = scheme.surfaceContainerHigh,
             content = scheme.onSurface,
@@ -174,6 +187,7 @@ private fun midway(a: Color, b: Color, from: Color, toward: Color): Color {
         val (hi, lo) = listOf(x.luminance(), y.luminance()).sortedDescending()
         return (hi + 0.05f) / (lo + 0.05f)
     }
+
     var low = 0f
     var high = 1f
     repeat(16) {
@@ -188,6 +202,7 @@ private fun midway(a: Color, b: Color, from: Color, toward: Color): Color {
 object SplitCorners {
     val OUTER: Dp = 28.dp
     val INNER: Dp = 8.dp
+
     /** Space between two tiles. */
     val GAP: Dp = 4.dp
 
@@ -195,12 +210,13 @@ object SplitCorners {
      * The shape of one tile, by which of the card's outside corners it touches: top start, top
      * end, bottom end, bottom start.
      */
-    fun tile(topStart: Boolean, topEnd: Boolean, bottomEnd: Boolean, bottomStart: Boolean): Shape = RoundedCornerShape(
-        topStart = if (topStart) OUTER else INNER,
-        topEnd = if (topEnd) OUTER else INNER,
-        bottomEnd = if (bottomEnd) OUTER else INNER,
-        bottomStart = if (bottomStart) OUTER else INNER,
-    )
+    fun tile(topStart: Boolean, topEnd: Boolean, bottomEnd: Boolean, bottomStart: Boolean): Shape =
+        RoundedCornerShape(
+            topStart = if (topStart) OUTER else INNER,
+            topEnd = if (topEnd) OUTER else INNER,
+            bottomEnd = if (bottomEnd) OUTER else INNER,
+            bottomStart = if (bottomStart) OUTER else INNER,
+        )
 
     /** Tile [index] of [count] in a column that fills the card: the first takes the top corners, the last the bottom. */
     fun inColumn(index: Int, count: Int): Shape =
@@ -219,7 +235,12 @@ object SplitCorners {
         val row = index / columns
         val col = index % columns
         val lastInRow = col == columns - 1 || index == count - 1
-        return tile(row == 0 && col == 0, row == 0 && lastInRow, row == rows - 1 && lastInRow, row == rows - 1 && col == 0)
+        return tile(
+            row == 0 && col == 0,
+            row == 0 && lastInRow,
+            row == rows - 1 && lastInRow,
+            row == rows - 1 && col == 0
+        )
     }
 }
 
@@ -247,7 +268,12 @@ fun rankPolygon(index: Int): RoundedPolygon = when (index % 3) {
 
 /** Whether this phone has a narrow sans-serif for Bold's big values. Android returns its default type for a name it lacks. */
 private val hasNarrow: Boolean by lazy {
-    runCatching { Typeface.create("sans-serif-condensed", Typeface.NORMAL) !== Typeface.DEFAULT }.getOrDefault(false)
+    runCatching {
+        Typeface.create(
+            "sans-serif-condensed",
+            Typeface.NORMAL
+        ) !== Typeface.DEFAULT
+    }.getOrDefault(false)
 }
 
 /** Android's own narrow sans-serif, the condensed Roboto, in the weights Bold uses. */

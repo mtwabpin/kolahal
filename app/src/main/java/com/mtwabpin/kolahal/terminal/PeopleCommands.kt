@@ -32,7 +32,12 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         if (!com.mtwabpin.kolahal.BuildConfig.CALL_LOG) return error("This build can't read the call log, so calls isn't available")
         when (args.firstOrNull()) {
             "--allow" -> return if (CallEvents.hasPermission(context)) info("Call log is allowed") else ui.requestCallLogPermission()
-            "--settings" -> return startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
+            "--settings" -> return startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", context.packageName, null)
+                )
+            )
         }
         if (!CallEvents.hasPermission(context)) {
             fix("Calls need call log access — tap to allow", "calls --allow")
@@ -42,7 +47,14 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         val list = CallEvents.recent(context, n)
         if (list.isEmpty()) return info("No calls in the call log")
         // Log these as call lines, like the live ones. So they stay out of backups and are copied as sensitive.
-        list.forEach { logs.add(LogKind.OUTPUT, CallEvents.line(it, conf, withDay = true), CallEvents.SOURCE, CallEvents.ctx(it)) }
+        list.forEach {
+            logs.add(
+                LogKind.OUTPUT,
+                CallEvents.line(it, conf, withDay = true),
+                CallEvents.SOURCE,
+                CallEvents.ctx(it)
+            )
+        }
     }
 
     /**
@@ -83,11 +95,19 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         val who = args.firstOrNull()
         if (who == null && !contacts.picker) return error("Usage: sms <name|number> [message]")
         val body = args.drop(1).joinToString(" ")
-        if (who != null && ContactsRepository.looksLikeNumber(who)) message(who, body) else withContact(who.orEmpty()) { message(it.number, body) }
+        if (who != null && ContactsRepository.looksLikeNumber(who)) message(
+            who,
+            body
+        ) else withContact(who.orEmpty()) { message(it.number, body) }
     }
 
     private fun message(number: String, body: String) {
-        startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)).putExtra("sms_body", body))
+        startActivity(
+            Intent(
+                Intent.ACTION_SENDTO,
+                Uri.fromParts("smsto", number, null)
+            ).putExtra("sms_body", body)
+        )
         info("Message to $number", LogContext.of(LogContext.PHONE to number))
     }
 
@@ -98,7 +118,11 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             ui.requestContactsPermission()
             return
         }
-        val list = if (query.isBlank()) contacts.current().let { all -> all.filter { it.starred }.ifEmpty { all.take(20) } } else contacts.search(query, 20)
+        val list = if (query.isBlank()) contacts.current()
+            .let { all -> all.filter { it.starred }.ifEmpty { all.take(20) } } else contacts.search(
+            query,
+            20
+        )
         if (list.isEmpty()) return info(if (query.isBlank()) "No contacts" else "No contact matches '$query'")
         list.forEach(::contactLine)
     }
@@ -107,17 +131,28 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
     private fun pickedContacts(query: String) {
         when {
             query == "--allow" -> info("This build doesn't read your contacts: call, sms and contacts open Android's contact picker, and remember who you pick")
-            query == "--forget" || query.startsWith("--forget ") -> forget(query.removePrefix("--forget").trim())
+            query == "--forget" || query.startsWith("--forget ") -> forget(
+                query.removePrefix("--forget").trim()
+            )
+
             query.isBlank() -> ui.pickContact(::contactLine)
-            else -> contacts.search(query, 20).ifEmpty { return ui.pickContact(::contactLine) }.forEach(::contactLine)
+            else -> contacts.search(query, 20).ifEmpty { return ui.pickContact(::contactLine) }
+                .forEach(::contactLine)
         }
     }
 
     private fun forget(name: String) {
         if (name.isBlank()) return error("Usage: contacts --forget <name>")
         val names = contacts.search(name, 50).map { it.name }.distinct()
-        val target = names.firstOrNull { it.equals(name, ignoreCase = true) } ?: names.singleOrNull()
-            ?: return error(if (names.isEmpty()) "No picked contact matches '$name'" else "'$name' matches ${names.joinToString(", ")}: give the whole name")
+        val target =
+            names.firstOrNull { it.equals(name, ignoreCase = true) } ?: names.singleOrNull()
+            ?: return error(
+                if (names.isEmpty()) "No picked contact matches '$name'" else "'$name' matches ${
+                    names.joinToString(
+                        ", "
+                    )
+                }: give the whole name"
+            )
         contacts.forget(target)
         info("Forgot $target")
     }
@@ -130,7 +165,8 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         fun ctx(c: Contact) = LogContext.of(
             LogContext.PHONE to c.number,
             LogContext.CONTACT to c.lookupUri.toString().ifEmpty { null },
-            LogContext.DESC to listOf(c.number, c.label).filter { it.isNotEmpty() }.joinToString(" · "),
+            LogContext.DESC to listOf(c.number, c.label).filter { it.isNotEmpty() }
+                .joinToString(" · "),
             // The picture beside the line: the photo, or the name's first letters.
             LogContext.PERSON to c.name,
             LogContext.PHOTO to c.photoUri,

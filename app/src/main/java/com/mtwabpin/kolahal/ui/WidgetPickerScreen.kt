@@ -71,10 +71,10 @@ import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
-import com.mtwabpin.kolahal.widgets.providerApps
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
+import com.mtwabpin.kolahal.widgets.providerApps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -103,17 +103,41 @@ private fun Drawable.toImage(maxPx: Int): ImageBitmap? = runCatching {
     val w = intrinsicWidth.takeIf { it > 0 } ?: maxPx
     val h = intrinsicHeight.takeIf { it > 0 } ?: maxPx
     val scale = minOf(1f, maxPx.toFloat() / maxOf(w, h))
-    toBitmap((w * scale).toInt().coerceAtLeast(1), (h * scale).toInt().coerceAtLeast(1)).asImageBitmap()
+    toBitmap(
+        (w * scale).toInt().coerceAtLeast(1),
+        (h * scale).toInt().coerceAtLeast(1)
+    ).asImageBitmap()
 }.getOrNull()
 
 /** The picker's groups: the widgets by app and profile ([providerApps]), each with its app's icon and profile badge. Off the main thread. */
-private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Profile>, iconPx: Int): List<ProviderGroup> {
+private fun loadGroups(
+    context: Context,
+    widgets: WidgetHost,
+    profiles: List<Profile>,
+    iconPx: Int
+): List<ProviderGroup> {
     val pm = context.packageManager
     return widgets.providerApps(context).map { a ->
-        val icon = a.app?.let { runCatching { pm.getUserBadgedIcon(pm.getApplicationIcon(it), a.user) }.getOrNull() }?.toImage(iconPx)
-        val kind = profiles.firstOrNull { it.serial == a.serial }?.kind?.takeIf { it != ProfileKind.PERSONAL }
+        val icon = a.app?.let {
+            runCatching {
+                pm.getUserBadgedIcon(
+                    pm.getApplicationIcon(it),
+                    a.user
+                )
+            }.getOrNull()
+        }?.toImage(iconPx)
+        val kind =
+            profiles.firstOrNull { it.serial == a.serial }?.kind?.takeIf { it != ProfileKind.PERSONAL }
         val texts = a.names.zip(a.descriptions) { name, description -> CardText(name, description) }
-        ProviderGroup("${a.pkg}:${a.serial}", a.label, icon, kind, a.providers, a.names.map { it.lowercase() }, texts)
+        ProviderGroup(
+            "${a.pkg}:${a.serial}",
+            a.label,
+            icon,
+            kind,
+            a.providers,
+            a.names.map { it.lowercase() },
+            texts
+        )
     }.sortedWith(compareBy({ it.label.lowercase() }, { it.work?.ordinal ?: -1 }))
 }
 
@@ -123,7 +147,13 @@ private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Pro
  * - [what] is the row's second line: the kind.
  * - [search] is its title, name and kind in lowercase.
  */
-internal class PickerScriptRow(val script: String, val title: String, val what: String, val size: WidgetSize, val search: String) {
+internal class PickerScriptRow(
+    val script: String,
+    val title: String,
+    val what: String,
+    val size: WidgetSize,
+    val search: String
+) {
     /** The source of the script's first widget: `script:<name>`. */
     val source: String get() = WidgetSource.script(script)
 }
@@ -134,10 +164,19 @@ internal class PickerScriptRow(val script: String, val title: String, val what: 
  * [scripts] are the scripts as the view model has read them ([WidgetScript]). No code is read here,
  * so this is cheap enough for the main thread.
  */
-internal fun pickerScriptRows(scripts: Collection<WidgetScript>): List<PickerScriptRow> = scripts.mapNotNull { s ->
-    val title = s.title ?: s.name
-    s.widget?.let { w -> PickerScriptRow(s.name, title, w.kind.id.replaceFirstChar { it.uppercase() }, w.size, "$title ${s.name} ${w.kind.id}".lowercase()) }
-}.sortedBy { it.title.lowercase() }
+internal fun pickerScriptRows(scripts: Collection<WidgetScript>): List<PickerScriptRow> =
+    scripts.mapNotNull { s ->
+        val title = s.title ?: s.name
+        s.widget?.let { w ->
+            PickerScriptRow(
+                s.name,
+                title,
+                w.kind.id.replaceFirstChar { it.uppercase() },
+                w.size,
+                "$title ${s.name} ${w.kind.id}".lowercase()
+            )
+        }
+    }.sortedBy { it.title.lowercase() }
 
 /**
  * What a row of the picker's Kolahal section says about the widgets of its kind that are on the
@@ -160,7 +199,13 @@ internal fun pickerAdded(placed: Int, most: Int = 1): String? = when {
  * - [what] is the row's second line.
  * - [search] is its title and what it shows, in lowercase.
  */
-internal class PickerBuiltinRow(val id: String, val title: String, val what: String, val size: WidgetSize, val search: String) {
+internal class PickerBuiltinRow(
+    val id: String,
+    val title: String,
+    val what: String,
+    val size: WidgetSize,
+    val search: String
+) {
     val source: String get() = WidgetSource.builtin(id)
 }
 
@@ -189,7 +234,8 @@ internal val pickerBuiltinRows: List<PickerBuiltinRow> = listOf(
 ).filter { it.id == WidgetSource.BATTERY || OwnCards.draws(it.id) }
 
 /** The header of the picker's first section: Kolahal's own widgets. Some are built in, and your scripts fill the others. */
-private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, emptyList(), emptyList(), emptyList())
+private val kolahalGroup =
+    ProviderGroup("kolahal", "Kolahal", null, null, emptyList(), emptyList(), emptyList())
 
 /**
  * The widget picker.
@@ -258,8 +304,23 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             groups?.let { all ->
                 if (words.isEmpty()) all else all.mapNotNull { g ->
                     if (SearchWords.allIn(words, listOf(g.label))) g
-                    else g.providers.indices.filter { SearchWords.allIn(words, listOf(g.label, g.names[it])) }
-                        .takeIf { it.isNotEmpty() }?.let { found -> ProviderGroup(g.key, g.label, g.icon, g.work, found.map(g.providers::get), found.map(g.names::get), found.map(g.texts::get)) }
+                    else g.providers.indices.filter {
+                        SearchWords.allIn(
+                            words,
+                            listOf(g.label, g.names[it])
+                        )
+                    }
+                        .takeIf { it.isNotEmpty() }?.let { found ->
+                            ProviderGroup(
+                                g.key,
+                                g.label,
+                                g.icon,
+                                g.work,
+                                found.map(g.providers::get),
+                                found.map(g.names::get),
+                                found.map(g.texts::get)
+                            )
+                        }
                 }
             }
         }
@@ -268,7 +329,12 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             // A search for "Kolahal" itself keeps the whole section, as an app's name keeps all its widgets.
             if (SearchWords.allIn(words, listOf(kolahalGroup.label))) pickerBuiltinRows to own
             else {
-                val finds = { search: String -> SearchWords.allIn(words, listOf(kolahalGroup.label, search)) }
+                val finds = { search: String ->
+                    SearchWords.allIn(
+                        words,
+                        listOf(kolahalGroup.label, search)
+                    )
+                }
                 pickerBuiltinRows.filter { finds(it.search) } to own.filter { finds(it.search) }
             }
         }
@@ -297,22 +363,37 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             if (anyOwn) {
                 item(key = "g:kolahal") { AppHeader(kolahalGroup) }
                 items(builtinsShown, key = { "s:${it.source}" }) { b ->
-                    KolahalWidgetCard(b.title, b.what, b.size, added = pickerAdded(if (b.source in added) 1 else 0)) {
+                    KolahalWidgetCard(
+                        b.title,
+                        b.what,
+                        b.size,
+                        added = pickerAdded(if (b.source in added) 1 else 0)
+                    ) {
                         picked(widgets.placeBuiltin(b.id, b.size), b.title)
                     }
                 }
                 items(ownShown, key = { "s:${it.source}" }) { w ->
                     // A script's widget can be placed several times.
-                    KolahalWidgetCard(w.title, w.what, w.size, added = pickerAdded(scriptWidgets[w.script] ?: 0, WidgetRef.MAX_PER_SCRIPT)) {
+                    KolahalWidgetCard(
+                        w.title,
+                        w.what,
+                        w.size,
+                        added = pickerAdded(scriptWidgets[w.script] ?: 0, WidgetRef.MAX_PER_SCRIPT)
+                    ) {
                         // The script as it is now. One that was deleted a moment ago places nothing.
-                        val script = vm.scriptList.value.firstOrNull { it.name == w.script } ?: return@KolahalWidgetCard
+                        val script = vm.scriptList.value.firstOrNull { it.name == w.script }
+                            ?: return@KolahalWidgetCard
                         val onPage = widgets.placedOf(w.script)
-                        val full = "${w.title} has ${WidgetRef.MAX_PER_SCRIPT} widgets already, the most a script may have"
+                        val full =
+                            "${w.title} has ${WidgetRef.MAX_PER_SCRIPT} widgets already, the most a script may have"
                         when {
                             !WidgetRef.roomFor(onPage.map { it.id }) -> widgets.message(full)
                             // Its first widget, when that one is not on the page. A run on the script's
                             // timer fills only the first, so it comes before any further widget.
-                            onPage.none { it.first } -> picked(widgets.placeScript(script, w.size), w.title)
+                            onPage.none { it.first } -> picked(
+                                widgets.placeScript(script, w.size),
+                                w.title
+                            )
                             // It has its first widget: this is a further one, with options of its own.
                             else -> when (val ref = widgets.placeAnother(script, w.size)) {
                                 null -> widgets.message(full)
@@ -320,7 +401,9 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                                     picked(true, ref.titled(w.title))
                                     // The Widgets screen shows its options, to set what differs from the
                                     // script's own. A script that declares none has nothing to set.
-                                    if (scripts?.get(w.script)?.hasOptions == true) vm.askWidgetOptions(ref)
+                                    if (scripts?.get(w.script)?.hasOptions == true) vm.askWidgetOptions(
+                                        ref
+                                    )
                                 }
                             }
                         }
@@ -339,9 +422,18 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                         },
                     )
                 }
+
                 else -> shown.forEach { g ->
                     item(key = "g:${g.key}") { AppHeader(g) }
-                    itemsIndexed(g.providers, key = { _, p -> "p:${g.key}:${p.flat}" }) { i, p -> ProviderCard(p, g.texts[i], widgets) { onPick(p) } }
+                    itemsIndexed(
+                        g.providers,
+                        key = { _, p -> "p:${g.key}:${p.flat}" }) { i, p ->
+                        ProviderCard(
+                            p,
+                            g.texts[i],
+                            widgets
+                        ) { onPick(p) }
+                    }
                 }
             }
         }
@@ -350,14 +442,34 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
 
 @Composable
 private fun AppHeader(g: ProviderGroup) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 4.dp)) {
-        if (g.icon != null) Image(g.icon, null, Modifier.size(32.dp)) else Icon(painterResource(R.drawable.ic_widgets), null, Modifier.size(32.dp))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 4.dp)
+    ) {
+        if (g.icon != null) Image(
+            g.icon,
+            null,
+            Modifier.size(32.dp)
+        ) else Icon(painterResource(R.drawable.ic_widgets), null, Modifier.size(32.dp))
         Spacer(Modifier.width(12.dp))
-        Text(g.label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f, fill = false))
+        Text(
+            g.label,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f, fill = false)
+        )
         if (g.work != null) {
             Spacer(Modifier.width(8.dp))
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer) {
-                Text(g.work.label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp))
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            ) {
+                Text(
+                    g.work.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                )
             }
         }
     }
@@ -370,16 +482,30 @@ private fun AppHeader(g: ProviderGroup) {
  * nothing. A plain row for now, with no drawn sample of the kind.
  */
 @Composable
-private fun KolahalWidgetCard(title: String, what: String, size: WidgetSize, added: String?, onClick: () -> Unit) {
+private fun KolahalWidgetCard(
+    title: String,
+    what: String,
+    size: WidgetSize,
+    added: String?,
+    onClick: () -> Unit
+) {
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Text(
                     what,
                     style = MaterialTheme.typography.bodySmall,
@@ -400,13 +526,22 @@ private fun KolahalWidgetCard(title: String, what: String, size: WidgetSize, add
                 )
             }
             Spacer(Modifier.width(8.dp))
-            Text("${size.cells}×${size.rows}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
+            Text(
+                "${size.cells}×${size.rows}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.outline
+            )
         }
     }
 }
 
 @Composable
-private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, onClick: () -> Unit) {
+private fun ProviderCard(
+    p: ProviderEntry,
+    text: CardText,
+    widgets: WidgetHost,
+    onClick: () -> Unit
+) {
     val context = LocalContext.current
     val info = p.info
     val label = text.label
@@ -425,7 +560,8 @@ private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, 
             runCatching { info.loadIcon(context, 0) }.getOrNull()?.toImage(maxPx / 3)
         }?.also { pickerImages.put("$loaded:icon", it) }
     }
-    val canLayoutPreview = Build.VERSION.SDK_INT >= 31 && info.previewLayout != 0 && p.user == Process.myUserHandle()
+    val canLayoutPreview =
+        Build.VERSION.SDK_INT >= 31 && info.previewLayout != 0 && p.user == Process.myUserHandle()
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -443,7 +579,15 @@ private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, 
             ) {
                 val img = preview
                 when {
-                    img != null -> Image(img, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(8.dp))
+                    img != null -> Image(
+                        img,
+                        null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                    )
+
                     canLayoutPreview -> LayoutPreview(info)
                     icon != null -> Image(icon!!, null, Modifier.size(56.dp))
                     else -> Icon(painterResource(R.drawable.ic_widgets), null, Modifier.size(40.dp))
@@ -451,12 +595,28 @@ private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, 
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(Modifier.width(8.dp))
-                Text(widgets.sizeLabel(info), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
+                Text(
+                    widgets.sizeLabel(info),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.outline
+                )
             }
             if (!description.isNullOrBlank()) {
-                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -476,7 +636,13 @@ private fun LayoutPreview(info: AppWidgetProviderInfo) {
                     val view = AppWidgetHostView(ctx)
                     view.setAppWidget(0, info)
                     view.updateAppWidget(RemoteViews(info.provider.packageName, info.previewLayout))
-                    addView(view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+                    addView(
+                        view,
+                        FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT
+                        )
+                    )
                 }
             }
         },

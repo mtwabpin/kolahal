@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,9 +70,11 @@ fun SettingsOverHome(vm: TerminalViewModel) {
                     if (p.key == Keys.WIDGETS_WALLPAPER.key) WidgetPanel(vm)
                     else TerminalScreen(vm, preview = p)
                     Box(
-                        Modifier.fillMaxSize().pointerInput(Unit) {
-                            awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
-                        },
+                        Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
+                            },
                     )
                 }
             }
@@ -98,7 +99,11 @@ fun SettingsScreen(vm: TerminalViewModel) {
     val open = allCategories().firstOrNull { it.id == openId }
     // The Commands page's search. It is empty again each time that page opens.
     val commandsOpen = open?.id == COMMANDS_CATEGORY
-    var commandQuery by androidx.compose.runtime.saveable.rememberSaveable(commandsOpen) { mutableStateOf("") }
+    var commandQuery by androidx.compose.runtime.saveable.rememberSaveable(commandsOpen) {
+        mutableStateOf(
+            ""
+        )
+    }
     val crashPage = openId == CRASHES_PAGE
     val aboutPage = openId == ABOUT_PAGE
     // Crash reports open from About, so Back returns to About.
@@ -115,7 +120,16 @@ fun SettingsScreen(vm: TerminalViewModel) {
     val inUse = themeInUse
     // Some settings only apply when another setting is on (for example, the key bar's rows need the
     // key bar). They show only once that setting is on.
-    val applicable by remember { derivedStateOf { version.value; Keys.ALL.filterTo(HashSet()) { applies(it, config) } } }
+    val applicable by remember {
+        derivedStateOf {
+            version.value; Keys.ALL.filterTo(HashSet()) {
+            applies(
+                it,
+                config
+            )
+        }
+        }
+    }
     // Read it here, not in the list's content below. Reading a derived value while the list measures
     // can deadlock with a snapshot applied from another thread (Compose tests do that).
     val applicableKeys = applicable
@@ -123,7 +137,11 @@ fun SettingsScreen(vm: TerminalViewModel) {
     // For About → Crash reports. They are read off the main thread, and read again after a delete.
     var crashReads by remember { mutableIntStateOf(0) }
     var openCrash by remember { mutableStateOf<CrashRow?>(null) }
-    val crashes by produceIo<List<CrashRow>?>(null, crashReads, what = "Reading the crash reports") { crashRows(context) }
+    val crashes by produceIo<List<CrashRow>?>(
+        null,
+        crashReads,
+        what = "Reading the crash reports"
+    ) { crashRows(context) }
     val crashList = crashes
     // While home shows through Settings (slider dragged or eye held), everything except that slider fades out.
     val peek by vm.peek.collectAsStateWithLifecycle()
@@ -132,7 +150,8 @@ fun SettingsScreen(vm: TerminalViewModel) {
         if (peek == null) 1f else 0f, tween(PEEK_FADE_MS), label = "peek",
     )
     val tapScope = rememberCoroutineScope()
-    val importTheme = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), vm::importTheme)
+    val importTheme =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), vm::importTheme)
     // Back closes, in order: the Commands page's search, an open category page, then the search, then Settings.
     BackHandler {
         when {
@@ -144,163 +163,282 @@ fun SettingsScreen(vm: TerminalViewModel) {
     }
 
     GuiTheme {
-      Box(Modifier.fillMaxSize()) {
-        val snackbar = rememberNoticeSnackbar(vm)
-        // A message from the About and crash pages (ui/About.kt): for example, no app can open a link.
-        val say: (String) -> Unit = { text -> tapScope.launch { snackbar.showSnackbar(text) } }
-        // "Reset …" with Undo, after a setting is reset to its default.
-        val undo = undoMessage(tapScope, snackbar)
+        Box(Modifier.fillMaxSize()) {
+            val snackbar = rememberNoticeSnackbar(vm)
+            // A message from the About and crash pages (ui/About.kt): for example, no app can open a link.
+            val say: (String) -> Unit = { text -> tapScope.launch { snackbar.showSnackbar(text) } }
+            // "Reset …" with Undo, after a setting is reset to its default.
+            val undo = undoMessage(tapScope, snackbar)
 
-        GuiListPage(
-            title = { Text(open?.title ?: if (crashPage) "Crash reports" else if (aboutPage) "About" else "Settings") },
-            subtitle = if (pageSubtitle != null) { { Text(pageSubtitle) } } else null,
-            onBack = { if (open != null || aboutPage || crashPage) closePage() else vm.closeScreen() },
-            snackbar = snackbar,
-            actions = {
-                PEEK_PAGES[open?.id]?.let { typing ->
-                    PeekButton(
-                        onHold = { holding -> vm.peek(if (holding) TerminalViewModel.Peek(null, typing) else null) },
-                        onTap = {
-                            tapScope.launch {
-                                snackbar.currentSnackbarData?.dismiss()
-                                snackbar.showSnackbar("Tap and hold the eye to see the home screen")
+            GuiListPage(
+                title = {
+                    Text(
+                        open?.title
+                            ?: if (crashPage) "Crash reports" else if (aboutPage) "About" else "Settings"
+                    )
+                },
+                subtitle = if (pageSubtitle != null) {
+                    { Text(pageSubtitle) }
+                } else null,
+                onBack = { if (open != null || aboutPage || crashPage) closePage() else vm.closeScreen() },
+                snackbar = snackbar,
+                actions = {
+                    PEEK_PAGES[open?.id]?.let { typing ->
+                        PeekButton(
+                            onHold = { holding ->
+                                vm.peek(
+                                    if (holding) TerminalViewModel.Peek(
+                                        null,
+                                        typing
+                                    ) else null
+                                )
+                            },
+                            onTap = {
+                                tapScope.launch {
+                                    snackbar.currentSnackbarData?.dismiss()
+                                    snackbar.showSnackbar("Tap and hold the eye to see the home screen")
+                                }
+                            },
+                        )
+                    }
+                },
+                fade = { shown.value },
+                top = 0.dp,
+                verticalArrangement = Arrangement.Top,
+                // The Header page pins a preview of the top of home, so the user sees each change.
+                // Only when the header is on: when it is off, there is no header to show.
+                pinned = if (remember(version.value) { config[Keys.HEADER_SHOW] } && open?.id == HEADER_CATEGORY) {
+                    { PeekFade(peek) { HeaderPreview(vm) } }
+                } else null,
+            ) {
+                if (open != null) {
+                    open.manage?.let { (title, subtitle, screen) ->
+                        item(key = "manage:${open.id}") {
+                            PeekFade(peek) {
+                                Spacer(Modifier.height(8.dp))
+                                ActionGroup(
+                                    listOf(
+                                        Action(
+                                            open.icon,
+                                            title,
+                                            subtitle,
+                                            chevron = true
+                                        ) { vm.openScreen(screen) })
+                                )
                             }
+                        }
+                    }
+                    for ((title, all) in open.groups) {
+                        val keys = all.filter { it in applicableKeys }
+                        if (keys.isEmpty()) continue
+                        item(key = "h:${open.id}:$title") {
+                            PeekFade(
+                                peek,
+                                modifier = Modifier.animateItem()
+                            ) { if (title != null) GroupHeader(title) else Spacer(Modifier.height(8.dp)) }
+                        }
+                        keys.forEachIndexed { index, key ->
+                            item(key = key.key) {
+                                PeekFade(
+                                    peek,
+                                    keep = peek?.key == key.key,
+                                    modifier = Modifier.animateItem()
+                                ) {
+                                    SettingItem(vm, key, version, index, keys.size, undo)
+                                }
+                            }
+                        }
+                    }
+                    if (open.id == BACKUP_CATEGORY) {
+                        item(key = "h:backup-files") { Spacer(Modifier.height(16.dp)) }
+                        item(key = "backup") {
+                            val backupVersion by vm.backupActions.backupVersion.collectAsStateWithLifecycle()
+                            val folder by produceState<String?>(null, backupVersion) {
+                                value =
+                                    withContext(Dispatchers.IO) { vm.backupActions.backupFolderLine() }
+                            }
+                            ActionGroup(
+                                listOf(
+                                    Action(
+                                        R.drawable.ic_folder,
+                                        "Backup folder",
+                                        folder
+                                            ?: "Not chosen yet: automatic backups and Back up now write there"
+                                    ) { vm.askBackupFolder(false) },
+                                    Action(
+                                        R.drawable.ic_download,
+                                        "Back up now",
+                                        "Today's backup file, in the backup folder",
+                                        onClick = { vm.backupActions.backUpNow() }),
+                                    Action(
+                                        R.drawable.ic_download,
+                                        "Export everything",
+                                        "Settings, apps, scripts, todos, notes, reminders, feeds and the log in one file (notification and call lines stay on the phone)",
+                                        onClick = vm::requestBackupExport
+                                    ),
+                                    Action(
+                                        R.drawable.ic_upload,
+                                        "Import a backup",
+                                        "Restores everything (replaces todos, notes, feeds and the log)",
+                                        onClick = vm::requestBackupImport
+                                    ),
+                                )
+                            )
+                        }
+                    }
+                    if (commandsOpen) commandsPage(vm, version, commandQuery) { commandQuery = it }
+                    if (open.id == "look") {
+                        item(key = "h:own-themes") { PeekFade(peek) { GroupHeader("Your themes") } }
+                        item(key = "own-themes") {
+                            PeekFade(peek) {
+                                ActionGroup(
+                                    ownThemes.map { name ->
+                                        Action(
+                                            R.drawable.ic_palette,
+                                            name,
+                                            if (name == inUse) "In use · tap to change it" else "Tap to change it",
+                                            chevron = true
+                                        ) {
+                                            vm.openThemeBuilder(name)
+                                        }
+                                    } + Action(
+                                        R.drawable.ic_add,
+                                        "Create a theme",
+                                        "Start from the theme in use and pick any colour",
+                                        chevron = true
+                                    ) {
+                                        vm.openThemeBuilder(null)
+                                    } + Action(
+                                        R.drawable.ic_upload,
+                                        "Import a theme",
+                                        "A theme file someone shared, or one you exported"
+                                    ) {
+                                        importTheme.launch(
+                                            arrayOf(
+                                                "application/json",
+                                                "text/*",
+                                                "application/octet-stream"
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    return@GuiListPage
+                }
+
+                if (aboutPage) {
+                    aboutItems(
+                        crashList?.size,
+                        onTour = { vm.openScreen(Screen.ONBOARDING) },
+                        onCrashReports = { openId = CRASHES_PAGE },
+                        say = say
+                    )
+                    return@GuiListPage
+                }
+
+                if (crashPage) {
+                    crashReportsPage(
+                        crashList,
+                        onOpen = { openCrash = it },
+                        onDeleteAll = {
+                            val n = CrashReports.clear(context)
+                            crashReads++
+                            say(if (n == 1) "Deleted 1 crash report" else "Deleted $n crash reports")
                         },
                     )
+                    return@GuiListPage
                 }
-            },
-            fade = { shown.value },
-            top = 0.dp,
-            verticalArrangement = Arrangement.Top,
-            // The Header page pins a preview of the top of home, so the user sees each change.
-            // Only when the header is on: when it is off, there is no header to show.
-            pinned = if (remember(version.value) { config[Keys.HEADER_SHOW] } && open?.id == HEADER_CATEGORY) { { PeekFade(peek) { HeaderPreview(vm) } } } else null,
-        ) {
-            if (open != null) {
-                open.manage?.let { (title, subtitle, screen) ->
-                    item(key = "manage:${open.id}") {
-                        PeekFade(peek) {
-                            Spacer(Modifier.height(8.dp))
-                            ActionGroup(listOf(Action(open.icon, title, subtitle, chevron = true) { vm.openScreen(screen) }))
-                        }
-                    }
-                }
-                for ((title, all) in open.groups) {
-                    val keys = all.filter { it in applicableKeys }
-                    if (keys.isEmpty()) continue
-                    item(key = "h:${open.id}:$title") {
-                        PeekFade(peek, modifier = Modifier.animateItem()) { if (title != null) GroupHeader(title) else Spacer(Modifier.height(8.dp)) }
-                    }
-                    keys.forEachIndexed { index, key ->
-                        item(key = key.key) {
-                            PeekFade(peek, keep = peek?.key == key.key, modifier = Modifier.animateItem()) {
-                                SettingItem(vm, key, version, index, keys.size, undo)
-                            }
-                        }
-                    }
-                }
-                if (open.id == BACKUP_CATEGORY) {
-                    item(key = "h:backup-files") { Spacer(Modifier.height(16.dp)) }
-                    item(key = "backup") {
-                        val backupVersion by vm.backupActions.backupVersion.collectAsStateWithLifecycle()
-                        val folder by produceState<String?>(null, backupVersion) { value = withContext(Dispatchers.IO) { vm.backupActions.backupFolderLine() } }
-                        ActionGroup(
-                            listOf(
-                                Action(R.drawable.ic_folder, "Backup folder", folder ?: "Not chosen yet: automatic backups and Back up now write there") { vm.askBackupFolder(false) },
-                                Action(R.drawable.ic_download, "Back up now", "Today's backup file, in the backup folder", onClick = { vm.backupActions.backUpNow() }),
-                                Action(R.drawable.ic_download, "Export everything", "Settings, apps, scripts, todos, notes, reminders, feeds and the log in one file (notification and call lines stay on the phone)", onClick = vm::requestBackupExport),
-                                Action(R.drawable.ic_upload, "Import a backup", "Restores everything (replaces todos, notes, feeds and the log)", onClick = vm::requestBackupImport),
-                            )
+
+                item(key = "tabs") { PeekFade(peek) { FeatureTabs(vm, Screen.SETTINGS) } }
+                item(key = "search") {
+                    PeekFade(peek) {
+                        SearchField(
+                            query,
+                            { query = it },
+                            "Search settings",
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, bottom = 4.dp),
+                            clear = "Clear",
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         )
                     }
                 }
-                if (commandsOpen) commandsPage(vm, version, commandQuery) { commandQuery = it }
-                if (open.id == "look") {
-                    item(key = "h:own-themes") { PeekFade(peek) { GroupHeader("Your themes") } }
-                    item(key = "own-themes") {
-                        PeekFade(peek) {
-                            ActionGroup(
-                                ownThemes.map { name ->
-                                    Action(R.drawable.ic_palette, name, if (name == inUse) "In use · tap to change it" else "Tap to change it", chevron = true) {
-                                        vm.openThemeBuilder(name)
-                                    }
-                                } + Action(R.drawable.ic_add, "Create a theme", "Start from the theme in use and pick any colour", chevron = true) {
-                                    vm.openThemeBuilder(null)
-                                } + Action(R.drawable.ic_upload, "Import a theme", "A theme file someone shared, or one you exported") {
-                                    importTheme.launch(arrayOf("application/json", "text/*", "application/octet-stream"))
-                                },
+
+                if (query.isNotBlank()) {
+                    val hits = allCategories().flatMap { c ->
+                        c.keys.filter {
+                            it in applicableKeys && matches(
+                                it,
+                                query.trim()
                             )
+                        }.map { c to it }
+                    }
+                    if (hits.isEmpty()) item(key = "nohits") { NoMatchNote("No setting matches “${query.trim()}”") }
+                    hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
+                        item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
+                        keys.forEachIndexed { index, key ->
+                            item(key = "hit:" + key.key) {
+                                PeekFade(
+                                    peek,
+                                    keep = peek?.key == key.key
+                                ) { SettingItem(vm, key, version, index, keys.size, undo) }
+                            }
                         }
                     }
+                    return@GuiListPage
                 }
-                return@GuiListPage
-            }
 
-            if (aboutPage) {
-                aboutItems(crashList?.size, onTour = { vm.openScreen(Screen.ONBOARDING) }, onCrashReports = { openId = CRASHES_PAGE }, say = say)
-                return@GuiListPage
-            }
-
-            if (crashPage) {
-                crashReportsPage(
-                    crashList,
-                    onOpen = { openCrash = it },
-                    onDeleteAll = {
-                        val n = CrashReports.clear(context)
-                        crashReads++
-                        say(if (n == 1) "Deleted 1 crash report" else "Deleted $n crash reports")
-                    },
-                )
-                return@GuiListPage
-            }
-
-            item(key = "tabs") { PeekFade(peek) { FeatureTabs(vm, Screen.SETTINGS) } }
-            item(key = "search") {
-              PeekFade(peek) {
-                SearchField(
-                    query,
-                    { query = it },
-                    "Search settings",
-                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-                    clear = "Clear",
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                )
-              }
-            }
-
-            if (query.isNotBlank()) {
-                val hits = allCategories().flatMap { c -> c.keys.filter { it in applicableKeys && matches(it, query.trim()) }.map { c to it } }
-                if (hits.isEmpty()) item(key = "nohits") { NoMatchNote("No setting matches “${query.trim()}”") }
-                hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
-                    item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
-                    keys.forEachIndexed { index, key ->
-                        item(key = "hit:" + key.key) { PeekFade(peek, keep = peek?.key == key.key) { SettingItem(vm, key, version, index, keys.size, undo) } }
-                    }
+                item(key = "h:settings") { Spacer(Modifier.height(12.dp)) }
+                item(key = "categories") {
+                    // Feed settings are in the Feeds tab, but search here still finds them.
+                    ActionGroup(allCategories().filter { it.id != FEEDS_CATEGORY && it.id != BACKUP_CATEGORY }
+                        .map { c ->
+                            Action(c.icon, c.title, c.subtitle, chevron = true) {
+                                openId = c.id
+                            }
+                        })
                 }
-                return@GuiListPage
-            }
-
-            item(key = "h:settings") { Spacer(Modifier.height(12.dp)) }
-            item(key = "categories") {
-                // Feed settings are in the Feeds tab, but search here still finds them.
-                ActionGroup(allCategories().filter { it.id != FEEDS_CATEGORY && it.id != BACKUP_CATEGORY }.map { c -> Action(c.icon, c.title, c.subtitle, chevron = true) { openId = c.id } })
-            }
-            item(key = "h:more") { Spacer(Modifier.height(16.dp)) }
-            item(key = "more") {
-                val backup = allCategories().first { it.id == BACKUP_CATEGORY }
-                ActionGroup(
-                    listOf(
-                        Action(R.drawable.ic_check, "Setup checklist", "Default launcher, permissions, battery", chevron = true) { vm.openScreen(Screen.SETUP) },
-                        Action(backup.icon, backup.title, backup.subtitle, chevron = true) { openId = BACKUP_CATEGORY },
-                        Action(R.drawable.ic_info, "About", "Guide, tour, crash reports, version", chevron = true) { openId = ABOUT_PAGE },
+                item(key = "h:more") { Spacer(Modifier.height(16.dp)) }
+                item(key = "more") {
+                    val backup = allCategories().first { it.id == BACKUP_CATEGORY }
+                    ActionGroup(
+                        listOf(
+                            Action(
+                                R.drawable.ic_check,
+                                "Setup checklist",
+                                "Default launcher, permissions, battery",
+                                chevron = true
+                            ) { vm.openScreen(Screen.SETUP) },
+                            Action(
+                                backup.icon,
+                                backup.title,
+                                backup.subtitle,
+                                chevron = true
+                            ) { openId = BACKUP_CATEGORY },
+                            Action(
+                                R.drawable.ic_info,
+                                "About",
+                                "Guide, tour, crash reports, version",
+                                chevron = true
+                            ) { openId = ABOUT_PAGE },
+                        )
                     )
+                }
+            }
+            if (peek != null) PeekHint(Modifier.align(Alignment.TopCenter))
+            // The tapped crash report. After a delete, the list is read again.
+            openCrash?.let { c ->
+                CrashSheet(
+                    c,
+                    onDismiss = { openCrash = null },
+                    onDeleted = { crashReads++ },
+                    say = say
                 )
             }
         }
-        if (peek != null) PeekHint(Modifier.align(Alignment.TopCenter))
-        // The tapped crash report. After a delete, the list is read again.
-        openCrash?.let { c -> CrashSheet(c, onDismiss = { openCrash = null }, onDeleted = { crashReads++ }, say = say) }
-      }
     }
 }
 
@@ -320,7 +458,13 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.categorySettings(
     for ((title, all) in category.groups) {
         val keys = all.filter { it in applicable }
         if (keys.isEmpty()) continue
-        item(key = "h:$id:$title") { if (title != null) GroupHeader(title) else Spacer(Modifier.height(8.dp)) }
+        item(key = "h:$id:$title") {
+            if (title != null) GroupHeader(title) else Spacer(
+                Modifier.height(
+                    8.dp
+                )
+            )
+        }
         keys.forEachIndexed { index, key ->
             item(key = key.key) { SettingItem(vm, key, version, index, keys.size, undo) }
         }

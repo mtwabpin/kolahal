@@ -6,6 +6,7 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.union
@@ -49,9 +49,9 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
-import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.headerSide
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.HeaderTarget
@@ -76,6 +76,7 @@ internal object HomeClock {
     private var zoneState by androidx.compose.runtime.mutableIntStateOf(0)
     private var users = 0
     private var receiver: android.content.BroadcastReceiver? = null
+
     /** The last time zone seen. If the zone changed while nothing listened (home stopped), it counts when home returns. */
     private var lastZone = java.util.TimeZone.getDefault().id
 
@@ -104,7 +105,12 @@ internal object HomeClock {
             addAction(android.content.Intent.ACTION_TIME_CHANGED)
             addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
         }
-        androidx.core.content.ContextCompat.registerReceiver(context.applicationContext, r, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        androidx.core.content.ContextCompat.registerReceiver(
+            context.applicationContext,
+            r,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         receiver = r
         if (java.util.TimeZone.getDefault().id != lastZone) zoneChanged()
         refresh()
@@ -274,14 +280,21 @@ internal fun Header(
 ) {
     val (now, zone) = rememberNow()
     val is24h = remember(version) { config[Keys.CLOCK_24H] }
-    val timeFmt = remember(is24h, zone) { SimpleDateFormat(TimeFormats.clock(is24h), Locale.getDefault()) }
+    val timeFmt =
+        remember(is24h, zone) { SimpleDateFormat(TimeFormats.clock(is24h), Locale.getDefault()) }
     val dateFmt = remember(zone) { SimpleDateFormat(TimeFormats.DAY, Locale.getDefault()) }
     // The alarm time has no AM or PM: the user knows their own next alarm, and the line beside a camera is short.
-    val alarmFmt = remember(is24h, zone) { SimpleDateFormat(TimeFormats.lineClock(is24h), Locale.getDefault()) }
+    val alarmFmt = remember(is24h, zone) {
+        SimpleDateFormat(
+            TimeFormats.lineClock(is24h),
+            Locale.getDefault()
+        )
+    }
     val dayFmt = remember(zone) { SimpleDateFormat("EEE ", Locale.getDefault()) }
     // A part listed on both sides shows only on the left. Only `config` can list it on both.
     val leftKinds = remember(version) { headerSide(config[Keys.HEADER_LEFT]) }
-    val rightKinds = remember(version) { headerSide(config[Keys.HEADER_RIGHT]).filter { it !in leftKinds } }
+    val rightKinds =
+        remember(version) { headerSide(config[Keys.HEADER_RIGHT]).filter { it !in leftKinds } }
     val belowBar = remember(version) { config[Keys.HEADER_BELOW_BAR] }
     val textPadding = remember(version) { config[Keys.HEADER_PADDING].dp }
     val bold = Term.small.copy(color = Term.fg, fontWeight = FontWeight.Bold)
@@ -290,17 +303,27 @@ internal fun Header(
     // The band beside the camera: the cutout's height when the status bar is hidden.
     val density = LocalDensity.current
     val barTop = WindowInsets.statusBars.getTop(density)
-    val band = if (preview || belowBar) 0 else (WindowInsets.displayCutout.getTop(density) - barTop).coerceAtLeast(0)
+    val band =
+        if (preview || belowBar) 0 else (WindowInsets.displayCutout.getTop(density) - barTop).coerceAtLeast(
+            0
+        )
     // Below the bar: keep the status bar's space (shown or hidden) and the camera's space clear above the line.
-    val topInsets = if (belowBar) WindowInsets.statusBarsIgnoringVisibility.union(WindowInsets.displayCutout) else WindowInsets.statusBars
+    val topInsets =
+        if (belowBar) WindowInsets.statusBarsIgnoringVisibility.union(WindowInsets.displayCutout) else WindowInsets.statusBars
     // One line of text (or an icon, if taller) with `header.padding` above and below it; beside the
     // camera, at least the band's height.
-    val height = with(density) { maxOf(band.toDp(), maxOf(Term.small.lineHeight.toDp(), iconSize) + textPadding * 2) }
+    val height = with(density) {
+        maxOf(
+            band.toDp(),
+            maxOf(Term.small.lineHeight.toDp(), iconSize) + textPadding * 2
+        )
+    }
     val view = LocalView.current
     // The cutout's x ranges across the line. When the status bar is shown, the bar avoids the cutout, so there are none.
     val cutouts = remember(band, barTop, view) {
         if (barTop > 0 || band == 0) emptyList()
-        else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }.map { it.left..it.right }
+        else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }
+            .map { it.left..it.right }
     }
     // The line's x in the window, used to shift the cutout zones. It is known only after placement,
     // so the measure below reads it as state and measures again when it changes. The first measure sees 0.
@@ -308,7 +331,13 @@ internal fun Header(
 
     /** One part of the line: as tall as the line, with room to tap. */
     @Composable
-    fun Part(tag: String, label: String, description: String? = null, onClick: () -> Unit, content: @Composable () -> Unit) {
+    fun Part(
+        tag: String,
+        label: String,
+        description: String? = null,
+        onClick: () -> Unit,
+        content: @Composable () -> Unit
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -316,7 +345,9 @@ internal fun Header(
                 .fillMaxHeight()
                 .testTag("header-$tag")
                 .clickable(onClickLabel = label, onClick = onClick)
-                .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
+                .then(if (description != null) Modifier.semantics {
+                    contentDescription = description
+                } else Modifier)
                 .padding(horizontal = 3.dp),
         ) { content() }
     }
@@ -324,46 +355,139 @@ internal fun Header(
     // A side's parts in display order. A part with nothing to show (no alarm set, no todos) is left out.
     fun side(kinds: List<String>): List<@Composable () -> Unit> = buildList {
         for (kind in kinds) when (kind) {
-            "time" -> add { Part("time", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(timeFmt.format(now), style = bold, maxLines = 1) } }
-            "date" -> add { Part("date", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(dateFmt.format(now), style = Term.small, maxLines = 1) } }
+            "time" -> add {
+                Part(
+                    "time",
+                    "clock",
+                    onClick = { onTarget(HeaderTarget.CLOCK) }) {
+                    Text(
+                        timeFmt.format(now),
+                        style = bold,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            "date" -> add {
+                Part(
+                    "date",
+                    "clock",
+                    onClick = { onTarget(HeaderTarget.CLOCK) }) {
+                    Text(
+                        dateFmt.format(now),
+                        style = Term.small,
+                        maxLines = 1
+                    )
+                }
+            }
+
             "alarm" -> status.nextAlarm?.let { at ->
                 // If the alarm is a day or more ahead, show its weekday too.
-                val text = (if (at - now.time >= 24 * 3_600_000L) dayFmt.format(Date(at)) else "") + alarmFmt.format(Date(at))
-                add { Part("alarm", "alarms", onClick = { onTarget(HeaderTarget.ALARM) }) { TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize); Text(text, style = bold, maxLines = 1) } }
+                val text =
+                    (if (at - now.time >= 24 * 3_600_000L) dayFmt.format(Date(at)) else "") + alarmFmt.format(
+                        Date(at)
+                    )
+                add {
+                    Part(
+                        "alarm",
+                        "alarms",
+                        onClick = { onTarget(HeaderTarget.ALARM) }) {
+                        TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize); Text(
+                        text,
+                        style = bold,
+                        maxLines = 1
+                    )
+                    }
+                }
             }
+
             "todo" -> if (todoCount > 0) add {
-                Part("todo", "todo", onClick = { onTarget(HeaderTarget.TODO) }) { TintedIcon(R.drawable.ic_check, Term.dim, iconSize); Text("$todoCount", style = bold) }
+                Part(
+                    "todo",
+                    "todo",
+                    onClick = { onTarget(HeaderTarget.TODO) }) {
+                    TintedIcon(R.drawable.ic_check, Term.dim, iconSize); Text(
+                    "$todoCount",
+                    style = bold
+                )
+                }
             }
+
             "network" -> add {
                 val color = if (status.network == "offline") Term.error else Term.fg
                 val res = networkIcon(status.network)
-                Part("network", "network", description = "network ${status.network}", onClick = { onTarget(HeaderTarget.NETWORK) }) {
-                    if (res != null) TintedIcon(res, color, iconSize) else Text(status.network, style = bold.copy(color = color))
+                Part(
+                    "network",
+                    "network",
+                    description = "network ${status.network}",
+                    onClick = { onTarget(HeaderTarget.NETWORK) }) {
+                    if (res != null) TintedIcon(res, color, iconSize) else Text(
+                        status.network,
+                        style = bold.copy(color = color)
+                    )
                 }
             }
+
             "unlocks" -> add {
-                Part("unlocks", "unlocks", onClick = { onTarget(HeaderTarget.UNLOCKS) }) { TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize); Text("$unlocks", style = bold) }
+                Part(
+                    "unlocks",
+                    "unlocks",
+                    onClick = { onTarget(HeaderTarget.UNLOCKS) }) {
+                    TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize); Text(
+                    "$unlocks",
+                    style = bold
+                )
+                }
             }
+
             "profiles" -> profiles.filter(::hasHeaderItem).forEach { p ->
                 add {
                     val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
-                    val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
-                    Part("profile-${p.kind.label}", p.kind.label, description = "${p.kind.label} ${if (p.quiet) "off" else "on"}", onClick = { onProfileTap(p) }) { TintedIcon(res, color, iconSize) }
+                    val res =
+                        if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
+                    Part(
+                        "profile-${p.kind.label}",
+                        p.kind.label,
+                        description = "${p.kind.label} ${if (p.quiet) "off" else "on"}",
+                        onClick = { onProfileTap(p) }) { TintedIcon(res, color, iconSize) }
                 }
             }
+
             "settings" -> add {
-                Part("settings", "settings", description = "Settings", onClick = { onTarget(HeaderTarget.SETTINGS) }) { TintedIcon(R.drawable.ic_settings, Term.dim, iconSize) }
+                Part(
+                    "settings",
+                    "settings",
+                    description = "Settings",
+                    onClick = { onTarget(HeaderTarget.SETTINGS) }) {
+                    TintedIcon(
+                        R.drawable.ic_settings,
+                        Term.dim,
+                        iconSize
+                    )
+                }
             }
+
             "battery" -> status.batteryPct?.let { pct ->
                 val color = when {
                     status.charging -> Term.prompt
                     pct <= 15 -> Term.error
                     else -> Term.fg
                 }
-                add { Part("battery", "battery", onClick = { onTarget(HeaderTarget.BATTERY) }) { BatteryGlyph(pct, status.charging, color, iconSize); Text("$pct%", style = bold.copy(color = color)) } }
+                add {
+                    Part(
+                        "battery",
+                        "battery",
+                        onClick = { onTarget(HeaderTarget.BATTERY) }) {
+                        BatteryGlyph(pct, status.charging, color, iconSize); Text(
+                        "$pct%",
+                        style = bold.copy(color = color)
+                    )
+                    }
+                }
             }
         }
     }
+
     val left = side(leftKinds)
     val right = side(rightKinds)
 
@@ -374,7 +498,13 @@ internal fun Header(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (preview) Modifier else Modifier.windowInsetsPadding(topInsets.only(WindowInsetsSides.Top)))
+            .then(
+                if (preview) Modifier else Modifier.windowInsetsPadding(
+                    topInsets.only(
+                        WindowInsetsSides.Top
+                    )
+                )
+            )
             .testTag(if (preview) "header-preview-line" else "header")
             .height(height)
             .onPlaced { originX.floatValue = it.positionInWindow().x }
@@ -391,9 +521,19 @@ internal fun Header(
         val h = constraints.maxHeight
         val parts = measurables.map { it.measure(Constraints(minHeight = h, maxHeight = h)) }
         val shift = originX.floatValue.toInt()
-        val zones = HeaderLayout.zones(constraints.maxWidth, 8.dp.roundToPx(), cutouts.map { (it.first - shift)..(it.last - shift) }, CUTOUT_GAP.roundToPx())
+        val zones = HeaderLayout.zones(
+            constraints.maxWidth,
+            8.dp.roundToPx(),
+            cutouts.map { (it.first - shift)..(it.last - shift) },
+            CUTOUT_GAP.roundToPx()
+        )
         val n = left.size
-        val places = HeaderLayout.place(zones, parts.take(n).map { it.width }, parts.drop(n).map { it.width }, HEADER_SPACING.roundToPx())
+        val places = HeaderLayout.place(
+            zones,
+            parts.take(n).map { it.width },
+            parts.drop(n).map { it.width },
+            HEADER_SPACING.roundToPx()
+        )
         layout(constraints.maxWidth, h) {
             places.left.forEachIndexed { i, x -> x?.let { parts[i].place(it, 0) } }
             places.right.forEachIndexed { i, x -> x?.let { parts[n + i].place(it, 0) } }
@@ -410,7 +550,8 @@ internal fun networkIcon(network: String): Int? = when (network) {
 }
 
 /** Whether the header has an item for this profile. */
-private fun hasHeaderItem(profile: Profile) = profile.kind != ProfileKind.PERSONAL && profile.kind != ProfileKind.CLONE
+private fun hasHeaderItem(profile: Profile) =
+    profile.kind != ProfileKind.PERSONAL && profile.kind != ProfileKind.CLONE
 
 /**
  * A tinted Material icon from res/drawable. We draw icons instead of typing symbols: symbols like
@@ -439,7 +580,9 @@ internal fun BatteryGlyph(pct: Int, charging: Boolean, color: Color, height: Dp)
         Modifier
             .size(width = height * 1.6f, height = height)
             // Use its own layer, so the cut-out clears only the glyph's pixels.
-            .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen },
+            .graphicsLayer {
+                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+            },
     ) {
         val stroke = 1.4.dp.toPx()
         val capW = size.width * 0.08f
@@ -447,12 +590,22 @@ internal fun BatteryGlyph(pct: Int, charging: Boolean, color: Color, height: Dp)
         val bodyH = size.height * 0.62f
         val top = (size.height - bodyH) / 2
         val r = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
-        drawRoundRect(color, Offset(stroke / 2, top), Size(bodyW - stroke, bodyH), r, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        drawRoundRect(
+            color,
+            Offset(stroke / 2, top),
+            Size(bodyW - stroke, bodyH),
+            r,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke)
+        )
         drawRect(color, Offset(bodyW, top + bodyH * 0.3f), Size(capW, bodyH * 0.4f))
         val inset = stroke * 1.8f
         val fullW = bodyW - stroke - inset * 2
         val fillW = fullW * (pct.coerceIn(0, 100) / 100f)
-        if (fillW > 0f) drawRect(color, Offset(stroke / 2 + inset, top + inset), Size(fillW, bodyH - inset * 2))
+        if (fillW > 0f) drawRect(
+            color,
+            Offset(stroke / 2 + inset, top + inset),
+            Size(fillW, bodyH - inset * 2)
+        )
         if (charging) {
             // When the fill is past the middle, cut the bolt out of it so it stays visible. Otherwise draw the bolt in the colour.
             val cx = stroke / 2 + inset + fullW / 2
@@ -467,7 +620,11 @@ internal fun BatteryGlyph(pct: Int, charging: Boolean, color: Color, height: Dp)
                 lineTo(cx, y0 + h * 0.42f)
                 close()
             }
-            if (fillW > fullW / 2) drawPath(bolt, Color.Black, blendMode = androidx.compose.ui.graphics.BlendMode.Clear) else drawPath(bolt, color)
+            if (fillW > fullW / 2) drawPath(
+                bolt,
+                Color.Black,
+                blendMode = androidx.compose.ui.graphics.BlendMode.Clear
+            ) else drawPath(bolt, color)
         }
     }
 }

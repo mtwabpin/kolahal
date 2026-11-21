@@ -41,7 +41,8 @@ data class PictureInk(val luminance: Float) {
 
         /** The relative luminance of an sRGB colour, as WCAG counts it. */
         private fun luminance(r: Int, g: Int, b: Int): Double {
-            fun linear(c: Int): Double = (c / 255.0).let { if (it <= 0.04045) it / 12.92 else ((it + 0.055) / 1.055).pow(2.4) }
+            fun linear(c: Int): Double =
+                (c / 255.0).let { if (it <= 0.04045) it / 12.92 else ((it + 0.055) / 1.055).pow(2.4) }
             return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
         }
     }
@@ -56,7 +57,11 @@ fun pictureBackdrop(ink: PictureInk?, bg: Color): Color? {
     if (ink == null) return null
     fun contrast(a: Float, b: Float) = (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
     if (contrast(ink.luminance, bg.luminance()) >= MIN_CONTRAST) return null
-    return if (contrast(ink.luminance, PICTURE_LIGHT.luminance()) >= contrast(ink.luminance, PICTURE_DARK.luminance())) PICTURE_LIGHT else PICTURE_DARK
+    return if (contrast(ink.luminance, PICTURE_LIGHT.luminance()) >= contrast(
+            ink.luminance,
+            PICTURE_DARK.luminance()
+        )
+    ) PICTURE_LIGHT else PICTURE_DARK
 }
 
 /** Below this contrast with the background, a picture's lines are hard to see: as for large text and icons (WCAG). */

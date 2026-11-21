@@ -20,14 +20,17 @@ class FolderGrantsTest {
     private val backupWas = backup.getString("folder", null)
     private val scriptsWas = scripts.getString("uri", null)
 
-    private fun tree(name: String) = Uri.parse("content://com.android.externalstorage.documents/tree/primary%3A$name")
+    private fun tree(name: String) =
+        Uri.parse("content://com.android.externalstorage.documents/tree/primary%3A$name")
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         backup.edit(commit = true) { putString("folder", backupWas) }
         scripts.edit(commit = true) { putString("uri", scriptsWas) }
     }
 
-    @Test fun aFolderTheOtherUsesIsKept() {
+    @Test
+    fun aFolderTheOtherUsesIsKept() {
         backup.edit(commit = true) { putString("folder", tree("Kolahal").toString()) }
         scripts.edit(commit = true) { putString("uri", tree("Kolahal").toString()) }
         assertTrue(Files.inUse(context, tree("Kolahal")))

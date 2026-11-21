@@ -31,15 +31,26 @@ class DataUsage(context: Context) {
     fun between(from: Long, until: Long): Summary {
         @Suppress("DEPRECATION") // the network types are what this API takes
         val mobileType = ConnectivityManager.TYPE_MOBILE
+
         @Suppress("DEPRECATION")
         val wifiType = ConnectivityManager.TYPE_WIFI
         // Android 9 tells the mobile data only with the SIM's subscriber id: unknown, not 0.
-        val mobile = if (android.os.Build.VERSION.SDK_INT < 29) null else device(mobileType, from, until)
+        val mobile =
+            if (android.os.Build.VERSION.SDK_INT < 29) null else device(mobileType, from, until)
         val wifi = device(wifiType, from, until) ?: 0L
         val byUid = HashMap<Int, LongArray>()
-        if (mobile != null) perApp(mobileType, from, until)?.forEach { (uid, bytes) -> byUid.getOrPut(uid) { LongArray(2) }[0] += bytes }
-        perApp(wifiType, from, until)?.forEach { (uid, bytes) -> byUid.getOrPut(uid) { LongArray(2) }[1] += bytes }
-        val apps = byUid.map { (uid, b) -> App(uid, b[0], b[1]) }.filter { it.total > 0 }.sortedByDescending { it.total }
+        if (mobile != null) perApp(
+            mobileType,
+            from,
+            until
+        )?.forEach { (uid, bytes) -> byUid.getOrPut(uid) { LongArray(2) }[0] += bytes }
+        perApp(
+            wifiType,
+            from,
+            until
+        )?.forEach { (uid, bytes) -> byUid.getOrPut(uid) { LongArray(2) }[1] += bytes }
+        val apps = byUid.map { (uid, b) -> App(uid, b[0], b[1]) }.filter { it.total > 0 }
+            .sortedByDescending { it.total }
         return Summary(mobile, wifi, apps)
     }
 

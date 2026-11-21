@@ -106,7 +106,11 @@ private const val THUMB_PAGE_DP = 344
 
 /** Code in the terminal's font, at the size of the page's small text. */
 @Composable
-internal fun codeStyle(): TextStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Term.code.fontFamily, fontSize = 13.sp, lineHeight = 18.sp)
+internal fun codeStyle(): TextStyle = MaterialTheme.typography.bodyMedium.copy(
+    fontFamily = Term.code.fontFamily,
+    fontSize = 13.sp,
+    lineHeight = 18.sp
+)
 
 /**
  * The reference page's top bar: Back, [title] and [subtitle]. [code]: the title is a name from a
@@ -117,11 +121,17 @@ internal fun codeStyle(): TextStyle = MaterialTheme.typography.bodyMedium.copy(f
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun ReferenceBar(title: String, subtitle: String, onBack: () -> Unit, code: Boolean = false) {
+internal fun ReferenceBar(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    code: Boolean = false
+) {
     val fold = with(LocalDensity.current) {
         (TopAppBarDefaults.MediumFlexibleAppBarWithSubtitleExpandedHeight - TopAppBarDefaults.MediumAppBarCollapsedHeight).toPx()
     }
-    val state = rememberTopAppBarState(initialHeightOffsetLimit = -fold, initialHeightOffset = -fold)
+    val state =
+        rememberTopAppBarState(initialHeightOffsetLimit = -fold, initialHeightOffset = -fold)
     MediumFlexibleTopAppBar(
         title = {
             Text(
@@ -146,7 +156,10 @@ internal fun ReferenceBar(title: String, subtitle: String, onBack: () -> Unit, c
 private fun Untouchable(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(modifier) {
         content()
-        Box(Modifier.matchParentSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } })
+        Box(
+            Modifier
+                .matchParentSize()
+                .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } })
     }
 }
 
@@ -155,17 +168,33 @@ private fun Untouchable(modifier: Modifier = Modifier, content: @Composable () -
  * TalkBack reads it as its description ([WidgetWords.description]).
  */
 @Composable
-private fun ExampleCard(shown: ReferenceExamples.Widget, size: WidgetSize, pageDp: Int, look: WidgetLook, modifier: Modifier = Modifier) {
+private fun ExampleCard(
+    shown: ReferenceExamples.Widget,
+    size: WidgetSize,
+    pageDp: Int,
+    look: WidgetLook,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val clock24 = remember { Config.get(context)[Keys.CLOCK_24H] }
     val zone = remember { ZoneId.systemDefault() }
     val now = remember { System.currentTimeMillis() / 1000 }
     val spec = remember(shown) { shown.spec(now, zone) }
     val title = spec.base.title ?: shown.title
-    val description = remember(spec, title) { WidgetWords.description(title, spec, now, zone, clock24) }
+    val description =
+        remember(spec, title) { WidgetWords.description(title, spec, now, zone, clock24) }
     CompositionLocalProvider(LocalWidgetsShown provides false, LocalWidgetLook provides look) {
-        Untouchable(modifier.width(WidgetLayout.widthDp(pageDp, size.span).dp).clearAndSetSemantics { contentDescription = description }) {
-            WidgetCard(title = title, height = WidgetSizes.heightDp(size, pageDp).dp, spec = spec, note = null, description = description)
+        Untouchable(
+            modifier
+                .width(WidgetLayout.widthDp(pageDp, size.span).dp)
+                .clearAndSetSemantics { contentDescription = description }) {
+            WidgetCard(
+                title = title,
+                height = WidgetSizes.heightDp(size, pageDp).dp,
+                spec = spec,
+                note = null,
+                description = description
+            )
         }
     }
 }
@@ -178,9 +207,15 @@ private fun CardThumb(ex: ReferenceExamples.Widget) {
     val scale = min(THUMB_WIDTH_DP.toFloat() / width, THUMB_HEIGHT_DP.toFloat() / height)
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.size(THUMB_WIDTH_DP.dp, THUMB_HEIGHT_DP.dp).clipToBounds().clearAndSetSemantics { },
+        modifier = Modifier
+            .size(THUMB_WIDTH_DP.dp, THUMB_HEIGHT_DP.dp)
+            .clipToBounds()
+            .clearAndSetSemantics { },
     ) {
-        Box(Modifier.requiredSize(width.dp, height.dp).graphicsLayer { scaleX = scale; scaleY = scale }) {
+        Box(
+            Modifier
+                .requiredSize(width.dp, height.dp)
+                .graphicsLayer { scaleX = scale; scaleY = scale }) {
             ExampleCard(ex, ex.size, THUMB_PAGE_DP, WidgetLook.PLAIN)
         }
     }
@@ -189,14 +224,22 @@ private fun CardThumb(ex: ReferenceExamples.Widget) {
 /** A thin line under a row of the reference, so each row reads as one at a glance. */
 @Composable
 internal fun RowDivider() =
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 16.dp))
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        modifier = Modifier.padding(horizontal = 16.dp)
+    )
 
 /**
  * A row of the Widgets tab, or of the search's results: a small picture of [ex]'s card, its [name]
  * and a [line] under it, and a chevron. A tap opens its view ([onOpen]).
  */
 @Composable
-internal fun WidgetExampleRow(ex: ReferenceExamples.Widget, name: AnnotatedString, line: AnnotatedString, onOpen: () -> Unit) {
+internal fun WidgetExampleRow(
+    ex: ReferenceExamples.Widget,
+    name: AnnotatedString,
+    line: AnnotatedString,
+    onOpen: () -> Unit
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -210,9 +253,19 @@ internal fun WidgetExampleRow(ex: ReferenceExamples.Widget, name: AnnotatedStrin
         CardThumb(ex)
         Column(Modifier.weight(1f)) {
             Text(name, style = codeStyle().copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
-            Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                line,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-        Icon(painterResource(R.drawable.ic_chevron_right), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            painterResource(R.drawable.ic_chevron_right),
+            null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
     RowDivider()
 }
@@ -222,7 +275,12 @@ internal fun WidgetExampleRow(ex: ReferenceExamples.Widget, name: AnnotatedStrin
  * lines as the log draws them, or [line] when there is one. A tap opens its view ([onOpen]).
  */
 @Composable
-internal fun LogExampleRow(ex: ReferenceExamples.Log, name: AnnotatedString, line: AnnotatedString?, onOpen: () -> Unit) {
+internal fun LogExampleRow(
+    ex: ReferenceExamples.Log,
+    name: AnnotatedString,
+    line: AnnotatedString?,
+    onOpen: () -> Unit
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -236,16 +294,35 @@ internal fun LogExampleRow(ex: ReferenceExamples.Log, name: AnnotatedString, lin
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(name, style = codeStyle().copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
             if (line != null) {
-                Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             } else {
                 // The first line only, so the list stays easy to scan; a tall one (a table) is cut
                 // at the bottom. TalkBack reads the name.
-                Box(Modifier.heightIn(max = 88.dp).clip(RoundedCornerShape(12.dp)).clearAndSetSemantics { }) {
-                    LinesPreview(ex, Modifier.wrapContentHeight(Alignment.Top, unbounded = true), source = false, first = 1)
+                Box(
+                    Modifier
+                        .heightIn(max = 88.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clearAndSetSemantics { }) {
+                    LinesPreview(
+                        ex,
+                        Modifier.wrapContentHeight(Alignment.Top, unbounded = true),
+                        source = false,
+                        first = 1
+                    )
                 }
             }
         }
-        Icon(painterResource(R.drawable.ic_chevron_right), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            painterResource(R.drawable.ic_chevron_right),
+            null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
     RowDivider()
 }
@@ -260,7 +337,13 @@ internal fun LogExampleRow(ex: ReferenceExamples.Log, name: AnnotatedString, lin
  * The card, the code, Copy and Insert follow what is chosen. [onInsert] gets the code.
  */
 @Composable
-internal fun WidgetExampleView(ex: ReferenceExamples.Widget, variant: Int, lang: ScriptLang, onBack: () -> Unit, onInsert: (String) -> Unit) {
+internal fun WidgetExampleView(
+    ex: ReferenceExamples.Widget,
+    variant: Int,
+    lang: ScriptLang,
+    onBack: () -> Unit,
+    onInsert: (String) -> Unit
+) {
     val versions = remember(ex) { listOf(ex) + ReferenceExamples.variantsOf(ex.name) }
     var chosen by remember(ex) { mutableIntStateOf(variant.coerceIn(versions.indices)) }
     val shown = versions[chosen]
@@ -288,12 +371,20 @@ internal fun WidgetExampleView(ex: ReferenceExamples.Widget, variant: Int, lang:
             }
             if (versions.size > 1) {
                 ChoiceLabel("Example")
-                ExampleChoices(versions.map { it.variant ?: GUIDE }, shown.variant ?: GUIDE, "variant ${ex.name} ") { chosen = it }
+                ExampleChoices(
+                    versions.map { it.variant ?: GUIDE },
+                    shown.variant ?: GUIDE,
+                    "variant ${ex.name} "
+                ) { chosen = it }
             }
             ChoiceLabel("Size")
-            ExampleChoices(ex.kind.sizes.map { it.label }, size.label, "size ${ex.name} ") { size = ex.kind.sizes[it] }
+            ExampleChoices(ex.kind.sizes.map { it.label }, size.label, "size ${ex.name} ") {
+                size = ex.kind.sizes[it]
+            }
             ChoiceLabel("Look")
-            ExampleChoices(looks.map { it.label }, look.label, "look ${ex.name} ") { look = looks[it] }
+            ExampleChoices(looks.map { it.label }, look.label, "look ${ex.name} ") {
+                look = looks[it]
+            }
             ChoiceLabel("Code")
             CodeBlock(code)
             Spacer(Modifier.height(16.dp))
@@ -303,7 +394,12 @@ internal fun WidgetExampleView(ex: ReferenceExamples.Widget, variant: Int, lang:
 
 /** A log example's own view: its lines as the log draws them, then its code, with Copy and Insert at the bottom. */
 @Composable
-internal fun LogExampleView(ex: ReferenceExamples.Log, lang: ScriptLang, onBack: () -> Unit, onInsert: (String) -> Unit) {
+internal fun LogExampleView(
+    ex: ReferenceExamples.Log,
+    lang: ScriptLang,
+    onBack: () -> Unit,
+    onInsert: (String) -> Unit
+) {
     val code = ex.code(lang)
     Scaffold(
         topBar = { ReferenceBar(ex.heading, ReferenceSearch.Tab.LOGS.label, onBack, code = true) },
@@ -360,8 +456,16 @@ private fun ChoiceLabel(text: String) {
  * Each is tagged [tagPrefix] and its words.
  */
 @Composable
-private fun ExampleChoices(choices: List<String>, selected: String, tagPrefix: String, onPick: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), modifier = Modifier.fillMaxWidth()) {
+private fun ExampleChoices(
+    choices: List<String>,
+    selected: String,
+    tagPrefix: String,
+    onPick: (Int) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         choices.forEachIndexed { i, choice ->
             ToggleButton(
                 checked = choice == selected,
@@ -407,24 +511,41 @@ private fun CodeBlock(code: String) {
 @Composable
 private fun CopyInsertBar(code: String, clipLabel: String, onInsert: () -> Unit) {
     val context = LocalContext.current
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         ) {
             FilledTonalButton(
                 shapes = ButtonDefaults.shapes(),
                 onClick = {
-                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(clipLabel, code))
+                    context.getSystemService(ClipboardManager::class.java)?.primaryClip =
+                        ClipData.newPlainText(clipLabel, code)
                     // Android 13 and later show their own "copied" confirmation.
-                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(
+                        context,
+                        "Copied",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 },
-                modifier = Modifier.weight(1f).heightIn(min = ButtonDefaults.MediumContainerHeight).testTag("example-copy"),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = ButtonDefaults.MediumContainerHeight)
+                    .testTag("example-copy"),
             ) { IconLabel(R.drawable.ic_content_copy, "Copy") }
             Button(
                 shapes = ButtonDefaults.shapes(),
                 onClick = onInsert,
-                modifier = Modifier.weight(1f).heightIn(min = ButtonDefaults.MediumContainerHeight).testTag("example-insert"),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = ButtonDefaults.MediumContainerHeight)
+                    .testTag("example-insert"),
             ) { IconLabel(R.drawable.ic_add, "Insert") }
         }
     }
@@ -443,7 +564,12 @@ private object NoLinks : UriHandler {
  * [first]: only that many lines.
  */
 @Composable
-internal fun LinesPreview(ex: ReferenceExamples.Log, modifier: Modifier = Modifier, source: Boolean = true, first: Int = Int.MAX_VALUE) {
+internal fun LinesPreview(
+    ex: ReferenceExamples.Log,
+    modifier: Modifier = Modifier,
+    source: Boolean = true,
+    first: Int = Int.MAX_VALUE
+) {
     val context = LocalContext.current
     val config = remember { Config.get(context) }
     val times = remember { com.mtwabpin.kolahal.terminal.lineTimeFormat(config[Keys.CLOCK_24H]) }
@@ -456,7 +582,14 @@ internal fun LinesPreview(ex: ReferenceExamples.Log, modifier: Modifier = Modifi
     }
     val indents = rememberLineIndents()
     // What a screen reader says for the lines: each title and body, as plain text.
-    val spoken = remember(ex) { ex.lines.joinToString("\n") { l -> listOfNotNull(l.text, l.body).joinToString("\n") { StyledText.plain(it) } } }
+    val spoken = remember(ex) {
+        ex.lines.joinToString("\n") { l ->
+            listOfNotNull(
+                l.text,
+                l.body
+            ).joinToString("\n") { StyledText.plain(it) }
+        }
+    }
     // A link in a line opens through LocalUriHandler: here it opens nothing.
     CompositionLocalProvider(LocalUriHandler provides NoLinks) {
         Untouchable(modifier.fillMaxWidth()) {
@@ -469,9 +602,19 @@ internal fun LinesPreview(ex: ReferenceExamples.Log, modifier: Modifier = Modifi
             ) {
                 for (row in rows) {
                     LogLine(
-                        row, TimeMode.OFF, times, dim = false, topGap = 0.dp, itemGap = if (row.itemGap) itemGap else 0.dp,
-                        indents = indents, highlighted = false, apps = { emptyList() },
-                        onTap = {}, onLongPress = {}, onAppTap = {}, onAppLongPress = {},
+                        row,
+                        TimeMode.OFF,
+                        times,
+                        dim = false,
+                        topGap = 0.dp,
+                        itemGap = if (row.itemGap) itemGap else 0.dp,
+                        indents = indents,
+                        highlighted = false,
+                        apps = { emptyList() },
+                        onTap = {},
+                        onLongPress = {},
+                        onAppTap = {},
+                        onAppLongPress = {},
                     )
                 }
             }

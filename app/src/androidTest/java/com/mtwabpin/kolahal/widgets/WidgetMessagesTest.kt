@@ -20,10 +20,13 @@ class WidgetMessagesTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val widgets = WidgetHost.get(context)
     private val logs = LogRepository.get(context)
-    @get:Rule val logLines = LogLinesSince()
+
+    @get:Rule
+    val logLines = LogLinesSince()
     private val had = widgets.widgets.value.map { it.key }.toSet()
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         while (widgets.takeMessage() != null) Unit
         widgets.widgets.value.filter { it.key !in had }.forEach { widgets.remove(it.key) }
     }
@@ -32,7 +35,8 @@ class WidgetMessagesTest {
      * Adding from the picker moves to the Widgets screen just as "Added" comes: messages are kept, in
      * order, until a screen takes them. (Each screen showing them is checked in its own test.)
      */
-    @Test fun messagesAreKeptInOrderUntilTaken() {
+    @Test
+    fun messagesAreKeptInOrderUntilTaken() {
         while (widgets.takeMessage() != null) Unit
         widgets.message("Added Clock")
         widgets.message("Widget not added")
@@ -43,7 +47,8 @@ class WidgetMessagesTest {
     }
 
     /** A widget whose id didn't come along (Android restored Kolahal on a new phone): the log says so, and a tap opens the page. */
-    @Test fun aWidgetToAddAgainIsInTheLog() {
+    @Test
+    fun aWidgetToAddAgainIsInTheLog() {
         val provider = widgets.providers().firstOrNull()
         assumeTrue("no widgets to place on this device", provider != null)
         // An id Android never gave out, as on a new phone.

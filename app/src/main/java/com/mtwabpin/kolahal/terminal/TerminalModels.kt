@@ -24,18 +24,25 @@ sealed interface UiEvent {
     data object PickFont : UiEvent
     data object PickBackupFolder : UiEvent
     data object ShowQuick : UiEvent
+
     /** Settings → Backup → Export everything: asks where to save the backup file. */
     data object ExportBackup : UiEvent
+
     /** Settings → Backup → Import a backup: asks for the file. */
     data object ImportBackup : UiEvent
+
     /** Scripts → Add script → Import a file: asks for the script files. */
     data object ImportScripts : UiEvent
+
     /** Export, for one script: asks where to save [script]. */
     data class ExportScript(val script: Script) : UiEvent
+
     /** `edit`: asks for a file, to open in the text editor. */
     data object PickTextFile : UiEvent
+
     /** `edit new`: asks where to make a file called [name], to open in the text editor. */
     data class NewTextFile(val name: String) : UiEvent
+
     /** `edit <file>`: opens the file at [uri] in the text editor. */
     data class OpenTextFile(val uri: String) : UiEvent
 }
@@ -93,7 +100,12 @@ class UndoOffer(val text: String, val expire: () -> Unit = {}, val undo: () -> U
  * One entry of a log line's long-press menu. [icon] is drawn in a fixed-width column,
  * so the labels line up whatever the icon's width.
  */
-data class LogAction(val label: String, val destructive: Boolean = false, val icon: ActionIcon? = null, val run: () -> Unit)
+data class LogAction(
+    val label: String,
+    val destructive: Boolean = false,
+    val icon: ActionIcon? = null,
+    val run: () -> Unit
+)
 
 /** A menu icon in the header's style and size. */
 sealed interface ActionIcon {
@@ -102,7 +114,8 @@ sealed interface ActionIcon {
      * - [profile]: that profile's colour;
      * - [alert]: red.
      */
-    data class Drawable(val id: Int, val profile: ProfileKind? = null, val alert: Boolean = false) : ActionIcon
+    data class Drawable(val id: Int, val profile: ProfileKind? = null, val alert: Boolean = false) :
+        ActionIcon
 
     /** The header's battery icon, filled to the battery level. */
     data class Battery(val pct: Int, val charging: Boolean) : ActionIcon

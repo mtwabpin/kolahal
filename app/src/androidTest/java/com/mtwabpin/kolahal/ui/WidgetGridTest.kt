@@ -25,20 +25,28 @@ import org.junit.runner.RunWith
 /** The widgets page puts each widget at its column and top. Columns run from the start: right to left in such a language. */
 @RunWith(AndroidJUnit4::class)
 class WidgetGridTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
 
     private fun left(tag: String) = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot().left.value
     private fun top(tag: String) = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot().top.value
 
-    @Test fun columnsRunFromTheStart() {
+    @Test
+    fun columnsRunFromTheStart() {
         var direction by mutableStateOf(LayoutDirection.Ltr)
         compose.setContent {
             CompositionLocalProvider(LocalLayoutDirection provides direction) {
                 Box(Modifier.width(300.dp)) {
                     // Two half-width widgets side by side, no gap.
                     WidgetGrid(0.dp) {
-                        Box(Modifier.gridPlace(0, 6, 0).height(40.dp).testTag("first"))
-                        Box(Modifier.gridPlace(6, 6, 0).height(40.dp).testTag("second"))
+                        Box(Modifier
+                            .gridPlace(0, 6, 0)
+                            .height(40.dp)
+                            .testTag("first"))
+                        Box(Modifier
+                            .gridPlace(6, 6, 0)
+                            .height(40.dp)
+                            .testTag("second"))
                     }
                 }
             }
@@ -54,13 +62,23 @@ class WidgetGridTest {
      * A widget sits where it was put, with space around it, and the grid is as tall as its lowest
      * widget. One without a place goes under the others.
      */
-    @Test fun eachWidgetSitsWhereItWasPut() {
+    @Test
+    fun eachWidgetSitsWhereItWasPut() {
         compose.setContent {
             Box(Modifier.width(300.dp)) {
                 WidgetGrid(0.dp, Modifier.testTag("grid")) {
-                    Box(Modifier.gridPlace(3, 6, 40).height(40.dp).testTag("middle"))
-                    Box(Modifier.gridPlace(9, 3, 0).height(120.dp).testTag("tall"))
-                    Box(Modifier.gridPlace(-1, 12, -1).height(20.dp).testTag("unplaced"))
+                    Box(Modifier
+                        .gridPlace(3, 6, 40)
+                        .height(40.dp)
+                        .testTag("middle"))
+                    Box(Modifier
+                        .gridPlace(9, 3, 0)
+                        .height(120.dp)
+                        .testTag("tall"))
+                    Box(Modifier
+                        .gridPlace(-1, 12, -1)
+                        .height(20.dp)
+                        .testTag("unplaced"))
                 }
             }
         }
@@ -70,6 +88,10 @@ class WidgetGridTest {
         assertEquals(0f, top("tall"), 0.5f)
         assertEquals(0f, left("unplaced"), 0.5f)
         assertEquals(120f, top("unplaced"), 0.5f)
-        assertEquals(140f, compose.onNodeWithTag("grid").getUnclippedBoundsInRoot().height.value, 0.5f)
+        assertEquals(
+            140f,
+            compose.onNodeWithTag("grid").getUnclippedBoundsInRoot().height.value,
+            0.5f
+        )
     }
 }

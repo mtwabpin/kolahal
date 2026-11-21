@@ -22,7 +22,12 @@ object NotificationActions {
      */
     fun isEnabled(context: Context): Boolean =
         context.getSystemService(NotificationManager::class.java)
-            .isNotificationListenerAccessGranted(ComponentName(context, KolahalNotificationListener::class.java))
+            .isNotificationListenerAccessGranted(
+                ComponentName(
+                    context,
+                    KolahalNotificationListener::class.java
+                )
+            )
 
     /** Intent for the access screen. On API 30+ it is the page for this app; otherwise, or if that fails, the list. */
     fun settingsIntent(context: Context): Intent {
@@ -30,7 +35,10 @@ object NotificationActions {
             val detail = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
                 .putExtra(
                     Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
-                    ComponentName(context, KolahalNotificationListener::class.java).flattenToString(),
+                    ComponentName(
+                        context,
+                        KolahalNotificationListener::class.java
+                    ).flattenToString(),
                 )
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (detail.resolveActivity(context.packageManager) != null) return detail
@@ -46,7 +54,11 @@ object NotificationActions {
         // Null when we couldn't ask, for example when access was just removed and the listener is
         // not unbound yet. Then the tap intent saved in the store still works. Only a real answer
         // without the notification means it is gone.
-        val asked = KolahalNotificationListener.connected?.let { l -> runCatching { l.getActiveNotifications(arrayOf(key)) }.getOrNull() }
+        val asked = KolahalNotificationListener.connected?.let { l ->
+            runCatching {
+                l.getActiveNotifications(arrayOf(key))
+            }.getOrNull()
+        }
         val sbn = asked?.firstOrNull()
         if (asked != null && sbn == null) {
             NotificationStore.markRemoved(key)
@@ -54,7 +66,9 @@ object NotificationActions {
         }
         val pi = sbn?.notification?.contentIntent ?: NotificationStore.intent(key) ?: return false
         val sent = send(context, pi)
-        if (sent && sbn != null && sbn.notification.flags and Notification.FLAG_AUTO_CANCEL != 0) dismiss(key)
+        if (sent && sbn != null && sbn.notification.flags and Notification.FLAG_AUTO_CANCEL != 0) dismiss(
+            key
+        )
         return sent
     }
 

@@ -32,7 +32,8 @@ class CallPhotoTest {
     /** A contact with a name, [number] and a photo, added from outside Kolahal (as a sync would). */
     private fun addContactWithPhoto() {
         val photo = java.io.ByteArrayOutputStream().also {
-            Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }.compress(Bitmap.CompressFormat.PNG, 100, it)
+            Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+                .compress(Bitmap.CompressFormat.PNG, 100, it)
         }.toByteArray()
         val raw = ContactsContract.RawContacts.CONTENT_URI
         val data = ContactsContract.Data.CONTENT_URI
@@ -40,15 +41,33 @@ class CallPhotoTest {
             ContentProviderOperation.newInsert(raw)
                 .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, account)
                 .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, account).build(),
-            ContentProviderOperation.newInsert(data).withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
-                .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, "Photo Caller").build(),
-            ContentProviderOperation.newInsert(data).withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
+            ContentProviderOperation.newInsert(data)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                .withValue(
+                    ContactsContract.Data.MIMETYPE,
+                    ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE
+                )
+                .withValue(
+                    ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME,
+                    "Photo Caller"
+                ).build(),
+            ContentProviderOperation.newInsert(data)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                .withValue(
+                    ContactsContract.Data.MIMETYPE,
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE
+                )
                 .withValue(ContactsContract.CommonDataKinds.Phone.NUMBER, number)
-                .withValue(ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE).build(),
-            ContentProviderOperation.newInsert(data).withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
+                .withValue(
+                    ContactsContract.CommonDataKinds.Phone.TYPE,
+                    ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE
+                ).build(),
+            ContentProviderOperation.newInsert(data)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                .withValue(
+                    ContactsContract.Data.MIMETYPE,
+                    ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE
+                )
                 .withValue(ContactsContract.CommonDataKinds.Photo.PHOTO, photo).build(),
         )
         // Kolahal only reads contacts: write them as the shell.
@@ -60,18 +79,21 @@ class CallPhotoTest {
         }
     }
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         assumeTrue("the Play build has no READ_CONTACTS or calls", BuildConfig.CONTACTS)
         shell("pm grant ${context.packageName} android.permission.READ_CONTACTS")
         shell("pm grant ${context.packageName} android.permission.READ_CALL_LOG")
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         shell("content delete --uri content://com.android.contacts/raw_contacts?caller_is_syncadapter=true --where account_name='$account'")
         shell("content delete --uri content://call_log/calls --where number='$number'")
     }
 
-    @Test fun aCallWithNoPhotoInTheCallLogGetsTheContactsPhoto() {
+    @Test
+    fun aCallWithNoPhotoInTheCallLogGetsTheContactsPhoto() {
         addContactWithPhoto()
         // As the phone app writes a call first: the number only, no name or photo copied yet.
         shell("content insert --uri content://call_log/calls --bind number:s:$number --bind type:i:1 --bind date:l:${System.currentTimeMillis()} --bind duration:l:12")
@@ -80,7 +102,8 @@ class CallPhotoTest {
         val photo = call.photoUri!!
         assertEquals("the line carries it", photo, CallEvents.ctx(call).values[LogContext.PHOTO])
         // And the log can draw it: the address opens as an image.
-        val image = context.contentResolver.openInputStream(android.net.Uri.parse(photo))!!.use { BitmapFactory.decodeStream(it) }
+        val image = context.contentResolver.openInputStream(android.net.Uri.parse(photo))!!
+            .use { BitmapFactory.decodeStream(it) }
         assertNotNull("the photo opens", image)
     }
 }

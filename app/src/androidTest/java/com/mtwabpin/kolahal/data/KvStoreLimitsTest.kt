@@ -18,11 +18,13 @@ class KvStoreLimitsTest {
     private val scope = "script:kvlimits-${System.nanoTime()}"
     private val kv = KvStore(context, scope)
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         kv.deleteStartingWith("")
     }
 
-    @Test fun aFullStoreTakesNoNewKeyUntilOneGoes() {
+    @Test
+    fun aFullStoreTakesNoNewKeyUntilOneGoes() {
         for (i in 0 until KvStore.MAX_KEYS) kv.set("k$i", "v")
         val full = assertThrows(IllegalArgumentException::class.java) { kv.set("one-more", "v") }
         assertEquals("store full (over ${KvStore.MAX_KEYS} keys)", full.message)
@@ -36,7 +38,8 @@ class KvStoreLimitsTest {
         assertEquals(KvStore.MAX_KEYS, kv.all().size)
     }
 
-    @Test fun theBytesCountAsValuesChange() {
+    @Test
+    fun theBytesCountAsValuesChange() {
         val big = "x".repeat(KvStore.MAX_VALUE - 16)
         val fits = (KvStore.MAX_SCOPE / KvStore.MAX_VALUE).toInt()
         for (i in 0 until fits) kv.set("b$i", big)

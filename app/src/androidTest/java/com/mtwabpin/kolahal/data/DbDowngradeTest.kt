@@ -16,11 +16,13 @@ class DbDowngradeTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val name = "downgrade-test.db"
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         context.deleteDatabase(name)
     }
 
-    @Test fun aNewerDatabaseOpensWithItsData() {
+    @Test
+    fun aNewerDatabaseOpensWithItsData() {
         context.deleteDatabase(name)
         val first = Db(context, name)
         val current = first.writableDatabase.version

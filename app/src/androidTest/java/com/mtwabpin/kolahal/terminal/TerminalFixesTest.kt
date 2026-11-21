@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.InstantRun
 import android.app.Application
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -10,6 +9,7 @@ import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
+import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
@@ -31,11 +31,18 @@ import org.junit.runner.RunWith
 /** Fixes to typing, the log and its lines, as home runs them. */
 @RunWith(AndroidJUnit4::class)
 class TerminalFixesTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val configReset = ConfigReset()
-    @get:Rule val access = NotificationAccess()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+
+    @get:Rule
+    val configReset = ConfigReset()
+
+    @get:Rule
+    val access = NotificationAccess()
+
     // Its aliases, echoes and scripts print lines a later class would read.
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -45,14 +52,21 @@ class TerminalFixesTest {
     private val gone = "com.example.kolahal.gone"
 
     private val commands = CommandRunner(app, object : TerminalUiStub() {
-        override fun clearScreen() { logs.clearScreen() }
+        override fun clearScreen() {
+            logs.clearScreen()
+        }
     })
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         listOf("text", "pins", "updates").forEach { AppPrefs.get(app).setAlias(it, null) }
         listOf("tfcat", "tftag").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
         AppPrefs.get(app).setAlias("tfhf", null)
-        com.mtwabpin.kolahal.productivity.TodoStore.get(app).let { t -> t.all().filter { it.text.startsWith("tf ") || it.text.startsWith("clear out") || it.text.startsWith("all hands") }.forEach { t.remove(it.id) } }
+        com.mtwabpin.kolahal.productivity.TodoStore.get(app).let { t ->
+            t.all().filter {
+                it.text.startsWith("tf ") || it.text.startsWith("clear out") || it.text.startsWith("all hands")
+            }.forEach { t.remove(it.id) }
+        }
         muted.unmute(gone)
     }
 
@@ -61,7 +75,8 @@ class TerminalFixesTest {
 
     private fun viewModel() = vms.terminal(app)
 
-    @Test fun didYouMeanFillsThePromptInsteadOfRunning() {
+    @Test
+    fun didYouMeanFillsThePromptInsteadOfRunning() {
         // Even where a tap runs whole command lines.
         config.set(Keys.LAUNCH_INSTANT, InstantRun.ALL)
         val hint = run("echoo hi").single()
@@ -75,7 +90,8 @@ class TerminalFixesTest {
     }
 
     /** `feed fetch` for every feed says which ones failed, as fetching one feed does. */
-    @Test fun fetchingAllFeedsReportsTheOnesThatFail() {
+    @Test
+    fun fetchingAllFeedsReportsTheOnesThatFail() {
         val feeds = com.mtwabpin.kolahal.feeds.FeedRepository.get(app)
         // Fetched a few at a time, they're still reported in the feeds' order: the first answers last,
         // from a server here that waits before it fails.
@@ -88,21 +104,38 @@ class TerminalFixesTest {
                         val reader = c.getInputStream().bufferedReader(Charsets.ISO_8859_1)
                         generateSequence { reader.readLine()?.takeIf { it.isNotEmpty() } }.toList()
                         Thread.sleep(1_500)
-                        runCatching { c.getOutputStream().write("HTTP/1.1 500 Oops\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray()) }
+                        runCatching {
+                            c.getOutputStream()
+                                .write("HTTP/1.1 500 Oops\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
+                        }
                     }
                 }
             }
         }
-        val added = listOf(feeds.add("http://127.0.0.1:${slow.localPort}/feed.xml", title = "tf-broken-a")) +
-            listOf("b", "c").map { feeds.add("https://kolahal-test-$it.invalid/feed.xml", title = "tf-broken-$it") }
+        val added = listOf(
+            feeds.add(
+                "http://127.0.0.1:${slow.localPort}/feed.xml",
+                title = "tf-broken-a"
+            )
+        ) +
+                listOf("b", "c").map {
+                    feeds.add(
+                        "https://kolahal-test-$it.invalid/feed.xml",
+                        title = "tf-broken-$it"
+                    )
+                }
         try {
             val before = logs.maxId()
             commands.processor.run("feed fetch")
-            fun failed() = logs.recent(100).filter { it.id > before && it.kind == LogKind.ERROR && it.text.startsWith("tf-broken-") }
+            fun failed() = logs.recent(100)
+                .filter { it.id > before && it.kind == LogKind.ERROR && it.text.startsWith("tf-broken-") }
             waitUntil("the failures", ms = 20_000) { failed().size == 3 }
-            assertEquals(listOf("a", "b", "c"), failed().map { it.text.substringAfter("tf-broken-").substringBefore(':') })
+            assertEquals(
+                listOf("a", "b", "c"),
+                failed().map { it.text.substringAfter("tf-broken-").substringBefore(':') })
             // They are the command's output, though the fetch ran in the background.
-            val command = logs.recent(100).single { it.id > before && it.kind == LogKind.COMMAND && it.text == "feed fetch" }
+            val command = logs.recent(100)
+                .single { it.id > before && it.kind == LogKind.COMMAND && it.text == "feed fetch" }
             assertTrue(failed().all { it.ctx.values[LogContext.FROM] == command.id.toString() })
         } finally {
             slow.close()
@@ -127,10 +160,12 @@ class TerminalFixesTest {
         return text
     }
 
-    private fun TerminalViewModel.shown(line: String) = entries.value.count { it.kind == LogKind.COMMAND && it.text == line }
+    private fun TerminalViewModel.shown(line: String) =
+        entries.value.count { it.kind == LogKind.COMMAND && it.text == line }
 
     /** ↑ goes back through what you typed, newest first, each command once. */
-    @Test fun upRecallsTypedCommandsNewestFirst() {
+    @Test
+    fun upRecallsTypedCommandsNewestFirst() {
         val vm = viewModel()
         vm.type("echo tf one")
         waitUntil("the first") { vm.shown("echo tf one") == 1 }
@@ -145,7 +180,8 @@ class TerminalFixesTest {
     }
 
     /** A command's line deleted, ↑ no longer offers it: history is read again when a command goes. */
-    @Test fun aDeletedCommandLeavesHistory() {
+    @Test
+    fun aDeletedCommandLeavesHistory() {
         val vm = viewModel()
         vm.type("echo tf gone")
         waitUntil("the first") { vm.shown("echo tf gone") == 1 }
@@ -158,18 +194,32 @@ class TerminalFixesTest {
     }
 
     /** The same message twice shows twice: each is a notice of its own. */
-    @Test fun theSameMessageTwiceIsTwoNotices() {
+    @Test
+    fun theSameMessageTwiceIsTwoNotices() {
         val vm = viewModel()
-        instrumentation.runOnMainSync { vm.scriptActions.newScript("Not A Name", ScriptLang.LUA, asCommand = false) }
+        instrumentation.runOnMainSync {
+            vm.scriptActions.newScript(
+                "Not A Name",
+                ScriptLang.LUA,
+                asCommand = false
+            )
+        }
         val first = vm.notice.value!!
-        instrumentation.runOnMainSync { vm.scriptActions.newScript("Not A Name", ScriptLang.LUA, asCommand = false) }
+        instrumentation.runOnMainSync {
+            vm.scriptActions.newScript(
+                "Not A Name",
+                ScriptLang.LUA,
+                asCommand = false
+            )
+        }
         val second = vm.notice.value!!
         assertEquals(first.text, second.text)
         assertTrue(first != second)
     }
 
     /** `tfhf|count` is the alias and a filter: no spaces needed, and the alias's own pipe still applies. */
-    @Test fun anAliasTakesAPipeWithNoSpace() {
+    @Test
+    fun anAliasTakesAPipeWithNoSpace() {
         run("alias tfhf = help | grep feed")
         val some = run("tfhf").size
         assertTrue(some > 0)
@@ -177,7 +227,8 @@ class TerminalFixesTest {
     }
 
     /** `alias hf = help | grep feed`: the pipe is the alias's, for when hf runs. */
-    @Test fun anAliasKeepsItsPipe() {
+    @Test
+    fun anAliasKeepsItsPipe() {
         run("alias tfhf = help | grep feed")
         assertEquals("help | grep feed", AppPrefs.get(app).aliases()["tfhf"])
         val all = run("help").size
@@ -186,62 +237,81 @@ class TerminalFixesTest {
     }
 
     /** A built-in's name in another case can't be an alias either: typed, the built-in would win. */
-    @Test fun anAliasCantBeABuiltInInAnotherCase() {
+    @Test
+    fun anAliasCantBeABuiltInInAnotherCase() {
         assertTrue(run("alias Help = echo x").single().text.contains("built-in"))
         assertNull(AppPrefs.get(app).aliases()["help"])
     }
 
     /** `todo clear out the garage` is a todo; `todo clear` on its own clears the finished ones. */
-    @Test fun aTodoStartingWithASubcommandWordIsATodo() {
+    @Test
+    fun aTodoStartingWithASubcommandWordIsATodo() {
         val todos = com.mtwabpin.kolahal.productivity.TodoStore.get(app)
         run("todo clear out the garage")
         run("todo all hands meeting")
         val texts = todos.all().map { it.text }
-        assertTrue(texts.toString(), "clear out the garage" in texts && "all hands meeting" in texts)
+        assertTrue(
+            texts.toString(),
+            "clear out the garage" in texts && "all hands meeting" in texts
+        )
     }
 
-    @Test fun feedCommandsRefuseAnUnknownId() {
+    @Test
+    fun feedCommandsRefuseAnUnknownId() {
         assertEquals(LogKind.ERROR, run("feed rm 999999").single().kind)
         assertEquals(LogKind.ERROR, run("feed every 999999 2h").single().kind)
         assertEquals(LogKind.ERROR, run("feed notify 999999 on").single().kind)
     }
 
-    @Test fun anEmptyNoteIsntSaved() {
+    @Test
+    fun anEmptyNoteIsntSaved() {
         val notes = com.mtwabpin.kolahal.productivity.NoteStore.get(app)
         val before = notes.all().size
         assertEquals(LogKind.ERROR, run("notes add").single().kind)
         assertEquals(before, notes.all().size)
     }
 
-    @Test fun aCommandsOtherNamesCantBeAliases() {
+    @Test
+    fun aCommandsOtherNamesCantBeAliases() {
         assertTrue(run("alias text = echo x").single().text.contains("built-in command"))
         assertNull(AppPrefs.get(app).aliases()["text"])
     }
 
     /** `pins` and `updates` are built-ins too: not aliases, and `help` knows them. */
-    @Test fun pinsAndUpdatesAreBuiltIns() {
+    @Test
+    fun pinsAndUpdatesAreBuiltIns() {
         for (name in listOf("pins", "updates")) {
             assertTrue(run("alias $name = echo x").single().text.contains("built-in command"))
             assertNull(AppPrefs.get(app).aliases()[name])
         }
-        assertEquals("pins", com.mtwabpin.kolahal.data.StyledText.plain(run("help pins").first().text))
+        assertEquals(
+            "pins",
+            com.mtwabpin.kolahal.data.StyledText.plain(run("help pins").first().text)
+        )
         assertTrue(run("help updates").any { it.text == "Also known as updates" })
     }
 
-    @Test fun unmuteTakesThePackageThatMutedLists() {
+    @Test
+    fun unmuteTakesThePackageThatMutedLists() {
         access.set(true)
         muted.mute(gone)
         // `notifs muted` lists an app no longer installed by its package, to unmute by tapping.
-        assertEquals("notifs unmute $gone", run("notifs muted").single { it.text == gone }.ctx.command)
+        assertEquals(
+            "notifs unmute $gone",
+            run("notifs muted").single { it.text == gone }.ctx.command
+        )
         run("notifs unmute $gone")
         assertFalse(gone in muted.muted.value)
     }
 
-    @Test fun scriptCatKeepsOneCopyOfTheCode() {
+    @Test
+    fun scriptCatKeepsOneCopyOfTheCode() {
         val code = "-- a\nlocal x = 1\nreturn x"
         scripts.create("tfcat", ScriptLang.LUA, code)
         val lines = run("script cat tfcat")
-        assertEquals(listOf("  1  -- a", "  2  local x = 1", "  3  return x"), lines.map { it.text })
+        assertEquals(
+            listOf("  1  -- a", "  2  local x = 1", "  3  return x"),
+            lines.map { it.text })
         assertEquals(listOf(code, null, null), lines.map { it.ctx.copy })
     }
 
@@ -250,20 +320,28 @@ class TerminalFixesTest {
      * marked +, and how to go back; an unedited copy is the library version; your own script has
      * nothing to compare with.
      */
-    @Test fun scriptDiffShowsWhatYouChanged() {
+    @Test
+    fun scriptDiffShowsWhatYouChanged() {
         val library = com.mtwabpin.kolahal.script.ScriptLibrary(app)
         val entry = library.entries.single { it.name == "countdown" }
         val s = library.install(entry)
-        fun plain(line: String) = run(line).map { com.mtwabpin.kolahal.data.StyledText.plain(it.text) }
+        fun plain(line: String) =
+            run(line).map { com.mtwabpin.kolahal.data.StyledText.plain(it.text) }
         try {
             scripts.saveCode(s.id, library.code(entry) + "-- mine\n", byUser = true)
             val lines = plain("script diff countdown")
-            assertTrue(lines.first(), lines.first().startsWith("countdown.lua against the library version"))
+            assertTrue(
+                lines.first(),
+                lines.first().startsWith("countdown.lua against the library version")
+            )
             assertTrue(lines.first(), "+ 1 line only in yours" in lines.first())
             assertTrue(lines.toString(), "+ -- mine" in lines)
             assertTrue(lines.last(), "script install countdown --replace" in lines.last())
             library.install(entry)
-            assertEquals(listOf("countdown.lua matches the library version"), plain("script diff countdown"))
+            assertEquals(
+                listOf("countdown.lua matches the library version"),
+                plain("script diff countdown")
+            )
             scripts.create("tfcat", ScriptLang.LUA, "return 1")
             assertTrue(plain("script diff tfcat").single().contains("isn't from the library"))
         } finally {
@@ -272,7 +350,8 @@ class TerminalFixesTest {
         }
     }
 
-    @Test fun aFreshScreenHideNeverBringsBackWhatFreshHid() {
+    @Test
+    fun aFreshScreenHideNeverBringsBackWhatFreshHid() {
         val first = logs.add(LogKind.INFO, "tf one")
         val second = logs.add(LogKind.INFO, "tf two")
         try {
@@ -288,45 +367,87 @@ class TerminalFixesTest {
     }
 
     /** What a typed command prints, now or from a script it starts, is marked as its output. */
-    @Test fun outputIsMarkedWithItsCommand() {
+    @Test
+    fun outputIsMarkedWithItsCommand() {
         scripts.create("tftag", ScriptLang.LUA, "-- @command\nlog('tf tagged ' .. argline)")
         val before = logs.maxId()
         commands.processor.run("echo tf echoed")
         commands.processor.run("tftag x")
-        val commands = logs.recent(50).filter { it.id > before && it.kind == LogKind.COMMAND }.associate { it.text to it.id.toString() }
-        assertEquals(commands["echo tf echoed"], logs.recent(50).single { it.text == "tf echoed" }.ctx.values[LogContext.FROM])
-        waitUntil("the script's line", ms = 20_000) { logs.recent(50).any { it.text == "tf tagged x" } }
-        assertEquals(commands["tftag x"], logs.recent(50).single { it.text == "tf tagged x" }.ctx.values[LogContext.FROM])
+        val commands = logs.recent(50).filter { it.id > before && it.kind == LogKind.COMMAND }
+            .associate { it.text to it.id.toString() }
+        assertEquals(
+            commands["echo tf echoed"],
+            logs.recent(50).single { it.text == "tf echoed" }.ctx.values[LogContext.FROM]
+        )
+        waitUntil("the script's line", ms = 20_000) {
+            logs.recent(50).any { it.text == "tf tagged x" }
+        }
+        assertEquals(
+            commands["tftag x"],
+            logs.recent(50).single { it.text == "tf tagged x" }.ctx.values[LogContext.FROM]
+        )
     }
 
     /** `xkcd random`: its comic comes when the script is done, maybe under other lines; it still goes with it. */
-    @Test fun deleteCommandAndOutputTakesOutputThatCameLater() {
+    @Test
+    fun deleteCommandAndOutputTakesOutputThatCameLater() {
         val command = logs.add(LogKind.COMMAND, "tf xkcd random")
         // The script's own timer run, right under the command: not its output.
         logs.add(LogKind.SCRIPT, "tf timer comic", "tfx")
         val other = logs.add(LogKind.COMMAND, "tf echo")
-        logs.add(LogKind.OUTPUT, "tf echoed", ctx = LogContext.of(LogContext.FROM to other.toString()))
-        logs.add(LogKind.SCRIPT, "tf random comic", "tfx", LogContext.of(LogContext.FROM to command.toString()))
+        logs.add(
+            LogKind.OUTPUT,
+            "tf echoed",
+            ctx = LogContext.of(LogContext.FROM to other.toString())
+        )
+        logs.add(
+            LogKind.SCRIPT,
+            "tf random comic",
+            "tfx",
+            LogContext.of(LogContext.FROM to command.toString())
+        )
         val vm = viewModel()
         waitUntil("the lines load") { vm.entries.value.any { it.text == "tf random comic" } }
         // Its line offers the command that asked for it, not the one just above it.
         val comic = vm.entries.value.single { it.text == "tf random comic" }
         assertTrue(vm.actionsFor(comic).any { it.label == "Run 'tf xkcd random' again" })
-        val delete = vm.actionsFor(vm.entries.value.single { it.id == command }).single { it.label == "Delete command and output" }
+        val delete = vm.actionsFor(vm.entries.value.single { it.id == command })
+            .single { it.label == "Delete command and output" }
         instrumentation.runOnMainSync { delete.run() }
         waitUntil("the output goes") { logs.recent(50).none { it.text == "tf random comic" } }
-        assertEquals(listOf("tf timer comic", "tf echo", "tf echoed"), logs.recent(50).map { it.text }.filter { it.startsWith("tf ") })
+        assertEquals(
+            listOf("tf timer comic", "tf echo", "tf echoed"),
+            logs.recent(50).map { it.text }.filter { it.startsWith("tf ") })
     }
 
     /** A line that came on its own (a tap launch, a call) long after a command isn't that command's output. */
-    @Test fun aLineOnItsOwnOffersNoCommandToRunAgain() {
+    @Test
+    fun aLineOnItsOwnOffersNoCommandToRunAgain() {
         val now = System.currentTimeMillis()
         logs.addAll(
             listOf(
-                LogRepository.Pending(LogKind.COMMAND, "tf battery", null, LogContext.EMPTY, now - 7_200_000),
+                LogRepository.Pending(
+                    LogKind.COMMAND,
+                    "tf battery",
+                    null,
+                    LogContext.EMPTY,
+                    now - 7_200_000
+                ),
                 // Its output from before the marks: within the group.
-                LogRepository.Pending(LogKind.OUTPUT, "tf 80%", null, LogContext.EMPTY, now - 7_199_000),
-                LogRepository.Pending(LogKind.INFO, "tf Launched Maps", null, LogContext.of(LogContext.PKG to "com.example.maps"), now),
+                LogRepository.Pending(
+                    LogKind.OUTPUT,
+                    "tf 80%",
+                    null,
+                    LogContext.EMPTY,
+                    now - 7_199_000
+                ),
+                LogRepository.Pending(
+                    LogKind.INFO,
+                    "tf Launched Maps",
+                    null,
+                    LogContext.of(LogContext.PKG to "com.example.maps"),
+                    now
+                ),
             ),
         )
         val vm = viewModel()
@@ -338,9 +459,15 @@ class TerminalFixesTest {
     }
 
     /** A pause records the newest line as seen, though `fresh` emptied the screen: those lines were seen live. */
-    @Test fun aPauseAfterFreshStillCountsTheLinesAsSeen() {
+    @Test
+    fun aPauseAfterFreshStillCountsTheLinesAsSeen() {
         val vm = viewModel()
-        val line = logs.add(LogKind.SCRIPT, "tf seen live", "tfs", LogContext.of(LogContext.SCRIPT to "tfs"))
+        val line = logs.add(
+            LogKind.SCRIPT,
+            "tf seen live",
+            "tfs",
+            LogContext.of(LogContext.SCRIPT to "tfs")
+        )
         waitUntil("the line loads") { vm.entries.value.any { it.id == line } }
         instrumentation.runOnMainSync { vm.freshScreen() }
         waitUntil("the screen is empty") { vm.entries.value.none { it.id == line } }
@@ -353,17 +480,42 @@ class TerminalFixesTest {
     }
 
     /** Lines from before 0.4.2 carry no mark: the lines after the command, as the log groups them. */
-    @Test fun deleteCommandAndOutputStopsWhereTheGroupDoes() {
+    @Test
+    fun deleteCommandAndOutputStopsWhereTheGroupDoes() {
         val now = System.currentTimeMillis()
         logs.addAll(
             listOf(
                 LogRepository.Pending(LogKind.COMMAND, "tf echo", null, LogContext.EMPTY, now),
-                LogRepository.Pending(LogKind.OUTPUT, "tf output", null, LogContext.EMPTY, now + 100),
+                LogRepository.Pending(
+                    LogKind.OUTPUT,
+                    "tf output",
+                    null,
+                    LogContext.EMPTY,
+                    now + 100
+                ),
                 // A timer script's line inside the block is its own.
-                LogRepository.Pending(LogKind.SCRIPT, "tf script", "tfs", LogContext.EMPTY, now + 200),
-                LogRepository.Pending(LogKind.OUTPUT, "tf more output", null, LogContext.EMPTY, now + 300),
+                LogRepository.Pending(
+                    LogKind.SCRIPT,
+                    "tf script",
+                    "tfs",
+                    LogContext.EMPTY,
+                    now + 200
+                ),
+                LogRepository.Pending(
+                    LogKind.OUTPUT,
+                    "tf more output",
+                    null,
+                    LogContext.EMPTY,
+                    now + 300
+                ),
                 // Much later, with no command in between: a call or an install, not output.
-                LogRepository.Pending(LogKind.INFO, "tf installed", null, LogContext.EMPTY, now + 60_000),
+                LogRepository.Pending(
+                    LogKind.INFO,
+                    "tf installed",
+                    null,
+                    LogContext.EMPTY,
+                    now + 60_000
+                ),
             ),
         )
         val vm = viewModel()

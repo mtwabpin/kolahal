@@ -8,15 +8,21 @@ import org.junit.Test
 /** `activity`: the names it shows, how a name finds an activity, and how the words split into app and activity. */
 class ActivityMatchTest {
     private val wifi = ActivityItem("com.android.settings.Settings\$WifiSettingsActivity", "Wi-Fi")
-    private val wifiCalling = ActivityItem("com.android.settings.Settings\$WifiCallingSettingsActivity", "Wi-Fi calling")
-    private val bt = ActivityItem("com.android.settings.Settings\$BluetoothSettingsActivity", "Bluetooth")
+    private val wifiCalling =
+        ActivityItem("com.android.settings.Settings\$WifiCallingSettingsActivity", "Wi-Fi calling")
+    private val bt =
+        ActivityItem("com.android.settings.Settings\$BluetoothSettingsActivity", "Bluetooth")
     private val main = ActivityItem("com.android.settings.Settings", "Settings")
     private val items = listOf(wifi, wifiCalling, bt, main)
 
-    @Test fun labelFallsBackToTheClassName() {
+    @Test
+    fun labelFallsBackToTheClassName() {
         assertEquals("Wi-Fi", ActivityMatch.shownLabel("Wi-Fi", "Settings", "a.b.Wifi"))
         // No label of its own: Android gives the app's label. Then the class name says more.
-        assertEquals("Settings\$Wifi", ActivityMatch.shownLabel("Settings", "Settings", "a.b.Settings\$Wifi"))
+        assertEquals(
+            "Settings\$Wifi",
+            ActivityMatch.shownLabel("Settings", "Settings", "a.b.Settings\$Wifi")
+        )
         assertEquals("Wifi", ActivityMatch.shownLabel("settings ", "Settings", "a.b.Wifi"))
         assertEquals("Wifi", ActivityMatch.shownLabel("", "Settings", "a.b.Wifi"))
         assertEquals("Wifi", ActivityMatch.shownLabel(null, "Settings", "a.b.Wifi"))
@@ -24,46 +30,68 @@ class ActivityMatchTest {
         assertEquals("Wifi", ActivityMatch.shownLabel("y", "y", "Wifi"))
     }
 
-    @Test fun classUnderTheLabelDropsTheAppsPackage() {
-        assertEquals(".Settings\$Wifi", ActivityMatch.shownClass("com.android.settings", "com.android.settings.Settings\$Wifi"))
-        assertEquals("com.other.Main", ActivityMatch.shownClass("com.android.settings", "com.other.Main"))
+    @Test
+    fun classUnderTheLabelDropsTheAppsPackage() {
+        assertEquals(
+            ".Settings\$Wifi",
+            ActivityMatch.shownClass("com.android.settings", "com.android.settings.Settings\$Wifi")
+        )
+        assertEquals(
+            "com.other.Main",
+            ActivityMatch.shownClass("com.android.settings", "com.other.Main")
+        )
         // A package that only starts the same is another package.
-        assertEquals("com.android.settingsx.Main", ActivityMatch.shownClass("com.android.settings", "com.android.settingsx.Main"))
+        assertEquals(
+            "com.android.settingsx.Main",
+            ActivityMatch.shownClass("com.android.settings", "com.android.settingsx.Main")
+        )
     }
 
-    @Test fun exactNamesInAnyCase() {
+    @Test
+    fun exactNamesInAnyCase() {
         assertEquals(Found.One(wifi), ActivityMatch.find(items, "wi-fi"))
         assertEquals(Found.One(wifi), ActivityMatch.find(items, "WifiSettingsActivity"))
         assertEquals(Found.One(wifi), ActivityMatch.find(items, "settings\$wifisettingsactivity"))
-        assertEquals(Found.One(wifi), ActivityMatch.find(items, "com.android.settings.Settings\$WifiSettingsActivity"))
+        assertEquals(
+            Found.One(wifi),
+            ActivityMatch.find(items, "com.android.settings.Settings\$WifiSettingsActivity")
+        )
         // "Settings" is the main class's short name; the other short names only start with it.
         assertEquals(Found.One(main), ActivityMatch.find(items, "settings"))
     }
 
-    @Test fun aUniquePrefixFindsOne() {
+    @Test
+    fun aUniquePrefixFindsOne() {
         assertEquals(Found.One(bt), ActivityMatch.find(items, "blue"))
         assertEquals(Found.One(wifiCalling), ActivityMatch.find(items, "wificall"))
     }
 
-    @Test fun severalMatchesAreAllReturned() {
+    @Test
+    fun severalMatchesAreAllReturned() {
         assertEquals(Found.Many(listOf(wifi, wifiCalling)), ActivityMatch.find(items, "wifi"))
         assertEquals(Found.Many(listOf(wifi, wifiCalling)), ActivityMatch.find(items, "wi-f"))
-        assertEquals(Found.Many(listOf(wifi, wifiCalling, bt)), ActivityMatch.find(items, "settings\$"))
+        assertEquals(
+            Found.Many(listOf(wifi, wifiCalling, bt)),
+            ActivityMatch.find(items, "settings\$")
+        )
     }
 
-    @Test fun aPartOfTheNameIsTheLastResort() {
+    @Test
+    fun aPartOfTheNameIsTheLastResort() {
         assertEquals(Found.One(wifiCalling), ActivityMatch.find(items, "calling"))
         assertEquals(Found.None, ActivityMatch.find(items, "zzqq"))
         assertEquals(Found.None, ActivityMatch.find(items, "  "))
     }
 
-    @Test fun anExactClassBeatsTheSameLabel() {
+    @Test
+    fun anExactClassBeatsTheSameLabel() {
         val a = ActivityItem("p.Wifi", "Network")
         val b = ActivityItem("p.Network", "Network")
         assertEquals(Found.One(b), ActivityMatch.find(listOf(a, b), "network"))
     }
 
-    @Test fun copiedNamesAreShortButFindTheSameActivity() {
+    @Test
+    fun copiedNamesAreShortButFindTheSameActivity() {
         assertEquals("WifiSettingsActivity", ActivityMatch.nameFor(wifi, items))
         assertEquals("Settings", ActivityMatch.nameFor(main, items))
         // Two inner classes with the same name: the short name tells them apart.
@@ -93,7 +121,8 @@ class ActivityMatchTest {
 
     private fun split(line: String) = ActivityMatch.split(line.split(' '), ::tier)
 
-    @Test fun wordsSplitIntoAppAndActivity() {
+    @Test
+    fun wordsSplitIntoAppAndActivity() {
         assertEquals("settings" to "", split("settings"))
         assertEquals("settings" to "wifi", split("settings wifi"))
         assertEquals("settings" to "wi-fi calling", split("settings wi-fi calling"))

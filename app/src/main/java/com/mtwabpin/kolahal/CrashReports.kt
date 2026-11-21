@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal
 
-import com.mtwabpin.kolahal.data.Stores
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
@@ -12,6 +11,7 @@ import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.shortTime
 import java.io.File
 import java.text.SimpleDateFormat
@@ -52,9 +52,12 @@ object CrashReports {
         val time: Long get() = file.lastModified()
         fun delete() = file.delete()
         fun text(): String = runCatching { file.readText() }.getOrDefault("")
+
         /** The error's first line with the short exception name, for the log. */
         val summary: String get() = CrashText.shortName(CrashText.summary(text()))
-        val inScriptProcess: Boolean get() = text().lineSequence().take(8).any { it.startsWith("What:") && it.contains(":script") }
+        val inScriptProcess: Boolean
+            get() = text().lineSequence().take(8)
+                .any { it.startsWith("What:") && it.contains(":script") }
     }
 
     /** Call this first in [LauncherApp.onCreate], in both processes. */
@@ -62,17 +65,37 @@ object CrashReports {
         val app = context.applicationContext
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, e ->
-            runCatching { save(app, Kind.CRASH, processName(), "thread ${thread.name}", e.stackTraceToString(), System.currentTimeMillis()) }
+            runCatching {
+                save(
+                    app,
+                    Kind.CRASH,
+                    processName(),
+                    "thread ${thread.name}",
+                    e.stackTraceToString(),
+                    System.currentTimeMillis()
+                )
+            }
             // Android's own handler shows the "stopped" dialog and ends the process.
-            if (previous != null) previous.uncaughtException(thread, e) else android.os.Process.killProcess(android.os.Process.myPid())
+            if (previous != null) previous.uncaughtException(
+                thread,
+                e
+            ) else android.os.Process.killProcess(android.os.Process.myPid())
         }
     }
 
-    private fun processName(): String = runCatching { android.app.Application.getProcessName() }.getOrNull() ?: "?"
+    private fun processName(): String =
+        runCatching { android.app.Application.getProcessName() }.getOrNull() ?: "?"
 
     private fun dir(context: Context) = File(context.filesDir, DIR)
 
-    private fun save(context: Context, kind: Kind, process: String, where: String, body: String, time: Long) {
+    private fun save(
+        context: Context,
+        kind: Kind,
+        process: String,
+        where: String,
+        body: String,
+        time: Long
+    ) {
         val dir = dir(context).apply { mkdirs() }
         val id = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(time))
         var file = File(dir, "$id-${kind.key}.txt")
@@ -97,7 +120,8 @@ object CrashReports {
         dir(context).listFiles { f -> f.name.endsWith(".txt") }.orEmpty()
             .mapNotNull { f ->
                 val stem = f.name.removeSuffix(".txt")
-                val kind = Kind.entries.firstOrNull { stem.endsWith("-" + it.key) } ?: return@mapNotNull null
+                val kind = Kind.entries.firstOrNull { stem.endsWith("-" + it.key) }
+                    ?: return@mapNotNull null
                 Report(stem.removeSuffix("-" + kind.key), kind, f)
             }
             .sortedByDescending { it.time }
@@ -126,7 +150,8 @@ object CrashReports {
         prefs.edit(commit = true) { putStringSet("announced", reports.map { it.key }.toSet()) }
         val logs = LogRepository.get(context)
         for (r in fresh) {
-            val stopped = if (r.kind == Kind.FREEZE) "stopped responding" else "stopped unexpectedly"
+            val stopped =
+                if (r.kind == Kind.FREEZE) "stopped responding" else "stopped unexpectedly"
             val detail = r.summary.take(160) + if (r.inScriptProcess) " (script process)" else ""
             logs.add(
                 LogKind.ERROR,
@@ -157,12 +182,29 @@ object CrashReports {
                 else -> continue
             }
             val trace = if (kind == Kind.FREEZE) {
-                runCatching { info.traceInputStream?.bufferedReader()?.use { r -> CrashText.mainThread(r.lineSequence().take(20_000)) } }.getOrNull()
+                runCatching {
+                    info.traceInputStream?.bufferedReader()
+                        ?.use { r -> CrashText.mainThread(r.lineSequence().take(20_000)) }
+                }.getOrNull()
             } else null
             // For a native crash, Android's status is the signal number (11 is a bad memory access).
-            val signal = if (kind == Kind.NATIVE && info.status > 0) CrashText.signal(info.status) else null
-            val body = listOfNotNull(signal, info.description?.takeIf { it.isNotBlank() }, trace).joinToString("\n\n").ifEmpty { "(Android gave no details)" }
-            runCatching { save(context, kind, info.processName, "pid ${info.pid}", body, info.timestamp) }
+            val signal =
+                if (kind == Kind.NATIVE && info.status > 0) CrashText.signal(info.status) else null
+            val body = listOfNotNull(
+                signal,
+                info.description?.takeIf { it.isNotBlank() },
+                trace
+            ).joinToString("\n\n").ifEmpty { "(Android gave no details)" }
+            runCatching {
+                save(
+                    context,
+                    kind,
+                    info.processName,
+                    "pid ${info.pid}",
+                    body,
+                    info.timestamp
+                )
+            }
         }
         if (newest > seen) prefs.edit(commit = true) { putLong("exits_seen", newest) }
     }
@@ -172,7 +214,10 @@ object CrashReports {
         val clock = com.mtwabpin.kolahal.data.Config.get(context).shortTime(time)
         val day = SimpleDateFormat("yyyyMMdd", Locale.US)
         return if (day.format(Date(time)) == day.format(Date())) "at $clock"
-        else "on " + SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(time)) + " at $clock"
+        else "on " + SimpleDateFormat(
+            "d MMM",
+            Locale.getDefault()
+        ).format(Date(time)) + " at $clock"
     }
 }
 
@@ -183,7 +228,8 @@ internal object CrashText {
 
     /** Returns the error's first line: the exception and its message, or the first line Android gave. */
     fun summary(report: String): String =
-        report.substringAfter("\n\n", "").lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: "(no details)"
+        report.substringAfter("\n\n", "").lineSequence().map { it.trim() }
+            .firstOrNull { it.isNotEmpty() } ?: "(no details)"
 
     /** Shortens the class name: `java.lang.IllegalStateException: boom` → `IllegalStateException: boom`, `Outer$Inner` → `Inner`. */
     fun shortName(line: String): String {
@@ -193,7 +239,8 @@ internal object CrashText {
     }
 
     fun signal(n: Int): String {
-        val name = mapOf(4 to "SIGILL", 6 to "SIGABRT", 7 to "SIGBUS", 8 to "SIGFPE", 11 to "SIGSEGV")[n]
+        val name =
+            mapOf(4 to "SIGILL", 6 to "SIGABRT", 7 to "SIGBUS", 8 to "SIGFPE", 11 to "SIGSEGV")[n]
         return if (name != null) "Signal $n ($name)" else "Signal $n"
     }
 

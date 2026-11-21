@@ -9,6 +9,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
 import androidx.annotation.VisibleForTesting
+import com.mtwabpin.kolahal.usage.UsageHistory.LOOK_BACK_DAYS
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -29,13 +30,15 @@ object UsageHistory {
      * [firstDay] as found, with the day and the time it was found. Found again after an hour: Android
      * drops its oldest day at an hour of its own (midnight UTC on many phones), not at local midnight.
      */
-    @Volatile private var found: Triple<LocalDate, LocalDate, Long>? = null
+    @Volatile
+    private var found: Triple<LocalDate, LocalDate, Long>? = null
 
     private const val FOUND_FOR_MS = 3_600_000L
 
     /** Tests set this: the first day with data, without asking Android. */
     @VisibleForTesting
-    @Volatile var firstDayForTests: (() -> LocalDate?)? = null
+    @Volatile
+    var firstDayForTests: (() -> LocalDate?)? = null
 
     /**
      * The first whole day Android has usage events for, or null when it has none (no usage access,
@@ -44,7 +47,8 @@ object UsageHistory {
     fun firstDay(context: Context, today: LocalDate = LocalDate.now()): LocalDate? {
         firstDayForTests?.let { return it() }
         val now = System.currentTimeMillis()
-        found?.takeIf { it.first == today && now - it.third < FOUND_FOR_MS }?.let { return it.second }
+        found?.takeIf { it.first == today && now - it.third < FOUND_FOR_MS }
+            ?.let { return it.second }
         val first = oldestDayWithEvents(context, today)?.plusDays(1)?.let { minOf(it, today) }
         // None found is not kept: usage access may be allowed in a moment.
         if (first != null) found = Triple(today, first, now)
@@ -59,7 +63,8 @@ object UsageHistory {
 
     /** The days of the last [days] (up to today) that have data, the oldest first. Today is always there. */
     fun days(context: Context, days: Int, today: LocalDate = LocalDate.now()): List<LocalDate> =
-        (days - 1 downTo 0).map { today.minusDays(it.toLong()) }.filter { it == today || hasData(context, it, today) }
+        (days - 1 downTo 0).map { today.minusDays(it.toLong()) }
+            .filter { it == today || hasData(context, it, today) }
 
     /** The oldest day, back to [LOOK_BACK_DAYS], that has any usage event. */
     private fun oldestDayWithEvents(context: Context, today: LocalDate): LocalDate? {
@@ -75,18 +80,21 @@ object UsageHistory {
     }
 
     /** Whether Android has any event in [from, until). From Android 15 it reads only the screen and lock events. */
-    private fun hasEvents(usage: UsageStatsManager, from: Long, until: Long): Boolean = runCatching {
-        val events = if (Build.VERSION.SDK_INT >= 35) {
-            usage.queryEvents(
-                UsageEventsQuery.Builder(from, until).setEventTypes(
-                    UsageEvents.Event.SCREEN_INTERACTIVE, UsageEvents.Event.SCREEN_NON_INTERACTIVE,
-                    UsageEvents.Event.KEYGUARD_SHOWN, UsageEvents.Event.KEYGUARD_HIDDEN,
-                    UsageEvents.Event.ACTIVITY_RESUMED,
-                ).build(),
-            )
-        } else {
-            usage.queryEvents(from, until)
-        }
-        events?.hasNextEvent() == true
-    }.getOrDefault(false)
+    private fun hasEvents(usage: UsageStatsManager, from: Long, until: Long): Boolean =
+        runCatching {
+            val events = if (Build.VERSION.SDK_INT >= 35) {
+                usage.queryEvents(
+                    UsageEventsQuery.Builder(from, until).setEventTypes(
+                        UsageEvents.Event.SCREEN_INTERACTIVE,
+                        UsageEvents.Event.SCREEN_NON_INTERACTIVE,
+                        UsageEvents.Event.KEYGUARD_SHOWN,
+                        UsageEvents.Event.KEYGUARD_HIDDEN,
+                        UsageEvents.Event.ACTIVITY_RESUMED,
+                    ).build(),
+                )
+            } else {
+                usage.queryEvents(from, until)
+            }
+            events?.hasNextEvent() == true
+        }.getOrDefault(false)
 }

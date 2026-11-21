@@ -29,8 +29,6 @@ import com.mtwabpin.kolahal.documents.Documents
 import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForValue
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,6 +39,8 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
 
 /**
  * Files that Android gives the editor read-only, on real addresses:
@@ -52,7 +52,8 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ReadOnlyFilesTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    @get:Rule
+    val compose = createEmptyComposeRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
@@ -64,7 +65,8 @@ class ReadOnlyFilesTest {
     private val made = mutableListOf<String>()
     private val addresses = mutableListOf<String>()
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         addresses.forEach {
             drafts.delete(it)
             Documents.forget(context, it)
@@ -85,7 +87,8 @@ class ReadOnlyFilesTest {
         // The media store lists it once it is scanned.
         shell("am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/$name")
         val id = waitForValue("the media store lists $name", 15_000) {
-            val row = shell("content query --uri content://media/external/file --projection _id:is_pending --where _display_name='$name'")
+            val row =
+                shell("content query --uri content://media/external/file --projection _id:is_pending --where _display_name='$name'")
             Regex("""_id=(\d+), is_pending=0""").find(row)?.groupValues?.get(1)?.toLong()
         }
         return name to id
@@ -93,7 +96,8 @@ class ReadOnlyFilesTest {
 
     private fun onDisk(name: String) = shell("cat /sdcard/Download/$name")
 
-    private fun read(uri: Uri) = resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+    private fun read(uri: Uri) =
+        resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
 
     /**
      * Taps what [selector] finds on Android's screens, once it shows; fails with [what] after 10
@@ -120,7 +124,10 @@ class ReadOnlyFilesTest {
         val picked = ArrayBlockingQueue<Uri>(1)
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                activity.activityResultRegistry.register("pick", ActivityResultContracts.OpenDocument()) { picked.put(it ?: Uri.EMPTY) }
+                activity.activityResultRegistry.register(
+                    "pick",
+                    ActivityResultContracts.OpenDocument()
+                ) { picked.put(it ?: Uri.EMPTY) }
                     .launch(arrayOf("text/plain"))
             }
             tap("the picker shows its roots", By.desc("Show roots"))
@@ -147,10 +154,12 @@ class ReadOnlyFilesTest {
         }
     }
 
-    private fun text() = compose.onNodeWithTag("editor").fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+    private fun text() = compose.onNodeWithTag("editor")
+        .fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
     private fun message() = runCatching {
-        compose.onNodeWithTag("message").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString()
+        compose.onNodeWithTag("message")
+            .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString()
     }.getOrDefault("")
 
     private fun editors() = compose.onAllNodesWithTag("editor").fetchSemanticsNodes().size
@@ -160,7 +169,8 @@ class ReadOnlyFilesTest {
      * The file keeps its own address for the draft and the recent list. Only a write may go to its
      * media store address.
      */
-    @Test fun aFileFromRecentSavesInPlace() {
+    @Test
+    fun aFileFromRecentSavesInPlace() {
         val (name, _) = othersFile("one\n")
         val doc = pickInRecent(name)
         assertEquals(ContentDocuments.MEDIA_DOCUMENTS, doc.authority)
@@ -171,15 +181,28 @@ class ReadOnlyFilesTest {
         assertEquals(name, info.name)
         assertTrue(info.writable)
         assertTrue(source.reopenHelps(doc))
-        assertEquals(DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Download"), source.folderOf(doc))
+        assertEquals(
+            DocumentsContract.buildDocumentUri(
+                "com.android.externalstorage.documents",
+                "primary:Download"
+            ), source.folderOf(doc)
+        )
 
         // The way a write takes when the address itself refuses: the media store address, with the same permission.
         val media = MediaStore.getMediaUri(context, doc)!!
         assertEquals(MediaStore.AUTHORITY, media.authority)
-        resolver.openOutputStream(media, "wt")!!.use { it.write("through the media store\n".toByteArray()) }
+        resolver.openOutputStream(media, "wt")!!
+            .use { it.write("through the media store\n".toByteArray()) }
         assertEquals("through the media store\n", read(doc))
 
-        ActivityScenario.launch<TextEditorActivity>(Intent(Intent.ACTION_EDIT, doc, context, TextEditorActivity::class.java)).use {
+        ActivityScenario.launch<TextEditorActivity>(
+            Intent(
+                Intent.ACTION_EDIT,
+                doc,
+                context,
+                TextEditorActivity::class.java
+            )
+        ).use {
             compose.waitFor("the editor shows the file", 10_000) { editors() == 1 }
             assertEquals("through the media store\n", text())
             assertFalse(message(), "read-only" in message() || "can't write" in message())
@@ -200,7 +223,8 @@ class ReadOnlyFilesTest {
      * this). The editor says why it can't save, and opens the same file again from its folder,
      * with the unsaved text, where it saves.
      */
-    @Test fun aFileSharedToReadOnlyOpensAgainFromItsFolder() {
+    @Test
+    fun aFileSharedToReadOnlyOpensAgainFromItsFolder() {
         val (name, id) = othersFile("one\n")
         val shared = "content://media/external/file/$id"
         addresses += shared
@@ -221,7 +245,10 @@ class ReadOnlyFilesTest {
         }
         val reopened = Documents.recent(context).list().first().uri
         addresses += reopened
-        assertTrue(reopened, reopened.startsWith("content://com.android.externalstorage.documents/"))
+        assertTrue(
+            reopened,
+            reopened.startsWith("content://com.android.externalstorage.documents/")
+        )
         // The text moved: nothing is left under the shared address.
         assertFalse(drafts.has(shared))
 

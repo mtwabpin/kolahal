@@ -3,12 +3,12 @@
  */
 package com.mtwabpin.kolahal.terminal
 
-import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Home's coming and going, as the log sees it:
@@ -29,12 +29,16 @@ class HomeSession(
     interface Host {
         /** The newest line on the log's page, or null when none is loaded ([LogPager.newest]). */
         val newest: Long?
+
         /** The newest line seen, kept across restarts ([com.mtwabpin.kolahal.data.LogRepository.seenUpTo]). */
         var storedSeenUpTo: Long
+
         /** `log.fresh`: the minutes away after which home starts clean. 0 is off. */
         val freshMinutes: Long
+
         /** Hides the lines up to [seen] from the screen. It is called on [io]. */
         fun hideScreen(seen: Long)
+
         /** The newest line's id in the log. It is called on [io]. */
         fun maxId(): Long
         fun requestReload()
@@ -47,20 +51,25 @@ class HomeSession(
     val reading = MutableStateFlow(true)
 
     /** True when coming back after a stop. Then the single read of the page on return doesn't wait. */
-    @Volatile var back = false
+    @Volatile
+    var back = false
 
     /** True from MainActivity's onStart to its onStop. */
-    @Volatile private var activityStarted = true
+    @Volatile
+    private var activityStarted = true
 
     /** Script lines in (seenUpTo, unreadUntil] arrived while the user was away. Later ones were seen live. */
-    @Volatile var seenUpTo = Long.MAX_VALUE
+    @Volatile
+    var seenUpTo = Long.MAX_VALUE
         private set
 
     /** The newest line when home was shown again. See [seenUpTo]. */
-    @Volatile var unreadUntil = Long.MAX_VALUE
+    @Volatile
+    var unreadUntil = Long.MAX_VALUE
         private set
 
-    @Volatile private var pausedAt = 0L
+    @Volatile
+    private var pausedAt = 0L
 
     /** MainActivity's onStart (true) and onStop (false). While stopped, the log page isn't read. On return, [onResume] starts it again. */
     fun onStarted(on: Boolean) {
@@ -84,7 +93,8 @@ class HomeSession(
         seenUpTo = host.storedSeenUpTo
         val freshMin = host.freshMinutes
         val seen = seenUpTo
-        val hide = freshMin > 0 && pausedAt > 0 && clock() - pausedAt >= freshMin * 60_000L && seen != Long.MAX_VALUE
+        val hide =
+            freshMin > 0 && pausedAt > 0 && clock() - pausedAt >= freshMin * 60_000L && seen != Long.MAX_VALUE
         scope.launch {
             withContext(io) {
                 if (hide) runCatching { host.hideScreen(seen) }
@@ -93,7 +103,9 @@ class HomeSession(
             // On return after a stop, the page is read here, once, after the fresh screen is applied.
             when {
                 reading.value -> host.requestReload()
-                activityStarted -> { back = true; reading.value = true }
+                activityStarted -> {
+                    back = true; reading.value = true
+                }
             }
         }
     }

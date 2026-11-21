@@ -14,7 +14,12 @@ import com.mtwabpin.kolahal.script.Json
  * resized like any other.
  */
 enum class WidgetSize(val id: String, val cells: Int, val rows: Int) {
-    S1X1("1x1", 1, 1), S2X1("2x1", 2, 1), S2X2("2x2", 2, 2), S4X1("4x1", 4, 1), S4X2("4x2", 4, 2), S4X4("4x4", 4, 4);
+    S1X1("1x1", 1, 1), S2X1("2x1", 2, 1), S2X2("2x2", 2, 2), S4X1("4x1", 4, 1), S4X2(
+        "4x2",
+        4,
+        2
+    ),
+    S4X4("4x4", 4, 4);
 
     /** Its width in the page's columns. */
     val span get() = cells * 3
@@ -89,7 +94,12 @@ enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean 
  * - [url]: the web link opens.
  * [label] is what a screen reader says. With [toLog], home turns to the log after a tap that runs the script.
  */
-data class WidgetTap(val args: String? = null, val url: String? = null, val label: String? = null, val toLog: Boolean = false)
+data class WidgetTap(
+    val args: String? = null,
+    val url: String? = null,
+    val label: String? = null,
+    val toLog: Boolean = false
+)
 
 /**
  * The fields every kind has. All are optional. [staleAfter] and [refresh] are in seconds.
@@ -135,7 +145,8 @@ sealed interface WidgetSpec {
     ) : WidgetSpec
 
     /** Kind `text`: a few lines and a caption. */
-    data class Text(override val base: WidgetBase, val text: String, val caption: String? = null) : WidgetSpec
+    data class Text(override val base: WidgetBase, val text: String, val caption: String? = null) :
+        WidgetSpec
 
     /**
      * One row of [Rows]. With [done] (true or false) the row has a checkbox, ticked or not, for a todo
@@ -167,10 +178,21 @@ sealed interface WidgetSpec {
     data class Lead(val value: String, val unit: String? = null, val label: String? = null)
 
     /** Kind `list`: rows, and perhaps a [lead] over them. [empty] is what to say with no rows. */
-    data class Rows(override val base: WidgetBase, val items: List<Row>, val empty: String? = null, val lead: Lead? = null) : WidgetSpec
+    data class Rows(
+        override val base: WidgetBase,
+        val items: List<Row>,
+        val empty: String? = null,
+        val lead: Lead? = null
+    ) : WidgetSpec
 
     /** One bar of a [Progress] with several. */
-    data class Bar(val label: String?, val value: Float, val max: Float, val text: String?, val color: StyledText.Colour?)
+    data class Bar(
+        val label: String?,
+        val value: Float,
+        val max: Float,
+        val text: String?,
+        val color: StyledText.Colour?
+    )
 
     /**
      * Kind `progress`: a ring or bars. [style] is `ring` or `bar`; without it the box decides.
@@ -220,13 +242,23 @@ sealed interface WidgetSpec {
     ) : WidgetSpec
 
     /** One button of [Buttons]. */
-    data class Button(val label: String, val tap: WidgetTap, val icon: String? = null, val color: StyledText.Colour? = null)
+    data class Button(
+        val label: String,
+        val tap: WidgetTap,
+        val icon: String? = null,
+        val color: StyledText.Colour? = null
+    )
 
     /** Kind `buttons`: a grid of 1 to 8 buttons. A small card draws fewer buttons, never smaller ones. */
     data class Buttons(override val base: WidgetBase, val items: List<Button>) : WidgetSpec
 
     /** One switch of [Toggles]. [on] is its state as the script last reported it. Its [tap] always has `args`. */
-    data class Toggle(val label: String, val on: Boolean, val tap: WidgetTap, val icon: String? = null)
+    data class Toggle(
+        val label: String,
+        val on: Boolean,
+        val tap: WidgetTap,
+        val icon: String? = null
+    )
 
     /** Kind `toggles`: 1 to 6 switches. A tap runs the script, and the script reports the new state. */
     data class Toggles(override val base: WidgetBase, val items: List<Toggle>) : WidgetSpec
@@ -235,7 +267,11 @@ sealed interface WidgetSpec {
     data class Zone(val zone: String, val label: String? = null)
 
     /** Kind `clock`: the time in up to 4 places. Kolahal ticks. With [seconds], it shows seconds. */
-    data class Clock(override val base: WidgetBase, val zones: List<Zone>, val seconds: Boolean = false) : WidgetSpec
+    data class Clock(
+        override val base: WidgetBase,
+        val zones: List<Zone>,
+        val seconds: Boolean = false
+    ) : WidgetSpec
 
     /**
      * One event of an [Agenda]. [starts] and [ends] are in seconds since 1970.
@@ -256,7 +292,12 @@ sealed interface WidgetSpec {
     )
 
     /** Kind `agenda`: up to 20 events by day, for [days] days from today (1 to 14). [empty] is what to say with no events. */
-    data class Agenda(override val base: WidgetBase, val events: List<Event>, val days: Int = 3, val empty: String? = null) : WidgetSpec
+    data class Agenda(
+        override val base: WidgetBase,
+        val events: List<Event>,
+        val days: Int = 3,
+        val empty: String? = null
+    ) : WidgetSpec
 
     /**
      * Kind `image`: a picture from the web, with a caption.
@@ -331,11 +372,13 @@ object WidgetJson {
 
     /** The longest stored description that is read back, in characters. `widget.show` allows 32 KB. */
     const val MAX_JSON = 131_072
+
     /**
      * The longest text in one field, in UTF-16 units. The longest limit a field has is 500
      * characters, and one emoji can take several units. So this never refuses what the parser cut.
      */
     const val MAX_TEXT = 4_000
+
     // The limits the parser keeps are its own ([WidgetParser]): a card it shows reads back the same.
     const val MAX_ROWS = WidgetParser.MAX_ITEMS
     const val MAX_MORE = WidgetParser.MAX_MORE
@@ -346,6 +389,7 @@ object WidgetJson {
     const val MAX_TOGGLES = WidgetParser.MAX_TOGGLES
     const val MAX_ZONES = WidgetParser.MAX_ZONES
     const val MAX_EVENTS = WidgetParser.MAX_EVENTS
+
     /**
      * The longest link of a picture or a tap, in characters. `widget.show` refuses a longer one, and
      * never cuts it: a cut link opens another page.
@@ -358,6 +402,7 @@ object WidgetJson {
     const val MAX_STALE = WidgetParser.MAX_STALE
     const val MIN_REFRESH = WidgetParser.MIN_REFRESH
     const val MAX_REFRESH = WidgetParser.MAX_REFRESH
+
     /** The furthest moment a countdown may name, in seconds each way from 1970: the end of the year 9999. */
     const val MAX_TIME = WidgetParser.MAX_TIME
 
@@ -415,7 +460,11 @@ object WidgetJson {
     private fun flag(on: Boolean): Boolean? = if (on) true else null
 
     private fun tapMap(tap: WidgetTap): Map<String, Any?> =
-        fields("args" to tap.args, "url" to tap.url, "label" to tap.label, "page" to LOG.takeIf { tap.toLog })
+        fields(
+            "args" to tap.args,
+            "url" to tap.url,
+            "label" to tap.label,
+            "page" to LOG.takeIf { tap.toLog })
 
     private fun toMap(spec: WidgetSpec): Map<String, Any?> {
         val base = spec.base
@@ -437,22 +486,42 @@ object WidgetJson {
                 "unit" to spec.unit,
                 "delta" to spec.delta,
                 "trend" to spec.trend,
-                "more" to spec.more.takeIf { it.isNotEmpty() }?.map { fields("value" to it.value, "label" to it.label) },
+                "more" to spec.more.takeIf { it.isNotEmpty() }
+                    ?.map { fields("value" to it.value, "label" to it.label) },
                 "progress" to number(spec.progress),
                 "moving" to flag(spec.moving),
             )
+
             is WidgetSpec.Text -> fields("text" to spec.text, "caption" to spec.caption)
             is WidgetSpec.Rows -> fields(
                 "items" to spec.items.map {
                     fields(
-                        "title" to it.title, "detail" to it.detail, "trailing" to it.trailing, "icon" to it.icon,
-                        "color" to it.color?.role, "tap" to it.tap?.let(::tapMap), "done" to it.done,
-                        "range" to it.range?.let { r -> fields("low" to number(r.low), "high" to number(r.high), "value" to number(r.value)) },
+                        "title" to it.title,
+                        "detail" to it.detail,
+                        "trailing" to it.trailing,
+                        "icon" to it.icon,
+                        "color" to it.color?.role,
+                        "tap" to it.tap?.let(::tapMap),
+                        "done" to it.done,
+                        "range" to it.range?.let { r ->
+                            fields(
+                                "low" to number(r.low),
+                                "high" to number(r.high),
+                                "value" to number(r.value)
+                            )
+                        },
                     )
                 },
                 "empty" to spec.empty,
-                "lead" to spec.lead?.let { fields("value" to it.value, "unit" to it.unit, "label" to it.label) },
+                "lead" to spec.lead?.let {
+                    fields(
+                        "value" to it.value,
+                        "unit" to it.unit,
+                        "label" to it.label
+                    )
+                },
             )
+
             is WidgetSpec.Progress -> fields(
                 "value" to number(spec.value),
                 "max" to number(spec.max),
@@ -460,10 +529,17 @@ object WidgetJson {
                 "label" to spec.label,
                 "style" to spec.style,
                 "items" to spec.items.takeIf { it.isNotEmpty() }?.map {
-                    fields("label" to it.label, "value" to number(it.value), "max" to number(it.max), "text" to it.text, "color" to it.color?.role)
+                    fields(
+                        "label" to it.label,
+                        "value" to number(it.value),
+                        "max" to number(it.max),
+                        "text" to it.text,
+                        "color" to it.color?.role
+                    )
                 },
                 "moving" to flag(spec.moving),
             )
+
             is WidgetSpec.Chart -> fields(
                 // A point that isn't finite has no JSON form: it goes as null, and the whole description reads back as nothing.
                 "points" to spec.points.map { number(it) },
@@ -475,28 +551,64 @@ object WidgetJson {
                 "labels" to spec.labels.takeIf { it.isNotEmpty() },
                 "summary" to spec.summary,
             )
-            is WidgetSpec.Countdown -> fields("to" to spec.to, "from" to spec.from, "label" to spec.label, "style" to spec.style, "reached" to spec.reached)
+
+            is WidgetSpec.Countdown -> fields(
+                "to" to spec.to,
+                "from" to spec.from,
+                "label" to spec.label,
+                "style" to spec.style,
+                "reached" to spec.reached
+            )
+
             is WidgetSpec.Buttons -> fields(
-                "items" to spec.items.map { fields("label" to it.label, "icon" to it.icon, "color" to it.color?.role, "tap" to tapMap(it.tap)) },
+                "items" to spec.items.map {
+                    fields(
+                        "label" to it.label,
+                        "icon" to it.icon,
+                        "color" to it.color?.role,
+                        "tap" to tapMap(it.tap)
+                    )
+                },
             )
+
             is WidgetSpec.Toggles -> fields(
-                "items" to spec.items.map { fields("label" to it.label, "icon" to it.icon, "on" to it.on, "tap" to tapMap(it.tap)) },
+                "items" to spec.items.map {
+                    fields(
+                        "label" to it.label,
+                        "icon" to it.icon,
+                        "on" to it.on,
+                        "tap" to tapMap(it.tap)
+                    )
+                },
             )
+
             is WidgetSpec.Clock -> fields(
                 "zones" to spec.zones.map { fields("zone" to it.zone, "label" to it.label) },
                 "seconds" to flag(spec.seconds),
             )
+
             is WidgetSpec.Agenda -> fields(
                 "events" to spec.events.map {
                     fields(
-                        "title" to it.title, "starts" to it.starts, "ends" to it.ends, "allDay" to flag(it.allDay), "where" to it.where,
-                        "color" to it.color?.role, "tap" to it.tap?.let(::tapMap),
+                        "title" to it.title,
+                        "starts" to it.starts,
+                        "ends" to it.ends,
+                        "allDay" to flag(it.allDay),
+                        "where" to it.where,
+                        "color" to it.color?.role,
+                        "tap" to it.tap?.let(::tapMap),
                     )
                 },
                 "days" to spec.days,
                 "empty" to spec.empty,
             )
-            is WidgetSpec.Image -> fields("image" to spec.image, "alt" to spec.alt, "caption" to spec.caption, "fit" to spec.fit)
+
+            is WidgetSpec.Image -> fields(
+                "image" to spec.image,
+                "alt" to spec.alt,
+                "caption" to spec.caption,
+                "fit" to spec.fit
+            )
             // Not reached: [encode] stops before it.
             is WidgetSpec.Media -> emptyMap()
         }
@@ -535,12 +647,14 @@ object WidgetJson {
 
     private fun Map<*, *>.needStyled(key: String): String = styled(key) ?: odd()
 
-    private fun finite(v: Any?): Float = (v as? Number)?.toFloat()?.takeIf { it.isFinite() } ?: odd()
+    private fun finite(v: Any?): Float =
+        (v as? Number)?.toFloat()?.takeIf { it.isFinite() } ?: odd()
 
     private fun Map<*, *>.number(key: String): Float? = this[key]?.let(::finite)
 
     private fun Map<*, *>.seconds(key: String): Long? = this[key]?.let { v ->
-        (v as? Number)?.toDouble()?.takeIf { it.isFinite() && it >= -MAX_TIME && it <= MAX_TIME }?.toLong() ?: odd()
+        (v as? Number)?.toDouble()?.takeIf { it.isFinite() && it >= -MAX_TIME && it <= MAX_TIME }
+            ?.toLong() ?: odd()
     }
 
     private fun Map<*, *>.flag(key: String): Boolean = when (val v = this[key]) {
@@ -557,14 +671,20 @@ object WidgetJson {
     }
 
     /** A time zone name that `java.time.ZoneId.of` knows. */
-    private fun Map<*, *>.zone(key: String): String = needText(key).also { name -> runCatching { java.time.ZoneId.of(name) }.getOrNull() ?: odd() }
+    private fun Map<*, *>.zone(key: String): String = needText(key).also { name ->
+        runCatching { java.time.ZoneId.of(name) }.getOrNull() ?: odd()
+    }
 
     /** A list that must have 1 to [max] items. `widget.show` refuses any other, so nothing is cut here. */
-    private fun Map<*, *>.counted(key: String, max: Int): List<*> = list(key)?.takeIf { it.size in 1..max } ?: odd()
+    private fun Map<*, *>.counted(key: String, max: Int): List<*> =
+        list(key)?.takeIf { it.size in 1..max } ?: odd()
 
-    private fun Map<*, *>.colour(key: String): StyledText.Colour? = text(key)?.let { role -> StyledText.Colour.entries.firstOrNull { it.role == role } ?: odd() }
+    private fun Map<*, *>.colour(key: String): StyledText.Colour? = text(key)?.let { role ->
+        StyledText.Colour.entries.firstOrNull { it.role == role } ?: odd()
+    }
 
-    private fun Map<*, *>.oneOf(key: String, vararg words: String): String? = text(key)?.also { if (it !in words) odd() }
+    private fun Map<*, *>.oneOf(key: String, vararg words: String): String? =
+        text(key)?.also { if (it !in words) odd() }
 
     private fun Map<*, *>.list(key: String): List<*>? = when (val v = this[key]) {
         null -> null
@@ -574,7 +694,8 @@ object WidgetJson {
 
     private fun obj(v: Any?): Map<*, *> = v as? Map<*, *> ?: odd()
 
-    private fun isWebLink(url: String) = isHttps(url) || url.startsWith("http://", ignoreCase = true)
+    private fun isWebLink(url: String) =
+        isHttps(url) || url.startsWith("http://", ignoreCase = true)
 
     /**
      * True for a link that starts with `https://`. A picture's link must: home fetches it without
@@ -583,7 +704,8 @@ object WidgetJson {
     fun isHttps(url: String): Boolean = url.startsWith("https://", ignoreCase = true)
 
     /** A picture's link: needed, https, and not longer than [MAX_LINK]. */
-    private fun Map<*, *>.picture(key: String): String = needText(key).also { if (!isHttps(it) || it.length > MAX_LINK) odd() }
+    private fun Map<*, *>.picture(key: String): String =
+        needText(key).also { if (!isHttps(it) || it.length > MAX_LINK) odd() }
 
     private fun Map<*, *>.tap(key: String): WidgetTap? {
         val m = obj(this[key] ?: return null)
@@ -615,23 +737,49 @@ object WidgetJson {
                 unit = m.text("unit"),
                 delta = m.text("delta"),
                 trend = m.oneOf("trend", "up", "down", "flat"),
-                more = m.list("more").orEmpty().take(MAX_MORE).map { obj(it).let { s -> WidgetSpec.Small(s.needText("value"), s.text("label")) } },
+                more = m.list("more").orEmpty().take(MAX_MORE).map {
+                    obj(it).let { s ->
+                        WidgetSpec.Small(
+                            s.needText("value"),
+                            s.text("label")
+                        )
+                    }
+                },
                 progress = m.number("progress")?.coerceIn(0f, 1f),
                 moving = m.flag("moving"),
             )
-            WidgetKind.TEXT -> WidgetSpec.Text(base, m.needStyled("text"), m.styled("caption")?.let(StyledText::capitalised))
+
+            WidgetKind.TEXT -> WidgetSpec.Text(
+                base,
+                m.needStyled("text"),
+                m.styled("caption")?.let(StyledText::capitalised)
+            )
+
             WidgetKind.LIST -> WidgetSpec.Rows(
                 base,
                 items = (m.list("items") ?: odd()).take(MAX_ROWS).map {
                     val r = obj(it)
                     WidgetSpec.Row(
-                        r.needStyled("title"), r.styled("detail")?.let(StyledText::capitalised), r.styled("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"),
+                        r.needStyled("title"),
+                        r.styled("detail")?.let(StyledText::capitalised),
+                        r.styled("trailing"),
+                        r.text("icon"),
+                        r.colour("color"),
+                        r.tap("tap"),
+                        r.flagOrNull("done"),
                         r["range"]?.let { range(obj(it)) },
                     )
                 },
                 empty = m.text("empty")?.let(StyledText::capitalised),
-                lead = m["lead"]?.let(::obj)?.let { WidgetSpec.Lead(it.needText("value"), it.text("unit"), it.text("label")?.let(StyledText::capitalised)) },
+                lead = m["lead"]?.let(::obj)?.let {
+                    WidgetSpec.Lead(
+                        it.needText("value"),
+                        it.text("unit"),
+                        it.text("label")?.let(StyledText::capitalised)
+                    )
+                },
             )
+
             WidgetKind.PROGRESS -> WidgetSpec.Progress(
                 base,
                 value = m.number("value") ?: odd(),
@@ -641,10 +789,17 @@ object WidgetJson {
                 style = m.oneOf("style", "ring", "bar"),
                 items = m.list("items").orEmpty().take(MAX_BARS).map {
                     val b = obj(it)
-                    WidgetSpec.Bar(b.text("label")?.let(StyledText::capitalised), b.number("value") ?: odd(), scale(b.number("max") ?: 1f), b.text("text"), b.colour("color"))
+                    WidgetSpec.Bar(
+                        b.text("label")?.let(StyledText::capitalised),
+                        b.number("value") ?: odd(),
+                        scale(b.number("max") ?: 1f),
+                        b.text("text"),
+                        b.colour("color")
+                    )
                 },
                 moving = m.flag("moving"),
             )
+
             WidgetKind.CHART -> WidgetSpec.Chart(
                 base,
                 points = (m.list("points") ?: odd()).takeLast(MAX_POINTS).map(::finite),
@@ -653,9 +808,14 @@ object WidgetJson {
                 max = m.number("max"),
                 value = m.text("value"),
                 label = m.text("label")?.let(StyledText::capitalised),
-                labels = m.list("labels").orEmpty().take(MAX_LABELS).map { (it as? String)?.takeIf { s -> s.length <= MAX_TEXT && !StyledText.hasMarker(s) } ?: odd() }.map(StyledText::capitalised),
+                labels = m.list("labels").orEmpty().take(MAX_LABELS).map {
+                    (it as? String)?.takeIf { s ->
+                        s.length <= MAX_TEXT && !StyledText.hasMarker(s)
+                    } ?: odd()
+                }.map(StyledText::capitalised),
                 summary = m.text("summary"),
             )
+
             WidgetKind.COUNTDOWN -> WidgetSpec.Countdown(
                 base,
                 to = m.seconds("to") ?: odd(),
@@ -664,27 +824,43 @@ object WidgetJson {
                 style = m.oneOf("style", "days", "clock"),
                 reached = m.text("reached")?.let(StyledText::capitalised),
             )
+
             WidgetKind.BUTTONS -> WidgetSpec.Buttons(
                 base,
                 items = m.counted("items", MAX_BUTTONS).map {
                     val b = obj(it)
-                    WidgetSpec.Button(StyledText.capitalised(b.needText("label")), b.tap("tap") ?: odd(), b.text("icon"), b.colour("color"))
+                    WidgetSpec.Button(
+                        StyledText.capitalised(b.needText("label")),
+                        b.tap("tap") ?: odd(),
+                        b.text("icon"),
+                        b.colour("color")
+                    )
                 },
             )
+
             WidgetKind.TOGGLES -> WidgetSpec.Toggles(
                 base,
                 items = m.counted("items", MAX_TOGGLES).map {
                     val t = obj(it)
                     // A switch runs its script. It never opens a link.
                     val tap = t.tap("tap")?.takeIf { tap -> tap.args != null } ?: odd()
-                    WidgetSpec.Toggle(StyledText.capitalised(t.needText("label")), t.flagOrNull("on") ?: odd(), tap, t.text("icon"))
+                    WidgetSpec.Toggle(
+                        StyledText.capitalised(t.needText("label")),
+                        t.flagOrNull("on") ?: odd(),
+                        tap,
+                        t.text("icon")
+                    )
                 },
             )
+
             WidgetKind.CLOCK -> WidgetSpec.Clock(
                 base,
-                zones = (m.list("zones") ?: odd()).take(MAX_ZONES).map { obj(it).let { z -> WidgetSpec.Zone(z.zone("zone"), z.text("label")) } }.ifEmpty { odd() },
+                zones = (m.list("zones") ?: odd()).take(MAX_ZONES)
+                    .map { obj(it).let { z -> WidgetSpec.Zone(z.zone("zone"), z.text("label")) } }
+                    .ifEmpty { odd() },
                 seconds = m.flag("seconds"),
             )
+
             WidgetKind.AGENDA -> WidgetSpec.Agenda(
                 base,
                 events = (m.list("events") ?: odd()).take(MAX_EVENTS).map {
@@ -702,6 +878,7 @@ object WidgetJson {
                 days = m.number("days")?.toInt()?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
                 empty = m.text("empty")?.let(StyledText::capitalised),
             )
+
             WidgetKind.IMAGE -> WidgetSpec.Image(
                 base,
                 image = m.picture("image"),

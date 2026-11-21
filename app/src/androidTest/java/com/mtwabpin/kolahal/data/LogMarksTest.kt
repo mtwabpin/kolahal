@@ -24,17 +24,20 @@ class LogMarksTest {
     private val old = context.getSharedPreferences("logs", Context.MODE_PRIVATE)
     private var saved = emptyMap<String, String>()
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         saved = marks.all()
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         old.edit(commit = true) { clear() }
         marks.replaceAll(saved)
     }
 
     /** After the update, the old file's marks are in the database, and they win: the file has some only then, or after an older backup. */
-    @Test fun marksFromBeforeMoveToTheDatabaseOnce() {
+    @Test
+    fun marksFromBeforeMoveToTheDatabaseOnce() {
         marks.set(LogMarks.SEEN_UP_TO to 40L, LogMarks.HIDDEN_UP_TO to 2L)
         marks.flush()
         old.edit(commit = true) {
@@ -50,9 +53,14 @@ class LogMarksTest {
     }
 
     /** A restore's marks past the newest line come down to it, from the database or from an older backup's file. */
-    @Test fun aRestoreLeavesNoMarkPastTheNewestLine() {
+    @Test
+    fun aRestoreLeavesNoMarkPastTheNewestLine() {
         val newest = logs.maxId()
-        marks.set(LogMarks.HIDDEN_UP_TO to newest + 50, LogMarks.SEEN_UP_TO to newest, LogMarks.CLEARED_UP_TO to "lots")
+        marks.set(
+            LogMarks.HIDDEN_UP_TO to newest + 50,
+            LogMarks.SEEN_UP_TO to newest,
+            LogMarks.CLEARED_UP_TO to "lots"
+        )
         old.edit(commit = true) { putLong(LogMarks.HISTORY_FROM, newest + 9) }
         marks.restored(newest)
         assertEquals(newest, marks.long(LogMarks.HIDDEN_UP_TO))
@@ -62,7 +70,8 @@ class LogMarksTest {
     }
 
     /** The :script process keeps nothing in memory: it reads each mark as home last wrote it. */
-    @Test fun theScriptProcessReadsWhatHomeWrote() {
+    @Test
+    fun theScriptProcessReadsWhatHomeWrote() {
         val elsewhere = LogMarks(context, inMemory = false)
         marks.set(LogMarks.HIDDEN_UP_TO to 11L)
         marks.flush()
@@ -77,7 +86,8 @@ class LogMarksTest {
     }
 
     /** Home changes a mark on the main thread: memory has it at once, and the database gets every change in order. */
-    @Test fun changesReachTheDatabaseInOrder() {
+    @Test
+    fun changesReachTheDatabaseInOrder() {
         val elsewhere = LogMarks(context, inMemory = false)
         for (id in 1L..50L) marks.set(LogMarks.SEEN_UP_TO to id)
         assertEquals("in memory at once", 50L, marks.long(LogMarks.SEEN_UP_TO))

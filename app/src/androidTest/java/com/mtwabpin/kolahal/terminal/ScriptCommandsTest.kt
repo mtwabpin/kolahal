@@ -1,25 +1,24 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.TerminalUiStub
-import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.script.HostApi
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
-import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.SecretStore
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -40,8 +39,13 @@ class ScriptCommandsTest {
     private val opened = mutableListOf<String>()
 
     private val commands = CommandRunner(context, object : TerminalUiStub() {
-        override fun openEditor(script: Script) { opened += script.name }
-        override fun askSecret(script: Script, name: String) { asked += script.name to name }
+        override fun openEditor(script: Script) {
+            opened += script.name
+        }
+
+        override fun askSecret(script: Script, name: String) {
+            asked += script.name to name
+        }
     })
 
     /** Every script made here starts with this, so [tearDown] finds them. */
@@ -51,18 +55,28 @@ class ScriptCommandsTest {
      * Lines last, after [tearDown], once the scripts and their timers are gone: commands (the history)
      * too, as a later class reads the log and the history built from it.
      */
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         for (s in scripts.all().filter { it.name.startsWith(prefix) }) {
             ScriptScheduler.cancel(context, s.id)
             scripts.delete(s.id)
             com.mtwabpin.kolahal.data.StatusLines.clear(context, s.name)
-            SecretStore(context).let { store -> com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code).forEach { store.set(s.name, it.name, null, it.hosts) } }
+            SecretStore(context).let { store ->
+                com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code)
+                    .forEach { store.set(s.name, it.name, null, it.hosts) }
+            }
         }
     }
 
-    private fun create(suffix: String, code: String, enabled: Boolean = true, lang: ScriptLang = ScriptLang.LUA): Script =
+    private fun create(
+        suffix: String,
+        code: String,
+        enabled: Boolean = true,
+        lang: ScriptLang = ScriptLang.LUA
+    ): Script =
         scripts.create(prefix + suffix, lang, code, enabled)
 
     /** Runs [line] and returns the lines it printed, its own line aside. */
@@ -71,7 +85,8 @@ class ScriptCommandsTest {
     private fun run(line: String) = commands.run(line)
 
     /** `status` shows what the header shows: lines of scripts that are on and may set one. */
-    @Test fun statusListsShownLinesAndClearsThem() {
+    @Test
+    fun statusListsShownLinesAndClearsThem() {
         val shown = create("st", "status('42 deg')")
         val off = create("st2", "status('hidden')", enabled = false)
         statuses.set(shown.name, "42 deg")
@@ -86,7 +101,8 @@ class ScriptCommandsTest {
     }
 
     /** `script pin` and `unpin`: the line shows at the top, marked in `status`; one without a status line can't be pinned. */
-    @Test fun pinAndUnpin() {
+    @Test
+    fun pinAndUnpin() {
         val s = create("pin", "status('x')")
         statuses.set(s.name, "NZ 136/8")
         assertTrue("${s.name} ▸ NZ 136/8" in run("status"))
@@ -99,33 +115,49 @@ class ScriptCommandsTest {
         // Its line stays: only the top of home no longer shows it.
         assertEquals("NZ 136/8", statuses.all()[s.name])
         val plain = create("pin2", "return 1")
-        assertEquals(listOf("${plain.name} has no status line to pin: it never calls status()"), run("script pin ${plain.name}"))
+        assertEquals(
+            listOf("${plain.name} has no status line to pin: it never calls status()"),
+            run("script pin ${plain.name}")
+        )
     }
 
     /** The library lists its scripts; one installs, shows as installed, and an edited copy is replaced only when asked. */
-    @Test fun libraryInstallsAndKeepsYourEdits() {
+    @Test
+    fun libraryInstallsAndKeepsYourEdits() {
         val library = ScriptLibrary(context)
         // One that isn't on the emulator already, under a name the test owns: rename after installing.
         val entry = library.entries.first { e -> scripts.byName(e.name) == null }
         val listed = run("script lib")
-        assertTrue(listed.toString(), listed.any { it.startsWith("${entry.name}.${entry.lang.ext}") })
+        assertTrue(
+            listed.toString(),
+            listed.any { it.startsWith("${entry.name}.${entry.lang.ext}") })
         try {
             val installed = run("script install ${entry.name}")
-            assertTrue(installed.toString(), installed.any { it.startsWith("Installed ${entry.name}.${entry.lang.ext}") })
+            assertTrue(
+                installed.toString(),
+                installed.any { it.startsWith("Installed ${entry.name}.${entry.lang.ext}") })
             assertTrue(run("script lib").any { com.mtwabpin.kolahal.data.StyledText.plain(it) == "${entry.name}.${entry.lang.ext} installed" })
             val s = scripts.byName(entry.name)!!
             scripts.saveCode(s.id, s.code + "\n-- mine", byUser = true)
-            assertTrue(run("script install ${entry.name}").single().contains("differs from the library version"))
+            assertTrue(
+                run("script install ${entry.name}").single()
+                    .contains("differs from the library version")
+            )
             assertTrue(scripts.byName(entry.name)!!.code.endsWith("-- mine"))
             run("script install ${entry.name} --replace")
             assertEquals(library.code(entry), scripts.byName(entry.name)!!.code)
-            assertTrue(run("script install nosuchscript").single().startsWith("No library script 'nosuchscript'"))
+            assertTrue(
+                run("script install nosuchscript").single()
+                    .startsWith("No library script 'nosuchscript'")
+            )
         } finally {
-            scripts.byName(entry.name)?.let { ScriptScheduler.cancel(context, it.id); scripts.delete(it.id) }
+            scripts.byName(entry.name)
+                ?.let { ScriptScheduler.cancel(context, it.id); scripts.delete(it.id) }
         }
     }
 
-    @Test fun newChecksTheName() {
+    @Test
+    fun newChecksTheName() {
         assertTrue(run("script new Bad!").single().startsWith("Script names:"))
         assertTrue(run("script new").single().startsWith("Usage: script new"))
         run("script new ${prefix}js.js")
@@ -135,11 +167,19 @@ class ScriptCommandsTest {
     }
 
     /** Timers, notifications and the switch, each said back. */
-    @Test fun everyNotifyAndTheSwitch() {
-        val s = create("sw", "-- @uses clipboard\nlocal x = clipboard.get()\nnotify('x')", enabled = false)
+    @Test
+    fun everyNotifyAndTheSwitch() {
+        val s = create(
+            "sw",
+            "-- @uses clipboard\nlocal x = clipboard.get()\nnotify('x')",
+            enabled = false
+        )
         // A timer set switches it on, and asks for what it declares that nobody allowed yet.
         assertEquals(
-            listOf("${s.name} requests clipboard — tap to allow", "${s.name}: runs every 15m (Android minimum is 15m)"),
+            listOf(
+                "${s.name} requests clipboard — tap to allow",
+                "${s.name}: runs every 15m (Android minimum is 15m)"
+            ),
             run("script every ${s.name} 5m"),
         )
         assertTrue(scripts.byId(s.id)!!.enabled)
@@ -163,32 +203,63 @@ class ScriptCommandsTest {
      * A value typed on the line, too short or not, is in no line of the log (its command line neither)
      * and so not in the history.
      */
-    @Test fun secrets() {
-        val s = create("sec", "-- @secret API_KEY example.com The key\nlocal k = secrets.get('API_KEY')")
-        assertTrue(run("script secret ${s.name}").map(com.mtwabpin.kolahal.data.StyledText::plain).any { it.startsWith("API_KEY") && it.endsWith("not set") })
+    @Test
+    fun secrets() {
+        val s = create(
+            "sec",
+            "-- @secret API_KEY example.com The key\nlocal k = secrets.get('API_KEY')"
+        )
+        assertTrue(
+            run("script secret ${s.name}").map(com.mtwabpin.kolahal.data.StyledText::plain)
+                .any { it.startsWith("API_KEY") && it.endsWith("not set") })
         // No value on the line: the masked box.
         run("script secret ${s.name} API_KEY")
         assertEquals(listOf(s.name to "API_KEY"), asked)
         val short = "zq7"
         val value = "zq7Kx9secret"
-        assertEquals(listOf("API_KEY must be at least ${SecretStore.MIN_LENGTH} characters"), run("script secret ${s.name} API_KEY $short"))
-        assertTrue(run("script secret ${s.name} API_KEY $value").single().startsWith("${s.name}: API_KEY set"))
+        assertEquals(
+            listOf("API_KEY must be at least ${SecretStore.MIN_LENGTH} characters"),
+            run("script secret ${s.name} API_KEY $short")
+        )
+        assertTrue(
+            run("script secret ${s.name} API_KEY $value").single()
+                .startsWith("${s.name}: API_KEY set")
+        )
         val logged = logs.recent(400, afterId = logLines.start)
-        assertTrue(logged.joinToString { it.text }, logged.none { e -> short in e.text || e.ctx.values.values.any { short in it } })
+        assertTrue(
+            logged.joinToString { it.text },
+            logged.none { e -> short in e.text || e.ctx.values.values.any { short in it } })
         val history = logs.commandHistory()
         assertTrue(history.toString(), history.none { short in it })
-        assertTrue(run("script secret ${s.name}").map(com.mtwabpin.kolahal.data.StyledText::plain).any { it.startsWith("API_KEY") && it.endsWith("set") && !it.endsWith("not set") })
-        assertEquals(listOf("${s.name}: API_KEY cleared"), run("script secret ${s.name} API_KEY --clear"))
-        assertEquals(listOf("${s.name} has no @secret NOPE — it has: API_KEY"), run("script secret ${s.name} NOPE x"))
+        assertTrue(
+            run("script secret ${s.name}").map(com.mtwabpin.kolahal.data.StyledText::plain)
+                .any { it.startsWith("API_KEY") && it.endsWith("set") && !it.endsWith("not set") })
+        assertEquals(
+            listOf("${s.name}: API_KEY cleared"),
+            run("script secret ${s.name} API_KEY --clear")
+        )
+        assertEquals(
+            listOf("${s.name} has no @secret NOPE — it has: API_KEY"),
+            run("script secret ${s.name} NOPE x")
+        )
         val none = create("sec2", "return 1")
         assertEquals(listOf("${none.name} declares no @secret"), run("script secret ${none.name}"))
     }
 
     /** Access switches: listed by what declares them, turned on and off, and nothing it doesn't have. */
-    @Test fun accessAllowAndDeny() {
-        val s = create("acc", "-- @uses clipboard\n-- @on unlock\nlocal r = http.get('https://example.com')\nstatus('x')")
+    @Test
+    fun accessAllowAndDeny() {
+        val s = create(
+            "acc",
+            "-- @uses clipboard\n-- @on unlock\nlocal r = http.get('https://example.com')\nstatus('x')"
+        )
         val listed = run("script access ${s.name}")
-        for (item in listOf("internet", "header", "clipboard", "unlock")) assertTrue("$item: $listed", listed.any { it.startsWith(item) })
+        for (item in listOf(
+            "internet",
+            "header",
+            "clipboard",
+            "unlock"
+        )) assertTrue("$item: $listed", listed.any { it.startsWith(item) })
         assertEquals(listOf("${s.name}: clipboard off"), run("script deny ${s.name} clipboard"))
         assertFalse(scripts.byId(s.id)!!.grants.allows("clipboard"))
         statuses.set(s.name, "line")
@@ -198,19 +269,35 @@ class ScriptCommandsTest {
         run("script deny ${s.name} header")
         assertFalse(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
         assertEquals("line", statuses.all()[s.name])
-        assertEquals(listOf("${s.name}: clipboard on, unlock on"), run("script allow ${s.name} clipboard unlock"))
+        assertEquals(
+            listOf("${s.name}: clipboard on, unlock on"),
+            run("script allow ${s.name} clipboard unlock")
+        )
         assertTrue(scripts.byId(s.id)!!.grants.allows("unlock"))
-        assertEquals(listOf("${s.name} doesn't declare @uses dnd"), run("script deny ${s.name} dnd"))
-        assertTrue(run("script deny ${s.name} bogus").single().startsWith("No 'bogus' for ${s.name} — it has: internet header clipboard unlock"))
+        assertEquals(
+            listOf("${s.name} doesn't declare @uses dnd"),
+            run("script deny ${s.name} dnd")
+        )
+        assertTrue(
+            run("script deny ${s.name} bogus").single()
+                .startsWith("No 'bogus' for ${s.name} — it has: internet header clipboard unlock")
+        )
         assertTrue(run("script allow ${s.name}").single().startsWith("Usage: script allow"))
         val plain = create("acc2", "return 1")
-        assertTrue(run("script access ${plain.name}").single().endsWith("has no access switches: no internet, status line to pin, notifications, @uses or @on"))
+        assertTrue(
+            run("script access ${plain.name}").single()
+                .endsWith("has no access switches: no internet, status line to pin, notifications, @uses or @on")
+        )
     }
 
     /** Renamed, shown, compared and deleted; the same name, a bad one, or none is said. */
-    @Test fun renameShowCompareAndDelete() {
+    @Test
+    fun renameShowCompareAndDelete() {
         val s = create("mv", "local a = 1\nreturn a")
-        assertEquals(listOf("${s.name} already has that name"), run("script mv ${s.name} ${s.name}"))
+        assertEquals(
+            listOf("${s.name} already has that name"),
+            run("script mv ${s.name} ${s.name}")
+        )
         assertTrue(run("script mv ${s.name} Bad!").single().startsWith("Script names:"))
         assertTrue(run("script mv ${s.name}").single().startsWith("Usage: script mv"))
         val to = "${prefix}moved"
@@ -220,25 +307,36 @@ class ScriptCommandsTest {
         assertEquals(listOf("  1  local a = 1", "  2  return a"), shown.map { it.text })
         // Copy text on the first line copies the script, not the numbered line.
         assertEquals("local a = 1\nreturn a", shown.first().ctx.values[LogContext.COPY])
-        assertEquals(listOf("$to.lua isn't from the library, so there is nothing to compare it with"), run("script diff $to"))
+        assertEquals(
+            listOf("$to.lua isn't from the library, so there is nothing to compare it with"),
+            run("script diff $to")
+        )
         assertEquals(listOf("Deleted $to"), run("script rm $to"))
         assertNull(scripts.byName(to))
         assertEquals(listOf("No script named '$to' — 'script ls'"), run("script rm $to"))
         assertEquals(listOf("Script name required"), run("script run"))
         // Every subcommand, those that take no script's name too.
         val said = run("script frobnicate x").single()
-        assertTrue(said, said.startsWith("Usage: script [ls|lib|install|new|") && said.endsWith("] <name>"))
-        for (sub in listOf("set", "dir", "export", "import")) assertTrue("$sub: $said", "|$sub|" in said || "|$sub]" in said)
+        assertTrue(
+            said,
+            said.startsWith("Usage: script [ls|lib|install|new|") && said.endsWith("] <name>")
+        )
+        for (sub in listOf("set", "dir", "export", "import")) assertTrue(
+            "$sub: $said",
+            "|$sub|" in said || "|$sub]" in said
+        )
     }
 
     /** A source of one's own, as `owner/name`. */
-    private val source = (ScriptSources.parse("sctestowner/scripts") as ScriptSources.Parsed.Ok).source
+    private val source =
+        (ScriptSources.parse("sctestowner/scripts") as ScriptSources.Parsed.Ok).source
 
     /** A shared script in a list, with a checksum that is never downloaded. */
     private fun listed(vararg names: String) = org.json.JSONObject().put("format", 1).put(
         "scripts",
         org.json.JSONArray(names.map { n ->
-            org.json.JSONObject().put("name", n).put("lang", "lua").put("path", "scripts/$n/$n.lua").put("title", "Title of $n").put("sha256", "d".repeat(64))
+            org.json.JSONObject().put("name", n).put("lang", "lua").put("path", "scripts/$n/$n.lua")
+                .put("title", "Title of $n").put("sha256", "d".repeat(64))
         }),
     ).toString()
 
@@ -246,7 +344,8 @@ class ScriptCommandsTest {
     private fun waitForLine(from: Long, text: String) = run {
         var found: List<com.mtwabpin.kolahal.data.LogEntry> = emptyList()
         waitUntil("a line '$text'") {
-            found = logs.recent(400, afterId = from).filter { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == text }
+            found = logs.recent(400, afterId = from)
+                .filter { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == text }
             found.isNotEmpty()
         }
         found
@@ -256,32 +355,56 @@ class ScriptCommandsTest {
      * `script source add` adds a source with a warning and reads it; `script sources` lists it after
      * kolahal-scripts; `script source rm` removes it, and kolahal-scripts can't be removed.
      */
-    @Test fun sourcesAreAddedListedAndRemoved() {
+    @Test
+    fun sourcesAreAddedListedAndRemoved() {
         val catalog = ScriptCatalog(context)
         try {
             // Its list as read a moment ago, so adding it reads nothing online.
             catalog.keep(source, listed("sctestmoon"))
             val from = logs.maxId()
             val added = run("script source add sctestowner/scripts")
-            assertEquals("Added sctestowner/scripts — reads https://sctestowner.github.io/scripts/index.json", added[0])
+            assertEquals(
+                "Added sctestowner/scripts — reads https://sctestowner.github.io/scripts/index.json",
+                added[0]
+            )
             assertEquals(
                 "warning Kolahal doesn't check scripts from sctestowner/scripts. Only add repositories you trust.",
                 com.mtwabpin.kolahal.data.StyledText.plain(added[1]),
             )
             waitForLine(from, "sctestowner/scripts has 1 script — 'script get' lists them")
             assertEquals(listOf(source.index), catalog.added())
-            assertEquals(listOf("sctestowner/scripts is a source already"), run("script source add https://sctestowner.github.io/scripts/index.json"))
+            assertEquals(
+                listOf("sctestowner/scripts is a source already"),
+                run("script source add https://sctestowner.github.io/scripts/index.json")
+            )
 
             val listed = lines("script sources").drop(1)
-            assertEquals(listOf(ScriptCatalog.SOURCE, "sctestowner/scripts"), listed.map { com.mtwabpin.kolahal.data.StyledText.plain(it.text) })
+            assertEquals(
+                listOf(ScriptCatalog.SOURCE, "sctestowner/scripts"),
+                listed.map { com.mtwabpin.kolahal.data.StyledText.plain(it.text) })
             val desc = listed[1].ctx.values[LogContext.DESC].orEmpty()
-            assertTrue(desc, desc.startsWith("${source.index} · not checked by Kolahal · 1 script · read "))
+            assertTrue(
+                desc,
+                desc.startsWith("${source.index} · not checked by Kolahal · 1 script · read ")
+            )
 
-            assertEquals(listOf("${ScriptCatalog.SOURCE} can't be removed"), run("script source rm ${ScriptCatalog.SOURCE}"))
-            assertEquals(listOf("No source 'nobody/here' — 'script sources' lists them"), run("script source rm nobody/here"))
-            assertEquals(listOf("Removed sctestowner/scripts — scripts you installed from it stay"), run("script source rm sctestowner/scripts"))
+            assertEquals(
+                listOf("${ScriptCatalog.SOURCE} can't be removed"),
+                run("script source rm ${ScriptCatalog.SOURCE}")
+            )
+            assertEquals(
+                listOf("No source 'nobody/here' — 'script sources' lists them"),
+                run("script source rm nobody/here")
+            )
+            assertEquals(
+                listOf("Removed sctestowner/scripts — scripts you installed from it stay"),
+                run("script source rm sctestowner/scripts")
+            )
             assertEquals(emptyList<String>(), catalog.added())
-            assertEquals(listOf("Only https:// links"), run("script source add http://example.com/index.json"))
+            assertEquals(
+                listOf("Only https:// links"),
+                run("script source add http://example.com/index.json")
+            )
         } finally {
             catalog.add(source)
             catalog.remove(source.name)
@@ -292,7 +415,8 @@ class ScriptCommandsTest {
      * `script get` lists every source's scripts; one that another source has first is called by
      * `source/name`, and names its source. A source that isn't there says so.
      */
-    @Test fun scriptGetListsEverySource() {
+    @Test
+    fun scriptGetListsEverySource() {
         val catalog = ScriptCatalog(context)
         val cache = java.io.File(context.filesDir, "script-catalog.json")
         val prefs = Stores.SCRIPT_CATALOG.open(context)
@@ -308,10 +432,19 @@ class ScriptCommandsTest {
             val moon = waitForLine(from, "sctestmoon.lua")
             val rows = waitForLine(from, "sctestsun.lua") + moon
             assertEquals(
-                listOf("script get sctestsun", "script get sctestowner/scripts/sctestsun", "script get sctestmoon"),
+                listOf(
+                    "script get sctestsun",
+                    "script get sctestowner/scripts/sctestsun",
+                    "script get sctestmoon"
+                ),
                 rows.map { it.ctx.values[LogContext.COMMAND] },
             )
-            assertEquals(listOf("Title of sctestsun", "from sctestowner/scripts · Title of sctestsun", "from sctestowner/scripts · Title of sctestmoon"), rows.map { it.ctx.values[LogContext.DESC] })
+            assertEquals(
+                listOf(
+                    "Title of sctestsun",
+                    "from sctestowner/scripts · Title of sctestsun",
+                    "from sctestowner/scripts · Title of sctestmoon"
+                ), rows.map { it.ctx.values[LogContext.DESC] })
             val missing = logs.maxId()
             run("script get nobody/here/sctestsun")
             waitForLine(missing, "No source 'nobody/here' — 'script sources' lists them")
@@ -319,19 +452,30 @@ class ScriptCommandsTest {
             catalog.add(source)
             catalog.remove(source.name)
             if (hadCache != null) cache.writeBytes(hadCache) else cache.delete()
-            prefs.edit().apply { if (hadFetched != null) putLong("fetched", hadFetched) else remove("fetched") }.commit()
+            prefs.edit().apply {
+                if (hadFetched != null) putLong(
+                    "fetched",
+                    hadFetched
+                ) else remove("fetched")
+            }.commit()
         }
     }
 
     /** The list says each script's timer, kind, events and switch; triggers name known and unknown events. */
-    @Test fun listsAndTriggers() {
+    @Test
+    fun listsAndTriggers() {
         val s = create("ls", "-- @on unlock, bogusevent\nreturn 1", enabled = false)
         // Switched off: a tag after its name says so.
-        val row = lines("script ls").single { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == "${s.name}.lua off" }
+        val row =
+            lines("script ls").single { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == "${s.name}.lua off" }
         val desc = row.ctx.values[LogContext.DESC].orEmpty()
-        assertTrue(desc, desc.startsWith("manual") && "on unlock" in desc && desc.endsWith("never run"))
+        assertTrue(
+            desc,
+            desc.startsWith("manual") && "on unlock" in desc && desc.endsWith("never run")
+        )
         val triggers = lines("script triggers")
-        val mine = triggers.single { it.text == "${s.name}.lua" }.ctx.values[LogContext.DESC].orEmpty()
+        val mine =
+            triggers.single { it.text == "${s.name}.lua" }.ctx.values[LogContext.DESC].orEmpty()
         assertTrue(mine, "on unlock" in mine && "unknown: bogusevent" in mine && "off" in mine)
         assertTrue(triggers.last().text.startsWith("Events: "))
     }
@@ -340,7 +484,8 @@ class ScriptCommandsTest {
      * A command script that's off doesn't run by its name: it says so, with a tap to turn it on, and
      * two seconds later it has logged nothing and has never run.
      */
-    @Test fun anOffCommandSaysItsOff() {
+    @Test
+    fun anOffCommandSaysItsOff() {
         val s = create("cmd", "-- @command\nlog('sctest-cmd ran')", enabled = false)
         val said = lines(s.name)
         assertEquals(listOf("${s.name} is off — tap to turn it on"), said.map { it.text })
@@ -348,7 +493,9 @@ class ScriptCommandsTest {
         // Nothing is coming, so there's nothing to wait on: give a wrong run the time to show.
         Thread.sleep(2_000)
         val later = logs.recent(400, afterId = logLines.start)
-        assertTrue(later.joinToString { it.text }, later.none { it.text == "sctest-cmd ran" || it.source == s.name })
+        assertTrue(
+            later.joinToString { it.text },
+            later.none { it.text == "sctest-cmd ran" || it.source == s.name })
         assertNull(scripts.byId(s.id)!!.lastRun)
     }
 
@@ -356,15 +503,26 @@ class ScriptCommandsTest {
      * A run you start that shows nothing (as hn does with no new stories) says it finished, so
      * "Running …" isn't left without an answer. One that logs a line says nothing more.
      */
-    @Test fun aRunThatShowsNothingSaysSo() {
+    @Test
+    fun aRunThatShowsNothingSaysSo() {
         val quiet = create("quiet", "local x = 1")
         val loud = create("loud", "log('sctest-loud ran')")
         run("script run ${quiet.name}")
         run("script run ${loud.name}")
-        com.mtwabpin.kolahal.waitUntil("both runs end", 30_000) { scripts.byId(quiet.id)!!.lastRun != null && scripts.byId(loud.id)!!.lastRun != null }
-        com.mtwabpin.kolahal.waitUntil("the quiet run says so", 5_000) { logs.recent(400, afterId = logLines.start).any { it.text == "${quiet.name} ran: nothing to show" } }
+        com.mtwabpin.kolahal.waitUntil(
+            "both runs end",
+            30_000
+        ) { scripts.byId(quiet.id)!!.lastRun != null && scripts.byId(loud.id)!!.lastRun != null }
+        com.mtwabpin.kolahal.waitUntil("the quiet run says so", 5_000) {
+            logs.recent(
+                400,
+                afterId = logLines.start
+            ).any { it.text == "${quiet.name} ran: nothing to show" }
+        }
         val later = logs.recent(400, afterId = logLines.start)
         assertTrue(later.joinToString { it.text }, later.any { it.text == "sctest-loud ran" })
-        assertTrue(later.joinToString { it.text }, later.none { it.text == "${loud.name} ran: nothing to show" })
+        assertTrue(
+            later.joinToString { it.text },
+            later.none { it.text == "${loud.name} ran: nothing to show" })
     }
 }

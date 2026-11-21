@@ -46,14 +46,17 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 private const val DURATION = 10_000L
+
 /** The rows at the foot of the line that the bar may draw in: the 2 dp bar, and the wave above it. */
 private const val BAR_BAND = 12
 
 /** The header's media line: what it says, what its taps do, and how far along its bar is. */
 @RunWith(AndroidJUnit4::class)
 class NowPlayingLineTest {
-    @get:Rule val compose = createComposeRule()
-    @get:Rule val access = NotificationAccess()
+    @get:Rule
+    val compose = createComposeRule()
+    @get:Rule
+    val access = NotificationAccess()
     private var toggles = 0
     private var skips = 0
 
@@ -64,7 +67,18 @@ class NowPlayingLineTest {
         title: String = "Song",
     ): NowPlaying {
         val now = System.currentTimeMillis()
-        return NowPlaying("com.example.player", "Player", title, "Band", state, position, now, 1f, duration, now)
+        return NowPlaying(
+            "com.example.player",
+            "Player",
+            title,
+            "Band",
+            state,
+            position,
+            now,
+            1f,
+            duration,
+            now
+        )
     }
 
     private fun paused(position: Long = 0, duration: Long = DURATION) =
@@ -87,7 +101,8 @@ class NowPlayingLineTest {
         compose.waitForIdle()
         val pixels = compose.onNodeWithTag("header-media").captureToImage().toPixelMap()
         val rows = barRows(pixels.height)
-        return (0 until pixels.width).count { x -> rows.any { y -> pixels[x, y] == Term.prompt } }.toFloat() / pixels.width
+        return (0 until pixels.width).count { x -> rows.any { y -> pixels[x, y] == Term.prompt } }
+            .toFloat() / pixels.width
     }
 
     /** The rows of the bar's band that have the accent in them: more for a wave than for a flat bar. */
@@ -98,7 +113,8 @@ class NowPlayingLineTest {
     }
 
     /** While it plays, the played part is a wave, as media players draw it; paused, a flat line. */
-    @Test fun whilePlayingTheBarIsAWave() {
+    @Test
+    fun whilePlayingTheBarIsAWave() {
         var np by mutableStateOf(track(position = DURATION / 2))
         show { np }
         compose.mainClock.advanceTimeBy(300)
@@ -116,21 +132,24 @@ class NowPlayingLineTest {
         compose.waitForIdle()
     }
 
-    @Test fun itSaysWhatPlays() {
+    @Test
+    fun itSaysWhatPlays() {
         show { track() }
         compose.onNodeWithText("Song — Band").assertExists()
         compose.onNodeWithContentDescription("Playing").assertExists()
         compose.onNodeWithContentDescription("Paused").assertDoesNotExist()
     }
 
-    @Test fun itSaysWhenPaused() {
+    @Test
+    fun itSaysWhenPaused() {
         show { paused() }
         compose.onNodeWithText("Song — Band").assertExists()
         compose.onNodeWithContentDescription("Paused").assertExists()
         compose.onNodeWithContentDescription("Playing").assertDoesNotExist()
     }
 
-    @Test fun aTapTogglesAndALongPressSkips() {
+    @Test
+    fun aTapTogglesAndALongPressSkips() {
         show { track() }
         compose.onNodeWithText("Song — Band").performClick()
         compose.runOnIdle { assertEquals(1, toggles); assertEquals(0, skips) }
@@ -139,13 +158,17 @@ class NowPlayingLineTest {
     }
 
     /** A screen reader hears what a tap does, "Pause" or "Play", and what a long press does. */
-    @Test fun aScreenReaderHearsWhatTheTapsDo() {
+    @Test
+    fun aScreenReaderHearsWhatTheTapsDo() {
         var np by mutableStateOf(track())
         show { np }
         fun label(action: androidx.compose.ui.semantics.SemanticsPropertyKey<androidx.compose.ui.semantics.AccessibilityAction<() -> Boolean>>) =
             compose.onNodeWithText("Song — Band").fetchSemanticsNode().config[action].label
         assertEquals("Pause", label(androidx.compose.ui.semantics.SemanticsActions.OnClick))
-        assertEquals("Next track", label(androidx.compose.ui.semantics.SemanticsActions.OnLongClick))
+        assertEquals(
+            "Next track",
+            label(androidx.compose.ui.semantics.SemanticsActions.OnLongClick)
+        )
         compose.runOnIdle { np = paused() }
         compose.waitForIdle()
         assertEquals("Play", label(androidx.compose.ui.semantics.SemanticsActions.OnClick))
@@ -155,30 +178,52 @@ class NowPlayingLineTest {
      * On the pinned header a long press opens the music's sheet, as a script's line opens its
      * actions: it doesn't skip. ⏭ still does.
      */
-    @Test fun withASheetALongPressOpensItAndDoesntSkip() {
+    @Test
+    fun withASheetALongPressOpensItAndDoesntSkip() {
         var sheets = 0
         compose.setContent {
             KolahalTheme {
-                Box(Modifier.width(360.dp)) { NowPlayingLine(track(), { toggles++ }, { skips++ }, onLongPress = { sheets++ }) }
+                Box(Modifier.width(360.dp)) {
+                    NowPlayingLine(
+                        track(),
+                        { toggles++ },
+                        { skips++ },
+                        onLongPress = { sheets++ })
+                }
             }
         }
         compose.onNodeWithText("Song — Band").performTouchInput { longClick() }
-        compose.runOnIdle { assertEquals(1, sheets); assertEquals(0, skips); assertEquals(0, toggles) }
-        assertEquals("Actions", compose.onNodeWithText("Song — Band").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.OnLongClick].label)
+        compose.runOnIdle {
+            assertEquals(1, sheets); assertEquals(0, skips); assertEquals(
+            0,
+            toggles
+        )
+        }
+        assertEquals(
+            "Actions",
+            compose.onNodeWithText("Song — Band")
+                .fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.OnLongClick].label
+        )
         compose.onNodeWithContentDescription("Next").performClick()
         compose.runOnIdle { assertEquals(1, skips) }
     }
 
     /** The sheet: Next track and Previous track, then Open and the player's name when its app has a screen. */
-    @Test fun theSheetHasNextPreviousAndOpen() {
+    @Test
+    fun theSheetHasNextPreviousAndOpen() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals(listOf("Next track", "Previous track"), mediaActions(context, track()).map { it.label })
+        assertEquals(
+            listOf("Next track", "Previous track"),
+            mediaActions(context, track()).map { it.label })
         // A player that is installed: Kolahal itself stands in for one.
         val own = track().copy(pkg = context.packageName, app = "Kolahal")
-        assertEquals(listOf("Next track", "Previous track", "Open Kolahal"), mediaActions(context, own).map { it.label })
+        assertEquals(
+            listOf("Next track", "Previous track", "Open Kolahal"),
+            mediaActions(context, own).map { it.label })
     }
 
-    @Test fun theNextButtonSkips() {
+    @Test
+    fun theNextButtonSkips() {
         show { track() }
         compose.onNodeWithContentDescription("Next").performClick()
         compose.runOnIdle { assertEquals(0, toggles); assertEquals(1, skips) }
@@ -188,46 +233,57 @@ class NowPlayingLineTest {
      * The bar goes under the line, the whole width. The line is as short as a pinned script's (the
      * text row, the default gap and the 2 dp bar), and the next button keeps its 48 dp width.
      */
-    @Test fun theBarLeavesTheTapsTheirRoom() {
+    @Test
+    fun theBarLeavesTheTapsTheirRoom() {
         show { track() }
-        val row = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
-        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(row + Keys.HEADER_PINNED_BAR_ABOVE.default.dp + 2.dp)
-        compose.onNodeWithContentDescription("Next").assertHeightIsAtLeast(row).assertWidthIsAtLeast(48.dp)
+        val row =
+            with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
+        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp)
+            .assertHeightIsEqualTo(row + Keys.HEADER_PINNED_BAR_ABOVE.default.dp + 2.dp)
+        compose.onNodeWithContentDescription("Next").assertHeightIsAtLeast(row)
+            .assertWidthIsAtLeast(48.dp)
         compose.onNodeWithText("Song — Band").assertHeightIsAtLeast(row)
     }
 
     /** A tap just under the text, on the bar, still toggles: the bar is part of the tap area. */
-    @Test fun aTapOnTheBarStillToggles() {
+    @Test
+    fun aTapOnTheBarStillToggles() {
         show { track() }
-        compose.onNodeWithTag("header-media").performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
+        compose.onNodeWithTag("header-media")
+            .performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
         compose.runOnIdle { assertEquals(1, toggles); assertEquals(0, skips) }
     }
 
-    @Test fun theBarIsEmptyAtTheStart() {
+    @Test
+    fun theBarIsEmptyAtTheStart() {
         show { paused(position = 0) }
         assertEquals(0f, filled(), 0.01f)
     }
 
     /** Some players report a position past the duration they gave. */
-    @Test fun theBarStopsAtFull() {
+    @Test
+    fun theBarStopsAtFull() {
         show { paused(position = DURATION * 3) }
         assertEquals(1f, filled(), 0.02f)
     }
 
     /** A stream has no duration, so no way to say how far along it is. */
-    @Test fun theBarStaysEmptyWithoutADuration() {
+    @Test
+    fun theBarStaysEmptyWithoutADuration() {
         show { track(position = 5_000, duration = 0) }
         play(300)
         assertEquals(0f, filled(), 0f)
     }
 
-    @Test fun theBarStaysEmptyWithoutAPosition() {
+    @Test
+    fun theBarStaysEmptyWithoutAPosition() {
         show { track(position = -1) }
         play(300)
         assertEquals(0f, filled(), 0f)
     }
 
-    @Test fun theBarMovesWhilePlaying() {
+    @Test
+    fun theBarMovesWhilePlaying() {
         show { track() }
         val start = filled()
         play(1_000)
@@ -236,7 +292,8 @@ class NowPlayingLineTest {
     }
 
     /** A duration some players send only after the title. */
-    @Test fun aDurationThatComesLaterCounts() {
+    @Test
+    fun aDurationThatComesLaterCounts() {
         var np by mutableStateOf(paused(position = 5_000, duration = 0))
         show { np }
         assertEquals(0f, filled(), 0f)
@@ -244,7 +301,8 @@ class NowPlayingLineTest {
         assertEquals(0.5f, filled(), 0.02f)
     }
 
-    @Test fun aPauseKeepsThePlaceAndPlayGoesOnFromIt() {
+    @Test
+    fun aPauseKeepsThePlaceAndPlayGoesOnFromIt() {
         var np by mutableStateOf(track())
         show { np }
         compose.runOnIdle { np = paused(position = DURATION / 2) }
@@ -259,7 +317,8 @@ class NowPlayingLineTest {
     }
 
     /** All at once: a new title with its own position. */
-    @Test fun aNewTrackStartsOver() {
+    @Test
+    fun aNewTrackStartsOver() {
         var np by mutableStateOf(paused(position = DURATION / 2))
         show { np }
         assertEquals(0.5f, filled(), 0.02f)
@@ -272,7 +331,8 @@ class NowPlayingLineTest {
      * A track starting: buffering, then playing, the same title throughout. Both count as `playing`,
      * so the bar must still notice the change, or it stays at the start for the whole track.
      */
-    @Test fun theBarMovesOnceBufferingEnds() {
+    @Test
+    fun theBarMovesOnceBufferingEnds() {
         var np by mutableStateOf(track(PlaybackState.STATE_BUFFERING))
         show { np }
         assertEquals(0f, filled(), 0.01f)
@@ -281,7 +341,8 @@ class NowPlayingLineTest {
         assertTrue("${filled()}", filled() >= 0.05f)
     }
 
-    @Test fun theBarFollowsASeekWhilePlaying() {
+    @Test
+    fun theBarFollowsASeekWhilePlaying() {
         var np by mutableStateOf(track())
         show { np }
         compose.runOnIdle { np = track(position = DURATION * 3 / 4) }
@@ -289,7 +350,8 @@ class NowPlayingLineTest {
         assertTrue("${filled()}", filled() >= 0.74f)
     }
 
-    @Test fun theBarFollowsASeekWhilePaused() {
+    @Test
+    fun theBarFollowsASeekWhilePaused() {
         var np by mutableStateOf(paused())
         show { np }
         compose.runOnIdle { np = paused(position = DURATION * 3 / 4) }
@@ -298,7 +360,8 @@ class NowPlayingLineTest {
     }
 
     /** Repeat one: the same title again, from the start, after reaching the end. */
-    @Test fun theBarStartsOverWhenATrackRepeats() {
+    @Test
+    fun theBarStartsOverWhenATrackRepeats() {
         var np by mutableStateOf(track(position = DURATION - 100))
         show { np }
         play(300)
@@ -312,7 +375,8 @@ class NowPlayingLineTest {
      * A player's next track often arrives in two callbacks, each published on its own: the new title
      * still with the old track's position, then the new position.
      */
-    @Test fun aNewTitleThenItsPositionStartsOver() {
+    @Test
+    fun aNewTitleThenItsPositionStartsOver() {
         var np by mutableStateOf(track(position = DURATION * 3 / 4))
         show { np }
         compose.runOnIdle { np = track(position = DURATION * 3 / 4, title = "Other") }
@@ -326,9 +390,11 @@ class NowPlayingLineTest {
      * Off screen the line stops looking at the clock: music often plays with the screen off, and a
      * launcher is always around. Back on screen, it's where it should be at once.
      */
-    @Test fun theBarOnlyMovesOnScreen() {
+    @Test
+    fun theBarOnlyMovesOnScreen() {
         val owner = object : LifecycleOwner {
-            val registry = LifecycleRegistry.createUnsafe(this).apply { currentState = Lifecycle.State.RESUMED }
+            val registry = LifecycleRegistry.createUnsafe(this)
+                .apply { currentState = Lifecycle.State.RESUMED }
             override val lifecycle: Lifecycle get() = registry
         }
         compose.setContent {
@@ -352,13 +418,19 @@ class NowPlayingLineTest {
      * The whole way, from a real media session through [MediaRepository]: a track that buffers, plays,
      * is sought in and pauses, each a separate update, as players send them.
      */
-    @Test fun aRealSessionMovesTheBar() {
+    @Test
+    fun aRealSessionMovesTheBar() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         access.set(true)
         val repository = MediaRepository.get(context)
         val session = MediaSession(context, "NowPlayingLineTest")
         fun state(state: Int, position: Long) = session.setPlaybackState(
-            PlaybackState.Builder().setState(state, position, if (state == PlaybackState.STATE_PLAYING) 1f else 0f, SystemClock.elapsedRealtime()).build(),
+            PlaybackState.Builder().setState(
+                state,
+                position,
+                if (state == PlaybackState.STATE_PLAYING) 1f else 0f,
+                SystemClock.elapsedRealtime()
+            ).build(),
         )
         try {
             session.setMetadata(
@@ -373,7 +445,16 @@ class NowPlayingLineTest {
             repository.start()
             compose.setContent {
                 val np by repository.nowPlaying.collectAsState()
-                KolahalTheme { Box(Modifier.width(360.dp)) { np?.let { NowPlayingLine(it, {}, {}) } } }
+                KolahalTheme {
+                    Box(Modifier.width(360.dp)) {
+                        np?.let {
+                            NowPlayingLine(
+                                it,
+                                {},
+                                {})
+                        }
+                    }
+                }
             }
             compose.waitUntil(5_000) { repository.nowPlaying.value?.state == PlaybackState.STATE_BUFFERING }
             compose.onNodeWithText("Song — Band").assertExists()
@@ -385,14 +466,19 @@ class NowPlayingLineTest {
             assertTrue("after buffering: ${filled()}", filled() >= 0.05f)
 
             state(PlaybackState.STATE_PLAYING, DURATION / 2)
-            compose.waitUntil(5_000) { (repository.nowPlaying.value?.position ?: 0) >= DURATION / 2 }
+            compose.waitUntil(5_000) {
+                (repository.nowPlaying.value?.position ?: 0) >= DURATION / 2
+            }
             play(100)
             assertTrue("after a seek: ${filled()}", filled() >= 0.49f)
 
             val pausing = System.currentTimeMillis()
             state(PlaybackState.STATE_PAUSED, DURATION * 3 / 4)
             compose.waitUntil(5_000) { repository.nowPlaying.value?.state == PlaybackState.STATE_PAUSED }
-            assertTrue("idle since the pause, not since it last said it was playing", repository.nowPlaying.value!!.idleSince >= pausing)
+            assertTrue(
+                "idle since the pause, not since it last said it was playing",
+                repository.nowPlaying.value!!.idleSince >= pausing
+            )
             compose.waitForIdle()
             assertEquals("paused", 0.75f, filled(), 0.02f)
         } finally {
@@ -402,15 +488,22 @@ class NowPlayingLineTest {
     }
 
     /** Notification access turned off and on again while Kolahal runs: it follows sessions again, with no restart. */
-    @Test fun nowPlayingComesBackWhenAccessIsTurnedBackOn() {
+    @Test
+    fun nowPlayingComesBackWhenAccessIsTurnedBackOn() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         access.set(true)
         val repository = MediaRepository.get(context)
         val session = MediaSession(context, "NowPlayingLineTest")
-        fun title(title: String) = session.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, title).build())
+        fun title(title: String) = session.setMetadata(
+            MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, title).build()
+        )
         try {
             title("Before")
-            session.setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, 0, 1f, SystemClock.elapsedRealtime()).build())
+            session.setPlaybackState(
+                PlaybackState.Builder()
+                    .setState(PlaybackState.STATE_PLAYING, 0, 1f, SystemClock.elapsedRealtime())
+                    .build()
+            )
             session.isActive = true
             repository.start()
             compose.waitUntil(5_000) { repository.nowPlaying.value?.title == "Before" }
@@ -426,13 +519,29 @@ class NowPlayingLineTest {
     }
 
     /** The pinned header shows it, as long as the header's rule says: until half an hour after a pause. */
-    @Test fun thePinnedHeaderShowsItUnderTheHeadersRule() {
+    @Test
+    fun thePinnedHeaderShowsItUnderTheHeadersRule() {
         val config = Config.get(InstrumentationRegistry.getInstrumentation().targetContext)
         var np by mutableStateOf(track())
-        compose.setContent { KolahalTheme { PinnedHeader(np, emptyList(), config, 0, {}, {}, {}, {}) } }
+        compose.setContent {
+            KolahalTheme {
+                PinnedHeader(
+                    np,
+                    emptyList(),
+                    config,
+                    0,
+                    {},
+                    {},
+                    {},
+                    {})
+            }
+        }
         compose.onNodeWithTag("header-media").assertExists()
 
-        compose.runOnIdle { np = paused(position = DURATION / 2).copy(idleSince = System.currentTimeMillis() - NowPlaying.HIDE_AFTER_MS - 1_000) }
+        compose.runOnIdle {
+            np =
+                paused(position = DURATION / 2).copy(idleSince = System.currentTimeMillis() - NowPlaying.HIDE_AFTER_MS - 1_000)
+        }
         compose.onNodeWithTag("header-media").assertDoesNotExist()
         compose.onNodeWithTag("pinned-header").assertDoesNotExist()
     }

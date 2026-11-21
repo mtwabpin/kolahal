@@ -5,6 +5,7 @@ package com.mtwabpin.kolahal.script
 
 import android.text.Html
 import android.util.Xml
+import com.mtwabpin.kolahal.script.RssParser.MAX_TEXT
 import org.xmlpull.v1.XmlPullParser
 import java.io.StringReader
 
@@ -70,20 +71,26 @@ object RssParser {
                     }
                     // An Atom entry's <source> describes the feed it came from. It is not the entry's title or id.
                     inItem && name == "source" -> readText(parser)
-                    name == "title" -> readText(parser).let { if (inItem) title = it else if (feedTitle == null) feedTitle = it }
+                    name == "title" -> readText(parser).let {
+                        if (inItem) title = it else if (feedTitle == null) feedTitle = it
+                    }
+
                     name == "link" -> {
                         val href = parser.getAttributeValue(null, "href")
                         val rel = parser.getAttributeValue(null, "rel")
                         val value = href ?: readText(parser)
                         val usable = rel == null || rel == "alternate"
                         if (usable && value.isNotBlank()) {
-                            if (inItem) { if (link == null) link = value.trim() }
-                            else if (feedLink == null) feedLink = value.trim()
+                            if (inItem) {
+                                if (link == null) link = value.trim()
+                            } else if (feedLink == null) feedLink = value.trim()
                         }
                     }
+
                     inItem && (name == "guid" || name == "id") -> id = readText(parser).trim()
                     inItem && (name == "pubdate" || name == "published" || name == "updated" || name == "dc:date") ->
                         if (date == null) date = readText(parser).trim()
+
                     inItem && (name == "description" || name == "summary" || name == "content:encoded" || name == "content") ->
                         if (summary == null) summary = cleanSummary(readText(parser))
                 }
@@ -117,6 +124,7 @@ object RssParser {
                     val text = parser.text
                     sb.append(text, 0, minOf(text.length, MAX_TEXT - sb.length))
                 }
+
                 XmlPullParser.START_TAG -> depth++
                 XmlPullParser.END_TAG -> depth--
                 XmlPullParser.END_DOCUMENT -> break

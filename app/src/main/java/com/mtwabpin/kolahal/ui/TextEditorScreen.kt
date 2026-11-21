@@ -51,15 +51,25 @@ import com.mtwabpin.kolahal.ui.TextEditorViewModel.Phase
  * - The editing keys are [CodeEditor]'s.
  */
 @Composable
-internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew: () -> Unit, onLeave: () -> Unit) {
+internal fun TextEditorScreen(
+    vm: TextEditorViewModel,
+    onOpen: () -> Unit,
+    onNew: () -> Unit,
+    onLeave: () -> Unit
+) {
     var menuOpen by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().background(Term.bg)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Term.bg)
+    ) {
         when (val phase = vm.phase) {
             Phase.Loading -> EditorNotice("Opening ${vm.name}…", null) {}
             is Phase.Failed -> EditorNotice(phase.title, phase.why) {
                 EditorTextButton("Open another file") { onOpen() }
                 EditorTextButton("Close") { vm.close() }
             }
+
             is Phase.Editing -> {
                 // Before the editor's own handler, so that Back closes an open find bar first.
                 BackHandler(onBack = onLeave)
@@ -70,11 +80,26 @@ internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew
                     startLine = null,
                     onKey = { e ->
                         when {
-                            e.isCtrlPressed && e.isShiftPressed && e.key == Key.S -> { vm.askSaveAs(); true }
-                            e.isCtrlPressed && e.key == Key.S -> { vm.save(); true }
-                            e.isCtrlPressed && e.key == Key.O -> { onOpen(); true }
-                            e.isCtrlPressed && e.key == Key.N -> { onNew(); true }
-                            e.isCtrlPressed && e.key == Key.W -> { vm.close(); true }
+                            e.isCtrlPressed && e.isShiftPressed && e.key == Key.S -> {
+                                vm.askSaveAs(); true
+                            }
+
+                            e.isCtrlPressed && e.key == Key.S -> {
+                                vm.save(); true
+                            }
+
+                            e.isCtrlPressed && e.key == Key.O -> {
+                                onOpen(); true
+                            }
+
+                            e.isCtrlPressed && e.key == Key.N -> {
+                                onNew(); true
+                            }
+
+                            e.isCtrlPressed && e.key == Key.W -> {
+                                vm.close(); true
+                            }
+
                             else -> false
                         }
                     },
@@ -104,7 +129,10 @@ internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew
                     LogAction("Open a file…") { onOpen() },
                     LogAction("New file…") { onNew() },
                     LogAction(if (vm.wrap) "Don't wrap lines" else "Wrap lines") { vm.toggleWrap() },
-                    LogAction("Discard changes", destructive = true) { vm.revert() }.takeIf { dirty },
+                    LogAction(
+                        "Discard changes",
+                        destructive = true
+                    ) { vm.revert() }.takeIf { dirty },
                 ),
                 entryId = null,
                 systemFont = true,
@@ -136,9 +164,24 @@ internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew
 /** A page in place of the editor: [title], [why] under it, and [buttons]. */
 @Composable
 private fun EditorNotice(title: String, why: String?, buttons: @Composable () -> Unit) {
-    Column(Modifier.fillMaxSize().cutoutSafePadding().navigationBarsPadding().padding(vertical = 16.dp).testTag("editor-notice")) {
-        Text(title, style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 12.dp))
-        if (why != null) Text(why, style = Term.phoneText, modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp))
+    Column(
+        Modifier
+            .fillMaxSize()
+            .cutoutSafePadding()
+            .navigationBarsPadding()
+            .padding(vertical = 16.dp)
+            .testTag("editor-notice")
+    ) {
+        Text(
+            title,
+            style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(horizontal = 12.dp)
+        )
+        if (why != null) Text(
+            why,
+            style = Term.phoneText,
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp)
+        )
         // The buttons bring their own space at the sides, so their text lines up with the text above.
         Row(Modifier.padding(top = 8.dp)) { buttons() }
     }
@@ -149,17 +192,35 @@ private fun EditorNotice(title: String, why: String?, buttons: @Composable () ->
  * editor's other dialogs.
  */
 @Composable
-private fun EditorQuestion(title: String, text: String, confirm: Pair<String, () -> Unit>, other: Pair<String, () -> Unit>, onCancel: () -> Unit) {
+private fun EditorQuestion(
+    title: String,
+    text: String,
+    confirm: Pair<String, () -> Unit>,
+    other: Pair<String, () -> Unit>,
+    onCancel: () -> Unit
+) {
     GuiTheme {
         AlertDialog(
             onDismissRequest = onCancel,
             title = { Text(title) },
             text = { Text(text) },
-            confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = confirm.second) { Text(confirm.first) } },
+            confirmButton = {
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = confirm.second
+                ) { Text(confirm.first) }
+            },
             dismissButton = {
                 Row {
-                    TextButton(shapes = ButtonDefaults.shapes(), onClick = onCancel) { Text("Cancel") }
-                    TextButton(shapes = ButtonDefaults.shapes(), onClick = other.second) { Text(other.first) }
+                    TextButton(
+                        shapes = ButtonDefaults.shapes(),
+                        onClick = onCancel
+                    ) { Text("Cancel") }
+                    TextButton(shapes = ButtonDefaults.shapes(), onClick = other.second) {
+                        Text(
+                            other.first
+                        )
+                    }
                 }
             },
         )

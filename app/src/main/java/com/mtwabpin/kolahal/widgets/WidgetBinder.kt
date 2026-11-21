@@ -27,14 +27,22 @@ import androidx.activity.result.contract.ActivityResultContracts
  * A widget's setup screen can stay open a long time, and Android may stop the launcher meanwhile.
  * The request survives this: MainActivity keeps it in its saved state ([save], [restore]).
  */
-class WidgetBinder(private val activity: ComponentActivity, private val onAdded: (PlacedWidget) -> Unit) {
+class WidgetBinder(
+    private val activity: ComponentActivity,
+    private val onAdded: (PlacedWidget) -> Unit
+) {
     // Lazy, because the binder is created before the activity has a context.
     private val widgets by lazy { WidgetHost.get(activity) }
 
     /** [info] is null for a request restored from saved state. Then [infoOf] looks it up by the bound id. */
-    private data class Request(val id: Int, val info: AppWidgetProviderInfo?, val replacing: String?)
+    private data class Request(
+        val id: Int,
+        val info: AppWidgetProviderInfo?,
+        val replacing: String?
+    )
 
-    private fun infoOf(req: Request): AppWidgetProviderInfo? = req.info ?: runCatching { widgets.manager?.getAppWidgetInfo(req.id) }.getOrNull()
+    private fun infoOf(req: Request): AppWidgetProviderInfo? =
+        req.info ?: runCatching { widgets.manager?.getAppWidgetInfo(req.id) }.getOrNull()
 
     /** Saves a request that still waits for the bind dialog or the widget's setup. */
     fun save(out: Bundle) {
@@ -57,10 +65,14 @@ class WidgetBinder(private val activity: ComponentActivity, private val onAdded:
 
     private var pending: Request? = null
 
-    private val bindLauncher = activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val req = pending ?: return@registerForActivityResult
-        if (result.resultCode == Activity.RESULT_OK) configure(req) else cancel(req, "Widget not added")
-    }
+    private val bindLauncher =
+        activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val req = pending ?: return@registerForActivityResult
+            if (result.resultCode == Activity.RESULT_OK) configure(req) else cancel(
+                req,
+                "Widget not added"
+            )
+        }
 
     /** Starts adding [entry]. [replacing] is the key of a pending (restored) entry that the new widget fills in. */
     fun add(entry: ProviderEntry, replacing: String? = null) {
@@ -69,24 +81,47 @@ class WidgetBinder(private val activity: ComponentActivity, private val onAdded:
         val req = Request(id, entry.info, replacing)
         pending = req
         val options = widgets.options(widgets.defaultHeightDp(entry.info))
-        val bound = runCatching { widgets.manager?.bindAppWidgetIdIfAllowed(id, entry.user, entry.info.provider, options) == true }.getOrDefault(false)
+        val bound = runCatching {
+            widgets.manager?.bindAppWidgetIdIfAllowed(
+                id,
+                entry.user,
+                entry.info.provider,
+                options
+            ) == true
+        }.getOrDefault(false)
         if (bound) return configure(req)
         val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, entry.info.provider)
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, entry.user)
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_OPTIONS, options)
-        runCatching { bindLauncher.launch(intent) }.onFailure { cancel(req, "Can't request widget permission: ${it.message}") }
+        runCatching { bindLauncher.launch(intent) }.onFailure {
+            cancel(
+                req,
+                "Can't request widget permission: ${it.message}"
+            )
+        }
     }
 
     private fun configure(req: Request) {
         val info = infoOf(req) ?: return cancel(req, "Widget not added")
         val optional = Build.VERSION.SDK_INT >= 31 &&
-            info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
+                info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
         if (info.configure == null || optional) return finish(req)
         runCatching {
-            widgets.host.startAppWidgetConfigureActivityForResult(activity, req.id, 0, REQUEST_CONFIGURE, null)
-        }.onFailure { cancel(req, "Couldn't open the widget's setup: ${it.message ?: it.javaClass.simpleName}") }
+            widgets.host.startAppWidgetConfigureActivityForResult(
+                activity,
+                req.id,
+                0,
+                REQUEST_CONFIGURE,
+                null
+            )
+        }.onFailure {
+            cancel(
+                req,
+                "Couldn't open the widget's setup: ${it.message ?: it.javaClass.simpleName}"
+            )
+        }
     }
 
     /** Handles the result of the configure step. It ignores results of other requests. */

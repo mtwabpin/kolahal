@@ -62,8 +62,10 @@ import java.io.File
 /** Settings → Widgets → Arrange widgets: placed widgets live, where they are, their look and size, and the ones to add again. */
 @RunWith(AndroidJUnit4::class)
 class WidgetsScreenTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
@@ -71,7 +73,8 @@ class WidgetsScreenTest {
     private val t = TestWidgets()
     private val widgets = t.host
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         config.reset(Keys.WIDGETS_PAGE)
         config.reset(Keys.AGENDA_WIDGET_DAYS)
         t.close()
@@ -79,7 +82,10 @@ class WidgetsScreenTest {
     }
 
     /** The screen, as it opens. A widget just placed is chosen at once, unless [fresh] is false. */
-    private fun show(fresh: Boolean = false, onReAdd: (ProviderEntry, PlacedWidget) -> Unit = { _, _ -> }): TerminalViewModel {
+    private fun show(
+        fresh: Boolean = false,
+        onReAdd: (ProviderEntry, PlacedWidget) -> Unit = { _, _ -> }
+    ): TerminalViewModel {
         if (!fresh) widgets.chosen()
         lateinit var vm: TerminalViewModel
         compose.runOnUiThread {
@@ -111,7 +117,8 @@ class WidgetsScreenTest {
 
     /** Runs the screen reader's action [label] on this card. */
     private fun SemanticsNodeInteraction.act(label: String) {
-        val action = fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == label }
+        val action =
+            fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == label }
         compose.runOnUiThread { action.action() }
         compose.waitForIdle()
     }
@@ -126,13 +133,17 @@ class WidgetsScreenTest {
     }
 
     /** One of Kolahal's own widgets on the page, at [size]; and what the screen calls it. */
-    private fun placeBuiltin(id: String, size: WidgetSize = WidgetSize.S2X2): Pair<PlacedWidget, String> {
+    private fun placeBuiltin(
+        id: String,
+        size: WidgetSize = WidgetSize.S2X2
+    ): Pair<PlacedWidget, String> {
         assumeTrue("$id was on the widgets page before the test", widgets.placeBuiltin(id, size))
         return t.get("s:" + WidgetSource.builtin(id))!! to WidgetSource.builtinTitle(id)!!
     }
 
     /** With the widgets page off, the screen says so, rather than "swipe sideways", and turns it on in a tap. */
-    @Test fun withThePageOffItSaysSoAndTurnsItOn() {
+    @Test
+    fun withThePageOffItSaysSoAndTurnsItOn() {
         config.set(Keys.WIDGETS_PAGE, "off")
         show()
         compose.onNodeWithText("The widgets page is off").assertExists()
@@ -144,33 +155,40 @@ class WidgetsScreenTest {
     }
 
     /** No widgets yet: the screen says where they will show, and a tap opens the picker. Nothing to close up. */
-    @Test fun anEmptyPageOffersToAddOne() {
+    @Test
+    fun anEmptyPageOffersToAddOne() {
         assumeTrue("widgets were placed before the test", widgets.widgets.value.isEmpty())
         val vm = show()
         compose.onNodeWithText("On the widgets page beside the terminal").assertExists()
-        compose.onNodeWithText("No widgets yet. They appear on the widgets page beside the terminal: swipe sideways on the home screen to reach it.").assertExists()
+        compose.onNodeWithText("No widgets yet. They appear on the widgets page beside the terminal: swipe sideways on the home screen to reach it.")
+            .assertExists()
         compose.onNodeWithContentDescription("Close gaps").assertDoesNotExist()
         compose.onNodeWithText("Add a widget").performClick()
         compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
     }
 
     /** Add widget in the top bar opens the picker. */
-    @Test fun addWidgetOpensThePicker() {
+    @Test
+    fun addWidgetOpensThePicker() {
         val vm = show()
         compose.onNodeWithContentDescription("Add widget").performClick()
         compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
     }
 
     /** "Added Clock", said as the picker hands over to this screen, shows here once. */
-    @Test fun aWaitingMessageShowsOnceTheScreenOpens() {
+    @Test
+    fun aWaitingMessageShowsOnceTheScreenOpens() {
         widgets.message("Added Clock")
         show()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Added Clock").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Added Clock").fetchSemanticsNodes().isNotEmpty()
+        }
         assertTrue(widgets.messages.value.isEmpty())
     }
 
     /** A widget the picker just placed is chosen as the screen opens, so it can be moved at once. */
-    @Test fun aNewWidgetIsChosenAtOnce() {
+    @Test
+    fun aNewWidgetIsChosenAtOnce() {
         val (_, label) = placeBuiltin(WidgetSource.BATTERY)
         show(fresh = true)
         compose.waitForIdle()
@@ -180,12 +198,15 @@ class WidgetsScreenTest {
     }
 
     /** The Agenda has a Days row: Auto at first, and a tap saves another count. Other widgets have none. */
-    @Test fun theAgendaHasADaysRow() {
+    @Test
+    fun theAgendaHasADaysRow() {
         val (_, agenda) = placeBuiltin(WidgetSource.AGENDA)
         val (_, battery) = placeBuiltin(WidgetSource.BATTERY)
         show()
         choose(agenda)
-        listOf("Auto", "1", "3", "7", "14").forEach { compose.onNodeWithTag("days $it").assertExists() }
+        listOf("Auto", "1", "3", "7", "14").forEach {
+            compose.onNodeWithTag("days $it").assertExists()
+        }
         compose.onNodeWithTag("days Auto").assertIsOn()
         compose.onNodeWithTag("days 7").performClick()
         compose.onNodeWithTag("days 7").assertIsOn()
@@ -195,14 +216,17 @@ class WidgetsScreenTest {
     }
 
     /** One of Kolahal's own widgets has a Look row and a Size row; an app's widget has steps and Square. */
-    @Test fun ownWidgetsHaveLooksAndSizesAppWidgetsHaveSteps() {
+    @Test
+    fun ownWidgetsHaveLooksAndSizesAppWidgetsHaveSteps() {
         val (_, own) = placeBuiltin(WidgetSource.BATTERY)
         val (_, clock) = placeClock()
         show()
         choose(own)
         WidgetLook.entries.forEach { compose.onNodeWithTag("look ${it.label}").assertExists() }
         compose.onNodeWithTag("look Plain").assertIsOn()
-        listOf("1×1", "2×1", "2×2", "4×1", "4×2", "4×4").forEach { compose.onNodeWithTag("size $it").assertExists() }
+        listOf("1×1", "2×1", "2×2", "4×1", "4×2", "4×4").forEach {
+            compose.onNodeWithTag("size $it").assertExists()
+        }
         compose.onNodeWithTag("size 2×2").assertIsOn()
         compose.onNodeWithText("2×2 · Plain").assertExists()
         compose.onNodeWithText("Drag to move. Drag an edge to resize.").assertExists()
@@ -217,7 +241,8 @@ class WidgetsScreenTest {
     }
 
     /** A tap on a look gives the widget that look, at once; the others stay as they were. */
-    @Test fun aLookTapChangesTheLook() {
+    @Test
+    fun aLookTapChangesTheLook() {
         val (w, label) = placeBuiltin(WidgetSource.BATTERY)
         show()
         choose(label)
@@ -236,20 +261,24 @@ class WidgetsScreenTest {
      * The Look row offers only the looks that change the widget's kind: Shortcuts (buttons) has no
      * Bold. A Bold stored for it is kept, but the card draws Plain and the row says so.
      */
-    @Test fun theLookRowOffersOnlyLooksThatChangeTheKind() {
+    @Test
+    fun theLookRowOffersOnlyLooksThatChangeTheKind() {
         val (w, label) = placeBuiltin(WidgetSource.SHORTCUTS, WidgetSize.S4X1)
         widgets.setLook(w.key, WidgetLook.BOLD)
         show()
         choose(label)
         compose.onNodeWithTag("look Bold").assertDoesNotExist()
-        listOf("Plain", "Tonal", "Split", "Shape").forEach { compose.onNodeWithTag("look $it").assertExists() }
+        listOf("Plain", "Tonal", "Split", "Shape").forEach {
+            compose.onNodeWithTag("look $it").assertExists()
+        }
         compose.onNodeWithTag("look Plain").assertIsOn()
         compose.onNodeWithText("4×1 · Plain").assertExists()
         assertEquals(WidgetLook.BOLD, t.get(w.key)!!.look)
     }
 
     /** A tap on a size gives the widget that width and height, drawn so. */
-    @Test fun aSizeTapChangesSpanAndHeight() {
+    @Test
+    fun aSizeTapChangesSpanAndHeight() {
         val (w, label) = placeBuiltin(WidgetSource.BATTERY)
         show()
         choose(label)
@@ -268,7 +297,8 @@ class WidgetsScreenTest {
     }
 
     /** Each − or + makes the chosen widget 8dp shorter or taller, on the page as in the toolbar. */
-    @Test fun heightStepsByEightWithMinusAndPlus() {
+    @Test
+    fun heightStepsByEightWithMinusAndPlus() {
         val (w, label) = placeClock()
         show()
         compose.onNodeWithText("${panel().size} on the widgets page").assertExists()
@@ -288,7 +318,8 @@ class WidgetsScreenTest {
     }
 
     /** A full-width widget can't be wider; − takes off a twelfth of the page, drawn narrower. */
-    @Test fun widthStepsByTwelfthsOfThePage() {
+    @Test
+    fun widthStepsByTwelfthsOfThePage() {
         val (w, label) = placeClock()
         show()
         choose(label)
@@ -304,7 +335,8 @@ class WidgetsScreenTest {
     }
 
     /** Square makes the widget as tall as the page is wide. */
-    @Test fun squareMakesItAsTallAsItIsWide() {
+    @Test
+    fun squareMakesItAsTallAsItIsWide() {
         val (w, label) = placeClock()
         show()
         choose(label)
@@ -320,14 +352,28 @@ class WidgetsScreenTest {
      * A screen reader moves a widget a column at a time, and a row down: drawn there too. Move left
      * isn't offered at the start edge.
      */
-    @Test fun aScreenReaderMovesAWidget() {
+    @Test
+    fun aScreenReaderMovesAWidget() {
         val (w, label) = placeBuiltin(WidgetSource.BATTERY)
         widgets.moveTo(w.key, 0, t.get(w.key)!!.topDp)
         show()
         val left = card(label).getUnclippedBoundsInRoot().left
-        val labels = card(label).fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label }
+        val labels =
+            card(label).fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label }
         assertFalse("Move left at the start edge: $labels", "Move left" in labels)
-        assertTrue(labels.containsAll(listOf("Move down", "Move right", "Wider", "Narrower", "Taller", "Shorter", "Remove")))
+        assertTrue(
+            labels.containsAll(
+                listOf(
+                    "Move down",
+                    "Move right",
+                    "Wider",
+                    "Narrower",
+                    "Taller",
+                    "Shorter",
+                    "Remove"
+                )
+            )
+        )
         card(label).act("Move right")
         assertEquals(1, t.get(w.key)!!.column)
         assertTrue("drawn further right", card(label).getUnclippedBoundsInRoot().left > left)
@@ -339,7 +385,8 @@ class WidgetsScreenTest {
     }
 
     /** Close gaps moves every widget up as far as it goes. */
-    @Test fun closeGapsPacksThePage() {
+    @Test
+    fun closeGapsPacksThePage() {
         val (w, label) = placeBuiltin(WidgetSource.BATTERY)
         show()
         val top = t.get(w.key)!!.topDp
@@ -349,13 +396,16 @@ class WidgetsScreenTest {
         val packed = WidgetPlacement.closeGaps(widgets.widgets.value)
         compose.onNodeWithContentDescription("Close gaps").performClick()
         compose.waitForIdle()
-        assertEquals(packed.filter(WidgetPlacement::onPage).map { it.key to it.topDp }, widgets.widgets.value.filter(WidgetPlacement::onPage).map { it.key to it.topDp })
+        assertEquals(
+            packed.filter(WidgetPlacement::onPage).map { it.key to it.topDp },
+            widgets.widgets.value.filter(WidgetPlacement::onPage).map { it.key to it.topDp })
         assertTrue("the widget is drawn higher", card(label).getUnclippedBoundsInRoot().top < down)
         assertTrue(t.get(w.key)!!.topDp <= top)
     }
 
     /** A long-press lifts a widget, and a drag to the side moves it there when it is let go. */
-    @Test fun aLongPressAndDragMovesAWidget() {
+    @Test
+    fun aLongPressAndDragMovesAWidget() {
         val (w, label) = placeBuiltin(WidgetSource.BATTERY)
         widgets.moveTo(w.key, 0, t.get(w.key)!!.topDp)
         show()
@@ -376,7 +426,8 @@ class WidgetsScreenTest {
     }
 
     /** Dragging the chosen widget's end edge makes it wider by columns; its bottom edge, taller by 8 dp steps. */
-    @Test fun aHandleDragResizes() {
+    @Test
+    fun aHandleDragResizes() {
         val (w, label) = placeBuiltin(WidgetSource.BATTERY)
         widgets.moveTo(w.key, 0, t.get(w.key)!!.topDp)
         show()
@@ -404,7 +455,8 @@ class WidgetsScreenTest {
      * In a page longer than the screen, the chosen widget stays in view as it moves: each Move down
      * scrolls it back, with its top on the screen and above the toolbar.
      */
-    @Test fun aMovedWidgetStaysInView() {
+    @Test
+    fun aMovedWidgetStaysInView() {
         val clocks = t.clocks()
         assumeTrue("no clock widget on this device", clocks.isNotEmpty())
         t.allowBinding(clocks[0])
@@ -421,13 +473,17 @@ class WidgetsScreenTest {
             compose.waitForIdle()
             val card = chosenCard()
             val bar = compose.onNodeWithContentDescription("Done").getUnclippedBoundsInRoot()
-            assertTrue("step $step: card $card, screen $screen", card.top >= screen.top && card.bottom > screen.top)
+            assertTrue(
+                "step $step: card $card, screen $screen",
+                card.top >= screen.top && card.bottom > screen.top
+            )
             assertTrue("step $step: card $card, toolbar $bar", card.top < bar.top)
         }
     }
 
     /** Remove asks first; Cancel keeps the widget, Remove deletes it and frees its id. */
-    @Test fun removeAsksFirst() {
+    @Test
+    fun removeAsksFirst() {
         val (w, label) = placeClock()
         show()
         choose(label)
@@ -446,7 +502,8 @@ class WidgetsScreenTest {
     }
 
     /** Back puts the toolbar away before it leaves the screen. */
-    @Test fun backPutsTheToolbarAwayBeforeLeaving() {
+    @Test
+    fun backPutsTheToolbarAwayBeforeLeaving() {
         val (_, label) = placeClock()
         val vm = show()
         choose(label)
@@ -461,7 +518,8 @@ class WidgetsScreenTest {
     }
 
     /** A widget whose id Android no longer has says it's unavailable, and a tap still reaches its controls. */
-    @Test fun anUnavailableWidgetSaysSoAndCanStillBeChanged() {
+    @Test
+    fun anUnavailableWidgetSaysSoAndCanStillBeChanged() {
         val clock = t.clocks().first()
         // An id given out and never bound, as one whose app took it back.
         val id = widgets.allocate()
@@ -478,7 +536,8 @@ class WidgetsScreenTest {
     }
 
     /** A widget restored from a backup waits under "Restored from backup"; Add again hands it to the add flow. */
-    @Test fun aRestoredWidgetIsAddedAgainInOneTap() {
+    @Test
+    fun aRestoredWidgetIsAddedAgainInOneTap() {
         val clock = t.clocks().first()
         val pending = t.restore(clock.flat, clock.serial, height = 160)
         var readded: Pair<ProviderEntry, PlacedWidget>? = null
@@ -494,7 +553,8 @@ class WidgetsScreenTest {
     }
 
     /** One whose app isn't installed can't be added again, only forgotten. */
-    @Test fun aRestoredWidgetWhoseAppIsGoneCanOnlyBeForgotten() {
+    @Test
+    fun aRestoredWidgetWhoseAppIsGoneCanOnlyBeForgotten() {
         val serial = widgets.serialOf(android.os.Process.myUserHandle())
         val pending = t.restore("com.example.kolahal.gone/.ClockWidget", serial, height = 120)
         show()
@@ -511,10 +571,15 @@ class WidgetsScreenTest {
      * Pictures of the screen, to look at: a widget chosen, one held in a drag, and an app's widget
      * chosen. They go to the app's files, in `screens/`.
      */
-    @Test fun picturesOfTheScreen() {
+    @Test
+    fun picturesOfTheScreen() {
         val out = checkNotNull(app.getExternalFilesDir("screens")) { "no external files" }
         out.listFiles()?.forEach { it.delete() }
-        listOf(WidgetSource.BATTERY to WidgetSize.S2X2, WidgetSource.TODOS to WidgetSize.S2X2, WidgetSource.SHORTCUTS to WidgetSize.S4X1)
+        listOf(
+            WidgetSource.BATTERY to WidgetSize.S2X2,
+            WidgetSource.TODOS to WidgetSize.S2X2,
+            WidgetSource.SHORTCUTS to WidgetSize.S4X1
+        )
             .forEach { (id, size) -> widgets.placeBuiltin(id, size) }
         val battery = t.get("s:" + WidgetSource.builtin(WidgetSource.BATTERY))!!
         widgets.setLook(battery.key, WidgetLook.TONAL)
@@ -524,8 +589,12 @@ class WidgetsScreenTest {
         show()
         fun save(name: String) {
             compose.waitForIdle()
-            File(out, "$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+            File(out, "$name.png").outputStream().use {
+                compose.onRoot().captureToImage().asAndroidBitmap()
+                    .compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
         }
+
         val label = WidgetSource.builtinTitle(WidgetSource.BATTERY)!!
         choose(label)
         save("chosen")

@@ -127,7 +127,11 @@ internal fun EditorIconButton(
 /** A button with a word on it, for an action that no icon shows clearly. It uses the system font, as Material buttons do. */
 @Composable
 internal fun EditorTextButton(label: String, onClick: () -> Unit) {
-    TextButton(shapes = ButtonDefaults.shapes(), onClick = onClick, colors = ButtonDefaults.textButtonColors(contentColor = Term.prompt)) {
+    TextButton(
+        shapes = ButtonDefaults.shapes(),
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(contentColor = Term.prompt)
+    ) {
         Text(label)
     }
 }
@@ -141,11 +145,16 @@ internal fun EditorTextButton(label: String, onClick: () -> Unit) {
  * The editor shows it in the terminal's colours and font; with [material], the sheet shows it in Material's.
  */
 @Composable
-internal fun RunWithDialog(code: String, onDismiss: () -> Unit, material: Boolean = false, onRun: (List<String>, Map<String, Any?>?) -> Unit) {
+internal fun RunWithDialog(
+    code: String,
+    onDismiss: () -> Unit,
+    material: Boolean = false,
+    onRun: (List<String>, Map<String, Any?>?) -> Unit
+) {
     var words by remember { mutableStateOf(TextFieldValue("")) }
     val events = remember(code) {
         com.mtwabpin.kolahal.script.ScriptMeta.events(code).map { it to null } +
-            com.mtwabpin.kolahal.script.ScriptMeta.at(code).map { "at" to it }
+                com.mtwabpin.kolahal.script.ScriptMeta.at(code).map { "at" to it }
     }
     var chosen by remember { mutableStateOf<Pair<String, String?>?>(null) }
     val accent = if (material) MaterialTheme.colorScheme.primary else Term.prompt
@@ -154,7 +163,15 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, material: Boolea
     val body = if (material) MaterialTheme.typography.bodyLarge else Term.phoneText
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Run with", style = if (material) MaterialTheme.typography.headlineSmall else body.copy(color = accent, fontWeight = FontWeight.Bold)) },
+        title = {
+            Text(
+                "Run with",
+                style = if (material) MaterialTheme.typography.headlineSmall else body.copy(
+                    color = accent,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        },
         containerColor = if (material) AlertDialogDefaults.containerColor else Term.surface,
         text = {
             Column {
@@ -168,10 +185,16 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, material: Boolea
                     placeholder = { Text("Words after its name", style = body.copy(color = dim)) },
                     textStyle = body.copy(color = fg),
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
-                    modifier = Modifier.fillMaxWidth().testTag("run-args"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("run-args"),
                 )
                 if (events.isNotEmpty()) {
-                    Text("Simulate event", style = body.copy(color = dim), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                    Text(
+                        "Simulate event",
+                        style = body.copy(color = dim),
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                    )
                     (listOf<Pair<String, String?>?>(null) + events).forEach { e ->
                         Text(
                             (if (e == chosen) "● " else "○ ") + when {
@@ -180,24 +203,59 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, material: Boolea
                                 else -> e.first
                             },
                             style = body.copy(color = if (e == chosen) accent else fg),
-                            modifier = Modifier.fillMaxWidth().clickable { chosen = e }.heightIn(min = 40.dp).padding(vertical = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { chosen = e }
+                                .heightIn(min = 40.dp)
+                                .padding(vertical = 8.dp),
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(shapes = ButtonDefaults.shapes(), onClick = {
-                val args = com.mtwabpin.kolahal.commands.CommandParsing.tokenize(words.text)
-                onRun(args, chosen?.let { com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(it.first, it.second) })
-            }, modifier = Modifier.testTag("run-with-run")) { if (material) Text("Run") else Text("Run", style = Term.phoneText.copy(color = Term.prompt)) }
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = {
+                    val args = com.mtwabpin.kolahal.commands.CommandParsing.tokenize(words.text)
+                    onRun(
+                        args,
+                        chosen?.let {
+                            com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(
+                                it.first,
+                                it.second
+                            )
+                        })
+                },
+                modifier = Modifier.testTag("run-with-run")
+            ) {
+                if (material) Text("Run") else Text(
+                    "Run",
+                    style = Term.phoneText.copy(color = Term.prompt)
+                )
+            }
         },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { if (material) Text("Cancel") else Text("Cancel", style = Term.phoneText.copy(color = Term.fg)) } },
+        dismissButton = {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onDismiss
+            ) {
+                if (material) Text("Cancel") else Text(
+                    "Cancel",
+                    style = Term.phoneText.copy(color = Term.fg)
+                )
+            }
+        },
     )
 }
 
 @Composable
-private fun BarButton(label: String, color: Color = Term.fg, description: String? = null, onClick: () -> Unit) {
+private fun BarButton(
+    label: String,
+    color: Color = Term.fg,
+    description: String? = null,
+    onClick: () -> Unit
+) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -234,8 +292,14 @@ private fun BarField(
         ),
         keyboardActions = KeyboardActions(onSearch = { onAction() }, onDone = { onAction() }),
         decorationBox = { inner ->
-            Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.heightIn(min = 48.dp)) {
-                if (value.text.isEmpty()) Text(placeholder, style = Term.phoneText.copy(color = Term.dim))
+            Box(
+                contentAlignment = Alignment.CenterStart,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) {
+                if (value.text.isEmpty()) Text(
+                    placeholder,
+                    style = Term.phoneText.copy(color = Term.dim)
+                )
                 inner()
             }
         },
@@ -264,9 +328,19 @@ internal fun FindBar(
     onReplaceAll: () -> Unit,
     onClose: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().background(Term.surface.copy(alpha = 0.7f)).testTag("findbar")) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Term.surface.copy(alpha = 0.7f))
+            .testTag("findbar")
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BarButton("Aa", if (ignoreCase) Term.dim else Term.prompt, if (ignoreCase) "Match case" else "Ignore case", onToggleCase)
+            BarButton(
+                "Aa",
+                if (ignoreCase) Term.dim else Term.prompt,
+                if (ignoreCase) "Match case" else "Ignore case",
+                onToggleCase
+            )
             BarField(
                 value = query,
                 onValueChange = onQuery,
@@ -279,12 +353,24 @@ internal fun FindBar(
                         true
                     } else e.isEnter() // swallow Enter key-ups too
                 },
-                modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("find"),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .testTag("find"),
             )
-            Text(count, style = Term.phoneText.copy(color = if (noMatch) Term.error else Term.dim), modifier = Modifier.padding(horizontal = 4.dp))
+            Text(
+                count,
+                style = Term.phoneText.copy(color = if (noMatch) Term.error else Term.dim),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
             EditorIconButton(R.drawable.ic_arrow_up, "Previous match", onClick = onPrev)
             EditorIconButton(R.drawable.ic_arrow_down, "Next match", onClick = onNext)
-            EditorIconButton(R.drawable.ic_find_replace, "Replace", tint = if (replaceOpen) Term.prompt else Term.fg, onClick = onToggleReplace)
+            EditorIconButton(
+                R.drawable.ic_find_replace,
+                "Replace",
+                tint = if (replaceOpen) Term.prompt else Term.fg,
+                onClick = onToggleReplace
+            )
             EditorIconButton(R.drawable.ic_close, "Close find", onClick = onClose)
         }
         if (replaceOpen) {
@@ -301,7 +387,10 @@ internal fun FindBar(
                             true
                         } else e.isEnter()
                     },
-                    modifier = Modifier.weight(1f).padding(start = 12.dp).testTag("replace"),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp)
+                        .testTag("replace"),
                 )
                 // No icon says "replace all" clearly, so these two are words.
                 EditorTextButton("Replace", onClick = onReplace)
@@ -319,32 +408,48 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     // Use the GUI theme's full colour scheme. The editor's own scheme sets only a few roles, so a
     // dialog drawn with it is unreadable on a light theme.
-    GuiTheme { AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Go to line") },
-        text = {
-            TextField(
-                shape = TextFieldDefaults.roundedShape,
-                colors = fieldColors(),
-                value = text,
-                onValueChange = { text = it.filter(Char::isDigit).take(9) },
-                label = { Text("Line (1–$lineCount)") },
-                singleLine = true,
-                isError = text.isNotEmpty() && line == null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { line?.let(onGo) }),
-                modifier = Modifier
-                    .focusRequester(focus)
-                    .onPreviewKeyEvent { e ->
-                        if (e.type == KeyEventType.KeyDown && e.isEnter()) {
-                            line?.let(onGo)
-                            true
-                        } else false
-                    },
-            )
-        },
-        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { line?.let(onGo) }, enabled = line != null) { Text("Go") } },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
-    ) }
+    GuiTheme {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Go to line") },
+            text = {
+                TextField(
+                    shape = TextFieldDefaults.roundedShape,
+                    colors = fieldColors(),
+                    value = text,
+                    onValueChange = { text = it.filter(Char::isDigit).take(9) },
+                    label = { Text("Line (1–$lineCount)") },
+                    singleLine = true,
+                    isError = text.isNotEmpty() && line == null,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Go
+                    ),
+                    keyboardActions = KeyboardActions(onGo = { line?.let(onGo) }),
+                    modifier = Modifier
+                        .focusRequester(focus)
+                        .onPreviewKeyEvent { e ->
+                            if (e.type == KeyEventType.KeyDown && e.isEnter()) {
+                                line?.let(onGo)
+                                true
+                            } else false
+                        },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = { line?.let(onGo) },
+                    enabled = line != null
+                ) { Text("Go") }
+            },
+            dismissButton = {
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onDismiss
+                ) { Text("Cancel") }
+            },
+        )
+    }
 }
 

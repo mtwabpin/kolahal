@@ -8,7 +8,8 @@ import org.junit.Test
 
 class OpmlTest {
     /** Valid XML, and other apps write it: only `<` and `&` have to be escaped in an attribute. */
-    @Test fun aGreaterThanInAnAttributeIsntTheTagsEnd() {
+    @Test
+    fun aGreaterThanInAnAttributeIsntTheTagsEnd() {
         val xml = """
             <opml version="2.0"><body>
               <outline text="A > B" xmlUrl="https://a.example/feed"/>
@@ -30,9 +31,13 @@ class OpmlTest {
         )
     }
 
-    @Test fun aVeryLongAttributeDoesntStopTheRest() {
-        val xml = "<outline text=\"" + "x > ".repeat(50_000) + "\" xmlUrl=\"https://a.example/\"/><outline xmlUrl=\"https://b.example/\"/>"
-        assertEquals(listOf("https://a.example/", "https://b.example/"), Opml.parse(xml).map { it.url })
+    @Test
+    fun aVeryLongAttributeDoesntStopTheRest() {
+        val xml =
+            "<outline text=\"" + "x > ".repeat(50_000) + "\" xmlUrl=\"https://a.example/\"/><outline xmlUrl=\"https://b.example/\"/>"
+        assertEquals(
+            listOf("https://a.example/", "https://b.example/"),
+            Opml.parse(xml).map { it.url })
     }
 
     @Test
@@ -95,12 +100,21 @@ class FeedUrlTest {
     @Test
     fun normalizes() {
         assertEquals("https://example.com/", FeedUrl.normalize("example.com"))
-        assertEquals("https://example.com/feed.xml", FeedUrl.normalize("  HTTPS://Example.COM:443/feed.xml#top "))
-        assertEquals("http://example.com:8080/rss?x=1", FeedUrl.normalize("http://example.com:8080/rss?x=1"))
+        assertEquals(
+            "https://example.com/feed.xml",
+            FeedUrl.normalize("  HTTPS://Example.COM:443/feed.xml#top ")
+        )
+        assertEquals(
+            "http://example.com:8080/rss?x=1",
+            FeedUrl.normalize("http://example.com:8080/rss?x=1")
+        )
         assertEquals("https://example.com/rss", FeedUrl.normalize("feed://example.com/rss"))
         // An international name, as the address it goes to.
         assertEquals("https://xn--bcher-kva.de/feed", FeedUrl.normalize("bücher.de/feed"))
-        assertEquals("https://xn--bcher-kva.de/feed?a=1", FeedUrl.normalize("https://Bücher.de/feed?a=1"))
+        assertEquals(
+            "https://xn--bcher-kva.de/feed?a=1",
+            FeedUrl.normalize("https://Bücher.de/feed?a=1")
+        )
         assertEquals("https://example.com/rss", FeedUrl.normalize("feed:https://example.com/rss"))
         assertEquals("https://example.com/Path", FeedUrl.normalize("https://example.com/Path"))
     }
@@ -118,7 +132,10 @@ class FeedUrlTest {
     fun shortName() {
         assertEquals("example.com", FeedUrl.shortName(null, "https://www.example.com/feed"))
         assertEquals("Blog", FeedUrl.shortName(" Blog ", "https://example.com/"))
-        assertEquals("Hacker News", FeedUrl.shortName("Hacker News: Front Page", "https://hnrss.org/"))
+        assertEquals(
+            "Hacker News",
+            FeedUrl.shortName("Hacker News: Front Page", "https://hnrss.org/")
+        )
         assertEquals("abcd…", FeedUrl.shortName("abcdefgh", "https://example.com/", max = 5))
     }
 }

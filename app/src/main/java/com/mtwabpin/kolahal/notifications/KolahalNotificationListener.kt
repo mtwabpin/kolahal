@@ -3,17 +3,16 @@
  */
 package com.mtwabpin.kolahal.notifications
 
-import com.mtwabpin.kolahal.data.Stores
 import android.app.Notification
 import android.app.NotificationManager
 import android.os.UserManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.StyledText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +48,12 @@ class KolahalNotificationListener : NotificationListenerService() {
         NotificationStore.replaceAll(accepted.map { (sbn, n) -> n to sbn.notification.contentIntent })
         // The notifications still showing were logged when they arrived, before access was removed or
         // the process ended. So an unchanged re-post of one of them isn't a new line.
-        accepted.forEach { (sbn, n) -> if (n.line.isNotEmpty()) lastLogged.putIfAbsent(n.key, sbn.postTime to n.line) }
+        accepted.forEach { (sbn, n) ->
+            if (n.line.isNotEmpty()) lastLogged.putIfAbsent(
+                n.key,
+                sbn.postTime to n.line
+            )
+        }
         scope.launch { accepted.forEach { (sbn, n) -> saveIcon(n, sbn) } }
         mirror()
         // If access was turned off and on again, now playing listens to media sessions again.
@@ -62,7 +66,8 @@ class KolahalNotificationListener : NotificationListenerService() {
      * True when this listener cleared the copy and no copy is on disk since. Then the next
      * notification has nothing to delete.
      */
-    @Volatile private var mirrorCleared = false
+    @Volatile
+    private var mirrorCleared = false
 
     /**
      * Runs the copy's writes and clears one at a time. A write that has started can't be cancelled.
@@ -76,15 +81,28 @@ class KolahalNotificationListener : NotificationListenerService() {
         mirrorJob = scope.launch(mirrorWork) {
             kotlinx.coroutines.delay(400.milliseconds)
             // Keep a copy only while a script may read it (`@uses notifications`). Otherwise keep no copy.
-            if (!com.mtwabpin.kolahal.script.TriggerDispatcher.get(this@KolahalNotificationListener).wantsNotifications()) {
+            if (!com.mtwabpin.kolahal.script.TriggerDispatcher.get(this@KolahalNotificationListener)
+                    .wantsNotifications()
+            ) {
                 // Only this listener writes the copy, so after a clear it stays cleared.
                 if (!mirrorCleared) mirrorCleared = clearMirror(this@KolahalNotificationListener)
                 return@launch
             }
             mirrorCleared = false
             runCatching {
-                com.mtwabpin.kolahal.data.KvStore(this@KolahalNotificationListener, Stores.NOTIFICATIONS_MIRROR)
-                    .set(MIRROR_KEY, com.mtwabpin.kolahal.script.Json.stringify(NotificationStore.recent(50, skipProfile = ::isPrivateSerial)))
+                com.mtwabpin.kolahal.data.KvStore(
+                    this@KolahalNotificationListener,
+                    Stores.NOTIFICATIONS_MIRROR
+                )
+                    .set(
+                        MIRROR_KEY,
+                        com.mtwabpin.kolahal.script.Json.stringify(
+                            NotificationStore.recent(
+                                50,
+                                skipProfile = ::isPrivateSerial
+                            )
+                        )
+                    )
             }
         }
     }
@@ -114,7 +132,8 @@ class KolahalNotificationListener : NotificationListenerService() {
         val shown = NotificationStore.find(n.key)?.takeIf { !it.removed }
         NotificationStore.put(n, sbn.notification.contentIntent)
         val extras = sbn.notification.extras
-        val message = isMessage(extras.getString(Notification.EXTRA_TEMPLATE), sbn.notification.category)
+        val message =
+            isMessage(extras.getString(Notification.EXTRA_TEMPLATE), sbn.notification.category)
         // Download/upload progress and "alert once" updates re-post the same key many times a
         // second. Keep the store up to date, but don't flood the log or fire scripts for each update.
         // A chat conversation is the exception: its silent update carries the next message.
@@ -134,7 +153,13 @@ class KolahalNotificationListener : NotificationListenerService() {
         if (isPrivate(sbn.user)) return
         com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).fire(
             "notification",
-            mapOf("app" to n.app, "pkg" to n.pkg, "title" to n.title, "text" to n.text, "time" to n.postTime),
+            mapOf(
+                "app" to n.app,
+                "pkg" to n.pkg,
+                "title" to n.title,
+                "text" to n.text,
+                "time" to n.postTime
+            ),
         )
     }
 
@@ -142,14 +167,21 @@ class KolahalNotificationListener : NotificationListenerService() {
         // Your own profile is never private, so don't ask the system for each of its notifications.
         if (android.os.Build.VERSION.SDK_INT < 35 || user == android.os.Process.myUserHandle()) return false
         val la = getSystemService(android.content.pm.LauncherApps::class.java)
-        return runCatching { la.getLauncherUserInfo(user)?.userType == UserManager.USER_TYPE_PROFILE_PRIVATE }.getOrDefault(false)
+        return runCatching { la.getLauncherUserInfo(user)?.userType == UserManager.USER_TYPE_PROFILE_PRIVATE }.getOrDefault(
+            false
+        )
     }
 
     /** Serial of your own profile. It is never the private space, and most notifications come from it. */
-    private val ownSerial by lazy { runCatching { userManager.getSerialNumberForUser(android.os.Process.myUserHandle()) }.getOrDefault(-1L) }
+    private val ownSerial by lazy {
+        runCatching { userManager.getSerialNumberForUser(android.os.Process.myUserHandle()) }.getOrDefault(
+            -1L
+        )
+    }
 
     private fun isPrivateSerial(serial: Long): Boolean = serial != ownSerial &&
-        (runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull()?.let(::isPrivate) ?: false)
+            (runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull()
+                ?.let(::isPrivate) ?: false)
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?) {
         NotificationStore.markRemoved(sbn.key)
@@ -159,7 +191,8 @@ class KolahalNotificationListener : NotificationListenerService() {
         mirror()
     }
 
-    private fun accept(sbn: StatusBarNotification): Boolean = accept(sbn, runCatching { currentRanking }.getOrNull())
+    private fun accept(sbn: StatusBarNotification): Boolean =
+        accept(sbn, runCatching { currentRanking }.getOrNull())
 
     private fun accept(sbn: StatusBarNotification, map: RankingMap?): Boolean {
         if (sbn.packageName == packageName || sbn.isOngoing) return false
@@ -173,7 +206,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         ) return false
         val extras = sbn.notification.extras
         return !extras.getCharSequence(Notification.EXTRA_TITLE).isNullOrBlank() ||
-            !extras.getCharSequence(Notification.EXTRA_TEXT).isNullOrBlank()
+                !extras.getCharSequence(Notification.EXTRA_TEXT).isNullOrBlank()
     }
 
     private fun toNotif(sbn: StatusBarNotification): Notif {
@@ -185,9 +218,11 @@ class KolahalNotificationListener : NotificationListenerService() {
             userSerial = serial,
             app = labelOf(sbn.packageName, serial),
             // Remove styling: another app's text must not style a log line.
-            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.let(StyledText::strip),
+            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+                ?.let(StyledText::strip),
             text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
-                ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.let(StyledText::strip),
+                ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()
+                ?.let(StyledText::strip),
             postTime = sbn.postTime,
             icon = NotifIcons.key(this, sbn.packageName, sbn.notification.smallIcon),
         )
@@ -198,7 +233,8 @@ class KolahalNotificationListener : NotificationListenerService() {
         runCatching { NotifIcons.save(this, key, sbn.notification.smallIcon) }
     }
 
-    private fun labelOf(pkg: String, serial: Long): String = com.mtwabpin.kolahal.apps.AppNames.label(this, pkg, serial) ?: pkg
+    private fun labelOf(pkg: String, serial: Long): String =
+        com.mtwabpin.kolahal.apps.AppNames.label(this, pkg, serial) ?: pkg
 
     private fun maybeLog(n: Notif, message: Boolean, iconSaved: kotlinx.coroutines.Job) {
         if (!NotifPrefs.get(this).shouldLog(n.pkg)) return
@@ -231,7 +267,10 @@ class KolahalNotificationListener : NotificationListenerService() {
 
         /** Removes the copy of notifications kept for scripts. Returns false if that failed. Never throws. */
         fun clearMirror(context: android.content.Context): Boolean = runCatching {
-            com.mtwabpin.kolahal.data.KvStore(context.applicationContext, Stores.NOTIFICATIONS_MIRROR).set(MIRROR_KEY, null)
+            com.mtwabpin.kolahal.data.KvStore(
+                context.applicationContext,
+                Stores.NOTIFICATIONS_MIRROR
+            ).set(MIRROR_KEY, null)
         }.isSuccess
 
         /**
@@ -260,7 +299,12 @@ class KolahalNotificationListener : NotificationListenerService() {
          * - A chat re-posts its notification for every message, and each new message gets a line.
          * - Any other update within 30 seconds (for example, a count going up) keeps only its first line.
          */
-        internal fun isNewLine(last: Pair<Long, String>?, line: String, now: Long, message: Boolean): Boolean =
+        internal fun isNewLine(
+            last: Pair<Long, String>?,
+            line: String,
+            now: Long,
+            message: Boolean
+        ): Boolean =
             last == null || (last.second != line && (message || now - last.first >= RATE_LIMIT_MS))
 
         /** True for a messaging-style notification ([Notification.EXTRA_TEMPLATE]), or one the app marks as a message. */

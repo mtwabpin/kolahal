@@ -16,16 +16,19 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class LogWritesTest {
     // A clear here purges the phone's own lines too: the whole log comes back after each test.
-    @get:Rule val logKept = LogKept()
+    @get:Rule
+    val logKept = LogKept()
     private val logs = LogRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val token = "lw${System.nanoTime()}"
 
     private fun mine() = logs.recent(limit = 200).filter { it.text.startsWith(token) }
 
-    @After fun tearDown() = mine().forEach { logs.delete(it.id) }
+    @After
+    fun tearDown() = mine().forEach { logs.delete(it.id) }
 
     /** `clear` takes the screen out of view at once; Undo brings it back until its lines are deleted, commands aside. */
-    @Test fun aClearCanBeUndoneUntilItsLinesGo() {
+    @Test
+    fun aClearCanBeUndoneUntilItsLinesGo() {
         logs.add(LogKind.OUTPUT, "$token out")
         val command = logs.add(LogKind.COMMAND, "$token cmd")
         try {
@@ -46,7 +49,8 @@ class LogWritesTest {
     }
 
     /** An Undo that came too late changes nothing, and a purge never takes lines brought back. */
-    @Test fun aPurgeLeavesWhatAnUndoBroughtBack() {
+    @Test
+    fun aPurgeLeavesWhatAnUndoBroughtBack() {
         logs.add(LogKind.OUTPUT, "$token kept")
         val cleared = logs.clearScreen()
         assertTrue(logs.undoClear(cleared))
@@ -55,7 +59,8 @@ class LogWritesTest {
     }
 
     /** A command that prints fifty lines costs one write, announced once. */
-    @Test fun batchedLinesAreWrittenTogether() {
+    @Test
+    fun batchedLinesAreWrittenTogether() {
         val version = logs.version.value
         val ids = logs.batched { (0 until 5).map { logs.add(LogKind.OUTPUT, "$token $it") } }
         assertEquals(listOf(-1L, -1L, -1L, -1L, -1L), ids)
@@ -64,7 +69,8 @@ class LogWritesTest {
     }
 
     /** A slow command still shows its output as it goes. */
-    @Test fun aBatchFlushesAsItGoes() {
+    @Test
+    fun aBatchFlushesAsItGoes() {
         logs.batched {
             logs.add(LogKind.OUTPUT, "$token first")
             // Written by itself a moment later, while the batch goes on.
@@ -75,13 +81,15 @@ class LogWritesTest {
         assertEquals(listOf("$token first", "$token second"), mine().map { it.text })
     }
 
-    @Test fun batchedLinesCarryTheirCommand() {
+    @Test
+    fun batchedLinesCarryTheirCommand() {
         logs.withCause(42L) { logs.batched { logs.add(LogKind.OUTPUT, "$token caused") } }
         assertEquals("42", mine().single().ctx.values[LogContext.FROM])
     }
 
     /** A pipe inside a batch still captures, and writes its result with the batch. */
-    @Test fun aCaptureInsideABatchWritesNothingItself() {
+    @Test
+    fun aCaptureInsideABatchWritesNothingItself() {
         val version = logs.version.value
         logs.batched {
             val (_, captured) = logs.capture { logs.add(LogKind.OUTPUT, "$token piped") }
@@ -93,7 +101,8 @@ class LogWritesTest {
     }
 
     /** A launch line moved to the bottom: home drops the old one from its page instead of reading it again. */
-    @Test fun aMovedLineIsReportedNotRestructured() {
+    @Test
+    fun aMovedLineIsReportedNotRestructured() {
         val first = logs.addReplacing(LogKind.INFO, "$token launched")
         val seq = logs.removedSeq
         val structure = logs.structure
@@ -107,7 +116,8 @@ class LogWritesTest {
         assertEquals(emptySet<Long>(), logs.removedSince(logs.removedSeq))
     }
 
-    @Test fun aDeletedLineIsReported() {
+    @Test
+    fun aDeletedLineIsReported() {
         val id = logs.add(LogKind.OUTPUT, "$token gone")
         val seq = logs.removedSeq
         val structure = logs.structure
@@ -120,10 +130,13 @@ class LogWritesTest {
     }
 
     /** Scrolling back reads the page before the oldest line shown, not the whole page again. */
-    @Test fun anOlderPageIsReadBeforeAnId() {
+    @Test
+    fun anOlderPageIsReadBeforeAnId() {
         val ids = (0 until 5).map { logs.add(LogKind.OUTPUT, "$token $it") }
         assertEquals(listOf(ids[1], ids[2]), logs.recent(2, beforeId = ids[3]).map { it.id })
-        assertEquals(listOf(ids[0]), logs.recent(5, beforeId = ids[1]).map { it.id }.filter { it in ids })
+        assertEquals(
+            listOf(ids[0]),
+            logs.recent(5, beforeId = ids[1]).map { it.id }.filter { it in ids })
         assertEquals(listOf(ids[4]), logs.recent(5, afterId = ids[3]).map { it.id })
     }
 }

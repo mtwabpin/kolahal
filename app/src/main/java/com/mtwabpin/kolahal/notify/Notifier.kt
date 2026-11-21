@@ -51,8 +51,11 @@ object Notifier {
         val granted = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(
             context, Manifest.permission.POST_NOTIFICATIONS,
         ) == PackageManager.PERMISSION_GRANTED
-        if (!granted || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
-        val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(channelId)
+        if (!granted || !NotificationManagerCompat.from(context)
+                .areNotificationsEnabled()
+        ) return false
+        val channel = context.getSystemService(NotificationManager::class.java)
+            .getNotificationChannel(channelId)
         return channel == null || channel.importance != NotificationManager.IMPORTANCE_NONE
     }
 
@@ -70,15 +73,20 @@ object Notifier {
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+
         fun button(action: String, minutes: Int = 0) = PendingIntent.getBroadcast(
             context, "reminder$id/$action/$minutes".hashCode(),
             Intent(context, com.mtwabpin.kolahal.productivity.ReminderActionReceiver::class.java)
                 .setAction(action)
                 .putExtra(com.mtwabpin.kolahal.productivity.ReminderScheduler.EXTRA_ID, id)
                 .putExtra(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_TEXT, text)
-                .putExtra(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_MINUTES, minutes),
+                .putExtra(
+                    com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_MINUTES,
+                    minutes
+                ),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+
         val snooze = com.mtwabpin.kolahal.productivity.ReminderActionReceiver.ACTION_SNOOZE
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_stat_terminal)
@@ -91,11 +99,16 @@ object Notifier {
             .setAutoCancel(true)
             .addAction(0, "Snooze 10 min", button(snooze, 10))
             .addAction(0, "Snooze 1 hour", button(snooze, 60))
-            .addAction(0, "Done", button(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.ACTION_DONE))
+            .addAction(
+                0,
+                "Done",
+                button(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.ACTION_DONE)
+            )
             .build()
         return runCatching {
             @Suppress("MissingPermission")
-            NotificationManagerCompat.from(context).notify(CHANNEL_REMINDERS, id.toInt(), notification)
+            NotificationManagerCompat.from(context)
+                .notify(CHANNEL_REMINDERS, id.toInt(), notification)
             true
         }.getOrDefault(false)
     }
@@ -111,16 +124,37 @@ object Notifier {
      * - Pass [id] to replace an earlier notification with the same tag and id (for example, one per
      *   feed). By default, each different title and body gets its own notification.
      */
-    fun post(context: Context, tag: String, title: String, body: String, url: String?, id: Int? = null): Boolean =
+    fun post(
+        context: Context,
+        tag: String,
+        title: String,
+        body: String,
+        url: String?,
+        id: Int? = null
+    ): Boolean =
         runCatching {
             if (!canPost(context)) return false
             val notifId = id ?: (tag + title + body).hashCode()
             val launcher = { Intent(context, MainActivity::class.java) }
-            val tapIntent = (url?.let { runCatching { Intent(Intent.ACTION_VIEW, it.toUri()) }.getOrNull() } ?: launcher())
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val tapIntent =
+                (url?.let { runCatching { Intent(Intent.ACTION_VIEW, it.toUri()) }.getOrNull() }
+                    ?: launcher())
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            val pi = runCatching { PendingIntent.getActivity(context, notifId, tapIntent, flags) }.getOrNull()
-                ?: PendingIntent.getActivity(context, notifId, launcher().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), flags)
+            val pi = runCatching {
+                PendingIntent.getActivity(
+                    context,
+                    notifId,
+                    tapIntent,
+                    flags
+                )
+            }.getOrNull()
+                ?: PendingIntent.getActivity(
+                    context,
+                    notifId,
+                    launcher().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    flags
+                )
             val notification = NotificationCompat.Builder(context, CHANNEL_SCRIPTS)
                 .setSmallIcon(R.drawable.ic_stat_terminal)
                 .setContentTitle(title)

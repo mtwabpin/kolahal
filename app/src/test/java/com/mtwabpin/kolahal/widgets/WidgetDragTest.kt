@@ -10,10 +10,20 @@ class WidgetDragTest {
     private val rtl = WidgetDrag(pagePx = 344, gapPx = 8, density = 1f, rtl = true)
 
     private fun widget(column: Int, span: Int, top: Int, height: Int = 88) =
-        PlacedWidget(null, WidgetSource.script("w$column$top"), 0L, height, 0, span = span, column = column, topDp = top)
+        PlacedWidget(
+            null,
+            WidgetSource.script("w$column$top"),
+            0L,
+            height,
+            0,
+            span = span,
+            column = column,
+            topDp = top
+        )
 
     /** Widths and places as the widgets page has them: half the page is 168 px, the second half starts at 176. */
-    @Test fun columnsAreTwelfthsOfThePage() {
+    @Test
+    fun columnsAreTwelfthsOfThePage() {
         assertEquals(168, page.widthPx(6))
         assertEquals(344, page.widthPx(12))
         assertEquals(176, page.startPx(6))
@@ -24,7 +34,8 @@ class WidgetDragTest {
     }
 
     /** A dropped widget goes to the nearest column, inside the page. */
-    @Test fun aDropTakesTheNearestColumn() {
+    @Test
+    fun aDropTakesTheNearestColumn() {
         assertEquals(0, page.dropColumn(10f, 6))
         assertEquals(1, page.dropColumn(20f, 6))
         assertEquals(6, page.dropColumn(170f, 6))
@@ -38,7 +49,8 @@ class WidgetDragTest {
     }
 
     /** Tops snap to 8 dp steps and stay on the page; density turns pixels into dp. */
-    @Test fun aDropTakesTheNearest8DpStep() {
+    @Test
+    fun aDropTakesTheNearest8DpStep() {
         assertEquals(96, page.dropTopDp(99f))
         assertEquals(104, page.dropTopDp(101f))
         assertEquals(0, page.dropTopDp(-30f))
@@ -46,7 +58,8 @@ class WidgetDragTest {
     }
 
     /** Dragging the end edge changes the width by whole columns, at least the smallest, never past the end. */
-    @Test fun anEdgeDragResizesByColumns() {
+    @Test
+    fun anEdgeDragResizesByColumns() {
         assertEquals(6, page.resizeSpan(0, 6, 10f, 3))
         assertEquals(7, page.resizeSpan(0, 6, 20f, 3))
         assertEquals(3, page.resizeSpan(0, 6, -400f, 3))
@@ -58,14 +71,16 @@ class WidgetDragTest {
     }
 
     /** Dragging the bottom edge changes the height in 8 dp steps. */
-    @Test fun aBottomDragResizesBy8DpSteps() {
+    @Test
+    fun aBottomDragResizesBy8DpSteps() {
         assertEquals(88, page.resizeHeightDp(88, 3f))
         assertEquals(96, page.resizeHeightDp(88, 5f))
         assertEquals(64, page.resizeHeightDp(88, -24f))
     }
 
     /** The widget under a finger, and the handles of a chosen one. */
-    @Test fun findsWidgetsAndHandles() {
+    @Test
+    fun findsWidgetsAndHandles() {
         val left = widget(0, 6, 0)
         val right = widget(6, 6, 0)
         val all = listOf(left, right)
@@ -84,7 +99,8 @@ class WidgetDragTest {
     }
 
     /** Held near the top or bottom, the page scrolls, faster nearer the edge. */
-    @Test fun nearAnEdgeThePageScrolls() {
+    @Test
+    fun nearAnEdgeThePageScrolls() {
         assertEquals(0f, WidgetDrag.edgeScroll(500f, 100f, 1000f, 50f, 10f), 0f)
         assertEquals(-10f, WidgetDrag.edgeScroll(100f, 100f, 1000f, 50f, 10f), 0.01f)
         assertEquals(-5f, WidgetDrag.edgeScroll(125f, 100f, 1000f, 50f, 10f), 0.01f)

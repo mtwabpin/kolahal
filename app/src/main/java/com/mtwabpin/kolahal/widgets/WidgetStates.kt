@@ -11,10 +11,10 @@ import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.script.Json
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 
 /**
@@ -24,7 +24,13 @@ import kotlinx.coroutines.flow.update
  * - [setAt]: when `widget.show` last set it. [triedAt]: when a run last ended. Both in milliseconds; 0 for never.
  * - [error]: the last failed run's error, already masked. Null after a run that worked.
  */
-data class WidgetState(val spec: WidgetSpec?, val hasContent: Boolean, val setAt: Long = 0, val triedAt: Long = 0, val error: String? = null)
+data class WidgetState(
+    val spec: WidgetSpec?,
+    val hasContent: Boolean,
+    val setAt: Long = 0,
+    val triedAt: Long = 0,
+    val error: String? = null
+)
 
 /**
  * The store of what script widgets show, in two key-value scopes:
@@ -73,11 +79,13 @@ object WidgetStates {
     private val everyone = MutableStateFlow(0)
 
     private val _versions = MutableStateFlow<Map<String, Int>>(emptyMap())
+
     /** For each widget, by its key, a number that increases when its state changes. */
     val versions: StateFlow<Map<String, Int>> = _versions.asStateFlow()
 
     /** [name]'s number in [versions]: a card collects only its own, and reads again only when it moves. */
-    fun versionOf(name: String): Flow<Int> = combine(versions, everyone) { all, any -> (all[name] ?: 0) + any }.distinctUntilChanged()
+    fun versionOf(name: String): Flow<Int> =
+        combine(versions, everyone) { all, any -> (all[name] ?: 0) + any }.distinctUntilChanged()
 
     /** [name]'s state changed; null when it isn't known which widget's did (then every widget's number moves). */
     fun bump(name: String? = null) {
@@ -100,7 +108,11 @@ object WidgetStates {
         runCatching {
             val content = KvStore(context, Stores.WIDGET)
             if (content.get(name) != json) content.set(name, json)
-            writeMeta(context, name, meta(context, name).copy(set = System.currentTimeMillis(), error = null))
+            writeMeta(
+                context,
+                name,
+                meta(context, name).copy(set = System.currentTimeMillis(), error = null)
+            )
         }
     }
 
@@ -115,7 +127,13 @@ object WidgetStates {
      */
     fun ran(context: Context, name: String, error: String?) {
         runCatching {
-            writeMeta(context, name, meta(context, name).copy(tried = System.currentTimeMillis(), error = error?.take(MAX_ERROR)?.ifBlank { null }))
+            writeMeta(
+                context,
+                name,
+                meta(context, name).copy(
+                    tried = System.currentTimeMillis(),
+                    error = error?.take(MAX_ERROR)?.ifBlank { null })
+            )
         }
     }
 
@@ -150,7 +168,12 @@ object WidgetStates {
      * `:script` process asks this, with [PlacedIds.holds], before it stores anything for a widget.
      */
     fun placedIds(context: Context, script: String): Set<String>? =
-        PlacedIds.parse(runCatching { KvStore(context, Stores.WIDGET_PLACED).get(script) }.getOrNull())
+        PlacedIds.parse(runCatching {
+            KvStore(
+                context,
+                Stores.WIDGET_PLACED
+            ).get(script)
+        }.getOrNull())
 
     /**
      * [name]'s state. It reads the database, so call it on an IO thread. The stored description is
@@ -164,16 +187,24 @@ object WidgetStates {
 
     private data class Meta(val set: Long = 0, val tried: Long = 0, val error: String? = null)
 
-    private fun meta(context: Context, name: String): Meta = parseMeta(runCatching { KvStore(context, Stores.WIDGET_META).get(name) }.getOrNull())
+    private fun meta(context: Context, name: String): Meta =
+        parseMeta(runCatching { KvStore(context, Stores.WIDGET_META).get(name) }.getOrNull())
 
-    private fun writeMeta(context: Context, name: String, meta: Meta) = KvStore(context, Stores.WIDGET_META).set(name, encodeMeta(meta.set, meta.tried, meta.error))
+    private fun writeMeta(context: Context, name: String, meta: Meta) =
+        KvStore(context, Stores.WIDGET_META).set(name, encodeMeta(meta.set, meta.tried, meta.error))
 
     /** The meta text for these values. Internal for tests. */
     internal fun encodeMeta(set: Long, tried: Long, error: String?): String =
-        Json.stringify(listOfNotNull(SET to set, TRIED to tried, error?.let { ERROR to it }).toMap())
+        Json.stringify(
+            listOfNotNull(
+                SET to set,
+                TRIED to tried,
+                error?.let { ERROR to it }).toMap()
+        )
 
     private fun parseMeta(text: String?): Meta {
-        val map = text?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() } ?: return Meta()
+        val map =
+            text?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() } ?: return Meta()
         return Meta(
             set = (map[SET] as? Number)?.toLong()?.coerceAtLeast(0) ?: 0,
             tried = (map[TRIED] as? Number)?.toLong()?.coerceAtLeast(0) ?: 0,
@@ -192,7 +223,11 @@ object WidgetStates {
     fun announce(context: Context, name: String?) {
         if (Singleton.inScriptProcess) {
             // Without the name, the main process moves every widget's number ([bump]).
-            runCatching { context.sendBroadcast(Intent(ACTION_CHANGED).setPackage(context.packageName).apply { if (name != null) putExtra(EXTRA_NAME, name) }) }
+            runCatching {
+                context.sendBroadcast(
+                    Intent(ACTION_CHANGED).setPackage(context.packageName)
+                        .apply { if (name != null) putExtra(EXTRA_NAME, name) })
+            }
         }
         bump(name)
     }

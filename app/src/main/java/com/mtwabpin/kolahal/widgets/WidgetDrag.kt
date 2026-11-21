@@ -27,7 +27,8 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
     fun startPx(column: Int): Int = (pagePx + gapPx) * column / columns
 
     /** The left edge of a widget at [column], [span] columns wide. */
-    fun leftPx(column: Int, span: Int): Int = if (rtl) pagePx - startPx(column) - widthPx(span) else startPx(column)
+    fun leftPx(column: Int, span: Int): Int =
+        if (rtl) pagePx - startPx(column) - widthPx(span) else startPx(column)
 
     /** [dp] in pixels. */
     fun px(dp: Int): Float = dp * density
@@ -55,18 +56,22 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
     fun resizeSpan(column: Int, span: Int, dxPx: Float, minSpan: Int): Int {
         val towardsEnd = if (rtl) -dxPx else dxPx
         val wanted = ((widthPx(span) + gapPx + towardsEnd) / cellPx).roundToInt()
-        return wanted.coerceIn(minSpan.coerceAtMost(columns), (columns - column).coerceAtLeast(minSpan))
+        return wanted.coerceIn(
+            minSpan.coerceAtMost(columns),
+            (columns - column).coerceAtLeast(minSpan)
+        )
     }
 
     /** The height after the bottom edge of a widget [heightDp] tall was dragged by [dyPx]: the nearest 8 dp step. */
     fun resizeHeightDp(heightDp: Int, dyPx: Float): Int = snapDp(heightDp + dp(dyPx))
 
     /** Which of [widgets] is drawn at [x], [y] (pixels from the page's top left), if any: the last drawn wins. */
-    fun widgetAt(widgets: List<PlacedWidget>, x: Float, y: Float): PlacedWidget? = widgets.lastOrNull { w ->
-        val left = leftPx(w.column, w.span)
-        val top = px(w.topDp)
-        x >= left && x < left + widthPx(w.span) && y >= top && y < top + px(w.heightDp)
-    }
+    fun widgetAt(widgets: List<PlacedWidget>, x: Float, y: Float): PlacedWidget? =
+        widgets.lastOrNull { w ->
+            val left = leftPx(w.column, w.span)
+            val top = px(w.topDp)
+            x >= left && x < left + widthPx(w.span) && y >= top && y < top + px(w.heightDp)
+        }
 
     /** One of the handles of a chosen widget, which resize it. */
     enum class Handle { END, BOTTOM, CORNER }
@@ -82,7 +87,8 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
         val top = px(w.topDp)
         val bottom = top + px(w.heightDp)
         val half = touchPx / 2
-        fun near(cx: Float, cy: Float) = x >= cx - half && x < cx + half && y >= cy - half && y < cy + half
+        fun near(cx: Float, cy: Float) =
+            x >= cx - half && x < cx + half && y >= cy - half && y < cy + half
         return when {
             near(end, bottom) -> Handle.CORNER
             near(end, (top + bottom) / 2) -> Handle.END
@@ -100,11 +106,12 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
          * [bottom]: up (less than 0) within [edge] of the top, down within [edge] of the bottom, faster
          * nearer the edge, at most [step]. 0 elsewhere.
          */
-        fun edgeScroll(y: Float, top: Float, bottom: Float, edge: Float, step: Float): Float = when {
-            edge <= 0f || bottom - top < 2 * edge -> 0f
-            y < top + edge -> -step * ((top + edge - y) / edge).coerceIn(0f, 1f)
-            y > bottom - edge -> step * ((y - (bottom - edge)) / edge).coerceIn(0f, 1f)
-            else -> 0f
-        }
+        fun edgeScroll(y: Float, top: Float, bottom: Float, edge: Float, step: Float): Float =
+            when {
+                edge <= 0f || bottom - top < 2 * edge -> 0f
+                y < top + edge -> -step * ((top + edge - y) / edge).coerceIn(0f, 1f)
+                y > bottom - edge -> step * ((y - (bottom - edge)) / edge).coerceIn(0f, 1f)
+                else -> 0f
+            }
     }
 }

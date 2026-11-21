@@ -17,16 +17,26 @@ import android.provider.Settings
 object UsageAccess {
     fun granted(context: Context): Boolean {
         val ops = context.getSystemService(AppOpsManager::class.java)
+
         @Suppress("DEPRECATION") // deprecated in API 37, replacement not available on older releases
         val mode = if (Build.VERSION.SDK_INT >= 29) {
-            ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            ops.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName
+            )
         } else {
             @Suppress("DEPRECATION")
-            ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+            ops.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName
+            )
         }
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
     /** Android's page where you allow it (`usage-access`). */
-    fun intent(): Intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun intent(): Intent =
+        Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }

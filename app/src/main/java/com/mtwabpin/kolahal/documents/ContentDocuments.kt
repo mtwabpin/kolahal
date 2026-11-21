@@ -40,7 +40,8 @@ class ContentDocuments(context: Context) : DocumentSource {
         runCatching {
             resolver.query(address, null, null, null, null)?.use { c ->
                 if (!c.moveToFirst()) return@use
-                fun column(name: String) = c.getColumnIndex(name).takeIf { it >= 0 && !c.isNull(it) }
+                fun column(name: String) =
+                    c.getColumnIndex(name).takeIf { it >= 0 && !c.isNull(it) }
                 name = column(OpenableColumns.DISPLAY_NAME)?.let(c::getString)
                 size = column(OpenableColumns.SIZE)?.let(c::getLong)
                 modified = column(DocumentsContract.Document.COLUMN_LAST_MODIFIED)?.let(c::getLong)
@@ -54,7 +55,12 @@ class ContentDocuments(context: Context) : DocumentSource {
             // Such a file says it can't be written, but its media store address can be ([write]).
             else -> isMediaDocument(address) && Build.VERSION.SDK_INT >= 29
         }
-        return DocumentInfo(name?.takeIf { it.isNotBlank() } ?: TextDocument.nameIn(uri), size, modified?.takeIf { it > 0 }, !readOnlyGrant(address) && supported)
+        return DocumentInfo(
+            name?.takeIf { it.isNotBlank() } ?: TextDocument.nameIn(uri),
+            size,
+            modified?.takeIf { it > 0 },
+            !readOnlyGrant(address) && supported
+        )
     }
 
     /**
@@ -63,7 +69,12 @@ class ContentDocuments(context: Context) : DocumentSource {
      * Kolahal can reach without one (its own file in the media store) has neither, and is not read-only.
      */
     private fun readOnlyGrant(address: Uri): Boolean {
-        fun given(mode: Int) = context.checkUriPermission(address, Process.myPid(), Process.myUid(), mode) == PackageManager.PERMISSION_GRANTED
+        fun given(mode: Int) = context.checkUriPermission(
+            address,
+            Process.myPid(),
+            Process.myUid(),
+            mode
+        ) == PackageManager.PERMISSION_GRANTED
         return given(Intent.FLAG_GRANT_READ_URI_PERMISSION) && !given(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     }
 
@@ -97,11 +108,20 @@ class ContentDocuments(context: Context) : DocumentSource {
         val file = try {
             firstOpen(sequence<() -> ParcelFileDescriptor> {
                 yield { reaching("write") { openToWrite(address) } }
-                if (isMediaDocument(address)) mediaAddress(address)?.let { media -> yield { reaching("write") { openToWrite(media) } } }
+                if (isMediaDocument(address)) mediaAddress(address)?.let { media ->
+                    yield {
+                        reaching(
+                            "write"
+                        ) { openToWrite(media) }
+                    }
+                }
             })
         } catch (e: DocumentUnavailable) {
             // A media document that can still be read was refused to write: say so, not the app's own words.
-            if (isMediaDocument(address) && readable(address)) throw DocumentUnavailable(MEDIA_READ_ONLY, e) else throw e
+            if (isMediaDocument(address) && readable(address)) throw DocumentUnavailable(
+                MEDIA_READ_ONLY,
+                e
+            ) else throw e
         }
         ParcelFileDescriptor.AutoCloseOutputStream(file).use { out ->
             out.write(bytes)
@@ -111,10 +131,12 @@ class ContentDocuments(context: Context) : DocumentSource {
         }
     }
 
-    private fun readable(address: Uri) = runCatching { resolver.openInputStream(address)?.use { true } ?: false }.getOrDefault(false)
+    private fun readable(address: Uri) =
+        runCatching { resolver.openInputStream(address)?.use { true } ?: false }.getOrDefault(false)
 
     private fun openToWrite(address: Uri): ParcelFileDescriptor? =
-        runCatching { resolver.openFileDescriptor(address, "wt") }.getOrNull() ?: resolver.openFileDescriptor(address, "w")
+        runCatching { resolver.openFileDescriptor(address, "wt") }.getOrNull()
+            ?: resolver.openFileDescriptor(address, "w")
 
     /**
      * The media store address of a media document, or null when Android gives none (before Android 10).
@@ -122,7 +144,12 @@ class ContentDocuments(context: Context) : DocumentSource {
      * [MediaStore.getMediaUri]). Without asking, Kolahal has no permission there.
      */
     private fun mediaAddress(address: Uri): Uri? =
-        if (Build.VERSION.SDK_INT >= 29) runCatching { MediaStore.getMediaUri(context, address) }.getOrNull() else null
+        if (Build.VERSION.SDK_INT >= 29) runCatching {
+            MediaStore.getMediaUri(
+                context,
+                address
+            )
+        }.getOrNull() else null
 
     /**
      * Whether opening the file again from its folder may let Kolahal save it in place:
@@ -144,12 +171,21 @@ class ContentDocuments(context: Context) : DocumentSource {
             else -> null
         } ?: return null
         return runCatching {
-            resolver.query(media, arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.VOLUME_NAME), null, null, null)?.use { c ->
+            resolver.query(
+                media,
+                arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.VOLUME_NAME),
+                null,
+                null,
+                null
+            )?.use { c ->
                 if (!c.moveToFirst()) return null
                 val path = c.getString(0)?.trimEnd('/') ?: return null
                 val volume = c.getString(1) ?: return null
                 // The storage app names the phone's own storage "primary", and a memory card by its ID in capitals.
-                val root = if (volume == MediaStore.VOLUME_EXTERNAL_PRIMARY) "primary" else volume.uppercase(Locale.ROOT)
+                val root =
+                    if (volume == MediaStore.VOLUME_EXTERNAL_PRIMARY) "primary" else volume.uppercase(
+                        Locale.ROOT
+                    )
                 DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE, "$root:$path")
             }
         }.getOrNull()
@@ -161,7 +197,10 @@ class ContentDocuments(context: Context) : DocumentSource {
     } catch (e: SecurityException) {
         throw DocumentUnavailable("Kolahal has no permission to $what this file", e)
     } catch (e: FileNotFoundException) {
-        throw DocumentUnavailable("This file can't be opened to $what: it was moved or deleted, or its app doesn't allow it", e)
+        throw DocumentUnavailable(
+            "This file can't be opened to $what: it was moved or deleted, or its app doesn't allow it",
+            e
+        )
     } catch (e: DocumentUnavailable) {
         throw e
     } catch (e: RuntimeException) {
@@ -178,7 +217,14 @@ class ContentDocuments(context: Context) : DocumentSource {
      */
     fun refusal(uri: Uri): String? {
         if (uri.scheme != "content") return "Kolahal opens files from a file picker or another app (content: addresses) only"
-        val owner = uri.authority?.let { runCatching { context.packageManager.resolveContentProvider(it, 0) }.getOrNull() }
+        val owner = uri.authority?.let {
+            runCatching {
+                context.packageManager.resolveContentProvider(
+                    it,
+                    0
+                )
+            }.getOrNull()
+        }
         return if (owner?.packageName == context.packageName) "That is one of Kolahal's own files" else null
     }
 

@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import androidx.work.Constraints
@@ -19,10 +18,13 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.Stores
+import com.mtwabpin.kolahal.script.ScriptScheduler.RECHECK_MS
+import com.mtwabpin.kolahal.script.ScriptScheduler.refresh
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import java.time.Duration
-import java.time.ZonedDateTime
 import java.time.LocalTime
+import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
 object ScriptScheduler {
@@ -56,7 +58,11 @@ object ScriptScheduler {
             })
             .addTag("script")
             .build()
-        wm.enqueueUniquePeriodicWork(uniqueName(script.id), ExistingPeriodicWorkPolicy.UPDATE, request)
+        wm.enqueueUniquePeriodicWork(
+            uniqueName(script.id),
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
     }
 
     /**
@@ -69,7 +75,8 @@ object ScriptScheduler {
     private fun syncDaily(context: Context, wm: WorkManager, script: Script) {
         val prefs = Stores.DAILY_SCHEDULE.open(context)
         val key = "script:${script.id}"
-        val wanted = if (script.enabled) script.atTimes.mapNotNull(::normalizeTime).distinct().sorted() else emptyList()
+        val wanted = if (script.enabled) script.atTimes.mapNotNull(::normalizeTime).distinct()
+            .sorted() else emptyList()
         val before = prefs.getString(key, null).orEmpty().split(',').filter { it.isNotEmpty() }
         wm.cancelAllWorkByTag(dailyTag(script.id))
         (before - wanted.toSet()).forEach { ScriptAlarms.cancel(context, script.id, it) }
@@ -103,7 +110,8 @@ object ScriptScheduler {
         )
     }
 
-    private fun online() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+    private fun online() =
+        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
     private fun dailyTag(id: Long) = "script-$id-daily"
 
@@ -137,7 +145,8 @@ object ScriptScheduler {
 
     /** Syncs every script again. One bad script can't stop the rest, and its failure is logged once a day ([com.mtwabpin.kolahal.data.Quietly]). */
     fun syncAll(context: Context) {
-        Stores.DAILY_SCHEDULE.open(context).edit { putLong(KEY_SYNCED_AT, System.currentTimeMillis()) }
+        Stores.DAILY_SCHEDULE.open(context)
+            .edit { putLong(KEY_SYNCED_AT, System.currentTimeMillis()) }
         val wm = WorkManager.getInstance(context)
         ScriptRepository.get(context).all().forEach { s ->
             com.mtwabpin.kolahal.data.Quietly.run(context, "Scheduling ${s.name}") {
@@ -156,13 +165,21 @@ object ScriptScheduler {
         prefs.edit { remove("script:$scriptId") }
     }
 
-    fun runNow(context: Context, script: Script, args: List<String> = emptyList(), event: Map<String, Any?>? = null) {
+    fun runNow(
+        context: Context,
+        script: Script,
+        args: List<String> = emptyList(),
+        event: Map<String, Any?>? = null
+    ) {
         WorkManager.getInstance(context).enqueue(
             OneTimeWorkRequestBuilder<ScriptWorker>()
                 .setInputData(remoteData(context) {
                     putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
                     putBoolean(ScriptWorker.KEY_INTERACTIVE, true)
-                    if (args.isNotEmpty()) putStringArray(ScriptWorker.KEY_ARGS, args.toTypedArray())
+                    if (args.isNotEmpty()) putStringArray(
+                        ScriptWorker.KEY_ARGS,
+                        args.toTypedArray()
+                    )
                     // A sample event, run from the editor.
                     if (event != null) putString(ScriptWorker.KEY_EVENT, Json.stringify(event))
                     fromCommand(context)
@@ -203,7 +220,12 @@ object ScriptScheduler {
      * this widget that is already there may have read the old value. So this one is not dropped:
      * it goes after that one ([queued]).
      */
-    fun refreshWidget(context: Context, script: Script, widget: String = "", again: Boolean = false) =
+    fun refreshWidget(
+        context: Context,
+        script: Script,
+        widget: String = "",
+        again: Boolean = false
+    ) =
         refresh(context, script, widgetKind(widget), again)
 
     /**
@@ -217,7 +239,8 @@ object ScriptScheduler {
      * widget, "widget#2" for a further one. Each widget is a kind of its own, so a run for one
      * never stands for a run of another ([queued]).
      */
-    internal fun widgetKind(id: String = ""): String = if (id.isEmpty()) WIDGET else WIDGET + WidgetRef.SEPARATOR + id
+    internal fun widgetKind(id: String = ""): String =
+        if (id.isEmpty()) WIDGET else WIDGET + WidgetRef.SEPARATOR + id
 
     /**
      * The `event` of a quiet run of [kind]: its name, [REFRESH] or [WIDGET]. A further widget's run
@@ -225,7 +248,9 @@ object ScriptScheduler {
      */
     internal fun refreshEvent(kind: String): Map<String, Any?> {
         val id = kind.substringAfter(WidgetRef.SEPARATOR, "")
-        return mapOf("name" to kind.substringBefore(WidgetRef.SEPARATOR)) + if (id.isEmpty()) emptyMap() else mapOf(INSTANCE to id)
+        return mapOf("name" to kind.substringBefore(WidgetRef.SEPARATOR)) + if (id.isEmpty()) emptyMap() else mapOf(
+            INSTANCE to id
+        )
     }
 
     /** Where a request for a refresh run goes ([queued]). */
@@ -243,11 +268,12 @@ object ScriptScheduler {
      * - [again]: the request is never dropped. What its run reads has just changed, and the run of
      *   its kind that is there may have started before that. It goes after it.
      */
-    internal fun queued(kind: String, waiting: Collection<String>, again: Boolean = false): Queued = when {
-        waiting.isEmpty() -> Queued.ALONE
-        kind in waiting && !again -> Queued.DROPPED
-        else -> Queued.AFTER
-    }
+    internal fun queued(kind: String, waiting: Collection<String>, again: Boolean = false): Queued =
+        when {
+            waiting.isEmpty() -> Queued.ALONE
+            kind in waiting && !again -> Queued.DROPPED
+            else -> Queued.AFTER
+        }
 
     /** What the tag of a queued refresh run starts with. Its kind follows. */
     private const val KIND_TAG = "refresh:"
@@ -260,7 +286,8 @@ object ScriptScheduler {
      * tag. One queued before runs had this tag is a pinned line's.
      */
     internal fun kindOf(tags: Set<String>): String =
-        tags.firstOrNull { it == kindTag(WIDGET) || it.startsWith(kindTag(WIDGET) + WidgetRef.SEPARATOR) }?.removePrefix(KIND_TAG) ?: REFRESH
+        tags.firstOrNull { it == kindTag(WIDGET) || it.startsWith(kindTag(WIDGET) + WidgetRef.SEPARATOR) }
+            ?.removePrefix(KIND_TAG) ?: REFRESH
 
     /** One request at a time reads a refresh queue and adds to it ([refresh]). */
     private val refreshLock = Any()
@@ -295,15 +322,18 @@ object ScriptScheduler {
         // Reading the queue and adding to it are two steps. Under one lock, and because WorkManager
         // does what it is asked in order, the next request sees this one in the queue.
         synchronized(refreshLock) {
-            val waiting = runCatching { wm.getWorkInfosForUniqueWork(queue).get(QUEUE_READ_S, TimeUnit.SECONDS) }.getOrNull()
+            val waiting = runCatching {
+                wm.getWorkInfosForUniqueWork(queue).get(QUEUE_READ_S, TimeUnit.SECONDS)
+            }.getOrNull()
                 ?.filter { !it.state.isFinished }?.map { kindOf(it.tags) }
-            val policy = when (if (waiting == null) Queued.ALONE else queued(kind, waiting, again)) {
-                Queued.DROPPED -> return
-                Queued.AFTER -> androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE
-                // KEEP never stops a run. If the queue couldn't be read and a run is there, this request is dropped.
-                // With nothing waiting, it also clears the queue's finished runs.
-                Queued.ALONE -> androidx.work.ExistingWorkPolicy.KEEP
-            }
+            val policy =
+                when (if (waiting == null) Queued.ALONE else queued(kind, waiting, again)) {
+                    Queued.DROPPED -> return
+                    Queued.AFTER -> androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE
+                    // KEEP never stops a run. If the queue couldn't be read and a run is there, this request is dropped.
+                    // With nothing waiting, it also clears the queue's finished runs.
+                    Queued.ALONE -> androidx.work.ExistingWorkPolicy.KEEP
+                }
             wm.enqueueUniqueWork(queue, policy, request)
         }
     }
@@ -320,7 +350,8 @@ object ScriptScheduler {
         var cap = 2000
         while (storedSize(json) > MAX_INLINE_CODE && cap >= 125) {
             cap /= 2
-            trimmed = trimmed.mapValues { (_, v) -> if (v is String && v.length > cap) v.take(cap) + "…" else v }
+            trimmed =
+                trimmed.mapValues { (_, v) -> if (v is String && v.length > cap) v.take(cap) + "…" else v }
             json = Json.stringify(trimmed)
         }
         if (storedSize(json) > MAX_INLINE_CODE) return
@@ -398,7 +429,10 @@ object ScriptScheduler {
     private fun remoteData(context: Context, block: Data.Builder.() -> Unit): Data =
         Data.Builder()
             .putString(RemoteListenableWorker.ARGUMENT_PACKAGE_NAME, context.packageName)
-            .putString(RemoteListenableWorker.ARGUMENT_CLASS_NAME, RemoteWorkerService::class.java.name)
+            .putString(
+                RemoteListenableWorker.ARGUMENT_CLASS_NAME,
+                RemoteWorkerService::class.java.name
+            )
             .apply { if (runningSentCommand) putBoolean(ScriptWorker.KEY_BY_SCRIPT, true) }
             .apply(block)
             .build()

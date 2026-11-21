@@ -30,8 +30,10 @@ object FeedUrl {
         val scheme = uri.scheme?.lowercase() ?: return null
         if (scheme != "http" && scheme != "https") return null
         // java.net.URI finds no host in an international name (bücher.de). OkHttp finds it, as punycode.
-        val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: s.toHttpUrlOrNull()?.host ?: return null
-        val port = uri.port.takeUnless { it == -1 || (scheme == "http" && it == 80) || (scheme == "https" && it == 443) }
+        val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: s.toHttpUrlOrNull()?.host
+        ?: return null
+        val port =
+            uri.port.takeUnless { it == -1 || (scheme == "http" && it == 80) || (scheme == "https" && it == 443) }
         return buildString {
             append(scheme).append("://")
             uri.rawUserInfo?.let { append(it).append('@') }
@@ -47,7 +49,8 @@ object FeedUrl {
      * A subtitle after ": " or " - " is dropped ("Hacker News: Front Page" → "Hacker News").
      */
     fun shortName(title: String?, url: String, max: Int = 16): String {
-        val base = title?.trim()?.split(": ", " - ", " | ", " – ")?.first()?.trim()?.takeIf { it.isNotEmpty() }
+        val base = title?.trim()?.split(": ", " - ", " | ", " – ")?.first()?.trim()
+            ?.takeIf { it.isNotEmpty() }
             ?: runCatching { URI(url).host }.getOrNull()?.removePrefix("www.")
             ?: url
         return if (base.length > max) base.takeWhole(max - 1).trimEnd() + "…" else base

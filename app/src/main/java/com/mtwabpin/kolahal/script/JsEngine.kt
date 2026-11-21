@@ -9,11 +9,11 @@ import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.define
 import com.dokar.quickjs.binding.function
 import com.dokar.quickjs.binding.toJsObject
+import com.mtwabpin.kolahal.data.StyledText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import com.mtwabpin.kolahal.data.StyledText
 
 /**
  * QuickJS through quickjs-kt. Network helpers are `async`, so scripts can `await` them (and use
@@ -47,15 +47,27 @@ class JsEngine : ScriptEngine {
             var result: Any? = null
             js.function("__kolahal_done") { args -> result = args.getOrNull(0) }
             js.evaluate<Any?>(
-                "globalThis.args = ${Json.stringify(args)}; globalThis.argline = ${Json.stringify(args.joinToString(" "))};" +
-                    " globalThis.event = ${Json.stringify(event)}; globalThis.options = ${Json.stringify(host.options)};",
+                "globalThis.args = ${Json.stringify(args)}; globalThis.argline = ${
+                    Json.stringify(
+                        args.joinToString(" ")
+                    )
+                };" +
+                        " globalThis.event = ${Json.stringify(event)}; globalThis.options = ${
+                            Json.stringify(
+                                host.options
+                            )
+                        };",
                 filename = "args.js",
             )
             js.evaluate<Any?>(GUARD, filename = "guard.js")
             // A REPL line that ends with log(…) has its line's handle as its value, which reads as {}: it prints nothing.
-            if (repl) return js.evaluate<Any?>(code, filename = "$chunkName.js")?.takeUnless { it is Map<*, *> && it.isEmpty() && host.effects > 0 }?.let(::render)
+            if (repl) return js.evaluate<Any?>(code, filename = "$chunkName.js")
+                ?.takeUnless { it is Map<*, *> && it.isEmpty() && host.effects > 0 }?.let(::render)
             // Wrapped so that scripts may `return`. Top-level await makes evaluate() wait until the script completes.
-            js.evaluate<Any?>("__kolahal_done(__kolahal_out(await (async () => {\n$code\n})()));", filename = "$chunkName.js")
+            js.evaluate<Any?>(
+                "__kolahal_done(__kolahal_out(await (async () => {\n$code\n})()));",
+                filename = "$chunkName.js"
+            )
             return result?.let(::render)
         } finally {
             // Finish first. Closing cancels the jobs still waiting, but a request that one of them made
@@ -108,7 +120,14 @@ class JsEngine : ScriptEngine {
                 io { toJs(host.httpGet(args.req(), args.getOrNull(1) as? Map<*, *>)) }
             }
             asyncFunction("cached") { args ->
-                io { toJs(host.httpCached(args.req(), (args.getOrNull(1) as? Number)?.toInt() ?: 600)) }
+                io {
+                    toJs(
+                        host.httpCached(
+                            args.req(),
+                            (args.getOrNull(1) as? Number)?.toInt() ?: 600
+                        )
+                    )
+                }
             }
             asyncFunction("request") { args ->
                 val opts = args.getOrNull(0) as? Map<*, *>
@@ -127,14 +146,31 @@ class JsEngine : ScriptEngine {
             function("dnd") { host.dnd() }
             function("setDnd") { args -> host.setDnd(args.req()) }
             function("work") { host.work() }
-            function("setWork") { args -> host.setWork(host.onOff(args.getOrNull(0), "device.setWork")) }
+            function("setWork") { args ->
+                host.setWork(
+                    host.onOff(
+                        args.getOrNull(0),
+                        "device.setWork"
+                    )
+                )
+            }
         }
         js.define("widget") {
             function("show") { args -> host.widgetShow(args.getOrNull(0) as? Map<*, *>) }
             function("clear") { host.widgetClear() }
         }
         js.define("apps") { function("list") { toJs(host.appsList()) } }
-        js.define("notifications") { function("recent") { args -> toJs(host.notificationsRecent((args.getOrNull(0) as? Number)?.toInt() ?: 20)) } }
+        js.define("notifications") {
+            function("recent") { args ->
+                toJs(
+                    host.notificationsRecent(
+                        (args.getOrNull(
+                            0
+                        ) as? Number)?.toInt() ?: 20
+                    )
+                )
+            }
+        }
         js.define("launcher") { function("run") { args -> host.runCommand(args.req()) } }
         // Your own lists, each behind the `@uses` item of its name ([HostData]). They read what is on the
         // phone and wait for nothing, so they are plain functions: no await. One HostData for the run: it
@@ -146,16 +182,37 @@ class JsEngine : ScriptEngine {
         }
         js.define("notes") { function("list") { args -> toJs(data.notesList(args.getOrNull(0))) } }
         js.define("reminders") { function("list") { toJs(data.remindersList()) } }
-        js.define("calendar") { function("events") { args -> toJs(data.calendarEvents(args.getOrNull(0))) } }
+        js.define("calendar") {
+            function("events") { args ->
+                toJs(
+                    data.calendarEvents(
+                        args.getOrNull(
+                            0
+                        )
+                    )
+                )
+            }
+        }
         js.define("feeds") { function("unread") { args -> toJs(data.feedsUnread(args.getOrNull(0))) } }
         js.define("usage") {
             function("today") { args -> toJs(data.usageToday(args.getOrNull(0))) }
             function("days") { args -> toJs(data.usageDays(args.getOrNull(0))) }
             function("data") { args -> toJs(data.usageData(args.getOrNull(0))) }
             function("unused") { args -> toJs(data.usageUnused(args.getOrNull(0))) }
-            function("summary") { args -> toJs(data.usageSummary(args.getOrNull(0), args.getOrNull(1))) }
+            function("summary") { args ->
+                toJs(
+                    data.usageSummary(
+                        args.getOrNull(0),
+                        args.getOrNull(1)
+                    )
+                )
+            }
         }
-        js.asyncFunction("sleep") { args -> host.sleepAsync((args.getOrNull(0) as? Number)?.toLong() ?: 0L) }
+        js.asyncFunction("sleep") { args ->
+            host.sleepAsync(
+                (args.getOrNull(0) as? Number)?.toLong() ?: 0L
+            )
+        }
         js.define("rss") {
             asyncFunction("fetch") { args -> io { toJs(host.rssFetch(args.req())) } }
             asyncFunction("fresh") { args -> io { toJs(host.rssFresh(args.req())) } }
@@ -166,26 +223,73 @@ class JsEngine : ScriptEngine {
             function("set") { args -> host.storeSet(args.req(), args.str(1)) }
         }
         js.define("md") {
-            function("log") { args -> logArgs(args).let { (title, body, ctx) -> host.logMarkdown(title, body, ctx).takeIf { it > 0 } } }
+            function("log") { args ->
+                logArgs(args).let { (title, body, ctx) ->
+                    host.logMarkdown(
+                        title,
+                        body,
+                        ctx
+                    ).takeIf { it > 0 }
+                }
+            }
             function("escape") { args -> Markdown.escape(args.str(0).orEmpty()) }
         }
         js.define("fmt") {
-            function("bold") { args -> StyledText.wrap(StyledText.Style.BOLD, args.str(0) ?: "undefined") }
-            function("italic") { args -> StyledText.wrap(StyledText.Style.ITALIC, args.str(0) ?: "undefined") }
-            function("underline") { args -> StyledText.wrap(StyledText.Style.UNDERLINE, args.str(0) ?: "undefined") }
-            function("strike") { args -> StyledText.wrap(StyledText.Style.STRIKE, args.str(0) ?: "undefined") }
-            function("code") { args -> StyledText.wrap(StyledText.Style.CODE, args.str(0) ?: "undefined") }
-            function("color") { args -> StyledText.colour(Fmt.colour("fmt.color", args.str(0)), args.str(1) ?: "undefined") }
+            function("bold") { args ->
+                StyledText.wrap(
+                    StyledText.Style.BOLD,
+                    args.str(0) ?: "undefined"
+                )
+            }
+            function("italic") { args ->
+                StyledText.wrap(
+                    StyledText.Style.ITALIC,
+                    args.str(0) ?: "undefined"
+                )
+            }
+            function("underline") { args ->
+                StyledText.wrap(
+                    StyledText.Style.UNDERLINE,
+                    args.str(0) ?: "undefined"
+                )
+            }
+            function("strike") { args ->
+                StyledText.wrap(
+                    StyledText.Style.STRIKE,
+                    args.str(0) ?: "undefined"
+                )
+            }
+            function("code") { args ->
+                StyledText.wrap(
+                    StyledText.Style.CODE,
+                    args.str(0) ?: "undefined"
+                )
+            }
+            function("color") { args ->
+                StyledText.colour(
+                    Fmt.colour("fmt.color", args.str(0)),
+                    args.str(1) ?: "undefined"
+                )
+            }
             function("list") { args ->
-                val items = args.getOrNull(0) as? List<*> ?: throw IllegalArgumentException("fmt.list expects an array of items")
+                val items = args.getOrNull(0) as? List<*>
+                    ?: throw IllegalArgumentException("fmt.list expects an array of items")
                 StyledText.list(items.map(::render), numbered = args.getOrNull(1) == true)
             }
             function("table") { args ->
                 val bad = "fmt.table expects an array of rows, each an array of cells"
-                val rows = (args.getOrNull(0) as? List<*>)?.map { r -> (r as? List<*>)?.map { c -> if (c == null) "" else render(c) } ?: throw IllegalArgumentException(bad) }
+                val rows = (args.getOrNull(0) as? List<*>)?.map { r ->
+                    (r as? List<*>)?.map { c ->
+                        if (c == null) "" else render(c)
+                    } ?: throw IllegalArgumentException(bad)
+                }
                     ?: throw IllegalArgumentException(bad)
                 val opts = args.getOrNull(1) as? Map<*, *>
-                StyledText.table(rows, header = opts?.get("header") == true, align = opts?.get("align")?.toString().orEmpty())
+                StyledText.table(
+                    rows,
+                    header = opts?.get("header") == true,
+                    align = opts?.get("align")?.toString().orEmpty()
+                )
             }
             val fmt = Fmt(::render)
             function("tag") { args -> fmt.tag(args.toList()) }
@@ -209,7 +313,11 @@ class JsEngine : ScriptEngine {
     private fun logArgs(args: Array<Any?>): Triple<String, String?, Map<*, *>?> {
         val second = args.getOrNull(1)
         return if (second is Map<*, *>) Triple(args.str(0) ?: "undefined", null, second)
-        else Triple(args.str(0) ?: "undefined", second?.let(::render), args.getOrNull(2) as? Map<*, *>)
+        else Triple(
+            args.str(0) ?: "undefined",
+            second?.let(::render),
+            args.getOrNull(2) as? Map<*, *>
+        )
     }
 
     private fun Array<Any?>.str(i: Int): String? = getOrNull(i)?.let { it as? String ?: render(it) }
@@ -220,7 +328,9 @@ class JsEngine : ScriptEngine {
     /** Kotlin maps must be wrapped as [JsObject] to arrive as plain JS objects (not `Map`). */
     private fun toJs(v: Any?): Any? = when (v) {
         is JsObject -> v
-        is Map<*, *> -> v.entries.associate { (k, value) -> k.toString() to toJs(value) }.toJsObject()
+        is Map<*, *> -> v.entries.associate { (k, value) -> k.toString() to toJs(value) }
+            .toJsObject()
+
         is Collection<*> -> v.map(::toJs)
         else -> v
     }

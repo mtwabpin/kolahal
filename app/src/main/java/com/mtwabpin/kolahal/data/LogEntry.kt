@@ -12,6 +12,7 @@ enum class LogKind {
     OUTPUT,
     INFO,
     ERROR,
+
     /** Output from a script's run, a feed or a notification, not from a typed command. */
     SCRIPT;
 
@@ -38,6 +39,7 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
     val copy: String? get() = values[COPY]
     val command: String? get() = values[COMMAND]
     val image: String? get() = values[IMAGE]
+
     /** A script line's body, shown muted under its title ([TITLE]). */
     val body: String? get() = values[BODY]
 
@@ -55,59 +57,78 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         const val SCRIPT = "script"
         const val COPY = "copy"
         const val COMMAND = "command"
+
         /** A notification's saved status-bar icon ([com.mtwabpin.kolahal.notifications.NotifIcons] key), shown instead of the app name. */
         const val ICON = "icon"
+
         /** An image URL that a script attached. It shows under the line, as wide as the log. */
         const val IMAGE = "image"
+
         /** A command that runs immediately when the line is tapped (setup checklist, hints). */
         const val RUN = "run"
+
         /** A phone number (tap dials) and a contact lookup URI (long-press opens the contact). */
         const val PHONE = "phone"
+
         /** An app shortcut id (with PKG/USER). A tap starts the shortcut. */
         const val SHORTCUT = "shortcut"
+
         /** An activity's class name (with PKG/USER), from `activity`. A tap opens that activity. */
         const val ACTIVITY = "activity"
         const val CONTACT = "contact"
+
         /** The source line of a script error. A tap opens the editor at that line. */
         const val LINE = "line"
+
         /**
          * The id of the command line whose run logged this line, wherever the line landed. A script's
          * or a feed's lines arrive when the work is done, after other lines. "Delete command and
          * output" deletes them too.
          */
         const val FROM = "from"
+
         /**
          * Until 0.4.1, a `── name · 22:40 ──` line started a script run or a feed fetch. Now each line
          * has its own time and name. Old header lines are deleted ([Db]) and not restored from backups.
          */
         const val RUN_HEADER = "runheader"
+
         /** A line a script logged. Its text is a title, drawn bold, with [BODY] muted under it. */
         const val TITLE = "title"
+
         /** A script line's body: `log(title, body)`. */
         const val BODY = "body"
+
         /** The second column text (help, config and script listings show as two columns). */
         const val DESC = "desc"
+
         /**
          * A two-column row whose left column fits this text, not a fixed share of the width: the
          * longest name in `help`, or the longest use in `help <command>`. [DESC] is then in the text
          * colour; its own [StyledText] colours still apply.
          */
         const val NAME_COL = "namecol"
+
         /** With [NAME_COL]: a muted, smaller line under [DESC], such as a command's arguments (`on · off · status`). */
         const val ARGS = "args"
+
         /** A JSON list of {pkg, cls, user}. The line shows as a grid of app chips. */
         const val APPS = "apps"
+
         /** Productivity items by database id: a todo ("done" = 1 when finished), a note, a reminder. */
         const val TODO = "todo"
         const val TODO_DONE = "done"
         const val NOTE = "note"
         const val REMINDER = "reminder"
+
         /** A calendar event id (with BEGIN/END of the instance). A tap opens it. */
         const val EVENT = "event"
         const val BEGIN = "begin"
         const val END = "end"
+
         /** The line aligns columns with spaces, so it is drawn in the terminal font even with `font.sans all`. */
         const val MONO = "mono"
+
         /**
          * A bar after a built-in command's line, as `from,to,role` (fractions from 0 to 1, and a
          * colour role, which may be empty): `unlocks`, `usage`, `volume`. Scripts can't set it;
@@ -159,7 +180,16 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
 
         /** [BAR] filled to [fraction] (0 to 1), in [role] (null: the accent colour). */
         fun bar(fraction: Double, role: String? = null): Map<String, String> =
-            mapOf(BAR to "0,${StyledText.number(if (fraction.isNaN()) 0.0 else fraction.coerceIn(0.0, 1.0))},${role.orEmpty()}")
+            mapOf(
+                BAR to "0,${
+                    StyledText.number(
+                        if (fraction.isNaN()) 0.0 else fraction.coerceIn(
+                            0.0,
+                            1.0
+                        )
+                    )
+                },${role.orEmpty()}"
+            )
 
         val EMPTY = LogContext()
 

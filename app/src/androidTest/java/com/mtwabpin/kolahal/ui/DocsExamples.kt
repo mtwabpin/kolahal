@@ -2,12 +2,13 @@ package com.mtwabpin.kolahal.ui
 
 import android.content.Context
 import com.mtwabpin.kolahal.data.KvStore
+import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptEngine
-import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.ui.DocsExamples.KEEPS_SHOWN
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetParser
 import com.mtwabpin.kolahal.widgets.WidgetSize
@@ -67,7 +68,15 @@ object DocsExamples {
      * the picture example, which the reference leaves out because drawing it fetches.
      */
     val widgets: List<Widget> = ReferenceExamples.widgets.map { ex ->
-        Widget(ex.name, ex.kind, ex.size, ex.title, ex.lua, before = luaBefore[ex.name].orEmpty(), options = optionsOf[ex.name].orEmpty())
+        Widget(
+            ex.name,
+            ex.kind,
+            ex.size,
+            ex.title,
+            ex.lua,
+            before = luaBefore[ex.name].orEmpty(),
+            options = optionsOf[ex.name].orEmpty()
+        )
     } + listOf(
         Widget(
             "image", WidgetKind.IMAGE, WidgetSize.S4X2, "Picture of the day",
@@ -83,8 +92,8 @@ object DocsExamples {
             }
             """,
             before = "http = { cached = function() return { ok = true, status = 200, body = [[" +
-                """{"url":"$PICTURE","description":"Hills at sunrise","title":"Sunrise over the ghats","page":"https://example.com/pictures/1432"}""" +
-                "]] } end }\n",
+                    """{"url":"$PICTURE","description":"Hills at sunrise","title":"Sunrise over the ghats","page":"https://example.com/pictures/1432"}""" +
+                    "]] } end }\n",
         ),
     )
 
@@ -104,32 +113,65 @@ object DocsExamples {
     }
 
     /** Keeps what the code hands to `widget.show` in the script's store, as JSON, and passes it on. */
-    private const val KEEPS_SHOWN = "do local show = widget.show; widget = { show = function(d) store.set('_shown', json.encode(d)); return show(d) end } end\n"
+    private const val KEEPS_SHOWN =
+        "do local show = widget.show; widget = { show = function(d) store.set('_shown', json.encode(d)); return show(d) end } end\n"
 
     /** [KEEPS_SHOWN] for JavaScript. */
-    private const val JS_KEEPS_SHOWN = "const widget = { show: (d) => { store.set('_shown', JSON.stringify(d)); return globalThis.widget.show(d); } };\n"
+    private const val JS_KEEPS_SHOWN =
+        "const widget = { show: (d) => { store.set('_shown', JSON.stringify(d)); return globalThis.widget.show(d); } };\n"
 
     /**
      * Runs [ex]'s code as a script with its @widget line, and returns its card as `widget.show`
      * checks it. The widget isn't placed: nothing is stored but the script's own store, which is
      * emptied after.
      */
-    fun spec(context: Context, ex: Widget): WidgetSpec = shown(context, ex.name, ex.kind, ex.size, ScriptLang.LUA, ex.before + ex.code.trimIndent(), ex.options)
+    fun spec(context: Context, ex: Widget): WidgetSpec = shown(
+        context,
+        ex.name,
+        ex.kind,
+        ex.size,
+        ScriptLang.LUA,
+        ex.before + ex.code.trimIndent(),
+        ex.options
+    )
 
     /**
      * Runs [code] in [lang] as a script with a `@widget` line of [kind] and [size], and returns the
      * card it handed `widget.show`, as `widget.show` checks it.
      */
-    fun shown(context: Context, name: String, kind: WidgetKind, size: WidgetSize, lang: ScriptLang, code: String, options: Map<String, String> = emptyMap()): WidgetSpec {
+    fun shown(
+        context: Context,
+        name: String,
+        kind: WidgetKind,
+        size: WidgetSize,
+        lang: ScriptLang,
+        code: String,
+        options: Map<String, String> = emptyMap()
+    ): WidgetSpec {
         val id = 910_000_000L + System.nanoTime() % 1_000_000
         val store = KvStore(context, ScriptRepository.scopeOf(id))
         try {
-            val host = HostApi(context, "docs-$name", scriptId = id, notifyEnabled = false, options = options, widget = ScriptMeta.Widget(kind, size))
+            val host = HostApi(
+                context,
+                "docs-$name",
+                scriptId = id,
+                notifyEnabled = false,
+                options = options,
+                widget = ScriptMeta.Widget(kind, size)
+            )
             val keeps = if (lang == ScriptLang.LUA) KEEPS_SHOWN else JS_KEEPS_SHOWN
-            runBlocking { ScriptEngine.forLang(lang).run(keeps + code, "docs-$name", host, 10_000, false, emptyList(), null) }
+            runBlocking {
+                ScriptEngine.forLang(lang)
+                    .run(keeps + code, "docs-$name", host, 10_000, false, emptyList(), null)
+            }
             host.flush()
-            val json = checkNotNull(store.get("_shown")) { "$name ($lang): the code called no widget.show" }
-            return WidgetParser.parse(Json.parse(json) as Map<*, *>, kind, text = { it }, link = { it })
+            val json =
+                checkNotNull(store.get("_shown")) { "$name ($lang): the code called no widget.show" }
+            return WidgetParser.parse(
+                Json.parse(json) as Map<*, *>,
+                kind,
+                text = { it },
+                link = { it })
         } finally {
             store.all().keys.forEach { store.set(it, null) }
         }

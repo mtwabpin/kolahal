@@ -15,9 +15,11 @@ class PictureBackdropTest {
     private val lightTheme = Color(0xFFF8F8F8)
 
     /** [ink] pixels on [clear] pixels: a drawing with nothing behind it. */
-    private fun drawing(ink: Int, inkShare: Float = 0.2f) = IntArray(1000) { if (it < 1000 * inkShare) ink else clear }
+    private fun drawing(ink: Int, inkShare: Float = 0.2f) =
+        IntArray(1000) { if (it < 1000 * inkShare) ink else clear }
 
-    @Test fun aPictureWithABackgroundOfItsOwnHasNoInk() {
+    @Test
+    fun aPictureWithABackgroundOfItsOwnHasNoInk() {
         assertNull(PictureInk.of(IntArray(1000) { black }))
         // A photo with a few see-through pixels at its corners still has a background.
         assertNull(PictureInk.of(IntArray(1000) { if (it < 30) clear else white }))
@@ -25,27 +27,35 @@ class PictureBackdropTest {
         assertNull(PictureInk.of(IntArray(1000) { clear }))
     }
 
-    @Test fun aDrawingsInkIsHowLightItsLinesAre() {
+    @Test
+    fun aDrawingsInkIsHowLightItsLinesAre() {
         assertEquals(0f, PictureInk.of(drawing(black))!!.luminance, 0.001f)
         assertEquals(1f, PictureInk.of(drawing(white))!!.luminance, 0.001f)
         // Half-see-through edges count for less than solid lines.
-        val edges = IntArray(1000) { when { it < 100 -> black; it < 200 -> 0x40FFFFFF; else -> clear } }
+        val edges = IntArray(1000) {
+            when {
+                it < 100 -> black; it < 200 -> 0x40FFFFFF; else -> clear
+            }
+        }
         assertTrue(PictureInk.of(edges)!!.luminance < 0.3f)
     }
 
-    @Test fun darkLinesOnADarkThemeGetALightBackdrop() {
+    @Test
+    fun darkLinesOnADarkThemeGetALightBackdrop() {
         val ink = PictureInk.of(drawing(black))
         assertEquals(PICTURE_LIGHT, pictureBackdrop(ink, darkTheme))
         assertNull("they read on a light theme", pictureBackdrop(ink, lightTheme))
     }
 
-    @Test fun lightLinesOnALightThemeGetADarkBackdrop() {
+    @Test
+    fun lightLinesOnALightThemeGetADarkBackdrop() {
         val ink = PictureInk.of(drawing(white))
         assertEquals(PICTURE_DARK, pictureBackdrop(ink, lightTheme))
         assertNull("they read on a dark theme", pictureBackdrop(ink, darkTheme))
     }
 
-    @Test fun aPictureWithABackgroundNeverGetsOne() {
+    @Test
+    fun aPictureWithABackgroundNeverGetsOne() {
         assertNull(pictureBackdrop(null, darkTheme))
         assertNull(pictureBackdrop(null, lightTheme))
     }

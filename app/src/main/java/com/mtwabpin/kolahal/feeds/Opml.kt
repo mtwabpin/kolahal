@@ -14,7 +14,8 @@ object Opml {
 
     // Match quoted values as a whole, because a `>` inside quotes doesn't need escaping.
     // The quantifiers are possessive, so the regex can't backtrack over a long value.
-    private val OUTLINE = Regex("<outline\\b((?:[^>\"']++|\"[^\"]*+\"|'[^']*+')*+)>", RegexOption.IGNORE_CASE)
+    private val OUTLINE =
+        Regex("<outline\\b((?:[^>\"']++|\"[^\"]*+\"|'[^']*+')*+)>", RegexOption.IGNORE_CASE)
     private val ATTR = Regex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')")
     private val COMMENT = Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL)
 
@@ -76,9 +77,12 @@ object Opml {
             "quot" -> "\""
             "apos" -> "'"
             else -> {
-                val code = if (e.startsWith("#x")) e.substring(2).toIntOrNull(16) else e.substring(1).toIntOrNull()
+                val code =
+                    if (e.startsWith("#x")) e.substring(2).toIntOrNull(16) else e.substring(1)
+                        .toIntOrNull()
                 // A lone surrogate is only half a character, so keep the entity as written.
-                code?.takeIf { Character.isValidCodePoint(it) && it !in 0xD800..0xDFFF }?.let { String(Character.toChars(it)) } ?: m.value
+                code?.takeIf { Character.isValidCodePoint(it) && it !in 0xD800..0xDFFF }
+                    ?.let { String(Character.toChars(it)) } ?: m.value
             }
         }
     }

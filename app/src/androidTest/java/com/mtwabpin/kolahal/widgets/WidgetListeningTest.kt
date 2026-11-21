@@ -19,12 +19,14 @@ class WidgetListeningTest {
     private val t = TestWidgets()
     private val widgets = t.host
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         instrumentation.runOnMainSync { widgets.stopListening() }
         t.close()
     }
 
-    @Test fun itListensOnlyWithAWidgetPlaced() {
+    @Test
+    fun itListensOnlyWithAWidgetPlaced() {
         assumeTrue("widgets were placed before the test", widgets.widgets.value.isEmpty())
         instrumentation.runOnMainSync {
             widgets.stopListening()

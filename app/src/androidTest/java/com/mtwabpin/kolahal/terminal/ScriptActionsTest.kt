@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.net.Uri
 import androidx.core.content.edit
@@ -17,8 +16,8 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptLibrary
@@ -47,7 +46,8 @@ class ScriptActionsTest {
     private val repo = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
     private val status = KvStore(context, Stores.STATUS)
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private val host = RecordingHost()
     private val state = SavedStateHandle()
     private val scope = CoroutineScope(SupervisorJob())
@@ -55,7 +55,18 @@ class ScriptActionsTest {
     private val actions = ScriptActions(context, state, scope, list, host)
     private val files = File(context.cacheDir, "script-actions-test")
 
-    private val names = listOf("sa-one", "sa-two", "sa-three", "sa-new", "sa-cmd", "sa-imp", "sa-upd", "sa-shared", "sa-asks")
+    private val names = listOf(
+        "sa-one",
+        "sa-two",
+        "sa-three",
+        "sa-new",
+        "sa-cmd",
+        "sa-imp",
+        "sa-upd",
+        "sa-shared",
+        "sa-asks"
+    )
+
     /** Library scripts a test installs; one that was there before the test is left alone. */
     private val library = listOf("countdown", "charge-reminder").filter { repo.byName(it) == null }
 
@@ -64,7 +75,8 @@ class ScriptActionsTest {
     private val catalogWas = catalogFile.takeIf { it.exists() }?.readText()
     private val fetchedWas = catalogPrefs.getLong("fetched", 0L)
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         scope.cancel()
         for (name in names + library) {
             repo.byName(name)?.let { ScriptScheduler.cancel(context, it.id); repo.delete(it.id) }
@@ -76,20 +88,28 @@ class ScriptActionsTest {
         catalogPrefs.edit(commit = true) { putLong("fetched", fetchedWas) }
     }
 
-    private fun create(name: String, code: String = "return 1", enabled: Boolean = true) = repo.create(name, ScriptLang.LUA, code, enabled)
+    private fun create(name: String, code: String = "return 1", enabled: Boolean = true) =
+        repo.create(name, ScriptLang.LUA, code, enabled)
 
     private fun now(s: Script) = repo.byId(s.id)!!
 
     private fun newLines(): List<LogEntry> = logs.recent(400).filter { it.id > logLines.start }
 
     private fun work(s: Script): List<WorkInfo.State> =
-        WorkManager.getInstance(context).getWorkInfosForUniqueWork("script-${s.id}").get().map { it.state }
+        WorkManager.getInstance(context).getWorkInfosForUniqueWork("script-${s.id}").get()
+            .map { it.state }
 
-    private fun file(name: String, text: String) = File(files.apply { mkdirs() }, name).apply { writeText(text) }
+    private fun file(name: String, text: String) =
+        File(files.apply { mkdirs() }, name).apply { writeText(text) }
 
     /** Switched on, a script may use what it asks for, and a key it needs gets a line to set it; the list shows it on. */
-    @Test fun theSwitchTurnsItOnAndAsksForItsKey() {
-        val s = create("sa-one", "-- @uses clipboard\n-- @secret KEY api.example.com Your key\nreturn 1", enabled = false)
+    @Test
+    fun theSwitchTurnsItOnAndAsksForItsKey() {
+        val s = create(
+            "sa-one",
+            "-- @uses clipboard\n-- @secret KEY api.example.com Your key\nreturn 1",
+            enabled = false
+        )
         actions.setScriptEnabled(s, true)
         assertTrue(now(s).enabled)
         assertTrue(now(s).grants.allows("clipboard"))
@@ -103,7 +123,8 @@ class ScriptActionsTest {
     }
 
     /** The dialog's answers are kept: what you switched off stays off, the rest is allowed. */
-    @Test fun turningItOnKeepsTheDialogsAnswers() {
+    @Test
+    fun turningItOnKeepsTheDialogsAnswers() {
         val s = create("sa-one", "-- @uses clipboard, apps\nreturn 1", enabled = false)
         actions.enableScript(s, mapOf("clipboard" to false))
         val on = now(s)
@@ -114,7 +135,8 @@ class ScriptActionsTest {
     }
 
     /** Pinning is a switch of its own, off until you pin; unpinned, the line stays, for its card and `status`. */
-    @Test fun unpinningKeepsTheLine() {
+    @Test
+    fun unpinningKeepsTheLine() {
         val s = create("sa-one", "status('sa line')\nreturn http.get('https://example.com')")
         status.set("sa-one", "sa line")
         assertFalse(s.grants.allows(ScriptAccess.HEADER))
@@ -130,7 +152,8 @@ class ScriptActionsTest {
     }
 
     /** Long-press on a status line no script has any more offers only to clear it, and clearing it does. */
-    @Test fun aLineWithNoScriptCanOnlyBeCleared() {
+    @Test
+    fun aLineWithNoScriptCanOnlyBeCleared() {
         status.set("sa-gone", "left behind")
         val offered = actions.statusActions("sa-gone")
         assertEquals(listOf("Clear this line"), offered.map { it.label })
@@ -139,12 +162,15 @@ class ScriptActionsTest {
     }
 
     /** Long-press on a pinned script's line: run it, unpin it (saying how to pin it again), or edit it. */
-    @Test fun aPinnedLineOffersRunUnpinAndEdit() {
+    @Test
+    fun aPinnedLineOffersRunUnpinAndEdit() {
         val s = create("sa-one", "status('sa line')")
         status.set("sa-one", "sa line")
         actions.setScriptAccess(s, ScriptAccess.HEADER, true)
         val offered = actions.statusActions("sa-one")
-        assertEquals(listOf("Run sa-one now", "Unpin sa-one", "Edit sa-one.lua"), offered.map { it.label })
+        assertEquals(
+            listOf("Run sa-one now", "Unpin sa-one", "Edit sa-one.lua"),
+            offered.map { it.label })
 
         offered.single { it.label == "Edit sa-one.lua" }.run()
         assertEquals(listOf(s.id), host.opened.map { it.id })
@@ -158,7 +184,8 @@ class ScriptActionsTest {
     }
 
     /** Notifications on asks for Android's permission; off doesn't. */
-    @Test fun notificationsOnAsksForThePermission() {
+    @Test
+    fun notificationsOnAsksForThePermission() {
         val s = create("sa-one", "notify('t', 'b')")
         actions.setScriptNotify(s, true)
         assertTrue(now(s).notify)
@@ -173,7 +200,8 @@ class ScriptActionsTest {
      * A timer switches a script on, no shorter than 15 minutes, but allows nothing it asks for: a
      * line offers that. Timer off, its runs stop.
      */
-    @Test fun aTimerSwitchesItOnButAllowsNothing() {
+    @Test
+    fun aTimerSwitchesItOnButAllowsNothing() {
         // Code that logs nothing: the timer's first run starts at once, and may end after the test.
         val s = create("sa-one", "-- @uses clipboard\nlocal x = 1", enabled = false)
         actions.setScriptInterval(s, 5)
@@ -191,7 +219,8 @@ class ScriptActionsTest {
     }
 
     /** Daily times typed twice count once, in order, and switch it on asking for the rest; none at all leaves it off. */
-    @Test fun dailyTimesSwitchItOnAskingForTheRest() {
+    @Test
+    fun dailyTimesSwitchItOnAskingForTheRest() {
         val off = create("sa-two", enabled = false)
         assertTrue(actions.setScriptTimes(off, ""))
         assertFalse(now(off).enabled)
@@ -209,7 +238,8 @@ class ScriptActionsTest {
     }
 
     /** A time that isn't one refuses the lot: nothing is set, and the script stays off. */
-    @Test fun aBadTimeSetsNothing() {
+    @Test
+    fun aBadTimeSetsNothing() {
         val s = create("sa-one", enabled = false)
         assertFalse(actions.setScriptTimes(s, "7:05 soon"))
         assertFalse(actions.setScriptTimes(s, "25:00"))
@@ -218,34 +248,53 @@ class ScriptActionsTest {
     }
 
     /** Run now says it is running, and the script's own line follows. */
-    @Test fun runNowRunsItAndSaysSo() {
+    @Test
+    fun runNowRunsItAndSaysSo() {
         val s = create("sa-one", "log('sa ran now')")
         actions.runScriptNow(s)
         assertEquals(RecordingHost.Notice("Running sa-one…", false), host.lastNotice())
-        waitUntil("the script's line", ms = 20_000) { newLines().any { it.source == "sa-one" && StyledText.plain(it.text) == "sa ran now" } }
+        waitUntil(
+            "the script's line",
+            ms = 20_000
+        ) { newLines().any { it.source == "sa-one" && StyledText.plain(it.text) == "sa ran now" } }
     }
 
     /** A rename says what it did and the list shows the new name; a bad, built-in or taken name is refused, saying why. */
-    @Test fun renameSaysWhatItDidOrWhyNot() {
+    @Test
+    fun renameSaysWhatItDidOrWhyNot() {
         val s = create("sa-one")
         create("sa-three")
         actions.renameScript(s, "sa-two")
-        assertEquals(RecordingHost.Notice("Renamed sa-one.lua to sa-two.lua", false), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("Renamed sa-one.lua to sa-two.lua", false),
+            host.lastNotice()
+        )
         assertEquals(s.id, repo.byName("sa-two")?.id)
-        assertEquals(listOf("sa-three", "sa-two"), list.value.map { it.name }.filter { it.startsWith("sa-") })
+        assertEquals(
+            listOf("sa-three", "sa-two"),
+            list.value.map { it.name }.filter { it.startsWith("sa-") })
 
         val renamed = now(s)
         actions.renameScript(renamed, "Bad Name")
-        assertEquals(RecordingHost.Notice("Script names: lowercase letters, digits, - and _, up to 40", true), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice(
+                "Script names: lowercase letters, digits, - and _, up to 40",
+                true
+            ), host.lastNotice()
+        )
         actions.renameScript(renamed, "help")
         assertEquals(RecordingHost.Notice("'help' is a built-in command", true), host.lastNotice())
         actions.renameScript(renamed, "sa-three")
-        assertEquals(RecordingHost.Notice("There is already a script named sa-three", true), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("There is already a script named sa-three", true),
+            host.lastNotice()
+        )
         assertEquals("sa-two", now(s).name)
     }
 
     /** Deleted, a script goes from the list with its status line and its timer, and that is said. */
-    @Test fun deleteTakesItsLineAndTimerToo() {
+    @Test
+    fun deleteTakesItsLineAndTimerToo() {
         // Code that sets no line itself: the timer's first run starts at once, and could set it after the delete.
         val s = create("sa-one", "local x = 1")
         repo.setInterval(s.id, 60)
@@ -262,7 +311,8 @@ class ScriptActionsTest {
     }
 
     /** A new script, its name tidied, opens in the editor with the template for its kind. */
-    @Test fun aNewScriptOpensInTheEditor() {
+    @Test
+    fun aNewScriptOpensInTheEditor() {
         actions.newScript("  Sa-New ", ScriptLang.LUA, asCommand = false)
         val plain = repo.byName("sa-new")!!
         assertEquals(ScriptTemplates.forLang(ScriptLang.LUA, "sa-new"), plain.code)
@@ -276,19 +326,29 @@ class ScriptActionsTest {
     }
 
     /** A new script needs a name of its own: a bad name, a built-in's or one in use says why and opens nothing. */
-    @Test fun aNewScriptNeedsAFreeName() {
+    @Test
+    fun aNewScriptNeedsAFreeName() {
         create("sa-one")
         actions.newScript("no way", ScriptLang.LUA, asCommand = false)
         actions.newScript("help", ScriptLang.LUA, asCommand = false)
-        assertEquals(listOf("Names: lowercase letters, digits, - and _", "'help' is a built-in command, pick another name"), host.shown.toList())
+        assertEquals(
+            listOf(
+                "Names: lowercase letters, digits, - and _",
+                "'help' is a built-in command, pick another name"
+            ), host.shown.toList()
+        )
         actions.newScript("sa-one", ScriptLang.LUA, asCommand = false)
-        assertEquals(RecordingHost.Notice("Script 'sa-one' already exists", true), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("Script 'sa-one' already exists", true),
+            host.lastNotice()
+        )
         assertTrue(host.opened.isEmpty())
         assertNull(repo.byName("help"))
     }
 
     /** Files imported: what came in, off until turned on, and what was skipped and why; the command list is read again. */
-    @Test fun importingFilesSaysWhatCameIn() {
+    @Test
+    fun importingFilesSaysWhatCameIn() {
         create("sa-upd", "return 1")
         actions.importScriptFiles(
             listOf(
@@ -301,7 +361,7 @@ class ScriptActionsTest {
         assertEquals(
             RecordingHost.Notice(
                 "Added sa-imp.lua · updated sa-upd.lua · off until you turn them on (script on <name>) · " +
-                    "skipped notes.txt (not .lua / .js), help.lua ('help' is a built-in command)",
+                        "skipped notes.txt (not .lua / .js), help.lua ('help' is a built-in command)",
                 false,
             ),
             host.lastNotice(),
@@ -313,24 +373,47 @@ class ScriptActionsTest {
     }
 
     /** A file whose `@every` line changed brings its timer, as an edit does; the same line keeps the one set by hand. */
-    @Test fun aFileWithANewEveryLineBringsItsTimer() {
+    @Test
+    fun aFileWithANewEveryLineBringsItsTimer() {
         val s = create("sa-upd", "-- @every 1h\nreturn 1")
         repo.setInterval(s.id, 60)
-        actions.importScriptFiles(listOf(Uri.fromFile(file("sa-upd.lua", "-- @every 2h\nreturn 2"))))
+        actions.importScriptFiles(
+            listOf(
+                Uri.fromFile(
+                    file(
+                        "sa-upd.lua",
+                        "-- @every 2h\nreturn 2"
+                    )
+                )
+            )
+        )
         assertEquals(120, now(s).intervalMin)
         repo.setInterval(s.id, 30)
-        actions.importScriptFiles(listOf(Uri.fromFile(file("sa-upd.lua", "-- @every 2h\nreturn 3"))))
+        actions.importScriptFiles(
+            listOf(
+                Uri.fromFile(
+                    file(
+                        "sa-upd.lua",
+                        "-- @every 2h\nreturn 3"
+                    )
+                )
+            )
+        )
         assertEquals("return 3", now(s).code.lines().last())
         assertEquals(30, now(s).intervalMin)
     }
 
     /** Nothing that could be imported, or nothing new: it says so, as an error; no files at all does nothing. */
-    @Test fun importingNothingNewSaysSo() {
+    @Test
+    fun importingNothingNewSaysSo() {
         actions.importScriptFiles(emptyList())
         assertTrue(host.notices.isEmpty())
 
         actions.importScriptFiles(listOf(Uri.fromFile(file("notes.txt", "x"))))
-        assertEquals(RecordingHost.Notice("Skipped notes.txt (not .lua / .js)", true), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("Skipped notes.txt (not .lua / .js)", true),
+            host.lastNotice()
+        )
 
         create("sa-one", "return 1")
         actions.importScriptFiles(listOf(Uri.fromFile(file("sa-one.lua", "return 1"))))
@@ -338,7 +421,8 @@ class ScriptActionsTest {
     }
 
     /** Export writes the script's code to the file picked and says so; a picker closed with nothing picked writes nothing. */
-    @Test fun exportWritesTheFilePicked() {
+    @Test
+    fun exportWritesTheFilePicked() {
         val s = create("sa-one", "-- mine\nreturn 42")
         val out = File(files.apply { mkdirs() }, "sa-one.lua")
         actions.beginExportScript(s)
@@ -356,7 +440,8 @@ class ScriptActionsTest {
     }
 
     /** A script deleted while the picker was open: the export fails, saying so. */
-    @Test fun exportOfADeletedScriptFails() {
+    @Test
+    fun exportOfADeletedScriptFails() {
         val s = create("sa-one")
         actions.beginExportScript(s)
         repo.delete(s.id)
@@ -367,20 +452,32 @@ class ScriptActionsTest {
     }
 
     /** Installed from the library, a script is on, and a command one says how to run it. */
-    @Test fun aLibraryInstallSaysHowToRunIt() {
+    @Test
+    fun aLibraryInstallSaysHowToRunIt() {
         val entries = actions.library.entries.filter { it.name in library }
-        org.junit.Assume.assumeTrue("both library scripts are installed here already", entries.size == 2)
+        org.junit.Assume.assumeTrue(
+            "both library scripts are installed here already",
+            entries.size == 2
+        )
         actions.installFromLibrary(entries.single { it.name == "countdown" })
-        assertEquals(RecordingHost.Notice("Installed countdown.lua — run it as 'countdown'", false), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("Installed countdown.lua — run it as 'countdown'", false),
+            host.lastNotice()
+        )
         actions.installFromLibrary(entries.single { it.name == "charge-reminder" })
-        assertEquals(RecordingHost.Notice("Installed charge-reminder.lua", false), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("Installed charge-reminder.lua", false),
+            host.lastNotice()
+        )
         assertTrue(repo.byName("countdown")!!.enabled)
         assertTrue(repo.byName("charge-reminder")!!.enabled)
-        assertTrue(host.commandList!!.map { it.name }.containsAll(listOf("countdown", "charge-reminder")))
+        assertTrue(host.commandList!!.map { it.name }
+            .containsAll(listOf("countdown", "charge-reminder")))
     }
 
     /** A key set or cleared shows as set or not, and the log says which, never the value; Close takes the terminal's prompt for it away. */
-    @Test fun aKeyIsLoggedWithoutItsValue() {
+    @Test
+    fun aKeyIsLoggedWithoutItsValue() {
         val s = create("sa-one", "-- @secret KEY api.example.com Your key\nreturn 1")
         val key = ScriptMeta.secrets(s.code).single()
         assertTrue(actions.secretsSet(s).isEmpty())
@@ -391,7 +488,9 @@ class ScriptActionsTest {
         assertTrue(actions.secretsVersion.value > version)
         actions.setSecret("sa-one", key, null)
         assertTrue(actions.secretsSet(s).isEmpty())
-        assertEquals(listOf("sa-one: KEY set", "sa-one: KEY cleared"), newLines().map { it.text }.filter { it.startsWith("sa-one: ") })
+        assertEquals(
+            listOf("sa-one: KEY set", "sa-one: KEY cleared"),
+            newLines().map { it.text }.filter { it.startsWith("sa-one: ") })
         assertTrue(newLines().none { "v4lue-1234" in it.text })
 
         actions.askSecret(s, "KEY")
@@ -401,7 +500,8 @@ class ScriptActionsTest {
     }
 
     /** An option shows its default until you set it, then yours, marked as yours; reset, the default again. Each change is a line. */
-    @Test fun anOptionShowsYoursOrTheDefault() {
+    @Test
+    fun anOptionShowsYoursOrTheDefault() {
         val s = create("sa-one", "-- @option city London The city\nlog(options.city)")
         assertEquals(mapOf("city" to "London") to emptySet<String>(), actions.optionValues(s))
         val version = actions.optionsVersion.value
@@ -411,11 +511,14 @@ class ScriptActionsTest {
         assertTrue(actions.optionsVersion.value > version)
         actions.setOption("sa-one", "city", null)
         assertEquals(mapOf("city" to "London") to emptySet<String>(), actions.optionValues(s))
-        assertEquals(listOf("sa-one: city = Paris", "sa-one: city reset to default"), newLines().map { it.text }.filter { it.startsWith("sa-one: ") })
+        assertEquals(
+            listOf("sa-one: city = Paris", "sa-one: city reset to default"),
+            newLines().map { it.text }.filter { it.startsWith("sa-one: ") })
     }
 
     /** Get more scripts lists the copy of the list kept for the hour, without going online. */
-    @Test fun getMoreScriptsListsTheCopyKept() {
+    @Test
+    fun getMoreScriptsListsTheCopyKept() {
         catalogFile.writeText(catalog("sa-shared", sha = "a".repeat(64)))
         catalogPrefs.edit(commit = true) { putLong("fetched", System.currentTimeMillis()) }
         actions.loadSharedScripts()
@@ -430,17 +533,26 @@ class ScriptActionsTest {
      * A shared script, its code already read for its sheet: installed it says how to run it; a newer
      * version says it updated it; one whose file doesn't declare what the list says isn't installed.
      */
-    @Test fun aSharedScriptInstallsAndUpdates() {
+    @Test
+    fun aSharedScriptInstallsAndUpdates() {
         catalogFile.writeText(catalog("sa-shared", sha = "a".repeat(64)))
         catalogPrefs.edit(commit = true) { putLong("fetched", System.currentTimeMillis()) }
         val entry = ScriptCatalog(context).cached()!!.single()
         // What reading it for the sheet keeps, so no download is needed here.
         val read = actions.sharedCode
         read[entry.sha256] = "-- @command\nlog('v1')"
-        kotlinx.coroutines.runBlocking { assertEquals("-- @command\nlog('v1')", actions.sharedScriptCode(entry)) }
+        kotlinx.coroutines.runBlocking {
+            assertEquals(
+                "-- @command\nlog('v1')",
+                actions.sharedScriptCode(entry)
+            )
+        }
 
         actions.installSharedScript(entry)
-        assertEquals(RecordingHost.Notice("Installed sa-shared.lua — run it as 'sa-shared'", false), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("Installed sa-shared.lua — run it as 'sa-shared'", false),
+            host.lastNotice()
+        )
         assertTrue(repo.byName("sa-shared")!!.enabled)
 
         val newer = entry.copy(version = "1.1", sha256 = "b".repeat(64))
@@ -452,7 +564,10 @@ class ScriptActionsTest {
         val wrong = entry.copy(version = "1.2", sha256 = "c".repeat(64), uses = listOf("clipboard"))
         read[wrong.sha256] = "-- @command\nlog('v3')"
         actions.installSharedScript(wrong)
-        assertEquals(listOf("install" to "sa-shared doesn't match the script list; refresh it and try again"), host.failures.toList())
+        assertEquals(
+            listOf("install" to "sa-shared doesn't match the script list; refresh it and try again"),
+            host.failures.toList()
+        )
         assertEquals("-- @command\nlog('v2')", repo.byName("sa-shared")!!.code)
     }
 
@@ -460,7 +575,8 @@ class ScriptActionsTest {
      * Reset brings the library's code back and says so, not "Installed"; its timers stay. Undo puts
      * the edited copy back with the text it was installed from, so it is edited again.
      */
-    @Test fun aResetSaysSoAndUndoPutsTheEditsBack() {
+    @Test
+    fun aResetSaysSoAndUndoPutsTheEditsBack() {
         org.junit.Assume.assumeTrue("countdown is installed here already", "countdown" in library)
         val lib = actions.library
         val entry = lib.entries.single { it.name == "countdown" }
@@ -469,7 +585,10 @@ class ScriptActionsTest {
         repo.setInterval(s.id, 60)
         val edited = now(s)
         actions.restore(listOf(ScriptActions.Restore(edited, library = entry)))
-        assertEquals(RecordingHost.Notice("countdown.lua is back to the library version", false), host.lastNotice())
+        assertEquals(
+            RecordingHost.Notice("countdown.lua is back to the library version", false),
+            host.lastNotice()
+        )
         assertEquals(lib.code(entry), now(s).code)
         assertEquals(60, now(s).intervalMin)
         assertEquals(ScriptLibrary.State.INSTALLED, lib.state(entry, repo.all()))
@@ -485,7 +604,8 @@ class ScriptActionsTest {
     }
 
     /** An older unedited copy is updated, and Undo makes it the older copy again, so it still offers the update. */
-    @Test fun anUpdateSaysSoAndUndoMakesItOlderAgain() {
+    @Test
+    fun anUpdateSaysSoAndUndoMakesItOlderAgain() {
         org.junit.Assume.assumeTrue("countdown is installed here already", "countdown" in library)
         val lib = actions.library
         val entry = lib.entries.single { it.name == "countdown" }
@@ -504,8 +624,12 @@ class ScriptActionsTest {
     }
 
     /** Several at once say how many; one Undo puts all of them back. */
-    @Test fun updatingSeveralCountsThemAndUndoesAll() {
-        org.junit.Assume.assumeTrue("both library scripts are installed here already", library.size == 2)
+    @Test
+    fun updatingSeveralCountsThemAndUndoesAll() {
+        org.junit.Assume.assumeTrue(
+            "both library scripts are installed here already",
+            library.size == 2
+        )
         val lib = actions.library
         val copies = library.map { name ->
             val entry = lib.entries.single { it.name == name }
@@ -522,7 +646,8 @@ class ScriptActionsTest {
     }
 
     /** A shared copy you edited gets the newer version from the list, and Undo brings your edits and its old origin back. */
-    @Test fun aSharedUpdateIsUndone() {
+    @Test
+    fun aSharedUpdateIsUndone() {
         catalogFile.writeText(catalog("sa-shared", sha = "a".repeat(64)))
         catalogPrefs.edit(commit = true) { putLong("fetched", System.currentTimeMillis()) }
         val catalog = ScriptCatalog(context)
@@ -548,22 +673,28 @@ class ScriptActionsTest {
      * `script get` installs a script that asks for access switched off: nothing it declares is
      * allowed, and no timer runs, until `script on` (the line's tap) switches it on.
      */
-    @Test fun aSharedScriptCanArriveOff() {
+    @Test
+    fun aSharedScriptCanArriveOff() {
         catalogFile.writeText(catalog("sa-asks", sha = "c".repeat(64), uses = """"clipboard""""))
         catalogPrefs.edit(commit = true) { putLong("fetched", System.currentTimeMillis()) }
         val catalog = ScriptCatalog(context)
         val entry = catalog.cached()!!.single()
-        val s = catalog.install(entry, "-- @uses clipboard\n-- @every 30m\nlog('hi')", switchOn = false)
+        val s =
+            catalog.install(entry, "-- @uses clipboard\n-- @every 30m\nlog('hi')", switchOn = false)
         assertEquals(false, s.enabled)
         assertEquals(30, s.intervalMin)
-        assertTrue(s.grants.toString(), "clipboard" in s.grants.undecided && !s.grants.allows("clipboard"))
+        assertTrue(
+            s.grants.toString(),
+            "clipboard" in s.grants.undecided && !s.grants.allows("clipboard")
+        )
         assertEquals(ScriptCatalog.State.INSTALLED, catalog.state(entry, repo.all()))
         repo.setEnabled(s.id, true, grant = true)
         assertTrue(now(s).grants.allows("clipboard"))
     }
 
     /** The scripts list is read again on request: one added elsewhere (`script new`) shows. */
-    @Test fun theListIsReadAgain() {
+    @Test
+    fun theListIsReadAgain() {
         create("sa-one")
         assertTrue(list.value.isEmpty())
         actions.refreshScripts()
@@ -572,5 +703,5 @@ class ScriptActionsTest {
 
     private fun catalog(name: String, sha: String, uses: String = "") =
         """{"format":1,"scripts":[{"name":"$name","lang":"lua","path":"scripts/$name/$name.lua","title":"Shared test",""" +
-            """"desc":"A test","author":"kolahal","version":"1.0","tags":[],"uses":[$uses],"on":[],"command":true,"sha256":"$sha"}]}"""
+                """"desc":"A test","author":"kolahal","version":"1.0","tags":[],"uses":[$uses],"on":[],"command":true,"sha256":"$sha"}]}"""
 }

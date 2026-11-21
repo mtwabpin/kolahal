@@ -14,22 +14,70 @@ import org.junit.Test
 
 /** What the Scripts tab works out about its scripts before it filters and draws them ([ScriptPage]). */
 class ScriptPageTest {
-    private fun script(id: Long, name: String, code: String = "print('hi')", lang: ScriptLang = ScriptLang.LUA, enabled: Boolean = true, lastStatus: String? = null) =
+    private fun script(
+        id: Long,
+        name: String,
+        code: String = "print('hi')",
+        lang: ScriptLang = ScriptLang.LUA,
+        enabled: Boolean = true,
+        lastStatus: String? = null
+    ) =
         Script(id, name, lang, code, 0, enabled, false, null, lastStatus)
 
     private fun infos(vararg scripts: Script) = ScriptPage.infos(scripts.toList(), HashMap())
 
-    private fun libRow(name: String, state: ScriptLibrary.State, lang: ScriptLang = ScriptLang.LUA, newer: Boolean = false) =
-        LibRow(ScriptLibrary.Entry("$name.${lang.ext}", name, lang, name, "", command = false, suggestedEvery = 0), state, newer)
+    private fun libRow(
+        name: String,
+        state: ScriptLibrary.State,
+        lang: ScriptLang = ScriptLang.LUA,
+        newer: Boolean = false
+    ) =
+        LibRow(
+            ScriptLibrary.Entry(
+                "$name.${lang.ext}",
+                name,
+                lang,
+                name,
+                "",
+                command = false,
+                suggestedEvery = 0
+            ), state, newer
+        )
 
     private fun sharedEntry(name: String, tags: List<String> = emptyList()) =
-        ScriptCatalog.Entry(name, ScriptLang.LUA, "$name.lua", name, "", "", "1.0", tags, emptyList(), emptyList(), false, null, emptyList(), null, "sha-$name")
+        ScriptCatalog.Entry(
+            name,
+            ScriptLang.LUA,
+            "$name.lua",
+            name,
+            "",
+            "",
+            "1.0",
+            tags,
+            emptyList(),
+            emptyList(),
+            false,
+            null,
+            emptyList(),
+            null,
+            "sha-$name"
+        )
 
-    private fun sharedCopy(name: String, edited: Boolean = false, newer: Boolean = false, tags: List<String> = emptyList(), listed: Boolean = true) =
-        SharedCopy(ScriptCatalog.Copy(edited = edited, newer = newer), if (listed) sharedEntry(name, tags) else null)
+    private fun sharedCopy(
+        name: String,
+        edited: Boolean = false,
+        newer: Boolean = false,
+        tags: List<String> = emptyList(),
+        listed: Boolean = true
+    ) =
+        SharedCopy(
+            ScriptCatalog.Copy(edited = edited, newer = newer),
+            if (listed) sharedEntry(name, tags) else null
+        )
 
     /** A script's code is read once per version: an unchanged script keeps what was read, a changed or deleted one loses it. */
-    @Test fun codeIsReadOncePerVersion() {
+    @Test
+    fun codeIsReadOncePerVersion() {
         val kept = HashMap<Pair<String, String>, ScriptCode>()
         val a = script(1, "a", "-- @title A\nreturn 1")
         val b = script(2, "b", "-- @title B\nreturn 2")
@@ -53,7 +101,8 @@ class ScriptPageTest {
     }
 
     /** When another script runs, a script that is just as it was keeps its info, the same object: its card is not drawn again. */
-    @Test fun anUnchangedScriptKeepsItsInfo() {
+    @Test
+    fun anUnchangedScriptKeepsItsInfo() {
         val kept = HashMap<Pair<String, String>, ScriptCode>()
         val a = script(1, "a")
         val b = script(2, "b")
@@ -66,9 +115,18 @@ class ScriptPageTest {
     }
 
     /** A copy that compares as before keeps its object; one that changed is the new one. */
-    @Test fun equalValuesKeepTheirObjects() {
-        val before = mapOf(1L to ScriptCopy.of(libRow("a", ScriptLibrary.State.INSTALLED)), 2L to ScriptCopy.of(libRow("b", ScriptLibrary.State.INSTALLED)), 3L to null)
-        val now = mapOf(1L to ScriptCopy.of(libRow("a", ScriptLibrary.State.INSTALLED)), 2L to ScriptCopy.of(libRow("b", ScriptLibrary.State.MODIFIED)), 3L to null)
+    @Test
+    fun equalValuesKeepTheirObjects() {
+        val before = mapOf(
+            1L to ScriptCopy.of(libRow("a", ScriptLibrary.State.INSTALLED)),
+            2L to ScriptCopy.of(libRow("b", ScriptLibrary.State.INSTALLED)),
+            3L to null
+        )
+        val now = mapOf(
+            1L to ScriptCopy.of(libRow("a", ScriptLibrary.State.INSTALLED)),
+            2L to ScriptCopy.of(libRow("b", ScriptLibrary.State.MODIFIED)),
+            3L to null
+        )
         val kept = ScriptPage.keepingEqual(now, before)
         assertSame(before[1L], kept[1L])
         assertSame(now[2L], kept[2L])
@@ -77,12 +135,19 @@ class ScriptPageTest {
     }
 
     /** Only scripts installed from Get more scripts are shared copies. Each has its entry in the kept list, if it is still there. */
-    @Test fun sharedCopiesAreTheScriptsInstalledFromGetMoreScripts() {
+    @Test
+    fun sharedCopiesAreTheScriptsInstalledFromGetMoreScripts() {
         val scripts = listOf(script(1, "define"), script(2, "units"), script(3, "mine"))
         val asked = ArrayList<Pair<String, String?>>()
-        val copies = ScriptPage.sharedCopies(scripts, latest = listOf(sharedEntry("define", listOf("words")), sharedEntry("other"))) { s, entry ->
+        val copies = ScriptPage.sharedCopies(
+            scripts,
+            latest = listOf(sharedEntry("define", listOf("words")), sharedEntry("other"))
+        ) { s, entry ->
             asked += s.name to entry?.name
-            if (s.name == "mine") null else ScriptCatalog.Copy(edited = s.name == "units", newer = entry != null)
+            if (s.name == "mine") null else ScriptCatalog.Copy(
+                edited = s.name == "units",
+                newer = entry != null
+            )
         }
         // Each script is compared with its own entry of the list, or with none.
         assertEquals(listOf("define" to "define", "units" to null, "mine" to null), asked)
@@ -91,19 +156,30 @@ class ScriptPageTest {
         assertTrue(copies.getValue("define").copy.newer)
         assertNull(copies.getValue("units").entry)
         assertTrue(copies.getValue("units").copy.edited)
-        assertEquals(emptyMap<String, SharedCopy>(), ScriptPage.sharedCopies(scripts, emptyList()) { _, _ -> null })
+        assertEquals(
+            emptyMap<String, SharedCopy>(),
+            ScriptPage.sharedCopies(scripts, emptyList()) { _, _ -> null })
     }
 
     /**
      * With the same name in two sources, a copy is compared with the list of the source it was
      * installed from, and its card names a source you added.
      */
-    @Test fun aSharedCopyFollowsItsOwnSource() {
+    @Test
+    fun aSharedCopyFollowsItsOwnSource() {
         val scripts = listOf(script(1, "tide"), script(2, "moon"))
-        val latest = listOf(sharedEntry("tide"), sharedEntry("tide").copy(source = "alice/scripts", sha256 = "sha-alice"), sharedEntry("moon"))
+        val latest = listOf(
+            sharedEntry("tide"),
+            sharedEntry("tide").copy(source = "alice/scripts", sha256 = "sha-alice"),
+            sharedEntry("moon")
+        )
         val from = mapOf("tide" to "alice/scripts", "moon" to ScriptCatalog.SOURCE)
         val copies = ScriptPage.sharedCopies(scripts, latest, sourceOf = from::get) { s, entry ->
-            ScriptCatalog.Copy(edited = false, newer = entry != null, source = from.getValue(s.name))
+            ScriptCatalog.Copy(
+                edited = false,
+                newer = entry != null,
+                source = from.getValue(s.name)
+            )
         }
         assertEquals("alice/scripts", copies.getValue("tide").entry?.source)
         assertEquals("sha-alice", copies.getValue("tide").entry?.sha256)
@@ -113,7 +189,8 @@ class ScriptPageTest {
     }
 
     /** A library copy has a library script's name and language. Then come the copies from Get more scripts. The rest are yours. */
-    @Test fun copiesAreLibraryCopiesThenSharedOnes() {
+    @Test
+    fun copiesAreLibraryCopiesThenSharedOnes() {
         val list = infos(
             script(1, "weather"),
             script(2, "hn"),
@@ -151,13 +228,21 @@ class ScriptPageTest {
         assertSame(libByName.getValue("hn"), copies[2]?.lib)
         assertEquals("units", copies[5]?.shared?.name)
         // Update or Reset needs the source: a shared copy that left the list has none.
-        assertEquals(listOf(false, true, false, true, true), (1L..5L).map { copies[it]!!.canRestore })
+        assertEquals(
+            listOf(false, true, false, true, true),
+            (1L..5L).map { copies[it]!!.canRestore })
     }
 
     /** A script's secrets, in the order it declares them: those with no value yet, and those that are set. By script id. */
-    @Test fun secretNamesAreSplitIntoMissingAndSet() {
-        val keys = "-- @secret A_KEY example.com One\n-- @secret B_KEY example.com Two\n-- @secret C_KEY example.com Three\nreturn 1"
-        val list = infos(script(1, "three", keys), script(2, "none"), script(3, "all", "-- @secret X_KEY example.com X\nreturn 1"))
+    @Test
+    fun secretNamesAreSplitIntoMissingAndSet() {
+        val keys =
+            "-- @secret A_KEY example.com One\n-- @secret B_KEY example.com Two\n-- @secret C_KEY example.com Three\nreturn 1"
+        val list = infos(
+            script(1, "three", keys),
+            script(2, "none"),
+            script(3, "all", "-- @secret X_KEY example.com X\nreturn 1")
+        )
         val asked = ArrayList<String>()
         val names = ScriptPage.secretNames(list) { s ->
             asked += s.name
@@ -173,7 +258,8 @@ class ScriptPageTest {
     }
 
     /** The note about scripts Kolahal updated counts only those still here. */
-    @Test fun selfUpdatedScriptsAreTheOnesStillHere() {
+    @Test
+    fun selfUpdatedScriptsAreTheOnesStillHere() {
         val scripts = listOf(script(1, "weather"), script(2, "hn"))
         assertEquals(setOf("hn"), ScriptPage.selfUpdated(listOf("hn", "deleted"), scripts))
         assertEquals(emptySet<String>(), ScriptPage.selfUpdated(emptyList(), scripts))
@@ -181,27 +267,50 @@ class ScriptPageTest {
     }
 
     /** What the filters know about each script: where it came from, what it needs, and the text the search looks in. */
-    @Test fun factsAreWhatTheFiltersNeed() {
+    @Test
+    fun factsAreWhatTheFiltersNeed() {
         val list = infos(
-            script(1, "weather", "-- @title Weather now\n-- @desc Rain or sun\n-- @author Asha\n-- @secret W_KEY example.com Key\nreturn 1", lastStatus = "error: boom"),
+            script(
+                1,
+                "weather",
+                "-- @title Weather now\n-- @desc Rain or sun\n-- @author Asha\n-- @secret W_KEY example.com Key\nreturn 1",
+                lastStatus = "error: boom"
+            ),
             script(2, "define", "-- @command\nreturn 1", lang = ScriptLang.JS, enabled = false),
             script(3, "mine"),
         )
-        val shared = mapOf("define" to sharedCopy("define", newer = true, tags = listOf("Words", "lookup")))
-        val copies = ScriptPage.copies(list, mapOf("weather" to libRow("weather", ScriptLibrary.State.MODIFIED)), shared)
+        val shared =
+            mapOf("define" to sharedCopy("define", newer = true, tags = listOf("Words", "lookup")))
+        val copies = ScriptPage.copies(
+            list,
+            mapOf("weather" to libRow("weather", ScriptLibrary.State.MODIFIED)),
+            shared
+        )
         val secrets = mapOf(1L to SecretNames(missing = listOf("W_KEY"), set = emptyList()))
         val facts = ScriptPage.facts(list, copies, secrets, shared, selfUpdated = setOf("weather"))
         assertEquals(listOf("weather", "define", "mine"), facts.map { it.name })
 
         val weather = facts[0]
-        assertEquals(listOf(ScriptSource.LIBRARY, CopyState.EDITED), listOf(weather.source, weather.copy))
-        assertEquals(listOf(true, true, true, true), listOf(weather.on, weather.failed, weather.needsKey, weather.selfUpdated))
+        assertEquals(
+            listOf(ScriptSource.LIBRARY, CopyState.EDITED),
+            listOf(weather.source, weather.copy)
+        )
+        assertEquals(
+            listOf(true, true, true, true),
+            listOf(weather.on, weather.failed, weather.needsKey, weather.selfUpdated)
+        )
         assertEquals("weather weather now rain or sun asha", weather.text)
         assertEquals("lua", weather.lang)
 
         val define = facts[1]
-        assertEquals(listOf(ScriptSource.SHARED, CopyState.NEW_VERSION), listOf(define.source, define.copy))
-        assertEquals(listOf(false, false, false, false, true), listOf(define.on, define.failed, define.needsKey, define.selfUpdated, define.command))
+        assertEquals(
+            listOf(ScriptSource.SHARED, CopyState.NEW_VERSION),
+            listOf(define.source, define.copy)
+        )
+        assertEquals(
+            listOf(false, false, false, false, true),
+            listOf(define.on, define.failed, define.needsKey, define.selfUpdated, define.command)
+        )
         // The tags of a shared script are searched too.
         assertEquals("define words lookup", define.text)
         assertEquals("js", define.lang)
@@ -214,9 +323,15 @@ class ScriptPageTest {
     }
 
     /** The banner is about the copies that differ. Closed, it stays closed until a copy differs that it wasn't closed for. */
-    @Test fun theBannerShowsForCopiesItWasNotClosedFor() {
-        val list = infos(script(1, "weather"), script(2, "hn"), script(3, "lobsters"), script(4, "mine"))
-        fun differing(vararg rows: LibRow) = ScriptPage.differing(list, ScriptPage.copies(list, rows.associateBy { it.entry.name }, emptyMap()))
+    @Test
+    fun theBannerShowsForCopiesItWasNotClosedFor() {
+        val list =
+            infos(script(1, "weather"), script(2, "hn"), script(3, "lobsters"), script(4, "mine"))
+
+        fun differing(vararg rows: LibRow) = ScriptPage.differing(
+            list,
+            ScriptPage.copies(list, rows.associateBy { it.entry.name }, emptyMap())
+        )
 
         val two = differing(
             libRow("weather", ScriptLibrary.State.INSTALLED),
@@ -224,7 +339,9 @@ class ScriptPageTest {
             libRow("lobsters", ScriptLibrary.State.MODIFIED),
         )
         // Up to date copies and your own scripts are left out.
-        assertEquals(listOf("hn" to CopyState.NEW_VERSION, "lobsters" to CopyState.EDITED), two.map { (s, c) -> s.name to c.state })
+        assertEquals(
+            listOf("hn" to CopyState.NEW_VERSION, "lobsters" to CopyState.EDITED),
+            two.map { (s, c) -> s.name to c.state })
         val signature = ScriptPage.bannerSignature(two)
         assertEquals(setOf("hn:NEW_VERSION", "lobsters:EDITED"), signature)
         assertTrue(ScriptPage.bannerShows(signature, hiddenFor = null))
@@ -237,8 +354,14 @@ class ScriptPageTest {
 
         // Another copy differs, or one differs in a new way: it shows again.
         assertTrue(ScriptPage.bannerShows(signature + "weather:EDITED", hidden))
-        val newer = differing(libRow("hn", ScriptLibrary.State.UPDATE_AVAILABLE, newer = true), libRow("lobsters", ScriptLibrary.State.MODIFIED, newer = true))
-        assertEquals(setOf("hn:NEW_VERSION", "lobsters:NEW_VERSION"), ScriptPage.bannerSignature(newer))
+        val newer = differing(
+            libRow("hn", ScriptLibrary.State.UPDATE_AVAILABLE, newer = true),
+            libRow("lobsters", ScriptLibrary.State.MODIFIED, newer = true)
+        )
+        assertEquals(
+            setOf("hn:NEW_VERSION", "lobsters:NEW_VERSION"),
+            ScriptPage.bannerSignature(newer)
+        )
         assertTrue(ScriptPage.bannerShows(ScriptPage.bannerSignature(newer), hidden))
 
         // Nothing differs: no banner, closed before or not.
@@ -249,10 +372,17 @@ class ScriptPageTest {
     }
 
     /** A run that ended in an error, was stopped or ran out of time failed. */
-    @Test fun aFailedRunIsAnErrorAStopOrATimeout() {
+    @Test
+    fun aFailedRunIsAnErrorAStopOrATimeout() {
         assertEquals(
             listOf(true, true, true, false, false),
-            listOf("error: boom (line 2)", "stopped: internet off", "timeout", "ok in 12ms", null).map { script(1, "s", lastStatus = it).failed() },
+            listOf(
+                "error: boom (line 2)",
+                "stopped: internet off",
+                "timeout",
+                "ok in 12ms",
+                null
+            ).map { script(1, "s", lastStatus = it).failed() },
         )
     }
 }

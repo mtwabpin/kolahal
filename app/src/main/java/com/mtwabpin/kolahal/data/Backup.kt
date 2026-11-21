@@ -6,14 +6,15 @@ package com.mtwabpin.kolahal.data
 import android.content.Context
 import android.net.Uri
 import com.mtwabpin.kolahal.apps.AppPrefs
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.data.Backup.Companion.REVIEW
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptImport
-import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.commands.CommandCatalog
-import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.widgets.Shortcuts
 
 /**
@@ -52,7 +53,8 @@ class Backup(private val context: Context) {
         val serials = FullBackup.privateSerials(context)
         val data = mapOf(
             "kolahal" to VERSION,
-            "config" to Keys.ALL.filterNot(config::isDefault).associate { it.key to config.display(it) },
+            "config" to Keys.ALL.filterNot(config::isDefault)
+                .associate { it.key to config.display(it) },
             "aliases" to prefs.aliases(),
             "apps" to mapOf(
                 "hidden" to prefs.hiddenKeys().filterNot { FullBackup.isPrivateApp(it, serials) },
@@ -61,8 +63,13 @@ class Backup(private val context: Context) {
             ),
             "scripts" to all.map {
                 mapOf(
-                    "name" to it.name, "lang" to it.lang.ext, "code" to it.code, "every" to it.intervalMin,
-                    "at" to it.atTimes, "notify" to it.notify, "enabled" to it.enabled,
+                    "name" to it.name,
+                    "lang" to it.lang.ext,
+                    "code" to it.code,
+                    "every" to it.intervalMin,
+                    "at" to it.atTimes,
+                    "notify" to it.notify,
+                    "enabled" to it.enabled,
                     // Only what you switched off. What a script may use must be allowed on each phone.
                     "access" to it.access.filterValues { allowed -> !allowed },
                 )
@@ -72,11 +79,25 @@ class Backup(private val context: Context) {
             // Widget ids can't move between devices. The list lets the Widgets page offer "Add again".
             // An imported terminal font travels with the backup (base64; imports are capped at 10 MB).
             "font" to FontFiles.customFile(context)?.let { f ->
-                mapOf("name" to f.name, "base64" to android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP))
+                mapOf(
+                    "name" to f.name,
+                    "base64" to android.util.Base64.encodeToString(
+                        f.readBytes(),
+                        android.util.Base64.NO_WRAP
+                    )
+                )
             },
-            "widgets" to runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportWidgets() }.getOrDefault(emptyList()),
+            "widgets" to runCatching {
+                com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportWidgets()
+            }.getOrDefault(emptyList()),
             // Themes made in the theme builder: the name, mapped to colours by role as "#RRGGBB".
-            "themes" to CustomThemes.themes.value.mapValues { (_, colors) -> colors.mapValues { CustomThemes.hex(it.value) } },
+            "themes" to CustomThemes.themes.value.mapValues { (_, colors) ->
+                colors.mapValues {
+                    CustomThemes.hex(
+                        it.value
+                    )
+                }
+            },
             // The sources added to Get more scripts, by address. Their lists aren't kept: they are read again.
             "scriptSources" to ScriptCatalog(context).added(),
         )
@@ -84,7 +105,7 @@ class Backup(private val context: Context) {
         val mb = utf8Size(text) / (1024 * 1024)
         if (mb >= Files.MAX_BACKUP_BYTES / (1024 * 1024)) throw TooBig(
             "the backup would be $mb MB, more than the ${Files.MAX_BACKUP_BYTES / (1024 * 1024)} MB import limit: " +
-                "lower log.keep-lines or clear the log (clear all), then export again"
+                    "lower log.keep-lines or clear the log (clear all), then export again"
         )
         return text
     }
@@ -93,7 +114,11 @@ class Backup(private val context: Context) {
     class TooBig(message: String) : IllegalStateException(message)
 
     data class Result(
-        val settings: Int, val aliases: Int, val scripts: Int, val disabled: Int, val skipped: List<String>,
+        val settings: Int,
+        val aliases: Int,
+        val scripts: Int,
+        val disabled: Int,
+        val skipped: List<String>,
         /** Rows restored from the raw data section (0 for older backups that hold only settings). */
         val restored: Int = 0,
         val full: Boolean = false,
@@ -108,7 +133,8 @@ class Backup(private val context: Context) {
 
     fun import(uri: Uri): Result {
         val text = Files.readText(context, uri, Files.MAX_BACKUP_BYTES)
-        val root = Json.parse(text) as? Map<*, *> ?: throw IllegalStateException("not a Kolahal backup")
+        val root =
+            Json.parse(text) as? Map<*, *> ?: throw IllegalStateException("not a Kolahal backup")
         if (root["kolahal"] == null) throw IllegalStateException("not a Kolahal backup (missing \"kolahal\")")
         // A newer format still imports as far as this version understands it: unknown settings, columns and
         // sections are skipped. The result says so, rather than refusing the whole file.
@@ -128,14 +154,19 @@ class Backup(private val context: Context) {
                 hex?.toString()?.let(CustomThemes::parseHex)?.let { role.toString() to it }
             }?.toMap()?.filterKeys(CustomThemes::isKey)
             val n = name?.toString()?.lowercase()
-            if (n != null && CustomThemes.NAME.matches(n) && n !in Keys.BUILT_IN_THEMES && colors != null && CustomThemes.complete(colors) != null) {
+            if (n != null && CustomThemes.NAME.matches(n) && n !in Keys.BUILT_IN_THEMES && colors != null && CustomThemes.complete(
+                    colors
+                ) != null
+            ) {
                 CustomThemes.save(context, n, colors)
             } else skipped += "theme $name"
         }
 
         var settings = 0
         // Older backups use the setting names from before 0.3.0, and the items of the full header.
-        val savedConfig = (root["config"] as? Map<*, *>)?.entries?.mapNotNull { (k, v) -> if (k != null && v != null) k.toString().lowercase() to v.toString() else null }?.toMap()
+        val savedConfig = (root["config"] as? Map<*, *>)?.entries?.mapNotNull { (k, v) ->
+            if (k != null && v != null) k.toString().lowercase() to v.toString() else null
+        }?.toMap()
         savedConfig?.let(Keys::migrate)?.forEach { (k, v) ->
             val key = Keys.byName(k)
             if (key != null && config.set(key, v)) settings++ else skipped += "config $k"
@@ -148,13 +179,20 @@ class Backup(private val context: Context) {
                 name == null || v == null -> Unit
                 // The same rule as `alias`: an alias must never hide a built-in command.
                 name in CommandCatalog.RESERVED_NAMES -> skipped += "alias $name (built-in command)"
-                else -> { prefs.setAlias(name, v.toString()); aliases++ }
+                else -> {
+                    prefs.setAlias(name, v.toString()); aliases++
+                }
             }
         }
 
         (root["apps"] as? Map<*, *>)?.let { apps ->
             (apps["hidden"] as? List<*>)?.forEach { prefs.setHidden(it.toString(), true) }
-            (apps["labels"] as? Map<*, *>)?.forEach { (k, v) -> if (k != null) prefs.setLabel(k.toString(), v?.toString()) }
+            (apps["labels"] as? Map<*, *>)?.forEach { (k, v) ->
+                if (k != null) prefs.setLabel(
+                    k.toString(),
+                    v?.toString()
+                )
+            }
             (apps["pinned"] as? List<*>)?.forEach { prefs.setPinned(it.toString(), true) }
         }
 
@@ -178,6 +216,7 @@ class Backup(private val context: Context) {
                     is ScriptImport.Why.NeedsNewer -> "script $name (needs Kolahal ${why.version})"
                     is ScriptImport.Why.OtherLanguage -> "script $name (language differs)"
                 }
+
                 is ScriptImport.Outcome.Imported -> {
                     // New or changed scripts from a backup arrive switched off. Review them before they run.
                     if (outcome.off) disabled++
@@ -188,11 +227,19 @@ class Backup(private val context: Context) {
         }
         (root["font"] as? Map<*, *>)?.let { font ->
             val name = font["name"]?.toString()?.takeIf { it == "custom.ttf" || it == "custom.otf" }
-            val data = (font["base64"] as? String)?.let { runCatching { android.util.Base64.decode(it, android.util.Base64.NO_WRAP) }.getOrNull() }
+            val data = (font["base64"] as? String)?.let {
+                runCatching {
+                    android.util.Base64.decode(
+                        it,
+                        android.util.Base64.NO_WRAP
+                    )
+                }.getOrNull()
+            }
             if (name != null && data != null && data.size <= 10 * 1024 * 1024) {
                 runCatching {
                     val dir = FontFiles.dir(context).apply { mkdirs() }
-                    dir.listFiles()?.filter { it.name.startsWith("custom.") }?.forEach { it.delete() }
+                    dir.listFiles()?.filter { it.name.startsWith("custom.") }
+                        ?.forEach { it.delete() }
                     java.io.File(dir, name).writeBytes(data)
                 }.onFailure { skipped += "font" }
             } else skipped += "font"
@@ -201,32 +248,63 @@ class Backup(private val context: Context) {
         val catalog = ScriptCatalog(context)
         val sourcesBefore = catalog.added().toSet()
         (root["scriptSources"] as? List<*>)?.let { catalog.restore(it, skipped) }
-        val newSources = (catalog.added() - sourcesBefore).map { "script source ${ScriptSources.nameOf(it)}" }
+        val newSources =
+            (catalog.added() - sourcesBefore).map { "script source ${ScriptSources.nameOf(it)}" }
         (root["widgets"] as? List<*>)?.let { list ->
             @Suppress("UNCHECKED_CAST")
-            runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).importWidgets(list.filterIsInstance<Map<String, Any?>>()) }
+            runCatching {
+                com.mtwabpin.kolahal.widgets.WidgetHost.get(context)
+                    .importWidgets(list.filterIsInstance<Map<String, Any?>>())
+            }
                 .onFailure { skipped += "widgets" }
         }
         if (data != null) {
             FullBackup.importScriptStores(context, data)
             // Home restarts after this and does them again; a failure is logged either way.
-            Quietly.run(context, "Setting reminders again") { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context) }
-            Quietly.run(context, "Scheduling feeds") { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) }
+            Quietly.run(
+                context,
+                "Setting reminders again"
+            ) { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context) }
+            Quietly.run(
+                context,
+                "Scheduling feeds"
+            ) { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) }
             Quietly.run(context, "Scheduling scripts") { ScriptScheduler.syncAll(context) }
         }
         // A backup decides where searches go, what a gesture runs and what an alias runs. List those worth a look:
         // the settings that aren't the defaults, and the aliases that run code or change settings ([toReview]). An
         // alias can have an app's name, so typing that name would run it. (Read from the file: the raw data skips the cache.)
         val sensitiveAliases = Stores.ALIASES.open(context).all
-            .mapNotNull { (name, body) -> (body as? String)?.takeIf(::toReview)?.let { name to it } }
+            .mapNotNull { (name, body) ->
+                (body as? String)?.takeIf(::toReview)?.let { name to it }
+            }
             .sortedBy { it.first }
             .map { (name, body) -> "alias $name = ${if (body.length > 60) body.take(59) + "…" else body}" }
         // A button of the Shortcuts widget runs its command at one tap, as a gesture does. So every shortcut
         // that the file brought is listed, whatever it runs ([Shortcuts.review]).
-        val shortcuts = Shortcuts.review(shortcutsBefore, runCatching { Shortcuts.read(context) }.getOrDefault(emptyList()))
-        val review = listOf(Keys.SEARCH_URL, Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)
-            .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" } + sensitiveAliases + shortcuts + newSources
-        return Result(settings, aliases, count, disabled, skipped, restored, full = data != null, review = review, newer = newer)
+        val shortcuts = Shortcuts.review(
+            shortcutsBefore,
+            runCatching { Shortcuts.read(context) }.getOrDefault(emptyList())
+        )
+        val review = listOf(
+            Keys.SEARCH_URL,
+            Keys.GESTURE_DOUBLE_TAP,
+            Keys.GESTURE_SWIPE_DOWN,
+            Keys.GESTURE_SWIPE_UP
+        )
+            .filterNot(config::isDefault)
+            .map { "${it.key} = ${config.display(it)}" } + sensitiveAliases + shortcuts + newSources
+        return Result(
+            settings,
+            aliases,
+            count,
+            disabled,
+            skipped,
+            restored,
+            full = data != null,
+            review = review,
+            newer = newer
+        )
     }
 
     companion object {
@@ -236,14 +314,29 @@ class Backup(private val context: Context) {
          * holds harmless commands that typing must not start by itself.)
          */
         private val REVIEW = setOf(
-            "lua", "js", "config", "alias", "unalias", "script", "scripts", "clear", "uninstall", "update",
-            "backup", "wallpaper", "call", "sms", "url",
+            "lua",
+            "js",
+            "config",
+            "alias",
+            "unalias",
+            "script",
+            "scripts",
+            "clear",
+            "uninstall",
+            "update",
+            "backup",
+            "wallpaper",
+            "call",
+            "sms",
+            "url",
         )
 
         /** Whether an alias that runs [body] is worth a look after an import ([REVIEW], or the calculator `=`, which runs Lua). */
         internal fun toReview(body: String): Boolean {
             val line = body.trim()
-            return line.startsWith("=") || InstantRun.canonical(line.substringBefore(' ').lowercase()) in REVIEW
+            return line.startsWith("=") || InstantRun.canonical(
+                line.substringBefore(' ').lowercase()
+            ) in REVIEW
         }
 
         const val VERSION = 3
@@ -263,7 +356,10 @@ internal fun utf8Size(text: String): Long {
         n += when {
             c.code < 0x80 -> 1
             c.code < 0x800 -> 2
-            c.isHighSurrogate() && i + 1 < text.length && text[i + 1].isLowSurrogate() -> { i++; 4 }
+            c.isHighSurrogate() && i + 1 < text.length && text[i + 1].isLowSurrogate() -> {
+                i++; 4
+            }
+
             c.isSurrogate() -> 1
             else -> 3
         }

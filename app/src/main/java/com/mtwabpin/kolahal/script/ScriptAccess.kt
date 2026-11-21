@@ -3,13 +3,13 @@
  */
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.data.Stores
-import androidx.core.content.edit
 import android.content.Context
+import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.data.Stores
 
 /**
  * What a script may do, as the user set it. The user sets this with the script's Access switches in
@@ -35,6 +35,7 @@ import com.mtwabpin.kolahal.data.Script
 object ScriptAccess {
     const val INTERNET = "internet"
     const val HEADER = "header"
+
     /** Its widget is placed on the widgets page. Off until you place it there. */
     const val WIDGET = "widget"
 
@@ -51,10 +52,15 @@ object ScriptAccess {
      * then it may arrive switched on. (Pinning is off until you pin, and events only start runs.)
      */
     fun asksFor(code: String): List<String> =
-        listOfNotNull(INTERNET.takeIf { ScriptMeta.parse(code).usesInternet }) + ScriptMeta.USES.filter { it in ScriptMeta.parse(code).uses }
+        listOfNotNull(INTERNET.takeIf { ScriptMeta.parse(code).usesInternet }) + ScriptMeta.USES.filter {
+            it in ScriptMeta.parse(
+                code
+            ).uses
+        }
 
     /** Everything a script with [code] can be switched for, in display order. Only what it uses is included. */
-    fun items(code: String): List<String> = base(code) + ScriptMeta.parse(code).uses + ScriptMeta.parse(code).events
+    fun items(code: String): List<String> =
+        base(code) + ScriptMeta.parse(code).uses + ScriptMeta.parse(code).events
 
     /**
      * The items a user switches by hand: the script's sheet and card, `script access` and
@@ -106,7 +112,11 @@ object ScriptAccess {
      * [HEADER] it uses ([base]), and what the user decided. [HEADER] is off until pinned, and
      * [WIDGET] is off until its widget is placed.
      */
-    class Grants(val declared: Set<String>, private val values: Map<String, Boolean>, private val base: Set<String> = setOf(INTERNET, HEADER)) {
+    class Grants(
+        val declared: Set<String>,
+        private val values: Map<String, Boolean>,
+        private val base: Set<String> = setOf(INTERNET, HEADER)
+    ) {
         fun allows(item: String): Boolean = when (item) {
             in ScriptMeta.USES -> item in declared && values[item] == true
             INTERNET -> item in base && values[item] != false
@@ -120,7 +130,8 @@ object ScriptAccess {
         val undecided: List<String> get() = declared.filter { it !in values }
     }
 
-    fun grants(code: String, values: Map<String, Boolean>) = Grants(ScriptMeta.parse(code).uses, values, base(code).toSet())
+    fun grants(code: String, values: Map<String, Boolean>) =
+        Grants(ScriptMeta.parse(code).uses, values, base(code).toSet())
 
     /** [values], plus everything [code] declares that nobody has decided yet, set to allowed. */
     fun allowUndecided(code: String, values: Map<String, Boolean>): Map<String, Boolean> =
@@ -141,14 +152,18 @@ object ScriptAccess {
      * write that puts back an older copy of the access (undo after an update): the widget may have
      * been placed or removed since the copy was taken, and the placed list decides the item.
      */
-    fun keepingWidget(values: Map<String, Boolean>, now: Map<String, Boolean>): Map<String, Boolean> =
+    fun keepingWidget(
+        values: Map<String, Boolean>,
+        now: Map<String, Boolean>
+    ): Map<String, Boolean> =
         values - WIDGET + listOfNotNull(now[WIDGET]?.let { WIDGET to it })
 
     fun parse(raw: String?): Map<String, Boolean> =
         (raw?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }).orEmpty()
             .mapNotNull { (k, v) -> (v as? Boolean)?.let { k.toString() to it } }.toMap()
 
-    fun encode(values: Map<String, Boolean>): String? = values.takeIf { it.isNotEmpty() }?.let(Json::stringify)
+    fun encode(values: Map<String, Boolean>): String? =
+        values.takeIf { it.isNotEmpty() }?.let(Json::stringify)
 
     /**
      * Once per install: each switched-on script with a secret value from before 0.4.0 (stored without
@@ -159,7 +174,9 @@ object ScriptAccess {
         if (prefs.getBoolean(SECRET_SITES_ASKED, false)) return
         val store = SecretStore(context)
         com.mtwabpin.kolahal.data.ScriptRepository.get(context).all()
-            .filter { s -> s.enabled && ScriptMeta.secrets(s.code).any { store.withoutSites(s.name, it) } }
+            .filter { s ->
+                s.enabled && ScriptMeta.secrets(s.code).any { store.withoutSites(s.name, it) }
+            }
             .forEach { askForSecrets(context, it) }
         prefs.edit { putBoolean(SECRET_SITES_ASKED, true) }
     }
@@ -176,10 +193,23 @@ object ScriptAccess {
         val store = SecretStore(context)
         for (d in ScriptMeta.secrets(s.code)) {
             if (store.isSet(s.name, d)) continue
-            val text = if (store.withoutSites(s.name, d)) "${s.name}: set ${d.name} again, so it goes only to ${d.hosts.joinToString()} — tap to set it"
-            else if (store.hostsChanged(s.name, d)) "${s.name} now sends ${d.name} to ${d.hosts.joinToString()} — tap to set it again"
+            val text = if (store.withoutSites(
+                    s.name,
+                    d
+                )
+            ) "${s.name}: set ${d.name} again, so it goes only to ${d.hosts.joinToString()} — tap to set it"
+            else if (store.hostsChanged(
+                    s.name,
+                    d
+                )
+            ) "${s.name} now sends ${d.name} to ${d.hosts.joinToString()} — tap to set it again"
             else "${s.name} needs ${d.name}" + (if (d.desc.isBlank()) "" else " (${d.desc})") + " — tap to set it"
-            LogRepository.get(context).add(LogKind.INFO, text, s.name, LogContext.of(LogContext.RUN to "script secret ${s.name} ${d.name}"))
+            LogRepository.get(context).add(
+                LogKind.INFO,
+                text,
+                s.name,
+                LogContext.of(LogContext.RUN to "script secret ${s.name} ${d.name}")
+            )
         }
     }
 

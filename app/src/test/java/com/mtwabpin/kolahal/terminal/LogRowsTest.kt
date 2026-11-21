@@ -11,7 +11,13 @@ import org.junit.Test
 class LogRowsTest {
     private val t0 = System.currentTimeMillis()
 
-    private fun line(id: Long, at: Long, kind: LogKind = LogKind.INFO, ctx: LogContext = LogContext.EMPTY, source: String? = null) =
+    private fun line(
+        id: Long,
+        at: Long,
+        kind: LogKind = LogKind.INFO,
+        ctx: LogContext = LogContext.EMPTY,
+        source: String? = null
+    ) =
         logEntry(kind, "line $id", source, ctx, id, t0 + at)
 
     private fun starts(vararg entries: LogEntry): List<Boolean> =
@@ -21,7 +27,11 @@ class LogRowsTest {
     fun commandAndItsOutputAreOneGroup() {
         assertEquals(
             listOf(true, false, false),
-            starts(line(1, 0, LogKind.COMMAND), line(2, 100, LogKind.OUTPUT), line(3, 900, LogKind.OUTPUT)),
+            starts(
+                line(1, 0, LogKind.COMMAND),
+                line(2, 100, LogKind.OUTPUT),
+                line(3, 900, LogKind.OUTPUT)
+            ),
         )
     }
 
@@ -50,20 +60,31 @@ class LogRowsTest {
         val launched = LogContext.of(LogContext.APART to "1")
         assertEquals(
             listOf(true, false, true, true),
-            starts(line(1, 0, LogKind.COMMAND), line(2, 100, LogKind.OUTPUT), line(3, 900, ctx = launched), line(4, 1_900, ctx = launched)),
+            starts(
+                line(1, 0, LogKind.COMMAND),
+                line(2, 100, LogKind.OUTPUT),
+                line(3, 900, ctx = launched),
+                line(4, 1_900, ctx = launched)
+            ),
         )
     }
 
     /** A burst of notifications from one app: each one its own group, named again. A script run stays one group. */
     @Test
     fun eachNotificationIsItsOwnGroup() {
-        fun notif(id: Long, at: Long) = line(id, at, LogKind.SCRIPT, LogContext.of("notif" to "k$id"), source = "Outlook")
+        fun notif(id: Long, at: Long) =
+            line(id, at, LogKind.SCRIPT, LogContext.of("notif" to "k$id"), source = "Outlook")
+
         val rows = entries(notif(1, 0), notif(2, 300), notif(3, 600))
         assertEquals(listOf(true, true, true), rows.map { it.blockStart })
         assertEquals(listOf(true, true, true), rows.map { it.showSource })
         assertEquals(
             listOf(true, false, false),
-            starts(line(1, 0, LogKind.SCRIPT, source = "hn"), line(2, 300, LogKind.SCRIPT, source = "hn"), line(3, 600, LogKind.SCRIPT, source = "hn")),
+            starts(
+                line(1, 0, LogKind.SCRIPT, source = "hn"),
+                line(2, 300, LogKind.SCRIPT, source = "hn"),
+                line(3, 600, LogKind.SCRIPT, source = "hn")
+            ),
         )
     }
 
@@ -80,7 +101,8 @@ class LogRowsTest {
         assertEquals(rows.map { it.key }.distinct().size, rows.size)
     }
 
-    private fun entries(vararg entries: LogEntry) = buildRows(entries.toList()).filterIsInstance<LogRow.Entry>()
+    private fun entries(vararg entries: LogEntry) =
+        buildRows(entries.toList()).filterIsInstance<LogRow.Entry>()
 
     /** A run names its source once, on its first line; another source in between names itself again. */
     @Test
@@ -98,7 +120,10 @@ class LogRowsTest {
     /** The same source on its own, later: a new group, named again. */
     @Test
     fun aLaterLineFromTheSameSourceIsNamedAgain() {
-        val rows = entries(line(1, 0, LogKind.SCRIPT, source = "WhatsApp"), line(2, 60_000, LogKind.SCRIPT, source = "WhatsApp"))
+        val rows = entries(
+            line(1, 0, LogKind.SCRIPT, source = "WhatsApp"),
+            line(2, 60_000, LogKind.SCRIPT, source = "WhatsApp")
+        )
         assertEquals(listOf(true, true), rows.map { it.showSource })
     }
 
@@ -160,7 +185,10 @@ class LogRowsTest {
     @Test
     fun untrimmedRowsKeepEverything() {
         val rows = buildRows(
-            listOf(line(1, 0, LogKind.SCRIPT, source = "hn"), line(2, 10, LogKind.SCRIPT, source = "hn")),
+            listOf(
+                line(1, 0, LogKind.SCRIPT, source = "hn"),
+                line(2, 10, LogKind.SCRIPT, source = "hn")
+            ),
             trim = false,
         ).filterIsInstance<LogRow.Entry>()
         assertEquals(listOf(true, true), rows.map { it.showSource })
@@ -172,26 +200,46 @@ class LogRowsTest {
     fun lineDetailSaysWhereAndWhen() {
         val zone = java.time.ZoneOffset.UTC
         val now = java.time.LocalDateTime.of(2026, 10, 24, 18, 0).toInstant(zone).toEpochMilli()
-        fun at(d: Int, h: Int, m: Int, s: Int) = java.time.LocalDateTime.of(2026, 10, d, h, m, s).toInstant(zone).toEpochMilli()
+        fun at(d: Int, h: Int, m: Int, s: Int) =
+            java.time.LocalDateTime.of(2026, 10, d, h, m, s).toInstant(zone).toEpochMilli()
+
         val script = logEntry(LogKind.SCRIPT, source = "countdown", id = 1, ts = at(24, 6, 55, 12))
-        assertEquals("countdown · today 06:55:12", lineDetail(script, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK))
+        assertEquals(
+            "countdown · today 06:55:12",
+            lineDetail(script, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK)
+        )
         val output = logEntry(LogKind.OUTPUT, id = 2, ts = at(23, 18, 2, 11))
-        assertEquals("yesterday 18:02:11", lineDetail(output, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK))
+        assertEquals(
+            "yesterday 18:02:11",
+            lineDetail(output, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK)
+        )
         val old = logEntry(LogKind.SCRIPT, source = "hn", id = 3, ts = at(20, 9, 5, 0))
-        assertEquals("hn · Tue 20 Oct 09:05:00", lineDetail(old, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK))
+        assertEquals(
+            "hn · Tue 20 Oct 09:05:00",
+            lineDetail(old, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK)
+        )
     }
 
     /** A format keeps the zone it was made in; one made after the phone's zone changed shows the new zone. */
     @Test
     fun aLineTimeFormatKeepsTheZoneItWasMadeIn() {
-        val at = java.util.Date(java.time.LocalDateTime.of(2026, 10, 24, 18, 5).toInstant(java.time.ZoneOffset.UTC).toEpochMilli())
+        val at = java.util.Date(
+            java.time.LocalDateTime.of(2026, 10, 24, 18, 5).toInstant(java.time.ZoneOffset.UTC)
+                .toEpochMilli()
+        )
         withDefaultZone("UTC") {
             val old = lineTimeFormat(clock24 = true, locale = java.util.Locale.UK)
             assertEquals("18:05", old.format(at))
-            assertEquals("6:05", lineTimeFormat(clock24 = false, locale = java.util.Locale.UK).format(at))
+            assertEquals(
+                "6:05",
+                lineTimeFormat(clock24 = false, locale = java.util.Locale.UK).format(at)
+            )
             withDefaultZone("Asia/Tokyo") {
                 assertEquals("18:05", old.format(at))
-                assertEquals("03:05", lineTimeFormat(clock24 = true, locale = java.util.Locale.UK).format(at))
+                assertEquals(
+                    "03:05",
+                    lineTimeFormat(clock24 = true, locale = java.util.Locale.UK).format(at)
+                )
             }
         }
     }
@@ -199,9 +247,13 @@ class LogRowsTest {
     /** A line's day divider is its day in the zone the rows are built in. */
     @Test
     fun aLinesDayIsItsDayInTheZone() {
-        val at = java.time.LocalDateTime.of(2020, 1, 15, 23, 30).toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
+        val at = java.time.LocalDateTime.of(2020, 1, 15, 23, 30).toInstant(java.time.ZoneOffset.UTC)
+            .toEpochMilli()
         val entry = logEntry(LogKind.INFO, ts = at)
-        fun day(zone: String) = buildRows(listOf(entry), zone = java.time.ZoneId.of(zone)).filterIsInstance<LogRow.Day>().single().day
+        fun day(zone: String) = buildRows(
+            listOf(entry),
+            zone = java.time.ZoneId.of(zone)
+        ).filterIsInstance<LogRow.Day>().single().day
         assertEquals(java.time.LocalDate.of(2020, 1, 15), day("UTC"))
         assertEquals(java.time.LocalDate.of(2020, 1, 16), day("Asia/Tokyo"))
     }
@@ -238,14 +290,21 @@ class LogRowsTest {
     @Test
     fun aGroupsFirstLineHasTheGroupGapNotAnItemGap() {
         // A background run: its first line starts a group, so it keeps the group gap only.
-        val rows = entries(line(1, 0, LogKind.SCRIPT, item, "lobsters"), line(2, 10, LogKind.SCRIPT, item, "lobsters"))
+        val rows = entries(
+            line(1, 0, LogKind.SCRIPT, item, "lobsters"),
+            line(2, 10, LogKind.SCRIPT, item, "lobsters")
+        )
         assertEquals(listOf(true, false), rows.map { it.blockStart })
         assertEquals(listOf(false, true), rows.map { it.itemGap })
     }
 
     @Test
     fun linesWithoutTheKeyHaveNoItemGap() {
-        val rows = entries(line(1, 0, LogKind.COMMAND), line(2, 10, LogKind.OUTPUT), line(3, 20, LogKind.OUTPUT))
+        val rows = entries(
+            line(1, 0, LogKind.COMMAND),
+            line(2, 10, LogKind.OUTPUT),
+            line(3, 20, LogKind.OUTPUT)
+        )
         assertEquals(listOf(false, false, false), rows.map { it.itemGap })
     }
 }

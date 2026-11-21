@@ -14,18 +14,28 @@ import org.junit.runner.RunWith
 /** The bar `update install` puts above the prompt while it downloads. */
 @RunWith(AndroidJUnit4::class)
 class UpdateProgressLineTest {
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
-    @Test fun itSaysHowMuchHasCome() {
+    @Test
+    fun itSaysHowMuchHasCome() {
         compose.setContent {
-            KolahalTheme { UpdateProgressLine(UpdateCommands.Progress(4L * 1024 * 1024, 10L * 1024 * 1024)) }
+            KolahalTheme {
+                UpdateProgressLine(
+                    UpdateCommands.Progress(
+                        4L * 1024 * 1024,
+                        10L * 1024 * 1024
+                    )
+                )
+            }
         }
         compose.onNodeWithText("Downloading update").assertIsDisplayed()
         compose.onNodeWithText("4 MB / 10 MB  40%").assertIsDisplayed()
     }
 
     /** Nothing downloading: the log keeps the row. */
-    @Test fun itsGoneWithoutADownload() {
+    @Test
+    fun itsGoneWithoutADownload() {
         compose.setContent { KolahalTheme { UpdateProgressLine() } }
         compose.onNodeWithTag("update-progress").assertDoesNotExist()
     }

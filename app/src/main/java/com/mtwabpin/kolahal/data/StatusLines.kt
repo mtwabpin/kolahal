@@ -5,7 +5,6 @@ package com.mtwabpin.kolahal.data
 
 import android.content.Context
 import androidx.core.content.edit
-import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
@@ -18,7 +17,13 @@ import com.mtwabpin.kolahal.script.ScriptMeta
  * - its bar's colour, by role ([colour]; null: the theme's accent).
  * It shows at the top of home only after you pin the script.
  */
-data class StatusLine(val name: String, val text: String, val progress: Float? = null, val refresh: Int? = null, val colour: StyledText.Colour? = null)
+data class StatusLine(
+    val name: String,
+    val text: String,
+    val progress: Float? = null,
+    val refresh: Int? = null,
+    val colour: StyledText.Colour? = null
+)
 
 /**
  * Scripts' status lines, stored by script name. The text is stored as it always was
@@ -41,17 +46,24 @@ object StatusLines {
         })
 
     /** What `opts` added, read back. */
-    data class Extras(val progress: Float? = null, val refresh: Int? = null, val colour: StyledText.Colour? = null)
+    data class Extras(
+        val progress: Float? = null,
+        val refresh: Int? = null,
+        val colour: StyledText.Colour? = null
+    )
 
     /**
      * Reads [raw] back. A value that isn't a valid progress, refresh or colour role is left out,
      * so it isn't shown wrong.
      */
     fun decodeExtras(raw: String?): Extras {
-        val map = raw?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() } ?: return Extras()
+        val map =
+            raw?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() } ?: return Extras()
         return Extras(
-            progress = (map["progress"] as? Number)?.toFloat()?.takeIf { it.isFinite() }?.coerceIn(0f, 1f),
-            refresh = (map["refresh"] as? Number)?.toInt()?.takeIf { it > 0 }?.coerceIn(MIN_REFRESH, MAX_REFRESH),
+            progress = (map["progress"] as? Number)?.toFloat()?.takeIf { it.isFinite() }
+                ?.coerceIn(0f, 1f),
+            refresh = (map["refresh"] as? Number)?.toInt()?.takeIf { it > 0 }
+                ?.coerceIn(MIN_REFRESH, MAX_REFRESH),
             colour = (map["color"] as? String)?.let(StyledText.Colour::named),
         )
     }
@@ -67,7 +79,10 @@ object StatusLines {
 
     /** Whether [name]'s line is stored as [text], with [extras] ([encodeExtras]) beside it. Setting the same again changes nothing. */
     fun isSet(context: Context, name: String, text: String?, extras: String?): Boolean =
-        KvStore(context, Stores.STATUS).get(name) == text && KvStore(context, Stores.STATUS_EXTRAS).get(name) == extras
+        KvStore(context, Stores.STATUS).get(name) == text && KvStore(
+            context,
+            Stores.STATUS_EXTRAS
+        ).get(name) == extras
 
     /**
      * Stores [name]'s line as [text], with [extras] ([encodeExtras]) beside it, and tells home to draw
@@ -102,9 +117,20 @@ object StatusLines {
         val scripts = ScriptRepository.get(context)
         val lines = KvStore(context, Stores.STATUS).all().keys
         for (s in scripts.all()) {
-            if (s.name in lines && ScriptAccess.HEADER !in s.access && ScriptMeta.setsStatus(s.code)) scripts.setAccess(s.id, ScriptAccess.HEADER, true)
+            if (s.name in lines && ScriptAccess.HEADER !in s.access && ScriptMeta.setsStatus(s.code)) scripts.setAccess(
+                s.id,
+                ScriptAccess.HEADER,
+                true
+            )
         }
-        KvStore(context, Stores.OLD_PINS).let { old -> old.all().keys.forEach { old.set(it, null) } }
+        KvStore(context, Stores.OLD_PINS).let { old ->
+            old.all().keys.forEach {
+                old.set(
+                    it,
+                    null
+                )
+            }
+        }
         prefs.edit { putBoolean(PINS_CARRIED, true) }
         LogRepository.get(context).onStatusChanged()
     }

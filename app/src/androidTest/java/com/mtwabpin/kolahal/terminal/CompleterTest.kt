@@ -1,19 +1,19 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.CommandCatalog
-import com.mtwabpin.kolahal.commands.InstantRun
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.productivity.Todo
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -42,29 +42,40 @@ class CompleterTest {
     })
 
     /** `log only …` suggests the kinds (and the log's sources, when there are any). */
-    @Test fun logOnlySuggestsTheKinds() {
-        val all = completer.suggestions("log only ").map { (it as Suggestion.Completion).replacement }
+    @Test
+    fun logOnlySuggestsTheKinds() {
+        val all =
+            completer.suggestions("log only ").map { (it as Suggestion.Completion).replacement }
         assertTrue(all.toString(), "log only feeds" in all && "log only scripts" in all)
-        assertEquals(listOf("log only feeds"), completer.suggestions("log only fe").map { (it as Suggestion.Completion).replacement })
+        assertEquals(
+            listOf("log only feeds"),
+            completer.suggestions("log only fe").map { (it as Suggestion.Completion).replacement })
     }
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         apps.refresh()
         eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
 
     private fun labels(text: String) = completer.suggestions(text).map { it.label }
-    private fun lines(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>().map { it.replacement.trim() }
+    private fun lines(text: String) =
+        completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
+            .map { it.replacement.trim() }
 
     /** `shortcuts ` offers apps before a letter is typed, the most used first; a letter narrows them. */
-    @Test fun shortcutsOffersAppsAtOnce() {
-        val rows = completer.suggestions("shortcuts ").filterIsInstance<Suggestion.Completion>().filter { it.app != null }
+    @Test
+    fun shortcutsOffersAppsAtOnce() {
+        val rows = completer.suggestions("shortcuts ").filterIsInstance<Suggestion.Completion>()
+            .filter { it.app != null }
         assertTrue(rows.toString(), rows.isNotEmpty())
         assertTrue(rows.all { it.replacement.startsWith("shortcuts ") })
         val app = apps.apps.value.first { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
-        val typed = completer.suggestions("shortcuts ${app.label.take(3)}").filterIsInstance<Suggestion.Completion>()
+        val typed = completer.suggestions("shortcuts ${app.label.take(3)}")
+            .filterIsInstance<Suggestion.Completion>()
         assertTrue(typed.toString(), typed.any { it.app?.key == app.key })
         // Which apps have shortcuts is asked off the main thread, once in 30 seconds, also when the
         // answer is "Kolahal may not read them" (it isn't the home app here).
@@ -76,8 +87,10 @@ class CompleterTest {
     }
 
     /** Two apps of one name (one renamed to the other's): each completes to its package, and that names it. */
-    @Test fun twoAppsOfOneNameCompleteApart() {
-        val personal = apps.apps.value.filter { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL && !it.hidden }
+    @Test
+    fun twoAppsOfOneNameCompleteApart() {
+        val personal =
+            apps.apps.value.filter { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL && !it.hidden }
         val (a, b) = personal.groupBy { it.pkg }.values.map { it.first() }.take(2)
         val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
         try {
@@ -98,7 +111,8 @@ class CompleterTest {
      * The first word's names are worked out once, not on each key. A new alias, an alias removed,
      * a command turned off or on, and a command used lately each show at the next key.
      */
-    @Test fun firstWordNamesFollowEachChange() {
+    @Test
+    fun firstWordNamesFollowEachChange() {
         val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
         val alias = "zqcomp${System.nanoTime() % 10_000}"
         assertFalse(alias in lines("zqcomp"))
@@ -123,45 +137,72 @@ class CompleterTest {
         assertEquals("notifications", lines("no").first())
     }
 
-    @Test fun firstWordOffersCommands() {
+    @Test
+    fun firstWordOffersCommands() {
         assertTrue(labels("hel").toString(), "help" in labels("hel"))
         assertTrue(labels("cras").toString(), "crashes" in labels("cras"))
     }
 
-    @Test fun aWholeCommandOffersItsOptions() {
+    @Test
+    fun aWholeCommandOffersItsOptions() {
         assertTrue(labels("restart").toString(), "restart scripts" in labels("restart"))
-        assertTrue(lines("crashes ").toString(), lines("crashes ").containsAll(listOf("crashes share", "crashes clear")))
+        assertTrue(
+            lines("crashes ").toString(),
+            lines("crashes ").containsAll(listOf("crashes share", "crashes clear"))
+        )
         assertTrue(lines("apps w").toString(), "apps work" in lines("apps w"))
     }
 
     /** `[days]` or `[n]` in a usage line is a value to type, not a word to offer. */
-    @Test fun placeholdersAreNotOffered() {
+    @Test
+    fun placeholdersAreNotOffered() {
         for (cmd in listOf("unlocks", "usage", "calls", "installs", "agenda")) {
             val offered = labels(cmd) + lines("$cmd ")
-            assertFalse("$cmd offers $offered", offered.any { it.endsWith(" days") || it.endsWith(" n") })
+            assertFalse(
+                "$cmd offers $offered",
+                offered.any { it.endsWith(" days") || it.endsWith(" n") })
         }
     }
 
-    @Test fun configKeysThenValues() {
+    @Test
+    fun configKeysThenValues() {
         assertTrue("font.size" in labels("config set font.s"))
-        assertTrue(lines("config set clock.24h ").containsAll(listOf("config set clock.24h on", "config set clock.24h off")))
+        assertTrue(
+            lines("config set clock.24h ").containsAll(
+                listOf(
+                    "config set clock.24h on",
+                    "config set clock.24h off"
+                )
+            )
+        )
         assertTrue("amber" in labels("theme am"))
         assertTrue(labels("config set no.such.key ").isEmpty())
     }
 
-    @Test fun fontOffersSansAndItsModes() {
+    @Test
+    fun fontOffersSansAndItsModes() {
         assertTrue(lines("font s").toString(), "font sans" in lines("font s"))
         assertTrue(lines("font sans p").toString(), "font sans prompt" in lines("font sans p"))
-        assertTrue(lines("font sans ").containsAll(listOf("font sans off", "font sans prompt", "font sans all")))
+        assertTrue(
+            lines("font sans ").containsAll(
+                listOf(
+                    "font sans off",
+                    "font sans prompt",
+                    "font sans all"
+                )
+            )
+        )
     }
 
-    @Test fun historyContinuesTheLine() {
+    @Test
+    fun historyContinuesTheLine() {
         history = listOf("search kotlin flow", "search compose", "note buy milk")
         assertTrue(lines("search ko").toString(), "search kotlin flow" in lines("search ko"))
         assertFalse("search compose" in lines("search ko"))
     }
 
-    @Test fun todoDoneOffersOnlyOpenItems() {
+    @Test
+    fun todoDoneOffersOnlyOpenItems() {
         val now = System.currentTimeMillis()
         todos = listOf(Todo(1, "milk", false), Todo(2, "bread", true))
         assertTrue(lines("todo done ").toString(), "todo done 1" in lines("todo done "))
@@ -170,7 +211,8 @@ class CompleterTest {
     }
 
     /** Commands and settings by what they do: `flash` finds torch, `silent` ring, `24` the 24-hour clock. */
-    @Test fun commandsAndSettingsByWhatTheyDo() {
+    @Test
+    fun commandsAndSettingsByWhatTheyDo() {
         assertTrue(labels("flash").toString(), "torch" in labels("flash"))
         assertTrue(labels("silent").toString(), "ring" in labels("silent"))
         assertTrue(labels("music").toString(), "media" in labels("music"))
@@ -181,40 +223,67 @@ class CompleterTest {
     }
 
     /** `= …` shows the answer while you type; a tap puts it in the prompt. */
-    @Test fun theAnswerShowsAsYouType() {
+    @Test
+    fun theAnswerShowsAsYouType() {
         val first = completer.suggestions("= 2^10").first() as Suggestion.Completion
         assertEquals("= 1024", first.label)
         assertEquals("= 1024", first.replacement)
         assertEquals("5 km = 3.1069 mi", completer.suggestions("= 5 km in mi").first().label)
         // Drawn large, as Enter logs it: the value, and what it answers under it.
         assertEquals("1024" to "2^10 · tap to continue", first.big)
-        assertEquals("3.1069 mi" to "5 km · tap to continue", (completer.suggestions("= 5 km in mi").first() as Suggestion.Completion).big)
+        assertEquals(
+            "3.1069 mi" to "5 km · tap to continue",
+            (completer.suggestions("= 5 km in mi").first() as Suggestion.Completion).big
+        )
         assertTrue(completer.suggestions("= 2 +").isEmpty())
     }
 
-    @Test fun theTypedLineIsNotOfferedAgain() {
+    @Test
+    fun theTypedLineIsNotOfferedAgain() {
         history = listOf("echo hi")
         assertFalse(lines("echo hi").contains("echo hi"))
     }
 
-    @Test fun appsAreSuggestedByName() {
-        val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 }
+    @Test
+    fun appsAreSuggestedByName() {
+        val app =
+            apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 }
         val found = completer.suggestions(app.label.take(4)).filterIsInstance<Suggestion.App>()
-        assertTrue("${app.label} not in ${found.map { it.label }}", found.any { it.app.key == app.key })
+        assertTrue(
+            "${app.label} not in ${found.map { it.label }}",
+            found.any { it.app.key == app.key })
     }
 
     /** Two letters swapped still find the app, when nothing matches as typed; it never launches as you type. */
-    @Test fun aSlipStillFindsTheApp() {
+    @Test
+    fun aSlipStillFindsTheApp() {
         val (app, slip) = apps.apps.value.asSequence()
-            .filter { it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 5 && it.label.all(Char::isLetter) }
+            .filter {
+                it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 5 && it.label.all(
+                    Char::isLetter
+                )
+            }
             .map { it to it.label.lowercase().let { l -> "" + l[1] + l[0] + l.drop(2) } }
             .first { (_, slip) -> apps.searchRanked(slip).all { it.second == 5 } }
-        assertTrue("$slip should find ${app.label}", completer.suggestions(slip).any { it is Suggestion.App && it.app.key == app.key })
-        assertTrue(InstantRun.target(slip, InstantRun.APPS, 2, rankedApps = { apps.searchRanked(it) }, appLabel = { it.label },
-            commands = emptyMap(), aliases = emptyMap(), scriptCommands = emptyList()) == null)
+        assertTrue(
+            "$slip should find ${app.label}",
+            completer.suggestions(slip).any { it is Suggestion.App && it.app.key == app.key })
+        assertTrue(
+            InstantRun.target(
+                slip,
+                InstantRun.APPS,
+                2,
+                rankedApps = { apps.searchRanked(it) },
+                appLabel = { it.label },
+                commands = emptyMap(),
+                aliases = emptyMap(),
+                scriptCommands = emptyList()
+            ) == null
+        )
     }
 
-    @Test fun emptyPromptFollowsSuggestionsIdle() {
+    @Test
+    fun emptyPromptFollowsSuggestionsIdle() {
         assertTrue(completer.suggestions("").isEmpty())
         config.set(Keys.SUGGEST_IDLE, "on")
         // Most-used apps, never more than `suggestions`.
@@ -225,7 +294,9 @@ class CompleterTest {
         try {
             com.mtwabpin.kolahal.apps.AppPrefs.get(context).recordLaunch(app.key)
             val idle = completer.suggestions("")
-            assertTrue(idle.toString(), idle.size <= config[Keys.SUGGESTIONS] && idle.all { it is Suggestion.App })
+            assertTrue(
+                idle.toString(),
+                idle.size <= config[Keys.SUGGESTIONS] && idle.all { it is Suggestion.App })
             assertTrue(idle.toString(), idle.any { (it as Suggestion.App).app.key == app.key })
         } finally {
             usage.edit().putString("launch:${app.key}", launchesBefore).commit()
@@ -246,11 +317,52 @@ class CompleterReviewTest {
     private val completer = Completer(context, object : Completer.Data {
         override val history get() = this@CompleterReviewTest.history
         override val scripts = listOf(
-            Script(1, "ona", com.mtwabpin.kolahal.data.ScriptLang.LUA, "-- @command\n-- @desc Says hi\nreturn 1", 0, true, false, null, null),
-            Script(2, "offb", com.mtwabpin.kolahal.data.ScriptLang.LUA, "return 1", 0, false, false, null, null),
+            Script(
+                1,
+                "ona",
+                com.mtwabpin.kolahal.data.ScriptLang.LUA,
+                "-- @command\n-- @desc Says hi\nreturn 1",
+                0,
+                true,
+                false,
+                null,
+                null
+            ),
+            Script(
+                2,
+                "offb",
+                com.mtwabpin.kolahal.data.ScriptLang.LUA,
+                "return 1",
+                0,
+                false,
+                false,
+                null,
+                null
+            ),
             // Both keep a status line: the first is pinned to the top, the second isn't.
-            Script(3, "pinc", com.mtwabpin.kolahal.data.ScriptLang.LUA, "status('x')", 0, true, false, null, null, access = mapOf(com.mtwabpin.kolahal.script.ScriptAccess.HEADER to true)),
-            Script(4, "stad", com.mtwabpin.kolahal.data.ScriptLang.LUA, "status('y')", 0, true, false, null, null),
+            Script(
+                3,
+                "pinc",
+                com.mtwabpin.kolahal.data.ScriptLang.LUA,
+                "status('x')",
+                0,
+                true,
+                false,
+                null,
+                null,
+                access = mapOf(com.mtwabpin.kolahal.script.ScriptAccess.HEADER to true)
+            ),
+            Script(
+                4,
+                "stad",
+                com.mtwabpin.kolahal.data.ScriptLang.LUA,
+                "status('y')",
+                0,
+                true,
+                false,
+                null,
+                null
+            ),
         )
         override val commandNames = listOf("ona")
         override val scriptUsages = emptyMap<String, String>()
@@ -265,25 +377,31 @@ class CompleterReviewTest {
         override val scriptSources = listOf("alice/scripts")
     })
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         apps.refresh()
         eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
 
-    private fun rows(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
+    private fun rows(text: String) =
+        completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
+
     private fun lines(text: String) = rows(text).map { it.replacement.trim() }
     private fun labels(text: String) = completer.suggestions(text).map { it.label }
 
-    @Test fun synonymsCompleteLikeTheirCommandAndKeepTheirSpelling() {
+    @Test
+    fun synonymsCompleteLikeTheirCommandAndKeepTheirSpelling() {
         assertTrue(lines("ls wor").toString(), "ls work" in lines("ls wor"))
         assertTrue(lines("cls hi").toString(), "cls history" in lines("cls hi"))
         assertTrue(lines("screentime ").toString(), "screentime 7" in lines("screentime "))
     }
 
     /** Enter runs the command typed: it is the first row, marked, then its options, then longer commands. */
-    @Test fun aWholeCommandsOptionsComeBeforeLongerCommands() {
+    @Test
+    fun aWholeCommandsOptionsComeBeforeLongerCommands() {
         val all = completer.suggestions("feed")
         assertEquals("feed", all.first().label)
         assertTrue(all.first().enter)
@@ -297,30 +415,49 @@ class CompleterReviewTest {
      * `hide` offer only apps not pinned or hidden yet. Earlier lines aren't offered: they may name an app
      * that has changed since.
      */
-    @Test fun hideAndPinOfferOnlyTheAppsTheyCanChange() {
+    @Test
+    fun hideAndPinOfferOnlyTheAppsTheyCanChange() {
         val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
-        val (hidden, pinned) = apps.apps.value.filter { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }.distinctBy { it.label }.take(2)
+        val (hidden, pinned) = apps.apps.value.filter { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
+            .distinctBy { it.label }.take(2)
         val pinnedBefore = prefs.pinned()
-        fun rows(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
+        fun rows(text: String) =
+            completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
         try {
             pinnedBefore.forEach { prefs.setPinned(it, false) }
             prefs.setPinned(pinned.key, true)
             prefs.setHidden(hidden.key, true)
             apps.refresh()
             eventually(5_000) { apps.apps.value.single { it.key == hidden.key }.hidden }
-            history = listOf("unhide ${pinned.label}", "hide ${hidden.label}", "pin ${pinned.label}", "unpin ${hidden.label}")
+            history = listOf(
+                "unhide ${pinned.label}",
+                "hide ${hidden.label}",
+                "pin ${pinned.label}",
+                "unpin ${hidden.label}"
+            )
 
             val unhide = rows("unhide ")
-            assertTrue(unhide.toString(), unhide.any { it.app?.key == hidden.key } && unhide.all { it.app != null && prefs.isHidden(it.app!!.key) })
+            assertTrue(
+                unhide.toString(),
+                unhide.any { it.app?.key == hidden.key } && unhide.all {
+                    it.app != null && prefs.isHidden(it.app!!.key)
+                })
             assertEquals(listOf(pinned.key), rows("unpin ").map { it.app?.key })
             val pin = rows("pin ")
-            assertTrue(pin.toString(), pin.isNotEmpty() && pin.all { it.app != null && it.app!!.key != pinned.key })
+            assertTrue(
+                pin.toString(),
+                pin.isNotEmpty() && pin.all { it.app != null && it.app!!.key != pinned.key })
             assertTrue(rows("pin ${pinned.label}").none { it.app?.key == pinned.key })
             assertTrue(rows("hide ${hidden.label}").none { it.app?.key == hidden.key })
             // Typing narrows them, and the first row is the app Enter acts on.
             val unpin = rows("unpin ${pinned.label.take(2)}")
-            assertTrue(unpin.toString(), unpin.first().app?.key == pinned.key && unpin.first().enter)
-            assertTrue(rows("unhide ${hidden.label.take(2)}").first().let { it.app?.key == hidden.key && it.enter })
+            assertTrue(
+                unpin.toString(),
+                unpin.first().app?.key == pinned.key && unpin.first().enter
+            )
+            assertTrue(
+                rows("unhide ${hidden.label.take(2)}").first()
+                    .let { it.app?.key == hidden.key && it.enter })
         } finally {
             history = emptyList()
             prefs.setHidden(hidden.key, false)
@@ -332,7 +469,8 @@ class CompleterReviewTest {
     }
 
     /** Only a row Enter acts on is marked: not `torch on` when Enter toggles, but the app `open` picks. */
-    @Test fun theEnterRowIsWhatEnterDoes() {
+    @Test
+    fun theEnterRowIsWhatEnterDoes() {
         assertEquals("torch", labels("torch").first())
         assertTrue(labels("torch").toString(), "torch on" in labels("torch"))
         assertTrue(completer.suggestions("torch").first().enter)
@@ -343,16 +481,22 @@ class CompleterReviewTest {
         // One word, and not a command's name, so Enter launches it.
         val app = apps.apps.value.first {
             it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 && ' ' !in it.label &&
-                it.label.lowercase() !in CommandCatalog.COMMAND_NAMES && it.label.lowercase() !in CommandCatalog.SYNONYMS
+                    it.label.lowercase() !in CommandCatalog.COMMAND_NAMES && it.label.lowercase() !in CommandCatalog.SYNONYMS
         }
         val best = apps.search(app.label.take(4)).first()
         val open = completer.suggestions("open ${app.label.take(4)}")
-        assertTrue(open.toString(), (open.first() as Suggestion.App).app == best && open.first().enter)
-        assertTrue(completer.suggestions(best.label).first().let { it is Suggestion.App && it.app == best && it.enter })
+        assertTrue(
+            open.toString(),
+            (open.first() as Suggestion.App).app == best && open.first().enter
+        )
+        assertTrue(
+            completer.suggestions(best.label).first()
+                .let { it is Suggestion.App && it.app == best && it.enter })
     }
 
     /** A command turned off (commands.off) isn't offered: its names are plain words, so Enter launches the app they match. */
-    @Test fun aCommandTurnedOffIsntOffered() {
+    @Test
+    fun aCommandTurnedOffIsntOffered() {
         val config = com.mtwabpin.kolahal.data.Config.get(context)
         assertTrue("yt" in labels("y"))
         assertTrue(config.set(com.mtwabpin.kolahal.data.Keys.COMMANDS_OFF, "yt,contacts"))
@@ -360,26 +504,38 @@ class CompleterReviewTest {
         assertFalse(labels("help y").toString(), "yt" in labels("help y"))
         assertTrue("no options after it", rows("contacts ").isEmpty())
         // `contact` was another name for the command; now Enter opens the Contacts app.
-        val contacts = apps.apps.value.firstOrNull { it.label == "Contacts" && it.profile.kind == ProfileKind.PERSONAL }
+        val contacts =
+            apps.apps.value.firstOrNull { it.label == "Contacts" && it.profile.kind == ProfileKind.PERSONAL }
         org.junit.Assume.assumeTrue("the Contacts app", contacts != null)
-        assertTrue(completer.suggestions("contact").first().let { it is Suggestion.App && it.app.key == contacts!!.key && it.enter })
+        assertTrue(
+            completer.suggestions("contact").first()
+                .let { it is Suggestion.App && it.app.key == contacts!!.key && it.enter })
     }
 
     /** Among the commands; an app Enter would launch still comes before them. */
-    @Test fun commandsUsedLatelyComeFirst() {
+    @Test
+    fun commandsUsedLatelyComeFirst() {
         history = listOf("todo milk", "help")
         assertEquals("todo", rows("t").first().label)
         history = emptyList()
         assertEquals("torch", rows("t").first().label)
     }
 
-    @Test fun namesMatchInAnyCase() {
+    @Test
+    fun namesMatchInAnyCase() {
         assertTrue(labels("theme Am").toString(), "amber" in labels("theme Am"))
-        assertTrue(labels("config set Font.S").toString(), "font.size" in labels("config set Font.S"))
-        assertTrue(lines("script every ona ").toString(), "script every ona 1h" in lines("script every ona "))
+        assertTrue(
+            labels("config set Font.S").toString(),
+            "font.size" in labels("config set Font.S")
+        )
+        assertTrue(
+            lines("script every ona ").toString(),
+            "script every ona 1h" in lines("script every ona ")
+        )
     }
 
-    @Test fun scriptSubcommandsOfferWhatTheyTake() {
+    @Test
+    fun scriptSubcommandsOfferWhatTheyTake() {
         assertEquals(listOf("script install xkcd"), lines("script install x"))
         assertEquals(listOf("script get moon"), lines("script get m"))
         assertEquals(listOf("script sources", "script source"), lines("script sour"))
@@ -388,46 +544,99 @@ class CompleterReviewTest {
         assertTrue(lines("script sources ").isEmpty())
         assertTrue(lines("script ls ").isEmpty())
         assertEquals(listOf("script on offb"), lines("script on "))
-        assertEquals(listOf("script off ona", "script off pinc", "script off stad"), lines("script off "))
+        assertEquals(
+            listOf("script off ona", "script off pinc", "script off stad"),
+            lines("script off ")
+        )
         // Only what the command can act on: unpin offers the pinned script; pin, the ones with a status line not pinned yet.
         assertEquals(listOf("script unpin pinc"), lines("script unpin "))
         assertEquals(listOf("script pin stad"), lines("script pin "))
-        assertTrue(lines("script notify ona ").containsAll(listOf("script notify ona on", "script notify ona off")))
+        assertTrue(
+            lines("script notify ona ").containsAll(
+                listOf(
+                    "script notify ona on",
+                    "script notify ona off"
+                )
+            )
+        )
     }
 
-    @Test fun valuesAfterAnId() {
-        assertTrue(lines("feed notify 3 ").containsAll(listOf("feed notify 3 on", "feed notify 3 off")))
+    @Test
+    fun valuesAfterAnId() {
+        assertTrue(
+            lines("feed notify 3 ").containsAll(
+                listOf(
+                    "feed notify 3 on",
+                    "feed notify 3 off"
+                )
+            )
+        )
         assertTrue(lines("feed every 3 ").toString(), "feed every 3 30m" in lines("feed every 3 "))
-        assertTrue(lines("config set gesture.double-tap ").containsAll(listOf("config set gesture.double-tap lock", "config set gesture.double-tap none")))
+        assertTrue(
+            lines("config set gesture.double-tap ").containsAll(
+                listOf(
+                    "config set gesture.double-tap lock",
+                    "config set gesture.double-tap none"
+                )
+            )
+        )
         assertTrue(lines("remind ").toString(), "remind exact" in lines("remind "))
-        assertTrue(labels("agenda ").toString(), labels("agenda ").containsAll(listOf("today", "3 days")))
+        assertTrue(
+            labels("agenda ").toString(),
+            labels("agenda ").containsAll(listOf("today", "3 days"))
+        )
     }
 
-    @Test fun staleNumberedLinesAndCoveredLinesAreLeftOut() {
+    @Test
+    fun staleNumberedLinesAndCoveredLinesAreLeftOut() {
         val now = System.currentTimeMillis()
         todos = listOf(Todo(1, "milk", false))
         history = listOf("todo done 3", "todo done 1")
         assertEquals(listOf("todo done 1"), lines("todo done "))
-        val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 }
+        val app =
+            apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 }
         history = listOf("open ${app.label.lowercase()}")
-        assertTrue(lines("open ${app.label.take(4)}").none { it.equals("open ${app.label}", ignoreCase = true) })
+        assertTrue(lines("open ${app.label.take(4)}").none {
+            it.equals(
+                "open ${app.label}",
+                ignoreCase = true
+            )
+        })
     }
 
     /** Places and months complete; `time` like `date`, keeping its spelling. */
-    @Test fun datePlacesAndCalMonthsComplete() {
+    @Test
+    fun datePlacesAndCalMonthsComplete() {
         assertTrue(lines("date new y").toString(), "date New York" in lines("date new y"))
-        assertTrue(lines("date london tok").toString(), "date london Tokyo" in lines("date london tok"))
+        assertTrue(
+            lines("date london tok").toString(),
+            "date london Tokyo" in lines("date london tok")
+        )
         assertTrue(lines("time tok").toString(), "time Tokyo" in lines("time tok"))
-        val month = java.time.Month.DECEMBER.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()).lowercase()
-        assertTrue(lines("cal ${month.take(3)}").toString(), "cal $month" in lines("cal ${month.take(3)}"))
+        val month = java.time.Month.DECEMBER.getDisplayName(
+            java.time.format.TextStyle.FULL,
+            java.util.Locale.getDefault()
+        ).lowercase()
+        assertTrue(
+            lines("cal ${month.take(3)}").toString(),
+            "cal $month" in lines("cal ${month.take(3)}")
+        )
         assertTrue(lines("cal $month 2").isEmpty())
     }
 
-    @Test fun personalAppsCarryNoTagAndRowsHaveIcons() {
-        val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 }
-        assertTrue(labels("info ${app.label.take(4)}").toString(), app.label in labels("info ${app.label.take(4)}"))
+    @Test
+    fun personalAppsCarryNoTagAndRowsHaveIcons() {
+        val app =
+            apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 }
+        assertTrue(
+            labels("info ${app.label.take(4)}").toString(),
+            app.label in labels("info ${app.label.take(4)}")
+        )
         assertTrue(rows("log only ").all { it.icon == com.mtwabpin.kolahal.R.drawable.ic_visibility })
         assertEquals("Says hi", rows("on").first { it.label == "ona" }.help)
-        assertEquals(com.mtwabpin.kolahal.R.drawable.ic_code, rows("on").first { it.label == "ona" }.icon)
+        assertEquals(
+            com.mtwabpin.kolahal.R.drawable.ic_code,
+            rows("on").first { it.label == "ona" }.icon
+        )
     }
 }

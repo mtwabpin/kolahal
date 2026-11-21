@@ -18,7 +18,6 @@ import androidx.work.WorkManager
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
-import com.mtwabpin.kolahal.CrashReports
 import com.mtwabpin.kolahal.CrashReportsAside
 import com.mtwabpin.kolahal.LogKept
 import com.mtwabpin.kolahal.LogLinesSince
@@ -44,11 +43,6 @@ import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.widgets.TestWidgets
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.listing
-import java.io.File
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-import java.util.concurrent.CopyOnWriteArrayList
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -59,6 +53,11 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** The dispatcher's own commands: aliases, pipes, searches, settings pages, and what each says when it can't. */
 @RunWith(AndroidJUnit4::class)
@@ -74,12 +73,20 @@ class BuiltInCommandsTest {
     private val crashDir = File(context.filesDir, "crash")
     private val crashReport = File(crashDir, "20260101-120000-crash.txt")
     private val olderReport = File(crashDir, "20251231-120000-crash.txt")
+
     /** Reports already there (one Android recorded earlier in the run, say), set aside while a test reads the newest. */
-    @get:Rule val crashReports = CrashReportsAside()
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val crashReports = CrashReportsAside()
+
+    @get:Rule
+    val logLines = LogLinesSince()
+
     // The log `clear all` empties, put back after it.
-    @get:Rule val logKept = LogKept(eachTest = false)
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val logKept = LogKept(eachTest = false)
+
+    @get:Rule
+    val configReset = ConfigReset()
 
     private val screens = CopyOnWriteArrayList<Screen>()
     private val backupFolderAsked = CopyOnWriteArrayList<Boolean>()
@@ -87,10 +94,21 @@ class BuiltInCommandsTest {
     private var widgetsPageTurns = 0
 
     private val ui = object : TerminalUiStub() {
-        override fun openScreen(screen: Screen) { screens += screen }
-        override fun requestNotificationPermission() { notificationsAsked++ }
-        override fun askBackupFolder(thenBackUp: Boolean) { backupFolderAsked += thenBackUp }
-        override fun showWidgetsPage() { widgetsPageTurns++ }
+        override fun openScreen(screen: Screen) {
+            screens += screen
+        }
+
+        override fun requestNotificationPermission() {
+            notificationsAsked++
+        }
+
+        override fun askBackupFolder(thenBackUp: Boolean) {
+            backupFolderAsked += thenBackUp
+        }
+
+        override fun showWidgetsPage() {
+            widgetsPageTurns++
+        }
     }
     private val commands = CommandRunner(context, ui)
     private val processor = commands.processor
@@ -104,12 +122,15 @@ class BuiltInCommandsTest {
         }
     }
 
-    @Before fun setUp() = instrumentation.addMonitor(monitor)
+    @Before
+    fun setUp() = instrumentation.addMonitor(monitor)
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         instrumentation.removeMonitor(monitor)
         prefs.aliases().keys.filter { it.startsWith("pca") }.forEach { prefs.setAlias(it, null) }
-        scripts.all().filter { it.name.startsWith("pctest") }.forEach { ScriptScheduler.cancel(context, it.id); scripts.delete(it.id) }
+        scripts.all().filter { it.name.startsWith("pctest") }
+            .forEach { ScriptScheduler.cancel(context, it.id); scripts.delete(it.id) }
         fx.set("USD", fxBefore)
     }
 
@@ -117,18 +138,25 @@ class BuiltInCommandsTest {
     private fun run(line: String) = commands.run(line)
 
     /** The newest line printed after [from] that [matches], once there is one. */
-    private fun printed(from: Long, what: String, ms: Long = 10_000, matches: (String) -> Boolean): LogEntry {
+    private fun printed(
+        from: Long,
+        what: String,
+        ms: Long = 10_000,
+        matches: (String) -> Boolean
+    ): LogEntry {
         waitUntil(what, ms) { logs.recent(100).any { it.id > from && matches(it.text) } }
         return logs.recent(100).last { it.id > from && matches(it.text) }
     }
 
     /** A filter that can't run keeps what the command printed and says why under it. */
-    @Test fun aFilterThatFailsKeepsTheOutput() {
+    @Test
+    fun aFilterThatFailsKeepsTheOutput() {
         assertEquals(listOf("pctest", "Usage: … | grep [-v] <pattern>"), run("echo pctest | grep"))
     }
 
     /** An alias may name another, five deep; the sixth alias in a chain isn't expanded. */
-    @Test fun aliasesFollowFiveLevels() {
+    @Test
+    fun aliasesFollowFiveLevels() {
         run("alias pca5 = echo pctest deep")
         for (n in 4 downTo 0) run("alias pca$n = pca${n + 1}")
         assertEquals(listOf("pctest deep x"), run("pca1 x"))
@@ -136,7 +164,8 @@ class BuiltInCommandsTest {
     }
 
     /** `search` uses the engine search.engine names, or search.url's address; yt, wiki, maps and play go to theirs. */
-    @Test fun searchOpensTheChosenEngine() {
+    @Test
+    fun searchOpensTheChosenEngine() {
         fun opens(line: String): String? {
             opened.clear()
             run(line)
@@ -144,7 +173,10 @@ class BuiltInCommandsTest {
         }
         assertEquals(listOf("Search: pctest cats"), run("search pctest cats"))
         assertEquals("https://duckduckgo.com/?q=pctest%20cats", opened.single().dataString)
-        assertEquals("https://duckduckgo.com/?q=pctest%20cats", logs.recent(1).single().ctx.values[LogContext.URL])
+        assertEquals(
+            "https://duckduckgo.com/?q=pctest%20cats",
+            logs.recent(1).single().ctx.values[LogContext.URL]
+        )
         for ((engine, url) in listOf(
             "google" to "https://www.google.com/search?q=pctest",
             "bing" to "https://www.bing.com/search?q=pctest",
@@ -162,7 +194,10 @@ class BuiltInCommandsTest {
         config.set(Keys.SEARCH_URL, "https://search.example/")
         assertEquals("https://duckduckgo.com/?q=pctest", opens("search pctest"))
 
-        assertEquals("https://www.youtube.com/results?search_query=pctest%20song", opens("yt pctest song"))
+        assertEquals(
+            "https://www.youtube.com/results?search_query=pctest%20song",
+            opens("yt pctest song")
+        )
         assertEquals("https://en.wikipedia.org/w/index.php?search=pctest", opens("wiki pctest"))
         assertEquals(listOf("Maps: pctest place"), run("maps pctest place"))
         assertEquals("geo:0,0?q=pctest%20place", opened.last().dataString)
@@ -175,7 +210,8 @@ class BuiltInCommandsTest {
     }
 
     /** `battery`, `system`, `home` and `usage-access` open their pages in Settings and print nothing. */
-    @Test fun settingsPagesOpen() {
+    @Test
+    fun settingsPagesOpen() {
         for ((command, action) in listOf(
             "battery" to Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
             "system" to Settings.ACTION_SETTINGS,
@@ -189,18 +225,23 @@ class BuiltInCommandsTest {
     }
 
     /** Without its accessibility service `lock` says how to allow it; `accessibility` opens that page. */
-    @Test fun lockWithoutTheServiceSaysHowToAllowIt() {
+    @Test
+    fun lockWithoutTheServiceSaysHowToAllowIt() {
         assumeTrue("the Play build has no lock", BuildConfig.LOCK_SERVICE)
         assertEquals(emptyList<String>(), run("accessibility"))
         assertEquals(Settings.ACTION_ACCESSIBILITY_SETTINGS, opened.single().action)
         // With the service on, this would lock the emulator's screen.
         assumeFalse("the screen lock service is on", LockService.isEnabled(context))
-        assertEquals(listOf("Locking needs the Kolahal screen lock accessibility service — tap to allow it"), run("lock"))
+        assertEquals(
+            listOf("Locking needs the Kolahal screen lock accessibility service — tap to allow it"),
+            run("lock")
+        )
         assertEquals("accessibility", logs.recent(1).single().ctx.values[LogContext.RUN])
     }
 
     /** `notifications` asks for the permission while it's missing and then says it's allowed; `notifications settings` opens Kolahal's page. */
-    @Test fun notificationsAsksThenSaysAllowed() {
+    @Test
+    fun notificationsAsksThenSaysAllowed() {
         assertEquals(emptyList<String>(), run("notifications settings"))
         with(opened.single()) {
             assertEquals(Settings.ACTION_APP_NOTIFICATION_SETTINGS, action)
@@ -211,37 +252,70 @@ class BuiltInCommandsTest {
             assertEquals(emptyList<String>(), run("notifications"))
             assertEquals(1, notificationsAsked)
             // As the app asks for it. Not taken back after: Android stops an app whose permission is revoked.
-            instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+            instrumentation.uiAutomation.grantRuntimePermission(
+                context.packageName,
+                Manifest.permission.POST_NOTIFICATIONS
+            )
         }
         assertEquals(listOf("Notifications are allowed"), run("notifications"))
         assertEquals(emptyList<Intent>(), opened.toList())
     }
 
     /** `= 10 usd in eur` converts at the rates kept from a fetch in the last six hours; a currency they don't have says so. */
-    @Test fun currencyFromTheKeptRates() {
-        fx.set("USD", Json.stringify(mapOf("at" to System.currentTimeMillis(), "rates" to mapOf("EUR" to 0.5, "INR" to 88.25))))
+    @Test
+    fun currencyFromTheKeptRates() {
+        fx.set(
+            "USD",
+            Json.stringify(
+                mapOf(
+                    "at" to System.currentTimeMillis(),
+                    "rates" to mapOf("EUR" to 0.5, "INR" to 88.25)
+                )
+            )
+        )
         var from = logs.maxId()
         run("= 10 usd in eur")
-        val line = printed(from, "the conversion") { com.mtwabpin.kolahal.data.StyledText.plain(it).startsWith("5 EUR") }
+        val line = printed(from, "the conversion") {
+            com.mtwabpin.kolahal.data.StyledText.plain(it).startsWith("5 EUR")
+        }
         // Big: the result, with the amount it converts under it.
-        assertEquals(com.mtwabpin.kolahal.data.StyledText.stats(listOf("5 EUR" to "10 USD")), line.text)
+        assertEquals(
+            com.mtwabpin.kolahal.data.StyledText.stats(listOf("5 EUR" to "10 USD")),
+            line.text
+        )
         assertEquals("5", line.ctx.values[LogContext.COPY])
         // Converted off the command's thread, it is still the command's output.
-        val command = logs.recent(100).last { it.id > from && it.kind == LogKind.COMMAND && it.text == "= 10 usd in eur" }
+        val command = logs.recent(100)
+            .last { it.id > from && it.kind == LogKind.COMMAND && it.text == "= 10 usd in eur" }
         assertEquals(command.id.toString(), line.ctx.values[LogContext.FROM])
         from = logs.maxId()
         run("= 1,000 usd to inr")
-        assertEquals("88,250 INR 1,000 USD", com.mtwabpin.kolahal.data.StyledText.plain(printed(from, "the second conversion") { com.mtwabpin.kolahal.data.StyledText.plain(it).endsWith(" USD") }.text))
+        assertEquals(
+            "88,250 INR 1,000 USD",
+            com.mtwabpin.kolahal.data.StyledText.plain(
+                printed(
+                    from,
+                    "the second conversion"
+                ) { com.mtwabpin.kolahal.data.StyledText.plain(it).endsWith(" USD") }.text
+            )
+        )
         from = logs.maxId()
         run("= 10 usd in xyz")
-        assertEquals(LogKind.ERROR, printed(from, "the unknown currency") { it == "convert: unknown currency XYZ" }.kind)
+        assertEquals(
+            LogKind.ERROR,
+            printed(from, "the unknown currency") { it == "convert: unknown currency XYZ" }.kind
+        )
     }
 
     /** `lua` and `js` without code say how they're used, and code too long for a snippet is refused; `=` with something that isn't arithmetic goes to Lua. */
-    @Test fun snippets() {
+    @Test
+    fun snippets() {
         assertEquals(listOf("Usage: lua <code>"), run("lua"))
         assertEquals(listOf("Usage: js <code>"), run("js"))
-        assertEquals(listOf("Snippet too long — use 'script new'"), run("lua log('${"x".repeat(8_001)}')"))
+        assertEquals(
+            listOf("Snippet too long — use 'script new'"),
+            run("lua log('${"x".repeat(8_001)}')")
+        )
         val from = logs.maxId()
         run("= string.rep('pcq', 2)")
         printed(from, "Lua's answer", ms = 30_000) { it == "pcqpcq" }
@@ -249,44 +323,83 @@ class BuiltInCommandsTest {
 
     /** Forgets the unlock counts Kolahal saved for past days ([com.mtwabpin.kolahal.unlock.UnlockCounter.countOrNull]): a test's days are its own. */
     private fun forgetSavedUnlocks() {
-        val kept = com.mtwabpin.kolahal.data.KvStore(context, com.mtwabpin.kolahal.data.Stores.UNLOCKS)
+        val kept =
+            com.mtwabpin.kolahal.data.KvStore(context, com.mtwabpin.kolahal.data.Stores.UNLOCKS)
         val today = LocalDate.now()
         (1L..45L).forEach { kept.set("h:${today.minusDays(it)}", null) }
     }
 
     /** `unlocks 3` is a line a day, oldest first, counts lined up; without usage access it says it counts only while it runs. */
-    @Test fun unlocksPerDay() {
-        val op = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+    @Test
+    fun unlocksPerDay() {
+        val op =
+            Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(
+                1
+            ) ?: "default"
         val today = LocalDate.now()
-        val days = listOf(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()).format(today.minusDays(2)), "Yesterday", "Today")
+        val days = listOf(
+            DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
+                .format(today.minusDays(2)), "Yesterday", "Today"
+        )
         val row = Regex("^(\\S.*?)\\s+(\\d+) (unlocks?)$")
         fun check(rows: List<String>) {
             // A table pads its last column to "unlocks", so "1 unlock" ends in a space: no part of the row.
-            val parsed = rows.map { row.find(it.trimEnd()) ?: throw AssertionError("not a row: '$it'") }
+            val parsed =
+                rows.map { row.find(it.trimEnd()) ?: throw AssertionError("not a row: '$it'") }
             assertEquals(days, parsed.map { it.groupValues[1] })
-            parsed.forEach { assertEquals(it.value, it.groupValues[2] == "1", it.groupValues[3] == "unlock") }
-            assertEquals(rows.toString(), 1, rows.map { it.substringBeforeLast(' ').length }.distinct().size)
+            parsed.forEach {
+                assertEquals(
+                    it.value,
+                    it.groupValues[2] == "1",
+                    it.groupValues[3] == "unlock"
+                )
+            }
+            assertEquals(
+                rows.toString(),
+                1,
+                rows.map { it.substringBeforeLast(' ').length }.distinct().size
+            )
         }
         // Every day has data here: Android's history on the emulator is not the test's to pick. Without
         // usage access, a day has a count when Kolahal counted it while it ran.
         com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(40) }
-        val kept = com.mtwabpin.kolahal.data.KvStore(context, com.mtwabpin.kolahal.data.Stores.UNLOCKS)
+        val kept =
+            com.mtwabpin.kolahal.data.KvStore(context, com.mtwabpin.kolahal.data.Stores.UNLOCKS)
         val counted = (1L..2L).map { "d:${today.minusDays(it)}" }.associateWith { kept.get(it) }
         counted.forEach { (key, was) -> if (was == null) kept.set(key, "0") }
         try {
             shell("appops set ${context.packageName} GET_USAGE_STATS ignore")
             val without = run("unlocks 3")
-            assertEquals(listOf("Counting unlocks only while the launcher is running", "Tap here to allow usage access for accurate counts"), without.take(2))
-            assertEquals("usage-access", logs.recent(10).single { it.text == without[1] }.ctx.values[LogContext.RUN])
+            assertEquals(
+                listOf(
+                    "Counting unlocks only while the launcher is running",
+                    "Tap here to allow usage access for accurate counts"
+                ), without.take(2)
+            )
+            assertEquals(
+                "usage-access",
+                logs.recent(10).single { it.text == without[1] }.ctx.values[LogContext.RUN]
+            )
             // Big numbers first: today, a day's average, the total.
-            assertTrue(without[2], Regex("\\d+ Unlocks? today · \\d+ A day · \\d+ In 3 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(without[2])))
+            assertTrue(
+                without[2],
+                Regex("\\d+ Unlocks? today · \\d+ A day · \\d+ In 3 days").matches(
+                    com.mtwabpin.kolahal.data.StyledText.plain(without[2])
+                )
+            )
             check(without.drop(3))
 
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
             check(run("unlocks 3").drop(1))
             assertEquals(31, run("unlocks 99").size)
             // One day: its count, large, and no bar.
-            assertTrue(Regex("\\d+ Unlocks? today").matches(com.mtwabpin.kolahal.data.StyledText.plain(run("unlocks 0").single())))
+            assertTrue(
+                Regex("\\d+ Unlocks? today").matches(
+                    com.mtwabpin.kolahal.data.StyledText.plain(
+                        run("unlocks 0").single()
+                    )
+                )
+            )
         } finally {
             shell("appops set ${context.packageName} GET_USAGE_STATS $op")
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null
@@ -299,16 +412,27 @@ class BuiltInCommandsTest {
      * A day before Android's usage history begins is left out: not a row, not in the average. Here the
      * history begins yesterday, so `unlocks 7` has two days.
      */
-    @Test fun unlocksLeavesOutDaysWithNoData() {
-        val op = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+    @Test
+    fun unlocksLeavesOutDaysWithNoData() {
+        val op =
+            Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(
+                1
+            ) ?: "default"
         val today = LocalDate.now()
         forgetSavedUnlocks()
         com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(1) }
         try {
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
             val lines = run("unlocks 7")
-            assertTrue(lines[0], Regex("\\d+ Unlocks? today · \\d+ A day · \\d+ In 2 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(lines[0])))
-            assertEquals(listOf("Yesterday", "Today"), lines.drop(1).dropLast(1).map { it.substringBefore("  ").trim() })
+            assertTrue(
+                lines[0],
+                Regex("\\d+ Unlocks? today · \\d+ A day · \\d+ In 2 days").matches(
+                    com.mtwabpin.kolahal.data.StyledText.plain(lines[0])
+                )
+            )
+            assertEquals(
+                listOf("Yesterday", "Today"),
+                lines.drop(1).dropLast(1).map { it.substringBefore("  ").trim() })
             // And why there are only two.
             assertEquals("2 of 7 days", lines.last())
             // Scripts get the same days.
@@ -323,8 +447,12 @@ class BuiltInCommandsTest {
      * `unlocks month`: today, the average and the total, then a column a day and a line a week. With a
      * history of 9 days, only those: 9 columns, and a line that says why.
      */
-    @Test fun unlocksMonthIsAChart() {
-        val op = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+    @Test
+    fun unlocksMonthIsAChart() {
+        val op =
+            Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(
+                1
+            ) ?: "default"
         val today = LocalDate.now()
         try {
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
@@ -332,12 +460,19 @@ class BuiltInCommandsTest {
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(40) }
             val month = run("unlocks month")
             val plain = month.map { com.mtwabpin.kolahal.data.StyledText.plain(it) }
-            assertTrue(plain[0], Regex("\\d+ Unlocks? today · \\d+ A day · [\\d,]+ In 30 days").matches(plain[0]))
-            val chart = com.mtwabpin.kolahal.data.StyledText.lines(month.single { com.mtwabpin.kolahal.data.StyledText.lines(it).any { l -> l.columns != null } }).single().columns!!
+            assertTrue(
+                plain[0],
+                Regex("\\d+ Unlocks? today · \\d+ A day · [\\d,]+ In 30 days").matches(plain[0])
+            )
+            val chart = com.mtwabpin.kolahal.data.StyledText.lines(month.single {
+                com.mtwabpin.kolahal.data.StyledText.lines(it).any { l -> l.columns != null }
+            }).single().columns!!
             assertEquals(30, chart.heights.size)
             assertTrue(plain.toString(), "── by week ──" in plain)
             // This week has finished days, except on a Monday.
-            if (today.dayOfWeek != java.time.DayOfWeek.MONDAY) assertTrue(plain.toString(), plain.any { it.startsWith("This week") })
+            if (today.dayOfWeek != java.time.DayOfWeek.MONDAY) assertTrue(
+                plain.toString(),
+                plain.any { it.startsWith("This week") })
             assertTrue(plain.toString(), plain.none { it.endsWith("from now on") })
 
             forgetSavedUnlocks()
@@ -353,7 +488,8 @@ class BuiltInCommandsTest {
     }
 
     /** `crashes share` hands the newest report, or the one named, to the share sheet. */
-    @Test fun crashesShareSendsTheReport() {
+    @Test
+    fun crashesShareSendsTheReport() {
         // Only the test's own, the rest set aside: one written earlier in the run is newer than these, and would be sent.
         assertEquals(listOf("No crash reports"), run("crashes share"))
         crashDir.mkdirs()
@@ -366,36 +502,55 @@ class BuiltInCommandsTest {
             "Kolahal crash report\nKolahal 0.0 (1, debug)\nAndroid\nWhen: y\nWhat: crash in test, thread main\n\njava.lang.IllegalStateException: pctest older\n\tat a.b(c:1)\n",
         )
         val shares = listOf(
-            "crashes share" to "pctest boom", "crashes share 1" to "pctest boom", "crashes share 20260101-120000" to "pctest boom",
-            "crashes share 2" to "pctest older", "crashes share 20251231-120000" to "pctest older",
+            "crashes share" to "pctest boom",
+            "crashes share 1" to "pctest boom",
+            "crashes share 20260101-120000" to "pctest boom",
+            "crashes share 2" to "pctest older",
+            "crashes share 20251231-120000" to "pctest older",
         )
         for ((line, sent) in shares) {
             opened.clear()
             assertEquals(line, emptyList<String>(), run(line))
             val chooser = opened.single()
             assertEquals(Intent.ACTION_CHOOSER, chooser.action)
-            val send = IntentCompat.getParcelableExtra(chooser, Intent.EXTRA_INTENT, Intent::class.java)!!
+            val send =
+                IntentCompat.getParcelableExtra(chooser, Intent.EXTRA_INTENT, Intent::class.java)!!
             assertEquals(Intent.ACTION_SEND, send.action)
-            assertTrue(line, send.getStringExtra(Intent.EXTRA_TEXT).orEmpty().contains("IllegalStateException: $sent"))
+            assertTrue(
+                line,
+                send.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
+                    .contains("IllegalStateException: $sent")
+            )
         }
     }
 
     /** A word these commands don't take says how they're used. */
-    @Test fun wrongWordsSayTheUsage() {
+    @Test
+    fun wrongWordsSayTheUsage() {
         // The usage lines help shows: what a wrong word says can't drift from them.
         assertEquals(listOf("Usage: log [only <name|kind>|all]"), run("log bogus"))
-        assertEquals(listOf("Usage: backup [now|every <daily|weekly|off>|dir]"), run("backup bogus"))
+        assertEquals(
+            listOf("Usage: backup [now|every <daily|weekly|off>|dir]"),
+            run("backup bogus")
+        )
         assertEquals(listOf("Usage: restart [scripts]"), run("restart bogus"))
         assertEquals(listOf("Usage: clear [history|all]"), run("clear bogus"))
         assertEquals(listOf("Usage: widgets [ls|page] · widget add"), run("widget bogus"))
-        if (BuildConfig.SELF_UPDATE) assertEquals(listOf("Usage: update [install]"), run("update bogus"))
+        if (BuildConfig.SELF_UPDATE) assertEquals(
+            listOf("Usage: update [install]"),
+            run("update bogus")
+        )
         assertEquals(emptyList<Screen>(), screens.toList())
     }
 
     /** With no backup folder yet, `backup` asks for one and backs up once it's picked; `backup dir` only picks it. */
-    @Test fun backupWithoutAFolderAsksForOne() {
+    @Test
+    fun backupWithoutAFolderAsksForOne() {
         assumeTrue("a backup folder is set", AutoBackup.folder(context) == null)
-        assertEquals(listOf("Pick a folder for backups; the backup is written there"), run("backup"))
+        assertEquals(
+            listOf("Pick a folder for backups; the backup is written there"),
+            run("backup")
+        )
         assertEquals(listOf(true), backupFolderAsked.toList())
         assertEquals(emptyList<String>(), run("backup dir"))
         assertEquals(emptyList<String>(), run("backup folder"))
@@ -403,25 +558,40 @@ class BuiltInCommandsTest {
     }
 
     /** `backup` to a folder Kolahal can no longer write says so under the command, and doesn't ask for another. */
-    @Test fun backupToAFolderThatCantBeWrittenSaysSo() {
+    @Test
+    fun backupToAFolderThatCantBeWrittenSaysSo() {
         val autoBackup = context.getSharedPreferences("auto_backup", Context.MODE_PRIVATE)
         val folderWas = autoBackup.getString("folder", null)
         try {
             // A folder whose grant is gone.
-            autoBackup.edit(commit = true) { putString("folder", "content://com.android.externalstorage.documents/tree/primary%3AKolahalTestBackups") }
+            autoBackup.edit(commit = true) {
+                putString(
+                    "folder",
+                    "content://com.android.externalstorage.documents/tree/primary%3AKolahalTestBackups"
+                )
+            }
             val from = logs.maxId()
             processor.run("backup")
             val failed = printed(from, "the failure") { it.startsWith("backup: ") }
-            assertEquals("backup: the backup folder can't be written: run 'backup dir'", failed.text)
+            assertEquals(
+                "backup: the backup folder can't be written: run 'backup dir'",
+                failed.text
+            )
             assertEquals(LogKind.ERROR, failed.kind)
             assertEquals(emptyList<Boolean>(), backupFolderAsked.toList())
         } finally {
-            autoBackup.edit(commit = true) { if (folderWas != null) putString("folder", folderWas) else remove("folder") }
+            autoBackup.edit(commit = true) {
+                if (folderWas != null) putString(
+                    "folder",
+                    folderWas
+                ) else remove("folder")
+            }
         }
     }
 
     /** `widget` opens the widgets page and `widget add` the picker; with none placed, `widgets ls` says how to add one. */
-    @Test fun widgetsOpenTheirPages() {
+    @Test
+    fun widgetsOpenTheirPages() {
         assertEquals(emptyList<String>(), run("widget"))
         assertEquals(emptyList<String>(), run("widget add"))
         assertEquals(listOf(Screen.WIDGETS, Screen.WIDGET_PICKER), screens.toList())
@@ -434,7 +604,8 @@ class BuiltInCommandsTest {
      * `widgets page` turns home to the widgets page and opens no screen. With the page off, it says
      * so, and a tap on the line puts the page on the left.
      */
-    @Test fun widgetsPageTurnsHomeToIt() {
+    @Test
+    fun widgetsPageTurnsHomeToIt() {
         try {
             config.set(Keys.WIDGETS_PAGE, "right")
             assertEquals(emptyList<String>(), run("widgets page"))
@@ -453,16 +624,25 @@ class BuiltInCommandsTest {
     }
 
     /** `widgets ls` numbers each widget, with its state, size and app beside it; a tap opens the widgets page. */
-    @Test fun widgetsLsListsEachWidget() {
+    @Test
+    fun widgetsLsListsEachWidget() {
         val widgets = TestWidgets()
         try {
             assumeTrue("widgets are placed", widgets.host.listing(context).isEmpty())
-            val serial = context.getSystemService(UserManager::class.java).getSerialNumberForUser(Process.myUserHandle())
+            val serial = context.getSystemService(UserManager::class.java)
+                .getSerialNumberForUser(Process.myUserHandle())
             // One from a backup, waiting to be added again: no binding needed.
-            widgets.restore("com.example.pctest/com.example.pctest.ClockWidget", serial, height = 120)
+            widgets.restore(
+                "com.example.pctest/com.example.pctest.ClockWidget",
+                serial,
+                height = 120
+            )
             assertEquals(listOf("1. ClockWidget"), run("widgets ls"))
             val line = logs.recent(1).single()
-            assertEquals("Pending re-add · Full × 120dp · com.example.pctest", line.ctx.values[LogContext.DESC])
+            assertEquals(
+                "Pending re-add · Full × 120dp · com.example.pctest",
+                line.ctx.values[LogContext.DESC]
+            )
             assertEquals("widgets", line.ctx.values[LogContext.RUN])
         } finally {
             widgets.close()
@@ -470,7 +650,8 @@ class BuiltInCommandsTest {
     }
 
     /** `clear all` deletes the whole log, and ↑ history with it. */
-    @Test fun clearAllEmptiesTheLog() {
+    @Test
+    fun clearAllEmptiesTheLog() {
         logKept.keep()
         run("echo pctest-one")
         assertTrue(logs.commandHistory().contains("echo pctest-one"))
@@ -478,40 +659,68 @@ class BuiltInCommandsTest {
         assertEquals(emptyList<String>(), run("clear all"))
         // Ids are never reused: anything at or below it is a line from before. Deleted, not hidden.
         assertEquals(emptyList<LogEntry>(), logs.recent(400).filter { it.id <= upTo })
-        assertTrue(Db.get(context).readableDatabase.rawQuery("SELECT COUNT(*) FROM logs WHERE id <= ?", arrayOf(upTo.toString())).use { it.moveToFirst(); it.getInt(0) == 0 })
+        assertTrue(
+            Db.get(context).readableDatabase.rawQuery(
+                "SELECT COUNT(*) FROM logs WHERE id <= ?",
+                arrayOf(upTo.toString())
+            ).use { it.moveToFirst(); it.getInt(0) == 0 })
         assertEquals(emptyList<String>(), logs.commandHistory())
     }
 
     /** `restart scripts` stops the process scripts run in. */
-    @Test fun restartScriptsStopsTheScriptProcess() {
+    @Test
+    fun restartScriptsStopsTheScriptProcess() {
         val am = context.getSystemService(ActivityManager::class.java)
-        fun scriptPid() = am.runningAppProcesses.orEmpty().firstOrNull { it.processName == "${context.packageName}:script" }?.pid
+        fun scriptPid() = am.runningAppProcesses.orEmpty()
+            .firstOrNull { it.processName == "${context.packageName}:script" }?.pid
+
         val from = logs.maxId()
         run("lua log('pctest-up')")
         printed(from, "the snippet's line", ms = 30_000) { it == "pctest-up" }
         // Its run over, so stopping the process can't cut it short (and have it run again later).
         val work = WorkManager.getInstance(context)
-        waitUntil("the snippet's run finished") { work.getWorkInfosByTag(ScriptWorker::class.java.name).get().none { it.state == WorkInfo.State.RUNNING } }
+        waitUntil("the snippet's run finished") {
+            work.getWorkInfosByTag(ScriptWorker::class.java.name).get()
+                .none { it.state == WorkInfo.State.RUNNING }
+        }
         val pid = scriptPid()
         assertNotNull("the script process runs", pid)
-        assertEquals(listOf("Script process stopped; scheduled scripts will start it again"), run("restart scripts"))
+        assertEquals(
+            listOf("Script process stopped; scheduled scripts will start it again"),
+            run("restart scripts")
+        )
         waitUntil("process $pid gone") { scriptPid() != pid }
     }
 
     /** `help` lists the scripts that are commands under a heading of their own, each with its usage and description; `help <name>` shows that one. */
-    @Test fun helpListsScriptCommands() {
-        scripts.create("pctestcmd", ScriptLang.LUA, "-- @command\n-- @desc Says hello\n-- @usage pctestcmd <name>\nlog('hi ' .. argline)")
+    @Test
+    fun helpListsScriptCommands() {
+        scripts.create(
+            "pctestcmd",
+            ScriptLang.LUA,
+            "-- @command\n-- @desc Says hello\n-- @usage pctestcmd <name>\nlog('hi ' .. argline)"
+        )
         scripts.create("pctestbare", ScriptLang.LUA, "-- @command\nlog('hi')")
         run("help")
         val help = logs.recent(400).filter { it.id > logLines.start && it.kind != LogKind.COMMAND }
-        val start = help.indexOfFirst { com.mtwabpin.kolahal.data.StyledText.plain(it.text).startsWith("Your script commands · ") }
+        val start = help.indexOfFirst {
+            com.mtwabpin.kolahal.data.StyledText.plain(it.text)
+                .startsWith("Your script commands · ")
+        }
         assertTrue(help.map { it.text }.toString(), start >= 0)
-        val mine = help.drop(start + 1).filter { it.ctx.values[LogContext.SCRIPT]?.startsWith("pctest") == true }
+        val mine = help.drop(start + 1)
+            .filter { it.ctx.values[LogContext.SCRIPT]?.startsWith("pctest") == true }
         // The name on the left; @desc beside it and @usage (without the name) muted under it.
         assertEquals(listOf("pctestcmd", "pctestbare"), mine.map { it.text }.sortedDescending())
-        assertEquals("Says hello", mine.single { it.text == "pctestcmd" }.ctx.values[LogContext.DESC])
+        assertEquals(
+            "Says hello",
+            mine.single { it.text == "pctestcmd" }.ctx.values[LogContext.DESC]
+        )
         assertEquals("<name>", mine.single { it.text == "pctestcmd" }.ctx.values[LogContext.ARGS])
-        assertEquals("lua script", mine.single { it.text == "pctestbare" }.ctx.values[LogContext.DESC])
+        assertEquals(
+            "lua script",
+            mine.single { it.text == "pctestbare" }.ctx.values[LogContext.DESC]
+        )
         assertEquals(null, mine.single { it.text == "pctestbare" }.ctx.values[LogContext.ARGS])
 
         assertEquals(listOf("pctestcmd"), run("help pctestcmd"))

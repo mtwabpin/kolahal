@@ -39,13 +39,17 @@ object ControlArgs {
     fun percent(s: String): Int? = s.removeSuffix("%").toIntOrNull()?.takeIf { it in 0..100 }
 
     /** Converts a percent to a step on a 0..[max] scale, rounded to the nearest step. */
-    fun toSteps(pct: Int, max: Int): Int = ((pct.coerceIn(0, 100) * max + 50) / 100).coerceIn(0, max)
+    fun toSteps(pct: Int, max: Int): Int =
+        ((pct.coerceIn(0, 100) * max + 50) / 100).coerceIn(0, max)
 
-    fun toPercent(steps: Int, max: Int): Int = if (max <= 0) 0 else ((steps * 100 + max / 2) / max).coerceIn(0, 100)
+    fun toPercent(steps: Int, max: Int): Int =
+        if (max <= 0) 0 else ((steps * 100 + max / 2) / max).coerceIn(0, 100)
 
     /** Converts "30s", "1m", "2min", "1h" or "90" (seconds) to milliseconds. Returns null when invalid or 0. */
     fun duration(arg: String?): Long? {
-        val m = Regex("^(\\d+)\\s*(s|sec|secs|m|min|mins|h|hr|hrs)?$").find(arg?.trim()?.lowercase() ?: return null) ?: return null
+        val m = Regex("^(\\d+)\\s*(s|sec|secs|m|min|mins|h|hr|hrs)?$").find(
+            arg?.trim()?.lowercase() ?: return null
+        ) ?: return null
         // Limit the number before multiplying. Without the limit, a huge number overflowed into a few minutes.
         val n = m.groupValues[1].toLongOrNull()?.takeIf { it in 1..MAX_DURATION_S } ?: return null
         val seconds = when (m.groupValues[2]) {
@@ -73,6 +77,11 @@ object ControlArgs {
         val m = total % 3600 / 60
         val s = total % 60
         val root = java.util.Locale.ROOT
-        return if (h > 0) String.format(root, "%d:%02d:%02d", h, m, s) else String.format(root, "%d:%02d", m, s)
+        return if (h > 0) String.format(root, "%d:%02d:%02d", h, m, s) else String.format(
+            root,
+            "%d:%02d",
+            m,
+            s
+        )
     }
 }

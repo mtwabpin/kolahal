@@ -3,18 +3,19 @@
  */
 package com.mtwabpin.kolahal.apps
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
 import android.os.UserManager
+import com.mtwabpin.kolahal.apps.PackageEvents.Companion.GRACE_MS
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.script.Json
 import java.util.concurrent.Executors
 
@@ -35,25 +36,45 @@ class PackageEvents private constructor(private val context: Context) {
     private val store = KvStore(context, Stores.PACKAGES)
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
+
     /** While a burst of install or update callbacks is settling (the short delay), [recheck] must not cut it short. */
-    @Volatile private var settlingUntil = 0L
+    @Volatile
+    private var settlingUntil = 0L
+
     /** When the pending diff runs. 0 means none is pending. */
-    @Volatile private var dueAt = 0L
+    @Volatile
+    private var dueAt = 0L
     private val settle = Runnable { dueAt = 0L; io.execute { runCatching { diff() } } }
 
     /**
      * [removedAt] is when the app went missing (0 means installed). A missing app is kept for a grace
      * period before it is logged as "uninstalled".
      */
-    data class Pkg(val label: String, val version: String, val code: Long, val updated: Long, val profile: String, val removedAt: Long = 0L)
+    data class Pkg(
+        val label: String,
+        val version: String,
+        val code: Long,
+        val updated: Long,
+        val profile: String,
+        val removedAt: Long = 0L
+    )
 
     fun start() {
         launcherApps.registerCallback(object : LauncherApps.Callback() {
             override fun onPackageRemoved(packageName: String, user: UserHandle) = told()
             override fun onPackageAdded(packageName: String, user: UserHandle) = told()
             override fun onPackageChanged(packageName: String, user: UserHandle) = told()
-            override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = told()
-            override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = Unit
+            override fun onPackagesAvailable(
+                names: Array<out String>,
+                user: UserHandle,
+                replacing: Boolean
+            ) = told()
+
+            override fun onPackagesUnavailable(
+                names: Array<out String>,
+                user: UserHandle,
+                replacing: Boolean
+            ) = Unit
         }, main)
         // Catch up on anything that changed while the launcher was not running. It lists every app again,
         // so it waits until start-up is over: the first frame, the app list and the log's first read.
@@ -67,10 +88,12 @@ class PackageEvents private constructor(private val context: Context) {
      * True until the catch-up diff that [start] sets runs. [recheck] leaves it to that diff: home's
      * first return comes before [start], which waits for the first frame.
      */
-    @Volatile private var startupDiffDue = true
+    @Volatile
+    private var startupDiffDue = true
 
     /** True when a callback came since the last diff. The app list already reloaded for it ([AppRepository.start]). */
-    @Volatile private var called = false
+    @Volatile
+    private var called = false
 
     private fun told() {
         called = true
@@ -105,11 +128,20 @@ class PackageEvents private constructor(private val context: Context) {
     }
 
     /** True when an app went missing and its uninstall line is waiting for the grace period. */
-    @Volatile private var removalPending = true
-    @Volatile private var diffedAt = 0L
+    @Volatile
+    private var removalPending = true
+
+    @Volatile
+    private var diffedAt = 0L
 
     /** What [current] last read from Android for one of this profile's apps, with the APK it read. */
-    private class Asked(val apk: String, val time: Long, val version: String, val code: Long, val updated: Long)
+    private class Asked(
+        val apk: String,
+        val time: Long,
+        val version: String,
+        val code: Long,
+        val updated: Long
+    )
 
     /**
      * Results by key, since this process started. The same APK file (path and time) means the same
@@ -137,8 +169,10 @@ class PackageEvents private constructor(private val context: Context) {
                 continue
             }
             val serial = userManager.getSerialNumberForUser(user)
-            val profile = if (user == me) "" else AppRepository.kindOf(context, launcherApps, user, me).tag
-            val activities = runCatching { launcherApps.getActivityList(null, user) }.getOrDefault(emptyList())
+            val profile =
+                if (user == me) "" else AppRepository.kindOf(context, launcherApps, user, me).tag
+            val activities =
+                runCatching { launcherApps.getActivityList(null, user) }.getOrDefault(emptyList())
             for (a in activities) {
                 val key = "${a.componentName.packageName}#$serial"
                 if (key in out) continue
@@ -146,10 +180,20 @@ class PackageEvents private constructor(private val context: Context) {
                 val info = a.applicationInfo
                 val apkTime = info.sourceDir?.let { java.io.File(it).lastModified() } ?: 0L
                 // Version details can be read only for this profile, so don't ask for the others.
-                val pi = if (user != me) null else asked[key]?.takeIf { it.apk == info.sourceDir && it.time == apkTime } ?: runCatching {
-                    context.packageManager.getPackageInfo(a.componentName.packageName, 0)
-                }.getOrNull()?.let { Asked(info.sourceDir.orEmpty(), apkTime, it.versionName.orEmpty(), it.longVersionCode, it.lastUpdateTime) }
-                    ?.also { if (info.sourceDir != null) asked[key] = it }
+                val pi =
+                    if (user != me) null else asked[key]?.takeIf { it.apk == info.sourceDir && it.time == apkTime }
+                        ?: runCatching {
+                            context.packageManager.getPackageInfo(a.componentName.packageName, 0)
+                        }.getOrNull()?.let {
+                            Asked(
+                                info.sourceDir.orEmpty(),
+                                apkTime,
+                                it.versionName.orEmpty(),
+                                it.longVersionCode,
+                                it.lastUpdateTime
+                            )
+                        }
+                            ?.also { if (info.sourceDir != null) asked[key] = it }
                 out[key] = Pkg(
                     label = com.mtwabpin.kolahal.data.StyledText.strip(a.label.toString()),
                     version = pi?.version.orEmpty(),
@@ -168,7 +212,13 @@ class PackageEvents private constructor(private val context: Context) {
     /** True when [key]'s app is installed but not in the launcher (disabled, or it hid its icon). */
     private fun installedWithoutIcon(key: String): Boolean {
         val user = serialOf(key)?.let(userManager::getUserForSerialNumber) ?: return false
-        return runCatching { launcherApps.getApplicationInfo(nameOf(key), 0, user) != null }.getOrDefault(false)
+        return runCatching {
+            launcherApps.getApplicationInfo(
+                nameOf(key),
+                0,
+                user
+            ) != null
+        }.getOrDefault(false)
     }
 
     @Synchronized
@@ -190,7 +240,15 @@ class PackageEvents private constructor(private val context: Context) {
         }
         // If profiles weren't tracked yet, use the profiles that have apps in the snapshot.
         val seen = loadSeen() ?: serials(before.keys)
-        val plan = plan(before, now, paused, present, seen, System.currentTimeMillis(), ::installedWithoutIcon)
+        val plan = plan(
+            before,
+            now,
+            paused,
+            present,
+            seen,
+            System.currentTimeMillis(),
+            ::installedWithoutIcon
+        )
         if (plan.next != before) save(plan.next)
         removalPending = plan.checkInMs != null
         diffedAt = System.currentTimeMillis()
@@ -200,7 +258,8 @@ class PackageEvents private constructor(private val context: Context) {
         val events = plan.events
         // This found a change that the callbacks missed (the process was asleep), so update the app
         // list. Profiles added or removed are rare, and a callback may not report them.
-        if (plan.seen != seen || (events.isNotEmpty() && !afterCallbacks)) AppRepository.get(context).refresh()
+        if (plan.seen != seen || (events.isNotEmpty() && !afterCallbacks)) AppRepository.get(context)
+            .refresh()
         if (events.isEmpty()) return
         val logs = LogRepository.get(context)
         val pending = events.map { (kind, key, p) ->
@@ -211,26 +270,40 @@ class PackageEvents private constructor(private val context: Context) {
                 kind != "uninstalled" && p.version.isNotEmpty() -> "\n${p.version}"
                 else -> ""
             }
-            val glyph = when (kind) { "installed" -> "+"; "updated" -> "↑"; else -> "−" }
+            val glyph = when (kind) {
+                "installed" -> "+"; "updated" -> "↑"; else -> "−"
+            }
             val pkg = nameOf(key)
             val ctx = if (kind == "uninstalled") LogContext.of(LogContext.COPY to pkg)
-            else LogContext.of(LogContext.PKG to pkg, LogContext.USER to serialOf(key)?.toString(), LogContext.COPY to pkg)
+            else LogContext.of(
+                LogContext.PKG to pkg,
+                LogContext.USER to serialOf(key)?.toString(),
+                LogContext.COPY to pkg
+            )
             // Detail lines (the log view dims them): the package, then the version.
-            LogRepository.Pending(LogKind.INFO, "${kind.replaceFirstChar { it.uppercase() }} ${p.label}$tag $glyph\n$pkg$ver", "apps", ctx, System.currentTimeMillis())
+            LogRepository.Pending(
+                LogKind.INFO,
+                "${kind.replaceFirstChar { it.uppercase() }} ${p.label}$tag $glyph\n$pkg$ver",
+                "apps",
+                ctx,
+                System.currentTimeMillis()
+            )
         }
         logs.addAll(pending)
         // A short history for the `installs` command.
-        val history = (Json.parse(store.get(HISTORY) ?: "[]") as? List<*>).orEmpty().filterIsInstance<Map<*, *>>()
+        val history = (Json.parse(store.get(HISTORY) ?: "[]") as? List<*>).orEmpty()
+            .filterIsInstance<Map<*, *>>()
         val added = pending.map { mapOf("t" to it.ts, "text" to it.text) }
         store.set(HISTORY, Json.stringify((added.reversed() + history).take(MAX_HISTORY)))
     }
 
     /** Returns the history as (time, line) pairs, newest first. */
     fun history(): List<Pair<Long, String>> =
-        (Json.parse(store.get(HISTORY) ?: "[]") as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().mapNotNull {
-            val t = (it["t"] as? Number)?.toLong() ?: return@mapNotNull null
-            t to (it["text"]?.toString() ?: return@mapNotNull null)
-        }
+        (Json.parse(store.get(HISTORY) ?: "[]") as? List<*>).orEmpty().filterIsInstance<Map<*, *>>()
+            .mapNotNull {
+                val t = (it["t"] as? Number)?.toLong() ?: return@mapNotNull null
+                t to (it["text"]?.toString() ?: return@mapNotNull null)
+            }
 
     private fun load(): Map<String, Pkg>? {
         val raw = store.get(SNAPSHOT) ?: return null
@@ -249,13 +322,22 @@ class PackageEvents private constructor(private val context: Context) {
     }
 
     private fun loadSeen(): Set<Long>? =
-        (Json.parse(store.get(SEEN) ?: return null) as? List<*>)?.mapNotNull { (it as? Number)?.toLong() }?.toSet()
+        (Json.parse(
+            store.get(SEEN) ?: return null
+        ) as? List<*>)?.mapNotNull { (it as? Number)?.toLong() }?.toSet()
 
     private fun saveSeen(serials: Set<Long>) = store.set(SEEN, Json.stringify(serials.sorted()))
 
     private fun save(map: Map<String, Pkg>) {
         store.set(SNAPSHOT, Json.stringify(map.mapValues { (_, p) ->
-            mapOf("l" to p.label, "v" to p.version, "c" to p.code, "u" to p.updated, "p" to p.profile, "r" to p.removedAt)
+            mapOf(
+                "l" to p.label,
+                "v" to p.version,
+                "c" to p.code,
+                "u" to p.updated,
+                "p" to p.profile,
+                "r" to p.removedAt
+            )
         }))
     }
 
@@ -265,12 +347,15 @@ class PackageEvents private constructor(private val context: Context) {
 
         /** How long after start-up goes idle the catch-up diff runs. */
         private const val STARTUP_DIFF_MS = 3_000L
+
         /** A missing app that comes back within this time was reinstalled. It is logged as an update. */
         private const val GRACE_MS = 20_000L
+
         /** [Pkg.removedAt] value for an app that is still installed but not in the launcher (disabled). */
         internal const val HIDDEN = -1L
         private const val SNAPSHOT = "snapshot"
         private const val HISTORY = "history"
+
         /** Serials of the profiles whose apps are in the snapshot. */
         private const val SEEN = "profiles"
         private const val MAX_HISTORY = 200
@@ -319,7 +404,11 @@ class PackageEvents private constructor(private val context: Context) {
                     old == null -> events += Triple("installed", key, p)
                     // It was gone a moment ago and is back: an uninstall + reinstall is one update.
                     old.removedAt > 0 -> events += Triple("updated", key, p)
-                    old.code != p.code || old.version != p.version || old.updated != p.updated -> events += Triple("updated", key, p)
+                    old.code != p.code || old.version != p.version || old.updated != p.updated -> events += Triple(
+                        "updated",
+                        key,
+                        p
+                    )
                 }
             }
             // The soonest time at which a missing app has been gone for the whole grace period.
@@ -333,14 +422,26 @@ class PackageEvents private constructor(private val context: Context) {
                     s in paused -> next[key] = p
                     // Keep it while it is installed. Then there is no "uninstalled" line now, and no
                     // "installed" line when its icon comes back.
-                    p.removedAt == HIDDEN -> if (installed(key)) next[key] = p else events += Triple("uninstalled", key, p)
-                    p.removedAt == 0L -> { next[key] = p.copy(removedAt = t); nextCheck = minOf(nextCheck, GRACE_MS) }
-                    t - p.removedAt < GRACE_MS -> { next[key] = p; nextCheck = minOf(nextCheck, GRACE_MS - (t - p.removedAt)) }
+                    p.removedAt == HIDDEN -> if (installed(key)) next[key] =
+                        p else events += Triple("uninstalled", key, p)
+
+                    p.removedAt == 0L -> {
+                        next[key] = p.copy(removedAt = t); nextCheck = minOf(nextCheck, GRACE_MS)
+                    }
+
+                    t - p.removedAt < GRACE_MS -> {
+                        next[key] = p; nextCheck = minOf(nextCheck, GRACE_MS - (t - p.removedAt))
+                    }
+
                     installed(key) -> next[key] = p.copy(removedAt = HIDDEN)
                     else -> events += Triple("uninstalled", key, p)
                 }
             }
-            return Plan(events, next, seen - gone + fresh, nextCheck.takeIf { it != Long.MAX_VALUE })
+            return Plan(
+                events,
+                next,
+                seen - gone + fresh,
+                nextCheck.takeIf { it != Long.MAX_VALUE })
         }
     }
 }

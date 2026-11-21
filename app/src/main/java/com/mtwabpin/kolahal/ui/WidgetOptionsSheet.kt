@@ -25,9 +25,12 @@ import kotlinx.coroutines.withContext
 /** The words under the title of a widget's options sheet: whose options these are. Pure, for tests. */
 internal object WidgetOptionWords {
     /** The first widget shows the script's own options. */
-    const val SCRIPT = "These are the script's own options. Every run reads them, and so does each of its widgets that has no value of its own."
+    const val SCRIPT =
+        "These are the script's own options. Every run reads them, and so does each of its widgets that has no value of its own."
+
     /** A further widget follows the script until you set a value for it. */
-    const val WIDGET = "This widget follows the script's options. A value you set here is for this widget only."
+    const val WIDGET =
+        "This widget follows the script's options. A value you set here is for this widget only."
     const val NONE = "This script has no options. A script declares one with an @option line."
     const val GONE = "The script is gone, so there is nothing to set."
 
@@ -62,13 +65,29 @@ internal fun WidgetOptionsSheet(vm: TerminalViewModel, ref: WidgetRef, onDismiss
     val known by vm.widgetScripts.collectAsStateWithLifecycle()
     val name = ref.titled(known?.get(ref.script)?.title ?: ref.script)
     val version by vm.scriptActions.optionsVersion.collectAsStateWithLifecycle()
-    val values by produceState(emptyMap<String, String>() to emptySet<String>(), script?.code, ref, version) {
-        value = script?.let { s -> withContext(Dispatchers.IO) { vm.scriptActions.optionValues(s, ref.id) } } ?: (emptyMap<String, String>() to emptySet())
+    val values by produceState(
+        emptyMap<String, String>() to emptySet<String>(),
+        script?.code,
+        ref,
+        version
+    ) {
+        value = script?.let { s ->
+            withContext(Dispatchers.IO) {
+                vm.scriptActions.optionValues(
+                    s,
+                    ref.id
+                )
+            }
+        } ?: (emptyMap<String, String>() to emptySet())
     }
     var editing by remember(ref) { mutableStateOf<ScriptMeta.Option?>(null) }
 
     GuiSheet(onDismiss, scroll = true) {
-        Text("Options for $name", style = MaterialTheme.typography.titleLarge, modifier = Modifier.testTag("widget-options"))
+        Text(
+            "Options for $name",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.testTag("widget-options")
+        )
         Text(
             WidgetOptionWords.note(ref, script != null, options.size),
             style = MaterialTheme.typography.bodySmall,
@@ -90,7 +109,12 @@ internal fun WidgetOptionsSheet(vm: TerminalViewModel, ref: WidgetRef, onDismiss
 
     editing?.let { o ->
         // The dialog the script's own sheet uses. For a further widget, Reset takes its own value away.
-        OptionDialog(ref.titled(ref.script), o, values.first[o.name] ?: o.default, changed = o.name in values.second, onDismiss = { editing = null }) { value ->
+        OptionDialog(
+            ref.titled(ref.script),
+            o,
+            values.first[o.name] ?: o.default,
+            changed = o.name in values.second,
+            onDismiss = { editing = null }) { value ->
             editing = null
             vm.scriptActions.setWidgetOption(ref, o.name, value)
         }

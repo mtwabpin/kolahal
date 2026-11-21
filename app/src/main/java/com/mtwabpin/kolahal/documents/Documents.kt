@@ -19,15 +19,20 @@ object Documents {
     /** The folder of drafts under Kolahal's files. Android's cloud backup leaves it out (res/xml): a draft is private text. */
     const val DRAFTS_DIR = "editor-drafts"
     private const val KEY_RECENT = "recent"
-    private const val PERMISSIONS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    private const val PERMISSIONS =
+        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
     fun source(context: Context) = ContentDocuments(context)
 
     // One of each in the process: the launcher (`edit recent`) and every open editor share them.
-    private object DraftStore : Singleton<Drafts>({ Drafts(File(it.filesDir, DRAFTS_DIR)) }, mainOnly = true)
+    private object DraftStore :
+        Singleton<Drafts>({ Drafts(File(it.filesDir, DRAFTS_DIR)) }, mainOnly = true)
+
     private object RecentStore : Singleton<RecentFiles>({ context ->
         val prefs = Stores.EDITOR.open(context)
-        RecentFiles({ prefs.getString(KEY_RECENT, null) }, { prefs.edit { putString(KEY_RECENT, it) } })
+        RecentFiles(
+            { prefs.getString(KEY_RECENT, null) },
+            { prefs.edit { putString(KEY_RECENT, it) } })
     }, mainOnly = true)
 
     fun drafts(context: Context): Drafts = DraftStore.get(context)
@@ -35,7 +40,8 @@ object Documents {
     fun recent(context: Context): RecentFiles = RecentStore.get(context)
 
     /** One file as the editor works with it. */
-    fun open(context: Context, uri: Uri) = TextDocument(uri.toString(), source(context), drafts(context))
+    fun open(context: Context, uri: Uri) =
+        TextDocument(uri.toString(), source(context), drafts(context))
 
     /**
      * Keeps the permission to [uri] past this run, if Android offers that: to read and write, or
@@ -45,8 +51,17 @@ object Documents {
     fun keepPermission(context: Context, uri: Uri): Boolean {
         val resolver = context.contentResolver
         runCatching { resolver.takePersistableUriPermission(uri, PERMISSIONS) }
-            .onFailure { runCatching { resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
-        return runCatching { resolver.persistedUriPermissions.any { it.uri == uri && it.isReadPermission } }.getOrDefault(false)
+            .onFailure {
+                runCatching {
+                    resolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+            }
+        return runCatching { resolver.persistedUriPermissions.any { it.uri == uri && it.isReadPermission } }.getOrDefault(
+            false
+        )
     }
 
     /**
@@ -68,7 +83,12 @@ object Documents {
     }
 
     private fun release(context: Context, uri: String) {
-        runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(uri), PERMISSIONS) }
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(
+                Uri.parse(uri),
+                PERMISSIONS
+            )
+        }
     }
 
     /** A file that `edit recent` lists. [unsaved]: it has a draft. */
@@ -78,12 +98,21 @@ object Documents {
      * The recent files, and every file with unsaved text even if it is not a recent one: no draft
      * is out of reach. Newest first.
      */
-    fun listed(context: Context): List<Listed> = listed(recent(context).list(), drafts(context).list())
+    fun listed(context: Context): List<Listed> =
+        listed(recent(context).list(), drafts(context).list())
 
     internal fun listed(recent: List<RecentFiles.Entry>, drafts: List<Drafts.Entry>): List<Listed> {
         val draftOf = drafts.associateBy { it.uri }
-        val known = recent.map { r -> Listed(r.uri, r.name, maxOf(r.opened, draftOf[r.uri]?.time ?: 0), r.uri in draftOf) }
-        val others = drafts.filter { d -> recent.none { it.uri == d.uri } }.map { Listed(it.uri, it.name, it.time, true) }
+        val known = recent.map { r ->
+            Listed(
+                r.uri,
+                r.name,
+                maxOf(r.opened, draftOf[r.uri]?.time ?: 0),
+                r.uri in draftOf
+            )
+        }
+        val others = drafts.filter { d -> recent.none { it.uri == d.uri } }
+            .map { Listed(it.uri, it.name, it.time, true) }
         return (known + others).sortedByDescending { it.time }
     }
 }

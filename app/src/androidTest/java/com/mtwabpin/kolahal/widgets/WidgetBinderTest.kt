@@ -31,15 +31,21 @@ class WidgetBinderTest {
     private val widgets = t.host
     private val added = mutableListOf<PlacedWidget>()
 
-    @After fun tearDown() = t.close()
+    @After
+    fun tearDown() = t.close()
 
     /** A test activity with a binder made before it starts, as MainActivity makes its own; [saved] is what Android kept. */
-    private fun withBinder(saved: Bundle? = null, block: (ActivityScenario<ComponentActivity>, WidgetBinder) -> Unit) {
+    private fun withBinder(
+        saved: Bundle? = null,
+        block: (ActivityScenario<ComponentActivity>, WidgetBinder) -> Unit
+    ) {
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
             // Stopped, it may register for results again, as before it first started.
             scenario.moveToState(Lifecycle.State.CREATED)
             lateinit var binder: WidgetBinder
-            scenario.onActivity { binder = WidgetBinder(it) { w -> added += w }.apply { restore(saved) } }
+            scenario.onActivity {
+                binder = WidgetBinder(it) { w -> added += w }.apply { restore(saved) }
+            }
             scenario.moveToState(Lifecycle.State.RESUMED)
             block(scenario, binder)
         }
@@ -52,7 +58,8 @@ class WidgetBinderTest {
     }
 
     /** Picking a clock with no setup screen places it at once, at its usual size, and says so. */
-    @Test fun aWidgetIsPlacedWithNoDialogAndSaysAdded() {
+    @Test
+    fun aWidgetIsPlacedWithNoDialogAndSaysAdded() {
         val clock = t.clocks(unconfigured = true).first()
         t.allowBinding(clock)
         withBinder { scenario, binder ->
@@ -68,10 +75,19 @@ class WidgetBinderTest {
     }
 
     /** Add again on a widget restored from a backup: it comes back at its size and in its place, the waiting row gone. */
-    @Test fun addingAgainKeepsTheRestoredSizeAndPlace() {
+    @Test
+    fun addingAgainKeepsTheRestoredSizeAndPlace() {
         val clock = t.clocks(unconfigured = true).first()
         t.allowBinding(clock)
-        val pending = t.restore(clock.flat, clock.serial, height = 200, order = 70, span = 6, column = 6, top = 120)
+        val pending = t.restore(
+            clock.flat,
+            clock.serial,
+            height = 200,
+            order = 70,
+            span = 6,
+            column = 6,
+            top = 120
+        )
         withBinder { scenario, binder ->
             scenario.onActivity { binder.add(clock, replacing = pending.key) }
             val w = added.single()
@@ -87,7 +103,8 @@ class WidgetBinderTest {
      * The widget's setup finishing after Android stopped Kolahal: the request comes back, Kolahal starting
      * meanwhile leaves its id alone, and OK places the widget where the restored one waited.
      */
-    @Test fun aRequestKeptAcrossAStopFinishes() {
+    @Test
+    fun aRequestKeptAcrossAStopFinishes() {
         val clock = t.clocks().first()
         t.allowBinding(clock)
         val pending = t.restore(clock.flat, clock.serial, height = 160, order = 71)
@@ -102,7 +119,12 @@ class WidgetBinderTest {
             // Some other screen's result is not the widget's.
             scenario.onActivity { binder.onActivityResult(1, Activity.RESULT_OK) }
             assertTrue(added.isEmpty())
-            scenario.onActivity { binder.onActivityResult(WidgetBinder.REQUEST_CONFIGURE, Activity.RESULT_OK) }
+            scenario.onActivity {
+                binder.onActivityResult(
+                    WidgetBinder.REQUEST_CONFIGURE,
+                    Activity.RESULT_OK
+                )
+            }
             val w = added.single()
             assertEquals(id, w.id)
             assertEquals(maxOf(160, widgets.minHeightDp(clock.info)), w.heightDp)
@@ -114,12 +136,18 @@ class WidgetBinderTest {
     }
 
     /** Backing out of the widget's setup frees its id and says so; nothing is placed. */
-    @Test fun aCancelledSetupFreesTheId() {
+    @Test
+    fun aCancelledSetupFreesTheId() {
         val clock = t.clocks().first()
         t.allowBinding(clock)
         val id = t.bound(clock)
         withBinder(kept(id)) { scenario, binder ->
-            scenario.onActivity { binder.onActivityResult(WidgetBinder.REQUEST_CONFIGURE, Activity.RESULT_CANCELED) }
+            scenario.onActivity {
+                binder.onActivityResult(
+                    WidgetBinder.REQUEST_CONFIGURE,
+                    Activity.RESULT_CANCELED
+                )
+            }
             assertTrue(added.isEmpty())
             assertFalse(id in t.ids())
             assertTrue(widgets.widgets.value.none { it.id == id })
@@ -131,7 +159,8 @@ class WidgetBinderTest {
      * Without leave to bind widgets, Android's dialog is asked for the widget's id; turned down, the
      * widget isn't added, its id is freed and nothing is placed. The dialog is answered here, unseen.
      */
-    @Test fun aBindTurnedDownFreesTheId() {
+    @Test
+    fun aBindTurnedDownFreesTheId() {
         val clock = t.clocks(unconfigured = true).first()
         t.forbidBinding(clock)
         val asked = java.util.concurrent.CopyOnWriteArrayList<Intent>()
@@ -148,9 +177,16 @@ class WidgetBinderTest {
             withBinder { scenario, binder ->
                 scenario.onActivity { binder.add(clock) }
                 waitUntil("the refusal said") { widgets.messages.value == listOf("Widget not added") }
-                val id = asked.single().getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                val id = asked.single().getIntExtra(
+                    AppWidgetManager.EXTRA_APPWIDGET_ID,
+                    AppWidgetManager.INVALID_APPWIDGET_ID
+                )
                 @Suppress("DEPRECATION")
-                assertEquals(clock.info.provider, asked.single().getParcelableExtra<android.content.ComponentName>(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER))
+                assertEquals(
+                    clock.info.provider,
+                    asked.single()
+                        .getParcelableExtra<android.content.ComponentName>(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER)
+                )
                 assertFalse("its id kept", id in t.ids())
                 assertTrue(added.isEmpty())
                 assertEquals(placedBefore, widgets.widgets.value)
@@ -163,7 +199,8 @@ class WidgetBinderTest {
     }
 
     /** Picking another widget while one still waits for its setup lets the first one's id go. */
-    @Test fun aNewPickLetsTheWaitingOneGo() {
+    @Test
+    fun aNewPickLetsTheWaitingOneGo() {
         val clock = t.clocks(unconfigured = true).first()
         t.allowBinding(clock)
         val waiting = t.bound(clock)

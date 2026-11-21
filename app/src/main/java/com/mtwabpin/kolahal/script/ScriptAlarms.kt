@@ -58,7 +58,10 @@ object ScriptAlarms {
         val pi = pending(context, id, time, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
         val at = from.toInstant().toEpochMilli() + ScriptScheduler.millisUntil(time, from)
         // Android refuses an app's 500th alarm. A failure here must not stop the other alarms, but it is logged (once a day).
-        com.mtwabpin.kolahal.data.Quietly.run(context, "Setting a script's daily time") { ReminderScheduler.setAlarm(context, at, pi) }
+        com.mtwabpin.kolahal.data.Quietly.run(
+            context,
+            "Setting a script's daily time"
+        ) { ReminderScheduler.setAlarm(context, at, pi) }
     }
 
     fun cancel(context: Context, id: Long, time: String) {
@@ -83,10 +86,16 @@ class ScriptAlarmReceiver : BroadcastReceiver() {
             try {
                 val script = ScriptRepository.get(context).byId(id) ?: return@Thread
                 // If the script was switched off or the time was removed, there is no run and no alarm tomorrow.
-                if (!script.enabled || script.atTimes.mapNotNull(ScriptScheduler::normalizeTime).none { it == time }) return@Thread
+                if (!script.enabled || script.atTimes.mapNotNull(ScriptScheduler::normalizeTime)
+                        .none { it == time }
+                ) return@Thread
                 // Set tomorrow's alarm first, so nothing below can lose it. Start one minute from now, in case this alarm came early.
                 ScriptAlarms.set(context, id, time, ZonedDateTime.now().plusMinutes(1))
-                if (!ScriptRunService.start(context, script, time)) ScriptScheduler.runScheduled(context, script, time)
+                if (!ScriptRunService.start(context, script, time)) ScriptScheduler.runScheduled(
+                    context,
+                    script,
+                    time
+                )
             } finally {
                 result.finish()
             }
@@ -151,7 +160,11 @@ class ScriptRunService : Service() {
             .setSilent(true)
             .build()
         if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE)
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE
+            )
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }

@@ -17,9 +17,16 @@ object Files {
     const val MAX_BACKUP_BYTES = 64 * 1024 * 1024
 
     fun readText(context: Context, uri: Uri, maxBytes: Int = MAX_BYTES): String {
-        val stream = context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("can't open the file")
+        val stream = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalStateException("can't open the file")
         val out = java.io.ByteArrayOutputStream()
-        if (!stream.use { copyLimited(it, out, maxBytes.toLong()) }) throw IllegalStateException("File is larger than ${maxBytes / (1024 * 1024)} MB")
+        if (!stream.use {
+                copyLimited(
+                    it,
+                    out,
+                    maxBytes.toLong()
+                )
+            }) throw IllegalStateException("File is larger than ${maxBytes / (1024 * 1024)} MB")
         return out.toString(Charsets.UTF_8.name())
     }
 
@@ -43,9 +50,10 @@ object Files {
 
     /** The picked file's name as its provider gives it, or null if the provider gives none. */
     fun displayName(context: Context, uri: Uri): String? = runCatching {
-        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-            if (c.moveToFirst()) c.getString(0) else null
-        }
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
     }.getOrNull()
 
     /** Some providers reject the truncate mode "wt", so this falls back to "w". */
@@ -71,5 +79,7 @@ object Files {
 
     /** Whether [folder] is the backup folder or the script folder. */
     internal fun inUse(context: Context, folder: Uri): Boolean =
-        folder == com.mtwabpin.kolahal.data.AutoBackup.folder(context) || folder == ScriptFolder(context).uri
+        folder == com.mtwabpin.kolahal.data.AutoBackup.folder(context) || folder == ScriptFolder(
+            context
+        ).uri
 }

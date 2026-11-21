@@ -4,7 +4,6 @@
 package com.mtwabpin.kolahal.documents
 
 import java.nio.ByteBuffer
-import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 
 /** How a file ends its lines. The editor's own text always uses `\n`. */
@@ -42,7 +41,10 @@ data class TextFormat(
      */
     fun encode(text: String): ByteArray {
         val lines = if ('\r' in text) text.replace("\r\n", "\n").replace('\r', '\n') else text
-        val body = (if (lineEnding == LineEnding.LF) lines else lines.replace("\n", lineEnding.chars)).toByteArray(Charsets.UTF_8)
+        val body = (if (lineEnding == LineEnding.LF) lines else lines.replace(
+            "\n",
+            lineEnding.chars
+        )).toByteArray(Charsets.UTF_8)
         return if (bom) BOM + body else body
     }
 
@@ -89,8 +91,18 @@ object TextFiles {
         data class Refused(val why: String) : Decoded
     }
 
-    private val TOO_LONG = "It is too long to edit here: the editor takes up to ${"%,d".format(java.util.Locale.ROOT, MAX_CHARS)} characters."
-    private val TOO_MANY_LINES = "It has too many lines to edit here: the editor takes up to ${"%,d".format(java.util.Locale.ROOT, MAX_LINES)} lines."
+    private val TOO_LONG = "It is too long to edit here: the editor takes up to ${
+        "%,d".format(
+            java.util.Locale.ROOT,
+            MAX_CHARS
+        )
+    } characters."
+    private val TOO_MANY_LINES = "It has too many lines to edit here: the editor takes up to ${
+        "%,d".format(
+            java.util.Locale.ROOT,
+            MAX_LINES
+        )
+    } lines."
 
     fun decode(bytes: ByteArray): Decoded {
         if (bytes.size > MAX_BYTES) return Decoded.Refused(TOO_LONG)
@@ -98,7 +110,8 @@ object TextFiles {
             return Decoded.Refused("It is UTF-16 text. The editor reads and writes UTF-8 only.")
         }
         if (bytes.any { it == 0.toByte() }) return Decoded.Refused("It is not a text file: it holds binary data.")
-        val bom = bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()
+        val bom =
+            bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()
         val start = if (bom) 3 else 0
         val raw = try {
             // A plain decode would put a replacement character where bytes are not UTF-8, and saving would write that.
@@ -118,7 +131,10 @@ object TextFiles {
         var i = 0
         while (i < raw.length) {
             when (raw[i]) {
-                '\r' -> if (i + 1 < raw.length && raw[i + 1] == '\n') { crlf++; i++ } else cr++
+                '\r' -> if (i + 1 < raw.length && raw[i + 1] == '\n') {
+                    crlf++; i++
+                } else cr++
+
                 '\n' -> lf++
             }
             i++
@@ -132,6 +148,14 @@ object TextFiles {
         }
         val kinds = listOf(crlf, lf, cr).count { it > 0 }
         val text = if (crlf + cr == 0) raw else raw.replace("\r\n", "\n").replace('\r', '\n')
-        return Decoded.Text(text, TextFormat(ending, finalNewline = text.isEmpty() || text.endsWith("\n"), bom = bom, mixed = kinds > 1))
+        return Decoded.Text(
+            text,
+            TextFormat(
+                ending,
+                finalNewline = text.isEmpty() || text.endsWith("\n"),
+                bom = bom,
+                mixed = kinds > 1
+            )
+        )
     }
 }

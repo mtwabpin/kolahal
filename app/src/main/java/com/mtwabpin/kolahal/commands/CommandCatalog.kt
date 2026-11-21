@@ -14,11 +14,21 @@ package com.mtwabpin.kolahal.commands
  */
 object CommandCatalog {
     val COMMANDS = listOf(
-        CommandSpec("help", "help [<command>]", "Show this list, or just one command", short = "This list", args = "<command>", aka = listOf("?")),
-        *com.mtwabpin.kolahal.commands.ControlSpecs.SPECS.toTypedArray(),
         CommandSpec(
-            "apps", "apps [work|personal|private|hidden] [-l|-a]", "App grid (-l: one per line, -a: hidden apps too)",
-            short = "Your apps as a grid", args = "work · personal · private · hidden · -l · -a",
+            "help",
+            "help [<command>]",
+            "Show this list, or just one command",
+            short = "This list",
+            args = "<command>",
+            aka = listOf("?")
+        ),
+        *ControlSpecs.SPECS.toTypedArray(),
+        CommandSpec(
+            "apps",
+            "apps [work|personal|private|hidden] [-l|-a]",
+            "App grid (-l: one per line, -a: hidden apps too)",
+            short = "Your apps as a grid",
+            args = "work · personal · private · hidden · -l · -a",
             uses = listOf(
                 "apps" to "your apps as a grid",
                 "apps work" to "only the work profile's apps",
@@ -30,19 +40,49 @@ object CommandCatalog {
             ),
             aka = listOf("ls"),
         ),
-        CommandSpec("open", "open <app>[:shortcut] [-w|-p|-s]", "Launch an app or one of its shortcuts", short = "Open an app or shortcut", args = "<app>[:shortcut] · -w · -p · -s", aka = listOf("launch")),
-        CommandSpec("shortcuts", "shortcuts <app>", "An app's launcher shortcuts", short = "An app's shortcuts", args = "<app>"),
         CommandSpec(
-            "activity", "activity <app> [<name>]", "List an app's activities, or open one: a screen without an icon",
-            short = "Any screen of an app", args = "<app> [<name>]",
+            "open",
+            "open <app>[:shortcut] [-w|-p|-s]",
+            "Launch an app or one of its shortcuts",
+            short = "Open an app or shortcut",
+            args = "<app>[:shortcut] · -w · -p · -s",
+            aka = listOf("launch")
+        ),
+        CommandSpec(
+            "shortcuts",
+            "shortcuts <app>",
+            "An app's launcher shortcuts",
+            short = "An app's shortcuts",
+            args = "<app>"
+        ),
+        CommandSpec(
+            "activity",
+            "activity <app> [<name>]",
+            "List an app's activities, or open one: a screen without an icon",
+            short = "Any screen of an app",
+            args = "<app> [<name>]",
             uses = listOf(
                 "activity <app>" to "the screens other apps may open; tap one to open it",
                 "activity <app> <name>" to "open one by its name or class, for an alias",
             ),
             sensitive = true,
         ),
-        CommandSpec("info", "info <app> [-w]", "Open app info", short = "An app's info page", args = "<app> · -w", sensitive = true),
-        CommandSpec("uninstall", "uninstall <app> [-w]", "Uninstall an app", short = "Uninstall an app", args = "<app> · -w", sensitive = true),
+        CommandSpec(
+            "info",
+            "info <app> [-w]",
+            "Open app info",
+            short = "An app's info page",
+            args = "<app> · -w",
+            sensitive = true
+        ),
+        CommandSpec(
+            "uninstall",
+            "uninstall <app> [-w]",
+            "Uninstall an app",
+            short = "Uninstall an app",
+            args = "<app> · -w",
+            sensitive = true
+        ),
         CommandSpec(
             "work", "work [on|off|status]", "Pause / resume the work profile",
             short = "Pause the work profile", args = "on · off · status",
@@ -63,12 +103,39 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("unlocks", "unlocks [<days> | week | month]", "Unlock counts; week and month as a chart", short = "Unlock counts", args = "<days> · week · month"),
-        CommandSpec("fetch", "fetch", "This phone and Kolahal at a glance, fastfetch style", short = "This phone at a glance", aka = listOf("neofetch", "fastfetch")),
-        CommandSpec("source", "source", "Open Kolahal's source code on GitHub", short = "Source code on GitHub", sensitive = true),
-        CommandSpec("wallpaper", "wallpaper [match]", "match: set the home screen wallpaper to this theme's colour, following the theme, so it doesn't flash when you swipe home", short = "Wallpaper in theme colour", args = "match", sensitive = true),
         CommandSpec(
-            "script", "script <sub> <name>", "Subcommands: ls lib install get sources source new edit run every at notify on off access allow deny pin unpin secret set triggers mv rm cat diff dir export import",
+            "unlocks",
+            "unlocks [<days> | week | month]",
+            "Unlock counts; week and month as a chart",
+            short = "Unlock counts",
+            args = "<days> · week · month"
+        ),
+        CommandSpec(
+            "fetch",
+            "fetch",
+            "This phone and Kolahal at a glance, fastfetch style",
+            short = "This phone at a glance",
+            aka = listOf("neofetch", "fastfetch")
+        ),
+        CommandSpec(
+            "source",
+            "source",
+            "Open Kolahal's source code on GitHub",
+            short = "Source code on GitHub",
+            sensitive = true
+        ),
+        CommandSpec(
+            "wallpaper",
+            "wallpaper [match]",
+            "match: set the home screen wallpaper to this theme's colour, following the theme, so it doesn't flash when you swipe home",
+            short = "Wallpaper in theme colour",
+            args = "match",
+            sensitive = true
+        ),
+        CommandSpec(
+            "script",
+            "script <sub> <name>",
+            "Subcommands: ls lib install get sources source new edit run every at notify on off access allow deny pin unpin secret set triggers mv rm cat diff dir export import",
             short = "Manage scripts",
             args = "ls · lib · install · get · sources · source · new · edit · run · every · at · notify · on · off · access · allow · deny · pin · unpin · secret · set · triggers · mv · rm · cat · diff · dir · export · import",
             uses = listOf(
@@ -102,13 +169,44 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("=", "= <expr>", "Calculator · = 15% of 80 · = 5 km in mi · = 100 usd in eur", short = "Calculator", args = "15% of 80 · 5 km in mi · 100 usd in eur", sensitive = true),
-        CommandSpec("lua", "lua <code>", "Evaluate Lua 5.4", short = "Run Lua", args = "<code>", sensitive = true),
-        CommandSpec("js", "js <code>", "Evaluate JavaScript (QuickJS)", short = "Run JavaScript", args = "<code>", sensitive = true),
-        CommandSpec("rss", "rss <url>", "Fetch a feed into the log once", short = "Read a feed once", args = "<url>", sensitive = true),
         CommandSpec(
-            "feed", "feed [add <url>|url <id> <url>|ls|rm|fetch|read|all|open|notify|every|on|off] [<id>]", "RSS/Atom subscriptions with unread counts (no args: text list)",
-            short = "Your feeds, with unread", args = "add <url> · ls · rm · fetch · read · all · open · notify · every · on · off · url <id> <url>",
+            "=",
+            "= <expr>",
+            "Calculator · = 15% of 80 · = 5 km in mi · = 100 usd in eur",
+            short = "Calculator",
+            args = "15% of 80 · 5 km in mi · 100 usd in eur",
+            sensitive = true
+        ),
+        CommandSpec(
+            "lua",
+            "lua <code>",
+            "Evaluate Lua 5.4",
+            short = "Run Lua",
+            args = "<code>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "js",
+            "js <code>",
+            "Evaluate JavaScript (QuickJS)",
+            short = "Run JavaScript",
+            args = "<code>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "rss",
+            "rss <url>",
+            "Fetch a feed into the log once",
+            short = "Read a feed once",
+            args = "<url>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "feed",
+            "feed [add <url>|url <id> <url>|ls|rm|fetch|read|all|open|notify|every|on|off] [<id>]",
+            "RSS/Atom subscriptions with unread counts (no args: text list)",
+            short = "Your feeds, with unread",
+            args = "add <url> · ls · rm · fetch · read · all · open · notify · every · on · off · url <id> <url>",
             uses = listOf(
                 "feed" to "your feeds, with unread counts",
                 "feed add <url>" to "subscribe, and fetch it now",
@@ -124,20 +222,39 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("feeds", "feeds", "Feed manager screen (add, intervals, notifications, OPML)", short = "Feed manager", sensitive = true),
         CommandSpec(
-            "widgets", "widgets [ls|page]", "Settings → Widgets → Arrange widgets: add, resize and arrange them (ls: text list; page: turn home to the widgets page)",
-            short = "Arrange widgets", args = "ls · page",
+            "feeds",
+            "feeds",
+            "Feed manager screen (add, intervals, notifications, OPML)",
+            short = "Feed manager",
+            sensitive = true
+        ),
+        CommandSpec(
+            "widgets",
+            "widgets [ls|page]",
+            "Settings → Widgets → Arrange widgets: add, resize and arrange them (ls: text list; page: turn home to the widgets page)",
+            short = "Arrange widgets",
+            args = "ls · page",
             uses = listOf(
                 "widgets" to "Arrange widgets: add, resize and arrange them",
                 "widgets page" to "turn home to the widgets page",
                 "widgets ls" to "the placed widgets, as text",
             ),
         ),
-        CommandSpec("widget", "widget add", "Pick a widget to add to the widgets page", short = "Add a widget", args = "add", sensitive = true),
         CommandSpec(
-            "notifs", "notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]", "Your notifications in the terminal",
-            short = "Your notifications", args = "all · enable · mute <app> · unmute <app> · muted · log [on|off] · clear",
+            "widget",
+            "widget add",
+            "Pick a widget to add to the widgets page",
+            short = "Add a widget",
+            args = "add",
+            sensitive = true
+        ),
+        CommandSpec(
+            "notifs",
+            "notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]",
+            "Your notifications in the terminal",
+            short = "Your notifications",
+            args = "all · enable · mute <app> · unmute <app> · muted · log [on|off] · clear",
             uses = listOf(
                 "notifs" to "the notifications showing now",
                 "notifs all" to "dismissed ones too",
@@ -148,15 +265,62 @@ object CommandCatalog {
                 "notifs log on|off" to "notifications in the log, or not",
                 "notifs clear" to "dismiss them all",
             ),
-            aka = listOf("notifications-feed"), sensitive = true,
+            aka = listOf("notifications-feed"),
+            sensitive = true,
         ),
-        CommandSpec("search", "search <query>", "Web search (engine: config search.engine)", short = "Search the web", args = "<query>", aka = listOf("g")),
-        CommandSpec("yt", "yt <query>", "Search YouTube", short = "Search YouTube", args = "<query>", aka = listOf("youtube")),
-        CommandSpec("wiki", "wiki <query>", "Search Wikipedia", short = "Search Wikipedia", args = "<query>"),
-        CommandSpec("maps", "maps <place>", "Find a place in your maps app", short = "Find a place", args = "<place>", aka = listOf("map")),
-        CommandSpec("play", "play <query>", "Search the Play Store", short = "Search the Play Store", args = "<query>", aka = listOf("store")),
-        CommandSpec("storage", "storage", "Free space, the largest apps, and apps not opened for 30 days", short = "Storage and unused apps"),
-        CommandSpec("usage", "usage [<days> | <app>]", "Screen time per app, or one app in detail", short = "Screen time per app", args = "<days> · <app>", aka = listOf("screentime")),
+        CommandSpec(
+            "search",
+            "search <query>",
+            "Web search (engine: config search.engine)",
+            short = "Search the web",
+            args = "<query>",
+            aka = listOf("g")
+        ),
+        CommandSpec(
+            "yt",
+            "yt <query>",
+            "Search YouTube",
+            short = "Search YouTube",
+            args = "<query>",
+            aka = listOf("youtube")
+        ),
+        CommandSpec(
+            "wiki",
+            "wiki <query>",
+            "Search Wikipedia",
+            short = "Search Wikipedia",
+            args = "<query>"
+        ),
+        CommandSpec(
+            "maps",
+            "maps <place>",
+            "Find a place in your maps app",
+            short = "Find a place",
+            args = "<place>",
+            aka = listOf("map")
+        ),
+        CommandSpec(
+            "play",
+            "play <query>",
+            "Search the Play Store",
+            short = "Search the Play Store",
+            args = "<query>",
+            aka = listOf("store")
+        ),
+        CommandSpec(
+            "storage",
+            "storage",
+            "Free space, the largest apps, and apps not opened for 30 days",
+            short = "Storage and unused apps"
+        ),
+        CommandSpec(
+            "usage",
+            "usage [<days> | <app>]",
+            "Screen time per app, or one app in detail",
+            short = "Screen time per app",
+            args = "<days> · <app>",
+            aka = listOf("screentime")
+        ),
         CommandSpec(
             "usage-summary", "usage-summary [week | month | year | full] [<app>]",
             "Screen time over Android's weeks, months and years. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. Tap a line of the overview to see that level.",
@@ -170,17 +334,89 @@ object CommandCatalog {
                 "usage-summary full" to "all of them",
             ),
         ),
-        CommandSpec("installs", "installs [<n>]", "Recent app installs, updates and uninstalls", short = "Recent installs", args = "<n>", aka = listOf("updates")),
+        CommandSpec(
+            "installs",
+            "installs [<n>]",
+            "Recent app installs, updates and uninstalls",
+            short = "Recent installs",
+            args = "<n>",
+            aka = listOf("updates")
+        ),
         // The Play build has no READ_CONTACTS. There, a command without a name opens Android's contact picker.
-        if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec("call", "call <name|number>", "Dial a contact or number", short = "Call someone", args = "<name|number>", aka = listOf("dial"), sensitive = true)
-        else CommandSpec("call", "call [<name|number>]", "Dial a contact or number", short = "Call someone", args = "[<name|number>]", aka = listOf("dial"), sensitive = true),
-        if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec("sms", "sms <name|number> [<text>]", "Start a text message", short = "Text someone", args = "<name|number> [<text>]", aka = listOf("text"), sensitive = true)
-        else CommandSpec("sms", "sms [<name|number> [<text>]]", "Start a text message", short = "Text someone", args = "[<name|number> [<text>]]", aka = listOf("text"), sensitive = true),
-        if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec("contacts", "contacts [<query>|--allow]", "Find contacts (favourites when empty)", short = "Find a contact", args = "<query> · --allow", aka = listOf("contact"))
-        else CommandSpec("contacts", "contacts [<query>|--forget <name>]", "Pick a contact, or find one picked before", short = "Pick a contact", args = "<query> · --forget <name>", aka = listOf("contact")),
-        CommandSpec("calls", "calls [<n>|--allow|--settings]", "Recent calls: incoming, outgoing and missed", short = "Recent calls", args = "<n> · --allow · --settings"),
-        CommandSpec("url", "url <address>", "Open a link", short = "Open a link", args = "<address>", aka = listOf("web"), sensitive = true),
-        CommandSpec("history", "history", "Recent commands (tap to reuse)", short = "Recent commands"),
+        if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec(
+            "call",
+            "call <name|number>",
+            "Dial a contact or number",
+            short = "Call someone",
+            args = "<name|number>",
+            aka = listOf("dial"),
+            sensitive = true
+        )
+        else CommandSpec(
+            "call",
+            "call [<name|number>]",
+            "Dial a contact or number",
+            short = "Call someone",
+            args = "[<name|number>]",
+            aka = listOf("dial"),
+            sensitive = true
+        ),
+        if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec(
+            "sms",
+            "sms <name|number> [<text>]",
+            "Start a text message",
+            short = "Text someone",
+            args = "<name|number> [<text>]",
+            aka = listOf("text"),
+            sensitive = true
+        )
+        else CommandSpec(
+            "sms",
+            "sms [<name|number> [<text>]]",
+            "Start a text message",
+            short = "Text someone",
+            args = "[<name|number> [<text>]]",
+            aka = listOf("text"),
+            sensitive = true
+        ),
+        if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec(
+            "contacts",
+            "contacts [<query>|--allow]",
+            "Find contacts (favourites when empty)",
+            short = "Find a contact",
+            args = "<query> · --allow",
+            aka = listOf("contact")
+        )
+        else CommandSpec(
+            "contacts",
+            "contacts [<query>|--forget <name>]",
+            "Pick a contact, or find one picked before",
+            short = "Pick a contact",
+            args = "<query> · --forget <name>",
+            aka = listOf("contact")
+        ),
+        CommandSpec(
+            "calls",
+            "calls [<n>|--allow|--settings]",
+            "Recent calls: incoming, outgoing and missed",
+            short = "Recent calls",
+            args = "<n> · --allow · --settings"
+        ),
+        CommandSpec(
+            "url",
+            "url <address>",
+            "Open a link",
+            short = "Open a link",
+            args = "<address>",
+            aka = listOf("web"),
+            sensitive = true
+        ),
+        CommandSpec(
+            "history",
+            "history",
+            "Recent commands (tap to reuse)",
+            short = "Recent commands"
+        ),
         CommandSpec(
             "clear", "clear [history|all]", "Clear the screen, the ↑ history, or both",
             short = "Clear the screen", args = "history · all",
@@ -192,8 +428,11 @@ object CommandCatalog {
             aka = listOf("cls"), sensitive = true,
         ),
         CommandSpec(
-            "backup", "backup [now|every <daily|weekly|off>|dir]", "Back up everything to a folder now, or every day or week",
-            short = "Back up everything", args = "now · every <daily|weekly|off> · dir",
+            "backup",
+            "backup [now|every <daily|weekly|off>|dir]",
+            "Back up everything to a folder now, or every day or week",
+            short = "Back up everything",
+            args = "now · every <daily|weekly|off> · dir",
             uses = listOf(
                 "backup" to "back up now; the first time, pick a folder",
                 "backup every daily" to "back up every day",
@@ -204,17 +443,40 @@ object CommandCatalog {
             sensitive = true,
         ),
         CommandSpec(
-            "log", "log [only <name|kind>|all]", "Show only one script's, feed's or app's lines, one kind of line, or the starred ones",
-            short = "Show only some lines", args = "only <name|kind> · all",
+            "log",
+            "log [only <name|kind>|all]",
+            "Show only one script's, feed's or app's lines, one kind of line, or the starred ones",
+            short = "Show only some lines",
+            args = "only <name|kind> · all",
             uses = listOf(
                 "log only <name>" to "only one script's, feed's or app's lines",
                 "log only <kind>" to "only commands, scripts, feeds, notifications, apps, calls, reminders or starred lines",
                 "log all" to "every line again",
             ),
         ),
-        CommandSpec("fresh", "fresh", "Start a clean screen now, like log.fresh; earlier lines are one tap away (not logged)", short = "A clean screen"),
-        CommandSpec("restart", "restart [scripts]", "Restart the launcher, or stop running scripts", short = "Restart Kolahal", args = "scripts", aka = listOf("reboot"), sensitive = true),
-        CommandSpec("update", "update [install]", "Check for updates (install: download and install the latest)", short = "Check for updates", args = "install", sensitive = true),
+        CommandSpec(
+            "fresh",
+            "fresh",
+            "Start a clean screen now, like log.fresh; earlier lines are one tap away (not logged)",
+            short = "A clean screen"
+        ),
+        CommandSpec(
+            "restart",
+            "restart [scripts]",
+            "Restart the launcher, or stop running scripts",
+            short = "Restart Kolahal",
+            args = "scripts",
+            aka = listOf("reboot"),
+            sensitive = true
+        ),
+        CommandSpec(
+            "update",
+            "update [install]",
+            "Check for updates (install: download and install the latest)",
+            short = "Check for updates",
+            args = "install",
+            sensitive = true
+        ),
         CommandSpec(
             "status", "status [clear <name|all>]", "Scripts' status lines, the pinned ones marked",
             short = "Scripts' status lines", args = "clear <name|all>",
@@ -225,13 +487,40 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("setup", "setup [text]", "Setup checklist page (text: print it in the log)", short = "Setup checklist", args = "text"),
-        CommandSpec("tour", "tour", "How Kolahal works, a page at a time, with a few initial settings", short = "How Kolahal works"),
-        CommandSpec("notifications", "notifications [settings]", "Allow script notifications", short = "Allow script notifications", args = "settings", sensitive = true),
-        CommandSpec("usage-access", "usage-access", "Grant usage access (unlock count)", short = "Allow usage access", sensitive = true),
         CommandSpec(
-            "crashes", "crashes [share|clear] [<n>]", "Crash reports kept on this phone; share one to report a bug",
-            short = "Crash reports", args = "share <n> · clear",
+            "setup",
+            "setup [text]",
+            "Setup checklist page (text: print it in the log)",
+            short = "Setup checklist",
+            args = "text"
+        ),
+        CommandSpec(
+            "tour",
+            "tour",
+            "How Kolahal works, a page at a time, with a few initial settings",
+            short = "How Kolahal works"
+        ),
+        CommandSpec(
+            "notifications",
+            "notifications [settings]",
+            "Allow script notifications",
+            short = "Allow script notifications",
+            args = "settings",
+            sensitive = true
+        ),
+        CommandSpec(
+            "usage-access",
+            "usage-access",
+            "Grant usage access (unlock count)",
+            short = "Allow usage access",
+            sensitive = true
+        ),
+        CommandSpec(
+            "crashes",
+            "crashes [share|clear] [<n>]",
+            "Crash reports kept on this phone; share one to report a bug",
+            short = "Crash reports",
+            args = "share <n> · clear",
             uses = listOf(
                 "crashes" to "crash reports, newest first",
                 "crashes share [<n>]" to "share one; the newest by default",
@@ -239,17 +528,68 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("battery", "battery", "Battery optimization settings", short = "Battery optimization", sensitive = true),
-        CommandSpec("home", "home", "Choose the default launcher", short = "Choose the home app", sensitive = true),
-        CommandSpec("lock", "lock", "Lock the screen (needs the accessibility service)", short = "Lock the screen", sensitive = true),
-        CommandSpec("shade", "shade", "Pull down the notification shade", short = "Pull down notifications", sensitive = true),
-        CommandSpec("accessibility", "accessibility", "Enable the screen-lock service for double-tap", short = "Turn on screen lock", sensitive = true),
-        CommandSpec("settings", "settings", "Kolahal settings screen (+ backup import/export)", short = "Kolahal settings", aka = listOf("prefs")),
-        CommandSpec("scripts", "scripts", "Script manager screen (import files, timers)", short = "Script manager", sensitive = true),
-        CommandSpec("system", "system", "Android system settings", short = "Android settings", sensitive = true),
         CommandSpec(
-            "config", "config [ls|set|get|reset] <key> <v>", "Settings (no args opens the settings page)",
-            short = "Settings by name", args = "ls · set · get · reset <key> [<value>]",
+            "battery",
+            "battery",
+            "Battery optimization settings",
+            short = "Battery optimization",
+            sensitive = true
+        ),
+        CommandSpec(
+            "home",
+            "home",
+            "Choose the default launcher",
+            short = "Choose the home app",
+            sensitive = true
+        ),
+        CommandSpec(
+            "lock",
+            "lock",
+            "Lock the screen (needs the accessibility service)",
+            short = "Lock the screen",
+            sensitive = true
+        ),
+        CommandSpec(
+            "shade",
+            "shade",
+            "Pull down the notification shade",
+            short = "Pull down notifications",
+            sensitive = true
+        ),
+        CommandSpec(
+            "accessibility",
+            "accessibility",
+            "Enable the screen-lock service for double-tap",
+            short = "Turn on screen lock",
+            sensitive = true
+        ),
+        CommandSpec(
+            "settings",
+            "settings",
+            "Kolahal settings screen (+ backup import/export)",
+            short = "Kolahal settings",
+            aka = listOf("prefs")
+        ),
+        CommandSpec(
+            "scripts",
+            "scripts",
+            "Script manager screen (import files, timers)",
+            short = "Script manager",
+            sensitive = true
+        ),
+        CommandSpec(
+            "system",
+            "system",
+            "Android system settings",
+            short = "Android settings",
+            sensitive = true
+        ),
+        CommandSpec(
+            "config",
+            "config [ls|set|get|reset] <key> <v>",
+            "Settings (no args opens the settings page)",
+            short = "Settings by name",
+            args = "ls · set · get · reset <key> [<value>]",
             uses = listOf(
                 "config" to "open the settings page",
                 "config ls" to "every setting; tap one to change it",
@@ -258,12 +598,23 @@ object CommandCatalog {
                 "config reset <key>" to "put one back to its default",
                 "config reset all" to "put them all back",
             ),
-            aka = listOf("set"), sensitive = true,
+            aka = listOf("set"),
+            sensitive = true,
         ),
-        CommandSpec("theme", "theme <name>", "Themes: ${com.mtwabpin.kolahal.data.Keys.BUILT_IN_THEMES.joinToString(" ")}", short = "Colours", args = "<name>", sensitive = true),
         CommandSpec(
-            "font", "font [<name>|import|sans [off|prompt|all]]", "Terminal font: system jetbrains-mono fira-code ibm-plex-mono source-code-pro iosevka custom (no args: list); sans: the system font for the prompt or everything",
-            short = "Terminal font", args = "<name> · import · sans [off|prompt|all]",
+            "theme",
+            "theme <name>",
+            "Themes: ${com.mtwabpin.kolahal.data.Keys.BUILT_IN_THEMES.joinToString(" ")}",
+            short = "Colours",
+            args = "<name>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "font",
+            "font [<name>|import|sans [off|prompt|all]]",
+            "Terminal font: system jetbrains-mono fira-code ibm-plex-mono source-code-pro iosevka custom (no args: list); sans: the system font for the prompt or everything",
+            short = "Terminal font",
+            args = "<name> · import · sans [off|prompt|all]",
             uses = listOf(
                 "font" to "the fonts; tap one to use it",
                 "font <name>" to "use a font",
@@ -274,9 +625,29 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("date", "date [<place>...]", "Current date and time, or the time in a city, a zone, utc or an offset", short = "Date and time", args = "<place>…", aka = listOf("time")),
-        CommandSpec("echo", "echo <text>", "Print text", short = "Print text", args = "<text>", sensitive = true),
-        CommandSpec("cal", "cal [<month>] [<year>]", "The month as a calendar, today in bold · cal dec · cal dec 2027 · cal 2027-12", short = "A month's calendar", args = "<month> [<year>]"),
+        CommandSpec(
+            "date",
+            "date [<place>...]",
+            "Current date and time, or the time in a city, a zone, utc or an offset",
+            short = "Date and time",
+            args = "<place>…",
+            aka = listOf("time")
+        ),
+        CommandSpec(
+            "echo",
+            "echo <text>",
+            "Print text",
+            short = "Print text",
+            args = "<text>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "cal",
+            "cal [<month>] [<year>]",
+            "The month as a calendar, today in bold · cal dec · cal dec 2027 · cal 2027-12",
+            short = "A month's calendar",
+            args = "<month> [<year>]"
+        ),
         CommandSpec(
             "alias", "alias [name = command]", "List or define aliases",
             short = "Your aliases", args = "<name> = <command>",
@@ -288,16 +659,69 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("unalias", "unalias <name>", "Remove an alias", short = "Remove an alias", args = "<name>", sensitive = true),
-        CommandSpec("pin", "pin <app>", "Favourite: first on an empty prompt (suggestions.idle) and starred in the app selector (pins lists them)", short = "Pin an app", args = "<app>", aka = listOf("fav"), sensitive = true),
-        CommandSpec("unpin", "unpin <app>", "Remove a favourite", short = "Unpin an app", args = "<app>", aka = listOf("unfav"), sensitive = true),
-        CommandSpec("pins", "pins", "Grid of pinned apps", short = "Your pinned apps", aka = listOf("favs")),
-        CommandSpec("hide", "hide <app> [-w]", "Hide an app from lists and search", short = "Hide an app", args = "<app> · -w", sensitive = true),
-        CommandSpec("unhide", "unhide <app>", "Show a hidden app again ('apps hidden')", short = "Show a hidden app", args = "<app>", sensitive = true),
-        CommandSpec("rename", "rename <app> = <name>", "Custom label (empty restores)", short = "Rename an app", args = "<app> = <name>", sensitive = true),
         CommandSpec(
-            "todo", "todo [<text>|add|done|undo|edit|rm <n>|all|clear]", "Todo list (tap an item to tick it)",
-            short = "Your todo list", args = "<text> · add · done · undo · edit · rm <n> · all · clear",
+            "unalias",
+            "unalias <name>",
+            "Remove an alias",
+            short = "Remove an alias",
+            args = "<name>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "pin",
+            "pin <app>",
+            "Favourite: first on an empty prompt (suggestions.idle) and starred in the app selector (pins lists them)",
+            short = "Pin an app",
+            args = "<app>",
+            aka = listOf("fav"),
+            sensitive = true
+        ),
+        CommandSpec(
+            "unpin",
+            "unpin <app>",
+            "Remove a favourite",
+            short = "Unpin an app",
+            args = "<app>",
+            aka = listOf("unfav"),
+            sensitive = true
+        ),
+        CommandSpec(
+            "pins",
+            "pins",
+            "Grid of pinned apps",
+            short = "Your pinned apps",
+            aka = listOf("favs")
+        ),
+        CommandSpec(
+            "hide",
+            "hide <app> [-w]",
+            "Hide an app from lists and search",
+            short = "Hide an app",
+            args = "<app> · -w",
+            sensitive = true
+        ),
+        CommandSpec(
+            "unhide",
+            "unhide <app>",
+            "Show a hidden app again ('apps hidden')",
+            short = "Show a hidden app",
+            args = "<app>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "rename",
+            "rename <app> = <name>",
+            "Custom label (empty restores)",
+            short = "Rename an app",
+            args = "<app> = <name>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "todo",
+            "todo [<text>|add|done|undo|edit|rm <n>|all|clear]",
+            "Todo list (tap an item to tick it)",
+            short = "Your todo list",
+            args = "<text> · add · done · undo · edit · rm <n> · all · clear",
             uses = listOf(
                 "todo" to "the list",
                 "todo <text>" to "add an item",
@@ -310,7 +734,14 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("note", "note <text>", "Save a quick note", short = "Save a quick note", args = "<text>", sensitive = true),
+        CommandSpec(
+            "note",
+            "note <text>",
+            "Save a quick note",
+            short = "Save a quick note",
+            args = "<text>",
+            sensitive = true
+        ),
         CommandSpec(
             "notes", "notes [grep <text>|rm <n>]", "Your notes, newest first (tap to copy)",
             short = "Your notes", args = "grep <text> · rm <n>",
@@ -322,8 +753,11 @@ object CommandCatalog {
             sensitive = true,
         ),
         CommandSpec(
-            "edit", "edit [<file>|new [<name>]|recent]", "Open a text file in the text editor, a window of its own that stays open when you go home",
-            short = "Edit a text file", args = "<file> · new [<name>] · recent",
+            "edit",
+            "edit [<file>|new [<name>]|recent]",
+            "Open a text file in the text editor, a window of its own that stays open when you go home",
+            short = "Edit a text file",
+            args = "<file> · new [<name>] · recent",
             uses = listOf(
                 "edit" to "pick a file to open",
                 "edit new [<name>]" to "make a new file, and open it",
@@ -332,23 +766,64 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("remind", "remind <when> <text>", "Notify later · 10m · 18:30 · tomorrow 9:00 · fri 8am · dec 3 10:00 · every mon 19:00 · rm <n>", short = "Remind you later", args = "<when> <text> · rm <n>", sensitive = true),
+        CommandSpec(
+            "remind",
+            "remind <when> <text>",
+            "Notify later · 10m · 18:30 · tomorrow 9:00 · fri 8am · dec 3 10:00 · every mon 19:00 · rm <n>",
+            short = "Remind you later",
+            args = "<when> <text> · rm <n>",
+            sensitive = true
+        ),
         CommandSpec("reminders", "reminders", "Pending reminders", short = "Pending reminders"),
-        CommandSpec("timer", "timer <5m|1h30m> [<label>]", "Start a timer in the clock app (no args: show timers)", short = "A timer in the clock app", args = "<5m|1h30m> [<label>]", sensitive = true),
-        CommandSpec("alarm", "alarm <HH:MM> [<label>]", "Set an alarm in the clock app", short = "An alarm in the clock app", args = "<HH:MM> [<label>]", sensitive = true),
-        CommandSpec("alarms", "alarms", "Show the clock app's alarms", short = "The clock app's alarms", sensitive = true),
-        CommandSpec("stopwatch", "stopwatch", "Open the clock app", short = "Open the clock app", sensitive = true),
-        CommandSpec("agenda", "agenda [<days>|--allow|--settings]", "Upcoming calendar events (tap to open one)", short = "Upcoming events", args = "<days> · --allow · --settings"),
+        CommandSpec(
+            "timer",
+            "timer <5m|1h30m> [<label>]",
+            "Start a timer in the clock app (no args: show timers)",
+            short = "A timer in the clock app",
+            args = "<5m|1h30m> [<label>]",
+            sensitive = true
+        ),
+        CommandSpec(
+            "alarm",
+            "alarm <HH:MM> [<label>]",
+            "Set an alarm in the clock app",
+            short = "An alarm in the clock app",
+            args = "<HH:MM> [<label>]",
+            sensitive = true
+        ),
+        CommandSpec(
+            "alarms",
+            "alarms",
+            "Show the clock app's alarms",
+            short = "The clock app's alarms",
+            sensitive = true
+        ),
+        CommandSpec(
+            "stopwatch",
+            "stopwatch",
+            "Open the clock app",
+            short = "Open the clock app",
+            sensitive = true
+        ),
+        CommandSpec(
+            "agenda",
+            "agenda [<days>|--allow|--settings]",
+            "Upcoming calendar events (tap to open one)",
+            short = "Upcoming events",
+            args = "<days> · --allow · --settings"
+        ),
     )
 
     /** Every built-in command name. Used to check aliases, script names and typos. */
     val COMMAND_NAMES: Set<String> = COMMANDS.map { it.name }.toSet()
 
     /** Each other name ([CommandSpec.aka]) and the command it stands for. */
-    val SYNONYMS: Map<String, String> = COMMANDS.flatMap { spec -> spec.aka.map { it to spec.name } }.toMap()
+    val SYNONYMS: Map<String, String> =
+        COMMANDS.flatMap { spec -> spec.aka.map { it to spec.name } }.toMap()
 
     /** The commands that never run without Enter, and that scripts can't send ([CommandSpec.sensitive]), and the device controls. */
-    val SENSITIVE: Set<String> = COMMANDS.filter { it.sensitive }.mapTo(HashSet()) { it.name } + com.mtwabpin.kolahal.commands.ControlSpecs.SENSITIVE
+    val SENSITIVE: Set<String> = COMMANDS.filter { it.sensitive }
+        .mapTo(HashSet()) { it.name } + ControlSpecs.SENSITIVE
 
     /** Names that a script or an alias can't use: the command names and their synonyms. */
     val RESERVED_NAMES: Set<String> = COMMAND_NAMES + SYNONYMS.keys
@@ -367,7 +842,8 @@ object CommandCatalog {
      * Commands whose feature this build leaves out. They are not suggested or listed in help,
      * so the Play build doesn't offer what it can't do. If the user types one anyway, it explains why it is missing.
      */
-    val UNAVAILABLE: Set<String> = FEATURE_COMMANDS.filterNot { it.first }.flatMap { it.second }.toSet()
+    val UNAVAILABLE: Set<String> =
+        FEATURE_COMMANDS.filterNot { it.first }.flatMap { it.second }.toSet()
 
     /** The commands this build offers. Help lists them and completion suggests them. */
     val OFFERED: List<CommandSpec> = COMMANDS.filter { it.name !in UNAVAILABLE }
@@ -430,7 +906,7 @@ object CommandCatalog {
             "rss",
             "notifs",
         ),
-        "control" to com.mtwabpin.kolahal.commands.ControlSpecs.SPECS.map { it.name },
+        "control" to ControlSpecs.SPECS.map { it.name },
         "profiles" to listOf(
             "work",
             "private",

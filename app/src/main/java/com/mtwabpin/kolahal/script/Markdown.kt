@@ -15,7 +15,12 @@ import com.mtwabpin.kolahal.data.StyledText.Style
  * - A backslash before a punctuation mark shows the mark as it is. [escape] adds these backslashes.
  */
 object Markdown {
-    private val DOUBLE = listOf("**" to Style.BOLD, "__" to Style.BOLD, "~~" to Style.STRIKE, "++" to Style.UNDERLINE)
+    private val DOUBLE = listOf(
+        "**" to Style.BOLD,
+        "__" to Style.BOLD,
+        "~~" to Style.STRIKE,
+        "++" to Style.UNDERLINE
+    )
     private val ITEM = Regex("^( *)([-*+]|\\d{1,4}[.)]) +(.*)$")
     private const val PUNCTUATION = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
 
@@ -34,7 +39,8 @@ object Markdown {
     /** Escapes everything in [text] that Markdown would read as a style or a list item, so it shows as written. */
     fun escape(text: String): String = text.split('\n').joinToString("\n") { line ->
         // `[` too, so text from the web can't make a link ([text](address)).
-        val escaped = buildString { line.forEach { c -> if (c in "\\*_~+`[") append('\\'); append(c) } }
+        val escaped =
+            buildString { line.forEach { c -> if (c in "\\*_~+`[") append('\\'); append(c) } }
         // A line that would read as a list item: "- milk", "1. milk".
         Regex("^( *)(-|\\d{1,4})([.)]?)( +)").find(escaped)?.let { m ->
             val (spaces, mark, dot, gap) = m.destructured
@@ -60,7 +66,12 @@ object Markdown {
                 val link = link(s, i)
                 if (link != null) {
                     val (close, end) = link
-                    out.append(StyledText.link(s.substring(close + 2, end), span(s.substring(i + 1, close))))
+                    out.append(
+                        StyledText.link(
+                            s.substring(close + 2, end),
+                            span(s.substring(i + 1, close))
+                        )
+                    )
                     i = end + 1
                     continue
                 }
@@ -86,8 +97,10 @@ object Markdown {
             if (c == '*' || c == '_') {
                 val end = closing(s, c.toString(), i + 1)
                 // `_` works only around words, not inside one, so snake_case stays as it is.
-                val opens = i + 1 < s.length && !s[i + 1].isWhitespace() && (c == '*' || i == 0 || !s[i - 1].isLetterOrDigit())
-                val closes = end > i + 1 && !s[end - 1].isWhitespace() && (c == '*' || end + 1 >= s.length || !s[end + 1].isLetterOrDigit())
+                val opens =
+                    i + 1 < s.length && !s[i + 1].isWhitespace() && (c == '*' || i == 0 || !s[i - 1].isLetterOrDigit())
+                val closes =
+                    end > i + 1 && !s[end - 1].isWhitespace() && (c == '*' || end + 1 >= s.length || !s[end + 1].isLetterOrDigit())
                 if (opens && closes) {
                     out.append(StyledText.wrap(Style.ITALIC, span(s.substring(i + 1, end))))
                     i = end + 1

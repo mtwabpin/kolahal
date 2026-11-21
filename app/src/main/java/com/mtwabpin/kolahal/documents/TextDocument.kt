@@ -60,7 +60,12 @@ class TextDocument(
          * - [restored]: [text] is a draft, with changes that were never saved.
          * - [changedSince]: the file changed after the draft's changes were made. Saving asks first.
          */
-        data class Ready(val text: String, val saved: String, val restored: Boolean = false, val changedSince: Boolean = false) : Opened
+        data class Ready(
+            val text: String,
+            val saved: String,
+            val restored: Boolean = false,
+            val changedSince: Boolean = false
+        ) : Opened
 
         /** The file can't be edited (it is not text, or too big). [why] is a sentence for the user. */
         data class Refused(val why: String) : Opened
@@ -90,8 +95,12 @@ class TextDocument(
             is Reread.Refused -> {
                 name = read.info.name
                 version = read.version
-                if (draft != null) Opened.Unavailable(read.why.removeSuffix("."), draft.text) else Opened.Refused(read.why)
+                if (draft != null) Opened.Unavailable(
+                    read.why.removeSuffix("."),
+                    draft.text
+                ) else Opened.Refused(read.why)
             }
+
             is Reread.Text -> {
                 val fresh = read.fresh
                 // Nothing unsaved is left in a draft that says what the file says.
@@ -104,7 +113,12 @@ class TextDocument(
                     val wasBasedOn = base
                     adopt(fresh)
                     base = wasBasedOn
-                    Opened.Ready(draft.text, fresh.text, restored = true, changedSince = wasBasedOn != fresh.version.hash)
+                    Opened.Ready(
+                        draft.text,
+                        fresh.text,
+                        restored = true,
+                        changedSince = wasBasedOn != fresh.version.hash
+                    )
                 }
             }
         }
@@ -122,10 +136,15 @@ class TextDocument(
         class Text internal constructor(val fresh: Fresh) : Reread
 
         /** The file is not text now, or is too big. [why] is a sentence for the user. */
-        class Refused internal constructor(val why: String, internal val info: DocumentInfo, internal val version: Version) : Reread
+        class Refused internal constructor(
+            val why: String,
+            internal val info: DocumentInfo,
+            internal val version: Version
+        ) : Reread
 
         /** The file can't be read now. [why] says so, without a full stop. */
-        class Unavailable internal constructor(val why: String, internal val info: DocumentInfo) : Reread
+        class Unavailable internal constructor(val why: String, internal val info: DocumentInfo) :
+            Reread
     }
 
     /**
@@ -143,7 +162,14 @@ class TextDocument(
         val version = Version(info.size, info.modified, sha256Hex(bytes))
         return when (val decoded = TextFiles.decode(bytes)) {
             is TextFiles.Decoded.Refused -> Reread.Refused(decoded.why, info, version)
-            is TextFiles.Decoded.Text -> Reread.Text(Fresh(decoded.text, info, decoded.format, version))
+            is TextFiles.Decoded.Text -> Reread.Text(
+                Fresh(
+                    decoded.text,
+                    info,
+                    decoded.format,
+                    version
+                )
+            )
         }
     }
 
@@ -165,7 +191,8 @@ class TextDocument(
         if (format.complete(text) == fileText) drafts.delete(uri) else writeDraft(text)
     }
 
-    private fun writeDraft(text: String) = drafts.write(Drafts.Draft(uri, name, text, base, clock()))
+    private fun writeDraft(text: String) =
+        drafts.write(Drafts.Draft(uri, name, text, base, clock()))
 
     /**
      * The same file was opened again at another address, [to]: from its folder, where Kolahal may
@@ -255,7 +282,8 @@ class TextDocument(
         val last = version
         val info = source.info(uri)
         if (quick && last != null && last.modified != null && info.modified == last.modified && info.size == last.size) return false
-        val bytes = runCatching { source.read(uri, TextFiles.MAX_BYTES) }.getOrNull() ?: return false
+        val bytes =
+            runCatching { source.read(uri, TextFiles.MAX_BYTES) }.getOrNull() ?: return false
         if (last == null) return bytes.isNotEmpty()
         val same = sha256Hex(bytes) == last.hash
         // Remember the new size and time, so the next quick look doesn't read the file again.
@@ -263,11 +291,13 @@ class TextDocument(
         return !same
     }
 
-    private fun reason(e: Throwable): String = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+    private fun reason(e: Throwable): String =
+        e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
 
     companion object {
         /** The last part of an address, as a name to show until the file's own name is known. */
         fun nameIn(uri: String): String =
-            uri.substringBefore('?').trimEnd('/').substringAfterLast('/').substringAfterLast("%2F").substringAfterLast("%3A").ifEmpty { "file" }
+            uri.substringBefore('?').trimEnd('/').substringAfterLast('/').substringAfterLast("%2F")
+                .substringAfterLast("%3A").ifEmpty { "file" }
     }
 }

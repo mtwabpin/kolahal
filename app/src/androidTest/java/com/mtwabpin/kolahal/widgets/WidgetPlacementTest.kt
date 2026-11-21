@@ -29,9 +29,12 @@ class WidgetPlacementTest {
     private val host = t.host
     private val scripts = t.scripts
     private val commands = CommandRunner(context)
-    @get:Rule val logLines = LogLinesSince()
 
-    @After fun tearDown() = t.close()
+    @get:Rule
+    val logLines = LogLinesSince()
+
+    @After
+    fun tearDown() = t.close()
 
     private val code = "-- @widget stat 2x1\nwidget.show{ value = 7, label = 'kept' }"
     private val seven = WidgetSpec.Stat(WidgetBase(), "7", label = "Kept")
@@ -46,7 +49,8 @@ class WidgetPlacementTest {
     private fun saved() = WidgetCodec.decode(Stores.WIDGETS.open(context).getString("placed", null))
 
     /** Placing adds one entry in the first free space of the page, at the size of the `@widget` line, and the run it asks for fills the widget. */
-    @Test fun placingAddsAnEntryAndTurnsTheAccessOn() {
+    @Test
+    fun placingAddsAnEntryAndTurnsTheAccessOn() {
         val s = t.create("-a", code)
         assertFalse(on(s))
         assertNull(t.entry(s.name))
@@ -55,7 +59,16 @@ class WidgetPlacementTest {
         val placed = t.place(s)
         val w = t.entry(s.name)!!
         assertEquals(
-            PlacedWidget(id = null, provider = "script:${s.name}", profileSerial = host.serialOf(Process.myUserHandle()), heightDp = w.heightDp, order = last, span = 6, column = w.column, topDp = w.topDp),
+            PlacedWidget(
+                id = null,
+                provider = "script:${s.name}",
+                profileSerial = host.serialOf(Process.myUserHandle()),
+                heightDp = w.heightDp,
+                order = last,
+                span = 6,
+                column = w.column,
+                topDp = w.topDp
+            ),
             w,
         )
         assertTrue("it has a place on the page at once", w.positioned)
@@ -64,7 +77,10 @@ class WidgetPlacementTest {
         assertTrue("${w.heightDp}dp", w.heightDp >= WidgetSizes.MIN_ROW_DP)
         assertTrue(host.widgets.value.any { it.source == t.source(s.name) })
         assertEquals(listOf(w), saved().filter { it.source == w.source })
-        assertTrue(host.listing(context).toString(), host.listing(context).any { (text, detail) -> text.endsWith(". ${s.name}") && detail.endsWith(" · script") })
+        assertTrue(
+            host.listing(context).toString(),
+            host.listing(context)
+                .any { (text, detail) -> text.endsWith(". ${s.name}") && detail.endsWith(" · script") })
 
         assertTrue(on(placed))
         assertEquals(true, placed.access[ScriptAccess.WIDGET])
@@ -77,7 +93,8 @@ class WidgetPlacementTest {
         assertEquals(listOf(w), host.widgets.value.filter { it.source == w.source })
     }
 
-    @Test fun removingTurnsTheAccessOffAndForgetsWhatItShowed() {
+    @Test
+    fun removingTurnsTheAccessOffAndForgetsWhatItShowed() {
         val s = t.place(t.create("-b", code))
         t.run(s, widget = true)
         assertEquals(seven, t.stored(s.name).spec)
@@ -101,7 +118,8 @@ class WidgetPlacementTest {
     }
 
     /** Renamed, the script keeps its widget: the entry, its size and place, the access and what it shows. */
-    @Test fun aRenameMovesTheEntryAndWhatItShows() {
+    @Test
+    fun aRenameMovesTheEntryAndWhatItShows() {
         val s = t.place(t.create("-c", code))
         t.run(s)
         val before = t.entry(s.name)!!
@@ -122,7 +140,8 @@ class WidgetPlacementTest {
     }
 
     /** Deleted, the script leaves its entry on the page with nothing to show. A script that takes the name has the widget. */
-    @Test fun aDeleteKeepsTheEntry() {
+    @Test
+    fun aDeleteKeepsTheEntry() {
         val s = t.place(t.create("-d", code))
         t.run(s)
         val w = t.entry(s.name)!!
@@ -147,7 +166,8 @@ class WidgetPlacementTest {
      * gets the name later has the widget, whichever way it gets there: by a rename, or with a
      * `@widget` line added to its code.
      */
-    @Test fun aWaitingWidgetIsTheScriptsAfterARenameOrAnEdit() {
+    @Test
+    fun aWaitingWidgetIsTheScriptsAfterARenameOrAnEdit() {
         // Leaves a widget on the page under the name made with the suffix, with no script.
         fun waiting(suffix: String): PlacedWidget {
             val s = t.place(t.create(suffix, code))
@@ -198,9 +218,11 @@ class WidgetPlacementTest {
     }
 
     /** `script allow|deny <name> widget` is refused, and says where the widget is added and removed. */
-    @Test fun theAccessIsNotSwitchedByHand() {
+    @Test
+    fun theAccessIsNotSwitchedByHand() {
         val s = t.create("-e", code)
-        val refusal = "${s.name}'s widget is on while it is placed: add or remove it on the widgets page"
+        val refusal =
+            "${s.name}'s widget is on while it is placed: add or remove it on the widgets page"
         assertEquals(listOf(refusal), commands.run("script allow ${s.name} widget"))
         assertFalse(on(s))
         assertNull(now(s).access[ScriptAccess.WIDGET])
@@ -214,12 +236,23 @@ class WidgetPlacementTest {
     }
 
     /** Where the two came apart (a restore, an older version), the access follows the placed list. */
-    @Test fun theAccessFollowsThePlacedList() {
+    @Test
+    fun theAccessFollowsThePlacedList() {
         val off = t.create("-f", code)
         // The copy in the database, written as the list would write it, but against what the list says.
-        assertTrue(scripts.setWidgetPlaced(off.name, setOf(""))!!.grants.allows(ScriptAccess.WIDGET))
+        assertTrue(
+            scripts.setWidgetPlaced(
+                off.name,
+                setOf("")
+            )!!.grants.allows(ScriptAccess.WIDGET)
+        )
         val placed = t.place(t.create("-g", code))
-        assertFalse(scripts.setWidgetPlaced(placed.name, emptySet())!!.grants.allows(ScriptAccess.WIDGET))
+        assertFalse(
+            scripts.setWidgetPlaced(
+                placed.name,
+                emptySet()
+            )!!.grants.allows(ScriptAccess.WIDGET)
+        )
         assertTrue(on(off))
         assertFalse(on(placed))
         // Each name's row says which of its widgets are placed, as the access says that one is.
@@ -246,7 +279,17 @@ class WidgetPlacementTest {
 
         // A backup's widget of a script is placed as it comes, and its script may fill it.
         val restored = t.create("-h", code)
-        host.importWidgets(listOf(mapOf("provider" to t.source(restored.name), "profile" to 0, "height" to 120, "order" to 90, "span" to 6)))
+        host.importWidgets(
+            listOf(
+                mapOf(
+                    "provider" to t.source(restored.name),
+                    "profile" to 0,
+                    "height" to 120,
+                    "order" to 90,
+                    "span" to 6
+                )
+            )
+        )
         host.settle()
         val w = t.entry(restored.name)!!
         assertFalse(w.pending)
@@ -260,8 +303,12 @@ class WidgetPlacementTest {
      * as stored at that moment, in one step. Before, each wrote the whole access as it had read it,
      * and the later one undid the other: a `script deny` could be lost.
      */
-    @Test fun aSwitchSetWhileTheWidgetChangesIsKept() {
-        val s = t.create("-r", "-- @widget stat 2x1\n-- @uses apps\n-- @uses clipboard\nwidget.show{ value = 7 }")
+    @Test
+    fun aSwitchSetWhileTheWidgetChangesIsKept() {
+        val s = t.create(
+            "-r",
+            "-- @widget stat 2x1\n-- @uses apps\n-- @uses clipboard\nwidget.show{ value = 7 }"
+        )
         assertEquals(mapOf("apps" to true, "clipboard" to true), now(s).access)
         repeat(40) { round ->
             val on = round % 2 == 0
@@ -275,7 +322,11 @@ class WidgetPlacementTest {
             val writers = writes.map { write -> kotlin.concurrent.thread { gate.await(); write() } }
             gate.countDown()
             writers.forEach { it.join(10_000) }
-            assertEquals("round $round", mapOf(ScriptAccess.WIDGET to on, "apps" to !on, "clipboard" to on), now(s).access)
+            assertEquals(
+                "round $round",
+                mapOf(ScriptAccess.WIDGET to on, "apps" to !on, "clipboard" to on),
+                now(s).access
+            )
         }
         // An edit beside a widget that is placed: the code is saved, and the widget's item stays.
         repeat(20) { round ->
@@ -283,7 +334,13 @@ class WidgetPlacementTest {
             val gate = java.util.concurrent.CountDownLatch(1)
             val writers = listOf<() -> Unit>(
                 { scripts.setWidgetPlaced(s.name, if (on) setOf("") else emptySet()) },
-                { scripts.saveCode(s.id, "-- @widget stat 2x1\n-- @uses apps\n-- @uses clipboard\nwidget.show{ value = $round }", byUser = true) },
+                {
+                    scripts.saveCode(
+                        s.id,
+                        "-- @widget stat 2x1\n-- @uses apps\n-- @uses clipboard\nwidget.show{ value = $round }",
+                        byUser = true
+                    )
+                },
             ).map { write -> kotlin.concurrent.thread { gate.await(); write() } }
             gate.countDown()
             writers.forEach { it.join(10_000) }
@@ -297,12 +354,14 @@ class WidgetPlacementTest {
      * at most one of each kind waits or runs, and the second starts when the first has ended. Each
      * keeps its own event.
      */
-    @Test fun aWidgetsRunAndAPinnedLinesRefreshShareOneQueue() {
+    @Test
+    fun aWidgetsRunAndAPinnedLinesRefreshShareOneQueue() {
         val scheduler = com.mtwabpin.kolahal.script.ScriptScheduler
         // Slow enough that the first run is still there when the others are asked for.
         val s = t.create("-q", "-- @widget stat 2x1\nsleep(1500)\nlog('ran for ' .. event.name)")
         val work = androidx.work.WorkManager.getInstance(context)
-        fun unfinished() = work.getWorkInfosForUniqueWork(scheduler.refreshQueue(s.id)).get().filter { !it.state.isFinished }
+        fun unfinished() = work.getWorkInfosForUniqueWork(scheduler.refreshQueue(s.id)).get()
+            .filter { !it.state.isFinished }
 
         scheduler.refreshPinned(context, s)
         scheduler.refreshWidget(context, s)
@@ -312,11 +371,16 @@ class WidgetPlacementTest {
         val queued = unfinished()
         assertEquals(queued.toString(), 2, queued.size)
         // The widget's run waits for the pinned line's to end. It did not start beside it.
-        assertEquals(queued.toString(), 1, queued.count { it.state == androidx.work.WorkInfo.State.BLOCKED })
+        assertEquals(
+            queued.toString(),
+            1,
+            queued.count { it.state == androidx.work.WorkInfo.State.BLOCKED })
 
         assertTrue("the two runs didn't end", t.runEnded(s.id, queued = true))
-        val ran = com.mtwabpin.kolahal.data.LogRepository.get(context).recent(400, afterId = logLines.start)
-            .filter { it.text.contains("ran for ") }.sortedBy { it.id }.map { it.text.substringAfter("ran for ") }
+        val ran = com.mtwabpin.kolahal.data.LogRepository.get(context)
+            .recent(400, afterId = logLines.start)
+            .filter { it.text.contains("ran for ") }.sortedBy { it.id }
+            .map { it.text.substringAfter("ran for ") }
         assertEquals(listOf(scheduler.REFRESH, scheduler.WIDGET), ran)
 
         // The queue is empty again: a new request starts it, and one run is there.

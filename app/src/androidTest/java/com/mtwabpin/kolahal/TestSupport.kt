@@ -40,7 +40,8 @@ fun eventually(ms: Long = 10_000, check: () -> Boolean): Boolean {
 }
 
 /** Waits up to [ms] for [check] to hold ([eventually]); fails with [what] if it doesn't. */
-fun waitUntil(what: String, ms: Long = 10_000, check: () -> Boolean) = assertTrue(what, eventually(ms, check))
+fun waitUntil(what: String, ms: Long = 10_000, check: () -> Boolean) =
+    assertTrue(what, eventually(ms, check))
 
 /** Waits up to [ms] for [find] to find something, and returns it; fails with [what] if it doesn't. */
 fun <T : Any> waitForValue(what: String, ms: Long = 10_000, find: () -> T?): T {
@@ -63,11 +64,16 @@ fun ComposeTestRule.waitFor(what: String, ms: Long = 5_000, check: () -> Boolean
 
 /** Waits up to [ms] for a node [matcher] matches ([waitFor]). */
 fun ComposeTestRule.waitForNode(matcher: SemanticsMatcher, ms: Long = 5_000) =
-    waitFor("nothing shown is ${matcher.description}", ms) { onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+    waitFor(
+        "nothing shown is ${matcher.description}",
+        ms
+    ) { onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
 
 /** Waits up to [ms] for [text] on screen, or text holding it with [substring] ([waitFor]). */
 fun ComposeTestRule.waitForText(text: String, substring: Boolean = false, ms: Long = 5_000) =
-    waitFor("“$text” isn't shown", ms) { onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
+    waitFor("“$text” isn't shown", ms) {
+        onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty()
+    }
 
 /**
  * Runs [command] as the shell user and returns what it printed; with [errors], what it printed to
@@ -75,11 +81,17 @@ fun ComposeTestRule.waitForText(text: String, substring: Boolean = false, ms: Lo
  */
 fun shell(command: String, errors: Boolean = false): String {
     val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-    if (!errors) return ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
+    if (!errors) return ParcelFileDescriptor.AutoCloseInputStream(
+        automation.executeShellCommand(
+            command
+        )
+    ).use { it.readBytes().decodeToString() }
     val (out, input, err) = automation.executeShellCommandRwe(command)
     input.close()
-    val text = ParcelFileDescriptor.AutoCloseInputStream(out).use { it.readBytes().decodeToString() }
-    return text + ParcelFileDescriptor.AutoCloseInputStream(err).use { it.readBytes().decodeToString() }
+    val text =
+        ParcelFileDescriptor.AutoCloseInputStream(out).use { it.readBytes().decodeToString() }
+    return text + ParcelFileDescriptor.AutoCloseInputStream(err)
+        .use { it.readBytes().decodeToString() }
 }
 
 /** A terminal with no screen: what commands ask of it is ignored. Override what a test wants to see. */
@@ -127,42 +139,55 @@ class CommandRunner(context: Context, ui: TerminalUi = TerminalUiStub()) {
         val from = logs.maxId()
         processor.run(line)
         val command = commandId(line)
-        return logs.recent(400, afterId = from).filter { it.kind != LogKind.COMMAND && it.ctx.values[LogContext.FROM] == command }
+        return logs.recent(400, afterId = from)
+            .filter { it.kind != LogKind.COMMAND && it.ctx.values[LogContext.FROM] == command }
     }
 
     /** The id of the newest command line [line]. */
-    fun commandId(line: String) = logs.recent(400).last { it.kind == LogKind.COMMAND && it.text == line }.id.toString()
+    fun commandId(line: String) =
+        logs.recent(400).last { it.kind == LogKind.COMMAND && it.text == line }.id.toString()
 }
 
 /** Rows of a table as stored, every column, to [putBack] as they were, ids and all. */
-class TableRows private constructor(private val db: SQLiteDatabase, private val table: String, val rows: List<ContentValues>) {
+class TableRows private constructor(
+    private val db: SQLiteDatabase,
+    private val table: String,
+    val rows: List<ContentValues>
+) {
     /** Puts the rows back; one whose id is taken again meanwhile stays as it is now. */
-    fun putBack() = rows.forEach { db.insertWithOnConflict(table, null, it, SQLiteDatabase.CONFLICT_IGNORE) }
+    fun putBack() =
+        rows.forEach { db.insertWithOnConflict(table, null, it, SQLiteDatabase.CONFLICT_IGNORE) }
 
     /** The largest value of [column] among the rows, 0 for none. */
     fun maxOf(column: String): Long = rows.maxOfOrNull { it.getAsLong(column) ?: 0L } ?: 0L
 
     companion object {
         /** The rows of [table] that [where] (with [args]) takes, all of them without one. */
-        fun take(db: SQLiteDatabase, table: String, where: String? = null, vararg args: String): TableRows {
-            val rows = db.query(table, null, where, args.ifEmpty { null }, null, null, null).use { c ->
-                buildList {
-                    while (c.moveToNext()) {
-                        add(ContentValues().apply {
-                            for (i in 0 until c.columnCount) {
-                                val name = c.getColumnName(i)
-                                when (c.getType(i)) {
-                                    Cursor.FIELD_TYPE_INTEGER -> put(name, c.getLong(i))
-                                    Cursor.FIELD_TYPE_FLOAT -> put(name, c.getDouble(i))
-                                    Cursor.FIELD_TYPE_BLOB -> put(name, c.getBlob(i))
-                                    Cursor.FIELD_TYPE_NULL -> putNull(name)
-                                    else -> put(name, c.getString(i))
+        fun take(
+            db: SQLiteDatabase,
+            table: String,
+            where: String? = null,
+            vararg args: String
+        ): TableRows {
+            val rows =
+                db.query(table, null, where, args.ifEmpty { null }, null, null, null).use { c ->
+                    buildList {
+                        while (c.moveToNext()) {
+                            add(ContentValues().apply {
+                                for (i in 0 until c.columnCount) {
+                                    val name = c.getColumnName(i)
+                                    when (c.getType(i)) {
+                                        Cursor.FIELD_TYPE_INTEGER -> put(name, c.getLong(i))
+                                        Cursor.FIELD_TYPE_FLOAT -> put(name, c.getDouble(i))
+                                        Cursor.FIELD_TYPE_BLOB -> put(name, c.getBlob(i))
+                                        Cursor.FIELD_TYPE_NULL -> putNull(name)
+                                        else -> put(name, c.getString(i))
+                                    }
                                 }
-                            }
-                        })
+                            })
+                        }
                     }
                 }
-            }
             return TableRows(db, table, rows)
         }
     }

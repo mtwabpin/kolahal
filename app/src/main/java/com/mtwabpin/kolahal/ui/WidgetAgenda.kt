@@ -102,7 +102,14 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
-    val days = remember(spec, minute, zone, clock24) { WidgetWords.agenda(spec, minute.time / 1000, zone, clock24) }
+    val days = remember(spec, minute, zone, clock24) {
+        WidgetWords.agenda(
+            spec,
+            minute.time / 1000,
+            zone,
+            clock24
+        )
+    }
     if (days.isEmpty()) {
         QuietLine(spec.empty ?: WidgetWords.NO_EVENTS)
         return
@@ -120,14 +127,22 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val narrow = maxWidth < AGENDA_NARROW
         val places = maxWidth >= AGENDA_PLACES
-        val rowDp = if (days.any { day -> day.lines.any { it.event.tap != null } }) TAP_ROW_DP else 32
+        val rowDp =
+            if (days.any { day -> day.lines.any { it.event.tap != null } }) TAP_ROW_DP else 32
         // A day's first row has its heading at its top.
-        val headedDp = maxOf(rowDp, AGENDA_HEAD_DP + if (narrow) AGENDA_NARROW_LINE_DP else AGENDA_LINE_DP)
+        val headedDp =
+            maxOf(rowDp, AGENDA_HEAD_DP + if (narrow) AGENDA_NARROW_LINE_DP else AGENDA_LINE_DP)
         val heightDp = maxHeight.value.toInt()
         val total = days.sumOf { it.lines.size }
         val moreDp = AGENDA_MORE_DP
         // Each row takes its gap too, and the last one has none after it.
-        val shown = WidgetWords.agendaShown(days.map { it.lines.size }, heightDp + gapDp, headedDp - rowDp, rowDp + gapDp, moreDp)
+        val shown = WidgetWords.agendaShown(
+            days.map { it.lines.size },
+            heightDp + gapDp,
+            headedDp - rowDp,
+            rowDp + gapDp,
+            moreDp
+        )
         // The time column is as wide as the longest time in this form, so the titles line up.
         val timeWidth = if (clock24) 48.dp else 68.dp
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gapDp.dp)) {
@@ -144,14 +159,30 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
                         val back = tile?.let { it to segmentShape(n, shown) }
                         n++
                         key(i) {
-                            if (i == 0) AgendaRow(line, headedDp.dp, places, narrow, timeWidth, onTap, back) { DayHeading(day.label, colour) }
+                            if (i == 0) AgendaRow(
+                                line,
+                                headedDp.dp,
+                                places,
+                                narrow,
+                                timeWidth,
+                                onTap,
+                                back
+                            ) { DayHeading(day.label, colour) }
                             else AgendaRow(line, rowDp.dp, places, narrow, timeWidth, onTap, back)
                         }
                     }
                 }
             }
             if (shown < total && usedDp + AGENDA_MORE_DP <= heightDp) {
-                Text("+${total - shown} more", style = MaterialTheme.typography.labelMedium, color = muted, maxLines = 1, modifier = Modifier.height(AGENDA_MORE_DP.dp).wrapContentHeight())
+                Text(
+                    "+${total - shown} more",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = muted,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .height(AGENDA_MORE_DP.dp)
+                        .wrapContentHeight()
+                )
             }
         }
     }
@@ -162,10 +193,15 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
 private fun DayHeading(label: String, colour: Color) {
     Text(
         label.uppercase(),
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.08.em),
+        style = MaterialTheme.typography.labelMedium.copy(
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.08.em
+        ),
         color = colour,
         maxLines = 1,
-        modifier = Modifier.height(AGENDA_HEAD_DP.dp).wrapContentHeight(),
+        modifier = Modifier
+            .height(AGENDA_HEAD_DP.dp)
+            .wrapContentHeight(),
     )
 }
 
@@ -194,24 +230,82 @@ private fun AgendaRow(
     val press = eventPress(event.tap, onTap)
     // Small corners: a larger one would cut the first letter of a heading at the row's top.
     val back = if (tile != null) {
-        Modifier.clip(tile.second).background(tile.first).then(press).padding(horizontal = 12.dp, vertical = if (heading != null) 3.dp else 0.dp)
+        Modifier
+            .clip(tile.second)
+            .background(tile.first)
+            .then(press)
+            .padding(horizontal = 12.dp, vertical = if (heading != null) 3.dp else 0.dp)
     } else {
-        Modifier.clip(RoundedCornerShape(6.dp)).then(press)
+        Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .then(press)
     }
-    Column(Modifier.fillMaxWidth().height(height).then(back)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .then(back)
+    ) {
         heading?.invoke()
-        Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .weight(1f), verticalAlignment = Alignment.CenterVertically
+        ) {
             if (narrow) {
                 Column(Modifier.weight(1f)) {
-                    Text(event.title, style = type.bodySmall, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(line.time, style = type.labelSmall, color = colour ?: lookColors().muted, maxLines = 1, softWrap = false)
+                    Text(
+                        event.title,
+                        style = type.bodySmall,
+                        color = scheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        line.time,
+                        style = type.labelSmall,
+                        color = colour ?: lookColors().muted,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             } else {
-                Text(line.time, style = type.labelLarge, color = lookColors().muted, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = timeWidth).padding(end = 8.dp))
-                if (colour != null) Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(colour))
-                Text(event.title, style = type.bodyMedium.copy(fontWeight = FontWeight.Medium), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(
+                    line.time,
+                    style = type.labelLarge,
+                    color = lookColors().muted,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .widthIn(min = timeWidth)
+                        .padding(end = 8.dp)
+                )
+                if (colour != null) Box(
+                    Modifier
+                        .padding(end = 8.dp)
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(colour)
+                )
+                Text(
+                    event.title,
+                    style = type.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = scheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
                 if (places) event.where?.let {
-                    Text(it, style = type.bodySmall, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp).widthIn(max = 120.dp))
+                    Text(
+                        it,
+                        style = type.bodySmall,
+                        color = lookColors().muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .widthIn(max = 120.dp)
+                    )
                 }
             }
         }
@@ -258,8 +352,26 @@ internal val DATED_SIDE = 240.dp
  * - As many events as fit are shown, never under 42 dp; "+3 more" is left out. Each keeps its tap.
  */
 @Composable
-private fun DatedAgenda(look: WidgetLook, days: List<WidgetWords.AgendaDay>, nowMs: Long, zone: ZoneId, clock24: Boolean, role: Color, onTap: ((WidgetTap) -> Unit)?) {
-    val lines = remember(days) { days.flatMap { day -> day.lines.map { DatedLine(it, day.label, day.label == WidgetWords.TODAY) } } }
+private fun DatedAgenda(
+    look: WidgetLook,
+    days: List<WidgetWords.AgendaDay>,
+    nowMs: Long,
+    zone: ZoneId,
+    clock24: Boolean,
+    role: Color,
+    onTap: ((WidgetTap) -> Unit)?
+) {
+    val lines = remember(days) {
+        days.flatMap { day ->
+            day.lines.map {
+                DatedLine(
+                    it,
+                    day.label,
+                    day.label == WidgetWords.TODAY
+                )
+            }
+        }
+    }
     val today = remember(nowMs, zone) { Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate() }
     val locale = Locale.getDefault()
     val weekday = remember(today) { today.format(DateTimeFormatter.ofPattern("EEE", locale)) }
@@ -277,29 +389,83 @@ private fun DatedAgenda(look: WidgetLook, days: List<WidgetWords.AgendaDay>, now
             return@BoxWithConstraints
         }
         if (side) {
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (look == WidgetLook.BOLD) {
-                    BoldDate(weekday, dayNumber, month.takeIf { heightDp >= 120 }, looks, Modifier.width(minOf(96.dp, boxWidth / 4)).fillMaxHeight())
+                    BoldDate(
+                        weekday,
+                        dayNumber,
+                        month.takeIf { heightDp >= 120 },
+                        looks,
+                        Modifier
+                            .width(minOf(96.dp, boxWidth / 4))
+                            .fillMaxHeight()
+                    )
                 } else {
-                    SunnyDate(weekday.takeIf { heightDp >= 88 }, dayNumber, looks, minOf(boxHeight, 120.dp, boxWidth / 3))
+                    SunnyDate(
+                        weekday.takeIf { heightDp >= 88 },
+                        dayNumber,
+                        looks,
+                        minOf(boxHeight, 120.dp, boxWidth / 3)
+                    )
                 }
-                DatedRows(lines, (heightDp / DATED_ROW_DP).coerceAtLeast(1), timeWidth, looks, look == WidgetLook.BOLD, onTap, Modifier.weight(1f))
+                DatedRows(
+                    lines,
+                    (heightDp / DATED_ROW_DP).coerceAtLeast(1),
+                    timeWidth,
+                    looks,
+                    look == WidgetLook.BOLD,
+                    onTap,
+                    Modifier.weight(1f)
+                )
             }
         } else {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.height(56.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (look == WidgetLook.BOLD) {
-                        Text(dayNumber, style = MaterialTheme.typography.displaySmall.asBold(), color = looks.accent, maxLines = 1)
+                        Text(
+                            dayNumber,
+                            style = MaterialTheme.typography.displaySmall.asBold(),
+                            color = looks.accent,
+                            maxLines = 1
+                        )
                     } else {
                         SunnyDate(null, dayNumber, looks, 52.dp)
                     }
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text(weekday.uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 0.08.em), color = looks.content, maxLines = 1)
-                        Text(month.uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 0.08.em), color = looks.muted, maxLines = 1)
+                        Text(
+                            weekday.uppercase(),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.08.em
+                            ),
+                            color = looks.content,
+                            maxLines = 1
+                        )
+                        Text(
+                            month.uppercase(),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.08.em
+                            ),
+                            color = looks.muted,
+                            maxLines = 1
+                        )
                     }
                 }
-                DatedRows(lines, ((heightDp - 56) / DATED_ROW_DP).coerceAtLeast(1), timeWidth, looks, look == WidgetLook.BOLD, onTap, Modifier.fillMaxWidth())
+                DatedRows(
+                    lines,
+                    ((heightDp - 56) / DATED_ROW_DP).coerceAtLeast(1),
+                    timeWidth,
+                    looks,
+                    look == WidgetLook.BOLD,
+                    onTap,
+                    Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -307,16 +473,47 @@ private fun DatedAgenda(look: WidgetLook, days: List<WidgetWords.AgendaDay>, now
 
 /** Bold's date: a block of the role colour, "FRI" over the day at display size over "NOV" ([month], left out when low). */
 @Composable
-private fun BoldDate(weekday: String, day: String, month: String?, looks: LookColors, modifier: Modifier) {
-    val caps = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 0.08.em)
-    BoxWithConstraints(modifier.clip(RoundedCornerShape(20.dp)).background(looks.accent), contentAlignment = Alignment.Center) {
+private fun BoldDate(
+    weekday: String,
+    day: String,
+    month: String?,
+    looks: LookColors,
+    modifier: Modifier
+) {
+    val caps = MaterialTheme.typography.labelLarge.copy(
+        fontWeight = FontWeight.ExtraBold,
+        letterSpacing = 0.08.em
+    )
+    BoxWithConstraints(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(looks.accent),
+        contentAlignment = Alignment.Center
+    ) {
         // The day is as big as the block allows: up to 76 dp, as the mockup has it.
-        val sizeDp = minOf(76f, maxWidth.value * 0.62f, (maxHeight.value - if (month != null) 48 else 28) * 0.9f)
+        val sizeDp = minOf(
+            76f,
+            maxWidth.value * 0.62f,
+            (maxHeight.value - if (month != null) 48 else 28) * 0.9f
+        )
         val size = with(LocalDensity.current) { sizeDp.dp.toSp() }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(weekday.uppercase(), style = caps, color = looks.onAccent, maxLines = 1)
-            Text(day, style = MaterialTheme.typography.displayLarge.copy(fontSize = size, lineHeight = size).asBold(), color = looks.onAccent, maxLines = 1)
-            if (month != null) Text(month.uppercase(), style = caps, color = looks.onAccent, maxLines = 1)
+            Text(
+                day,
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontSize = size,
+                    lineHeight = size
+                ).asBold(),
+                color = looks.onAccent,
+                maxLines = 1
+            )
+            if (month != null) Text(
+                month.uppercase(),
+                style = caps,
+                color = looks.onAccent,
+                maxLines = 1
+            )
         }
     }
 }
@@ -326,12 +523,33 @@ private fun BoldDate(weekday: String, day: String, month: String?, looks: LookCo
 @Composable
 private fun SunnyDate(weekday: String?, day: String, looks: LookColors, side: Dp) {
     val size = with(LocalDensity.current) { (side * 0.4f).toSp() }
-    Box(Modifier.size(side).background(looks.accent, MaterialShapes.Sunny.toShape()), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier
+            .size(side)
+            .background(looks.accent, MaterialShapes.Sunny.toShape()),
+        contentAlignment = Alignment.Center
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (weekday != null) {
-                Text(weekday.uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 0.08.em), color = looks.onAccent, maxLines = 1)
+                Text(
+                    weekday.uppercase(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.08.em
+                    ),
+                    color = looks.onAccent,
+                    maxLines = 1
+                )
             }
-            Text(day, style = MaterialTheme.typography.displaySmall.copy(fontSize = size, lineHeight = size).asBold(), color = looks.onAccent, maxLines = 1)
+            Text(
+                day,
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontSize = size,
+                    lineHeight = size
+                ).asBold(),
+                color = looks.onAccent,
+                maxLines = 1
+            )
         }
     }
 }
@@ -342,21 +560,53 @@ private fun SunnyDate(weekday: String?, day: String, looks: LookColors, side: Dp
  * its title.
  */
 @Composable
-private fun DatedRows(lines: List<DatedLine>, count: Int, timeWidth: Dp, looks: LookColors, bold: Boolean, onTap: ((WidgetTap) -> Unit)?, modifier: Modifier) {
+private fun DatedRows(
+    lines: List<DatedLine>,
+    count: Int,
+    timeWidth: Dp,
+    looks: LookColors,
+    bold: Boolean,
+    onTap: ((WidgetTap) -> Unit)?,
+    modifier: Modifier
+) {
     val type = MaterialTheme.typography
-    val titleStyle = if (bold) type.titleSmall.copy(fontWeight = FontWeight.Bold) else type.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+    val titleStyle =
+        if (bold) type.titleSmall.copy(fontWeight = FontWeight.Bold) else type.bodyMedium.copy(
+            fontWeight = FontWeight.SemiBold
+        )
     val timeStyle = (if (bold) type.titleSmall else type.labelLarge).asValue()
     Column(modifier, verticalArrangement = Arrangement.Center) {
         lines.take(count).forEachIndexed { i, d ->
             key(i) {
                 val ink = if (d.today) looks.content else looks.muted
                 Row(
-                    Modifier.fillMaxWidth().height(DATED_ROW_DP.dp).clip(RoundedCornerShape(8.dp)).then(eventPress(d.line.event.tap, onTap)),
+                    Modifier
+                        .fillMaxWidth()
+                        .height(DATED_ROW_DP.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .then(eventPress(d.line.event.tap, onTap)),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(d.line.time, style = timeStyle, color = if (d.today) looks.accent else looks.muted, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = timeWidth).padding(end = 10.dp))
-                    val title = if (d.today) d.line.event.title else "${d.line.event.title} · ${dayWord(d.label)}"
-                    Text(title, style = titleStyle, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(
+                        d.line.time,
+                        style = timeStyle,
+                        color = if (d.today) looks.accent else looks.muted,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier
+                            .widthIn(min = timeWidth)
+                            .padding(end = 10.dp)
+                    )
+                    val title =
+                        if (d.today) d.line.event.title else "${d.line.event.title} · ${dayWord(d.label)}"
+                    Text(
+                        title,
+                        style = titleStyle,
+                        color = ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -364,7 +614,8 @@ private fun DatedRows(lines: List<DatedLine>, count: Int, timeWidth: Dp, looks: 
 }
 
 /** A day's label as a word inside a line: "tomorrow", or a date as it is ("Tue 20 Oct"). */
-private fun dayWord(label: String): String = if (label == WidgetWords.TOMORROW) label.lowercase() else label
+private fun dayWord(label: String): String =
+    if (label == WidgetWords.TOMORROW) label.lowercase() else label
 
 /**
  * Split's agenda: today's date in a tile at the start ("Fri" over "20" over "Nov"), or along the top
@@ -372,7 +623,16 @@ private fun dayWord(label: String): String = if (label == WidgetWords.TOMORROW) 
  * the role's container; another day's are grey, with the day at the tile's end.
  */
 @Composable
-private fun SplitAgenda(lines: List<DatedLine>, weekday: String, day: String, month: String, side: Boolean, heightDp: Int, looks: LookColors, onTap: ((WidgetTap) -> Unit)?) {
+private fun SplitAgenda(
+    lines: List<DatedLine>,
+    weekday: String,
+    day: String,
+    month: String,
+    side: Boolean,
+    heightDp: Int,
+    looks: LookColors,
+    onTap: ((WidgetTap) -> Unit)?
+) {
     val gap = SplitCorners.GAP
     val type = MaterialTheme.typography
     val dim = type.labelMedium.copy(fontWeight = FontWeight.Bold)
@@ -380,7 +640,18 @@ private fun SplitAgenda(lines: List<DatedLine>, weekday: String, day: String, mo
         val count = ((heightDp + 4) / (DATED_ROW_DP + 4)).coerceIn(1, maxOf(1, lines.size))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             Column(
-                Modifier.width(84.dp).fillMaxHeight().clip(SplitCorners.tile(topStart = true, topEnd = false, bottomEnd = false, bottomStart = true)).background(looks.tile),
+                Modifier
+                    .width(84.dp)
+                    .fillMaxHeight()
+                    .clip(
+                        SplitCorners.tile(
+                            topStart = true,
+                            topEnd = false,
+                            bottomEnd = false,
+                            bottomStart = true
+                        )
+                    )
+                    .background(looks.tile),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -388,9 +659,19 @@ private fun SplitAgenda(lines: List<DatedLine>, weekday: String, day: String, mo
                 Text(day, style = type.headlineLarge.asValue(), color = looks.content, maxLines = 1)
                 if (heightDp >= 120) Text(month, style = dim, color = looks.muted, maxLines = 1)
             }
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(gap)) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(gap)
+            ) {
                 for (i in 0 until count) key(i) {
-                    val shape = SplitCorners.tile(topStart = false, topEnd = i == 0, bottomEnd = i == count - 1, bottomStart = false)
+                    val shape = SplitCorners.tile(
+                        topStart = false,
+                        topEnd = i == 0,
+                        bottomEnd = i == count - 1,
+                        bottomStart = false
+                    )
                     SplitEvent(lines.getOrNull(i), shape, looks, onTap, Modifier.weight(1f))
                 }
             }
@@ -399,7 +680,19 @@ private fun SplitAgenda(lines: List<DatedLine>, weekday: String, day: String, mo
         val count = ((heightDp - 48 + 4) / (DATED_ROW_DP + 4)).coerceIn(1, maxOf(1, lines.size))
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
             Row(
-                Modifier.fillMaxWidth().height(44.dp).clip(SplitCorners.tile(topStart = true, topEnd = true, bottomEnd = false, bottomStart = false)).background(looks.tile).padding(horizontal = 16.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(
+                        SplitCorners.tile(
+                            topStart = true,
+                            topEnd = true,
+                            bottomEnd = false,
+                            bottomStart = false
+                        )
+                    )
+                    .background(looks.tile)
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(day, style = type.titleLarge.asValue(), color = looks.content, maxLines = 1)
@@ -407,8 +700,20 @@ private fun SplitAgenda(lines: List<DatedLine>, weekday: String, day: String, mo
                 Text("$weekday $month", style = dim, color = looks.muted, maxLines = 1)
             }
             for (i in 0 until count) key(i) {
-                val shape = SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = i == count - 1, bottomStart = i == count - 1)
-                SplitEvent(lines.getOrNull(i), shape, looks, onTap, Modifier.weight(1f), dayAtEnd = false)
+                val shape = SplitCorners.tile(
+                    topStart = false,
+                    topEnd = false,
+                    bottomEnd = i == count - 1,
+                    bottomStart = i == count - 1
+                )
+                SplitEvent(
+                    lines.getOrNull(i),
+                    shape,
+                    looks,
+                    onTap,
+                    Modifier.weight(1f),
+                    dayAtEnd = false
+                )
             }
         }
     }
@@ -420,24 +725,53 @@ private fun SplitAgenda(lines: List<DatedLine>, weekday: String, day: String, mo
  * grey chip says the event is not today.
  */
 @Composable
-private fun SplitEvent(d: DatedLine?, shape: Shape, looks: LookColors, onTap: ((WidgetTap) -> Unit)?, modifier: Modifier, dayAtEnd: Boolean = true) {
+private fun SplitEvent(
+    d: DatedLine?,
+    shape: Shape,
+    looks: LookColors,
+    onTap: ((WidgetTap) -> Unit)?,
+    modifier: Modifier,
+    dayAtEnd: Boolean = true
+) {
     val type = MaterialTheme.typography
     Row(
-        modifier.fillMaxWidth().clip(shape).background(looks.tile).then(eventPress(d?.line?.event?.tap, onTap)).padding(start = 10.dp, end = 16.dp),
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(looks.tile)
+            .then(eventPress(d?.line?.event?.tap, onTap))
+            .padding(start = 10.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (d == null) return@Row
-        val chip = if (d.today) roleContainer(looks.accent) else MaterialTheme.colorScheme.surfaceContainerHighest
+        val chip =
+            if (d.today) roleContainer(looks.accent) else MaterialTheme.colorScheme.surfaceContainerHighest
         Text(
             d.line.time,
             style = type.labelMedium.copy(fontWeight = FontWeight.ExtraBold).asValue(),
             color = looks.content,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(chip).padding(horizontal = 10.dp, vertical = 5.dp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(chip)
+                .padding(horizontal = 10.dp, vertical = 5.dp),
         )
         Spacer(Modifier.width(10.dp))
-        Text(d.line.event.title, style = type.bodyMedium.copy(fontWeight = FontWeight.Bold), color = looks.content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        if (!d.today && dayAtEnd) Text(d.label, style = type.labelSmall, color = looks.muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+        Text(
+            d.line.event.title,
+            style = type.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            color = looks.content,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (!d.today && dayAtEnd) Text(
+            d.label,
+            style = type.labelSmall,
+            color = looks.muted,
+            maxLines = 1,
+            modifier = Modifier.padding(start = 8.dp)
+        )
     }
 }

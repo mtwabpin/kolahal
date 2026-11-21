@@ -7,9 +7,12 @@ import android.content.Context
 import android.graphics.ImageDecoder
 import android.util.LruCache
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,18 +21,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.script.Net
+import com.mtwabpin.kolahal.ui.LogImages.MAX_BYTES
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -55,10 +56,13 @@ object LogImages {
     }
 
     private const val MAX_BYTES = 10L * 1024 * 1024
+
     /** The disk cache is trimmed to this size. The least recently shown images are deleted first. */
     private const val DISK_BYTES = 50L * 1024 * 1024
+
     /** A very tall image (for example, a long infographic) is decoded at a smaller size, so it does not take 100 MB. */
     const val MAX_PIXELS = 4_000_000f
+
     /** Sources larger than this (by their header) are not decoded at all. */
     private const val MAX_SOURCE_PIXELS = 50_000_000f
     private val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
@@ -90,7 +94,8 @@ object LogImages {
     private fun key(url: String, widthPx: Int, maxPixels: Float): String =
         if (maxPixels == MAX_PIXELS) "$url@$widthPx" else "$url@$widthPx/${maxPixels.toInt()}"
 
-    fun cached(url: String, widthPx: Int, maxPixels: Float = MAX_PIXELS): ImageBitmap? = memoryFor(maxPixels).get(key(url, widthPx, maxPixels))
+    fun cached(url: String, widthPx: Int, maxPixels: Float = MAX_PIXELS): ImageBitmap? =
+        memoryFor(maxPixels).get(key(url, widthPx, maxPixels))
 
     /**
      * The picture of [url] that is in memory, at the size it was decoded last. Null when none is.
@@ -116,7 +121,13 @@ object LogImages {
      *
      * This blocks. Call it off the main thread, on [loader].
      */
-    fun load(context: Context, url: String, widthPx: Int, maxPixels: Float = MAX_PIXELS, httpsOnly: Boolean = false): ImageBitmap? {
+    fun load(
+        context: Context,
+        url: String,
+        widthPx: Int,
+        maxPixels: Float = MAX_PIXELS,
+        httpsOnly: Boolean = false
+    ): ImageBitmap? {
         cached(url, widthPx, maxPixels)?.let { return it }
         // A link that gave no picture a short while ago is not downloaded again yet.
         if (notPicture(url)) return null
@@ -124,13 +135,27 @@ object LogImages {
         val key = key(url, widthPx, maxPixels)
         val lock = locks.getOrPut(key) { Any() }
         try {
-            synchronized(lock) { return cached(url, widthPx, maxPixels) ?: decode(context, url, widthPx, maxPixels, httpsOnly) }
+            synchronized(lock) {
+                return cached(url, widthPx, maxPixels) ?: decode(
+                    context,
+                    url,
+                    widthPx,
+                    maxPixels,
+                    httpsOnly
+                )
+            }
         } finally {
             locks.remove(key)
         }
     }
 
-    private fun decode(context: Context, url: String, widthPx: Int, maxPixels: Float, httpsOnly: Boolean): ImageBitmap? {
+    private fun decode(
+        context: Context,
+        url: String,
+        widthPx: Int,
+        maxPixels: Float,
+        httpsOnly: Boolean
+    ): ImageBitmap? {
         val file = file(context, url, httpsOnly) ?: return null
         val most = maxPixels.coerceIn(1f, MAX_PIXELS)
         val bitmap = runCatching {
@@ -141,7 +166,10 @@ object LogImages {
                 if (w * h > MAX_SOURCE_PIXELS) throw java.io.IOException("image too large (${info.size.width}×${info.size.height})")
                 var scale = min(1f, widthPx / w)
                 if (w * h * scale * scale > most) scale = sqrt(most / (w * h))
-                decoder.setTargetSize((w * scale).roundToInt().coerceAtLeast(1), (h * scale).roundToInt().coerceAtLeast(1))
+                decoder.setTargetSize(
+                    (w * scale).roundToInt().coerceAtLeast(1),
+                    (h * scale).roundToInt().coerceAtLeast(1)
+                )
             }
         }.getOrNull()
         // The file is not an image (for example, an error page). Delete it, so a later try downloads it
@@ -154,7 +182,10 @@ object LogImages {
         val image = bitmap.asImageBitmap()
         // A see-through picture: how light its lines are, for the backdrop it may need (pictureBackdrop).
         // Measured once for each link, not for each size.
-        if (inks.get(url) == null) inks.put(url, Ink(if (bitmap.hasAlpha()) measure(file) else null))
+        if (inks.get(url) == null) inks.put(
+            url,
+            Ink(if (bitmap.hasAlpha()) measure(file) else null)
+        )
         val key = key(url, widthPx, maxPixels)
         memoryFor(maxPixels).put(key, image)
         latest.put(url, key)
@@ -189,7 +220,10 @@ object LogImages {
     private fun measure(file: File): PictureInk? = runCatching {
         val small = ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
             val scale = min(1f, 96f / maxOf(info.size.width, info.size.height))
-            decoder.setTargetSize((info.size.width * scale).roundToInt().coerceAtLeast(1), (info.size.height * scale).roundToInt().coerceAtLeast(1))
+            decoder.setTargetSize(
+                (info.size.width * scale).roundToInt().coerceAtLeast(1),
+                (info.size.height * scale).roundToInt().coerceAtLeast(1)
+            )
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
         }
         val pixels = IntArray(small.width * small.height)
@@ -199,7 +233,8 @@ object LogImages {
     }.getOrNull()
 
     /** Stops a request at any hop that is not https. So a redirect to plain http ends the download. */
-    private val httpsHops = Net.HopCheck { hop -> if (!hop.url.isHttps) throw java.io.IOException("this picture is only fetched over https") }
+    private val httpsHops =
+        Net.HopCheck { hop -> if (!hop.url.isHttps) throw java.io.IOException("this picture is only fetched over https") }
 
     /**
      * The cached download of [url], fetching it first if needed. With [httpsOnly], a link that
@@ -218,12 +253,21 @@ object LogImages {
         if (httpUrl == null) return null
         val tmp = File(dir, "$name.${System.nanoTime()}.part")
         val ok = runCatching {
-            val request = okhttp3.Request.Builder().url(httpUrl).header("User-Agent", Net.USER_AGENT)
-                .apply { if (httpsOnly) tag(Net.HopCheck::class.java, httpsHops) }
-                .build()
+            val request =
+                okhttp3.Request.Builder().url(httpUrl).header("User-Agent", Net.USER_AGENT)
+                    .apply { if (httpsOnly) tag(Net.HopCheck::class.java, httpsHops) }
+                    .build()
             Net.client.newCall(request).execute().use { resp ->
                 resp.isSuccessful && resp.body.contentLength() <= MAX_BYTES &&
-                    resp.body.byteStream().use { input -> tmp.outputStream().use { out -> com.mtwabpin.kolahal.script.Files.copyLimited(input, out, MAX_BYTES) } }
+                        resp.body.byteStream().use { input ->
+                            tmp.outputStream().use { out ->
+                                com.mtwabpin.kolahal.script.Files.copyLimited(
+                                    input,
+                                    out,
+                                    MAX_BYTES
+                                )
+                            }
+                        }
             }
         }.getOrDefault(false)
         if (!ok || !tmp.renameTo(file)) {
@@ -256,15 +300,34 @@ object LogImages {
  * - [httpsOnly]: see [LogImages.load].
  */
 @Composable
-internal fun rememberWebImage(url: String, widthPx: Int, maxPixels: Float, enabled: Boolean, httpsOnly: Boolean = false): Result<ImageBitmap>? {
+internal fun rememberWebImage(
+    url: String,
+    widthPx: Int,
+    maxPixels: Float,
+    enabled: Boolean,
+    httpsOnly: Boolean = false
+): Result<ImageBitmap>? {
     val context = LocalContext.current
     var state by remember(url) {
-        mutableStateOf((LogImages.cached(url, widthPx, maxPixels) ?: if (enabled) null else LogImages.cachedAny(url))?.let { Result.success(it) })
+        mutableStateOf(
+            (LogImages.cached(url, widthPx, maxPixels)
+                ?: if (enabled) null else LogImages.cachedAny(url))?.let { Result.success(it) })
     }
     if (enabled) LaunchedEffect(url, widthPx, maxPixels, httpsOnly) {
         val image = LogImages.cached(url, widthPx, maxPixels)
-            ?: withContext(LogImages.loader) { LogImages.load(context.applicationContext, url, widthPx, maxPixels, httpsOnly) }
-        state = image?.let { Result.success(it) } ?: state?.takeIf { it.isSuccess } ?: Result.failure(IllegalStateException())
+            ?: withContext(LogImages.loader) {
+                LogImages.load(
+                    context.applicationContext,
+                    url,
+                    widthPx,
+                    maxPixels,
+                    httpsOnly
+                )
+            }
+        state =
+            image?.let { Result.success(it) } ?: state?.takeIf { it.isSuccess } ?: Result.failure(
+                IllegalStateException()
+            )
     }
     return state
 }
@@ -305,10 +368,15 @@ fun LogImage(url: String, modifier: Modifier = Modifier) {
                     image,
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(w.toDp(), h.toDp()).then(
-                        if (backdrop == null) Modifier
-                        else Modifier.background(backdrop, RoundedCornerShape(8.dp)).padding(6.dp).testTag("picture-backdrop"),
-                    ),
+                    modifier = Modifier
+                        .size(w.toDp(), h.toDp())
+                        .then(
+                            if (backdrop == null) Modifier
+                            else Modifier
+                                .background(backdrop, RoundedCornerShape(8.dp))
+                                .padding(6.dp)
+                                .testTag("picture-backdrop"),
+                        ),
                 )
             }
         }

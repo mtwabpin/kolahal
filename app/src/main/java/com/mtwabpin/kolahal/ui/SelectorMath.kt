@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.ui.SelectorMath.bell
 import java.text.Normalizer
 import kotlin.math.PI
 import kotlin.math.abs
@@ -41,7 +42,8 @@ internal object SelectorMath {
     /** Returns the section letter of a label: its first letter or digit, without accents. Anything outside A–Z gives `#`. */
     fun letterOf(label: String): Char {
         val first = label.firstOrNull { it.isLetterOrDigit() } ?: return OTHER
-        val base = Normalizer.normalize(first.toString(), Normalizer.Form.NFD).first().uppercaseChar()
+        val base =
+            Normalizer.normalize(first.toString(), Normalizer.Form.NFD).first().uppercaseChar()
         return if (base in 'A'..'Z') base else OTHER
     }
 
@@ -66,10 +68,18 @@ internal object SelectorMath {
     ): List<SelectorEntry<T>> {
         // The sort keys are worked out once for each item, not on every comparison:
         // letterOf allocates, and a sort compares each item many times.
-        val keyed = items.map { SortKeys(it, LETTERS.indexOf(letterOf(label(it))), label(it).lowercase(), profileRank(it)) }
+        val keyed = items.map {
+            SortKeys(
+                it,
+                LETTERS.indexOf(letterOf(label(it))),
+                label(it).lowercase(),
+                profileRank(it)
+            )
+        }
         val byLabel = compareBy<SortKeys<T>>({ it.lower }, { it.rank })
         val favs = keyed.filter { pinned(it.item) }.sortedWith(byLabel).map { it.item }
-        val all = keyed.sortedWith(compareBy<SortKeys<T>> { it.letter }.then(byLabel)).map { it.item }
+        val all =
+            keyed.sortedWith(compareBy<SortKeys<T>> { it.letter }.then(byLabel)).map { it.item }
         val out = ArrayList<SelectorEntry<T>>(favs.size + all.size)
         var section = -1
         fun favourites() = favs.forEachIndexed { i, it ->
@@ -125,7 +135,8 @@ internal object SelectorMath {
             blocks++
             while (blocks > 1 && value[blocks - 2] > value[blocks - 1]) {
                 val w = weight[blocks - 2] + weight[blocks - 1]
-                value[blocks - 2] = (value[blocks - 2] * weight[blocks - 2] + value[blocks - 1] * weight[blocks - 1]) / w
+                value[blocks - 2] =
+                    (value[blocks - 2] * weight[blocks - 2] + value[blocks - 1] * weight[blocks - 1]) / w
                 weight[blocks - 2] = w
                 blocks--
             }
@@ -201,7 +212,15 @@ internal object SelectorMath {
      * scroll by as much, so the list stays where it is.
      * Returns (room at the start, room at the end, the scroll).
      */
-    fun reachStrip(top: Float, bottom: Float, scroll: Float, panelTop: Float, panelH: Float, stripTop: Float, stripH: Float): Triple<Float, Float, Float> {
+    fun reachStrip(
+        top: Float,
+        bottom: Float,
+        scroll: Float,
+        panelTop: Float,
+        panelH: Float,
+        stripTop: Float,
+        stripH: Float
+    ): Triple<Float, Float, Float> {
         val extraTop = max(0f, stripTop - panelTop - top)
         val reachBottom = max(0f, panelTop + panelH - (stripTop + stripH))
         return Triple(top + extraTop, max(bottom, reachBottom), scroll + extraTop)
@@ -212,7 +231,8 @@ internal object SelectorMath {
      * [panelH] tall. [shiftPx] is how far it moved down from its place at the bottom of [listH], the
      * height it may use.
      */
-    fun keepOnScreen(shiftPx: Float, panelH: Float, listH: Float): Float = shiftPx.coerceIn(-max(0f, listH - panelH), 0f)
+    fun keepOnScreen(shiftPx: Float, panelH: Float, listH: Float): Float =
+        shiftPx.coerceIn(-max(0f, listH - panelH), 0f)
 
     /** The wave of letters next to the thumb reaches this many letters on each side of the bubble. */
     const val WAVE_REACH = 3f
@@ -244,7 +264,13 @@ internal object SelectorMath {
      * - it is at least [clear] px from the bubble, and
      * - it is at least its own size away from the last letter shown.
      */
-    fun waveShown(ys: FloatArray, scales: FloatArray, active: Int, gap: Float, clear: Float): BooleanArray {
+    fun waveShown(
+        ys: FloatArray,
+        scales: FloatArray,
+        active: Int,
+        gap: Float,
+        clear: Float
+    ): BooleanArray {
         val shown = BooleanArray(ys.size)
         if (active !in ys.indices) return shown
         for (step in intArrayOf(-1, 1)) {
@@ -270,7 +296,8 @@ internal object SelectorMath {
      * Every letter gets the same stretch between the dead bands. So a letter with one app is as easy
      * to hit as a letter with many.
      */
-    fun letterMiddles(count: Int): FloatArray = FloatArray(count) { DEAD + (it + 0.5f) / count * (1f - 2 * DEAD) }
+    fun letterMiddles(count: Int): FloatArray =
+        FloatArray(count) { DEAD + (it + 0.5f) / count * (1f - 2 * DEAD) }
 
     /** Converts strip position [t] (0 top … 1 bottom) to a position in letters (letter `i` covers `[i, i + 1)`). The dead bands pin the ends. */
     fun alongLetters(t: Float, count: Int): Float {
@@ -364,7 +391,15 @@ internal object SelectorMath {
      * - In between ([weight] between 0 and 1): the list also drifts back toward the glide's place. So
      *   when the slide speeds up again, the list lands where a glide would put it.
      */
-    fun aim(at: Float, glideFrom: Float, glideTo: Float, dyPx: Float, stepPx: Float, weight: Float, count: Int): Float {
+    fun aim(
+        at: Float,
+        glideFrom: Float,
+        glideTo: Float,
+        dyPx: Float,
+        stepPx: Float,
+        weight: Float,
+        count: Int
+    ): Float {
         val end = max(0f, count - 0.01f)
         // No step means it never aims.
         if (stepPx <= 0f) return glideTo.coerceIn(0f, end)
@@ -384,7 +419,8 @@ internal object SelectorMath {
         return scroll to scroll - listY
     }
 
-    fun maxScroll(count: Int, rowPx: Float, viewportPx: Float): Float = max(0f, count * rowPx - viewportPx)
+    fun maxScroll(count: Int, rowPx: Float, viewportPx: Float): Float =
+        max(0f, count * rowPx - viewportPx)
 
     /**
      * The part of a strip [stripH] long where a touch may start the selector, as (top, height) within it:
@@ -396,7 +432,8 @@ internal object SelectorMath {
         if (!backGesture || stripH <= limit) 0f to stripH else (stripH - limit) / 2f to limit
 
     /** The list position (rows) under a finger that is [yInPanel] px below the top of the panel. */
-    fun contact(scrollPx: Float, yInPanel: Float, rowPx: Float): Float = (scrollPx + yInPanel) / rowPx
+    fun contact(scrollPx: Float, yInPanel: Float, rowPx: Float): Float =
+        (scrollPx + yInPanel) / rowPx
 
     /** Row index at [contact], clamped to the list. Returns -1 when there is no contact (NaN) or the list is empty. */
     fun focusedIndex(contact: Float, count: Int): Int =
@@ -452,7 +489,8 @@ internal object SelectorMath {
     const val FAR_SHARE = 0.3f
 
     /** How full the held row is after holding still for [heldMs]: empty until [FILL_FROM_MS], full at [HOLD_MS]. */
-    fun holdFill(heldMs: Long): Float = ((heldMs - FILL_FROM_MS).toFloat() / (HOLD_MS - FILL_FROM_MS)).coerceIn(0f, 1f)
+    fun holdFill(heldMs: Long): Float =
+        ((heldMs - FILL_FROM_MS).toFloat() / (HOLD_MS - FILL_FROM_MS)).coerceIn(0f, 1f)
 
     /** The fill to draw. It rises to [target] at once, but falls from [shown] no faster than a full row per [DRAIN_MS]. */
     fun holdShown(shown: Float, target: Float, dtMs: Long): Float =
@@ -477,7 +515,15 @@ internal object SelectorMath {
      * before the move. When [aiming] along the edge (apps, Plan C), each app passed gives a light
      * tick, as in picking.
      */
-    fun feel(selecting: Boolean, wasSelecting: Boolean, row: Int, lastRow: Int, section: Int, lastSection: Int, aiming: Boolean = false): Feel = when {
+    fun feel(
+        selecting: Boolean,
+        wasSelecting: Boolean,
+        row: Int,
+        lastRow: Int,
+        section: Int,
+        lastSection: Int,
+        aiming: Boolean = false
+    ): Feel = when {
         selecting != wasSelecting -> Feel.SWITCH
         selecting -> if (row != lastRow && lastRow != -1) Feel.APP else Feel.NONE
         section != lastSection && lastSection != -1 -> Feel.LETTER

@@ -21,7 +21,8 @@ class AppListFollowsTest {
 
     private fun listed() = apps.apps.value.any { it.pkg == pkg }
 
-    @Test fun anAppTurnedOffAndOnLeavesAndComesBack() {
+    @Test
+    fun anAppTurnedOffAndOnLeavesAndComesBack() {
         apps.refresh()
         waitUntil("the app list") { apps.apps.value.isNotEmpty() }
         assumeTrue("no $pkg here", listed())
@@ -38,7 +39,8 @@ class AppListFollowsTest {
      * The list as last loaded is kept for the next start, which shows it at once instead of nothing:
      * the same apps, with their names, renames and hidden state.
      */
-    @Test fun theListIsKeptForTheNextStart() {
+    @Test
+    fun theListIsKeptForTheNextStart() {
         val prefs = AppPrefs.get(instrumentation.targetContext)
         apps.refresh()
         waitUntil("the app list") { apps.apps.value.isNotEmpty() }
@@ -47,7 +49,8 @@ class AppListFollowsTest {
             prefs.setLabel(app.key, "Zz Kept")
             apps.refresh()
             waitUntil("the rename in the list") { apps.apps.value.any { it.key == app.key && it.label == "Zz Kept" } }
-            fun keys(list: List<AppEntry>) = list.filter { it.profile.kind != ProfileKind.PRIVATE }.map { it.key to it.label }
+            fun keys(list: List<AppEntry>) =
+                list.filter { it.profile.kind != ProfileKind.PRIVATE }.map { it.key to it.label }
             waitUntil("the saved list matches") { keys(apps.saved()) == keys(apps.apps.value) }
             val kept = apps.saved().single { it.key == app.key }
             assertEquals(app.originalLabel, kept.originalLabel)

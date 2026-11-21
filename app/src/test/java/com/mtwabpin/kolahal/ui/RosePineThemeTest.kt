@@ -38,13 +38,15 @@ class RosePineThemeTest {
         }
     }
 
-    @Test fun theNameGivesBothVersions() {
+    @Test
+    fun theNameGivesBothVersions() {
         assertEquals(Palettes.rosePine, Palettes.named("rose-pine"))
         assertEquals(Palettes.rosePine, Palettes.named("rose-pine", dark = true))
         assertEquals(Palettes.rosePineLight, Palettes.named("rose-pine", dark = false))
     }
 
-    @Test fun theDarkVersionIsRosePine() {
+    @Test
+    fun theDarkVersionIsRosePine() {
         val p = Palettes.rosePine
         assertEquals(base, p.bg)
         assertEquals(overlay, p.surface)
@@ -63,7 +65,8 @@ class RosePineThemeTest {
     }
 
     /** Dawn behind, Dawn's text, and each role in the hue of its Dawn colour, darker where Dawn's is hard to read. */
-    @Test fun theLightVersionIsDawn() {
+    @Test
+    fun theLightVersionIsDawn() {
         val p = Palettes.rosePineLight
         assertEquals(dawnBase, p.bg)
         assertEquals(dawnOverlay, p.surface)
@@ -76,8 +79,16 @@ class RosePineThemeTest {
         val dawnFoam = Color(0xFF56949F)
         val dawnIris = Color(0xFF907AA9)
         val dawn = mapOf(
-            "muted" to dawnSubtle, "accent" to dawnRose, "personal" to dawnRose, "error" to dawnLove, "info" to dawnFoam, "link" to dawnFoam,
-            "script" to dawnGold, "work" to dawnGold, "warn" to dawnGold, "private" to dawnIris,
+            "muted" to dawnSubtle,
+            "accent" to dawnRose,
+            "personal" to dawnRose,
+            "error" to dawnLove,
+            "info" to dawnFoam,
+            "link" to dawnFoam,
+            "script" to dawnGold,
+            "work" to dawnGold,
+            "warn" to dawnGold,
+            "private" to dawnIris,
         )
         val light = mapOf("muted" to p.dim) + accents(p).toMap()
         assertEquals(light.keys - "good", dawn.keys)
@@ -90,11 +101,18 @@ class RosePineThemeTest {
     }
 
     /** Text and muted text read well in both versions, and so does each accent but pine, Rosé Pine's dark green. */
-    @Test fun bothVersionsAreReadable() {
-        for ((version, p) in listOf("dark" to Palettes.rosePine, "light" to Palettes.rosePineLight)) {
+    @Test
+    fun bothVersionsAreReadable() {
+        for ((version, p) in listOf(
+            "dark" to Palettes.rosePine,
+            "light" to Palettes.rosePineLight
+        )) {
             assertTrue("$version text", contrast(p.fg, p.bg) >= 7f)
             assertTrue("$version muted", contrast(p.dim, p.bg) >= 4.5f)
-            assertTrue("$version: muted text is fainter than text", contrast(p.dim, p.bg) < contrast(p.fg, p.bg) - 2f)
+            assertTrue(
+                "$version: muted text is fainter than text",
+                contrast(p.dim, p.bg) < contrast(p.fg, p.bg) - 2f
+            )
             for ((role, c) in accents(p)) {
                 val least = if (version == "dark" && role == "good") 3f else 4.5f
                 assertTrue("$version $role", contrast(c, p.bg) >= least)

@@ -17,24 +17,36 @@ class UsageNamesTest {
 
     /** Each name a handler in terminal/ asks the usage line of, with its file, read from the source. */
     private val asked: List<Pair<String, String>> by lazy {
-        sourceFile("src/main/java/com/mtwabpin/kolahal/terminal").listFiles()!!.filter { it.extension == "kt" }.flatMap { file ->
-            call.findAll(file.readText()).flatMap { m -> Regex("\"([^\"]+)\"").findAll(m.groupValues[1]).map { file.name to it.groupValues[1] } }.toList()
-        }
+        sourceFile("src/main/java/com/mtwabpin/kolahal/terminal").listFiles()!!
+            .filter { it.extension == "kt" }.flatMap { file ->
+                call.findAll(file.readText()).flatMap { m ->
+                    Regex("\"([^\"]+)\"").findAll(m.groupValues[1])
+                        .map { file.name to it.groupValues[1] }
+                }.toList()
+            }
     }
 
-    @Test fun theSourceIsRead() {
+    @Test
+    fun theSourceIsRead() {
         assertTrue(asked.toString(), asked.size > 20)
-        assertTrue(asked.toString(), ("ControlCommands.kt" to "torch") in asked && ("CommandProcessor.kt" to "widget") in asked)
+        assertTrue(
+            asked.toString(),
+            ("ControlCommands.kt" to "torch") in asked && ("CommandProcessor.kt" to "widget") in asked
+        )
     }
 
-    @Test fun everyNameAskedHasAUsageLine() {
+    @Test
+    fun everyNameAskedHasAUsageLine() {
         // `lua` and `js` ask by the language's name (usage(lang.ext)).
         val names = asked.map { it.second } + ScriptLang.entries.map { it.ext }
-        assertEquals(emptyList<String>(), names.distinct().filter { it !in CommandCatalog.COMMAND_USAGES })
+        assertEquals(
+            emptyList<String>(),
+            names.distinct().filter { it !in CommandCatalog.COMMAND_USAGES })
     }
 
     /** The line starts with the command's own name, so "Usage: " and it read as one. */
-    @Test fun aUsageLineStartsWithItsCommand() {
+    @Test
+    fun aUsageLineStartsWithItsCommand() {
         for (name in asked.map { it.second }.distinct()) {
             val line = CommandCatalog.COMMAND_USAGES.getValue(name)
             assertTrue("$name: $line", line == name || line.startsWith("$name "))

@@ -116,13 +116,15 @@ internal class HostData(
      */
     fun calendarEvents(days: Any?): List<Map<String, Any?>> {
         if (!may(CALENDAR, "calendar.events")) return emptyList()
-        val count = listCount("calendar.events", "days", days, MAX_CALENDAR_DAYS, DEFAULT_CALENDAR_DAYS)
+        val count =
+            listCount("calendar.events", "days", days, MAX_CALENDAR_DAYS, DEFAULT_CALENDAR_DAYS)
         if (!runCatching { Agenda.hasPermission(context) }.getOrDefault(false)) return emptyList()
         // One moment and one zone for the read and for what is shown, so the two agree at midnight.
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-        val events = runCatching { Agenda.query(context, today, count, zone) }.getOrDefault(emptyList())
+        val events =
+            runCatching { Agenda.query(context, today, count, zone) }.getOrDefault(emptyList())
         return Agenda.shown(events, zone, now, count).take(MAX_EVENTS).map(::eventRow)
     }
 
@@ -140,7 +142,8 @@ internal class HostData(
         val count = listCount("feeds.unread", "n", n, MAX_FEED_ITEMS, DEFAULT_FEED_ITEMS)
         val repo = FeedRepository.get(context)
         val names = repo.feeds().associate { it.id to feedName(it.title, it.url) }
-        return repo.items(unreadOnly = true, limit = count).map { feedRow(it, names[it.feedId].orEmpty()) }
+        return repo.items(unreadOnly = true, limit = count)
+            .map { feedRow(it, names[it.feedId].orEmpty()) }
     }
 
     // ---- usage (`@uses usage`): screen time, data and unused apps, from Android's usage data ----------
@@ -149,7 +152,8 @@ internal class HostData(
     // switch is off, or Kolahal has no usage access. A widget then says so, instead of showing 0.
 
     /** Whether Kolahal has Usage Access: without it, Android tells nothing. */
-    private fun usageAccess() = runCatching { com.mtwabpin.kolahal.usage.UsageAccess.granted(context) }.getOrDefault(false)
+    private fun usageAccess() =
+        runCatching { com.mtwabpin.kolahal.usage.UsageAccess.granted(context) }.getOrDefault(false)
 
     /** Whether a `usage.*` call can tell anything: the item is allowed ([may]), and Kolahal has usage access. */
     private fun usageReady(call: String) = may(USAGE, call) && usageAccess()
@@ -157,13 +161,20 @@ internal class HostData(
     /** The personal profile's apps by package, with their names: as `apps.list` names them. */
     private val appNames by lazy {
         val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
-        runCatching { la.getActivityList(null, android.os.Process.myUserHandle()) }.getOrDefault(emptyList())
-            .associate { it.componentName.packageName to com.mtwabpin.kolahal.data.StyledText.strip(it.label.toString()) }
+        runCatching { la.getActivityList(null, android.os.Process.myUserHandle()) }.getOrDefault(
+            emptyList()
+        )
+            .associate {
+                it.componentName.packageName to StyledText.strip(
+                    it.label.toString()
+                )
+            }
     }
 
     private val zone get() = ZoneId.systemDefault()
 
-    private fun startOf(day: java.time.LocalDate) = day.atStartOfDay(zone).toInstant().toEpochMilli()
+    private fun startOf(day: java.time.LocalDate) =
+        day.atStartOfDay(zone).toInstant().toEpochMilli()
 
     /**
      * `usage.today(n?)`: `{ total, apps }`. [total] is today's screen time in minutes since midnight
@@ -176,7 +187,13 @@ internal class HostData(
         val t = com.mtwabpin.kolahal.usage.AppUsage(context).today { appNames[it] }
         return mapOf(
             "total" to t.total / 60_000,
-            "apps" to t.apps.take(count).map { mapOf("app" to StyledText.strip(it.label).take(MAX_TEXT), "pkg" to it.pkg, "minutes" to it.ms / 60_000) },
+            "apps" to t.apps.take(count).map {
+                mapOf(
+                    "app" to StyledText.strip(it.label).take(MAX_TEXT),
+                    "pkg" to it.pkg,
+                    "minutes" to it.ms / 60_000
+                )
+            },
         )
     }
 
@@ -207,8 +224,11 @@ internal class HostData(
         val from = when {
             since == null -> startOf(java.time.LocalDate.now(zone))
             month -> null
-            since is Number -> since.toDouble().takeIf { it.isFinite() }?.let { (it * 1000).toLong() }
-                ?.takeIf { it <= now } ?: throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970 and not later than now, such as os.time()")
+            since is Number -> since.toDouble().takeIf { it.isFinite() }
+                ?.let { (it * 1000).toLong() }
+                ?.takeIf { it <= now }
+                ?: throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970 and not later than now, such as os.time()")
+
             else -> throw IllegalArgumentException("usage.data: since must be \"month\" or a time in seconds since 1970, such as os.time()")
         }
         if (!usageReady("usage.data")) return null
@@ -217,9 +237,20 @@ internal class HostData(
             return mapOf("mobile" to s.mobile, "wifi" to s.wifi)
         }
         val today = java.time.LocalDate.now(zone)
-        val cycle = com.mtwabpin.kolahal.usage.DataCycle.of(today, com.mtwabpin.kolahal.data.SharedSettings.get(context, com.mtwabpin.kolahal.data.Keys.DATA_START_DAY))
+        val cycle = com.mtwabpin.kolahal.usage.DataCycle.of(
+            today,
+            com.mtwabpin.kolahal.data.SharedSettings.get(
+                context,
+                com.mtwabpin.kolahal.data.Keys.DATA_START_DAY
+            )
+        )
         val s = com.mtwabpin.kolahal.usage.DataUsage(context).between(cycle.startMs(zone), now)
-        val plan = com.mtwabpin.kolahal.usage.DataCycle.planBytes(com.mtwabpin.kolahal.data.SharedSettings.get(context, com.mtwabpin.kolahal.data.Keys.DATA_PLAN))
+        val plan = com.mtwabpin.kolahal.usage.DataCycle.planBytes(
+            com.mtwabpin.kolahal.data.SharedSettings.get(
+                context,
+                com.mtwabpin.kolahal.data.Keys.DATA_PLAN
+            )
+        )
         return mapOf(
             "mobile" to s.mobile, "wifi" to s.wifi,
             "since" to cycle.startMs(zone) / 1000,
@@ -240,14 +271,21 @@ internal class HostData(
             null -> DEFAULT_UNUSED_DAYS
             is Number -> days.toDouble().takeIf { it.isFinite() }?.toLong()?.coerceIn(7L, 365L)
                 ?: throw IllegalArgumentException("usage.unused: days must be a number from 7 to 365")
+
             else -> throw IllegalArgumentException("usage.unused: days must be a number from 7 to 365")
         }
         if (!usageReady("usage.unused")) return null
         val storage = com.mtwabpin.kolahal.usage.StorageUsage(context)
-        val unused = storage.unused(appNames.keys, wanted) { appNames[it]?.lowercase() ?: it }.take(MAX_UNUSED)
+        val unused = storage.unused(appNames.keys, wanted) { appNames[it]?.lowercase() ?: it }
+            .take(MAX_UNUSED)
         val sizes = storage.sizes(unused.map { it.pkg }).associate { it.pkg to it.size }
         return unused.map { u ->
-            mapOf("app" to StyledText.strip(appNames[u.pkg].orEmpty()).take(MAX_TEXT), "pkg" to u.pkg, "days" to u.days, "bytes" to sizes[u.pkg])
+            mapOf(
+                "app" to StyledText.strip(appNames[u.pkg].orEmpty()).take(MAX_TEXT),
+                "pkg" to u.pkg,
+                "days" to u.days,
+                "bytes" to sizes[u.pkg]
+            )
         }
     }
 
@@ -273,6 +311,7 @@ internal class HostData(
             null -> null
             is String -> app.trim().takeIf { it.isNotEmpty() && it.length <= MAX_TEXT }
                 ?: throw IllegalArgumentException("usage.summary: app must be a package name, such as \"com.google.android.youtube\"")
+
             else -> throw IllegalArgumentException("usage.summary: app must be a package name, such as \"com.google.android.youtube\"")
         }
         if (!usageReady("usage.summary")) return null
@@ -289,22 +328,34 @@ internal class HostData(
         }
         val top = if (pkg != null) null else levels.top(buckets, MAX_SUMMARY_TOP).map { (p, ms) ->
             val name = appNames[p] ?: com.mtwabpin.kolahal.apps.AppNames.android(context, p) ?: p
-            mapOf("app" to StyledText.strip(name).take(MAX_TEXT), "pkg" to p, "minutes" to ms / 60_000)
+            mapOf(
+                "app" to StyledText.strip(name).take(MAX_TEXT),
+                "pkg" to p,
+                "minutes" to ms / 60_000
+            )
         }
-        return mapOf("perDay" to levels.perDay(levels.counted(buckets), pkg)?.let { it / 60_000 }, "rows" to rows, "top" to top)
+        return mapOf(
+            "perDay" to levels.perDay(levels.counted(buckets), pkg)?.let { it / 60_000 },
+            "rows" to rows,
+            "top" to top
+        )
     }
 
     companion object {
         /** `@uses usage`: screen time, data use and unused apps. */
         const val USAGE = "usage"
+
         /** `usage.today(n)`: n from 1 to [MAX_USAGE_APPS]; without it, [DEFAULT_USAGE_APPS]. */
         const val MAX_USAGE_APPS = 30
         const val DEFAULT_USAGE_APPS = 10
+
         /** `usage.days(n)`: n from 1 to [MAX_USAGE_DAYS]; without it, [DEFAULT_USAGE_DAYS]. */
         const val MAX_USAGE_DAYS = 30
+
         /** `usage.summary`: how many top apps it gives. */
         const val MAX_SUMMARY_TOP = 5
         const val DEFAULT_USAGE_DAYS = 7
+
         /** `usage.unused(days)`: days from 7 to 365; without it, [DEFAULT_UNUSED_DAYS]. Up to [MAX_UNUSED] apps. */
         const val DEFAULT_UNUSED_DAYS = 30L
         const val MAX_UNUSED = 50
@@ -318,21 +369,28 @@ internal class HostData(
 
         /** The most todos `todos.list` gives. */
         const val MAX_TODOS = 200
+
         /** The most `todos.setDone` calls that count in one run. */
         const val MAX_TODO_CHANGES = 20
+
         /** `notes.list(n)`: n is from 1 to [MAX_NOTES]. Without it, [DEFAULT_NOTES]. */
         const val MAX_NOTES = 50
         const val DEFAULT_NOTES = 10
+
         /** The most reminders `reminders.list` gives. */
         const val MAX_REMINDERS = 200
+
         /** `calendar.events(days)`: days is from 1 to [MAX_CALENDAR_DAYS]. Without it, [DEFAULT_CALENDAR_DAYS], as the Agenda widget shows. */
         const val MAX_CALENDAR_DAYS = 30
         const val DEFAULT_CALENDAR_DAYS = 3
+
         /** The most events `calendar.events` gives. */
         const val MAX_EVENTS = 100
+
         /** `feeds.unread(n)`: n is from 1 to [MAX_FEED_ITEMS]. Without it, [DEFAULT_FEED_ITEMS]. */
         const val MAX_FEED_ITEMS = 50
         const val DEFAULT_FEED_ITEMS = 10
+
         /** The longest text in a row, in characters. A longer one is cut and ends in "…". */
         const val MAX_TEXT = 4000
     }
@@ -346,11 +404,14 @@ internal class HostData(
  * - anything else: an error that says what to pass.
  * The same rule as `device.unlocks(days)` ([unlockDays]).
  */
-internal fun listCount(call: String, name: String, value: Any?, max: Int, default: Int): Int = when (value) {
-    null -> default
-    is Number -> value.toDouble().let { if (it.isNaN()) 1 else it.coerceIn(1.0, max.toDouble()).toInt() }
-    else -> throw IllegalArgumentException("$call: $name must be a number from 1 to $max")
-}
+internal fun listCount(call: String, name: String, value: Any?, max: Int, default: Int): Int =
+    when (value) {
+        null -> default
+        is Number -> value.toDouble()
+            .let { if (it.isNaN()) 1 else it.coerceIn(1.0, max.toDouble()).toInt() }
+
+        else -> throw IllegalArgumentException("$call: $name must be a number from 1 to $max")
+    }
 
 /**
  * The todo that `todos.setDone(id, …)` names: the `id` of a row from `todos.list()`.
@@ -361,11 +422,16 @@ internal fun listCount(call: String, name: String, value: Any?, max: Int, defaul
  */
 internal fun todoId(id: Any?): Long {
     val n = when (id) {
-        is Number -> id.toDouble().takeIf { it >= 1 && it <= MAX_ID && it == Math.floor(it) }?.toLong()
-        is String -> id.trim().takeIf { it.length in 1..15 && it.all { c -> c in '0'..'9' } }?.toLong()?.takeIf { it >= 1 }
+        is Number -> id.toDouble().takeIf { it >= 1 && it <= MAX_ID && it == Math.floor(it) }
+            ?.toLong()
+
+        is String -> id.trim().takeIf { it.length in 1..15 && it.all { c -> c in '0'..'9' } }
+            ?.toLong()?.takeIf { it >= 1 }
+
         else -> null
     }
-    return n ?: throw IllegalArgumentException("todos.setDone: id must be a todo's id, as todos.list() gives it")
+    return n
+        ?: throw IllegalArgumentException("todos.setDone: id must be a todo's id, as todos.list() gives it")
 }
 
 /** The largest whole number a double holds exactly (2^53). An id is far below it. */
@@ -385,10 +451,12 @@ internal fun rowText(text: String): String {
 }
 
 /** A todo as `todos.list()` gives it. */
-internal fun todoRow(t: Todo): Map<String, Any?> = mapOf("id" to t.id, "text" to rowText(t.text), "done" to t.done)
+internal fun todoRow(t: Todo): Map<String, Any?> =
+    mapOf("id" to t.id, "text" to rowText(t.text), "done" to t.done)
 
 /** A note as `notes.list()` gives it. `created` is in seconds. */
-internal fun noteRow(n: Note): Map<String, Any?> = mapOf("id" to n.id, "text" to rowText(n.text), "created" to n.created / 1000)
+internal fun noteRow(n: Note): Map<String, Any?> =
+    mapOf("id" to n.id, "text" to rowText(n.text), "created" to n.created / 1000)
 
 /**
  * A reminder as `reminders.list()` gives it. `at` is when it is next due, in seconds.
@@ -398,7 +466,11 @@ internal fun noteRow(n: Note): Map<String, Any?> = mapOf("id" to n.id, "text" to
  */
 internal fun reminderRow(r: Reminder): Map<String, Any?> {
     val repeats = r.repeat?.let { rule -> runCatching { Repeat.label(rule) }.getOrNull() }
-    return listOfNotNull("id" to r.id, "text" to rowText(r.text), "at" to r.at / 1000, repeats?.let { "repeats" to rowText(it) }).toMap()
+    return listOfNotNull(
+        "id" to r.id,
+        "text" to rowText(r.text),
+        "at" to r.at / 1000,
+        repeats?.let { "repeats" to rowText(it) }).toMap()
 }
 
 /**
@@ -407,7 +479,13 @@ internal fun reminderRow(r: Reminder): Map<String, Any?> {
  * of an `agenda` widget as it is.
  */
 internal fun eventRow(e: ShownEvent): Map<String, Any?> =
-    mapOf("id" to e.id, "title" to rowText(e.title), "starts" to e.starts, "ends" to e.ends, "allDay" to e.allDay)
+    mapOf(
+        "id" to e.id,
+        "title" to rowText(e.title),
+        "starts" to e.starts,
+        "ends" to e.ends,
+        "allDay" to e.allDay
+    )
 
 /**
  * An unread feed item as `feeds.unread()` gives it, with the fields of an item of `rss.fetch`:
@@ -431,4 +509,5 @@ internal fun feedRow(item: FeedItem, feed: String): Map<String, Any?> = mapOf(
  * may have typed a name and a password into it (`https://me:secret@example.com/feed`).
  */
 internal fun feedName(title: String?, url: String): String =
-    title?.trim()?.takeIf { it.isNotEmpty() } ?: url.toHttpUrlOrNull()?.host?.removePrefix("www.").orEmpty()
+    title?.trim()?.takeIf { it.isNotEmpty() } ?: url.toHttpUrlOrNull()?.host?.removePrefix("www.")
+        .orEmpty()

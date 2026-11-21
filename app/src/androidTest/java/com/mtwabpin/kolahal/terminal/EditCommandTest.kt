@@ -20,7 +20,8 @@ import org.junit.runner.RunWith
 /** `edit` at the prompt: it asks for the picker, a new file or one of the listed files, and the editor's window does the rest. */
 @RunWith(AndroidJUnit4::class)
 class EditCommandTest {
-    @get:Rule val lines = LogLinesSince()
+    @get:Rule
+    val lines = LogLinesSince()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val recent = Documents.recent(context)
@@ -29,9 +30,17 @@ class EditCommandTest {
     /** What the command asked the screen for. */
     private val asked = mutableListOf<String>()
     private val commands = CommandRunner(context, object : TerminalUiStub() {
-        override fun pickTextFile() { asked += "pick" }
-        override fun newTextFile(name: String) { asked += "new $name" }
-        override fun openTextFile(uri: String) { asked += "open $uri" }
+        override fun pickTextFile() {
+            asked += "pick"
+        }
+
+        override fun newTextFile(name: String) {
+            asked += "new $name"
+        }
+
+        override fun openTextFile(uri: String) {
+            asked += "open $uri"
+        }
     })
 
     // Names no real file on the phone has.
@@ -42,17 +51,20 @@ class EditCommandTest {
     /** The phone's own recent files, set aside for the test. */
     private var before = emptyList<com.mtwabpin.kolahal.documents.RecentFiles.Entry>()
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         before = recent.list()
         before.forEach { recent.remove(it.uri) }
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         listOf(notes, todo, scratch).forEach { recent.remove(it); drafts.delete(it) }
         before.reversed().forEach { recent.add(it.uri, it.name, it.opened) }
     }
 
-    @Test fun editAsksForThePickerOrANewFile() {
+    @Test
+    fun editAsksForThePickerOrANewFile() {
         commands.run("edit")
         commands.run("edit new")
         commands.run("edit new shopping list.md")
@@ -60,14 +72,19 @@ class EditCommandTest {
     }
 
     /** The recent files and those with unsaved text, newest first. A tap opens the line's file, and so does its name. */
-    @Test fun recentListsWhatCanBeOpenedAgain() {
+    @Test
+    fun recentListsWhatCanBeOpenedAgain() {
         // The phone may hold real drafts: only this test's lines are looked at.
         recent.add(notes, "ktest-notes.txt", 1_000)
         recent.add(todo, "ktest todo.md", 2_000)
         drafts.write(Drafts.Draft(scratch, "ktest-scratch.txt", "unsaved", null, 3_000))
         val mine = commands.lines("edit recent").filter { it.text.startsWith("ktest") }
-        assertEquals(listOf("ktest-scratch.txt", "ktest todo.md", "ktest-notes.txt"), mine.map { it.text })
-        assertEquals(listOf("edit ktest-scratch.txt", "edit ktest todo.md", "edit ktest-notes.txt"), mine.map { it.ctx.values[LogContext.RUN] })
+        assertEquals(
+            listOf("ktest-scratch.txt", "ktest todo.md", "ktest-notes.txt"),
+            mine.map { it.text })
+        assertEquals(
+            listOf("edit ktest-scratch.txt", "edit ktest todo.md", "edit ktest-notes.txt"),
+            mine.map { it.ctx.values[LogContext.RUN] })
         assertTrue(mine[0].ctx.values.getValue(LogContext.DESC).startsWith("unsaved changes · "))
         // By its name, in another case, and by the start of its name.
         commands.run("edit ktest todo.md")
@@ -76,16 +93,21 @@ class EditCommandTest {
         assertEquals(listOf("open $todo", "open $notes", "open $scratch"), asked)
     }
 
-    @Test fun aNameThatIsntListedSaysSo() {
+    @Test
+    fun aNameThatIsntListedSaysSo() {
         val said = commands.lines("edit kolahal-test-no-such-file.txt").single()
         assertEquals(LogKind.ERROR, said.kind)
-        assertEquals("No recent file 'kolahal-test-no-such-file.txt' — tap to pick a file", said.text)
+        assertEquals(
+            "No recent file 'kolahal-test-no-such-file.txt' — tap to pick a file",
+            said.text
+        )
         assertEquals("edit", said.ctx.values[LogContext.RUN])
         assertEquals(emptyList<String>(), asked)
     }
 
     /** An address opens as it is, listed or not. */
-    @Test fun anAddressOpensAsItIs() {
+    @Test
+    fun anAddressOpensAsItIs() {
         commands.run("edit content://some.app/files/a.txt")
         assertEquals(listOf("open content://some.app/files/a.txt"), asked)
     }

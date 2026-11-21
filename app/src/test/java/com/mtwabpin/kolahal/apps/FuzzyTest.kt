@@ -7,7 +7,8 @@ import org.junit.Test
 
 class FuzzyTest {
     /** Letters that aren't a letter and an accent are found as people type them without one. */
-    @Test fun lettersWithoutAnAccentToTakeOff() {
+    @Test
+    fun lettersWithoutAnAccentToTakeOff() {
         assertEquals("strasse", Fuzzy.fold("Straße"))
         assertEquals("lodz", Fuzzy.fold("Łódź"))
         assertEquals("oresund", Fuzzy.fold("Øresund"))
@@ -17,12 +18,14 @@ class FuzzyTest {
         assertTrue(Fuzzy.fold("Straßenbahn").startsWith(Fuzzy.fold("strassen")))
     }
 
-    @Test fun accentsDontMatter() {
+    @Test
+    fun accentsDontMatter() {
         assertEquals("cafe", Fuzzy.fold("Café"))
         assertEquals("ubersetzer", Fuzzy.fold("Übersetzer"))
     }
 
-    @Test fun slipsFindTheApp() {
+    @Test
+    fun slipsFindTheApp() {
         assertTrue(Fuzzy.slip("mpas", listOf("maps")))
         assertTrue(Fuzzy.slip("gmial", listOf("gmail")))
         assertTrue(Fuzzy.slip("chrone", listOf("chrome")))
@@ -34,7 +37,8 @@ class FuzzyTest {
     }
 
     /** Two slips from eight letters on, whichever way they go. */
-    @Test fun twoSlipsFromEightLetters() {
+    @Test
+    fun twoSlipsFromEightLetters() {
         assertTrue("two missing", Fuzzy.slip("calcltor", listOf("calculator")))
         assertTrue("two extra", Fuzzy.slip("caalculattor", listOf("calculator")))
         assertTrue("two wrong", Fuzzy.slip("cakculatoe", listOf("calculator")))
@@ -48,20 +52,23 @@ class FuzzyTest {
         assertFalse(Fuzzy.slip("clclatoor", listOf("calculator")))
     }
 
-    @Test fun notEverythingIsASlip() {
+    @Test
+    fun notEverythingIsASlip() {
         assertFalse(Fuzzy.slip("map", listOf("mop")))
         assertFalse(Fuzzy.slip("maps", listOf("mail")))
         assertFalse(Fuzzy.slip("notes", listOf("photos")))
     }
 
-    @Test fun swapsCountOnce() {
+    @Test
+    fun swapsCountOnce() {
         assertTrue(Fuzzy.slip("mpas", listOf("maps")))
         assertTrue(Fuzzy.slip("maps", listOf("map")))
         assertFalse(Fuzzy.slip("maps", listOf("mail")))
     }
 
     /** A launch counts one, halving every week: last month's habit loses to today's. */
-    @Test fun oldLaunchesFade() {
+    @Test
+    fun oldLaunchesFade() {
         val week = 7 * 86_400_000L
         assertEquals(25.0, AppPrefs.decayed(50.0, week), 1e-9)
         val oldFavourite = AppPrefs.decayed(50.0, 8 * week) + 1
@@ -78,20 +85,27 @@ class FuzzyTest {
             for (j in 1..b.length) {
                 val cost = if (a[i - 1] == b[j - 1]) 0 else 1
                 d[i][j] = minOf(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
-                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) d[i][j] = minOf(d[i][j], d[i - 2][j - 2] + 1)
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) d[i][j] =
+                    minOf(d[i][j], d[i - 2][j - 2] + 1)
             }
         }
         return d[a.length][b.length]
     }
 
     /** One table for every length of the name finds the slips a table for each length found. */
-    @Test fun slipAgreesWithATablePerLength() {
+    @Test
+    fun slipAgreesWithATablePerLength() {
         val r = kotlin.random.Random(11)
         repeat(5_000) {
             val q = String(CharArray(r.nextInt(4, 10)) { "abcd"[r.nextInt(4)] })
             val name = String(CharArray(r.nextInt(0, 12)) { "abcd"[r.nextInt(4)] })
             val max = if (q.length >= 8) 2 else 1
-            val before = (q.length - max..q.length + max).any { n -> n in 1..name.length && tableDistance(q, name.take(n)) <= max }
+            val before = (q.length - max..q.length + max).any { n ->
+                n in 1..name.length && tableDistance(
+                    q,
+                    name.take(n)
+                ) <= max
+            }
             assertEquals("$q / $name", before, Fuzzy.slip(q, listOf(name)))
         }
     }

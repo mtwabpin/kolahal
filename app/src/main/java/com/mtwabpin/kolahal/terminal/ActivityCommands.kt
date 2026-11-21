@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.CommandParsing
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -13,6 +12,7 @@ import android.os.Build
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -39,6 +39,7 @@ object ActivityMatch {
     /** What a name finds in an app's activities. */
     sealed interface Found {
         data class One(val item: ActivityItem) : Found
+
         /** Several match. The command lists them, so the user can pick one. */
         data class Many(val items: List<ActivityItem>) : Found
         data object None : Found
@@ -50,7 +51,11 @@ object ActivityMatch {
      */
     fun shownLabel(label: String?, appLabel: String, className: String): String {
         val l = label?.trim().orEmpty()
-        return if (l.isEmpty() || l.equals(appLabel.trim(), ignoreCase = true)) className.substringAfterLast('.') else l
+        return if (l.isEmpty() || l.equals(
+                appLabel.trim(),
+                ignoreCase = true
+            )
+        ) className.substringAfterLast('.') else l
     }
 
     /** The class name as shown under the label: `.Settings$Wifi` when it is in the app's package. */
@@ -67,14 +72,18 @@ object ActivityMatch {
     fun find(items: List<ActivityItem>, query: String): Found {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return Found.None
-        fun names(i: ActivityItem) = listOf(i.className, i.shortName, i.innerName, i.label).map { it.lowercase() }
+        fun names(i: ActivityItem) =
+            listOf(i.className, i.shortName, i.innerName, i.label).map { it.lowercase() }
+
         val exact = items.filter { i -> names(i).any { it == q } }
         // An exact class name wins over a label that is the same: two activities can share a label.
         val exactClass = exact.filter { i -> names(i).take(3).any { it == q } }
         val steps = listOf(
             exactClass.ifEmpty { exact },
             items.filter { i -> names(i).drop(1).any { it.startsWith(q) } },
-            items.filter { i -> i.shortName.lowercase().contains(q) || i.label.lowercase().contains(q) },
+            items.filter { i ->
+                i.shortName.lowercase().contains(q) || i.label.lowercase().contains(q)
+            },
         )
         val hit = steps.firstOrNull { it.isNotEmpty() } ?: return Found.None
         return if (hit.size == 1) Found.One(hit[0]) else Found.Many(hit)
@@ -127,7 +136,8 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
         if (words.isEmpty()) return usage("activity")
         val (appName, name) = ActivityMatch.split(words) { tierOf(it) }
             ?: return error("No app matches '${words.joinToString(" ")}'")
-        val app = apps.search(appName, ProfileKind.PERSONAL).firstOrNull() ?: return error("No app matches '$appName'")
+        val app = apps.search(appName, ProfileKind.PERSONAL).firstOrNull()
+            ?: return error("No app matches '$appName'")
         val items = activities(context, app)
         if (items.isEmpty()) return info("${app.label} has no activities that other apps may open")
         if (name.isEmpty()) {
@@ -140,19 +150,31 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
                 list(app, found.items)
                 info("${found.items.size} activities in ${app.label} match '$name' · tap one to open it")
             }
-            ActivityMatch.Found.None -> error("${app.label} has no activity matching '$name' · 'activity ${appToken(app)}' lists them")
+
+            ActivityMatch.Found.None -> error(
+                "${app.label} has no activity matching '$name' · 'activity ${
+                    appToken(
+                        app
+                    )
+                }' lists them"
+            )
         }
     }
 
-    private fun tierOf(text: String): Int? = apps.searchRanked(text, ProfileKind.PERSONAL).firstOrNull()?.second
+    private fun tierOf(text: String): Int? =
+        apps.searchRanked(text, ProfileKind.PERSONAL).firstOrNull()?.second
 
     /** One line for each activity: its name, with its class muted under it. A tap opens it. */
     private fun list(app: AppEntry, items: List<ActivityItem>) = items.forEach { item ->
-        out("${item.label}\n${ActivityMatch.shownClass(app.pkg, item.className)}", lineCtx(app, item.className) + LogContext.ITEM)
+        out(
+            "${item.label}\n${ActivityMatch.shownClass(app.pkg, item.className)}",
+            lineCtx(app, item.className) + LogContext.ITEM
+        )
     }
 
     private fun open(app: AppEntry, item: ActivityItem) {
-        val failure = start(context, app.pkg, item.className, item.label) ?: return info("Opened ${item.label} · ${app.label}", lineCtx(app, item.className))
+        val failure = start(context, app.pkg, item.className, item.label)
+            ?: return info("Opened ${item.label} · ${app.label}", lineCtx(app, item.className))
         error(failure)
     }
 
@@ -164,7 +186,9 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
 
     companion object {
         /** Profile flags that `activity` can't serve. */
-        private val OTHER_PROFILES = (ProfileKind.entries - ProfileKind.PERSONAL).flatMap { listOf(it.flag, it.longFlag) }.toSet()
+        private val OTHER_PROFILES =
+            (ProfileKind.entries - ProfileKind.PERSONAL).flatMap { listOf(it.flag, it.longFlag) }
+                .toSet()
 
         /**
          * The app's activities that any app may open: exported, enabled and with no permission.
@@ -176,24 +200,42 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
         fun activities(context: Context, app: AppEntry): List<ActivityItem> {
             val pm = context.packageManager
             val info = runCatching {
-                if (Build.VERSION.SDK_INT >= 33) pm.getPackageInfo(app.pkg, PackageManager.PackageInfoFlags.of(PackageManager.GET_ACTIVITIES.toLong()))
-                else @Suppress("DEPRECATION") pm.getPackageInfo(app.pkg, PackageManager.GET_ACTIVITIES)
+                if (Build.VERSION.SDK_INT >= 33) pm.getPackageInfo(
+                    app.pkg,
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_ACTIVITIES.toLong())
+                )
+                else @Suppress("DEPRECATION") pm.getPackageInfo(
+                    app.pkg,
+                    PackageManager.GET_ACTIVITIES
+                )
             }.getOrNull() ?: return emptyList()
             return info.activities.orEmpty()
                 .filter { it.exported && it.isEnabled && it.permission == null }
-                .map { ActivityItem(it.name, ActivityMatch.shownLabel(label(pm, it), app.originalLabel, it.name)) }
+                .map {
+                    ActivityItem(
+                        it.name,
+                        ActivityMatch.shownLabel(label(pm, it), app.originalLabel, it.name)
+                    )
+                }
                 .distinctBy { it.className }
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it: ActivityItem -> it.label }.thenBy { it.className })
         }
 
-        private fun label(pm: PackageManager, info: ActivityInfo): String? = runCatching { info.loadLabel(pm).toString() }.getOrNull()
+        private fun label(pm: PackageManager, info: ActivityInfo): String? =
+            runCatching { info.loadLabel(pm).toString() }.getOrNull()
 
         /**
          * Starts the activity. Returns null when it started, or a line that says why it didn't.
          * Never throws: an app may remove or protect an activity at any time.
          */
-        fun start(context: Context, pkg: String, className: String, label: String = className.substringAfterLast('.')): String? {
-            val intent = Intent().setClassName(pkg, className).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        fun start(
+            context: Context,
+            pkg: String,
+            className: String,
+            label: String = className.substringAfterLast('.')
+        ): String? {
+            val intent =
+                Intent().setClassName(pkg, className).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             return try {
                 context.startActivity(intent)
                 null
@@ -208,7 +250,9 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
 
         /** Opens the activity of a log line (a tap). Only a failure is logged. */
         fun openFromLine(context: Context, pkg: String, className: String) {
-            start(context, pkg, className)?.let { LogRepository.get(context).add(LogKind.ERROR, it) }
+            start(context, pkg, className)?.let {
+                LogRepository.get(context).add(LogKind.ERROR, it)
+            }
         }
 
         /**
@@ -220,7 +264,9 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
             val label = app.label
             if (label.isBlank() || label.any { it == '"' || it == '\'' }) return app.pkg
             val words = CommandParsing.tokenize(label) + CommandParsing.tokenize(name)
-            val split = ActivityMatch.split(words) { repo.searchRanked(it, ProfileKind.PERSONAL).firstOrNull()?.second }
+            val split = ActivityMatch.split(words) {
+                repo.searchRanked(it, ProfileKind.PERSONAL).firstOrNull()?.second
+            }
             val back = split?.let { repo.search(it.first, ProfileKind.PERSONAL).firstOrNull() }
             return if (back?.key == app.key && split.second == name) label else app.pkg
         }
@@ -228,7 +274,10 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
         /** The command that opens this activity: `activity Settings WifiSettingsActivity`. For Copy, and later for aliases. */
         fun commandFor(context: Context, app: AppEntry, className: String): String {
             val items = activities(context, app)
-            val item = items.firstOrNull { it.className == className } ?: ActivityItem(className, className.substringAfterLast('.'))
+            val item = items.firstOrNull { it.className == className } ?: ActivityItem(
+                className,
+                className.substringAfterLast('.')
+            )
             val name = ActivityMatch.nameFor(item, items)
             return "activity ${appToken(context, app, name)} $name"
         }

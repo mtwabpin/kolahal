@@ -44,9 +44,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -66,21 +66,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
-import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Suggestion
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 // The tour's previews. Each setting gets a small home screen that uses the terminal's current
 // colours, font and text size. Where possible, the previews use the real suggestion list, key bar
@@ -88,7 +87,12 @@ import kotlinx.coroutines.withContext
 
 /** A small home screen, in the terminal's colours as set now. */
 @Composable
-internal fun HomeFrame(height: Dp, modifier: Modifier = Modifier, tag: String = "tour-preview", content: @Composable BoxScope.() -> Unit) {
+internal fun HomeFrame(
+    height: Dp,
+    modifier: Modifier = Modifier,
+    tag: String = "tour-preview",
+    content: @Composable BoxScope.() -> Unit
+) {
     val shape = RoundedCornerShape(20.dp)
     Box(
         modifier
@@ -109,14 +113,21 @@ internal fun PreviewCaption(text: String) {
         text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 4.dp).heightIn(min = 40.dp).testTag("tour-caption"),
+        modifier = Modifier
+            .padding(horizontal = 4.dp)
+            .heightIn(min = 40.dp)
+            .testTag("tour-caption"),
     )
 }
 
 /** A log line in a preview, with its [source] after it, dim. */
 @Composable
 private fun Line(text: String, color: Color = Term.fg, source: String? = null) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+    ) {
         Text(
             buildAnnotatedString {
                 append(text)
@@ -125,14 +136,20 @@ private fun Line(text: String, color: Color = Term.fg, source: String? = null) {
             style = Term.text.copy(color = color),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).alignByBaseline(),
+            modifier = Modifier
+                .weight(1f)
+                .alignByBaseline(),
         )
     }
 }
 
 @Composable
 private fun CommandLine(text: String, time: String? = null) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+    ) {
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(color = Term.prompt)) { append("$ ") }
@@ -140,9 +157,17 @@ private fun CommandLine(text: String, time: String? = null) {
             },
             style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold),
             maxLines = 1,
-            modifier = Modifier.weight(1f).alignByBaseline(),
+            modifier = Modifier
+                .weight(1f)
+                .alignByBaseline(),
         )
-        if (time != null) Text(time, style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp), modifier = Modifier.alignByBaseline().padding(start = 8.dp))
+        if (time != null) Text(
+            time,
+            style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp),
+            modifier = Modifier
+                .alignByBaseline()
+                .padding(start = 8.dp)
+        )
     }
 }
 
@@ -150,33 +175,61 @@ private fun CommandLine(text: String, time: String? = null) {
 @Composable
 private fun PreviewPrompt(text: String, enter: Boolean = false) {
     val blink = rememberInfiniteTransition(label = "caret")
-    val caret by blink.animateFloat(1f, 0f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "caret")
+    val caret by blink.animateFloat(
+        1f,
+        0f,
+        infiniteRepeatable(tween(530), RepeatMode.Reverse),
+        label = "caret"
+    )
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .padding(horizontal = 12.dp),
     ) {
         Text("$ ", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold))
         Text(text, style = Term.text.copy(color = Term.fg), maxLines = 1)
         // The caret alpha is read only when the layer draws, so the blink does not recompose the prompt on every frame.
-        Box(Modifier.width(2.dp).height((Term.fontSize + 4).dp).graphicsLayer { alpha = caret; clip = true }.background(Term.prompt))
+        Box(
+            Modifier
+                .width(2.dp)
+                .height((Term.fontSize + 4).dp)
+                .graphicsLayer { alpha = caret; clip = true }
+                .background(Term.prompt)
+        )
         Spacer(Modifier.weight(1f))
         // Shows Enter being pressed. With `launch.instant off`, nothing runs until Enter.
         AnimatedVisibility(enter, enter = fadeIn() + scaleIn(), exit = fadeOut()) {
             Box(
-                Modifier.background(Term.prompt, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
-            ) { Text("Enter ⏎", style = Term.text.copy(color = Term.bg, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize - 2).sp)) }
+                Modifier
+                    .background(Term.prompt, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    "Enter ⏎",
+                    style = Term.text.copy(
+                        color = Term.bg,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = (Term.fontSize - 2).sp
+                    )
+                )
+            }
         }
     }
 }
 
 /** Formats a time the same way the log shows it. */
-private fun logTime(clock24: Boolean, at: Date = Date()) = com.mtwabpin.kolahal.terminal.lineTimeFormat(clock24).format(at)
+private fun logTime(clock24: Boolean, at: Date = Date()) =
+    com.mtwabpin.kolahal.terminal.lineTimeFormat(clock24).format(at)
 
 @Composable
 private fun rememberApps(): List<AppEntry> {
     val repo = AppRepository.get(LocalContext.current)
     val apps by repo.apps.collectAsStateWithLifecycle()
-    return remember(apps) { apps.filter { !it.hidden && !it.profile.quiet }.sortedBy { it.label.lowercase() } }
+    return remember(apps) {
+        apps.filter { !it.hidden && !it.profile.quiet }.sortedBy { it.label.lowercase() }
+    }
 }
 
 /**
@@ -201,19 +254,29 @@ internal fun TypingPreview(vm: TerminalViewModel) {
     val commands = CommandCatalog.COMMAND_USAGES
 
     fun target(typed: String, m: String) = InstantRun.target(
-        typed, m, minLetters,
-        rankedApps = { repo.searchRanked(it) }, appLabel = { it.label },
-        commands = commands, aliases = emptyMap(), scriptCommands = emptyList(), isOn = { !it.profile.quiet },
+        typed,
+        m,
+        minLetters,
+        rankedApps = { repo.searchRanked(it) },
+        appLabel = { it.label },
+        commands = commands,
+        aliases = emptyMap(),
+        scriptCommands = emptyList(),
+        isOn = { !it.profile.quiet },
     )
 
     // Finds one of the user's apps that `apps` mode would launch after only a few letters.
     val app by androidx.compose.runtime.produceState<AppEntry?>(null, apps, minLetters) {
         value = withContext(Dispatchers.Default) {
-            apps.asSequence().filter { it.label.length >= 4 && it.label.first().isLetter() }.mapNotNull { a ->
-                (minLetters..minOf(6, a.label.length)).firstOrNull { k ->
-                    (target(a.label.take(k), InstantRun.APPS) as? InstantRun.Target.App)?.app?.key == a.key
-                }?.let { a to it }
-            }.minByOrNull { it.second }?.first
+            apps.asSequence().filter { it.label.length >= 4 && it.label.first().isLetter() }
+                .mapNotNull { a ->
+                    (minLetters..minOf(6, a.label.length)).firstOrNull { k ->
+                        (target(
+                            a.label.take(k),
+                            InstantRun.APPS
+                        ) as? InstantRun.Target.App)?.app?.key == a.key
+                    }?.let { a to it }
+                }.minByOrNull { it.second }?.first
         }
     }
 
@@ -224,8 +287,10 @@ internal fun TypingPreview(vm: TerminalViewModel) {
 
     fun suggestionsFor(q: String): List<Suggestion> {
         if (q.isEmpty()) return emptyList()
-        val appRows = repo.searchRanked(q).filter { it.second <= 2 }.take(3).map { Suggestion.App(it.first) }
-        val commandRows = commands.keys.filter { it.startsWith(q.lowercase()) }.take(2).map { Suggestion.Completion(it, "$it ") }
+        val appRows =
+            repo.searchRanked(q).filter { it.second <= 2 }.take(3).map { Suggestion.App(it.first) }
+        val commandRows = commands.keys.filter { it.startsWith(q.lowercase()) }.take(2)
+            .map { Suggestion.Completion(it, "$it ") }
         return (commandRows + appRows).take(4)
     }
 
@@ -234,7 +299,10 @@ internal fun TypingPreview(vm: TerminalViewModel) {
         lines.clear()
         val demo = app ?: return@LaunchedEffect
         val appWord = (minLetters..demo.label.length).firstOrNull { k ->
-            (target(demo.label.take(k), InstantRun.APPS) as? InstantRun.Target.App)?.app?.key == demo.key
+            (target(
+                demo.label.take(k),
+                InstantRun.APPS
+            ) as? InstantRun.Target.App)?.app?.key == demo.key
         }.let { demo.label.take(it ?: demo.label.length).lowercase() }
 
         /** Types [word] one letter at a time. Returns true if it ran by itself before the end. */
@@ -280,8 +348,18 @@ internal fun TypingPreview(vm: TerminalViewModel) {
     }
 
     HomeFrame(250.dp) {
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            lines.forEach { (text, command) -> if (command) CommandLine(text, logTime(clock24)) else Line(text, color = Term.dim) }
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            lines.forEach { (text, command) ->
+                if (command) CommandLine(
+                    text,
+                    logTime(clock24)
+                ) else Line(text, color = Term.dim)
+            }
             Spacer(Modifier.height(6.dp))
             val suggestions = remember(typed, apps) { suggestionsFor(typed) }
             if (chips) SuggestionStrip(suggestions, chipRows, onPick = {}, icons = icons)
@@ -289,15 +367,25 @@ internal fun TypingPreview(vm: TerminalViewModel) {
             PreviewPrompt(typed, enter)
         }
         // Shows the app opening: its icon and name, large, for a moment.
-        AnimatedVisibility(opened != null, enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
+        AnimatedVisibility(
+            opened != null,
+            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
             val a = opened ?: app
             if (a != null) Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.background(Term.surface, RoundedCornerShape(16.dp)).padding(16.dp),
+                modifier = Modifier
+                    .background(Term.surface, RoundedCornerShape(16.dp))
+                    .padding(16.dp),
             ) {
                 AppIcon(a, 48.dp)
                 Spacer(Modifier.height(6.dp))
-                Text("${a.label} opens", style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold))
+                Text(
+                    "${a.label} opens",
+                    style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold)
+                )
             }
         }
     }
@@ -319,35 +407,50 @@ internal fun LookPreview(vm: TerminalViewModel) {
     val context = LocalContext.current
     val battery = remember {
         context.getSystemService(android.os.BatteryManager::class.java)
-            ?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 } ?: 80
+            ?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            ?.takeIf { it in 0..100 } ?: 80
     }
     val now = remember { Date() }
     val (month, week) = remember {
         val today = java.time.LocalDate.now()
         val monday = today.with(java.time.DayOfWeek.MONDAY)
         today.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")) to
-            (0L..6L).joinToString(" ") { "%2d".format(monday.plusDays(it).dayOfMonth) }
+                (0L..6L).joinToString(" ") { "%2d".format(monday.plusDays(it).dayOfMonth) }
     }
     HomeFrame(230.dp) {
         // Drawn like the real header, when it is on: the time and date, then the battery at the end.
         val locale = LocalConfiguration.current.locales[0]
         if (header) Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.align(Alignment.TopStart).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
             Text(
-                SimpleDateFormat(com.mtwabpin.kolahal.data.TimeFormats.clock(clock24), locale).format(now),
+                SimpleDateFormat(
+                    com.mtwabpin.kolahal.data.TimeFormats.clock(clock24),
+                    locale
+                ).format(now),
                 style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold),
                 modifier = Modifier.testTag("tour-clock"),
             )
             Spacer(Modifier.width(8.dp))
-            Text(SimpleDateFormat(com.mtwabpin.kolahal.data.TimeFormats.DAY, locale).format(now), style = Term.text.copy(color = Term.dim))
+            Text(
+                SimpleDateFormat(com.mtwabpin.kolahal.data.TimeFormats.DAY, locale).format(now),
+                style = Term.text.copy(color = Term.dim)
+            )
             Spacer(Modifier.weight(1f))
             BatteryGlyph(battery, false, Term.fg, Term.fontSize.dp)
             Spacer(Modifier.width(3.dp))
             Text("$battery%", style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold))
         }
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
             CommandLine("cal", logTime(clock24, now))
             Line("    $month", color = Term.dim)
             Line("Mo Tu We Th Fr Sa Su", color = Term.dim)
@@ -362,11 +465,25 @@ internal fun LookPreview(vm: TerminalViewModel) {
 private fun KeyboardStandIn() {
     Column(
         verticalArrangement = Arrangement.spacedBy(5.dp),
-        modifier = Modifier.fillMaxWidth().background(Term.surface).padding(horizontal = 6.dp, vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Term.surface)
+            .padding(horizontal = 6.dp, vertical = 8.dp),
     ) {
         listOf(10, 9, 7).forEach { keys ->
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                repeat(keys) { Box(Modifier.weight(1f, fill = false).width(22.dp).height(16.dp).background(Term.dim.copy(alpha = 0.25f), RoundedCornerShape(4.dp))) }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                repeat(keys) {
+                    Box(
+                        Modifier
+                            .weight(1f, fill = false)
+                            .width(22.dp)
+                            .height(16.dp)
+                            .background(Term.dim.copy(alpha = 0.25f), RoundedCornerShape(4.dp))
+                    )
+                }
             }
         }
     }
@@ -386,14 +503,31 @@ internal fun KeyboardPreview(vm: TerminalViewModel) {
     // The user's most-used apps. If there are none yet, use any three of their apps.
     val top = remember(apps) { repo.top(3).ifEmpty { apps.take(3) } }
     HomeFrame(360.dp) {
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+        ) {
             Line("Launched ${apps.firstOrNull()?.label ?: "Maps"}", color = Term.dim)
             Spacer(Modifier.height(6.dp))
-            AnimatedVisibility(mostUsed, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                SuggestionList(top.map { Suggestion.App(it) }, onPick = {}, onAppLongPress = {}, icons = icons)
+            AnimatedVisibility(
+                mostUsed,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                SuggestionList(
+                    top.map { Suggestion.App(it) },
+                    onPick = {},
+                    onAppLongPress = {},
+                    icons = icons
+                )
             }
             PreviewPrompt("")
-            AnimatedVisibility(keyBar, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            AnimatedVisibility(
+                keyBar,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
                 KeyBar(specs, rowHeight, onKey = {}, onText = {})
             }
             KeyboardStandIn()
@@ -414,9 +548,18 @@ internal fun SelectorPreview(vm: TerminalViewModel) {
     val apps = rememberApps()
     val pinned = remember(apps) { vm.pinnedKeys() }
     var picked by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(picked) { if (picked != null) { delay(2000.milliseconds); picked = null } }
+    LaunchedEffect(picked) {
+        if (picked != null) {
+            delay(2000.milliseconds); picked = null
+        }
+    }
     HomeFrame(330.dp, tag = "tour-selector-preview") {
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = 8.dp)) {
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+        ) {
             CommandLine("cal")
             Line("Launched ${apps.firstOrNull()?.label ?: "Maps"}", color = Term.dim)
             PreviewPrompt("")
@@ -441,11 +584,20 @@ internal fun SelectorPreview(vm: TerminalViewModel) {
                 systemFont = remember(version) { vm.config[Keys.SELECTOR_SYSTEM_FONT] },
             )
         }
-        AnimatedVisibility(picked != null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp)) {
+        AnimatedVisibility(
+            picked != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 12.dp)
+        ) {
             Text(
                 picked.orEmpty(),
                 style = Term.text.copy(color = Term.bg, fontWeight = FontWeight.Bold),
-                modifier = Modifier.background(Term.prompt, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .background(Term.prompt, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
     }
@@ -457,7 +609,13 @@ internal fun SelectorPreview(vm: TerminalViewModel) {
 }
 
 /** One line to try gestures on. The caption says what a tap and a long-press do. */
-private class TryLine(val text: String, val command: Boolean, val source: String?, val tap: String, val longPress: String)
+private class TryLine(
+    val text: String,
+    val command: Boolean,
+    val source: String?,
+    val tap: String,
+    val longPress: String
+)
 
 /**
  * A few log lines to try the log's gestures on:
@@ -469,21 +627,50 @@ private class TryLine(val text: String, val command: Boolean, val source: String
 @Composable
 internal fun LogTryPreview() {
     val apps = rememberApps()
-    val appName = apps.firstOrNull { it.label.equals("Maps", true) }?.label ?: apps.firstOrNull()?.label ?: "Maps"
+    val appName =
+        apps.firstOrNull { it.label.equals("Maps", true) }?.label ?: apps.firstOrNull()?.label
+        ?: "Maps"
     val tries = remember(appName) {
         listOf(
-            TryLine("cal", command = true, source = null, tap = "Tap: runs cal again.", longPress = "Long-press: run again, edit in the prompt, copy, delete, and when it ran."),
-            TryLine("Launched $appName", command = false, source = null, tap = "Tap: opens $appName again.", longPress = "Long-press: $appName's actions, its shortcuts and app info."),
-            TryLine("Show HN: A tiny terminal", command = false, source = "Hacker News", tap = "Tap: opens the story.", longPress = "Long-press: open, share or copy the link, and where it came from."),
+            TryLine(
+                "cal",
+                command = true,
+                source = null,
+                tap = "Tap: runs cal again.",
+                longPress = "Long-press: run again, edit in the prompt, copy, delete, and when it ran."
+            ),
+            TryLine(
+                "Launched $appName",
+                command = false,
+                source = null,
+                tap = "Tap: opens $appName again.",
+                longPress = "Long-press: $appName's actions, its shortcuts and app info."
+            ),
+            TryLine(
+                "Show HN: A tiny terminal",
+                command = false,
+                source = "Hacker News",
+                tap = "Tap: opens the story.",
+                longPress = "Long-press: open, share or copy the link, and where it came from."
+            ),
         )
     }
     var caption by remember { mutableStateOf("Try them: tap a line, long-press it, or swipe it sideways.") }
     val gone = remember { mutableStateListOf<Int>() }
     val scope = rememberCoroutineScope()
     HomeFrame(170.dp, tag = "tour-log-preview") {
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = 8.dp)) {
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+        ) {
             tries.forEachIndexed { i, t ->
-                AnimatedVisibility(i !in gone, exit = shrinkVertically() + fadeOut(), enter = expandVertically() + fadeIn()) {
+                AnimatedVisibility(
+                    i !in gone,
+                    exit = shrinkVertically() + fadeOut(),
+                    enter = expandVertically() + fadeIn()
+                ) {
                     val offset = remember { Animatable(0f) }
                     Box(
                         Modifier
@@ -498,17 +685,20 @@ internal fun LogTryPreview() {
                                         scope.launch {
                                             when {
                                                 x < -w / 3f -> {
-                                                    caption = "Swiped left: deleted. Undo shows for a moment."
+                                                    caption =
+                                                        "Swiped left: deleted. Undo shows for a moment."
                                                     offset.animateTo(-w.toFloat())
                                                     gone += i
                                                     delay(1800.milliseconds)
                                                     offset.snapTo(0f)
                                                     gone -= i
                                                 }
+
                                                 x > w / 3f -> {
                                                     caption = "Swiped right: copied."
                                                     offset.animateTo(0f)
                                                 }
+
                                                 else -> offset.animateTo(0f)
                                             }
                                         }
@@ -518,11 +708,17 @@ internal fun LogTryPreview() {
                                     scope.launch { offset.snapTo(offset.value + dx) }
                                 }
                             }
-                            .combinedClickable(onClick = { caption = t.tap }, onLongClick = { caption = t.longPress })
+                            .combinedClickable(
+                                onClick = { caption = t.tap },
+                                onLongClick = { caption = t.longPress })
                             .testTag("tour-try-line $i"),
                         contentAlignment = Alignment.CenterStart,
                     ) {
-                        if (t.command) CommandLine(t.text) else Line(t.text, color = if (t.source != null) Term.fg else Term.dim, source = t.source)
+                        if (t.command) CommandLine(t.text) else Line(
+                            t.text,
+                            color = if (t.source != null) Term.fg else Term.dim,
+                            source = t.source
+                        )
                     }
                 }
             }
@@ -538,13 +734,26 @@ internal fun PermissionExample(fix: String) {
     val accent = SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)
     val lines = when (fix) {
         "home" -> listOf(buildAnnotatedString { withStyle(dim) { append("Home, from any app, brings you back here") } })
-        "notifications" -> listOf(buildAnnotatedString { withStyle(accent) { append("Kolahal") }; withStyle(dim) { append(" · ") }; append("hn: 3 new stories") })
-        "notifs enable" -> listOf(buildAnnotatedString { append("Mom: Dinner at 8?"); withStyle(dim) { append(" · Messages") } })
+        "notifications" -> listOf(buildAnnotatedString {
+            withStyle(accent) { append("Kolahal") }; withStyle(
+            dim
+        ) { append(" · ") }; append("hn: 3 new stories")
+        })
+
+        "notifs enable" -> listOf(buildAnnotatedString {
+            append("Mom: Dinner at 8?"); withStyle(dim) {
+            append(
+                " · Messages"
+            )
+        }
+        })
+
         "accessibility" -> listOf(buildAnnotatedString { withStyle(dim) { append("Double-tap empty space: the screen locks") } })
         "contacts --allow" -> listOf(
             buildAnnotatedString { withStyle(accent) { append("  Mom") } },
             buildAnnotatedString { withStyle(accent) { append("$ ") }; append("call mo") },
         )
+
         else -> emptyList()
     }
     if (lines.isEmpty()) return
@@ -557,6 +766,12 @@ internal fun PermissionExample(fix: String) {
             .background(Term.bg)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
-        lines.forEach { Text(it, style = Term.text.copy(color = Term.fg, fontSize = (Term.fontSize - 3).sp), maxLines = 2) }
+        lines.forEach {
+            Text(
+                it,
+                style = Term.text.copy(color = Term.fg, fontSize = (Term.fontSize - 3).sp),
+                maxLines = 2
+            )
+        }
     }
 }

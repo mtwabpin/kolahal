@@ -18,10 +18,14 @@ import java.time.ZoneOffset
  */
 class CalendarRowsTest {
     private val zone = ZoneId.of("Asia/Kolkata")
-    private fun local(d: Int, h: Int, m: Int = 0) = LocalDateTime.of(2026, 10, d, h, m).atZone(zone).toInstant().toEpochMilli()
-    private fun utcDay(d: Int) = LocalDate.of(2026, 10, d).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+    private fun local(d: Int, h: Int, m: Int = 0) =
+        LocalDateTime.of(2026, 10, d, h, m).atZone(zone).toInstant().toEpochMilli()
 
-    @Test fun theCalendarsRowsAreAnAgendasEvents() {
+    private fun utcDay(d: Int) =
+        LocalDate.of(2026, 10, d).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    @Test
+    fun theCalendarsRowsAreAnAgendasEvents() {
         val now = local(17, 12)
         val events = listOf(
             AgendaEvent(1, "Standup", local(17, 13), local(17, 13, 30), false),
@@ -31,7 +35,11 @@ class CalendarRowsTest {
         val shown = Agenda.shown(events, zone, now, 3)
         // The rows as a script gets them, with nothing taken out.
         val rows = shown.map(::eventRow)
-        val spec = WidgetParser.parse(mapOf("events" to rows, "days" to 3), WidgetKind.AGENDA, text = { it }, link = { it }) as WidgetSpec.Agenda
+        val spec = WidgetParser.parse(
+            mapOf("events" to rows, "days" to 3),
+            WidgetKind.AGENDA,
+            text = { it },
+            link = { it }) as WidgetSpec.Agenda
         assertEquals(listOf("Holiday", "Standup", "Ping"), spec.events.map { it.title })
         assertEquals(shown.map { it.starts }, spec.events.map { it.starts })
         assertEquals(shown.map { it.ends }, spec.events.map { it.ends })

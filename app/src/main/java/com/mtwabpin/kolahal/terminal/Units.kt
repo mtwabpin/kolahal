@@ -82,7 +82,10 @@ object Units {
         add("temp", 1.0, "K", "k", "kelvin")
     }
 
-    private val pattern = Regex("""^\s*(-?[\d.,]+)\s*([^\s\d][^\s]*)\s+(?:in|to|as|->)\s+([^\s]+)\s*$""", RegexOption.IGNORE_CASE)
+    private val pattern = Regex(
+        """^\s*(-?[\d.,]+)\s*([^\s\d][^\s]*)\s+(?:in|to|as|->)\s+([^\s]+)\s*$""",
+        RegexOption.IGNORE_CASE
+    )
 
     /**
      * Reads a number that may contain commas:
@@ -94,7 +97,11 @@ object Units {
      */
     internal fun number(s: String): Double? = when {
         ',' !in s -> s.toDoubleOrNull()
-        Regex("""^-?[1-9](\d{0,2}(,\d{3})+|\d?(,\d{2})+,\d{3})(\.\d+)?$""").matches(s) -> s.replace(",", "").toDoubleOrNull()
+        Regex("""^-?[1-9](\d{0,2}(,\d{3})+|\d?(,\d{2})+,\d{3})(\.\d+)?$""").matches(s) -> s.replace(
+            ",",
+            ""
+        ).toDoubleOrNull()
+
         Regex("""^-?(0|[1-9]\d*),\d+$""").matches(s) -> s.replace(',', '.').toDoubleOrNull()
         else -> null
     }
@@ -116,7 +123,11 @@ object Units {
         val a = units[from] ?: return null
         val b = units[to] ?: return null
         if (a.dimension != b.dimension) return null
-        val result = if (a.dimension == "temp") convertTemperature(amount, a.label, b.label) else amount * a.factor / b.factor
+        val result = if (a.dimension == "temp") convertTemperature(
+            amount,
+            a.label,
+            b.label
+        ) else amount * a.factor / b.factor
         return "${format(amount)} ${a.label} = ${format(result)} ${b.label}"
     }
 
@@ -145,7 +156,8 @@ object Units {
         v == 0.0 -> "0"
         abs(v) !in 1e-4..<1e15 -> String.format(Locale.ROOT, "%.4g", v)
         v % 1.0 == 0.0 -> String.format(Locale.ROOT, "%,.0f", v)
-        else -> BigDecimal(v).round(MathContext(15)).setScale(4, RoundingMode.HALF_UP).stripTrailingZeros()
+        else -> BigDecimal(v).round(MathContext(15)).setScale(4, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
             .let { String.format(Locale.ROOT, "%,.${it.scale().coerceAtLeast(0)}f", it) }
     }
 

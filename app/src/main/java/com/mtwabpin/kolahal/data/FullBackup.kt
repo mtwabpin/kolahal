@@ -3,8 +3,6 @@
  */
 package com.mtwabpin.kolahal.data
 
-import com.mtwabpin.kolahal.apps.AppPrefs
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
@@ -12,10 +10,16 @@ import android.database.sqlite.SQLiteDatabase
 import android.util.Base64
 import androidx.core.content.edit
 import androidx.core.database.sqlite.transaction
+import com.mtwabpin.kolahal.apps.AppPrefs
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.data.FullBackup.APP_PREFS
+import com.mtwabpin.kolahal.data.FullBackup.PREFS
+import com.mtwabpin.kolahal.data.FullBackup.TABLES
+import com.mtwabpin.kolahal.data.FullBackup.exportPrefs
+import com.mtwabpin.kolahal.data.FullBackup.importPrefs
 import com.mtwabpin.kolahal.feeds.FeedDb
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.script.HostApi
-import com.mtwabpin.kolahal.script.SecretStore
 
 /**
  * The raw half of a backup: the preference files and database tables that hold user data ([PREFS],
@@ -50,13 +54,19 @@ object FullBackup {
         LogRepository.get(context).marks.flush()
         // Rows too big for a cursor would make the whole export fail. They come from old versions; the
         // first start after an update repairs them (KvStore.repairOversized), and nothing writes them now.
-        val scriptNames = ScriptRepository.get(context).all().associate { ScriptRepository.scopeOf(it.id) to it.name }
+        val scriptNames = ScriptRepository.get(context).all()
+            .associate { ScriptRepository.scopeOf(it.id) to it.name }
         val tables = LinkedHashMap<String, Any?>()
         val scriptKv = LinkedHashMap<String, MutableMap<String, String?>>()
         val serials = privateSerials(context)
         for (t in TABLES) {
             val rows = query(t.db(context), t.name)
-            tables[t.name] = if (t.name == "logs") rows.filterNot { private(it, serials) } else if (t.name != "kv") rows else rows.filter { row ->
+            tables[t.name] = if (t.name == "logs") rows.filterNot {
+                private(
+                    it,
+                    serials
+                )
+            } else if (t.name != "kv") rows else rows.filter { row ->
                 val scope = row["scope"] as? String ?: return@filter false
                 if (scope in Stores.THIS_PHONE) return@filter false
                 // Script secrets never leave the phone (and only its Keystore key can read them anyway).
@@ -65,12 +75,21 @@ object FullBackup {
                 // Stores of deleted scripts are dropped. The rest move under the script's name, except what
                 // http.cached keeps: it is only a cache, and a cache from before 0.4.9 can hold a key.
                 val k = row["k"].toString()
-                if (!k.startsWith(HostApi.HTTP_CACHE)) scriptNames[scope]?.let { name -> scriptKv.getOrPut(name) { LinkedHashMap() }[k] = row["v"] as? String }
+                if (!k.startsWith(HostApi.HTTP_CACHE)) scriptNames[scope]?.let { name ->
+                    scriptKv.getOrPut(
+                        name
+                    ) { LinkedHashMap() }[k] = row["v"] as? String
+                }
                 false
             }
         }
         return mapOf(
-            "prefs" to PREFS.mapValues { (file, prefs) -> exportPrefs(context, prefs).let { if (file in APP_PREFS) withoutPrivateApps(it, serials) else it } },
+            "prefs" to PREFS.mapValues { (file, prefs) ->
+                exportPrefs(
+                    context,
+                    prefs
+                ).let { if (file in APP_PREFS) withoutPrivateApps(it, serials) else it }
+            },
             "tables" to tables,
             "scriptStores" to scriptKv,
         )
@@ -88,14 +107,21 @@ object FullBackup {
             // - this phone's own scopes,
             // - script stores by id (another phone's ids name other scripts here; stores come by name, in scriptStores).
             val list = (tables?.get(t.name) as? List<*>)?.filterIsInstance<Map<*, *>>()
-                ?.filterNot { t.name == "kv" && it["scope"]?.toString().orEmpty().let { s -> s.startsWith(Stores.SECRET_PREFIX) || s.startsWith(Stores.SCRIPT_PREFIX) || s in Stores.THIS_PHONE } } ?: continue
+                ?.filterNot {
+                    t.name == "kv" && it["scope"]?.toString().orEmpty()
+                        .let { s -> s.startsWith(Stores.SECRET_PREFIX) || s.startsWith(Stores.SCRIPT_PREFIX) || s in Stores.THIS_PHONE }
+                } ?: continue
             val db = t.db(context)
             db.transaction {
                 if (t.name == "kv") {
                     // Keep this device's script stores (attached again by name afterwards) and script secrets.
                     db.delete(
-                        "kv", "scope NOT LIKE ? AND scope NOT LIKE ? AND scope NOT IN (${Stores.THIS_PHONE.joinToString { "?" }})",
-                        arrayOf("${Stores.SCRIPT_PREFIX}%", "${Stores.SECRET_PREFIX}%") + Stores.THIS_PHONE,
+                        "kv",
+                        "scope NOT LIKE ? AND scope NOT LIKE ? AND scope NOT IN (${Stores.THIS_PHONE.joinToString { "?" }})",
+                        arrayOf(
+                            "${Stores.SCRIPT_PREFIX}%",
+                            "${Stores.SECRET_PREFIX}%"
+                        ) + Stores.THIS_PHONE,
                     )
                 } else {
                     db.delete(t.name, null, null)
@@ -116,7 +142,13 @@ object FullBackup {
                     // A value too big to read back would break home for good: every row must fit the 2 MB
                     // window a query reads through. Kolahal never writes such a value, so only an edited file has one.
                     if (oversized(t.name, clean)) continue
-                    if (db.insertWithOnConflict(t.name, null, values(clean, columns), SQLiteDatabase.CONFLICT_REPLACE) != -1L) rows++
+                    if (db.insertWithOnConflict(
+                            t.name,
+                            null,
+                            values(clean, columns),
+                            SQLiteDatabase.CONFLICT_REPLACE
+                        ) != -1L
+                    ) rows++
                 }
             }
         }
@@ -124,7 +156,9 @@ object FullBackup {
             if (file !is String || file !in PREFS || entries !is Map<*, *>) return@forEach
             val safe = when (file) {
                 // The same rule as `alias`: an alias never hides a built-in command.
-                "aliases" -> entries.filterKeys { it?.toString()?.lowercase() !in CommandCatalog.RESERVED_NAMES }
+                "aliases" -> entries.filterKeys {
+                    it?.toString()?.lowercase() !in CommandCatalog.RESERVED_NAMES
+                }
                 // Settings are text. A number or a switch there (only an edited file has one) would
                 // break home at every start.
                 "config" -> entries.filterValues { tagged -> (tagged as? Map<*, *>)?.keys?.none { it in TYPED } == true }
@@ -161,7 +195,14 @@ object FullBackup {
             val script = repo.byName(name.toString()) ?: return@forEach
             val kv = KvStore(context, ScriptRepository.scopeOf(script.id))
             // runCatching: an oversized value (e.g. an old cached HTTP body) is skipped, not fatal.
-            (entries as? Map<*, *>)?.forEach { (k, v) -> if (k != null) runCatching { kv.set(k.toString(), v?.toString()) } }
+            (entries as? Map<*, *>)?.forEach { (k, v) ->
+                if (k != null) runCatching {
+                    kv.set(
+                        k.toString(),
+                        v?.toString()
+                    )
+                }
+            }
         }
     }
 
@@ -194,7 +235,11 @@ object FullBackup {
                     "i" in m -> putInt(key, (m["i"] as? Number)?.toInt() ?: 0)
                     "l" in m -> putLong(key, (m["l"] as? Number)?.toLong() ?: 0L)
                     "f" in m -> putFloat(key, (m["f"] as? Number)?.toFloat() ?: 0f)
-                    "set" in m -> putStringSet(key, (m["set"] as? List<*>)?.map { it.toString() }?.toSet() ?: emptySet())
+                    "set" in m -> putStringSet(
+                        key,
+                        (m["set"] as? List<*>)?.map { it.toString() }?.toSet() ?: emptySet()
+                    )
+
                     else -> putString(key, m["s"]?.toString())
                 }
             }
@@ -213,7 +258,14 @@ object FullBackup {
                         Cursor.FIELD_TYPE_NULL -> null
                         Cursor.FIELD_TYPE_INTEGER -> c.getLong(i)
                         Cursor.FIELD_TYPE_FLOAT -> c.getDouble(i)
-                        Cursor.FIELD_TYPE_BLOB -> mapOf("base64" to Base64.encodeToString(c.getBlob(i), Base64.NO_WRAP))
+                        Cursor.FIELD_TYPE_BLOB -> mapOf(
+                            "base64" to Base64.encodeToString(
+                                c.getBlob(
+                                    i
+                                ), Base64.NO_WRAP
+                            )
+                        )
+
                         else -> c.getString(i)
                     }
                 }
@@ -231,9 +283,15 @@ object FullBackup {
     internal fun private(row: Map<String, Any?>, privateSerials: Set<Long>): Boolean {
         if (row["source"] == com.mtwabpin.kolahal.calls.CallEvents.SOURCE) return true
         val text = row["text"] as? String ?: ""
-        if (row["kind"] == LogKind.COMMAND.key && com.mtwabpin.kolahal.commands.InstantRun.canonical(text.trim().substringBefore(' ')) in TYPED_TO_SOMEONE) return true
+        if (row["kind"] == LogKind.COMMAND.key && com.mtwabpin.kolahal.commands.InstantRun.canonical(
+                text.trim().substringBefore(' ')
+            ) in TYPED_TO_SOMEONE
+        ) return true
         val ctx = LogContext.fromJson(row["ctx"] as? String)
-        if (ctx.values.containsKey(KolahalNotificationListener.CTX_KEY) || ctx.values.containsKey(LogContext.PHONE)) return true
+        if (ctx.values.containsKey(KolahalNotificationListener.CTX_KEY) || ctx.values.containsKey(
+                LogContext.PHONE
+            )
+        ) return true
         if (ctx.userSerial?.let { it in privateSerials } == true) return true
         // A grid of apps has only the app names in its text. The [S] is in what it copies.
         return PRIVATE_TAG.containsMatchIn(text) || PRIVATE_TAG.containsMatchIn(ctx.values[LogContext.COPY].orEmpty())
@@ -241,19 +299,29 @@ object FullBackup {
 
     private val TYPED_TO_SOMEONE = setOf("call", "sms")
 
-    private val PRIVATE_TAG = Regex(" \\[${com.mtwabpin.kolahal.apps.ProfileKind.PRIVATE.tag}](?= \\S*$|$)", RegexOption.MULTILINE)
+    private val PRIVATE_TAG = Regex(
+        " \\[${com.mtwabpin.kolahal.apps.ProfileKind.PRIVATE.tag}](?= \\S*$|$)",
+        RegexOption.MULTILINE
+    )
 
     /** Preference files that name apps by key, `<component>#<serial>`. */
     private val APP_PREFS = setOf(Stores.APPS.name, Stores.APP_USAGE.name)
 
     /** Whether [key], an app key, belongs to an app in a private space. */
-    internal fun isPrivateApp(key: String, serials: Set<Long>) = com.mtwabpin.kolahal.apps.serialOf(key) in serials
+    internal fun isPrivateApp(key: String, serials: Set<Long>) =
+        com.mtwabpin.kolahal.apps.serialOf(key) in serials
 
     /** [entries] of an [APP_PREFS] file, tagged as [exportPrefs] tags them, without any app of a private space. */
-    internal fun withoutPrivateApps(entries: Map<String, Any?>, serials: Set<Long>): Map<String, Any?> =
+    internal fun withoutPrivateApps(
+        entries: Map<String, Any?>,
+        serials: Set<Long>
+    ): Map<String, Any?> =
         entries.filterKeys { !isPrivateApp(it, serials) }.mapValues { (key, tagged) ->
             val pinned = (tagged as? Map<*, *>)?.get("s") as? String
-            if (key == AppPrefs.PINNED && pinned != null) mapOf("s" to AppPrefs.formatPinned(AppPrefs.parsePinned(pinned).filterNot { isPrivateApp(it, serials) })) else tagged
+            if (key == AppPrefs.PINNED && pinned != null) mapOf(
+                "s" to AppPrefs.formatPinned(
+                    AppPrefs.parsePinned(pinned).filterNot { isPrivateApp(it, serials) })
+            ) else tagged
         }
 
     /** The private space's serials, when this phone has one and Kolahal can see it. */
@@ -262,7 +330,14 @@ object FullBackup {
         val users = context.getSystemService(android.os.UserManager::class.java)
         val me = android.os.Process.myUserHandle()
         launcher.profiles
-            .filter { com.mtwabpin.kolahal.apps.AppRepository.kindOf(context, launcher, it, me) == com.mtwabpin.kolahal.apps.ProfileKind.PRIVATE }
+            .filter {
+                com.mtwabpin.kolahal.apps.AppRepository.kindOf(
+                    context,
+                    launcher,
+                    it,
+                    me
+                ) == com.mtwabpin.kolahal.apps.ProfileKind.PRIVATE
+            }
             .map { users.getSerialNumberForUser(it) }
             .toSet()
     }.getOrDefault(emptySet())
@@ -270,7 +345,8 @@ object FullBackup {
     /** For a repeat rule this version can't read, the reminder still fires, but only once. */
     private fun withReadableRepeat(row: Map<*, *>): Map<*, *> {
         val rule = row["repeat_rule"] as? String ?: return row
-        return if (com.mtwabpin.kolahal.productivity.Repeat.isValid(rule)) row else row.toMutableMap().apply { put("repeat_rule", null) }
+        return if (com.mtwabpin.kolahal.productivity.Repeat.isValid(rule)) row else row.toMutableMap()
+            .apply { put("repeat_rule", null) }
     }
 
     /**
@@ -280,7 +356,8 @@ object FullBackup {
      */
     private fun withWebLink(row: Map<*, *>): Map<*, *> {
         val link = row["link"] as? String ?: return row
-        return if (com.mtwabpin.kolahal.script.Net.webUrl(link) != null) row else row.toMutableMap().apply { put("link", null) }
+        return if (com.mtwabpin.kolahal.script.Net.webUrl(link) != null) row else row.toMutableMap()
+            .apply { put("link", null) }
     }
 
     /**
@@ -303,7 +380,10 @@ object FullBackup {
     internal fun safeCtx(ctx: LogContext): LogContext = LogContext(ctx.values.filter { (k, v) ->
         when (k) {
             LogContext.RUN, LogContext.SHORTCUT, LogContext.COMMAND, LogContext.ACTIVITY, LogContext.PHONE -> false
-            LogContext.URL -> com.mtwabpin.kolahal.script.Net.webUrl(v) != null || v.startsWith("geo:") || v.startsWith("market:")
+            LogContext.URL -> com.mtwabpin.kolahal.script.Net.webUrl(v) != null || v.startsWith("geo:") || v.startsWith(
+                "market:"
+            )
+
             LogContext.IMAGE -> com.mtwabpin.kolahal.script.Net.webUrl(v) != null
             LogContext.CONTACT -> v.startsWith("content://com.android.contacts/")
             else -> true
@@ -318,9 +398,19 @@ object FullBackup {
                 is Boolean -> put(col, if (v) 1 else 0)
                 is Int -> put(col, v)
                 is Long -> put(col, v)
-                is Double -> if (v % 1.0 == 0.0 && kotlin.math.abs(v) < 9e15) put(col, v.toLong()) else put(col, v)
+                is Double -> if (v % 1.0 == 0.0 && kotlin.math.abs(v) < 9e15) put(
+                    col,
+                    v.toLong()
+                ) else put(col, v)
+
                 is Number -> put(col, v.toLong())
-                is Map<*, *> -> (v["base64"] as? String)?.let { put(col, Base64.decode(it, Base64.NO_WRAP)) }
+                is Map<*, *> -> (v["base64"] as? String)?.let {
+                    put(
+                        col,
+                        Base64.decode(it, Base64.NO_WRAP)
+                    )
+                }
+
                 else -> put(col, v.toString())
             }
         }

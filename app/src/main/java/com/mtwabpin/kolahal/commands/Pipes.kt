@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.commands
 
+import com.mtwabpin.kolahal.commands.Pipes.keepsItsWords
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository.Pending
@@ -33,7 +34,22 @@ object Pipes {
     private val SPLIT = Regex("""(?<!\|)(\s*)\|\s*(?=(?:${FILTERS.joinToString("|")})\b)""")
 
     /** Commands whose arguments are a regex, code, or words that are kept or sent exactly as typed. */
-    private val KEEP_WORDS = setOf("grep", "lua", "js", "alias", "config", "echo", "todo", "note", "remind", "timer", "alarm", "sms", "url", "rename")
+    private val KEEP_WORDS = setOf(
+        "grep",
+        "lua",
+        "js",
+        "alias",
+        "config",
+        "echo",
+        "todo",
+        "note",
+        "remind",
+        "timer",
+        "alarm",
+        "sms",
+        "url",
+        "rename"
+    )
 
     private fun keepsItsWords(stage: String): Boolean {
         val t = stage.trimStart()
@@ -80,12 +96,23 @@ object Pipes {
                     .getOrElse { Regex(Regex.escape(pattern), RegexOption.IGNORE_CASE) }
                 GREP_LIMIT.run { data.filter { regex.containsMatchIn(searchable(it)) != invert } }
             }
+
             "head" -> data.take(count(args))
             "tail" -> data.takeLast(count(args))
             "sort" -> if ("-r" in args) data.sortedByDescending { it.text.lowercase() } else data.sortedBy { it.text.lowercase() }
             "uniq" -> data.distinctBy { it.text }
-            "count", "wc" -> listOf(data.firstOrNull()?.copy(kind = LogKind.OUTPUT, text = "${data.size}", ctx = LogContext.EMPTY)
-                ?: Pending(LogKind.OUTPUT, "0", null, LogContext.EMPTY, System.currentTimeMillis()))
+            "count", "wc" -> listOf(
+                data.firstOrNull()
+                    ?.copy(kind = LogKind.OUTPUT, text = "${data.size}", ctx = LogContext.EMPTY)
+                    ?: Pending(
+                        LogKind.OUTPUT,
+                        "0",
+                        null,
+                        LogContext.EMPTY,
+                        System.currentTimeMillis()
+                    )
+            )
+
             else -> throw IllegalArgumentException("Unknown filter '$name' (${FILTERS.joinToString()})")
         }
         return keep + result
@@ -96,11 +123,16 @@ object Pipes {
      * (help, config, script ls), and the arguments under it in `help`.
      */
     private fun searchable(p: Pending): String =
-        listOfNotNull(p.text, p.ctx.values[LogContext.DESC], p.ctx.values[LogContext.ARGS]).joinToString(" ")
+        listOfNotNull(
+            p.text,
+            p.ctx.values[LogContext.DESC],
+            p.ctx.values[LogContext.ARGS]
+        ).joinToString(" ")
 
     /** Reads the count from `head 5`, `head -5`, `head -n5` or `head -n 5`. The default is 10. */
     private fun count(args: List<String>): Int {
-        val raw = if (args.firstOrNull() == "-n") args.getOrNull(1) else args.firstOrNull()?.removePrefix("-")?.removePrefix("n")
+        val raw = if (args.firstOrNull() == "-n") args.getOrNull(1) else args.firstOrNull()
+            ?.removePrefix("-")?.removePrefix("n")
         return raw?.toIntOrNull()?.coerceIn(0, 10_000) ?: 10
     }
 }

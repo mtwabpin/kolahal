@@ -27,14 +27,17 @@ object ThisInstall {
     private const val KEY = "id"
     private const val FILE = "install-id"
 
-    @Volatile private var checked = false
+    @Volatile
+    private var checked = false
 
     /** Makes the next [check] look again. For tests. */
-    @androidx.annotation.VisibleForTesting internal fun forget() {
+    @androidx.annotation.VisibleForTesting
+    internal fun forget() {
         checked = false
     }
 
-    @Volatile private var known: String? = null
+    @Volatile
+    private var known: String? = null
 
     /**
      * This install's random id, from noBackupFilesDir, made at the first call. No backup or transfer
@@ -65,6 +68,10 @@ object ThisInstall {
 
     private fun clearOldPhone(context: Context) {
         val db = Db.get(context).writableDatabase
-        for (scope in Stores.THIS_PHONE - Stores.SHARED_SETTINGS) db.delete("kv", "scope = ?", arrayOf(scope))
+        for (scope in Stores.THIS_PHONE - Stores.SHARED_SETTINGS) db.delete(
+            "kv",
+            "scope = ?",
+            arrayOf(scope)
+        )
     }
 }

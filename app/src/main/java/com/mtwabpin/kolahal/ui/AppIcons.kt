@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -57,7 +57,8 @@ object AppIcons {
     fun sync(packageChanges: Int, changed: Set<String>) {
         if (filledAt != -1 && filledAt != packageChanges) {
             // Keys start with the package name: `com.example/.Main#0@96`.
-            cache.snapshot().keys.filter { it.substringBefore('/') in changed }.forEach { cache.remove(it) }
+            cache.snapshot().keys.filter { it.substringBefore('/') in changed }
+                .forEach { cache.remove(it) }
             generation++
         }
         filledAt = packageChanges
@@ -72,14 +73,16 @@ object AppIcons {
     fun trim(keep: Set<String> = emptySet()) {
         if (keep.isEmpty()) return cache.evictAll()
         // Keys are the app's key and the size: `com.example/.Main#0@96`.
-        cache.snapshot().keys.filter { it.substringBeforeLast('@') !in keep }.forEach { cache.remove(it) }
+        cache.snapshot().keys.filter { it.substringBeforeLast('@') !in keep }
+            .forEach { cache.remove(it) }
     }
 
     fun load(context: Context, app: AppEntry, px: Int): ImageBitmap? {
         cached(app, px)?.let { return it }
         val icon = runCatching {
             val apps = context.getSystemService(LauncherApps::class.java)
-            val info = apps.resolveActivity(Intent().setComponent(app.component), app.profile.user) ?: return null
+            val info = apps.resolveActivity(Intent().setComponent(app.component), app.profile.user)
+                ?: return null
             info.getBadgedIcon(0).toBitmap(px, px).asImageBitmap()
         }.getOrNull() ?: return null
         cache.put("${app.key}@$px", icon)
@@ -94,10 +97,15 @@ fun AppIcon(app: AppEntry, size: Dp, modifier: Modifier = Modifier) {
     val px = with(LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
     // The old icon stays visible while a dropped icon loads again ([AppIcons.generation]).
     val icon by produceState(AppIcons.cached(app, px), app.key, px, AppIcons.generation) {
-        value = AppIcons.cached(app, px) ?: withContext(Dispatchers.IO) { AppIcons.load(context.applicationContext, app, px) }
+        value = AppIcons.cached(app, px)
+            ?: withContext(Dispatchers.IO) { AppIcons.load(context.applicationContext, app, px) }
     }
     val bitmap = icon
-    if (bitmap == null) Box(modifier.size(size)) else Image(bitmap, contentDescription = null, modifier = modifier.size(size))
+    if (bitmap == null) Box(modifier.size(size)) else Image(
+        bitmap,
+        contentDescription = null,
+        modifier = modifier.size(size)
+    )
 }
 
 /**
@@ -105,7 +113,8 @@ fun AppIcon(app: AppEntry, size: Dp, modifier: Modifier = Modifier) {
  * so every label starts in the same column. It is drawn in the prompt colour, like the `$` it replaces.
  */
 @Composable
-fun CommandIcon(size: Dp, modifier: Modifier = Modifier) = KindIcon(com.mtwabpin.kolahal.R.drawable.ic_stat_terminal, size, modifier)
+fun CommandIcon(size: Dp, modifier: Modifier = Modifier) =
+    KindIcon(com.mtwabpin.kolahal.R.drawable.ic_stat_terminal, size, modifier)
 
 /** An icon for the kind of suggestion (a feed, a script, a contact), in the prompt colour like [CommandIcon]. */
 @Composable

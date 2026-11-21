@@ -40,8 +40,8 @@ fun NotificationAccessDialog(onAllow: () -> Unit, onDismiss: () -> Unit) {
                     Text("With notification access, Kolahal reads the notifications your apps post: which app, the title and the text.")
                     Text(
                         "• They show in the log as they arrive, and with notifs.\n" +
-                            "• Media controls see what's playing.\n" +
-                            "• A script gets them only if you allow it, with @uses notifications.",
+                                "• Media controls see what's playing.\n" +
+                                "• A script gets them only if you allow it, with @uses notifications.",
                     )
                     Text("They stay on this phone, with the rest of the log: Kolahal sends them nowhere. You can turn access off at any time in Android's settings.")
                     Text(
@@ -51,8 +51,18 @@ fun NotificationAccessDialog(onAllow: () -> Unit, onDismiss: () -> Unit) {
                     )
                 }
             },
-            confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onAllow) { Text("Allow") } },
-            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Not now") } },
+            confirmButton = {
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onAllow
+                ) { Text("Allow") }
+            },
+            dismissButton = {
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = onDismiss
+                ) { Text("Not now") }
+            },
         )
     }
 }

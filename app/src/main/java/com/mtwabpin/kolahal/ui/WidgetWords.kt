@@ -5,6 +5,8 @@ package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats
+import com.mtwabpin.kolahal.ui.WidgetWords.MEDIA_TEXT_DP
+import com.mtwabpin.kolahal.ui.WidgetWords.PLAY_EXTRA_DP
 import com.mtwabpin.kolahal.widgets.WidgetParser
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import java.time.Instant
@@ -80,7 +82,11 @@ internal object WidgetWords {
     fun chartSummary(points: List<Float>): String = when (points.size) {
         0 -> "No values"
         1 -> "1 value: ${num(points[0])}"
-        else -> "${points.size} values, from ${num(points.min())} to ${num(points.max())}, the latest ${num(points.last())}"
+        else -> "${points.size} values, from ${num(points.min())} to ${num(points.max())}, the latest ${
+            num(
+                points.last()
+            )
+        }"
     }
 
     /**
@@ -94,7 +100,11 @@ internal object WidgetWords {
         DotCalendar.yesNo(points) && points.size == 1 -> if (points[0] == 1f) "Done today" else "Not done today"
         DotCalendar.yesNo(points) -> "Done on ${points.count { it == 1f }} of the last ${points.size} days"
         points.size == 1 -> "Today: ${num(points[0])}"
-        else -> "${points.size} days, from ${num(points.min())} to ${num(points.max())}, today ${num(points.last())}"
+        else -> "${points.size} days, from ${num(points.min())} to ${num(points.max())}, today ${
+            num(
+                points.last()
+            )
+        }"
     }
 
     /**
@@ -123,7 +133,8 @@ internal object WidgetWords {
         val s = seconds.coerceAtLeast(0)
         val days = if (s > 2 * DAY) s / DAY else 0
         val rest = s - days * DAY
-        val time = String.format(Locale.ROOT, "%02d:%02d:%02d", rest / HOUR, rest % HOUR / 60, rest % 60)
+        val time =
+            String.format(Locale.ROOT, "%02d:%02d:%02d", rest / HOUR, rest % HOUR / 60, rest % 60)
         return if (days > 0) "${days}d $time" else time
     }
 
@@ -146,12 +157,19 @@ internal object WidgetWords {
         if (day(to) == day(now)) return Count(reached ?: "today", null, ticks = false)
         val (n, unit) = spanParts(-left)
         // "under a minute ago" has no number: all of it is the value.
-        return if (unit == null) Count("$n ago", null, ticks = false) else Count(n, "$unit ago", ticks = false)
+        return if (unit == null) Count("$n ago", null, ticks = false) else Count(
+            n,
+            "$unit ago",
+            ticks = false
+        )
     }
 
     /** How far a countdown that started at [from] has come, from 0 to 1. Null without a start, or with one after the moment. */
     fun countdownFraction(from: Long?, to: Long, now: Long): Float? =
-        if (from == null || to <= from) null else ((now - from).toFloat() / (to - from)).coerceIn(0f, 1f)
+        if (from == null || to <= from) null else ((now - from).toFloat() / (to - from)).coerceIn(
+            0f,
+            1f
+        )
 
     /**
      * The words under the two ends of a countdown's bar: its start [from] and its moment [to], at
@@ -160,7 +178,14 @@ internal object WidgetWords {
      *   "20 Dec 2027".
      * - When both are on one day, they are times of day in the form [clock24] says: "14:00" and "17:25".
      */
-    fun countdownEnds(from: Long, to: Long, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): Pair<String, String> {
+    fun countdownEnds(
+        from: Long,
+        to: Long,
+        now: Long,
+        zone: ZoneId,
+        clock24: Boolean,
+        locale: Locale = Locale.getDefault()
+    ): Pair<String, String> {
         val start = Instant.ofEpochSecond(from).atZone(zone)
         val end = Instant.ofEpochSecond(to).atZone(zone)
         if (start.toLocalDate() == end.toLocalDate()) {
@@ -168,7 +193,12 @@ internal object WidgetWords {
             return start.format(clock) to end.format(clock)
         }
         val year = Instant.ofEpochSecond(now).atZone(zone).year
-        fun day(t: java.time.ZonedDateTime) = t.format(DateTimeFormatter.ofPattern(if (t.year == year) "d MMM" else "d MMM yyyy", locale))
+        fun day(t: java.time.ZonedDateTime) = t.format(
+            DateTimeFormatter.ofPattern(
+                if (t.year == year) "d MMM" else "d MMM yyyy",
+                locale
+            )
+        )
         return day(start) to day(end)
     }
 
@@ -177,7 +207,8 @@ internal object WidgetWords {
      * a little every second. Its bar gets the same value until it has moved a step, so it is not
      * drawn again, and does not start its spring again, every second.
      */
-    fun barStep(fraction: Float): Float = if (fraction.isNaN()) 0f else (fraction.coerceIn(0f, 1f) * 1000).roundToInt() / 1000f
+    fun barStep(fraction: Float): Float =
+        if (fraction.isNaN()) 0f else (fraction.coerceIn(0f, 1f) * 1000).roundToInt() / 1000f
 
     /**
      * The scale of a chart: its lowest and its highest value. [min] and [max] win. Without them the
@@ -219,7 +250,8 @@ internal object WidgetWords {
         val (low, high) = scale
         // In doubles: the length of a scale of very large numbers is more than a float holds.
         val length = high.toDouble() - low.toDouble()
-        fun at(v: Float): Float = if (length > 0) ((v.toDouble() - low) / length).coerceIn(0.0, 1.0).toFloat() else 0.5f
+        fun at(v: Float): Float =
+            if (length > 0) ((v.toDouble() - low) / length).coerceIn(0.0, 1.0).toFloat() else 0.5f
         return RangePlace(at(range.low), at(range.high), range.value?.let(::at))
     }
 
@@ -261,7 +293,8 @@ internal object WidgetWords {
      * when the range has a value, which only its dot shows. Else nothing: the bar is drawn beside the
      * row's numbers, and those are said already.
      */
-    fun rowRange(row: WidgetSpec.Row): String? = row.range?.takeIf { row.trailing == null || it.value != null }?.let(::rangeWords)
+    fun rowRange(row: WidgetSpec.Row): String? =
+        row.range?.takeIf { row.trailing == null || it.value != null }?.let(::rangeWords)
 
     /**
      * The whole card in one sentence, for a screen reader: "Weather: 24°C, Sunny, 68% humidity".
@@ -270,7 +303,14 @@ internal object WidgetWords {
      * - [now] (seconds) and [zone] count for the kinds that tell the time ([timed]).
      * - [clock24] and [locale] say how a time of day is written, for an agenda and a clock.
      */
-    fun description(title: String?, spec: WidgetSpec, now: Long, zone: ZoneId, clock24: Boolean = false, locale: Locale = Locale.getDefault()): String {
+    fun description(
+        title: String?,
+        spec: WidgetSpec,
+        now: Long,
+        zone: ZoneId,
+        clock24: Boolean = false,
+        locale: Locale = Locale.getDefault()
+    ): String {
         fun words(vararg parts: String?) = parts.filterNot { it.isNullOrBlank() }.joinToString(" ")
         val parts = buildList<String?> {
             when (spec) {
@@ -281,48 +321,99 @@ internal object WidgetWords {
                     spec.more.forEach { add(words(it.value, it.label)) }
                     add(spec.progress?.let { percent(it, 1f) })
                 }
+
                 is WidgetSpec.Text -> {
                     add(spec.text)
                     add(spec.caption)
                 }
+
                 is WidgetSpec.Rows -> {
-                    spec.lead?.let { add(listOfNotNull(joined(it.value, it.unit), it.label).joinToString(", ")) }
+                    spec.lead?.let {
+                        add(
+                            listOfNotNull(
+                                joined(it.value, it.unit),
+                                it.label
+                            ).joinToString(", ")
+                        )
+                    }
                     if (spec.items.isEmpty() && spec.lead == null) add(spec.empty ?: NOTHING)
-                    spec.items.forEach { r -> add(listOfNotNull(r.title, r.detail, r.trailing, rowRange(r), doneWord(r.done)).joinToString(", ")) }
+                    spec.items.forEach { r ->
+                        add(
+                            listOfNotNull(
+                                r.title,
+                                r.detail,
+                                r.trailing,
+                                rowRange(r),
+                                doneWord(r.done)
+                            ).joinToString(", ")
+                        )
+                    }
                 }
+
                 is WidgetSpec.Progress -> {
                     if (spec.items.isEmpty()) add(spec.text ?: percent(spec.value, spec.max))
-                    spec.items.forEach { b -> add(words(b.label, b.text ?: percent(b.value, b.max))) }
+                    spec.items.forEach { b ->
+                        add(
+                            words(
+                                b.label,
+                                b.text ?: percent(b.value, b.max)
+                            )
+                        )
+                    }
                     add(spec.label)
                 }
+
                 is WidgetSpec.Chart -> {
                     add(spec.value)
                     add(spec.label)
-                    add(spec.summary ?: if (spec.style == "dots") dotsSummary(spec.points) else chartSummary(spec.points))
+                    add(
+                        spec.summary
+                            ?: if (spec.style == "dots") dotsSummary(spec.points) else chartSummary(
+                                spec.points
+                            )
+                    )
                 }
+
                 is WidgetSpec.Countdown -> {
                     add(countdown(spec.to, now, "days", spec.reached, zone).text)
                     add(spec.label)
                 }
                 // Each button and each switch is an item of its own for a screen reader. The card names them.
                 is WidgetSpec.Buttons -> spec.items.forEach { add(it.label) }
-                is WidgetSpec.Toggles -> spec.items.forEach { add(words(it.label, if (it.on) "on" else "off")) }
+                is WidgetSpec.Toggles -> spec.items.forEach {
+                    add(
+                        words(
+                            it.label,
+                            if (it.on) "on" else "off"
+                        )
+                    )
+                }
+
                 is WidgetSpec.Clock -> {
                     // Without seconds: the words are made again by the minute. Each place is followed
                     // by its difference in whole words: "5 hours 30 minutes behind".
-                    val format = DateTimeFormatter.ofPattern(clockPattern(clock24, seconds = false), locale)
+                    val format =
+                        DateTimeFormatter.ofPattern(clockPattern(clock24, seconds = false), locale)
                     zoneTimes(spec.zones, now * 1000, zone, format).forEach {
                         add(words(it.label, it.time, it.day))
                         add(differenceSaid(it.ahead, it.here))
                     }
                 }
+
                 is WidgetSpec.Agenda -> {
                     // What the card shows at this moment: an event that has ended is not said either.
                     val days = agenda(spec, now, zone, clock24, locale)
                     if (days.isEmpty()) add(spec.empty ?: NO_EVENTS)
                     days.forEach { day ->
                         add(day.label)
-                        day.lines.forEach { add(listOfNotNull(words(it.time, it.event.title), it.event.where).joinToString(", ")) }
+                        day.lines.forEach {
+                            add(
+                                listOfNotNull(
+                                    words(it.time, it.event.title),
+                                    it.event.where
+                                ).joinToString(", ")
+                            )
+                        }
                     }
                 }
                 // The words for the picture, not the picture: they are the same whether it has loaded or not.
@@ -330,6 +421,7 @@ internal object WidgetWords {
                     add(spec.alt)
                     add(spec.caption)
                 }
+
                 is WidgetSpec.Media -> {
                     add(spec.title)
                     add(spec.artist)
@@ -347,7 +439,8 @@ internal object WidgetWords {
         // A few fields may be styled ([WidgetParser.STYLED]). A screen reader hears their plain words.
         val said = StyledText.plain(parts.filterNot { it.isNullOrBlank() }.joinToString(", "))
         // The note on a large card's last line ("Done today") is said after the title.
-        val heading = listOfNotNull(title?.takeIf { it.isNotBlank() }, spec.base.note).joinToString(", ")
+        val heading =
+            listOfNotNull(title?.takeIf { it.isNotBlank() }, spec.base.note).joinToString(", ")
         return if (heading.isEmpty()) said else "$heading: $said"
     }
 
@@ -355,7 +448,8 @@ internal object WidgetWords {
      * True for a kind whose words change as time passes: the card's description for a screen reader
      * is then made again every minute, with the moment. For any other kind the moment is not read.
      */
-    fun timed(spec: WidgetSpec?): Boolean = spec is WidgetSpec.Countdown || spec is WidgetSpec.Clock || spec is WidgetSpec.Agenda
+    fun timed(spec: WidgetSpec?): Boolean =
+        spec is WidgetSpec.Countdown || spec is WidgetSpec.Clock || spec is WidgetSpec.Agenda
 
     /** What an image card says while its picture is on its way. */
     const val PICTURE_LOADING = "Loading picture…"
@@ -392,7 +486,9 @@ internal object WidgetWords {
      * - That caps its memory: 4 bytes a pixel, so at most 8 bytes for each pixel of the place.
      */
     fun pictureSize(widthPx: Int, heightPx: Int): PictureSize {
-        fun stepped(px: Int) = (px.coerceIn(1, PICTURE_SIDE) + PICTURE_STEP - 1) / PICTURE_STEP * PICTURE_STEP
+        fun stepped(px: Int) =
+            (px.coerceIn(1, PICTURE_SIDE) + PICTURE_STEP - 1) / PICTURE_STEP * PICTURE_STEP
+
         val w = stepped(widthPx)
         val h = stepped(heightPx)
         return PictureSize(widthPx = w * 2, maxPixels = 2f * w * h)
@@ -432,7 +528,14 @@ internal object WidgetWords {
      *   for a place that is behind.
      * - [here] is true for the phone's own time zone.
      */
-    data class ZoneTime(val label: String, val time: String, val day: String?, val dayShort: String?, val ahead: Int = 0, val here: Boolean = false)
+    data class ZoneTime(
+        val label: String,
+        val time: String,
+        val day: String?,
+        val dayShort: String?,
+        val ahead: Int = 0,
+        val here: Boolean = false
+    )
 
     /** What a card says under the place in the phone's own time zone. */
     const val HERE = "Here"
@@ -469,7 +572,10 @@ internal object WidgetWords {
     fun differenceShort(ahead: Int, here: Boolean): String = when {
         here -> HERE
         ahead == 0 -> "±0:00"
-        else -> (if (ahead > 0) "+" else MINUS) + "${abs(ahead) / 60}:" + "${abs(ahead) % 60}".padStart(2, '0')
+        else -> (if (ahead > 0) "+" else MINUS) + "${abs(ahead) / 60}:" + "${abs(ahead) % 60}".padStart(
+            2,
+            '0'
+        )
     }
 
     /** [difference] for a screen reader, in whole words: "5 hours 30 minutes behind", "1 hour ahead", "same time", "here". */
@@ -477,7 +583,9 @@ internal object WidgetWords {
         fun count(n: Int, unit: String) = if (n == 1) "1 $unit" else "$n ${unit}s"
         val h = abs(ahead) / 60
         val m = abs(ahead) % 60
-        val span = listOfNotNull(count(h, "hour").takeIf { h > 0 }, count(m, "minute").takeIf { m > 0 }).joinToString(" ")
+        val span = listOfNotNull(
+            count(h, "hour").takeIf { h > 0 },
+            count(m, "minute").takeIf { m > 0 }).joinToString(" ")
         return when {
             here -> "here"
             ahead == 0 -> "same time"
@@ -496,12 +604,14 @@ internal object WidgetWords {
     fun placeLines(time: ZoneTime): List<String> {
         val long = difference(time.ahead, time.here)
         val short = differenceShort(time.ahead, time.here)
-        val day = time.day?.replaceFirstChar { it.titlecase() } ?: return listOf(long, short).distinct()
+        val day =
+            time.day?.replaceFirstChar { it.titlecase() } ?: return listOf(long, short).distinct()
         return listOf("$long · $day", "$short · $day", "$short ${time.dayShort}")
     }
 
     /** A place's name. Without a label it is the last part of the zone's name: "Asia/Kolkata" is "Kolkata". */
-    fun zoneLabel(zone: WidgetSpec.Zone): String = zone.label ?: zone.zone.substringAfterLast('/').replace('_', ' ')
+    fun zoneLabel(zone: WidgetSpec.Zone): String =
+        zone.label ?: zone.zone.substringAfterLast('/').replace('_', ' ')
 
     /** The pattern of a clock's time: "14:30" or "2:30 PM", and "14:30:05" or "2:30:05 PM" with [seconds]. */
     fun clockPattern(clock24: Boolean, seconds: Boolean): String = when {
@@ -511,19 +621,27 @@ internal object WidgetWords {
     }
 
     /** The most characters a time in [clockPattern] has: "22:30" is 5, "10:30:05 PM" is 11. */
-    fun clockChars(clock24: Boolean, seconds: Boolean): Int = (if (clock24) 5 else 8) + (if (seconds) 3 else 0)
+    fun clockChars(clock24: Boolean, seconds: Boolean): Int =
+        (if (clock24) 5 else 8) + (if (seconds) 3 else 0)
 
     /**
      * The time at each of [zones] at the moment [now] (milliseconds), written with [format], and
      * its day and its difference as seen from [here]. A zone the phone does not know is left out:
      * the parser has refused such a zone already, so this is only a guard.
      */
-    fun zoneTimes(zones: List<WidgetSpec.Zone>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> =
+    fun zoneTimes(
+        zones: List<WidgetSpec.Zone>,
+        now: Long,
+        here: ZoneId,
+        format: DateTimeFormatter
+    ): List<ZoneTime> =
         zoneTimesOf(places(zones), now, here, format)
 
     /** [zones] with their time zones, read once for a clock that ticks. A zone the phone does not know is left out. */
     fun places(zones: List<WidgetSpec.Zone>): List<Pair<WidgetSpec.Zone, ZoneId>> =
-        zones.mapNotNull { zone -> runCatching { ZoneId.of(zone.zone) }.getOrNull()?.let { zone to it } }
+        zones.mapNotNull { zone ->
+            runCatching { ZoneId.of(zone.zone) }.getOrNull()?.let { zone to it }
+        }
 
     /**
      * [zoneTimes] for [places] whose time zones are read already ([places]).
@@ -531,7 +649,12 @@ internal object WidgetWords {
      * - A place is [ZoneTime.here] when its zone is the phone's: the same name, or the same fixed
      *   offset ("UTC" and "GMT"). Another zone that keeps the same time has "Same time".
      */
-    fun zoneTimesOf(places: List<Pair<WidgetSpec.Zone, ZoneId>>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> {
+    fun zoneTimesOf(
+        places: List<Pair<WidgetSpec.Zone, ZoneId>>,
+        now: Long,
+        here: ZoneId,
+        format: DateTimeFormatter
+    ): List<ZoneTime> {
         val moment = Instant.ofEpochMilli(now)
         val local = moment.atZone(here)
         val today = local.toLocalDate()
@@ -542,8 +665,24 @@ internal object WidgetWords {
             val ahead = (there.offset.totalSeconds - local.offset.totalSeconds) / 60
             val isHere = id.normalized() == home || id.rules == here.rules
             when {
-                day.isAfter(today) -> ZoneTime(zoneLabel(zone), there.format(format), "tomorrow", "+1", ahead, isHere)
-                day.isBefore(today) -> ZoneTime(zoneLabel(zone), there.format(format), "yesterday", "${MINUS}1", ahead, isHere)
+                day.isAfter(today) -> ZoneTime(
+                    zoneLabel(zone),
+                    there.format(format),
+                    "tomorrow",
+                    "+1",
+                    ahead,
+                    isHere
+                )
+
+                day.isBefore(today) -> ZoneTime(
+                    zoneLabel(zone),
+                    there.format(format),
+                    "yesterday",
+                    "${MINUS}1",
+                    ahead,
+                    isHere
+                )
+
                 else -> ZoneTime(zoneLabel(zone), there.format(format), null, null, ahead, isHere)
             }
         }
@@ -599,7 +738,8 @@ internal object WidgetWords {
 
     /** The moment of [hour] (0 to 24) on [day] in [here], in milliseconds. Hour 24 is 00:00 of the next day. */
     fun hourMoment(day: LocalDate, hour: Int, here: ZoneId): Long =
-        day.atStartOfDay().plusHours(hour.coerceIn(0, 24).toLong()).atZone(here).toInstant().toEpochMilli()
+        day.atStartOfDay().plusHours(hour.coerceIn(0, 24).toLong()).atZone(here).toInstant()
+            .toEpochMilli()
 
     /** Where the moment [at] (milliseconds) is on the day strip of [day] in [here], by the clock: 0 at 00:00, 1 at 24:00. */
     fun stripAt(at: Long, day: LocalDate, here: ZoneId): Float {
@@ -627,7 +767,8 @@ internal object WidgetWords {
      * change as the digits do.
      */
     fun clockTextDp(widthDp: Int, chars: Int, maxDp: Int): Int =
-        (widthDp / (chars.coerceAtLeast(1) * DIGIT_WIDTH)).toInt().coerceIn(CLOCK_MIN_DP, maxOf(CLOCK_MIN_DP, maxDp))
+        (widthDp / (chars.coerceAtLeast(1) * DIGIT_WIDTH)).toInt()
+            .coerceIn(CLOCK_MIN_DP, maxOf(CLOCK_MIN_DP, maxDp))
 
     /**
      * How many of [count] places a wide box [widthDp] wide shows side by side. Each needs room for
@@ -671,10 +812,17 @@ internal object WidgetWords {
      * - A time is written as [clock24] says ("14:30" or "2:30 PM"). An event with an end that has
      *   begun says "now".
      */
-    fun agenda(spec: WidgetSpec.Agenda, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): List<AgendaDay> {
+    fun agenda(
+        spec: WidgetSpec.Agenda,
+        now: Long,
+        zone: ZoneId,
+        clock24: Boolean,
+        locale: Locale = Locale.getDefault()
+    ): List<AgendaDay> {
         fun at(seconds: Long) = Instant.ofEpochSecond(seconds).atZone(zone)
         val today = at(now).toLocalDate()
-        val last = today.plusDays(spec.days.coerceIn(WidgetParser.MIN_DAYS, WidgetParser.MAX_DAYS) - 1L)
+        val last =
+            today.plusDays(spec.days.coerceIn(WidgetParser.MIN_DAYS, WidgetParser.MAX_DAYS) - 1L)
         val clock = TimeFormats.clockFormat(clock24, locale)
         val byDay = java.util.TreeMap<LocalDate, MutableList<WidgetSpec.Event>>()
         for (event in spec.events) {
@@ -745,7 +893,8 @@ internal object WidgetWords {
     const val LAST_PLAYED = "Last played"
 
     /** Whether a media card's bar moves the track: the player can seek, the length is known, and something is playing or paused. */
-    fun mediaSeeks(spec: WidgetSpec.Media): Boolean = spec.canSeek && spec.duration > 0 && !spec.lastPlayed
+    fun mediaSeeks(spec: WidgetSpec.Media): Boolean =
+        spec.canSeek && spec.duration > 0 && !spec.lastPlayed
 
     /** The place in a track [duration] long, in whole milliseconds, that a bar at [fraction] (0 to 1) stands for. */
     fun seekTarget(fraction: Float, duration: Long): Long {
@@ -755,14 +904,18 @@ internal object WidgetWords {
     }
 
     /** A bar at [fraction] of a track [duration] long, as a screen reader hears it: "1:12 of 3:05". */
-    fun seekSaid(fraction: Float, duration: Long): String = "${mediaTime(seekTarget(fraction, duration))} of ${mediaTime(duration)}"
+    fun seekSaid(fraction: Float, duration: Long): String =
+        "${mediaTime(seekTarget(fraction, duration))} of ${mediaTime(duration)}"
 
     /** The big line of a media card: the title, or the app's name when the player gives none. */
-    fun mediaTitle(spec: WidgetSpec.Media): String = spec.title?.takeIf { it.isNotBlank() } ?: spec.app
+    fun mediaTitle(spec: WidgetSpec.Media): String =
+        spec.title?.takeIf { it.isNotBlank() } ?: spec.app
 
     /** The small line of a media card: "Artist · App". The app is left out where it is the big line. */
     fun mediaLine(spec: WidgetSpec.Media): String =
-        listOfNotNull(spec.artist?.takeIf { it.isNotBlank() }, spec.app.takeIf { !spec.title.isNullOrBlank() && it.isNotBlank() }).joinToString(" · ")
+        listOfNotNull(
+            spec.artist?.takeIf { it.isNotBlank() },
+            spec.app.takeIf { !spec.title.isNullOrBlank() && it.isNotBlank() }).joinToString(" · ")
 
     /**
      * Where playback is at [now], in milliseconds: from 0 to the duration, when that is known.
@@ -770,19 +923,27 @@ internal object WidgetWords {
      */
     fun mediaPosition(spec: WidgetSpec.Media, now: Long): Long {
         val speed = spec.speed.takeIf { it.isFinite() } ?: 1f
-        val moved = if (spec.playing) ((now - spec.positionAt).coerceAtLeast(0) * speed.toDouble()) else 0.0
+        val moved =
+            if (spec.playing) ((now - spec.positionAt).coerceAtLeast(0) * speed.toDouble()) else 0.0
         val at = (spec.position + moved).coerceIn(0.0, Long.MAX_VALUE.toDouble()).toLong()
         return if (spec.duration > 0) at.coerceAtMost(spec.duration) else at
     }
 
     /** How far through the track playback is at [now], from 0 to 1. Null when the length is not known. */
     fun mediaFraction(spec: WidgetSpec.Media, now: Long): Float? =
-        if (spec.duration > 0) (mediaPosition(spec, now).toDouble() / spec.duration).toFloat().coerceIn(0f, 1f) else null
+        if (spec.duration > 0) (mediaPosition(spec, now).toDouble() / spec.duration).toFloat()
+            .coerceIn(0f, 1f) else null
 
     /** A position or a length as players write it: "0:07", "3:45", "1:02:03". */
     fun mediaTime(ms: Long): String {
         val s = ms.coerceAtLeast(0) / 1000
-        return if (s >= HOUR) String.format(Locale.ROOT, "%d:%02d:%02d", s / HOUR, s % HOUR / 60, s % 60)
+        return if (s >= HOUR) String.format(
+            Locale.ROOT,
+            "%d:%02d:%02d",
+            s / HOUR,
+            s % HOUR / 60,
+            s % 60
+        )
         else String.format(Locale.ROOT, "%d:%02d", s / 60, s % 60)
     }
 
@@ -794,10 +955,12 @@ internal object WidgetWords {
      * next), 2 (play or pause, next) or 1 (play or pause). A button is 48 dp, with 4 dp between two.
      * With [besideText] the texts are in the same row and keep [MEDIA_TEXT_DP].
      */
-    fun mediaButtons(widthDp: Int, besideText: Boolean): Int = ((mediaRoom(widthDp, besideText) + 4) / (CONTROL_DP + 4)).coerceIn(1, 3)
+    fun mediaButtons(widthDp: Int, besideText: Boolean): Int =
+        ((mediaRoom(widthDp, besideText) + 4) / (CONTROL_DP + 4)).coerceIn(1, 3)
 
     /** The width the buttons of a media card [widthDp] wide have, in dp. */
-    private fun mediaRoom(widthDp: Int, besideText: Boolean) = widthDp - if (besideText) MEDIA_TEXT_DP + CONTROL_GAP_DP else 0
+    private fun mediaRoom(widthDp: Int, besideText: Boolean) =
+        widthDp - if (besideText) MEDIA_TEXT_DP + CONTROL_GAP_DP else 0
 
     /** The play or pause button is up to this much wider than the others, in dp, where there is room. */
     private const val PLAY_EXTRA_DP = 16
@@ -822,7 +985,8 @@ internal object WidgetWords {
      * [last] (null for none). The view model starts no run for such a tap, so a switch does not
      * show "working" for it. Both times are on one clock that never goes back.
      */
-    fun tooSoon(last: Long?, now: Long): Boolean = last != null && now - last in 0 until TAP_WINDOW_MS
+    fun tooSoon(last: Long?, now: Long): Boolean =
+        last != null && now - last in 0 until TAP_WINDOW_MS
 
     /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
     data class Footer(val text: String, val said: String, val failed: Boolean)
@@ -834,7 +998,8 @@ internal object WidgetWords {
      */
     fun age(then: Long, now: Long, whole: Boolean = false): String {
         val seconds = (now - then) / 1000
-        fun words(n: Long, short: String, long: String) = if (!whole) "$n $short ago" else if (n == 1L) "1 $long ago" else "$n ${long}s ago"
+        fun words(n: Long, short: String, long: String) =
+            if (!whole) "$n $short ago" else if (n == 1L) "1 $long ago" else "$n ${long}s ago"
         return when {
             seconds < 60 -> "just now"
             seconds < HOUR -> words(seconds / 60, "min", "minute")
@@ -850,26 +1015,45 @@ internal object WidgetWords {
      * - The content is [old]: its age, "2 h ago".
      * - Current content has no footer.
      */
-    fun footer(hasContent: Boolean, old: Boolean, setAt: Long, triedAt: Long, failed: Boolean, now: Long, zone: ZoneId, clock24: Boolean): Footer? {
+    fun footer(
+        hasContent: Boolean,
+        old: Boolean,
+        setAt: Long,
+        triedAt: Long,
+        failed: Boolean,
+        now: Long,
+        zone: ZoneId,
+        clock24: Boolean
+    ): Footer? {
         if (failed) {
             val at = Instant.ofEpochMilli(triedAt).atZone(zone)
             // The time of day as the clock setting writes it, as everywhere else.
-            val time = com.mtwabpin.kolahal.data.TimeFormats.clockFormat(clock24).format(at)
+            val time = TimeFormats.clockFormat(clock24).format(at)
             val today = at.toLocalDate() == Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
             return if (today) Footer("Failed $time", "Failed at $time", failed = true)
-            else Footer("Failed ${age(triedAt, now)}", "Failed ${age(triedAt, now, whole = true)}", failed = true)
+            else Footer(
+                "Failed ${age(triedAt, now)}",
+                "Failed ${age(triedAt, now, whole = true)}",
+                failed = true
+            )
         }
-        return if (hasContent && old) Footer(age(setAt, now).replaceFirstChar { it.titlecase() }, "Updated ${age(setAt, now, whole = true)}", failed = false) else null
+        return if (hasContent && old) Footer(
+            age(setAt, now).replaceFirstChar { it.titlecase() },
+            "Updated ${age(setAt, now, whole = true)}",
+            failed = false
+        ) else null
     }
 
     /** The first line of an error with something on it, for a card with nothing else to show. */
-    fun firstLine(error: String?): String? = error?.lineSequence()?.map { it.trim() }?.firstOrNull { it.isNotEmpty() }
+    fun firstLine(error: String?): String? =
+        error?.lineSequence()?.map { it.trim() }?.firstOrNull { it.isNotEmpty() }
 
     /**
      * The badge of a large card whose content has no icon: the first letter or digit of [title], as
      * a capital. Null for a title with none.
      */
-    fun badgeLetter(title: String): String? = title.firstOrNull { it.isLetterOrDigit() }?.uppercase()
+    fun badgeLetter(title: String): String? =
+        title.firstOrNull { it.isLetterOrDigit() }?.uppercase()
 
     /** The end of a failed run's log line: a tap on that line opens the editor at the line. */
     private val EDIT_TAIL = Regex("""\s*\(tap to edit line (\d+)\)$""")
@@ -886,7 +1070,8 @@ internal object WidgetWords {
      */
     fun cardError(error: String?): String? {
         val line = firstLine(error) ?: return null
-        return line.replace(EDIT_TAIL) { " (line ${it.groupValues[1]})" }.removeSuffix(ALLOW_TAIL).trim().ifEmpty { null }
+        return line.replace(EDIT_TAIL) { " (line ${it.groupValues[1]})" }.removeSuffix(ALLOW_TAIL)
+            .trim().ifEmpty { null }
     }
 
     /**
@@ -921,6 +1106,13 @@ internal object WidgetWords {
     }
 
     /** Whether the "+3 more" line fits under [shown] rows ([rowsShown]). */
-    fun showsMore(count: Int, shown: Int, heightDp: Int, rowDp: Int, moreDp: Int, gapDp: Int = 0): Boolean =
+    fun showsMore(
+        count: Int,
+        shown: Int,
+        heightDp: Int,
+        rowDp: Int,
+        moreDp: Int,
+        gapDp: Int = 0
+    ): Boolean =
         shown < count && shown * (rowDp + gapDp) - gapDp + moreDp <= heightDp
 }

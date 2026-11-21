@@ -92,49 +92,107 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
             if (words && maxWidth >= CHART_SIDE_FROM) {
                 val start = min(maxWidth * 0.3f, 120.dp)
                 Row(Modifier.fillMaxSize()) {
-                    Column(Modifier.width(start).padding(top = 4.dp)) {
+                    Column(
+                        Modifier
+                            .width(start)
+                            .padding(top = 4.dp)
+                    ) {
                         if (value != null) BigText(value, valueStyle(box))
-                        if (label != null) Text(label, style = type.bodyMedium, color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (label != null) Text(
+                            label,
+                            style = type.bodyMedium,
+                            color = muted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
-                    Dots(spec, colour, weeks = true, Modifier.padding(start = 16.dp).weight(1f).fillMaxHeight())
+                    Dots(
+                        spec,
+                        colour,
+                        weeks = true,
+                        Modifier
+                            .padding(start = 16.dp)
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
                     if (words) ValueLine(value, label, type.titleLarge, type.bodyMedium, muted)
                     // The days' letters keep the weeks clear of the value line: a 2×2 card has room for four weeks.
-                    Dots(spec, colour, weeks = true, Modifier.weight(1f).fillMaxWidth())
+                    Dots(
+                        spec, colour, weeks = true, Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
                 }
             }
         }
+
         WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
             val line = with(LocalDensity.current) { type.titleLarge.lineHeight.toDp() }
             // Beside the words, the dots keep their room: seven days of 12 to 24 dp each. The words give way first.
-            val dotsWidth = min(maxWidth * 0.6f, 24.dp * DotCalendar.DAYS).coerceAtLeast(12.dp * DotCalendar.DAYS)
+            val dotsWidth = min(
+                maxWidth * 0.6f,
+                24.dp * DotCalendar.DAYS
+            ).coerceAtLeast(12.dp * DotCalendar.DAYS)
             if (!words || maxHeight - line >= STRIP_MIN) {
                 Column(Modifier.fillMaxSize()) {
                     if (words) ValueLine(value, label, type.titleLarge, type.bodySmall, muted)
-                    Dots(spec, colour, weeks = false, Modifier.weight(1f).fillMaxWidth())
+                    Dots(
+                        spec, colour, weeks = false, Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
                 }
             } else {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.padding(end = 12.dp).weight(1f, fill = false)) {
+                    Column(
+                        Modifier
+                            .padding(end = 12.dp)
+                            .weight(1f, fill = false)
+                    ) {
                         if (value != null) BigText(value, type.titleLarge)
-                        if (label != null) Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (label != null) Text(
+                            label,
+                            style = type.bodySmall,
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
-                    Dots(spec, colour, weeks = false, Modifier.width(dotsWidth).fillMaxHeight())
+                    Dots(
+                        spec, colour, weeks = false, Modifier
+                            .width(dotsWidth)
+                            .fillMaxHeight()
+                    )
                 }
             }
         }
-        WidgetSizes.Box.SMALL -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+
+        WidgetSizes.Box.SMALL -> Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             if (value != null) BigText(value, type.titleMedium)
-            Dots(spec, colour, weeks = false, Modifier.weight(1f).fillMaxWidth())
+            Dots(
+                spec, colour, weeks = false, Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
         }
     }
 }
 
 /** A value with its label after it, on one line: "5 Days in a row". The label gives way first. */
 @Composable
-private fun ValueLine(value: String?, label: String?, valueStyle: TextStyle, labelStyle: TextStyle, muted: Color) {
+private fun ValueLine(
+    value: String?,
+    label: String?,
+    valueStyle: TextStyle,
+    labelStyle: TextStyle,
+    muted: Color
+) {
     Row(Modifier.fillMaxWidth()) {
         if (value != null) BigText(value, valueStyle, Modifier.alignByBaseline())
         if (label != null) {
@@ -144,7 +202,10 @@ private fun ValueLine(value: String?, label: String?, valueStyle: TextStyle, lab
                 color = muted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = if (value != null) 6.dp else 0.dp).weight(1f, fill = false).alignByBaseline(),
+                modifier = Modifier
+                    .padding(start = if (value != null) 6.dp else 0.dp)
+                    .weight(1f, fill = false)
+                    .alignByBaseline(),
             )
         }
     }
@@ -155,7 +216,13 @@ private fun ValueLine(value: String?, label: String?, valueStyle: TextStyle, lab
  * the check on today's cookie, [later] for the days to come, [ring] for the ring around today.
  */
 @Immutable
-private data class DotPaint(val on: Color, val off: Color, val check: Color, val later: Color, val ring: Color)
+private data class DotPaint(
+    val on: Color,
+    val off: Color,
+    val check: Color,
+    val later: Color,
+    val ring: Color
+)
 
 /**
  * The points of [spec] as dots in [colour], a dot for each day, the last one today ([DotCalendar]).
@@ -176,7 +243,12 @@ private data class DotPaint(val on: Color, val off: Color, val check: Color, val
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun Dots(spec: WidgetSpec.Chart, colour: Color, weeks: Boolean, modifier: Modifier = Modifier) {
+internal fun Dots(
+    spec: WidgetSpec.Chart,
+    colour: Color,
+    weeks: Boolean,
+    modifier: Modifier = Modifier
+) {
     val points = spec.points
     if (points.isEmpty()) {
         Spacer(modifier)
@@ -187,7 +259,10 @@ internal fun Dots(spec: WidgetSpec.Chart, colour: Color, weeks: Boolean, modifie
     // days under their own weekdays, and has no today's mark until the run brings today. Today when not known.
     val setAt = LocalContentSetAt.current
     val last = remember(setAt, today) {
-        if (setAt > 0) minOf(java.time.Instant.ofEpochMilli(setAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate(), today) else today
+        if (setAt > 0) minOf(
+            java.time.Instant.ofEpochMilli(setAt).atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate(), today
+        ) else today
     }
     val lastIsToday = last == today
     val locale = Locale.getDefault()
@@ -200,14 +275,31 @@ internal fun Dots(spec: WidgetSpec.Chart, colour: Color, weeks: Boolean, modifie
         label = "today",
     )
     val looks = lookColors()
-    val paint = DotPaint(colour, looks.muted, looks.onAccent, MaterialTheme.colorScheme.outlineVariant, looks.content)
+    val paint = DotPaint(
+        colour,
+        looks.muted,
+        looks.onAccent,
+        MaterialTheme.colorScheme.outlineVariant,
+        looks.content
+    )
     BoxWithConstraints(modifier) {
         if (!weeks) {
             val cells = remember(points.size) { DotCalendar.strip(points.size) }
-            DotsCanvas(spec, cells, rows = 1, later = IntRange.EMPTY, yesNo, lastIsToday, grown, paint, Modifier.fillMaxSize())
+            DotsCanvas(
+                spec,
+                cells,
+                rows = 1,
+                later = IntRange.EMPTY,
+                yesNo,
+                lastIsToday,
+                grown,
+                paint,
+                Modifier.fillMaxSize()
+            )
             return@BoxWithConstraints
         }
-        val letters = with(LocalDensity.current) { MaterialTheme.typography.labelSmall.lineHeight.toDp() }
+        val letters =
+            with(LocalDensity.current) { MaterialTheme.typography.labelSmall.lineHeight.toDp() }
         val need = DotCalendar.weeks(points.size, column)
         fun fit(room: Dp) = (room / WEEK_MIN).toInt().coerceIn(1, need)
         // The days' letters only where they cost no week.
@@ -217,25 +309,67 @@ internal fun Dots(spec: WidgetSpec.Chart, colour: Color, weeks: Boolean, modifie
         // This week alone would show no day before its first: the last seven days in one row instead.
         if (rows == 1 && need > 1) {
             val strip = remember(points.size) { DotCalendar.strip(points.size) }
-            DotsCanvas(spec, strip, rows = 1, later = IntRange.EMPTY, yesNo, lastIsToday, grown, paint, Modifier.fillMaxSize())
+            DotsCanvas(
+                spec,
+                strip,
+                rows = 1,
+                later = IntRange.EMPTY,
+                yesNo,
+                lastIsToday,
+                grown,
+                paint,
+                Modifier.fillMaxSize()
+            )
             return@BoxWithConstraints
         }
         // The rows share the room, but none is taller than a day is wide.
         val row = min(room / rows, maxWidth / DotCalendar.DAYS)
-        val cells = remember(points.size, column, rows) { DotCalendar.cells(points.size, column, rows) }
+        val cells =
+            remember(points.size, column, rows) { DotCalendar.cells(points.size, column, rows) }
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-            if (lettered) DayLetters(first, if (lastIsToday) column else -1, locale, looks.muted, looks.content, Modifier.height(letters))
-            DotsCanvas(spec, cells, rows, DotCalendar.later(column), yesNo, lastIsToday, grown, paint, Modifier.fillMaxWidth().height(row * rows))
+            if (lettered) DayLetters(
+                first,
+                if (lastIsToday) column else -1,
+                locale,
+                looks.muted,
+                looks.content,
+                Modifier.height(letters)
+            )
+            DotsCanvas(
+                spec,
+                cells,
+                rows,
+                DotCalendar.later(column),
+                yesNo,
+                lastIsToday,
+                grown,
+                paint,
+                Modifier
+                    .fillMaxWidth()
+                    .height(row * rows)
+            )
         }
     }
 }
 
 /** The first letters of the days over a calendar, from [first] on. Today's ([today], a column) is bold, in [strong]. A screen reader skips them. */
 @Composable
-private fun DayLetters(first: DayOfWeek, today: Int, locale: Locale, quiet: Color, strong: Color, modifier: Modifier) {
+private fun DayLetters(
+    first: DayOfWeek,
+    today: Int,
+    locale: Locale,
+    quiet: Color,
+    strong: Color,
+    modifier: Modifier
+) {
     val style = MaterialTheme.typography.labelSmall
     val names = remember(first, locale) { DotCalendar.initials(first, locale) }
-    Row(modifier.fillMaxWidth().clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {},
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         names.forEachIndexed { i, name ->
             val now = i == today
             Text(
@@ -256,10 +390,25 @@ private fun DayLetters(first: DayOfWeek, today: Int, locale: Locale, quiet: Colo
  * the last row. Only the drawing reads [grown], so today's spring draws again and composes nothing.
  */
 @Composable
-private fun DotsCanvas(spec: WidgetSpec.Chart, cells: List<DotCalendar.Cell>, rows: Int, later: IntRange, yesNo: Boolean, lastIsToday: Boolean, grown: State<Float>, paint: DotPaint, modifier: Modifier) {
+private fun DotsCanvas(
+    spec: WidgetSpec.Chart,
+    cells: List<DotCalendar.Cell>,
+    rows: Int,
+    later: IntRange,
+    yesNo: Boolean,
+    lastIsToday: Boolean,
+    grown: State<Float>,
+    paint: DotPaint,
+    modifier: Modifier
+) {
     val points = spec.points
     // The sizes' scale: the chart's own, or else the points shown.
-    val scale = remember(points, cells, spec.min, spec.max) { WidgetWords.scale(cells.map { points[it.index] }, spec.min, spec.max, bars = false) }
+    val scale = remember(
+        points,
+        cells,
+        spec.min,
+        spec.max
+    ) { WidgetWords.scale(cells.map { points[it.index] }, spec.min, spec.max, bars = false) }
     val path = remember { Path() }
     val matrix = remember { Matrix() }
     Canvas(modifier.testTag("widget-dots")) {
@@ -272,7 +421,11 @@ private fun DotsCanvas(spec: WidgetSpec.Chart, cells: List<DotCalendar.Cell>, ro
             val x = (column + 0.5f) * wide
             return Offset(if (rtl) size.width - x else x, (row + 0.5f) * tall)
         }
-        for (c in later) drawCircle(paint.later, maxOf(1.5.dp.toPx(), dot * 0.15f), centre(rows - 1, c))
+        for (c in later) drawCircle(
+            paint.later,
+            maxOf(1.5.dp.toPx(), dot * 0.15f),
+            centre(rows - 1, c)
+        )
         val (low, high) = scale
         for (cell in cells) {
             val v = points[cell.index]
@@ -285,15 +438,25 @@ private fun DotsCanvas(spec: WidgetSpec.Chart, cells: List<DotCalendar.Cell>, ro
                     val line = maxOf(1.5.dp.toPx(), dot * 0.12f)
                     drawCircle(paint.off, dot / 2 - line / 2, at, style = Stroke(line))
                 }
+
                 else -> {
                     // The area grows with the value. The lowest is still a dot: about a tenth of the largest's area.
                     val most = dot / 2
                     val least = most * 0.35f
                     val f = WidgetWords.fraction(v - low, high - low)
-                    drawCircle(paint.on, sqrt(least * least + f * (most * most - least * least)), at)
+                    drawCircle(
+                        paint.on,
+                        sqrt(least * least + f * (most * most - least * least)),
+                        at
+                    )
                     if (today) {
                         val line = maxOf(1.25.dp.toPx(), dot * 0.1f)
-                        drawCircle(paint.ring, most + maxOf(1.5.dp.toPx(), dot * 0.15f) + line / 2, at, style = Stroke(line))
+                        drawCircle(
+                            paint.ring,
+                            most + maxOf(1.5.dp.toPx(), dot * 0.15f) + line / 2,
+                            at,
+                            style = Stroke(line)
+                        )
                     }
                 }
             }
@@ -307,7 +470,14 @@ private fun DotsCanvas(spec: WidgetSpec.Chart, cells: List<DotCalendar.Cell>, ro
  * still. A spring takes [grown] a little past 1 and back, so the cookie grows past its size and settles.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private fun DrawScope.todayMark(at: Offset, dot: Float, grown: Float, paint: DotPaint, path: Path, matrix: Matrix) {
+private fun DrawScope.todayMark(
+    at: Offset,
+    dot: Float,
+    grown: Float,
+    paint: DotPaint,
+    path: Path,
+    matrix: Matrix
+) {
     val done = grown.coerceIn(0f, 1f)
     val side = dot * (1.3f + 0.25f * grown)
     TODAY_MORPH.toPath(done, path)

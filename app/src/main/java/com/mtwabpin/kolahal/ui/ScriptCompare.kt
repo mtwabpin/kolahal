@@ -45,20 +45,42 @@ import kotlinx.coroutines.withContext
  * - Reset (or Update) is available from here.
  */
 @Composable
-internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDismiss: () -> Unit, onReset: () -> Unit) {
+internal fun CompareDialog(
+    vm: TerminalViewModel,
+    s: Script,
+    lib: LibRow,
+    onDismiss: () -> Unit,
+    onReset: () -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     // Read the diff here, outside the dialog's composition, and pass it in. Then the counts and the
     // lines change together. If read inside, the lines could show while the counts still said 0.
     val hunks = produceState<List<LineDiff.Hunk>?>(null, s.code, lib.entry) {
-        value = withContext(Dispatchers.IO) { LineDiff.hunks(LineDiff.lines(vm.scriptActions.library.code(lib.entry), s.code)) }
+        value = withContext(Dispatchers.IO) {
+            LineDiff.hunks(
+                LineDiff.lines(
+                    vm.scriptActions.library.code(lib.entry), s.code
+                )
+            )
+        }
     }.value
     val removed = hunks.orEmpty().sumOf { h -> h.lines.count { it.kind == LineDiff.Kind.REMOVED } }
     val added = hunks.orEmpty().sumOf { h -> h.lines.count { it.kind == LineDiff.Kind.ADDED } }
     fun lines(n: Int) = if (n == 1) "1 line" else "$n lines"
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(color = colors.surface, modifier = Modifier.fillMaxSize().testTag("compare")) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            color = colors.surface, modifier = Modifier
+                .fillMaxSize()
+                .testTag("compare")
+        ) {
             Column(Modifier.safeDrawingPadding()) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 16.dp)
+                ) {
                     LabeledIconButton(R.drawable.ic_close, "Close", onClick = onDismiss)
                     Text(
                         "${s.name}.${s.lang.ext}",
@@ -73,12 +95,24 @@ internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDism
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    DiffKey("- ${lines(removed)} only in the library version", colors.errorContainer)
+                    DiffKey(
+                        "- ${lines(removed)} only in the library version",
+                        colors.errorContainer
+                    )
                     DiffKey("+ ${lines(added)} only in yours", colors.primaryContainer)
                 }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                LazyColumn(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
                     if (hunks != null && hunks.isEmpty()) item {
-                        Text("No differences", color = colors.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                        Text(
+                            "No differences",
+                            color = colors.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp)
+                        )
                     }
                     hunks.orEmpty().forEach { hunk ->
                         if (hunk.skipped > 0) item {
@@ -126,8 +160,18 @@ private fun DiffLine(line: LineDiff.Line) {
     }
     val style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
     val color = if (line.kind == LineDiff.Kind.SAME) colors.onSurfaceVariant else colors.onSurface
-    Row(Modifier.fillMaxWidth().background(background).padding(horizontal = 16.dp, vertical = 1.dp)) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(background)
+            .padding(horizontal = 16.dp, vertical = 1.dp)
+    ) {
         Text("$sign ", style = style, color = color)
-        Text(line.text.replace("\t", "    "), style = style, color = color, modifier = Modifier.weight(1f))
+        Text(
+            line.text.replace("\t", "    "),
+            style = style,
+            color = color,
+            modifier = Modifier.weight(1f)
+        )
     }
 }

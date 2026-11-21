@@ -22,7 +22,8 @@ class FeedSubscriptions(private val context: Context) {
      * @throws IllegalArgumentException when the address isn't an http(s) URL.
      */
     fun subscribe(url: String): Subscribed {
-        val normalized = FeedUrl.normalize(url) ?: throw IllegalArgumentException("Not an http(s) URL: $url")
+        val normalized =
+            FeedUrl.normalize(url) ?: throw IllegalArgumentException("Not an http(s) URL: $url")
         repo.byUrl(normalized)?.let { return Subscribed(it, isNew = false) }
         val feed = repo.add(normalized)
         FeedScheduler.sync(context)
@@ -31,7 +32,8 @@ class FeedSubscriptions(private val context: Context) {
     }
 
     /** Moves feed [id] to [url] and fetches it there ([FeedRepository.setUrl]). */
-    fun moveTo(id: Long, url: String): Feed = repo.setUrl(id, url).also { FeedScheduler.fetchNow(context, it.id) }
+    fun moveTo(id: Long, url: String): Feed =
+        repo.setUrl(id, url).also { FeedScheduler.fetchNow(context, it.id) }
 
     fun remove(id: Long) {
         repo.remove(id)

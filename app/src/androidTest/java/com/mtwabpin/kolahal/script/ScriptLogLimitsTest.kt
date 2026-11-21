@@ -20,14 +20,23 @@ class ScriptLogLimitsTest {
     private val name = "limits${System.nanoTime()}"
 
     private fun host(interactive: Boolean = false, byScript: Boolean = false) =
-        HostApi(context, name, scriptId = null, notifyEnabled = false, interactive = interactive, byScript = byScript)
+        HostApi(
+            context,
+            name,
+            scriptId = null,
+            notifyEnabled = false,
+            interactive = interactive,
+            byScript = byScript
+        )
 
     /** This test's lines, oldest first. */
     private fun lines(): List<LogEntry> = logs.recent(limit = 2_000).filter { it.source == name }
 
-    @After fun tearDown() = lines().forEach { logs.delete(it.id) }
+    @After
+    fun tearDown() = lines().forEach { logs.delete(it.id) }
 
-    @Test fun aRunLogsAtMost500Lines() {
+    @Test
+    fun aRunLogsAtMost500Lines() {
         val host = host()
         repeat(600) { host.log("line $it") }
         host.flush()
@@ -37,7 +46,8 @@ class ScriptLogLimitsTest {
         assertEquals("More than 500 lines in one run: the rest aren't logged", out.last().text)
     }
 
-    @Test fun errorLinesCountToo() {
+    @Test
+    fun errorLinesCountToo() {
         val host = host()
         repeat(300) { host.log("line $it") }
         repeat(300) { host.logError("error $it") }
@@ -47,42 +57,60 @@ class ScriptLogLimitsTest {
         assertEquals(200, out.count { it.kind == LogKind.ERROR })
     }
 
-    @Test fun consoleErrorInJavaScriptCountsToo() {
+    @Test
+    fun consoleErrorInJavaScriptCountsToo() {
         val host = host()
-        runBlocking { JsEngine().run("for (let i = 0; i < 600; i++) console.error('e' + i)", name, host, 5_000, true) }
+        runBlocking {
+            JsEngine().run(
+                "for (let i = 0; i < 600; i++) console.error('e' + i)",
+                name,
+                host,
+                5_000,
+                true
+            )
+        }
         host.flush()
         val out = lines()
         assertEquals(501, out.size)
         assertEquals(500, out.count { it.kind == LogKind.ERROR })
     }
 
-    @Test fun aRunLogsAtMost256KCharacters() {
+    @Test
+    fun aRunLogsAtMost256KCharacters() {
         val host = host()
         repeat(40) { host.log("x".repeat(10_000)) }
         host.flush()
         val out = lines()
         assertEquals(27, out.size)
-        assertEquals("More than 256K characters in one run: the rest aren't logged", out.last().text)
+        assertEquals(
+            "More than 256K characters in one run: the rest aren't logged",
+            out.last().text
+        )
     }
 
     /**
      * line.set counts toward the run's characters too: growing lines past the limit stops there, with
      * the same line saying so. And a line keeps only what the log keeps, however long the text set.
      */
-    @Test fun lineSetStopsAtTheRunsCharacters() {
+    @Test
+    fun lineSetStopsAtTheRunsCharacters() {
         val host = host()
         val numbers = (1..10).map { host.log("short $it") }
         numbers.forEach { host.setLine(it, markdown = false, raw = "y".repeat(40_000)) }
         host.setLine(numbers.first(), markdown = false, raw = "z".repeat(5_000_000))
         host.flush()
         val out = lines()
-        assertEquals("More than 256K characters in one run: the rest aren't logged", out.last().text)
+        assertEquals(
+            "More than 256K characters in one run: the rest aren't logged",
+            out.last().text
+        )
         // 6 lines of 40,000 fit in 256K with the rest; the 7th set is refused, and so is everything after.
         assertEquals(6, out.count { it.text == "y".repeat(40_000) })
         assertEquals("short 7", out[6].text)
     }
 
-    @Test fun aLinesLinkCountsTowardTheCharacters() {
+    @Test
+    fun aLinesLinkCountsTowardTheCharacters() {
         val host = host()
         val link = "https://example.com/" + "a".repeat(10_000)
         repeat(40) { host.log("x", ctx = mapOf("url" to link)) }
@@ -90,21 +118,30 @@ class ScriptLogLimitsTest {
         val out = lines()
         assertEquals(27, out.size)
         assertEquals(link, out.first().ctx.url)
-        assertEquals("More than 256K characters in one run: the rest aren't logged", out.last().text)
+        assertEquals(
+            "More than 256K characters in one run: the rest aren't logged",
+            out.last().text
+        )
     }
 
-    @Test fun aRunSendsAtMostTenCommands() {
+    @Test
+    fun aRunSendsAtMostTenCommands() {
         val host = host(interactive = true)
         val sent = (1..15).map { host.runCommand("date") }
         host.flush()
         assertEquals(List(10) { true } + List(5) { false }, sent)
-        assertEquals(listOf("launcher.run: more than 10 commands in one run; the rest don't run"), lines().map { it.text })
+        assertEquals(
+            listOf("launcher.run: more than 10 commands in one run; the rest don't run"),
+            lines().map { it.text })
     }
 
-    @Test fun aScriptAnotherScriptStartedSendsNoCommands() {
+    @Test
+    fun aScriptAnotherScriptStartedSendsNoCommands() {
         val host = host(interactive = true, byScript = true)
         assertFalse(host.runCommand("date"))
         host.flush()
-        assertEquals(listOf("launcher.run isn't available to a script another script started"), lines().map { it.text })
+        assertEquals(
+            listOf("launcher.run isn't available to a script another script started"),
+            lines().map { it.text })
     }
 }

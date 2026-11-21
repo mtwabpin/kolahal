@@ -18,7 +18,6 @@ import com.mtwabpin.kolahal.documents.Documents
 import com.mtwabpin.kolahal.documents.LineEnding
 import com.mtwabpin.kolahal.documents.TextDocument
 import com.mtwabpin.kolahal.documents.TextFiles
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * The text editor's view model: one file open in [TextEditorActivity].
@@ -42,7 +42,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   After Android has closed the editor, the text comes back from the file and its draft. Only
  *   the cursor and the wrap choice are saved.
  */
-class TextEditorViewModel(app: Application, private val saved: SavedStateHandle) : AndroidViewModel(app) {
+class TextEditorViewModel(app: Application, private val saved: SavedStateHandle) :
+    AndroidViewModel(app) {
     /** What the window shows. */
     sealed interface Phase {
         data object Loading : Phase
@@ -100,7 +101,9 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
     val events: SharedFlow<Event> = _events
 
     private var uri: Uri? = null
-    @Volatile private var document: TextDocument? = null
+
+    @Volatile
+    private var document: TextDocument? = null
     private val editing get() = (phase as? Phase.Editing)?.state
 
     /** The Model's calls run here: one at a time and in order, so a draft can't be written after a newer one. */
@@ -110,7 +113,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
     private val fileWork = java.util.concurrent.atomic.AtomicInteger()
 
     /** Runs [block] on [io], counted in [fileWork] while it waits and runs. */
-    private suspend fun <T> onFile(block: suspend kotlinx.coroutines.CoroutineScope.() -> T): T {
+    private suspend fun <T> onFile(block: suspend CoroutineScope.() -> T): T {
         fileWork.incrementAndGet()
         try {
             return withContext(io, block)
@@ -120,7 +123,8 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
     }
 
     /** The file is closed, or its text moved to another file: no draft is written for it any more. */
-    @Volatile private var done = false
+    @Volatile
+    private var done = false
 
     /**
      * The text that needs no draft written: the one last written, or one the user discarded.
@@ -145,15 +149,29 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
             val doc = Documents.open(app, uri)
             val opened = onFile {
                 // Whatever goes wrong, the window says so instead of stopping.
-                runCatching { doc.open() }.getOrElse { TextDocument.Opened.Unavailable(it.message ?: it.javaClass.simpleName, null) }
-                    .also { if (it is TextDocument.Opened.Ready) runCatching { Documents.remember(app, uri, doc.name) } }
+                runCatching { doc.open() }.getOrElse {
+                    TextDocument.Opened.Unavailable(
+                        it.message ?: it.javaClass.simpleName, null
+                    )
+                }
+                    .also {
+                        if (it is TextDocument.Opened.Ready) runCatching {
+                            Documents.remember(
+                                app,
+                                uri,
+                                doc.name
+                            )
+                        }
+                    }
             }
             document = doc
             name = doc.name
             wrap = saved[KEY_WRAP] ?: EditorLogic.wrapsByDefault(doc.name)
             when (opened) {
                 is TextDocument.Opened.Ready -> show(opened.text, opened.saved, notes(doc, opened))
-                is TextDocument.Opened.Refused -> phase = Phase.Failed("Can't edit ${doc.name}", opened.why)
+                is TextDocument.Opened.Refused -> phase =
+                    Phase.Failed("Can't edit ${doc.name}", opened.why)
+
                 is TextDocument.Opened.Unavailable -> {
                     val draft = opened.draft
                     if (draft == null) {
@@ -161,10 +179,13 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                         onFile { Documents.forget(app, uri.toString()) }
                         phase = Phase.Failed("Can't open ${doc.name}", "${opened.why}.")
                     } else {
-                        show(draft, "", EditorMessage(
-                            "${opened.why}. Your unsaved text is here · tap to save it as another file",
-                            EditorMessage.Kind.ERROR, action = { _events.tryEmit(Event.AskSaveAs) },
-                        ))
+                        show(
+                            draft, "", EditorMessage(
+                                "${opened.why}. Your unsaved text is here · tap to save it as another file",
+                                EditorMessage.Kind.ERROR,
+                                action = { _events.tryEmit(Event.AskSaveAs) },
+                            )
+                        )
                     }
                 }
             }
@@ -194,7 +215,11 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
             "A big file: typing is slow".takeIf { opened.text.length >= TextFiles.SLOW_FROM },
         )
         if (notes.isEmpty()) return null
-        return EditorMessage(notes.joinToString(" · "), EditorMessage.Kind.NOTE, action = if (readOnly && reopenHelps) ::askFromFolder else null)
+        return EditorMessage(
+            notes.joinToString(" · "),
+            EditorMessage.Kind.NOTE,
+            action = if (readOnly && reopenHelps) ::askFromFolder else null
+        )
     }
 
     private fun show(text: String, savedText: String, message: EditorMessage?) {
@@ -256,8 +281,16 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         viewModelScope.launch {
             // A quick look, as this runs each time the window comes back. Saving looks properly.
             if (!onFile { runCatching { doc.changedOnDisk(quick = true) }.getOrDefault(false) }) return@launch
-            val changed = EditorMessage("This file changed on disk. Saving asks before it overwrites", EditorMessage.Kind.NOTE)
-            if (state.dirty) state.message = changed else reload(doc, state, "The file changed on disk: this is how it is now", ifTyped = changed)
+            val changed = EditorMessage(
+                "This file changed on disk. Saving asks before it overwrites",
+                EditorMessage.Kind.NOTE
+            )
+            if (state.dirty) state.message = changed else reload(
+                doc,
+                state,
+                "The file changed on disk: this is how it is now",
+                ifTyped = changed
+            )
         }
     }
 
@@ -268,7 +301,12 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
      * If the user typed while the file was read, the editor keeps their text and says [ifTyped].
      * The document then still knows the file as it was, so a save finds the change and asks.
      */
-    private suspend fun reload(doc: TextDocument, state: EditorState, said: String, ifTyped: EditorMessage?) {
+    private suspend fun reload(
+        doc: TextDocument,
+        state: EditorState,
+        said: String,
+        ifTyped: EditorMessage?
+    ) {
         val before = state.value.text
         when (val read = onFile { doc.reread() }) {
             is TextDocument.Reread.Text -> {
@@ -278,15 +316,28 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                 }
                 val fresh = read.fresh
                 state.history.checkpoint()
-                state.edit(TextFieldValue(fresh.text, TextRange(state.value.selection.start.coerceAtMost(fresh.text.length))))
+                state.edit(
+                    TextFieldValue(
+                        fresh.text,
+                        TextRange(state.value.selection.start.coerceAtMost(fresh.text.length))
+                    )
+                )
                 state.history.checkpoint()
                 state.saved = fresh.text
                 onFile { doc.adopt(fresh) }
                 name = doc.name
                 state.message = EditorMessage(said, EditorMessage.Kind.OK)
             }
-            is TextDocument.Reread.Refused -> state.message = EditorMessage("This file changed on disk, and can't be edited now. ${read.why}", EditorMessage.Kind.NOTE)
-            is TextDocument.Reread.Unavailable -> state.message = EditorMessage("${read.why}. What you see is the text from before", EditorMessage.Kind.NOTE)
+
+            is TextDocument.Reread.Refused -> state.message = EditorMessage(
+                "This file changed on disk, and can't be edited now. ${read.why}",
+                EditorMessage.Kind.NOTE
+            )
+
+            is TextDocument.Reread.Unavailable -> state.message = EditorMessage(
+                "${read.why}. What you see is the text from before",
+                EditorMessage.Kind.NOTE
+            )
         }
     }
 
@@ -308,11 +359,16 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
             when (result) {
                 is TextDocument.Saved.Done -> {
                     // The file ends with a line break that the text didn't have: the editor shows what the file holds.
-                    if (result.text != text && state.value.text == text) state.edit(state.value.copy(text = result.text))
+                    if (result.text != text && state.value.text == text) state.edit(
+                        state.value.copy(
+                            text = result.text
+                        )
+                    )
                     state.saved = result.text
                     state.message = EditorMessage("Saved", EditorMessage.Kind.OK)
                     then()
                 }
+
                 TextDocument.Saved.Changed -> askOverwrite = true
                 // Android may let Kolahal write the same file from its folder. Save as is in the menu too.
                 is TextDocument.Saved.Failed -> state.message = if (reopenHelps) EditorMessage(
@@ -360,7 +416,10 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                     Documents.keepPermission(app, to)
                     _events.emit(Event.Moved(to))
                 }
-                is TextDocument.Saved.Failed -> state.message = EditorMessage("Couldn't save: ${result.why}", EditorMessage.Kind.ERROR)
+
+                is TextDocument.Saved.Failed -> state.message =
+                    EditorMessage("Couldn't save: ${result.why}", EditorMessage.Kind.ERROR)
+
                 TextDocument.Saved.Changed -> Unit
             }
         }
@@ -391,11 +450,17 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         val from = uri ?: return
         if (to == null) return
         if (to == from) {
-            state.message = EditorMessage("That is the same read-only file. Open the file inside its folder", EditorMessage.Kind.NOTE)
+            state.message = EditorMessage(
+                "That is the same read-only file. Open the file inside its folder",
+                EditorMessage.Kind.NOTE
+            )
             return
         }
         if (openElsewhere) {
-            state.message = EditorMessage("That file is open in another window. Close it there, then try again", EditorMessage.Kind.NOTE)
+            state.message = EditorMessage(
+                "That file is open in another window. Close it there, then try again",
+                EditorMessage.Kind.NOTE
+            )
             return
         }
         val text = state.value.text
@@ -405,14 +470,24 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
             val moved = onFile {
                 // From now on no draft is written for this address: the text lives at the new one.
                 done = true
-                runCatching { !dirty || doc.moveDraftTo(to.toString(), text) }.also { if (it.getOrNull() != true) done = false }
+                runCatching {
+                    !dirty || doc.moveDraftTo(
+                        to.toString(),
+                        text
+                    )
+                }.also { if (it.getOrNull() != true) done = false }
             }
             when {
-                moved.isFailure -> state.message = EditorMessage("Couldn't move your changes: ${moved.exceptionOrNull()?.message}", EditorMessage.Kind.ERROR)
+                moved.isFailure -> state.message = EditorMessage(
+                    "Couldn't move your changes: ${moved.exceptionOrNull()?.message}",
+                    EditorMessage.Kind.ERROR
+                )
+
                 moved.getOrThrow() == false -> state.message = EditorMessage(
                     "That file has unsaved changes of its own. Save or discard them there first",
                     EditorMessage.Kind.ERROR,
                 )
+
                 else -> {
                     onFile { Documents.forget(app, from.toString()) }
                     _events.emit(Event.Moved(to))

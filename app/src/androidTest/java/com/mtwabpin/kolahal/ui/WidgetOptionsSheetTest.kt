@@ -11,8 +11,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -45,17 +45,22 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetOptionsSheetTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val t = TestScriptWidgets("wopts")
     private val options = ScriptOptions(app)
 
-    @After fun tearDown() = t.close()
+    @After
+    fun tearDown() = t.close()
 
     private val title = "Wopts Weather"
-    private val code = "-- @title $title\n-- @widget stat 2x1\n-- @option city London The city to show\nwidget.show{ value = options.city }"
+    private val code =
+        "-- @title $title\n-- @widget stat 2x1\n-- @option city London The city to show\nwidget.show{ value = options.city }"
     private val declared = ScriptMeta.options(code)
 
     /** A view model on the Widgets screen that has read [scripts], with what the widget screens see of them. */
@@ -65,7 +70,10 @@ class WidgetOptionsSheetTest {
             vm = vms.terminal(app)
             vm.openScreen(Screen.WIDGETS)
         }
-        waitUntil("the view model hasn't read the scripts") { vm.widgetScripts.value?.keys?.containsAll(scripts.map { it.name }) == true }
+        waitUntil("the view model hasn't read the scripts") {
+            vm.widgetScripts.value?.keys?.containsAll(
+                scripts.map { it.name }) == true
+        }
         return vm
     }
 
@@ -80,7 +88,8 @@ class WidgetOptionsSheetTest {
         compose.onAllNodes(hasClickLabel("change $name")).onFirst().performClick()
     }
 
-    private fun inDialog(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(isDialog()))
+    private fun inDialog(text: String) =
+        compose.onNode(hasText(text) and hasAnyAncestor(isDialog()))
 
     /** The value the widget [ref] shows, or null. */
     private fun value(ref: WidgetRef) = (t.stored(ref).spec as? WidgetSpec.Stat)?.value
@@ -88,7 +97,8 @@ class WidgetOptionsSheetTest {
     private val city = hasText("city") and hasText("The city to show")
 
     /** A value set in a further widget's sheet is for that widget only, and its card is filled again with it. */
-    @Test fun aFurtherWidgetHasOptionsOfItsOwn() {
+    @Test
+    fun aFurtherWidgetHasOptionsOfItsOwn() {
         val s = t.place(t.create("-weather", code))
         val first = WidgetRef(s.name)
         val second = t.placeAnother(s)
@@ -108,22 +118,41 @@ class WidgetOptionsSheetTest {
         inDialog("Reset").assertDoesNotExist()
         compose.onNodeWithTag("option-value").performTextReplacement("Tokyo")
         inDialog("Save").performClick()
-        compose.waitFor("the widget's own value isn't stored") { options.values(s.name, declared, "2")["city"] == "Tokyo" }
+        compose.waitFor("the widget's own value isn't stored") {
+            options.values(
+                s.name,
+                declared,
+                "2"
+            )["city"] == "Tokyo"
+        }
         assertEquals(setOf("city"), options.changed(s.name, declared, "2"))
         // The script's own value is as it was.
         assertEquals("London", options.values(s.name, declared)["city"])
         assertEquals(emptySet<String>(), options.changed(s.name, declared))
         compose.waitForNode(city and hasText("Tokyo"))
         // The saved value asked for one run of that widget, and only of that one.
-        waitUntil("the second widget wasn't filled again with its own value", 30_000) { value(second) == "Tokyo" }
+        waitUntil(
+            "the second widget wasn't filled again with its own value",
+            30_000
+        ) { value(second) == "Tokyo" }
         assertEquals("London", value(first))
 
         // Reset takes the widget's own value away: it follows the script again.
         compose.onNode(city and hasText("Tokyo")).performClick()
         inDialog("Reset").performClick()
-        compose.waitFor("the widget's own value isn't gone") { options.changed(s.name, declared, "2").isEmpty() }
+        compose.waitFor("the widget's own value isn't gone") {
+            options.changed(
+                s.name,
+                declared,
+                "2"
+            ).isEmpty()
+        }
         compose.waitForNode(city and hasText("London"))
-        waitUntil("the second widget wasn't filled again with the script's value", 30_000) { value(second) == "London" }
+        waitUntil("the second widget wasn't filled again with the script's value", 30_000) {
+            value(
+                second
+            ) == "London"
+        }
     }
 
     /**
@@ -131,7 +160,8 @@ class WidgetOptionsSheetTest {
      * Every widget that reads the script's value is filled again: the first, and a further one that
      * follows the script. A further widget with a value of its own keeps showing its own.
      */
-    @Test fun theFirstWidgetHasTheScriptsOptions() {
+    @Test
+    fun theFirstWidgetHasTheScriptsOptions() {
         val s = t.place(t.create("-weather", code))
         val first = WidgetRef(s.name)
         val follows = t.placeAnother(s)
@@ -140,7 +170,12 @@ class WidgetOptionsSheetTest {
         t.refresh(s, own)
         assertEquals(listOf("London", "London", "Tokyo"), listOf(first, follows, own).map(::value))
         val ownTried = t.stored(own).triedAt
-        val plain = t.place(t.create("-plain", "-- @title Wopts Plain\n-- @widget stat 2x1\nwidget.show{ value = 1 }"))
+        val plain = t.place(
+            t.create(
+                "-plain",
+                "-- @title Wopts Plain\n-- @widget stat 2x1\nwidget.show{ value = 1 }"
+            )
+        )
         val vm = model(s, plain)
         compose.setContent { WidgetsScreen(vm) { _, _ -> } }
 
@@ -157,10 +192,18 @@ class WidgetOptionsSheetTest {
         compose.onNodeWithText("city for ${s.name}").assertExists()
         compose.onNodeWithTag("option-value").performTextReplacement("Paris")
         inDialog("Save").performClick()
-        compose.waitFor("the script's value isn't stored") { options.values(s.name, declared)["city"] == "Paris" }
+        compose.waitFor("the script's value isn't stored") {
+            options.values(
+                s.name,
+                declared
+            )["city"] == "Paris"
+        }
         assertEquals(setOf("city"), options.changed(s.name, declared))
         waitUntil("the first widget wasn't filled again", 30_000) { value(first) == "Paris" }
-        waitUntil("the widget that follows the script wasn't filled again", 30_000) { value(follows) == "Paris" }
+        waitUntil(
+            "the widget that follows the script wasn't filled again",
+            30_000
+        ) { value(follows) == "Paris" }
         // The widget with its own value reads nothing that changed: it got no run.
         assertTrue("the queue didn't empty", t.runEnded(s.id))
         assertEquals("Tokyo", value(own))

@@ -17,45 +17,77 @@ import org.junit.Test
  */
 class LayersTest {
     private val model = listOf(
-        "commands", "data", "script", "apps", "feeds", "productivity", "notifications", "calls", "contacts", "unlock", "status", "control",
-        "widgets", "notify", "gesture", "documents", "usage",
+        "commands",
+        "data",
+        "script",
+        "apps",
+        "feeds",
+        "productivity",
+        "notifications",
+        "calls",
+        "contacts",
+        "unlock",
+        "status",
+        "control",
+        "widgets",
+        "notify",
+        "gesture",
+        "documents",
+        "usage",
     )
 
     /** Lines in [packages] that name something matching [above], outside comments. */
     private fun reaching(packages: List<String>, above: Regex) = packages.flatMap { pkg ->
-        sourceFile("src/main/java/com/mtwabpin/kolahal/$pkg").walkTopDown().filter { it.extension == "kt" }.flatMap { f ->
-            f.readLines().withIndex()
-                // KDoc links ([com.mtwabpin.kolahal.ui.TermFonts]) only point the reader there.
-                .filter { (_, line) -> above.containsMatchIn(line.substringBefore("//")) && !line.trimStart().startsWith("*") }
-                .map { (i, line) -> "$pkg/${f.name}:${i + 1}: ${line.trim()}" }
-        }.toList()
+        sourceFile("src/main/java/com/mtwabpin/kolahal/$pkg").walkTopDown()
+            .filter { it.extension == "kt" }.flatMap { f ->
+                f.readLines().withIndex()
+                    // KDoc links ([com.mtwabpin.kolahal.ui.TermFonts]) only point the reader there.
+                    .filter { (_, line) ->
+                        above.containsMatchIn(line.substringBefore("//")) && !line.trimStart()
+                            .startsWith("*")
+                    }
+                    .map { (i, line) -> "$pkg/${f.name}:${i + 1}: ${line.trim()}" }
+            }.toList()
     }
 
     /** The screen's two layers: anything in ui/ or terminal/, by import or by full name. */
     private val above = Regex("""com\.mtwabpin\.kolahal\.(ui|terminal)\b|\bTerminalViewModel\b""")
 
-    @Test fun theModelNeverReachesTheScreen() {
+    @Test
+    fun theModelNeverReachesTheScreen() {
         assertEquals(emptyList<String>(), reaching(model, above))
     }
 
     /** Every package is listed: a new one must say which layer it is in. */
-    @Test fun everyPackageHasALayer() {
-        val packages = sourceFile("src/main/java/com/mtwabpin/kolahal").listFiles()!!.filter { it.isDirectory }.map { it.name }.toSet()
+    @Test
+    fun everyPackageHasALayer() {
+        val packages =
+            sourceFile("src/main/java/com/mtwabpin/kolahal").listFiles()!!.filter { it.isDirectory }
+                .map { it.name }.toSet()
         assertEquals(emptySet<String>(), packages - model.toSet() - setOf("terminal", "ui"))
     }
 
-    @Test fun theAppsRootFilesSitWithTheModel() {
-        val root = sourceFile("src/main/java/com/mtwabpin/kolahal").listFiles()!!.filter { it.isFile && it.extension == "kt" && it.name != "MainActivity.kt" }
+    @Test
+    fun theAppsRootFilesSitWithTheModel() {
+        val root = sourceFile("src/main/java/com/mtwabpin/kolahal").listFiles()!!
+            .filter { it.isFile && it.extension == "kt" && it.name != "MainActivity.kt" }
         val found = root.flatMap { f ->
             f.readLines().withIndex()
-                .filter { (_, line) -> above.containsMatchIn(line.substringBefore("//")) && !line.trimStart().startsWith("*") }
+                .filter { (_, line) ->
+                    above.containsMatchIn(line.substringBefore("//")) && !line.trimStart()
+                        .startsWith("*")
+                }
                 .map { (i, line) -> "${f.name}:${i + 1}: ${line.trim()}" }
         }
         assertEquals(emptyList<String>(), found)
     }
 
     /** Imports and full names alike: `import com.mtwabpin.kolahal.ui.X` and `com.mtwabpin.kolahal.ui.X(…)`. */
-    @Test fun theTerminalNeverReachesTheScreenCode() {
-        assertEquals(emptyList<String>(), reaching(listOf("terminal"), Regex("""com\.mtwabpin\.kolahal\.ui\b""")))
+    @Test
+    fun theTerminalNeverReachesTheScreenCode() {
+        assertEquals(
+            emptyList<String>(),
+            reaching(listOf("terminal"), Regex("""com\.mtwabpin\.kolahal\.ui\b"""))
+        )
     }
 }

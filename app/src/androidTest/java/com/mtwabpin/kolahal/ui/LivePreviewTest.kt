@@ -31,31 +31,37 @@ class LivePreviewTest {
     private val green = Palettes.named("green", true)
     private val dracula = Palettes.named("dracula", true)
 
-    private fun reset() = listOf(Keys.THEME, Keys.THEME_ALWAYS_DARK, Keys.FONT, Keys.FONT_SIZE).forEach(config::reset)
+    private fun reset() =
+        listOf(Keys.THEME, Keys.THEME_ALWAYS_DARK, Keys.FONT, Keys.FONT_SIZE).forEach(config::reset)
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         // A last run's reset may not have reached the disk before its process ended.
         reset()
         // The dark version whatever the emulator's mode, so the palettes are known.
         config.set(Keys.THEME_ALWAYS_DARK, "on")
     }
 
-    @After fun tearDown() = reset()
+    @After
+    fun tearDown() = reset()
 
-    private fun of(line: String, customFont: Boolean = false) = LivePreview.of(line, config) { customFont }
+    private fun of(line: String, customFont: Boolean = false) =
+        LivePreview.of(line, config) { customFont }
 
-    private fun onHome(test: (TerminalViewModel) -> Unit) = ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-        lateinit var vm: TerminalViewModel
-        scenario.onActivity {
-            vm = ViewModelProvider(it)[TerminalViewModel::class.java]
-            vm.openScreen(Screen.TERMINAL)
+    private fun onHome(test: (TerminalViewModel) -> Unit) =
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            lateinit var vm: TerminalViewModel
+            scenario.onActivity {
+                vm = ViewModelProvider(it)[TerminalViewModel::class.java]
+                vm.openScreen(Screen.TERMINAL)
+            }
+            test(vm)
+            // A line left in the prompt would stay in the view model's state for the next test.
+            line(vm, "")
         }
-        test(vm)
-        // A line left in the prompt would stay in the view model's state for the next test.
-        line(vm, "")
-    }
 
-    private fun line(vm: TerminalViewModel, text: String) = instrumentation.runOnMainSync { vm.onInputChange(TextFieldValue(text)) }
+    private fun line(vm: TerminalViewModel, text: String) =
+        instrumentation.runOnMainSync { vm.onInputChange(TextFieldValue(text)) }
 
     private fun <T> shows(expected: T, actual: () -> T) {
         val until = SystemClock.uptimeMillis() + 5_000
@@ -63,8 +69,16 @@ class LivePreviewTest {
         assertEquals(expected, actual())
     }
 
-    @Test fun onlyAWholeValueNotInUseAlready() {
-        for (line in listOf("theme dracula", "  Theme   DRACULA ", "config set theme.name dracula", "set theme.name dracula", "config theme.name dracula", "config set theme dracula")) {
+    @Test
+    fun onlyAWholeValueNotInUseAlready() {
+        for (line in listOf(
+            "theme dracula",
+            "  Theme   DRACULA ",
+            "config set theme.name dracula",
+            "set theme.name dracula",
+            "config theme.name dracula",
+            "config set theme dracula"
+        )) {
             assertEquals(line, LivePreview(theme = "dracula"), of(line))
         }
         for (line in listOf("config set font.size 20", "set font.size 20", "config font.size 20")) {
@@ -72,17 +86,39 @@ class LivePreviewTest {
         }
         assertEquals(LivePreview(font = "fira-code"), of("font fira-code"))
         for (line in listOf(
-            "", "help", "theme", "theme dra", "theme nosuch", "theme green", "theme dracula | head", "theme dracula now",
-            "font", "font ls", "font import", "font sans all", "font jetbrains-mono", "font custom",
-            "config set font.size 99", "config set font.size 14", "config set font.size 20 now", "config reset font.size", "config get font.size",
-            "config set log.line-height 30", "/theme dracula",
+            "",
+            "help",
+            "theme",
+            "theme dra",
+            "theme nosuch",
+            "theme green",
+            "theme dracula | head",
+            "theme dracula now",
+            "font",
+            "font ls",
+            "font import",
+            "font sans all",
+            "font jetbrains-mono",
+            "font custom",
+            "config set font.size 99",
+            "config set font.size 14",
+            "config set font.size 20 now",
+            "config reset font.size",
+            "config get font.size",
+            "config set log.line-height 30",
+            "/theme dracula",
         )) {
             assertNull(line, of(line))
         }
-        assertEquals("with an imported font", LivePreview(font = "custom"), of("font custom", customFont = true))
+        assertEquals(
+            "with an imported font",
+            LivePreview(font = "custom"),
+            of("font custom", customFont = true)
+        )
     }
 
-    @Test fun typingShowsItAndChangingTheLinePutsItBack() = onHome { vm ->
+    @Test
+    fun typingShowsItAndChangingTheLinePutsItBack() = onHome { vm ->
         shows(green) { Term.palette }
         line(vm, "theme dracula")
         shows(dracula) { Term.palette }
@@ -107,7 +143,8 @@ class LivePreviewTest {
     }
 
     /** Settings says what's in use, so it shows what's in use too. */
-    @Test fun otherScreensShowWhatsInUse() = onHome { vm ->
+    @Test
+    fun otherScreensShowWhatsInUse() = onHome { vm ->
         line(vm, "theme dracula")
         shows(dracula) { Term.palette }
         instrumentation.runOnMainSync { vm.openScreen(Screen.SETTINGS) }
@@ -121,7 +158,8 @@ class LivePreviewTest {
      * command's line goes in the log first, so with the database held it can't get any further, on
      * any phone: here, it's usually done too soon for the gap to show.
      */
-    @Test fun enterKeepsItWithNoFlashOfTheOldLook() = onHome { vm ->
+    @Test
+    fun enterKeepsItWithNoFlashOfTheOldLook() = onHome { vm ->
         shows(green) { Term.palette }
         line(vm, "theme dracula")
         shows(dracula) { Term.palette }

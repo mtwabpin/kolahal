@@ -3,8 +3,8 @@
  */
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.commands.CommandParsing
+import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetSize
 
@@ -32,8 +32,18 @@ object ScriptCheck {
         val size = words.getOrNull(1)
         return when {
             kind.isEmpty() -> "@widget needs a kind: ${WidgetKind.forScripts.joinToString(", ") { it.id }}"
-            WidgetKind.named(kind) == null -> "@widget $kind isn't a kind: ${WidgetKind.forScripts.joinToString(", ") { it.id }}"
-            size != null && WidgetSize.named(size) == null -> "@widget $kind $size isn't a size: ${WidgetSize.entries.joinToString(", ") { it.id }}"
+            WidgetKind.named(kind) == null -> "@widget $kind isn't a kind: ${
+                WidgetKind.forScripts.joinToString(
+                    ", "
+                ) { it.id }
+            }"
+
+            size != null && WidgetSize.named(size) == null -> "@widget $kind $size isn't a size: ${
+                WidgetSize.entries.joinToString(
+                    ", "
+                ) { it.id }
+            }"
+
             else -> null
         }
     }
@@ -66,16 +76,41 @@ object ScriptCheck {
             val m = directive.find(line) ?: return@forEachIndexed
             val (_, name, rest) = m.destructured
             when (name) {
-                !in DIRECTIVES -> out += Issue(i + 1, "Unknown directive @$name" + (DIRECTIVES.firstOrNull { CommandParsing.editDistance(it, name) <= 2 }?.let { ": @$it?" } ?: ""))
+                !in DIRECTIVES -> out += Issue(
+                    i + 1,
+                    "Unknown directive @$name" + (DIRECTIVES.firstOrNull {
+                        CommandParsing.editDistance(
+                            it,
+                            name
+                        ) <= 2
+                    }?.let { ": @$it?" } ?: ""))
+
                 "every" if CommandParsing.parseInterval(rest.trim())?.takeIf { it >= 0 } == null ->
-                    out += Issue(i + 1, "@every ${rest.trim()} isn't an interval: 15m, 1h, 1d or off")
-                "at" -> rest.split(',', ' ').filter { it.isNotBlank() }.firstOrNull { ScriptScheduler.normalizeTime(it) == null }
+                    out += Issue(
+                        i + 1,
+                        "@every ${rest.trim()} isn't an interval: 15m, 1h, 1d or off"
+                    )
+
+                "at" -> rest.split(',', ' ').filter { it.isNotBlank() }
+                    .firstOrNull { ScriptScheduler.normalizeTime(it) == null }
                     ?.let { out += Issue(i + 1, "@at $it isn't a time: HH:mm, such as 07:30") }
+
                 "on" -> ScriptMeta.unknownEvents(line).firstOrNull()
-                    ?.let { out += Issue(i + 1, "@on $it isn't an event: ${ScriptMeta.EVENTS.joinToString(", ")}") }
+                    ?.let {
+                        out += Issue(
+                            i + 1,
+                            "@on $it isn't an event: ${ScriptMeta.EVENTS.joinToString(", ")}"
+                        )
+                    }
                 // Read the names the same way a run does: a name in capitals, or after a tab, counts.
                 "uses" -> ScriptMeta.usesNames(rest).firstOrNull { it !in ScriptMeta.USES }
-                    ?.let { out += Issue(i + 1, "@uses $it isn't valid: ${ScriptMeta.USES.joinToString(", ")}") }
+                    ?.let {
+                        out += Issue(
+                            i + 1,
+                            "@uses $it isn't valid: ${ScriptMeta.USES.joinToString(", ")}"
+                        )
+                    }
+
                 "widget" -> widgetIssue(rest)?.let { out += Issue(i + 1, it) }
             }
         }
@@ -87,7 +122,10 @@ object ScriptCheck {
         for ((use, call) in NEEDS) {
             if (use in uses) continue
             val hit = call.find(body) ?: continue
-            out += Issue(lineOf(hit.range.first), "${hit.value.replace(Regex("\\s"), "")} needs a `$comment @uses $use` line")
+            out += Issue(
+                lineOf(hit.range.first),
+                "${hit.value.replace(Regex("\\s"), "")} needs a `$comment @uses $use` line"
+            )
         }
 
         val docs = ApiDocs.all.filter { lang in it.langs }
@@ -95,13 +133,20 @@ object ScriptCheck {
         val spaces = docs.filter { it.kind == ApiDoc.Kind.NAMESPACE }.map { it.name }
         for (ns in spaces) {
             // If the script defines its own table with that name, the script fills it, so skip it.
-            if (Regex("""(?<![.\w])(local\s+|let\s+|const\s+|var\s+)?$ns\s*=[^=]""").containsMatchIn(body)) continue
+            if (Regex("""(?<![.\w])(local\s+|let\s+|const\s+|var\s+)?$ns\s*=[^=]""").containsMatchIn(
+                    body
+                )
+            ) continue
             for (hit in Regex("""(?<![.\w])$ns\s*\.\s*([A-Za-z_]\w*)""").findAll(body)) {
                 val member = hit.groupValues[1]
-                if ("$ns.$member" !in names) out += Issue(lineOf(hit.range.first), "$ns.$member isn't in the API" + (
-                    names.filter { it.startsWith("$ns.") }.minByOrNull { CommandParsing.editDistance(it, "$ns.$member") }
-                        ?.takeIf { CommandParsing.editDistance(it, "$ns.$member") <= 2 }?.let { ": $it?" } ?: ""
-                    ))
+                if ("$ns.$member" !in names) out += Issue(
+                    lineOf(hit.range.first),
+                    "$ns.$member isn't in the API" + (
+                            names.filter { it.startsWith("$ns.") }
+                                .minByOrNull { CommandParsing.editDistance(it, "$ns.$member") }
+                                ?.takeIf { CommandParsing.editDistance(it, "$ns.$member") <= 2 }
+                                ?.let { ": $it?" } ?: ""
+                            ))
             }
         }
         return out.distinct().sortedBy { it.line }

@@ -19,7 +19,8 @@ import org.junit.runner.RunWith
 /** A script's **Runs every** and a feed's **Refresh every**. */
 @RunWith(AndroidJUnit4::class)
 class IntervalSelectorTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
     private val choices = listOf(0 to "Off", 15 to "15 minutes", 60 to "1 hour", 180 to "3 hours")
     private var picked by mutableIntStateOf(0)
     private var picks = 0
@@ -35,16 +36,19 @@ class IntervalSelectorTest {
 
     private fun open() = compose.onNodeWithText("Runs every").performClick()
 
-    @Test fun itSaysWhatIsChosenAndOffersTheRestOnlyOnceOpened() {
+    @Test
+    fun itSaysWhatIsChosenAndOffersTheRestOnlyOnceOpened() {
         show(60)
         compose.onNodeWithText("1 hour").assertIsDisplayed()
         compose.onNodeWithText("3 hours").assertDoesNotExist()
         open()
-        for (name in listOf("Off", "15 minutes", "3 hours")) compose.onNodeWithText(name).assertIsDisplayed()
+        for (name in listOf("Off", "15 minutes", "3 hours")) compose.onNodeWithText(name)
+            .assertIsDisplayed()
         compose.onNode(hasText("1 hour") and isSelected()).assertIsDisplayed()
     }
 
-    @Test fun pickingOneSetsItAndCloses() {
+    @Test
+    fun pickingOneSetsItAndCloses() {
         show(60)
         open()
         compose.onNodeWithText("3 hours").performClick()
@@ -54,7 +58,8 @@ class IntervalSelectorTest {
     }
 
     /** Picking what's already chosen doesn't set the timer again, which would restart its wait. */
-    @Test fun pickingTheChosenOneDoesNothing() {
+    @Test
+    fun pickingTheChosenOneDoesNothing() {
         show(0)
         open()
         compose.onNode(hasText("Off") and isSelected()).performClick()
@@ -62,7 +67,8 @@ class IntervalSelectorTest {
     }
 
     /** `script every weather 2h` isn't a preset: it still shows, and nothing in the list claims to be chosen. */
-    @Test fun aTimeSetFromTheTerminalShowsAsItIs() {
+    @Test
+    fun aTimeSetFromTheTerminalShowsAsItIs() {
         show(120)
         compose.onNodeWithText("2h").assertIsDisplayed()
         open()

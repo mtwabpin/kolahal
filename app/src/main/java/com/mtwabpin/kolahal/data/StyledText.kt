@@ -23,29 +23,51 @@ object StyledText {
      * so a script's colours are readable on every theme.
      */
     enum class Colour(val role: String) {
-        ACCENT("accent"), LINK("link"), INFO("info"), MUTED("muted"), TEXT("text"), GOOD("good"), WARN("warn"), BAD("bad");
+        ACCENT("accent"), LINK("link"), INFO("info"), MUTED("muted"), TEXT("text"), GOOD("good"), WARN(
+            "warn"
+        ),
+        BAD("bad");
 
         companion object {
-            fun named(role: String): Colour? = entries.firstOrNull { it.role == role.trim().lowercase() }
+            fun named(role: String): Colour? =
+                entries.firstOrNull { it.role == role.trim().lowercase() }
         }
     }
 
     /** A piece of a line, with its styles, its colour (null means the line's own colour) and the link it opens ([link]). */
-    data class Span(val text: String, val styles: Set<Style>, val colour: Colour? = null, val url: String? = null)
+    data class Span(
+        val text: String,
+        val styles: Set<Style>,
+        val colour: Colour? = null,
+        val url: String? = null
+    )
 
     /**
      * One line. [level] is 1 or 2 for a list item (0 for none). [prefix] is its bullet or number as
      * it shows ("•", "◦", "3."). [spans] are its pieces. A table row has [row], a bar has [meter],
      * and then no spans.
      */
-    data class Line(val level: Int, val prefix: String, val spans: List<Span>, val row: Row? = null, val meter: Meter? = null, val stats: List<Stat>? = null, val columns: Columns? = null)
+    data class Line(
+        val level: Int,
+        val prefix: String,
+        val spans: List<Span>,
+        val row: Row? = null,
+        val meter: Meter? = null,
+        val stats: List<Stat>? = null,
+        val columns: Columns? = null
+    )
 
     /**
      * A small column chart ([columns]): each column's height from 0 to 1, or null for a slot still to
      * come (the hours left today), the labels spread along its foot, and [said]: the words for a
      * screen reader and for plain text. The last column drawn is the newest, and stands out.
      */
-    data class Columns(val heights: List<Float?>, val labels: List<List<Span>>, val said: List<Span>, val newest: Boolean = true)
+    data class Columns(
+        val heights: List<Float?>,
+        val labels: List<List<Span>>,
+        val said: List<Span>,
+        val newest: Boolean = true
+    )
 
     /** One of a line of big numbers ([stats]): its value, and its label under it. */
     data class Stat(val value: List<Span>, val label: List<Span>)
@@ -61,25 +83,37 @@ object StyledText {
      * (null: the accent colour). Bars on lines that follow each other line up in columns: [label]
      * on the left, then [start], the track, and [end].
      */
-    data class Meter(val from: Float, val to: Float, val colour: Colour?, val label: List<Span>, val start: List<Span>, val end: List<Span>)
+    data class Meter(
+        val from: Float,
+        val to: Float,
+        val colour: Colour?,
+        val label: List<Span>,
+        val start: List<Span>,
+        val end: List<Span>
+    )
 
     private const val BASE = 0x10FB00
     private const val ITEM = BASE + 0x10
+
     // A table: a marker at the start of a line makes it a row (or the header row), and one before
     // each cell starts it, lined up on the left or the right.
     private const val ROW = BASE + 0x12
     private const val HEAD = BASE + 0x13
     private const val CELL = BASE + 0x14
     private const val CELL_RIGHT = BASE + 0x15
+
     // A link: LINK, the address, LINK_TEXT, the text it shows, LINK_END.
     private const val LINK = BASE + 0x16
     private const val LINK_TEXT = BASE + 0x17
     private const val LINK_END = BASE + 0x18
+
     // A bar: a marker at the start of a line, then its numbers, then three parts before each of which
     // a CELL marker goes: the label, the text before the track and the text after it.
     private const val METER = BASE + 0x19
+
     // Big numbers: a marker at the start of a line, then a CELL marker before each value and each label.
     private const val STATS = BASE + 0x1A
+
     // A column chart: a marker at the start of a line, then its heights, then a CELL marker before
     // its words for a screen reader and before each label.
     private const val COLUMNS = BASE + 0x1B
@@ -96,10 +130,12 @@ object StyledText {
 
     fun wrap(style: Style, text: String): String = open(style) + text + close(style)
 
-    fun colour(colour: Colour, text: String): String = char(COLOUR + colour.ordinal) + text + char(COLOUR_END)
+    fun colour(colour: Colour, text: String): String =
+        char(COLOUR + colour.ordinal) + text + char(COLOUR_END)
 
     /** A tag (`fmt.tag`): [text] on one line, on a chip shaded in [colour]. */
-    fun tag(colour: Colour, text: String): String = colour(colour, wrap(Style.TAG, text.replace('\n', ' ')))
+    fun tag(colour: Colour, text: String): String =
+        colour(colour, wrap(Style.TAG, text.replace('\n', ' ')))
 
     /**
      * [text] as a link to [url] (`fmt.link`). The log draws it in the link colour, underlined, and a
@@ -108,7 +144,7 @@ object StyledText {
      */
     fun link(url: String, text: String): String =
         char(LINK) + without(url, BASE..LAST).filterNot { it.isWhitespace() } + char(LINK_TEXT) +
-            mapLinks(text) { null }.replace('\n', ' ') + char(LINK_END)
+                mapLinks(text) { null }.replace('\n', ' ') + char(LINK_END)
 
     /**
      * The links in [text] as they show: each one's text and address, once for each address, in
@@ -120,10 +156,13 @@ object StyledText {
         var last: String? = null
         for (line in lines(text)) {
             val spans = line.spans + line.row?.cells.orEmpty().flatMap { it.spans } +
-                line.meter?.let { it.label + it.start + it.end }.orEmpty() + line.stats.orEmpty().flatMap { it.value + it.label }
+                    line.meter?.let { it.label + it.start + it.end }
+                        .orEmpty() + line.stats.orEmpty().flatMap { it.value + it.label }
             for (s in spans) {
                 val url = s.url
-                if (url == null) { last = null; continue }
+                if (url == null) {
+                    last = null; continue
+                }
                 val shown = out.getOrPut(url) { StringBuilder() }
                 // The pieces of one link (its bold part, then the rest) read as one text.
                 if (url == last || shown.isEmpty()) shown.append(s.text)
@@ -155,11 +194,13 @@ object StyledText {
                     val at = text.indexOf(sep, i + size)
                     if (at in 0 until lineEnd) {
                         val kept = keep(text.substring(i + size, at))
-                        if (kept != null) out.append(char(LINK)).append(without(kept, BASE..LAST)).append(sep) else dropEnd = true
+                        if (kept != null) out.append(char(LINK)).append(without(kept, BASE..LAST))
+                            .append(sep) else dropEnd = true
                         i = at + sep.length
                         continue
                     }
                 }
+
                 LINK_END -> if (dropEnd) dropEnd = false else out.appendCodePoint(cp)
                 else -> out.appendCodePoint(cp)
             }
@@ -170,7 +211,8 @@ object StyledText {
 
     /** One line per item, numbered 1., 2., … if [numbered], or else bulleted. */
     fun list(items: List<String>, numbered: Boolean, level: Int = 1): String =
-        items.mapIndexed { i, s -> item(level) + (if (numbered) "${i + 1}. " else "") + s }.joinToString("\n")
+        items.mapIndexed { i, s -> item(level) + (if (numbered) "${i + 1}. " else "") + s }
+            .joinToString("\n")
 
     /** The most columns and rows a table keeps ([table]). More rows end with a "+N more" line. The same row limit holds for [bars] and [ranges]. */
     const val TABLE_COLUMNS = 8
@@ -196,10 +238,12 @@ object StyledText {
         return withMore(lines, rows.size - kept.size)
     }
 
-    private fun withMore(lines: List<String>, more: Int) = (if (more > 0) lines + "+$more more" else lines).joinToString("\n")
+    private fun withMore(lines: List<String>, more: Int) =
+        (if (more > 0) lines + "+$more more" else lines).joinToString("\n")
 
     /** A piece of a row or a bar: one line, without the markers that start rows, cells or bars. */
-    private fun part(text: String): String = without(without(withoutBars(text), ROW..CELL_RIGHT), STATS..COLUMNS).replace('\n', ' ')
+    private fun part(text: String): String =
+        without(without(withoutBars(text), ROW..CELL_RIGHT), STATS..COLUMNS).replace('\n', ' ')
 
     /** [text] without bars: each bar marker goes with its numbers (up to its first part or the line's end). */
     private fun withoutBars(text: String): String {
@@ -237,15 +281,23 @@ object StyledText {
      * A bar line, filled from [from] to [to] (each 0 to 1), with [label], [start] and [end] around
      * its track. Bars on lines that follow each other share their columns.
      */
-    fun meter(from: Double, to: Double, colour: Colour?, label: String = "", start: String = "", end: String = ""): String {
+    fun meter(
+        from: Double,
+        to: Double,
+        colour: Colour?,
+        label: String = "",
+        start: String = "",
+        end: String = ""
+    ): String {
         val a = from.fraction()
         val b = maxOf(a, to.fraction())
         return char(METER) + "${number(a)},${number(b)},${colour?.role.orEmpty()}" +
-            listOf(label, start, end).joinToString("") { char(CELL) + part(it) }
+                listOf(label, start, end).joinToString("") { char(CELL) + part(it) }
     }
 
     /** `fmt.bar(value, { max, color })`: one bar, [value] out of [max], as wide as the line. */
-    fun bar(value: Double, max: Double = 1.0, colour: Colour? = null): String = meter(0.0, share(value, 0.0, max), colour)
+    fun bar(value: Double, max: Double = 1.0, colour: Colour? = null): String =
+        meter(0.0, share(value, 0.0, max), colour)
 
     /** The most numbers a line of big numbers keeps ([stats]). */
     const val STATS_MAX = 5
@@ -257,7 +309,9 @@ object StyledText {
      */
     fun stats(items: List<Pair<String, String>>): String {
         if (items.isEmpty()) return ""
-        return char(STATS) + items.take(STATS_MAX).joinToString("") { (value, label) -> char(CELL) + part(value) + char(CELL) + part(capitalised(label)) }
+        return char(STATS) + items.take(STATS_MAX).joinToString("") { (value, label) ->
+            char(CELL) + part(value) + char(CELL) + part(capitalised(label))
+        }
     }
 
     /**
@@ -280,7 +334,10 @@ object StyledText {
                 hasCapitalInside(text, i) -> return text
                 hasDigit(text, i) -> return text
                 unitLike(text, i) -> return text
-                else -> return text.substring(0, i) + String(Character.toChars(Character.toTitleCase(cp))) + text.substring(i + n)
+                else -> return text.substring(
+                    0,
+                    i
+                ) + String(Character.toChars(Character.toTitleCase(cp))) + text.substring(i + n)
             }
             i += n
         }
@@ -288,10 +345,12 @@ object StyledText {
     }
 
     /** Whether the word that starts at [from] in [text] has a capital after its first letter: a name written so ("iOS", "macOS", "eBay"). */
-    private fun hasCapitalInside(text: String, from: Int): Boolean = text.substring(from).takeWhile { it.isLetterOrDigit() }.drop(1).any { it.isUpperCase() }
+    private fun hasCapitalInside(text: String, from: Int): Boolean =
+        text.substring(from).takeWhile { it.isLetterOrDigit() }.drop(1).any { it.isUpperCase() }
 
     /** Whether the word that starts at [from] in [text] has a digit: a version or a code ("v1.2", "x86"). */
-    private fun hasDigit(text: String, from: Int): Boolean = text.substring(from).takeWhile { it.isLetterOrDigit() }.any { it.isDigit() }
+    private fun hasDigit(text: String, from: Int): Boolean =
+        text.substring(from).takeWhile { it.isLetterOrDigit() }.any { it.isDigit() }
 
     /**
      * Whether [text] from [from] on is a unit, which keeps its small letters as everywhere else: a
@@ -300,16 +359,65 @@ object StyledText {
      */
     private fun unitLike(text: String, from: Int): Boolean {
         val word = text.substring(from).takeWhile { it.isLetter() || it == '/' }
-        if ('/' in word) return true
-        return word in UNITS && text.substring(from + word.length).none { it.isLetterOrDigit() }
+        return '/' in word || word in UNITS && text.substring(from + word.length)
+            .none { it.isLetterOrDigit() }
     }
 
     /** Unit symbols written in small letters. */
     private val UNITS = setOf(
-        "mm", "cm", "m", "km", "mi", "ft", "in", "mg", "g", "kg", "lb", "lbs", "oz", "ml", "l",
-        "kcal", "cal", "kj", "mph", "kph", "kmh", "ms", "s", "min", "h", "hr", "hrs",
-        "kb", "mb", "gb", "tb", "kbps", "mbps", "gbps", "hz", "khz", "mhz", "ghz",
-        "mah", "wh", "kwh", "bpm", "rpm", "psi", "hpa", "mbar", "ppm", "dpi", "px", "dp", "sp", "pt", "fps",
+        "mm",
+        "cm",
+        "m",
+        "km",
+        "mi",
+        "ft",
+        "in",
+        "mg",
+        "g",
+        "kg",
+        "lb",
+        "lbs",
+        "oz",
+        "ml",
+        "l",
+        "kcal",
+        "cal",
+        "kj",
+        "mph",
+        "kph",
+        "kmh",
+        "ms",
+        "s",
+        "min",
+        "h",
+        "hr",
+        "hrs",
+        "kb",
+        "mb",
+        "gb",
+        "tb",
+        "kbps",
+        "mbps",
+        "gbps",
+        "hz",
+        "khz",
+        "mhz",
+        "ghz",
+        "mah",
+        "wh",
+        "kwh",
+        "bpm",
+        "rpm",
+        "psi",
+        "hpa",
+        "mbar",
+        "ppm",
+        "dpi",
+        "px",
+        "dp",
+        "sp",
+        "pt",
+        "fps",
     )
 
     /** The most columns a column chart keeps ([columns]): the newest ones. */
@@ -325,15 +433,29 @@ object StyledText {
      * - [slots]: how many columns the chart has room for. Past [values], the slots stay empty: the
      *   hours still to come today keep their places, so 00 to 24 runs along the whole width.
      */
-    fun columns(values: List<Double>, labels: List<String>, said: String, slots: Int = values.size, newest: Boolean = true): String {
+    fun columns(
+        values: List<Double>,
+        labels: List<String>,
+        said: String,
+        slots: Int = values.size,
+        newest: Boolean = true
+    ): String {
         if (values.isEmpty()) return ""
         val kept = values.takeLast(COLUMNS_MAX)
         val top = kept.maxOf { it.takeIf(Double::isFinite) ?: 0.0 }
         val empty = (slots.coerceAtMost(COLUMNS_MAX) - kept.size).coerceAtLeast(0)
-        val heights = kept.map { number((share(it, 0.0, top) * 1000).roundToLong() / 1000.0) } + List(empty) { "" }
+        val heights = kept.map {
+            number(
+                (share(
+                    it,
+                    0.0,
+                    top
+                ) * 1000).roundToLong() / 1000.0
+            )
+        } + List(empty) { "" }
         // "=" before the heights: no column stands out.
         return char(COLUMNS) + (if (newest) "" else "=") + heights.joinToString(",") +
-            char(CELL) + part(said) + labels.joinToString("") { char(CELL) + part(it) }
+                char(CELL) + part(said) + labels.joinToString("") { char(CELL) + part(it) }
     }
 
     /** A row of [bars]: its [label], its [value], and the text after its bar (by default the value with the unit). */
@@ -343,22 +465,47 @@ object StyledText {
      * `fmt.bars(rows, opts)`: one bar for each row, all on one scale from 0 to [max] (by default the
      * largest value), so the rows compare at a glance. Up to [TABLE_ROWS] rows.
      */
-    fun bars(rows: List<BarRow>, max: Double? = null, colour: Colour? = null, unit: String = ""): String {
+    fun bars(
+        rows: List<BarRow>,
+        max: Double? = null,
+        colour: Colour? = null,
+        unit: String = ""
+    ): String {
         if (rows.isEmpty()) return ""
         val top = max ?: rows.maxOf { it.value.takeIf(Double::isFinite) ?: 0.0 }
         val kept = rows.take(TABLE_ROWS)
-        return withMore(kept.map { r -> meter(0.0, share(r.value, 0.0, top), colour, r.label, end = r.text ?: (number(r.value) + unit)) }, rows.size - kept.size)
+        return withMore(kept.map { r ->
+            meter(
+                0.0,
+                share(r.value, 0.0, top),
+                colour,
+                r.label,
+                end = r.text ?: (number(r.value) + unit)
+            )
+        }, rows.size - kept.size)
     }
 
     /** A row of [ranges]: its [label], from [low] to [high], and the texts on each side (by default the numbers with the unit). */
-    data class RangeRow(val label: String, val low: Double, val high: Double, val lowText: String? = null, val highText: String? = null)
+    data class RangeRow(
+        val label: String,
+        val low: Double,
+        val high: Double,
+        val lowText: String? = null,
+        val highText: String? = null
+    )
 
     /**
      * `fmt.ranges(rows, opts)`: for each row, a bar from its low to its high, all on one scale from
      * [min] to [max] (by default the lowest low and the highest high). For a forecast's days, each
      * day's low to high. Up to [TABLE_ROWS] rows.
      */
-    fun ranges(rows: List<RangeRow>, min: Double? = null, max: Double? = null, colour: Colour? = null, unit: String = ""): String {
+    fun ranges(
+        rows: List<RangeRow>,
+        min: Double? = null,
+        max: Double? = null,
+        colour: Colour? = null,
+        unit: String = ""
+    ): String {
         if (rows.isEmpty()) return ""
         val finite = { d: Double -> d.takeIf(Double::isFinite) }
         val bottom = min ?: rows.mapNotNull { finite(minOf(it.low, it.high)) }.minOrNull() ?: 0.0
@@ -367,7 +514,14 @@ object StyledText {
         return withMore(kept.map { r ->
             val (lo, hi) = if (r.low <= r.high) r.low to r.high else r.high to r.low
             val (loText, hiText) = if (r.low <= r.high) r.lowText to r.highText else r.highText to r.lowText
-            meter(share(lo, bottom, top), share(hi, bottom, top), colour, r.label, loText ?: (number(lo) + unit), hiText ?: (number(hi) + unit))
+            meter(
+                share(lo, bottom, top),
+                share(hi, bottom, top),
+                colour,
+                r.label,
+                loText ?: (number(lo) + unit),
+                hiText ?: (number(hi) + unit)
+            )
         }, rows.size - kept.size)
     }
 
@@ -382,21 +536,25 @@ object StyledText {
         if (!d.isFinite()) return d.toString()
         if (kotlin.math.abs(d) >= 1e12) return "%.0f".format(java.util.Locale.ROOT, d)
         val rounded = Math.round(d * 1000) / 1000.0
-        return if (rounded % 1.0 == 0.0 && kotlin.math.abs(rounded) < 9e15) rounded.toLong().toString() else rounded.toString()
+        return if (rounded % 1.0 == 0.0 && kotlin.math.abs(rounded) < 9e15) rounded.toLong()
+            .toString() else rounded.toString()
     }
 
     /** Whether [text] holds a table row or a bar: lines the log draws under the text ([splitAtBlocks]). */
     fun hasBlock(text: String): Boolean = has(text) && text.split('\n').any { isBlock(it) }
 
-    private fun isRow(line: String): Boolean = line.length >= 2 && line.codePointAt(0).let { it == ROW || it == HEAD }
+    private fun isRow(line: String): Boolean =
+        line.length >= 2 && line.codePointAt(0).let { it == ROW || it == HEAD }
 
     private fun isMeter(line: String): Boolean = line.length >= 2 && line.codePointAt(0) == METER
 
     private fun isStats(line: String): Boolean = line.length >= 2 && line.codePointAt(0) == STATS
 
-    private fun isColumns(line: String): Boolean = line.length >= 2 && line.codePointAt(0) == COLUMNS
+    private fun isColumns(line: String): Boolean =
+        line.length >= 2 && line.codePointAt(0) == COLUMNS
 
-    private fun isBlock(line: String): Boolean = isRow(line) || isMeter(line) || isStats(line) || isColumns(line)
+    private fun isBlock(line: String): Boolean =
+        isRow(line) || isMeter(line) || isStats(line) || isColumns(line)
 
     /**
      * [body] split before its first table row or bar: the text above it, and the rest (the tables,
@@ -452,7 +610,12 @@ object StyledText {
             var url: String? = null
             var address: StringBuilder? = null
             fun flush() {
-                if (run.isNotEmpty()) spans += Span(run.toString(), on.toSet(), colours.lastOrNull(), url)
+                if (run.isNotEmpty()) spans += Span(
+                    run.toString(),
+                    on.toSet(),
+                    colours.lastOrNull(),
+                    url
+                )
                 run.clear()
             }
             // A table row: its cells so far, and whether the open cell is on the right.
@@ -468,6 +631,7 @@ object StyledText {
                 colours.clear()
                 url = null
             }
+
             var i = 0
             while (i < raw.length) {
                 val cp = raw.codePointAt(i)
@@ -478,6 +642,7 @@ object StyledText {
                         url = reading.toString()
                         address = null
                     } else reading.appendCodePoint(cp)
+
                     cp in BASE..LAST -> {
                         val n = cp - BASE
                         when {
@@ -486,15 +651,28 @@ object StyledText {
                                 val style = Style.entries[n / 2]
                                 if (n % 2 == 0) on += style else on -= style
                             }
+
                             cp == ITEM || cp == ITEM + 1 -> if (i == 0) level = cp - ITEM + 1
                             cp == CELL || cp == CELL_RIGHT -> if (cells != null) {
                                 endCell()
                                 right = cp == CELL_RIGHT
                             }
-                            cp == LINK -> { flush(); url = null; address = StringBuilder() }
-                            cp == LINK_END -> { flush(); url = null }
-                            cp == COLOUR_END -> { flush(); colours.removeLastOrNull() }
-                            cp >= COLOUR && cp < COLOUR + Colour.entries.size -> { flush(); colours.addLast(Colour.entries[cp - COLOUR]) }
+
+                            cp == LINK -> {
+                                flush(); url = null; address = StringBuilder()
+                            }
+
+                            cp == LINK_END -> {
+                                flush(); url = null
+                            }
+
+                            cp == COLOUR_END -> {
+                                flush(); colours.removeLastOrNull()
+                            }
+
+                            cp >= COLOUR && cp < COLOUR + Colour.entries.size -> {
+                                flush(); colours.addLast(Colour.entries[cp - COLOUR])
+                            }
                         }
                     }
                     // Half a marker, from a string cut in the middle of one.
@@ -518,7 +696,12 @@ object StyledText {
             val number = first?.let { NUMBER.find(it.text) }
             if (first != null && number != null) {
                 val rest = first.text.substring(number.range.last + 1)
-                out += Line(level, number.groupValues[1], listOfNotNull(first.copy(text = rest).takeIf { rest.isNotEmpty() }) + spans.drop(1))
+                out += Line(
+                    level,
+                    number.groupValues[1],
+                    listOfNotNull(
+                        first.copy(text = rest).takeIf { rest.isNotEmpty() }) + spans.drop(1)
+                )
             } else {
                 out += Line(level, if (level == 1) "•" else "◦", spans)
             }
@@ -529,8 +712,10 @@ object StyledText {
     /** A line of big numbers ([stats]) read back: each value with its label. */
     private fun statsOf(raw: String): List<Stat> {
         val parts = raw.substring(Character.charCount(STATS)).split(char(CELL)).drop(1)
-        fun spans(part: String) = if (part.isEmpty()) emptyList() else lines(part).firstOrNull()?.spans ?: emptyList()
-        return parts.chunked(2).take(STATS_MAX).map { Stat(spans(it[0]), spans(it.getOrElse(1) { "" })) }
+        fun spans(part: String) =
+            if (part.isEmpty()) emptyList() else lines(part).firstOrNull()?.spans ?: emptyList()
+        return parts.chunked(2).take(STATS_MAX)
+            .map { Stat(spans(it[0]), spans(it.getOrElse(1) { "" })) }
     }
 
     /** A column chart ([columns]) read back. A height it can't read is 0. */
@@ -539,19 +724,33 @@ object StyledText {
         // "=" first: no column stands out. An empty entry is a slot still to come.
         val newest = !parts[0].startsWith("=")
         val heights = parts[0].removePrefix("=").split(',').take(COLUMNS_MAX)
-            .map { if (it.isEmpty()) null else it.toFloatOrNull()?.takeIf { h -> !h.isNaN() }?.coerceIn(0f, 1f) ?: 0f }
-        fun spans(part: String) = if (part.isEmpty()) emptyList() else lines(part).firstOrNull()?.spans ?: emptyList()
-        return Columns(heights, parts.drop(2).map(::spans), spans(parts.getOrElse(1) { "" }), newest)
+            .map {
+                if (it.isEmpty()) null else it.toFloatOrNull()?.takeIf { h -> !h.isNaN() }
+                    ?.coerceIn(0f, 1f) ?: 0f
+            }
+
+        fun spans(part: String) =
+            if (part.isEmpty()) emptyList() else lines(part).firstOrNull()?.spans ?: emptyList()
+        return Columns(
+            heights,
+            parts.drop(2).map(::spans),
+            spans(parts.getOrElse(1) { "" }),
+            newest
+        )
     }
 
     /** A bar line ([meter]) read back. Numbers it can't read make an empty bar. */
     private fun meterOf(raw: String): Meter {
         val parts = raw.substring(Character.charCount(METER)).split(char(CELL))
         val numbers = parts[0].split(',')
-        val from = numbers.getOrNull(0)?.toFloatOrNull()?.takeIf { !it.isNaN() }?.coerceIn(0f, 1f) ?: 0f
-        val to = numbers.getOrNull(1)?.toFloatOrNull()?.takeIf { !it.isNaN() }?.coerceIn(from, 1f) ?: from
+        val from =
+            numbers.getOrNull(0)?.toFloatOrNull()?.takeIf { !it.isNaN() }?.coerceIn(0f, 1f) ?: 0f
+        val to = numbers.getOrNull(1)?.toFloatOrNull()?.takeIf { !it.isNaN() }?.coerceIn(from, 1f)
+            ?: from
         val colour = numbers.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let(Colour::named)
-        fun spans(i: Int) = parts.getOrNull(i)?.takeIf { it.isNotEmpty() }?.let { lines(it).firstOrNull()?.spans } ?: emptyList()
+        fun spans(i: Int) =
+            parts.getOrNull(i)?.takeIf { it.isNotEmpty() }?.let { lines(it).firstOrNull()?.spans }
+                ?: emptyList()
         return Meter(from, to, colour, spans(1), spans(2), spans(3))
     }
 
@@ -565,7 +764,10 @@ object StyledText {
             val cp = text.codePointAt(i)
             when {
                 cp == LINK -> address = true
-                cp == LINK_TEXT || cp == '\n'.code -> { address = false; if (cp == '\n'.code) out.append('\n') }
+                cp == LINK_TEXT || cp == '\n'.code -> {
+                    address = false; if (cp == '\n'.code) out.append('\n')
+                }
+
                 address || cp in BASE..LAST -> Unit
                 else -> out.appendCodePoint(cp)
             }
@@ -580,12 +782,15 @@ object StyledText {
      */
     fun plain(text: String): String {
         if (!has(text)) return text
-        return lines(text).mapNotNull { line -> blockWords(line) ?: (itemStart(line) + words(line.spans)).takeIf { !isBlockLine(line) } }.joinToString("\n")
+        return lines(text).mapNotNull { line ->
+            blockWords(line) ?: (itemStart(line) + words(line.spans)).takeIf { !isBlockLine(line) }
+        }.joinToString("\n")
     }
 
     private fun words(spans: List<Span>) = spans.joinToString("") { it.text }
 
-    private fun isBlockLine(line: Line) = line.row != null || line.meter != null || line.stats != null || line.columns != null
+    private fun isBlockLine(line: Line) =
+        line.row != null || line.meter != null || line.stats != null || line.columns != null
 
     /**
      * The words of a table row, a bar or a line of big numbers, as plain text. Null for any other
@@ -594,8 +799,18 @@ object StyledText {
     private fun blockWords(line: Line): String? {
         // A table row: its cells, separated by tabs, so a copied table pastes into a spreadsheet.
         line.row?.let { row -> return row.cells.joinToString("\t") { c -> words(c.spans) } }
-        line.meter?.let { m -> return listOf(m.label, m.start, m.end).map(::words).filter { it.isNotEmpty() }.joinToString("\t").ifEmpty { null } }
-        line.stats?.let { s -> return s.joinToString(" · ") { listOf(words(it.value), words(it.label)).filter(String::isNotEmpty).joinToString(" ") }.ifEmpty { null } }
+        line.meter?.let { m ->
+            return listOf(m.label, m.start, m.end).map(::words).filter { it.isNotEmpty() }
+                .joinToString("\t").ifEmpty { null }
+        }
+        line.stats?.let { s ->
+            return s.joinToString(" · ") {
+                listOf(
+                    words(it.value),
+                    words(it.label)
+                ).filter(String::isNotEmpty).joinToString(" ")
+            }.ifEmpty { null }
+        }
         line.columns?.let { c -> return words(c.said).ifEmpty { null } }
         return null
     }
@@ -628,9 +843,11 @@ object StyledText {
         fun add(words: String, styles: List<Style> = emptyList(), colour: Colour? = null) {
             if (words.isEmpty()) return
             val last = out.lastOrNull()
-            if (last != null && last.styles == styles && last.colour == colour) out[out.lastIndex] = last.copy(text = last.text + words)
+            if (last != null && last.styles == styles && last.colour == colour) out[out.lastIndex] =
+                last.copy(text = last.text + words)
             else out += Run(words, styles, colour)
         }
+
         var first = true
         for (line in lines(text)) {
             val block = if (isBlockLine(line)) blockWords(line) ?: continue else null
@@ -641,7 +858,11 @@ object StyledText {
                 continue
             }
             add(itemStart(line))
-            for (span in line.spans) add(span.text, INLINE.filter { it in span.styles }, span.colour)
+            for (span in line.spans) add(
+                span.text,
+                INLINE.filter { it in span.styles },
+                span.colour
+            )
         }
         return out
     }
@@ -676,7 +897,8 @@ object StyledText {
      * - The result is in one fixed form: every styled piece opens and closes its own styles. So
      *   this gives the same text when it is run again on its own result.
      */
-    fun inline(text: String, maxRuns: Int = 32): String = if (!has(text)) text else marked(runs(text), maxRuns)
+    fun inline(text: String, maxRuns: Int = 32): String =
+        if (!has(text)) text else marked(runs(text), maxRuns)
 
     /**
      * The first [max] characters that [text] shows, with its [inline] styles. A longer text ends
@@ -699,7 +921,8 @@ object StyledText {
             val start = run.text.takeWhole(left)
             // With nothing of this run kept, the "…" goes with the run before it.
             val last = kept.lastOrNull()
-            if (start.isEmpty() && last != null) kept[kept.lastIndex] = last.copy(text = last.text + "…") else kept += run.copy(text = "$start…")
+            if (start.isEmpty() && last != null) kept[kept.lastIndex] =
+                last.copy(text = last.text + "…") else kept += run.copy(text = "$start…")
             break
         }
         return marked(kept, Int.MAX_VALUE)

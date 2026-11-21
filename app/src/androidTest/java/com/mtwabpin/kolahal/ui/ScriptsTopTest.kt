@@ -54,10 +54,14 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ScriptsTopTest {
-    @get:Rule val vms = TestViewModels()
-    @get:Rule val compose = createComposeRule()
-    @get:Rule val logLines = LogLinesSince()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
+    @get:Rule
+    val logLines = LogLinesSince()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val scripts = ScriptRepository.get(app)
     private val library = ScriptLibrary(app)
     private val notePrefs = app.getSharedPreferences("library_updates", Context.MODE_PRIVATE)
@@ -65,37 +69,58 @@ class ScriptsTopTest {
 
     /** The test's own scripts; the search "sft-" finds only them. */
     private val names = listOf("sft-a", "sft-b", "sft-c")
+
     /** Library scripts the tests add. A phone that has them already skips the tests. */
     private val libraryNames = listOf("countdown", "charge-reminder")
+
     // The phone's note about scripts Kolahal updated, and its hidden banner: they come back after each test.
-    private val noteWas = listOf("self_updated", "self_updated_in").associateWith { notePrefs.getString(it, null) }
+    private val noteWas =
+        listOf("self_updated", "self_updated_in").associateWith { notePrefs.getString(it, null) }
     private val bannerWas = pagePrefs.getString("banner_hidden", null)
     private var started = false
 
-    @Before fun setUp() {
-        assumeTrue("a script by a test's name exists already", (names + libraryNames).none { scripts.byName(it) != null })
+    @Before
+    fun setUp() {
+        assumeTrue(
+            "a script by a test's name exists already",
+            (names + libraryNames).none { scripts.byName(it) != null })
         pagePrefs.edit().remove("banner_hidden").commit()
         started = true
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         if (!started) return
-        (names + libraryNames).forEach { n -> scripts.byName(n)?.let { ScriptScheduler.cancel(app, it.id); scripts.delete(it.id) } }
+        (names + libraryNames).forEach { n ->
+            scripts.byName(n)?.let { ScriptScheduler.cancel(app, it.id); scripts.delete(it.id) }
+        }
         libraryNames.forEach(library::forget)
-        notePrefs.edit().apply { noteWas.forEach { (k, v) -> if (v == null) remove(k) else putString(k, v) } }.commit()
-        pagePrefs.edit().apply { if (bannerWas == null) remove("banner_hidden") else putString("banner_hidden", bannerWas) }.commit()
+        notePrefs.edit()
+            .apply { noteWas.forEach { (k, v) -> if (v == null) remove(k) else putString(k, v) } }
+            .commit()
+        pagePrefs.edit().apply {
+            if (bannerWas == null) remove("banner_hidden") else putString(
+                "banner_hidden",
+                bannerWas
+            )
+        }.commit()
     }
 
     private fun card(file: String) = hasTestTag("script-card") and hasText(file)
 
     private val chosen = hasAnyAncestor(hasTestTag("chosen-filters"))
 
-    private fun shown(matcher: SemanticsMatcher) = compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+    private fun shown(matcher: SemanticsMatcher) =
+        compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
 
     /** The file names on the cards shown, top to bottom. */
-    private fun cards(): List<String> = compose.onAllNodes(hasTestTag("script-card")).fetchSemanticsNodes()
-        .sortedBy { it.boundsInRoot.top }
-        .mapNotNull { n -> n.config.getOrNull(SemanticsProperties.Text)?.map { it.text }?.firstOrNull { it.endsWith(".lua") || it.endsWith(".js") } }
+    private fun cards(): List<String> =
+        compose.onAllNodes(hasTestTag("script-card")).fetchSemanticsNodes()
+            .sortedBy { it.boundsInRoot.top }
+            .mapNotNull { n ->
+                n.config.getOrNull(SemanticsProperties.Text)?.map { it.text }
+                    ?.firstOrNull { it.endsWith(".lua") || it.endsWith(".js") }
+            }
 
     /** The Scripts tab, its search set to [query] when given. With [restoration], it can be torn down and restored as after a rotation. */
     private fun show(query: String? = null, restoration: StateRestorationTester? = null) {
@@ -111,12 +136,19 @@ class ScriptsTopTest {
      * chip; across groups, all. Show N closes the sheet; the chips that are on stay under the search,
      * each with ×, and the badge counts them.
      */
-    @Test fun theSheetsChipsCountTheirScriptsAndShowThem() {
+    @Test
+    fun theSheetsChipsCountTheirScriptsAndShowThem() {
         scripts.create("sft-a", ScriptLang.LUA, "-- @command\nreturn 1")
         scripts.create("sft-b", ScriptLang.JS, "// @command\nreturn 1", enabled = false)
         scripts.create("sft-c", ScriptLang.LUA, "return 1").also { scripts.setInterval(it.id, 60) }
         show("sft-")
-        compose.waitFor("only the test's scripts") { cards() == listOf("sft-a.lua", "sft-b.js", "sft-c.lua") }
+        compose.waitFor("only the test's scripts") {
+            cards() == listOf(
+                "sft-a.lua",
+                "sft-b.js",
+                "sft-c.lua"
+            )
+        }
         compose.onNodeWithContentDescription("Filters").performClick()
         // Nothing on: each count is what a tap shows.
         compose.waitForNode(hasTestTag("filter:command") and hasText("Command 2"))
@@ -150,7 +182,8 @@ class ScriptsTopTest {
     }
 
     /** Sort by last run puts the latest run first and those that never ran last; it and the chips survive a rotation. */
-    @Test fun sortAndFiltersSurviveARotation() {
+    @Test
+    fun sortAndFiltersSurviveARotation() {
         scripts.create("sft-a", ScriptLang.LUA, "return 1")
         scripts.create("sft-b", ScriptLang.JS, "return 1")
         scripts.create("sft-c", ScriptLang.LUA, "return 1").also { scripts.recordRun(it.id, "ok") }
@@ -160,7 +193,13 @@ class ScriptsTopTest {
         compose.onNodeWithText("Sorted by name").assertExists()
         compose.onNodeWithContentDescription("Sort").performClick()
         compose.onNodeWithText("Last run").performClick()
-        compose.waitFor("the last run first") { cards() == listOf("sft-c.lua", "sft-a.lua", "sft-b.js") }
+        compose.waitFor("the last run first") {
+            cards() == listOf(
+                "sft-c.lua",
+                "sft-a.lua",
+                "sft-b.js"
+            )
+        }
         compose.onNodeWithText("Sorted by last run").assertExists()
         compose.onNodeWithContentDescription("Filters").performClick()
         compose.onNodeWithTag("filter:lua").performScrollTo().performClick()
@@ -168,7 +207,12 @@ class ScriptsTopTest {
         compose.waitFor("Lua only") { cards() == listOf("sft-c.lua", "sft-a.lua") }
 
         restoration.emulateSavedInstanceStateRestore()
-        compose.waitFor("still Lua only, by last run") { cards() == listOf("sft-c.lua", "sft-a.lua") }
+        compose.waitFor("still Lua only, by last run") {
+            cards() == listOf(
+                "sft-c.lua",
+                "sft-a.lua"
+            )
+        }
         compose.onNodeWithText("Sorted by last run").assertExists()
         compose.onNode(hasText("Lua") and chosen).assertExists()
     }
@@ -178,7 +222,8 @@ class ScriptsTopTest {
      * Update all ticks the new versions, not an edited copy with nothing newer; Update N updates the
      * ticked ones, with Undo. × hides the banner while the same copies differ.
      */
-    @Test fun theBannerReviewsAndUpdatesTheCopiesThatDiffer() {
+    @Test
+    fun theBannerReviewsAndUpdatesTheCopiesThatDiffer() {
         val (countdown, charge) = libraryNames.map { n -> library.entries.single { it.name == n } }
         // countdown: edited by you, nothing newer. charge-reminder: an older copy, never edited.
         val edited = library.install(countdown)
@@ -189,7 +234,11 @@ class ScriptsTopTest {
         library.record(charge.name, old)
         show()
         val banner = hasTestTag("copies-banner")
-        compose.waitForNode(hasText("differ from the library", substring = true) and hasAnyAncestor(banner))
+        compose.waitForNode(
+            hasText("differ from the library", substring = true) and hasAnyAncestor(
+                banner
+            )
+        )
 
         compose.onNode(hasText("Review") and hasAnyAncestor(banner)).performClick()
         compose.waitForNode(hasText("New version") and chosen)
@@ -204,13 +253,20 @@ class ScriptsTopTest {
         compose.onNodeWithTag("update:countdown").assertIsOff()
         // Only the test's copies: any other copy on this phone is left as it is.
         val others = SemanticsMatcher("another copy's row") { n ->
-            n.config.getOrNull(SemanticsProperties.TestTag)?.let { it.startsWith("update:") && it.removePrefix("update:") !in libraryNames } == true
+            n.config.getOrNull(SemanticsProperties.TestTag)
+                ?.let { it.startsWith("update:") && it.removePrefix("update:") !in libraryNames } == true
         } and isOn()
-        compose.onAllNodes(others).fetchSemanticsNodes().mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
+        compose.onAllNodes(others).fetchSemanticsNodes()
+            .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
             .forEach { compose.onNodeWithTag(it).performScrollTo().performClick() }
         // Ticked, an edited copy says its edits go.
         compose.onNodeWithTag("update:countdown").performClick()
-        compose.onNode(hasTestTag("update:countdown") and hasText("your edits will be lost", substring = true)).assertExists()
+        compose.onNode(
+            hasTestTag("update:countdown") and hasText(
+                "your edits will be lost",
+                substring = true
+            )
+        ).assertExists()
         compose.onNodeWithTag("update:countdown").performClick()
         compose.onNode(hasText("Update 1") and hasAnyAncestor(isDialog())).performClick()
         compose.waitFor("the new version") { scripts.byId(older.id)!!.code == library.code(charge) }
@@ -229,7 +285,8 @@ class ScriptsTopTest {
      * After Kolahal updated library copies by itself, one line says so; their cards say "Updated in"
      * the version. Show filters the list to them, and × closes the note for good.
      */
-    @Test fun theNoteSaysWhatKolahalUpdatedAndShowsThem() {
+    @Test
+    fun theNoteSaysWhatKolahalUpdatedAndShowsThem() {
         val countdown = library.entries.single { it.name == "countdown" }
         val old = "-- @command\n-- @title Countdowns\nprint('older countdown')\n"
         scripts.create("countdown", countdown.lang, old)
@@ -240,9 +297,15 @@ class ScriptsTopTest {
         val version = BuildConfig.VERSION_NAME
         show()
         val note = hasTestTag("self-update-note")
-        compose.waitForNode(hasText("Kolahal $version updated", substring = true) and hasAnyAncestor(note))
+        compose.waitForNode(
+            hasText(
+                "Kolahal $version updated",
+                substring = true
+            ) and hasAnyAncestor(note)
+        )
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(card("countdown.lua"))
-        compose.onNode(card("countdown.lua") and hasText("Updated in $version", substring = true)).assertExists()
+        compose.onNode(card("countdown.lua") and hasText("Updated in $version", substring = true))
+            .assertExists()
 
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(note)
         compose.onNode(hasText("Show") and hasAnyAncestor(note)).performClick()
@@ -254,6 +317,7 @@ class ScriptsTopTest {
         assertNull(library.selfUpdate())
         compose.onNodeWithTag("chosen-filters").assertDoesNotExist()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(card("countdown.lua"))
-        compose.onNode(card("countdown.lua") and hasText("Updated in", substring = true)).assertDoesNotExist()
+        compose.onNode(card("countdown.lua") and hasText("Updated in", substring = true))
+            .assertDoesNotExist()
     }
 }

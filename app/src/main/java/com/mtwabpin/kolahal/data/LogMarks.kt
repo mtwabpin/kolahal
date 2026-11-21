@@ -38,7 +38,12 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
     private var memory: MutableMap<String, String>? = null
 
     /** The main process's database work for the marks: one task at a time, in order. */
-    private val writes = if (inMemory) java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "log-marks") } else null
+    private val writes = if (inMemory) java.util.concurrent.Executors.newSingleThreadExecutor {
+        Thread(
+            it,
+            "log-marks"
+        )
+    } else null
 
     init {
         // Read ahead, so the first read on the main thread doesn't open the database there.
@@ -51,7 +56,8 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
         HashMap(kv.all())
     }.also { memory = it }
 
-    fun string(key: String): String? = if (inMemory) synchronized(lock) { loaded()[key] } else kv.get(key)
+    fun string(key: String): String? =
+        if (inMemory) synchronized(lock) { loaded()[key] } else kv.get(key)
 
     fun long(key: String, default: Long = 0L): Long = string(key)?.toLongOrNull() ?: default
 
@@ -92,7 +98,8 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
 
     /** Every mark, for a test to put back after it ([replaceAll]). */
     @VisibleForTesting
-    internal fun all(): Map<String, String> = synchronized(lock) { if (inMemory) HashMap(loaded()) else kv.all() }
+    internal fun all(): Map<String, String> =
+        synchronized(lock) { if (inMemory) HashMap(loaded()) else kv.all() }
 
     /** Puts back what [all] gave: a mark not in [values] goes. */
     @VisibleForTesting
@@ -137,24 +144,28 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
          * The old prefs' values as marks. A number is kept, and so is text that reads as one (an
          * edited backup can hold either); the filter is text. Anything else is left out.
          */
-        internal fun fromPrefs(old: Map<String, *>): Map<String, String> = old.mapNotNull { (key, value) ->
-            if (key !in KEYS) return@mapNotNull null
-            val text = when (value) {
-                is Number -> value.toLong().toString()
-                is String -> if (key == FILTER) value else value.trim().toLongOrNull()?.toString()
-                else -> null
-            }
-            text?.let { key to it }
-        }.toMap()
+        internal fun fromPrefs(old: Map<String, *>): Map<String, String> =
+            old.mapNotNull { (key, value) ->
+                if (key !in KEYS) return@mapNotNull null
+                val text = when (value) {
+                    is Number -> value.toLong().toString()
+                    is String -> if (key == FILTER) value else value.trim().toLongOrNull()
+                        ?.toString()
+
+                    else -> null
+                }
+                text?.let { key to it }
+            }.toMap()
 
         /**
          * What to change in [marks] so that no id is past [newest]: an id past it comes down to it, and
          * one that isn't a number goes (null). A time and the filter aren't ids, and stay.
          */
-        internal fun clamped(marks: Map<String, String>, newest: Long): Map<String, String?> = marks.mapNotNull { (key, value) ->
-            if (key !in ID_KEYS) return@mapNotNull null
-            val id = value.toLongOrNull() ?: return@mapNotNull key to null
-            if (id > newest) key to newest.toString() else null
-        }.toMap()
+        internal fun clamped(marks: Map<String, String>, newest: Long): Map<String, String?> =
+            marks.mapNotNull { (key, value) ->
+                if (key !in ID_KEYS) return@mapNotNull null
+                val id = value.toLongOrNull() ?: return@mapNotNull key to null
+                if (id > newest) key to newest.toString() else null
+            }.toMap()
     }
 }

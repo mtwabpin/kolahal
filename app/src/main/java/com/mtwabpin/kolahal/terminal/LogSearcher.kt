@@ -3,8 +3,8 @@
  */
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.commands.LogFilter
 import androidx.compose.runtime.snapshotFlow
+import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.terminal.TerminalViewModel.LogSearch
@@ -26,7 +26,8 @@ import kotlinx.coroutines.withContext
 
 /** `/battery low` at the prompt searches the log for those words. Returns null when the line isn't a search. */
 internal fun searchWords(text: String): List<String>? =
-    if (!text.startsWith("/")) null else text.substring(1).split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (!text.startsWith("/")) null else text.substring(1).split(Regex("\\s+"))
+        .filter { it.isNotEmpty() }
 
 /**
  * The log search: `/words` at the prompt. It follows the prompt and the log, and puts what it
@@ -44,6 +45,7 @@ class LogSearcher(
     private val prompt: () -> String,
 ) {
     private val _search = MutableStateFlow<LogSearch?>(null)
+
     /** The log search while the prompt starts with `/`. Null otherwise. */
     val search: StateFlow<LogSearch?> = _search.asStateFlow()
 
@@ -62,7 +64,12 @@ class LogSearcher(
             var updatesSeen = 0L
             reading.flatMapLatest { on ->
                 if (!on) emptyFlow()
-                else combine(snapshotFlow { searchWords(prompt()) }.distinctUntilChanged(), logs.linesVersion, locks, logs.version) { words, lines, locked, _ ->
+                else combine(
+                    snapshotFlow { searchWords(prompt()) }.distinctUntilChanged(),
+                    logs.linesVersion,
+                    locks,
+                    logs.version
+                ) { words, lines, locked, _ ->
                     Triple(words, lines, locked)
                 }
             }
@@ -74,7 +81,13 @@ class LogSearcher(
                         val current = _search.value
                         if (words != null && current != null && key == searchedFor) {
                             // Nothing changed but lines in place: patch them in, unless that needs a whole search.
-                            val patched = withContext(Dispatchers.IO) { patchSearch(current, locked, updatesSeen) }
+                            val patched = withContext(Dispatchers.IO) {
+                                patchSearch(
+                                    current,
+                                    locked,
+                                    updatesSeen
+                                )
+                            }
                             if (patched != null) {
                                 _search.value = patched.first
                                 updatesSeen = patched.second
@@ -89,17 +102,34 @@ class LogSearcher(
                                 // `@xkcd`, `@feeds`: only lines from these sources (any of them).
                                 val (at, plain) = words.partition { it.startsWith("@") }
                                 val sources = at.mapNotNull(LogFilter::parse)
-                                if (plain.isEmpty() && sources.isEmpty()) LogSearch(emptyList(), emptyList(), 0, 0)
+                                if (plain.isEmpty() && sources.isEmpty()) LogSearch(
+                                    emptyList(),
+                                    emptyList(),
+                                    0,
+                                    0
+                                )
                                 else withContext(Dispatchers.IO) {
                                     val job = currentCoroutineContext()[kotlinx.coroutines.Job]
                                     val found = logs.search(
                                         plain,
                                         skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
-                                        match = if (sources.isEmpty()) null else { e -> sources.any { it.matches(e) } },
+                                        match = if (sources.isEmpty()) null else { e ->
+                                            sources.any {
+                                                it.matches(
+                                                    e
+                                                )
+                                            }
+                                        },
                                         narrowBy = LogFilter.sqlOfAny(sources),
                                         keepGoing = { job?.isActive != false },
                                     )
-                                    LogSearch(plain, buildRows(found.entries.asReversed(), trim = false), found.total, found.searched, sources)
+                                    LogSearch(
+                                        plain,
+                                        buildRows(found.entries.asReversed(), trim = false),
+                                        found.total,
+                                        found.searched,
+                                        sources
+                                    )
                                 }
                             }
                         }
@@ -120,7 +150,11 @@ class LogSearcher(
      * and one that no longer does goes. Null when the whole log must be searched instead: the
      * changes are too old to know, or a changed line now matches but isn't among the results.
      */
-    private fun patchSearch(current: LogSearch, locked: Set<Long>, since: Long): Pair<LogSearch, Long>? {
+    private fun patchSearch(
+        current: LogSearch,
+        locked: Set<Long>,
+        since: Long
+    ): Pair<LogSearch, Long>? {
         val seq = logs.updatedSeq
         val ids = logs.updatedSince(since) ?: return null
         if (ids.isEmpty()) return current to seq
@@ -129,7 +163,10 @@ class LogSearcher(
         val shown = current.rows.mapNotNull { (it as? LogRow.Entry)?.entry }
         val shownIds = shown.mapTo(HashSet()) { it.id }
         fun matches(e: LogEntry) = e.ctx.userSerial !in locked &&
-            (current.sources.isEmpty() || current.sources.any { it.matches(e) }) && logs.matchesWords(e, current.words)
+                (current.sources.isEmpty() || current.sources.any { it.matches(e) }) && logs.matchesWords(
+            e,
+            current.words
+        )
         if (changed.values.any { it.id !in shownIds && matches(it) }) return null
         if (changed.keys.none { it in shownIds }) return current to seq
         var total = current.total

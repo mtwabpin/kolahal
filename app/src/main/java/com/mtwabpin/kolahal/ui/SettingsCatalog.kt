@@ -40,7 +40,8 @@ internal val PEEK_SLIDERS: Map<String, Boolean> = mapOf(
  */
 private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
     fun on(switch: ConfigKey.Bool): (Config) -> Boolean = { it[switch] }
-    fun choice(key: ConfigKey.Choice, test: (String) -> Boolean): (Config) -> Boolean = { test(it[key]) }
+    fun choice(key: ConfigKey.Choice, test: (String) -> Boolean): (Config) -> Boolean =
+        { test(it[key]) }
     mapOf(
         Keys.SEARCH_URL to choice(Keys.SEARCH_ENGINE) { it == "custom" },
         Keys.LAUNCH_INSTANT_MIN to choice(Keys.LAUNCH_INSTANT) { it != "off" },
@@ -74,10 +75,18 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
 }
 
 /** Whether Settings shows [key], given the current values of the other settings ([SHOWN_WHEN]). */
-internal fun applies(key: ConfigKey<*>, config: Config): Boolean = SHOWN_WHEN[key]?.invoke(config) ?: true
+internal fun applies(key: ConfigKey<*>, config: Config): Boolean =
+    SHOWN_WHEN[key]?.invoke(config) ?: true
 
 /** Pages with an eye button that shows home while held. The value is the same typing flag as in [PEEK_SLIDERS]. */
-internal val PEEK_PAGES: Map<String, Boolean> = mapOf("look" to false, "header" to false, "selector" to false, "log" to false, "suggestions" to true, "keyboard" to true)
+internal val PEEK_PAGES: Map<String, Boolean> = mapOf(
+    "look" to false,
+    "header" to false,
+    "selector" to false,
+    "log" to false,
+    "suggestions" to true,
+    "keyboard" to true
+)
 
 /** A settings page with grouped keys. A null group title means the group has no sub-header. */
 internal class Category(
@@ -118,7 +127,11 @@ private val CATEGORIES = listOf(
                 Keys.USER_NAME,
             ),
         ),
-        manage = Triple("Arrange the header", "The parts on each side and their order", Screen.HEADER_PARTS),
+        manage = Triple(
+            "Arrange the header",
+            "The parts on each side and their order",
+            Screen.HEADER_PARTS
+        ),
     ),
     Category(
         "widgets", "Widgets", "Add, resize and arrange widgets", R.drawable.ic_widgets,
@@ -241,10 +254,22 @@ private val CATEGORIES = listOf(
         ),
     ),
     // Its switches set commands.off (CommandsPage).
-    Category(COMMANDS_CATEGORY, "Commands", "Turn off the ones you don't use", R.drawable.ic_terminal, listOf(null to emptyList())),
+    Category(
+        COMMANDS_CATEGORY,
+        "Commands",
+        "Turn off the ones you don't use",
+        R.drawable.ic_terminal,
+        listOf(null to emptyList())
+    ),
     Category(
         "gestures", "Gestures", "Double-tap and swipes", R.drawable.ic_touch,
-        listOf(null to listOf(Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)),
+        listOf(
+            null to listOf(
+                Keys.GESTURE_DOUBLE_TAP,
+                Keys.GESTURE_SWIPE_DOWN,
+                Keys.GESTURE_SWIPE_UP
+            )
+        ),
     ),
 )
 
@@ -254,7 +279,13 @@ internal const val BACKUP_CATEGORY = "backup"
 /** The Header page. It shows the top of home above its settings (HeaderPreview). */
 internal const val HEADER_CATEGORY = "header"
 
-private val BACKUP = Category(BACKUP_CATEGORY, "Backup", "Automatic backups, export, import", R.drawable.ic_download, listOf(null to listOf(Keys.BACKUP_AUTO)))
+private val BACKUP = Category(
+    BACKUP_CATEGORY,
+    "Backup",
+    "Automatic backups, export, import",
+    R.drawable.ic_download,
+    listOf(null to listOf(Keys.BACKUP_AUTO))
+)
 
 /** The feeds category. It shows in the Feeds tab ([categorySettings]), not in the Settings list. */
 internal const val FEEDS_CATEGORY = "feeds"
@@ -269,6 +300,7 @@ internal fun allCategories() = CATEGORIES + BACKUP
  */
 internal fun matches(key: ConfigKey<*>, q: String): Boolean {
     val title = SettingTitles[key.key] ?: key.key
-    val choices = if (key is ConfigKey.Choice) key.choices.map { ChoiceLabels.of(key, it) } else emptyList()
+    val choices =
+        if (key is ConfigKey.Choice) key.choices.map { ChoiceLabels.of(key, it) } else emptyList()
     return SearchWords.allIn(SearchWords.of(q), listOf(title, key.key, key.help) + choices)
 }

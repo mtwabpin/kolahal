@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.script.ScriptMeta.value
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetSize
 
@@ -34,32 +35,34 @@ object ScriptMeta {
      * and each access check read the details from here, not from the code again.
      */
     class Parsed(private val code: String) {
-        val title by lazy { ScriptMeta.title(code) }
-        val description by lazy { ScriptMeta.description(code) }
-        val author by lazy { ScriptMeta.author(code) }
-        val version by lazy { ScriptMeta.version(code) }
-        val isCommand by lazy { ScriptMeta.isCommand(code) }
-        val events by lazy { ScriptMeta.events(code) }
-        val uses by lazy { ScriptMeta.uses(code) }
-        val secrets by lazy { ScriptMeta.secrets(code) }
-        val options by lazy { ScriptMeta.options(code) }
-        val widget by lazy { ScriptMeta.widget(code) }
-        val usesInternet by lazy { ScriptMeta.usesInternet(code) }
-        val setsStatus by lazy { ScriptMeta.setsStatus(code) }
-        val postsNotifications by lazy { ScriptMeta.postsNotifications(code) }
+        val title by lazy { title(code) }
+        val description by lazy { description(code) }
+        val author by lazy { author(code) }
+        val version by lazy { version(code) }
+        val isCommand by lazy { isCommand(code) }
+        val events by lazy { events(code) }
+        val uses by lazy { uses(code) }
+        val secrets by lazy { secrets(code) }
+        val options by lazy { options(code) }
+        val widget by lazy { widget(code) }
+        val usesInternet by lazy { usesInternet(code) }
+        val setsStatus by lazy { setsStatus(code) }
+        val postsNotifications by lazy { postsNotifications(code) }
 
         /** The command line's usage for a script called [name] ([usage]). */
-        fun usage(name: String): String? = ScriptMeta.usage(code, name)
+        fun usage(name: String): String? = usage(code, name)
     }
 
     /** The codes last parsed, the least used left out first: the scripts a phone has, and a few more. */
     private const val PARSED_KEPT = 64
     private val parsed = object : LinkedHashMap<String, Parsed>(PARSED_KEPT, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Parsed>) = size > PARSED_KEPT
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Parsed>) =
+            size > PARSED_KEPT
     }
 
     /** [code]'s details, read once per version of the code ([Parsed]). Any thread. */
-    fun parse(code: String): Parsed = synchronized(parsed) { parsed.getOrPut(code) { Parsed(code) } }
+    fun parse(code: String): Parsed =
+        synchronized(parsed) { parsed.getOrPut(code) { Parsed(code) } }
 
     private val command = Regex("""^\s*(--|//)\s*@command\b""", RegexOption.MULTILINE)
     private val desc = Regex("""^\s*(--|//)[ \t]*@desc[ \t]+(.+)$""", RegexOption.MULTILINE)
@@ -92,7 +95,20 @@ object ScriptMeta {
      * - its name in the `allowed` entry of [ApiDocs], and in the site's `@uses` table.
      * ScriptUsesTest checks the first three.
      */
-    val USES = listOf("notifications", "clipboard", "apps", "commands", "dnd", "work", "todos", "notes", "reminders", "calendar", "feeds", "usage")
+    val USES = listOf(
+        "notifications",
+        "clipboard",
+        "apps",
+        "commands",
+        "dnd",
+        "work",
+        "todos",
+        "notes",
+        "reminders",
+        "calendar",
+        "feeds",
+        "usage"
+    )
 
     /** Known names from every `@uses` line. Unknown names are ignored. */
     fun uses(code: String): Set<String> {
@@ -101,10 +117,12 @@ object ScriptMeta {
     }
 
     /** The names on one `@uses` line, after `@uses`. They can be separated by commas, spaces or tabs, in any case. */
-    fun usesNames(rest: String): List<String> = rest.split(',', ' ', '\t').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+    fun usesNames(rest: String): List<String> =
+        rest.split(',', ' ', '\t').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
 
     /** Events a script can subscribe to with `@on`. */
-    val EVENTS = listOf("unlock", "charger", "unplug", "wifi", "offline", "notification", "boot", "headset")
+    val EVENTS =
+        listOf("unlock", "charger", "unplug", "wifi", "offline", "notification", "boot", "headset")
 
     fun isCommand(code: String) = command.containsMatchIn(code)
 
@@ -116,9 +134,14 @@ object ScriptMeta {
         "charger" -> mapOf("name" to name, "level" to 64, "plug" to "ac")
         "unplug" -> mapOf("name" to name, "level" to 64)
         "notification" -> mapOf(
-            "name" to name, "app" to "Messages", "pkg" to "com.google.android.apps.messaging",
-            "title" to "Alice", "text" to "Running late, there in 10", "time" to System.currentTimeMillis(),
+            "name" to name,
+            "app" to "Messages",
+            "pkg" to "com.google.android.apps.messaging",
+            "title" to "Alice",
+            "text" to "Running late, there in 10",
+            "time" to System.currentTimeMillis(),
         )
+
         "headset" -> mapOf("name" to name, "type" to "wired", "device" to "Headset", "mic" to true)
         "wifi" -> mapOf("name" to name, "network" to "wifi")
         "boot" -> mapOf("name" to name, "uptime" to 42)
@@ -151,7 +174,8 @@ object ScriptMeta {
 
     fun postsNotifications(code: String) = notifyRef.containsMatchIn(code)
 
-    fun description(code: String): String? = desc.find(code)?.groupValues?.get(2)?.trim()?.ifEmpty { null }
+    fun description(code: String): String? =
+        desc.find(code)?.groupValues?.get(2)?.trim()?.ifEmpty { null }
 
     /** The text after a `@<name>` directive, or null when there is none or it is empty. */
     private fun value(code: String, name: String): String? =
@@ -161,7 +185,12 @@ object ScriptMeta {
     private val valueRegexes = java.util.concurrent.ConcurrentHashMap<String, Regex>()
 
     private fun valueRegex(name: String): Regex =
-        valueRegexes.getOrPut(name) { Regex("""^\s*(--|//)\s*@$name\b[ \t]*(.*)$""", RegexOption.MULTILINE) }
+        valueRegexes.getOrPut(name) {
+            Regex(
+                """^\s*(--|//)\s*@$name\b[ \t]*(.*)$""",
+                RegexOption.MULTILINE
+            )
+        }
 
     /**
      * `@secret OWM_KEY api.openweathermap.org Your OpenWeather API key`: a value you set in the
@@ -169,7 +198,12 @@ object ScriptMeta {
      * It is sent only to [hosts] or their subdomains (`*` means any host).
      */
     data class Secret(val name: String, val hosts: List<String>, val desc: String) {
-        fun allows(host: String): Boolean = hosts.any { it == "*" || host.equals(it, ignoreCase = true) || host.endsWith(".$it", ignoreCase = true) }
+        fun allows(host: String): Boolean = hosts.any {
+            it == "*" || host.equals(it, ignoreCase = true) || host.endsWith(
+                ".$it",
+                ignoreCase = true
+            )
+        }
     }
 
     private val secretLine = Regex("""^\s*(--|//)\s*@secret\b[ \t]*(.*)$""", RegexOption.MULTILINE)
@@ -183,7 +217,8 @@ object ScriptMeta {
         val parts = m.groupValues[2].trim().split(spaces, limit = 2)
         val name = parts.getOrNull(0)?.takeIf(secretName::matches) ?: return@mapNotNull null
         val rest = secretRest.find(parts.getOrNull(1).orEmpty()) ?: return@mapNotNull null
-        val hosts = rest.groupValues[1].split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+        val hosts =
+            rest.groupValues[1].split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
         Secret(name, hosts, rest.groupValues[2].trim())
     }.distinctBy { it.name }.toList()
 
@@ -193,7 +228,12 @@ object ScriptMeta {
      * - The default is one word, `"quoted words"` or `""`.
      * - `metric|imperial` makes a choice. Its first value is the default.
      */
-    data class Option(val name: String, val default: String, val choices: List<String>, val desc: String)
+    data class Option(
+        val name: String,
+        val default: String,
+        val choices: List<String>,
+        val desc: String
+    )
 
     private val optionLine = Regex("""^\s*(--|//)\s*@option\b[ \t]*(.*)$""", RegexOption.MULTILINE)
     private val optionName = Regex("^[A-Za-z][A-Za-z0-9_]{0,31}$")
@@ -203,10 +243,22 @@ object ScriptMeta {
     fun options(code: String): List<Option> = optionLine.findAll(code).mapNotNull { m ->
         val parts = m.groupValues[2].trim().split(spaces, limit = 2)
         val name = parts.getOrNull(0)?.takeIf(optionName::matches) ?: return@mapNotNull null
-        val rest = optionRest.find(parts.getOrNull(1).orEmpty().trim()) ?: return@mapNotNull Option(name, "", emptyList(), "")
+        val rest = optionRest.find(parts.getOrNull(1).orEmpty().trim()) ?: return@mapNotNull Option(
+            name,
+            "",
+            emptyList(),
+            ""
+        )
         val raw = rest.groupValues[1]
-        val choices = if (!raw.startsWith('"') && '|' in raw) raw.split('|').filter { it.isNotEmpty() }.distinct() else emptyList()
-        Option(name, choices.firstOrNull() ?: raw.removeSurrounding("\""), choices, rest.groupValues[2].trim())
+        val choices =
+            if (!raw.startsWith('"') && '|' in raw) raw.split('|').filter { it.isNotEmpty() }
+                .distinct() else emptyList()
+        Option(
+            name,
+            choices.firstOrNull() ?: raw.removeSurrounding("\""),
+            choices,
+            rest.groupValues[2].trim()
+        )
     }.distinctBy { it.name }.toList()
 
     /** `@widget stat 2x1`: the script has a widget of this [kind]. [size] is the size it gets when placed. */
@@ -221,7 +273,9 @@ object ScriptMeta {
      *   So a wrong size does not hide the widget.
      */
     fun widget(code: String): Widget? {
-        val words = widgetLine.find(code)?.groupValues?.get(2)?.split(' ', '\t')?.filter { it.isNotBlank() } ?: return null
+        val words =
+            widgetLine.find(code)?.groupValues?.get(2)?.split(' ', '\t')?.filter { it.isNotBlank() }
+                ?: return null
         val kind = WidgetKind.named(words.firstOrNull()) ?: return null
         return Widget(kind, WidgetSize.named(words.getOrNull(1)) ?: kind.size)
     }
@@ -234,11 +288,13 @@ object ScriptMeta {
 
     /** `@every 1h`: the interval it suggests, in minutes. Null if there is none (or it is `off`). */
     fun every(code: String): Int? =
-        value(code, "every")?.let { com.mtwabpin.kolahal.commands.CommandParsing.parseInterval(it) }?.takeIf { it > 0 }
+        value(code, "every")?.let { com.mtwabpin.kolahal.commands.CommandParsing.parseInterval(it) }
+            ?.takeIf { it > 0 }
 
     /** `@at 07:00, 18:30`: the daily times it suggests, as "HH:mm". */
     fun at(code: String): List<String> =
-        value(code, "at")?.split(',', ' ')?.filter { it.isNotBlank() }?.mapNotNull(ScriptScheduler::normalizeTime)
+        value(code, "at")?.split(',', ' ')?.filter { it.isNotBlank() }
+            ?.mapNotNull(ScriptScheduler::normalizeTime)
             ?.distinct()?.sorted().orEmpty()
 
     /**
@@ -275,7 +331,8 @@ object ScriptMeta {
     fun requires(code: String): String? = value(code, "requires")
 
     /** True when [code]'s `@requires` names a newer Kolahal than [current] (a version name such as 0.4.0). */
-    fun needsNewer(code: String, current: String): Boolean = requires(code)?.let { isNewer(it, current) } == true
+    fun needsNewer(code: String, current: String): Boolean =
+        requires(code)?.let { isNewer(it, current) } == true
 
     /** True when version [wanted] is newer than [current]. False when either one isn't a version. */
     fun isNewer(wanted: String, current: String): Boolean {
@@ -291,7 +348,8 @@ object ScriptMeta {
 
     /** Turns "0.4.0" or "0.4.0-lite" into [0, 4, 0]. Null when it isn't a version. */
     private fun versionParts(v: String): List<Int>? =
-        v.trim().removePrefix("v").substringBefore('-').split('.').map { it.toIntOrNull() ?: return null }
+        v.trim().removePrefix("v").substringBefore('-').split('.')
+            .map { it.toIntOrNull() ?: return null }
 
     /**
      * The command's usage line, `name args…`, like a built-in one.
@@ -302,7 +360,8 @@ object ScriptMeta {
     fun usage(code: String, name: String): String? {
         val m = usageLine.find(code) ?: return if (argRef.containsMatchIn(code)) null else name
         val rest = m.groupValues[2].trim()
-        val args = if (rest == name || rest.startsWith("$name ")) rest.removePrefix(name).trim() else rest
+        val args =
+            if (rest == name || rest.startsWith("$name ")) rest.removePrefix(name).trim() else rest
         return if (args.isEmpty()) name else "$name $args"
     }
 

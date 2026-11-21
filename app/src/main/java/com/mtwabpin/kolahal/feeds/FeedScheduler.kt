@@ -26,7 +26,9 @@ object FeedScheduler {
     /** Minimum interval for a feed. It is WorkManager's periodic minimum, and it also keeps us polite to servers. */
     const val MIN_INTERVAL_MIN = 15
 
-    private val network by lazy { Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build() }
+    private val network by lazy {
+        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+    }
 
     /**
      * Enqueues the periodic check when any feed exists, and cancels it when there is none. It is safe
@@ -42,7 +44,8 @@ object FeedScheduler {
             return
         }
         val period = feeds.minOf { it.intervalMin }.toLong().coerceAtLeast(PERIOD_MIN)
-        val wifiOnly = com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.FEEDS_WIFI]
+        val wifiOnly =
+            com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.FEEDS_WIFI]
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
             .build()
@@ -68,13 +71,15 @@ object FeedScheduler {
                 workDataOf(
                     FeedWorker.KEY_FEED_ID to (feedId ?: -1L), FeedWorker.KEY_FORCE to true,
                     // For `feed fetch`, the results are shown as the command's output.
-                    FeedWorker.KEY_FROM to (com.mtwabpin.kolahal.data.LogRepository.get(context).currentCause ?: -1L),
+                    FeedWorker.KEY_FROM to (com.mtwabpin.kolahal.data.LogRepository.get(context).currentCause
+                        ?: -1L),
                 ),
             )
             .addTag(UNIQUE_NAME)
             .build()
         val name = if (feedId == null) NOW_NAME else "$NOW_NAME-$feedId"
-        WorkManager.getInstance(context).enqueueUniqueWork(name, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(name, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     /** True when a scheduled run at [now] should fetch [feed]. */

@@ -153,7 +153,8 @@ internal object OwnTaps {
     private val SPACES = Regex("\\s+")
 
     /** `#12` as 12. Null for anything else. */
-    private fun ref(word: String?): Long? = word?.takeIf { it.startsWith("#") }?.drop(1)?.toLongOrNull()?.takeIf { it >= 0 }
+    private fun ref(word: String?): Long? =
+        word?.takeIf { it.startsWith("#") }?.drop(1)?.toLongOrNull()?.takeIf { it >= 0 }
 
     /**
      * What the words [what] mean for the built-in widget [id]. Null for a widget or words that are
@@ -168,16 +169,20 @@ internal object OwnTaps {
         fun alone(tap: OwnTap): OwnTap? = tap.takeIf { arg == null }
         return when (id) {
             WidgetSource.SHORTCUTS -> when (verb) {
-                "run" -> arg?.toIntOrNull()?.takeIf { it in 0 until Shortcuts.MAX }?.let(OwnTap::RunShortcut)
+                "run" -> arg?.toIntOrNull()?.takeIf { it in 0 until Shortcuts.MAX }
+                    ?.let(OwnTap::RunShortcut)
+
                 EDIT -> alone(OwnTap.EditShortcuts)
                 else -> null
             }
+
             WidgetSource.TODOS -> when (verb) {
                 "done" -> ref(arg)?.let { OwnTap.SetTodo(it, done = true) }
                 "undo" -> ref(arg)?.let { OwnTap.SetTodo(it, done = false) }
                 OPEN -> alone(OwnTap.Typed("todo"))
                 else -> null
             }
+
             WidgetSource.REMINDERS -> if (verb == OPEN) alone(OwnTap.Typed("reminders")) else null
             WidgetSource.NOTES -> if (verb == OPEN) alone(OwnTap.Typed("notes")) else null
             WidgetSource.MEDIA -> when (verb) {
@@ -190,16 +195,20 @@ internal object OwnTaps {
                 ALLOW -> alone(OwnTap.AllowNotifications)
                 else -> null
             }
+
             WidgetSource.AGENDA -> when (verb) {
                 "event" -> {
                     val event = arg?.toLongOrNull()?.takeIf { it >= 0 } ?: return null
                     val begin = words.getOrNull(2)
-                    if (begin == null) OwnTap.OpenEvent(event) else begin.toLongOrNull()?.let { OwnTap.OpenEvent(event, it) }
+                    if (begin == null) OwnTap.OpenEvent(event) else begin.toLongOrNull()
+                        ?.let { OwnTap.OpenEvent(event, it) }
                 }
+
                 OPEN -> alone(OwnTap.Typed("agenda"))
                 ALLOW -> alone(OwnTap.AllowCalendar)
                 else -> null
             }
+
             else -> null
         }
     }
@@ -288,7 +297,10 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
     fun shown(id: String) {
         when (id) {
             WidgetSource.AGENDA -> readAgenda()
-            WidgetSource.MEDIA -> scope.launch(Dispatchers.IO) { mediaAllowed.value = runCatching { media.hasAccess() }.getOrDefault(false) }
+            WidgetSource.MEDIA -> scope.launch(Dispatchers.IO) {
+                mediaAllowed.value = runCatching { media.hasAccess() }.getOrDefault(false)
+            }
+
             WidgetSource.TODOS, WidgetSource.NOTES, WidgetSource.REMINDERS -> reload()
         }
     }
@@ -305,7 +317,13 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
             val now = System.currentTimeMillis()
             val allowed = runCatching { Agenda.hasPermission(context) }.getOrDefault(false)
             if (!AgendaTurns.due(agenda.value, allowed, now)) return@launch
-            val events = if (allowed) runCatching { Agenda.query(context, LocalDate.now(), AGENDA_READ_DAYS) }.getOrDefault(emptyList()) else emptyList()
+            val events = if (allowed) runCatching {
+                Agenda.query(
+                    context,
+                    LocalDate.now(),
+                    AGENDA_READ_DAYS
+                )
+            }.getOrDefault(emptyList()) else emptyList()
             agenda.value = AgendaRead(allowed, events, now)
         }
     }
@@ -382,17 +400,20 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
      * The player the card shows, for a tap that opens it: the last player, which is the session's
      * while one shows ([MediaRepository.lastPlayer]), else any session's.
      */
-    val player: LastPlayer? get() = media.lastPlayer.value ?: media.nowPlaying.value?.let { LastPlayer(it.pkg, it.app) }
+    val player: LastPlayer?
+        get() = media.lastPlayer.value ?: media.nowPlaying.value?.let { LastPlayer(it.pkg, it.app) }
 
     /** The calendar event [id] that starts at [begin], as last read. Null when it is not among them. */
-    fun event(id: Long, begin: Long?): AgendaEvent? = agenda.value.events.firstOrNull { it.id == id && (begin == null || it.begin == begin) }
+    fun event(id: Long, begin: Long?): AgendaEvent? =
+        agenda.value.events.firstOrNull { it.id == id && (begin == null || it.begin == begin) }
 
     // Last in the class: everything above is set when this starts.
     init {
         // The shortcuts are read when their first reader comes: the widget's card, or the editor.
         scope.launch {
             shortcuts.subscriptionCount.first { it > 0 }
-            val read = withContext(taps) { runCatching { Shortcuts.read(context) }.getOrDefault(emptyList()) }
+            val read =
+                withContext(taps) { runCatching { Shortcuts.read(context) }.getOrDefault(emptyList()) }
             // A list saved in the meantime is newer than what was read.
             shortcuts.compareAndSet(null, read)
         }
@@ -417,6 +438,7 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
         const val AGENDA_READ_DAYS = 14
 
         /** The days the Agenda card shows for widgets.agenda-days: "auto" looks as far as it reads. */
-        fun agendaDays(setting: String): Int = setting.toIntOrNull()?.coerceIn(1, AGENDA_READ_DAYS) ?: AGENDA_READ_DAYS
+        fun agendaDays(setting: String): Int =
+            setting.toIntOrNull()?.coerceIn(1, AGENDA_READ_DAYS) ?: AGENDA_READ_DAYS
     }
 }

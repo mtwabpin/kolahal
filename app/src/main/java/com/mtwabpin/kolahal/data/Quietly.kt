@@ -32,7 +32,8 @@ object Quietly {
             val today = java.time.LocalDate.now().toString()
             if (store.get(key) == today) return
             store.set(key, today)
-            val reason = e.message?.lines()?.firstOrNull { it.isNotBlank() }?.take(160) ?: e.javaClass.simpleName
+            val reason = e.message?.lines()?.firstOrNull { it.isNotBlank() }?.take(160)
+                ?: e.javaClass.simpleName
             LogRepository.get(context).add(LogKind.ERROR, "$what failed: $reason")
         }
     }

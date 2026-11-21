@@ -69,7 +69,8 @@ import kotlinx.coroutines.launch
 internal enum class TourPage { WELCOME, TYPING, LOG, LOOK, KEYBOARD, SELECTOR, ACCESS, DONE }
 
 /** The setup checks that the tour offers ([com.mtwabpin.kolahal.terminal.SetupCheck.fix]). Most people want these. */
-internal val TOUR_CHECKS = listOf("home", "notifications", "notifs enable", "accessibility", "contacts --allow")
+internal val TOUR_CHECKS =
+    listOf("home", "notifications", "notifs enable", "accessibility", "contacts --allow")
 
 /**
  * The tour (on first start, from `tour`, or from Settings → About → Tour).
@@ -92,17 +93,34 @@ fun OnboardingScreen(vm: TerminalViewModel) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.surface,
             topBar = {
-                Box(Modifier.fillMaxWidth().padding(top = 32.dp, end = 8.dp).heightIn(min = 48.dp), contentAlignment = Alignment.CenterEnd) {
-                    if (!last) TextButton(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen, modifier = Modifier.testTag("tour-skip")) { Text("Skip") }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 32.dp, end = 8.dp)
+                        .heightIn(min = 48.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    if (!last) TextButton(
+                        shapes = ButtonDefaults.shapes(),
+                        onClick = vm::closeScreen,
+                        modifier = Modifier.testTag("tour-skip")
+                    ) { Text("Skip") }
                 }
             },
             bottomBar = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
                 ) {
                     Box(Modifier.weight(1f)) {
-                        if (pager.currentPage > 0) TextButton(shapes = ButtonDefaults.shapes(), onClick = { go(pager.currentPage - 1) }, modifier = Modifier.testTag("tour-back")) { Text("Back") }
+                        if (pager.currentPage > 0) TextButton(
+                            shapes = ButtonDefaults.shapes(),
+                            onClick = { go(pager.currentPage - 1) },
+                            modifier = Modifier.testTag("tour-back")
+                        ) { Text("Back") }
                     }
                     PageDots(pager.currentPage, pages.size)
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
@@ -121,7 +139,10 @@ fun OnboardingScreen(vm: TerminalViewModel) {
                 state = pager,
                 userScrollEnabled = false,
                 verticalAlignment = Alignment.Top,
-                modifier = Modifier.padding(padding).fillMaxSize().testTag("tour"),
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .testTag("tour"),
             ) { page ->
                 when (pages[page]) {
                     TourPage.WELCOME -> Welcome()
@@ -149,7 +170,10 @@ private fun PageDots(current: Int, count: Int) {
             Box(
                 Modifier
                     .size(if (on) 10.dp else 8.dp)
-                    .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    .background(
+                        if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        CircleShape
+                    )
             )
         }
     }
@@ -160,20 +184,39 @@ private fun PageDots(current: Int, count: Int) {
  * So a choice and the preview it changes are always on screen together.
  */
 @Composable
-private fun Page(title: String, preview: (@Composable ColumnScope.() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+private fun Page(
+    title: String,
+    preview: (@Composable ColumnScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp)
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+        )
         if (preview != null) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { preview() }
         Column(
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = if (preview != null) 8.dp else 0.dp, bottom = 16.dp),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(top = if (preview != null) 8.dp else 0.dp, bottom = 16.dp),
             content = content,
         )
     }
 }
 
 @Composable
-private fun Body(text: String) = Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Body(text: String) = Text(
+    text,
+    style = MaterialTheme.typography.bodyLarge,
+    color = MaterialTheme.colorScheme.onSurfaceVariant
+)
 
 /** A setting's name and what it does, above its choices. */
 @Composable
@@ -181,7 +224,11 @@ private fun Setting(title: String, detail: String, content: @Composable () -> Un
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Column {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                detail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         content()
     }
@@ -190,12 +237,21 @@ private fun Setting(title: String, detail: String, content: @Composable () -> Un
 /** Shows `help` and other code in body text in the terminal's font and the accent colour. */
 private fun withCode(text: String) = buildAnnotatedString {
     text.split('`').forEachIndexed { i, part ->
-        if (i % 2 == 1) withStyle(SpanStyle(fontFamily = FontFamily.Monospace, color = Term.prompt)) { append(part) } else append(part)
+        if (i % 2 == 1) withStyle(
+            SpanStyle(
+                fontFamily = FontFamily.Monospace,
+                color = Term.prompt
+            )
+        ) { append(part) } else append(part)
     }
 }
 
 @Composable
-private fun BodyCode(text: String) = Text(withCode(text), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun BodyCode(text: String) = Text(
+    withCode(text),
+    style = MaterialTheme.typography.bodyLarge,
+    color = MaterialTheme.colorScheme.onSurfaceVariant
+)
 
 /** The choices of [key], shown by their labels. One tap sets the setting. */
 @Composable
@@ -203,25 +259,49 @@ private fun Choices(vm: TerminalViewModel, key: ConfigKey<*>, choices: List<Pair
     val version by vm.config.version.collectAsStateWithLifecycle()
     val value = remember(version, key) { vm.config.display(key) }
     val selected = choices.firstOrNull { it.second == value }?.first ?: ""
-    ConnectedChoices(choices.map { it.first }, selected) { label -> vm.setConfig(key, choices.first { it.first == label }.second) }
+    ConnectedChoices(choices.map { it.first }, selected) { label ->
+        vm.setConfig(
+            key,
+            choices.first { it.first == label }.second
+        )
+    }
 }
 
 /** A switch for the on/off setting [key]: [title], and [help] under it. It follows the setting, and a tap changes it. */
 @Composable
-private fun ConfigSwitch(vm: TerminalViewModel, key: ConfigKey<Boolean>, title: String, help: String) {
+private fun ConfigSwitch(
+    vm: TerminalViewModel,
+    key: ConfigKey<Boolean>,
+    title: String,
+    help: String
+) {
     val version by vm.config.version.collectAsStateWithLifecycle()
-    SwitchRow(title, help, remember(version, key) { vm.config[key] }) { vm.setConfig(key, if (it) "on" else "off") }
+    SwitchRow(title, help, remember(version, key) { vm.config[key] }) {
+        vm.setConfig(
+            key,
+            if (it) "on" else "off"
+        )
+    }
 }
 
 @Composable
 private fun Welcome() = Page("") {
-    Text("Kolahal", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 8.dp))
+    Text(
+        "Kolahal",
+        style = MaterialTheme.typography.displaySmall,
+        modifier = Modifier.padding(top = 8.dp)
+    )
     Text("A home screen you type into.", style = MaterialTheme.typography.titleLarge)
     Body("Open apps, run commands and see what's happening on your phone, all from one line at the bottom of the screen. This tour takes a minute, and sets up a few things on the way: each page shows what a choice does as you make it.")
     val shape = RoundedCornerShape(16.dp)
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = Modifier.fillMaxWidth().clip(shape).background(Term.bg, shape).border(1.dp, Term.dim.copy(alpha = 0.3f), shape).padding(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Term.bg, shape)
+            .border(1.dp, Term.dim.copy(alpha = 0.3f), shape)
+            .padding(14.dp),
     ) {
         @Composable
         fun line(text: String, command: Boolean = false) = Text(
@@ -229,7 +309,10 @@ private fun Welcome() = Page("") {
                 if (command) withStyle(SpanStyle(color = Term.prompt)) { append("$ ") }
                 append(text)
             },
-            style = Term.text.copy(color = Term.fg, fontWeight = if (command) FontWeight.Bold else null),
+            style = Term.text.copy(
+                color = Term.fg,
+                fontWeight = if (command) FontWeight.Bold else null
+            ),
             maxLines = 1,
             overflow = TextOverflow.Clip,
             softWrap = false,
@@ -246,50 +329,81 @@ private fun Welcome() = Page("") {
 
 @Composable
 private fun Typing(vm: TerminalViewModel) = Page("Type to open", preview = { TypingPreview(vm) }) {
-    Setting("Open without Enter", "Once only one match is left. Calls and other sensitive commands always require Enter.") {
+    Setting(
+        "Open without Enter",
+        "Once only one match is left. Calls and other sensitive commands always require Enter."
+    ) {
         Choices(vm, Keys.LAUNCH_INSTANT, listOf("Off" to "off", "Apps" to "apps", "All" to "all"))
     }
-    Setting("Suggestions", "A list above the prompt, the best one nearest your thumb, or a strip of chips.") {
+    Setting(
+        "Suggestions",
+        "A list above the prompt, the best one nearest your thumb, or a strip of chips."
+    ) {
         Choices(vm, Keys.SUGGESTIONS_STYLE, listOf("List" to "list", "Chips" to "chips"))
     }
     BodyCode("Commands work as apps do: `help` lists them all, and `settings` opens Settings. Tap `$` on the prompt for quick actions.")
 }
 
 @Composable
-private fun TheLog(vm: TerminalViewModel) = Page("Everything goes in the log", preview = { LogTryPreview() }) {
-    val version by vm.config.version.collectAsStateWithLifecycle()
-    // The header is off at first. Its swipe is explained only once the header is on (Make it yours,
-    // or Settings → Header).
-    val header = remember(version) { vm.config[Keys.HEADER_SHOW] }
-    Body("Commands and their output, your notifications and your scripts' output: all in one log, the newest at the bottom.")
-    val gestures = buildList {
-        add(Triple(R.drawable.ic_search, "Type /word", "Searches the whole log"))
-        add(Triple(R.drawable.ic_tune, "Pinch", "Makes the text bigger or smaller"))
-        if (BuildConfig.LOCK_SERVICE) add(Triple(R.drawable.ic_lock, "Double-tap empty space", "Locks the screen, once you allow it on the Permissions page"))
-        if (header) add(Triple(R.drawable.ic_arrow_down, "Swipe down on the header", "Pulls down the notifications"))
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
-        gestures.forEachIndexed { i, (icon, title, detail) ->
-            SegmentedListItem(
-                onClick = {},
-                enabled = false,
-                shapes = segShapes(i, gestures.size),
-                colors = segColors(),
-                leadingContent = { Icon(painterResource(icon), null, tint = MaterialTheme.colorScheme.primary) },
-                supportingContent = { Text(detail) },
-            ) { Text(title, color = MaterialTheme.colorScheme.onSurface) }
+private fun TheLog(vm: TerminalViewModel) =
+    Page("Everything goes in the log", preview = { LogTryPreview() }) {
+        val version by vm.config.version.collectAsStateWithLifecycle()
+        // The header is off at first. Its swipe is explained only once the header is on (Make it yours,
+        // or Settings → Header).
+        val header = remember(version) { vm.config[Keys.HEADER_SHOW] }
+        Body("Commands and their output, your notifications and your scripts' output: all in one log, the newest at the bottom.")
+        val gestures = buildList {
+            add(Triple(R.drawable.ic_search, "Type /word", "Searches the whole log"))
+            add(Triple(R.drawable.ic_tune, "Pinch", "Makes the text bigger or smaller"))
+            if (BuildConfig.LOCK_SERVICE) add(
+                Triple(
+                    R.drawable.ic_lock,
+                    "Double-tap empty space",
+                    "Locks the screen, once you allow it on the Permissions page"
+                )
+            )
+            if (header) add(
+                Triple(
+                    R.drawable.ic_arrow_down,
+                    "Swipe down on the header",
+                    "Pulls down the notifications"
+                )
+            )
         }
+        Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+            gestures.forEachIndexed { i, (icon, title, detail) ->
+                SegmentedListItem(
+                    onClick = {},
+                    enabled = false,
+                    shapes = segShapes(i, gestures.size),
+                    colors = segColors(),
+                    leadingContent = {
+                        Icon(
+                            painterResource(icon),
+                            null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    supportingContent = { Text(detail) },
+                ) { Text(title, color = MaterialTheme.colorScheme.onSurface) }
+            }
+        }
+        BodyCode("The gestures can run any command: Settings → Gestures.")
     }
-    BodyCode("The gestures can run any command: Settings → Gestures.")
-}
 
 @Composable
 private fun Look(vm: TerminalViewModel) {
     val version by vm.config.version.collectAsStateWithLifecycle()
     Page("Make it yours", preview = { LookPreview(vm) }) {
         Setting("Theme", "Each has a dark and a light version, chosen by the phone's dark mode.") {
-            val dark = isSystemInDarkTheme() || remember(version) { vm.config[Keys.THEME_ALWAYS_DARK] }
-            ThemeSwatches(remember(version) { vm.config.display(Keys.THEME) }, dark) { vm.setConfig(Keys.THEME, it) }
+            val dark =
+                isSystemInDarkTheme() || remember(version) { vm.config[Keys.THEME_ALWAYS_DARK] }
+            ThemeSwatches(remember(version) { vm.config.display(Keys.THEME) }, dark) {
+                vm.setConfig(
+                    Keys.THEME,
+                    it
+                )
+            }
         }
         Setting("Text size", "Pinch the log to change it later.") {
             Choices(vm, Keys.FONT_SIZE, listOf("12", "14", "16", "18").map { it to it })
@@ -297,15 +411,30 @@ private fun Look(vm: TerminalViewModel) {
         Setting("Clock", "In the header and the log.") {
             Choices(vm, Keys.CLOCK_24H, listOf("12-hour" to "off", "24-hour" to "on"))
         }
-        ConfigSwitch(vm, Keys.HEADER_SHOW, "Header", "The time, the date, the battery and what else you choose, in a line at the top of home")
+        ConfigSwitch(
+            vm,
+            Keys.HEADER_SHOW,
+            "Header",
+            "The time, the date, the battery and what else you choose, in a line at the top of home"
+        )
     }
 }
 
 @Composable
 private fun Keyboard(vm: TerminalViewModel) {
     Page("Above the keyboard", preview = { KeyboardPreview(vm) }) {
-        ConfigSwitch(vm, Keys.KEYBAR_SHOW, "Key bar", "History, arrows and a few symbols under the prompt, for keys the keyboard lacks")
-        ConfigSwitch(vm, Keys.SUGGEST_IDLE, "Most-used apps", "Your most-used apps above an empty prompt, a tap away")
+        ConfigSwitch(
+            vm,
+            Keys.KEYBAR_SHOW,
+            "Key bar",
+            "History, arrows and a few symbols under the prompt, for keys the keyboard lacks"
+        )
+        ConfigSwitch(
+            vm,
+            Keys.SUGGEST_IDLE,
+            "Most-used apps",
+            "Your most-used apps above an empty prompt, a tap away"
+        )
     }
 }
 
@@ -313,7 +442,10 @@ private fun Keyboard(vm: TerminalViewModel) {
 private fun Selector(vm: TerminalViewModel) {
     val version by vm.config.version.collectAsStateWithLifecycle()
     Page("The app selector", preview = { SelectorPreview(vm) }) {
-        Setting("App selector", "Every app along the screen's edge, to scroll through with your thumb.") {
+        Setting(
+            "App selector",
+            "Every app along the screen's edge, to scroll through with your thumb."
+        ) {
             val on = remember(version) { vm.config[Keys.SELECTOR_RAIL] }
             val side = remember(version) { vm.config[Keys.SELECTOR_SIDE] }
             val selected = if (!on) "Off" else if (side == "left") "Left edge" else "Right edge"
@@ -321,7 +453,10 @@ private fun Selector(vm: TerminalViewModel) {
                 when (pick) {
                     "Off" -> vm.setConfig(Keys.SELECTOR_RAIL, "off")
                     else -> {
-                        vm.setConfig(Keys.SELECTOR_SIDE, if (pick == "Left edge") "left" else "right")
+                        vm.setConfig(
+                            Keys.SELECTOR_SIDE,
+                            if (pick == "Left edge") "left" else "right"
+                        )
                         vm.setConfig(Keys.SELECTOR_RAIL, "on")
                     }
                 }
@@ -351,7 +486,11 @@ private fun Access(vm: TerminalViewModel) = Page("Permissions") {
                     }
                 },
                 trailingContent = if (!c.ok) {
-                    { FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.fixSetup(c) }) { Text(if (c.fix == "home") "Set" else "Allow") } }
+                    {
+                        FilledTonalButton(
+                            shapes = ButtonDefaults.shapes(),
+                            onClick = { vm.fixSetup(c) }) { Text(if (c.fix == "home") "Set" else "Allow") }
+                    }
                 } else null,
             ) { Text(c.title) }
         }

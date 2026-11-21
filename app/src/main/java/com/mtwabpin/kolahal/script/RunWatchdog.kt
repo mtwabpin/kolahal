@@ -6,6 +6,7 @@ package com.mtwabpin.kolahal.script
 import android.os.Debug
 import android.os.Process
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.script.RunWatchdog.Companion.GRACE_MS
 import kotlin.concurrent.thread
 
 /**
@@ -22,7 +23,8 @@ import kotlin.concurrent.thread
  * Other runs in the process die with it. Each logs a line saying so first, with what it had waiting
  * ([stopOthers]); before, they vanished mid-run without a word.
  */
-internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLimitMb: Long?) : AutoCloseable {
+internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLimitMb: Long?) :
+    AutoCloseable {
     init {
         running += host
     }
@@ -38,9 +40,17 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
             while (true) {
                 // With no memory to watch (JavaScript has its own limit), only the clock matters. Its end time
                 // is known, so one sleep is enough instead of a hundred wake-ups a second.
-                Thread.sleep(if (nativeLimitMb == null) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else every)
+                Thread.sleep(
+                    if (nativeLimitMb == null) maxOf(
+                        WATCH_EVERY_MS,
+                        killAt - System.currentTimeMillis()
+                    ) else every
+                )
                 val heap = Debug.getNativeHeapAllocatedSize()
-                every = if (heap - last > GROWING_BYTES) WATCH_EVERY_MS else minOf(IDLE_EVERY_MS, every * 2)
+                every = if (heap - last > GROWING_BYTES) WATCH_EVERY_MS else minOf(
+                    IDLE_EVERY_MS,
+                    every * 2
+                )
                 last = heap
                 val reason = when {
                     nativeLimitMb != null && heap - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
@@ -66,7 +76,8 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
 
     companion object {
         /** The runs in this process now, each while its watchdog is open. */
-        private val running: MutableSet<HostApi> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+        private val running: MutableSet<HostApi> =
+            java.util.concurrent.ConcurrentHashMap.newKeySet()
 
         /**
          * Before the process is killed for [culprit]: every other run logs what it had waiting and a line

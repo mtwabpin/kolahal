@@ -18,8 +18,18 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 
 /** Short names for what scripts use, shown in chips and in a card's pills. */
 internal val USES_SHORT = mapOf(
-    "notifications" to "notifications", "clipboard" to "clipboard", "apps" to "apps", "commands" to "commands", "dnd" to "Do Not Disturb", "work" to "work profile",
-    "todos" to "to-dos", "notes" to "notes", "reminders" to "reminders", "calendar" to "calendar", "feeds" to "feeds", "usage" to "app usage",
+    "notifications" to "notifications",
+    "clipboard" to "clipboard",
+    "apps" to "apps",
+    "commands" to "commands",
+    "dnd" to "Do Not Disturb",
+    "work" to "work profile",
+    "todos" to "to-dos",
+    "notes" to "notes",
+    "reminders" to "reminders",
+    "calendar" to "calendar",
+    "feeds" to "feeds",
+    "usage" to "app usage",
 )
 
 /** Where a script came from. */
@@ -89,7 +99,12 @@ enum class FilterGroup(val title: String) {
 }
 
 /** One filter chip: its group, its name and a test for which scripts it keeps. */
-class ScriptFilter(val id: String, val group: FilterGroup, val label: String, val keeps: (ScriptFacts) -> Boolean)
+class ScriptFilter(
+    val id: String,
+    val group: FilterGroup,
+    val label: String,
+    val keeps: (ScriptFacts) -> Boolean
+)
 
 /** How the list is sorted. */
 enum class ScriptSort(val label: String) {
@@ -119,18 +134,37 @@ object ScriptFilters {
         ScriptFilter("timer", FilterGroup.RUNS, "Timer") { it.timer },
         ScriptFilter("event", FilterGroup.RUNS, "Event") { it.event },
         ScriptFilter("pinned", FilterGroup.RUNS, "Pinned") { it.pinned },
-        ScriptFilter("library", FilterGroup.SOURCE, "Library") { it.source == ScriptSource.LIBRARY },
+        ScriptFilter(
+            "library",
+            FilterGroup.SOURCE,
+            "Library"
+        ) { it.source == ScriptSource.LIBRARY },
         ScriptFilter("shared", FilterGroup.SOURCE, "Shared") { it.source == ScriptSource.SHARED },
         ScriptFilter("yours", FilterGroup.SOURCE, "Yours") { it.source == ScriptSource.YOURS },
-        ScriptFilter("up-to-date", FilterGroup.VERSION, "Up to date") { it.copy == CopyState.UP_TO_DATE },
-        ScriptFilter(NEW_VERSION, FilterGroup.VERSION, "New version") { it.copy == CopyState.NEW_VERSION },
+        ScriptFilter(
+            "up-to-date",
+            FilterGroup.VERSION,
+            "Up to date"
+        ) { it.copy == CopyState.UP_TO_DATE },
+        ScriptFilter(
+            NEW_VERSION,
+            FilterGroup.VERSION,
+            "New version"
+        ) { it.copy == CopyState.NEW_VERSION },
         ScriptFilter(EDITED, FilterGroup.VERSION, "Edited") { it.copy == CopyState.EDITED },
     ) + ScriptMeta.USES.map { what ->
-        ScriptFilter("uses:$what", FilterGroup.USES, (USES_SHORT[what] ?: what).replaceFirstChar { it.uppercase() }) { what in it.uses }
+        ScriptFilter(
+            "uses:$what",
+            FilterGroup.USES,
+            (USES_SHORT[what] ?: what).replaceFirstChar { it.uppercase() }) { what in it.uses }
     } + listOf(
         ScriptFilter("lua", FilterGroup.LANGUAGE, "Lua") { it.lang == "lua" },
         ScriptFilter("js", FilterGroup.LANGUAGE, "JavaScript") { it.lang == "js" },
-        ScriptFilter(SELF_UPDATED, FilterGroup.SELF_UPDATED, "Updated by Kolahal") { it.selfUpdated },
+        ScriptFilter(
+            SELF_UPDATED,
+            FilterGroup.SELF_UPDATED,
+            "Updated by Kolahal"
+        ) { it.selfUpdated },
     )
 
     private val byId = ALL.associateBy { it.id }
@@ -142,10 +176,12 @@ object ScriptFilters {
 
     /** Whether [f] passes the chips in [selected]: any chip of a group, and every group that has one. */
     fun matches(f: ScriptFacts, selected: Set<String>): Boolean =
-        selected.mapNotNull(byId::get).groupBy { it.group }.values.all { chips -> chips.any { it.keeps(f) } }
+        selected.mapNotNull(byId::get)
+            .groupBy { it.group }.values.all { chips -> chips.any { it.keeps(f) } }
 
     /** Whether [f] has every word of [query] in its name, title, description, author or tags ([SearchWords]). */
-    fun found(f: ScriptFacts, query: String): Boolean = SearchWords.allIn(SearchWords.of(query), listOf(f.text))
+    fun found(f: ScriptFacts, query: String): Boolean =
+        SearchWords.allIn(SearchWords.of(query), listOf(f.text))
 
     /**
      * The count on each chip: how many of [all] it keeps, together with the chips chosen in the other
@@ -162,7 +198,10 @@ object ScriptFilters {
     }
 
     /** The chips of the sheet, by group. A chip that no script has is left out, unless it is chosen. */
-    fun sheetGroups(all: List<ScriptFacts>, selected: Set<String>): List<Pair<FilterGroup, List<ScriptFilter>>> =
+    fun sheetGroups(
+        all: List<ScriptFacts>,
+        selected: Set<String>
+    ): List<Pair<FilterGroup, List<ScriptFilter>>> =
         ALL.filter { it.group != FilterGroup.SELF_UPDATED && (it.id in selected || all.any(it.keeps)) }
             .groupBy { it.group }.toList()
 
@@ -179,7 +218,8 @@ object ScriptFilters {
 }
 
 /** Whether the script's last run failed: an error, a stop, or the time limit. */
-internal fun Script.failed() = lastStatus?.let { it.startsWith("error") || it.startsWith("stopped") || it == "timeout" } == true
+internal fun Script.failed() =
+    lastStatus?.let { it.startsWith("error") || it.startsWith("stopped") || it == "timeout" } == true
 
 /**
  * What the Scripts tab works out about its scripts before it filters and draws them.
@@ -194,10 +234,18 @@ internal object ScriptPage {
      * - [before]: the infos made last. A script that is just as it was keeps its info, the same
      *   object, so its card is not drawn again when another script runs.
      */
-    fun infos(scripts: List<Script>, kept: MutableMap<Pair<String, String>, ScriptCode>, before: List<ScriptInfo> = emptyList()): List<ScriptInfo> {
+    fun infos(
+        scripts: List<Script>,
+        kept: MutableMap<Pair<String, String>, ScriptCode>,
+        before: List<ScriptInfo> = emptyList()
+    ): List<ScriptInfo> {
         kept.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
         val same = before.associateBy { it.script }
-        return scripts.map { s -> same[s] ?: ScriptInfo(s, kept.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
+        return scripts.map { s ->
+            same[s] ?: ScriptInfo(
+                s,
+                kept.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) })
+        }
     }
 
     /** [now], with the value [before] had for each key where it is equal: the same objects, so what they are given to can skip drawing again. */
@@ -230,10 +278,15 @@ internal object ScriptPage {
      * - A library copy has the name and the language of a library script, and that one is installed.
      * - Otherwise, a copy from Get more scripts if it is one of [shared].
      */
-    fun copies(infos: List<ScriptInfo>, libByName: Map<String, LibRow>, shared: Map<String, SharedCopy>): Map<Long, ScriptCopy?> =
+    fun copies(
+        infos: List<ScriptInfo>,
+        libByName: Map<String, LibRow>,
+        shared: Map<String, SharedCopy>
+    ): Map<Long, ScriptCopy?> =
         infos.associate { i ->
             val s = i.script
-            val lib = libByName[s.name]?.takeIf { it.state != ScriptLibrary.State.NOT_INSTALLED && it.entry.lang == s.lang }
+            val lib =
+                libByName[s.name]?.takeIf { it.state != ScriptLibrary.State.NOT_INSTALLED && it.entry.lang == s.lang }
             s.id to (lib?.let { ScriptCopy.of(it) } ?: shared[s.name]?.let { ScriptCopy.of(it) })
         }
 
@@ -241,11 +294,16 @@ internal object ScriptPage {
      * The declared secrets of each script that has any, by script id: those with no value yet, and
      * those that are set. [isSet] gives the names of a script's secrets that have a value.
      */
-    fun secretNames(infos: List<ScriptInfo>, isSet: (Script) -> Set<String>): Map<Long, SecretNames> =
+    fun secretNames(
+        infos: List<ScriptInfo>,
+        isSet: (Script) -> Set<String>
+    ): Map<Long, SecretNames> =
         infos.filter { it.secrets.isNotEmpty() }.associate { i ->
             val declared = i.secrets.map { it.name }
             val set = isSet(i.script)
-            i.script.id to SecretNames(missing = declared.filter { it !in set }, set = declared.filter { it in set })
+            i.script.id to SecretNames(
+                missing = declared.filter { it !in set },
+                set = declared.filter { it in set })
         }
 
     /** The names in [updated] (the library copies Kolahal updated by itself) that are still among [scripts]. */
@@ -261,11 +319,23 @@ internal object ScriptPage {
         selfUpdated: Set<String>,
     ): List<ScriptFacts> = infos.map { i ->
         val name = i.script.name
-        factsOf(i, copies[i.script.id], secretNames[i.script.id]?.missing.orEmpty().isNotEmpty(), shared[name]?.entry?.tags.orEmpty(), name in selfUpdated)
+        factsOf(
+            i,
+            copies[i.script.id],
+            secretNames[i.script.id]?.missing.orEmpty().isNotEmpty(),
+            shared[name]?.entry?.tags.orEmpty(),
+            name in selfUpdated
+        )
     }
 
     /** What the filters know about [info]: see [ScriptFacts]. */
-    private fun factsOf(info: ScriptInfo, copy: ScriptCopy?, needsKey: Boolean, tags: List<String>, selfUpdated: Boolean): ScriptFacts {
+    private fun factsOf(
+        info: ScriptInfo,
+        copy: ScriptCopy?,
+        needsKey: Boolean,
+        tags: List<String>,
+        selfUpdated: Boolean
+    ): ScriptFacts {
         val s = info.script
         return ScriptFacts(
             name = s.name,
@@ -280,7 +350,12 @@ internal object ScriptPage {
             source = copy?.source ?: ScriptSource.YOURS,
             copy = copy?.state,
             uses = info.uses.toSet(),
-            text = (listOfNotNull(s.name, info.title, info.desc, info.author) + tags).joinToString(" ").lowercase(),
+            text = (listOfNotNull(
+                s.name,
+                info.title,
+                info.desc,
+                info.author
+            ) + tags).joinToString(" ").lowercase(),
             lastRun = s.lastRun,
             changedAt = s.changedAt,
             selfUpdated = selfUpdated,
@@ -288,8 +363,13 @@ internal object ScriptPage {
     }
 
     /** The copies that differ from where they came from, each with its script, in the order of [infos]. The banner is about these. */
-    fun differing(infos: List<ScriptInfo>, copies: Map<Long, ScriptCopy?>): List<Pair<Script, ScriptCopy>> =
-        infos.mapNotNull { i -> copies[i.script.id]?.takeIf { it.state != CopyState.UP_TO_DATE }?.let { i.script to it } }
+    fun differing(
+        infos: List<ScriptInfo>,
+        copies: Map<Long, ScriptCopy?>
+    ): List<Pair<Script, ScriptCopy>> =
+        infos.mapNotNull { i ->
+            copies[i.script.id]?.takeIf { it.state != CopyState.UP_TO_DATE }?.let { i.script to it }
+        }
 
     /** What the banner is about: each copy that differs, and how. */
     fun bannerSignature(differing: List<Pair<Script, ScriptCopy>>): Set<String> =
@@ -300,7 +380,8 @@ internal object ScriptPage {
      * [hiddenFor] is what [hiddenText] gave when the user closed it. Null: it was never closed.
      */
     fun bannerShows(signature: Set<String>, hiddenFor: String?): Boolean =
-        signature.isNotEmpty() && (hiddenFor == null || !hiddenFor.split(',').toSet().containsAll(signature))
+        signature.isNotEmpty() && (hiddenFor == null || !hiddenFor.split(',').toSet()
+            .containsAll(signature))
 
     /** [signature] as it is kept when the user closes the banner. */
     fun hiddenText(signature: Set<String>): String = signature.sorted().joinToString(",")

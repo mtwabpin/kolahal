@@ -29,7 +29,9 @@ object LineDiff {
      * - Windows line endings count as line endings.
      */
     fun lines(old: String, new: String): List<Line> {
-        fun split(text: String) = text.replace("\r\n", "\n").removeSuffix("\n").let { if (it.isEmpty()) emptyList() else it.lines() }
+        fun split(text: String) = text.replace("\r\n", "\n").removeSuffix("\n")
+            .let { if (it.isEmpty()) emptyList() else it.lines() }
+
         val a = split(old)
         val b = split(new)
         var start = 0
@@ -51,14 +53,26 @@ object LineDiff {
             // common[i][j] is the length of the longest common run of middle lines, starting at line i of a and line j of b.
             val common = Array(n + 1) { IntArray(m + 1) }
             for (i in n - 1 downTo 0) for (j in m - 1 downTo 0) {
-                common[i][j] = if (a[start + i] == b[start + j]) common[i + 1][j + 1] + 1 else maxOf(common[i + 1][j], common[i][j + 1])
+                common[i][j] =
+                    if (a[start + i] == b[start + j]) common[i + 1][j + 1] + 1 else maxOf(
+                        common[i + 1][j],
+                        common[i][j + 1]
+                    )
             }
             var i = 0
             var j = 0
             while (i < n || j < m) when {
-                i < n && j < m && a[start + i] == b[start + j] -> { out += Line(Kind.SAME, a[start + i]); i++; j++ }
-                i < n && (j == m || common[i + 1][j] >= common[i][j + 1]) -> { out += Line(Kind.REMOVED, a[start + i]); i++ }
-                else -> { out += Line(Kind.ADDED, b[start + j]); j++ }
+                i < n && j < m && a[start + i] == b[start + j] -> {
+                    out += Line(Kind.SAME, a[start + i]); i++; j++
+                }
+
+                i < n && (j == m || common[i + 1][j] >= common[i][j + 1]) -> {
+                    out += Line(Kind.REMOVED, a[start + i]); i++
+                }
+
+                else -> {
+                    out += Line(Kind.ADDED, b[start + j]); j++
+                }
             }
         }
         for (i in endA until a.size) out += Line(Kind.SAME, a[i])
@@ -70,14 +84,19 @@ object LineDiff {
         val context = 3
         val near = BooleanArray(lines.size)
         for ((i, line) in lines.withIndex()) {
-            if (line.kind != Kind.SAME) for (k in maxOf(0, i - context)..minOf(lines.lastIndex, i + context)) near[k] = true
+            if (line.kind != Kind.SAME) for (k in maxOf(0, i - context)..minOf(
+                lines.lastIndex,
+                i + context
+            )) near[k] = true
         }
         val hunks = ArrayList<Hunk>()
         var skipped = 0
         var current: MutableList<Line>? = null
         for ((i, line) in lines.withIndex()) {
             if (near[i]) {
-                val hunk = current ?: mutableListOf<Line>().also { hunks += Hunk(skipped, it); skipped = 0 }
+                val hunk = current ?: mutableListOf<Line>().also {
+                    hunks += Hunk(skipped, it); skipped = 0
+                }
                 hunk += line
                 current = hunk
             } else {

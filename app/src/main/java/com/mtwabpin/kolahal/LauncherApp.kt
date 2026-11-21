@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal
 
-import com.mtwabpin.kolahal.data.Stores
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -13,13 +12,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.work.Configuration
 import com.mtwabpin.kolahal.apps.AppRepository
-import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.unlock.UnlockCounter
 import com.mtwabpin.kolahal.status.DeviceStatus
+import com.mtwabpin.kolahal.unlock.UnlockCounter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -66,7 +66,8 @@ class LauncherApp : Application(), Configuration.Provider {
     private val awayTrim = Runnable { trimKept(away = true) }
 
     /** [AWAY_TRIM_MS]. Tests make it shorter. */
-    @androidx.annotation.VisibleForTesting internal var awayTrimMs = AWAY_TRIM_MS
+    @androidx.annotation.VisibleForTesting
+    internal var awayTrimMs = AWAY_TRIM_MS
 
     /** Call when home shows again (MainActivity's onStart). The kept pictures and icons stay. */
     fun homeShown() = main.removeCallbacks(awayTrim)
@@ -78,7 +79,9 @@ class LauncherApp : Application(), Configuration.Provider {
      */
     private fun trimKept(away: Boolean = false) {
         if (caches.isEmpty()) return
-        val keep = if (away) runCatching { AppRepository.get(this).top(KEEP_ICONS).map { it.key }.toSet() }.getOrDefault(emptySet()) else emptySet()
+        val keep = if (away) runCatching {
+            AppRepository.get(this).top(KEEP_ICONS).map { it.key }.toSet()
+        }.getOrDefault(emptySet()) else emptySet()
         caches.forEach { it(keep) }
     }
 
@@ -116,16 +119,31 @@ class LauncherApp : Application(), Configuration.Provider {
             // These must not stop each other, but a failure is logged (once a day): a reminder not set again stays unseen otherwise.
             val quietly = com.mtwabpin.kolahal.data.Quietly
             // Library scripts that nobody edited are updated to the app's library.
-            quietly.run(this, "Updating library scripts") { com.mtwabpin.kolahal.script.ScriptLibrary(this).updateUnedited() }
+            quietly.run(
+                this,
+                "Updating library scripts"
+            ) { com.mtwabpin.kolahal.script.ScriptLibrary(this).updateUnedited() }
             quietly.run(this, "Scheduling scripts") { ScriptScheduler.syncAll(this) }
             // Once: secret values from before 0.4.0 have no sites, and must be set again. Each script with one says so.
-            quietly.run(this, "Checking script secrets") { com.mtwabpin.kolahal.script.ScriptAccess.askForSecretsWithoutSites(this) }
+            quietly.run(
+                this,
+                "Checking script secrets"
+            ) { com.mtwabpin.kolahal.script.ScriptAccess.askForSecretsWithoutSites(this) }
             runCatching { com.mtwabpin.kolahal.data.StatusLines.pinShownOnce(this) }
             // The placed widgets decide which scripts may store a widget: a restore or an older version may have left the two apart.
             runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(this).syncAccess() }
-            quietly.run(this, "Scheduling feeds") { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this) }
-            quietly.run(this, "Setting reminders again") { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
-            quietly.run(this, "Trimming the old log") { LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS]) }
+            quietly.run(this, "Scheduling feeds") {
+                com.mtwabpin.kolahal.feeds.FeedScheduler.sync(
+                    this
+                )
+            }
+            quietly.run(
+                this,
+                "Setting reminders again"
+            ) { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
+            quietly.run(this, "Trimming the old log") {
+                LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS])
+            }
             // This scans the whole table, so it runs once per app version. It repairs rows from old
             // versions before anything reads them. A backup's export depends on it.
             runCatching {
@@ -144,29 +162,52 @@ class LauncherApp : Application(), Configuration.Provider {
             override fun onReceive(context: Context, intent: Intent) = logs.onExternal(intent)
         }, IntentFilter(LogRepository.ACTION_LOGS_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         // A script's widget has its own message, so new content redraws the cards and the log is not read again.
-        ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) =
-                com.mtwabpin.kolahal.widgets.WidgetStates.bump(intent.getStringExtra(com.mtwabpin.kolahal.widgets.WidgetStates.EXTRA_NAME))
-        }, IntentFilter(com.mtwabpin.kolahal.widgets.WidgetStates.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            this,
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) =
+                    com.mtwabpin.kolahal.widgets.WidgetStates.bump(intent.getStringExtra(com.mtwabpin.kolahal.widgets.WidgetStates.EXTRA_NAME))
+            },
+            IntentFilter(com.mtwabpin.kolahal.widgets.WidgetStates.ACTION_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         // A script that ticks a todo (todos.setDone) writes in :script. Home counts only its own writes, so the
         // script's write says so in a message. The Todos widget and the todo list then read the list again.
-        ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) =
-                com.mtwabpin.kolahal.productivity.TodoStore.get(this@LauncherApp).changedElsewhere()
-        }, IntentFilter(com.mtwabpin.kolahal.productivity.TodoStore.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            this,
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) =
+                    com.mtwabpin.kolahal.productivity.TodoStore.get(this@LauncherApp)
+                        .changedElsewhere()
+            },
+            IntentFilter(com.mtwabpin.kolahal.productivity.TodoStore.ACTION_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         // The :script process doesn't see settings changes. So home copies the ones it reads
         // (SharedSettings.KEYS) to a place where :script can read them, now and whenever one changes.
         val config = Config.get(this)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope.launch {
-            config.version.map { com.mtwabpin.kolahal.data.SharedSettings.KEYS.map { it.valueText(config) } }.distinctUntilChanged().collect {
-                runCatching { com.mtwabpin.kolahal.data.SharedSettings.mirror(this@LauncherApp, config) }
+            config.version.map {
+                com.mtwabpin.kolahal.data.SharedSettings.KEYS.map {
+                    it.valueText(
+                        config
+                    )
+                }
+            }.distinctUntilChanged().collect {
+                runCatching {
+                    com.mtwabpin.kolahal.data.SharedSettings.mirror(
+                        this@LauncherApp,
+                        config
+                    )
+                }
             }
         }
         // The log is trimmed now, and whenever `log.keep-lines` changes.
         scope.launch {
-            config.version.map { config[Keys.LOG_KEEP_LINES] }.distinctUntilChanged().collect { keep -> runCatching { logs.trim(keep) } }
+            config.version.map { config[Keys.LOG_KEEP_LINES] }.distinctUntilChanged()
+                .collect { keep -> runCatching { logs.trim(keep) } }
         }
         // A new time zone, or a clock set by hand, moves every daily time, so schedule them again.
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
@@ -174,7 +215,13 @@ class LauncherApp : Application(), Configuration.Provider {
                 scope.launch { runCatching { ScriptScheduler.syncAll(this@LauncherApp) } }
                 // Repeating reminders keep the time the user asked for, in the new zone.
                 if (intent.action == Intent.ACTION_TIMEZONE_CHANGED) {
-                    scope.launch { runCatching { com.mtwabpin.kolahal.productivity.ReminderScheduler.followZone(this@LauncherApp) } }
+                    scope.launch {
+                        runCatching {
+                            com.mtwabpin.kolahal.productivity.ReminderScheduler.followZone(
+                                this@LauncherApp
+                            )
+                        }
+                    }
                 }
             }
         }, IntentFilter().apply {
@@ -215,7 +262,10 @@ class LauncherApp : Application(), Configuration.Provider {
         fun restart(context: Context, afterMs: Long) {
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 context.startActivity(
-                    Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    Intent(
+                        context,
+                        MainActivity::class.java
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 )
                 android.os.Process.killProcess(android.os.Process.myPid())
             }, afterMs)

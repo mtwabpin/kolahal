@@ -11,7 +11,8 @@ import org.junit.Test
  * unavailable" for a description the parser accepted.
  */
 class WidgetRoundTripTest {
-    private fun parse(kind: WidgetKind, raw: Map<String, Any?>) = WidgetParser.parse(raw, kind, { it }, { it })
+    private fun parse(kind: WidgetKind, raw: Map<String, Any?>) =
+        WidgetParser.parse(raw, kind, { it }, { it })
 
     private fun roundTrip(kind: WidgetKind, raw: Map<String, Any?>) {
         val spec = parse(kind, raw)
@@ -30,71 +31,129 @@ class WidgetRoundTripTest {
         "note" to "Done today",
     )
 
-    @Test fun stat() = roundTrip(
+    @Test
+    fun stat() = roundTrip(
         WidgetKind.STAT,
         base + mapOf(
             "value" to "27°", "label" to "Sunny", "unit" to "C", "delta" to "+2", "trend" to "up",
-            "more" to listOf(mapOf("value" to "62%", "label" to "humidity"), mapOf("value" to "9 km/h")),
+            "more" to listOf(
+                mapOf("value" to "62%", "label" to "humidity"),
+                mapOf("value" to "9 km/h")
+            ),
             "progress" to 0.4, "moving" to true,
         ),
     )
 
-    @Test fun text() = roundTrip(WidgetKind.TEXT, base + mapOf("text" to "Carry an umbrella after 4 pm.", "caption" to "Today"))
+    @Test
+    fun text() = roundTrip(
+        WidgetKind.TEXT,
+        base + mapOf("text" to "Carry an umbrella after 4 pm.", "caption" to "Today")
+    )
 
-    @Test fun list() = roundTrip(
+    @Test
+    fun list() = roundTrip(
         WidgetKind.LIST,
         base + mapOf(
             "items" to listOf(
-                mapOf("title" to "Story", "detail" to "by pg", "trailing" to "412", "icon" to "Y", "color" to "good", "tap" to mapOf("url" to "https://example.com/1")),
+                mapOf(
+                    "title" to "Story",
+                    "detail" to "by pg",
+                    "trailing" to "412",
+                    "icon" to "Y",
+                    "color" to "good",
+                    "tap" to mapOf("url" to "https://example.com/1")
+                ),
                 mapOf("title" to "Another", "tap" to mapOf("args" to "open 2", "label" to "Open")),
                 mapOf("title" to "Plain"),
                 // A row with a checkbox, ticked and not. "Not ticked" must not come back as "no checkbox".
                 mapOf("title" to "Buy milk", "done" to false, "tap" to mapOf("args" to "done 1")),
                 mapOf("title" to "Call home", "done" to true),
                 // A row with a range, and one with a value on it.
-                mapOf("title" to "Sat", "trailing" to "22–31°", "range" to mapOf("low" to 22, "high" to 31)),
-                mapOf("title" to "BTC", "range" to mapOf("low" to 94_100.5, "high" to 97_900, "value" to 97_420)),
+                mapOf(
+                    "title" to "Sat",
+                    "trailing" to "22–31°",
+                    "range" to mapOf("low" to 22, "high" to 31)
+                ),
+                mapOf(
+                    "title" to "BTC",
+                    "range" to mapOf("low" to 94_100.5, "high" to 97_900, "value" to 97_420)
+                ),
             ),
             "empty" to "Nothing new",
         ),
     )
 
-    @Test fun buttons() = roundTrip(
+    @Test
+    fun buttons() = roundTrip(
         WidgetKind.BUTTONS,
         base + mapOf(
             "items" to listOf(
-                mapOf("label" to "On", "icon" to "☀", "color" to "good", "tap" to mapOf("args" to "on", "label" to "Switch on")),
+                mapOf(
+                    "label" to "On",
+                    "icon" to "☀",
+                    "color" to "good",
+                    "tap" to mapOf("args" to "on", "label" to "Switch on")
+                ),
                 mapOf("label" to "Report", "tap" to mapOf("args" to "report", "page" to "log")),
                 mapOf("label" to "Docs", "tap" to mapOf("url" to "https://example.com/docs")),
             ),
         ),
     )
 
-    @Test fun toggles() = roundTrip(
+    @Test
+    fun toggles() = roundTrip(
         WidgetKind.TOGGLES,
         base + mapOf(
             "items" to listOf(
-                mapOf("label" to "Do Not Disturb", "icon" to "🌙", "on" to true, "tap" to mapOf("args" to "dnd off", "label" to "Turn off")),
+                mapOf(
+                    "label" to "Do Not Disturb",
+                    "icon" to "🌙",
+                    "on" to true,
+                    "tap" to mapOf("args" to "dnd off", "label" to "Turn off")
+                ),
                 // A switch that is off comes back off, not without a state.
-                mapOf("label" to "Work profile", "on" to false, "tap" to mapOf("args" to "work on")),
+                mapOf(
+                    "label" to "Work profile",
+                    "on" to false,
+                    "tap" to mapOf("args" to "work on")
+                ),
             ),
         ),
     )
 
-    @Test fun clock() = roundTrip(
+    @Test
+    fun clock() = roundTrip(
         WidgetKind.CLOCK,
         base + mapOf(
-            "zones" to listOf(mapOf("zone" to "Asia/Kolkata", "label" to "Pune"), mapOf("zone" to "America/New_York"), mapOf("zone" to "UTC"), mapOf("zone" to "+05:45")),
+            "zones" to listOf(
+                mapOf("zone" to "Asia/Kolkata", "label" to "Pune"),
+                mapOf("zone" to "America/New_York"),
+                mapOf("zone" to "UTC"),
+                mapOf("zone" to "+05:45")
+            ),
             "seconds" to true,
         ),
     )
 
-    @Test fun agenda() = roundTrip(
+    @Test
+    fun agenda() = roundTrip(
         WidgetKind.AGENDA,
         base + mapOf(
             "events" to listOf(
-                mapOf("title" to "Final", "starts" to 1_800_000_000L, "ends" to 1_800_007_200L, "where" to "Pune", "color" to "good", "tap" to mapOf("url" to "https://example.com/final")),
-                mapOf("title" to "Holiday", "starts" to 1_800_050_000L, "allDay" to true, "tap" to mapOf("args" to "open 2")),
+                mapOf(
+                    "title" to "Final",
+                    "starts" to 1_800_000_000L,
+                    "ends" to 1_800_007_200L,
+                    "where" to "Pune",
+                    "color" to "good",
+                    "tap" to mapOf("url" to "https://example.com/final")
+                ),
+                mapOf(
+                    "title" to "Holiday",
+                    "starts" to 1_800_050_000L,
+                    "allDay" to true,
+                    "tap" to mapOf("args" to "open 2")
+                ),
                 mapOf("title" to "Launch", "starts" to 1_800_100_000L),
             ),
             "days" to 7,
@@ -102,32 +161,64 @@ class WidgetRoundTripTest {
         ),
     )
 
-    @Test fun image() = roundTrip(
+    @Test
+    fun image() = roundTrip(
         WidgetKind.IMAGE,
-        base + mapOf("image" to "https://example.com/comics/today.png?size=2x&v=3", "alt" to "A graph of \"quoted\" things — 日本語", "caption" to "Monday", "fit" to "fit"),
+        base + mapOf(
+            "image" to "https://example.com/comics/today.png?size=2x&v=3",
+            "alt" to "A graph of \"quoted\" things — 日本語",
+            "caption" to "Monday",
+            "fit" to "fit"
+        ),
     )
 
-    @Test fun progress() = roundTrip(
+    @Test
+    fun progress() = roundTrip(
         WidgetKind.PROGRESS,
         base + mapOf(
-            "value" to 72, "max" to 100, "text" to "72%", "label" to "Goal", "style" to "bar", "moving" to false,
+            "value" to 72,
+            "max" to 100,
+            "text" to "72%",
+            "label" to "Goal",
+            "style" to "bar",
+            "moving" to false,
             "items" to listOf(
-                mapOf("label" to "Storage", "value" to 41, "max" to 64, "text" to "41 / 64 GB", "color" to "info"),
-                mapOf("label" to "Data", "value" to 4.1, "max" to 5, "text" to "4.1 / 5 GB", "color" to "bad"),
+                mapOf(
+                    "label" to "Storage",
+                    "value" to 41,
+                    "max" to 64,
+                    "text" to "41 / 64 GB",
+                    "color" to "info"
+                ),
+                mapOf(
+                    "label" to "Data",
+                    "value" to 4.1,
+                    "max" to 5,
+                    "text" to "4.1 / 5 GB",
+                    "color" to "bad"
+                ),
             ),
         ),
     )
 
-    @Test fun chart() = roundTrip(
+    @Test
+    fun chart() = roundTrip(
         WidgetKind.CHART,
         base + mapOf(
-            "points" to listOf(41, 58, 37, 64, 52, 71, 46), "style" to "bars", "min" to 0, "max" to 80,
-            "value" to "46", "label" to "unlocks today", "labels" to listOf("6 days ago", "today"), "summary" to "Unlocks over 7 days",
+            "points" to listOf(41, 58, 37, 64, 52, 71, 46),
+            "style" to "bars",
+            "min" to 0,
+            "max" to 80,
+            "value" to "46",
+            "label" to "unlocks today",
+            "labels" to listOf("6 days ago", "today"),
+            "summary" to "Unlocks over 7 days",
         ),
     )
 
     /** A chart of dots: a habit's five weeks, 1 for a day done and 0 for a day missed. */
-    @Test fun chartOfDots() = roundTrip(
+    @Test
+    fun chartOfDots() = roundTrip(
         WidgetKind.CHART,
         base + mapOf(
             "points" to List(35) { if (it % 6 == 2) 0 else 1 }, "style" to "dots",
@@ -135,29 +226,67 @@ class WidgetRoundTripTest {
         ),
     )
 
-    @Test fun countdown() = roundTrip(
+    @Test
+    fun countdown() = roundTrip(
         WidgetKind.COUNTDOWN,
-        base + mapOf("to" to 1_797_000_000L, "from" to 1_790_000_000L, "label" to "Goa trip", "style" to "days", "reached" to "Today!"),
+        base + mapOf(
+            "to" to 1_797_000_000L,
+            "from" to 1_790_000_000L,
+            "label" to "Goa trip",
+            "style" to "days",
+            "reached" to "Today!"
+        ),
     )
 
     /** The smallest description of each kind comes back too. */
-    @Test fun theLeastOfEachKind() {
+    @Test
+    fun theLeastOfEachKind() {
         roundTrip(WidgetKind.STAT, mapOf("value" to "7"))
         roundTrip(WidgetKind.TEXT, mapOf("text" to "hello"))
         roundTrip(WidgetKind.LIST, mapOf("items" to emptyList<Any>()))
         roundTrip(WidgetKind.PROGRESS, mapOf("value" to 0.5))
         roundTrip(WidgetKind.CHART, mapOf("points" to listOf(1, 2)))
         roundTrip(WidgetKind.COUNTDOWN, mapOf("to" to 1_797_000_000L))
-        roundTrip(WidgetKind.BUTTONS, mapOf("items" to listOf(mapOf("label" to "Go", "tap" to mapOf("args" to "")))))
-        roundTrip(WidgetKind.TOGGLES, mapOf("items" to listOf(mapOf("label" to "Mute", "on" to false, "tap" to mapOf("args" to "mute")))))
+        roundTrip(
+            WidgetKind.BUTTONS,
+            mapOf("items" to listOf(mapOf("label" to "Go", "tap" to mapOf("args" to ""))))
+        )
+        roundTrip(
+            WidgetKind.TOGGLES,
+            mapOf(
+                "items" to listOf(
+                    mapOf(
+                        "label" to "Mute",
+                        "on" to false,
+                        "tap" to mapOf("args" to "mute")
+                    )
+                )
+            )
+        )
         roundTrip(WidgetKind.CLOCK, mapOf("zones" to listOf(mapOf("zone" to "UTC"))))
         roundTrip(WidgetKind.AGENDA, mapOf("events" to emptyList<Any>()))
-        roundTrip(WidgetKind.IMAGE, mapOf("image" to "https://example.com/a.png", "alt" to "A picture"))
+        roundTrip(
+            WidgetKind.IMAGE,
+            mapOf("image" to "https://example.com/a.png", "alt" to "A picture")
+        )
     }
 
     /** Every kind a script can use is in the tests above: a new kind needs its round trip. */
-    @Test fun everyKindForScriptsIsHere() {
-        val tested = setOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda", "image")
+    @Test
+    fun everyKindForScriptsIsHere() {
+        val tested = setOf(
+            "stat",
+            "text",
+            "list",
+            "progress",
+            "chart",
+            "countdown",
+            "buttons",
+            "toggles",
+            "clock",
+            "agenda",
+            "image"
+        )
         assertEquals(tested, WidgetKind.forScripts.map { it.id }.toSet())
     }
 }

@@ -7,7 +7,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ControlArgsTest {
-    @Test fun volume() {
+    @Test
+    fun volume() {
         assertEquals(Level.Percent(40), ControlArgs.volume("40"))
         assertEquals(Level.Percent(40), ControlArgs.volume("40%"))
         assertEquals(Level.Percent(0), ControlArgs.volume("0"))
@@ -22,7 +23,8 @@ class ControlArgsTest {
         assertNull(ControlArgs.volume("loud"))
     }
 
-    @Test fun brightness() {
+    @Test
+    fun brightness() {
         assertEquals(Level.Auto, ControlArgs.brightness("auto"))
         assertEquals(Level.Percent(75), ControlArgs.brightness("75"))
         assertEquals(Level.Up, ControlArgs.brightness("up"))
@@ -30,7 +32,8 @@ class ControlArgsTest {
         assertNull(ControlArgs.brightness("200"))
     }
 
-    @Test fun steps() {
+    @Test
+    fun steps() {
         assertEquals(0, ControlArgs.toSteps(0, 15))
         assertEquals(15, ControlArgs.toSteps(100, 15))
         assertEquals(8, ControlArgs.toSteps(50, 15))
@@ -40,7 +43,8 @@ class ControlArgsTest {
         assertEquals(0, ControlArgs.toPercent(3, 0))
     }
 
-    @Test fun duration() {
+    @Test
+    fun duration() {
         assertEquals(30_000L, ControlArgs.duration("30s"))
         assertEquals(60_000L, ControlArgs.duration("1m"))
         assertEquals(120_000L, ControlArgs.duration("2min"))
@@ -51,25 +55,29 @@ class ControlArgsTest {
         assertNull(ControlArgs.duration(null))
     }
 
-    @Test fun formatting() {
+    @Test
+    fun formatting() {
         assertEquals("1:23", ControlArgs.clock(83_000))
         assertEquals("1:02:03", ControlArgs.clock(3_723_000))
     }
 
-    @Test fun onOff() {
+    @Test
+    fun onOff() {
         assertEquals(true, ControlArgs.onOff("on"))
         assertEquals(false, ControlArgs.onOff("OFF"))
         assertNull(ControlArgs.onOff(null))
         assertNull(ControlArgs.onOff("toggle"))
     }
 
-    @Test fun suggestions() {
+    @Test
+    fun suggestions() {
         assertEquals(listOf("play", "pause", "prev"), ControlSpecs.suggest("media", "p"))
         assertEquals(emptyList<String>(), ControlSpecs.suggest("torch", "on"))
     }
 
     /** A number too big to multiply is refused, not wrapped round to a few minutes. */
-    @Test fun aHugeDurationIsRefused() {
+    @Test
+    fun aHugeDurationIsRefused() {
         assertEquals(366L * 86_400 * 1000, ControlArgs.duration("8784h"))
         assertNull(ControlArgs.duration("8785h"))
         assertNull(ControlArgs.duration("2562047788015216h"))

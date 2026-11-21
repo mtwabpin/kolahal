@@ -17,15 +17,15 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.Net
 import com.mtwabpin.kolahal.script.ScriptMeta
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import okhttp3.Request
 import java.io.File
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import okhttp3.Request
 
 /**
  * - `update` says whether a newer release is out.
@@ -50,7 +50,8 @@ internal class UpdateCommands(
         private const val RELEASE_PAGE = "https://github.com/mtwabpin/kolahal/releases/latest"
         private const val API_URL = "https://api.github.com/repos/mtwabpin/kolahal/releases/latest"
         private const val DOWNLOAD_PREFIX = "https://github.com/mtwabpin/kolahal/releases/download/"
-        private const val OFFICIAL_CERT = "21223ad4312a871e4a1dd16440efccac84f4660c56fa1e80467631062938e210"
+        private const val OFFICIAL_CERT =
+            "21223ad4312a871e4a1dd16440efccac84f4660c56fa1e80467631062938e210"
         private const val MAX_APK_SIZE = 100L * 1024 * 1024
         private val VERSION = Regex("""\d+\.\d+\.\d+""")
 
@@ -58,6 +59,7 @@ internal class UpdateCommands(
         private val running = AtomicBoolean(false)
 
         private val _progress = MutableStateFlow<Progress?>(null)
+
         /** The current download, for the bar above the prompt. Null when nothing is downloading. */
         val progress: StateFlow<Progress?> = _progress.asStateFlow()
 
@@ -69,21 +71,27 @@ internal class UpdateCommands(
 
         /** Reads the latest release from GitHub's response: the full build's APK, which is what `update` installs. */
         fun parseRelease(body: String): Release {
-            val data = Json.decode(body) as? Map<*, *> ?: throw IllegalStateException("Invalid GitHub release response.")
-            val tag = data["tag_name"] as? String ?: throw IllegalStateException("Release has no version tag.")
+            val data = Json.decode(body) as? Map<*, *>
+                ?: throw IllegalStateException("Invalid GitHub release response.")
+            val tag = data["tag_name"] as? String
+                ?: throw IllegalStateException("Release has no version tag.")
             val version = tag.removePrefix("v")
             if (!version.matches(VERSION)) throw IllegalStateException("Invalid release version: $tag")
 
-            val assets = data["assets"] as? List<*> ?: throw IllegalStateException("Release has no assets.")
-            val asset = assets.filterIsInstance<Map<*, *>>().firstOrNull { it["name"] == "kolahal-$version.apk" }
+            val assets =
+                data["assets"] as? List<*> ?: throw IllegalStateException("Release has no assets.")
+            val asset = assets.filterIsInstance<Map<*, *>>()
+                .firstOrNull { it["name"] == "kolahal-$version.apk" }
                 ?: throw IllegalStateException("Release APK not found.")
             // Normalise the URL first. OkHttp resolves a ../ when it sends the request, which could lead outside Kolahal's releases.
             val url = (asset["browser_download_url"] as? String)?.let(Net::webUrl)
                 ?: throw IllegalStateException("Release APK has no download URL.")
             if (!url.startsWith(DOWNLOAD_PREFIX)) throw IllegalStateException("Unexpected APK download address.")
-            val size = (asset["size"] as? Number)?.toLong() ?: throw IllegalStateException("Release APK has no valid size.")
+            val size = (asset["size"] as? Number)?.toLong()
+                ?: throw IllegalStateException("Release APK has no valid size.")
             if (size <= 0 || size > MAX_APK_SIZE) throw IllegalStateException("Release APK has an invalid size.")
-            val digest = (asset["digest"] as? String)?.takeIf { it.startsWith("sha256:") }?.substringAfter("sha256:")
+            val digest = (asset["digest"] as? String)?.takeIf { it.startsWith("sha256:") }
+                ?.substringAfter("sha256:")
             return Release(version, url, size, digest)
         }
 
@@ -92,20 +100,25 @@ internal class UpdateCommands(
          * returns no signers for a file, so GET_SIGNATURES is used there.
          */
         @Suppress("DEPRECATION")
-        fun apkPackageInfo(context: Context, apk: File): PackageInfo? = context.packageManager.getPackageArchiveInfo(
-            apk.absolutePath,
-            PackageManager.GET_PERMISSIONS or
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES,
-        )
+        fun apkPackageInfo(context: Context, apk: File): PackageInfo? =
+            context.packageManager.getPackageArchiveInfo(
+                apk.absolutePath,
+                PackageManager.GET_PERMISSIONS or
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES,
+            )
 
         /**
          * True when this is not the Play build. The Play build has the same version and key, but
          * Play's policy means it will never have this permission.
          */
-        fun isFullBuild(packageInfo: PackageInfo) = Manifest.permission.READ_CALL_LOG in packageInfo.requestedPermissions.orEmpty()
+        fun isFullBuild(packageInfo: PackageInfo) =
+            Manifest.permission.READ_CALL_LOG in packageInfo.requestedPermissions.orEmpty()
 
         fun installedPackage(context: Context): PackageInfo =
-            context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
 
         @Suppress("DEPRECATION")
         fun signerDigests(packageInfo: PackageInfo): Set<String> {
@@ -131,7 +144,8 @@ internal class UpdateCommands(
                 throw IllegalStateException("APK SHA-256 checksum verification failed.")
             }
 
-            val archive = apkPackageInfo(context, apk) ?: throw IllegalStateException("Downloaded file is not a valid APK.")
+            val archive = apkPackageInfo(context, apk)
+                ?: throw IllegalStateException("Downloaded file is not a valid APK.")
             if (archive.packageName != context.packageName) throw IllegalStateException("Downloaded APK has an unexpected package ID.")
             if (archive.versionName != release.version) throw IllegalStateException("Downloaded APK isn't version ${release.version}.")
             if (!isFullBuild(archive)) throw IllegalStateException("Downloaded APK isn't the full build.")
@@ -153,14 +167,17 @@ internal class UpdateCommands(
             return hex(digest.digest())
         }
 
-        private fun hex(bytes: ByteArray) = bytes.joinToString("") { "%02x".format(Locale.ROOT, it) }
+        private fun hex(bytes: ByteArray) =
+            bytes.joinToString("") { "%02x".format(Locale.ROOT, it) }
     }
 
     /**
      * On a slow connection, the APK can take longer than the normal request limit. The read timeout
      * still stops a download that has stalled.
      */
-    private val downloadClient by lazy { Net.client.newBuilder().callTimeout(10, TimeUnit.MINUTES).build() }
+    private val downloadClient by lazy {
+        Net.client.newBuilder().callTimeout(10, TimeUnit.MINUTES).build()
+    }
 
     private val releaseLink = LogContext.of(LogContext.URL to RELEASE_PAGE)
     private val installLine = LogContext.of(LogContext.COMMAND to "update install")
@@ -189,8 +206,16 @@ internal class UpdateCommands(
     private fun report(release: Release, install: Boolean) {
         val installed = BuildConfig.VERSION_NAME
         when {
-            isNewer(installed, release.version) -> info("Installed version is newer than the latest release.")
-            !isNewer(release.version, installed) -> info("Kolahal is already up to date (${release.version}).")
+            isNewer(
+                installed,
+                release.version
+            ) -> info("Installed version is newer than the latest release.")
+
+            !isNewer(
+                release.version,
+                installed
+            ) -> info("Kolahal is already up to date (${release.version}).")
+
             else -> {
                 info("Update available: $installed → ${release.version}", releaseLink)
                 when {
@@ -199,6 +224,7 @@ internal class UpdateCommands(
                         "This build isn't signed with Kolahal's release key, so it can't update itself. Get the new version from the release page.",
                         releaseLink,
                     )
+
                     install -> install(release)
                     else -> info("Run 'update install' to download and install it.", installLine)
                 }
@@ -208,8 +234,16 @@ internal class UpdateCommands(
 
     private fun install(release: Release) {
         if (!context.packageManager.canRequestPackageInstalls()) {
-            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${context.packageName}".toUri()))
-            info("Allow Kolahal to install unknown apps, then run 'update install' again.", installLine)
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    "package:${context.packageName}".toUri()
+                )
+            )
+            info(
+                "Allow Kolahal to install unknown apps, then run 'update install' again.",
+                installLine
+            )
             return
         }
 
@@ -224,7 +258,10 @@ internal class UpdateCommands(
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
         )
         // Android may block the installer from opening if you left Kolahal during the download.
-        info("Downloaded and verified Kolahal ${release.version}. If the installer doesn't open, run 'update install' again.", installLine)
+        info(
+            "Downloaded and verified Kolahal ${release.version}. If the installer doesn't open, run 'update install' again.",
+            installLine
+        )
     }
 
     /** Downloads the release to [apk] and verifies it. A failed or incomplete download is never kept. */
@@ -247,7 +284,8 @@ internal class UpdateCommands(
     }
 
     private fun fetch(release: Release, destination: File) {
-        val request = Request.Builder().url(release.url).header("User-Agent", Net.USER_AGENT).build()
+        val request =
+            Request.Builder().url(release.url).header("User-Agent", Net.USER_AGENT).build()
         downloadClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("APK download returned HTTP ${response.code}")
             val body = response.body

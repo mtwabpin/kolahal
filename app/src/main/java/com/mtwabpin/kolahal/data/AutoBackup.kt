@@ -32,7 +32,14 @@ object AutoBackup {
     fun folder(context: Context): Uri? = prefs(context).getString(KEY_FOLDER, null)?.let(Uri::parse)
 
     /** The folder's name, as the file picker showed it. */
-    fun folderName(context: Context): String? = folder(context)?.let { runCatching { DocumentFile.fromTreeUri(context, it)?.name }.getOrNull() }
+    fun folderName(context: Context): String? = folder(context)?.let {
+        runCatching {
+            DocumentFile.fromTreeUri(
+                context,
+                it
+            )?.name
+        }.getOrNull()
+    }
 
     fun setFolder(context: Context, tree: Uri) {
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -40,7 +47,8 @@ object AutoBackup {
         val old = folder(context)
         prefs(context).edit { putString(KEY_FOLDER, tree.toString()) }
         // Release the previous folder's grant, unless the script folder is also there.
-        old?.takeIf { it != tree }?.let { com.mtwabpin.kolahal.script.Files.releaseFolder(context, it) }
+        old?.takeIf { it != tree }
+            ?.let { com.mtwabpin.kolahal.script.Files.releaseFolder(context, it) }
     }
 
     /**
@@ -73,12 +81,17 @@ object AutoBackup {
 
     /** Writes today's backup to the folder and deletes the oldest ones past `backup.keep`. Returns the file's name. */
     fun backUp(context: Context): String {
-        val tree = folder(context) ?: throw IllegalStateException("no backup folder: run 'backup dir'")
+        val tree =
+            folder(context) ?: throw IllegalStateException("no backup folder: run 'backup dir'")
         val dir = DocumentFile.fromTreeUri(context, tree)
         if (dir == null || !dir.canWrite()) throw IllegalStateException("the backup folder can't be written: run 'backup dir'")
         // Build the text before any file exists, so a backup too big to save leaves nothing behind.
         val text = Backup(context).text()
-        val saved = saveTo(dir, "kolahal-backup-${LocalDate.now()}.json", Config.get(context)[Keys.BACKUP_KEEP]) { uri ->
+        val saved = saveTo(
+            dir,
+            "kolahal-backup-${LocalDate.now()}.json",
+            Config.get(context)[Keys.BACKUP_KEEP]
+        ) { uri ->
             com.mtwabpin.kolahal.script.Files.writeText(context, uri, text)
         }
         prefs(context).edit { putLong(KEY_LAST, System.currentTimeMillis()) }
@@ -93,7 +106,8 @@ object AutoBackup {
     internal fun saveTo(dir: DocumentFile, name: String, keep: Int, write: (Uri) -> Unit): String {
         val tempName = name.removeSuffix(".json") + ".tmp.json"
         dir.findFile(tempName)?.delete()
-        val temp = dir.createFile("application/json", tempName) ?: throw IllegalStateException("can't create $name")
+        val temp = dir.createFile("application/json", tempName)
+            ?: throw IllegalStateException("can't create $name")
         try {
             write(temp.uri)
         } catch (e: Exception) {
@@ -103,12 +117,18 @@ object AutoBackup {
         val earlier = dir.findFile(name)
         if ((earlier != null && !earlier.delete()) || !temp.renameTo(name)) {
             // The provider can't delete or rename, so write the file again under its name. Keep the copy until that is done.
-            val file = dir.findFile(name) ?: dir.createFile("application/json", name) ?: throw IllegalStateException("can't create $name")
+            val file = dir.findFile(name) ?: dir.createFile("application/json", name)
+            ?: throw IllegalStateException("can't create $name")
             write(file.uri)
             temp.delete()
         }
-        val files = dir.listFiles().filter { NAME.matches(it.name.orEmpty()) }.associateBy { it.name.orEmpty() }
-        expired(files.mapValues { it.value.length() }, name, keep).forEach { old -> runCatching { files[old]?.delete() } }
+        val files = dir.listFiles().filter { NAME.matches(it.name.orEmpty()) }
+            .associateBy { it.name.orEmpty() }
+        expired(
+            files.mapValues { it.value.length() },
+            name,
+            keep
+        ).forEach { old -> runCatching { files[old]?.delete() } }
         return name
     }
 
@@ -136,7 +156,8 @@ object AutoBackup {
 }
 
 /** Writes an automatic backup. A failure becomes a line in the log that says how to fix it. */
-class AutoBackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+class AutoBackupWorker(context: Context, params: WorkerParameters) :
+    CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         runCatching { AutoBackup.backUp(applicationContext) }.onFailure {
             val (text, ctx) = AutoBackup.failure(it)

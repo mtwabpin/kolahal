@@ -7,20 +7,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetModelTest {
-    private fun w(id: Int?, order: Int, location: String = WidgetLocation.PANEL, provider: String = "com.a/.W$order", height: Int = 120) =
+    private fun w(
+        id: Int?,
+        order: Int,
+        location: String = WidgetLocation.PANEL,
+        provider: String = "com.a/.W$order",
+        height: Int = 120
+    ) =
         PlacedWidget(id, provider, 0L, height, order, location)
 
-    @Test fun codecRoundTrips() {
+    @Test
+    fun codecRoundTrips() {
         val all = listOf(
             w(5, 0),
-            w(7, 1, WidgetLocation.OLD_HOME, "com.example.clock/com.example.clock.ClockWidget\$Big"),
+            w(
+                7,
+                1,
+                WidgetLocation.OLD_HOME,
+                "com.example.clock/com.example.clock.ClockWidget\$Big"
+            ),
             w(null, 2, WidgetLocation.OLD_HOME),
         ).map { it.copy(profileSerial = 10L) }
         assertEquals(all, WidgetCodec.decode(WidgetCodec.encode(all)))
     }
 
-    @Test fun decodeSkipsBrokenLinesAndClamps() {
-        val text = "garbage\n3|com.a/.W|0|5|0|panel\n|nocomponent|0|100|1|home\n4|com.b/.W|x|99999|y|weird"
+    @Test
+    fun decodeSkipsBrokenLinesAndClamps() {
+        val text =
+            "garbage\n3|com.a/.W|0|5|0|panel\n|nocomponent|0|100|1|home\n4|com.b/.W|x|99999|y|weird"
         val got = WidgetCodec.decode(text)
         assertEquals(2, got.size)
         assertEquals(WidgetLayout.MIN_DP, got[0].heightDp)
@@ -30,14 +44,22 @@ class WidgetModelTest {
         assertTrue(WidgetCodec.decode(null).isEmpty())
     }
 
-    @Test fun exportDropsIdsAndImportMakesPending() {
-        val exported = WidgetCodec.export(listOf(w(9, 1, WidgetLocation.OLD_HOME, height = 200), w(3, 0)))
+    @Test
+    fun exportDropsIdsAndImportMakesPending() {
+        val exported =
+            WidgetCodec.export(listOf(w(9, 1, WidgetLocation.OLD_HOME, height = 200), w(3, 0)))
         assertEquals(listOf("com.a/.W0", "com.a/.W1"), exported.map { it["provider"] })
         assertTrue(exported.none { it.containsKey("id") })
         // JSON round trips may turn numbers into Double / String.
         val imported = WidgetCodec.fromExport(
             listOf(
-                mapOf("provider" to "com.a/.W1", "profile" to 0.0, "height" to "200", "location" to "home", "order" to 1),
+                mapOf(
+                    "provider" to "com.a/.W1",
+                    "profile" to 0.0,
+                    "height" to "200",
+                    "location" to "home",
+                    "order" to 1
+                ),
                 mapOf("provider" to "not a component"),
             )
         )
@@ -50,25 +72,36 @@ class WidgetModelTest {
     }
 
     /** A list another install wrote (a restore to a new phone): every app widget waits for Add again, in its place. */
-    @Test fun aListFromElsewhereHasEveryAppWidgetPending() {
+    @Test
+    fun aListFromElsewhereHasEveryAppWidgetPending() {
         val kolahal = PlacedWidget(null, WidgetSource.builtin("clock"), 0L, 120, 2)
-        val moved = WidgetCodec.fromElsewhere(listOf(w(7, 0), w(8, 1).copy(column = 6, topDp = 40), kolahal))
+        val moved = WidgetCodec.fromElsewhere(
+            listOf(
+                w(7, 0),
+                w(8, 1).copy(column = 6, topDp = 40),
+                kolahal
+            )
+        )
         assertTrue(moved[0].pending)
         assertEquals(w(8, 1).copy(id = null, column = 6, topDp = 40), moved[1])
         assertEquals(kolahal, moved[2])
     }
 
-    @Test fun importTwiceDoesNotDuplicate() {
+    @Test
+    fun importTwiceDoesNotDuplicate() {
         val list = listOf(mapOf<String, Any?>("provider" to "com.a/.W", "order" to 0))
         val once = WidgetCodec.mergePending(emptyList(), WidgetCodec.fromExport(list))
         val twice = WidgetCodec.mergePending(once, WidgetCodec.fromExport(list))
         assertEquals(1, twice.size)
     }
 
-    @Test fun moveStaysWithinLocation() {
+    @Test
+    fun moveStaysWithinLocation() {
         val all = listOf(w(1, 0), w(2, 1), w(3, 2), w(4, 0, WidgetLocation.OLD_HOME))
         val moved = WidgetOrder.move(all, "w3", -1)
-        assertEquals(listOf(1, 3, 2), WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.id })
+        assertEquals(
+            listOf(1, 3, 2),
+            WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.id })
         assertEquals(0, moved.first { it.id == 4 }.order)
         // Edges are no-ops.
         assertEquals(all, WidgetOrder.move(all, "w1", -1))
@@ -76,24 +109,37 @@ class WidgetModelTest {
     }
 
     /** Widgets placed on home before 0.3.1 join the widgets page after its own, keeping their order. */
-    @Test fun homeWidgetsMoveOntoThePage() {
-        val all = listOf(w(1, 1), w(2, 0), w(4, 1, WidgetLocation.OLD_HOME), w(5, 0, WidgetLocation.OLD_HOME), w(null, 3, WidgetLocation.OLD_HOME))
+    @Test
+    fun homeWidgetsMoveOntoThePage() {
+        val all = listOf(
+            w(1, 1),
+            w(2, 0),
+            w(4, 1, WidgetLocation.OLD_HOME),
+            w(5, 0, WidgetLocation.OLD_HOME),
+            w(null, 3, WidgetLocation.OLD_HOME)
+        )
         val page = WidgetOrder.onePage(all)
         assertTrue(page.all { it.location == WidgetLocation.PANEL })
-        assertEquals(listOf(2, 1, 5, 4), WidgetOrder.inLocation(page, WidgetLocation.PANEL).map { it.id })
-        assertEquals(listOf(0, 1, 2, 3), WidgetOrder.inLocation(page, WidgetLocation.PANEL).map { it.order })
+        assertEquals(
+            listOf(2, 1, 5, 4),
+            WidgetOrder.inLocation(page, WidgetLocation.PANEL).map { it.id })
+        assertEquals(
+            listOf(0, 1, 2, 3),
+            WidgetOrder.inLocation(page, WidgetLocation.PANEL).map { it.order })
         assertEquals(3, page.single { it.pending }.order)
         val onlyPage = listOf(w(1, 0), w(2, 1))
         assertEquals(onlyPage, WidgetOrder.onePage(onlyPage))
     }
 
-    @Test fun resizeClamps() {
+    @Test
+    fun resizeClamps() {
         assertEquals(168, WidgetLayout.clampHeight(168, 100))
         assertEquals(100, WidgetLayout.clampHeight(72, 100))
         assertEquals(WidgetLayout.MAX_DP, WidgetLayout.clampHeight(WidgetLayout.MAX_DP + 48, 48))
     }
 
-    @Test fun minAndDefaultHeights() {
+    @Test
+    fun minAndDefaultHeights() {
         assertEquals(60, WidgetLayout.minHeight(110, 60, resizableVertically = true))
         assertEquals(110, WidgetLayout.minHeight(110, 60, resizableVertically = false))
         assertEquals(WidgetLayout.MIN_DP, WidgetLayout.minHeight(10, 0, true))
@@ -102,13 +148,18 @@ class WidgetModelTest {
         assertEquals(72, WidgetLayout.defaultHeight(20))
     }
 
-    @Test fun sizeLabels() {
+    @Test
+    fun sizeLabels() {
         assertEquals("4×2", WidgetLayout.sizeLabel(250, 110))
         assertEquals("1×1", WidgetLayout.sizeLabel(10, 10))
-        assertEquals("3×1", WidgetLayout.sizeLabel(250, 110, targetCellWidth = 3, targetCellHeight = 1))
+        assertEquals(
+            "3×1",
+            WidgetLayout.sizeLabel(250, 110, targetCellWidth = 3, targetCellHeight = 1)
+        )
     }
 
-    @Test fun widgetsSitSideBySideWhileTheyFit() {
+    @Test
+    fun widgetsSitSideBySideWhileTheyFit() {
         assertEquals(listOf(listOf(0, 1), listOf(2)), WidgetLayout.rows(listOf(6, 6, 12)))
         assertEquals(listOf(listOf(0, 1, 2), listOf(3)), WidgetLayout.rows(listOf(4, 4, 4, 3)))
         // The next one doesn't fit beside the others: a new row, even with room left.
@@ -118,7 +169,8 @@ class WidgetModelTest {
         assertEquals(listOf(listOf(0), listOf(1)), WidgetLayout.rows(listOf(40, 0)))
     }
 
-    @Test fun widthsOfARowFillThePage() {
+    @Test
+    fun widthsOfARowFillThePage() {
         val page = 395
         assertEquals(page, WidgetLayout.widthDp(page, 12))
         // Two halves and the gap between them make the page, give or take a dp of rounding.
@@ -128,7 +180,8 @@ class WidgetModelTest {
         assertTrue(thirds in page - 2..page)
     }
 
-    @Test fun widthLabelsAndSteps() {
+    @Test
+    fun widthLabelsAndSteps() {
         assertEquals("Full", WidgetLayout.spanLabel(12))
         assertEquals("Full width · 160 dp tall", WidgetLayout.sizeLine(12, 160))
         assertEquals("1/2 wide · 184 dp tall", WidgetLayout.sizeLine(6, 184))
@@ -141,15 +194,23 @@ class WidgetModelTest {
         assertEquals(5, WidgetLayout.resizeSpan(6, -1))
     }
 
-    @Test fun widthsAreSavedAndOlderLinesAreFullWidth() {
+    @Test
+    fun widthsAreSavedAndOlderLinesAreFullWidth() {
         val half = w(5, 0).copy(span = 6)
         assertEquals(listOf(half), WidgetCodec.decode(WidgetCodec.encode(listOf(half))))
         // Saved by 0.3.1: six fields, no width.
-        assertEquals(WidgetLayout.COLUMNS, WidgetCodec.decode("3|com.a/.W|0|120|0|panel").single().span)
-        assertEquals(WidgetLayout.MIN_SPAN, WidgetCodec.decode("3|com.a/.W|0|120|0|panel|0").single().span)
+        assertEquals(
+            WidgetLayout.COLUMNS,
+            WidgetCodec.decode("3|com.a/.W|0|120|0|panel").single().span
+        )
+        assertEquals(
+            WidgetLayout.MIN_SPAN,
+            WidgetCodec.decode("3|com.a/.W|0|120|0|panel|0").single().span
+        )
     }
 
-    @Test fun backupsCarryTheWidth() {
+    @Test
+    fun backupsCarryTheWidth() {
         val exported = WidgetCodec.export(listOf(w(9, 0).copy(span = 4)))
         assertEquals(4, exported.single()["span"])
         val imported = WidgetCodec.fromExport(
@@ -159,7 +220,9 @@ class WidgetModelTest {
                 mapOf("provider" to "com.a/.W2", "span" to "99"),
             )
         )
-        assertEquals(listOf(4, WidgetLayout.COLUMNS, WidgetLayout.COLUMNS), imported.map { it.span })
+        assertEquals(
+            listOf(4, WidgetLayout.COLUMNS, WidgetLayout.COLUMNS),
+            imported.map { it.span })
     }
 
     /**
@@ -167,39 +230,63 @@ class WidgetModelTest {
      * cell wide and 72 dp high; an app's widget two columns and 48 dp. The saved list and a backup
      * both follow it, so a restored widget is never smaller than the page lets you make it.
      */
-    @Test fun aRestoredWidgetIsNeverBelowItsMinimum() {
-        assertEquals(WidgetSizes.MIN_SPAN to WidgetSizes.MIN_HEIGHT_DP, WidgetLayout.minSpan(true) to WidgetLayout.minDp(true))
-        assertEquals(WidgetLayout.MIN_SPAN to WidgetLayout.MIN_DP, WidgetLayout.minSpan(false) to WidgetLayout.minDp(false))
+    @Test
+    fun aRestoredWidgetIsNeverBelowItsMinimum() {
+        assertEquals(
+            WidgetSizes.MIN_SPAN to WidgetSizes.MIN_HEIGHT_DP,
+            WidgetLayout.minSpan(true) to WidgetLayout.minDp(true)
+        )
+        assertEquals(
+            WidgetLayout.MIN_SPAN to WidgetLayout.MIN_DP,
+            WidgetLayout.minSpan(false) to WidgetLayout.minDp(false)
+        )
         val smallest = WidgetSizes.MIN_HEIGHT_DP to WidgetSizes.MIN_SPAN
         val sources = listOf("script:weather", "script:weather#2", "builtin:battery")
 
         // The saved list: too small, then with no height at all, then an app's widget.
-        val saved = WidgetCodec.decode((sources.map { "-|$it|0|10|0|panel|1" } + "-|script:bare|0||1|panel|2" + "3|com.a/.W|0|10|2|panel|1").joinToString("\n"))
+        val saved =
+            WidgetCodec.decode((sources.map { "-|$it|0|10|0|panel|1" } + "-|script:bare|0||1|panel|2" + "3|com.a/.W|0|10|2|panel|1").joinToString(
+                "\n"
+            ))
         assertEquals(sources + "script:bare" + "com.a/.W", saved.map { it.provider })
         assertEquals(List(4) { smallest }, saved.take(4).map { it.heightDp to it.span })
-        assertEquals(WidgetLayout.MIN_DP to WidgetLayout.MIN_SPAN, saved[4].heightDp to saved[4].span)
+        assertEquals(
+            WidgetLayout.MIN_DP to WidgetLayout.MIN_SPAN,
+            saved[4].heightDp to saved[4].span
+        )
 
         // A backup: the same, whatever type its numbers come as.
         val restored = WidgetCodec.fromExport(
             sources.map { mapOf("provider" to it, "height" to 10.0, "span" to "1") } +
-                mapOf("provider" to "script:bare") +
-                mapOf("provider" to "com.a/.W", "height" to 10, "span" to 1),
+                    mapOf("provider" to "script:bare") +
+                    mapOf("provider" to "com.a/.W", "height" to 10, "span" to 1),
         )
         assertEquals(List(3) { smallest }, restored.take(3).map { it.heightDp to it.span })
         // No size in the backup: as low as it may be, and full width.
-        assertEquals(WidgetSizes.MIN_HEIGHT_DP to WidgetLayout.COLUMNS, restored[3].heightDp to restored[3].span)
-        assertEquals(WidgetLayout.MIN_DP to WidgetLayout.MIN_SPAN, restored[4].heightDp to restored[4].span)
+        assertEquals(
+            WidgetSizes.MIN_HEIGHT_DP to WidgetLayout.COLUMNS,
+            restored[3].heightDp to restored[3].span
+        )
+        assertEquals(
+            WidgetLayout.MIN_DP to WidgetLayout.MIN_SPAN,
+            restored[4].heightDp to restored[4].span
+        )
 
         // A size inside the limits stays, and the largest is the same for every widget.
-        val kept = WidgetCodec.decode("-|script:weather|0|96|0|panel|3\n-|script:tall|0|99999|1|panel|99")
-        assertEquals(listOf(96 to 3, WidgetLayout.MAX_DP to WidgetLayout.COLUMNS), kept.map { it.heightDp to it.span })
+        val kept =
+            WidgetCodec.decode("-|script:weather|0|96|0|panel|3\n-|script:tall|0|99999|1|panel|99")
+        assertEquals(
+            listOf(96 to 3, WidgetLayout.MAX_DP to WidgetLayout.COLUMNS),
+            kept.map { it.heightDp to it.span })
     }
 
     // ---- widgets Kolahal draws itself: the provider field holds a source ----
 
-    private fun script(name: String, order: Int = 0, span: Int = 6) = PlacedWidget(null, WidgetSource.script(name), 0L, 96, order, span = span)
+    private fun script(name: String, order: Int = 0, span: Int = 6) =
+        PlacedWidget(null, WidgetSource.script(name), 0L, 96, order, span = span)
 
-    @Test fun aSourceIsAPrefixAndAName() {
+    @Test
+    fun aSourceIsAPrefixAndAName() {
         assertTrue(WidgetSource.isSource("script:weather"))
         assertTrue(WidgetSource.isSource("builtin:battery"))
         // No name, no known prefix, or one of the stored line's separators.
@@ -223,7 +310,8 @@ class WidgetModelTest {
      * Status cards are gone since 0.5.9. At start, the stored list drops them and is saved again, so
      * this happens once. The other widgets stay as they were, and the log says how many went.
      */
-    @Test fun placedStatusCardsAreRemovedOnce() {
+    @Test
+    fun placedStatusCardsAreRemovedOnce() {
         val stored = listOf(
             "5|com.a/.W5|0|120|0|panel|12",
             "-|status:cricket|0|72|1|panel|6",
@@ -232,15 +320,24 @@ class WidgetModelTest {
             "-|builtin:battery|0|88|4|panel|6",
         ).joinToString("\n")
         val start = WidgetCodec.start(stored)
-        assertEquals(listOf("com.a/.W5", "script:weather", "builtin:battery"), start.widgets.map { it.provider })
+        assertEquals(
+            listOf("com.a/.W5", "script:weather", "builtin:battery"),
+            start.widgets.map { it.provider })
         // The others keep their id, size, width and order.
         assertEquals(listOf(5, null, null), start.widgets.map { it.id })
-        assertEquals(listOf(listOf(120, 12), listOf(96, 6), listOf(88, 6)), start.widgets.map { listOf(it.heightDp, it.span) })
+        assertEquals(
+            listOf(listOf(120, 12), listOf(96, 6), listOf(88, 6)),
+            start.widgets.map { listOf(it.heightDp, it.span) })
         // Each gets the place the old page gave it, and the order follows the page from the top.
-        assertEquals(listOf(listOf(0, 0, 0), listOf(0, 128, 1), listOf(6, 128, 2)), start.widgets.map { listOf(it.column, it.topDp, it.order) })
+        assertEquals(
+            listOf(listOf(0, 0, 0), listOf(0, 128, 1), listOf(6, 128, 2)),
+            start.widgets.map { listOf(it.column, it.topDp, it.order) })
         assertEquals(2, start.statusCards)
         assertTrue(start.changed)
-        assertEquals("Status cards are gone: 2 removed from the widgets page. Status lines still show at the top of home.", start.note)
+        assertEquals(
+            "Status cards are gone: 2 removed from the widgets page. Status lines still show at the top of home.",
+            start.note
+        )
 
         // Saved again, the list has none left: the next start changes nothing and says nothing.
         val next = WidgetCodec.start(WidgetCodec.encode(start.widgets))
@@ -250,21 +347,31 @@ class WidgetModelTest {
         assertNull(next.note)
 
         // No list yet, or one with no Status card: nothing to do.
-        assertEquals(WidgetCodec.Start(emptyList(), changed = false, statusCards = 0), WidgetCodec.start(null))
+        assertEquals(
+            WidgetCodec.Start(emptyList(), changed = false, statusCards = 0),
+            WidgetCodec.start(null)
+        )
         assertFalse(WidgetCodec.start("-|script:weather|0|96|0|panel|6|plain|0|0").changed)
     }
 
     /** Widgets placed on home before 0.3.1 still move onto the page at start, beside the Status cards' removal. */
-    @Test fun theStartAlsoMovesOldHomeWidgets() {
-        val start = WidgetCodec.start("-|script:weather|0|96|0|home|6\n-|status:sky|0|72|0|panel|6\n7|com.a/.W7|0|120|0|panel|12")
-        assertEquals(listOf("script:weather" to 1, "com.a/.W7" to 0), start.widgets.map { it.provider to it.order })
+    @Test
+    fun theStartAlsoMovesOldHomeWidgets() {
+        val start =
+            WidgetCodec.start("-|script:weather|0|96|0|home|6\n-|status:sky|0|72|0|panel|6\n7|com.a/.W7|0|120|0|panel|12")
+        assertEquals(
+            listOf("script:weather" to 1, "com.a/.W7" to 0),
+            start.widgets.map { it.provider to it.order })
         assertTrue(start.widgets.all { it.location == WidgetLocation.PANEL })
         assertEquals(1, start.statusCards)
-        assertTrue(WidgetCodec.start("-|script:weather|0|96|0|home|6").let { it.changed && it.note == null })
+        assertTrue(
+            WidgetCodec.start("-|script:weather|0|96|0|home|6")
+                .let { it.changed && it.note == null })
     }
 
     /** A Status card in a backup from before 0.5.9 is dropped. The other widgets are restored. */
-    @Test fun aBackupsStatusCardIsDropped() {
+    @Test
+    fun aBackupsStatusCardIsDropped() {
         val imported = WidgetCodec.fromExport(
             listOf(
                 mapOf("provider" to "status:cricket", "height" to 72, "order" to 0, "span" to 6),
@@ -277,7 +384,8 @@ class WidgetModelTest {
     }
 
     /** A widget with a source has no id and is still placed. Only an app's widget without an id waits to be added again. */
-    @Test fun aSourceIsPlacedNotPending() {
+    @Test
+    fun aSourceIsPlacedNotPending() {
         val s = script("weather")
         assertEquals("script:weather", s.source)
         assertFalse(s.pending)
@@ -286,22 +394,34 @@ class WidgetModelTest {
         assertTrue(w(null, 0).pending)
         // It is on the page with the app widgets, in one order.
         val all = listOf(w(5, 1), script("weather", order = 0), w(null, 2))
-        assertEquals(listOf("s:script:weather", "w5"), WidgetOrder.inLocation(all, WidgetLocation.PANEL).map { it.key })
+        assertEquals(
+            listOf("s:script:weather", "w5"),
+            WidgetOrder.inLocation(all, WidgetLocation.PANEL).map { it.key })
     }
 
-    @Test fun sourceLinesRoundTrip() {
-        val all = listOf(w(5, 0), script("weather", order = 1), PlacedWidget(null, "builtin:todos", 0L, 72, 2, span = 12), w(null, 3))
+    @Test
+    fun sourceLinesRoundTrip() {
+        val all = listOf(
+            w(5, 0),
+            script("weather", order = 1),
+            PlacedWidget(null, "builtin:todos", 0L, 72, 2, span = 12),
+            w(null, 3)
+        )
         val text = WidgetCodec.encode(all)
         assertTrue(text.lines().contains("-|script:weather|0|96|1|panel|6|plain|-1|-1"))
         assertEquals(all, WidgetCodec.decode(text))
         // A source has no AppWidget id, whatever the line says.
         assertNull(WidgetCodec.decode("7|script:weather|0|96|1|panel|6").single().id)
         // Not a source and not a component: skipped, as before. A Status card from before 0.5.9 too.
-        assertTrue(WidgetCodec.decode("-|script:|0|96|1|panel|6\n-|other:x|0|96|1|panel|6\n-|weather|0|96|1|panel|6\n-|status:cricket|0|72|1|panel|6").isEmpty())
+        assertTrue(
+            WidgetCodec.decode("-|script:|0|96|1|panel|6\n-|other:x|0|96|1|panel|6\n-|weather|0|96|1|panel|6\n-|status:cricket|0|72|1|panel|6")
+                .isEmpty()
+        )
     }
 
     /** Lines saved before sources existed read as they did: an id, or a pending entry. */
-    @Test fun oldLinesReadAsBefore() {
+    @Test
+    fun oldLinesReadAsBefore() {
         val got = WidgetCodec.decode("3|com.a/.W|0|120|0|panel\n-|com.b/.W|10|200|1|panel|6")
         assertEquals(listOf(3, null), got.map { it.id })
         assertEquals(listOf(false, true), got.map { it.pending })
@@ -310,24 +430,36 @@ class WidgetModelTest {
     }
 
     /** Its key holds no order, so it is the same wherever the widget moves and after a restart. */
-    @Test fun aSourcesKeyIsStable() {
+    @Test
+    fun aSourcesKeyIsStable() {
         val all = listOf(w(1, 0), script("weather", order = 1), w(2, 2))
         val key = all[1].key
         assertEquals("s:script:weather", key)
         val moved = WidgetOrder.move(all, key, -1)
         assertEquals(0, moved.single { it.source != null }.order)
         assertEquals(key, moved.single { it.source != null }.key)
-        assertEquals(listOf(key, "w1", "w2"), WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.key })
-        assertEquals(key, WidgetCodec.decode(WidgetCodec.encode(moved)).single { it.source != null }.key)
+        assertEquals(
+            listOf(key, "w1", "w2"),
+            WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.key })
+        assertEquals(
+            key,
+            WidgetCodec.decode(WidgetCodec.encode(moved)).single { it.source != null }.key
+        )
     }
 
     /** A backup holds the source where an app widget has its provider, and a restore places it: it needs no "Add again". */
-    @Test fun backupsCarrySources() {
+    @Test
+    fun backupsCarrySources() {
         val exported = WidgetCodec.export(listOf(w(9, 0), script("weather", order = 1, span = 6)))
         assertEquals(listOf("com.a/.W0", "script:weather"), exported.map { it["provider"] })
         val imported = WidgetCodec.fromExport(
             listOf(
-                mapOf("provider" to "script:weather", "height" to 96.0, "order" to 1.0, "span" to 6.0),
+                mapOf(
+                    "provider" to "script:weather",
+                    "height" to 96.0,
+                    "order" to 1.0,
+                    "span" to 6.0
+                ),
                 mapOf("provider" to "script:bad|name"),
                 mapOf("provider" to "script:"),
                 mapOf("provider" to "com.a/.W0"),
@@ -341,8 +473,12 @@ class WidgetModelTest {
     }
 
     /** A widget with a source is placed once: importing a backup again, or over the same widget, adds nothing. */
-    @Test fun importSkipsASourceAlreadyPlaced() {
-        val list = listOf(mapOf<String, Any?>("provider" to "script:weather", "order" to 4), mapOf("provider" to "script:news", "order" to 5))
+    @Test
+    fun importSkipsASourceAlreadyPlaced() {
+        val list = listOf(
+            mapOf<String, Any?>("provider" to "script:weather", "order" to 4),
+            mapOf("provider" to "script:news", "order" to 5)
+        )
         val existing = listOf(w(1, 0), script("weather", order = 1))
         val merged = WidgetCodec.mergePending(existing, WidgetCodec.fromExport(list))
         assertEquals(listOf("w1", "s:script:weather", "s:script:news"), merged.map { it.key })
@@ -352,12 +488,22 @@ class WidgetModelTest {
     }
 
     /** A renamed script's widgets keep their place, size and order. Only the name in the source changes. */
-    @Test fun aRenamedScriptsWidgetsFollowIt() {
+    @Test
+    fun aRenamedScriptsWidgetsFollowIt() {
         val second = further("weather", "2", order = 2)
-        val all = listOf(w(1, 0), script("weather", order = 1, span = 3), second, script("news", order = 3))
+        val all = listOf(
+            w(1, 0),
+            script("weather", order = 1, span = 3),
+            second,
+            script("news", order = 3)
+        )
         val renamed = WidgetSource.renamed(all, "weather", "sky")
-        assertEquals(listOf("com.a/.W0", "script:sky", "script:sky#2", "script:news"), renamed.map { it.provider })
-        assertEquals(all.map { listOf(it.order, it.span, it.heightDp) }, renamed.map { listOf(it.order, it.span, it.heightDp) })
+        assertEquals(
+            listOf("com.a/.W0", "script:sky", "script:sky#2", "script:news"),
+            renamed.map { it.provider })
+        assertEquals(
+            all.map { listOf(it.order, it.span, it.heightDp) },
+            renamed.map { listOf(it.order, it.span, it.heightDp) })
         // An entry that an earlier script of the new name left behind gives way.
         val over = WidgetSource.renamed(all, "weather", "news")
         assertEquals(listOf("com.a/.W0", "script:news", "script:news#2"), over.map { it.provider })
@@ -373,19 +519,28 @@ class WidgetModelTest {
      * An entry of the new name gives way only to the entry that takes its place. A script with just
      * a further widget, renamed to a name whose first widget waits on the page, keeps that widget: it is its own now.
      */
-    @Test fun aRenameKeepsAWaitingWidgetThatNothingReplaces() {
-        val all = listOf(further("weather", "2", order = 0).copy(span = 12), script("sky", order = 1), further("sky", "2", order = 2))
+    @Test
+    fun aRenameKeepsAWaitingWidgetThatNothingReplaces() {
+        val all = listOf(
+            further("weather", "2", order = 0).copy(span = 12),
+            script("sky", order = 1),
+            further("sky", "2", order = 2)
+        )
         val renamed = WidgetSource.renamed(all, "weather", "sky")
         // The further widget moves over the old one of that id. The first widget stays where it is.
-        assertEquals(listOf("script:sky#2" to 12, "script:sky" to 6), renamed.map { it.provider to it.span })
+        assertEquals(
+            listOf("script:sky#2" to 12, "script:sky" to 6),
+            renamed.map { it.provider to it.span })
         assertEquals(listOf(0, 1), renamed.map { it.order })
     }
 
     // ---- built-in widgets: no script fills them ----
 
-    private val battery = PlacedWidget(null, WidgetSource.builtin(WidgetSource.BATTERY), 0L, 88, 1, span = 6)
+    private val battery =
+        PlacedWidget(null, WidgetSource.builtin(WidgetSource.BATTERY), 0L, 88, 1, span = 6)
 
-    @Test fun aBuiltInWidgetHasAnId() {
+    @Test
+    fun aBuiltInWidgetHasAnId() {
         assertEquals("builtin:battery", WidgetSource.builtin(WidgetSource.BATTERY))
         assertEquals("battery", WidgetSource.builtinId("builtin:battery"))
         // An id from a newer version still reads. Its card says that it has nothing to draw.
@@ -401,7 +556,8 @@ class WidgetModelTest {
     }
 
     /** Each built-in widget has one name: the picker, the Widgets screen and `widgets ls` say the same. */
-    @Test fun builtInWidgetsHaveNames() {
+    @Test
+    fun builtInWidgetsHaveNames() {
         val titles = mapOf(
             WidgetSource.BATTERY to "Battery and network",
             WidgetSource.SHORTCUTS to "Shortcuts",
@@ -423,7 +579,8 @@ class WidgetModelTest {
     }
 
     /** `widgets ls` names a built-in widget by its name, and a script's widget by the script's name. */
-    @Test fun aSourceHasALabel() {
+    @Test
+    fun aSourceHasALabel() {
         assertEquals("Todos", WidgetSource.label("builtin:todos"))
         assertEquals("Battery and network", WidgetSource.label("builtin:battery"))
         assertEquals("comic", WidgetSource.label("builtin:comic"))
@@ -433,7 +590,8 @@ class WidgetModelTest {
     }
 
     /** It is placed like a script's widget: no id, not pending, one key wherever it moves. */
-    @Test fun aBuiltInWidgetIsPlacedAndStored() {
+    @Test
+    fun aBuiltInWidgetIsPlacedAndStored() {
         assertEquals("builtin:battery", battery.source)
         assertFalse(battery.pending)
         assertEquals("s:builtin:battery", battery.key)
@@ -441,16 +599,23 @@ class WidgetModelTest {
         val text = WidgetCodec.encode(all)
         assertTrue(text.lines().contains("-|builtin:battery|0|88|1|panel|6|plain|-1|-1"))
         assertEquals(all, WidgetCodec.decode(text))
-        assertEquals(listOf("w5", "s:builtin:battery", "s:script:weather"), WidgetOrder.inLocation(all, WidgetLocation.PANEL).map { it.key })
+        assertEquals(
+            listOf("w5", "s:builtin:battery", "s:script:weather"),
+            WidgetOrder.inLocation(all, WidgetLocation.PANEL).map { it.key })
         val moved = WidgetOrder.move(all, battery.key, -1)
-        assertEquals(listOf("s:builtin:battery", "w5", "s:script:weather"), WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.key })
+        assertEquals(
+            listOf("s:builtin:battery", "w5", "s:script:weather"),
+            WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.key })
     }
 
     /** A backup carries it, and a restore places it as it comes: once, with its size, and with no "Add again". */
-    @Test fun backupsCarryABuiltInWidget() {
+    @Test
+    fun backupsCarryABuiltInWidget() {
         val all = listOf(w(9, 0), battery, PlacedWidget(null, "builtin:notes", 0L, 88, 2, span = 6))
         val exported = WidgetCodec.export(all)
-        assertEquals(listOf("com.a/.W0", "builtin:battery", "builtin:notes"), exported.map { it["provider"] })
+        assertEquals(
+            listOf("com.a/.W0", "builtin:battery", "builtin:notes"),
+            exported.map { it["provider"] })
         val imported = WidgetCodec.fromExport(exported)
         assertEquals(listOf(true, false, false), imported.map { it.pending })
         assertEquals(battery, imported[1])
@@ -459,23 +624,41 @@ class WidgetModelTest {
         assertEquals(listOf("builtin:battery", "builtin:notes"), restored.mapNotNull { it.source })
         assertEquals(restored, WidgetCodec.mergePending(restored, WidgetOrder.onePage(imported)))
         val kept = battery.copy(order = 0, span = 3)
-        assertEquals(kept, WidgetCodec.mergePending(listOf(kept), imported).single { it.source == "builtin:battery" })
+        assertEquals(
+            kept,
+            WidgetCodec.mergePending(listOf(kept), imported)
+                .single { it.source == "builtin:battery" })
         // Numbers as a JSON reader gives them.
-        val fromJson = WidgetCodec.fromExport(listOf(mapOf("provider" to "builtin:battery", "height" to 88.0, "order" to 1.0, "span" to 3.0)))
+        val fromJson = WidgetCodec.fromExport(
+            listOf(
+                mapOf(
+                    "provider" to "builtin:battery",
+                    "height" to 88.0,
+                    "order" to 1.0,
+                    "span" to 3.0
+                )
+            )
+        )
         assertEquals(listOf(battery.copy(span = 3)), fromJson)
     }
 
     /** A placed Todos widget survives a backup: it comes back placed, with its size and its place, and needs no "Add again". */
-    @Test fun aPlacedTodosWidgetSurvivesExportAndImport() {
-        val todos = PlacedWidget(null, WidgetSource.builtin(WidgetSource.TODOS), 0L, 184, 1, span = 12)
+    @Test
+    fun aPlacedTodosWidgetSurvivesExportAndImport() {
+        val todos =
+            PlacedWidget(null, WidgetSource.builtin(WidgetSource.TODOS), 0L, 184, 1, span = 12)
         assertEquals("builtin:todos", todos.provider)
         val all = listOf(battery.copy(order = 0), todos, script("weather", order = 2))
         // As it is stored on the phone.
-        assertTrue(WidgetCodec.encode(all).lines().contains("-|builtin:todos|0|184|1|panel|12|plain|-1|-1"))
+        assertTrue(
+            WidgetCodec.encode(all).lines().contains("-|builtin:todos|0|184|1|panel|12|plain|-1|-1")
+        )
         assertEquals(all, WidgetCodec.decode(WidgetCodec.encode(all)))
         // As a backup carries it.
         val exported = WidgetCodec.export(all)
-        assertEquals(listOf("builtin:battery", "builtin:todos", "script:weather"), exported.map { it["provider"] })
+        assertEquals(
+            listOf("builtin:battery", "builtin:todos", "script:weather"),
+            exported.map { it["provider"] })
         val imported = WidgetCodec.fromExport(exported)
         assertEquals(todos, imported[1])
         assertFalse(imported[1].pending)
@@ -485,31 +668,50 @@ class WidgetModelTest {
         assertEquals(all, restored)
         assertEquals(restored, WidgetCodec.mergePending(restored, WidgetOrder.onePage(imported)))
         val mine = todos.copy(heightDp = 368, order = 0)
-        assertEquals(mine, WidgetCodec.mergePending(listOf(mine), imported).single { it.source == "builtin:todos" })
+        assertEquals(
+            mine,
+            WidgetCodec.mergePending(listOf(mine), imported)
+                .single { it.source == "builtin:todos" })
         // Numbers as a JSON reader gives them.
-        val fromJson = WidgetCodec.fromExport(listOf(mapOf("provider" to "builtin:todos", "height" to 184.0, "order" to 1.0, "span" to 12.0)))
+        val fromJson = WidgetCodec.fromExport(
+            listOf(
+                mapOf(
+                    "provider" to "builtin:todos",
+                    "height" to 184.0,
+                    "order" to 1.0,
+                    "span" to 12.0
+                )
+            )
+        )
         assertEquals(listOf(todos), fromJson)
         // It is named for the Widgets screen and `widgets ls`.
         assertEquals("Todos", WidgetSource.label(restored[1].provider))
     }
 
     /** A script named like a built-in widget is another thing: renaming it leaves the built-in widget alone. */
-    @Test fun aScriptNamedLikeABuiltInWidgetDoesNotMoveIt() {
+    @Test
+    fun aScriptNamedLikeABuiltInWidgetDoesNotMoveIt() {
         val all = listOf(battery, script("battery", order = 2), further("battery", "2", order = 3))
         val renamed = WidgetSource.renamed(all, "battery", "power")
-        assertEquals(listOf("builtin:battery", "script:power", "script:power#2"), renamed.map { it.provider })
+        assertEquals(
+            listOf("builtin:battery", "script:power", "script:power#2"),
+            renamed.map { it.provider })
         // And a script renamed to its name does not take its place.
         val back = WidgetSource.renamed(renamed, "power", "battery")
-        assertEquals(listOf("builtin:battery", "script:battery", "script:battery#2"), back.map { it.provider })
+        assertEquals(
+            listOf("builtin:battery", "script:battery", "script:battery#2"),
+            back.map { it.provider })
         assertEquals(all, WidgetSource.renamed(all, "weather", "battery"))
     }
 
     // ---- several widgets of one script: `script:<name>#<id>` ----
 
-    private fun further(name: String, id: String, order: Int = 0) = PlacedWidget(null, WidgetSource.script(WidgetRef(name, id)), 0L, 96, order, span = 6)
+    private fun further(name: String, id: String, order: Int = 0) =
+        PlacedWidget(null, WidgetSource.script(WidgetRef(name, id)), 0L, 96, order, span = 6)
 
     /** A further widget's source has its id after the name. The first widget's source is as it always was. */
-    @Test fun aFurtherWidgetHasAnIdInItsSource() {
+    @Test
+    fun aFurtherWidgetHasAnIdInItsSource() {
         assertEquals("script:weather", WidgetSource.script(WidgetRef("weather")))
         assertEquals("script:weather#2", WidgetSource.script(WidgetRef("weather", "2")))
         assertTrue(WidgetSource.isSource("script:weather#2"))
@@ -530,29 +732,56 @@ class WidgetModelTest {
     }
 
     /** The placed list stores a further widget and brings it back, from its file and from a backup. */
-    @Test fun aFurtherWidgetIsStoredAndRestored() {
-        val all = listOf(script("weather", order = 0), further("weather", "2", order = 1), further("weather", "3", order = 2))
+    @Test
+    fun aFurtherWidgetIsStoredAndRestored() {
+        val all = listOf(
+            script("weather", order = 0),
+            further("weather", "2", order = 1),
+            further("weather", "3", order = 2)
+        )
         assertEquals(all, WidgetCodec.decode(WidgetCodec.encode(all)))
         val restored = WidgetCodec.fromExport(WidgetCodec.export(all))
         assertEquals(all, restored)
         // A backup's widget that is placed already is skipped, each by its own key.
         val merged = WidgetCodec.mergePending(listOf(all[0], all[2]), restored)
-        assertEquals(listOf("script:weather", "script:weather#3", "script:weather#2"), merged.map { it.provider })
+        assertEquals(
+            listOf("script:weather", "script:weather#3", "script:weather#2"),
+            merged.map { it.provider })
     }
 
     /** A rename moves every widget of the script, and each keeps its id. */
-    @Test fun aRenameMovesEveryWidgetOfTheScript() {
+    @Test
+    fun aRenameMovesEveryWidgetOfTheScript() {
         val all = listOf(
-            script("weather", order = 0), further("weather", "2", order = 1), further("weatherman", "2", order = 2), w(7, 3),
-            further("sky", "2", order = 4), further("sky", "3", order = 5),
+            script("weather", order = 0),
+            further("weather", "2", order = 1),
+            further("weatherman", "2", order = 2),
+            w(7, 3),
+            further("sky", "2", order = 4),
+            further("sky", "3", order = 5),
         )
-        assertEquals(listOf("weather", "weather", "weatherman", null, "sky", "sky"), all.map { WidgetSource.scriptRef(it.source)?.script })
+        assertEquals(
+            listOf("weather", "weather", "weatherman", null, "sky", "sky"),
+            all.map { WidgetSource.scriptRef(it.source)?.script })
         val renamed = WidgetSource.renamed(all, "weather", "sky")
         // The waiting `script:sky#2` gives way to the one that takes its place. `script:sky#3` stays: it is the script's now.
-        assertEquals(listOf("script:sky", "script:sky#2", "script:weatherman#2", "com.a/.W3", "script:sky#3"), renamed.map { it.provider })
+        assertEquals(
+            listOf(
+                "script:sky",
+                "script:sky#2",
+                "script:weatherman#2",
+                "com.a/.W3",
+                "script:sky#3"
+            ), renamed.map { it.provider })
         assertEquals(listOf(0, 1, 2, 3, 5), renamed.map { it.order })
         // A script with only a further widget on the page.
-        assertEquals(listOf("script:air#2"), WidgetSource.renamed(listOf(further("weather", "2")), "weather", "air").map { it.provider })
-        assertEquals(listOf(further("weather", "2")), WidgetSource.renamed(listOf(further("weather", "2")), "weather", ""))
+        assertEquals(
+            listOf("script:air#2"),
+            WidgetSource.renamed(listOf(further("weather", "2")), "weather", "air")
+                .map { it.provider })
+        assertEquals(
+            listOf(further("weather", "2")),
+            WidgetSource.renamed(listOf(further("weather", "2")), "weather", "")
+        )
     }
 }

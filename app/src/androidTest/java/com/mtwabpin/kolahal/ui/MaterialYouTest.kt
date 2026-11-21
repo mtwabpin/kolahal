@@ -36,13 +36,15 @@ class MaterialYouTest {
     private var night = "yes"
     private var wallpaperSet = false
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         // "Night mode: yes"
         night = shell("cmd uimode night").substringAfter(':').trim()
         config.set(Keys.THEME, MaterialYou.NAME)
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         config.reset(Keys.THEME)
         if (wallpaperSet) wallpapers.clear(WallpaperManager.FLAG_SYSTEM)
         shell("cmd uimode night $night")
@@ -55,7 +57,8 @@ class MaterialYouTest {
         else -> paletteFrom(dynamicLightColorScheme(context))
     }
 
-    @Test fun itShowsThePhonesColoursInThePhonesMode() {
+    @Test
+    fun itShowsThePhonesColoursInThePhonesMode() {
         shell("cmd uimode night no")
         ActivityScenario.launch(MainActivity::class.java).use {
             waitUntil("the light colours") { Term.palette == fromPhone(dark = false) }
@@ -68,7 +71,8 @@ class MaterialYouTest {
     }
 
     /** A new wallpaper: Android works out its colours, and home takes them without restarting. */
-    @Test fun itFollowsANewWallpaper() {
+    @Test
+    fun itFollowsANewWallpaper() {
         assumeTrue("Android 12 and newer have wallpaper colours", MaterialYou.supported)
         shell("cmd uimode night yes")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -78,7 +82,10 @@ class MaterialYouTest {
             val before = Term.palette
 
             wallpaperSet = true
-            wallpapers.setBitmap(Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }, null, true, WallpaperManager.FLAG_SYSTEM)
+            wallpapers.setBitmap(
+                Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+                    .apply { eraseColor(Color.RED) }, null, true, WallpaperManager.FLAG_SYSTEM
+            )
             // Android holds back the colours of a wallpaper that a background app set (as this test
             // does) until the screen goes off: "keep deferring color events". One you pick yourself
             // applies at once. So the screen goes off and on, and Android works the colours out.
@@ -88,7 +95,11 @@ class MaterialYouTest {
             shell("wm dismiss-keyguard")
             waitUntil("new colours on home", 30_000) { Term.palette != before }
             waitUntil("the new wallpaper's colours") { Term.palette == fromPhone(dark = true) }
-            assertEquals("a wallpaper's colour never changes what good means", before.good, Term.palette.good)
+            assertEquals(
+                "a wallpaper's colour never changes what good means",
+                before.good,
+                Term.palette.good
+            )
             scenario.onActivity { assertSame("home doesn't restart for it", home, it) }
         }
     }

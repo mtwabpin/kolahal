@@ -52,7 +52,12 @@ object Agenda {
      * Returns instances that overlap [from, from + days) in the local zone. It skips hidden calendars
      * and events the user declined.
      */
-    fun query(context: Context, from: LocalDate, days: Int, zone: ZoneId = ZoneId.systemDefault()): List<AgendaEvent> {
+    fun query(
+        context: Context,
+        from: LocalDate,
+        days: Int,
+        zone: ZoneId = ZoneId.systemDefault()
+    ): List<AgendaEvent> {
         val start = from.atStartOfDay(zone).toInstant().toEpochMilli()
         val end = from.plusDays(days.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
         // All-day instances are stored at UTC midnight. So we widen the range by one day on each side,
@@ -71,9 +76,15 @@ object Agenda {
             CalendarContract.Instances.CALENDAR_ID,
         )
         val selection = "${CalendarContract.Instances.VISIBLE} = 1 AND " +
-            "${CalendarContract.Instances.SELF_ATTENDEE_STATUS} != ${CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED}"
+                "${CalendarContract.Instances.SELF_ATTENDEE_STATUS} != ${CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED}"
         val out = ArrayList<AgendaEvent>()
-        context.contentResolver.query(uri, projection, selection, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { c ->
+        context.contentResolver.query(
+            uri,
+            projection,
+            selection,
+            null,
+            "${CalendarContract.Instances.BEGIN} ASC"
+        )?.use { c ->
             while (c.moveToNext()) {
                 out += AgendaEvent(
                     id = c.getLong(0),
@@ -96,7 +107,13 @@ object Agenda {
      *   it shows on [from].
      * - Timed events that ended before [now] are dropped.
      */
-    fun group(events: List<AgendaEvent>, zone: ZoneId, from: LocalDate, days: Int, now: Long): List<Pair<LocalDate, List<AgendaEvent>>> {
+    fun group(
+        events: List<AgendaEvent>,
+        zone: ZoneId,
+        from: LocalDate,
+        days: Int,
+        now: Long
+    ): List<Pair<LocalDate, List<AgendaEvent>>> {
         val last = from.plusDays(days.toLong() - 1)
         val byDay = sortedMapOf<LocalDate, MutableList<AgendaEvent>>()
         for (e in events) {
@@ -139,7 +156,10 @@ object Agenda {
         return group(events, zone, today, days, now).flatMap { it.second }.distinct().map { e ->
             if (e.allDay) {
                 val first = Instant.ofEpochMilli(e.begin).atZone(ZoneOffset.UTC).toLocalDate()
-                val after = maxOf(Instant.ofEpochMilli(e.end).atZone(ZoneOffset.UTC).toLocalDate(), first.plusDays(1))
+                val after = maxOf(
+                    Instant.ofEpochMilli(e.end).atZone(ZoneOffset.UTC).toLocalDate(),
+                    first.plusDays(1)
+                )
                 ShownEvent(
                     id = e.id,
                     title = e.title,
@@ -151,7 +171,16 @@ object Agenda {
                     calendar = e.calendar,
                 )
             } else {
-                ShownEvent(e.id, e.title, starts = e.begin / 1000, ends = maxOf(e.begin, e.end) / 1000, allDay = false, begin = e.begin, where = e.where, calendar = e.calendar)
+                ShownEvent(
+                    e.id,
+                    e.title,
+                    starts = e.begin / 1000,
+                    ends = maxOf(e.begin, e.end) / 1000,
+                    allDay = false,
+                    begin = e.begin,
+                    where = e.where,
+                    calendar = e.calendar
+                )
             }
         }
     }

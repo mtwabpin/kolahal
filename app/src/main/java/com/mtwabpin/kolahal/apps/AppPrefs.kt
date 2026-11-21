@@ -3,10 +3,11 @@
  */
 package com.mtwabpin.kolahal.apps
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.apps.AppPrefs.Companion.HALF_LIFE_DAYS
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.Stores
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ import kotlin.math.exp
 class AppPrefs private constructor(context: Context) {
     private val apps = Stores.APPS.open(context)
     private val aliasPrefs = Stores.ALIASES.open(context)
+
     /**
      * Launch counts and times. They have their own file, so Android's cloud backup can leave them out
      * (data_extraction_rules.xml) but still back up pins, labels and hidden apps. They are moved out
@@ -44,10 +46,14 @@ class AppPrefs private constructor(context: Context) {
      * Every app's launch stats, read from [usage] once and again after it changes. Ranking the apps
      * reads them for each match on each key, and each read of the file takes its lock.
      */
-    @Volatile private var launches: Map<String, Pair<Double, Long>>? = null
+    @Volatile
+    private var launches: Map<String, Pair<Double, Long>>? = null
 
     /** A restored backup writes [usage] too. Held here, as Android holds the listener only weakly. */
-    private val usageChanged = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> launches = null }
+    private val usageChanged =
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            launches = null
+        }
 
     init {
         usage.registerOnSharedPreferenceChangeListener(usageChanged)
@@ -65,12 +71,18 @@ class AppPrefs private constructor(context: Context) {
     fun label(key: String): String? = apps.getString("label:$key", null)
 
     fun setLabel(key: String, label: String?) {
-        apps.edit { if (label.isNullOrBlank()) remove("label:$key") else putString("label:$key", label) }
+        apps.edit {
+            if (label.isNullOrBlank()) remove("label:$key") else putString(
+                "label:$key",
+                label
+            )
+        }
         _version.update { it + 1 }
     }
 
     fun hiddenKeys(): List<String> =
-        apps.all.keys.filter { it.startsWith("hidden:") }.map { it.removePrefix("hidden:") }.sorted()
+        apps.all.keys.filter { it.startsWith("hidden:") }.map { it.removePrefix("hidden:") }
+            .sorted()
 
     fun labels(): Map<String, String> = apps.all.mapNotNull { (k, v) ->
         if (k.startsWith("label:") && v is String) k.removePrefix("label:") to v else null
@@ -152,7 +164,8 @@ class AppPrefs private constructor(context: Context) {
         /** The key of the pinned apps in the "apps" file: their keys, one per line, in order. */
         const val PINNED = "pinned"
 
-        fun parsePinned(raw: String?): List<String> = raw?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
+        fun parsePinned(raw: String?): List<String> =
+            raw?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
 
         fun formatPinned(keys: List<String>): String = keys.joinToString("\n")
 

@@ -18,17 +18,26 @@ import org.junit.runner.RunWith
 /** The suggestion list's rows are `chips.height` tall, past 44 dp too (for a large font). */
 @RunWith(AndroidJUnit4::class)
 class SuggestionListTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
 
-    @After fun tearDown() { Term.chipHeight = 44 }
+    @After
+    fun tearDown() {
+        Term.chipHeight = 44
+    }
 
     private fun row() = compose.onNode(hasClickAction() and hasText("todo", substring = true))
 
-    @Test fun rowsFollowTheChipHeightAllTheWay() {
+    @Test
+    fun rowsFollowTheChipHeightAllTheWay() {
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.width(360.dp)) {
-                    SuggestionList(listOf(Suggestion.Completion("todo", "todo ", enter = true), Suggestion.Completion("toggles", "toggles ")), {}, {})
+                    SuggestionList(
+                        listOf(
+                            Suggestion.Completion("todo", "todo ", enter = true),
+                            Suggestion.Completion("toggles", "toggles ")
+                        ), {}, {})
                 }
             }
         }

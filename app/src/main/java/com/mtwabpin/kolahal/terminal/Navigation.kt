@@ -17,8 +17,10 @@ class Navigation(private val scripts: ScriptActions, private val host: Host) {
     interface Host {
         /** Clears the message on the GUI pages. */
         fun clearNotice()
+
         /** Ends Settings' look at home through itself. */
         fun clearPeek()
+
         /** Runs the setup checks again, for the Setup page and the tour. */
         fun refreshSetup()
     }
@@ -59,7 +61,8 @@ class Navigation(private val scripts: ScriptActions, private val host: Host) {
         host.clearNotice()
         val previous = synchronized(backStack) { backStack.removeLastOrNull() } ?: Screen.TERMINAL
         // A category stays open only while a manager screen opened from it is on top, not after going home.
-        if (_screen.value == Screen.SETTINGS && previous == Screen.TERMINAL) settingsCategory.value = null
+        if (_screen.value == Screen.SETTINGS && previous == Screen.TERMINAL) settingsCategory.value =
+            null
         _screen.value = previous
         if (previous == Screen.SCRIPTS) scripts.refreshScripts()
         if (previous == Screen.SETUP || previous == Screen.ONBOARDING) host.refreshSetup()

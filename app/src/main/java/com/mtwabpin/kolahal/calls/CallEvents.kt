@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.calls
 
-import com.mtwabpin.kolahal.data.Stores
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -17,6 +16,7 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.shortTime
 import com.mtwabpin.kolahal.productivity.TimeSpec
@@ -35,7 +35,9 @@ class CallEvents private constructor(private val context: Context) {
     private val store = KvStore(context, Stores.CALLS)
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
-    @Volatile private var observing = false
+
+    @Volatile
+    private var observing = false
     private val scanSoon = Runnable { io.execute { runCatching { scan() } } }
 
     /** The dialer writes a call in a few steps, so we scan once, after the changes stop. */
@@ -61,7 +63,11 @@ class CallEvents private constructor(private val context: Context) {
         if (!hasPermission(context)) return
         if (!observing) {
             observing = true
-            context.contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, observer)
+            context.contentResolver.registerContentObserver(
+                CallLog.Calls.CONTENT_URI,
+                true,
+                observer
+            )
         }
         check()
     }
@@ -102,6 +108,7 @@ class CallEvents private constructor(private val context: Context) {
         const val SOURCE = "calls"
         private const val LAST = "last"
         private const val SETTLE_MS = 1_500L
+
         /** After a long time away, only this many of the newest calls get a line. */
         private const val MAX_LINES = 30
 
@@ -114,27 +121,41 @@ class CallEvents private constructor(private val context: Context) {
             val uri = CallLog.Calls.CONTENT_URI.buildUpon()
                 .appendQueryParameter(CallLog.Calls.LIMIT_PARAM_KEY, limit.toString()).build()
             val projection = arrayOf(
-                CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE,
-                CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.NUMBER_PRESENTATION, CallLog.Calls.CACHED_LOOKUP_URI,
+                CallLog.Calls._ID,
+                CallLog.Calls.NUMBER,
+                CallLog.Calls.CACHED_NAME,
+                CallLog.Calls.TYPE,
+                CallLog.Calls.DATE,
+                CallLog.Calls.DURATION,
+                CallLog.Calls.NUMBER_PRESENTATION,
+                CallLog.Calls.CACHED_LOOKUP_URI,
                 CallLog.Calls.CACHED_PHOTO_URI,
             )
             val selection = afterId?.let { "${CallLog.Calls._ID} > ?" }
             val args = afterId?.let { arrayOf(it.toString()) }
             return runCatching {
-                context.contentResolver.query(uri, projection, selection, args, "${CallLog.Calls._ID} DESC")?.use { c ->
+                context.contentResolver.query(
+                    uri,
+                    projection,
+                    selection,
+                    args,
+                    "${CallLog.Calls._ID} DESC"
+                )?.use { c ->
                     buildList {
                         while (c.moveToNext() && size < limit) {
-                            add(Call(
-                                id = c.getLong(0),
-                                number = c.getString(1).orEmpty(),
-                                name = c.getString(2)?.takeIf { it.isNotBlank() },
-                                type = c.getInt(3),
-                                date = c.getLong(4),
-                                durationSec = c.getLong(5),
-                                presentation = c.getInt(6),
-                                lookupUri = c.getString(7),
-                                photoUri = c.getString(8)?.takeIf { it.isNotBlank() },
-                            ))
+                            add(
+                                Call(
+                                    id = c.getLong(0),
+                                    number = c.getString(1).orEmpty(),
+                                    name = c.getString(2)?.takeIf { it.isNotBlank() },
+                                    type = c.getInt(3),
+                                    date = c.getLong(4),
+                                    durationSec = c.getLong(5),
+                                    presentation = c.getInt(6),
+                                    lookupUri = c.getString(7),
+                                    photoUri = c.getString(8)?.takeIf { it.isNotBlank() },
+                                )
+                            )
                         }
                     }
                 }
@@ -151,11 +172,18 @@ class CallEvents private constructor(private val context: Context) {
         private fun contactPhoto(context: Context, number: String): String? {
             if (number.isBlank()) return null
             if (context.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return null
-            val uri = android.net.Uri.withAppendedPath(android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number))
-            val projection = arrayOf(android.provider.ContactsContract.PhoneLookup.PHOTO_THUMBNAIL_URI, android.provider.ContactsContract.PhoneLookup.PHOTO_URI)
+            val uri = android.net.Uri.withAppendedPath(
+                android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                android.net.Uri.encode(number)
+            )
+            val projection = arrayOf(
+                android.provider.ContactsContract.PhoneLookup.PHOTO_THUMBNAIL_URI,
+                android.provider.ContactsContract.PhoneLookup.PHOTO_URI
+            )
             return runCatching {
                 context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
-                    if (c.moveToFirst()) (c.getString(0) ?: c.getString(1))?.takeIf { it.isNotBlank() } else null
+                    if (c.moveToFirst()) (c.getString(0)
+                        ?: c.getString(1))?.takeIf { it.isNotBlank() } else null
                 }
             }.getOrNull()
         }
@@ -185,8 +213,15 @@ class CallEvents private constructor(private val context: Context) {
                 else -> null
             }
             val number = c.number.takeIf { c.name != null && it.isNotBlank() }
-            val time = (if (withDay) java.text.SimpleDateFormat("${TimeFormats.DAY}, ", java.util.Locale.getDefault()).format(java.util.Date(c.date)) else "") + config.shortTime(c.date)
-            return listOfNotNull(title, number, listOfNotNull(time, length).joinToString(" · ")).joinToString("\n")
+            val time = (if (withDay) java.text.SimpleDateFormat(
+                "${TimeFormats.DAY}, ",
+                java.util.Locale.getDefault()
+            ).format(java.util.Date(c.date)) else "") + config.shortTime(c.date)
+            return listOfNotNull(
+                title,
+                number,
+                listOfNotNull(time, length).joinToString(" · ")
+            ).joinToString("\n")
         }
 
         /**
@@ -195,12 +230,19 @@ class CallEvents private constructor(private val context: Context) {
          * their photo when the contact has one.
          */
         fun ctx(c: Call): LogContext {
-            val shown = c.presentation == CallLog.Calls.PRESENTATION_ALLOWED && c.number.isNotBlank()
-            val person = LogContext.of(LogContext.PERSON to (c.name ?: c.number.takeIf { shown } ?: "?"), LogContext.PHOTO to c.photoUri)
+            val shown =
+                c.presentation == CallLog.Calls.PRESENTATION_ALLOWED && c.number.isNotBlank()
+            val person =
+                LogContext.of(LogContext.PERSON to (c.name ?: c.number.takeIf { shown } ?: "?"),
+                    LogContext.PHOTO to c.photoUri)
             // An item each: a call is two or three lines beside its picture, and the gap keeps the
             // pictures apart in a list of calls.
             return if (!shown) person + LogContext.ITEM
-            else person + LogContext.of(LogContext.PHONE to c.number, LogContext.CONTACT to c.lookupUri, LogContext.COPY to c.number).values + LogContext.ITEM
+            else person + LogContext.of(
+                LogContext.PHONE to c.number,
+                LogContext.CONTACT to c.lookupUri,
+                LogContext.COPY to c.number
+            ).values + LogContext.ITEM
         }
     }
 }

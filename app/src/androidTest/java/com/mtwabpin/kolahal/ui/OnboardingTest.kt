@@ -11,15 +11,15 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -38,13 +38,18 @@ import org.junit.runner.RunWith
 /** The tour: how Kolahal works, and the first few settings on the way, each one tap. */
 @RunWith(AndroidJUnit4::class)
 class OnboardingTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+
+    @get:Rule
+    val compose = createComposeRule()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
 
     /** The tour, opened from home, on a phone-sized frame. */
     private fun show() {
@@ -54,7 +59,11 @@ class OnboardingTest {
         }
         compose.setContent {
             KolahalTheme {
-                Box(Modifier.size(360.dp, 720.dp).consumeWindowInsets(WindowInsets.safeDrawing)) { OnboardingScreen(vm) }
+                Box(
+                    Modifier
+                        .size(360.dp, 720.dp)
+                        .consumeWindowInsets(WindowInsets.safeDrawing)
+                ) { OnboardingScreen(vm) }
             }
         }
     }
@@ -71,10 +80,19 @@ class OnboardingTest {
         compose.waitForIdle()
     }
 
-    @Test fun theTourGoesPageByPageAndEndsAtHome() {
+    @Test
+    fun theTourGoesPageByPageAndEndsAtHome() {
         show()
         shows("A home screen you type into.")
-        for (title in listOf("Type to open", "Everything goes in the log", "Make it yours", "Above the keyboard", "The app selector", "Permissions", "You're all set")) {
+        for (title in listOf(
+            "Type to open",
+            "Everything goes in the log",
+            "Make it yours",
+            "Above the keyboard",
+            "The app selector",
+            "Permissions",
+            "You're all set"
+        )) {
             next()
             shows(title)
         }
@@ -83,7 +101,8 @@ class OnboardingTest {
         assertEquals(Screen.TERMINAL, vm.screen.value)
     }
 
-    @Test fun backGoesToThePageBeforeAndSkipLeaves() {
+    @Test
+    fun backGoesToThePageBeforeAndSkipLeaves() {
         show()
         next()
         shows("Type to open")
@@ -95,7 +114,8 @@ class OnboardingTest {
         assertEquals(Screen.TERMINAL, vm.screen.value)
     }
 
-    @Test fun eachSettingTakesOneTap() {
+    @Test
+    fun eachSettingTakesOneTap() {
         show()
         next()
         tap("Chips")
@@ -128,7 +148,8 @@ class OnboardingTest {
     private fun caption(text: String) = compose.onNodeWithText(text).assertIsDisplayed()
 
     /** Typing: the caption under the preview says what each choice does. */
-    @Test fun theTypingPreviewSaysWhatEachChoiceDoes() {
+    @Test
+    fun theTypingPreviewSaysWhatEachChoiceDoes() {
         show()
         next()
         tap("Off")
@@ -138,7 +159,8 @@ class OnboardingTest {
     }
 
     /** The log's lines answer a tap and a long-press in the caption. */
-    @Test fun theLogsLinesCanBeTried() {
+    @Test
+    fun theLogsLinesCanBeTried() {
         show()
         next(); next()
         compose.onNodeWithTag("tour-try-line 0").performClick()
@@ -148,22 +170,26 @@ class OnboardingTest {
     }
 
     /** The look preview's clock follows the clock setting. */
-    @Test fun theClockPreviewFollowsTheSetting() {
+    @Test
+    fun theClockPreviewFollowsTheSetting() {
         show()
         repeat(3) { next() }
         // The header is off at first; its clock shows once it's on.
         compose.onNodeWithTag("tour-clock").assertDoesNotExist()
         tap("Header")
         tap("24-hour")
-        val shown = compose.onNodeWithTag("tour-clock").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("")
+        val shown = compose.onNodeWithTag("tour-clock")
+            .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("")
         assertTrue(shown, Regex("\\d{2}:\\d{2}").matches(shown))
         tap("12-hour")
-        val twelve = compose.onNodeWithTag("tour-clock").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("")
+        val twelve = compose.onNodeWithTag("tour-clock")
+            .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("")
         assertTrue(twelve, twelve.contains(' '))
     }
 
     /** The key bar shows in the keyboard preview once it's on. */
-    @Test fun theKeyBarShowsInThePreview() {
+    @Test
+    fun theKeyBarShowsInThePreview() {
         show()
         repeat(4) { next() }
         compose.onAllNodesWithText("|", useUnmergedTree = true).assertCountEquals(0)
@@ -172,7 +198,8 @@ class OnboardingTest {
     }
 
     /** The app selector itself is in its preview once it's on, on the edge chosen. */
-    @Test fun theSelectorCanBeTriedInThePreview() {
+    @Test
+    fun theSelectorCanBeTriedInThePreview() {
         show()
         repeat(5) { next() }
         compose.onAllNodesWithTag("app-selector").assertCountEquals(0)
@@ -186,7 +213,8 @@ class OnboardingTest {
     }
 
     /** The permissions page offers the ones most people want, with the rest left to the checklist. */
-    @Test fun thePermissionsPageOffersTheHomeApp() {
+    @Test
+    fun thePermissionsPageOffersTheHomeApp() {
         show()
         repeat(6) { next() }
         shows("Permissions")
@@ -194,7 +222,8 @@ class OnboardingTest {
         compose.onNodeWithText("Default home app").performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun tourOpensIt() {
+    @Test
+    fun tourOpensIt() {
         vm = vms.terminal(app)
         vm.runCommand("tour")
         compose.waitUntil(5_000) { vm.screen.value == Screen.ONBOARDING }

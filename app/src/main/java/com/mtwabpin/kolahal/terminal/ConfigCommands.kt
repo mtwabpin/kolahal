@@ -6,9 +6,9 @@ package com.mtwabpin.kolahal.terminal
 import android.content.Context
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
+import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.MaterialYou
 
 /** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
@@ -30,11 +30,15 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                     group = k.key.substringBefore(".")
                     out(
                         "${k.key} = ${conf.display(k)}$marker",
-                        LogContext.of(LogContext.COMMAND to "config set ${k.key} ", LogContext.DESC to k.help) + if (first) LogContext.ITEM else emptyMap(),
+                        LogContext.of(
+                            LogContext.COMMAND to "config set ${k.key} ",
+                            LogContext.DESC to k.help
+                        ) + if (first) LogContext.ITEM else emptyMap(),
                     )
                 }
                 info("Tap a line to edit it · * = changed from default · 'config reset <key|all>'")
             }
+
             sub == "get" -> withKey(args.getOrNull(1)) { out("${it.key} = ${conf.display(it)}") }
             sub == "reset" -> {
                 if (args.getOrNull(1) == "all") {
@@ -45,6 +49,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                     info("${it.key} = ${conf.display(it)} (default)")
                 }
             }
+
             sub == "set" -> setKey(args.getOrNull(1), args.drop(2).joinToString(" "), raw)
             Keys.byName(sub) != null -> setKey(sub, args.drop(1).joinToString(" "), raw)
             else -> error("Usage: config [ls|get|set|reset] <key> [value]")
@@ -66,16 +71,22 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 FontFiles.names.forEach { name ->
                     if (name == FontFiles.CUSTOM && !hasCustom) return@forEach
                     val mark = if (name == current) "*" else " "
-                    out("$mark ${name.padEnd(16)} ${FontFiles.label(name)}", LogContext.of(LogContext.RUN to "font $name") + LogContext.ALIGNED)
+                    out(
+                        "$mark ${name.padEnd(16)} ${FontFiles.label(name)}",
+                        LogContext.of(LogContext.RUN to "font $name") + LogContext.ALIGNED
+                    )
                 }
                 info("Tap a font to use it · 'font import' adds your own .ttf/.otf · size: config font.size")
                 info("System font: ${conf[Keys.FONT_SANS]} · font sans prompt uses it for the prompt, font sans all for everything")
             }
+
             "import" -> ui.requestFontImport()
             "sans" -> args.getOrNull(1)?.let { setKey(Keys.FONT_SANS.key, it, "") }
                 ?: info("font.sans = ${conf.display(Keys.FONT_SANS)} · font sans off|prompt|all")
+
             FontFiles.CUSTOM if !hasCustom ->
                 fix("No custom font yet — tap to import a .ttf/.otf", "font import")
+
             else -> setKey(Keys.FONT.key, sub, "")
         }
     }
@@ -88,14 +99,18 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 // Old names (from before 0.3.0) still work. We tell the user the new name.
                 if (name.lowercase() != key.key) info("${name.lowercase()} is now called ${key.key}")
             }
-            name?.lowercase() in Keys.REMOVED -> name!!.lowercase().let { error("$it was removed: ${Keys.REMOVED[it]}") }
+
+            name?.lowercase() in Keys.REMOVED -> name!!.lowercase()
+                .let { error("$it was removed: ${Keys.REMOVED[it]}") }
+
             else -> error("Unknown setting '${name.orEmpty()}' — run 'config'")
         }
     }
 
     private fun setKey(name: String?, parsed: String, raw: String): Unit = withKey(name) { key ->
         // For text settings, take the value exactly as typed after the name (old names too), so quotes stay.
-        val at = if (key is ConfigKey.Text && name != null) raw.indexOf(name, ignoreCase = true) else -1
+        val at =
+            if (key is ConfigKey.Text && name != null) raw.indexOf(name, ignoreCase = true) else -1
         var value = if (at >= 0) raw.substring(at + name!!.length).trim() else parsed
         // `config set keybar.row2 ""` sets an empty text, for settings whose help allows one.
         if (key is ConfigKey.Text && (value == "\"\"" || value == "''")) value = ""
@@ -107,7 +122,9 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         if (conf.set(key, value)) {
             info("${key.key} = ${conf.display(key)}")
             // Android 9 to 11 has no wallpaper colours for material-you to take. Say what it shows instead.
-            if (key == Keys.THEME && MaterialYou.isOne(conf[Keys.THEME]) && !MaterialYou.supported) info(MaterialYou.note(conf[Keys.THEME]))
+            if (key == Keys.THEME && MaterialYou.isOne(conf[Keys.THEME]) && !MaterialYou.supported) info(
+                MaterialYou.note(conf[Keys.THEME])
+            )
         } else error("Invalid value for ${key.key}: ${hint(key)}")
     }
 

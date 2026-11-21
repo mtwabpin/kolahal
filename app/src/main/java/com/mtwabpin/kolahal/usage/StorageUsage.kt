@@ -30,13 +30,20 @@ class StorageUsage(private val context: Context) {
     }
 
     fun space(): Space? = runCatching {
-        Space(storage.getTotalBytes(StorageManager.UUID_DEFAULT), storage.getFreeBytes(StorageManager.UUID_DEFAULT))
+        Space(
+            storage.getTotalBytes(StorageManager.UUID_DEFAULT),
+            storage.getFreeBytes(StorageManager.UUID_DEFAULT)
+        )
     }.getOrNull()
 
     /** The sizes of [packages] in the personal profile. One Android can't tell is left out. */
     fun sizes(packages: Collection<String>): List<AppSize> = packages.mapNotNull { pkg ->
         runCatching {
-            val s = storage.queryStatsForPackage(StorageManager.UUID_DEFAULT, pkg, Process.myUserHandle())
+            val s = storage.queryStatsForPackage(
+                StorageManager.UUID_DEFAULT,
+                pkg,
+                Process.myUserHandle()
+            )
             AppSize(pkg, s.appBytes, s.dataBytes, s.cacheBytes)
         }.getOrNull()
     }
@@ -53,7 +60,12 @@ class StorageUsage(private val context: Context) {
      *   updated (it can't be uninstalled). Kolahal itself is left out.
      * - [sizes]: each app's size in bytes, when known.
      */
-    fun unused(packages: Collection<String>, days: Long, sizes: Map<String, Long> = emptyMap(), sortName: (String) -> String): List<Unused> {
+    fun unused(
+        packages: Collection<String>,
+        days: Long,
+        sizes: Map<String, Long> = emptyMap(),
+        sortName: (String) -> String
+    ): List<Unused> {
         val now = System.currentTimeMillis()
         val last = lastUsed(now)
         val pm = context.packageManager
@@ -61,7 +73,8 @@ class StorageUsage(private val context: Context) {
         return packages.mapNotNull { pkg ->
             if (pkg == context.packageName) return@mapNotNull null
             @Suppress("DEPRECATION") // the flags-as-int call is the one every Android version has
-            val info = runCatching { pm.getPackageInfo(pkg, 0) }.getOrNull() ?: return@mapNotNull null
+            val info =
+                runCatching { pm.getPackageInfo(pkg, 0) }.getOrNull() ?: return@mapNotNull null
             // An app of the phone's own that was never updated can't be uninstalled: listing it is no help.
             val flags = info.applicationInfo?.flags ?: 0
             if (flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0 && flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP == 0) return@mapNotNull null
@@ -72,7 +85,11 @@ class StorageUsage(private val context: Context) {
                 now - seen >= days * day -> Unused(pkg, (now - seen) / day, sizes[pkg])
                 else -> null
             }
-        }.sortedWith(compareByDescending<Unused> { it.days ?: Long.MAX_VALUE }.thenBy { sortName(it.pkg) })
+        }.sortedWith(compareByDescending<Unused> { it.days ?: Long.MAX_VALUE }.thenBy {
+            sortName(
+                it.pkg
+            )
+        })
     }
 
     /**
@@ -86,11 +103,15 @@ class StorageUsage(private val context: Context) {
         // Each kind of total: the yearly ones reach furthest back, the daily ones have the last days.
         val day = 86_400_000L
         val kinds = listOf(
-            UsageStatsManager.INTERVAL_DAILY to 14 * day, UsageStatsManager.INTERVAL_WEEKLY to 8 * 7 * day,
-            UsageStatsManager.INTERVAL_MONTHLY to 7 * 31 * day, UsageStatsManager.INTERVAL_YEARLY to 2 * 366 * day,
+            UsageStatsManager.INTERVAL_DAILY to 14 * day,
+            UsageStatsManager.INTERVAL_WEEKLY to 8 * 7 * day,
+            UsageStatsManager.INTERVAL_MONTHLY to 7 * 31 * day,
+            UsageStatsManager.INTERVAL_YEARLY to 2 * 366 * day,
         )
-        for ((kind, back) in kinds) for (s in usage.queryUsageStats(kind, now - back, now).orEmpty()) {
-            if (s.lastTimeUsed > 0) out[s.packageName] = maxOf(out[s.packageName] ?: 0L, s.lastTimeUsed)
+        for ((kind, back) in kinds) for (s in usage.queryUsageStats(kind, now - back, now)
+            .orEmpty()) {
+            if (s.lastTimeUsed > 0) out[s.packageName] =
+                maxOf(out[s.packageName] ?: 0L, s.lastTimeUsed)
         }
         out
     }.getOrDefault(emptyMap())

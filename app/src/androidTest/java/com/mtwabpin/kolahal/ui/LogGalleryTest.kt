@@ -22,13 +22,13 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptEngine
-import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.buildRows
 import com.mtwabpin.kolahal.terminal.lineTimeFormat
@@ -54,7 +54,8 @@ import java.security.MessageDigest
  */
 @RunWith(AndroidJUnit4::class)
 class LogGalleryTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val logs = LogRepository.get(context)
@@ -62,56 +63,103 @@ class LogGalleryTest {
     private val name = "example"
     private val id = 920_000_000L + System.nanoTime() % 1_000_000
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         Term.palette = Palettes.green
-        pictureFile(DocsExamples.COMIC).outputStream().use { comic().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        pictureFile(DocsExamples.COMIC).outputStream()
+            .use { comic().compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         Term.palette = paletteBefore
         pictureFile(DocsExamples.COMIC).delete()
         lines().forEach { logs.delete(it.id) }
-        KvStore(context, ScriptRepository.scopeOf(id)).let { s -> s.all().keys.forEach { s.set(it, null) } }
+        KvStore(context, ScriptRepository.scopeOf(id)).let { s ->
+            s.all().keys.forEach {
+                s.set(
+                    it,
+                    null
+                )
+            }
+        }
         LogImages.trim()
     }
 
-    private fun lines(): List<LogEntry> = logs.recent(limit = 200).filter { it.source == name }.sortedBy { it.id }
+    private fun lines(): List<LogEntry> =
+        logs.recent(limit = 200).filter { it.source == name }.sortedBy { it.id }
 
     /** Runs [code] (Lua) as a script, and returns the lines it logged. */
     private fun run(code: String): List<LogEntry> {
         lines().forEach { logs.delete(it.id) }
         val host = HostApi(context, name, scriptId = id, notifyEnabled = false)
-        runBlocking { ScriptEngine.forLang(ScriptLang.LUA).run(code, name, host, 10_000, false, emptyList(), null) }
+        runBlocking {
+            ScriptEngine.forLang(ScriptLang.LUA)
+                .run(code, name, host, 10_000, false, emptyList(), null)
+        }
         host.flush()
         return lines()
     }
 
     private var shown by mutableStateOf<List<LogRow.Entry>>(emptyList())
 
-    @Test fun theGuidesLogExamplesAreDrawnAndSaved() =
-        draw(DocsExamples.logs.map { "log-${it.name}" to it.before + it.code.trimIndent() }, "gallery-log", WIDTH_DP, source = true)
+    @Test
+    fun theGuidesLogExamplesAreDrawnAndSaved() =
+        draw(
+            DocsExamples.logs.map { "log-${it.name}" to it.before + it.code.trimIndent() },
+            "gallery-log",
+            WIDTH_DP,
+            source = true
+        )
 
     /**
      * The website's pictures of the fmt samples ([ReferenceExamples.fmt]), for the guide's table of
      * fmt functions: narrower, and without the script's name after the line. As `fmt-<name>.png`.
      */
-    @Test fun theFmtSamplesAreDrawnAndSaved() =
-        draw(ReferenceExamples.fmt.map { "fmt-${it.name.removePrefix("fmt.")}" to it.code(ScriptLang.LUA) }, "gallery-fmt", FMT_WIDTH_DP, source = false)
+    @Test
+    fun theFmtSamplesAreDrawnAndSaved() =
+        draw(
+            ReferenceExamples.fmt.map { "fmt-${it.name.removePrefix("fmt.")}" to it.code(ScriptLang.LUA) },
+            "gallery-fmt",
+            FMT_WIDTH_DP,
+            source = false
+        )
 
     /** Runs each of [examples] (a picture's name, and its Lua code) and saves its lines in [dir], [widthDp] wide. */
-    private fun draw(examples: List<Pair<String, String>>, dir: String, widthDp: Int, source: Boolean) {
+    private fun draw(
+        examples: List<Pair<String, String>>,
+        dir: String,
+        widthDp: Int,
+        source: Boolean
+    ) {
         val out = checkNotNull(context.getExternalFilesDir(dir)) { "no external files" }
         out.listFiles()?.forEach { it.delete() }
         val times = lineTimeFormat(clock24 = true)
         compose.setContent {
             KolahalTheme {
                 val indents = rememberLineIndents()
-                Column(Modifier.testTag(SHOT).width(widthDp.dp).background(Term.bg).padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
+                Column(
+                    Modifier
+                        .testTag(SHOT)
+                        .width(widthDp.dp)
+                        .background(Term.bg)
+                        .padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                ) {
                     for (row in shown) key(row.entry.id) {
                         LogLine(
-                            row, TimeMode.OFF, times, dim = false, topGap = 0.dp, itemGap = if (row.itemGap) 5.dp else 0.dp,
-                            indents = indents, highlighted = false, apps = { emptyList() },
-                            onTap = {}, onLongPress = {}, onAppTap = {}, onAppLongPress = {},
+                            row,
+                            TimeMode.OFF,
+                            times,
+                            dim = false,
+                            topGap = 0.dp,
+                            itemGap = if (row.itemGap) 5.dp else 0.dp,
+                            indents = indents,
+                            highlighted = false,
+                            apps = { emptyList() },
+                            onTap = {},
+                            onLongPress = {},
+                            onAppTap = {},
+                            onAppLongPress = {},
                         )
                     }
                 }
@@ -121,7 +169,8 @@ class LogGalleryTest {
         for ((picture, code) in examples) {
             val entries = run(code)
             assertTrue("$picture logged nothing", entries.isNotEmpty())
-            shown = buildRows(entries).filterIsInstance<LogRow.Entry>().map { if (source) it else it.copy(showSource = false) }
+            shown = buildRows(entries).filterIsInstance<LogRow.Entry>()
+                .map { if (source) it else it.copy(showSource = false) }
             compose.waitForIdle()
             // A picture line loads its picture off the main thread.
             if (entries.any { it.ctx.values.containsKey("image") }) {
@@ -135,12 +184,16 @@ class LogGalleryTest {
             pictures += """{"name":"$picture","w":$widthDp}"""
         }
         val density = context.resources.displayMetrics.density
-        File(out, "manifest.json").writeText("""{"density":$density,"lines":[${pictures.joinToString(",")}]}""")
+        File(
+            out,
+            "manifest.json"
+        ).writeText("""{"density":$density,"lines":[${pictures.joinToString(",")}]}""")
     }
 
     /** Where [LogImages] keeps [url]'s download: put there, nothing is fetched. */
     private fun pictureFile(url: String): File {
-        val hash = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+        val hash = MessageDigest.getInstance("SHA-256").digest(url.toByteArray())
+            .joinToString("") { "%02x".format(it) }
         return File(File(context.cacheDir, "log-images").apply { mkdirs() }, hash)
     }
 

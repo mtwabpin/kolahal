@@ -18,6 +18,7 @@ object ScriptTemplates {
             if not r.ok then error("HTTP " .. r.status) end
             return (r.body:gsub("%s+$", ""))
         """.trimIndent()
+
         ScriptLang.JS -> """
             // @command
             // @desc Current weather: $name [city]
@@ -43,6 +44,7 @@ object ScriptTemplates {
               notify("$name", feed.items[1].title, { url = feed.items[1].link })
             end
         """.trimIndent()
+
         ScriptLang.JS -> """
             // $name.js — runs on its timer in the :script process. Top-level await works.
             // API: log(title, body, ctx)  notify(title, body, ctx)  await http.get(url)  await rss.fresh(url)

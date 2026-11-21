@@ -7,9 +7,11 @@ import org.junit.Test
 
 class TapGateTest {
     private var clock = 10_000L
+
     /** Blocks the gate holds back, each with the time it is due. */
     private val due = ArrayList<Pair<Long, () -> Unit>>()
-    private val gate = TapGate(2_000, later = { ms, block -> due += (clock + ms) to block }) { clock }
+    private val gate =
+        TapGate(2_000, later = { ms, block -> due += (clock + ms) to block }) { clock }
 
     /** Moves the clock to [to], running the held-back blocks that are due by then. */
     private fun advance(to: Long) {
@@ -23,7 +25,8 @@ class TapGateTest {
     }
 
     /** Two quick taps on a widget's button run twice: the second when the first one's 2 seconds end. */
-    @Test fun aQuickSecondTapWaitsAndRuns() {
+    @Test
+    fun aQuickSecondTapWaitsAndRuns() {
         val runs = ArrayList<Long>()
         gate.runOrWait("widget:counter:add") { runs += clock }
         clock += 300
@@ -34,7 +37,8 @@ class TapGateTest {
     }
 
     /** One tap waits at most: a third quick tap is dropped. */
-    @Test fun aThirdQuickTapIsDropped() {
+    @Test
+    fun aThirdQuickTapIsDropped() {
         var runs = 0
         repeat(3) { gate.runOrWait("widget:counter:add") { runs++ }; clock += 200 }
         advance(20_000)
@@ -42,7 +46,8 @@ class TapGateTest {
     }
 
     /** The waiting tap starts a new window when it runs: a tap just after it waits again. */
-    @Test fun theWaitingTapStartsANewWindow() {
+    @Test
+    fun theWaitingTapStartsANewWindow() {
         val runs = ArrayList<Long>()
         gate.runOrWait("widget:counter:add") { runs += clock }
         clock += 500
@@ -55,7 +60,8 @@ class TapGateTest {
     }
 
     /** A tap after the window runs at once, as with allow. */
-    @Test fun aLateTapRunsAtOnce() {
+    @Test
+    fun aLateTapRunsAtOnce() {
         var runs = 0
         gate.runOrWait("widget:counter:add") { runs++ }
         clock += 2_000
@@ -65,13 +71,15 @@ class TapGateTest {
     }
 
     /** Five taps in one second run once. */
-    @Test fun quickTapsCountAsOne() {
+    @Test
+    fun quickTapsCountAsOne() {
         val runs = (0 until 5).count { i -> clock = 10_000L + i * 200; gate.allow("pin:aqi") }
         assertEquals(1, runs)
     }
 
     /** Once 2 seconds have passed since the tap that ran, the next one runs. */
-    @Test fun aTapAfterTheWindowRuns() {
+    @Test
+    fun aTapAfterTheWindowRuns() {
         assertTrue(gate.allow("pin:aqi"))
         clock += 1_999
         assertFalse(gate.allow("pin:aqi"))
@@ -80,13 +88,15 @@ class TapGateTest {
     }
 
     /** A held-back tap doesn't move the window: steady taps run every 2 seconds, not never. */
-    @Test fun heldBackTapsDontExtendTheWindow() {
+    @Test
+    fun heldBackTapsDontExtendTheWindow() {
         val runs = (0 until 20).count { i -> clock = 10_000L + i * 500; gate.allow("pin:aqi") }
         assertEquals(5, runs)
     }
 
     /** Each item has its own window. */
-    @Test fun itemsDontHoldEachOtherBack() {
+    @Test
+    fun itemsDontHoldEachOtherBack() {
         assertTrue(gate.allow("pin:aqi"))
         assertTrue(gate.allow("pin:cricket"))
         assertTrue(gate.allow("header:todo"))

@@ -3,13 +3,11 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.ui.unit.isSpecified
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +17,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,27 +25,27 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.WavyProgressIndicatorDefaults
-import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.runtime.State
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,36 +55,38 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.res.painterResource
-import androidx.compose.material3.Icon
-import com.mtwabpin.kolahal.R
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetLook
@@ -100,7 +99,8 @@ import kotlin.math.floor
 
 
 /** The colour of a widget's badge, bar and chart: its role's colour in this theme, or the accent. */
-internal fun roleColour(base: WidgetBase?): Color = colourOf(base?.color ?: StyledText.Colour.ACCENT)
+internal fun roleColour(base: WidgetBase?): Color =
+    colourOf(base?.color ?: StyledText.Colour.ACCENT)
 
 /** Height of the "+3 more" line under a list, in dp. */
 private const val MORE_DP = 20
@@ -128,7 +128,12 @@ private val STILL: (Float) -> Float = { 0f }
  *   description. A switch that waits for its script watches it. 0 for a card that has none.
  */
 @Composable
-internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long = 0) {
+internal fun KindBody(
+    spec: WidgetSpec,
+    box: WidgetSizes.Box,
+    onTap: ((WidgetTap) -> Unit)?,
+    stamp: Long = 0
+) {
     when (spec) {
         is WidgetSpec.Stat -> StatBody(spec, box)
         is WidgetSpec.Text -> TextBody(spec, box)
@@ -151,7 +156,8 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
  * theme's colours change.
  */
 @Composable
-internal fun cardText(text: String): AnnotatedString = remember(text, Term.palette) { widgetText(text) }
+internal fun cardText(text: String): AnnotatedString =
+    remember(text, Term.palette) { widgetText(text) }
 
 /** One line in the middle of the body, for "Nothing to show" and the like. */
 @Composable
@@ -183,7 +189,11 @@ internal fun CardName(modifier: Modifier = Modifier) {
         color = lookColors().muted,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.then(if (open == null) Modifier else Modifier.fillMaxWidth().opensList()),
+        modifier = modifier.then(
+            if (open == null) Modifier else Modifier
+                .fillMaxWidth()
+                .opensList()
+        ),
     )
 }
 
@@ -222,9 +232,19 @@ internal fun Modifier.opensList(): Modifier {
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier, wavy: Boolean = false) {
+internal fun LevelBar(
+    fraction: Float,
+    moving: Boolean,
+    colour: Color,
+    modifier: Modifier = Modifier,
+    wavy: Boolean = false
+) {
     val target = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
-    val shown by animateFloatAsState(target, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "level")
+    val shown by animateFloatAsState(
+        target,
+        MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "level"
+    )
     LevelBar({ shown }, moving, colour, modifier, wavy)
 }
 
@@ -234,14 +254,22 @@ internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier:
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun LevelBar(level: () -> Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier, wavy: Boolean = false) {
+internal fun LevelBar(
+    level: () -> Float,
+    moving: Boolean,
+    colour: Color,
+    modifier: Modifier = Modifier,
+    wavy: Boolean = false
+) {
     val runs = moving && cardSeen()
     val waves = runs || wavy
     val line = if (moving || wavy) WAVE_LINE else BAR_LINE
     val stroke = with(LocalDensity.current) { Stroke(width = line.toPx(), cap = StrokeCap.Round) }
     LinearWavyProgressIndicator(
         progress = { level().let { if (it.isNaN()) 0f else it.coerceIn(0f, 1f) } },
-        modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
+        modifier = modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {},
         color = colour,
         trackColor = colour.copy(alpha = 0.24f),
         stroke = stroke,
@@ -267,7 +295,11 @@ internal fun valueStyle(box: WidgetSizes.Box) = when (box) {
  * [style] for a value: extra bold and a little tighter, with digits of one width. A number that
  * ticks does not shake, and a value stands out from the words around it.
  */
-internal fun TextStyle.asValue(): TextStyle = copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
+internal fun TextStyle.asValue(): TextStyle = copy(
+    fontWeight = FontWeight.ExtraBold,
+    letterSpacing = (-0.02).em,
+    fontFeatureSettings = "tnum"
+)
 
 /**
  * A kind's big text, on one line, as a value ([asValue]). A text too long for its room gets
@@ -275,13 +307,33 @@ internal fun TextStyle.asValue(): TextStyle = copy(fontWeight = FontWeight.Extra
  * that ticks) keeps its size ([SteadyAutoSize]).
  */
 @Composable
-internal fun BigText(text: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
+internal fun BigText(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface
+) {
     val size = remember(style) {
         val largest = style.fontSize.value.let { if (it.isNaN()) 22f else maxOf(it, 12f) }
-        SteadyAutoSize(TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = largest.sp, stepSize = 1.sp))
+        SteadyAutoSize(
+            TextAutoSize.StepBased(
+                minFontSize = 12.sp,
+                maxFontSize = largest.sp,
+                stepSize = 1.sp
+            )
+        )
     }
     val value = remember(style) { style.asValue() }
-    Text(text, modifier = modifier, color = color, autoSize = size, style = value, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+    Text(
+        text,
+        modifier = modifier,
+        color = color,
+        autoSize = size,
+        style = value,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 /**
@@ -291,10 +343,27 @@ internal fun BigText(text: String, style: TextStyle, modifier: Modifier = Modifi
  */
 @Composable
 internal fun BoldText(text: String, size: TextUnit, colour: Color, modifier: Modifier = Modifier) {
-    val auto = remember(size) { SteadyAutoSize(TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = maxOf(size.value, 12f).sp, stepSize = 2.sp)) }
+    val auto = remember(size) {
+        SteadyAutoSize(
+            TextAutoSize.StepBased(
+                minFontSize = 12.sp,
+                maxFontSize = maxOf(size.value, 12f).sp,
+                stepSize = 2.sp
+            )
+        )
+    }
     val style = remember(size) { boldValueStyle(size) }
     // The line is as tall as the type, so a digit's top or bottom may stand out of it a little: not clipped.
-    Text(text, modifier = modifier, color = colour, autoSize = auto, style = style, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
+    Text(
+        text,
+        modifier = modifier,
+        color = colour,
+        autoSize = auto,
+        style = style,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Visible
+    )
 }
 
 /**
@@ -318,9 +387,21 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val muted = lookColors(look).muted
     val label = spec.label ?: LocalUntitled.current
     if (box == WidgetSizes.Box.SMALL) {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             BigText(WidgetWords.joined(spec.value, spec.unit), valueStyle(box))
-            label?.let { Text(cardText(it), style = type.labelSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            label?.let {
+                Text(
+                    cardText(it),
+                    style = type.labelSmall,
+                    color = muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         return
     }
@@ -329,32 +410,92 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val hasChange = spec.trend != null || spec.delta != null
     val value: @Composable (Modifier) -> Unit = { modifier ->
         Row(modifier) {
-            BigText(spec.value, valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+            BigText(
+                spec.value,
+                valueStyle(box),
+                Modifier
+                    .weight(1f, fill = false)
+                    .alignByBaseline()
+            )
             spec.unit?.let {
-                Text(it, style = type.titleMedium, color = muted, maxLines = 1, modifier = Modifier.padding(start = 2.dp).alignByBaseline())
+                Text(
+                    it,
+                    style = type.titleMedium,
+                    color = muted,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .padding(start = 2.dp)
+                        .alignByBaseline()
+                )
             }
             // A large card has the change under the value, beside the label, as the mockup has it.
-            if (hasChange && !large) ChangeText(spec.trend, spec.delta, colour, type.labelLarge, Modifier.padding(start = 8.dp).alignByBaseline())
+            if (hasChange && !large) ChangeText(
+                spec.trend,
+                spec.delta,
+                colour,
+                type.labelLarge,
+                Modifier
+                    .padding(start = 8.dp)
+                    .alignByBaseline()
+            )
         }
     }
     if (large) {
         Column(Modifier.fillMaxSize()) {
             value(Modifier)
             if (label != null || hasChange) Row(verticalAlignment = Alignment.CenterVertically) {
-                label?.let { Text(cardText(it), style = type.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
-                if (hasChange) ChangeText(spec.trend, spec.delta, colour, type.titleSmall, Modifier.padding(start = if (label != null) 8.dp else 0.dp))
+                label?.let {
+                    Text(
+                        cardText(it),
+                        style = type.bodyMedium,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+                if (hasChange) ChangeText(
+                    spec.trend,
+                    spec.delta,
+                    colour,
+                    type.titleSmall,
+                    Modifier.padding(start = if (label != null) 8.dp else 0.dp)
+                )
             }
             Spacer(Modifier.weight(1f))
             if (spec.more.isNotEmpty()) {
                 if (look == WidgetLook.TONAL) {
                     // Tonal has the smaller values in chips of a lighter tint, as the mockup has them.
                     val tile = lookColors(look).tile
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        spec.more.forEach { SmallValue(it, muted, Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(tile).padding(vertical = 6.dp), centred = true) }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        spec.more.forEach {
+                            SmallValue(
+                                it,
+                                muted,
+                                Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(tile)
+                                    .padding(vertical = 6.dp),
+                                centred = true
+                            )
+                        }
                     }
                 } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        spec.more.forEach { SmallValue(it, muted, Modifier.weight(1f, fill = false)) }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        spec.more.forEach {
+                            SmallValue(
+                                it,
+                                muted,
+                                Modifier.weight(1f, fill = false)
+                            )
+                        }
                     }
                 }
             }
@@ -376,19 +517,57 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 Column(Modifier.weight(1f)) {
                     value(Modifier)
                     if (!side && spec.progress == null) label?.let {
-                        Text(cardText(it), style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            cardText(it),
+                            style = type.bodySmall,
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
-                between.take(beside).forEach { SmallValue(it, muted, Modifier.padding(start = 12.dp).widthIn(max = 72.dp)) }
+                between.take(beside).forEach {
+                    SmallValue(
+                        it,
+                        muted,
+                        Modifier
+                            .padding(start = 12.dp)
+                            .widthIn(max = 72.dp)
+                    )
+                }
                 if (column > 0.dp) {
-                    Column(Modifier.padding(start = 12.dp).widthIn(max = half), horizontalAlignment = Alignment.End) {
+                    Column(
+                        Modifier
+                            .padding(start = 12.dp)
+                            .widthIn(max = half),
+                        horizontalAlignment = Alignment.End
+                    ) {
                         label?.let {
                             // Over a smaller value the label is the column's heading. Alone it is a quiet note, on up to two lines.
-                            if (first != null) Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            else Text(cardText(it), style = type.bodySmall, color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+                            if (first != null) Text(
+                                cardText(it),
+                                style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            else Text(
+                                cardText(it),
+                                style = type.bodySmall,
+                                color = muted,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.End
+                            )
                         }
                         first?.let {
-                            Text(WidgetWords.joined(it.value, it.label), style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                WidgetWords.joined(it.value, it.label),
+                                style = type.bodySmall,
+                                color = muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
@@ -406,16 +585,35 @@ private val STAT_SIDE_FROM = 150.dp
  * delta in bold. The arrow is as tall as the text.
  */
 @Composable
-internal fun ChangeText(trend: String?, delta: String?, colour: Color, style: TextStyle, modifier: Modifier = Modifier) {
+internal fun ChangeText(
+    trend: String?,
+    delta: String?,
+    colour: Color,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
     val drawn = when (trend) {
         "up" -> R.drawable.ic_arrow_up
         "down" -> R.drawable.ic_arrow_down
         else -> null
     }
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (drawn != null) Icon(painterResource(drawn), null, tint = colour, modifier = Modifier.size(with(LocalDensity.current) { style.fontSize.toDp() }))
+        if (drawn != null) Icon(
+            painterResource(drawn),
+            null,
+            tint = colour,
+            modifier = Modifier.size(with(LocalDensity.current) { style.fontSize.toDp() })
+        )
         else WidgetWords.arrow(trend)?.let { Text(it, style = style, color = colour, maxLines = 1) }
-        delta?.let { Text(it, style = style.copy(fontWeight = FontWeight.Bold), color = colour, maxLines = 1, modifier = Modifier.padding(start = 2.dp)) }
+        delta?.let {
+            Text(
+                it,
+                style = style.copy(fontWeight = FontWeight.Bold),
+                color = colour,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 2.dp)
+            )
+        }
     }
 }
 
@@ -425,11 +623,31 @@ internal fun ChangeText(trend: String?, delta: String?, colour: Color, style: Te
  *   value on one line ("62% humidity"), it keeps the script's case.
  */
 @Composable
-internal fun SmallValue(small: WidgetSpec.Small, muted: Color, modifier: Modifier = Modifier, centred: Boolean = false) {
-    Column(modifier, horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start) {
-        Text(small.value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+internal fun SmallValue(
+    small: WidgetSpec.Small,
+    muted: Color,
+    modifier: Modifier = Modifier,
+    centred: Boolean = false
+) {
+    Column(
+        modifier,
+        horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start
+    ) {
+        Text(
+            small.value,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         small.label?.let {
-            Text(StyledText.capitalised(it), style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                StyledText.capitalised(it),
+                style = MaterialTheme.typography.labelSmall,
+                color = muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -455,9 +673,23 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     Column(Modifier.fillMaxSize()) {
         if (box == WidgetSizes.Box.LARGE) CardName(Modifier.padding(bottom = 4.dp))
         // The text gets the height that is left, and its last line that fits ends in "…".
-        Text(cardText(spec.text), style = style, color = MaterialTheme.colorScheme.onSurface, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).fillMaxWidth())
+        Text(
+            cardText(spec.text),
+            style = style,
+            color = MaterialTheme.colorScheme.onSurface,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        )
         if (box != WidgetSizes.Box.SMALL) spec.caption?.let {
-            Text(cardText(it), style = type.labelMedium, color = lookColors(look).muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                cardText(it),
+                style = type.labelMedium,
+                color = lookColors(look).muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -488,27 +720,62 @@ private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
             Column(Modifier.fillMaxSize()) {
                 // An empty large list says which list it is over its words ("All read"), as it does over its rows.
                 CardName()
-                Box(Modifier.weight(1f).fillMaxWidth()) { QuietLine(spec.empty ?: WidgetWords.NOTHING) }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    QuietLine(
+                        spec.empty ?: WidgetWords.NOTHING
+                    )
+                }
             }
         }
+
         lead == null && spec.items.isEmpty() -> QuietLine(spec.empty ?: WidgetWords.NOTHING)
         look.untitled() -> RowsLook(spec, box, onTap, look)
         lead == null && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             CardName(Modifier.padding(bottom = 8.dp))
-            Box(Modifier.weight(1f).fillMaxWidth()) { RowList(spec.items, onTap, roleColour(spec.base)) }
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                RowList(
+                    spec.items,
+                    onTap,
+                    roleColour(spec.base)
+                )
+            }
         }
+
         lead == null -> RowList(spec.items, onTap, roleColour(spec.base))
         box != WidgetSizes.Box.LARGE -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.Center else Alignment.CenterStart) {
+            Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.Center else Alignment.CenterStart
+            ) {
                 LeadLine(lead, valueStyle(box), centred = box == WidgetSizes.Box.SMALL)
             }
         }
+
         else -> Column(Modifier.fillMaxSize()) {
             LeadLine(lead, MaterialTheme.typography.headlineMedium, centred = false)
             if (spec.items.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 // Under a lead the rows keep their height, as the mockup's Reminders card has them.
-                Box(Modifier.weight(1f).fillMaxWidth()) { RowList(spec.items, onTap, roleColour(spec.base), fill = false) }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    RowList(
+                        spec.items,
+                        onTap,
+                        roleColour(spec.base),
+                        fill = false
+                    )
+                }
             }
         }
     }
@@ -521,10 +788,33 @@ private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centred: Boolean) 
     val muted = lookColors().muted
     Column(horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start) {
         Row {
-            BigText(lead.value, style, Modifier.weight(1f, fill = false).alignByBaseline())
-            lead.unit?.let { Text(it, style = type.titleMedium, color = muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline()) }
+            BigText(
+                lead.value, style, Modifier
+                    .weight(1f, fill = false)
+                    .alignByBaseline()
+            )
+            lead.unit?.let {
+                Text(
+                    it,
+                    style = type.titleMedium,
+                    color = muted,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .alignByBaseline()
+                )
+            }
         }
-        lead.label?.let { Text(it, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        lead.label?.let {
+            Text(
+                it,
+                style = type.bodySmall,
+                color = muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -533,7 +823,12 @@ private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centred: Boolean) 
  * share the box's height. [role] is the card's colour, for the bars of rows with a range.
  */
 @Composable
-private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, role: Color, fill: Boolean = true) {
+private fun RowList(
+    items: List<WidgetSpec.Row>,
+    onTap: ((WidgetTap) -> Unit)?,
+    role: Color,
+    fill: Boolean = true
+) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val details = maxWidth >= 200.dp && items.any { it.detail != null }
         val rowDp = when {
@@ -545,12 +840,29 @@ private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, 
         val shown = WidgetWords.rowsShown(items.size, heightDp, rowDp, MORE_DP, ROW_GAP_DP)
         val more = items.size - shown
         // All rows drawn: they share the height, so a short list fills the card.
-        val rowHeight = if (fill) WidgetWords.rowHeight(items.size, shown, maxHeight.value, rowDp, ROW_GAP_DP).dp else rowDp.dp
+        val rowHeight = if (fill) WidgetWords.rowHeight(
+            items.size,
+            shown,
+            maxHeight.value,
+            rowDp,
+            ROW_GAP_DP
+        ).dp else rowDp.dp
         val rows = items.take(shown)
         val (bars, ends) = listBars(rows, maxWidth, details)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
             rows.forEachIndexed { i, row ->
-                key(i) { ListRow(row, rowHeight, details, segmentShape(i, shown), onTap, bars, ends, role) }
+                key(i) {
+                    ListRow(
+                        row,
+                        rowHeight,
+                        details,
+                        segmentShape(i, shown),
+                        onTap,
+                        bars,
+                        ends,
+                        role
+                    )
+                }
             }
             if (WidgetWords.showsMore(items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
                 // With [LocalListOpen], the line's whole width opens the list. Its touches reach 48 dp
@@ -562,7 +874,11 @@ private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, 
                     color = lookColors().muted,
                     maxLines = 1,
                     modifier = Modifier
-                        .then(if (open == null) Modifier else Modifier.fillMaxWidth().opensList())
+                        .then(
+                            if (open == null) Modifier else Modifier
+                                .fillMaxWidth()
+                                .opensList()
+                        )
                         .height(MORE_DP.dp)
                         .wrapContentHeight(),
                 )
@@ -613,7 +929,16 @@ internal fun segmentColour(): Color = MaterialTheme.colorScheme.onSurface.copy(a
  * row's ends ([listBars]). [role] is the card's colour: the bar's, when the row has none of its own.
  */
 @Composable
-private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, shape: Shape, onTap: ((WidgetTap) -> Unit)?, bars: RangeBars?, ends: Dp, role: Color) {
+private fun ListRow(
+    row: WidgetSpec.Row,
+    height: Dp,
+    details: Boolean,
+    shape: Shape,
+    onTap: ((WidgetTap) -> Unit)?,
+    bars: RangeBars?,
+    ends: Dp,
+    role: Color
+) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val done = row.done
@@ -626,30 +951,76 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, shape: Sh
     val press = rowPress(row, onTap)
     val marks = bars?.marks ?: true
     Row(
-        Modifier.fillMaxWidth().height(height).clip(shape).background(tint).then(press)
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(shape)
+            .background(tint)
+            .then(press)
             .padding(start = if (done != null) 0.dp else ends, end = ends),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val icon = row.icon.takeIf { marks }
-        if (done != null) RowCheck(done, colour ?: scheme.primary, Modifier.padding(start = 8.dp, end = 8.dp))
+        if (done != null) RowCheck(
+            done,
+            colour ?: scheme.primary,
+            Modifier.padding(start = 8.dp, end = 8.dp)
+        )
         if (icon != null) {
             // Small and quiet, as in the mockup: the row's text says what it is, the icon only helps.
-            WidgetIconText(icon, type.titleMedium, colour ?: muted, size = 18.dp, modifier = Modifier.padding(end = 10.dp))
+            WidgetIconText(
+                icon,
+                type.titleMedium,
+                colour ?: muted,
+                size = 18.dp,
+                modifier = Modifier.padding(end = 10.dp)
+            )
         } else if (done == null && colour != null && marks) {
-            Box(Modifier.padding(end = 10.dp).size(8.dp).clip(CircleShape).background(colour))
+            Box(
+                Modifier
+                    .padding(end = 10.dp)
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(colour)
+            )
         }
         Column(Modifier.weight(1f)) {
-            Text(cardText(row.title), style = type.bodyMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                cardText(row.title),
+                style = type.bodyMedium,
+                color = scheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             if (details) row.detail?.let {
-                Text(cardText(it), style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    cardText(it),
+                    style = type.bodySmall,
+                    color = muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
         if (bars != null) {
             // The row's tint is see-through: the ring around a value's dot has the tint over the card.
-            RangeSlot(row, bars, colour ?: role, tint.compositeOver(colours.card), type.labelLarge, muted)
+            RangeSlot(
+                row,
+                bars,
+                colour ?: role,
+                tint.compositeOver(colours.card),
+                type.labelLarge,
+                muted
+            )
         } else {
             row.trailing?.let {
-                Text(cardText(it), style = type.labelLarge, color = muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+                Text(
+                    cardText(it),
+                    style = type.labelLarge,
+                    color = muted,
+                    maxLines = 1,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
     }
@@ -670,13 +1041,18 @@ private val RANGE_ROW_PAD = 8.dp
  * - Without bars, the rows keep [ROW_PAD].
  */
 @Composable
-private fun listBars(rows: List<WidgetSpec.Row>, width: Dp, details: Boolean): Pair<RangeBars?, Dp> {
+private fun listBars(
+    rows: List<WidgetSpec.Row>,
+    width: Dp,
+    details: Boolean
+): Pair<RangeBars?, Dp> {
     if (rows.none { it.range != null }) return null to ROW_PAD
     val type = MaterialTheme.typography
     val icon = iconWidth(rows, type.titleMedium) + 10.dp
     // A row's second line sits under its title, in the same column: it must fit too.
     val titles = widestText(rows.map { it.title }, type.bodyMedium)
-    val seconds = widestText(if (details) rows.mapNotNull { it.detail } else emptyList(), type.bodySmall)
+    val seconds =
+        widestText(if (details) rows.mapNotNull { it.detail } else emptyList(), type.bodySmall)
     val words = maxOf(titles, seconds)
     val trailing = widestText(rows.mapNotNull { it.trailing }, type.labelLarge)
     fun mark(r: WidgetSpec.Row) = when {
@@ -684,10 +1060,16 @@ private fun listBars(rows: List<WidgetSpec.Row>, width: Dp, details: Boolean): P
         r.done == null && r.color != null -> 18.dp
         else -> 0.dp
     }
+
     fun fit(ends: Dp): RangeBars? {
         fun start(r: WidgetSpec.Row) = if (r.done != null) 34.dp else ends
         val bare = rows.maxOf { start(it) }
-        return rangeBars(rows, room = width - ends - bare, words = words, trailing = trailing, mark = rows.maxOf { start(it) + mark(it) } - bare)
+        return rangeBars(
+            rows,
+            room = width - ends - bare,
+            words = words,
+            trailing = trailing,
+            mark = rows.maxOf { start(it) + mark(it) } - bare)
     }
     fit(ROW_PAD)?.takeIf { it.marks }?.let { return it to ROW_PAD }
     fit(RANGE_ROW_PAD)?.let { return it to RANGE_ROW_PAD }
@@ -702,7 +1084,12 @@ private fun listBars(rows: List<WidgetSpec.Row>, width: Dp, details: Boolean): P
  * - [marks] is false when the rows' icons give way to the bars ([WidgetWords.rangeFit]).
  */
 @Immutable
-internal data class RangeBars(val scale: Pair<Float, Float>, val bar: Dp, val trailing: Dp, val marks: Boolean)
+internal data class RangeBars(
+    val scale: Pair<Float, Float>,
+    val bar: Dp,
+    val trailing: Dp,
+    val marks: Boolean
+)
 
 /**
  * The bars of the [rows] a list shows, or null when none of them has a range, or when the rows
@@ -711,9 +1098,16 @@ internal data class RangeBars(val scale: Pair<Float, Float>, val bar: Dp, val tr
  * - [words] and [trailing] are the widest of the rows' words and trailing texts ([widestText]).
  * - [mark] is what a row's icon takes, with its gap: the icons give way first.
  */
-internal fun rangeBars(rows: List<WidgetSpec.Row>, room: Dp, words: Dp, trailing: Dp, mark: Dp): RangeBars? {
+internal fun rangeBars(
+    rows: List<WidgetSpec.Row>,
+    room: Dp,
+    words: Dp,
+    trailing: Dp,
+    mark: Dp
+): RangeBars? {
     val scale = WidgetWords.rangeScale(rows.map { it.range }) ?: return null
-    val fit = WidgetWords.rangeFit(room.value, words.value, trailing.value, mark.value) ?: return null
+    val fit =
+        WidgetWords.rangeFit(room.value, words.value, trailing.value, mark.value) ?: return null
     // A whole number of dp, rounded down: the words keep all of their room.
     return RangeBars(scale, floor(fit.barDp).dp, trailing, fit.marks)
 }
@@ -727,7 +1121,14 @@ internal fun widestText(texts: List<String>, style: TextStyle): Dp {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     return remember(texts, style, measurer, density) {
-        val px = texts.maxOfOrNull { measurer.measure(widgetText(it), style, softWrap = false, maxLines = 1).size.width }
+        val px = texts.maxOfOrNull {
+            measurer.measure(
+                widgetText(it),
+                style,
+                softWrap = false,
+                maxLines = 1
+            ).size.width
+        }
         if (px == null) 0.dp else with(density) { ceil(px.toDp().value).dp } + 1.dp
     }
 }
@@ -749,14 +1150,38 @@ internal fun iconWidth(rows: List<WidgetSpec.Row>, style: TextStyle): Dp {
  * [colour] is the bar's, and [under] the colour beneath it, for the ring around a value's dot.
  */
 @Composable
-internal fun RangeSlot(row: WidgetSpec.Row, bars: RangeBars, colour: Color, under: Color, style: TextStyle, muted: Color) {
+internal fun RangeSlot(
+    row: WidgetSpec.Row,
+    bars: RangeBars,
+    colour: Color,
+    under: Color,
+    style: TextStyle,
+    muted: Color
+) {
     val gap = WidgetWords.RANGE_GAP_DP.dp
-    Box(Modifier.padding(start = gap).width(bars.bar)) {
+    Box(
+        Modifier
+            .padding(start = gap)
+            .width(bars.bar)
+    ) {
         row.range?.let { RangeBar(it, bars.scale, colour, under, Modifier.fillMaxWidth()) }
     }
     if (bars.trailing > 0.dp) {
-        Box(Modifier.padding(start = gap).width(bars.trailing), contentAlignment = Alignment.CenterEnd) {
-            row.trailing?.let { Text(cardText(it), style = style, color = muted, maxLines = 1, softWrap = false) }
+        Box(
+            Modifier
+                .padding(start = gap)
+                .width(bars.trailing),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            row.trailing?.let {
+                Text(
+                    cardText(it),
+                    style = style,
+                    color = muted,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
         }
     }
 }
@@ -779,15 +1204,30 @@ private val RANGE_RING = 2.dp
  * - It stands still, and it is no item for a screen reader: the row's text says the numbers.
  */
 @Composable
-internal fun RangeBar(range: WidgetSpec.Range, scale: Pair<Float, Float>, colour: Color, under: Color, modifier: Modifier = Modifier) {
+internal fun RangeBar(
+    range: WidgetSpec.Range,
+    scale: Pair<Float, Float>,
+    colour: Color,
+    under: Color,
+    modifier: Modifier = Modifier
+) {
     val place = WidgetWords.rangePlace(range, scale)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    Canvas(modifier.height(RANGE_DOT + RANGE_RING * 2).testTag("range-bar")) {
+    Canvas(
+        modifier
+            .height(RANGE_DOT + RANGE_RING * 2)
+            .testTag("range-bar")
+    ) {
         val line = RANGE_LINE.toPx()
         val y = size.height / 2
         val round = CornerRadius(line / 2)
         fun x(f: Float) = size.width * (if (rtl) 1f - f else f)
-        drawRoundRect(colour.copy(alpha = 0.24f), Offset(0f, y - line / 2), Size(size.width, line), round)
+        drawRoundRect(
+            colour.copy(alpha = 0.24f),
+            Offset(0f, y - line / 2),
+            Size(size.width, line),
+            round
+        )
         val a = minOf(x(place.start), x(place.end))
         val b = maxOf(x(place.start), x(place.end))
         val length = maxOf(b - a, line).coerceAtMost(size.width)
@@ -814,20 +1254,23 @@ internal fun rowPress(row: WidgetSpec.Row, onTap: ((WidgetTap) -> Unit)?): Modif
     val longPress = LocalCardLongPress.current
     val range = WidgetWords.rowRange(row)
     return if (tap != null && onTap != null) {
-        Modifier.combinedClickable(
-            onClickLabel = tap.label,
-            role = if (done != null) Role.Checkbox else Role.Button,
-            onLongClickLabel = if (longPress != null) "arrange widgets" else null,
-            onLongClick = longPress,
-            onClick = { onTap(tap) },
-        ).then(
-            if (done == null && range == null) Modifier
-            else Modifier.semantics {
-                if (done != null) toggleableState = ToggleableState(done)
-                // Said after the row's words. A checkbox then says its state in words too.
-                if (range != null) stateDescription = listOfNotNull(range, WidgetWords.doneWord(done)).joinToString(", ")
-            },
-        )
+        Modifier
+            .combinedClickable(
+                onClickLabel = tap.label,
+                role = if (done != null) Role.Checkbox else Role.Button,
+                onLongClickLabel = if (longPress != null) "arrange widgets" else null,
+                onLongClick = longPress,
+                onClick = { onTap(tap) },
+            )
+            .then(
+                if (done == null && range == null) Modifier
+                else Modifier.semantics {
+                    if (done != null) toggleableState = ToggleableState(done)
+                    // Said after the row's words. A checkbox then says its state in words too.
+                    if (range != null) stateDescription =
+                        listOfNotNull(range, WidgetWords.doneWord(done)).joinToString(", ")
+                },
+            )
     } else {
         Modifier
     }
@@ -850,10 +1293,20 @@ private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
         spec.items.isNotEmpty() && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             // Each bar says what it is: a large card says what they are together over them, as a list does ("Disk").
             CardName(Modifier.padding(bottom = 8.dp))
-            Box(Modifier.weight(1f).fillMaxWidth()) { BarsBody(spec, colour) }
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) { BarsBody(spec, colour) }
         }
+
         spec.items.isNotEmpty() -> BarsBody(spec, colour)
-        spec.style == "ring" || (spec.style != "bar" && box != WidgetSizes.Box.WIDE) -> RingBody(spec, box, colour)
+        spec.style == "ring" || (spec.style != "bar" && box != WidgetSizes.Box.WIDE) -> RingBody(
+            spec,
+            box,
+            colour
+        )
+
         else -> BarBody(spec, box, colour)
     }
 }
@@ -865,13 +1318,24 @@ private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
-    val shown by animateFloatAsState(fraction, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "ring")
+    val shown by animateFloatAsState(
+        fraction,
+        MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "ring"
+    )
     // A bigger ring gets a thicker line: an eighth of its side.
-    val stroke = with(LocalDensity.current) { Stroke(width = (side / 8).coerceIn(4.dp, 14.dp).toPx(), cap = StrokeCap.Round) }
+    val stroke = with(LocalDensity.current) {
+        Stroke(
+            width = (side / 8).coerceIn(4.dp, 14.dp).toPx(),
+            cap = StrokeCap.Round
+        )
+    }
     val wave = moving && cardSeen()
     CircularWavyProgressIndicator(
         progress = { shown.coerceIn(0f, 1f) },
-        modifier = Modifier.size(side).clearAndSetSemantics {},
+        modifier = Modifier
+            .size(side)
+            .clearAndSetSemantics {},
         color = colour,
         trackColor = colour.copy(alpha = 0.24f),
         stroke = stroke,
@@ -901,20 +1365,41 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (box == WidgetSizes.Box.WIDE) {
             // Without a title line the title shares the row, so the ring takes less of the width.
-            val side = (if (untitled != null) min(maxHeight, maxWidth * 0.42f) else min(maxHeight, maxWidth / 2)).coerceAtLeast(24.dp)
+            val side = (if (untitled != null) min(maxHeight, maxWidth * 0.42f) else min(
+                maxHeight,
+                maxWidth / 2
+            )).coerceAtLeast(24.dp)
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 if (untitled != null) {
                     Box(Modifier.size(side), contentAlignment = Alignment.Center) {
                         Ring(fraction, spec.moving, colour, side)
-                        BigText(text, if (side >= 96.dp) type.titleLarge else type.titleSmall, Modifier.padding(horizontal = side / 5))
+                        BigText(
+                            text,
+                            if (side >= 96.dp) type.titleLarge else type.titleSmall,
+                            Modifier.padding(horizontal = side / 5)
+                        )
                     }
-                    Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                        Text(cardText(untitled), style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Column(
+                        Modifier
+                            .padding(start = 12.dp)
+                            .weight(1f)
+                    ) {
+                        Text(
+                            cardText(untitled),
+                            style = type.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         spec.label?.let { RingLabel(it, spec.labelIcon, type.bodyMedium, muted) }
                     }
                 } else {
                     Ring(fraction, spec.moving, colour, side)
-                    Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                    Column(
+                        Modifier
+                            .padding(start = 12.dp)
+                            .weight(1f)
+                    ) {
                         BigText(text, type.titleLarge)
                         spec.label?.let { RingLabel(it, spec.labelIcon, type.bodySmall, muted) }
                     }
@@ -929,12 +1414,24 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
                 Box(Modifier.size(side), contentAlignment = Alignment.Center) {
                     Ring(fraction, spec.moving, colour, side)
                     // The text stays clear of the ring's line, which is an eighth of the side.
-                    BigText(text, if (side >= 96.dp) type.titleLarge else type.titleSmall, Modifier.padding(horizontal = side / 5))
+                    BigText(
+                        text,
+                        if (side >= 96.dp) type.titleLarge else type.titleSmall,
+                        Modifier.padding(horizontal = side / 5)
+                    )
                 }
                 // The label in bold and in the card's colour, as the mockup has it: it says what the number means.
                 // On Tonal's card of that colour it is in the text colour.
                 if (label != null) {
-                    RingLabel(label, spec.labelIcon, type.titleSmall.copy(fontWeight = FontWeight.Bold), if (tonal) MaterialTheme.colorScheme.onSurface else colour, Modifier.height(labelRoom).wrapContentHeight())
+                    RingLabel(
+                        label,
+                        spec.labelIcon,
+                        type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        if (tonal) MaterialTheme.colorScheme.onSurface else colour,
+                        Modifier
+                            .height(labelRoom)
+                            .wrapContentHeight()
+                    )
                 }
             }
         }
@@ -943,12 +1440,25 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
 
 /** A ring's label in [style] and [colour], after its [icon] (a drawable) when it has one: the Battery card's network. */
 @Composable
-internal fun RingLabel(label: String, icon: Int?, style: TextStyle, colour: Color, modifier: Modifier = Modifier) {
+internal fun RingLabel(
+    label: String,
+    icon: Int?,
+    style: TextStyle,
+    colour: Color,
+    modifier: Modifier = Modifier
+) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) {
             // As tall as the text's font size, in the text's colour.
             val side = with(LocalDensity.current) { style.fontSize.toDp() }
-            Icon(painterResource(icon), contentDescription = null, tint = colour, modifier = Modifier.padding(end = 6.dp).size(side))
+            Icon(
+                painterResource(icon),
+                contentDescription = null,
+                tint = colour,
+                modifier = Modifier
+                    .padding(end = 6.dp)
+                    .size(side)
+            )
         }
         Text(label, style = style, color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
@@ -961,9 +1471,18 @@ internal fun RingLabel(label: String, icon: Int?, style: TextStyle, colour: Colo
 @Composable
 private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
     val large = box == WidgetSizes.Box.LARGE
-    Column(Modifier.fillMaxSize(), verticalArrangement = if (large) Arrangement.SpaceBetween else Arrangement.Center) {
+    Column(
+        Modifier.fillMaxSize(),
+        verticalArrangement = if (large) Arrangement.SpaceBetween else Arrangement.Center
+    ) {
         Row {
-            BigText(spec.text ?: WidgetWords.percent(spec.value, spec.max), valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+            BigText(
+                spec.text ?: WidgetWords.percent(spec.value, spec.max),
+                valueStyle(box),
+                Modifier
+                    .weight(1f, fill = false)
+                    .alignByBaseline()
+            )
             if (box != WidgetSizes.Box.SMALL) (spec.label ?: LocalUntitled.current)?.let {
                 Text(
                     it,
@@ -971,11 +1490,19 @@ private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Col
                     color = lookColors().muted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 8.dp).widthIn(max = 96.dp).alignByBaseline(),
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .widthIn(max = 96.dp)
+                        .alignByBaseline(),
                 )
             }
         }
-        LevelBar(WidgetWords.fraction(spec.value, spec.max), spec.moving, colour, Modifier.padding(top = 4.dp))
+        LevelBar(
+            WidgetWords.fraction(spec.value, spec.max),
+            spec.moving,
+            colour,
+            Modifier.padding(top = 4.dp)
+        )
     }
 }
 
@@ -996,16 +1523,32 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
     val muted = lookColors().muted
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val named = maxHeight >= NAMED_BAR_DP.dp * spec.items.size
-        val count = if (named) spec.items.size else (maxHeight / BAR_DP.dp).toInt().coerceIn(1, spec.items.size)
+        val count = if (named) spec.items.size else (maxHeight / BAR_DP.dp).toInt()
+            .coerceIn(1, spec.items.size)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
             spec.items.take(count).forEachIndexed { i, bar ->
                 key(i) {
                     Column {
                         if (named) Row {
-                            Text(bar.label.orEmpty(), style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            Text(bar.text ?: WidgetWords.percent(bar.value, bar.max), style = type.labelMedium, color = scheme.onSurface, maxLines = 1)
+                            Text(
+                                bar.label.orEmpty(),
+                                style = type.bodySmall,
+                                color = muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                bar.text ?: WidgetWords.percent(bar.value, bar.max),
+                                style = type.labelMedium,
+                                color = scheme.onSurface,
+                                maxLines = 1
+                            )
                         }
-                        LevelBar(WidgetWords.fraction(bar.value, bar.max), spec.moving, bar.color?.let { colourOf(it) } ?: colour)
+                        LevelBar(
+                            WidgetWords.fraction(bar.value, bar.max),
+                            spec.moving,
+                            bar.color?.let { colourOf(it) } ?: colour)
                     }
                 }
             }
@@ -1038,7 +1581,15 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     // The minute's tick. It also comes when home is back on screen, and when the clock is set.
     LaunchedEffect(minute) { now.longValue = System.currentTimeMillis() / 1000 }
     val count = remember(spec.to, spec.style, spec.reached, zone) {
-        derivedStateOf { WidgetWords.countdown(spec.to, now.longValue, spec.style, spec.reached, zone) }
+        derivedStateOf {
+            WidgetWords.countdown(
+                spec.to,
+                now.longValue,
+                spec.style,
+                spec.reached,
+                zone
+            )
+        }
     }
     val ticks by remember(count) { derivedStateOf { count.value.ticks } }
     EverySecond(ticks) { now.longValue = it / 1000 }
@@ -1050,7 +1601,13 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     // Shape draws the wait as a ring around a small card too.
     val barless = small && look != WidgetLook.SHAPE
     val bar by remember(barless, spec.from, spec.to) {
-        derivedStateOf { if (barless) null else WidgetWords.countdownFraction(spec.from, spec.to, now.longValue)?.let(WidgetWords::barStep) }
+        derivedStateOf {
+            if (barless) null else WidgetWords.countdownFraction(
+                spec.from,
+                spec.to,
+                now.longValue
+            )?.let(WidgetWords::barStep)
+        }
     }
     val clock24 = rememberClock24()
     // A large box writes the start and the moment under the bar's ends. They change at most once a day.
@@ -1081,25 +1638,57 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
             // A wide card's bar takes the line under the number: the label goes at the end of the number's line.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { CountdownValue(count, large, box) }
-                Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp).widthIn(max = 160.dp))
+                Text(
+                    label,
+                    style = type.bodySmall,
+                    color = muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .widthIn(max = 160.dp)
+                )
             }
         } else {
             CountdownValue(count, large, box)
         }
         if (bar == null || large) label?.let {
             // A small box has room for two short lines: "to 20 / December".
-            Text(it, style = if (large) type.bodyMedium else type.bodySmall, color = muted, maxLines = if (small) 2 else 1, overflow = TextOverflow.Ellipsis, textAlign = if (small) TextAlign.Center else TextAlign.Start)
+            Text(
+                it,
+                style = if (large) type.bodyMedium else type.bodySmall,
+                color = muted,
+                maxLines = if (small) 2 else 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = if (small) TextAlign.Center else TextAlign.Start
+            )
         }
         bar?.let { fraction ->
             // A large box has the bar at its bottom.
             if (large) Spacer(Modifier.weight(1f))
             // A wave that stands still: a countdown waits, it is not at work.
-            LevelBar(fraction, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp), wavy = true)
+            LevelBar(
+                fraction,
+                moving = false,
+                roleColour(spec.base),
+                Modifier.padding(top = 4.dp),
+                wavy = true
+            )
             ends?.let { (start, end) ->
-                Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp)
+                ) {
                     Text(start, style = type.bodySmall, color = muted, maxLines = 1)
                     Spacer(Modifier.weight(1f))
-                    Text(end, style = type.bodySmall, color = muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+                    Text(
+                        end,
+                        style = type.bodySmall,
+                        color = muted,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
                 }
             }
         }
@@ -1112,10 +1701,26 @@ private fun CountdownValue(count: State<WidgetWords.Count>, large: Boolean, box:
     val type = MaterialTheme.typography
     val now = count.value
     Row {
-        BigText(StyledText.capitalised(now.value), if (large) type.displayMedium else valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+        BigText(
+            StyledText.capitalised(now.value),
+            if (large) type.displayMedium else valueStyle(box),
+            Modifier
+                .weight(1f, fill = false)
+                .alignByBaseline()
+        )
         now.unit?.let {
-            val unitStyle = if (large) type.titleLarge.copy(fontWeight = FontWeight.Bold) else type.titleMedium
-            Text(it, style = unitStyle, color = lookColors().muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline())
+            val unitStyle =
+                if (large) type.titleLarge.copy(fontWeight = FontWeight.Bold) else type.titleMedium
+            Text(
+                it,
+                style = unitStyle,
+                color = lookColors().muted,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .alignByBaseline()
+            )
         }
     }
 }
@@ -1154,24 +1759,88 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             // The value on its own line with its label under it, as a stat has them.
             if (value != null) BigText(value, valueStyle(box))
-            if (label != null) Text(label, style = type.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp), surface)
-            if (spec.labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+            if (label != null) Text(
+                label,
+                style = type.bodyMedium,
+                color = muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Plot(
+                spec.points,
+                bars,
+                spec.min,
+                spec.max,
+                colour,
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                surface
+            )
+            if (spec.labels.isNotEmpty()) Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp)
+            ) {
                 Text(spec.labels.first(), style = type.labelSmall, color = muted, maxLines = 1)
                 Spacer(Modifier.weight(1f))
-                if (spec.labels.size > 1) Text(spec.labels.last(), style = type.labelSmall, color = muted, maxLines = 1)
+                if (spec.labels.size > 1) Text(
+                    spec.labels.last(),
+                    style = type.labelSmall,
+                    color = muted,
+                    maxLines = 1
+                )
             }
         }
-        WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            if (value != null || label != null) Column(Modifier.padding(end = 12.dp).widthIn(max = 120.dp)) {
+
+        WidgetSizes.Box.WIDE -> Row(
+            Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (value != null || label != null) Column(
+                Modifier
+                    .padding(end = 12.dp)
+                    .widthIn(max = 120.dp)
+            ) {
                 if (value != null) BigText(value, type.titleLarge)
-                if (label != null) Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (label != null) Text(
+                    label,
+                    style = type.bodySmall,
+                    color = muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxHeight(), surface)
+            Plot(
+                spec.points,
+                bars,
+                spec.min,
+                spec.max,
+                colour,
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                surface
+            )
         }
-        WidgetSizes.Box.SMALL -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+
+        WidgetSizes.Box.SMALL -> Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             if (value != null) BigText(value, type.titleMedium)
-            Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth(), surface)
+            Plot(
+                spec.points,
+                bars,
+                spec.min,
+                spec.max,
+                colour,
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                surface
+            )
         }
     }
 }
@@ -1188,13 +1857,22 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
  * - [surface] is the colour under the plot, for the dot's ring.
  */
 @Composable
-internal fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, colour: Color, modifier: Modifier = Modifier, surface: Color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+internal fun Plot(
+    points: List<Float>,
+    bars: Boolean,
+    min: Float?,
+    max: Float?,
+    colour: Color,
+    modifier: Modifier = Modifier,
+    surface: Color = MaterialTheme.colorScheme.surfaceContainerHigh
+) {
     val hairline = MaterialTheme.colorScheme.outlineVariant
     val scale = remember(points, bars, min, max) { WidgetWords.scale(points, min, max, bars) }
     Canvas(modifier) {
         if (points.isEmpty() || size.width <= 0f || size.height <= 0f) return@Canvas
         val (low, high) = scale
         val line = 2.dp.toPx()
+
         // How high a value sits, from 0 at the bottom of the scale to 1 at its top.
         fun level(v: Float) = WidgetWords.fraction(v - low, high - low)
         if (bars) {
@@ -1210,11 +1888,25 @@ internal fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, 
                 val x = i * slot + (slot - thick) / 2
                 // A value at the bottom of the scale still shows as a sliver.
                 val top = (size.height * (1f - level(v))).coerceAtMost(size.height - line)
-                (if (i == points.lastIndex) latest else before).addRoundRect(RoundRect(Rect(x, top, x + thick, size.height), topLeft = round, topRight = round))
+                (if (i == points.lastIndex) latest else before).addRoundRect(
+                    RoundRect(
+                        Rect(
+                            x,
+                            top,
+                            x + thick,
+                            size.height
+                        ), topLeft = round, topRight = round
+                    )
+                )
             }
             drawPath(before, colour.copy(alpha = 0.4f))
             drawPath(latest, colour)
-            drawLine(hairline, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
+            drawLine(
+                hairline,
+                Offset(0f, size.height),
+                Offset(size.width, size.height),
+                strokeWidth = 1.dp.toPx()
+            )
         } else {
             val dot = 4.dp.toPx()
             // Room for the dot and its ring at the end, the top and the bottom.
@@ -1222,7 +1914,9 @@ internal fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, 
             val left = line / 2
             val right = (size.width - pad).coerceAtLeast(left)
             val tall = (size.height - 2 * pad).coerceAtLeast(0f)
-            fun x(i: Int) = if (points.size == 1) right else left + (right - left) * i / (points.size - 1)
+            fun x(i: Int) =
+                if (points.size == 1) right else left + (right - left) * i / (points.size - 1)
+
             fun y(v: Float) = pad + tall * (1f - level(v))
             if (points.size > 1) {
                 val path = Path()
@@ -1235,7 +1929,11 @@ internal fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, 
                 wash.lineTo(right, size.height)
                 wash.close()
                 drawPath(wash, colour.copy(alpha = 0.2f))
-                drawPath(path, colour, style = Stroke(width = line, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawPath(
+                    path,
+                    colour,
+                    style = Stroke(width = line, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
             }
             val end = Offset(x(points.lastIndex), y(points.last()))
             drawCircle(surface, radius = dot + line, center = end)
@@ -1253,11 +1951,24 @@ internal fun RowCheck(done: Boolean, colour: Color, modifier: Modifier = Modifie
     val shape = RoundedCornerShape(5.dp)
     val scheme = MaterialTheme.colorScheme
     Box(
-        modifier.size(18.dp).clip(shape)
-            .then(if (done) Modifier.background(colour) else Modifier.border(2.dp, scheme.onSurfaceVariant, shape)),
+        modifier
+            .size(18.dp)
+            .clip(shape)
+            .then(
+                if (done) Modifier.background(colour) else Modifier.border(
+                    2.dp,
+                    scheme.onSurfaceVariant,
+                    shape
+                )
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        if (done) Icon(painterResource(R.drawable.wi_check), contentDescription = null, tint = scheme.surfaceContainerHigh, modifier = Modifier.size(14.dp))
+        if (done) Icon(
+            painterResource(R.drawable.wi_check),
+            contentDescription = null,
+            tint = scheme.surfaceContainerHigh,
+            modifier = Modifier.size(14.dp)
+        )
     }
 }
 
@@ -1271,7 +1982,10 @@ private class SteadyAutoSize(private val inner: TextAutoSize) : TextAutoSize {
     private var fitted: List<Any>? = null
     private var size: TextUnit = TextUnit.Unspecified
 
-    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
+    override fun TextAutoSizeLayoutScope.getFontSize(
+        constraints: Constraints,
+        text: AnnotatedString
+    ): TextUnit {
         val shape = String(CharArray(text.length) { if (text[it].isDigit()) '0' else text[it] })
         val key = listOf(constraints, density, fontScale, shape)
         if (key == fitted && size.isSpecified) return size

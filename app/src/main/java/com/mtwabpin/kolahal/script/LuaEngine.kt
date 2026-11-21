@@ -3,13 +3,13 @@
  */
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.StyledText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import party.iroiro.luajava.JFunction
 import party.iroiro.luajava.Lua
 import party.iroiro.luajava.lua54.Lua54
-import com.mtwabpin.kolahal.data.StyledText
 
 /**
  * Native Lua 5.4 through LuaJava. Each run gets a fresh, sandboxed state with no `java` bridge,
@@ -80,7 +80,11 @@ class LuaEngine : ScriptEngine {
      * Java object (LuaJava keeps it in `__jthrowable__`), with Java's reflection behind it. So an error
      * becomes a Lua error: the text [message] gives, or [fallback] when even that fails.
      */
-    private fun guarded(fallback: String, message: (Throwable) -> String = { fallback }, fn: (Lua) -> Int) = JFunction { l ->
+    private fun guarded(
+        fallback: String,
+        message: (Throwable) -> String = { fallback },
+        fn: (Lua) -> Int
+    ) = JFunction { l ->
         try {
             fn(l)
         } catch (e: Throwable) {
@@ -100,7 +104,8 @@ class LuaEngine : ScriptEngine {
 
     private fun bindHost(lua: Lua, host: HostApi) {
         /** Turns Kotlin exceptions into Lua errors instead of letting them cross JNI. They are masked, as the script may see them. */
-        fun safe(fn: (Lua) -> Int) = guarded("host error", { e -> host.redact(e.message ?: e.javaClass.simpleName) }, fn)
+        fun safe(fn: (Lua) -> Int) =
+            guarded("host error", { e -> host.redact(e.message ?: e.javaClass.simpleName) }, fn)
 
         fun Lua.global(name: String, fn: (Lua) -> Int) {
             push(safe(fn))
@@ -131,7 +136,8 @@ class LuaEngine : ScriptEngine {
         lua.global("logs") { l ->
             // logs({ "a", "b" }) or logs("a", "b"): one title line for each.
             val titles = if (l.isTable(1)) {
-                l.listArg(1)?.map { it.toString() } ?: throw IllegalArgumentException("logs expects a list of titles")
+                l.listArg(1)?.map { it.toString() }
+                    ?: throw IllegalArgumentException("logs expects a list of titles")
             } else (1..l.top).map { l.str(it) ?: "nil" }
             host.logs(titles)
             0
@@ -152,9 +158,21 @@ class LuaEngine : ScriptEngine {
             "http",
             "get" to { l: Lua -> l.pushValue(host.httpGet(l.checkString(), l.mapArg(2))); 1 },
             // No lifetime, or nil, means the documented 600 s. (Reading nil as a number would give 0: never cached.)
-            "cached" to { l: Lua -> l.pushValue(host.httpCached(l.checkString(), if (l.isNumber(2)) l.toInteger(2).toInt() else 600)); 1 },
+            "cached" to { l: Lua ->
+                l.pushValue(
+                    host.httpCached(
+                        l.checkString(),
+                        if (l.isNumber(2)) l.toInteger(2).toInt() else 600
+                    )
+                ); 1
+            },
             "request" to { l: Lua ->
-                l.pushValue(host.httpRequest(l.mapArg(1) ?: throw IllegalArgumentException("http.request expects a table")))
+                l.pushValue(
+                    host.httpRequest(
+                        l.mapArg(1)
+                            ?: throw IllegalArgumentException("http.request expects a table")
+                    )
+                )
                 1
             },
         )
@@ -188,7 +206,15 @@ class LuaEngine : ScriptEngine {
             "clear" to { l: Lua -> host.widgetClear(); 0 },
         )
         lua.table("apps", "list" to { l: Lua -> l.pushValue(host.appsList()); 1 })
-        lua.table("notifications", "recent" to { l: Lua -> l.pushValue(host.notificationsRecent(if (l.isNumber(1)) l.toInteger(1).toInt() else 20)); 1 })
+        lua.table(
+            "notifications",
+            "recent" to { l: Lua ->
+                l.pushValue(
+                    host.notificationsRecent(
+                        if (l.isNumber(1)) l.toInteger(1).toInt() else 20
+                    )
+                ); 1
+            })
         lua.table("launcher", "run" to { l: Lua -> l.push(host.runCommand(l.checkString())); 1 })
         // Your own lists, each behind the `@uses` item of its name ([HostData]). One HostData for the run: it counts the todos the run changes.
         val data = HostData(host.context, host::may, host::live, host::logError)
@@ -196,19 +222,30 @@ class LuaEngine : ScriptEngine {
             "todos",
             "list" to { l: Lua -> l.pushValue(data.todosList()); 1 },
             // The id and done go as they are: HostData says what is wrong with them.
-            "setDone" to { l: Lua -> l.args().let { a -> l.push(data.todosSetDone(a.getOrNull(0), a.getOrNull(1))) }; 1 },
+            "setDone" to { l: Lua ->
+                l.args().let { a -> l.push(data.todosSetDone(a.getOrNull(0), a.getOrNull(1))) }; 1
+            },
         )
-        lua.table("notes", "list" to { l: Lua -> l.pushValue(data.notesList(l.args().firstOrNull())); 1 })
+        lua.table(
+            "notes",
+            "list" to { l: Lua -> l.pushValue(data.notesList(l.args().firstOrNull())); 1 })
         lua.table("reminders", "list" to { l: Lua -> l.pushValue(data.remindersList()); 1 })
-        lua.table("calendar", "events" to { l: Lua -> l.pushValue(data.calendarEvents(l.args().firstOrNull())); 1 })
-        lua.table("feeds", "unread" to { l: Lua -> l.pushValue(data.feedsUnread(l.args().firstOrNull())); 1 })
+        lua.table(
+            "calendar",
+            "events" to { l: Lua -> l.pushValue(data.calendarEvents(l.args().firstOrNull())); 1 })
+        lua.table(
+            "feeds",
+            "unread" to { l: Lua -> l.pushValue(data.feedsUnread(l.args().firstOrNull())); 1 })
         lua.table(
             "usage",
             "today" to { l: Lua -> l.pushValue(data.usageToday(l.args().firstOrNull())); 1 },
             "days" to { l: Lua -> l.pushValue(data.usageDays(l.args().firstOrNull())); 1 },
             "data" to { l: Lua -> l.pushValue(data.usageData(l.args().firstOrNull())); 1 },
             "unused" to { l: Lua -> l.pushValue(data.usageUnused(l.args().firstOrNull())); 1 },
-            "summary" to { l: Lua -> l.args().let { a -> l.pushValue(data.usageSummary(a.getOrNull(0), a.getOrNull(1))) }; 1 },
+            "summary" to { l: Lua ->
+                l.args()
+                    .let { a -> l.pushValue(data.usageSummary(a.getOrNull(0), a.getOrNull(1))) }; 1
+            },
         )
         lua.global("sleep") { l ->
             host.sleep(l.toInteger(1))
@@ -228,7 +265,10 @@ class LuaEngine : ScriptEngine {
         )
         lua.table(
             "md",
-            "log" to { l: Lua -> l.logArgs().let { (title, body, ctx) -> l.pushLine(host.logMarkdown(title, body, ctx)) }; 1 },
+            "log" to { l: Lua ->
+                l.logArgs()
+                    .let { (title, body, ctx) -> l.pushLine(host.logMarkdown(title, body, ctx)) }; 1
+            },
             "escape" to { l: Lua -> l.pushValue(Markdown.escape(l.str(1) ?: "")); 1 },
         )
         val fmt = Fmt(::cellText)
@@ -239,18 +279,37 @@ class LuaEngine : ScriptEngine {
             "underline" to { l: Lua -> l.styled(StyledText.Style.UNDERLINE); 1 },
             "strike" to { l: Lua -> l.styled(StyledText.Style.STRIKE); 1 },
             "code" to { l: Lua -> l.styled(StyledText.Style.CODE); 1 },
-            "color" to { l: Lua -> l.pushValue(StyledText.colour(Fmt.colour("fmt.color", l.toString(1)), l.str(2) ?: "nil")); 1 },
+            "color" to { l: Lua ->
+                l.pushValue(
+                    StyledText.colour(
+                        Fmt.colour(
+                            "fmt.color",
+                            l.toString(1)
+                        ), l.str(2) ?: "nil"
+                    )
+                ); 1
+            },
             "list" to { l: Lua ->
-                val items = l.listArg(1)?.map { it.toString() } ?: throw IllegalArgumentException("fmt.list expects a list of items")
+                val items = l.listArg(1)?.map { it.toString() }
+                    ?: throw IllegalArgumentException("fmt.list expects a list of items")
                 l.pushValue(StyledText.list(items, numbered = l.top >= 2 && l.toBoolean(2)))
                 1
             },
             "table" to { l: Lua ->
                 val bad = "fmt.table expects a list of rows, each a list of cells"
-                val rows = l.listArg(1)?.map { r -> Json.listOrNull(r)?.map(::cellText) ?: throw IllegalArgumentException(bad) }
+                val rows = l.listArg(1)?.map { r ->
+                    Json.listOrNull(r)?.map(::cellText) ?: throw IllegalArgumentException(bad)
+                }
                     ?: throw IllegalArgumentException(bad)
-                val opts = if (l.top >= 2 && l.isTable(2)) Json.normalizeLua(l.toMap(2)) as? Map<*, *> else null
-                l.pushValue(StyledText.table(rows, header = opts?.get("header") == true, align = opts?.get("align")?.toString().orEmpty()))
+                val opts =
+                    if (l.top >= 2 && l.isTable(2)) Json.normalizeLua(l.toMap(2)) as? Map<*, *> else null
+                l.pushValue(
+                    StyledText.table(
+                        rows,
+                        header = opts?.get("header") == true,
+                        align = opts?.get("align")?.toString().orEmpty()
+                    )
+                )
                 1
             },
             "tag" to { l: Lua -> l.pushValue(fmt.tag(l.args())); 1 },

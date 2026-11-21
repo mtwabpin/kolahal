@@ -3,6 +3,9 @@
  */
 package com.mtwabpin.kolahal.commands
 
+import com.mtwabpin.kolahal.commands.InstantRun.WHOLE_LINE_OK
+
+
 /**
  * `launch.instant`: runs what the user is typing, without Enter, as soon as it can mean only one thing.
  * - `apps`: only app names.
@@ -86,7 +89,12 @@ object InstantRun {
         if (mode == OFF) return null
         val q = text.trimStart().lowercase()
         // With arguments, the whole line runs once there is nothing left to choose (`torch on`).
-        if (q.any { it.isWhitespace() }) return if (mode == ALL && wholeLine(q, commands, aliases)) Target.Command(q.trim()) else null
+        if (q.any { it.isWhitespace() }) return if (mode == ALL && wholeLine(
+                q,
+                commands,
+                aliases
+            )
+        ) Target.Command(q.trim()) else null
         if (q.length < minLength) return null
         val names = commands.keys + aliases.keys + scriptCommands
         val nameMatches = names.filter { it.startsWith(q) }.distinct()
@@ -95,7 +103,9 @@ object InstantRun {
         // profile), the user must choose. Nothing launches, and the suggestions show both.
         val apps = rankedApps(q).filter { it.second <= 2 }.map { it.first }
             .groupBy { appLabel(it).lowercase() }.values
-            .flatMap { copies -> copies.filter(isOn).takeIf { it.size > 1 } ?: listOf(copies.first()) }
+            .flatMap { copies ->
+                copies.filter(isOn).takeIf { it.size > 1 } ?: listOf(copies.first())
+            }
         if (mode == APPS) {
             // Typing a command must never launch an app that has the same prefix.
             if (nameMatches.isNotEmpty()) return null
@@ -108,6 +118,7 @@ object InstantRun {
                 val name = nameMatches[0]
                 if (canRun(name, commands, aliases, scriptCommands)) Target.Command(name) else null
             }
+
             else -> null
         }
     }
@@ -117,7 +128,7 @@ object InstantRun {
      * from a prefix or from a script. But a line with nothing left to choose (`torch on`) does run,
      * whether it is typed, picked, or tapped in the log.
      */
-    private val WHOLE_LINE_OK = com.mtwabpin.kolahal.commands.ControlSpecs.SENSITIVE
+    private val WHOLE_LINE_OK = ControlSpecs.SENSITIVE
 
     /**
      * Commands that are sensitive when typed or sent by a script, but run when tapped in the log.
@@ -127,12 +138,21 @@ object InstantRun {
     private val TAP_OK = setOf("call")
 
     /** True when [line] has arguments and fills its command's usage line completely ([UsageLine.complete]). */
-    fun wholeLine(line: String, commands: Map<String, String>, aliases: Map<String, String>): Boolean {
+    fun wholeLine(
+        line: String,
+        commands: Map<String, String>,
+        aliases: Map<String, String>
+    ): Boolean {
         val word = line.trim().lowercase().substringBefore(' ')
         // An alias may stand for anything, so it waits for Enter.
         if (word in aliases) return false
         val head = canonical(word)
-        return (head !in CommandCatalog.SENSITIVE || head in WHOLE_LINE_OK) && commands[head]?.let { UsageLine.complete(line, it) } == true
+        return (head !in CommandCatalog.SENSITIVE || head in WHOLE_LINE_OK) && commands[head]?.let {
+            UsageLine.complete(
+                line,
+                it
+            )
+        } == true
     }
 
     /**

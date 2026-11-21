@@ -19,16 +19,20 @@ class WidgetCheckTest {
     private val logs = LogRepository.get(instrumentation.targetContext)
     private val t = TestWidgets()
     private val widgets = t.host
-    @get:Rule val logLines = LogLinesSince()
 
-    @After fun tearDown() {
+    @get:Rule
+    val logLines = LogLinesSince()
+
+    @After
+    fun tearDown() {
         // As a process with no home started has it: left listening, the next MainActivity's
         // start would skip its check.
         instrumentation.runOnMainSync { widgets.stopListening() }
         t.close()
     }
 
-    @Test fun aLostIdWaitsToBeAddedAgain() {
+    @Test
+    fun aLostIdWaitsToBeAddedAgain() {
         val clock = t.clocks().first()
         // An id Android never gave out, as after a restore on another phone.
         val lost = Int.MAX_VALUE - 9
@@ -47,6 +51,8 @@ class WidgetCheckTest {
             widgets.widgets.value.any { it.pending && it.provider == placed.provider && it.order == placed.order }
         }
         assertNull(widgets.widgets.value.firstOrNull { it.id == lost })
-        waitUntil("and the log says so") { logs.recent(20).any { it.id > logLines.start && "needs adding again" in it.text } }
+        waitUntil("and the log says so") {
+            logs.recent(20).any { it.id > logLines.start && "needs adding again" in it.text }
+        }
     }
 }

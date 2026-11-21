@@ -94,8 +94,26 @@ internal fun widgetIconDrawable(name: String): Int? = when (name) {
  * the card's description, does.
  */
 @Composable
-internal fun WidgetIconText(icon: String, style: TextStyle, colour: Color = LocalContentColor.current, size: Dp = 20.dp, modifier: Modifier = Modifier) {
+internal fun WidgetIconText(
+    icon: String,
+    style: TextStyle,
+    colour: Color = LocalContentColor.current,
+    size: Dp = 20.dp,
+    modifier: Modifier = Modifier
+) {
     val drawable = widgetIconDrawable(icon)
-    if (drawable != null) Icon(painterResource(drawable), contentDescription = null, tint = colour, modifier = modifier.size(size))
-    else Text(icon, style = style, color = colour, maxLines = 1, softWrap = false, modifier = modifier)
+    if (drawable != null) Icon(
+        painterResource(drawable),
+        contentDescription = null,
+        tint = colour,
+        modifier = modifier.size(size)
+    )
+    else Text(
+        icon,
+        style = style,
+        color = colour,
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier
+    )
 }

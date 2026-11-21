@@ -5,9 +5,10 @@ package com.mtwabpin.kolahal.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -19,12 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
@@ -36,7 +33,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -44,27 +44,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.runtime.rememberUpdatedState
-import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.ConfigKey
+import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -74,10 +74,17 @@ import kotlin.math.roundToInt
 internal typealias UndoMessage = (text: String, undo: () -> Unit) -> Unit
 
 /** An [UndoMessage] on [snackbar]: Undo stays for a long snackbar's time. */
-internal fun undoMessage(scope: kotlinx.coroutines.CoroutineScope, snackbar: androidx.compose.material3.SnackbarHostState): UndoMessage = { text, undo ->
+internal fun undoMessage(
+    scope: kotlinx.coroutines.CoroutineScope,
+    snackbar: androidx.compose.material3.SnackbarHostState
+): UndoMessage = { text, undo ->
     scope.launch {
         snackbar.currentSnackbarData?.dismiss()
-        val r = snackbar.showSnackbar(text, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Long)
+        val r = snackbar.showSnackbar(
+            text,
+            actionLabel = "Undo",
+            duration = androidx.compose.material3.SnackbarDuration.Long
+        )
         if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) undo()
     }
 }
@@ -112,7 +119,10 @@ internal fun SettingItem(
     val supporting: @Composable () -> Unit = {
         Column {
             Text(key.help.replaceFirstChar { it.uppercase() })
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
                 Text(
                     key.key,
                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
@@ -130,7 +140,9 @@ internal fun SettingItem(
                             vm.resetConfig(key)
                             onUndoMessage?.invoke("Reset “$title”") { vm.setConfig(key, before) }
                         },
-                        modifier = Modifier.touchArea(28.dp).testTag("reset ${key.key}"),
+                        modifier = Modifier
+                            .touchArea(28.dp)
+                            .testTag("reset ${key.key}"),
                         tint = MaterialTheme.colorScheme.primary,
                         iconModifier = Modifier.size(20.dp),
                     )
@@ -161,14 +173,21 @@ internal fun SettingItem(
                             // Draw each card in the variant in use now: dark or light, as the phone (or
                             // Always dark) sets it. It is read with the version, so toggling Always dark
                             // redraws the cards.
-                            val dark = androidx.compose.foundation.isSystemInDarkTheme() || run { version.value; config[Keys.THEME_ALWAYS_DARK] }
+                            val dark =
+                                androidx.compose.foundation.isSystemInDarkTheme() || run { version.value; config[Keys.THEME_ALWAYS_DARK] }
                             ThemeSwatches(value, dark) { vm.setConfig(key, it) }
                         } else if (key == Keys.FONT) {
                             FontChoices(value, { vm.setConfig(key, it) }, vm::requestFontImport)
                         } else if (key.choices.size > 4) {
-                            ChipChoices(key.choices, value, label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
+                            ChipChoices(
+                                key.choices,
+                                value,
+                                label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
                         } else {
-                            ConnectedChoices(key.choices, value, label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
+                            ConnectedChoices(
+                                key.choices,
+                                value,
+                                label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
                         }
                     }
                 },
@@ -178,7 +197,8 @@ internal fun SettingItem(
                 var current by remember(key, value) { mutableFloatStateOf(value.toFloat()) }
                 val slider = remember(key) {
                     // Show ticks only for short ranges. Wide ranges (dp sizes, days) slide smoothly.
-                    val steps = (key.range.last - key.range.first - 1).let { if (it in 1..11) it else 0 }
+                    val steps =
+                        (key.range.last - key.range.first - 1).let { if (it in 1..11) it else 0 }
                     SliderState(current, steps, key.range.first.toFloat()..key.range.last.toFloat())
                 }
                 slider.value = current
@@ -186,7 +206,11 @@ internal fun SettingItem(
                     colors = segColors(),
                     shapes = shapes,
                     trailingContent = {
-                        Text(current.roundToInt().toString(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            current.roundToInt().toString(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     },
                     supportingContent = {
                         Column {
@@ -207,7 +231,10 @@ internal fun SettingItem(
                                 state = slider,
                                 onValueChange = {
                                     current = it
-                                    if (peekTyping != null) config.preview(key, current.roundToInt().toString())
+                                    if (peekTyping != null) config.preview(
+                                        key,
+                                        current.roundToInt().toString()
+                                    )
                                 },
                                 onValueChangeFinished = {
                                     vm.setConfig(key, current.roundToInt().toString())
@@ -232,7 +259,7 @@ internal fun SettingItem(
                 SegmentedListItem(
                     colors = segColors(),
                     shapes = shapes,
-                        supportingContent = {
+                    supportingContent = {
                         Column {
                             supporting()
                             Spacer(Modifier.height(8.dp))
@@ -252,9 +279,19 @@ internal fun SettingItem(
                                     capitalization = KeyboardCapitalization.None,
                                     imeAction = ImeAction.Done,
                                 ),
-                                keyboardActions = KeyboardActions(onDone = { vm.setConfig(key, text) }),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    vm.setConfig(
+                                        key,
+                                        text
+                                    )
+                                }),
                                 trailingIcon = if (text != value && valid) {
-                                    { LabeledIconButton(R.drawable.ic_check, "Apply", onClick = { vm.setConfig(key, text) }) }
+                                    {
+                                        LabeledIconButton(
+                                            R.drawable.ic_check,
+                                            "Apply",
+                                            onClick = { vm.setConfig(key, text) })
+                                    }
                                 } else null,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -271,10 +308,18 @@ internal fun SettingItem(
 
 /** For many options: single-select filter chips that wrap. [label] gives the words shown for a choice. */
 @Composable
-fun ChipChoices(choices: List<String>, selected: String, label: (String) -> String = { it }, onPick: (String) -> Unit) {
+fun ChipChoices(
+    choices: List<String>,
+    selected: String,
+    label: (String) -> String = { it },
+    onPick: (String) -> Unit
+) {
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         choices.forEach { c ->
-            androidx.compose.material3.FilterChip(selected = c == selected, onClick = { onPick(c) }, label = { Text(label(c)) })
+            androidx.compose.material3.FilterChip(
+                selected = c == selected,
+                onClick = { onPick(c) },
+                label = { Text(label(c)) })
         }
     }
 }
@@ -293,7 +338,12 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
         if (at > 0) scroll.scrollTo(at * step - step / 2)
     }
     // Every card is as tall as the tallest one, because a card can have a note under its name.
-    Row(Modifier.horizontalScroll(scroll).height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        Modifier
+            .horizontalScroll(scroll)
+            .height(IntrinsicSize.Max),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         (Keys.BUILT_IN_THEMES + own).forEach { name ->
             val p = Palettes.named(name, dark)
             val on = name == selected
@@ -301,20 +351,45 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
                 onClick = { onPick(name) },
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = p.bg),
-                border = if (on) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, p.surface),
-                modifier = Modifier.width(112.dp).fillMaxHeight(),
+                border = if (on) BorderStroke(
+                    3.dp,
+                    MaterialTheme.colorScheme.primary
+                ) else BorderStroke(1.dp, p.surface),
+                modifier = Modifier
+                    .width(112.dp)
+                    .fillMaxHeight(),
             ) {
                 Column(Modifier.padding(12.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(p.prompt, p.work, p.link, p.private).forEach {
-                            Box(Modifier.size(14.dp).background(it, CircleShape))
+                            Box(
+                                Modifier
+                                    .size(14.dp)
+                                    .background(it, CircleShape)
+                            )
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    Text("$ ls", color = p.prompt, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace))
-                    Text(ChoiceLabels.theme(name), color = p.fg, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "$ ls",
+                        color = p.prompt,
+                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace)
+                    )
+                    Text(
+                        ChoiceLabels.theme(name),
+                        color = p.fg,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     ChoiceLabels.themeNote(name)?.let {
-                        Text(it, color = p.dim, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            it,
+                            color = p.dim,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -327,9 +402,10 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
  * centred over it. A small icon button in a line of text then keeps the line's height and still has
  * a 48 dp touch area. The 10 dp or so outside [shown] can overlap what is beside it.
  */
-internal fun Modifier.touchArea(shown: androidx.compose.ui.unit.Dp): Modifier = layout { measurable, _ ->
-    val touch = 48.dp.roundToPx()
-    val size = shown.roundToPx()
-    val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(touch, touch))
-    layout(size, size) { placeable.place((size - touch) / 2, (size - touch) / 2) }
-}
+internal fun Modifier.touchArea(shown: androidx.compose.ui.unit.Dp): Modifier =
+    layout { measurable, _ ->
+        val touch = 48.dp.roundToPx()
+        val size = shown.roundToPx()
+        val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(touch, touch))
+        layout(size, size) { placeable.place((size - touch) / 2, (size - touch) / 2) }
+    }

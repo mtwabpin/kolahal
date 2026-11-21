@@ -24,10 +24,12 @@ import java.io.File
 object NotifIcons {
     private const val PX = 48
     private const val VERSION_TTL_MS = 10 * 60_000L
+
     /** Above this count, the oldest files are deleted. Their lines then show the app name. */
     private const val MAX_FILES = 400
 
-    @Volatile private var known: MutableSet<String>? = null
+    @Volatile
+    private var known: MutableSet<String>? = null
     private val memory = object : LruCache<String, ImageBitmap>(64) {}
 
     private fun dir(context: Context) = File(context.filesDir, "notif-icons")
@@ -46,7 +48,12 @@ object NotifIcons {
     private fun versionOf(context: Context, pkg: String): Long {
         val now = System.currentTimeMillis()
         versions[pkg]?.let { (version, at) -> if (now - at < VERSION_TTL_MS) return version }
-        val version = runCatching { context.packageManager.getPackageInfo(pkg, 0).longVersionCode }.getOrDefault(0L)
+        val version = runCatching {
+            context.packageManager.getPackageInfo(
+                pkg,
+                0
+            ).longVersionCode
+        }.getOrDefault(0L)
         versions[pkg] = version to now
         return version
     }
@@ -97,7 +104,8 @@ object NotifIcons {
     fun load(context: Context, key: String): ImageBitmap? {
         memory.get(key)?.let { return it }
         val file = File(dir(context), "$key.png")
-        val image = runCatching { BitmapFactory.decodeFile(file.path)?.asImageBitmap() }.getOrNull() ?: return null
+        val image = runCatching { BitmapFactory.decodeFile(file.path)?.asImageBitmap() }.getOrNull()
+            ?: return null
         memory.put(key, image)
         return image
     }

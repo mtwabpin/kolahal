@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.ui
 
-import com.mtwabpin.kolahal.terminal.HeaderTarget
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
@@ -26,19 +25,21 @@ import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.status.Status
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.mtwabpin.kolahal.terminal.HeaderTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** The header, one line: the parts you chose on each side (by default the time and date; the alarm, todos and battery), and what a tap does. */
 @RunWith(AndroidJUnit4::class)
 class TerminalHeaderTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
     private val config = Config.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val date = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date())
     private val taps = mutableListOf<HeaderTarget>()
@@ -47,30 +48,41 @@ class TerminalHeaderTest {
     private var todos by mutableIntStateOf(2)
     private var version by mutableIntStateOf(0)
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
 
     /** The header, drawn once; [status], [todos] and settings (with [version]) change it after. */
     private fun show(width: Dp = 400.dp) = compose.setContent {
         KolahalTheme {
             Box(Modifier.width(width)) {
                 Header(
-                    status = status, unlocks = 7, profiles = emptyList(), todoCount = todos, config = config, version = version,
-                    onTarget = { taps += it }, onProfileTap = {}, onSwipeDown = { swipes++ },
+                    status = status,
+                    unlocks = 7,
+                    profiles = emptyList(),
+                    todoCount = todos,
+                    config = config,
+                    version = version,
+                    onTarget = { taps += it },
+                    onProfileTap = {},
+                    onSwipeDown = { swipes++ },
                 )
             }
         }
     }
 
-    private fun set(vararg values: Pair<com.mtwabpin.kolahal.data.ConfigKey<*>, String>) = compose.runOnIdle {
-        values.forEach { (key, value) -> config.set(key, value) }
-        version++
-    }
+    private fun set(vararg values: Pair<com.mtwabpin.kolahal.data.ConfigKey<*>, String>) =
+        compose.runOnIdle {
+            values.forEach { (key, value) -> config.set(key, value) }
+            version++
+        }
 
     /** One line of the header's text (or its icon, if taller), without the padding. */
-    private fun line() = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 1).dp) }
+    private fun line() =
+        with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 1).dp) }
 
     /** header.padding is the space above and below the text: the header is the line and twice it. */
-    @Test fun thePaddingSetsTheHeight() {
+    @Test
+    fun thePaddingSetsTheHeight() {
         show()
         compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 12.dp)
         set(Keys.HEADER_PADDING to "2")
@@ -82,7 +94,8 @@ class TerminalHeaderTest {
     }
 
     /** By default: the time and date, the next alarm, the open todos and the battery, in one line. */
-    @Test fun theDefaultsShowInOneLine() {
+    @Test
+    fun theDefaultsShowInOneLine() {
         status = Status(batteryPct = 50, nextAlarm = System.currentTimeMillis() + 3_600_000L)
         show()
         compose.onNodeWithText(date).assertExists()
@@ -91,13 +104,15 @@ class TerminalHeaderTest {
         compose.onNodeWithText("50%").assertExists()
         compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 12.dp)
         // All on the one line.
-        val tops = listOf("header-time", "header-date", "header-alarm", "header-todo", "header-battery")
-            .map { compose.onNodeWithTag(it).getUnclippedBoundsInRoot().top }
+        val tops =
+            listOf("header-time", "header-date", "header-alarm", "header-todo", "header-battery")
+                .map { compose.onNodeWithTag(it).getUnclippedBoundsInRoot().top }
         assertTrue(tops.toString(), tops.distinct().size == 1)
     }
 
     /** An alarm within a day is its time alone, without AM or PM; further off, with its day. */
-    @Test fun theAlarmSaysItsDayOnlyWhenFar() {
+    @Test
+    fun theAlarmSaysItsDayOnlyWhenFar() {
         val time = SimpleDateFormat("h:mm", Locale.getDefault())
         val soon = System.currentTimeMillis() + 3_600_000L
         status = Status(batteryPct = 50, nextAlarm = soon)
@@ -105,11 +120,17 @@ class TerminalHeaderTest {
         compose.onNodeWithText(time.format(Date(soon))).assertExists()
         val far = System.currentTimeMillis() + 3 * 86_400_000L
         compose.runOnIdle { status = Status(batteryPct = 50, nextAlarm = far) }
-        compose.onNodeWithText(SimpleDateFormat("EEE ", Locale.getDefault()).format(Date(far)) + time.format(Date(far))).assertExists()
+        compose.onNodeWithText(
+            SimpleDateFormat(
+                "EEE ",
+                Locale.getDefault()
+            ).format(Date(far)) + time.format(Date(far))
+        ).assertExists()
     }
 
     /** The parts are yours, on either side: one left out isn't shown; no todos, no todo part. */
-    @Test fun thePartsAreTheOnesChosen() {
+    @Test
+    fun thePartsAreTheOnesChosen() {
         config.set(Keys.HEADER_RIGHT, "unlocks,settings,battery")
         show()
         compose.onNodeWithText("7").assertExists()
@@ -127,7 +148,10 @@ class TerminalHeaderTest {
         compose.onNodeWithTag("header-date").assertDoesNotExist()
         val battery = compose.onNodeWithTag("header-battery").getUnclippedBoundsInRoot()
         val time = compose.onNodeWithTag("header-time").getUnclippedBoundsInRoot()
-        assertTrue("the battery at ${battery.left}, the time at ${time.left}", battery.right < time.left)
+        assertTrue(
+            "the battery at ${battery.left}, the time at ${time.left}",
+            battery.right < time.left
+        )
 
         // An empty side is fine.
         set(Keys.HEADER_LEFT to "none")
@@ -136,28 +160,46 @@ class TerminalHeaderTest {
     }
 
     /** Each part does what it says, and a swipe down pulls the shade. */
-    @Test fun aTapGoesWhereItSays() {
+    @Test
+    fun aTapGoesWhereItSays() {
         status = Status(batteryPct = 50, nextAlarm = System.currentTimeMillis() + 3_600_000L)
         show()
         compose.onNodeWithTag("header-time").performClick()
         compose.onNodeWithTag("header-alarm").performClick()
         compose.onNodeWithTag("header-todo").performClick()
         compose.onNodeWithTag("header-battery").performClick()
-        compose.runOnIdle { assertEquals(listOf(HeaderTarget.CLOCK, HeaderTarget.ALARM, HeaderTarget.TODO, HeaderTarget.BATTERY), taps) }
+        compose.runOnIdle {
+            assertEquals(
+                listOf(
+                    HeaderTarget.CLOCK,
+                    HeaderTarget.ALARM,
+                    HeaderTarget.TODO,
+                    HeaderTarget.BATTERY
+                ), taps
+            )
+        }
         // From the line down onto the log, as a finger would.
-        compose.onNodeWithTag("header").performTouchInput { swipeDown(startY = top + 1f, endY = bottom + 200.dp.toPx()) }
+        compose.onNodeWithTag("header")
+            .performTouchInput { swipeDown(startY = top + 1f, endY = bottom + 200.dp.toPx()) }
         compose.runOnIdle { assertEquals(1, swipes) }
     }
 
     /** Little room: what doesn't fit is left out from the middle out, the battery last, and it stays one line. */
-    @Test fun itStaysOneLineWithLittleRoom() {
+    @Test
+    fun itStaysOneLineWithLittleRoom() {
         config.set(Keys.HEADER_RIGHT, "unlocks,todo,battery")
         show(width = 300.dp)
         compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 12.dp)
         compose.onNodeWithTag("header-battery").assertExists()
         // Each part is on the line or left out: none drawn past its end.
         val line = compose.onNodeWithTag("header").getUnclippedBoundsInRoot()
-        for (tag in listOf("header-time", "header-date", "header-unlocks", "header-todo", "header-battery")) {
+        for (tag in listOf(
+            "header-time",
+            "header-date",
+            "header-unlocks",
+            "header-todo",
+            "header-battery"
+        )) {
             compose.onAllNodesWithTag(tag).fetchSemanticsNodes().forEach { node ->
                 val right = with(compose.density) { node.boundsInRoot.right.toDp() }
                 assertTrue("$tag ends at $right, the line at ${line.right}", right <= line.right)

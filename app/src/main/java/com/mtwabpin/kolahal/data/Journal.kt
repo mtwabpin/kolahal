@@ -17,11 +17,13 @@ internal class Journal(private val kept: Int) {
     private val entries = ArrayDeque<Pair<Long, Long>>()
 
     /** The number of the latest change, or 0 before any. */
-    @Volatile var seq = 0L
+    @Volatile
+    var seq = 0L
         private set
 
     /** Notes a change to each of the lines [ids], in order. */
-    @Synchronized fun add(ids: Collection<Long>) {
+    @Synchronized
+    fun add(ids: Collection<Long>) {
         for (id in ids) {
             entries.addLast(++seq to id)
             if (entries.size > kept) entries.removeFirst()
@@ -29,7 +31,8 @@ internal class Journal(private val kept: Int) {
     }
 
     /** The ids changed after change number [since], or null when that is too long ago to know. */
-    @Synchronized fun since(since: Long): Set<Long>? {
+    @Synchronized
+    fun since(since: Long): Set<Long>? {
         if (since < seq - entries.size) return null
         return entries.filter { (number, _) -> number > since }.mapTo(HashSet()) { (_, id) -> id }
     }

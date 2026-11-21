@@ -26,11 +26,11 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,7 +52,11 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 /** A label and its value on a script's sheet. Used for the user's scripts and for shared ones. */
 @Composable
 internal fun Fact(label: String, value: String) {
-    Text("$label: $value", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        "$label: $value",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 /**
@@ -100,7 +104,9 @@ internal fun ScriptSheet(
     val title = info.title
     // `@version` and `@author`, if the script has them: v1.2 · by Someone
     val byLine = remember(info) {
-        listOfNotNull(info.version?.let { "v$it" }, info.author?.let { "By $it" }).joinToString(" · ").ifEmpty { null }
+        listOfNotNull(
+            info.version?.let { "v$it" },
+            info.author?.let { "By $it" }).joinToString(" · ").ifEmpty { null }
     }
     val access = info.accessItems
     val notifies = info.notifies
@@ -108,7 +114,13 @@ internal fun ScriptSheet(
     var editingSecret by remember(s.id) { mutableStateOf<ScriptMeta.Secret?>(null) }
     val options = remember(s.code) { ScriptMeta.options(s.code) }
     val optionsVersion by vm.scriptActions.optionsVersion.collectAsStateWithLifecycle()
-    val optionValues by produceIo(emptyMap<String, String>() to emptySet<String>(), s.code, s.name, optionsVersion, what = "Reading a script's options") {
+    val optionValues by produceIo(
+        emptyMap<String, String>() to emptySet<String>(),
+        s.code,
+        s.name,
+        optionsVersion,
+        what = "Reading a script's options"
+    ) {
         vm.scriptActions.optionValues(s)
     }
     var editingOption by remember(s.id) { mutableStateOf<ScriptMeta.Option?>(null) }
@@ -125,18 +137,30 @@ internal fun ScriptSheet(
                 color = scriptColor(s.name),
                 modifier = Modifier.weight(1f, fill = false),
             )
-            LabeledIconButton(R.drawable.ic_edit, "Rename", onClick = { renaming = true }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            LabeledIconButton(
+                R.drawable.ic_edit,
+                "Rename",
+                onClick = { renaming = true },
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         title?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
         Text(
-            listOfNotNull(if (s.lang == ScriptLang.LUA) "Lua" else "JavaScript", byLine, copy?.addedSource?.let { "From $it" }, if (isCommand) "Command" else null, desc)
+            listOfNotNull(
+                if (s.lang == ScriptLang.LUA) "Lua" else "JavaScript",
+                byLine,
+                copy?.addedSource?.let { "From $it" },
+                if (isCommand) "Command" else null,
+                desc
+            )
                 .joinToString(" · "),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            s.lastRun?.let { "Last run ${relative(it)} · ${s.lastStatus.orEmpty()}" } ?: "Never run",
+            s.lastRun?.let { "Last run ${relative(it)} · ${s.lastStatus.orEmpty()}" }
+                ?: "Never run",
             style = MaterialTheme.typography.bodySmall,
             color = if (s.failed()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
             maxLines = 4,
@@ -144,12 +168,19 @@ internal fun ScriptSheet(
         )
 
         Spacer(Modifier.height(16.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.runScriptNow(s) }) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                shapes = ButtonDefaults.shapes(),
+                onClick = { vm.scriptActions.runScriptNow(s) }) {
                 IconLabel(R.drawable.ic_play, "Run")
             }
             // A command takes arguments; a script with @on or @at runs on an event: the editor's long-press on Run.
-            if (runWith) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { runWithOpen = true }) {
+            if (runWith) OutlinedButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = { runWithOpen = true }) {
                 Text("Run with…")
             }
             FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onEdit) {
@@ -178,15 +209,37 @@ internal fun ScriptSheet(
             SectionTitle("Access")
             Spacer(Modifier.height(4.dp))
             val (base, declared) = uses.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
-            base.forEach { item -> SwitchRow(ScriptAccess.label(item), ScriptAccess.help(item), grants.allows(item)) { vm.scriptActions.setScriptAccess(s, item, it) } }
-            if (notifies) SwitchRow("Post notifications", "Lets the script notify you", s.notify) { vm.scriptActions.setScriptNotify(s, it) }
-            declared.forEach { item -> SwitchRow(ScriptAccess.label(item), ScriptAccess.help(item), grants.allows(item)) { vm.scriptActions.setScriptAccess(s, item, it) } }
+            base.forEach { item ->
+                SwitchRow(
+                    ScriptAccess.label(item),
+                    ScriptAccess.help(item),
+                    grants.allows(item)
+                ) { vm.scriptActions.setScriptAccess(s, item, it) }
+            }
+            if (notifies) SwitchRow(
+                "Post notifications",
+                "Lets the script notify you",
+                s.notify
+            ) { vm.scriptActions.setScriptNotify(s, it) }
+            declared.forEach { item ->
+                SwitchRow(
+                    ScriptAccess.label(item),
+                    ScriptAccess.help(item),
+                    grants.allows(item)
+                ) { vm.scriptActions.setScriptAccess(s, item, it) }
+            }
         }
         if (events.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             SectionTitle("Events")
             Spacer(Modifier.height(4.dp))
-            events.forEach { item -> SwitchRow(ScriptAccess.label(item), ScriptAccess.help(item), grants.allows(item)) { vm.scriptActions.setScriptAccess(s, item, it) } }
+            events.forEach { item ->
+                SwitchRow(
+                    ScriptAccess.label(item),
+                    ScriptAccess.help(item),
+                    grants.allows(item)
+                ) { vm.scriptActions.setScriptAccess(s, item, it) }
+            }
         }
 
         // Keys and tokens it declares with @secret. The user sets them here, never in the code.
@@ -199,7 +252,11 @@ internal fun ScriptSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
             )
-            secrets.forEach { d -> SecretRow(d, isSet = d.name in secretsSet) { editingSecret = d } }
+            secrets.forEach { d ->
+                SecretRow(d, isSet = d.name in secretsSet) {
+                    editingSecret = d
+                }
+            }
         }
 
         // Settings it declares with @option. The user changes them here, not in the code, so
@@ -214,12 +271,21 @@ internal fun ScriptSheet(
                 modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
             )
             options.forEach { o ->
-                OptionRow(o, optionValues.first[o.name] ?: o.default, changed = o.name in optionValues.second) { editingOption = o }
+                OptionRow(
+                    o,
+                    optionValues.first[o.name] ?: o.default,
+                    changed = o.name in optionValues.second
+                ) { editingOption = o }
             }
         }
 
         Spacer(Modifier.height(16.dp))
-        IntervalSelector("Runs every", s.intervalMin, { vm.scriptActions.setScriptInterval(s, it) }, INTERVALS)
+        IntervalSelector(
+            "Runs every",
+            s.intervalMin,
+            { vm.scriptActions.setScriptInterval(s, it) },
+            INTERVALS
+        )
 
         Spacer(Modifier.height(12.dp))
         TextField(
@@ -231,7 +297,10 @@ internal fun ScriptSheet(
             placeholder = { Text("08:00, 18:30") },
             // Or pick a time on a clock. It is added to the times and saved at once.
             leadingIcon = {
-                LabeledIconButton(R.drawable.ic_alarm, "Add a time", onClick = { pickingTime = true })
+                LabeledIconButton(
+                    R.drawable.ic_alarm,
+                    "Add a time",
+                    onClick = { pickingTime = true })
             },
             singleLine = true,
             isError = timesError,
@@ -243,10 +312,15 @@ internal fun ScriptSheet(
                 capitalization = KeyboardCapitalization.None,
                 imeAction = ImeAction.Done,
             ),
-            keyboardActions = KeyboardActions(onDone = { timesError = !vm.scriptActions.setScriptTimes(s, times) }),
+            keyboardActions = KeyboardActions(onDone = {
+                timesError = !vm.scriptActions.setScriptTimes(s, times)
+            }),
             trailingIcon = if (times != s.atTimes.joinToString(", ")) {
                 {
-                    LabeledIconButton(R.drawable.ic_check, "Set times", onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) })
+                    LabeledIconButton(
+                        R.drawable.ic_check,
+                        "Set times",
+                        onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) })
                 }
             } else null,
             modifier = Modifier
@@ -256,7 +330,11 @@ internal fun ScriptSheet(
         )
 
         if (pickingTime) {
-            val clock = rememberTimePickerState(initialHour = 8, initialMinute = 0, is24Hour = vm.config[Keys.CLOCK_24H])
+            val clock = rememberTimePickerState(
+                initialHour = 8,
+                initialMinute = 0,
+                is24Hour = vm.config[Keys.CLOCK_24H]
+            )
             TimePickerDialog(
                 onDismissRequest = { pickingTime = false },
                 title = { Text("Daily at") },
@@ -264,12 +342,18 @@ internal fun ScriptSheet(
                     TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                         val picked = "%02d:%02d".format(clock.hour, clock.minute)
                         // Add it to the current text in the box, saved or not.
-                        times = (times.split(',', ' ').filter { it.isNotBlank() } + picked).distinct().sorted().joinToString(", ")
+                        times =
+                            (times.split(',', ' ').filter { it.isNotBlank() } + picked).distinct()
+                                .sorted().joinToString(", ")
                         timesError = !vm.scriptActions.setScriptTimes(s, times)
                         pickingTime = false
                     }) { Text("Add") }
                 },
-                dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { pickingTime = false }) { Text("Cancel") } },
+                dismissButton = {
+                    TextButton(
+                        shapes = ButtonDefaults.shapes(),
+                        onClick = { pickingTime = false }) { Text("Cancel") }
+                },
             ) { TimePicker(clock) }
         }
 
@@ -287,14 +371,23 @@ internal fun ScriptSheet(
     }
 
     editingSecret?.let { d ->
-        SecretDialog(s.name, d, d.name in secretsSet, onDismiss = { editingSecret = null }) { value ->
+        SecretDialog(
+            s.name,
+            d,
+            d.name in secretsSet,
+            onDismiss = { editingSecret = null }) { value ->
             editingSecret = null
             vm.scriptActions.setSecret(s.name, d, value)
         }
     }
 
     editingOption?.let { o ->
-        OptionDialog(s.name, o, optionValues.first[o.name] ?: o.default, changed = o.name in optionValues.second, onDismiss = { editingOption = null }) { value ->
+        OptionDialog(
+            s.name,
+            o,
+            optionValues.first[o.name] ?: o.default,
+            changed = o.name in optionValues.second,
+            onDismiss = { editingOption = null }) { value ->
             editingOption = null
             vm.scriptActions.setOption(s.name, o.name, value)
         }
@@ -330,7 +423,12 @@ internal fun ScriptSheet(
 
 /** One option on a script's sheet: its name, what it is for, and its value (muted while it is the default). */
 @Composable
-private fun OptionRow(option: ScriptMeta.Option, value: String, changed: Boolean, onClick: () -> Unit) {
+private fun OptionRow(
+    option: ScriptMeta.Option,
+    value: String,
+    changed: Boolean,
+    onClick: () -> Unit
+) {
     ValueRow(
         option.name,
         option.desc,
@@ -347,7 +445,10 @@ private fun OptionRow(option: ScriptMeta.Option, value: String, changed: Boolean
 private fun SecretRow(secret: ScriptMeta.Secret, isSet: Boolean, onClick: () -> Unit) {
     ValueRow(
         secret.name,
-        listOf(secret.desc, "sent only to ${secret.hosts.joinToString()}").filter { it.isNotBlank() }.joinToString(" · "),
+        listOf(
+            secret.desc,
+            "sent only to ${secret.hosts.joinToString()}"
+        ).filter { it.isNotBlank() }.joinToString(" · "),
         if (isSet) "Set" else "Not set",
         if (isSet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         onClick = onClick,

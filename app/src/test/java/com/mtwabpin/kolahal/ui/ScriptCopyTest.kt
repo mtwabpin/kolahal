@@ -15,7 +15,15 @@ import org.junit.Test
  * the three share one set of dialogs ([CopyDialogs]), so they must agree on which copies get them.
  */
 class ScriptCopyTest {
-    private val entry = ScriptLibrary.Entry("countdown.lua", "countdown", ScriptLang.LUA, "Countdown", "Counts down", command = true, suggestedEvery = 0)
+    private val entry = ScriptLibrary.Entry(
+        "countdown.lua",
+        "countdown",
+        ScriptLang.LUA,
+        "Countdown",
+        "Counts down",
+        command = true,
+        suggestedEvery = 0
+    )
 
     /**
      * A row as the pages build it: `newer` is what [ScriptLibrary.hasNewer] says for the state. An
@@ -27,24 +35,35 @@ class ScriptCopyTest {
     )
 
     /** The library page offered Compare for a copy that differs, the Scripts tab for one that can be restored: the same copies. */
-    @Test fun aCopyThatDiffersIsOneThatCanBeRestored() {
+    @Test
+    fun aCopyThatDiffersIsOneThatCanBeRestored() {
         for (state in ScriptLibrary.State.entries) for (fromOlder in listOf(false, true)) {
             val r = row(state, fromOlder)
-            assertEquals("$state, from an older version: $fromOlder", r.state.differs(), ScriptCopy.of(r).canRestore)
+            assertEquals(
+                "$state, from an older version: $fromOlder",
+                r.state.differs(),
+                ScriptCopy.of(r).canRestore
+            )
         }
     }
 
     /** A newer version comes before edits, and only an edited copy asks before Update or Reset. */
-    @Test fun aLibraryCopysStateAndEdits() {
-        fun copy(state: ScriptLibrary.State, fromOlder: Boolean = false) = ScriptCopy.of(row(state, fromOlder)).let { it.state to it.edited }
+    @Test
+    fun aLibraryCopysStateAndEdits() {
+        fun copy(state: ScriptLibrary.State, fromOlder: Boolean = false) =
+            ScriptCopy.of(row(state, fromOlder)).let { it.state to it.edited }
         assertEquals(CopyState.UP_TO_DATE to false, copy(ScriptLibrary.State.INSTALLED))
         assertEquals(CopyState.NEW_VERSION to false, copy(ScriptLibrary.State.UPDATE_AVAILABLE))
         assertEquals(CopyState.EDITED to true, copy(ScriptLibrary.State.MODIFIED))
-        assertEquals(CopyState.NEW_VERSION to true, copy(ScriptLibrary.State.MODIFIED, fromOlder = true))
+        assertEquals(
+            CopyState.NEW_VERSION to true,
+            copy(ScriptLibrary.State.MODIFIED, fromOlder = true)
+        )
     }
 
     /** Update or Reset brings the library's version of that script, and a library copy can be compared. */
-    @Test fun aLibraryCopyRestoresFromItsLibraryScript() {
+    @Test
+    fun aLibraryCopyRestoresFromItsLibraryScript() {
         val r = row(ScriptLibrary.State.MODIFIED)
         val copy = ScriptCopy.of(r)
         val s = Script(7, "countdown", ScriptLang.LUA, "-- mine", 0, true, false, null, null)
@@ -57,10 +76,31 @@ class ScriptCopyTest {
     }
 
     /** A shared copy whose entry is no longer in the kept list can't be restored: there is nothing to bring. */
-    @Test fun aCopyWithNoKnownSourceCantBeRestored() {
-        assertFalse(ScriptCopy(ScriptSource.SHARED, CopyState.NEW_VERSION, edited = false).canRestore)
+    @Test
+    fun aCopyWithNoKnownSourceCantBeRestored() {
+        assertFalse(
+            ScriptCopy(
+                ScriptSource.SHARED,
+                CopyState.NEW_VERSION,
+                edited = false
+            ).canRestore
+        )
         assertFalse(ScriptCopy(ScriptSource.SHARED, CopyState.EDITED, edited = true).canRestore)
-        assertTrue(ScriptCopy(ScriptSource.LIBRARY, CopyState.EDITED, edited = true, lib = row(ScriptLibrary.State.MODIFIED)).canRestore)
-        assertFalse(ScriptCopy(ScriptSource.LIBRARY, CopyState.UP_TO_DATE, edited = false, lib = row(ScriptLibrary.State.INSTALLED)).canRestore)
+        assertTrue(
+            ScriptCopy(
+                ScriptSource.LIBRARY,
+                CopyState.EDITED,
+                edited = true,
+                lib = row(ScriptLibrary.State.MODIFIED)
+            ).canRestore
+        )
+        assertFalse(
+            ScriptCopy(
+                ScriptSource.LIBRARY,
+                CopyState.UP_TO_DATE,
+                edited = false,
+                lib = row(ScriptLibrary.State.INSTALLED)
+            ).canRestore
+        )
     }
 }

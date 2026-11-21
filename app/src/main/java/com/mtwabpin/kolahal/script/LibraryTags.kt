@@ -58,7 +58,9 @@ object LibraryTags {
                 LibraryTag.TEMPLATE -> name.startsWith(TEMPLATE_PREFIX)
                 LibraryTag.WIDGET -> ScriptMeta.widget(code) != null
                 LibraryTag.COMMAND -> ScriptMeta.isCommand(code)
-                LibraryTag.TIMER -> ScriptMeta.every(code) != null || ScriptMeta.at(code).isNotEmpty()
+                LibraryTag.TIMER -> ScriptMeta.every(code) != null || ScriptMeta.at(code)
+                    .isNotEmpty()
+
                 LibraryTag.EVENT -> ScriptMeta.events(code).isNotEmpty()
                 LibraryTag.INTERNET -> internet
                 LibraryTag.OFFLINE -> !internet
@@ -67,7 +69,8 @@ object LibraryTags {
     }
 
     /** The tags with the [ids] given, in the order of [LibraryTag]. An id that no tag has is left out. */
-    fun known(ids: Collection<String>): Set<LibraryTag> = LibraryTag.entries.filterTo(LinkedHashSet()) { it.id in ids }
+    fun known(ids: Collection<String>): Set<LibraryTag> =
+        LibraryTag.entries.filterTo(LinkedHashSet()) { it.id in ids }
 
     /**
      * Whether the search finds [entry]: its name, its title or its description has each of [words]

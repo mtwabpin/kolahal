@@ -27,17 +27,25 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ResumeProfileTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule
+    val compose = createComposeRule()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val logs = LogRepository.get(context)
 
-    private fun app(kind: ProfileKind) = AppEntry("Mail", ComponentName("com.example.mail", "com.example.mail.Main"), Profile(Process.myUserHandle(), 99, kind, quiet = true))
+    private fun app(kind: ProfileKind) = AppEntry(
+        "Mail",
+        ComponentName("com.example.mail", "com.example.mail.Main"),
+        Profile(Process.myUserHandle(), 99, kind, quiet = true)
+    )
 
     /** The tap asks, and writes nothing in the log: the dialog is the question. */
-    @Test fun aTapOnAPausedAppAsks() {
+    @Test
+    fun aTapOnAPausedAppAsks() {
         val asked = ArrayList<AppEntry>()
         val commands = CommandRunner(context, object : TerminalUiStub() {
-            override fun askResume(app: AppEntry) { asked += app }
+            override fun askResume(app: AppEntry) {
+                asked += app
+            }
         })
         val paused = app(ProfileKind.WORK)
         val from = logs.maxId()
@@ -47,20 +55,33 @@ class ResumeProfileTest {
     }
 
     /** For the work profile: Resume, or Cancel. Each answers once. */
-    @Test fun theWorkProfileAsksToResume() {
+    @Test
+    fun theWorkProfileAsksToResume() {
         val answers = ArrayList<String>()
-        compose.setContent { ResumeProfileDialog(app(ProfileKind.WORK), onResume = { answers += "resume" }, onDismiss = { answers += "cancel" }) }
+        compose.setContent {
+            ResumeProfileDialog(
+                app(ProfileKind.WORK),
+                onResume = { answers += "resume" },
+                onDismiss = { answers += "cancel" })
+        }
         compose.onNodeWithText("Resume work apps?").assertIsDisplayed()
-        compose.onNodeWithText("Mail is a work app, and work apps are paused. Kolahal turns them on, then opens Mail.").assertIsDisplayed()
+        compose.onNodeWithText("Mail is a work app, and work apps are paused. Kolahal turns them on, then opens Mail.")
+            .assertIsDisplayed()
         compose.onNodeWithText("Resume").performClick()
         compose.onNodeWithText("Cancel").performClick()
         compose.runOnIdle { assertEquals(listOf("resume", "cancel"), answers) }
     }
 
     /** For the private space: Unlock, as Android asks for the lock. */
-    @Test fun thePrivateSpaceAsksToUnlock() {
+    @Test
+    fun thePrivateSpaceAsksToUnlock() {
         val answers = ArrayList<String>()
-        compose.setContent { ResumeProfileDialog(app(ProfileKind.PRIVATE), onResume = { answers += "unlock" }, onDismiss = {}) }
+        compose.setContent {
+            ResumeProfileDialog(
+                app(ProfileKind.PRIVATE),
+                onResume = { answers += "unlock" },
+                onDismiss = {})
+        }
         compose.onNodeWithText("Unlock the private space?").assertIsDisplayed()
         compose.onNodeWithText("Unlock").performClick()
         compose.runOnIdle { assertEquals(listOf("unlock"), answers) }

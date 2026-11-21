@@ -17,25 +17,37 @@ class PromptActionsTest {
         val queued = mutableListOf<suspend () -> Unit>()
         val events = mutableListOf<UiEvent>()
         val ran = mutableListOf<String>()
+
         /** The lines instant launch was asked about. */
         val asked = mutableListOf<String>()
+
         /** What instant launch runs: a line for each typed text that should run. */
         var instant: Map<String, String> = emptyMap()
         var aliases: Map<String, String> = emptyMap()
         var preview: LivePreview? = null
         var suggestions: List<Suggestion> = emptyList()
 
-        override fun io(block: suspend () -> Unit) { queued += block }
-        override fun emit(event: UiEvent) { events += event }
+        override fun io(block: suspend () -> Unit) {
+            queued += block
+        }
+
+        override fun emit(event: UiEvent) {
+            events += event
+        }
+
         override fun instantTarget(text: String): InstantRun.Target<AppEntry>? {
             asked += text
             return instant[text]?.let { InstantRun.Target.Command(it) }
         }
+
         override fun runsOnTap(line: String) = false
         override fun abbreviation(word: String) = aliases[word]
         override fun livePreview(line: String) = preview
         override fun suggestions(text: String) = suggestions
-        override suspend fun run(line: String) { ran += line }
+        override suspend fun run(line: String) {
+            ran += line
+        }
+
         override suspend fun launch(app: AppEntry) {}
 
         /** Runs what is on the queue, in order. */
@@ -53,7 +65,8 @@ class PromptActionsTest {
         prompt.onInputChange(TextFieldValue(next, TextRange(next.length)))
     }
 
-    @Test fun enterRunsTheLineAndEmptiesThePrompt() {
+    @Test
+    fun enterRunsTheLineAndEmptiesThePrompt() {
         type("echo hi")
         prompt.submit()
         assertEquals("", prompt.input.text)
@@ -62,13 +75,15 @@ class PromptActionsTest {
         assertEquals(listOf("echo hi"), host.ran)
     }
 
-    @Test fun enterOnAnEmptyLineRunsNothing() {
+    @Test
+    fun enterOnAnEmptyLineRunsNothing() {
         prompt.submit()
         assertTrue(host.queued.isEmpty())
         assertTrue(host.events.isEmpty())
     }
 
-    @Test fun theLooksPreviewStaysUntilTheCommandHasRun() {
+    @Test
+    fun theLooksPreviewStaysUntilTheCommandHasRun() {
         host.preview = LivePreview(theme = "dark")
         type("theme dark")
         prompt.submit()
@@ -77,7 +92,8 @@ class PromptActionsTest {
         assertNull(prompt.entered)
     }
 
-    @Test fun enterInASearchHidesTheKeyboardAndKeepsTheLine() {
+    @Test
+    fun enterInASearchHidesTheKeyboardAndKeepsTheLine() {
         type("/battery")
         prompt.submit()
         assertEquals("/battery", prompt.input.text)
@@ -85,7 +101,8 @@ class PromptActionsTest {
         assertTrue(host.queued.isEmpty())
     }
 
-    @Test fun instantLaunchRunsWhatTheTypedLineCanOnlyMean() {
+    @Test
+    fun instantLaunchRunsWhatTheTypedLineCanOnlyMean() {
         host.instant = mapOf("tor" to "torch")
         type("tor")
         assertEquals("", prompt.input.text)
@@ -94,27 +111,31 @@ class PromptActionsTest {
         assertEquals(listOf("torch"), host.ran)
     }
 
-    @Test fun instantLaunchIsNotAskedInASearchNorForAPastedWord() {
+    @Test
+    fun instantLaunchIsNotAskedInASearchNorForAPastedWord() {
         type("/ab")
         prompt.setText("")
         prompt.onInputChange(TextFieldValue("maps", TextRange(4)))
         assertTrue(host.asked.isEmpty())
     }
 
-    @Test fun instantLaunchIsNotAskedWhenTypingInTheMiddle() {
+    @Test
+    fun instantLaunchIsNotAskedWhenTypingInTheMiddle() {
         prompt.setText("ab")
         prompt.onInputChange(TextFieldValue("axb", TextRange(2)))
         assertTrue(host.asked.isEmpty())
     }
 
-    @Test fun anAliasExpandsOnTheSpaceAfterIt() {
+    @Test
+    fun anAliasExpandsOnTheSpaceAfterIt() {
         host.aliases = mapOf("m" to "open maps")
         type("m ")
         assertEquals("open maps ", prompt.input.text)
         assertEquals(TextRange(10), prompt.input.selection)
     }
 
-    @Test fun upAndDownWalkTheHistoryAndKeepTheDraft() {
+    @Test
+    fun upAndDownWalkTheHistoryAndKeepTheDraft() {
         prompt.history = listOf("newest", "older")
         type("dra")
         prompt.historyUp()
@@ -131,7 +152,8 @@ class PromptActionsTest {
         assertEquals("dra", prompt.input.text)
     }
 
-    @Test fun typingStartsTheHistoryAgain() {
+    @Test
+    fun typingStartsTheHistoryAgain() {
         prompt.history = listOf("newest", "older")
         prompt.historyUp()
         type("x")
@@ -139,14 +161,17 @@ class PromptActionsTest {
         assertEquals("newest", prompt.input.text)
     }
 
-    @Test fun tabTakesTheFirstSuggestion() {
-        host.suggestions = listOf(Suggestion.Completion("battery", "battery"), Suggestion.Completion("bat", "bat"))
+    @Test
+    fun tabTakesTheFirstSuggestion() {
+        host.suggestions =
+            listOf(Suggestion.Completion("battery", "battery"), Suggestion.Completion("bat", "bat"))
         type("bat")
         prompt.complete()
         assertEquals("battery", prompt.input.text)
     }
 
-    @Test fun aCompletionWithItsArgumentsRunsWhenInstantLaunchSaysSo() {
+    @Test
+    fun aCompletionWithItsArgumentsRunsWhenInstantLaunchSaysSo() {
         host.instant = mapOf("torch on" to "torch on")
         host.suggestions = listOf(Suggestion.Completion("on", "torch on"))
         prompt.complete()
@@ -155,7 +180,8 @@ class PromptActionsTest {
         assertEquals(listOf("torch on"), host.ran)
     }
 
-    @Test fun touchKeysEditAtTheCursor() {
+    @Test
+    fun touchKeysEditAtTheCursor() {
         prompt.setText("helo")
         prompt.onKeyBar(KeyBarKey.LEFT)
         prompt.insert("l")
@@ -171,7 +197,8 @@ class PromptActionsTest {
         assertEquals("", prompt.input.text)
     }
 
-    @Test fun theKeyboardKeyAsksForThePrompt() {
+    @Test
+    fun theKeyboardKeyAsksForThePrompt() {
         prompt.onKeyBar(KeyBarKey.KBD)
         assertEquals(listOf(UiEvent.FocusPrompt), host.events)
     }

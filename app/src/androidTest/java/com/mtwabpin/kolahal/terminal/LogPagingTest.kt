@@ -18,18 +18,26 @@ import org.junit.runner.RunWith
 /** How home's page of the log follows the log: older pages, moved and deleted lines. */
 @RunWith(AndroidJUnit4::class)
 class LogPagingTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+
     // The fresh screen a test here hides and shows again: the log's marks come back as they were.
-    @get:Rule val logKept = LogKept()
+    @get:Rule
+    val logKept = LogKept()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
     private val token = "pg${System.nanoTime()}"
     private var first = Long.MAX_VALUE
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         // By hand, not line by line: a few hundred lines were added.
-        if (first != Long.MAX_VALUE) Db.get(app).writableDatabase.delete("logs", "id >= ?", arrayOf(first.toString()))
+        if (first != Long.MAX_VALUE) Db.get(app).writableDatabase.delete(
+            "logs",
+            "id >= ?",
+            arrayOf(first.toString())
+        )
         if (hid) logs.unhide()
     }
 
@@ -37,9 +45,11 @@ class LogPagingTest {
 
     private fun viewModel() = vms.terminal(app)
 
-    private fun add(text: String): Long = logs.add(LogKind.OUTPUT, text).also { first = minOf(first, it) }
+    private fun add(text: String): Long =
+        logs.add(LogKind.OUTPUT, text).also { first = minOf(first, it) }
 
-    @Test fun scrollingBackAddsOlderLinesAndTheNewestStays() {
+    @Test
+    fun scrollingBackAddsOlderLinesAndTheNewestStays() {
         repeat(450) { add("$token $it") }
         val vm = viewModel()
         waitUntil("the newest page") { vm.entries.value.lastOrNull()?.text == "$token 449" }
@@ -61,7 +71,8 @@ class LogPagingTest {
     }
 
     /** Scrolled back to the log's start, then down again: the page shrinks, and scrolling back reads older lines again. */
-    @Test fun olderLinesLoadAgainAfterThePageShrinks() {
+    @Test
+    fun olderLinesLoadAgainAfterThePageShrinks() {
         // Only this test's lines show, however long the log is: the start is reached within the cap.
         logs.hideScreen(logs.maxId())
         hid = true
@@ -81,7 +92,8 @@ class LogPagingTest {
         waitUntil("older lines again") { vm.entries.value.any { it.text == "$token 0" } }
     }
 
-    @Test fun aMovedLaunchLineShowsOnceAtTheBottom() {
+    @Test
+    fun aMovedLaunchLineShowsOnceAtTheBottom() {
         val vm = viewModel()
         first = minOf(first, logs.addReplacing(LogKind.INFO, "$token launched"))
         waitUntil("the launch line") { vm.entries.value.lastOrNull()?.text == "$token launched" }
@@ -93,7 +105,8 @@ class LogPagingTest {
         assertEquals("$token after", vm.entries.value[vm.entries.value.size - 2].text)
     }
 
-    @Test fun aDeletedLineLeavesThePage() {
+    @Test
+    fun aDeletedLineLeavesThePage() {
         val vm = viewModel()
         val id = add("$token stays")
         val going = add("$token goes")

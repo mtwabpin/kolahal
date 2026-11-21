@@ -152,7 +152,8 @@ internal fun cardPress(source: InteractionSource): CardPress {
 }
 
 /** What a screen reader says a tap does ("double-tap to …"), from the action's `label`. The button keeps its own click. */
-private fun Modifier.tapLabel(label: String?): Modifier = if (label == null) this else semantics { onClick(label = label, action = null) }
+private fun Modifier.tapLabel(label: String?): Modifier =
+    if (label == null) this else semantics { onClick(label = label, action = null) }
 
 /**
  * Lays [count] buttons or switches out as a grid ([WidgetWords.grid]): fewer of them in a small
@@ -164,26 +165,50 @@ private fun Modifier.tapLabel(label: String?): Modifier = if (label == null) thi
  * - With nothing to lay out it says "Nothing to show": a built-in card can have no buttons yet.
  */
 @Composable
-private fun ControlGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int, width: Dp, height: Dp) -> Unit) {
+private fun ControlGrid(
+    count: Int,
+    maxColumns: Int,
+    cell: @Composable (index: Int, width: Dp, height: Dp) -> Unit
+) {
     if (count <= 0) {
         QuietLine(WidgetWords.NOTHING)
         return
     }
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        val grid = WidgetWords.grid(count, maxWidth.value.toInt(), maxHeight.value.toInt(), maxColumns)
+        val grid =
+            WidgetWords.grid(count, maxWidth.value.toInt(), maxHeight.value.toInt(), maxColumns)
         val gap = WidgetWords.CONTROL_GAP_DP.dp
-        val width = ((maxWidth - gap * (grid.columns - 1)) / grid.columns).coerceAtMost(MAX_CONTROL_WIDTH)
+        val width =
+            ((maxWidth - gap * (grid.columns - 1)) / grid.columns).coerceAtMost(MAX_CONTROL_WIDTH)
         val rowWidth = width * grid.columns + gap * (grid.columns - 1)
-        val height = ((maxHeight - gap * (grid.rows - 1)) / grid.rows).coerceIn(WidgetWords.CONTROL_DP.dp, MAX_CONTROL)
+        val height = ((maxHeight - gap * (grid.rows - 1)) / grid.rows).coerceIn(
+            WidgetWords.CONTROL_DP.dp,
+            MAX_CONTROL
+        )
         val all = height * grid.rows + gap * (grid.rows - 1)
         // Measured with no limit on its height, and kept at the top when it is taller than the box.
-        Column(Modifier.width(rowWidth).wrapContentHeight(Alignment.Top, unbounded = true).height(all), verticalArrangement = Arrangement.spacedBy(gap)) {
+        Column(
+            Modifier
+                .width(rowWidth)
+                .wrapContentHeight(Alignment.Top, unbounded = true)
+                .height(all),
+            verticalArrangement = Arrangement.spacedBy(gap)
+        ) {
             for (row in 0 until grid.rows) {
-                Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(height),
+                    horizontalArrangement = Arrangement.spacedBy(gap)
+                ) {
                     for (column in 0 until grid.columns) {
                         val index = row * grid.columns + column
                         // An empty cell keeps the last row's buttons as wide as the others.
-                        Box(Modifier.weight(1f).fillMaxHeight()) { if (index < grid.shown) key(index) { cell(index, width, height) } }
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) { if (index < grid.shown) key(index) { cell(index, width, height) } }
                     }
                 }
             }
@@ -208,10 +233,30 @@ private fun ControlGrid(count: Int, maxColumns: Int, cell: @Composable (index: I
  * The icon is in [iconColour] where a look gives it one (Tonal and Split: the accent), else in the text's colour.
  */
 @Composable
-private fun ControlContent(icon: String?, label: String, width: Dp, height: Dp, state: String? = null, working: Boolean = false, iconColour: Color? = null) {
+private fun ControlContent(
+    icon: String?,
+    label: String,
+    width: Dp,
+    height: Dp,
+    state: String? = null,
+    working: Boolean = false,
+    iconColour: Color? = null
+) {
     val lead: (@Composable () -> Unit)? = when {
-        working -> { { WorkingSign() } }
-        icon != null -> { { WidgetIconText(icon, MaterialTheme.typography.titleMedium, colour = iconColour ?: LocalContentColor.current) } }
+        working -> {
+            { WorkingSign() }
+        }
+
+        icon != null -> {
+            {
+                WidgetIconText(
+                    icon,
+                    MaterialTheme.typography.titleMedium,
+                    colour = iconColour ?: LocalContentColor.current
+                )
+            }
+        }
+
         else -> null
     }
     val tall = height >= TWO_LINES
@@ -221,20 +266,30 @@ private fun ControlContent(icon: String?, label: String, width: Dp, height: Dp, 
             ControlLabel(label, lines = 1)
             StateWord(shownState)
         }
+
         lead == null -> ControlLabel(label, lines = if (tall) 2 else 1)
         width >= SIDE_BY_SIDE -> Row(verticalAlignment = Alignment.CenterVertically) {
             lead()
             Spacer(Modifier.width(6.dp))
-            Column(Modifier.weight(1f, fill = false), horizontalAlignment = if (shownState != null) Alignment.Start else Alignment.CenterHorizontally) {
-                ControlLabel(label, lines = 1, textAlign = if (shownState != null) TextAlign.Start else TextAlign.Center)
+            Column(
+                Modifier.weight(1f, fill = false),
+                horizontalAlignment = if (shownState != null) Alignment.Start else Alignment.CenterHorizontally
+            ) {
+                ControlLabel(
+                    label,
+                    lines = 1,
+                    textAlign = if (shownState != null) TextAlign.Start else TextAlign.Center
+                )
                 if (shownState != null) StateWord(shownState)
             }
         }
+
         tall -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
             lead()
             if (iconColour != null) Spacer(Modifier.height(4.dp))
             ControlLabel(label, lines = 1)
         }
+
         else -> Box(Modifier.semantics { contentDescription = label }) { lead() }
     }
 }
@@ -262,15 +317,26 @@ private fun StateWord(state: String) {
 @Composable
 private fun WorkingSign() {
     Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-        if (cardSeen()) LoadingIndicator(Modifier.fillMaxSize().clearAndSetSemantics {}, color = LocalContentColor.current)
+        if (cardSeen()) LoadingIndicator(
+            Modifier
+                .fillMaxSize()
+                .clearAndSetSemantics {},
+            color = LocalContentColor.current
+        )
         else Text("…", style = MaterialTheme.typography.titleMedium, maxLines = 1)
     }
 }
 
-private val LABEL_SIZE = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp, stepSize = 1.sp)
+private val LABEL_SIZE =
+    TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp, stepSize = 1.sp)
 
 @Composable
-private fun ControlLabel(label: String, lines: Int, modifier: Modifier = Modifier, textAlign: TextAlign = TextAlign.Center) {
+private fun ControlLabel(
+    label: String,
+    lines: Int,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Center
+) {
     Text(
         label,
         modifier = modifier,
@@ -313,22 +379,36 @@ private val SPLIT_PRESSED = RoundedCornerShape(SplitCorners.INNER)
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private val BUTTON_SHAPES: List<RoundedPolygon> by lazy {
     listOf(
-        MaterialShapes.Cookie9Sided, MaterialShapes.Clover4Leaf, MaterialShapes.Sunny, MaterialShapes.Cookie12Sided,
-        MaterialShapes.Cookie4Sided, MaterialShapes.Circle, MaterialShapes.SoftBurst, MaterialShapes.Square,
+        MaterialShapes.Cookie9Sided,
+        MaterialShapes.Clover4Leaf,
+        MaterialShapes.Sunny,
+        MaterialShapes.Cookie12Sided,
+        MaterialShapes.Cookie4Sided,
+        MaterialShapes.Circle,
+        MaterialShapes.SoftBurst,
+        MaterialShapes.Square,
     )
 }
 
 /** A button's shape into the one it takes while pressed: a circle, or a square for a circle. Made once for each shape. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private fun pressMorph(shape: RoundedPolygon): Morph = PRESS_MORPHS.getOrPut(shape) {
-    Morph(shape, if (shape == MaterialShapes.Circle) MaterialShapes.Square else MaterialShapes.Circle)
+    Morph(
+        shape,
+        if (shape == MaterialShapes.Circle) MaterialShapes.Square else MaterialShapes.Circle
+    )
 }
 
 private val PRESS_MORPHS = HashMap<RoundedPolygon, Morph>()
 
 /** A Shape switch: a circle while off into a cookie while on. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private val TOGGLE_MORPH: Morph by lazy { Morph(MaterialShapes.Circle, MaterialShapes.Cookie12Sided) }
+private val TOGGLE_MORPH: Morph by lazy {
+    Morph(
+        MaterialShapes.Circle,
+        MaterialShapes.Cookie12Sided
+    )
+}
 
 /** Shape's play or pause: a cookie while playing into a rounded square while paused. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -342,7 +422,13 @@ internal val PLAY_MORPH: Morph by lazy { Morph(MaterialShapes.Cookie9Sided, Mate
  * shape is the square picture stretched to the size and darkened ([ART_SCRIM]), not the colour.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-internal fun Modifier.morphFill(morph: Morph, from: Color, to: Color = from, image: ImageBitmap? = null, progress: () -> Float): Modifier = drawWithCache {
+internal fun Modifier.morphFill(
+    morph: Morph,
+    from: Color,
+    to: Color = from,
+    image: ImageBitmap? = null,
+    progress: () -> Float
+): Modifier = drawWithCache {
     val path = Path()
     val stretch = Matrix().apply { scale(size.width, size.height) }
     var made = Float.NaN
@@ -358,7 +444,10 @@ internal fun Modifier.morphFill(morph: Morph, from: Color, to: Color = from, ima
             drawPath(path, if (from == to) from else lerp(from, to, p.coerceIn(0f, 1f)))
         } else {
             clipPath(path) {
-                drawImage(image, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
+                drawImage(
+                    image,
+                    dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt())
+                )
                 drawRect(ART_SCRIM)
             }
         }
@@ -371,7 +460,12 @@ internal fun Modifier.morphFill(morph: Morph, from: Color, to: Color = from, ima
  */
 private fun lookGrid(count: Int, widthDp: Int, heightDp: Int, maxColumns: Int): WidgetWords.Grid {
     val twoRows = count >= 3 && heightDp >= 2 * WidgetWords.CONTROL_DP + WidgetWords.CONTROL_GAP_DP
-    return WidgetWords.grid(count, widthDp, heightDp, if (twoRows) minOf(maxColumns, (count + 1) / 2) else maxColumns)
+    return WidgetWords.grid(
+        count,
+        widthDp,
+        heightDp,
+        if (twoRows) minOf(maxColumns, (count + 1) / 2) else maxColumns
+    )
 }
 
 /**
@@ -381,7 +475,11 @@ private fun lookGrid(count: Int, widthDp: Int, heightDp: Int, maxColumns: Int): 
  * rectangle. [cell] draws item `index` in its `tile` shape, `width` by `height`.
  */
 @Composable
-private fun SplitGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int, tile: Shape, width: Dp, height: Dp) -> Unit) {
+private fun SplitGrid(
+    count: Int,
+    maxColumns: Int,
+    cell: @Composable (index: Int, tile: Shape, width: Dp, height: Dp) -> Unit
+) {
     if (count <= 0) {
         QuietLine(WidgetWords.NOTHING)
         return
@@ -396,10 +494,28 @@ private fun SplitGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int
                 val first = row * grid.columns
                 val inRow = minOf(grid.columns, grid.shown - first)
                 val width = (boxWidth - gap * (inRow - 1)) / inRow
-                Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(height),
+                    horizontalArrangement = Arrangement.spacedBy(gap)
+                ) {
                     for (column in 0 until inRow) {
                         val index = first + column
-                        Box(Modifier.weight(1f).fillMaxHeight()) { key(index) { cell(index, SplitCorners.inGrid(index, grid.shown, grid.columns), width, height) } }
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            key(index) {
+                                cell(
+                                    index,
+                                    SplitCorners.inGrid(index, grid.shown, grid.columns),
+                                    width,
+                                    height
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -412,7 +528,11 @@ private fun SplitGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int
  * its share of the box, for a shape with a label under it, and each item sits in the middle of its cell.
  */
 @Composable
-private fun ShapeGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int, width: Dp, height: Dp) -> Unit) {
+private fun ShapeGrid(
+    count: Int,
+    maxColumns: Int,
+    cell: @Composable (index: Int, width: Dp, height: Dp) -> Unit
+) {
     if (count <= 0) {
         QuietLine(WidgetWords.NOTHING)
         return
@@ -421,13 +541,26 @@ private fun ShapeGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int
         val grid = lookGrid(count, maxWidth.value.toInt(), maxHeight.value.toInt(), maxColumns)
         val gap = WidgetWords.CONTROL_GAP_DP.dp
         val width = (maxWidth - gap * (grid.columns - 1)) / grid.columns
-        val height = ((maxHeight - gap * (grid.rows - 1)) / grid.rows).coerceIn(CONTROL_MIN, SHAPE_CONTROL + LABEL_UNDER + 8.dp)
+        val height = ((maxHeight - gap * (grid.rows - 1)) / grid.rows).coerceIn(
+            CONTROL_MIN,
+            SHAPE_CONTROL + LABEL_UNDER + 8.dp
+        )
         Column(verticalArrangement = Arrangement.spacedBy(gap)) {
             for (row in 0 until grid.rows) {
-                Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(height),
+                    horizontalArrangement = Arrangement.spacedBy(gap)
+                ) {
                     for (column in 0 until grid.columns) {
                         val index = row * grid.columns + column
-                        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) { if (index < grid.shown) key(index) { cell(index, width, height) } }
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center
+                        ) { if (index < grid.shown) key(index) { cell(index, width, height) } }
                     }
                 }
             }
@@ -450,19 +583,37 @@ private fun ShapeGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int
 @Composable
 internal fun ButtonsBody(spec: WidgetSpec.Buttons, onTap: ((WidgetTap) -> Unit)?) {
     when (LocalWidgetLook.current) {
-        WidgetLook.SPLIT -> SplitGrid(spec.items.size, maxColumns = 4) { index, tile, width, height ->
+        WidgetLook.SPLIT -> SplitGrid(
+            spec.items.size,
+            maxColumns = 4
+        ) { index, tile, width, height ->
             val button = spec.items[index]
-            CardButton(button, (button.color ?: spec.base.color)?.let { colourOf(it) }, width, height, onTap, tile)
+            CardButton(
+                button,
+                (button.color ?: spec.base.color)?.let { colourOf(it) },
+                width,
+                height,
+                onTap,
+                tile
+            )
         }
+
         WidgetLook.SHAPE -> ShapeGrid(spec.items.size, maxColumns = 4) { index, width, height ->
             val button = spec.items[index]
             // With no colour of their own, the shapes take the theme's three colours in turn, as the mockup has them.
             val role = (button.color ?: spec.base.color)?.let { colourOf(it) } ?: shapeRole(index)
             ShapeButton(button, role, index, width, height, onTap)
         }
+
         else -> ControlGrid(spec.items.size, maxColumns = 4) { index, width, height ->
             val button = spec.items[index]
-            CardButton(button, (button.color ?: spec.base.color)?.let { colourOf(it) }, width, height, onTap)
+            CardButton(
+                button,
+                (button.color ?: spec.base.color)?.let { colourOf(it) },
+                width,
+                height,
+                onTap
+            )
         }
     }
 }
@@ -476,7 +627,14 @@ private val TONAL_BUTTON = RoundedCornerShape(20.dp)
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun CardButton(button: WidgetSpec.Button, colour: Color?, width: Dp, height: Dp, onTap: ((WidgetTap) -> Unit)?, tile: Shape? = null) {
+private fun CardButton(
+    button: WidgetSpec.Button,
+    colour: Color?,
+    width: Dp,
+    height: Dp,
+    onTap: ((WidgetTap) -> Unit)?,
+    tile: Shape? = null
+) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val tonal = ButtonDefaults.filledTonalButtonColors()
@@ -495,13 +653,26 @@ private fun CardButton(button: WidgetSpec.Button, colour: Color?, width: Dp, hei
     FilledTonalButton(
         onClick = { press.click { onTap?.invoke(button.tap) } },
         shapes = shapes,
-        modifier = Modifier.fillMaxSize().tapLabel(button.tap.label),
+        modifier = Modifier
+            .fillMaxSize()
+            .tapLabel(button.tap.label),
         enabled = onTap != null,
-        colors = tonal.copy(containerColor = container, contentColor = content, disabledContainerColor = container, disabledContentColor = content),
+        colors = tonal.copy(
+            containerColor = container,
+            contentColor = content,
+            disabledContainerColor = container,
+            disabledContentColor = content
+        ),
         contentPadding = CONTROL_PADDING,
         interactionSource = source,
     ) {
-        ControlContent(button.icon, button.label, width, height, iconColour = if (plain) null else colour ?: roleColour(null))
+        ControlContent(
+            button.icon,
+            button.label,
+            width,
+            height,
+            iconColour = if (plain) null else colour ?: roleColour(null)
+        )
     }
 }
 
@@ -528,36 +699,75 @@ private val LABEL_UNDER = 18.dp
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeButton(button: WidgetSpec.Button, role: Color, index: Int, width: Dp, height: Dp, onTap: ((WidgetTap) -> Unit)?) {
+private fun ShapeButton(
+    button: WidgetSpec.Button,
+    role: Color,
+    index: Int,
+    width: Dp,
+    height: Dp,
+    onTap: ((WidgetTap) -> Unit)?
+) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val pressed by source.collectIsPressedAsState()
-    val morphed = animateFloatAsState(if (pressed) 1f else 0f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "press")
+    val morphed = animateFloatAsState(
+        if (pressed) 1f else 0f,
+        MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "press"
+    )
     val morph = remember(index) { pressMorph(BUTTON_SHAPES[index % BUTTON_SHAPES.size]) }
     val fill = roleContainer(role)
     val labelled = button.icon != null && height >= CONTROL_MIN + LABEL_UNDER
     // A label inside the shape needs a bigger one: as big as the cell, up to 80 dp.
     val most = if (button.icon == null) SHAPE_TEXT_CONTROL else SHAPE_CONTROL
-    val side = minOf(most, width, if (labelled) height - LABEL_UNDER else height).coerceAtLeast(CONTROL_MIN)
-    val colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = role, disabledContainerColor = Color.Transparent, disabledContentColor = role)
+    val side = minOf(
+        most,
+        width,
+        if (labelled) height - LABEL_UNDER else height
+    ).coerceAtLeast(CONTROL_MIN)
+    val colors = ButtonDefaults.buttonColors(
+        containerColor = Color.Transparent,
+        contentColor = role,
+        disabledContainerColor = Color.Transparent,
+        disabledContentColor = role
+    )
     Button(
         onClick = { press.click { onTap?.invoke(button.tap) } },
         shapes = ButtonDefaults.shapes(shape = SHAPE_ITEM),
-        modifier = Modifier.fillMaxSize().tapLabel(button.tap.label),
+        modifier = Modifier
+            .fillMaxSize()
+            .tapLabel(button.tap.label),
         enabled = onTap != null,
         colors = colors,
         contentPadding = PaddingValues(0.dp),
         interactionSource = source,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(side).morphFill(morph, fill) { morphed.value }, contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .size(side)
+                    .morphFill(morph, fill) { morphed.value },
+                contentAlignment = Alignment.Center
+            ) {
                 val icon = button.icon
                 if (icon != null) {
                     // Without its label under it, the shape says the label to a screen reader.
-                    val said = if (labelled) Modifier else Modifier.semantics { contentDescription = button.label }
-                    WidgetIconText(icon, MaterialTheme.typography.titleMedium, colour = role, size = 22.dp, modifier = said)
+                    val said = if (labelled) Modifier else Modifier.semantics {
+                        contentDescription = button.label
+                    }
+                    WidgetIconText(
+                        icon,
+                        MaterialTheme.typography.titleMedium,
+                        colour = role,
+                        size = 22.dp,
+                        modifier = said
+                    )
                 } else {
-                    ControlLabel(button.label, lines = 2, modifier = Modifier.padding(horizontal = side / 6))
+                    ControlLabel(
+                        button.label,
+                        lines = 2,
+                        modifier = Modifier.padding(horizontal = side / 6)
+                    )
                 }
             }
             if (labelled) {
@@ -567,7 +777,9 @@ private fun ShapeButton(button: WidgetSpec.Button, role: Color, index: Int, widt
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.height(LABEL_UNDER).wrapContentHeight(),
+                    modifier = Modifier
+                        .height(LABEL_UNDER)
+                        .wrapContentHeight(),
                 )
             }
         }
@@ -621,14 +833,28 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?
             }
         }
     }
+
     val role = roleColour(spec.base)
     when (LocalWidgetLook.current) {
-        WidgetLook.SPLIT -> SplitGrid(spec.items.size, maxColumns = 6) { index, tile, width, height ->
-            CardToggle(spec.items[index], working == index, width, height, clickOf(index), role, tile)
+        WidgetLook.SPLIT -> SplitGrid(
+            spec.items.size,
+            maxColumns = 6
+        ) { index, tile, width, height ->
+            CardToggle(
+                spec.items[index],
+                working == index,
+                width,
+                height,
+                clickOf(index),
+                role,
+                tile
+            )
         }
+
         WidgetLook.SHAPE -> ShapeGrid(spec.items.size, maxColumns = 6) { index, width, height ->
             ShapeToggle(spec.items[index], working == index, width, height, clickOf(index), role)
         }
+
         else -> ControlGrid(spec.items.size, maxColumns = 6) { index, width, height ->
             CardToggle(spec.items[index], working == index, width, height, clickOf(index), role)
         }
@@ -646,7 +872,15 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun CardToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, height: Dp, onClick: (() -> Unit)?, cardRole: Color, tile: Shape? = null) {
+private fun CardToggle(
+    toggle: WidgetSpec.Toggle,
+    working: Boolean,
+    width: Dp,
+    height: Dp,
+    onClick: (() -> Unit)?,
+    cardRole: Color,
+    tile: Shape? = null
+) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val look = LocalWidgetLook.current
@@ -669,10 +903,13 @@ private fun CardToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, h
         )
     }
     val state = if (toggle.on) "On" else "Off"
-    val semantics = Modifier.fillMaxSize().tapLabel(toggle.tap.label).semantics {
-        role = Role.Switch
-        if (working) stateDescription = "working"
-    }
+    val semantics = Modifier
+        .fillMaxSize()
+        .tapLabel(toggle.tap.label)
+        .semantics {
+            role = Role.Switch
+            if (working) stateDescription = "working"
+        }
     if (tile != null) {
         ToggleButton(
             checked = toggle.on,
@@ -707,13 +944,24 @@ private fun CardToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, h
  * ([SIDE_BY_SIDE]) is drawn as the other looks draw a switch ([ControlContent]).
  */
 @Composable
-private fun RowScope.SplitToggleContent(toggle: WidgetSpec.Toggle, state: String, width: Dp, height: Dp, working: Boolean, looks: LookColors) {
+private fun RowScope.SplitToggleContent(
+    toggle: WidgetSpec.Toggle,
+    state: String,
+    width: Dp,
+    height: Dp,
+    working: Boolean,
+    looks: LookColors
+) {
     if (width < SIDE_BY_SIDE && height < SPLIT_TOGGLE_TALL) {
         ControlContent(toggle.icon, toggle.label, width, height, state = state, working = working)
         return
     }
     val type = MaterialTheme.typography
-    Column(Modifier.weight(1f).padding(start = 4.dp), verticalArrangement = Arrangement.Center) {
+    Column(
+        Modifier
+            .weight(1f)
+            .padding(start = 4.dp), verticalArrangement = Arrangement.Center
+    ) {
         if (height >= SPLIT_TOGGLE_TALL) {
             when {
                 working -> WorkingSign()
@@ -721,7 +969,12 @@ private fun RowScope.SplitToggleContent(toggle: WidgetSpec.Toggle, state: String
             }
             Spacer(Modifier.height(4.dp))
         }
-        Text(toggle.label, style = type.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            toggle.label,
+            style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         Text(
             state,
             style = type.labelSmall.copy(fontWeight = FontWeight.SemiBold),
@@ -745,12 +998,23 @@ private val SPLIT_TOGGLE_TALL = 76.dp
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, height: Dp, onClick: (() -> Unit)?, cardRole: Color) {
+private fun ShapeToggle(
+    toggle: WidgetSpec.Toggle,
+    working: Boolean,
+    width: Dp,
+    height: Dp,
+    onClick: (() -> Unit)?,
+    cardRole: Color
+) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val scheme = MaterialTheme.colorScheme
     val looks = lookColors(WidgetLook.SHAPE, cardRole)
-    val on = animateFloatAsState(if (toggle.on) 1f else 0f, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "toggle")
+    val on = animateFloatAsState(
+        if (toggle.on) 1f else 0f,
+        MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "toggle"
+    )
     val content = scheme.onSurface
     val clear = ToggleButtonDefaults.colors().copy(
         containerColor = Color.Transparent,
@@ -766,12 +1030,14 @@ private fun ShapeToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, 
     ToggleButton(
         checked = toggle.on,
         onCheckedChange = { press.click { onClick?.invoke() } },
-        modifier = Modifier.tapLabel(toggle.tap.label).semantics {
-            role = Role.Switch
-            if (working) stateDescription = "working"
-            // With no label to read, the shape says it.
-            if (!beside && !under) contentDescription = toggle.label
-        },
+        modifier = Modifier
+            .tapLabel(toggle.tap.label)
+            .semantics {
+                role = Role.Switch
+                if (working) stateDescription = "working"
+                // With no label to read, the shape says it.
+                if (!beside && !under) contentDescription = toggle.label
+            },
         enabled = onClick != null,
         shapes = ToggleButtonShapes(SHAPE_ITEM, SHAPE_ITEM, SHAPE_ITEM),
         colors = clear,
@@ -781,27 +1047,65 @@ private fun ShapeToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, 
     ) {
         val tint = if (toggle.on) looks.onAccent else content
         val shape: @Composable () -> Unit = {
-            Box(Modifier.size(CONTROL_MIN).morphFill(TOGGLE_MORPH, scheme.surfaceContainerHighest, looks.accent) { on.value }, contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .size(CONTROL_MIN)
+                    .morphFill(
+                        TOGGLE_MORPH,
+                        scheme.surfaceContainerHighest,
+                        looks.accent
+                    ) { on.value },
+                contentAlignment = Alignment.Center
+            ) {
                 val icon = toggle.icon
                 when {
                     working -> CompositionLocalProvider(LocalContentColor provides tint) { WorkingSign() }
-                    icon != null -> WidgetIconText(icon, MaterialTheme.typography.titleMedium, colour = tint)
-                    else -> Text(WidgetWords.badgeLetter(toggle.label).orEmpty(), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = tint, modifier = Modifier.clearAndSetSemantics {})
+                    icon != null -> WidgetIconText(
+                        icon,
+                        MaterialTheme.typography.titleMedium,
+                        colour = tint
+                    )
+
+                    else -> Text(
+                        WidgetWords.badgeLetter(toggle.label).orEmpty(),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = tint,
+                        modifier = Modifier.clearAndSetSemantics {})
                 }
             }
         }
         if (under) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 shape()
-                Text(toggle.label, style = label, color = content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(LABEL_UNDER).widthIn(max = width - 12.dp).wrapContentHeight())
+                Text(
+                    toggle.label,
+                    style = label,
+                    color = content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .height(LABEL_UNDER)
+                        .widthIn(max = width - 12.dp)
+                        .wrapContentHeight()
+                )
             }
             return@ToggleButton
         }
         shape()
         if (beside) {
             // A long label takes two lines beside the shape: "Do not" over "disturb".
-            Column(Modifier.padding(start = 8.dp).widthIn(max = width - CONTROL_MIN - 12.dp)) {
-                Text(toggle.label, style = label.copy(lineHeight = 15.sp), color = content, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Column(
+                Modifier
+                    .padding(start = 8.dp)
+                    .widthIn(max = width - CONTROL_MIN - 12.dp)
+            ) {
+                Text(
+                    toggle.label,
+                    style = label.copy(lineHeight = 15.sp),
+                    color = content,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Text(
                     if (toggle.on) "On" else "Off",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (toggle.on) FontWeight.Bold else FontWeight.Normal),

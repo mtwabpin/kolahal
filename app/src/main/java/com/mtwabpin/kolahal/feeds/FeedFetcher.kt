@@ -33,7 +33,12 @@ class FeedFetcher(context: Context) {
      * - [first] is true when this was the feed's first successful fetch. Then [newItems] is its
      *   backlog, not news.
      */
-    data class Result(val feed: Feed, val newItems: List<FeedItem>, val error: String?, val first: Boolean = false)
+    data class Result(
+        val feed: Feed,
+        val newItems: List<FeedItem>,
+        val error: String?,
+        val first: Boolean = false
+    )
 
     /**
      * Fetches [feed] and stores the items not seen before. Returns them newest first (empty on 304).
@@ -67,7 +72,10 @@ class FeedFetcher(context: Context) {
         val request = Request.Builder()
             .url(feed.url)
             .header("User-Agent", Net.USER_AGENT)
-            .header("Accept", "application/rss+xml, application/atom+xml, application/rdf+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5")
+            .header(
+                "Accept",
+                "application/rss+xml, application/atom+xml, application/rdf+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5"
+            )
             .apply {
                 feed.etag?.let { header("If-None-Match", it) }
                 feed.lastModified?.let { header("If-Modified-Since", it) }
@@ -97,7 +105,8 @@ class FeedFetcher(context: Context) {
         val first = repo.itemCount(feed.id) <= fresh.size
         val newTitle = parsed.title?.takeIf { feed.title.isNullOrBlank() && it.isNotBlank() }
         val n = parsed.items.size
-        val status = if (first) "ok · $n ${if (n == 1) "item" else "items"}" else "ok · ${fresh.size} new"
+        val status =
+            if (first) "ok · $n ${if (n == 1) "item" else "items"}" else "ok · ${fresh.size} new"
         repo.recordFetch(feed.id, status, etag, lastModified, newTitle)
         return fresh
     }
@@ -122,7 +131,11 @@ class FeedFetcher(context: Context) {
                             when {
                                 resp.code == 304 -> null
                                 !resp.isSuccessful -> throw IOException("HTTP ${resp.code}")
-                                else -> Triple(readCapped(resp), resp.header("ETag"), resp.header("Last-Modified"))
+                                else -> Triple(
+                                    readCapped(resp),
+                                    resp.header("ETag"),
+                                    resp.header("Last-Modified")
+                                )
                             }
                         }
                     }
@@ -136,9 +149,17 @@ class FeedFetcher(context: Context) {
         val body = resp.body
         if (body.contentLength() > MAX_BODY_BYTES) throw IOException("feed too large")
         val out = ByteArrayOutputStream()
-        if (!body.byteStream().use { com.mtwabpin.kolahal.script.Files.copyLimited(it, out, MAX_BODY_BYTES.toLong()) }) throw IOException("feed too large (> 3 MB)")
+        if (!body.byteStream().use {
+                com.mtwabpin.kolahal.script.Files.copyLimited(
+                    it,
+                    out,
+                    MAX_BODY_BYTES.toLong()
+                )
+            }) throw IOException("feed too large (> 3 MB)")
         val bytes = out.toByteArray()
-        val charset = body.contentType()?.charset() ?: bomCharset(bytes) ?: xmlDeclaredCharset(bytes) ?: Charsets.UTF_8
+        val charset =
+            body.contentType()?.charset() ?: bomCharset(bytes) ?: xmlDeclaredCharset(bytes)
+            ?: Charsets.UTF_8
         return String(bytes, charset).removePrefix("\uFEFF")
     }
 
@@ -152,7 +173,8 @@ class FeedFetcher(context: Context) {
          * prolog, because a UTF-16 prolog can't be read as bytes, and XML lets the mark decide.
          */
         internal fun bomCharset(bytes: ByteArray): Charset? {
-            fun startsWith(vararg b: Int) = bytes.size >= b.size && b.indices.all { bytes[it] == b[it].toByte() }
+            fun startsWith(vararg b: Int) =
+                bytes.size >= b.size && b.indices.all { bytes[it] == b[it].toByte() }
             return when {
                 startsWith(0xEF, 0xBB, 0xBF) -> Charsets.UTF_8
                 startsWith(0xFE, 0xFF) -> Charsets.UTF_16BE
@@ -163,7 +185,13 @@ class FeedFetcher(context: Context) {
 
         /** Reads `encoding="..."` from the XML prolog. Used when the server didn't send a charset. */
         internal fun xmlDeclaredCharset(bytes: ByteArray): Charset? {
-            val head = String(bytes, 0, minOf(bytes.size, 200), Charsets.ISO_8859_1).trimStart('\uFEFF', ' ', '\n', '\r', '\t')
+            val head = String(bytes, 0, minOf(bytes.size, 200), Charsets.ISO_8859_1).trimStart(
+                '\uFEFF',
+                ' ',
+                '\n',
+                '\r',
+                '\t'
+            )
             val name = ENCODING.find(head)?.groupValues?.get(1) ?: return null
             return runCatching { Charset.forName(name) }.getOrNull()
         }
@@ -176,7 +204,8 @@ class FeedFetcher(context: Context) {
         internal fun safeLink(link: String?, feedUrl: String): String? {
             val raw = link?.trim()?.takeIf { it.isNotEmpty() } ?: return null
             val resolved = raw.toHttpUrlOrNull()
-                ?: if (SCHEME.containsMatchIn(raw)) null else feedUrl.toHttpUrlOrNull()?.resolve(raw)
+                ?: if (SCHEME.containsMatchIn(raw)) null else feedUrl.toHttpUrlOrNull()
+                    ?.resolve(raw)
             return resolved?.takeIf { it.scheme == "http" || it.scheme == "https" }?.toString()
         }
 

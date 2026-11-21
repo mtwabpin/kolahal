@@ -16,19 +16,22 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class LogTrimTest {
     // A trim here deletes the phone's older lines too: the whole log comes back after each test.
-    @get:Rule val logKept = LogKept()
+    @get:Rule
+    val logKept = LogKept()
     private val logs = LogRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val token = "trim${System.nanoTime()}"
     private val keepBefore = logs.keepLines
 
     private fun mine() = logs.recent(limit = 2_000).filter { it.text.startsWith(token) }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         logs.keepLines = keepBefore
         mine().forEach { logs.delete(it.id) }
     }
 
-    @Test fun typedCommandsAreCountedApart() {
+    @Test
+    fun typedCommandsAreCountedApart() {
         repeat(20) { logs.add(LogKind.COMMAND, "$token command $it") }
         repeat(600) { logs.add(LogKind.OUTPUT, "$token output $it") }
         logs.trim(keep = 500)
@@ -40,7 +43,8 @@ class LogTrimTest {
     }
 
     /** Both kinds past the cap, mixed: each keeps its newest, and a second trim takes nothing more. */
-    @Test fun eachKindKeepsItsNewestHoweverMixed() {
+    @Test
+    fun eachKindKeepsItsNewestHoweverMixed() {
         repeat(600) {
             logs.add(LogKind.OUTPUT, "$token output $it")
             if (it < 510) logs.add(LogKind.COMMAND, "$token command $it")
@@ -58,7 +62,8 @@ class LogTrimTest {
     }
 
     /** A trim says how far it reached, so home keeps a page the trim didn't touch. */
-    @Test fun aTrimReportsHowFarItReached() {
+    @Test
+    fun aTrimReportsHowFarItReached() {
         val ids = (0 until 510).map { logs.add(LogKind.OUTPUT, "$token output $it") }
         val structure = logs.structure
         logs.trim(keep = 500)
@@ -69,7 +74,8 @@ class LogTrimTest {
     }
 
     /** Home trims on its own as the log grows, so notifications can't pile up between script runs. */
-    @Test fun homeTrimsOnItsOwnAfterEnoughLines() {
+    @Test
+    fun homeTrimsOnItsOwnAfterEnoughLines() {
         logs.keepLines = 500
         repeat(600) { logs.add(LogKind.OUTPUT, "$token output $it") }
         logs.trimIfOverdue()
@@ -83,18 +89,28 @@ class LogTrimTest {
         assertEquals(500, mine().size)
     }
 
-    @Test fun aContextTooBigKeepsItsFirstValuesAsWholeJson() {
+    @Test
+    fun aContextTooBigKeepsItsFirstValuesAsWholeJson() {
         val many = (1..2_000).associate { "k$it" to "y".repeat(100) }
-        val id = logs.add(LogKind.OUTPUT, "$token many", ctx = LogContext(mapOf(LogContext.SCRIPT to token) + many))
+        val id = logs.add(
+            LogKind.OUTPUT,
+            "$token many",
+            ctx = LogContext(mapOf(LogContext.SCRIPT to token) + many)
+        )
         val ctx = logs.recent(limit = 50).single { it.id == id }.ctx
         assertEquals(token, ctx.script)
         assertTrue(ctx.values.size.toString(), ctx.values.size in 2 until 2_001)
         assertTrue(LogRepository.jsonLength(ctx.values) <= LogRepository.MAX_FIELD)
     }
 
-    @Test fun aValueThatWouldOverflowIsLeftOut() {
+    @Test
+    fun aValueThatWouldOverflowIsLeftOut() {
         val ctx = LogContext(
-            linkedMapOf(LogContext.SCRIPT to token, "junk" to "\u0001".repeat(16_000), LogContext.URL to "https://example.com/$token"),
+            linkedMapOf(
+                LogContext.SCRIPT to token,
+                "junk" to "\u0001".repeat(16_000),
+                LogContext.URL to "https://example.com/$token"
+            ),
         )
         val id = logs.add(LogKind.OUTPUT, "$token junk", ctx = ctx)
         val stored = logs.recent(limit = 50).single { it.id == id }.ctx
@@ -103,7 +119,8 @@ class LogTrimTest {
         assertFalse("junk" in stored.values)
     }
 
-    @Test fun jsonLengthIsNeverShortOfOrgJson() {
+    @Test
+    fun jsonLengthIsNeverShortOfOrgJson() {
         val samples = listOf(
             "", "plain", "a/b\"c\\d", "\t\b\n\r\u000c", "\u0001\u001f\u007f", "é😀",
             String(charArrayOf(Char(0x2028), Char(0x2029))),

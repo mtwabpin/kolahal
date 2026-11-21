@@ -33,12 +33,22 @@ class UsageLevels(private val context: Context) {
     fun read(level: Level): List<Bucket> {
         val now = System.currentTimeMillis()
         val from = now - level.lookBackDays * DAY_MS
-        val stats = runCatching { usage.queryUsageStats(level.interval, from, now) }.getOrNull().orEmpty()
-            .map { Stat(it.packageName, it.firstTimeStamp, it.lastTimeStamp, it.totalTimeInForeground, it.lastTimeUsed) }
+        val stats =
+            runCatching { usage.queryUsageStats(level.interval, from, now) }.getOrNull().orEmpty()
+                .map {
+                    Stat(
+                        it.packageName,
+                        it.firstTimeStamp,
+                        it.lastTimeStamp,
+                        it.totalTimeInForeground,
+                        it.lastTimeUsed
+                    )
+                }
         // Unlocks: the same count as `unlocks`, Android's "keyguard hidden", per bucket.
-        val unlocks = runCatching { usage.queryEventStats(level.interval, from, now) }.getOrNull().orEmpty()
-            .filter { it.eventType == UsageEvents.Event.KEYGUARD_HIDDEN }
-            .associate { it.firstTimeStamp to it.count }
+        val unlocks =
+            runCatching { usage.queryEventStats(level.interval, from, now) }.getOrNull().orEmpty()
+                .filter { it.eventType == UsageEvents.Event.KEYGUARD_HIDDEN }
+                .associate { it.firstTimeStamp to it.count }
         return buckets(stats, unlocks)
     }
 
@@ -74,7 +84,13 @@ class UsageLevels(private val context: Context) {
         const val NEW_MS = 10 * 60_000L
 
         /** One app's time in front in one of Android's buckets, and when it was last used (0: not known). */
-        data class Stat(val pkg: String, val start: Long, val end: Long, val ms: Long, val lastUsed: Long = 0)
+        data class Stat(
+            val pkg: String,
+            val start: Long,
+            val end: Long,
+            val ms: Long,
+            val lastUsed: Long = 0
+        )
 
         /**
          * One of Android's buckets: its real [start] and [end] (for the current one, the end of its data
@@ -82,7 +98,11 @@ class UsageLevels(private val context: Context) {
          * each app was last used, as far as this bucket knows.
          */
         data class Bucket(
-            val start: Long, val end: Long, val apps: Map<String, Long>, val unlocks: Int?, val current: Boolean,
+            val start: Long,
+            val end: Long,
+            val apps: Map<String, Long>,
+            val unlocks: Int?,
+            val current: Boolean,
             val lastUsed: Map<String, Long> = emptyMap(),
         ) {
             val total: Long get() = apps.values.sum()
@@ -106,10 +126,20 @@ class UsageLevels(private val context: Context) {
         fun buckets(stats: List<Stat>, unlocks: Map<Long, Int>): List<Bucket> {
             val newest = stats.maxOfOrNull { it.start } ?: return emptyList()
             return stats.groupBy { it.start }.map { (start, list) ->
-                val apps = list.filter { it.ms > 0 }.groupBy { it.pkg }.mapValues { (_, s) -> s.sumOf { it.ms } }
-                val lastUsed = list.filter { it.lastUsed > 0 }.groupBy { it.pkg }.mapValues { (_, s) -> s.maxOf { it.lastUsed } }
-                Bucket(start, list.maxOf { it.end }, apps, unlocks[start], current = start == newest, lastUsed = lastUsed)
-            }.filter { it.total > 0 && it.span >= if (it.current) DAY_MS else HOUR_MS }.sortedBy { it.start }
+                val apps = list.filter { it.ms > 0 }.groupBy { it.pkg }
+                    .mapValues { (_, s) -> s.sumOf { it.ms } }
+                val lastUsed = list.filter { it.lastUsed > 0 }.groupBy { it.pkg }
+                    .mapValues { (_, s) -> s.maxOf { it.lastUsed } }
+                Bucket(
+                    start,
+                    list.maxOf { it.end },
+                    apps,
+                    unlocks[start],
+                    current = start == newest,
+                    lastUsed = lastUsed
+                )
+            }.filter { it.total > 0 && it.span >= if (it.current) DAY_MS else HOUR_MS }
+                .sortedBy { it.start }
         }
 
         /**
@@ -122,16 +152,29 @@ class UsageLevels(private val context: Context) {
         fun fill(outer: List<Bucket>, inner: List<Bucket>): List<Bucket> = outer.map { o ->
             val inside = inner.filter { it.start >= o.start && it.end <= o.end + HOUR_MS }
             if (inside.isEmpty()) return@map o
-            val sums = inside.flatMap { it.apps.entries }.groupBy({ it.key }, { it.value }).mapValues { it.value.sum() }
-            val used = inside.flatMap { it.lastUsed.entries }.groupBy({ it.key }, { it.value }).mapValues { it.value.max() }
+            val sums = inside.flatMap { it.apps.entries }.groupBy({ it.key }, { it.value })
+                .mapValues { it.value.sum() }
+            val used = inside.flatMap { it.lastUsed.entries }.groupBy({ it.key }, { it.value })
+                .mapValues { it.value.max() }
             o.copy(
-                apps = (o.apps.keys + sums.keys).associateWith { maxOf(o.apps[it] ?: 0, sums[it] ?: 0) },
-                lastUsed = (o.lastUsed.keys + used.keys).associateWith { maxOf(o.lastUsed[it] ?: 0, used[it] ?: 0) },
+                apps = (o.apps.keys + sums.keys).associateWith {
+                    maxOf(
+                        o.apps[it] ?: 0,
+                        sums[it] ?: 0
+                    )
+                },
+                lastUsed = (o.lastUsed.keys + used.keys).associateWith {
+                    maxOf(
+                        o.lastUsed[it] ?: 0,
+                        used[it] ?: 0
+                    )
+                },
             )
         }
 
         /** The buckets an average counts: those that are over, and the current one once it has run a week. */
-        fun counted(buckets: List<Bucket>): List<Bucket> = buckets.filter { !it.current || it.span >= COUNTS_AFTER_MS }
+        fun counted(buckets: List<Bucket>): List<Bucket> =
+            buckets.filter { !it.current || it.span >= COUNTS_AFTER_MS }
 
         /** The time a day over [buckets] together (all apps', or with [pkg] that app's): their time over their spans. Null with none. */
         fun perDay(buckets: List<Bucket>, pkg: String? = null): Long? {
@@ -140,13 +183,15 @@ class UsageLevels(private val context: Context) {
         }
 
         /** When [pkg] was last used, as far as [buckets] know; null when none says. */
-        fun lastUsed(buckets: List<Bucket>, pkg: String): Long? = buckets.mapNotNull { it.lastUsed[pkg] }.maxOrNull()
+        fun lastUsed(buckets: List<Bucket>, pkg: String): Long? =
+            buckets.mapNotNull { it.lastUsed[pkg] }.maxOrNull()
 
         /** Unlocks a day over the [buckets] that have a count. Null with none. */
         fun unlocksPerDay(buckets: List<Bucket>): Int? {
             val with = buckets.filter { it.unlocks != null }
             val span = with.sumOf { it.span }
-            return if (span <= 0) null else Math.round(with.sumOf { it.unlocks!!.toLong() } * DAY_MS.toDouble() / span).toInt()
+            return if (span <= 0) null else Math.round(with.sumOf { it.unlocks!!.toLong() } * DAY_MS.toDouble() / span)
+                .toInt()
         }
 
         /**
@@ -165,7 +210,8 @@ class UsageLevels(private val context: Context) {
 
         /** The [n] apps with the most time over [buckets], biggest first. */
         fun top(buckets: List<Bucket>, n: Int): List<Pair<String, Long>> =
-            buckets.flatMap { it.apps.entries }.groupBy({ it.key }, { it.value }).mapValues { it.value.sum() }
+            buckets.flatMap { it.apps.entries }.groupBy({ it.key }, { it.value })
+                .mapValues { it.value.sum() }
                 .entries.sortedByDescending { it.value }.take(n).map { it.key to it.value }
 
         /** An app's time a day in two buckets. */
@@ -179,7 +225,8 @@ class UsageLevels(private val context: Context) {
 
         /** Apps with real time in [now] that had none in [before]. Biggest first. */
         fun newApps(before: Bucket, now: Bucket, n: Int = 3): List<Shift> =
-            now.apps.keys.filter { (before.apps[it] ?: 0) == 0L }.map { Shift(it, 0, now.perDay(it)) }
+            now.apps.keys.filter { (before.apps[it] ?: 0) == 0L }
+                .map { Shift(it, 0, now.perDay(it)) }
                 .filter { it.now >= NEW_MS }.sortedByDescending { it.now }.take(n)
     }
 }

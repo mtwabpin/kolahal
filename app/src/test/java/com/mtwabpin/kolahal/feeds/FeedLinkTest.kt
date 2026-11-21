@@ -10,7 +10,10 @@ class FeedLinkTest {
 
     @Test
     fun keepsAbsoluteHttpLinks() {
-        assertEquals("https://a.example/post?id=1", FeedFetcher.safeLink("https://a.example/post?id=1", base))
+        assertEquals(
+            "https://a.example/post?id=1",
+            FeedFetcher.safeLink("https://a.example/post?id=1", base)
+        )
         assertEquals("http://a.example/x", FeedFetcher.safeLink("  http://a.example/x \n", base))
         assertEquals("https://a.example/", FeedFetcher.safeLink("HTTPS://A.example/", base))
     }
@@ -20,7 +23,10 @@ class FeedLinkTest {
         assertEquals("https://example.com/blog/post-1", FeedFetcher.safeLink("post-1", base))
         assertEquals("https://example.com/p/2", FeedFetcher.safeLink("/p/2", base))
         assertEquals("https://other.example/x", FeedFetcher.safeLink("//other.example/x", base))
-        assertEquals("https://example.com/blog/feed.xml?page=2", FeedFetcher.safeLink("?page=2", base))
+        assertEquals(
+            "https://example.com/blog/feed.xml?page=2",
+            FeedFetcher.safeLink("?page=2", base)
+        )
     }
 
     @Test

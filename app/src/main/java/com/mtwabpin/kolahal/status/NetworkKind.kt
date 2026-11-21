@@ -20,7 +20,8 @@ object NetworkKind {
     }
 
     /** Whether Android found the network reaches the internet. The header marks one that doesn't with "?". */
-    fun validated(caps: NetworkCapabilities?): Boolean = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    fun validated(caps: NetworkCapabilities?): Boolean =
+        caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
 
     /** The active network's capabilities, or null when offline. */
     fun active(context: Context): NetworkCapabilities? {

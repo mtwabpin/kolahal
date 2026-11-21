@@ -15,10 +15,13 @@ package com.mtwabpin.kolahal.terminal
  */
 class TapGate(
     private val windowMs: Long,
-    private val later: (Long, () -> Unit) -> Unit = { ms, block -> android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(block, ms) },
+    private val later: (Long, () -> Unit) -> Unit = { ms, block ->
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(block, ms)
+    },
     private val now: () -> Long,
 ) {
     private val last = HashMap<String, Long>()
+
     /** The items with a tap waiting for their window to end ([runOrWait]). */
     private val waiting = HashSet<String>()
 

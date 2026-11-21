@@ -22,18 +22,25 @@ class PromptActions(private val host: Host) {
         /** Runs [block] on the serial command queue. */
         fun io(block: suspend () -> Unit)
         fun emit(event: UiEvent)
+
         /** What launch.instant launches or runs for [text] as typed, or null when the line waits ([InstantRun.target]). */
         fun instantTarget(text: String): InstantRun.Target<AppEntry>?
+
         /** True when a tapped line runs at once, in `launch.instant all`. */
         fun runsOnTap(line: String): Boolean
+
         /** What the alias [word] stands for, or null when it isn't one. */
         fun abbreviation(word: String): String?
+
         /** What [line] in the prompt would change in the look ([LivePreview]), or null. */
         fun livePreview(line: String): LivePreview?
+
         /** The suggestions for [text], the first one first. */
         fun suggestions(text: String): List<Suggestion>
+
         /** Runs [line] as a typed command. It is called on the command queue. */
         suspend fun run(line: String)
+
         /** Opens [app]. It is called on the command queue. */
         suspend fun launch(app: AppEntry)
     }
@@ -50,7 +57,8 @@ class PromptActions(private val host: Host) {
         private set
 
     /** The commands for ↑, newest first. Written by the log's reload outside the main thread. Read on the main thread. */
-    @Volatile var history: List<String> = emptyList()
+    @Volatile
+    var history: List<String> = emptyList()
 
     private var historyIndex = -1
     private var draft = ""
@@ -117,7 +125,8 @@ class PromptActions(private val host: Host) {
     }
 
     /** [value] with an alias typed as its first word expanded ([Abbreviations]), or null. */
-    private fun abbreviated(old: String, value: TextFieldValue) = Abbreviations.onSpace(old, value, host::abbreviation)
+    private fun abbreviated(old: String, value: TextFieldValue) =
+        Abbreviations.onSpace(old, value, host::abbreviation)
 
     fun historyUp() {
         val history = history
@@ -185,7 +194,10 @@ class PromptActions(private val host: Host) {
      */
     private fun pickCompletion(replacement: String, tapped: Boolean) {
         // An alias picked as the first word (`a `) expands, as it does when typed with a space.
-        abbreviated(replacement.dropLast(1), TextFieldValue(replacement, TextRange(replacement.length)))?.let {
+        abbreviated(
+            replacement.dropLast(1),
+            TextFieldValue(replacement, TextRange(replacement.length))
+        )?.let {
             historyIndex = -1
             input = it
             return
@@ -195,7 +207,10 @@ class PromptActions(private val host: Host) {
         // A contact tapped for `call` opens the dialer at once, as a tap in the log does. The
         // dialer still waits for Call. Any other line runs only once it is complete (`torch on`).
         val line = replacement.trim()
-        if (tapped && InstantRun.canonical(line.substringBefore(' ').lowercase()) == "call" && host.runsOnTap(line)) {
+        if (tapped && InstantRun.canonical(
+                line.substringBefore(' ').lowercase()
+            ) == "call" && host.runsOnTap(line)
+        ) {
             setText("")
             host.emit(UiEvent.ScrollToBottom)
             host.io { host.run(line) }
@@ -210,6 +225,7 @@ class PromptActions(private val host: Host) {
                 setText("")
                 host.io { host.launch(s.app) }
             }
+
             is Suggestion.Completion -> pickCompletion(s.replacement, tapped = true)
         }
     }

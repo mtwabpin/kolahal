@@ -25,9 +25,10 @@ internal object PinnedTurns {
      * refresh and either has not run yet, or its last run ([lastRun], by name, same clock) was at
      * least that many seconds ago.
      */
-    fun due(lines: List<StatusLine>, lastRun: Map<String, Long>, now: Long): List<String> = lines.mapNotNull { p ->
-        val every = p.refresh ?: return@mapNotNull null
-        val last = lastRun[p.name]
-        p.name.takeIf { last == null || now - last >= every * 1000L }
-    }
+    fun due(lines: List<StatusLine>, lastRun: Map<String, Long>, now: Long): List<String> =
+        lines.mapNotNull { p ->
+            val every = p.refresh ?: return@mapNotNull null
+            val last = lastRun[p.name]
+            p.name.takeIf { last == null || now - last >= every * 1000L }
+        }
 }

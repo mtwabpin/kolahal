@@ -21,7 +21,8 @@ internal class Fmt(private val text: (Any?) -> String) {
 
     /** `fmt.link(text, url)`. The address is checked when the line is logged. */
     fun link(args: List<Any?>): String {
-        val url = args.getOrNull(1) as? String ?: throw IllegalArgumentException("fmt.link expects (text, url): the text it shows, then the link's address")
+        val url = args.getOrNull(1) as? String
+            ?: throw IllegalArgumentException("fmt.link expects (text, url): the text it shows, then the link's address")
         return StyledText.link(url, text(args.getOrNull(0)))
     }
 
@@ -38,9 +39,18 @@ internal class Fmt(private val text: (Any?) -> String) {
         val call = "fmt.bars"
         val opts = options(call, args.getOrNull(1), setOf("max", "color", "unit"))
         val rows = rows(call, args.getOrNull(0), "{ label, value, text? }").map { r ->
-            StyledText.BarRow(text(r.getOrNull(0)), number(call, r.getOrNull(1), "each row's value"), r.getOrNull(2)?.let(text))
+            StyledText.BarRow(
+                text(r.getOrNull(0)),
+                number(call, r.getOrNull(1), "each row's value"),
+                r.getOrNull(2)?.let(text)
+            )
         }
-        return StyledText.bars(rows, opts["max"]?.let { number(call, it, "max") }, opts["color"]?.let { role(call, it) }, opts["unit"]?.let(text).orEmpty())
+        return StyledText.bars(
+            rows,
+            opts["max"]?.let { number(call, it, "max") },
+            opts["color"]?.let { role(call, it) },
+            opts["unit"]?.let(text).orEmpty()
+        )
     }
 
     /** `fmt.ranges(rows, { min, max, color, unit })`: each row `{ label, low, high, lowText?, highText? }`. */
@@ -49,32 +59,53 @@ internal class Fmt(private val text: (Any?) -> String) {
         val opts = options(call, args.getOrNull(1), setOf("min", "max", "color", "unit"))
         val rows = rows(call, args.getOrNull(0), "{ label, low, high }").map { r ->
             StyledText.RangeRow(
-                text(r.getOrNull(0)), number(call, r.getOrNull(1), "each row's low"), number(call, r.getOrNull(2), "each row's high"),
-                r.getOrNull(3)?.let(text), r.getOrNull(4)?.let(text),
+                text(r.getOrNull(0)),
+                number(call, r.getOrNull(1), "each row's low"),
+                number(call, r.getOrNull(2), "each row's high"),
+                r.getOrNull(3)?.let(text),
+                r.getOrNull(4)?.let(text),
             )
         }
         return StyledText.ranges(
-            rows, opts["min"]?.let { number(call, it, "min") }, opts["max"]?.let { number(call, it, "max") },
-            opts["color"]?.let { role(call, it) }, opts["unit"]?.let(text).orEmpty(),
+            rows,
+            opts["min"]?.let { number(call, it, "min") },
+            opts["max"]?.let { number(call, it, "max") },
+            opts["color"]?.let { role(call, it) },
+            opts["unit"]?.let(text).orEmpty(),
         )
     }
 
     /** `fmt.stats(items)`: each item `{ value, label }`; the first is big. */
     fun stats(args: List<Any?>): String =
-        StyledText.stats(rows("fmt.stats", args.getOrNull(0), "{ value, label }").map { r -> text(r.getOrNull(0)) to (r.getOrNull(1)?.let(text) ?: "") })
+        StyledText.stats(
+            rows(
+                "fmt.stats",
+                args.getOrNull(0),
+                "{ value, label }"
+            ).map { r -> text(r.getOrNull(0)) to (r.getOrNull(1)?.let(text) ?: "") })
 
-    private fun role(call: String, value: Any?): StyledText.Colour = colour(call, value as? String, shown = text(value))
+    private fun role(call: String, value: Any?): StyledText.Colour =
+        colour(call, value as? String, shown = text(value))
 
     private fun number(call: String, value: Any?, what: String): Double = when (value) {
         is Number -> value.toDouble()
-        else -> throw IllegalArgumentException("$call: $what must be a number, not ${if (value == null) "nothing" else "'${text(value)}'"}")
+        else -> throw IllegalArgumentException(
+            "$call: $what must be a number, not ${
+                if (value == null) "nothing" else "'${
+                    text(
+                        value
+                    )
+                }'"
+            }"
+        )
     }
 
     /** The options table, with only the keys [known]. Another key is an error, so a typo (`colour`) doesn't pass unseen. */
     private fun options(call: String, value: Any?, known: Set<String>): Map<String, Any?> {
         if (value == null) return emptyMap()
-        val map = value as? Map<*, *> ?: if (value is List<*> && value.isEmpty()) emptyMap<String, Any?>() else
-            throw IllegalArgumentException("$call: its options must be a table/object: { ${known.joinToString()} }")
+        val map = value as? Map<*, *>
+            ?: if (value is List<*> && value.isEmpty()) emptyMap<String, Any?>() else
+                throw IllegalArgumentException("$call: its options must be a table/object: { ${known.joinToString()} }")
         return map.entries.associate { (k, v) ->
             val key = k.toString()
             if (key !in known) throw IllegalArgumentException("$call: no option '$key'; use ${known.joinToString()}")
@@ -94,7 +125,8 @@ internal class Fmt(private val text: (Any?) -> String) {
          * The colour with the role [name], for [call] (`fmt.color`, `fmt.tag`, …). If there is no such
          * role, the script gets an error that lists the roles. [shown] is the name as the error quotes it.
          */
-        fun colour(call: String, name: String?, shown: String? = name): StyledText.Colour = name?.let(StyledText.Colour::named)
-            ?: throw IllegalArgumentException("$call: no colour '$shown'; use ${StyledText.Colour.entries.joinToString { it.role }}")
+        fun colour(call: String, name: String?, shown: String? = name): StyledText.Colour =
+            name?.let(StyledText.Colour::named)
+                ?: throw IllegalArgumentException("$call: no colour '$shown'; use ${StyledText.Colour.entries.joinToString { it.role }}")
     }
 }

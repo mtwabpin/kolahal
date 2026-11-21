@@ -1,17 +1,18 @@
 package com.mtwabpin.kolahal.terminal
 
-import java.time.LocalDate
-import java.time.YearMonth
-import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
+import java.time.YearMonth
+import java.util.Locale
 
 class MonthCalendarTest {
     private val today = LocalDate.of(2026, 10, 24)
 
-    @Test fun thisMonthTheComingMonthOrAGivenOne() {
+    @Test
+    fun thisMonthTheComingMonthOrAGivenOne() {
         assertEquals(YearMonth.of(2026, 10), MonthCalendar.parse("", today, Locale.UK))
         assertEquals(YearMonth.of(2026, 12), MonthCalendar.parse("dec", today, Locale.UK))
         assertEquals(YearMonth.of(2027, 1), MonthCalendar.parse("January", today, Locale.UK))
@@ -23,12 +24,14 @@ class MonthCalendarTest {
         assertNull(MonthCalendar.parse("2027-13", today, Locale.UK))
     }
 
-    @Test fun monthNamesComplete() {
+    @Test
+    fun monthNamesComplete() {
         assertEquals(listOf("january", "june", "july"), MonthCalendar.suggest("J", Locale.UK))
         assertTrue(MonthCalendar.suggest("october", Locale.UK).isEmpty())
     }
 
-    @Test fun theMonthAsLinesWithTodayMarked() {
+    @Test
+    fun theMonthAsLinesWithTodayMarked() {
         val lines = MonthCalendar.lines(YearMonth.of(2026, 10), today, Locale.UK) { "[$it]" }
         assertEquals("    October 2026", lines[0])
         assertEquals("Mo Tu We Th Fr Sa Su", lines[1])
@@ -39,6 +42,9 @@ class MonthCalendarTest {
         assertEquals("26 27 28 29 30 31", lines[6])
         assertEquals(7, lines.size)
         // Weeks start on Sunday in the US.
-        assertEquals("Su Mo Tu We Th Fr Sa", MonthCalendar.lines(YearMonth.of(2026, 10), today, Locale.US)[1])
+        assertEquals(
+            "Su Mo Tu We Th Fr Sa",
+            MonthCalendar.lines(YearMonth.of(2026, 10), today, Locale.US)[1]
+        )
     }
 }

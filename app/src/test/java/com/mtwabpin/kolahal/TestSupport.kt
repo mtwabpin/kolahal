@@ -14,7 +14,8 @@ import kotlin.reflect.KMutableProperty0
  * the repository's root in some IDEs.
  */
 fun sourceFile(path: String): File =
-    listOf(File(path), File("app", path)).firstOrNull { it.exists() } ?: error("$path isn't here or under app/")
+    listOf(File(path), File("app", path)).firstOrNull { it.exists() }
+        ?: error("$path isn't here or under app/")
 
 /** A line in the log, what a test doesn't set left plain. */
 fun logEntry(

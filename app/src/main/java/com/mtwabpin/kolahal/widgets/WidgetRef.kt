@@ -52,7 +52,10 @@ data class WidgetRef(val script: String, val id: String = "") {
             if (at < 0) return WidgetRef(key)
             val script = key.substring(0, at)
             val id = key.substring(at + 1)
-            return if (ScriptNames.NAME.matches(script) && ID.matches(id)) WidgetRef(script, id) else null
+            return if (ScriptNames.NAME.matches(script) && ID.matches(id)) WidgetRef(
+                script,
+                id
+            ) else null
         }
 
         /** Whether a script whose placed widgets have the ids [taken] may get one more: it has fewer than [MAX_PER_SCRIPT]. */
@@ -77,15 +80,21 @@ data class WidgetRef(val script: String, val id: String = "") {
 object PlacedIds {
     /** The ids of every script widget in [all], by script name. A name with no widget is not in it. */
     fun of(all: List<PlacedWidget>): Map<String, Set<String>> =
-        all.mapNotNull { WidgetSource.scriptRef(it.source) }.groupBy({ it.script }, { it.id }).mapValues { it.value.toSet() }
+        all.mapNotNull { WidgetSource.scriptRef(it.source) }.groupBy({ it.script }, { it.id })
+            .mapValues { it.value.toSet() }
 
     /** The row's text for [ids]: a JSON list, the first widget's "" first. */
-    fun encode(ids: Set<String>): String = Json.stringify(ids.sortedWith(compareBy({ it.length }, { it })))
+    fun encode(ids: Set<String>): String =
+        Json.stringify(ids.sortedWith(compareBy({ it.length }, { it })))
 
     /** The ids in a row's [text]. Null with no row, and for a text that is not a list of ids. */
     fun parse(text: String?): Set<String>? {
-        val list = text?.let { runCatching { Json.parse(it) as? List<*> }.getOrNull() } ?: return null
-        return list.map { (it as? String)?.takeIf { id -> id.isEmpty() || WidgetRef.ID.matches(id) } ?: return null }.toSet()
+        val list =
+            text?.let { runCatching { Json.parse(it) as? List<*> }.getOrNull() } ?: return null
+        return list.map {
+            (it as? String)?.takeIf { id -> id.isEmpty() || WidgetRef.ID.matches(id) }
+                ?: return null
+        }.toSet()
     }
 
     /**

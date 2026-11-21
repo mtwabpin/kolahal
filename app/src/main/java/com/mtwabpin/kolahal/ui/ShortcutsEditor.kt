@@ -75,7 +75,9 @@ internal fun ShortcutsEditor(vm: TerminalViewModel, onDismiss: () -> Unit) {
     val stored by vm.shortcuts.collectAsStateWithLifecycle()
     val scriptCommands by vm.commandNames.collectAsStateWithLifecycle()
     // The built-in commands and your command scripts, to pick from while typing.
-    val commands = remember(scriptCommands) { (CommandCatalog.COMMAND_USAGES.keys + scriptCommands).distinct().sorted() }
+    val commands = remember(scriptCommands) {
+        (CommandCatalog.COMMAND_USAGES.keys + scriptCommands).distinct().sorted()
+    }
     val list = stored.orEmpty()
     // The place in the list that is being changed. The list's size means a new shortcut.
     var editing by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -102,7 +104,11 @@ internal fun ShortcutsEditor(vm: TerminalViewModel, onDismiss: () -> Unit) {
             }
         }
         // Until the list is read, nothing can be added: a list saved now would replace the stored one.
-        if (stored != null && list.isEmpty()) EmptyNote("No shortcuts yet. Add a command such as torch, todo or open maps.", top = 8.dp, bottom = 16.dp)
+        if (stored != null && list.isEmpty()) EmptyNote(
+            "No shortcuts yet. Add a command such as torch, todo or open maps.",
+            top = 8.dp,
+            bottom = 16.dp
+        )
         Spacer(Modifier.height(12.dp))
         FilledTonalButton(
             shapes = ButtonDefaults.shapes(),
@@ -115,7 +121,12 @@ internal fun ShortcutsEditor(vm: TerminalViewModel, onDismiss: () -> Unit) {
             Text("Add shortcut")
         }
         if (list.size >= Shortcuts.MAX) {
-            Text("The widget has ${Shortcuts.MAX} buttons at most.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                "The widget has ${Shortcuts.MAX} buttons at most.",
+                style = MaterialTheme.typography.bodySmall,
+                color = muted,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
 
@@ -134,20 +145,54 @@ internal fun ShortcutsEditor(vm: TerminalViewModel, onDismiss: () -> Unit) {
 
 /** One shortcut in the editor: its icon, its label and its command, with buttons to move and remove it. A tap changes it. */
 @Composable
-private fun ShortcutRow(shortcut: Shortcut, index: Int, count: Int, onEdit: () -> Unit, onMove: (Int) -> Unit, onRemove: () -> Unit) {
+private fun ShortcutRow(
+    shortcut: Shortcut,
+    index: Int,
+    count: Int,
+    onEdit: () -> Unit,
+    onMove: (Int) -> Unit,
+    onRemove: () -> Unit
+) {
     SegmentedListItem(
         colors = segColors(),
         onClick = onEdit,
         shapes = segShapes(index, count),
-        leadingContent = shortcut.icon?.let { icon -> { WidgetIconText(icon, MaterialTheme.typography.titleMedium) } },
+        leadingContent = shortcut.icon?.let { icon ->
+            {
+                WidgetIconText(
+                    icon,
+                    MaterialTheme.typography.titleMedium
+                )
+            }
+        },
         supportingContent = {
-            Text(shortcut.command, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                shortcut.command,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LabeledIconButton(R.drawable.ic_arrow_up, "Move ${shortcut.label} earlier", onClick = { onMove(-1) }, enabled = index > 0)
-                LabeledIconButton(R.drawable.ic_arrow_down, "Move ${shortcut.label} later", onClick = { onMove(1) }, enabled = index < count - 1)
-                LabeledIconButton(R.drawable.ic_delete, "Remove ${shortcut.label}", onClick = onRemove, tint = MaterialTheme.colorScheme.error)
+                LabeledIconButton(
+                    R.drawable.ic_arrow_up,
+                    "Move ${shortcut.label} earlier",
+                    onClick = { onMove(-1) },
+                    enabled = index > 0
+                )
+                LabeledIconButton(
+                    R.drawable.ic_arrow_down,
+                    "Move ${shortcut.label} later",
+                    onClick = { onMove(1) },
+                    enabled = index < count - 1
+                )
+                LabeledIconButton(
+                    R.drawable.ic_delete,
+                    "Remove ${shortcut.label}",
+                    onClick = onRemove,
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         },
     ) { Text(shortcut.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -160,13 +205,24 @@ private fun ShortcutRow(shortcut: Shortcut, index: Int, count: Int, onEdit: () -
  * - Each box takes no more than the widget keeps ([Shortcuts]).
  */
 @Composable
-private fun ShortcutDialog(initial: Shortcut?, commands: List<String>, onDismiss: () -> Unit, onSave: (Shortcut) -> Unit) {
+private fun ShortcutDialog(
+    initial: Shortcut?,
+    commands: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (Shortcut) -> Unit
+) {
     var command by rememberSaveable { mutableStateOf(initial?.command.orEmpty()) }
     // A label that is only the command was not typed: the box starts empty for it.
-    var label by rememberSaveable { mutableStateOf(initial?.label?.takeIf { it != initial?.command }.orEmpty()) }
+    var label by rememberSaveable {
+        mutableStateOf(initial?.label?.takeIf { it != initial.command }.orEmpty())
+    }
     var icon by rememberSaveable { mutableStateOf(initial?.icon.orEmpty()) }
     val picks = remember(command, commands) { ShortcutPicks.matching(command, commands) }
-    val plain = KeyboardOptions(autoCorrectEnabled = false, capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next)
+    val plain = KeyboardOptions(
+        autoCorrectEnabled = false,
+        capitalization = KeyboardCapitalization.None,
+        imeAction = ImeAction.Next
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -178,19 +234,30 @@ private fun ShortcutDialog(initial: Shortcut?, commands: List<String>, onDismiss
                     colors = fieldColors(),
                     value = command,
                     // A command is one line.
-                    onValueChange = { command = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_COMMAND) },
+                    onValueChange = {
+                        command = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_COMMAND)
+                    },
                     label = { Text("Command") },
                     placeholder = { Text("torch") },
                     supportingText = { Text("What you would type in the terminal") },
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
                     keyboardOptions = plain,
-                    modifier = Modifier.fillMaxWidth().testTag("shortcut-command"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("shortcut-command"),
                 )
                 if (picks.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         picks.forEach { name ->
-                            TextButton(shapes = ButtonDefaults.shapes(), onClick = { command = name }) { Text(name, fontFamily = FontFamily.Monospace) }
+                            TextButton(
+                                shapes = ButtonDefaults.shapes(),
+                                onClick = { command = name }) {
+                                Text(
+                                    name,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }
@@ -198,24 +265,35 @@ private fun ShortcutDialog(initial: Shortcut?, commands: List<String>, onDismiss
                     shape = TextFieldDefaults.roundedShape,
                     colors = fieldColors(),
                     value = label,
-                    onValueChange = { label = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_LABEL) },
+                    onValueChange = {
+                        label = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_LABEL)
+                    },
                     label = { Text("Label") },
                     placeholder = { Text("The command, if empty") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth().testTag("shortcut-label"),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("shortcut-label"),
                 )
                 TextField(
                     shape = TextFieldDefaults.roundedShape,
                     colors = fieldColors(),
                     value = icon,
                     // Room for an icon name ("torch"). Saving cuts any other text to an emoji or a few letters.
-                    onValueChange = { icon = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_ICON_TYPED) },
+                    onValueChange = {
+                        icon = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_ICON_TYPED)
+                    },
                     label = { Text("Icon") },
                     placeholder = { Text("A name such as torch, or an emoji") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    modifier = Modifier.fillMaxWidth().testTag("shortcut-icon"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("shortcut-icon"),
                 )
             }
         },
@@ -223,9 +301,21 @@ private fun ShortcutDialog(initial: Shortcut?, commands: List<String>, onDismiss
             TextButton(
                 shapes = ButtonDefaults.shapes(),
                 enabled = command.isNotBlank(),
-                onClick = { onSave(Shortcut(label = label, command = command, icon = icon.ifBlank { null })) },
+                onClick = {
+                    onSave(
+                        Shortcut(
+                            label = label,
+                            command = command,
+                            icon = icon.ifBlank { null })
+                    )
+                },
             ) { Text(if (initial == null) "Add" else "Save") }
         },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onDismiss
+            ) { Text("Cancel") }
+        },
     )
 }

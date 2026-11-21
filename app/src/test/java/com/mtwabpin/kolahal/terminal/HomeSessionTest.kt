@@ -19,13 +19,19 @@ class HomeSessionTest {
         var hidden: Long? = null
         var reloads = 0
 
-        override fun hideScreen(seen: Long) { hidden = seen }
+        override fun hideScreen(seen: Long) {
+            hidden = seen
+        }
+
         override fun maxId(): Long = if (maxFails) error("no database") else max
-        override fun requestReload() { reloads++ }
+        override fun requestReload() {
+            reloads++
+        }
     }
 
     private var now = 1_000_000L
     private val host = FakeHost()
+
     // Unconfined: what onResume launches has run when it returns.
     private val session = HomeSession(host, Dispatchers.Unconfined) { now }
     private val scope = CoroutineScope(Dispatchers.Unconfined)
@@ -38,7 +44,8 @@ class HomeSessionTest {
         session.onResume(scope)
     }
 
-    @Test fun backAfterAStopTheLogIsReadOnceAtOnce() {
+    @Test
+    fun backAfterAStopTheLogIsReadOnceAtOnce() {
         session.onStarted(false)
         assertFalse(session.reading.value)
         session.onStarted(true)
@@ -48,20 +55,23 @@ class HomeSessionTest {
         assertEquals(0, host.reloads)
     }
 
-    @Test fun aResumeWithoutAStopReadsThePageAgain() {
+    @Test
+    fun aResumeWithoutAStopReadsThePageAgain() {
         session.onResume(scope)
         assertEquals(1, host.reloads)
         assertFalse(session.back)
     }
 
-    @Test fun aResumeWhileStoppedReadsNothing() {
+    @Test
+    fun aResumeWhileStoppedReadsNothing() {
         session.onStarted(false)
         session.onResume(scope)
         assertFalse(session.reading.value)
         assertEquals(0, host.reloads)
     }
 
-    @Test fun leavingKeepsTheNewestLineAsSeen() {
+    @Test
+    fun leavingKeepsTheNewestLineAsSeen() {
         host.newest = 42
         host.max = 50
         away(1)
@@ -70,37 +80,43 @@ class HomeSessionTest {
         assertEquals(50L, session.unreadUntil)
     }
 
-    @Test fun afterLongEnoughAwayOnlyTheSeenLinesAreHidden() {
+    @Test
+    fun afterLongEnoughAwayOnlyTheSeenLinesAreHidden() {
         host.newest = 42
         away(10)
         assertEquals(42L, host.hidden)
     }
 
-    @Test fun aShortTimeAwayHidesNothing() {
+    @Test
+    fun aShortTimeAwayHidesNothing() {
         host.newest = 42
         away(9)
         assertNull(host.hidden)
     }
 
-    @Test fun freshOffHidesNothing() {
+    @Test
+    fun freshOffHidesNothing() {
         host.newest = 42
         host.freshMinutes = 0
         away(60)
         assertNull(host.hidden)
     }
 
-    @Test fun nothingSeenYetHidesNothing() {
+    @Test
+    fun nothingSeenYetHidesNothing() {
         away(60)
         assertNull(host.hidden)
     }
 
-    @Test fun theFirstResumeHidesNothing() {
+    @Test
+    fun theFirstResumeHidesNothing() {
         host.storedSeenUpTo = 42
         session.onResume(scope)
         assertNull(host.hidden)
     }
 
-    @Test fun aFailedReadKeepsTheLastUnreadMark() {
+    @Test
+    fun aFailedReadKeepsTheLastUnreadMark() {
         host.newest = 42
         host.max = 50
         away(1)

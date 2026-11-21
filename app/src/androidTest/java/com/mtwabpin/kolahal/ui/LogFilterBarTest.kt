@@ -11,8 +11,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import org.junit.After
 import org.junit.Assert.assertNull
@@ -23,10 +23,13 @@ import org.junit.runner.RunWith
 /** The bar `log only …` puts above the prompt, and the ways it goes. */
 @RunWith(AndroidJUnit4::class)
 class LogFilterBarTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         LogRepository.get(compose.activity).filter = null
     }
 
@@ -42,7 +45,8 @@ class LogFilterBarTest {
         return vm
     }
 
-    @Test fun theBarSaysWhatShowsAndItsCrossShowsEverything() {
+    @Test
+    fun theBarSaysWhatShowsAndItsCrossShowsEverything() {
         val vm = show()
         compose.onNodeWithTag("log-filter").assertDoesNotExist()
         compose.runOnIdle { vm.filterLog(LogFilter.OfKind(LogFilter.Kind.FEEDS)) }
@@ -52,7 +56,8 @@ class LogFilterBarTest {
         assertNull(vm.filter.value)
     }
 
-    @Test fun backShowsEverything() {
+    @Test
+    fun backShowsEverything() {
         val vm = show()
         compose.runOnIdle { vm.filterLog(LogFilter.Named("xkcd")) }
         compose.onNodeWithTag("log-filter").assertExists()

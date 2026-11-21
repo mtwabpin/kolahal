@@ -39,20 +39,27 @@ import org.junit.runner.RunWith
 /** The default key bar, with real touches on the home screen. */
 @RunWith(AndroidJUnit4::class)
 class KeyBarTest {
-    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
-    @get:Rule val logLines = LogLinesSince()
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    @get:Rule
+    val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule
+    val compose = createComposeRule()
+    @get:Rule
+    val logLines = LogLinesSince()
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
 
-    @Before fun show() {
+    @Before
+    fun show() {
         config.set(Keys.KEYBAR_SHOW, "on")
         config.set(Keys.KEYBAR_AUTO, "off")
         vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
-                Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
+                Box(Modifier
+                    .size(360.dp, 700.dp)
+                    .consumeWindowInsets(WindowInsets.safeDrawing)) {
                     TerminalScreen(vm)
                 }
             }
@@ -60,7 +67,8 @@ class KeyBarTest {
         compose.waitForIdle()
     }
 
-    @get:Rule val configReset = ConfigReset()
+    @get:Rule
+    val configReset = ConfigReset()
 
     private fun put(text: String, cursor: Int = text.length) {
         compose.runOnIdle { vm.onInputChange(TextFieldValue(text, TextRange(cursor))) }
@@ -70,7 +78,11 @@ class KeyBarTest {
     /** The arrows are drawn as icons described by their name; the symbols are text. */
     private fun press(key: String) {
         val node = when (key) {
-            "left", "up", "down", "right" -> compose.onNodeWithContentDescription(key, useUnmergedTree = true)
+            "left", "up", "down", "right" -> compose.onNodeWithContentDescription(
+                key,
+                useUnmergedTree = true
+            )
+
             else -> compose.onAllNodesWithText(key, useUnmergedTree = true).onLast()
         }
         node.performTouchInput { click() }
@@ -91,13 +103,21 @@ class KeyBarTest {
     private val cursor get() = compose.runOnIdle { vm.input.selection.end }
 
     /** One row by default, its 9 keys sharing the width of a 360 dp screen: none scrolled out of sight. */
-    @Test fun oneRowByDefault() {
+    @Test
+    fun oneRowByDefault() {
         compose.onAllNodesWithTag("keybar", useUnmergedTree = true).assertCountEquals(1)
-        for (key in listOf("/", "@", "|", "=", "+", "-", "*")) compose.onAllNodesWithText(key, useUnmergedTree = true).onLast().assertIsDisplayed()
-        for (key in listOf("up", "down")) compose.onNodeWithContentDescription(key, useUnmergedTree = true).assertIsDisplayed()
+        for (key in listOf("/", "@", "|", "=", "+", "-", "*")) compose.onAllNodesWithText(
+            key,
+            useUnmergedTree = true
+        ).onLast().assertIsDisplayed()
+        for (key in listOf("up", "down")) compose.onNodeWithContentDescription(
+            key,
+            useUnmergedTree = true
+        ).assertIsDisplayed()
     }
 
-    @Test fun theSymbolsGoInAtTheCursor() {
+    @Test
+    fun theSymbolsGoInAtTheCursor() {
         put("ab", 1)
         for (key in listOf("/", "@", "|", "=", "+", "-", "*")) press(key)
         assertEquals("a/@|=+-*b", text)
@@ -108,7 +128,8 @@ class KeyBarTest {
      * A row too long to share the width (keys under 36 dp each) scrolls: its first keys show, its
      * last ones are out of sight until the row is scrolled.
      */
-    @Test fun aLongRowScrolls() {
+    @Test
+    fun aLongRowScrolls() {
         config.set(Keys.KEYBAR, "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p")
         compose.waitForIdle()
         compose.onAllNodesWithText("a", useUnmergedTree = true).onLast().assertIsDisplayed()
@@ -116,7 +137,8 @@ class KeyBarTest {
     }
 
     /** LEFT and RIGHT aren't in the default row any more; a row that has them moves the cursor. */
-    @Test fun theArrowsMoveTheCursor() {
+    @Test
+    fun theArrowsMoveTheCursor() {
         config.set(Keys.KEYBAR, "LEFT,UP,DOWN,RIGHT")
         compose.waitForIdle()
         put("abc", 1)
@@ -127,7 +149,8 @@ class KeyBarTest {
         assertEquals(2, cursor)
     }
 
-    @Test fun upAndDownWalkTheHistory() {
+    @Test
+    fun upAndDownWalkTheHistory() {
         val line = ran()
         put("draft")
         press("up")
@@ -137,7 +160,8 @@ class KeyBarTest {
     }
 
     /** Found in review: ↓ went on walking the history and the edit was lost. */
-    @Test fun downKeepsAnEditFromTheBar() {
+    @Test
+    fun downKeepsAnEditFromTheBar() {
         val line = ran()
         press("up")
         press("=")
@@ -145,7 +169,8 @@ class KeyBarTest {
         assertEquals("$line=", text)
     }
 
-    @Test fun downKeepsALineASuggestionFilled() {
+    @Test
+    fun downKeepsALineASuggestionFilled() {
         ran()
         press("up")
         compose.runOnIdle { vm.onSuggestion(Suggestion.Completion("todo", "todo ")) }
@@ -154,7 +179,8 @@ class KeyBarTest {
     }
 
     /** A drag that starts on a symbol moves the cursor and types nothing. */
-    @Test fun draggingAcrossTheBarMovesTheCursor() {
+    @Test
+    fun draggingAcrossTheBarMovesTheCursor() {
         put("abcdefgh", 0)
         compose.onNodeWithTag("keybar", useUnmergedTree = true).performTouchInput { swipeRight() }
         compose.waitForIdle()

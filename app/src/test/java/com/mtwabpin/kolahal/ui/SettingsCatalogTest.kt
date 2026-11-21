@@ -1,8 +1,8 @@
 package com.mtwabpin.kolahal.ui
 
-import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.terminal.Screen
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,16 +12,19 @@ import org.junit.Test
 
 /** The Settings pages and the look settings that show home through them. */
 class SettingsCatalogTest {
-    @Test fun scriptsComeBeforeFeedsInTheTabs() {
+    @Test
+    fun scriptsComeBeforeFeedsInTheTabs() {
         assertEquals(listOf(Screen.SETTINGS, Screen.SCRIPTS, Screen.FEEDS), FEATURE_TABS)
     }
 
-    @Test fun everyEyeIsOnARealPage() {
+    @Test
+    fun everyEyeIsOnARealPage() {
         val ids = allCategories().map { it.id }
         for (page in PEEK_PAGES.keys) assertTrue("no page called $page", page in ids)
     }
 
-    @Test fun everyPeekSettingIsASliderOnAPage() {
+    @Test
+    fun everyPeekSettingIsASliderOnAPage() {
         val keys = allCategories().flatMap { it.keys }
         for (name in PEEK_SLIDERS.keys) {
             val key = keys.firstOrNull { it.key == name }
@@ -31,14 +34,27 @@ class SettingsCatalogTest {
     }
 
     /** The header is one line: its settings are a few, each with a title, and the full and one-line headers' are gone. */
-    @Test fun theHeaderHasAFewSettings() {
+    @Test
+    fun theHeaderHasAFewSettings() {
         val header = Keys.ALL.filter { it.key.startsWith("header.") }
-        assertEquals(listOf("header.show", "header.below-bar", "header.padding", "header.left", "header.right", "header.pinned-seconds", "header.pinned-dots", "header.pinned-bar-above", "header.pinned-bar-below"), header.map { it.key })
+        assertEquals(
+            listOf(
+                "header.show",
+                "header.below-bar",
+                "header.padding",
+                "header.left",
+                "header.right",
+                "header.pinned-seconds",
+                "header.pinned-dots",
+                "header.pinned-bar-above",
+                "header.pinned-bar-below"
+            ), header.map { it.key })
         assertTrue(header.all { SettingTitles[it.key] != null })
         assertTrue(Keys.REMOVED.keys.filter { it.startsWith("header.compact.") }.size == 12)
     }
 
-    @Test fun everySettingIsOnAPageButConfigOnlyOnes() {
+    @Test
+    fun everySettingIsOnAPageButConfigOnlyOnes() {
         val shown = allCategories().flatMap { it.keys }.map { it.key }
         // By name, so a failure names the setting that is on no page.
         assertEquals((Keys.ALL.toSet() - Keys.CONFIG_ONLY).map { it.key }.toSet(), shown.toSet())
@@ -47,7 +63,8 @@ class SettingsCatalogTest {
     }
 
     /** Settings search finds each word in any order, in a setting's title, name, help or choices. */
-    @Test fun searchFindsWordsInAnyOrder() {
+    @Test
+    fun searchFindsWordsInAnyOrder() {
         assertTrue(matches(Keys.FONT_SIZE, "text size"))
         assertTrue(matches(Keys.FONT_SIZE, "size text"))
         assertTrue(matches(Keys.FONT_SIZE, "  SIZE   font  "))

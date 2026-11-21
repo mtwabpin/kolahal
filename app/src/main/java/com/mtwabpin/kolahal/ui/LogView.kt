@@ -3,80 +3,78 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.produceState
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import com.mtwabpin.kolahal.notifications.NotifIcons
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.wrapContentHeight
-import kotlinx.coroutines.launch
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFontFamilyResolver
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.notifications.NotifIcons
 import com.mtwabpin.kolahal.terminal.Gutter
 import com.mtwabpin.kolahal.terminal.LogRow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Date
 
 /** Which lines show their time, from `log.time`. With `groups`, a group's first line shows it, and so does a line where the minute changes. */
@@ -101,7 +99,11 @@ fun DayDivider(row: LogRow.Day, today: LocalDate) {
 fun UnreadDivider(row: LogRow.Unread) {
     Text(
         "── ${row.count} new since you left ──",
-        style = Term.text.copy(color = Term.prompt, fontSize = (Term.fontSize - 1).sp, fontWeight = FontWeight.Bold),
+        style = Term.text.copy(
+            color = Term.prompt,
+            fontSize = (Term.fontSize - 1).sp,
+            fontWeight = FontWeight.Bold
+        ),
         modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
     )
 }
@@ -167,7 +169,12 @@ fun LogLine(
     val image = entry.ctx.image
     // On a notification line, the saved status-bar icon replaces the app name at the end.
     val context = LocalContext.current
-    val iconKey = entry.ctx.values[LogContext.ICON]?.takeIf { row.showSource && entry.kind == LogKind.SCRIPT && NotifIcons.has(context, it) }
+    val iconKey = entry.ctx.values[LogContext.ICON]?.takeIf {
+        row.showSource && entry.kind == LogKind.SCRIPT && NotifIcons.has(
+            context,
+            it
+        )
+    }
     val inline = remember(iconKey) { iconKey?.let(::notifIconContent) ?: emptyMap() }
 
     // log.line-height also sets the padding above and below a line:
@@ -175,7 +182,7 @@ fun LogLine(
     // - less as the height gets close to one line of text, and none when it equals it;
     // - below that, the space above the first line and under the last is removed too, so lines
     //   become as short as the text allows.
-    val density = androidx.compose.ui.platform.LocalDensity.current
+    val density = LocalDensity.current
     val textLine = with(density) { (Term.fontSize * TEXT_LINE).sp.toDp() }
     // The line height is in sp, so it follows the phone's text size like the text does. A larger
     // system text size then doesn't squeeze the lines. At the default size, 22 is 22dp.
@@ -183,7 +190,8 @@ fun LogLine(
     val padding = ((lineHeight - textLine) / 2).coerceIn(0.dp, LINE_PADDING.dp)
     val dense = lineHeight + 0.5.dp < textLine
     // Lines that do something get a larger touch target than plain output (log.taller-taps).
-    val actionable = entry.kind == LogKind.COMMAND || entry.ctx.values.keys.any { it in ACTIONABLE_KEYS }
+    val actionable =
+        entry.kind == LogKind.COMMAND || entry.ctx.values.keys.any { it in ACTIONABLE_KEYS }
     val minHeight = when {
         !Term.tallerTaps -> lineHeight
         desc != null -> lineHeight + 14.dp
@@ -191,7 +199,15 @@ fun LogLine(
         else -> lineHeight
     }
     // The font settings are not keys here: indents is rebuilt from them, so it carries the change.
-    val lineText = if (isGrid || desc != null) null else remember(entry, Term.palette, indents, row.unread, iconKey, marks, row.showSource) {
+    val lineText = if (isGrid || desc != null) null else remember(
+        entry,
+        Term.palette,
+        indents,
+        row.unread,
+        iconKey,
+        marks,
+        row.showSource
+    ) {
         markMatches(renderLine(entry, indents, row.unread, iconKey != null, row.showSource), marks)
     }
     // A dimmed line whose parts can't overlap fades part by part; this draws the same pixels as
@@ -207,14 +223,20 @@ fun LogLine(
         }
     }
     // A built-in command's bar after the line's text (unlocks, usage, volume).
-    val bar = remember(entry.ctx) { if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) lineBar(entry.ctx.values[LogContext.BAR]) else null }
+    val bar = remember(entry.ctx) {
+        if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) lineBar(entry.ctx.values[LogContext.BAR]) else null
+    }
     // A script's buttons under its line (ctx.actions).
-    val actions = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) LogContext.actionsOf(entry.ctx) else emptyList() }
-    val byPart = dim && row.dimmed && !highlighted && !isGrid && richRest == null && bar == null && actions.isEmpty() && marks.isEmpty() &&
-        remember(lineText, entry.text, desc) {
-            if (lineText != null) fadesByPart(lineText)
-            else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(styledText(desc!!)) && fadesByPart(AnnotatedString(entry.ctx.values[LogContext.ARGS].orEmpty()))
-        }
+    val actions =
+        remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) LogContext.actionsOf(entry.ctx) else emptyList() }
+    val byPart =
+        dim && row.dimmed && !highlighted && !isGrid && richRest == null && bar == null && actions.isEmpty() && marks.isEmpty() &&
+                remember(lineText, entry.text, desc) {
+                    if (lineText != null) fadesByPart(lineText)
+                    else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(styledText(desc!!)) && fadesByPart(
+                        AnnotatedString(entry.ctx.values[LogContext.ARGS].orEmpty())
+                    )
+                }
     // While the line is pressed, focused or under a pointer, and for a moment after, it fades whole.
     // Fading part by part would fade the ripple or highlight over the letters too, and the shade
     // would be slightly wrong.
@@ -230,10 +252,13 @@ fun LogLine(
                 is androidx.compose.foundation.interaction.PressInteraction.Press,
                 is androidx.compose.foundation.interaction.FocusInteraction.Focus,
                 is androidx.compose.foundation.interaction.HoverInteraction.Enter -> active++
+
                 is androidx.compose.foundation.interaction.PressInteraction.Release,
                 is androidx.compose.foundation.interaction.PressInteraction.Cancel,
                 is androidx.compose.foundation.interaction.FocusInteraction.Unfocus,
-                is androidx.compose.foundation.interaction.HoverInteraction.Exit -> active = (active - 1).coerceAtLeast(0)
+                is androidx.compose.foundation.interaction.HoverInteraction.Exit -> active =
+                    (active - 1).coerceAtLeast(0)
+
                 else -> return@collect
             }
             settle?.cancel()
@@ -248,167 +273,247 @@ fun LogLine(
     // The sign of the swipe that copies: right (1) by default, left (-1) with [deleteRight].
     val copySide = if (deleteRight) -1f else 1f
     Box(Modifier.padding(top = topGap)) {
-    // The swipe action label, revealed as the line moves. It is drawn only in the space the line has
-    // left, so the line needs no background of its own and home's page (or wallpaper) shows through.
-    if (swiped != 0f) {
-        // The sign always goes on the outer edge, where the line moved from.
-        val copies = swiped == copySide
-        Text(
-            when {
-                copies && swiped > 0 -> "⧉ Copy"
-                copies -> "Copy ⧉"
-                swiped > 0 -> "✕ Delete"
-                else -> "Delete ✕"
-            },
-            style = Term.text.copy(color = if (copies) Term.prompt else Term.error),
-            modifier = Modifier
-                .matchParentSize()
-                .drawWithContent {
-                    val s = swipe.value
-                    clipRect(left = if (s > 0) 0f else size.width + s, right = if (s > 0) s else size.width) {
-                        this@drawWithContent.drawContent()
-                    }
-                }
-                .wrapContentHeight()
-                .padding(horizontal = 16.dp),
-            textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Left else androidx.compose.ui.text.style.TextAlign.Right,
-        )
-    }
-    // When a line is taller than its text (log.taller-taps), the text stays centred vertically.
-    Box(
-        contentAlignment = Alignment.CenterStart,
-        modifier = Modifier
-            .onSizeChanged { rowWidth = it.width.coerceAtLeast(1) }
-            .offset { androidx.compose.ui.unit.IntOffset(swipe.value.toInt(), 0) }
-            .pointerInput(entry.id, copySide) {
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        val limit = rowWidth / 3f
-                        swipeScope.launch {
-                            // Distance toward the copy side: positive copies, negative deletes.
-                            val toCopy = swipe.value * copySide
-                            when {
-                                toCopy > limit -> {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onSwipeCopy(entry)
-                                    swipe.animateTo(0f)
-                                }
-                                toCopy < -limit -> {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    // The line slides out of sight the way it was swiped.
-                                    swipe.animateTo(-copySide * rowWidth)
-                                    onSwipeDelete(entry)
-                                }
-                                else -> swipe.animateTo(0f)
-                            }
-                        }
-                    },
-                    onDragCancel = { swipeScope.launch { swipe.animateTo(0f) } },
-                ) { change, dx ->
-                    change.consume()
-                    swipeScope.launch { swipe.snapTo(swipe.value + dx) }
-                }
-            }
-            .fillMaxWidth()
-            .heightIn(min = minHeight + itemGap)
-            .testTag("line-${entry.id}")
-            .then(if (!dim || !row.dimmed) Modifier else if (byPart && !touched) DIMMED_BY_PART else DIMMED)
-            .background(if (highlighted) Term.surface else Color.Transparent)
-            .then(if (!gutter) Modifier else Modifier.drawBehind {
-                drawRect(gutterColor, topLeft = Offset.Zero, size = Size(2.dp.toPx(), size.height))
-            })
-            .combinedClickable(
-                // Pass a source only when it is watched. Without one, the ripple is created at the first press, not when the line appears.
-                interactionSource = if (byPart) touch else null,
-                indication = androidx.compose.foundation.LocalIndication.current,
-                onLongClickLabel = "actions",
-                onClick = { onTap(entry) },
-                onLongClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongPress(entry)
-                },
-            )
-            // Room for the gutter bar. Without the bar, the text lines up with the header and dividers.
-            .padding(start = if (gutter) 10.dp else 0.dp, top = padding + itemGap, bottom = padding),
-    ) {
-    // The time sits on the first line's baseline, even when text wraps or a picture is added below.
-    // The row doesn't align by baseline: asking a line with inline icons for its baseline, as a line
-    // scrolled into view, crashed Compose ("LayoutNode not found in RectList"). Both texts start at
-    // the top, and the time moves down by the difference between the two fonts' first baselines,
-    // measured once for each pair of styles (TimeShift).
-    val lineStyle = entry.style().dense(dense)
-    val timeStyle = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp).dense(dense)
-    val timeShift = TimeShift.of(lineStyle, timeStyle)
-    Row(Modifier.fillMaxWidth()) {
-        // A person's line (a call, a contact) starts with their picture: 36 dp beside a call and its
-        // details, 24 dp beside a one-line contact.
-        entry.ctx.values[LogContext.PERSON]?.let { person ->
-            Avatar(person, entry.ctx.values[LogContext.PHOTO], if ('\n' in entry.text) 36.dp else 24.dp, Modifier.align(Alignment.CenterVertically))
-            Spacer(Modifier.width(10.dp))
-        }
-        Box(Modifier.weight(1f)) {
-            when {
-                // Parsed once per entry (it decodes JSON and looks up every app), and again when the
-                // apps change, so a chip for an app that was uninstalled or hidden disappears.
-                isGrid -> {
-                    val installed by com.mtwabpin.kolahal.apps.AppRepository.get(context).apps.collectAsStateWithLifecycle()
-                    AppGrid(remember(entry.id, entry.ctx, installed) { apps(entry) }, onAppTap, onAppLongPress)
-                }
-                desc != null && entry.ctx.values[LogContext.NAME_COL] != null -> NameColumns(entry, desc, entry.ctx.values.getValue(LogContext.NAME_COL), marks, dense)
-                desc != null -> TwoColumns(entry, desc, marks, dense, bar)
-                else -> {
-                    val text = lineText!!
-                    val style = lineStyle
-                    val words: @Composable (androidx.compose.ui.text.AnnotatedString) -> Unit = { t ->
-                        if (bar != null) WithBar(bar) { RichText(t, style = style, inlineContent = inline) }
-                        else RichText(t, style = style, inlineContent = inline)
-                    }
-                    // A long line folds (log.fold). Only a line long enough to need it is measured
-                    // for it, and never a typed command or a search result (its words must show).
-                    // A character of the terminal font is 0.6 of its size wide; the log loses about
-                    // 60 dp to its padding, the gutter and the time.
-                    val screen = with(density) { androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width.toDp().value }
-                    val charDp = with(density) { (Term.fontSize * 0.6f).sp.toDp().value }
-                    val lineChars = ((screen - 60) / charDp).toInt().coerceAtLeast(16)
-                    val mayFold = remember(entry, lineChars, Term.foldLines) { entry.kind != LogKind.COMMAND && mayFold(entry, lineChars) } && marks.isEmpty()
-                    // While folded, a very long line lays out only its start (and not its body): all of a
-                    // 64 K line takes tens of ms, in one frame, for the few lines that show.
-                    val keep = maxOf(FOLDED_MIN_CHARS, Term.foldLines * lineChars * 4)
-                    val head = remember(text, keep, mayFold) { if (mayFold && text.length > keep * 2) text.subSequence(0, keepWhole(text.text, keep)) else null }
-                    val cutLines = remember(head, richRest, lineChars) {
-                        if (head == null) 0 else estimatedLines(text.text.substring(head.length), lineChars) + (richRest?.let { estimatedLines(StyledText.plain(it), lineChars) } ?: 0)
-                    }
-                    if (image == null && richRest == null && !mayFold && actions.isEmpty()) words(text)
-                    else Column {
-                        Foldable(entry.id, style, enabled = mayFold, cutLines = cutLines) { open ->
-                            val cut = head != null && !open
-                            Column {
-                                // A command's line can be its big numbers alone, with no words above them.
-                                if (if (entry.kind == LogKind.SCRIPT) entry.text.isNotEmpty() else text.text.isNotEmpty()) words(if (cut) head!! else text)
-                                if (!cut) richRest?.let { rest ->
-                                    val start = with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
-                                    RichBody(rest, style.copy(color = Term.dim), start, indents.bullet)
-                                }
-                            }
-                        }
-                        // The picture stays in sight under a folded line.
-                        image?.let { LogImage(it, Modifier.padding(vertical = 4.dp)) }
-                        if (actions.isNotEmpty()) ActionPills(entry, actions, onAction)
-                    }
-                }
-            }
-        }
-        if (showTime) {
-            Spacer(Modifier.width(8.dp))
+        // The swipe action label, revealed as the line moves. It is drawn only in the space the line has
+        // left, so the line needs no background of its own and home's page (or wallpaper) shows through.
+        if (swiped != 0f) {
+            // The sign always goes on the outer edge, where the line moved from.
+            val copies = swiped == copySide
             Text(
-                remember(entry.ts, timeFormat) { timeFormat.format(Date(entry.ts)) },
-                // Trimmed like the line, so it never makes the line taller.
-                style = timeStyle,
-                modifier = Modifier.padding(top = timeShift),
+                when {
+                    copies && swiped > 0 -> "⧉ Copy"
+                    copies -> "Copy ⧉"
+                    swiped > 0 -> "✕ Delete"
+                    else -> "Delete ✕"
+                },
+                style = Term.text.copy(color = if (copies) Term.prompt else Term.error),
+                modifier = Modifier
+                    .matchParentSize()
+                    .drawWithContent {
+                        val s = swipe.value
+                        clipRect(
+                            left = if (s > 0) 0f else size.width + s,
+                            right = if (s > 0) s else size.width
+                        ) {
+                            this@drawWithContent.drawContent()
+                        }
+                    }
+                    .wrapContentHeight()
+                    .padding(horizontal = 16.dp),
+                textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Left else androidx.compose.ui.text.style.TextAlign.Right,
             )
         }
-    }
-    }
+        // When a line is taller than its text (log.taller-taps), the text stays centred vertically.
+        Box(
+            contentAlignment = Alignment.CenterStart,
+            modifier = Modifier
+                .onSizeChanged { rowWidth = it.width.coerceAtLeast(1) }
+                .offset { androidx.compose.ui.unit.IntOffset(swipe.value.toInt(), 0) }
+                .pointerInput(entry.id, copySide) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val limit = rowWidth / 3f
+                            swipeScope.launch {
+                                // Distance toward the copy side: positive copies, negative deletes.
+                                val toCopy = swipe.value * copySide
+                                when {
+                                    toCopy > limit -> {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onSwipeCopy(entry)
+                                        swipe.animateTo(0f)
+                                    }
+
+                                    toCopy < -limit -> {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        // The line slides out of sight the way it was swiped.
+                                        swipe.animateTo(-copySide * rowWidth)
+                                        onSwipeDelete(entry)
+                                    }
+
+                                    else -> swipe.animateTo(0f)
+                                }
+                            }
+                        },
+                        onDragCancel = { swipeScope.launch { swipe.animateTo(0f) } },
+                    ) { change, dx ->
+                        change.consume()
+                        swipeScope.launch { swipe.snapTo(swipe.value + dx) }
+                    }
+                }
+                .fillMaxWidth()
+                .heightIn(min = minHeight + itemGap)
+                .testTag("line-${entry.id}")
+                .then(if (!dim || !row.dimmed) Modifier else if (byPart && !touched) DIMMED_BY_PART else DIMMED)
+                .background(if (highlighted) Term.surface else Color.Transparent)
+                .then(if (!gutter) Modifier else Modifier.drawBehind {
+                    drawRect(
+                        gutterColor,
+                        topLeft = Offset.Zero,
+                        size = Size(2.dp.toPx(), size.height)
+                    )
+                })
+                .combinedClickable(
+                    // Pass a source only when it is watched. Without one, the ripple is created at the first press, not when the line appears.
+                    interactionSource = if (byPart) touch else null,
+                    indication = androidx.compose.foundation.LocalIndication.current,
+                    onLongClickLabel = "actions",
+                    onClick = { onTap(entry) },
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongPress(entry)
+                    },
+                )
+                // Room for the gutter bar. Without the bar, the text lines up with the header and dividers.
+                .padding(
+                    start = if (gutter) 10.dp else 0.dp,
+                    top = padding + itemGap,
+                    bottom = padding
+                ),
+        ) {
+            // The time sits on the first line's baseline, even when text wraps or a picture is added below.
+            // The row doesn't align by baseline: asking a line with inline icons for its baseline, as a line
+            // scrolled into view, crashed Compose ("LayoutNode not found in RectList"). Both texts start at
+            // the top, and the time moves down by the difference between the two fonts' first baselines,
+            // measured once for each pair of styles (TimeShift).
+            val lineStyle = entry.style().dense(dense)
+            val timeStyle =
+                Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp).dense(dense)
+            val timeShift = TimeShift.of(lineStyle, timeStyle)
+            Row(Modifier.fillMaxWidth()) {
+                // A person's line (a call, a contact) starts with their picture: 36 dp beside a call and its
+                // details, 24 dp beside a one-line contact.
+                entry.ctx.values[LogContext.PERSON]?.let { person ->
+                    Avatar(
+                        person,
+                        entry.ctx.values[LogContext.PHOTO],
+                        if ('\n' in entry.text) 36.dp else 24.dp,
+                        Modifier.align(Alignment.CenterVertically)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                }
+                Box(Modifier.weight(1f)) {
+                    when {
+                        // Parsed once per entry (it decodes JSON and looks up every app), and again when the
+                        // apps change, so a chip for an app that was uninstalled or hidden disappears.
+                        isGrid -> {
+                            val installed by com.mtwabpin.kolahal.apps.AppRepository.get(context).apps.collectAsStateWithLifecycle()
+                            AppGrid(
+                                remember(entry.id, entry.ctx, installed) { apps(entry) },
+                                onAppTap,
+                                onAppLongPress
+                            )
+                        }
+
+                        desc != null && entry.ctx.values[LogContext.NAME_COL] != null -> NameColumns(
+                            entry,
+                            desc,
+                            entry.ctx.values.getValue(LogContext.NAME_COL),
+                            marks,
+                            dense
+                        )
+
+                        desc != null -> TwoColumns(entry, desc, marks, dense, bar)
+                        else -> {
+                            val text = lineText!!
+                            val style = lineStyle
+                            val words: @Composable (AnnotatedString) -> Unit =
+                                { t ->
+                                    if (bar != null) WithBar(bar) {
+                                        RichText(
+                                            t,
+                                            style = style,
+                                            inlineContent = inline
+                                        )
+                                    }
+                                    else RichText(t, style = style, inlineContent = inline)
+                                }
+                            // A long line folds (log.fold). Only a line long enough to need it is measured
+                            // for it, and never a typed command or a search result (its words must show).
+                            // A character of the terminal font is 0.6 of its size wide; the log loses about
+                            // 60 dp to its padding, the gutter and the time.
+                            val screen =
+                                with(density) { androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width.toDp().value }
+                            val charDp = with(density) { (Term.fontSize * 0.6f).sp.toDp().value }
+                            val lineChars = ((screen - 60) / charDp).toInt().coerceAtLeast(16)
+                            val mayFold = remember(
+                                entry,
+                                lineChars,
+                                Term.foldLines
+                            ) {
+                                entry.kind != LogKind.COMMAND && mayFold(
+                                    entry,
+                                    lineChars
+                                )
+                            } && marks.isEmpty()
+                            // While folded, a very long line lays out only its start (and not its body): all of a
+                            // 64 K line takes tens of ms, in one frame, for the few lines that show.
+                            val keep = maxOf(FOLDED_MIN_CHARS, Term.foldLines * lineChars * 4)
+                            val head = remember(
+                                text,
+                                keep,
+                                mayFold
+                            ) {
+                                if (mayFold && text.length > keep * 2) text.subSequence(
+                                    0,
+                                    keepWhole(text.text, keep)
+                                ) else null
+                            }
+                            val cutLines = remember(head, richRest, lineChars) {
+                                if (head == null) 0 else estimatedLines(
+                                    text.text.substring(head.length),
+                                    lineChars
+                                ) + (richRest?.let {
+                                    estimatedLines(
+                                        StyledText.plain(it),
+                                        lineChars
+                                    )
+                                } ?: 0)
+                            }
+                            if (image == null && richRest == null && !mayFold && actions.isEmpty()) words(
+                                text
+                            )
+                            else Column {
+                                Foldable(
+                                    entry.id,
+                                    style,
+                                    enabled = mayFold,
+                                    cutLines = cutLines
+                                ) { open ->
+                                    val cut = head != null && !open
+                                    Column {
+                                        // A command's line can be its big numbers alone, with no words above them.
+                                        if (if (entry.kind == LogKind.SCRIPT) entry.text.isNotEmpty() else text.text.isNotEmpty()) words(
+                                            if (cut) head else text
+                                        )
+                                        if (!cut) richRest?.let { rest ->
+                                            val start =
+                                                with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
+                                            RichBody(
+                                                rest,
+                                                style.copy(color = Term.dim),
+                                                start,
+                                                indents.bullet
+                                            )
+                                        }
+                                    }
+                                }
+                                // The picture stays in sight under a folded line.
+                                image?.let { LogImage(it, Modifier.padding(vertical = 4.dp)) }
+                                if (actions.isNotEmpty()) ActionPills(entry, actions, onAction)
+                            }
+                        }
+                    }
+                }
+                if (showTime) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        remember(entry.ts, timeFormat) { timeFormat.format(Date(entry.ts)) },
+                        // Trimmed like the line, so it never makes the line taller.
+                        style = timeStyle,
+                        modifier = Modifier.padding(top = timeShift),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -431,7 +536,11 @@ private val DIMMED = Modifier.alpha(DIM_ALPHA)
  * Use this only for a line whose parts don't overlap ([fadesByPart]); there both ways give the
  * same pixels.
  */
-private val DIMMED_BY_PART = Modifier.graphicsLayer(alpha = DIM_ALPHA, clip = true, compositingStrategy = CompositingStrategy.ModulateAlpha)
+private val DIMMED_BY_PART = Modifier.graphicsLayer(
+    alpha = DIM_ALPHA,
+    clip = true,
+    compositingStrategy = CompositingStrategy.ModulateAlpha
+)
 
 /** How long a dimmed line keeps fading whole after a press, focus or pointer leaves it: the time its ripple takes to grow and fade. */
 private const val RIPPLE_DONE_MS = 450L
@@ -444,14 +553,25 @@ private const val RIPPLE_DONE_MS = 450L
  */
 internal fun fadesByPart(text: AnnotatedString): Boolean =
     text.text.all { c -> c == '\n' || c in ' '..'~' || c in '\u00A0'..'\u024F' || c in '\u2010'..'\u2027' } &&
-        text.spanStyles.none {
-            it.item.background.isSpecified || it.item.textDecoration != null || it.item.shadow != null ||
-                it.item.fontStyle == androidx.compose.ui.text.font.FontStyle.Italic
-        }
+            text.spanStyles.none {
+                it.item.background.isSpecified || it.item.textDecoration != null || it.item.shadow != null ||
+                        it.item.fontStyle == androidx.compose.ui.text.font.FontStyle.Italic
+            }
 
 private val ACTIONABLE_KEYS = setOf(
-    LogContext.URL, LogContext.PKG, LogContext.COMMAND, LogContext.RUN, LogContext.SCRIPT, LogContext.APPS, LogContext.LINE,
-    LogContext.PHONE, LogContext.SHORTCUT, "notif", LogContext.NOTE, LogContext.EVENT, LogContext.REMINDER,
+    LogContext.URL,
+    LogContext.PKG,
+    LogContext.COMMAND,
+    LogContext.RUN,
+    LogContext.SCRIPT,
+    LogContext.APPS,
+    LogContext.LINE,
+    LogContext.PHONE,
+    LogContext.SHORTCUT,
+    "notif",
+    LogContext.NOTE,
+    LogContext.EVENT,
+    LogContext.REMINDER,
 )
 
 /**
@@ -476,29 +596,46 @@ private fun estimatedLines(text: String, lineChars: Int): Int =
     text.splitToSequence('\n').sumOf { maxOf(1, (it.length + lineChars - 1) / lineChars) }
 
 /** [keep], or one less, so the cut doesn't split a character made of two chars (an emoji). */
-private fun keepWhole(text: String, keep: Int): Int = if (Character.isHighSurrogate(text[keep - 1])) keep - 1 else keep
+private fun keepWhole(text: String, keep: Int): Int =
+    if (Character.isHighSurrogate(text[keep - 1])) keep - 1 else keep
 
 /** A folded line keeps at least this many characters before it leaves out the rest. */
 private const val FOLDED_MIN_CHARS = 2_000
 
 /** A row of two columns (help, config, usage). A [bar] goes in the second column, before its text, so the bars of rows line up. */
 @Composable
-private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String>, dense: Boolean, bar: StyledText.Meter?) {
+private fun TwoColumns(
+    entry: LogEntry,
+    desc: String,
+    marks: List<String>,
+    dense: Boolean,
+    bar: StyledText.Meter?
+) {
     Row(Modifier.fillMaxWidth()) {
         // Beside a bar (usage, toggles), the name stays on one line and ends with "…" when too long.
         RichText(
             markMatches(remember(entry.text, Term.palette) { styledText(entry.text) }, marks),
             style = entry.style().copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense),
-            modifier = Modifier.weight(0.46f).padding(end = 8.dp),
+            modifier = Modifier
+                .weight(0.46f)
+                .padding(end = 8.dp),
             maxLines = if (bar != null) 1 else Int.MAX_VALUE,
             overflow = if (bar != null) androidx.compose.ui.text.style.TextOverflow.Ellipsis else androidx.compose.ui.text.style.TextOverflow.Clip,
         )
         val descText = @Composable { modifier: Modifier ->
-            Text(markMatches(AnnotatedString(desc), marks), style = Term.text.copy(color = Term.dim).dense(dense), modifier = modifier)
+            Text(
+                markMatches(AnnotatedString(desc), marks),
+                style = Term.text.copy(color = Term.dim).dense(dense),
+                modifier = modifier
+            )
         }
         if (bar == null) descText(Modifier.weight(0.54f))
         else Row(Modifier.weight(0.54f), verticalAlignment = Alignment.CenterVertically) {
-            Track(bar, Modifier.weight(0.5f).height(6.dp))
+            Track(
+                bar, Modifier
+                    .weight(0.5f)
+                    .height(6.dp)
+            )
             Spacer(Modifier.width(8.dp))
             descText(Modifier.weight(0.5f))
         }
@@ -513,29 +650,45 @@ private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String>, dense
  * - Lines wrap only at a space or after "|" ([breaksAtSpaces]).
  */
 @Composable
-private fun NameColumns(entry: LogEntry, desc: String, column: String, marks: List<String>, dense: Boolean) {
+private fun NameColumns(
+    entry: LogEntry,
+    desc: String,
+    column: String,
+    marks: List<String>,
+    dense: Boolean
+) {
     val nameStyle = entry.style().copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense)
     val gap = 8.dp
     val want = NameWidth.px(column, nameStyle) + with(LocalDensity.current) { gap.roundToPx() }
     val args = entry.ctx.values[LogContext.ARGS]
     Row(Modifier.fillMaxWidth()) {
         RichText(
-            markMatches(remember(entry.text) { AnnotatedString(breaksAtSpaces(entry.text)) }, marks),
+            markMatches(
+                remember(entry.text) { AnnotatedString(breaksAtSpaces(entry.text)) },
+                marks
+            ),
             style = nameStyle,
             modifier = Modifier
                 .layout { measurable, constraints ->
                     val width = minOf(want, (constraints.maxWidth * NAME_COL_MAX).toInt())
-                    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                    val placeable =
+                        measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
                     layout(width, placeable.height) { placeable.place(0, 0) }
                 }
                 .padding(end = gap),
         )
         Column(Modifier.weight(1f)) {
-            Text(markMatches(remember(desc, Term.palette) { styledText(breaksAtSpaces(desc)) }, marks), style = Term.text.copy(color = Term.fg).dense(dense))
+            Text(
+                markMatches(
+                    remember(desc, Term.palette) { styledText(breaksAtSpaces(desc)) },
+                    marks
+                ), style = Term.text.copy(color = Term.fg).dense(dense)
+            )
             if (!args.isNullOrEmpty()) {
                 Text(
                     markMatches(AnnotatedString(breaksAtSpaces(args)), marks),
-                    style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp).dense(dense),
+                    style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp)
+                        .dense(dense),
                 )
             }
         }
@@ -550,7 +703,12 @@ private const val NAME_COL_MAX = 0.5f
  * so a scroll measures nothing; a measurer is made only for a text not seen yet.
  */
 private object NameWidth {
-    private data class Key(val text: String, val style: TextStyle, val density: Float, val fontScale: Float)
+    private data class Key(
+        val text: String,
+        val style: TextStyle,
+        val density: Float,
+        val fontScale: Float
+    )
 
     private val cache = HashMap<Key, Int>()
 
@@ -562,10 +720,16 @@ private object NameWidth {
         val density = LocalDensity.current
         val fonts = LocalFontFamilyResolver.current
         val direction = LocalLayoutDirection.current
-        val key = Key(text, style.copy(color = Color.Unspecified), density.density, density.fontScale)
+        val key =
+            Key(text, style.copy(color = Color.Unspecified), density.density, density.fontScale)
         return synchronized(cache) {
             cache[key] ?: run {
-                val measured = TextMeasurer(fonts, density, direction, cacheSize = 0).measure(text, style, softWrap = false, maxLines = 1)
+                val measured = TextMeasurer(fonts, density, direction, cacheSize = 0).measure(
+                    text,
+                    style,
+                    softWrap = false,
+                    maxLines = 1
+                )
                 // Rounded up, so the last letter is never cut off.
                 (measured.size.width + 1).also {
                     if (cache.size >= MAX) cache.clear()
@@ -578,7 +742,11 @@ private object NameWidth {
 
 /** `apps` output: one line of chips instead of one line per app. */
 @Composable
-private fun AppGrid(apps: List<AppEntry>, onTap: (AppEntry) -> Unit, onLongPress: (AppEntry) -> Unit) {
+private fun AppGrid(
+    apps: List<AppEntry>,
+    onTap: (AppEntry) -> Unit,
+    onLongPress: (AppEntry) -> Unit
+) {
     val haptics = LocalHapticFeedback.current
     if (apps.isEmpty()) {
         Text("(apps no longer installed)", style = Term.text.copy(color = Term.dim))
@@ -609,7 +777,11 @@ private fun AppGrid(apps: List<AppEntry>, onTap: (AppEntry) -> Unit, onLongPress
                 if (app.profile.kind != ProfileKind.PERSONAL) {
                     Text(
                         app.profile.kind.tag + if (app.profile.quiet) "⏸" else "",
-                        style = Term.text.copy(color = color, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize - 2).sp),
+                        style = Term.text.copy(
+                            color = color,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (Term.fontSize - 2).sp
+                        ),
                     )
                     Spacer(Modifier.width(6.dp))
                 }
@@ -623,9 +795,17 @@ private fun AppGrid(apps: List<AppEntry>, onTap: (AppEntry) -> Unit, onLongPress
 internal fun NotifIcon(key: String) {
     val context = LocalContext.current
     val icon by produceState(NotifIcons.cached(key), key) {
-        if (value == null) value = withContext(Dispatchers.IO) { NotifIcons.load(context.applicationContext, key) }
+        if (value == null) value =
+            withContext(Dispatchers.IO) { NotifIcons.load(context.applicationContext, key) }
     }
-    icon?.let { Image(it, contentDescription = null, colorFilter = ColorFilter.tint(Term.dim), modifier = Modifier.fillMaxSize()) }
+    icon?.let {
+        Image(
+            it,
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(Term.dim),
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 /**
@@ -636,7 +816,13 @@ internal fun NotifIcon(key: String) {
  * - Colours don't move a baseline, so they are left out of the key: a new theme measures nothing.
  */
 internal object TimeShift {
-    private data class Key(val line: TextStyle, val time: TextStyle, val density: Float, val fontScale: Float, val direction: LayoutDirection)
+    private data class Key(
+        val line: TextStyle,
+        val time: TextStyle,
+        val density: Float,
+        val fontScale: Float,
+        val direction: LayoutDirection
+    )
 
     private val cache = HashMap<Key, Dp>()
 
@@ -648,11 +834,20 @@ internal object TimeShift {
         val density = LocalDensity.current
         val fonts = LocalFontFamilyResolver.current
         val direction = LocalLayoutDirection.current
-        val key = Key(line.copy(color = Color.Unspecified), time.copy(color = Color.Unspecified), density.density, density.fontScale, direction)
+        val key = Key(
+            line.copy(color = Color.Unspecified),
+            time.copy(color = Color.Unspecified),
+            density.density,
+            density.fontScale,
+            direction
+        )
         return synchronized(cache) {
             cache[key] ?: run {
                 val measurer = TextMeasurer(fonts, density, direction, cacheSize = 0)
-                val gap = measurer.measure("0", line).firstBaseline - measurer.measure("0", time).firstBaseline
+                val gap = measurer.measure("0", line).firstBaseline - measurer.measure(
+                    "0",
+                    time
+                ).firstBaseline
                 with(density) { gap.coerceAtLeast(0f).toDp() }.also {
                     if (cache.size >= MAX_PAIRS) cache.clear()
                     cache[key] = it

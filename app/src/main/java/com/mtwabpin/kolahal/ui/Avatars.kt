@@ -3,8 +3,6 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.core.net.toUri
-import androidx.core.graphics.scale
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.LruCache
@@ -35,8 +33,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.scale
+import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -50,22 +49,38 @@ internal fun Avatar(name: String, photo: String?, size: Dp, modifier: Modifier =
     val context = LocalContext.current
     val px = with(LocalDensity.current) { size.roundToPx() }
     val bitmap by produceState(photo?.let(Photos::cached), photo, px) {
-        if (value == null && photo != null) value = withContext(Dispatchers.IO) { Photos.load(context, photo, px) }
+        if (value == null && photo != null) value =
+            withContext(Dispatchers.IO) { Photos.load(context, photo, px) }
     }
     val colour = avatarColour(name)
     val dark = Term.bg.luminance() < 0.5f
     Box(
-        modifier.size(size).clip(CircleShape).background(colour.copy(alpha = if (dark) 0.26f else 0.18f)).testTag("avatar").clearAndSetSemantics {},
+        modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(colour.copy(alpha = if (dark) 0.26f else 0.18f))
+            .testTag("avatar")
+            .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
         val image = bitmap
         if (image != null) {
-            Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Image(
+                image,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         } else {
             val letters = remember(name) { initials(name) }
             Text(
                 letters,
-                style = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = (size.value * if (letters.length > 1) 0.36f else 0.44f).sp, color = colour),
+                style = TextStyle(
+                    fontFamily = FontFamily.Default,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = (size.value * if (letters.length > 1) 0.36f else 0.44f).sp,
+                    color = colour
+                ),
                 maxLines = 1,
             )
         }
@@ -81,9 +96,12 @@ internal fun initials(name: String): String {
     if (trimmed.isEmpty() || trimmed == "?") return "?"
     if (trimmed.first().isDigit() || trimmed.first() == '+') return "#"
     val words = trimmed.split(Regex("\\s+")).filter { it.first().isLetter() }
-    if (words.isEmpty()) return trimmed.codePointAt(0).let { String(Character.toChars(it)) }.uppercase()
+    if (words.isEmpty()) return trimmed.codePointAt(0).let { String(Character.toChars(it)) }
+        .uppercase()
     val first = words.first().first().uppercaseChar()
-    return if (words.size == 1) first.toString() else "$first${words.last().first().uppercaseChar()}"
+    return if (words.size == 1) first.toString() else "$first${
+        words.last().first().uppercaseChar()
+    }"
 }
 
 /** A colour of the theme for [name], the same every time: the accent, link, info, warning and profile colours, in turn by the name. */
@@ -99,17 +117,22 @@ private fun avatarColour(name: String): Color {
  */
 private object Photos {
     private val cache = LruCache<String, ImageBitmap>(64)
-    private val failed = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+    private val failed =
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     fun cached(uri: String): ImageBitmap? = cache.get(uri)
 
     fun load(context: Context, uri: String, px: Int): ImageBitmap? {
         if (uri in failed) return null
         val image = runCatching {
-            context.contentResolver.openInputStream(uri.toUri())?.use { BitmapFactory.decodeStream(it) }
+            context.contentResolver.openInputStream(uri.toUri())
+                ?.use { BitmapFactory.decodeStream(it) }
         }.getOrNull()?.let { b ->
             val side = maxOf(1, px)
-            (if (b.width > side * 2 || b.height > side * 2) b.scale(side * 2, side * 2 * b.height / maxOf(1, b.width)) else b).asImageBitmap()
+            (if (b.width > side * 2 || b.height > side * 2) b.scale(
+                side * 2,
+                side * 2 * b.height / maxOf(1, b.width)
+            ) else b).asImageBitmap()
         }
         if (image == null) failed += uri else cache.put(uri, image)
         return image

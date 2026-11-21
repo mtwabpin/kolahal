@@ -7,24 +7,37 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CommandParsingTest {
-    @Test fun tokenizeHonoursQuotes() {
-        assertEquals(listOf("open", "Google Maps", "-w"), CommandParsing.tokenize("open \"Google Maps\" -w"))
+    @Test
+    fun tokenizeHonoursQuotes() {
+        assertEquals(
+            listOf("open", "Google Maps", "-w"),
+            CommandParsing.tokenize("open \"Google Maps\" -w")
+        )
         assertEquals(listOf("a", "b c"), CommandParsing.tokenize("  a   'b c' "))
     }
 
-    @Test fun anApostropheInsideAWordIsALetter() {
-        assertEquals(listOf("sms", "mom", "I'm", "late"), CommandParsing.tokenize("sms mom I'm late"))
-        assertEquals(listOf("open", "Domino's", "-w", "--resume"), CommandParsing.tokenize("open Domino's -w --resume"))
+    @Test
+    fun anApostropheInsideAWordIsALetter() {
+        assertEquals(
+            listOf("sms", "mom", "I'm", "late"),
+            CommandParsing.tokenize("sms mom I'm late")
+        )
+        assertEquals(
+            listOf("open", "Domino's", "-w", "--resume"),
+            CommandParsing.tokenize("open Domino's -w --resume")
+        )
         assertEquals(listOf("say", "it's ok"), CommandParsing.tokenize("say \"it's ok\""))
     }
 
-    @Test fun everyKindOfSpaceIsAPlainOne() {
+    @Test
+    fun everyKindOfSpaceIsAPlainOne() {
         assertEquals("script secret x K v", CommandParsing.spaces("script\tsecret\u00A0x K\nv"))
         val plain = "already plain"
         assertTrue(plain === CommandParsing.spaces(plain))
     }
 
-    @Test fun parseInterval() {
+    @Test
+    fun parseInterval() {
         assertEquals(30, CommandParsing.parseInterval("30m"))
         assertEquals(30, CommandParsing.parseInterval("30"))
         assertEquals(120, CommandParsing.parseInterval("2h"))
@@ -33,7 +46,8 @@ class CommandParsingTest {
         assertNull(CommandParsing.parseInterval("soon"))
     }
 
-    @Test fun formatInterval() {
+    @Test
+    fun formatInterval() {
         assertEquals("30m", CommandParsing.formatInterval(30))
         assertEquals("2h", CommandParsing.formatInterval(120))
         assertEquals("1d", CommandParsing.formatInterval(1440))
@@ -41,7 +55,8 @@ class CommandParsingTest {
     }
 
     /** A typo is one letter off for a short name (four letters or fewer), two for a longer one. */
-    @Test fun aTypoIsNearItsName() {
+    @Test
+    fun aTypoIsNearItsName() {
         assertTrue(CommandParsing.isNear("tod", "todo"))
         assertFalse(CommandParsing.isNear("td", "todo"))
         assertTrue(CommandParsing.isNear("wether", "weather"))
@@ -50,7 +65,8 @@ class CommandParsingTest {
     }
 
     /** "Did you mean": the closest near name, the first one on a tie; one-letter names never. */
-    @Test fun theNearestNameIsSuggested() {
+    @Test
+    fun theNearestNameIsSuggested() {
         assertEquals("help", CommandParsing.nearest("hlp", listOf("todo", "help")))
         assertEquals("notes", CommandParsing.nearest("notez", listOf("notes", "note")))
         assertEquals("calc", CommandParsing.nearest("calx", listOf("calc", "cal")))
@@ -62,7 +78,8 @@ class CommandParsingTest {
     }
 
     /** A week at most; a number too big to multiply is refused, not wrapped round to some other time. */
-    @Test fun anIntervalPastAWeekIsRefused() {
+    @Test
+    fun anIntervalPastAWeekIsRefused() {
         assertEquals(10_080, CommandParsing.parseInterval("7d"))
         assertEquals(10_080, CommandParsing.parseInterval("10080"))
         assertNull(CommandParsing.parseInterval("8d"))

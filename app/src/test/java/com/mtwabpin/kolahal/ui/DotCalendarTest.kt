@@ -15,16 +15,25 @@ class DotCalendarTest {
     private val friday = LocalDate.of(2026, 11, 20).dayOfWeek
 
     /** Today's column on [day] where [locale]'s weeks start. */
-    private fun today(day: DayOfWeek, locale: Locale) = DotCalendar.column(day, DotCalendar.firstDay(locale))
+    private fun today(day: DayOfWeek, locale: Locale) =
+        DotCalendar.column(day, DotCalendar.firstDay(locale))
 
-    @Test fun aWeekStartsOnTheLocalesFirstDay() {
+    @Test
+    fun aWeekStartsOnTheLocalesFirstDay() {
         assertEquals(DayOfWeek.MONDAY, DotCalendar.firstDay(Locale.UK))
         assertEquals(DayOfWeek.SUNDAY, DotCalendar.firstDay(Locale.US))
-        assertEquals(listOf("M", "T", "W", "T", "F", "S", "S"), DotCalendar.initials(DayOfWeek.MONDAY, Locale.UK))
-        assertEquals(listOf("S", "M", "T", "W", "T", "F", "S"), DotCalendar.initials(DayOfWeek.SUNDAY, Locale.US))
+        assertEquals(
+            listOf("M", "T", "W", "T", "F", "S", "S"),
+            DotCalendar.initials(DayOfWeek.MONDAY, Locale.UK)
+        )
+        assertEquals(
+            listOf("S", "M", "T", "W", "T", "F", "S"),
+            DotCalendar.initials(DayOfWeek.SUNDAY, Locale.US)
+        )
     }
 
-    @Test fun todayIsInItsWeekdaysColumn() {
+    @Test
+    fun todayIsInItsWeekdaysColumn() {
         assertEquals(4, today(friday, Locale.UK))
         assertEquals(5, today(friday, Locale.US))
         assertEquals(0, today(DayOfWeek.MONDAY, Locale.UK))
@@ -37,22 +46,46 @@ class DotCalendarTest {
      * Ten days up to Friday, in weeks from Monday: the first is Wednesday of the first week, and
      * today is Friday of the second. Saturday and Sunday are still to come.
      */
-    @Test fun daysInWeeksFromMonday() {
+    @Test
+    fun daysInWeeksFromMonday() {
         val column = today(friday, Locale.UK)
         assertEquals(2, DotCalendar.weeks(10, column))
         assertEquals(
-            listOf(Cell(0, 0, 2), Cell(1, 0, 3), Cell(2, 0, 4), Cell(3, 0, 5), Cell(4, 0, 6), Cell(5, 1, 0), Cell(6, 1, 1), Cell(7, 1, 2), Cell(8, 1, 3), Cell(9, 1, 4)),
+            listOf(
+                Cell(0, 0, 2),
+                Cell(1, 0, 3),
+                Cell(2, 0, 4),
+                Cell(3, 0, 5),
+                Cell(4, 0, 6),
+                Cell(5, 1, 0),
+                Cell(6, 1, 1),
+                Cell(7, 1, 2),
+                Cell(8, 1, 3),
+                Cell(9, 1, 4)
+            ),
             DotCalendar.cells(10, column, rows = 2),
         )
         assertEquals(listOf(5, 6), DotCalendar.later(column).toList())
     }
 
     /** The same ten days in weeks from Sunday: each day is one column further on, and only Saturday is to come. */
-    @Test fun daysInWeeksFromSunday() {
+    @Test
+    fun daysInWeeksFromSunday() {
         val column = today(friday, Locale.US)
         assertEquals(2, DotCalendar.weeks(10, column))
         assertEquals(
-            listOf(Cell(0, 0, 3), Cell(1, 0, 4), Cell(2, 0, 5), Cell(3, 0, 6), Cell(4, 1, 0), Cell(5, 1, 1), Cell(6, 1, 2), Cell(7, 1, 3), Cell(8, 1, 4), Cell(9, 1, 5)),
+            listOf(
+                Cell(0, 0, 3),
+                Cell(1, 0, 4),
+                Cell(2, 0, 5),
+                Cell(3, 0, 6),
+                Cell(4, 1, 0),
+                Cell(5, 1, 1),
+                Cell(6, 1, 2),
+                Cell(7, 1, 3),
+                Cell(8, 1, 4),
+                Cell(9, 1, 5)
+            ),
             DotCalendar.cells(10, column, rows = 2),
         )
         assertEquals(listOf(6), DotCalendar.later(column).toList())
@@ -62,7 +95,8 @@ class DotCalendarTest {
      * 35 days need six weeks on a Friday, and five on the last day of the week. In five weeks the
      * oldest days that have no room are left out: the first row starts on its first day.
      */
-    @Test fun fiveWeeksShowTheNewestDays() {
+    @Test
+    fun fiveWeeksShowTheNewestDays() {
         val monday = today(friday, Locale.UK)
         assertEquals(6, DotCalendar.weeks(35, monday))
         val five = DotCalendar.cells(35, monday, rows = 5)
@@ -84,10 +118,14 @@ class DotCalendarTest {
         assertTrue(DotCalendar.later(end).isEmpty())
         // On a Sunday a week from Sunday has only today in its last row.
         assertEquals(6, DotCalendar.weeks(35, today(DayOfWeek.SUNDAY, Locale.US)))
-        assertEquals(listOf(Cell(34, 0, 0)), DotCalendar.cells(35, today(DayOfWeek.SUNDAY, Locale.US), rows = 1))
+        assertEquals(
+            listOf(Cell(34, 0, 0)),
+            DotCalendar.cells(35, today(DayOfWeek.SUNDAY, Locale.US), rows = 1)
+        )
     }
 
-    @Test fun aFewPointsNeedAWeekOrTwo() {
+    @Test
+    fun aFewPointsNeedAWeekOrTwo() {
         assertEquals(1, DotCalendar.weeks(0, 3))
         assertEquals(1, DotCalendar.weeks(1, 0))
         assertEquals(1, DotCalendar.weeks(5, 4))
@@ -97,14 +135,16 @@ class DotCalendarTest {
     }
 
     /** A strip is the last seven days, today at the end. */
-    @Test fun aStripHasTheLastSevenDays() {
+    @Test
+    fun aStripHasTheLastSevenDays() {
         assertEquals((28..34).mapIndexed { column, i -> Cell(i, 0, column) }, DotCalendar.strip(35))
         assertEquals(listOf(Cell(0, 0, 4), Cell(1, 0, 5), Cell(2, 0, 6)), DotCalendar.strip(3))
         assertEquals(emptyList<Cell>(), DotCalendar.strip(0))
     }
 
     /** Points that are all 0 or 1 are days done and missed. Any other number makes them values. */
-    @Test fun yesOrNoPointsAreToldApart() {
+    @Test
+    fun yesOrNoPointsAreToldApart() {
         assertTrue(DotCalendar.yesNo(listOf(1f, 0f, 1f, 1f)))
         assertTrue("no day done yet", DotCalendar.yesNo(List(35) { 0f }))
         assertTrue("every day done", DotCalendar.yesNo(List(35) { 1f }))

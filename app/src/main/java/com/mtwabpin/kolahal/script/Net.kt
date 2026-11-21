@@ -3,10 +3,11 @@
  */
 package com.mtwabpin.kolahal.script
 
-import java.util.concurrent.TimeUnit
+import com.mtwabpin.kolahal.script.Net.hopGuard
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 /** One HTTP client for the whole app: scripts, feeds, pictures in the log, Get more scripts, `update` and currency rates. */
 object Net {

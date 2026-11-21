@@ -17,13 +17,15 @@ import org.junit.runner.RunWith
 /** `fetch` (and `neofetch`, `fastfetch`): this phone and Kolahal, lined up to fit the log. */
 @RunWith(AndroidJUnit4::class)
 class FetchCommandTest {
-    @get:Rule val logLines = LogLinesSince()
+    @get:Rule
+    val logLines = LogLinesSince()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val commands = CommandRunner(context)
 
     private fun run(line: String) = commands.lines(line)
 
-    @Test fun fetchShowsThePhoneAndKolahal() {
+    @Test
+    fun fetchShowsThePhoneAndKolahal() {
         val lines = run("fetch")
         val text = lines.map { StyledText.plain(it.text) }
         assertTrue(text.any { "kolahal@" in it })
@@ -35,7 +37,8 @@ class FetchCommandTest {
         assertTrue(text.joinToString("\n"), text.all { it.length <= cols })
     }
 
-    @Test fun fetchHasYourName() {
+    @Test
+    fun fetchHasYourName() {
         val conf = Config.get(context)
         try {
             conf.set(Keys.USER_NAME, "alex")
@@ -45,11 +48,14 @@ class FetchCommandTest {
         }
     }
 
-    @Test fun neofetchAndFastfetchAreFetch() {
+    @Test
+    fun neofetchAndFastfetchAreFetch() {
         // By what they print, not how many lines: rows such as Apps join once they've loaded, after a cold start.
         for (name in listOf("neofetch", "fastfetch")) {
             val text = run(name).map { StyledText.plain(it.text) }
-            assertTrue(name, text.any { "kolahal@" in it } && text.any { "OS" in it && "Android" in it } && text.any { "Kolahal" in it && BuildConfig.VERSION_NAME in it })
+            assertTrue(
+                name,
+                text.any { "kolahal@" in it } && text.any { "OS" in it && "Android" in it } && text.any { "Kolahal" in it && BuildConfig.VERSION_NAME in it })
         }
     }
 }

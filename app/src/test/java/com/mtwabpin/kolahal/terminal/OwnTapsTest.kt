@@ -10,7 +10,8 @@ import org.junit.Test
 
 /** The words of a tap inside a built-in card ([OwnTaps]), and when the Agenda reads the calendar ([AgendaTurns]). */
 class OwnTapsTest {
-    @Test fun aShortcutsButtonNamesItsPlace() {
+    @Test
+    fun aShortcutsButtonNamesItsPlace() {
         assertEquals(OwnTap.RunShortcut(0), OwnTaps.parse("shortcuts", "run 0"))
         assertEquals(OwnTap.RunShortcut(7), OwnTaps.parse("shortcuts", OwnTaps.run(7)))
         assertEquals(OwnTap.EditShortcuts, OwnTaps.parse("shortcuts", "edit"))
@@ -22,7 +23,8 @@ class OwnTapsTest {
     }
 
     /** The words never hold a command. Whatever is written after them, nothing runs. */
-    @Test fun wordsCanNotCarryACommand() {
+    @Test
+    fun wordsCanNotCarryACommand() {
         assertNull(OwnTaps.parse("shortcuts", "run 0 torch"))
         assertNull(OwnTaps.parse("shortcuts", "run torch"))
         assertNull(OwnTaps.parse("shortcuts", "torch"))
@@ -32,11 +34,17 @@ class OwnTapsTest {
         assertNull(OwnTaps.parse("notes", "open ; torch"))
         assertNull(OwnTaps.parse("agenda", "event 5 6 torch"))
         // What `open` runs is fixed for each widget.
-        val typed = listOf("todos", "reminders", "notes", "agenda").map { (OwnTaps.parse(it, "open") as OwnTap.Typed).command }
+        val typed = listOf("todos", "reminders", "notes", "agenda").map {
+            (OwnTaps.parse(
+                it,
+                "open"
+            ) as OwnTap.Typed).command
+        }
         assertEquals(listOf("todo", "reminders", "notes", "agenda"), typed)
     }
 
-    @Test fun aTodosRowNamesItsId() {
+    @Test
+    fun aTodosRowNamesItsId() {
         assertEquals(OwnTap.SetTodo(12, done = true), OwnTaps.parse("todos", "done #12"))
         assertEquals(OwnTap.SetTodo(12, done = false), OwnTaps.parse("todos", "undo #12"))
         assertEquals(OwnTap.SetTodo(3, done = true), OwnTaps.parse("todos", OwnTaps.done(3)))
@@ -51,7 +59,8 @@ class OwnTapsTest {
         assertNull(OwnTaps.parse("todos", "rm #12"))
     }
 
-    @Test fun mediaHasItsButtons() {
+    @Test
+    fun mediaHasItsButtons() {
         assertEquals(OwnTap.Media(MediaRepository.Action.PREV), OwnTaps.parse("media", "prev"))
         assertEquals(OwnTap.Media(MediaRepository.Action.TOGGLE), OwnTaps.parse("media", "toggle"))
         assertEquals(OwnTap.Media(MediaRepository.Action.NEXT), OwnTaps.parse("media", "next"))
@@ -62,7 +71,8 @@ class OwnTapsTest {
     }
 
     /** The bar moves the track to a place in milliseconds, and Play with nothing playing starts the last track again. */
-    @Test fun mediaSeeksAndResumes() {
+    @Test
+    fun mediaSeeksAndResumes() {
         assertEquals(OwnTap.Seek(72_000), OwnTaps.parse("media", "seek 72000"))
         assertEquals(OwnTap.Seek(0), OwnTaps.parse("media", OwnTaps.seek(0)))
         assertEquals(OwnTap.Seek(36_000_000), OwnTaps.parse("media", OwnTaps.seek(36_000_000)))
@@ -80,10 +90,17 @@ class OwnTapsTest {
         assertNull(OwnTaps.parse("agenda", "resume"))
     }
 
-    @Test fun theAgendaOpensAnEvent() {
+    @Test
+    fun theAgendaOpensAnEvent() {
         assertEquals(OwnTap.OpenEvent(41), OwnTaps.parse("agenda", "event 41"))
-        assertEquals(OwnTap.OpenEvent(41, 1_800_000_000_000L), OwnTaps.parse("agenda", "event 41 1800000000000"))
-        assertEquals(OwnTap.OpenEvent(41, 1_800_000_000_000L), OwnTaps.parse("agenda", OwnTaps.event(41, 1_800_000_000_000L)))
+        assertEquals(
+            OwnTap.OpenEvent(41, 1_800_000_000_000L),
+            OwnTaps.parse("agenda", "event 41 1800000000000")
+        )
+        assertEquals(
+            OwnTap.OpenEvent(41, 1_800_000_000_000L),
+            OwnTaps.parse("agenda", OwnTaps.event(41, 1_800_000_000_000L))
+        )
         assertEquals(OwnTap.Typed("agenda"), OwnTaps.parse("agenda", "open"))
         assertEquals(OwnTap.AllowCalendar, OwnTaps.parse("agenda", "allow"))
         assertNull(OwnTaps.parse("agenda", "event"))
@@ -92,7 +109,8 @@ class OwnTapsTest {
     }
 
     /** A widget's words work for that widget only, and an unknown widget has none. */
-    @Test fun wordsBelongToTheirWidget() {
+    @Test
+    fun wordsBelongToTheirWidget() {
         assertNull(OwnTaps.parse("notes", "done #1"))
         assertNull(OwnTaps.parse("todos", "next"))
         assertNull(OwnTaps.parse("reminders", "allow"))
@@ -107,7 +125,8 @@ class OwnTapsTest {
 
     private val events = listOf(AgendaEvent(1, "Standup", 1_000L, 2_000L, allDay = false))
 
-    @Test fun theCalendarIsReadAtMostOnceAMinute() {
+    @Test
+    fun theCalendarIsReadAtMostOnceAMinute() {
         val read = AgendaRead(allowed = true, events = events, at = 100_000L)
         assertFalse(AgendaTurns.due(read, allowed = true, now = 100_000L))
         assertFalse(AgendaTurns.due(read, allowed = true, now = 159_999L))
@@ -117,7 +136,8 @@ class OwnTapsTest {
         assertTrue(AgendaTurns.due(read, allowed = true, now = 50_000L))
     }
 
-    @Test fun theFirstQuestionAndAChangedPermissionReadAtOnce() {
+    @Test
+    fun theFirstQuestionAndAChangedPermissionReadAtOnce() {
         assertTrue(AgendaTurns.due(AgendaRead.NOT_READ, allowed = false, now = 5L))
         assertTrue(AgendaTurns.due(AgendaRead.NOT_READ, allowed = true, now = 5L))
         val refused = AgendaRead(allowed = false, events = emptyList(), at = 100_000L)
@@ -127,6 +147,12 @@ class OwnTapsTest {
         assertFalse(AgendaTurns.due(refused, allowed = false, now = 100_001L))
         assertFalse(AgendaTurns.due(refused, allowed = false, now = 9_000_000L))
         // The permission was taken away: the events go at once.
-        assertTrue(AgendaTurns.due(AgendaRead(allowed = true, events = events, at = 100_000L), allowed = false, now = 100_001L))
+        assertTrue(
+            AgendaTurns.due(
+                AgendaRead(allowed = true, events = events, at = 100_000L),
+                allowed = false,
+                now = 100_001L
+            )
+        )
     }
 }

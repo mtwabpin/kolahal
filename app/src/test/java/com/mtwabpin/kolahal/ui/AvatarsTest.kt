@@ -5,14 +5,16 @@ import org.junit.Test
 
 /** The letters a person's picture shows when there's no photo. */
 class AvatarsTest {
-    @Test fun initialsFromTheFirstAndLastWords() {
+    @Test
+    fun initialsFromTheFirstAndLastWords() {
         assertEquals("RK", initials("Ravi Kumar"))
         assertEquals("RK", initials("Ravi Prasad Kumar"))
         assertEquals("A", initials("asha"))
         assertEquals("AB", initials("  Asha   Bhat "))
     }
 
-    @Test fun numbersAndNothing() {
+    @Test
+    fun numbersAndNothing() {
         assertEquals("#", initials("+91 98765 43210"))
         assertEquals("#", initials("1234"))
         assertEquals("?", initials("?"))

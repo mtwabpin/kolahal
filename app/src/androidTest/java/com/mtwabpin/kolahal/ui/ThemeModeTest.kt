@@ -21,13 +21,15 @@ class ThemeModeTest {
     private val config = Config.get(instrumentation.targetContext)
     private var night = "yes"
 
-    @Before fun setUp() {
+    @Before
+    fun setUp() {
         // "Night mode: yes"
         night = shell("cmd uimode night").substringAfter(':').trim()
         config.set(Keys.THEME, "dracula")
     }
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         config.reset(Keys.THEME)
         config.reset(Keys.THEME_ALWAYS_DARK)
         shell("cmd uimode night $night")
@@ -39,7 +41,8 @@ class ThemeModeTest {
         assertEquals(palette, Term.palette)
     }
 
-    @Test fun thePhonesModePicksTheVersionAndAlwaysDarkKeepsTheDarkOne() {
+    @Test
+    fun thePhonesModePicksTheVersionAndAlwaysDarkKeepsTheDarkOne() {
         shell("cmd uimode night no")
         ActivityScenario.launch(MainActivity::class.java).use {
             shows(Palettes.draculaLight)

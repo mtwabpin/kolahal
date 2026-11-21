@@ -19,7 +19,9 @@ object ScriptNames {
     fun clash(context: Context, name: String): String? {
         if (name in CommandCatalog.RESERVED_NAMES) return "'$name' is a built-in command"
         val bare = name.replace(PUNCTUATION, "")
-        val app = AppRepository.get(context).apps.value.firstOrNull { it.label.lowercase().replace(PUNCTUATION, "") == bare }
+        val app = AppRepository.get(context).apps.value.firstOrNull {
+            it.label.lowercase().replace(PUNCTUATION, "") == bare
+        }
         return app?.let { "'$name' is the name of the app ${it.label}" }
     }
 

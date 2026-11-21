@@ -15,10 +15,12 @@ class EditorStateTest {
         override fun canBeSaved(value: Any) = true
     }
 
-    private fun state(text: String, cursor: Int = text.length) = EditorState(text, TextFieldValue(text, TextRange(cursor)))
+    private fun state(text: String, cursor: Int = text.length) =
+        EditorState(text, TextFieldValue(text, TextRange(cursor)))
 
     /** The text is changed once it differs from the saved copy, and no longer once that copy is the same again. */
-    @Test fun dirtyFollowsTheSavedCopy() {
+    @Test
+    fun dirtyFollowsTheSavedCopy() {
         val s = state("one")
         assertFalse(s.dirty)
         s.edit(TextFieldValue("one two", TextRange(7)))
@@ -28,7 +30,8 @@ class EditorStateTest {
     }
 
     /** What is inserted takes the selection's place, or goes in at the cursor, and the cursor ends up after it. */
-    @Test fun insertReplacesTheSelection() {
+    @Test
+    fun insertReplacesTheSelection() {
         val s = state("one two", cursor = 3)
         s.insert("(")
         assertEquals(TextFieldValue("one( two", TextRange(4)), s.value)
@@ -38,7 +41,8 @@ class EditorStateTest {
     }
 
     /** Undo and redo step through the changes; moving the cursor alone is not a step. */
-    @Test fun undoAndRedoStepThroughTheChanges() {
+    @Test
+    fun undoAndRedoStepThroughTheChanges() {
         val s = state("one")
         assertNull(s.undo())
         s.insert(" two")
@@ -52,8 +56,13 @@ class EditorStateTest {
     }
 
     /** With a limit, a change that makes the text too long or gives it too many lines isn't made, and the message says why. */
-    @Test fun aChangePastTheLimitIsRefused() {
-        val s = EditorState("ab\ncd", TextFieldValue("ab\ncd", TextRange(5)), limit = EditorLimit(maxChars = 8, maxLines = 3))
+    @Test
+    fun aChangePastTheLimitIsRefused() {
+        val s = EditorState(
+            "ab\ncd",
+            TextFieldValue("ab\ncd", TextRange(5)),
+            limit = EditorLimit(maxChars = 8, maxLines = 3)
+        )
         s.insert("efg")
         assertEquals("ab\ncdefg", s.value.text)
         s.insert("h")
@@ -66,13 +75,18 @@ class EditorStateTest {
         assertEquals("ab\nc\n", s.value.text)
         assertEquals("The editor takes up to 3 lines", s.message?.text)
         // What was refused is not an undo step.
-        val full = EditorState("12345678", TextFieldValue("12345678", TextRange(8)), limit = EditorLimit(maxChars = 8, maxLines = 3))
+        val full = EditorState(
+            "12345678",
+            TextFieldValue("12345678", TextRange(8)),
+            limit = EditorLimit(maxChars = 8, maxLines = 3)
+        )
         full.insert("9")
         assertFalse(full.history.canUndo)
     }
 
     /** Back from the background: the text as typed, the saved copy, and the find bar as it was. */
-    @Test fun whatWasTypedComesBack() {
+    @Test
+    fun whatWasTypedComesBack() {
         val s = state("return 1")
         s.edit(TextFieldValue("return 2", TextRange(7)))
         s.findOpen = true
@@ -94,7 +108,8 @@ class EditorStateTest {
     }
 
     /** A very big text isn't kept: the stored one comes back, with the cursor where it was. */
-    @Test fun aVeryBigTextComesBackAsStored() {
+    @Test
+    fun aVeryBigTextComesBackAsStored() {
         val big = "x".repeat(KEPT_TEXT_MAX + 1)
         val s = EditorState(big, TextFieldValue(big, TextRange(500)))
         val saver = EditorState.saver(big, flashLine = null)

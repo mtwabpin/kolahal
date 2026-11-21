@@ -9,6 +9,7 @@ import android.net.Uri
 import com.mtwabpin.kolahal.contacts.Contact
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.CustomThemes
+import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -16,7 +17,6 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.ScriptFolder
-import com.mtwabpin.kolahal.data.FontFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,11 +39,14 @@ class RequestActions(private val context: Context, private val host: Host) {
     interface Host {
         /** Runs [block] on the serial command queue. */
         fun io(block: suspend () -> Unit)
+
         /** Runs [block] outside the command queue. A failure shows as a notice on the GUI page. */
         fun fileOp(label: String, block: suspend () -> Unit)
+
         /** Shows [text] on the GUI page and logs it. */
         fun notice(text: String)
         fun emit(event: UiEvent)
+
         /** Runs the setup checks again, because a permission may have changed. */
         fun refreshSetup()
         fun startActivity(intent: Intent)
@@ -64,7 +67,8 @@ class RequestActions(private val context: Context, private val host: Host) {
     }
 
     /** What to do with the contact being picked. Null once the picker returns (or after the process restarted). */
-    @Volatile private var contactPicked: ((Contact) -> Unit)? = null
+    @Volatile
+    private var contactPicked: ((Contact) -> Unit)? = null
 
     fun pickContact(then: (Contact) -> Unit) {
         contactPicked = then
@@ -86,7 +90,11 @@ class RequestActions(private val context: Context, private val host: Host) {
                 return@io
             }
             com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).remember(picked)
-            if (then != null) then(c) else logs.add(LogKind.OUTPUT, c.name, ctx = PeopleCommands.ctx(c))
+            if (then != null) then(c) else logs.add(
+                LogKind.OUTPUT,
+                c.name,
+                ctx = PeopleCommands.ctx(c)
+            )
         }
     }
 
@@ -98,7 +106,12 @@ class RequestActions(private val context: Context, private val host: Host) {
     fun onContactsPermission(granted: Boolean) {
         refreshSetup()
         if (granted) com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).refresh()
-        io { logs.add(if (granted) LogKind.INFO else LogKind.ERROR, if (granted) "Contacts allowed" else "Contacts permission denied") }
+        io {
+            logs.add(
+                if (granted) LogKind.INFO else LogKind.ERROR,
+                if (granted) "Contacts allowed" else "Contacts permission denied"
+            )
+        }
     }
 
     // ---- script folder --------------------------------------------------------------------
@@ -174,7 +187,11 @@ class RequestActions(private val context: Context, private val host: Host) {
     fun importTheme(uri: Uri?) {
         if (uri == null) return
         fileOp("theme import") {
-            val (name, added) = CustomThemes.import(context, Files.readText(context, uri), Files.displayName(context, uri))
+            val (name, added) = CustomThemes.import(
+                context,
+                Files.readText(context, uri),
+                Files.displayName(context, uri)
+            )
             withContext(Dispatchers.Main) { config.set(Keys.THEME, name) }
             notice(if (added) "Theme $name imported and in use" else "You already have theme $name: it's in use")
         }
@@ -184,13 +201,15 @@ class RequestActions(private val context: Context, private val host: Host) {
     fun exportTheme(name: String, uri: Uri?) {
         if (uri == null) return
         fileOp("theme export") {
-            val colors = CustomThemes.colors(name) ?: throw IllegalStateException("$name was deleted")
+            val colors =
+                CustomThemes.colors(name) ?: throw IllegalStateException("$name was deleted")
             Files.writeText(context, uri, CustomThemes.encode(colors, name))
             notice("Exported theme $name")
         }
     }
 
-    @Volatile private var fontErrorShown = false
+    @Volatile
+    private var fontErrorShown = false
 
     /** The configured font could not be loaded (e.g. custom is set but the file is gone). Reported once per run. */
     fun onFontUnavailable(font: String) {
@@ -223,6 +242,7 @@ class RequestActions(private val context: Context, private val host: Host) {
     }
 
     private val _notificationAccessAsk = MutableStateFlow(false)
+
     /** True while Kolahal asks before Android's Notification access screen opens ([askNotificationAccess]). */
     val notificationAccessAsk: StateFlow<Boolean> = _notificationAccessAsk.asStateFlow()
 
@@ -234,9 +254,19 @@ class RequestActions(private val context: Context, private val host: Host) {
     fun answerNotificationAccess(allow: Boolean) {
         _notificationAccessAsk.value = false
         if (allow) {
-            host.startActivity(com.mtwabpin.kolahal.notifications.NotificationActions.settingsIntent(context))
+            host.startActivity(
+                com.mtwabpin.kolahal.notifications.NotificationActions.settingsIntent(
+                    context
+                )
+            )
         } else {
-            io { logs.add(LogKind.INFO, "Notification access is off · tap to turn it on", ctx = LogContext.of(LogContext.RUN to "notifs enable")) }
+            io {
+                logs.add(
+                    LogKind.INFO,
+                    "Notification access is off · tap to turn it on",
+                    ctx = LogContext.of(LogContext.RUN to "notifs enable")
+                )
+            }
         }
     }
 
@@ -250,9 +280,17 @@ class RequestActions(private val context: Context, private val host: Host) {
         refreshSetup()
         io {
             if (granted) {
-                logs.add(LogKind.INFO, "Calendar allowed — tap to see your agenda", ctx = LogContext.of(LogContext.RUN to "agenda"))
+                logs.add(
+                    LogKind.INFO,
+                    "Calendar allowed — tap to see your agenda",
+                    ctx = LogContext.of(LogContext.RUN to "agenda")
+                )
             } else {
-                logs.add(LogKind.ERROR, "Calendar permission denied — tap to open app settings", ctx = LogContext.of(LogContext.RUN to "agenda --settings"))
+                logs.add(
+                    LogKind.ERROR,
+                    "Calendar permission denied — tap to open app settings",
+                    ctx = LogContext.of(LogContext.RUN to "agenda --settings")
+                )
             }
         }
     }
@@ -266,9 +304,17 @@ class RequestActions(private val context: Context, private val host: Host) {
         if (granted) com.mtwabpin.kolahal.calls.CallEvents.get(context).start()
         io {
             if (granted) {
-                logs.add(LogKind.INFO, "Call log allowed — new calls appear here; tap to list recent ones", ctx = LogContext.of(LogContext.RUN to "calls"))
+                logs.add(
+                    LogKind.INFO,
+                    "Call log allowed — new calls appear here; tap to list recent ones",
+                    ctx = LogContext.of(LogContext.RUN to "calls")
+                )
             } else {
-                logs.add(LogKind.ERROR, "Call log permission denied — tap to open app settings", ctx = LogContext.of(LogContext.RUN to "calls --settings"))
+                logs.add(
+                    LogKind.ERROR,
+                    "Call log permission denied — tap to open app settings",
+                    ctx = LogContext.of(LogContext.RUN to "calls --settings")
+                )
             }
         }
     }

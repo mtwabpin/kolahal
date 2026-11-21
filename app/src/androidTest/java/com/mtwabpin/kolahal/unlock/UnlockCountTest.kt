@@ -20,9 +20,13 @@ class UnlockCountTest {
     private val context = instrumentation.targetContext
 
     /** Usage access as it was, put back after: `allow`, `ignore`, … or `default`. */
-    private val accessBefore = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+    private val accessBefore =
+        Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(
+            1
+        ) ?: "default"
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         shell("appops set ${context.packageName} GET_USAGE_STATS $accessBefore")
     }
 
@@ -30,7 +34,8 @@ class UnlockCountTest {
     private fun unlocksToday(): Int {
         val zone = ZoneId.systemDefault()
         val start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
-        val events = context.getSystemService(UsageStatsManager::class.java).queryEvents(start, System.currentTimeMillis())
+        val events = context.getSystemService(UsageStatsManager::class.java)
+            .queryEvents(start, System.currentTimeMillis())
         val event = UsageEvents.Event()
         var unlocks = 0
         while (events.hasNextEvent()) {
@@ -40,7 +45,8 @@ class UnlockCountTest {
         return unlocks
     }
 
-    @Test fun todaysCountIsEveryUnlockOfTheDay() {
+    @Test
+    fun todaysCountIsEveryUnlockOfTheDay() {
         shell("appops set ${context.packageName} GET_USAGE_STATS allow")
         val before = unlocksToday()
         // A lock screen to dismiss (a swipe, no PIN): test phones often have it off.

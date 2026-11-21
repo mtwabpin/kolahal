@@ -20,7 +20,9 @@ object AppNames {
      */
     fun android(context: Context, pkg: String): String? {
         val pm = context.packageManager
-        return runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
+        return runCatching {
+            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        }.getOrNull()
             ?.let(StyledText::strip)?.takeIf { it.isNotBlank() && it != pkg }
     }
 

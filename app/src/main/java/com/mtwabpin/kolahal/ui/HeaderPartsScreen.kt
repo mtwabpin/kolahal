@@ -26,9 +26,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -71,9 +71,13 @@ internal object HeaderArrangement {
     fun rows(left: List<String>, right: List<String>): List<ArrangeRow> {
         val r = right.filter { it !in left }
         val hidden = Keys.HEADER_PARTS.filter { it !in left && it !in r }
-        return listOf<ArrangeRow>(ArrangeRow.Heading(HeaderSide.LEFT)) + left.map { ArrangeRow.Part(it) } +
-            ArrangeRow.Heading(HeaderSide.RIGHT) + r.map { ArrangeRow.Part(it) } +
-            ArrangeRow.Heading(HeaderSide.HIDDEN) + hidden.map { ArrangeRow.Part(it) }
+        return listOf<ArrangeRow>(ArrangeRow.Heading(HeaderSide.LEFT)) + left.map {
+            ArrangeRow.Part(
+                it
+            )
+        } +
+                ArrangeRow.Heading(HeaderSide.RIGHT) + r.map { ArrangeRow.Part(it) } +
+                ArrangeRow.Heading(HeaderSide.HIDDEN) + hidden.map { ArrangeRow.Part(it) }
     }
 
     /** Returns the parts on the left and right sides, in the order of [rows]. */
@@ -108,7 +112,8 @@ internal object HeaderArrangement {
         val part = rows.getOrNull(index) as? ArrangeRow.Part ?: return rows
         val rest = rows.toMutableList().apply { removeAt(index) }
         val heading = rest.indexOfFirst { it is ArrangeRow.Heading && it.side == side }
-        val end = (heading + 1 until rest.size).firstOrNull { rest[it] is ArrangeRow.Heading } ?: rest.size
+        val end = (heading + 1 until rest.size).firstOrNull { rest[it] is ArrangeRow.Heading }
+            ?: rest.size
         rest.add(end, part)
         return rest
     }
@@ -119,11 +124,19 @@ private val PART_INFO: Map<String, Triple<String, String, Int>> = mapOf(
     "time" to Triple("Time", "12- or 24-hour, as the clock setting says", R.drawable.ic_schedule),
     "date" to Triple("Date", "The day and date", R.drawable.ic_calendar),
     "battery" to Triple("Battery", "Its level, green while charging", R.drawable.ic_battery),
-    "alarm" to Triple("Next alarm", "Its time, and its day when it's a day or more away; only while one is set", R.drawable.ic_alarm),
+    "alarm" to Triple(
+        "Next alarm",
+        "Its time, and its day when it's a day or more away; only while one is set",
+        R.drawable.ic_alarm
+    ),
     "todo" to Triple("Todos", "How many are open; only while some are", R.drawable.ic_check),
     "network" to Triple("Network", "Wi-Fi, mobile data or offline", R.drawable.ic_wifi),
     "unlocks" to Triple("Unlocks", "Today's count", R.drawable.ic_lock_open),
-    "profiles" to Triple("Profiles", "Work and private, on or paused; only when you have them", R.drawable.ic_work),
+    "profiles" to Triple(
+        "Profiles",
+        "Work and private, on or paused; only when you have them",
+        R.drawable.ic_work
+    ),
     "settings" to Triple("Settings", "A button that opens Settings", R.drawable.ic_settings),
 )
 
@@ -138,7 +151,15 @@ private val PART_INFO: Map<String, Triple<String, String, Int>> = mapOf(
 internal fun HeaderPartsScreen(vm: TerminalViewModel) {
     BackHandler { vm.closeScreen() }
     val config = vm.config
-    var rows by remember { mutableStateOf(HeaderArrangement.rows(headerSide(config[Keys.HEADER_LEFT]), headerSide(config[Keys.HEADER_RIGHT]))) }
+    var rows by remember {
+        mutableStateOf(
+            HeaderArrangement.rows(
+                headerSide(config[Keys.HEADER_LEFT]),
+                headerSide(config[Keys.HEADER_RIGHT])
+            )
+        )
+    }
+
     fun save(new: List<ArrangeRow>) {
         if (new == rows) return
         rows = new
@@ -165,7 +186,9 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
         val item = items.firstOrNull { it.key == key } ?: return
         if (item.index != rows.indexOfFirst { it.key == key }) return
         val middle = item.offset + offset.floatValue + item.size / 2f
-        val under = items.firstOrNull { it.key != key && middle >= it.offset && middle < it.offset + it.size } ?: return
+        val under =
+            items.firstOrNull { it.key != key && middle >= it.offset && middle < it.offset + it.size }
+                ?: return
         if (under.index == 0) return
         // Require passing the other row's middle, not just touching it. Rows have different heights,
         // so a small row moved above a tall one would still overlap it and move back again.
@@ -215,11 +238,14 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
                 val handleWidth = 72.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(pass = PointerEventPass.Initial)
-                    val onHandle = if (rtl) down.position.x < handleWidth else down.position.x >= size.width - handleWidth
+                    val onHandle =
+                        if (rtl) down.position.x < handleWidth else down.position.x >= size.width - handleWidth
                     if (!onHandle) return@awaitEachGesture
                     val info = list.layoutInfo
                     val y = down.position.y + info.viewportStartOffset
-                    val item = info.visibleItemsInfo.firstOrNull { y >= it.offset && y < it.offset + it.size } ?: return@awaitEachGesture
+                    val item =
+                        info.visibleItemsInfo.firstOrNull { y >= it.offset && y < it.offset + it.size }
+                            ?: return@awaitEachGesture
                     if (rows.getOrNull(item.index) !is ArrangeRow.Part) return@awaitEachGesture
                     down.consume()
                     dragging = item.key as String
@@ -248,13 +274,22 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
                     is ArrangeRow.Heading -> item(key = row.key) {
                         GroupHeader(row.side.title)
                     }
+
                     is ArrangeRow.Part -> item(key = row.key) {
                         val held = dragging == row.key
                         val (title, detail, icon) = PART_INFO.getValue(row.kind)
                         val side = HeaderArrangement.sideOf(rows, index)
                         val actions = buildList {
-                            if (index > 1) add(CustomAccessibilityAction("Move up") { save(HeaderArrangement.move(rows, index, index - 1)); true })
-                            if (index < rows.lastIndex) add(CustomAccessibilityAction("Move down") { save(HeaderArrangement.move(rows, index, index + 1)); true })
+                            if (index > 1) add(CustomAccessibilityAction("Move up") {
+                                save(
+                                    HeaderArrangement.move(rows, index, index - 1)
+                                ); true
+                            })
+                            if (index < rows.lastIndex) add(CustomAccessibilityAction("Move down") {
+                                save(
+                                    HeaderArrangement.move(rows, index, index + 1)
+                                ); true
+                            })
                             HeaderSide.entries.filter { it != side }.forEach { to ->
                                 add(CustomAccessibilityAction(if (to == HeaderSide.HIDDEN) "Don't show" else "Move to the ${to.title.lowercase()}") {
                                     save(HeaderArrangement.moveTo(rows, index, to)); true
@@ -266,7 +301,13 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
                         SegmentedListItem(
                             colors = segColors(),
                             shapes = segShapes(0, 1),
-                            leadingContent = { Icon(painterResource(icon), null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingContent = {
+                                Icon(
+                                    painterResource(icon),
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
                             supportingContent = { Text(detail) },
                             trailingContent = {
                                 Icon(
@@ -277,7 +318,15 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
                                 )
                             },
                             modifier = Modifier
-                                .then(if (held) Modifier.zIndex(1f).graphicsLayer { translationY = offset.floatValue }.shadow(6.dp, MaterialTheme.shapes.large) else Modifier.animateItem())
+                                .then(
+                                    if (held) Modifier
+                                        .zIndex(1f)
+                                        .graphicsLayer { translationY = offset.floatValue }
+                                        .shadow(
+                                            6.dp,
+                                            MaterialTheme.shapes.large
+                                        ) else Modifier.animateItem()
+                                )
                                 .padding(vertical = 2.dp)
                                 .testTag("part-${row.kind}")
                                 .semantics { customActions = actions },

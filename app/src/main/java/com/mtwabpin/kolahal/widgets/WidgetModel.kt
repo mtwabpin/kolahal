@@ -10,6 +10,7 @@ package com.mtwabpin.kolahal.widgets
 object WidgetLocation {
     /** The widgets page, where every widget lives. */
     const val PANEL = "panel"
+
     /** Under the terminal header, used before 0.3.1. These entries move onto the page ([WidgetOrder.onePage]). */
     const val OLD_HOME = "home"
 
@@ -26,6 +27,7 @@ object WidgetSource {
      * an id after the name: `script:<name>#2` ([WidgetRef]).
      */
     const val SCRIPT = "script:"
+
     /** `builtin:<id>`: a built-in widget, such as `builtin:battery`. */
     const val BUILTIN = "builtin:"
 
@@ -60,20 +62,27 @@ object WidgetSource {
      * else, and for a source whose id can't be one ([WidgetRef.parse]).
      */
     fun scriptRef(source: String?): WidgetRef? =
-        source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)?.let(WidgetRef::parse)
+        source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)
+            ?.let(WidgetRef::parse)
 
     /** The id of the built-in Battery and network widget. Its source is `builtin:battery`. */
     const val BATTERY = "battery"
+
     /** The id of the built-in Shortcuts widget: buttons for commands you picked ([Shortcuts]). */
     const val SHORTCUTS = "shortcuts"
+
     /** The id of the built-in Now playing widget. */
     const val MEDIA = "media"
+
     /** The id of the built-in Todos widget. */
     const val TODOS = "todos"
+
     /** The id of the built-in Agenda widget: the phone's calendar. */
     const val AGENDA = "agenda"
+
     /** The id of the built-in Reminders widget. */
     const val REMINDERS = "reminders"
+
     /** The id of the built-in Notes widget. */
     const val NOTES = "notes"
 
@@ -85,7 +94,8 @@ object WidgetSource {
      * version does not know (from a newer Kolahal's backup) still comes back: the card then says
      * that it has nothing to draw.
      */
-    fun builtinId(source: String?): String? = source?.takeIf { it.startsWith(BUILTIN) && isSource(it) }?.removePrefix(BUILTIN)
+    fun builtinId(source: String?): String? =
+        source?.takeIf { it.startsWith(BUILTIN) && isSource(it) }?.removePrefix(BUILTIN)
 
     /** The kind of card the built-in widget [id] draws. Null for an id this version does not know. */
     fun builtinKind(id: String): WidgetKind? = when (id) {
@@ -119,7 +129,8 @@ object WidgetSource {
      * script's further widget has its id after the name: "weather 2".
      */
     fun label(source: String): String =
-        builtinId(source)?.let(::builtinTitle) ?: scriptRef(source)?.let { it.titled(it.script) } ?: source.substringAfter(':')
+        builtinId(source)?.let(::builtinTitle) ?: scriptRef(source)?.let { it.titled(it.script) }
+        ?: source.substringAfter(':')
 
     /**
      * [source] under the name [to], when it is one of the script [from]'s widgets: `script:weather#2`
@@ -136,9 +147,11 @@ object WidgetSource {
      */
     fun renamed(all: List<PlacedWidget>, from: String, to: String): List<PlacedWidget> {
         if (from == to || !isSource(script(to))) return all
-        val moved = all.mapNotNull { w -> moved(w.source, from, to)?.let { w.provider to it } }.toMap()
+        val moved =
+            all.mapNotNull { w -> moved(w.source, from, to)?.let { w.provider to it } }.toMap()
         if (moved.isEmpty()) return all
-        return all.filterNot { it.provider in moved.values }.map { w -> moved[w.provider]?.let { w.copy(provider = it) } ?: w }
+        return all.filterNot { it.provider in moved.values }
+            .map { w -> moved[w.provider]?.let { w.copy(provider = it) } ?: w }
     }
 }
 
@@ -169,15 +182,21 @@ data class PlacedWidget(
 ) {
     /** Whether it has a place on the page: a [column] and a [topDp]. */
     val positioned: Boolean get() = column >= 0 && topDp >= 0
+
     /** The source, for a widget Kolahal draws itself: `script:weather`. Null for an app's widget. */
     val source: String? get() = provider.takeIf(WidgetSource::isSource)
+
     /** An app's widget that must be bound again. A widget with a [source] needs no id, so it is never pending. */
     val pending: Boolean get() = id == null && source == null
+
     /**
      * Stable key for lists: the source, or the widget id, or provider and order for pending entries.
      * A source's key does not hold its order, so it stays the same when the widget moves.
      */
-    val key: String get() = source?.let { "s:$it" } ?: id?.let { "w$it" } ?: "p:$provider:$profileSerial:$location:$order"
+    val key: String
+        get() = source?.let { "s:$it" } ?: id?.let { "w$it" }
+        ?: "p:$provider:$profileSerial:$location:$order"
+
     /** The package part of [provider]: "com.example/.Clock" -> "com.example". */
     val packageName: String get() = provider.substringBefore('/')
 }
@@ -191,6 +210,7 @@ object WidgetLayout {
     /** The page is twelve columns wide, so halves, thirds, quarters and their sums all fit. */
     const val COLUMNS = 12
     const val MIN_SPAN = 2
+
     /** Space between widgets (across and down) and on each side of the page. */
     const val GAP_DP = 8
 
@@ -221,7 +241,8 @@ object WidgetLayout {
     }
 
     /** A widget's size as the Widgets screen writes it: "1/2 wide · 184 dp tall", or "Full width · 184 dp tall". */
-    fun sizeLine(span: Int, heightDp: Int): String = (if (span >= COLUMNS) "Full width" else "${spanLabel(span)} wide") + " · $heightDp dp tall"
+    fun sizeLine(span: Int, heightDp: Int): String =
+        (if (span >= COLUMNS) "Full width" else "${spanLabel(span)} wide") + " · $heightDp dp tall"
 
     private tailrec fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 
@@ -257,13 +278,19 @@ object WidgetLayout {
     }
 
     /** [heightDp] kept within [min]..[MAX_DP]. A [min] over [MAX_DP] counts as [MAX_DP]. */
-    fun clampHeight(heightDp: Int, min: Int): Int = heightDp.coerceIn(min.coerceAtMost(MAX_DP), MAX_DP)
+    fun clampHeight(heightDp: Int, min: Int): Int =
+        heightDp.coerceIn(min.coerceAtMost(MAX_DP), MAX_DP)
 
     /** Launcher grid cells for a size in dp (the classic 70n − 30 rule). */
     fun cells(dp: Int): Int = maxOf(1, (dp + 30) / 70)
 
     /** Size label such as "4×2" from provider sizes. Target cells (Android 12+) are used when the provider declares them. */
-    fun sizeLabel(minWidthDp: Int, minHeightDp: Int, targetCellWidth: Int = 0, targetCellHeight: Int = 0): String {
+    fun sizeLabel(
+        minWidthDp: Int,
+        minHeightDp: Int,
+        targetCellWidth: Int = 0,
+        targetCellHeight: Int = 0
+    ): String {
         val w = if (targetCellWidth > 0) targetCellWidth else cells(minWidthDp)
         val h = if (targetCellHeight > 0) targetCellHeight else cells(minHeightDp)
         return "$w×$h"
@@ -272,7 +299,8 @@ object WidgetLayout {
 
 /** Ordering helpers. An order value has meaning only within one location. */
 object WidgetOrder {
-    fun sorted(all: List<PlacedWidget>): List<PlacedWidget> = all.sortedWith(compareBy({ it.order }, { it.id ?: Int.MAX_VALUE }))
+    fun sorted(all: List<PlacedWidget>): List<PlacedWidget> =
+        all.sortedWith(compareBy({ it.order }, { it.id ?: Int.MAX_VALUE }))
 
     fun inLocation(all: List<PlacedWidget>, location: String): List<PlacedWidget> =
         sorted(all.filter { !it.pending && it.location == location })
@@ -300,9 +328,15 @@ object WidgetOrder {
      */
     fun onePage(all: List<PlacedWidget>): List<PlacedWidget> {
         if (all.all { it.location == WidgetLocation.PANEL }) return all
-        val placed = inLocation(all, WidgetLocation.PANEL) + inLocation(all, WidgetLocation.OLD_HOME)
+        val placed =
+            inLocation(all, WidgetLocation.PANEL) + inLocation(all, WidgetLocation.OLD_HOME)
         val order = placed.mapIndexed { i, w -> w.key to i }.toMap()
-        return all.map { w -> w.copy(location = WidgetLocation.PANEL, order = order[w.key] ?: w.order) }
+        return all.map { w ->
+            w.copy(
+                location = WidgetLocation.PANEL,
+                order = order[w.key] ?: w.order
+            )
+        }
     }
 }
 
@@ -325,7 +359,18 @@ object WidgetOrder {
  */
 object WidgetCodec {
     fun encode(all: List<PlacedWidget>): String = all.joinToString("\n") {
-        listOf(it.id?.toString() ?: "-", it.provider, it.profileSerial, it.heightDp, it.order, it.location, it.span, it.look.id, it.column, it.topDp).joinToString("|")
+        listOf(
+            it.id?.toString() ?: "-",
+            it.provider,
+            it.profileSerial,
+            it.heightDp,
+            it.order,
+            it.location,
+            it.span,
+            it.look.id,
+            it.column,
+            it.topDp
+        ).joinToString("|")
     }
 
     /** The look stored for a widget: only one Kolahal draws ([sourced]) has one; an app's widget draws itself. */
@@ -334,34 +379,42 @@ object WidgetCodec {
 
     /** A stored place: a whole number from 0, else [WidgetPlacement.UNPLACED]. Too large a column is brought inside the page. */
     private fun columnOf(raw: Long?, span: Int): Int =
-        raw?.takeIf { it >= 0 }?.toInt()?.coerceAtMost(WidgetLayout.COLUMNS - span) ?: WidgetPlacement.UNPLACED
+        raw?.takeIf { it >= 0 }?.toInt()?.coerceAtMost(WidgetLayout.COLUMNS - span)
+            ?: WidgetPlacement.UNPLACED
 
-    private fun topOf(raw: Long?): Int = raw?.takeIf { it in 0..WidgetPlacement.MAX_TOP_DP }?.toInt() ?: WidgetPlacement.UNPLACED
+    private fun topOf(raw: Long?): Int =
+        raw?.takeIf { it in 0..WidgetPlacement.MAX_TOP_DP }?.toInt() ?: WidgetPlacement.UNPLACED
 
-    fun decode(text: String?): List<PlacedWidget> = text.orEmpty().lineSequence().mapNotNull { line ->
-        val f = line.split('|')
-        if (f.size < 6 || f[1].isBlank()) return@mapNotNull null
-        val source = WidgetSource.isSource(f[1])
-        if (!source && !f[1].contains('/')) return@mapNotNull null
-        val span = f.getOrNull(6)?.toIntOrNull()?.coerceIn(WidgetLayout.minSpan(source), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS
-        val column = columnOf(f.getOrNull(8)?.toLongOrNull(), span)
-        val top = topOf(f.getOrNull(9)?.toLongOrNull())
-        PlacedWidget(
-            // A source has no AppWidget id, whatever the line says.
-            id = if (source) null else f[0].toIntOrNull(),
-            provider = f[1],
-            profileSerial = f[2].toLongOrNull() ?: 0L,
-            // A size below the widget's minimum (a list written by hand, or by another version) is raised to it.
-            heightDp = (f[3].toIntOrNull() ?: 0).coerceIn(WidgetLayout.minDp(source), WidgetLayout.MAX_DP),
-            order = f[4].toIntOrNull() ?: 0,
-            location = WidgetLocation.of(f[5]),
-            span = span,
-            look = lookOf(f.getOrNull(7), source),
-            // A place needs both numbers: with one missing, the widget gets a place again at start.
-            column = if (top >= 0) column else WidgetPlacement.UNPLACED,
-            topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
-        )
-    }.toList()
+    fun decode(text: String?): List<PlacedWidget> =
+        text.orEmpty().lineSequence().mapNotNull { line ->
+            val f = line.split('|')
+            if (f.size < 6 || f[1].isBlank()) return@mapNotNull null
+            val source = WidgetSource.isSource(f[1])
+            if (!source && !f[1].contains('/')) return@mapNotNull null
+            val span = f.getOrNull(6)?.toIntOrNull()
+                ?.coerceIn(WidgetLayout.minSpan(source), WidgetLayout.COLUMNS)
+                ?: WidgetLayout.COLUMNS
+            val column = columnOf(f.getOrNull(8)?.toLongOrNull(), span)
+            val top = topOf(f.getOrNull(9)?.toLongOrNull())
+            PlacedWidget(
+                // A source has no AppWidget id, whatever the line says.
+                id = if (source) null else f[0].toIntOrNull(),
+                provider = f[1],
+                profileSerial = f[2].toLongOrNull() ?: 0L,
+                // A size below the widget's minimum (a list written by hand, or by another version) is raised to it.
+                heightDp = (f[3].toIntOrNull() ?: 0).coerceIn(
+                    WidgetLayout.minDp(source),
+                    WidgetLayout.MAX_DP
+                ),
+                order = f[4].toIntOrNull() ?: 0,
+                location = WidgetLocation.of(f[5]),
+                span = span,
+                look = lookOf(f.getOrNull(7), source),
+                // A place needs both numbers: with one missing, the widget gets a place again at start.
+                column = if (top >= 0) column else WidgetPlacement.UNPLACED,
+                topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
+            )
+        }.toList()
 
     /**
      * The placed list as [WidgetHost] reads it at start, from the stored [text] ([decode]). It makes
@@ -377,8 +430,13 @@ object WidgetCodec {
     fun start(text: String?): Start {
         val saved = decode(text)
         val widgets = WidgetPlacement.placeMissing(WidgetOrder.onePage(saved))
-        val statusCards = text.orEmpty().lineSequence().count { it.split('|').getOrNull(1)?.startsWith(WidgetSource.OLD_STATUS) == true }
-        return Start(widgets, changed = widgets != saved || statusCards > 0, statusCards = statusCards)
+        val statusCards = text.orEmpty().lineSequence()
+            .count { it.split('|').getOrNull(1)?.startsWith(WidgetSource.OLD_STATUS) == true }
+        return Start(
+            widgets,
+            changed = widgets != saved || statusCards > 0,
+            statusCards = statusCards
+        )
     }
 
     /**
@@ -413,22 +471,33 @@ object WidgetCodec {
      */
     fun fromExport(list: List<Map<String, Any?>>): List<PlacedWidget> = list.mapNotNull { m ->
         val provider = m["provider"]?.toString()
-            ?.takeIf { WidgetSource.isSource(it) || (it.contains('/') && !it.contains('|') && !it.contains('\n')) }
+            ?.takeIf {
+                WidgetSource.isSource(it) || (it.contains('/') && !it.contains('|') && !it.contains(
+                    '\n'
+                ))
+            }
             ?: return@mapNotNull null
+
         fun num(key: String): Long? = when (val v = m[key]) {
             is Number -> v.toLong()
             is String -> v.toDoubleOrNull()?.toLong()
             else -> null
         }
+
         val sourced = WidgetSource.isSource(provider)
-        val span = num("span")?.toInt()?.coerceIn(WidgetLayout.minSpan(sourced), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS
+        val span =
+            num("span")?.toInt()?.coerceIn(WidgetLayout.minSpan(sourced), WidgetLayout.COLUMNS)
+                ?: WidgetLayout.COLUMNS
         val column = columnOf(num("column"), span)
         val top = topOf(num("top"))
         PlacedWidget(
             id = null,
             provider = provider,
             profileSerial = num("profile") ?: 0L,
-            heightDp = (num("height")?.toInt() ?: 0).coerceIn(WidgetLayout.minDp(sourced), WidgetLayout.MAX_DP),
+            heightDp = (num("height")?.toInt() ?: 0).coerceIn(
+                WidgetLayout.minDp(sourced),
+                WidgetLayout.MAX_DP
+            ),
             order = num("order")?.toInt() ?: 0,
             location = WidgetLocation.of(m["location"]),
             span = span,
@@ -442,7 +511,10 @@ object WidgetCodec {
      * Adds imported entries. It skips a pending entry that duplicates an existing pending one, and a
      * source that is already placed: a widget with a source is placed once.
      */
-    fun mergePending(existing: List<PlacedWidget>, imported: List<PlacedWidget>): List<PlacedWidget> {
+    fun mergePending(
+        existing: List<PlacedWidget>,
+        imported: List<PlacedWidget>
+    ): List<PlacedWidget> {
         val seen = existing.filter { it.pending || it.source != null }.map { it.key }.toMutableSet()
         return existing + imported.filter { seen.add(it.key) }
     }
@@ -451,5 +523,6 @@ object WidgetCodec {
      * A list another install wrote (a restore to a new phone): app widgets' ids belong to the old
      * phone, so each app widget becomes [PlacedWidget.pending], keeping its place, for Add again.
      */
-    fun fromElsewhere(list: List<PlacedWidget>): List<PlacedWidget> = list.map { if (it.source == null) it.copy(id = null) else it }
+    fun fromElsewhere(list: List<PlacedWidget>): List<PlacedWidget> =
+        list.map { if (it.source == null) it.copy(id = null) else it }
 }

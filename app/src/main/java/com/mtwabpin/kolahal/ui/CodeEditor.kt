@@ -3,13 +3,8 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.drawText
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.ScrollState
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -19,13 +14,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,10 +29,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -70,28 +65,29 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
-import kotlin.math.floor
-import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.floor
+import kotlin.math.round
 import kotlin.time.Duration.Companion.milliseconds
 
 /** When a text is longer than this (about 550 lines), only the lines around the view are coloured. */
@@ -108,7 +104,28 @@ private val CARET_BLINK = 500.milliseconds
 private const val TAB_PX = 20f
 
 /** The keys of the symbol bar under the code, after undo and redo. "Ln" opens Go to line. */
-private val SYMBOLS = listOf("  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
+private val SYMBOLS = listOf(
+    "  ",
+    "(",
+    ")",
+    "{",
+    "}",
+    "[",
+    "]",
+    "\"",
+    "'",
+    "=",
+    ".",
+    ",",
+    ":",
+    ";",
+    "#",
+    "-",
+    "~",
+    "<",
+    ">",
+    "Ln"
+)
 
 /**
  * The widest the code field gets, in pixels. A longer line wraps inside it.
@@ -223,7 +240,12 @@ internal fun CodeEditor(
 
     fun select(start: Int, length: Int) {
         val s = start.coerceIn(0, state.value.text.length)
-        state.value = state.value.copy(selection = TextRange(s, (s + length).coerceAtMost(state.value.text.length)))
+        state.value = state.value.copy(
+            selection = TextRange(
+                s,
+                (s + length).coerceAtMost(state.value.text.length)
+            )
+        )
         reveal(s)
     }
 
@@ -260,7 +282,8 @@ internal fun CodeEditor(
         if (q.isEmpty()) return
         val sel = state.value.selection
         val text = state.value.text
-        val onMatch = sel.length == q.length && text.regionMatches(sel.min, q, 0, q.length, state.ignoreCase)
+        val onMatch =
+            sel.length == q.length && text.regionMatches(sel.min, q, 0, q.length, state.ignoreCase)
         if (!onMatch) {
             gotoMatch(1)
             return
@@ -270,7 +293,12 @@ internal fun CodeEditor(
         state.history.checkpoint()
         state.edit(TextFieldValue(newText, TextRange(after)))
         state.history.checkpoint()
-        val next = newText.indexOf(q, after, state.ignoreCase).takeIf { it >= 0 } ?: newText.indexOf(q, 0, state.ignoreCase)
+        val next =
+            newText.indexOf(q, after, state.ignoreCase).takeIf { it >= 0 } ?: newText.indexOf(
+                q,
+                0,
+                state.ignoreCase
+            )
         if (next >= 0) select(next, q.length)
     }
 
@@ -282,14 +310,26 @@ internal fun CodeEditor(
         val with = state.replacement.text
         val ignoreCase = state.ignoreCase
         scope.launch {
-            val (newText, n) = withContext(Dispatchers.Default) { EditorLogic.replaceAll(text, q, with, ignoreCase) }
+            val (newText, n) = withContext(Dispatchers.Default) {
+                EditorLogic.replaceAll(
+                    text,
+                    q,
+                    with,
+                    ignoreCase
+                )
+            }
             if (state.value.text !== text) return@launch
             if (n == 0) {
                 state.message = EditorMessage("No matches to replace", EditorMessage.Kind.INFO)
                 return@launch
             }
             state.history.checkpoint()
-            state.edit(TextFieldValue(newText, TextRange(state.value.selection.min.coerceAtMost(newText.length))))
+            state.edit(
+                TextFieldValue(
+                    newText,
+                    TextRange(state.value.selection.min.coerceAtMost(newText.length))
+                )
+            )
             state.history.checkpoint()
             state.message = EditorMessage("Replaced $n", EditorMessage.Kind.OK)
         }
@@ -356,20 +396,32 @@ internal fun CodeEditor(
     }
     // The field's width, computed here from its widest line. Inside the horizontal scroll the field
     // would measure all of the text to find it before layout: a second pass over the text at every key.
-    val measurer = androidx.compose.ui.text.rememberTextMeasurer(cacheSize = 16)
+    val measurer = rememberTextMeasurer(cacheSize = 16)
     val bold = Term.code.copy(fontWeight = FontWeight.Bold)
-    val cellPx = remember(bold, density) { listOf("W", "M", "@").maxOf { measurer.measure(it, bold).size.width }.toFloat() }
+    val cellPx = remember(bold, density) {
+        listOf("W", "M", "@").maxOf {
+            measurer.measure(
+                it,
+                bold
+            ).size.width
+        }.toFloat()
+    }
     val textWidth = remember(value.text, bold, density, wrap) {
         when {
             // The field is as wide as the screen, so there is nothing to measure.
             wrap -> 0f
             EditorLogic.hasLineLongerThan(value.text, LONG_LINE) -> MAX_FIELD_PX
             // Measured in bold, the widest style a line uses, so a bold keyword doesn't wrap its line.
-            else -> EditorLogic.widestLine(value.text, cellPx, maxOf(TAB_PX, cellPx)) { line -> measurer.measure(line, bold).size.width.toFloat() }
+            else -> EditorLogic.widestLine(
+                value.text,
+                cellPx,
+                maxOf(TAB_PX, cellPx)
+            ) { line -> measurer.measure(line, bold).size.width.toFloat() }
         }
     }
     val widest = with(density) { MAX_FIELD_PX.toDp() }
-    val fieldWidth = with(density) { minOf(maxOf(600.dp, (textWidth + cellPx).toDp() + 12.dp), widest) }
+    val fieldWidth =
+        with(density) { minOf(maxOf(600.dp, (textWidth + cellPx).toDp() + 12.dp), widest) }
     // Whether a line of the text can take more than one line on screen.
     val wraps by androidx.compose.runtime.rememberUpdatedState(wrap || fieldWidth >= widest)
     // In a big text, only the lines around the view are coloured: colouring costs several times
@@ -377,22 +429,34 @@ internal fun CodeEditor(
     // stops, so a fling doesn't cause new layouts along the way.
     val big = value.text.length > WINDOW_FROM
     var window by remember(state) {
-        mutableStateOf(((startLine ?: 1) - 1).let { (it - WINDOW_SPAN).coerceAtLeast(0)..(it + WINDOW_SPAN) })
+        mutableStateOf(
+            ((startLine ?: 1) - 1).let { (it - WINDOW_SPAN).coerceAtLeast(0)..(it + WINDOW_SPAN) })
     }
     LaunchedEffect(state) {
         val padTop = with(density) { 12.dp.toPx() }
-        androidx.compose.runtime.snapshotFlow { Triple(vScroll.isScrollInProgress, vScroll.value, layout) }.collect { (scrolling, y, l) ->
+        androidx.compose.runtime.snapshotFlow {
+            Triple(
+                vScroll.isScrollInProgress,
+                vScroll.value,
+                layout
+            )
+        }.collect { (scrolling, y, l) ->
             if (scrolling || l == null || l.lineCount == 0) return@collect
             // The window counts the text's own lines. Where lines wrap, a line on screen is not one of those.
             fun lineAt(y: Float): Int = l.getLineForVerticalPosition(y).let { shown ->
-                if (wraps) EditorLogic.lineOf(l.layoutInput.text.text, l.getLineStart(shown)) else shown
+                if (wraps) EditorLogic.lineOf(
+                    l.layoutInput.text.text,
+                    l.getLineStart(shown)
+                ) else shown
             }
+
             val first = lineAt((y - padTop).coerceAtLeast(0f))
             val last = lineAt(y - padTop + viewportHeight)
             val w = window
             val nearTop = w.first > 0 && first < w.first + WINDOW_MARGIN
             val nearBottom = w.last < l.lineCount - 1 && last > w.last - WINDOW_MARGIN
-            if (nearTop || nearBottom) window = (first - WINDOW_SPAN).coerceAtLeast(0)..(last + WINDOW_SPAN)
+            if (nearTop || nearBottom) window =
+                (first - WINDOW_SPAN).coerceAtLeast(0)..(last + WINDOW_SPAN)
         }
     }
     // The tokens of each line are kept across highlighters, because the coloured window creates new ones.
@@ -401,7 +465,17 @@ internal fun CodeEditor(
     val coloured = if (big && lang != null) window else null
     // Plain text has no colours: no transformation, so it is not copied at every key. Find matches
     // and the flashed line are drawn behind the text ([EditorMarks]), not coloured.
-    val highlighter = remember(lang, Term.palette, coloured) { if (lineTokens == null) VisualTransformation.None else SyntaxHighlighter(lineTokens.syntax, lineTokens, coloured) }
+    val highlighter = remember(
+        lang,
+        Term.palette,
+        coloured
+    ) {
+        if (lineTokens == null) VisualTransformation.None else SyntaxHighlighter(
+            lineTokens.syntax,
+            lineTokens,
+            coloured
+        )
+    }
     // Where lines wrap there are no line numbers: a number would stand beside the wrong line.
     val numbered = !wraps
 
@@ -416,22 +490,50 @@ internal fun CodeEditor(
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when {
                     onKey(e) -> true
-                    e.isCtrlPressed && e.key == Key.F -> { openFind(false); true }
-                    e.isCtrlPressed && e.key == Key.H -> { openFind(true); true }
-                    e.isCtrlPressed && e.key == Key.G -> { state.gotoOpen = true; true }
-                    e.key == Key.F3 -> { if (state.findOpen) gotoMatch(if (e.isShiftPressed) -1 else 1) else openFind(false); true }
+                    e.isCtrlPressed && e.key == Key.F -> {
+                        openFind(false); true
+                    }
+
+                    e.isCtrlPressed && e.key == Key.H -> {
+                        openFind(true); true
+                    }
+
+                    e.isCtrlPressed && e.key == Key.G -> {
+                        state.gotoOpen = true; true
+                    }
+
+                    e.key == Key.F3 -> {
+                        if (state.findOpen) gotoMatch(if (e.isShiftPressed) -1 else 1) else openFind(
+                            false
+                        ); true
+                    }
                     // Only for the editor: the text fields in the find bar keep their own undo.
-                    state.focused && e.isCtrlPressed && e.isShiftPressed && e.key == Key.Z -> { state.redo(); true }
-                    state.focused && e.isCtrlPressed && e.key == Key.Z -> { state.undo(); true }
-                    state.focused && e.isCtrlPressed && e.key == Key.Y -> { state.redo(); true }
-                    e.key == Key.Escape -> { if (state.findOpen) closeFind() else onEscape(); true }
+                    state.focused && e.isCtrlPressed && e.isShiftPressed && e.key == Key.Z -> {
+                        state.redo(); true
+                    }
+
+                    state.focused && e.isCtrlPressed && e.key == Key.Z -> {
+                        state.undo(); true
+                    }
+
+                    state.focused && e.isCtrlPressed && e.key == Key.Y -> {
+                        state.redo(); true
+                    }
+
+                    e.key == Key.Escape -> {
+                        if (state.findOpen) closeFind() else onEscape(); true
+                    }
+
                     else -> false
                 }
             }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().background(Term.surface).padding(start = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Term.surface)
+                .padding(start = 12.dp),
         ) {
             Text(
                 title + if (state.dirty) " *" else "",
@@ -440,7 +542,11 @@ internal fun CodeEditor(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            EditorIconButton(R.drawable.ic_search, "Find", tint = if (state.findOpen) Term.prompt else Term.fg) {
+            EditorIconButton(
+                R.drawable.ic_search,
+                "Find",
+                tint = if (state.findOpen) Term.prompt else Term.fg
+            ) {
                 if (state.findOpen) closeFind() else openFind(false)
             }
             buttons()
@@ -475,7 +581,10 @@ internal fun CodeEditor(
                 .fillMaxWidth()
                 .onSizeChanged { viewportHeight = it.height }
                 // Tapping empty space below the code focuses the editor.
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
                     state.value = state.value.copy(selection = TextRange(state.value.text.length))
                     focusEditor()
                 }
@@ -568,9 +677,25 @@ internal fun CodeEditor(
         // Read here, not inside the row's items, so a change updates the undo and redo buttons.
         val canUndo = state.history.canUndo
         val canRedo = state.history.canRedo
-        LazyRow(Modifier.fillMaxWidth().background(Term.surface)) {
-            item { EditorIconButton(R.drawable.ic_undo, "Undo", enabled = canUndo) { state.undo() } }
-            item { EditorIconButton(R.drawable.ic_redo, "Redo", enabled = canRedo) { state.redo() } }
+        LazyRow(
+            Modifier
+                .fillMaxWidth()
+                .background(Term.surface)
+        ) {
+            item {
+                EditorIconButton(
+                    R.drawable.ic_undo,
+                    "Undo",
+                    enabled = canUndo
+                ) { state.undo() }
+            }
+            item {
+                EditorIconButton(
+                    R.drawable.ic_redo,
+                    "Redo",
+                    enabled = canRedo
+                ) { state.redo() }
+            }
             items(SYMBOLS) { s ->
                 Box(
                     contentAlignment = Alignment.Center,
@@ -582,7 +707,10 @@ internal fun CodeEditor(
                         }
                         .padding(horizontal = 12.dp),
                 ) {
-                    Text(if (s == "  ") "⇥" else s, style = Term.phoneText.copy(color = Term.fg, fontWeight = FontWeight.Bold))
+                    Text(
+                        if (s == "  ") "⇥" else s,
+                        style = Term.phoneText.copy(color = Term.fg, fontWeight = FontWeight.Bold)
+                    )
                 }
             }
         }
@@ -612,7 +740,12 @@ internal fun CodeEditor(
  * - any text taller than 262,142 pixels (there, about 5,000 lines).
  */
 @Composable
-private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, focused: Boolean, color: Color) {
+private fun EditorCaret(
+    value: TextFieldValue,
+    layout: () -> TextLayoutResult?,
+    focused: Boolean,
+    color: Color
+) {
     val blinks = LocalCursorBlinkEnabled.current
     val show = LocalWindowInfo.current.isWindowFocused && focused && value.selection.collapsed
     var alpha by remember { mutableFloatStateOf(0f) }
@@ -639,14 +772,25 @@ private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, 
                 val a = alpha
                 if (!show || a == 0f) return@drawBehind
                 val result = layout() ?: return@drawBehind
-                val rect = result.getCursorRect(value.selection.start.coerceIn(0, result.layoutInput.text.length))
+                val rect = result.getCursorRect(
+                    value.selection.start.coerceIn(
+                        0,
+                        result.layoutInput.text.length
+                    )
+                )
                 val width = floor(2.dp.toPx()).coerceAtLeast(1f)
                 val x = (rect.left + width / 2)
                     .coerceAtMost(size.width - width / 2)
                     .coerceAtLeast(width / 2)
                     // Draw an odd width at the middle of a pixel, so it isn't blurred.
                     .let { if (width.toInt() % 2 == 1) floor(it) + 0.5f else round(it) }
-                drawLine(color, Offset(x, rect.top), Offset(x, rect.bottom), strokeWidth = width, alpha = a)
+                drawLine(
+                    color,
+                    Offset(x, rect.top),
+                    Offset(x, rect.bottom),
+                    strokeWidth = width,
+                    alpha = a
+                )
             }
             // The text is measured before this, in the same pass, so its layout is the current one.
             .layout { measurable, _ ->
@@ -665,11 +809,16 @@ private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, 
  * - It is as tall as the text, and as wide as the largest number needs (28 dp at least).
  */
 @Composable
-private fun LineNumbers(layout: () -> TextLayoutResult?, scroll: ScrollState, viewportHeight: () -> Int) {
+private fun LineNumbers(
+    layout: () -> TextLayoutResult?,
+    scroll: ScrollState,
+    viewportHeight: () -> Int
+) {
     val style = Term.code.copy(color = Term.dim)
     val measurer = rememberTextMeasurer(cacheSize = 128)
     val digits by remember { derivedStateOf { (layout()?.lineCount ?: 1).toString().length } }
-    val numberPx = remember(digits, style) { measurer.measure("9".repeat(digits), style).size.width }
+    val numberPx =
+        remember(digits, style) { measurer.measure("9".repeat(digits), style).size.width }
     Spacer(
         Modifier
             .layout { measurable, _ ->

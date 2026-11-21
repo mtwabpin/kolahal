@@ -38,9 +38,9 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -51,9 +51,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
 @Composable
@@ -71,7 +71,12 @@ internal fun Prompt(
     onTapPrompt: () -> Unit,
 ) {
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
-    val swipeUpOn = remember(configVersion) { vm.config[Keys.GESTURE_SWIPE_UP].trim().lowercase() !in setOf("", "none") }
+    val swipeUpOn = remember(configVersion) {
+        vm.config[Keys.GESTURE_SWIPE_UP].trim().lowercase() !in setOf(
+            "",
+            "none"
+        )
+    }
     val promptStyle = Term.promptText.copy(fontSize = (Term.fontSize + 2).sp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -133,15 +138,42 @@ internal fun Prompt(
                 .onPreviewKeyEvent { e ->
                     if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when {
-                        e.key == Key.DirectionUp -> { vm.historyUp(); true }
-                        e.key == Key.DirectionDown -> { vm.historyDown(); true }
-                        e.key == Key.Tab -> { vm.complete(); true }
-                        e.key == Key.Escape -> { vm.escape(); true }
-                        e.key == Key.Enter || e.key == Key.NumPadEnter -> { vm.submit(); true }
-                        e.isCtrlPressed && e.key == Key.L -> { vm.clearScreen(); true }
-                        e.isCtrlPressed && e.key == Key.U -> { vm.escape(); true }
-                        e.isCtrlPressed && e.key == Key.A -> { vm.onKeyBar(KeyBarKey.HOME); true }
-                        e.isCtrlPressed && e.key == Key.E -> { vm.onKeyBar(KeyBarKey.END); true }
+                        e.key == Key.DirectionUp -> {
+                            vm.historyUp(); true
+                        }
+
+                        e.key == Key.DirectionDown -> {
+                            vm.historyDown(); true
+                        }
+
+                        e.key == Key.Tab -> {
+                            vm.complete(); true
+                        }
+
+                        e.key == Key.Escape -> {
+                            vm.escape(); true
+                        }
+
+                        e.key == Key.Enter || e.key == Key.NumPadEnter -> {
+                            vm.submit(); true
+                        }
+
+                        e.isCtrlPressed && e.key == Key.L -> {
+                            vm.clearScreen(); true
+                        }
+
+                        e.isCtrlPressed && e.key == Key.U -> {
+                            vm.escape(); true
+                        }
+
+                        e.isCtrlPressed && e.key == Key.A -> {
+                            vm.onKeyBar(KeyBarKey.HOME); true
+                        }
+
+                        e.isCtrlPressed && e.key == Key.E -> {
+                            vm.onKeyBar(KeyBarKey.END); true
+                        }
+
                         else -> false
                     }
                 },

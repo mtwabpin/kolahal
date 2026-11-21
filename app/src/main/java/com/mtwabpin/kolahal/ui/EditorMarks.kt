@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
  */
 internal class MatchHighlights(val starts: IntArray, val length: Int, val current: Int) {
     override fun equals(other: Any?) =
-        other is MatchHighlights && other.length == length && other.current == current && other.starts.contentEquals(starts)
+        other is MatchHighlights && other.length == length && other.current == current && other.starts.contentEquals(
+            starts
+        )
 
     override fun hashCode() = 31 * (31 * starts.contentHashCode() + length) + current
 }
@@ -37,7 +39,11 @@ internal class MatchHighlights(val starts: IntArray, val length: Int, val curren
  *   end are left out.
  */
 @Composable
-internal fun BoxScope.EditorMarks(highlights: MatchHighlights?, flashLine: Int?, layout: () -> TextLayoutResult?) {
+internal fun BoxScope.EditorMarks(
+    highlights: MatchHighlights?,
+    flashLine: Int?,
+    layout: () -> TextLayoutResult?
+) {
     if (highlights == null && flashLine == null) return
     val other = Term.info.copy(alpha = 0.3f)
     val current = Term.prompt.copy(alpha = 0.45f)
@@ -47,14 +53,22 @@ internal fun BoxScope.EditorMarks(highlights: MatchHighlights?, flashLine: Int?,
         Modifier
             .matchParentSize()
             .testTag("editor-marks")
-            .semantics { this[MarkedMatches] = highlights?.let { h -> h.starts.toList() to h.current.takeIf { it >= 0 } } ?: (emptyList<Int>() to null) }
+            .semantics {
+                this[MarkedMatches] =
+                    highlights?.let { h -> h.starts.toList() to h.current.takeIf { it >= 0 } }
+                        ?: (emptyList<Int>() to null)
+            }
             .graphicsLayer()
             .drawWithCache {
                 // Read here, so a new layout (a key typed) makes the marks again.
                 val l = layout()
                 val length = l?.layoutInput?.text?.length ?: 0
                 fun pathOf(start: Int, end: Int): Path? =
-                    if (l == null || start < 0 || end > length || end <= start) null else l.getPathForRange(start, end)
+                    if (l == null || start < 0 || end > length || end <= start) null else l.getPathForRange(
+                        start,
+                        end
+                    )
+
                 val others = Path()
                 var mine: Path? = null
                 highlights?.let { h ->

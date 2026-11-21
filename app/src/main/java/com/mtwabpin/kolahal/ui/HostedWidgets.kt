@@ -3,8 +3,8 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,63 +14,64 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.ParentDataModifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.WidgetCardActions
 import com.mtwabpin.kolahal.widgets.KolahalWidgetView
 import com.mtwabpin.kolahal.widgets.PlacedWidget
+import com.mtwabpin.kolahal.widgets.WidgetDrag
 import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetOrder
-import com.mtwabpin.kolahal.widgets.WidgetLayout
-import com.mtwabpin.kolahal.terminal.WidgetCardActions
-import com.mtwabpin.kolahal.widgets.WidgetDrag
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.ParentDataModifier
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.Density
 
 
 /** Returns the kind of the profile with [serial] if it is paused/locked, else null. A paused/locked profile's widget shows a placeholder instead. */
-internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? = firstOrNull { it.serial == serial }?.takeIf { it.quiet }?.kind
+internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? =
+    firstOrNull { it.serial == serial }?.takeIf { it.quiet }?.kind
 
 /** What one card on the widgets page can ask for: as [actions], but a long-press calls [arrange], which knows the card. */
-private class ArrangeOnLongPress(actions: WidgetCardActions, private val arrange: () -> Unit) : WidgetCardActions by actions {
+private class ArrangeOnLongPress(actions: WidgetCardActions, private val arrange: () -> Unit) :
+    WidgetCardActions by actions {
     override fun longPress() = arrange()
 }
 
@@ -113,7 +114,9 @@ internal fun HostedWidget(
                     (this as? KolahalWidgetView)?.onLongPress = { longPress() }
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(height),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height),
         )
     }
 }
@@ -129,7 +132,8 @@ private data class GridPlace(val column: Int, val span: Int, val topDp: Int) : P
  * [span] columns wide, with its top [topDp] from the top of the grid. A column or top below 0 (no
  * place yet) puts it under everything else.
  */
-internal fun Modifier.gridPlace(column: Int, span: Int, topDp: Int): Modifier = this.then(GridPlace(column, span, topDp))
+internal fun Modifier.gridPlace(column: Int, span: Int, topDp: Int): Modifier =
+    this.then(GridPlace(column, span, topDp))
 
 /** [w] placed in a [WidgetGrid] where its column and top say. */
 internal fun Modifier.gridPlace(w: PlacedWidget): Modifier = gridPlace(w.column, w.span, w.topDp)
@@ -150,15 +154,23 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
         val page = constraints.maxWidth
         val gapPx = gap.roundToPx()
         val grid = WidgetDrag(page, gapPx, density)
-        val places = measurables.map { it.parentData as? GridPlace ?: GridPlace(WidgetPlacement.UNPLACED, WidgetLayout.COLUMNS, WidgetPlacement.UNPLACED) }
+        val places = measurables.map {
+            it.parentData as? GridPlace ?: GridPlace(
+                WidgetPlacement.UNPLACED,
+                WidgetLayout.COLUMNS,
+                WidgetPlacement.UNPLACED
+            )
+        }
         val placeables = measurables.mapIndexed { i, m ->
             val width = grid.widthPx(places[i].span.coerceIn(1, WidgetLayout.COLUMNS))
             m.measure(Constraints(minWidth = width, maxWidth = width))
         }
         val placed = places.map { it.column >= 0 && it.topDp >= 0 }
-        val tops = IntArray(measurables.size) { if (placed[it]) places[it].topDp.dp.roundToPx() else 0 }
+        val tops =
+            IntArray(measurables.size) { if (placed[it]) places[it].topDp.dp.roundToPx() else 0 }
         // Those without a place go one under the other, under the lowest placed one.
-        var next = placeables.indices.filter { placed[it] }.maxOfOrNull { tops[it] + placeables[it].height + gapPx } ?: 0
+        var next = placeables.indices.filter { placed[it] }
+            .maxOfOrNull { tops[it] + placeables[it].height + gapPx } ?: 0
         placeables.indices.filter { !placed[it] }.forEach { i ->
             tops[i] = next
             next += placeables[i].height + gapPx
@@ -166,7 +178,8 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
         val height = placeables.indices.maxOfOrNull { tops[it] + placeables[it].height } ?: 0
         layout(page, height.coerceIn(constraints.minHeight, constraints.maxHeight)) {
             placeables.forEachIndexed { i, p ->
-                val column = if (placed[i]) places[i].column.coerceAtMost(WidgetLayout.COLUMNS - 1) else 0
+                val column =
+                    if (placed[i]) places[i].column.coerceAtMost(WidgetLayout.COLUMNS - 1) else 0
                 p.placeRelative(grid.startPx(column), tops[i])
             }
         }
@@ -184,7 +197,14 @@ fun WidgetPanel(vm: TerminalViewModel) {
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
     val all by widgets.widgets.collectAsStateWithLifecycle()
-    val panel = remember(all) { WidgetPlacement.readingOrder(WidgetOrder.inLocation(all, WidgetLocation.PANEL)) }
+    val panel = remember(all) {
+        WidgetPlacement.readingOrder(
+            WidgetOrder.inLocation(
+                all,
+                WidgetLocation.PANEL
+            )
+        )
+    }
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -192,11 +212,19 @@ fun WidgetPanel(vm: TerminalViewModel) {
     val first = remember(version) { Keys.widgetsFirst(vm.config) }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
     val menuScope = rememberCoroutineScope()
-    Box(Modifier.fillMaxSize().page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] }).testTag("widgets-page")) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] })
+            .testTag("widgets-page")
+    ) {
         // As home's first page, it has no title row. A long-press on a widget opens the screen to arrange widgets.
         // While the app selector is open, the widgets fade out, so only the page's background shows behind
         // the list, as the log does on its page.
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - vm.widgetsSelectorFade.floatValue }) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = 1f - vm.widgetsSelectorFade.floatValue }) {
             WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
         }
         // The app selector is on this page too, whenever it is on (selector.rail): HomeAppSelector shows nothing otherwise.
@@ -207,14 +235,25 @@ fun WidgetPanel(vm: TerminalViewModel) {
             // on both pages.
             var top by remember { mutableFloatStateOf(0f) }
             val area = vm.selectorArea
-            Box(Modifier.fillMaxSize().cutoutSafePadding().navigationBarsPadding().onGloballyPositioned { top = it.positionInWindow().y }) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .cutoutSafePadding()
+                    .navigationBarsPadding()
+                    .onGloballyPositioned { top = it.positionInWindow().y }) {
                 HomeAppSelector(
                     vm,
                     fade = vm.widgetsSelectorFade,
                     stripArea = area?.let { (it.top - top)..(it.bottom - top) },
                     onLongPress = { app ->
                         // An app's shortcuts come from the system. Build them off the main thread and show them when ready.
-                        menuScope.launch { menu = ActionMenu(app.label, withContext(Dispatchers.IO) { vm.appActions(app) }, null) }
+                        menuScope.launch {
+                            menu = ActionMenu(
+                                app.label,
+                                withContext(Dispatchers.IO) { vm.appActions(app) },
+                                null
+                            )
+                        }
                     },
                 )
             }
@@ -230,7 +269,7 @@ private fun WidgetPanelContent(
     widgets: WidgetHost,
     panel: List<PlacedWidget>,
     profiles: List<Profile>,
-    density: androidx.compose.ui.unit.Density,
+    density: Density,
     titleRow: Boolean,
 ) {
     Column(
@@ -239,7 +278,9 @@ private fun WidgetPanelContent(
             .cutoutSafePadding()
             .navigationBarsPadding(),
     ) {
-        if (titleRow) WidgetsTitleRow(onAdd = { vm.openScreen(Screen.WIDGET_PICKER) }, onEdit = { vm.openScreen(Screen.WIDGETS) })
+        if (titleRow) WidgetsTitleRow(
+            onAdd = { vm.openScreen(Screen.WIDGET_PICKER) },
+            onEdit = { vm.openScreen(Screen.WIDGETS) })
         if (panel.isEmpty()) {
             if (titleRow) {
                 Text(
@@ -263,32 +304,53 @@ private fun WidgetPanelContent(
         }
         WidgetGrid(
             WidgetLayout.GAP_DP.dp,
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp)
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp)
                 // The page width in dp. Square and the sizes reported to widgets are based on it.
-                .onSizeChanged { widgets.measuredPageDp = with(density) { it.width.toDp().value.toInt() } },
+                .onSizeChanged {
+                    widgets.measuredPageDp = with(density) { it.width.toDp().value.toInt() }
+                },
         ) {
             panel.forEach { w ->
                 key(w.key) {
                     // A long-press opens the Widgets screen with this widget chosen.
-                    val arrange = remember(w.key) { { widgets.choose(w.key); vm.openScreen(Screen.WIDGETS) } }
-                    val actions = remember(w.key, vm.widgetActions) { ArrangeOnLongPress(vm.widgetActions, arrange) }
+                    val arrange =
+                        remember(w.key) { { widgets.choose(w.key); vm.openScreen(Screen.WIDGETS) } }
+                    val actions = remember(w.key, vm.widgetActions) {
+                        ArrangeOnLongPress(
+                            vm.widgetActions,
+                            arrange
+                        )
+                    }
                     // Give the grid exactly one child per widget, whatever HostedWidget shows.
-                    Box(Modifier.gridPlace(w)) { OnScreenCard {
-                        // A script's widget is a card that Kolahal draws. Its taps go to the view model.
-                        if (w.source != null) SourceWidget(w, w.heightDp.dp, actions, vm.widgetFeed)
-                        else HostedWidget(
-                            w = w,
-                            height = w.heightDp.dp,
-                            pausedKind = profiles.pausedKind(w.profileSerial),
-                            onLongPress = arrange,
-                        ) { why ->
-                            Text(
-                                "[$why] ${w.packageName}",
-                                style = Term.text.copy(color = Term.dim),
-                                modifier = Modifier.fillMaxWidth().alpha(0.7f).padding(vertical = 6.dp, horizontal = 4.dp),
+                    Box(Modifier.gridPlace(w)) {
+                        OnScreenCard {
+                            // A script's widget is a card that Kolahal draws. Its taps go to the view model.
+                            if (w.source != null) SourceWidget(
+                                w,
+                                w.heightDp.dp,
+                                actions,
+                                vm.widgetFeed
                             )
+                            else HostedWidget(
+                                w = w,
+                                height = w.heightDp.dp,
+                                pausedKind = profiles.pausedKind(w.profileSerial),
+                                onLongPress = arrange,
+                            ) { why ->
+                                Text(
+                                    "[$why] ${w.packageName}",
+                                    style = Term.text.copy(color = Term.dim),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .alpha(0.7f)
+                                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                                )
+                            }
                         }
-                    } }
+                    }
                 }
             }
         }
@@ -298,8 +360,17 @@ private fun WidgetPanelContent(
 /** The widgets page's title row: its name, then + ([onAdd]: the picker) and the pencil ([onEdit]: Arrange widgets). */
 @Composable
 internal fun WidgetsTitleRow(onAdd: () -> Unit, onEdit: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        Text("Widgets", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+    ) {
+        Text(
+            "Widgets",
+            style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+            modifier = Modifier.weight(1f)
+        )
         LabeledIconButton(R.drawable.ic_add, "Add a widget", onClick = onAdd, tint = Term.prompt)
         LabeledIconButton(R.drawable.ic_edit, "Edit widgets", onClick = onEdit, tint = Term.fg)
     }

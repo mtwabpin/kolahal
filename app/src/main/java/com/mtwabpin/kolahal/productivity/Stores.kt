@@ -14,12 +14,19 @@ import kotlinx.coroutines.flow.update
 
 data class Todo(val id: Long, val text: String, val done: Boolean)
 data class Note(val id: Long, val text: String, val created: Long)
+
 /**
  * - [repeat]: a [Repeat] rule, or null for a reminder that fires once.
  * - [time]: the wall-clock time the user asked for a repeating reminder (`02:30`). It is null for a
  *   reminder set before 0.4.12, until that reminder next fires.
  */
-data class Reminder(val id: Long, val at: Long, val text: String, val repeat: String? = null, val time: String? = null)
+data class Reminder(
+    val id: Long,
+    val at: Long,
+    val text: String,
+    val repeat: String? = null,
+    val time: String? = null
+)
 
 /**
  * Picks an item by what the user typed:
@@ -28,7 +35,8 @@ data class Reminder(val id: Long, val at: Long, val text: String, val repeat: St
  */
 fun <T> pickRef(ref: String?, list: List<T>, id: (T) -> Long): T? {
     val r = ref?.trim() ?: return null
-    if (r.startsWith("#")) return r.drop(1).toLongOrNull()?.let { want -> list.firstOrNull { id(it) == want } }
+    if (r.startsWith("#")) return r.drop(1).toLongOrNull()
+        ?.let { want -> list.firstOrNull { id(it) == want } }
     return r.toIntOrNull()?.let { list.getOrNull(it - 1) }
 }
 
@@ -81,10 +89,11 @@ class TodoStore private constructor(context: Context) {
 
     fun open(): List<Todo> = all().filter { !it.done }
 
-    fun add(text: String): Long = written.after(db.writableDatabase.insert("todos", null, ContentValues().apply {
-        put("text", text)
-        put("created", System.currentTimeMillis())
-    }))
+    fun add(text: String): Long =
+        written.after(db.writableDatabase.insert("todos", null, ContentValues().apply {
+            put("text", text)
+            put("created", System.currentTimeMillis())
+        }))
 
     fun setDone(id: Long, done: Boolean) {
         written.after(db.writableDatabase.update("todos", ContentValues().apply {
@@ -112,10 +121,18 @@ class TodoStore private constructor(context: Context) {
     }
 
     fun edit(id: Long, text: String) {
-        written.after(db.writableDatabase.update("todos", ContentValues().apply { put("text", text) }, "id = ?", arrayOf(id.toString())))
+        written.after(
+            db.writableDatabase.update(
+                "todos",
+                ContentValues().apply { put("text", text) },
+                "id = ?",
+                arrayOf(id.toString())
+            )
+        )
     }
 
-    fun remove(id: Long): Int = written.after(db.writableDatabase.delete("todos", "id = ?", arrayOf(id.toString())))
+    fun remove(id: Long): Int =
+        written.after(db.writableDatabase.delete("todos", "id = ?", arrayOf(id.toString())))
 
     /** Deletes finished items and returns how many it deleted. */
     fun clearDone(): Int = written.after(db.writableDatabase.delete("todos", "done = 1", null))
@@ -140,18 +157,23 @@ class NoteStore private constructor(context: Context) {
 
     fun all(): List<Note> {
         val out = ArrayList<Note>()
-        db.readableDatabase.rawQuery("SELECT id, text, created FROM notes ORDER BY created DESC, id DESC", null).use { c ->
+        db.readableDatabase.rawQuery(
+            "SELECT id, text, created FROM notes ORDER BY created DESC, id DESC",
+            null
+        ).use { c ->
             while (c.moveToNext()) out += Note(c.getLong(0), c.getString(1), c.getLong(2))
         }
         return out
     }
 
-    fun add(text: String): Long = written.after(db.writableDatabase.insert("notes", null, ContentValues().apply {
-        put("text", text)
-        put("created", System.currentTimeMillis())
-    }))
+    fun add(text: String): Long =
+        written.after(db.writableDatabase.insert("notes", null, ContentValues().apply {
+            put("text", text)
+            put("created", System.currentTimeMillis())
+        }))
 
-    fun remove(id: Long): Int = written.after(db.writableDatabase.delete("notes", "id = ?", arrayOf(id.toString())))
+    fun remove(id: Long): Int =
+        written.after(db.writableDatabase.delete("notes", "id = ?", arrayOf(id.toString())))
 
     companion object : Singleton<NoteStore>(::NoteStore)
 }
@@ -172,8 +194,17 @@ class ReminderStore private constructor(context: Context) {
 
     fun all(): List<Reminder> {
         val out = ArrayList<Reminder>()
-        db.readableDatabase.rawQuery("SELECT id, at, text, repeat_rule, repeat_time FROM reminders ORDER BY at, id", null).use { c ->
-            while (c.moveToNext()) out += Reminder(c.getLong(0), c.getLong(1), c.getString(2), c.getString(3), c.getString(4))
+        db.readableDatabase.rawQuery(
+            "SELECT id, at, text, repeat_rule, repeat_time FROM reminders ORDER BY at, id",
+            null
+        ).use { c ->
+            while (c.moveToNext()) out += Reminder(
+                c.getLong(0),
+                c.getLong(1),
+                c.getString(2),
+                c.getString(3),
+                c.getString(4)
+            )
         }
         return out
     }
@@ -181,13 +212,18 @@ class ReminderStore private constructor(context: Context) {
     fun byId(id: Long): Reminder? = all().firstOrNull { it.id == id }
 
     fun add(at: Long, text: String, repeat: String? = null, time: String? = null): Reminder {
-        val id = written.after(db.writableDatabase.insertOrThrow("reminders", null, ContentValues().apply {
-            put("at", at)
-            put("text", text)
-            put("created", System.currentTimeMillis())
-            put("repeat_rule", repeat)
-            put("repeat_time", time)
-        }))
+        val id = written.after(
+            db.writableDatabase.insertOrThrow(
+                "reminders",
+                null,
+                ContentValues().apply {
+                    put("at", at)
+                    put("text", text)
+                    put("created", System.currentTimeMillis())
+                    put("repeat_rule", repeat)
+                    put("repeat_time", time)
+                })
+        )
         return Reminder(id, at, text, repeat, time)
     }
 
@@ -197,10 +233,18 @@ class ReminderStore private constructor(context: Context) {
             put("at", at)
             if (time != null) put("repeat_time", time)
         }
-        written.after(db.writableDatabase.update("reminders", values, "id = ?", arrayOf(id.toString())))
+        written.after(
+            db.writableDatabase.update(
+                "reminders",
+                values,
+                "id = ?",
+                arrayOf(id.toString())
+            )
+        )
     }
 
-    fun remove(id: Long): Int = written.after(db.writableDatabase.delete("reminders", "id = ?", arrayOf(id.toString())))
+    fun remove(id: Long): Int =
+        written.after(db.writableDatabase.delete("reminders", "id = ?", arrayOf(id.toString())))
 
     companion object : Singleton<ReminderStore>(::ReminderStore)
 }

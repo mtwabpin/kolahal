@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.data.Stores
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -21,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.takeWhole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,8 +46,10 @@ class TriggerDispatcher private constructor(private val context: Context) {
     private val lastFired = HashMap<String, Long>()
 
     private var started = false
+
     /** The last default-network kind ("wifi", "other", "offline"), so events fire only on changes. */
-    @Volatile private var netState: String? = null
+    @Volatile
+    private var netState: String? = null
 
     fun start() {
         if (started) return
@@ -66,7 +68,8 @@ class TriggerDispatcher private constructor(private val context: Context) {
             runCatching {
                 val targets = subscribers(event)
                 if (targets.isEmpty()) return@runCatching
-                val data = mapOf("name" to event) + payload.filterValues { it != null }.mapValues { (_, v) -> clip(v) }
+                val data = mapOf("name" to event) + payload.filterValues { it != null }
+                    .mapValues { (_, v) -> clip(v) }
                 val extra = if (event == "notification") ":" + payload["pkg"] else ""
                 for (id in targets) {
                     val key = "$id:$event$extra"
@@ -81,7 +84,8 @@ class TriggerDispatcher private constructor(private val context: Context) {
         }
     }
 
-    private fun clip(v: Any?): Any? = if (v is String && v.length > MAX_TEXT) v.takeWhole(MAX_TEXT) + "…" else v
+    private fun clip(v: Any?): Any? =
+        if (v is String && v.length > MAX_TEXT) v.takeWhole(MAX_TEXT) + "…" else v
 
     private fun subscribers(event: String): List<Long> {
         refresh()
@@ -94,7 +98,8 @@ class TriggerDispatcher private constructor(private val context: Context) {
         return notificationReaders
     }
 
-    @Volatile private var notificationReaders = false
+    @Volatile
+    private var notificationReaders = false
 
     private fun refresh() {
         val v = ScriptRepository.version.get()
@@ -105,7 +110,8 @@ class TriggerDispatcher private constructor(private val context: Context) {
             // that declare `@uses notifications` and are allowed it.
             .map { s ->
                 val grants = s.grants
-                s.id to ScriptMeta.events(s.code).filter { grants.allows(it) && (it != "notification" || grants.allows("notifications")) }
+                s.id to ScriptMeta.events(s.code)
+                    .filter { grants.allows(it) && (it != "notification" || grants.allows("notifications")) }
             }
             .filter { it.second.isNotEmpty() }
         notificationReaders = enabled.any { it.grants.allows("notifications") }
@@ -129,7 +135,8 @@ class TriggerDispatcher private constructor(private val context: Context) {
     }
 
     private fun battery(): Map<String, Any?> {
-        val i = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return emptyMap()
+        val i = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            ?: return emptyMap()
         val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
         val plug = when (i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)) {
@@ -139,7 +146,10 @@ class TriggerDispatcher private constructor(private val context: Context) {
             0 -> null
             else -> "other"
         }
-        return mapOf("level" to if (level >= 0 && scale > 0) level * 100 / scale else null, "plug" to plug)
+        return mapOf(
+            "level" to if (level >= 0 && scale > 0) level * 100 / scale else null,
+            "plug" to plug
+        )
     }
 
     private fun registerHeadset() {

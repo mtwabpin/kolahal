@@ -18,12 +18,26 @@ import java.time.ZoneId
 class ReferenceCardsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    @Test fun eachExampleDrawsTheCardItsCodeMakes() {
+    @Test
+    fun eachExampleDrawsTheCardItsCodeMakes() {
         val zone = ZoneId.systemDefault()
         for (ex in ReferenceExamples.widgets + ReferenceExamples.variants) for (lang in ScriptLang.entries) {
-            val before = (if (lang == ScriptLang.LUA) DocsExamples.luaBefore else DocsExamples.jsBefore)[ex.name].orEmpty()
-            val shown = DocsExamples.shown(context, ex.name, ex.kind, ex.size, lang, before + ex.code(lang), DocsExamples.optionsOf[ex.name].orEmpty())
-            assertEquals("${ex.name} in $lang", ex.spec(System.currentTimeMillis() / 1000, zone), shown)
+            val before =
+                (if (lang == ScriptLang.LUA) DocsExamples.luaBefore else DocsExamples.jsBefore)[ex.name].orEmpty()
+            val shown = DocsExamples.shown(
+                context,
+                ex.name,
+                ex.kind,
+                ex.size,
+                lang,
+                before + ex.code(lang),
+                DocsExamples.optionsOf[ex.name].orEmpty()
+            )
+            assertEquals(
+                "${ex.name} in $lang",
+                ex.spec(System.currentTimeMillis() / 1000, zone),
+                shown
+            )
         }
     }
 }

@@ -16,19 +16,24 @@ import com.mtwabpin.kolahal.data.FontFiles
  */
 object TermFonts {
     private val bundled: Map<String, FontFamily> by lazy {
-        fun family(regular: Int, bold: Int) = FontFamily(Font(regular, FontWeight.Normal), Font(bold, FontWeight.Bold))
+        fun family(regular: Int, bold: Int) =
+            FontFamily(Font(regular, FontWeight.Normal), Font(bold, FontWeight.Bold))
         mapOf(
             "jetbrains-mono" to family(R.font.jetbrains_mono_regular, R.font.jetbrains_mono_bold),
             "fira-code" to family(R.font.fira_code_regular, R.font.fira_code_bold),
             "ibm-plex-mono" to family(R.font.ibm_plex_mono_regular, R.font.ibm_plex_mono_bold),
-            "source-code-pro" to family(R.font.source_code_pro_regular, R.font.source_code_pro_bold),
+            "source-code-pro" to family(
+                R.font.source_code_pro_regular,
+                R.font.source_code_pro_bold
+            ),
             "iosevka" to family(R.font.iosevka_regular, R.font.iosevka_bold),
         )
     }
 
     private class Loaded(val path: String, val stamp: Long, val family: FontFamily)
 
-    @Volatile private var customCache: Loaded? = null
+    @Volatile
+    private var customCache: Loaded? = null
 
     /** The imported font as a family, or null if it is missing or unreadable. Cached per file version. */
     fun customFamily(context: Context): FontFamily? {

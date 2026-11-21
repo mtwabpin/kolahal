@@ -40,11 +40,21 @@ class DeviceStatus private constructor(private val context: Context) {
         // Read the current level once, without listening. Home listens only while it is on screen
         // (watchBattery). So when the process starts in the background (a feed fetch, a reminder),
         // battery changes don't wake it.
-        ContextCompat.registerReceiver(context, null, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)?.let(::onBattery)
+        ContextCompat.registerReceiver(
+            context,
+            null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )?.let(::onBattery)
 
-        ContextCompat.registerReceiver(context, object : BroadcastReceiver() {
-            override fun onReceive(c: Context, intent: Intent) = refreshAlarm()
-        }, IntentFilter(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            context,
+            object : BroadcastReceiver() {
+                override fun onReceive(c: Context, intent: Intent) = refreshAlarm()
+            },
+            IntentFilter(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         refreshAlarm()
 
         val cm = context.getSystemService(ConnectivityManager::class.java)
@@ -76,7 +86,10 @@ class DeviceStatus private constructor(private val context: Context) {
         batteryOn = on
         if (on) {
             ContextCompat.registerReceiver(
-                context, battery, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED,
+                context,
+                battery,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
             )?.let(::onBattery)
         } else {
             runCatching { context.unregisterReceiver(battery) }

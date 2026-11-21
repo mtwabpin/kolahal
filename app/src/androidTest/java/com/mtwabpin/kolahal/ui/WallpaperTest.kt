@@ -19,7 +19,8 @@ import org.junit.runner.RunWith
 class WallpaperTest {
     private val config = Config.get(InstrumentationRegistry.getInstrumentation().targetContext)
 
-    @After fun tearDown() {
+    @After
+    fun tearDown() {
         config.preview(Keys.LOG_WALLPAPER, null)
         config.reset(Keys.LOG_WALLPAPER)
         config.reset(Keys.WIDGETS_WALLPAPER)
@@ -37,17 +38,21 @@ class WallpaperTest {
             onActivity { a ->
                 val p = a.window.attributes
                 assertEquals(PixelFormat.TRANSLUCENT, p.format)
-                val behind = (a.window.decorView.background as? android.graphics.drawable.ColorDrawable)?.alpha
-                shows = p.flags and WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER != 0 && behind == 0
+                val behind =
+                    (a.window.decorView.background as? android.graphics.drawable.ColorDrawable)?.alpha
+                shows =
+                    p.flags and WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER != 0 && behind == 0
             }
             return shows
         }
+
         val until = SystemClock.uptimeMillis() + 5_000
         while (now() != expected && SystemClock.uptimeMillis() < until) Thread.sleep(50)
         assertEquals(expected, now())
     }
 
-    @Test fun eachPageLetsTheWallpaperThroughOnlyWhenItShowsIt() {
+    @Test
+    fun eachPageLetsTheWallpaperThroughOnlyWhenItShowsIt() {
         config.set(Keys.WIDGETS_PAGE, "left")
         ActivityScenario.launch(MainActivity::class.java).use {
             it.showsWallpaper(false)
