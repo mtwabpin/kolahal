@@ -164,6 +164,17 @@ class TtyHomeTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Quick actions").fetchSemanticsNodes().isNotEmpty() }
     }
 
+    /** A tap on a quick action runs it and closes the sheet: Unlocks this week runs `unlocks 7`. */
+    @Test
+    fun aQuickActionRuns() {
+        show()
+        compose.onNodeWithTag("prompt-quick").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Unlocks this week").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Unlocks this week").performClick()
+        compose.waitUntil(5_000) { logs.recent(50, afterId = lines.start).any { it.text == "unlocks 7" } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Quick actions").fetchSemanticsNodes().isEmpty() }
+    }
+
     /** The app selector opens on the grid: a slide along the edge brings its list in. */
     @Test
     fun theSelectorOpens() {

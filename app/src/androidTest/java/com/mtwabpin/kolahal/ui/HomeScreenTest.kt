@@ -78,6 +78,9 @@ class HomeScreenTest {
     @get:Rule
     val configReset = ConfigReset()
 
+    @get:Rule
+    val lines = com.mtwabpin.kolahal.LogLinesSince()
+
     private fun show(width: Dp, height: Dp): TerminalViewModel {
         // On the main thread, as the activity makes it.
         val vm = vms.terminal(app)
@@ -405,6 +408,17 @@ class HomeScreenTest {
         compose.onNodeWithTag("prompt-quick").performClick()
         compose.onNodeWithText("Quick actions").assertIsDisplayed()
         compose.onNodeWithText("Unlocks this week").assertIsDisplayed()
+    }
+
+    /** A tap on a quick action runs it and closes the sheet: Unlocks this week runs `unlocks 7`. */
+    @Test
+    fun aQuickActionRuns() {
+        val logs = LogRepository.get(app)
+        show(360.dp, 700.dp)
+        compose.onNodeWithTag("prompt-quick").performClick()
+        compose.onNodeWithText("Unlocks this week").performClick()
+        compose.waitUntil(5_000) { logs.recent(50, afterId = lines.start).any { it.text == "unlocks 7" } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Quick actions").fetchSemanticsNodes().isEmpty() }
     }
 
     /**
