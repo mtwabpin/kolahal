@@ -212,7 +212,7 @@ class ShaderMetaTest {
         }
         // Only the ones that say they move are drawn over and over.
         assertEquals(
-            listOf("mountains", "pond", "rain", "snowfall", "aurora", "night", "fireflies", "contour", "ink"),
+            listOf("mountains", "pond", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
         )
     }

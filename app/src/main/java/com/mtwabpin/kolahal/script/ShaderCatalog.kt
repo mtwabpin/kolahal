@@ -17,7 +17,7 @@ object ShaderCatalog {
     /** The shaders that come with Kolahal, as assets (`shaders/<name>.agsl`). */
     val BUNDLED = listOf(
         "crt", "lcd", "eink", "paper", "riso", "graph", "foil", "lamp", "dusk", "frost",
-        "mountains", "pond", "rain", "snowfall", "aurora", "night", "fireflies", "contour", "ink",
+        "mountains", "pond", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink",
     )
 
     /** What the `shader` command reads as its own words: no shader has one of these names. */

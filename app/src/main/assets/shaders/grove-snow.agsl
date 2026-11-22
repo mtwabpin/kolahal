@@ -1,0 +1,78 @@
+// @name Grove snow
+// @description Slow, crisp flakes fall and wander behind the text, as in Grove. They dim with the hour
+// @animated
+//
+// Four sets of columns over each other. Each column falls at its own speed, and each of its cells has one
+// flake, anywhere in it, with its own size and sway. Nothing moves in step, and nothing is wide.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float4 date;
+uniform float dark;
+layout(color) uniform half4 bg;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// How much of the night there is at hour h, and how much of the sunrise's or the sunset's warmth.
+float nightAt(float h) {
+    return h < 12.0 ? 1.0 - smoothstep(5.2, 7.2, h) : smoothstep(18.0, 20.2, h);
+}
+
+float warmthAt(float h) {
+    return 0.55 * max(0.0, 1.0 - min(abs(h - 6.4), abs(h - 18.7)) / 1.1);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // Not over text: a pixel that differs from the background is text or a line.
+    float open = 1.0 - clamp(length(here.rgb - float3(bg.rgb) * here.a) * 5.0, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
+    // Lengths are in dp, about 400 across a phone, so it looks the same on any screen.
+    float dp = min(resolution.x, resolution.y) / 400.0;
+    float2 at = xy / dp;
+    float soft = 1.0 / dp;
+    float h = date.w / 3600.0;
+    float night = nightAt(h);
+    float3 warm = mix(float3(1.0), float3(1.0, 0.843, 0.659), warmthAt(h));
+
+    float flake = 0.0;
+    for (int i = 0; i < 4; i++) {
+        float n = float(i);
+        float2 cell = float2(52.0 + 5.0 * n, 292.0 - 25.0 * n);
+        float x = at.x / cell.x + 0.37 * n;
+        float column = floor(x);
+        float part = (x - column) * cell.x;
+
+        // A flake sways at most 8 dp and is at most 2.2 wide: the next column matters only near its edge.
+        float side = part < 10.4 ? -1.0 : (part > cell.x - 10.4 ? 1.0 : 0.0);
+        for (int j = 0; j < 2; j++) {
+            if (j == 1 && side == 0.0) break;
+            float c = column + (j == 1 ? side : 0.0);
+            float own = hash(float2(c, n * 17.0 + 3.0));
+            float y = (at.y - time * (10.0 + 14.0 * own)) / cell.y + own * 91.0;
+            float row = floor(y);
+            float2 id = float2(c * 1.3 + n * 41.0, mod(row, 2048.0));
+            float r1 = hash(id);
+            float r2 = hash(id + 19.7);
+            float radius = 1.0 + 1.2 * hash(id + 43.1);
+            float2 center = float2((c - 0.37 * n + r1) * cell.x + 8.0 * sin(0.8 * time + 6.2832 * r2),
+                3.0 + fract(r2 * 7.0 + r1) * (cell.y - 6.0));
+            float d = length(float2(at.x - center.x, (y - row) * cell.y - center.y));
+            flake = max(flake, 1.0 - smoothstep(radius - 0.5 * soft, radius + 0.5 * soft, d));
+        }
+    }
+
+    // White by day and a moonlit blue grey by night; on a light theme a blue grey always, as white won't show.
+    float3 color = mix(warm, float3(0.663, 0.725, 0.824), 0.85 * night);
+    color = mix(float3(0.48, 0.58, 0.74) * mix(float3(1.0), warm, 0.5), color, dark);
+    float amount = flake * mix(0.80, 0.85, dark) * open;
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

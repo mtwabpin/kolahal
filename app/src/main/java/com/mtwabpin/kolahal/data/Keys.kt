@@ -500,6 +500,8 @@ object Keys {
             "pond" to "A still pond under far hills, with rings of rain",
             "rain" to "A storm with depth: far mist, rain, and big soft drops close by",
             "snowfall" to "Snow falls behind the text and drifts as the phone leans",
+            "grove-snow" to "A few crisp flakes that fall and wander slowly",
+            "grove-autumn" to "A few autumn leaves that turn as they drift down",
             "aurora" to "Northern lights in the top of the screen, behind the text",
             "night" to "Stars that twinkle and a meteor; on a light theme, a star chart",
             "fireflies" to "Small lights wander behind the text; on a light theme, soft motes",

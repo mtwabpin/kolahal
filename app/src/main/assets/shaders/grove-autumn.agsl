@@ -1,0 +1,91 @@
+// @name Grove autumn
+// @description A few leaves turn and drift down behind the text, as in Grove: orange, gold and rust. They dim with the hour
+// @animated
+//
+// Two sets of columns over each other. Each column falls at its own speed, and each of its cells has one
+// leaf, anywhere in it, with its own color, sway and turn. Sparse on purpose.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float4 date;
+uniform float dark;
+layout(color) uniform half4 bg;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// How much of the night there is at hour h, and how much of the sunrise's or the sunset's warmth.
+float nightAt(float h) {
+    return h < 12.0 ? 1.0 - smoothstep(5.2, 7.2, h) : smoothstep(18.0, 20.2, h);
+}
+
+float warmthAt(float h) {
+    return 0.55 * max(0.0, 1.0 - min(abs(h - 6.4), abs(h - 18.7)) / 1.1);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // Not over text: a pixel that differs from the background is text or a line.
+    float open = 1.0 - clamp(length(here.rgb - float3(bg.rgb) * here.a) * 5.0, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
+    // Lengths are in dp, about 400 across a phone, so it looks the same on any screen.
+    float dp = min(resolution.x, resolution.y) / 400.0;
+    float2 at = xy / dp;
+    float soft = 1.0 / dp;
+    float h = date.w / 3600.0;
+    float night = nightAt(h);
+    float3 warm = mix(float3(1.0), float3(1.0, 0.843, 0.659), warmthAt(h));
+
+    float3 color = float3(0.0);
+    float leaf = 0.0;
+    for (int i = 0; i < 2; i++) {
+        float n = float(i);
+        float2 cell = float2(101.0 + 18.0 * n, 420.0 - 62.0 * n);
+        float x = at.x / cell.x + 0.43 * n;
+        float column = floor(x);
+        float part = (x - column) * cell.x;
+
+        // A leaf sways at most 18 dp and reaches 3 from its middle: the next column matters only near its edge.
+        float side = part < 21.5 ? -1.0 : (part > cell.x - 21.5 ? 1.0 : 0.0);
+        for (int j = 0; j < 2; j++) {
+            if (j == 1 && side == 0.0) break;
+            float c = column + (j == 1 ? side : 0.0);
+            float own = hash(float2(c, n * 23.0 + 5.0));
+            float y = (at.y - time * (12.0 + 10.0 * own)) / cell.y + own * 67.0;
+            float row = floor(y);
+            float2 id = float2(c * 1.7 + n * 53.0, mod(row, 2048.0));
+            float r1 = hash(id);
+            float r2 = hash(id + 29.3);
+            float r3 = hash(id + 57.9);
+            float2 center = float2((c - 0.43 * n + r1) * cell.x + 18.0 * sin(0.9 * time + 6.2832 * r2),
+                4.0 + r3 * (cell.y - 8.0));
+            float2 off = float2(at.x - center.x, (y - row) * cell.y - center.y);
+            if (dot(off, off) > 16.0) continue;
+
+            // Turned in the plane, always one way, then the distance to a 6 by 3 ellipse.
+            float turn = -mod(1.5 * time, 6.2832) - 6.2832 * fract(r2 * 5.0 + r3);
+            float2 q = float2(off.x * cos(turn) - off.y * sin(turn), off.x * sin(turn) + off.y * cos(turn));
+            float2 half1 = float2(3.0, 1.5);
+            float k = length(q / half1);
+            float d = k * (k - 1.0) / max(length(q / (half1 * half1)), 0.001);
+            float cover = 1.0 - smoothstep(-0.5 * soft, 0.5 * soft, d);
+            if (cover > leaf) {
+                leaf = cover;
+                float which = fract(r1 * 13.0 + r3) * 3.0;
+                color = which < 1.0 ? float3(0.824, 0.478, 0.173) : (which < 2.0 ? float3(0.914, 0.659, 0.247) : float3(0.663, 0.286, 0.165));
+            }
+        }
+    }
+
+    // Warmer at sunrise and sunset and dimmer at night, but never so dark that it sinks into a dark theme.
+    color *= warm * mix(float3(1.0), mix(float3(0.72, 0.75, 0.82), float3(0.60, 0.63, 0.74), dark), night);
+    float amount = leaf * open;
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

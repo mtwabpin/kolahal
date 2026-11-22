@@ -52,6 +52,8 @@ nothing while the screen is still.
 | `pond` | a still pond under far hills, after woodblock prints, with rings of rain and a path of light. It follows the hour. It moves |
 | `rain` | a storm you stand in: mist far off, rain in between and big soft drops close by; it slants as the phone leans, and a touch holds it off. It moves |
 | `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. It moves |
+| `grove-snow` | small, crisp flakes fall and wander slowly behind the text, and dim with the hour. It moves |
+| `grove-autumn` | a few orange, gold and rust leaves turn as they drift down, and dim with the hour. It moves |
 | `aurora` | curtains of northern lights in the top of the screen, behind the text. It moves |
 | `night` | stars that twinkle slowly and shift a little as the phone leans, and a meteor now and then; on a light theme, an engraved star chart. It moves |
 | `fireflies` | small lights wander behind the text, and a touch draws them near; on a light theme, soft motes in the sun. It moves |
