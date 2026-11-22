@@ -29,7 +29,12 @@ val uploadKey = signingKey("upload", "UPLOAD")
 
 android {
     namespace = "com.mtwabpin.kolahal"
-    compileSdk = 37
+    // Compose 1.13 asks for 37.1 or newer. targetSdk, what the app runs as, stays 37.
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
     // The NDK strips the native libraries (Lua, QuickJS) and keeps their symbols for Play: the
     // workflows install this version, as runner images don't always carry it.
     ndkVersion = "28.2.13676358"
