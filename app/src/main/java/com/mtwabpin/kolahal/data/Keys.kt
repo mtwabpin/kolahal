@@ -496,6 +496,8 @@ object Keys {
             "lamp" to "A pool of light where you last touched, the rest dimmer",
             "dusk" to "A sky behind the text that follows the time of day",
             "frost" to "Ice grows in from the edges and melts under your finger",
+            "mountains" to "Misty ridges that breathe, under the hour's sun or moon",
+            "pond" to "A still pond under far hills, with rings of rain",
             "rain" to "A storm with depth: far mist, rain, and big soft drops close by",
             "snowfall" to "Snow falls behind the text and drifts as the phone leans",
             "aurora" to "Northern lights in the top of the screen, behind the text",

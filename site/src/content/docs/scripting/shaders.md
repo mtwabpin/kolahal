@@ -48,6 +48,8 @@ nothing while the screen is still.
 | `lamp` | a soft pool of light where you last touched, and the rest of the page a little dimmer |
 | `dusk` | a sky behind the text that follows the phone's clock: night, dawn, daylight and dusk |
 | `frost` | ice grows in from the edges and corners, and melts under your finger |
+| `mountains` | flat mountain ridges in mist, after woodblock prints. They breathe slowly, follow the hour, and shift a little as the phone leans. It moves |
+| `pond` | a still pond under far hills, after woodblock prints, with rings of rain and a path of light. It follows the hour. It moves |
 | `rain` | a storm you stand in: mist far off, rain in between and big soft drops close by; it slants as the phone leans, and a touch holds it off. It moves |
 | `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. It moves |
 | `aurora` | curtains of northern lights in the top of the screen, behind the text. It moves |

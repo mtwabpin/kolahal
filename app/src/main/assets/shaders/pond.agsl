@@ -1,0 +1,293 @@
+// @name Pond
+// @description A still pond under far hills, after woodblock prints, with rings of rain and a path of light that follows the hour
+// @animated
+//
+// Flat shapes with one soft gradient each, and their reflections. The lower part of the page is the theme's
+// own, where the newest lines are.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float4 date;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Five octaves of value noise, 0 to 1: broad shapes with fine edges.
+float noise(float x, float seed) {
+    float sum = 0.0;
+    float size = 0.516;
+    for (int i = 0; i < 5; i++) {
+        float at = floor(x);
+        float f = fract(x);
+        f = f * f * (3.0 - 2.0 * f);
+        sum += size * mix(hash(at + seed), hash(at + 1.0 + seed), f);
+        x = x * 2.0 + 7.3;
+        size *= 0.5;
+    }
+    return sum;
+}
+
+// A slow breath: four seconds in, six out.
+float breath(float t) {
+    float p = mod(t, 10.0);
+    return p < 4.0 ? 0.5 - 0.5 * cos(p * 0.7854) : 0.5 + 0.5 * cos((p - 4.0) * 0.5236);
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's colors for the theme. A dark one keeps its light text readable: each hour is a night with
+// that hour's color, darkened, in it. A light one has no dark sky: its night is a pale, moonlit one.
+float4 themed(float4 w) {
+    float4 deep = float4(w.xyz * 0.19, 1.0 - 0.60 * (w.x + w.y + w.z));
+    float4 pale = float4(w.x + 0.50 * w.w, w.y + 0.10 * w.w, w.z + 0.32 * w.w, 0.08 * w.w);
+    return dark > 0.5 ? deep : pale;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends.
+float ground(float y) {
+    return y < 0.64 ? 0.80 * clamp((y - 0.42) / 0.22, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.64) / 0.20, 0.0, 1.0);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float y = xy.y / resolution.y;
+    if (y > 0.84) return half4(here);
+
+    float4 raw = hours(date.w / 3600.0);
+    float4 w = themed(raw);
+    float3 sky = float3(0.788, 0.847, 0.902) * w.x + float3(0.663, 0.796, 0.878) * w.y
+        + float3(0.604, 0.627, 0.769) * w.z + float3(0.043, 0.071, 0.149) * w.w;
+    float3 mid = float3(0.902, 0.875, 0.894) * w.x + float3(0.812, 0.886, 0.902) * w.y
+        + float3(0.890, 0.718, 0.706) * w.z + float3(0.086, 0.129, 0.239) * w.w;
+    float3 horizonSky = float3(0.973, 0.863, 0.784) * w.x + float3(0.933, 0.941, 0.875) * w.y
+        + float3(0.965, 0.812, 0.624) * w.z + float3(0.145, 0.212, 0.353) * w.w;
+    float3 disc = float3(1.000, 0.953, 0.863) * raw.x + float3(1.000, 0.992, 0.949) * raw.y
+        + float3(1.000, 0.902, 0.753) * raw.z + float3(0.910, 0.925, 0.957) * raw.w;
+    float3 glow = float3(1.000, 0.886, 0.722) * raw.x + float3(1.000, 0.965, 0.847) * raw.y
+        + float3(1.000, 0.788, 0.541) * raw.z + float3(0.616, 0.706, 0.847) * raw.w;
+    float3 haze = float3(0.980, 0.925, 0.886) * w.x + float3(0.941, 0.965, 0.933) * w.y
+        + float3(0.965, 0.839, 0.769) * w.z + float3(0.235, 0.314, 0.471) * w.w;
+    float3 r1 = float3(0.643, 0.702, 0.800) * w.x + float3(0.580, 0.722, 0.714) * w.y
+        + float3(0.651, 0.549, 0.643) * w.z + float3(0.133, 0.192, 0.314) * w.w;
+    float3 r3 = float3(0.373, 0.502, 0.576) * w.x + float3(0.353, 0.541, 0.471) * w.y
+        + float3(0.373, 0.345, 0.498) * w.z + float3(0.075, 0.122, 0.212) * w.w;
+    float3 near = float3(0.278, 0.416, 0.447) * w.x + float3(0.267, 0.439, 0.361) * w.y
+        + float3(0.259, 0.275, 0.404) * w.z + float3(0.051, 0.090, 0.165) * w.w;
+    float3 water1 = float3(0.941, 0.863, 0.816) * w.x + float3(0.875, 0.914, 0.875) * w.y
+        + float3(0.941, 0.804, 0.690) * w.z + float3(0.133, 0.188, 0.310) * w.w;
+    float3 water2 = float3(0.812, 0.859, 0.890) * w.x + float3(0.725, 0.827, 0.847) * w.y
+        + float3(0.788, 0.706, 0.741) * w.z + float3(0.063, 0.102, 0.188) * w.w;
+    float3 water3 = float3(0.718, 0.792, 0.847) * w.x + float3(0.639, 0.765, 0.800) * w.y
+        + float3(0.663, 0.639, 0.741) * w.z + float3(0.047, 0.078, 0.157) * w.w;
+    const float SHORE = 0.33;
+    // Text is dark on a light theme: the woods are paler there.
+    r3 = mix(r3, haze, mix(0.38, 0.0, dark));
+
+    float s = y / SHORE;
+    float3 color = s < 0.55 ? mix(sky, mid, s / 0.55) : mix(mid, horizonSky, clamp((s - 0.55) / 0.45, 0.0, 1.0));
+
+    // The sun by day and the moon by night, each on its own arc, from left to right.
+    float h = date.w / 3600.0;
+    bool moon = h < 5.5 || h > 19.5;
+    float arc = moon ? (h > 12.0 ? h - 19.5 : h + 4.5) / 10.0 : (h - 5.5) / 14.0;
+    float up = sin(3.1416 * clamp(arc, 0.0, 1.0));
+    float low = moon ? 0.0 : 1.0 - smoothstep(0.25, 0.75, up);
+    float small = min(resolution.x, resolution.y);
+    float r = small * mix(0.050, 0.064, low);
+    float2 sunAt = float2(mix(0.60, 0.84, arc) * resolution.x, mix(0.315, 0.13, pow(up, 0.8)) * resolution.y);
+    float there = smoothstep(0.0, 0.10, up);
+    float pixel = 1.0 / resolution.y;
+    float night = dark > 0.5 ? 1.0 : 0.0;
+    float b = breath(time) * 0.7;
+
+    // The hills and the woods are needed only near the shore, for themselves and for their reflections.
+    float above = SHORE - y;
+    float hill = 0.0;
+    float wood = 0.0;
+    if (above < 0.13 && above > -0.10) {
+        float x = xy.x / max(resolution.x, 1.3 * resolution.y);
+        hill = 0.03 + 0.085 * smoothstep(0.25, 0.85, noise(x * 3.4, 17.0));
+
+        // Two rows of round crowns along the woods' top.
+        float crowns = 0.0;
+        for (int i = 0; i < 2; i++) {
+            float n = float(i);
+            float width = small * (0.026 - 0.009 * n);
+            float at = xy.x / width + n * 0.5;
+            float id = floor(at);
+            for (int j = -1; j <= 1; j++) {
+                float c = id + float(j);
+                float radius = width * (0.55 + 0.35 * hash(c + 71.0 * n));
+                float dx = (at - c - 0.5 - 0.4 * (hash(c * 1.7 + 5.0) - 0.5)) * width;
+                crowns = max(crowns, sqrt(max(0.0, radius * radius - dx * dx)));
+            }
+        }
+        wood = (0.006 + 0.030 * smoothstep(0.3, 0.8, noise(x * 9.0, 91.0)) + crowns * pixel * 0.8) * (1.0 + 0.14 * b);
+    }
+
+    if (y < SHORE) {
+
+        float2 off = xy - sunAt;
+        float far = length(off);
+        float wide = exp(-(off.x * off.x / 6.76 + off.y * off.y) / (resolution.y * resolution.y * 0.0110));
+        float peak = moon ? 0.16 : mix(0.40, 0.62, low);
+        float halo = max(0.0, 1.0 - far / (4.5 * r));
+        float shine = (peak * wide + 0.35 * halo * halo * (moon ? 0.6 : 1.0)) * there * mix(1.0, 0.45, dark);
+        color = mix(color, glow, clamp(shine, 0.0, 1.0));
+        if (moon && dark > 0.5) {
+            // Small stars, fewer near the moon and the horizon.
+            float2 cellAt = xy / (small * 0.052);
+            float2 id = floor(cellAt);
+            float s = hash2(id);
+            float2 star = fract(cellAt) - (0.2 + 0.6 * float2(hash2(id + 7.1), hash2(id + 3.7)));
+            float dot1 = 1.0 - smoothstep(0.012, 0.036 + 0.02 * s, length(star));
+            color += disc * dot1 * step(0.62, s) * 0.45 * (1.0 - smoothstep(0.5, 1.0, y / SHORE)) * (1.0 - halo);
+        }
+        float face = clamp(r - far + 0.5, 0.0, 1.0) * there;
+        float3 facing = disc;
+        if (moon) {
+            // Very faint patches.
+            float2 m = off / r;
+            float patches = smoothstep(0.62, 0.10, length((m - float2(-0.26, -0.22)) * float2(0.8, 1.2))) + smoothstep(0.40, 0.06, length((m - float2(0.12, 0.02)) * float2(1.3, 0.9)))
+                + 0.7 * smoothstep(0.40, 0.05, length((m - float2(0.34, 0.40)) * float2(0.9, 1.4)));
+            facing *= 1.0 - 0.022 * clamp(patches, 0.0, 1.0);
+        }
+        color = mix(color, facing, face * mix(1.0, moon ? 0.92 : 0.75, dark));
+
+        // A small flock now and then, level with the sun, flapping and gliding.
+        float slot = floor(time / 46.0);
+        float when = time - slot * 46.0;
+        float side = hash(slot + 11.0) < 0.5 ? 1.0 : -1.0;
+        float across = when / 27.0 * 1.4 - 0.2;
+        float2 flock = float2((side > 0.0 ? across : 1.0 - across) * resolution.x,
+            sunAt.y + (hash(slot + 3.0) - 0.3) * 0.06 * resolution.y - 0.02 * resolution.y * sin(across * 2.4));
+        float wing = small * 0.017;
+        if (hash(slot + 29.0) < 0.75 && abs(xy.x - flock.x) < wing * 11.0 && abs(xy.y - flock.y) < wing * 7.0) {
+            float birds = 0.0;
+            for (int i = 0; i < 5; i++) {
+                float n = float(i);
+                float own = hash(slot * 7.0 + n);
+                float2 b = (xy - flock - float2((n - 2.0) * 3.4 + own * 1.6, abs(n - 2.0) * 1.7 + own * 2.2) * wing * float2(-side, 1.0))
+                    / (wing * (0.75 + 0.35 * own));
+                float a = abs(b.x);
+                float flap = smoothstep(-0.1, 0.6, sin(time * 0.9 + n * 1.3)) * sin(time * (6.0 + own) + n * 2.0);
+                float line = -(0.42 + 0.42 * flap) * (1.7 * a - 1.0 * a * a) + 0.18;
+                float thick = 0.13 * (1.0 - 0.8 * a);
+                birds = max(birds, step(a, 1.0) * (1.0 - smoothstep(thick * 0.6, thick + 0.06, abs(b.y - line))));
+            }
+            color = mix(color, near, birds * 0.75);
+        }
+
+        float cover = clamp((hill - above) / pixel + 0.5, 0.0, 1.0);
+        color = mix(color, mix(haze, r1, mix(0.55, 1.0, clamp(above / max(hill, 0.001), 0.0, 1.0))), cover);
+        cover = clamp((wood - above) / pixel + 0.5, 0.0, 1.0);
+        color = mix(color, mix(haze, r3, mix(0.70, 1.0, clamp(above / max(wood, 0.001), 0.0, 1.0))), cover);
+    } else {
+        float deep = (y - SHORE) / (1.0 - SHORE);
+        color = deep < 0.3 ? mix(water1, water2, deep / 0.3) : mix(water2, water3, (deep - 0.3) / 0.7);
+
+        // Reflections, flipped and three quarters as tall.
+        float mirrored = -above / 0.75;
+        color = mix(color, r1, 0.30 * clamp((hill - mirrored) / pixel * 0.5 + 0.5, 0.0, 1.0));
+        color = mix(color, r3, 0.50 * clamp((wood - mirrored) / pixel * 0.5 + 0.5, 0.0, 1.0));
+
+        // Fine streaks of light: short and packed far off, longer nearby.
+        float rows = sqrt(deep) * 46.0;
+        float row = floor(rows);
+        float middle = (row + 0.2 + 0.6 * hash(row * 3.1)) / 46.0;
+        float rowY = SHORE + middle * middle * (1.0 - SHORE);
+        float reach = resolution.x * mix(0.03, 0.30, clamp(middle * 1.3, 0.0, 1.0));
+        float line = 1.0 - smoothstep(0.4, 1.3, abs(y - rowY) / pixel);
+        float streaks = 0.0;
+        for (int i = 0; i < 2; i++) {
+            float n = float(i);
+            float mid2 = hash(row * 5.3 + n * 17.0) * resolution.x + 3.0 * sin(time * 0.25 + row);
+            streaks = max(streaks, 1.0 - smoothstep(0.6, 1.0, abs(xy.x - mid2) / reach));
+        }
+        color = mix(color, float3(1.0), line * streaks * mix(0.35, 0.06, night));
+
+        // The path of light under the sun or the moon: a soft glow, and glints that twinkle and sway.
+        float path = 1.0 - smoothstep(0.54, 0.66, y);
+        float spread = r * (1.0 + 7.0 * deep);
+        float away = (xy.x - sunAt.x) / spread;
+        float shine = exp(-away * away * 0.7) * path * there;
+        color = mix(color, glow, shine * mix(0.30, 0.10, night) * (moon ? 0.7 : 1.0));
+        float grow = sqrt(deep) * 34.0;
+        float step1 = floor(grow);
+        float at = (step1 + 0.5) / 34.0;
+        float glintY = SHORE + at * at * (1.0 - SHORE);
+        float own = hash(step1 * 2.3 + 40.0);
+        float twinkle = 0.5 + 0.5 * sin(time * 6.2832 / mix(3.5, 10.0, own) + own * 40.0);
+        float sway = (1.0 + 5.0 * own) * sin(time * 0.5 + own * 20.0);
+        float half1 = spread * mix(0.25, 0.85, hash(step1 * 7.7 + 2.0));
+        float2 g = float2(max(0.0, abs(xy.x - sunAt.x - sway - (hash(step1 * 4.1) - 0.5) * spread * 0.9) - half1), (y - glintY) / pixel);
+        float thick = 1.2 + 5.0 * deep;
+        float glint = 1.0 - smoothstep(thick * 0.6, thick, length(g));
+        color = mix(color, disc, glint * twinkle * exp(-away * away * 0.5) * path * there * mix(0.85, 0.45, night) * (1.0 - 0.5 * deep));
+
+        // Rings of rain, in perspective.
+        float rings = 0.0;
+        for (int i = 0; i < 5; i++) {
+            float id = floor(time / 0.82) - float(i);
+            float e = mod(id, 4096.0);
+            float age = time - (id + 0.8 * hash(e + 5.0)) * 0.82;
+            float dropY = SHORE + 0.012 + (0.62 - SHORE) * pow(hash(e + 9.0), 1.4);
+            float dropDeep = (dropY - SHORE) / (1.0 - SHORE);
+            float2 q = float2(xy.x - hash(e + 21.0) * resolution.x, (y - dropY) * resolution.y);
+            float flat1 = 0.16 + 0.30 * dropDeep;
+            q.y /= flat1;
+            float most = small * mix(0.035, 0.13, dropDeep + 0.3 * hash(e + 33.0));
+            float l = length(q);
+            if (age > 0.0 && l < most * 1.1) {
+                for (int j = 0; j < 3; j++) {
+                    float a = age - 0.26 * float(j);
+                    if (a > 0.0 && a < 3.2) {
+                        float thin = mix(1.0, flat1, abs(q.y) / max(l, 1.0));
+                        rings += (1.0 - smoothstep(0.5, 1.5, abs(l - most * sqrt(a / 3.2)) * thin)) * (1.0 - a / 3.2) * (1.0 - 0.25 * float(j));
+                    }
+                }
+            }
+        }
+        color = mix(color, night > 0.5 ? float3(0.66, 0.75, 0.92) : near, clamp(rings, 0.0, 1.0) * mix(0.30, 0.38, night));
+
+        // The hairline of light along the shore.
+        color = mix(color, float3(1.0), (1.0 - smoothstep(0.5, 1.8, (y - SHORE) / pixel)) * mix(0.45, 0.08, night));
+    }
+
+    color = mix(color, float3(bg.rgb), ground(y));
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

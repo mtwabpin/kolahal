@@ -82,7 +82,7 @@ The full-screen [screens](/reference/commands/#screens), such as `matrix` and `s
 | --- | --- | --- | --- |
 | `screen.saver` | choice: `off` `matrix` `clock` `pipes` `decode` | `off` | a screensaver: this screen opens over home after `screen.saver-after` minutes without a touch, while the log page shows and nothing is open or typed. The first touch or key only closes it. It never starts while the screen is off, in battery saver, or with Android's **Remove animations** on |
 | `screen.saver-after` | number 1–60 | `5` | minutes without a touch before the screensaver starts. Settings shows it while `screen.saver` is on |
-| `screen.shader` | choice: `off` `crt` `lcd` `eink` `paper` `riso` `graph` `foil` `lamp` `dusk` `frost` `rain` `snowfall` `aurora` `night` `fireflies` `contour` `ink`, or [one of yours](/scripting/shaders/#adding-your-own) | `off` | a [shader](/scripting/shaders/) over home and the screens (also `shader <name>`). Needs Android 13 or newer; on older versions nothing is drawn. In Settings it is under **Shaders** |
+| `screen.shader` | choice: `off` `crt` `lcd` `eink` `paper` `riso` `graph` `foil` `lamp` `dusk` `frost` `mountains` `pond` `rain` `snowfall` `aurora` `night` `fireflies` `contour` `ink`, or [one of yours](/scripting/shaders/#adding-your-own) | `off` | a [shader](/scripting/shaders/) over home and the screens (also `shader <name>`). Needs Android 13 or newer; on older versions nothing is drawn. In Settings it is under **Shaders** |
 
 ## TTY home style
 
