@@ -23,6 +23,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderClock
+import com.mtwabpin.kolahal.script.ShaderDate
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderWatchdog
@@ -63,6 +65,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
 /** The shaders drawn now, by name. A test asks for it; a surface can't be asked what its layer does. */
@@ -87,6 +90,7 @@ internal object ActiveShaders {
  * - The shader gets only the uniforms it declares ([ShaderMeta.KNOWN]).
  * - A still shader is drawn only when what it shows or a touch changes; one that is `@animated` at
  *   most [ShaderClock.FPS] times a second, while home is in front ([ShaderClock.moves]).
+ * - A still shader that declares `date` is also drawn once a minute, while home is in front ([FollowDate]).
  * - [ShaderWatchdog] turns a slow one off, and [ShaderSafety] one that Kolahal crashed with.
  * - Two fingers held still for a second turn the shader off, whatever it does to the screen.
  */
@@ -136,12 +140,14 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     ArmWhileShown(shader.id, safety, lifecycle)
     if (window != null) WatchFrames(shader, safety, window, view.display?.refreshRate ?: 60f, context)
     if (shader.meta.animated) AnimateShader(shader, clock, touch)
+    val day = remember(shader) { ShaderDay() }
+    if (!shader.meta.animated && shader.meta.uniforms.any { it.name == ShaderDate.NAME }) FollowDate(shader, day)
 
     val inputs = remember(shader, grid, cols, left) {
         ShaderInputs(shader, grid, cols, left) { Shaders.report(context, shader.name, shader.id, it) }
     }
     return Modifier
-        .shaderEffect(inputs, clock, touch)
+        .shaderEffect(inputs, clock, touch, day)
         .pointerInput(shader) {
             watchTouches(
                 onTouch = { touch.at(it, clock.seconds) },
@@ -152,10 +158,10 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
 
 /** The effect of [inputs] over what this modifier is on. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private fun Modifier.shaderEffect(inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch): Modifier =
+private fun Modifier.shaderEffect(inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch, day: ShaderDay? = null): Modifier =
     graphicsLayer {
         renderEffect = if (size.width > 0f && size.height > 0f) {
-            inputs.effect(size.width, size.height, clock, touch)
+            inputs.effect(size.width, size.height, clock, touch, day)
         } else null
         clip = true
     }
@@ -297,6 +303,27 @@ private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: Shader
     }
 }
 
+/**
+ * Draws a still shader that declares `date` again at each full minute, while home is in front: a sky
+ * follows the day without a frame loop. No timer runs behind another screen or app.
+ */
+@Composable
+private fun FollowDate(shader: LoadedShader, day: ShaderDay) {
+    val shown = LocalTerminalShown.current
+    val focused = LocalWindowInfo.current.isWindowFocused
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(shader, shown, focused) {
+        if (!shown || !focused) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                // Coming back to home counts too: the minute may have passed meanwhile.
+                day.minute++
+                delay(ShaderDate.untilNextMinute(System.currentTimeMillis()))
+            }
+        }
+    }
+}
+
 /** A phone's state for [ShaderClock]. */
 private fun phoneOf(context: Context): ShaderClock.Phone {
     val power = context.getSystemService(PowerManager::class.java)
@@ -315,6 +342,11 @@ private fun phoneOf(context: Context): ShaderClock.Phone {
 /** The shader's own clock, in seconds: it moves only while the shader is animated and home is in front. */
 private class ShaderTime {
     var seconds by mutableFloatStateOf(0f)
+}
+
+/** Counts the minutes a still shader with `date` was drawn for: a change draws it again. */
+private class ShaderDay {
+    var minute by mutableIntStateOf(0)
 }
 
 /** The last touch on the surface, in px, and when it came on the shader's clock. */
@@ -407,9 +439,10 @@ private class ShaderInputs(
     // change a still shader doesn't draw it again.
     private val usesTouch = "touch" in declared || "touchAge" in declared
     private val usesClock = animated && ("time" in declared || "touchAge" in declared)
+    private val usesDate = declared[ShaderDate.NAME]?.floats == ShaderDate.FLOATS
 
     /** The effect for a surface [w] × [h] px. Null when a uniform can't be set. */
-    fun effect(w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch): androidx.compose.ui.graphics.RenderEffect? {
+    fun effect(w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch, day: ShaderDay? = null): androidx.compose.ui.graphics.RenderEffect? {
         if (failed) return null
         val seconds = if (usesClock) clock.seconds else 0f
         val touched = usesTouch && touch.atSeconds >= 0f
@@ -425,6 +458,12 @@ private class ShaderInputs(
                 float2("touch", if (touched) touch.x else -1f, if (touched) touch.y else -1f)
                 // A still shader is drawn at the touch, and then not again: its age stays 0.
                 float1("touchAge", if (!touched) NEVER else if (animated) (seconds - touch.atSeconds).coerceAtLeast(0f) else 0f)
+            }
+            if (usesDate) {
+                // Read, so the minute's change draws a still shader again.
+                day?.minute
+                val now = ShaderDate.of(LocalDateTime.now())
+                runtime.setFloatUniform(ShaderDate.NAME, now[0], now[1], now[2], now[3])
             }
             for ((name, ink) in COLORS) color(name, palette.color(ink))
             RenderEffect.createRuntimeShaderEffect(runtime, ShaderMeta.INPUT).asComposeRenderEffect()

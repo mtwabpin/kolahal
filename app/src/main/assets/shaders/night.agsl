@@ -1,0 +1,102 @@
+// @name Night sky
+// @description Stars behind the text that twinkle slowly, a pale band across the sky, and a meteor now and then. It moves
+// @animated
+//
+// Two layers of stars, each a soft dot of a few pixels, never a single one. They only show where
+// the page does. On a light theme it is a star chart: dark dots on the page.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float time;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 info;
+layout(color) uniform half4 warn;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise from 0 to 1: the hash at the corners of a square, blended.
+float noise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + float2(1.0, 0.0)), f.x),
+               mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), f.x), f.y);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // Time, wrapped where every twinkle repeats, so it stays exact when the shader is on for days.
+    float t = mod(time, 6283.1853);
+    // The smallest star's radius, in pixels: more than one pixel on any screen.
+    float unit = max(1.6, cell.y / 22.0);
+
+    // The pale band: a strip across the screen from the lower left to the upper right, with clouds
+    // in it. More stars are in it, too.
+    float2 p = xy / resolution.x;
+    float across = (p.y - 1.25 + 0.75 * p.x) * 0.8;
+    float band = exp(-across * across / 0.03) * (0.45 + 0.55 * noise(p * 5.0 + 2.0));
+
+    float stars = 0.0;
+    float3 tint = float3(0.0);
+    for (int i = 0; i < 2; i++) {
+        float n = float(i);
+
+        // Squares of this layer, each with at most one star, well inside it.
+        float size = cell.y * (1.7 + 1.9 * n);
+        float2 uv = xy / size + n * float2(0.43, 0.71);
+        float2 id = floor(uv);
+        float r1 = hash(id + n * 13.0);
+        float r2 = hash(id + n * 29.0 + 3.1);
+        float r3 = hash(id + n * 43.0 + 7.9);
+
+        // More squares have a star inside the band. The big layer has the brighter ones.
+        float there = step(0.72 - 0.40 * band, r1);
+        float radius = unit * (1.0 + 1.3 * n * r3 + 0.5 * r2);
+        float2 center = 0.5 + (float2(r2, r3) - 0.5) * 0.5;
+        float d = length(fract(uv) - center) * size;
+        float star = 1.0 - smoothstep(radius * 0.45, radius, d);
+
+        // Each twinkles at its own pace, never going out.
+        float twinkle = 0.70 + 0.30 * sin(t * (0.6 + 1.6 * r3) + r1 * 6.28);
+        float bright = there * star * twinkle * mix(0.55, 1.0, r2 * r2);
+        stars += bright;
+        // Most are white, some a little blue or yellow.
+        tint += bright * mix(mix(float3(info.rgb), float3(warn.rgb), step(0.5, r3)), float3(fg.rgb), 0.3 + 0.7 * step(r2, 0.6));
+    }
+
+    // A meteor in the top of the sky, for the first second of every eleven: a short streak whose
+    // head runs down and to the left.
+    float turn = floor(t / 11.0);
+    float age = fract(t / 11.0) * 11.0;
+    float2 start = resolution * float2(0.35 + 0.6 * hash(float2(turn, 1.0)), 0.04 + 0.22 * hash(float2(turn, 2.0)));
+    float2 way = normalize(float2(-0.80, 0.60));
+    float2 rel = xy - start - way * age * resolution.x * 0.55;
+    float along = -dot(rel, way);
+    float aside = abs(dot(rel, float2(-way.y, way.x)));
+    float tail = cell.y * 5.0;
+    float meteor = step(0.0, along) * step(along, tail) * (1.0 - along / tail)
+        * (1.0 - smoothstep(unit * 0.4, unit * 1.2, aside)) * (1.0 - smoothstep(0.5, 0.9, age));
+
+    // White stars on a dark theme, ink dots on a light one; the band is only a breath of color.
+    float3 chart = float3(fg.rgb);
+    float dots = clamp(stars + meteor, 0.0, 1.0) * mix(0.55, 0.95, dark);
+    float haze = band * mix(0.05, 0.09, dark);
+    float amount = haze * (1.0 - dots) + dots;
+    float3 starColor = mix(chart, tint / max(stars, 0.001), dark * step(0.001, stars));
+    float3 color = (float3(info.rgb) * haze * (1.0 - dots) + starColor * dots) / max(amount, 0.001);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

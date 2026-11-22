@@ -1,0 +1,64 @@
+// @name Foil
+// @description Plain text is stamped in foil: bands of the theme's colors lie across it and slide with your finger
+//
+// Only text in the text color changes. Colored text keeps its meaning, and the page is untouched.
+// The foil is as light or dark as the text was, so it reads as well.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 touch;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 accent;
+layout(color) uniform half4 info;
+layout(color) uniform half4 link;
+layout(color) uniform half4 good;
+
+// How light a color is to the eye.
+float light(float3 c) {
+    return dot(c, float3(0.2126, 0.7152, 0.0722));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // How much of the pixel is the text color: how far it is on the way from the background to it,
+    // less whatever color it has besides. An error's red or a link's blue is left alone.
+    float3 axis = float3(fg.rgb) - float3(bg.rgb);
+    float3 ink = here.rgb - float3(bg.rgb) * here.a;
+    float t = dot(ink, axis) / max(dot(axis, axis), 0.0001);
+    float other = length(ink - t * axis);
+    float plain = clamp(t, 0.0, 1.0) * (1.0 - clamp(other * 7.0 / max(t, 0.05), 0.0, 1.0));
+    if (plain <= 0.0) {
+        return half4(here);
+    }
+
+    // Where the pixel is across the foil: bands at 45 degrees, a little wider than the screen, that
+    // start at the last touch. Before the first touch they start in the top left corner.
+    float2 from = xy - max(touch, float2(0.0));
+    float s = fract(dot(from, float2(0.7071, 0.7071)) / (resolution.x * 0.85));
+
+    // Four colors around the band, each blending into the next.
+    float at = s * 4.0;
+    float3 a = float3(accent.rgb);
+    float3 b = float3(info.rgb);
+    float3 c = float3(link.rgb);
+    float3 d = float3(good.rgb);
+    float f = fract(at);
+    f = f * f * (3.0 - 2.0 * f);
+    float3 foil = at < 1.0 ? mix(a, b, f) : at < 2.0 ? mix(b, c, f) : at < 3.0 ? mix(c, d, f) : mix(d, a, f);
+
+    // As light as the text color: scaled, and where that isn't enough, lifted toward it. Dark text
+    // gets a foil a little lighter than itself, or no color would show; it still reads well on the page.
+    float want = max(light(float3(fg.rgb)), 0.16);
+    foil *= min(want / max(light(foil), 0.05), 1.0 / max(max(foil.r, max(foil.g, foil.b)), 0.05));
+    foil = mix(foil, float3(fg.rgb), clamp((want - light(foil)) * 1.5, 0.0, 0.6));
+
+    // A thin bright line runs along the middle of each color, as light on a crease.
+    float crease = pow(1.0 - abs(2.0 * fract(at) - 1.0), 12.0) * 0.25;
+    foil = mix(foil, float3(fg.rgb), crease);
+
+    // The text color's part of the pixel is swapped for the foil.
+    float3 color = here.rgb + plain * 0.85 * (foil - float3(fg.rgb));
+    return half4(float4(clamp(color, float3(0.0), float3(here.a)), here.a));
+}

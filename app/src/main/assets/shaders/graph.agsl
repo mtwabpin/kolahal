@@ -1,0 +1,41 @@
+// @name Graph paper
+// @description Squared paper behind the text: faint lines in squares, a stronger one every fifth
+//
+// The squares are one row high and two columns wide, and start at the grid's first column. The log
+// scrolls over them, as writing that doesn't keep to the lines: they only show where the page does.
+
+uniform shader content;
+uniform float2 cell;
+uniform float2 origin;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 dim;
+layout(color) uniform half4 info;
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // One square, in pixels, and where this pixel is in its square. Whole pixels, so every line is
+    // as sharp as the next.
+    float2 square = floor(float2(cell.x * 2.0, cell.y) + 0.5);
+    float2 from = floor(xy - floor(origin + 0.5));
+    float2 at = mod(from, square);
+    float2 count = floor(from / square);
+
+    // A line is the first pixel of a square (two on a dense screen), across or down.
+    float thick = max(1.0, floor(cell.y / 40.0 + 0.5));
+    float2 on = step(at, float2(thick - 0.5));
+    float2 fifth = on * step(mod(count, 5.0), float2(0.5));
+    float minor = max(on.x, on.y);
+    float major = max(fifth.x, fifth.y);
+
+    // Blue-grey lines, as on drawing paper.
+    float3 color = mix(float3(dim.rgb), float3(info.rgb), 0.5);
+    float amount = max(minor * mix(0.13, 0.16, dark), major * mix(0.30, 0.34, dark));
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

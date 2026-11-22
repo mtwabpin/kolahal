@@ -1,0 +1,72 @@
+// @name E-paper
+// @description An e-reader's page: matte, nearly without color, with flat areas in a dither pattern
+//
+// Text keeps its edges: only areas wider than a letter's stroke are dithered. Colors keep half of
+// their strength, so an error still differs from a warning.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// The ordered dither pattern, 4 by 4: a threshold from 0 to 1 for each square.
+float bayer2(float2 a) {
+    a = floor(a);
+    return fract(a.x / 2.0 + a.y * a.y * 0.75);
+}
+float bayer4(float2 a) {
+    return bayer2(0.5 * a) * 0.25 + bayer2(a);
+}
+
+// A pixel of home, kept inside the picture.
+float4 pixel(float2 p) {
+    return float4(content.eval(clamp(p, float2(0.5), resolution - float2(0.5))));
+}
+
+// How far a pixel is on the way from the background (0) to the text color (1).
+float tone(float4 c, float3 axis, float len2) {
+    return dot(c.rgb - float3(bg.rgb) * c.a, axis) / len2;
+}
+
+half4 main(float2 xy) {
+    float4 here = pixel(xy);
+    float3 axis = float3(fg.rgb) - float3(bg.rgb);
+    float len2 = max(dot(axis, axis), 0.0001);
+
+    // The pixel as a shade of the page, and what color it has besides.
+    float t = tone(here, axis, len2);
+    float3 chroma = here.rgb - float3(bg.rgb) * here.a - t * axis;
+
+    // A flat area: the pixels a stroke's width away, on four sides, have the same shade.
+    float reach = max(3.0, cell.x * 0.35);
+    float flatness = 1.0;
+    for (int i = 0; i < 4; i++) {
+        // Right, below, above, left.
+        float2 side = i < 2 ? float2(1.0 - float(i), float(i)) : float2(2.0 - float(i), float(i) - 3.0);
+        float there = tone(pixel(xy + reach * side), axis, len2);
+        flatness *= 1.0 - smoothstep(0.04, 0.10, abs(there - t));
+    }
+
+    // A flat shade between the page and the ink becomes a pattern of four shades, in squares of a
+    // few pixels. Text and the page stay as they are.
+    float square = max(2.0, floor(cell.y / 16.0 + 0.5));
+    float shade = floor(t * 3.0 + bayer4(xy / square)) / 3.0;
+    float mid = smoothstep(0.06, 0.12, t) * (1.0 - smoothstep(0.88, 0.94, t));
+    t = mix(t, shade, flatness * mid);
+
+    // E-paper is never quite white or black: the shades are pulled together a little, and the page
+    // has a faint grain.
+    t = 0.05 * here.a + 0.88 * t;
+    t += (hash(floor(xy / square)) - 0.5) * 0.035 * here.a;
+
+    float3 color = float3(bg.rgb) * here.a + t * axis + chroma * 0.5;
+    return half4(float4(clamp(color, float3(0.0), float3(here.a)), here.a));
+}

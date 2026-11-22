@@ -1,0 +1,81 @@
+// @name Fireflies
+// @description Small lights wander behind the text and glow on and off. A touch draws them near. It moves
+// @animated
+//
+// Two layers of flies, one in each square of its layer. They only show where the page does, so
+// text stays as it is. On a light theme they are dark motes with a warm halo.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float time;
+uniform float2 touch;
+uniform float touchAge;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 warn;
+layout(color) uniform half4 good;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // Time, wrapped where every fly's path and glow repeat, so it stays exact for days.
+    float t = mod(time, 6283.1853);
+
+    // The flies come toward a touch, and wander off again within a few seconds.
+    float2 away = xy - touch;
+    float far = max(length(away), 1.0);
+    float pull = step(0.0, touch.x) * exp(-far / (resolution.x * 0.45)) * exp(-touchAge * 0.6);
+    float2 p = xy + away / far * pull * min(far, resolution.x * 0.12);
+
+    float glow = 0.0;
+    float core = 0.0;
+    for (int i = 0; i < 2; i++) {
+        float n = float(i);
+
+        // Squares of this layer, about four or six across the screen, the second layer shifted.
+        float size = resolution.x / (3.6 + n * 2.3);
+        float2 uv = p / size + n * float2(0.37, 0.61);
+        float2 id = floor(uv);
+        float r1 = hash(id + n * 17.0);
+        float r2 = hash(id + n * 31.0 + 5.2);
+        float r3 = hash(id + n * 47.0 + 9.7);
+
+        // Three squares in four have a fly. It wanders on a slow loop of its own inside the square,
+        // far enough from the edges that its glow ends before them.
+        float there = step(0.25, r3);
+        float2 center = 0.5 + 0.27 * float2(
+            sin(t * (0.11 + 0.10 * r1) + r2 * 6.28) + 0.3 * sin(t * 0.53 + r1 * 6.28),
+            cos(t * (0.09 + 0.10 * r2) + r1 * 6.28) + 0.3 * sin(t * 0.47 + r3 * 6.28)) / 1.3;
+
+        // It glows for a moment and rests longer, each at its own pace.
+        float pulse = pow(0.5 + 0.5 * sin(t * (0.5 + 0.5 * r2) + r3 * 6.28), 3.0);
+
+        float d = length(fract(uv) - center) * size;
+        float body = cell.y * (0.10 + 0.05 * r1);
+        glow += there * pulse * exp(-d * d / (body * body * 30.0)) * (1.0 - smoothstep(0.17 * size, 0.22 * size, d));
+        core += there * (0.12 + 0.88 * pulse) * (1.0 - smoothstep(body * 0.6, body, d));
+    }
+
+    // A warm green-yellow light, with a bright middle. On a light theme the middle is a dark mote.
+    float3 light = mix(float3(warn.rgb), float3(good.rgb), 0.35);
+    float3 middle = mix(float3(fg.rgb), mix(light, float3(1.0), 0.6), dark);
+    float halo = clamp(glow, 0.0, 1.0) * mix(0.22, 0.45, dark);
+    float dot1 = clamp(core, 0.0, 1.0) * mix(0.45, 0.85, dark);
+    float amount = halo * (1.0 - dot1) + dot1;
+    float3 color = (light * halo * (1.0 - dot1) + middle * dot1) / max(amount, 0.001);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

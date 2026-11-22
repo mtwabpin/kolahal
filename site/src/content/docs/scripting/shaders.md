@@ -33,14 +33,30 @@ Or type:
 | `shader off` | turns shaders off |
 | `shader on` | turns the last one on again |
 
-The setting behind them is [`screen.shader`](/reference/config/#screens). Three shaders come with
-Kolahal:
+The setting behind them is [`screen.shader`](/reference/config/#screens). These come with Kolahal. The ones marked "moves" are drawn again and again; the others cost
+nothing while the screen is still.
 
 | Name | What it looks like |
 | --- | --- |
 | `crt` | an old CRT monitor: curved glass, scanlines, a glow and a little color fringe |
 | `bloom` | a soft halo around text, in its own color |
+| `lcd` | an old handheld's display: small square pixels, and text casts a shadow on the back |
+| `eink` | an e-reader's page: matte, nearly without color, with flat areas in a dither pattern |
+| `paper` | uncoated paper: a fine grain and fibres, and ink that soaks in a little |
+| `riso` | a stencil print: a second impression of the text in the accent color, a little off register |
+| `graph` | squared paper behind the text |
+| `foil` | plain text stamped in foil: bands of the theme's colors that slide with your finger |
+| `lamp` | a soft pool of light where you last touched, and the rest of the page a little dimmer |
+| `dusk` | a sky behind the text that follows the phone's clock: night, dawn, daylight and dusk |
+| `frost` | ice grows in from the edges and corners; a touch melts a clear spot |
 | `rain` | drops of the theme's accent color fall behind the text. It moves |
+| `snowfall` | snow falls behind the text, and a touch blows it away. It moves |
+| `aurora` | curtains of northern lights in the top of the screen, behind the text. It moves |
+| `night` | stars that twinkle slowly, and a meteor now and then. It moves |
+| `fireflies` | small lights wander behind the text, and a touch draws them near. It moves |
+| `pond` | light ripples as on shallow water, and a touch sends rings out. It moves |
+| `contour` | the contour lines of a map, slowly changing; a touch raises a hill. It moves |
+| `ink` | a touch drops a faint cloud of ink that spreads behind the text and fades. It moves |
 
 ## If something goes wrong
 
@@ -189,6 +205,7 @@ of another name stays 0. `shader check` lists both.
 | `touch` | `float2` | the last touch, in pixels. `-1, -1` before the first one |
 | `touchAge` | `float` | seconds since that touch, only in an `@animated` shader. 1000 before the first touch |
 | `dark` | `float` | 1 in a dark theme, 0 in a light one |
+| `date` | `float4` | the phone's date and time: the year, the month (1 to 12), the day of the month, and the seconds since midnight, in local time. A shader that isn't `@animated` is drawn again once a minute when it declares it |
 | `bg` `surface` `fg` `dim` `accent` `error` `warn` `good` `info` `link` | `half4` | the theme's colors. Declare them with `layout(color)`, so they match the screen's colors |
 
 `half` and `float` are both fine for the numbers; `half2` and `float2` as well. The types have to match:

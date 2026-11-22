@@ -1,0 +1,80 @@
+// @name Contours
+// @description The contour lines of a map behind the text, slowly changing. A touch raises a hill. It moves
+// @animated
+//
+// A height for every pixel, from smooth noise that drifts; a line is drawn where the height crosses
+// a step. The lines only show where the page does.
+
+uniform shader content;
+uniform float2 cell;
+uniform float time;
+uniform float2 touch;
+uniform float touchAge;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 dim;
+layout(color) uniform half4 accent;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise with its slope: x is the height, from 0 to 1, and yz how fast it rises along p.
+float3 noise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    float2 u = f * f * (3.0 - 2.0 * f);
+    float2 du = 6.0 * f * (1.0 - f);
+    float a = hash(i);
+    float b = hash(i + float2(1.0, 0.0));
+    float c = hash(i + float2(0.0, 1.0));
+    float d = hash(i + float2(1.0, 1.0));
+    float k = a - b - c + d;
+    return float3(a + (b - a) * u.x + (c - a) * u.y + k * u.x * u.y,
+                  du * (float2(b - a, c - a) + k * u.yx));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // The land: broad hills, with smaller ones on them that drift another way. One hill is about
+    // nine rows across. Time is wrapped, so it stays exact when the shader is on for days.
+    float t = mod(time, 4096.0);
+    float size = cell.y * 9.0;
+    float2 p = xy / size;
+    float3 broad = noise(p + t * float2(0.010, 0.004));
+    float3 small = noise(p * 2.1 + 7.3 - t * float2(0.006, 0.013));
+    float height = broad.x + 0.45 * small.x;
+    float2 slope = (broad.yz + 0.45 * 2.1 * small.yz) / size;
+
+    // A touch raises a hill, which sinks again within a few seconds.
+    float2 away = xy - touch;
+    float wide = cell.y * 5.0;
+    float hill = step(0.0, touch.x) * 0.6 * exp(-touchAge * 0.6) * exp(-dot(away, away) / (wide * wide));
+    height += hill;
+    slope += -2.0 * away / (wide * wide) * hill;
+
+    // Ten lines for each unit of height. How far this pixel is from the nearest one, in pixels: its
+    // distance in height, over how fast the height changes here.
+    float steps = height * 10.0;
+    float steep = max(length(slope) * 10.0, 0.00001);
+    float off = abs(fract(steps + 0.5) - 0.5) / steep;
+    float thick = max(1.0, cell.y / 36.0);
+    float line = 1.0 - smoothstep(thick * 0.5, thick * 0.5 + 1.0, off);
+    // On flat ground a line would spread into a blot: it fades there.
+    line *= smoothstep(0.0008, 0.004, steep);
+
+    // Every fifth line is in the accent color and stronger, as on a map.
+    float fifth = step(mod(floor(steps + 0.5), 5.0), 0.5);
+    float3 color = mix(float3(dim.rgb), float3(accent.rgb), fifth);
+    float amount = line * mix(mix(0.30, 0.34, dark), mix(0.42, 0.50, dark), fifth);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

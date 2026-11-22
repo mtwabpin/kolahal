@@ -759,7 +759,7 @@ tty.screen({
 - *Files*: `ShaderMeta` and the pure rules are in `script/` (`ShaderMeta`, `ShaderCatalog`,
   `ShaderWatchdog`, `ShaderSafety`); the Android side is `script/Shaders.kt`. The user's files are in
   `files/shaders/`, kept in step with the script folder by `script import` / `script export`, so a
-  shader is found by name without the folder. Bundled: `crt`, `bloom`, `rain` (no `scanlines`,
+  shader is found by name without the folder. Bundled: `crt`, `bloom`, `rain` and the rest of `ShaderCatalog.BUNDLED` (no `scanlines`,
   `aberration`; CRT has both).
 - *Commands*: `shader list | use <name> | on | off | check <name> | reload | copy <name> | remove
   <name>`; `shader <name>` turns one on. `screen.shader` is a `Choice` whose list grows by the user's
@@ -768,7 +768,7 @@ tty.screen({
 - *Settings*: Settings → Shaders (`ui/ShadersScreen.kt`), by the maintainer's request of 22 November; the
   key itself is on no settings page. Its preview uses the code that sets the uniforms, but neither the
   watchdog nor the safe mode's mark.
-- *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`
+- *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`, `date`
   and the ten colors. Not built: `cells` (step 7), `scroll`, `param0..7` and `@param`, `@warp`,
   `@bloom`. A `layout(color)` color must be four numbers, as Android requires.
 - *Watchdog*: the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`) over 60 frames

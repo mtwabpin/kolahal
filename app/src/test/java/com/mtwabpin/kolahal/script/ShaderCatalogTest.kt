@@ -36,14 +36,14 @@ class ShaderCatalogTest {
 
     @Test
     fun yourFileTakesTheBundledOnesPlace() {
-        val list = ShaderCatalog.list(listOf("zoom", "crt", "aurora"))
-        assertEquals(listOf("crt", "bloom", "rain", "aurora", "zoom"), list.map { it.name })
+        val list = ShaderCatalog.list(listOf("zoom", "crt", "my-glow"))
+        assertEquals(ShaderCatalog.BUNDLED + listOf("my-glow", "zoom"), list.map { it.name })
         val crt = list.first { it.name == "crt" }
         assertTrue(crt.bundled && crt.yours)
         val bloom = list.first { it.name == "bloom" }
         assertTrue(bloom.bundled && !bloom.yours)
-        val aurora = list.first { it.name == "aurora" }
-        assertTrue(!aurora.bundled && aurora.yours)
+        val glow = list.first { it.name == "my-glow" }
+        assertTrue(!glow.bundled && glow.yours)
     }
 
     @Test

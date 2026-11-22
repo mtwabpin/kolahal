@@ -1,0 +1,74 @@
+// @name Aurora
+// @description Curtains of northern lights hang in the top of the screen, behind the text. It moves
+// @animated
+//
+// Three curtains in the theme's green, blue and accent, each a band that folds and drifts. They
+// only show where the page does, so text stays as it is.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 accent;
+layout(color) uniform half4 good;
+layout(color) uniform half4 info;
+
+// A number from 0 to 1 that looks random for each n (Dave Hoskins' hash without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+// Rays: smooth random stripes along x.
+float rays(float x) {
+    float i = floor(x);
+    float f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(hash(i), hash(i + 1.0), f);
+}
+
+// One curtain: how bright it is at p (x in screen widths, y in screen heights). Its lower edge is
+// at `base` and waves; the light is sharp at that edge and fades upward over `height`.
+float curtain(float2 p, float base, float height, float seed, float t) {
+    float edge = base
+        + 0.045 * sin(p.x * 5.1 + t * 0.21 + seed)
+        + 0.030 * sin(p.x * 11.3 - t * 0.33 + seed * 2.3)
+        + 0.012 * sin(p.x * 23.0 + t * 0.52 + seed * 4.1);
+    float up = (edge - p.y) / height;
+    float band = smoothstep(-0.16, 0.02, up) * exp(-2.6 * max(up, 0.0));
+    // Thin rays that drift sideways with the folds.
+    float ray = 0.55 + 0.45 * rays(p.x * 46.0 + 3.0 * sin(p.x * 4.0 + t * 0.15 + seed) + seed * 7.0);
+    // The whole curtain breathes.
+    return band * ray * (0.75 + 0.25 * sin(t * 0.17 + seed * 1.7));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float2 p = xy / resolution;
+
+    // Nothing in the lower half of the screen: the rest costs nothing there.
+    if (p.y > 0.52) {
+        return half4(here);
+    }
+    // Time, wrapped at a little under an hour, so it stays exact when the shader is on for days.
+    float t = mod(time, 3141.59265);
+
+    float a = curtain(p, 0.38, 0.30, 0.0, t);
+    float b = curtain(p, 0.29, 0.26, 2.1, t * 1.13);
+    float c = curtain(p, 0.21, 0.20, 4.4, t * 0.9);
+    float3 light = float3(good.rgb) * a + float3(info.rgb) * b + float3(accent.rgb) * c;
+    float sum = a + b + c;
+
+    // Light over the page: stronger on a dark theme, a wash of color on a light one.
+    float amount = clamp(sum, 0.0, 1.0) * mix(0.20, 0.34, dark);
+    float3 color = light / max(sum, 0.001);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

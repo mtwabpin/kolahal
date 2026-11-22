@@ -1,0 +1,48 @@
+// @name Reading lamp
+// @description A soft pool of light where you last touched, and the rest of the page a little dimmer
+//
+// Text is never dimmed by more than a tenth, anywhere, so the prompt stays readable outside the
+// pool. Before the first touch the lamp is over the middle of the screen.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 touch;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 warn;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // The pool: brightest under the lamp, fading over about half the screen's width.
+    float2 lamp = touch.x < 0.0 ? resolution * float2(0.5, 0.45) : touch;
+    float2 from = (xy - lamp) / (resolution.x * 0.55);
+    float light = exp(-dot(from, from));
+
+    // How much of this pixel is the page, and not text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float page = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+
+    // Away from the lamp the page is darker: by a ninth on a light theme, where it shows, and by a
+    // third on a dark one, where the page is nearly black already. Text loses a tenth at most.
+    float shade = (1.0 - light) * mix(mix(0.08, 0.11, page), mix(0.10, 0.35, page), dark);
+    float4 color = here * (1.0 - shade) + float4(0.0, 0.0, 0.0, shade * here.a);
+
+    // Under the lamp the page takes a warm light: this is what shows on a dark theme.
+    float3 warm = mix(float3(warn.rgb), float3(fg.rgb), 0.5);
+    float amount = light * page * mix(0.05, 0.13, dark);
+    color = color * (1.0 - amount) + float4(warm * amount, amount);
+
+    // A little noise on the page, less than one step of a color, hides the rings a slow fade would show.
+    color.rgb = clamp(color.rgb + (hash(xy) - 0.5) * (1.6 / 255.0) * page * color.a, float3(0.0), float3(color.a));
+    return half4(color);
+}

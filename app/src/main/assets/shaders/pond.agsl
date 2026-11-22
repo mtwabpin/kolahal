@@ -1,0 +1,53 @@
+// @name Pond
+// @description Light ripples over the page as on shallow water, and a touch sends rings out. It moves
+// @animated
+//
+// The rings bend the text by a fifth of a cell at most, for about a second after a touch. The
+// light only shows where the page does.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float time;
+uniform float2 touch;
+uniform float touchAge;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 info;
+layout(color) uniform half4 fg;
+
+half4 main(float2 xy) {
+    // Rings from the last touch: three crests that travel out and die within a second and a half.
+    float2 away = xy - touch;
+    float far = max(length(away), 1.0);
+    float life = step(0.0, touch.x) * max(0.0, 1.0 - touchAge / 1.5);
+    float front = touchAge * cell.y * 16.0;
+    float behind = (front - far) / (cell.y * 1.6);
+    // Only between the first crest and three waves behind it.
+    float train = smoothstep(-0.5, 0.0, behind) * (1.0 - smoothstep(2.5, 3.5, behind));
+    float wave = sin(6.2831853 * behind) * train * life * life;
+
+    float2 bend = away / far * wave * cell.x * 0.2;
+    float4 here = float4(content.eval(clamp(xy + bend, float2(0.5), resolution - float2(0.5))));
+
+    // The light on the bottom of the pond: a net of bright lines, three sets that cross at 60 degrees,
+    // each bent by a slow wave of its own so the meshes swell and shrink.
+    float t = mod(time, 6283.1853) * 0.5;
+    float2 p = xy / (cell.y * 1.5);
+    float a = abs(sin(p.x + 0.9 * sin(p.y * 0.61 + t * 0.7)));
+    float b = abs(sin(0.5 * p.x + 0.866 * p.y + 0.9 * sin(p.x * 0.53 - t * 0.6 + 2.0)));
+    float c = abs(sin(-0.5 * p.x + 0.866 * p.y + 0.9 * sin(p.y * 0.47 + t * 0.5 + 4.0)));
+    float net = min(a, min(b, c));
+    // Thin lines, brighter where two of them meet.
+    float caustic = pow(1.0 - net, 5.0) * (0.55 + 0.45 * pow(1.0 - a * b * c, 6.0));
+
+    // Bright lines on a dark theme, soft darker veins on a light one; the crest of a ring too.
+    float amount = caustic * mix(0.06, 0.12, dark) + max(wave, 0.0) * mix(0.07, 0.18, dark);
+    float3 color = mix(mix(float3(info.rgb), float3(fg.rgb), 0.35), mix(float3(info.rgb), float3(1.0), 0.35), dark);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount = clamp(amount, 0.0, 1.0) * (1.0 - clamp(d * 5.0, 0.0, 1.0));
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

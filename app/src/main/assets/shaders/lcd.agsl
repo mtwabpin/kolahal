@@ -1,0 +1,44 @@
+// @name Pocket LCD
+// @description An old handheld's display: small square pixels, and text that casts a shadow on the back
+//
+// Nothing moves: the gaps between the pixels and the shadow are drawn over the page, text stays
+// where it is.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 fg;
+
+// A pixel of home, kept inside the picture.
+float4 pixel(float2 p) {
+    return float4(content.eval(clamp(p, float2(0.5), resolution - float2(0.5))));
+}
+
+// How much ink a pixel has: 0 where the page or a card shows, 1 on text and lines.
+float ink(float4 c) {
+    float d = min(length(c.rgb - float3(bg.rgb) * c.a), length(c.rgb - float3(surface.rgb) * c.a));
+    return clamp(d * 4.0, 0.0, 1.0);
+}
+
+half4 main(float2 xy) {
+    float4 here = pixel(xy);
+    float text = ink(here);
+
+    // The segments sit a little above the back of the display, and the light comes from the top
+    // left: their shadow falls down and to the right, on the page only.
+    float2 fall = float2(0.06, 0.08) * cell.y;
+    float shadow = ink(pixel(xy - fall)) * (1.0 - text) * mix(0.13, 0.07, dark);
+    float4 color = here * (1.0 - shadow) + float4(float3(mix(fg.rgb, half3(0.0), 0.5 * dark)) * shadow, shadow);
+
+    // The display's own pixels: squares of a whole number of screen pixels, with a line of one
+    // pixel between them, pulled toward the background.
+    float pitch = max(3.0, floor(cell.y / 13.0 + 0.5));
+    float2 at = mod(floor(xy), pitch);
+    float gap = max(step(at.x, 0.5), step(at.y, 0.5));
+    color.rgb = mix(color.rgb, float3(bg.rgb) * color.a, gap * mix(0.16, 0.30, dark));
+
+    return half4(color);
+}

@@ -1,0 +1,76 @@
+// @name Frost
+// @description Ice grows in from the edges and corners of the screen. A touch melts a clear spot
+//
+// The middle of the screen stays clear. Under the ice the page is tinted and text is bent by a
+// fifth of a cell at most, so it stays readable and a tap lands on what it shows.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float2 touch;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 info;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise from 0 to 1: the hash at the corners of a square, blended.
+float noise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + float2(1.0, 0.0)), f.x),
+               mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), f.x), f.y);
+}
+
+half4 main(float2 xy) {
+    // How far in from the nearest edge, in screen widths; the corners count as nearer.
+    float2 in2 = min(xy, resolution - xy) / resolution.x;
+    float inside = min(in2.x, in2.y) - 0.03 * exp(-max(in2.x, in2.y) * 8.0);
+
+    // Clear of the ice: only the page's own pixel is read.
+    if (inside > 0.13) {
+        return content.eval(xy);
+    }
+
+    // Needles grow inward from the nearest edge: noise that is long across the edge and thin along
+    // it. Where a needle is, the ice reaches further in.
+    float2 p = xy / cell.y;
+    float2 along = in2.x < in2.y ? float2(0.16, 1.9) : float2(1.9, 0.16);
+    float needle = noise(p * along + 3.1);
+    float fine = noise(p * along * float2(2.3, 2.3) + 17.0);
+    float reach = 0.012 + 0.085 * needle * needle + 0.025 * fine;
+    float ice = 1.0 - smoothstep(reach * 0.25, reach, inside);
+
+    // A touch melts it, for as long as the finger stays there and until the next one.
+    float melt = touch.x < 0.0 ? 1.0 : smoothstep(cell.y * 3.5, cell.y * 6.5, length(xy - touch));
+    ice *= melt;
+    if (ice <= 0.0) {
+        return content.eval(xy);
+    }
+
+    // Its crystals: grains of a few pixels, more of them where the ice is thick, and some that glint.
+    float unit = max(2.0, floor(cell.y / 16.0 + 0.5));
+    float grain = hash(floor(xy / unit));
+    float crystal = smoothstep(1.0 - 0.8 * ice, 1.0, 0.55 * grain + 0.45 * fine);
+    float glint = step(0.97, grain) * ice;
+
+    // The ice bends what is behind it a little: a fifth of a cell at most.
+    float2 bend = (float2(needle, fine) - 0.5) * cell.x * 0.3 * ice;
+    float4 here = float4(content.eval(clamp(xy + bend, float2(0.5), resolution - float2(0.5))));
+
+    // White frost on a dark theme, a blue-grey one on a light theme, where white would not show.
+    float3 frost = mix(mix(float3(info.rgb), float3(0.35, 0.45, 0.60), 0.5), mix(float3(info.rgb), float3(1.0), 0.75), dark);
+    float amount = ice * mix(0.13, 0.17, dark) + crystal * mix(0.22, 0.26, dark) + glint * 0.4 * dark;
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount = clamp(amount, 0.0, 1.0) * (1.0 - clamp(d * 5.0, 0.0, 1.0));
+    return half4(here * (1.0 - amount) + float4(frost * amount, amount));
+}

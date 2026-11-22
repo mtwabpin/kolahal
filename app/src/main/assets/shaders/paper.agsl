@@ -1,0 +1,72 @@
+// @name Paper
+// @description Uncoated paper: a fine grain and fibres in the page, and ink that soaks in a little
+//
+// The grain only shows where the page does. Text gains a little weight and loses none.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 dim;
+layout(color) uniform half4 warn;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise from 0 to 1: the hash at the corners of a square, blended.
+float noise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + float2(1.0, 0.0)), f.x),
+               mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), f.x), f.y);
+}
+
+// A pixel of home, kept inside the picture.
+float4 pixel(float2 p) {
+    return float4(content.eval(clamp(p, float2(0.5), resolution - float2(0.5))));
+}
+
+// How far a pixel is from the page: 0 where the page or a card shows, more on text and lines.
+float ink(float4 c) {
+    return min(length(c.rgb - float3(bg.rgb) * c.a), length(c.rgb - float3(surface.rgb) * c.a));
+}
+
+half4 main(float2 xy) {
+    float4 here = pixel(xy);
+
+    // One grain of the paper, in pixels: bigger on a denser screen.
+    float u = max(1.0, floor(cell.y / 24.0 + 0.5));
+
+    // The ink soaks in: a pixel takes a little of the inkiest pixel beside it.
+    float most = ink(here);
+    float4 soaked = here;
+    for (int i = 0; i < 4; i++) {
+        // Right, below, above, left.
+        float2 side = i < 2 ? float2(1.0 - float(i), float(i)) : float2(2.0 - float(i), float(i) - 3.0);
+        float4 beside = pixel(xy + u * side);
+        float its = ink(beside);
+        if (its > most) {
+            most = its;
+            soaked = beside;
+        }
+    }
+    here = mix(here, soaked, 0.22);
+
+    // The page: grains, long thin fibres lying two ways, and a slow unevenness.
+    float grain = hash(floor(xy / u)) - 0.5;
+    float fibres = noise(float2(xy.x + 0.35 * xy.y, xy.y) / (u * float2(22.0, 2.5)))
+                 + noise(float2(xy.x, xy.y - 0.2 * xy.x) / (u * float2(2.5, 30.0))) - 1.0;
+    float cloud = noise(xy / (cell.y * 4.0)) - 0.5;
+    float tone = clamp(0.045 + 0.04 * grain + 0.022 * fibres + 0.03 * cloud, 0.0, 1.0);
+
+    // It is the color of the dim text with a little warmth, only where the page shows.
+    float amount = tone * (1.0 - clamp(ink(here) * 5.0, 0.0, 1.0));
+    float3 color = mix(float3(dim.rgb), float3(warn.rgb), 0.3);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

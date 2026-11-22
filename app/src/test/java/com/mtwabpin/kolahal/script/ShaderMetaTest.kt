@@ -179,9 +179,9 @@ class ShaderMetaTest {
                 assertEquals("$name has unbalanced $open$close", code.count { it == open[0] }, code.count { it == close[0] })
             }
         }
-        // Only the one that says it moves is drawn over and over.
+        // Only the ones that say they move are drawn over and over.
         assertEquals(
-            listOf("rain"),
+            listOf("rain", "snowfall", "aurora", "night", "fireflies", "pond", "contour", "ink"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
         )
     }

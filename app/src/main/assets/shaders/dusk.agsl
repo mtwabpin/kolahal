@@ -1,0 +1,65 @@
+// @name Dusk
+// @description A sky behind the text that follows the day: night, dawn, daylight and dusk
+//
+// The sky only shows where the page does. It reads the phone's time once a minute; the sun rises at
+// six and sets at six in the evening, whatever the season.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float4 date;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 info;
+layout(color) uniform half4 link;
+layout(color) uniform half4 warn;
+layout(color) uniform half4 error;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // The hour of the day, and how high the sun is: 1 at noon, 0 at six and at eighteen, -1 at
+    // midnight. Without a date (an older Kolahal) it is a quarter past six in the evening.
+    float hour = date.x < 1.0 ? 18.25 : date.w / 3600.0;
+    float sun = sin(3.14159265 * (hour - 6.0) / 12.0);
+    float low = 1.0 - smoothstep(0.0, 0.45, abs(sun));
+    float day = smoothstep(-0.1, 0.4, sun);
+    float morning = step(hour, 12.0);
+
+    // Down the screen: 0 at the top, 1 at the horizon, which is low on the screen but above the keyboard.
+    float y = xy.y / resolution.y;
+    float horizon = 0.62;
+    float toward = clamp(y / horizon, 0.0, 1.0);
+
+    // The sky above the horizon: blue by day, deeper and bluer at night, strongest at the top.
+    float3 high = mix(float3(link.rgb), float3(info.rgb), day);
+    float sky = (1.0 - 0.75 * toward) * mix(0.16, 0.10, day);
+
+    // The glow at the horizon when the sun is low: yellow at dawn, red at dusk. It reaches up into
+    // the sky and a little down below it.
+    float3 warm = mix(float3(error.rgb), float3(warn.rgb), mix(0.35, 0.75, morning));
+    float above = exp(-pow((horizon - y) / 0.22, 2.0));
+    float below = exp(-pow((y - horizon) / 0.10, 2.0));
+    float glow = (y < horizon ? above : below) * low * 0.26;
+    // By day a pale haze sits there instead.
+    glow += (y < horizon ? above : below) * day * (1.0 - low) * 0.05;
+
+    // One color over the other, the glow on top.
+    float amount = sky * (1.0 - glow) + glow;
+    float3 color = (high * sky * (1.0 - glow) + warm * glow) / max(amount, 0.001);
+    // A light theme takes less of it, and a little noise hides the steps of a slow gradient.
+    amount *= mix(0.6, 1.0, dark);
+    amount += (hash(xy) - 0.5) * 0.012;
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount = clamp(amount, 0.0, 1.0) * (1.0 - clamp(d * 5.0, 0.0, 1.0));
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

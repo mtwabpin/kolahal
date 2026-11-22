@@ -1,0 +1,57 @@
+// @name Two-color print
+// @description A stencil print: a second impression of the text in the accent color, a little off register
+//
+// The first impression is untouched. The second is a pixel or two beside it, never more, and a
+// dot screen of the accent color fills the corners.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 accent;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// A pixel of home, kept inside the picture.
+float4 pixel(float2 p) {
+    return float4(content.eval(clamp(p, float2(0.5), resolution - float2(0.5))));
+}
+
+// How much ink a pixel has: 0 where the page or a card shows, 1 on text and lines.
+float ink(float4 c) {
+    float d = min(length(c.rgb - float3(bg.rgb) * c.a), length(c.rgb - float3(surface.rgb) * c.a));
+    return clamp(d * 3.0, 0.0, 1.0);
+}
+
+half4 main(float2 xy) {
+    float4 here = pixel(xy);
+    float first = ink(here);
+
+    // The second impression: the ink of the pixel up and to the left, so it lands down and to the
+    // right. A twentieth of a row, from 1 to 2.5 pixels.
+    float slip = clamp(cell.y * 0.05, 1.0, 2.5);
+    float second = ink(pixel(xy - slip * float2(1.0, 0.7)));
+
+    // The drum doesn't ink evenly: a fine speckle in the second color.
+    float speckle = 0.75 + 0.25 * hash(floor(xy / max(1.0, floor(slip))));
+    float amount = second * (1.0 - first) * speckle * mix(0.45, 0.6, dark);
+
+    // A dot screen toward the corners, at 30 degrees, its dots growing outward.
+    float2 mid = resolution * 0.5;
+    float2 p = (xy - mid) / mid;
+    float far = smoothstep(0.9, 1.9, dot(p, p));
+    float pitch = max(6.0, cell.y * 0.3);
+    float2 r = float2(0.866 * xy.x + 0.5 * xy.y, -0.5 * xy.x + 0.866 * xy.y) / pitch;
+    float dot1 = length(fract(r) - 0.5);
+    float dots = (1.0 - smoothstep(0.42 * far - 0.08, 0.42 * far, dot1)) * step(0.01, far);
+    amount += dots * (1.0 - first) * (1.0 - amount) * mix(0.16, 0.22, dark);
+
+    return half4(here * (1.0 - amount) + float4(float3(accent.rgb) * amount, amount));
+}

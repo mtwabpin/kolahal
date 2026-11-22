@@ -66,6 +66,7 @@ class ShaderMeta private constructor(
             "touch" to listOf(2),
             "touchAge" to listOf(1),
             "dark" to listOf(1),
+            ShaderDate.NAME to listOf(ShaderDate.FLOATS),
         ) + COLORS.associateWith { listOf(4) }
 
         private val COMMENTS = Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)

@@ -1,0 +1,60 @@
+// @name Ink drop
+// @description A touch drops a little ink in the page: a faint cloud of the accent color spreads behind the text and fades. It moves
+// @animated
+//
+// Between touches nothing is drawn. The cloud is faint and gone in four seconds, so typing and
+// tapping as usual doesn't fill the page.
+
+uniform shader content;
+uniform float2 cell;
+uniform float2 touch;
+uniform float touchAge;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 accent;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise from 0 to 1: the hash at the corners of a square, blended.
+float noise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + float2(1.0, 0.0)), f.x),
+               mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), f.x), f.y);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // No touch yet, or the ink is gone, or this pixel is far outside the cloud: the page as it is.
+    float2 from = xy - touch;
+    float radius = cell.y * (1.2 + 5.5 * sqrt(min(touchAge, 4.0)));
+    if (touch.x < 0.0 || touchAge > 4.0 || dot(from, from) > radius * radius * 2.6) {
+        return half4(here);
+    }
+
+    // The cloud is a disc whose edge the water pushes about: the pixel is moved by slow noise before
+    // its distance is taken, which gives the edge its fingers. The noise creeps as the ink spreads.
+    float2 p = from / (cell.y * 2.2) + touch * 0.37;
+    float2 push = float2(noise(p + touchAge * 0.25), noise(p + 31.7 - touchAge * 0.2)) - 0.5;
+    float2 fine = float2(noise(p * 2.7 + 5.0), noise(p * 2.7 + 47.0)) - 0.5;
+    float far = length(from + (push * 0.9 + fine * 0.35) * radius);
+
+    // Thicker toward the rim, where ink gathers, thin in the middle; it comes at once and thins out.
+    float body = 1.0 - smoothstep(radius * 0.55, radius, far);
+    float rim = body * smoothstep(radius * 0.25, radius * 0.75, far);
+    float life = smoothstep(0.0, 0.12, touchAge) * pow(1.0 - touchAge / 4.0, 1.5);
+    float amount = (0.55 * body + 0.45 * rim) * life * mix(0.15, 0.20, dark);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - amount) + float4(float3(accent.rgb) * amount, amount));
+}
