@@ -46,6 +46,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -61,6 +62,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.tty.HomeCells
@@ -141,18 +145,27 @@ internal fun TtyPrompt(
         PromptCells.row(text, selStart, selEnd, cursor = false, first = first, cols = frame.cols, keyBarOn = keyBarOn, compStart = comp?.start ?: -1, compEnd = comp?.end ?: -1)
     }
     // The cursor blinks while the prompt has the focus, and stays on while typing. It stands still
-    // when the phone's animations are off.
+    // when the phone's animations are off, while a dialog or a sheet has the window's focus, and
+    // while home is behind another app.
     val context = LocalContext.current
     val still = remember(context) {
         runCatching { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false)
     }
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     var blink by remember { mutableStateOf(true) }
-    LaunchedEffect(focused, value) {
+    LaunchedEffect(focused, windowFocused, value) {
         blink = true
-        if (!focused || still) return@LaunchedEffect
-        while (true) {
-            delay(BLINK_MS)
-            blink = !blink
+        if (!focused || !windowFocused || still) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                while (true) {
+                    delay(BLINK_MS)
+                    blink = !blink
+                }
+            } finally {
+                blink = true
+            }
         }
     }
     val swipeUp by rememberUpdatedState(onSwipeUp)

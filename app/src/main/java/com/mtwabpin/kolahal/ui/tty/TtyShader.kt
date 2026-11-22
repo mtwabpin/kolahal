@@ -115,6 +115,13 @@ internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
  * - One that declares `battery` or `charging` is also drawn when they change ([FollowBattery]).
  * - [ShaderSafety] turns one off that Kolahal crashed with. A slow one is the user's to turn off.
  * - Two fingers held still for a second turn the shader off, whatever it does to the screen.
+ * - A shader loaded before is kept ([ShaderCache]): composed again, the surface doesn't read and compile
+ *   it again, and has it in its first frame once it has been proven in this process.
+ *
+ * [home]: the surface is home's own. While a full-screen screen is over it ([ShaderPlay.covered]), its
+ * shader stands still and isn't drawn again with the lean or the minute: the screen draws its own. Its
+ * hold on the lean stays ([FollowTilt]), so the listener that it shares with the screen goes on when
+ * the screen closes. The screen's host passes false.
  */
 @Composable
 internal fun rememberTtyShader(
@@ -123,15 +130,22 @@ internal fun rememberTtyShader(
     cols: Int = 0,
     left: Int = 0,
     on: Boolean = true,
+    home: Boolean = true,
 ): Modifier {
     if (!on || name == ShaderCatalog.OFF) return Modifier
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return Modifier
-    return shaderLayer(name, grid, cols, left)
+    return shaderLayer(name, grid, cols, left, home)
 }
+
+/** The shaders loaded last, for [rememberTtyShader]. */
+private val loadedShaders = ShaderCache<LoadedShader>()
+
+/** The shader proven last in this process ([ShaderSafety.proven]): its mark needs no write. Main thread. */
+private var lastProven: String? = null
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modifier {
+private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int, home: Boolean): Modifier {
     // A person listening to the screen isn't looking at it: nothing is drawn over it, and nothing costs power.
     if (rememberScreenReader()) return Modifier
     val context = LocalContext.current.applicationContext
@@ -139,11 +153,18 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     // Read again when a file changes, or a shader is turned off or on again.
     val files by Shaders.version.collectAsStateWithLifecycle()
     val trips by safety.version.collectAsStateWithLifecycle()
-    val loaded by produceState<LoadedShader?>(null, name, files, trips) {
+    // One loaded before and proven since is drawn at once: [ArmWhileShown] finds nothing to write.
+    val known = loadedShaders.get(name, files, trips)?.takeIf { it.id == lastProven }
+    val loaded by produceState(known, name, files, trips) {
+        val at = files to trips
         var ready: LoadedShader? = null
         try {
             // It finishes even when the shader changes meanwhile, so its mark in the store is known ([ShaderSafety.begin]).
-            withContext(NonCancellable + Dispatchers.IO) { ready = LoadedShader.load(context, name) }
+            withContext(NonCancellable + Dispatchers.IO) {
+                // One loaded before is marked as a load marks it, without being read and compiled again.
+                ready = (known ?: loadedShaders.get(name, at.first, at.second))?.also { safety.begin(it.id) }
+                    ?: LoadedShader.load(context, name)?.also { loadedShaders.put(name, at.first, at.second, it) }
+            }
             value = ready
             awaitCancellation()
         } finally {
@@ -156,12 +177,14 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val touch = remember(shader) { ShaderTouch() }
     val clock = remember(shader) { ShaderTime() }
+    // Under a full-screen screen home isn't seen: its shader stands still there, and the screen draws its own.
+    val hidden = home && ShaderPlay.covered.collectAsStateWithLifecycle().value > 0
     ActiveMark(shader.name)
     ArmWhileShown(shader.id, safety, lifecycle)
     ProveWhenShown(shader.id, safety, lifecycle)
-    if (shader.meta.animated) AnimateShader(shader, clock, touch)
+    if (shader.meta.animated) AnimateShader(shader, clock, touch, hidden)
     val day = remember(shader) { ShaderDay() }
-    if (!shader.meta.animated && shader.meta.uses(ShaderDate.NAME)) FollowDate(shader, day)
+    if (!shader.meta.animated && shader.meta.uses(ShaderDate.NAME)) FollowDate(shader, day, hidden)
     if (shader.meta.tilt) FollowTilt(shader, touch)
     val battery = rememberShaderBattery(shader)
     val params = rememberLiveParams(shader)
@@ -170,7 +193,7 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
         ShaderInputs(shader, grid, cols, left, params, shader.meta.once) { Shaders.report(context, shader.name, shader.id, it) }
     }
     return Modifier
-        .shaderEffect(inputs, clock, touch, battery, day)
+        .shaderEffect(inputs, clock, touch, battery, day, hidden)
         .pointerInput(shader) {
             watchTouches(
                 onTouch = { touch.at(it, clock.seconds) },
@@ -180,14 +203,14 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
         }
 }
 
-/** The effect of [inputs] over what this modifier is on. */
+/** The effect of [inputs] over what this modifier is on. [hidden]: as [ShaderInputs.effect]. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private fun Modifier.shaderEffect(
-    inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null,
+    inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null, hidden: Boolean = false,
 ): Modifier =
     graphicsLayer {
         renderEffect = if (size.width > 0f && size.height > 0f) {
-            inputs.effect(size.width, size.height, clock, touch, battery, day)
+            inputs.effect(size.width, size.height, clock, touch, battery, day, hidden)
         } else null
         clip = true
     }
@@ -344,21 +367,25 @@ private fun ProveWhenShown(id: String, safety: ShaderSafety, lifecycle: Lifecycl
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             delay(PROVEN_MS)
             safety.proven(id)
+            lastProven = id
         }
     }
 }
 
-/** Moves the shader's [clock] while home is in front, when the phone's state allows it ([ShaderClock.moves]). */
+/**
+ * Moves the shader's [clock] while home is in front, when the phone's state allows it ([ShaderClock.moves]).
+ * Not while the surface is [hidden] under a full-screen screen.
+ */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: ShaderTouch) {
+private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: ShaderTouch, hidden: Boolean = false) {
     val context = LocalContext.current
     val sources = LocalShaderSources.current
     val shown = LocalTerminalShown.current
     val focused = LocalWindowInfo.current.isWindowFocused
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(shader, shown, focused) {
-        if (!shown || !focused) return@LaunchedEffect
+    LaunchedEffect(shader, shown, focused, hidden) {
+        if (!shown || !focused || hidden) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             val frameMs = 1_000L / ShaderClock.FPS
             var last = -1L
@@ -394,15 +421,16 @@ private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: Shader
 
 /**
  * Draws a still shader that declares `date` again at each full minute, while home is in front: a sky
- * follows the day without a frame loop. No timer runs behind another screen or app.
+ * follows the day without a frame loop. No timer runs behind another screen or app, or while the
+ * surface is [hidden] under a full-screen screen.
  */
 @Composable
-private fun FollowDate(shader: LoadedShader, day: ShaderDay) {
+private fun FollowDate(shader: LoadedShader, day: ShaderDay, hidden: Boolean) {
     val shown = LocalTerminalShown.current
     val focused = LocalWindowInfo.current.isWindowFocused
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(shader, shown, focused) {
-        if (!shown || !focused) return@LaunchedEffect
+    LaunchedEffect(shader, shown, focused, hidden) {
+        if (!shown || !focused || hidden) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 // Coming back to home counts too: the minute may have passed meanwhile.
@@ -417,6 +445,7 @@ private fun FollowDate(shader: LoadedShader, day: ShaderDay) {
  * Keeps the phone's lean live ([LiveTilt]) for a shader that declares `tilt`, while home is in front and
  * the phone's state allows a moving shader ([ShaderClock.moves]). Otherwise it lets go: the lean goes
  * back to 0, and nothing runs until a touch, or until the battery's level or the charger changes.
+ * Home under a full-screen screen keeps its hold, and the screen's surface holds it too: one listener.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
@@ -679,9 +708,11 @@ private class ShaderInputs(
     /**
      * The effect for a surface [w] × [h] px. Null when a uniform can't be set. Only a shader that declares the
      * clock or the touch reads them, so a frame or a touch that can't change a still shader doesn't draw it again.
+     * A [hidden] surface (home under a full-screen screen) takes the lean as it is, and isn't drawn again when it changes.
      */
     fun effect(
         w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null,
+        hidden: Boolean = false,
     ): androidx.compose.ui.graphics.RenderEffect? {
         if (failed) return null
         val seconds = if (uniforms.usesClock) clock.seconds else 0f
@@ -700,7 +731,7 @@ private class ShaderInputs(
             if (uniforms.usesTilt) {
                 // A shader that moves is drawn anyway, and takes the lean as it is. One that stands still
                 // is drawn again when the lean changes.
-                if (!uniforms.usesClock || !clock.moving) LiveTilt.follow()
+                if (!hidden && (!uniforms.usesClock || !clock.moving)) LiveTilt.follow()
                 frame.tiltX = LiveTilt.x
                 frame.tiltY = LiveTilt.y
             }

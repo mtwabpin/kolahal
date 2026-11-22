@@ -25,6 +25,7 @@ import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.shader.ShaderParam
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.terminal.commands.ANSWER_MAX
 import com.mtwabpin.kolahal.terminal.commands.ActivityCommands
@@ -98,8 +99,9 @@ class Completer(private val context: Context, private val data: Data) {
 
     /**
      * Lists asked from Android (an app's activities or shortcuts, the apps that have shortcuts) can
-     * take tens of milliseconds, so they load off the main thread: the suggestions are worked out
-     * there, on each key. Until a list arrives, the rows show without it. [loaded] goes up when one
+     * take tens of milliseconds, and so can those read from files and the scripts (a shader's
+     * parameters, the values to follow), so they load off the main thread: the suggestions are worked
+     * out there, on each key. Until a list arrives, the rows show without it. [loaded] goes up when one
      * arrives, so the suggestions are worked out again.
      */
     private val loads = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -433,6 +435,39 @@ class Completer(private val context: Context, private val data: Data) {
     private fun wordsOf(s: Script): CodeWords =
         lastWords?.takeIf { it.code == s.code } ?: CodeWords(s.code).also { lastWords = it }
 
+    /**
+     * Each shader's parameters, read off the main thread once for each version of the shader files: a
+     * name gets its rows when they arrive ([loaded]).
+     */
+    private val paramsRead = ReadAtVersion<List<ShaderParam>>()
+
+    /** The parameters of shader [name], or none until they are read. One that can't be read has none. */
+    private fun shaderParams(name: String): List<ShaderParam> {
+        if (!Shaders.exists(name)) return emptyList()
+        val version = Shaders.version.value
+        paramsRead.get(version, name)?.let { return it }
+        loadSoon("shader-params $name") {
+            paramsRead.put(version, name, runCatching { Shaders.params(context, name) }.getOrDefault(emptyList()))
+        }
+        return emptyList()
+    }
+
+    /**
+     * The values a shader's parameter can follow, and the list of scripts ([Data.scripts]) they were read
+     * for: a new list reads them again.
+     */
+    @Volatile
+    private var valuesRead: Pair<List<Script>, List<String>>? = null
+
+    /** What `shader follow <name> <param>` offers ([ShaderActions.sources]): none until it is read, off the main thread. */
+    private fun valueIds(scripts: List<Script>): List<String> {
+        valuesRead?.let { (from, ids) -> if (from === scripts) return ids }
+        loadSoon("shader-values") {
+            valuesRead = scripts to runCatching { ShaderActions.sources(context).map { it.id } }.getOrDefault(emptyList())
+        }
+        return emptyList()
+    }
+
     private fun argSuggestions(
         cmd: String,
         head: String,
@@ -729,7 +764,7 @@ class Completer(private val context: Context, private val data: Data) {
                 .map { Suggestion.Completion(it, "$head $it") }
 
             // `shader c`: its subcommands and the shaders; `shader use c`: the shaders.
-            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() }, data.sharedShaders, { ShaderActions.sources(context).map { it.id } }) { Shaders.params(context, it) }
+            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() }, data.sharedShaders, { valueIds(scriptList) }) { shaderParams(it) }
                 .filter { it.starts(last) }
                 .map {
                     val sub = parts.size == 2 && it in ShaderCommands.SUBCOMMANDS
@@ -1264,5 +1299,27 @@ class Completer(private val context: Context, private val data: Data) {
             "^(todo (done|toggle|undo|undone|rm|edit)|notes rm|remind rm|feed (rm|remove|read|all|open|notify|every|fetch|refresh|on|off)) #?\\d+.*",
             RegexOption.IGNORE_CASE
         )
+    }
+}
+
+/**
+ * What was read for each name at one version of where it is read from: one read at another version is
+ * left out, and a newer version forgets the rest. Any thread.
+ */
+internal class ReadAtVersion<T : Any> {
+    private class At<T>(val version: Int, val byName: Map<String, T>)
+
+    @Volatile
+    private var at = At<T>(Int.MIN_VALUE, emptyMap())
+
+    /** What was read for [name] at [version], or null. */
+    fun get(version: Int, name: String): T? = at.takeIf { it.version == version }?.byName?.get(name)
+
+    /** [value] was read for [name] at [version]. */
+    @Synchronized
+    fun put(version: Int, name: String, value: T) {
+        val now = at
+        if (version < now.version) return
+        at = At(version, (if (now.version == version) now.byName else emptyMap()) + (name to value))
     }
 }

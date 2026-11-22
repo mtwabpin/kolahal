@@ -256,7 +256,7 @@ fun TtyScreenHost(
         onDispose { lifecycle.removeObserver(watch) }
     }
     BackHandler { close(null) }
-    val shaderLook = rememberTtyShader(shader, grid)
+    val shaderLook = rememberTtyShader(shader, grid, home = false)
     // A one-off shader is drawn here then, not on home.
     if (!seeThrough) androidx.compose.runtime.DisposableEffect(Unit) {
         ShaderPlay.cover(true)
