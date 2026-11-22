@@ -7,20 +7,25 @@ website and user guide are in =site/= (https://mtwabpin.github.io/kolahal/).
 - [[file:developing.org][developing.org]]: building, the architecture, the repository layout and the usual changes.
 - [[file:codebase-guide.org][codebase-guide.org]]: a guided tour of the app's code, how its parts fit together and why.
 - [[file:tasks.org][tasks.org]]: work we plan to do, not yet started.
+- [[file:widgets-design.org][widgets-design.org]]: the design proposal the programmable widgets were built from.
+- [[file:tty-architecture.md][tty-architecture.md]]: the design of the TTY home style, with the maintainer's decisions first;
+  [[file:tty.org][tty.org]] tracks its work, step by step.
 - [[file:release/README.org][release/]]: how Kolahal is built, signed and published, on GitHub and Google Play.
   - [[file:release/signing.org][signing.org]]: the keys, and why there is more than one.
   - [[file:release/play-signing.org][play-signing.org]]: giving Play the release key, step by step, once.
   - [[file:release/github-actions.org][github-actions.org]]: the Build, Release and Website workflows.
   - [[file:release/google-play.org][google-play.org]]: the Play build, Play's policy, the store listing and its graphics.
-  - [[file:release/notes/][notes/]]: the release notes, one file per version.
+  - [[file:release/notes/][notes/]]: the release notes, for GitHub (=X.Y.Z.md=) and for Google Play
+    (=X.Y.Z-play.txt=), for each version.
 
 Reports from users:
 
 - Security problems arrive privately on GitHub (private vulnerability reporting is on): the
   repository's Security tab → Advisories. The website's Security page
-  (=site/src/content/docs/reference/security.md=) tells reporters how, and what counts.
+  (=site/src/content/docs/reference/security.mdx=) tells reporters how, and what counts.
 - Bugs and ideas come through the issue forms in =.github/ISSUE_TEMPLATE/= (=bug_report.yml=,
   =feature_request.yml=); questions go to the
-  Discord server, whose invite is in =ui/About.kt= (=DISCORD_URL=), =site/astro.config.mjs=, the
-  website's =index.mdx= and =getting-started/play-testing.md=, =README.org=, and
-  =.github/ISSUE_TEMPLATE/config.yml= and =feature_request.yml=: change all seven together.
+  Discord server, whose invite is in =Links.kt= (=Links.DISCORD=, which Settings → About
+  opens), =site/astro.config.mjs=, the website's =components/NextSteps.astro= (on the home page) and
+  =getting-started/play-testing.mdx=, =README.org=, and =.github/ISSUE_TEMPLATE/config.yml= and
+  =feature_request.yml=: change all seven together.

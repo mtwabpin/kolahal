@@ -4,6 +4,8 @@
 Kolahal has two keys and a certificate. An app that ships only through Google Play can let Google
 make and keep the key that signs it, and hold just an upload key. Kolahal also ships APKs on
 GitHub, signed here, so the key that signs the app has to be held here, and Play gets a copy of it.
+(The Release workflow builds and signs the APKs every time, but attaches them to the GitHub release
+only with =PUBLISH_APKS= on, which stays off until Kolahal is public on Google Play.)
 
 * The files in =~/.config/keys=
 
@@ -58,8 +60,8 @@ gh variable set RELEASE_CERT_SHA256 --body 21223ad4312a871e4a1dd16440efccac84f46
   and =-PplayApk :app:assemblePlay= sign with the release key, =:app:bundlePlay= with the upload key.
   Without the file, the APKs are signed with the debug key and the bundle stays unsigned (Play
   refuses debug-signed bundles, so it is never debug-signed).
-  - A release build made here now carries the release key, so it won't install over the
-    debug-signed Kolahal on a phone until that phone has moved (below).
+  - A release build made here carries the release key, so it won't install over a debug-signed
+    Kolahal on a phone until that phone has moved (below).
 - *On GitHub Actions*: eight secrets of the =release= environment hold both keys
   (=RELEASE_KEYSTORE_BASE64=, =RELEASE_STORE_PASSWORD=, =RELEASE_KEY_ALIAS=, =RELEASE_KEY_PASSWORD=,
   and the same four for =UPLOAD_=). =tools/make-keys.sh --secrets= stores them, from

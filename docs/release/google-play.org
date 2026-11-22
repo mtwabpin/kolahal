@@ -45,14 +45,15 @@ like the full build.
 Contacts are out since 0.4.7, by the same choice: no declaration. =call=, =sms= and =contacts= open
 Android's contact picker (=ContactPicker=: Android 17's =ACTION_PICK_CONTACTS= session, before it
 =ACTION_PICK= on phone numbers), which lets Kolahal read only the person picked. Kolahal keeps that
-person's name and numbers on the phone (=picked_contacts= prefs, out of cloud backups) so the name
+person's name and numbers on the phone (=picked_contacts= prefs, out of Kolahal's backup file and
+of cloud backups) so the name
 works by itself next time; =contacts --forget <name>= drops one. The Data safety answer stays "no
 data collected": they never leave the phone.
 
 Everything else stays, because Play doesn't restrict it or needs only a clear runtime request:
 calendar, exact alarms (=SCHEDULE_EXACT_ALARM=, the one the user grants; the restricted
 one is =USE_EXACT_ALARM=), usage access, system settings, Do Not Disturb, the private space, the
-status bar, uninstall requests, and the app list (Kolahal uses =<queries>=, not the restricted
+status bar, uninstall requests, setting the wallpaper, and the app list (Kolahal uses =<queries>=, not the restricted
 =QUERY_ALL_PACKAGES=). Scripts in Lua and JavaScript are allowed: Play forbids downloading
 executable code (dex, JAR, .so), not interpreted code, as long as it can't be used to break Play's
 policy.
@@ -101,7 +102,7 @@ Policy pages (opened 22 October 2026):
 
 Ready to paste into Play Console → Grow users → Store presence → Main store listing. It describes
 the Play build: no screen lock and no calls in the log, so neither is mentioned. Play allows 4000 characters;
-this is 3057. Keep it in step with the app when features change.
+this is 3184. Keep it in step with the app when features change.
 
 App name (30 characters at most; this is 26):
 
@@ -160,8 +161,8 @@ SCRIPTS IN LUA OR JAVASCRIPT
 • Scripts run sandboxed, in a separate process.
 
 MAKE IT YOURS
-• Ten colour themes, one of them in your wallpaper's colours, and a theme builder for your own, with a live preview
-• Terminal fonts (JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, or one you import), or your phone's own font
+• Thirteen colour themes, four of them in your wallpaper's colours, and a theme builder for your own, with a live preview
+• Terminal fonts (JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, Iosevka, or one you import), or your phone's own font
 • A touch key bar, gestures that run any command, full screen, and a widgets page beside the terminal
 • Settings that show your home screen underneath while you drag a slider, so you see the change as you make it
 

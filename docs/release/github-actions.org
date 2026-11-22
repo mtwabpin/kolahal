@@ -1,26 +1,31 @@
 #+TITLE: Building and releasing on GitHub Actions
 #+STARTUP: showall
 
-GitHub builds every push and publishes every release, so a release no longer depends on this
+GitHub builds every push and publishes every release, so a release doesn't depend on this
 computer. Three workflows live in =.github/workflows/=.
 
-| Workflow      | Runs on                                          | Does                                                                                  |
-|---------------+--------------------------------------------------+---------------------------------------------------------------------------------------|
-| =build.yml=   | every push and pull request that changes the app | the unit tests, both builds, the Play check; keeps the builds for 14 days            |
-| =release.yml= | a pushed tag =v*=, such as =v0.3.1=              | the same, signed, then publishes the GitHub release and keeps the Play bundle 90 days |
-| =site.yml=    | a push to =master= that touches =site/=          | builds the website and publishes it to GitHub Pages; not on forks                     |
+| Workflow      | Runs on                                                              | Does                                                                                                                   |
+|---------------+----------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------|
+| =build.yml=   | every push that changes the app, every pull request, and by hand     | the unit tests, both builds, the Play check; keeps the full APK and the Play bundle for 14 days                        |
+| =release.yml= | a pushed tag =v*=, such as =v0.3.1=                                  | the same, signed, then publishes the GitHub release, keeps the Play bundle 90 days, and uploads it to Play when set up |
+| =site.yml=    | a push to =master= that touches =site/= or the workflow, and by hand | builds the website, checking its internal links, and publishes it to GitHub Pages; not on forks                        |
+
+A push "changes the app" unless it changes only =docs/=, =site/=, =.md= or =.org= files.
 
 Builds use Temurin JDK 25 (the same version as Android Studio's JDK here) and the Gradle wrapper,
 and install the NDK version =app/build.gradle.kts= pins (=ndkVersion=): it strips the native
 libraries (Lua, QuickJS) and puts their symbols in the Play bundle. The actions are on Node 24
-majors; =gradle/actions/setup-gradle= stays on v5, as v6 puts its caching under Gradle's terms of
-use instead of the MIT licence.
+majors. Most are named by their major version tag (=actions/checkout@v7=); =gradle/actions/setup-gradle=
+and =pnpm/action-setup= are pinned to a commit, as a tag can be moved. =setup-gradle= stays on v5
+(v5.0.2), as v6 puts its caching under Gradle's terms of use instead of the MIT license.
 
 * What =build.yml= is for
 
-A check that the code still builds and its unit tests pass, on a clean machine. It has no keys:
-its APK is signed with the runner's own debug key and its bundle is unsigned, so they are for
-looking at (the run's *Artifacts*), not for installing over a release.
+A check that the code still builds and its unit tests pass, on a clean machine. It runs
+=testDebugUnitTest=, =assembleRelease=, =bundlePlay= and =assemblePlay= in one Gradle run, then
+=tools/check-play-build.sh=. It has no keys: its APK is signed with the runner's own debug key and
+its bundle is unsigned, so they are for looking at (the run's *Artifacts*), not for installing over
+a release. When a test fails it keeps the test reports too (=test-reports=, 14 days).
 
 It builds each commit once. Its first job, =once=, looks at the other runs of the same commit and
 skips the build when a Release run or an earlier Build of it passed: a version branch and then
@@ -40,12 +45,15 @@ Pull requests and manual runs (=workflow_dispatch=) always build.
    then =assemblePlay -PplayApk= in a second run (the Play build as an APK, signed with the release
    key).
 4. *The Play check*: =tools/check-play-build.sh= on the Play APK (see [[file:google-play.org][google-play.org]]).
-5. *Checks the signatures*: both APKs must be signed, with the release key when the
-   =RELEASE_CERT_SHA256= variable is set ([[file:signing.org][signing.org]]); the bundle must be signed, and not with
-   a debug key. The run's summary lists each file's certificate.
-6. *Packages*: =kolahal-X.Y.Z.apk=, =kolahal-X.Y.Z-play.apk=, =kolahal-X.Y.Z-mapping.zip= (R8's names for both builds, for
-   reading crash traces with =retrace=) and the notes, with a last line naming the commit both
-   APKs and the bundle are built from.
+5. *Checks the signatures*: both APKs must be signed, not with a debug key, and with the release
+   key when the =RELEASE_CERT_SHA256= variable is set ([[file:signing.org][signing.org]]); the bundle must be signed,
+   and not with a debug key. The run's summary lists each file's certificate.
+6. *Packages*: =kolahal-X.Y.Z.apk=, =kolahal-X.Y.Z-play.apk=, =kolahal-X.Y.Z-play.aab=,
+   =kolahal-X.Y.Z-mapping.zip= (R8's names for both builds, for reading crash traces with =retrace=)
+   and the notes, with a last line naming the commit the tag points to. With =PUBLISH_APKS= that
+   line says both APKs and the bundle are built from it; without, it says to install Kolahal from
+   Google Play, links to the test's page on the website, and names the commit the bundle is built
+   from.
 7. *Publishes the GitHub release* with the mapping zip, marked as the latest; with both APKs too when
    =PUBLISH_APKS= at the top of =release.yml= is =true=. It is off until Kolahal is public on Google
    Play. Turn it on together with =DIRECT_DOWNLOADS_ON= in =site/src/release.ts=.
@@ -55,7 +63,9 @@ Pull requests and manual runs (=workflow_dispatch=) always build.
 9. *Keeps the Play bundle* and its =mapping.txt= with the run, for 90 days.
 10. *Uploads to Google Play*, when =PLAY_WIF_PROVIDER= and =PLAY_SERVICE_ACCOUNT= are set: the
     bundle on the testing track: a draft to roll out in Play Console, or sent for review with
-    =PLAY_SEND_FOR_REVIEW= =true= ([[file:google-play.org][google-play.org]] → Uploads from the workflow). With them set, step 1 also wants =docs/release/notes/X.Y.Z-play.txt=.
+    =PLAY_SEND_FOR_REVIEW= =true= ([[file:google-play.org][google-play.org]] → Uploads from the workflow). With
+    =PLAY_WIF_PROVIDER= set, step 1 also wants =docs/release/notes/X.Y.Z-play.txt=, so a missing
+    file stops the run before anything is published.
 
 * Who can release
 
@@ -119,16 +129,19 @@ gh run download <run id> -n kolahal-X.Y.Z-play    # the Play bundle and its mapp
   =app/src/play/AndroidManifest.xml= with =tools:node="remove"=, or drop the library.
 - *A unit test fails*: the run's failed step shows it; =./gradlew :app:testDebugUnitTest= does the
   same here.
-- A failed run publishes nothing, but the website already points its download button at the
-  missing release, so fix it soon. Then move the tag to the fix: =git tag -d vX.Y.Z=,
-  =git push origin :refs/tags/vX.Y.Z=, and tag and push again.
+- *The upload to Google Play fails*: the GitHub release is already out. Upload the bundle by hand
+  ([[file:google-play.org][google-play.org]] → Each release on Play); the run's log has Google's answer.
+- A run that fails before the GitHub release publishes nothing. The website takes its version from
+  =site/package.json=, so with direct downloads on (=DIRECT_DOWNLOADS_ON= in =site/src/release.ts=)
+  its APK buttons already point at the missing release: fix it soon. Then move the tag to the fix:
+  =git tag -d vX.Y.Z=, =git push origin :refs/tags/vX.Y.Z=, and tag and push again.
 
 * Still done on this computer
 
 These need an emulator or a phone, so they stay out of GitHub Actions:
 
-- the on-device tests (=connectedDebugAndroidTest=, on the emulator only), and the coverage figure
-  in README.org → Tests that comes from them;
+- the on-device tests (=connectedDebugAndroidTest= or =tools/device-tests.sh=, on the emulator
+  only), and the coverage figure in README.org → Tests that comes from them (=tools/coverage.pl=);
 - regenerating the startup (baseline) profile;
 - installing the release on the maintainer's phone.
 

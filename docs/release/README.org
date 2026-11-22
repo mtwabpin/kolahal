@@ -16,8 +16,9 @@ details are in the files beside this one. (This folder is for the maintainer; th
   Console, and each Play release.
 - [[file:graphics/][graphics/]]: the store icon, feature graphic and screenshots, with the sources they are
   rendered from (=tools/play-graphics.sh=; google-play.org → Graphics).
-- [[file:notes/][notes/]]: the release notes, one file per version (=notes/0.3.1.md=). The Release
-  workflow publishes them as the GitHub release's notes.
+- [[file:notes/][notes/]]: the release notes, two files per version: =notes/0.3.1.md= for GitHub and
+  =notes/0.3.1-play.txt=, the short notes for Google Play. The Release workflow publishes the first
+  as the GitHub release's notes and sends the second to Play and to Discord.
 
 * Two builds
 
@@ -25,14 +26,15 @@ One commit makes three files. The APKs aren't published until Kolahal is public 
 (=PUBLISH_APKS= in =release.yml=, since 22 November 2026): the GitHub release has the notes and the
 mapping zip, and people install from Play. They are still built and checked.
 
-| Build | File                     | Gradle task                  | Signed with     | Goes to         |
-|-------+--------------------------+------------------------------+-----------------+-----------------|
-| Full  | =kolahal-X.Y.Z.apk=      | =assembleRelease=            | the release key | GitHub releases |
-| Play  | =kolahal-X.Y.Z-play.apk= | =assemblePlay -PplayApk=     | the release key | GitHub releases |
-| Play  | =kolahal-X.Y.Z-play.aab= | =bundlePlay=                 | the upload key  | Google Play     |
+| Build | File                     | Gradle task              | Signed with     | Goes to                              |
+|-------+--------------------------+--------------------------+-----------------+--------------------------------------|
+| Full  | =kolahal-X.Y.Z.apk=      | =assembleRelease=        | the release key | GitHub releases, with =PUBLISH_APKS= |
+| Play  | =kolahal-X.Y.Z-play.apk= | =assemblePlay -PplayApk= | the release key | GitHub releases, with =PUBLISH_APKS= |
+| Play  | =kolahal-X.Y.Z-play.aab= | =bundlePlay=             | the upload key  | Google Play                          |
 
 - *Full* is the app with everything: the screen lock (=lock=, double-tap), notifications in the
-  log (=notifs=, media controls, scripts' notification triggers) and calls in the log (=calls=).
+  log (=notifs=, media controls, scripts' notification triggers), calls in the log (=calls=),
+  contacts read by name, and =update=.
 - *Play* leaves out the accessibility service, the call log, reading contacts and =update=: Google Play's
   policy doesn't let a launcher read the call log at all, wants a declaration, consent screens and a
   video for an accessibility service, wants the contact picker where it's enough, and lets an app
@@ -49,13 +51,16 @@ mapping zip, and people install from Play. They are still built and checked.
 - All three install as the same app, signed with the same key on the phone, so any one installs
   over another, keeping the data. (Until 0.3.0 the GitHub APK without the three was called lite.)
 
-How: =app/src/play/AndroidManifest.xml= removes the accessibility service, =READ_CALL_LOG= and
-=READ_CONTACTS=; the =play= build type starts from =release= (=app/build.gradle.kts=). The
-=BuildConfig= switches =LOCK_SERVICE= and =CALL_LOG= turn the features off: their commands aren't
-suggested or listed in =help=, and typed anyway they say "This build has no …". =CONTACTS= switches
-=call=, =sms= and =contacts= to Android's contact picker.
-=tools/check-play-build.sh= checks the Play APK (=assemblePlay=, the bundle's manifest) and fails if
-it ever asks for a restricted permission again.
+How: =app/src/play/AndroidManifest.xml= removes the accessibility service, =READ_CALL_LOG=,
+=READ_CONTACTS=, =REQUEST_INSTALL_PACKAGES= and the updater's file provider and receiver; the =play=
+build type starts from =release= (=app/build.gradle.kts=). The =BuildConfig= switches
+=LOCK_SERVICE=, =CALL_LOG= and =SELF_UPDATE= turn the features off: their commands aren't suggested
+or listed in =help=, and typed anyway they say why they're missing ("This build has no
+accessibility service …", "This build updates through Google Play …"). With =SELF_UPDATE= off the
+updater's code is never reached, so R8 removes it. =CONTACTS= switches =call=, =sms= and =contacts=
+to Android's contact picker.
+=tools/check-play-build.sh= checks the Play APK (=assemblePlay=; it has the bundle's manifest) and
+fails if it ever asks for a restricted permission again or carries the updater.
 
 * How a release travels
 
@@ -68,8 +73,9 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
      GitHub release: the mapping zip, and           kolahal-X.Y.Z-play.aab, kept
      both APKs if PUBLISH_APKS is on                with the run for 90 days
                            │                                    │
-     the website's download button                  you upload it in Play Console
-     points at it (site/src/release.ts)             (internal → closed → production)
+     the website's APK buttons point at it          the run uploads it to Play's testing
+     when DIRECT_DOWNLOADS_ON is on                 track (or you do, in Play Console);
+     (site/src/release.ts)                          closed test → production
 #+end_example
 
 * Making a release
@@ -82,15 +88,18 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
    Scripts' =@requires= compares the numbers only, so =0.4.6-dev= counts as 0.4.6.
 2. Write =notes/X.Y.Z.md= (see [[file:notes/README.md][notes/README.md]]) and, for Play, =notes/X.Y.Z-play.txt=.
 3. Test on the computer: the unit tests, the on-device tests on the emulator (never on a phone
-   you use: they install a debug build and change its settings), the coverage figure in
-   README.org → Tests, and =tools/check-play-build.sh= after =./gradlew :app:assemblePlay=.
+   you use: they install a debug build and change its settings; =tools/device-tests.sh= runs them
+   on one or two emulators), the coverage figure in README.org → Tests (=./gradlew -Pcoverage
+   :app:createDebugUnitTestCoverageReport :app:createDebugAndroidTestCoverageReport=, then
+   =perl tools/coverage.pl=), and =tools/check-play-build.sh= after =./gradlew :app:assemblePlay=.
 4. Commit =Version X.Y.Z (versionCode N)= with the notes and the coverage figure.
 5. Tag it and push the branch, master and the tag together:
    =git tag -s vX.Y.Z -m "Version X.Y.Z"= and =git push --atomic origin X.Y.Z X.Y.Z:master vX.Y.Z=.
    One push lets the Build workflow see the Release run and skip the same build. Watch the run:
    =gh run watch=. It publishes the GitHub release by itself.
-6. Google Play: the run puts the bundle on the testing track, with =notes/X.Y.Z-play.txt= as its
-   notes, sent for review (=PLAY_SEND_FOR_REVIEW=) or as a draft to roll out in Play Console.
+6. Google Play: when the upload is set up (=PLAY_WIF_PROVIDER=, =PLAY_SERVICE_ACCOUNT=), the run puts
+   the bundle on the testing track, with =notes/X.Y.Z-play.txt= as its notes, sent for review
+   (=PLAY_SEND_FOR_REVIEW=) or as a draft to roll out in Play Console.
    By hand, when the upload isn't set up or failed: download the bundle (=gh run download <run
    id> -n kolahal-X.Y.Z-play=), upload it in Play Console, and paste the notes.
 7. Check the website deployed (the Website workflow) and its install button works.
