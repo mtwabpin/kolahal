@@ -51,13 +51,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
@@ -91,6 +96,7 @@ import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.terminal.UndoOffer
+import com.mtwabpin.kolahal.terminal.tty.screens.LogDecode
 import com.mtwabpin.kolahal.ui.tty.rememberPeekShader
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -98,7 +104,6 @@ import java.time.LocalDate
 import kotlin.math.roundToInt
 import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
 import com.mtwabpin.kolahal.ui.tty.rememberTtyShader
-import com.mtwabpin.kolahal.ui.tty.shownLogReport
 
 /**
  * Home as text, chips and cards: the header, the pinned line, the log, the suggestions, the prompt
@@ -189,11 +194,16 @@ internal fun GuiHome(
         else -> rememberTtyShader(shaderName, rememberTtyGrid())
     }
 
+    // `decode`: the log scrambles in place, and nothing else of home shows. It all keeps its place.
+    val decode = calls.logDecode?.takeIf { it.active }
+    val decodeArea = remember { DecodeArea() }
+
     Column(
         Modifier
             .fillMaxSize()
             .then(shader)
             .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
+            .then(if (decode == null) Modifier else decodeArea.only)
             // No top padding here: the header fills the band beside the camera.
             .windowInsetsPadding(
                 WindowInsets.statusBars.union(WindowInsets.displayCutout)
@@ -262,6 +272,7 @@ internal fun GuiHome(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
+                    .then(decodeArea.log)
                     .then(
                         // Save the selector's area, so the selector on the widgets page can match it. Only with the
                         // keyboard down, as the strip shows only then: the box shrinks on each frame of the keyboard's
@@ -286,7 +297,10 @@ internal fun GuiHome(
                 val logModifier = Modifier
                     .fillMaxSize()
                     // While the app selector is open, the log fades out so the background shows behind the list.
-                    .graphicsLayer { alpha = 1f - selectorFade.floatValue }
+                    .graphicsLayer {
+                        alpha = 1f - selectorFade.floatValue
+                        decodeShift(decode)
+                    }
                     .onSizeChanged { calls.onLogWidth(it.width) }
                     .testTag("log")
                     .then(pinch)
@@ -297,14 +311,12 @@ internal fun GuiHome(
                     }
                 val resultsModifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer { alpha = 1f - selectorFade.floatValue }
+                    .graphicsLayer {
+                        alpha = 1f - selectorFade.floatValue
+                        decodeShift(decode)
+                    }
                 if (logArea != null) logArea(results, deleteRight, logModifier, resultsModifier)
-                else CompositionLocalProvider(LocalUriHandler provides linkOpener) {
-                    // The lines on screen, for `screen decode`.
-                    val report = if (results != null) Modifier else shownLogReport(
-                        calls.shownLog, state.scroll.list, rows, null, state.folds, calls.apps, config, hiddenLines,
-                        timeFormat, today, onGrid = false,
-                    )
+                else CompositionLocalProvider(LocalUriHandler provides linkOpener, LocalLogDecode provides decode) {
                     if (results != null) LogSearchResults(
                         search = results,
                         timeFormat = timeFormat,
@@ -319,14 +331,12 @@ internal fun GuiHome(
                         onSwipeCopy = calls.onSwipeCopy,
                         onSwipeDelete = calls.onSwipeDelete,
                         deleteRight = deleteRight,
-                        shownLog = calls.shownLog,
-                        config = config,
                         modifier = resultsModifier,
                     ) else LazyColumn(
                         state = state.scroll.list,
                         reverseLayout = true,
                         // Taps that no log line used (empty space) bring up the keyboard.
-                        modifier = logModifier.then(report),
+                        modifier = logModifier,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         // Not before the first read: a cold start would flash it over a log that isn't empty.
@@ -338,9 +348,9 @@ internal fun GuiHome(
                                         .padding(vertical = 12.dp)
                                         .testTag("empty-hint")
                                 ) {
-                                    Text("Type an app name or a command", style = Term.text)
+                                    LogText("Type an app name or a command", style = Term.text)
                                     Spacer(Modifier.height(8.dp))
-                                    Text(
+                                    LogText(
                                         "help lists everything\n↑ recalls history\n/ searches the log\n" +
                                                 "Tap a line to use it, long-press for more\n⚙ settings",
                                         style = Term.text.copy(color = Term.dim),
@@ -385,7 +395,7 @@ internal fun GuiHome(
                         // log.fresh: older output is hidden, not deleted. The last item is the top of the reversed list.
                         if (hiddenLines > 0) {
                             item(key = "hidden-lines") {
-                                Text(
+                                LogText(
                                     "▴ $hiddenLines earlier lines · tap to show",
                                     style = Term.text.copy(color = Term.dim),
                                     modifier = Modifier
@@ -402,7 +412,7 @@ internal fun GuiHome(
                 // one tap. It sits in the middle, so it covers little of a line, and its tap area is a full
                 // 48dp tall though the chip itself is small.
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = state.scroll.awayFromBottom && results == null,
+                    visible = state.scroll.awayFromBottom && results == null && decode == null,
                     enter = androidx.compose.animation.fadeIn(),
                     exit = androidx.compose.animation.fadeOut(),
                     modifier = Modifier
@@ -448,7 +458,7 @@ internal fun GuiHome(
                     }
                 }
                 // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
-                selector()
+                if (decode == null) selector()
                 // [/selector]
             }
             // Behind the build flag, so R8 removes the updater from the Play build.
@@ -535,6 +545,33 @@ internal fun GuiHome(
             keyBar()
         }
     }
+}
+
+/** Where the log is on home, so that `decode` can show it alone. */
+private class DecodeArea {
+    private var page: LayoutCoordinates? = null
+    private var box: LayoutCoordinates? = null
+
+    /** The log's box. */
+    val log: Modifier = Modifier.onPlaced { box = it }
+
+    /** The page: only the part where the log is gets drawn. */
+    val only: Modifier = Modifier
+        .onPlaced { page = it }
+        .drawWithContent {
+            val home = page?.takeIf { it.isAttached }
+            val at = box?.takeIf { it.isAttached && home != null }?.let { home!!.localBoundingBoxOf(it) }
+            if (at == null) drawContent()
+            else clipRect(at.left, at.top, at.right, at.bottom) { this@drawWithContent.drawContent() }
+        }
+}
+
+/** Against burn-in, `decode` moves the log by a third of a row, now and then. */
+private fun GraphicsLayerScope.decodeShift(decode: LogDecode?) {
+    val (x, y) = LogDecode.SHIFTS[decode?.shift ?: 0]
+    val third = Term.fontSize.sp.toPx() * 0.45f
+    translationX = x * third
+    translationY = y * third
 }
 
 /** Shows a pinch's new font size in a toast. A new pinch replaces the toast instead of queueing another. */

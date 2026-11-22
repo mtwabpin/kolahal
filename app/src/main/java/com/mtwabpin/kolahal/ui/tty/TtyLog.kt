@@ -270,7 +270,7 @@ private fun TtyList(
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // The lines on screen, for `screen decode`.
     val report = shownLogReport(
-        shownLog, list, rows, search, folds, apps, config, hiddenLines, timeFormat, today, onGrid = true, cache = cache,
+        shownLog, list, rows, search, folds, apps, config, hiddenLines, timeFormat, today, cache,
     )
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth else m.cellW * 40

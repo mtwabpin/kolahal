@@ -99,8 +99,9 @@ override the rest. Internal: nothing here is published.
 - Size M, each part on its own: selection mode on the grid, =top=, an idle screensaver. (=tty.crt=, a
   CRT look drawn without shaders, was built and removed on 22 November: the =crt= shader does it.)
 - [X] =screen decode= and =screen.saver decode= (22 November): the
-  log lines on home scramble and settle, as on the website, from where the tty home draws them (in
-  the gui style stacked on the grid from the bottom). The effect is =terminal/tty/Decode.kt=; =boot=
+  log lines on home scramble and settle, as on the website, from where home draws them. In
+  the gui style home's own texts draw it (=ui/DecodedText.kt=, =LogDecode=), so nothing moves and the
+  grid has no part in it. On the grid the effect is =terminal/tty/Decode.kt=; =boot=
   types its lines with it too. Left: the gutter doesn't run through an item's gap while it is on, and
   home's header and prompt aren't drawn. Later: =g.decode= for script screens.
 - Remark:

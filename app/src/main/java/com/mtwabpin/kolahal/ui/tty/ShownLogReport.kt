@@ -47,20 +47,15 @@ import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** Lines laid out and kept for the GUI's log, which draws none on the grid itself: a few screens' worth. */
-private const val KEPT_FOR_GUI = 100
-
 /**
  * Tells [to] which log lines [list] shows, as cells and where they are ([ShownLog]), while the list
- * is on screen. Both home styles and both of home's lists (the log, a search's results) use it; the
- * lines are laid out as the log on the grid has them, with home's settings. Nothing is laid out
- * until it is asked for (`screen decode`).
+ * is on screen. Both lists of the tty home (the log, a search's results) use it, and the lines are
+ * as they have them. Nothing is laid out until it is asked for (`screen decode`).
  *
  * The list is home's: newest first, from the bottom up, the empty log's hints and the hidden lines'
  * row under their keys ([EMPTY_HINT_KEY], [HIDDEN_LINES_KEY]).
  * - [rows]: the list's rows, newest first; [search]: a search's words, or null for the log.
- * - [onGrid]: the list draws its lines on the grid, so each is just where it draws it; [cache] are
- *   the lines it has laid out. Else they are laid out from the bottom up.
+ * - [lines]: the lines the list has laid out.
  *
  * Returns a modifier for the list. Null [to] (a preview): nothing is told.
  */
@@ -76,8 +71,7 @@ internal fun shownLogReport(
     hiddenLines: Int,
     timeFormat: SimpleDateFormat,
     today: LocalDate,
-    onGrid: Boolean,
-    cache: BlockCache<LineKey, TtyLine>? = null,
+    lines: BlockCache<LineKey, TtyLine>,
 ): Modifier {
     if (to == null) return Modifier
     val density = LocalDensity.current
@@ -85,9 +79,8 @@ internal fun shownLogReport(
     val locale = LocalConfiguration.current.locales[0]
     val context = LocalContext.current
     val place = remember { ListPlace() }
-    val lines = cache ?: remember { TtyCaches.add(BlockCache<LineKey, TtyLine>(KEPT_FOR_GUI)) }
     val report = ShownLogReport(
-        list, rows, search, folds, apps, config, hiddenLines, timeFormat, today, onGrid, lines, place, density, rtl, locale,
+        list, rows, search, folds, apps, config, hiddenLines, timeFormat, today, lines, place, density, rtl, locale,
         installed = { AppRepository.get(context).apps.value },
     )
     val current by rememberUpdatedState(report)
@@ -121,7 +114,6 @@ private class ShownLogReport(
     private val hiddenLines: Int,
     private val timeFormat: SimpleDateFormat,
     private val today: LocalDate,
-    private val onGrid: Boolean,
     private val lines: BlockCache<LineKey, TtyLine>,
     private val place: ListPlace,
     private val density: Density,
@@ -157,7 +149,7 @@ private class ShownLogReport(
         return ShownLog(
             window.x.roundToInt() + left,
             window.y.roundToInt(),
-            if (onGrid) ShownRows.onGrid(items, height, cellH) else ShownRows.stacked(items, height, cellH),
+            ShownRows.onGrid(items, height, cellH),
         )
     }
 

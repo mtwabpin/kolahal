@@ -316,6 +316,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             onSaveFontSize = vm::saveFontSize,
             onFocusPrompt = { focusPrompt() },
             shownLog = if (preview == null) vm.shownLog else null,
+            logDecode = if (preview == null) vm.logDecode else null,
         )
     }
 

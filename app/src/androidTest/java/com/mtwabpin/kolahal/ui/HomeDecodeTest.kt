@@ -5,10 +5,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextRange
@@ -150,8 +154,37 @@ class HomeDecodeTest {
     @Test
     fun itShowsHomesLinesInTheTtyStyle() = decodeShowsHome("tty")
 
+    /** In the gui style it is home's own log, where it is, in its own look: only the rest of home goes. */
     @Test
-    fun itShowsHomesLinesInTheGuiStyle() = decodeShowsHome("gui")
+    fun itScramblesTheGuiLogInPlace() {
+        val mark = System.nanoTime().toString()
+        logs.add(LogKind.COMMAND, "echo $mark")
+        val last = logs.add(LogKind.OUTPUT, "out $mark")
+        val vm = show("gui")
+        waitForLine(last)
+        val line = compose.onNodeWithTag("line-$last")
+        val place = line.fetchSemanticsNode().boundsInWindow
+        fun picture() = compose.onNodeWithTag("line-$last").captureToImage().asAndroidBitmap()
+        val before = picture()
+        compose.runOnIdle { vm.showTtyScreen("decode") }
+        compose.waitUntil(5_000) { vm.logDecode.active && compose.onAllNodes(decoding).fetchSemanticsNodes().isNotEmpty() }
+        // The grid of the tty style has no part in it.
+        assertEquals(null, vm.shown())
+        // Animations are off on the test's phone, so the waves get their time from here.
+        var scrambled = false
+        for (t in 1_000L..4_000L step 100) {
+            compose.runOnIdle { vm.logDecode.frame(t) }
+            if (!picture().sameAs(before)) scrambled = true
+        }
+        assertTrue(scrambled)
+        assertEquals(place, line.fetchSemanticsNode().boundsInWindow)
+        // A screen reader still has the real text.
+        compose.onAllNodes(hasText("out $mark", substring = true)).onFirst().assertExists()
+        compose.onNode(decoding).performTouchInput { click(center) }
+        compose.waitUntil(5_000) { vm.ttyScreen.value == null && !vm.logDecode.active }
+        compose.waitUntil(5_000) { picture().sameAs(before) }
+        assertEquals("", vm.input.text)
+    }
 
     /** In the tty style each row is just where the log draws it. */
     @Test
@@ -192,10 +225,15 @@ class HomeDecodeTest {
 
     /** As the screensaver it says so, and the first touch only closes it. */
     @Test
-    fun itIsAScreensaver() {
+    fun itIsAScreensaver() = screensaver("tty")
+
+    @Test
+    fun itIsAScreensaverInTheGuiStyle() = screensaver("gui")
+
+    private fun screensaver(style: String) {
         config.set(Keys.SCREEN_SAVER, "decode")
         config.set(Keys.SCREEN_SAVER_AFTER, "1")
-        val vm = show("tty")
+        val vm = show(style)
         compose.waitUntil(10_000) { vm.ttyScreen.value == "decode" }
         assertTrue(vm.screenSaverOn.value)
         val saver = hasContentDescription("Screensaver: Decoding log")

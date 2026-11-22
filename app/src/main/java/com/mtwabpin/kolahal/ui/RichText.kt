@@ -80,7 +80,7 @@ internal fun RichText(
             .mapNotNull { a -> a.item.toIntOrNull()?.let { Chip(a.start, a.end, Color(it)) } }
     }
     if (chips.isEmpty()) {
-        Text(
+        LogText(
             text,
             modifier,
             style = style,
@@ -96,6 +96,7 @@ internal fun RichText(
     val layout = remember { LayoutHolder() }
     val dark = Term.bg.luminance() < 0.5f
     val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
+    val decoded = rememberDecodedText()
     Text(
         text,
         modifier.drawBehind {
@@ -107,13 +108,16 @@ internal fun RichText(
                     (size * TAG_SIZE).toPx()
                 )
             }
-        },
+        }.then(decoded?.modifier ?: Modifier),
         style = style,
         inlineContent = inlineContent,
         maxLines = maxLines,
         softWrap = softWrap,
         overflow = overflow,
-        onTextLayout = { layout.value = it },
+        onTextLayout = {
+            layout.value = it
+            decoded?.layout = it
+        },
     )
 }
 
@@ -424,7 +428,7 @@ private data class TopPart(private val height: Float) : Shape {
 
 @Composable
 private fun FoldLink(open: Boolean, hidden: Int, onClick: () -> Unit) {
-    Text(
+    LogText(
         if (open) "▴ Show less" else "▾ $hidden more ${if (hidden == 1) "line" else "lines"}",
         style = Term.small.copy(color = Term.link),
         modifier = Modifier
@@ -555,7 +559,7 @@ internal fun ActionPills(
                     .testTag("line-action-${pill.index}"),
                 contentAlignment = androidx.compose.ui.Alignment.Center,
             ) {
-                Text(
+                LogText(
                     if (tapped) "✓ $label" else label,
                     style = textStyle.copy(color = if (tapped) Term.dim else accent),
                     maxLines = 1
@@ -632,7 +636,7 @@ internal fun ColumnChart(
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
             ) {
                 columns.labels.forEach { label ->
-                    Text(
+                    LogText(
                         label.joinToString("") { it.text },
                         style = small,
                         maxLines = 1

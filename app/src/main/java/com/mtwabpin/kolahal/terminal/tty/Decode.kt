@@ -229,11 +229,11 @@ class Decode(cols: Int, rows: Int) {
         private val INKS = Ink.entries.toTypedArray()
 
         /** Letters, digits, the terminal's signs and half-width katakana: one cell each, as on the website. */
-        private val NARROW_GLYPHS: IntArray =
+        internal val NARROW_GLYPHS: IntArray =
             "abcdefghijklmnopqrstuvwxyz0123456789$=/|{}[]<>*#%+-ｱｳｶｸｻｼﾀﾂﾅﾆﾊﾐﾑﾓﾗﾘﾜ".map { it.code }.toIntArray()
 
         /** Full-width katakana: two cells each. */
-        private val WIDE_GLYPHS: IntArray = "アウカクサシタツナニハミムモラリワ".map { it.code }.toIntArray()
+        internal val WIDE_GLYPHS: IntArray = "アウカクサシタツナニハミムモラリワ".map { it.code }.toIntArray()
 
         private fun kindOf(cells: CellBuffer, col: Int, row: Int): Byte {
             val g = cells.glyphAt(col, row)

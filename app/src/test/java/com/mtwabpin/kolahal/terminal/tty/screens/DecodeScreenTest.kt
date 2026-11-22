@@ -224,17 +224,4 @@ class DecodeScreenTest {
         val shown = ShownRows.onGrid(items, height = 200, cellH = 20)
         assertEquals(listOf(1 to 15, 2 to 35, 0 to 145), shown.map { it.row to it.top })
     }
-
-    /** Drawn as text, the lines are stacked from the bottom, with the same gaps, and nothing home cuts off shows. */
-    @Test
-    fun rowsOfTheGuiAreStacked() {
-        val three = LineLayout.lines(cols, listOf("a\nb\nc" to CellStyle.PLAIN))
-        val items = listOf(ShownItem(blockOf("new"), 170, 25, 5), ShownItem(three, 80, 90, 0))
-        val shown = ShownRows.stacked(items, height = 200, cellH = 20)
-        assertEquals(listOf(0 to 110, 1 to 130, 2 to 150, 0 to 175), shown.map { it.row to it.top })
-        // Two thirds of an item above the top: its last row only.
-        val cut = ShownRows.stacked(listOf(ShownItem(three, -60, 90, 0)), height = 200, cellH = 20)
-        assertEquals(listOf(2 to 10), cut.map { it.row to it.top })
-        assertFalse(ShownRows.stacked(List(40) { ShownItem(blockOf("x"), 180 - it, 1, 0) }, 200, 20).any { it.top < 0 })
-    }
 }

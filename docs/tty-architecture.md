@@ -710,16 +710,16 @@ with a FG head; on a light theme it is dark rain on paper).
   screen timeout usually comes first, it mostly shows on a charger or dock; that is intended. First
   touch only dismisses it (the touch is not passed to the log); not in battery saver, with the
   screen off or with "Remove animations" on.
-- **The lines home shows** (built for `decode`): home's list, in either style and for the log or a
+- **The lines home shows** (built for `decode`): the tty home's list, for the log or a
   search's results, sets a reader on `vm.shownLog` (`ShownLogSource`) while it is on screen
   (`ui/tty/ShownLogReport`). Asked with a cell's size, it lays out the items on screen as the TTY log
-  has them and says where each whole row is, in px (`ShownLog`). In the tty style that is where the
-  log draws it, gaps and scroll included; in the gui style the rows are stacked from the bottom with
-  the same gaps, as a line takes other rows there. The host gives it to the screen in its own area's
+  has them and says where each whole row is, in px (`ShownLog`): where the log draws it, gaps and
+  scroll included. The host gives it to the screen in its own area's
   px (`ScreenEnv.log`), and a screen that is `PlacedRows` has each grid row drawn at its own place.
   `decode` reads it again each second (10 times a second at first and after a pause), so it never
   shows a line for longer than home does. A screen at rest says so (`TtyScreen.restMs`), and the
-  host sleeps until then.
+  host sleeps until then. In the gui style none of this runs: the host is see-through, and home's own
+  texts draw the effect (`LogDecode`, `ui/DecodedText.kt`) over their own layouts, so nothing moves.
 - The same lines could let `matrix` dissolve the log into rain and `boot` scroll into it.
 
 ### 6.3 Scripts drawing on the grid (built in step 7)

@@ -258,8 +258,8 @@ The screens are `matrix`, `clock`, `pipes`, `decode`, `sl`, `top` and `boot`:
 - `clock`: the time in big digits, with the date under it. The seconds show when they fit.
   `clock.24h` sets 12- or 24-hour time.
 - `decode`: the log lines on home scramble into random characters and settle into their text again, in
-  one wave after another for as long as it is open. It shows what home shows at that moment,
-  search results and `log only` included, and a line that comes in while it runs decodes in too.
+  one wave after another for as long as it is open. They stay where home has them, in home's own
+  look, search results and `log only` included, and a line that comes in while it runs decodes in too.
 - `top`: this phone and Kolahal at a glance, as the Unix `top` shows a computer, updated every
   second. The first line has the time, how long Kolahal has been running and today's unlocks. Under
   it are bars for the battery, the phone's memory, Kolahal's own memory and today's screen time

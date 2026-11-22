@@ -1265,8 +1265,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         TopFacts(context, viewModelScope, { scriptList.value }, { status.value }, { unlocksToday.value })
     }
 
-    /** The log lines home shows now, for `decode`. Home's log says what they are while it is on screen. */
+    /** The log lines the tty home shows now, for `decode`. Its log says what they are while it is on screen. */
     val shownLog = com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource()
+
+    /** `decode` in the gui style: the effect home's log draws itself in. */
+    val logDecode = com.mtwabpin.kolahal.terminal.tty.screens.LogDecode()
 
     /**
      * What `boot` shows: counts already in memory, and settings. Cheap enough for the main thread.

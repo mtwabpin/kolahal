@@ -91,7 +91,7 @@ fun DayDivider(row: LogRow.Day, today: LocalDate) {
     val label =
         if (row.day == today.minusDays(1)) "Yesterday"
         else row.day.format(com.mtwabpin.kolahal.data.TimeFormats.dayFormat(LocalConfiguration.current.locales[0]))
-    Text(
+    LogText(
         "── $label ──",
         style = Term.small,
         modifier = Modifier.padding(top = 14.dp, bottom = 4.dp),
@@ -101,7 +101,7 @@ fun DayDivider(row: LogRow.Day, today: LocalDate) {
 /** "── 3 new since you left ──" above the first unread script line. */
 @Composable
 fun UnreadDivider(row: LogRow.Unread) {
-    Text(
+    LogText(
         "── ${row.count} new since you left ──",
         style = Term.text.copy(
             color = Term.prompt,
@@ -544,7 +544,7 @@ fun LogLine(
                 }
                 model.time?.let { time ->
                     Spacer(Modifier.width(8.dp))
-                    Text(
+                    LogText(
                         remember(time, timeFormat) { timeFormat.format(Date(time)) },
                         // Trimmed like the line, so it never makes the line taller.
                         style = timeStyle,
@@ -648,7 +648,7 @@ private fun TwoColumns(
             overflow = if (bar != null) androidx.compose.ui.text.style.TextOverflow.Ellipsis else androidx.compose.ui.text.style.TextOverflow.Clip,
         )
         val descText = @Composable { modifier: Modifier ->
-            Text(
+            LogText(
                 markMatches(AnnotatedString(columns.desc), marks),
                 style = Term.text.copy(color = Term.dim).dense(dense),
                 modifier = modifier
@@ -705,14 +705,14 @@ private fun NameColumns(
                 .padding(end = gap),
         )
         Column(Modifier.weight(1f)) {
-            Text(
+            LogText(
                 markMatches(
                     remember(columns.desc, Term.palette) { styledText(breaksAtSpaces(columns.desc)) },
                     marks
                 ), style = Term.text.copy(color = Term.fg).dense(dense)
             )
             if (!args.isNullOrEmpty()) {
-                Text(
+                LogText(
                     markMatches(AnnotatedString(breaksAtSpaces(args)), marks),
                     style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp)
                         .dense(dense),
@@ -776,7 +776,7 @@ private fun AppGrid(
 ) {
     val haptics = LocalHapticFeedback.current
     if (apps.isEmpty()) {
-        Text("(apps no longer installed)", style = Term.text.copy(color = Term.dim))
+        LogText("(apps no longer installed)", style = Term.text.copy(color = Term.dim))
         return
     }
     FlowRow(
@@ -802,7 +802,7 @@ private fun AppGrid(
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 if (app.profile.kind != ProfileKind.PERSONAL) {
-                    Text(
+                    LogText(
                         app.profile.kind.tag + if (app.profile.quiet) "⏸" else "",
                         style = Term.text.copy(
                             color = color,
@@ -812,7 +812,7 @@ private fun AppGrid(
                     )
                     Spacer(Modifier.width(6.dp))
                 }
-                Text(app.label, style = Term.text)
+                LogText(app.label, style = Term.text)
             }
         }
     }

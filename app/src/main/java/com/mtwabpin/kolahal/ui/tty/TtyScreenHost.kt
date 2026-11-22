@@ -109,6 +109,7 @@ private const val MAX_REST_MS = 5_000L
  *
  * [data] is what `boot`, `top` and `decode` show; [clock24] is `clock.24h`;
  * [shader] is `screen.shader` ([rememberTtyShader]).
+ * [seeThrough]: home shows under the screen, which draws little or nothing itself (`decode` in the gui style).
  * [make] makes the screen for [name]: one of Kolahal's, or a script's (`tty.screen`).
  */
 @Composable
@@ -120,6 +121,7 @@ fun TtyScreenHost(
     modifier: Modifier = Modifier,
     saver: Boolean = false,
     shader: String = ShaderCatalog.OFF,
+    seeThrough: Boolean = false,
     make: (String) -> TtyScreen? = TtyScreens::named,
 ) {
     val close by rememberUpdatedState(onClose)
@@ -259,7 +261,7 @@ fun TtyScreenHost(
         modifier
             .fillMaxSize()
             .then(shaderLook)
-            .background(Term.bg)
+            .then(if (seeThrough) Modifier else Modifier.background(Term.bg))
             .semantics {
                 contentDescription = if (saver) "Screensaver: ${screen.title}" else screen.title
                 onClick(label = "close") { close(null); true }

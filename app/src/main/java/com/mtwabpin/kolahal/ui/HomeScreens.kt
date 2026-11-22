@@ -26,8 +26,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.ScreenSaver
+import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.terminal.ScriptScreenRequests
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.tty.screens.LogDecodeScreen
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens
 import com.mtwabpin.kolahal.ui.tty.TtyScreenHost
 import kotlinx.coroutines.delay
@@ -108,6 +110,8 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
     val saver by vm.screenSaverOn.collectAsStateWithLifecycle()
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val shown = name ?: return
+    // In the gui style decode is home's own log, which scrambles where it is, with the shader home has over it.
+    val inPlace = shown == "decode" && remember(configVersion) { HomeStyle.of(vm.config[Keys.HOME_STYLE]) } == HomeStyle.GUI
     // decode takes over home's lines where they are, so it waits a moment for the keyboard to be down.
     if (shown == "decode" && !keyboardDown()) return
     if (saver) {
@@ -132,9 +136,10 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
         clock24 = remember(shown) { vm.config[Keys.CLOCK_24H] },
         onClose = close,
         saver = saver,
-        shader = remember(configVersion) { vm.config[Keys.SCREEN_SHADER] },
+        shader = if (inPlace) ShaderCatalog.OFF else remember(configVersion) { vm.config[Keys.SCREEN_SHADER] },
+        seeThrough = inPlace,
         // A script's own screen (tty.screen), or one of Kolahal's.
-        make = { ScriptScreenRequests.screen(app, it) ?: TtyScreens.named(it) },
+        make = { if (inPlace) LogDecodeScreen(vm.logDecode) else ScriptScreenRequests.screen(app, it) ?: TtyScreens.named(it) },
     )
 }
 
