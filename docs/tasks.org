@@ -490,6 +490,20 @@ Looks, positions and the new Arrange widgets screen shipped in 0.5.15. Still to 
   is too much; how the two show that they belong together is to be explored.
 - Remark:
 
+** WAITING [#C] Shaders as a live wallpaper  :shaders:project:
+- A shader such as the pond behind any launcher and on the lock screen, from Kolahal. Tried out on 22 November
+  2026 (a throwaway service, not in the code), for the maintainer to decide.
+- What worked: the pond's own file drawn by a =WallpaperService= with a =RuntimeShader= as the paint of a hardware
+  canvas, its =content= a plain color. 30 frames a second at 1080×2400 on the emulator, about 0.4 ms of CPU a
+  frame. It stops when an app covers it and when the screen goes off, and shows through =log.wallpaper=.
+- What it needs: the uniforms' code out of =ShaderInputs= (=ui/tty/TtyShader.kt=), so both use one; parameters,
+  values, tilt, battery and theme colors without Compose; the same rules for standing still (=ShaderClock=);
+  a setting for its shader, apart from =screen.shader=; a button in a shader's details, which opens Android's own
+  preview; its colors for Material You; a process of its own, so a bad shader can't take home with it.
+- Only scenes: a shader that changes text has nothing to change. The scenes leave the lower part of the page to
+  the theme's color for the newest lines, so each needs a full-height look there.
+- Remark:
+
 * Keep as it is
 Checked and found sound, or left as it is on purpose. Don't raise these again.
 
