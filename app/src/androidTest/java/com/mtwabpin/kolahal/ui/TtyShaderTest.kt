@@ -229,7 +229,7 @@ class TtyShaderTest {
         assertTrue(errors("Shader zz-broken: line 2").isNotEmpty())
     }
 
-    /** A shader that was turned off (too slow, or a crash) isn't drawn until it is turned on again. */
+    /** A shader that was turned off (a crash) isn't drawn until it is turned on again. */
     @Test
     fun aTrippedShaderIsNotDrawnUntilItIsTurnedOnAgain() {
         needsAndroid13()

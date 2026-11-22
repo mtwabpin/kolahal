@@ -1,6 +1,6 @@
 ---
 title: Shaders
-description: AGSL shaders over home and the full-screen screens, the ones that come with Kolahal, shared ones, how to write and add your own, and what turns a slow one off.
+description: AGSL shaders over home and the full-screen screens, the ones that come with Kolahal, shared ones, how to write and add your own, and how to turn one off.
 ---
 
 A shader is a small program that the phone's graphics chip runs for every pixel. Kolahal can draw
@@ -71,9 +71,6 @@ Shaders also stop on their own:
 
 - A shader that doesn't compile isn't used. A line in the log says why, with the line of the file
   where the compiler stopped. Tap it to check the shader again.
-- A shader that stays too slow for the phone is turned off: one frame in ten takes the GPU more than
-  33 ms, for a second or two on end. The log says how long its frames took. On a phone that doesn't
-  measure the GPU's time, only a shader that hangs is turned off.
 - If Kolahal crashes or freezes while a shader that hasn't proven itself is on, the shader is turned
   off at the next start.
 
@@ -169,7 +166,7 @@ Good to know:
   multiplied by the alpha. `c.rgb` of a half-transparent pixel is darker than its color.
 - `uniform shader content;` is required, and it is the only shader input. A shader has no other
   images, files or network.
-- Look at a few pixels around each one, not hundreds. A shader that is too slow is turned off.
+- Look at a few pixels around each one, not hundreds. A shader that does too much work makes home slow.
 - If the screen shows your wallpaper ([`log.wallpaper`](/reference/config/#log)), the pixels behind the
   text can be transparent: check `c.a`.
 - Moving pixels far from where they are makes a tap miss what it shows. Keep it under half a cell,

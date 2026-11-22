@@ -77,6 +77,16 @@ half4 main(float2 xy) {
     float y = xy.y / resolution.y;
     if (y > 0.84) return half4(here);
 
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
     float4 raw = hours(date.w / 3600.0);
     float4 w = themed(raw);
     float3 sky = float3(0.788, 0.847, 0.902) * w.x + float3(0.663, 0.796, 0.878) * w.y
@@ -182,6 +192,8 @@ half4 main(float2 xy) {
         float amp = 0.22 - 0.12 * t;
         float b = breath(time - 0.3 * n);
         float rise = (0.003 + 0.009 * t) * b * 0.7;
+        // The next ridge hides all of this one from its own foot down.
+        if (i < 4 && y > base + 0.045) continue;
 
         // Only a pixel between the highest crest and the foot needs the noise.
         float top = base - 1.40 * amp;
@@ -200,7 +212,7 @@ half4 main(float2 xy) {
         float pale = down < 0.5 ? 0.30 * down : 0.15 + 0.80 * (down - 0.5);
         color = mix(color, mix(ridge, haze, pale), cover);
 
-        if (i < 4) {
+        if (i < 4 && y > base - 0.6 * amp) {
             float u = (xy.x + time * (2.0 + 0.5 * n)) / resolution.x * 6.2832 + n * 1.7;
             float sides = (sin(u) + 0.5 * sin(2.0 * u + 1.0) + 0.333 * sin(3.0 * u + 2.1) + 0.2 * sin(5.0 * u + 4.0)) / 2.033;
             float band = clamp((y - (base - 0.6 * amp)) / (0.6 * amp + 0.06), 0.0, 1.0);
@@ -212,13 +224,5 @@ half4 main(float2 xy) {
     // Dither, so the long gradients have no bands.
     color += (hash2(xy) - 0.5) / 255.0;
 
-    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
-    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
-    float3 page = float3(bg.rgb) * here.a;
-    float ink = length(here.rgb - page);
-    float full = length(float3(fg.rgb) - float3(bg.rgb));
-    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y));
-    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
-    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
     return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
 }

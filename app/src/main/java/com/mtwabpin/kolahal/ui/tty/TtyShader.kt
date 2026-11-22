@@ -4,19 +4,13 @@
 package com.mtwabpin.kolahal.ui.tty
 
 import android.animation.ValueAnimator
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
 import android.os.BatteryManager
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
-import android.view.FrameMetrics
-import android.view.Window
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,7 +37,6 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -56,7 +49,6 @@ import com.mtwabpin.kolahal.script.ShaderDate
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderTilt
-import com.mtwabpin.kolahal.script.ShaderWatchdog
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
@@ -76,7 +68,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
-import kotlin.math.roundToInt
 
 /** The shaders drawn now, by name. A test asks for it; a surface can't be asked what its layer does. */
 internal object ActiveShaders {
@@ -99,7 +90,7 @@ internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
  * `screen.shader` over a TTY surface (home on the grid, a full-screen screen): a [RenderEffect] on its
  * layer, so the shader works on what is drawn and the grid knows nothing of it. Nothing when [on] is
  * false, or when no shader can be drawn: no shader is set, it doesn't compile, it was turned off
- * (too slow, or Kolahal crashed while it was on), a screen reader is on, or Android is older than 13.
+ * (Kolahal crashed while it was on), a screen reader is on, or Android is older than 13.
  *
  * Put it first in the surface's modifier chain, before its background, so the shader covers it too.
  * [cols] and [left] are the grid's columns and where they start, in px, when the caller knows them
@@ -112,7 +103,7 @@ internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
  * - One that declares `tilt` follows the phone's lean, under the same conditions as one that moves
  *   ([FollowTilt]). Nothing listens to the motion sensor for any other.
  * - One that declares `battery` or `charging` is also drawn when they change ([FollowBattery]).
- * - [ShaderWatchdog] turns a slow one off, and [ShaderSafety] one that Kolahal crashed with.
+ * - [ShaderSafety] turns one off that Kolahal crashed with. A slow one is the user's to turn off.
  * - Two fingers held still for a second turn the shader off, whatever it does to the screen.
  */
 @Composable
@@ -152,14 +143,12 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     }
     val shader = loaded ?: return Modifier
 
-    val view = LocalView.current
-    val window = remember(view) { view.context.findActivity()?.window }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val touch = remember(shader) { ShaderTouch() }
     val clock = remember(shader) { ShaderTime() }
     ActiveMark(shader.name)
     ArmWhileShown(shader.id, safety, lifecycle)
-    if (window != null) WatchFrames(shader, safety, window, view.display?.refreshRate ?: 60f, context)
+    ProveWhenShown(shader.id, safety, lifecycle)
     if (shader.meta.animated) AnimateShader(shader, clock, touch)
     val day = remember(shader) { ShaderDay() }
     if (!shader.meta.animated && shader.meta.uses(ShaderDate.NAME)) FollowDate(shader, day)
@@ -198,7 +187,7 @@ private fun Modifier.shaderEffect(
  * older than 13).
  *
  * It is only looked at, so it is kept out of what judges the shader on home: no mark in
- * [ShaderSafety], no [ShaderWatchdog], no line in the log and no touches. Home isn't drawn while it is.
+ * [ShaderSafety], no line in the log and no touches. Home isn't drawn while it is.
  * It leans with the phone, as on home, until it goes or a minute has passed.
  */
 @Composable
@@ -259,36 +248,17 @@ private fun ArmWhileShown(id: String, safety: ShaderSafety, lifecycle: Lifecycle
     }
 }
 
-/** Times the window's frames while the shader is on ([ShaderWatchdog]), and turns it off when they are too slow. */
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+/**
+ * Says that the shader [id] is proven once it has been in front for [PROVEN_MS]: a later crash isn't
+ * blamed on it. How fast it is is not judged: one that is slow is for the user to turn off.
+ */
 @Composable
-private fun WatchFrames(shader: LoadedShader, safety: ShaderSafety, window: Window, refreshRate: Float, context: Context) {
-    DisposableEffect(shader, window, refreshRate) {
-        val budget = ShaderWatchdog.budgetFor(refreshRate)
-        val dog = ShaderWatchdog(budget)
-        fun ms(ns: Long) = (ns / 1_000_000.0).roundToInt()
-        val listener = Window.OnFrameMetricsAvailableListener { _, metrics, _ ->
-            if (metrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME) == 0L) {
-                val total = metrics.getMetric(FrameMetrics.TOTAL_DURATION)
-                // What the GPU spent on it, where the phone measures it. The whole frame's time is no
-                // measure of the shader: it has the wait for the screen in it.
-                val gpu = metrics.getMetric(FrameMetrics.GPU_DURATION).takeIf { it > 0 }
-                when (val verdict = dog.frame(gpu, total)) {
-                    ShaderWatchdog.Verdict.Fine -> Unit
-                    ShaderWatchdog.Verdict.Proven -> safety.proven(shader.id)
-                    is ShaderWatchdog.Verdict.Slow -> Shaders.turnOff(
-                        context, shader.id,
-                        "the GPU takes ${ms(verdict.frameNs)} ms or more on one frame in ten, over the limit of ${ms(budget)} ms",
-                    )
-
-                    is ShaderWatchdog.Verdict.Stalled -> Shaders.turnOff(
-                        context, shader.id, "${ShaderWatchdog.STALLS} frames took longer than ${ms(ShaderWatchdog.STALL_NS)} ms",
-                    )
-                }
-            }
+private fun ProveWhenShown(id: String, safety: ShaderSafety, lifecycle: Lifecycle) {
+    LaunchedEffect(id, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            delay(PROVEN_MS)
+            safety.proven(id)
         }
-        window.addOnFrameMetricsAvailableListener(listener, Handler(Looper.getMainLooper()))
-        onDispose { runCatching { window.removeOnFrameMetricsAvailableListener(listener) } }
     }
 }
 
@@ -642,6 +612,9 @@ private class ShaderInputs(
     }
 }
 
+/** How long a shader must be in front, without a crash, to be proven. */
+private const val PROVEN_MS = 10_000L
+
 /** How long two fingers are held for the shader to go off. */
 private const val HOLD_MS = 1_000L
 
@@ -695,14 +668,4 @@ private suspend fun AwaitPointerEventScope.held(from: Map<PointerId, Offset>): B
         false
     }
     return moved == null
-}
-
-/** The activity this view is in: its window's frames are timed. */
-private fun Context.findActivity(): Activity? {
-    var at: Context? = this
-    while (at is ContextWrapper) {
-        if (at is Activity) return at
-        at = at.baseContext
-    }
-    return null
 }

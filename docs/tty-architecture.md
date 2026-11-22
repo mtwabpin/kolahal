@@ -804,7 +804,8 @@ tty.screen({
 - *Finger and battery*: `pressed` comes from the touch watcher (Initial pass, nothing consumed; a cancel
   ends it), `battery` and `charging` from `DeviceStatus`, the header's. Each draws a still shader again
   only when it changes.
-- *Watchdog*: the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`) over 60 frames
+- *Watchdog* (removed on 22 November, by the maintainer's decision: a slow shader is the user's to turn off;
+  a shader is proven after 10 s in front): the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`) over 60 frames
   against two frames of the display's refresh rate, but at least 33 ms, and it has to stay over that for
   120 frames in a row; the first 60 frames don't count (the GPU compiles the program). Where the phone
   doesn't measure the GPU, only stalls count: the whole frame's time is no measure of a shader (it has

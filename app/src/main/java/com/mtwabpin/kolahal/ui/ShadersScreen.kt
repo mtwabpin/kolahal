@@ -148,8 +148,8 @@ fun ShadersScreen(
             }
             item(key = "hint") {
                 PageHint(
-                    "If a shader makes home hard to read, hold two fingers still on it for a second. One that is too " +
-                            "slow turns itself off. Terminal: shader · shader <name> · shader off",
+                    "If a shader makes home hard to read, hold two fingers still on it for a second. " +
+                            "Terminal: shader · shader <name> · shader off",
                 )
             }
         }

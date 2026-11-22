@@ -38,7 +38,7 @@ internal object ShaderPage {
     fun usesTilt(e: SharedShader, code: String?): Boolean =
         e.tilt || (code != null && ShaderMeta.parse(code).tilt)
 
-    /** That the watchdog or the safe mode turned it off, with the reason when it is known. */
+    /** That the safe mode turned it off, with the reason when it is known. */
     fun turnedOff(row: ShaderRow): String = row.why?.let { "Turned off: $it" } ?: "Turned off"
 
     /** Where one of the user's own is from. Null for one that comes with Kolahal. */

@@ -19,13 +19,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * Keeps a shader that crashes, hangs or slows down home from doing it again (pure, over a [Store];
+ * Keeps a shader that crashes or hangs home from doing it again (pure, over a [Store];
  * [get] gives it the phone's).
  * - A shader is named with its code ([id]): a changed file is a new shader, and starts over.
  * - While a shader that isn't [proven] yet is on screen, it is [arm]ed in the store before its first
  *   frame. If Kolahal then ends by a crash or a hang, the mark is still there at the next start, and
  *   [recover] turns the shader off: a safe mode.
- * - A shader that is too slow ([ShaderWatchdog]) is [trip]ped too.
  * - A tripped shader isn't drawn until its file changes or the user turns a shader on again
  *   ([turnedOn]). After [MAX_TRIPS] trips in a row with none [proven] in between, `screen.shader` goes off.
  */
@@ -108,7 +107,7 @@ class ShaderSafety(private val store: Store) {
     }
 
     /**
-     * Turns [id] off: too slow, or gone with a crash ([why], for the Shaders screen). Returns how many
+     * Turns [id] off: gone with a crash ([why], for the Shaders screen). Returns how many
      * trips in a row this makes, or 0 when it was tripped already.
      */
     @Synchronized
