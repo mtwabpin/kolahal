@@ -15,7 +15,7 @@ Kolahal is developed with AI assistance. The developers review every change exce
 
 * Status: under review
 
-Kolahal's code is still under review. It is young (0.4), parts of it were written with AI
+Kolahal's code is still under review. It is young (0.5), parts of it were written with AI
 assistance, and the review of the codebase as a whole isn't finished. Expect rough edges and changes
 between versions, keep a [[https://mtwabpin.github.io/kolahal/guides/backup/][backup]], and report what you find.
 
