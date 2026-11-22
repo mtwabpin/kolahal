@@ -75,6 +75,18 @@ class SettingsCatalogTest {
         assertTrue(matches(Keys.SCREEN_SAVER, "pipes"))
     }
 
+    /** Shaders is a row on the main page, after a real category, and the search finds it by what it does. */
+    @Test
+    fun shadersHasARowTheSearchFinds() {
+        val row = SCREEN_ROWS.single { it.screen == Screen.SHADERS }
+        assertEquals("Shaders", row.title)
+        assertTrue(allCategories().any { it.id == row.after })
+        for (q in listOf("shader", "CRT", "effect", "bloom effect", "screen.shader")) assertTrue(q, row.matches(q))
+        assertFalse(row.matches("weather"))
+        // The screen sets it, so no page has it.
+        assertTrue(Keys.SCREEN_SHADER in Keys.CONFIG_ONLY)
+    }
+
     /** Settings search finds each word in any order, in a setting's title, name, help or choices. */
     @Test
     fun searchFindsWordsInAnyOrder() {

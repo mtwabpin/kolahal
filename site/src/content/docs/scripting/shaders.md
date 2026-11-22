@@ -1,6 +1,6 @@
 ---
 title: Shaders
-description: AGSL shaders over home and the full-screen screens, the ones that come with Kolahal, how to write and add your own, and what turns a slow one off.
+description: AGSL shaders over home and the full-screen screens, the ones that come with Kolahal, shared ones, how to write and add your own, and what turns a slow one off.
 ---
 
 A shader is a small program that the phone's graphics chip runs for every pixel. Kolahal can draw
@@ -11,6 +11,20 @@ written in AGSL, Android's version of GLSL.
 Shaders need **Android 13 or newer**.
 
 ## Turning a shader on
+
+Open **Settings → Shaders** and tap a shader. It is checked first: if it doesn't compile, the one that is
+on stays, and its row says why. **None** turns shaders off.
+
+Each row shows what the shader looks like and what it is: in use, yours or from a
+[shared list](#getting-shaders-from-others), animated, edited, turned off (and why), or with an update. Tap
+ⓘ for its details: a small preview, its version and author, its code, and what you can do with it.
+
+- **Check** compiles it and says which [uniforms](#uniforms) it uses.
+- **Copy to script folder** and **Share** give you the file or its code, to edit it or pass it on.
+- **Update** brings a newer version of a shared shader.
+- **Remove** deletes one of yours. **Undo** brings it back.
+
+Or type:
 
 | Command | What it does |
 | --- | --- |
@@ -34,6 +48,7 @@ A shader can make the screen hard to read. These always work:
 
 - Type `shader off`. The keyboard and the prompt work, even when you can't see them.
 - Hold two fingers still on the screen for a second.
+- **Settings → Shaders → None**. Settings has no shader over it.
 - `config set screen.shader off`.
 
 Shaders also stop on their own:
@@ -59,11 +74,15 @@ A shader is a text file that ends in `.agsl`. Its name is the file's name in low
 is `my-glow`. A file can have at most 64 KB. A few words that `shader` uses itself, such as `off` and
 `list`, can't be a shader's name.
 
-There are two ways to add one:
+There are two ways to add one, both under **Settings → Shaders → Add shader**:
 
-- **The script folder.** Put the file in the folder you picked with `script dir`, at the top or in its
-  `shaders` folder, and run [`script import`](/scripting/overview/#moving-scripts).
-- **Import a file.** In the Scripts screen, **Add script** → **Import a file**, as you would a script.
+- **Import a file.** Pick one or more `.agsl` files. (**Add script → Import a file** in the Scripts screen
+  takes them too.)
+- **Read the script folder again.** Put the file in the folder you picked with `script dir`, at the top or
+  in its `shaders` folder. [`script import`](/scripting/overview/#moving-scripts) reads it as well.
+
+Your shaders are listed under **Settings → Shaders → Your shaders**, and are part of the
+[backup file](/guides/backup/).
 
 `script export` also writes your shaders into the folder's `shaders` folder, so you can keep them in
 git or edit them on a computer. `shader copy <name>` writes a copy of any shader there. After editing
@@ -78,6 +97,34 @@ Kolahal is used instead of it, until you remove it.
 | `shader reload` | reads the `.agsl` files in the script folder again |
 | `shader copy <name>` | writes a shader into the script folder's `shaders` folder, to edit it there |
 | `shader remove <name>` | deletes your shader |
+
+## Getting shaders from others
+
+**Settings → Shaders → Add shader → Get more shaders** lists the shaders that people share in
+[kolahal-scripts](https://github.com/mtwabpin/kolahal-scripts) on GitHub, beside its scripts. Each is
+reviewed before it is added.
+
+1. Tap a shader to see what it looks like, its license and its code.
+2. Tap **Install**. The file must match the checksum in its list.
+3. Tap **Use**. Installing doesn't turn it on.
+
+It is then one of your shaders. When the list has a newer version, its row says **Update to …**. One you
+edited is replaced only when you ask, and **Undo** puts your copy back.
+
+The sources are the same as for scripts: [add your own](/scripting/overview/#your-own-scripts-repository)
+with **Sources**, at the top of the page. Kolahal doesn't check the shaders of a source you add.
+
+| Command | What it does |
+| --- | --- |
+| `shader get` | lists the shared shaders |
+| `shader get <name>` | installs or updates one. `shader get <source>/<name>` picks the source |
+| `shader update` | updates every shader you installed this way |
+| `shader update <name>` | updates one |
+
+The list is kept for an hour. `--refresh` reads it again, and `--replace` replaces a copy you edited.
+
+To share a shader from [a repository of your own](/scripting/overview/#your-own-scripts-repository), put it
+in `shaders/<name>/<name>.agsl` with a full [header](#the-header).
 
 ## Writing one
 
@@ -120,6 +167,11 @@ Comments at the top say what the shader is. All are optional:
 | `// @name Tint` | its name for people |
 | `// @description …` | what it looks like. `shader` shows it |
 | `// @animated` | it changes on its own, so it is drawn up to 30 times a second. Without it a shader is only drawn when the screen changes, so it uses no power while the screen is still |
+| `// @author …` | who made it. A shared shader needs it, as it does `@version` and `@license` |
+| `// @version 1.0` | its version |
+| `// @license MIT` | its license |
+| `// @tags glow, retro` | words that find it in Get more shaders |
+| `// @requires 0.5.17` | the oldest Kolahal it works with |
 
 ### Uniforms
 

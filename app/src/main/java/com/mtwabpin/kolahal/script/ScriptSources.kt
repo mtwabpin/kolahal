@@ -117,16 +117,20 @@ object ScriptSources {
         sources.firstOrNull { it.name == name || it.index == name }
             ?: (parse(name) as? Parsed.Ok)?.source?.let { s -> sources.firstOrNull { it.name == s.name } }
 
+    /** What a source's list has: a script ([ScriptCatalog.Entry]) or a shader ([SharedShader]). */
+    interface Listed {
+        val name: String
+
+        /** The name of the source that lists it ([Source.name]). */
+        val source: String
+    }
+
     /**
-     * The entry that `script get [ref]` installs, from [entries] in source order.
+     * The entry that `script get [ref]` (or `shader get [ref]`) installs, from [entries] in source order.
      * - A plain name: the first source that has it.
      * - `source/name`: that source's (the source as [find] reads it).
      */
-    fun pick(
-        entries: List<ScriptCatalog.Entry>,
-        ref: String,
-        sources: List<Source>
-    ): ScriptCatalog.Entry? {
+    fun <E : Listed> pick(entries: List<E>, ref: String, sources: List<Source>): E? {
         val name = ref.substringAfterLast('/')
         if ('/' !in ref) return entries.firstOrNull { it.name == name }
         val source = find(sources, ref.substringBeforeLast('/')) ?: return null
@@ -139,8 +143,11 @@ object ScriptSources {
     /** "1 source", "2 sources". */
     fun sourceCount(n: Int): String = if (n == 1) "1 source" else "$n sources"
 
-    /** What `script get` calls [e] by: its name, or `source/name` when another source comes first with that name. */
-    fun ref(entries: List<ScriptCatalog.Entry>, e: ScriptCatalog.Entry): String =
+    /** "1 shader", "3 shaders". */
+    fun shaderCount(n: Int): String = if (n == 1) "1 shader" else "$n shaders"
+
+    /** What `script get` and `shader get` call [e] by: its name, or `source/name` when another source comes first with that name. */
+    fun <E : Listed> ref(entries: List<E>, e: E): String =
         if (entries.first { it.name == e.name }.source == e.source) e.name else "${e.source}/${e.name}"
 
     /**

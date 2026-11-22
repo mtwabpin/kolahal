@@ -72,6 +72,9 @@ class Completer(private val context: Context, private val data: Data) {
         /** The names of the shared scripts, as far as they are known (`script get`). `source/name` for one that another source has first. */
         val sharedNames: List<String> get() = emptyList()
 
+        /** The names of the shared shaders, as far as they are known (`shader get`), as [sharedNames]. */
+        val sharedShaders: List<String> get() = emptyList()
+
         /** The names of the sources added to Get more scripts (`script source rm`). */
         val scriptSources: List<String> get() = emptyList()
     }
@@ -714,7 +717,7 @@ class Completer(private val context: Context, private val data: Data) {
                 .map { Suggestion.Completion(it, "$head $it") }
 
             // `shader c`: its subcommands and the shaders; `shader use c`: the shaders.
-            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() })
+            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() }, data.sharedShaders)
                 .filter { it.starts(last) }
                 .map {
                     val sub = parts.size == 2 && it in ShaderCommands.SUBCOMMANDS

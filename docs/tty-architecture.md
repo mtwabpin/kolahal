@@ -763,8 +763,11 @@ tty.screen({
   `aberration`; CRT has both).
 - *Commands*: `shader list | use <name> | on | off | check <name> | reload | copy <name> | remove
   <name>`; `shader <name>` turns one on. `screen.shader` is a `Choice` whose list grows by the user's
-  files (`Choice.added`, as `theme.name`), so it completes. Config only (§0's decisions): there is no
-  Settings entry.
+  files (`Choice.added`, as `theme.name`), so it completes. `shader get` and `shader update` install
+  and update shared ones.
+- *Settings*: Settings → Shaders (`ui/ShadersScreen.kt`), by the maintainer's request of 22 November; the
+  key itself is on no settings page. Its preview uses the code that sets the uniforms, but neither the
+  watchdog nor the safe mode's mark.
 - *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`
   and the ten colors. Not built: `cells` (step 7), `scroll`, `param0..7` and `@param`, `@warp`,
   `@bloom`. A `layout(color)` color must be four numbers, as Android requires.

@@ -414,6 +414,16 @@ class SettingsScreenTest {
         compose.onNode(row, useUnmergedTree = true).assertExists()
     }
 
+    /** Shaders is a row on the main page that opens its screen; the search finds it by what it does. */
+    @Test
+    fun shadersOpensFromTheMainPageAndTheSearch() {
+        show(null)
+        compose.onNode(hasSetTextAction()).performTextInput("crt")
+        val row = hasText("Shaders") and hasText("Effects over home", substring = true)
+        compose.onNode(row).performClick()
+        compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.SHADERS }
+    }
+
     /** Backup has its own page: automatic backups, their folder and Back up now; search finds backup.auto from the main page. */
     @Test
     fun backupsOnTheirOwn() {

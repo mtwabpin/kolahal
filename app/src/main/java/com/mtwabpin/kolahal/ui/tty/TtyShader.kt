@@ -137,20 +137,56 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     if (window != null) WatchFrames(shader, safety, window, view.display?.refreshRate ?: 60f, context)
     if (shader.meta.animated) AnimateShader(shader, clock, touch)
 
-    val inputs = remember(shader, grid, cols, left) { ShaderInputs(context, shader, grid, cols, left) }
+    val inputs = remember(shader, grid, cols, left) {
+        ShaderInputs(shader, grid, cols, left) { Shaders.report(context, shader.name, shader.id, it) }
+    }
     return Modifier
-        .graphicsLayer {
-            renderEffect = if (size.width > 0f && size.height > 0f) {
-                inputs.effect(size.width, size.height, clock, touch)
-            } else null
-            clip = true
-        }
+        .shaderEffect(inputs, clock, touch)
         .pointerInput(shader) {
             watchTouches(
                 onTouch = { touch.at(it, clock.seconds) },
                 onHold = { Shaders.offByHand(context) },
             )
         }
+}
+
+/** The effect of [inputs] over what this modifier is on. */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private fun Modifier.shaderEffect(inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch): Modifier =
+    graphicsLayer {
+        renderEffect = if (size.width > 0f && size.height > 0f) {
+            inputs.effect(size.width, size.height, clock, touch)
+        } else null
+        clip = true
+    }
+
+/**
+ * A shader's [code] over a small sample in Settings, drawn as [rememberTtyShader] draws it. Null until
+ * it is compiled, and when it can't be drawn (it doesn't compile, a screen reader is on, or Android is
+ * older than 13).
+ *
+ * It is only looked at, so it is kept out of what judges the shader on home: no mark in
+ * [ShaderSafety], no [ShaderWatchdog], no line in the log and no touches. Home isn't drawn while it is.
+ */
+@Composable
+internal fun rememberShaderPreview(name: String, code: String, grid: TtyGrid): Modifier? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+    return previewLayer(name, code, grid)
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun previewLayer(name: String, code: String, grid: TtyGrid): Modifier? {
+    if (rememberScreenReader()) return null
+    val loaded by produceState<LoadedShader?>(null, name, code) {
+        value = withContext(Dispatchers.IO) { LoadedShader.compile(name, code) }
+    }
+    val shader = loaded ?: return null
+    val touch = remember(shader) { ShaderTouch() }
+    val clock = remember(shader) { ShaderTime() }
+    if (shader.meta.animated) AnimateShader(shader, clock, touch)
+    val inputs = remember(shader, grid) { ShaderInputs(shader, grid, 0, 0) { } }
+    return Modifier.shaderEffect(inputs, clock, touch)
 }
 
 /** Says in [ActiveShaders] that [name] is drawn. */
@@ -330,21 +366,32 @@ private class LoadedShader(val id: String, val name: String, val meta: ShaderMet
             }
             return LoadedShader(id, name, ShaderMeta.parse(source), runtime)
         }
+
+        /** The shader [name] with [code], for a preview: nothing is marked or logged. Null when it can't be drawn. Not on the main thread. */
+        fun compile(name: String, code: String): LoadedShader? {
+            if (ShaderMeta.problems(code).isNotEmpty()) return null
+            val runtime = try {
+                RuntimeShader(code)
+            } catch (_: RuntimeException) {
+                return null
+            }
+            return LoadedShader(ShaderSafety.id(name, code), name, ShaderMeta.parse(code), runtime)
+        }
     }
 }
 
 /**
  * Sets the uniforms of a [LoadedShader] and makes its effect. Uniforms it doesn't declare are skipped.
- * One that Android refuses in spite of [ShaderMeta.problems] is an error in the log, and no effect is
- * drawn: home never stops for a shader.
+ * One that Android refuses in spite of [ShaderMeta.problems] goes to [onError] (a line in the log), and
+ * no effect is drawn: home never stops for a shader.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private class ShaderInputs(
-    private val context: Context,
     private val shader: LoadedShader,
     grid: TtyGrid,
     private val cols: Int,
     private val left: Int,
+    private val onError: (String) -> Unit,
 ) {
     private val runtime = shader.runtime
     private val animated = shader.meta.animated
@@ -383,7 +430,7 @@ private class ShaderInputs(
             RenderEffect.createRuntimeShaderEffect(runtime, ShaderMeta.INPUT).asComposeRenderEffect()
         } catch (e: RuntimeException) {
             failed = true
-            Shaders.report(context, shader.name, shader.id, e.message ?: "it can't be drawn")
+            onError(e.message ?: "it can't be drawn")
             null
         }
     }

@@ -216,7 +216,7 @@ class ShortcutsTest {
         assertTrue("and compared after it", review > restore)
         assertTrue(
             "the result's review has the shortcuts",
-            backup.contains("+ sensitiveAliases + shortcuts")
+            backup.contains("sensitiveAliases + shortcuts")
         )
     }
 

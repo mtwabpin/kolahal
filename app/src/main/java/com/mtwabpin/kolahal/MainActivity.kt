@@ -352,6 +352,20 @@ class MainActivity : ComponentActivity() {
                                     vm
                                 )
 
+                                Screen.SHADERS -> com.mtwabpin.kolahal.ui.ShadersScreen(
+                                    vm.shaderActions,
+                                    vm.notice,
+                                    open = vm::openScreen,
+                                    onBack = vm::closeScreen
+                                )
+
+                                Screen.GET_SHADERS -> com.mtwabpin.kolahal.ui.GetShadersScreen(
+                                    vm.shaderActions,
+                                    vm.notice,
+                                    open = vm::openScreen,
+                                    onBack = vm::closeScreen
+                                )
+
                                 Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(
                                     vm
                                 )

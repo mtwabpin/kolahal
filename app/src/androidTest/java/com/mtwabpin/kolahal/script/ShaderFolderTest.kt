@@ -88,4 +88,14 @@ class ShaderFolderTest {
         assertTrue("${r.skipped}", r.skipped.single().startsWith("on.agsl ("))
         assertEquals(code, Shaders.source(context, "zz-picked"))
     }
+
+    /** Settings → Shaders → Import a file takes shaders only: a script stays out, and is said. */
+    @Test
+    fun theShadersScreenImportsShadersOnly() {
+        val file = File(dir, "zz picked.agsl").apply { writeText(code) }
+        val script = File(dir, "zz-script.lua").apply { writeText("return 1") }
+        val r = ScriptFiles(context).importShaders(listOf(Uri.fromFile(file), Uri.fromFile(script)))
+        assertEquals(listOf("zz-picked"), r.shaders)
+        assertEquals(listOf("zz-script.lua (not .agsl)"), r.skipped)
+    }
 }

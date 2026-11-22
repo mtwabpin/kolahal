@@ -372,6 +372,29 @@ class ScriptActionsTest {
         assertTrue(host.commandList!!.any { it.name == "sa-imp" })
     }
 
+    /** A shader imported with the scripts isn't in their list, so the message says where it is. */
+    @Test
+    fun anImportedShaderSaysWhereItIs() {
+        try {
+            actions.importScriptFiles(
+                listOf(
+                    Uri.fromFile(
+                        file(
+                            "sa-glow.agsl",
+                            "uniform shader content;\nhalf4 main(float2 p) { return content.eval(p); }"
+                        )
+                    )
+                )
+            )
+            assertEquals(
+                RecordingHost.Notice("Shaders sa-glow, under Settings → Shaders", false),
+                host.lastNotice()
+            )
+        } finally {
+            com.mtwabpin.kolahal.script.Shaders.remove(context, "sa-glow")
+        }
+    }
+
     /** A file whose `@every` line changed brings its timer, as an edit does; the same line keeps the one set by hand. */
     @Test
     fun aFileWithANewEveryLineBringsItsTimer() {

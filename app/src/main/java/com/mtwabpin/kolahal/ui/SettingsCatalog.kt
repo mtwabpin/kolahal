@@ -275,6 +275,35 @@ private val CATEGORIES = listOf(
     ),
 )
 
+/**
+ * A screen with a row of its own on Settings' main page, after the category [after]. The search finds
+ * it by its [title], its [subtitle] and [words].
+ */
+internal class ScreenRow(
+    val title: String,
+    val subtitle: String,
+    val icon: Int,
+    val screen: Screen,
+    val after: String,
+    val words: String,
+) {
+    /** Whether the search for [q] finds it: each word of [q], in any order ([SearchWords.allIn]). */
+    fun matches(q: String): Boolean =
+        SearchWords.allIn(SearchWords.of(q), listOf(title, subtitle, words))
+}
+
+/** The screens with a row on Settings' main page. */
+internal val SCREEN_ROWS = listOf(
+    ScreenRow(
+        "Shaders",
+        "Effects over home: CRT, bloom, your own",
+        R.drawable.ic_shader,
+        Screen.SHADERS,
+        after = "look",
+        words = "${Keys.SCREEN_SHADER.key} shader effect crt bloom rain scanlines glow agsl glsl",
+    ),
+)
+
 /** The Backup page. It shows automatic backups, then the backup folder and the file actions ([SettingsScreen]). */
 internal const val BACKUP_CATEGORY = "backup"
 

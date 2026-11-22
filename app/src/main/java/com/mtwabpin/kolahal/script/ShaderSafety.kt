@@ -49,6 +49,9 @@ class ShaderSafety(private val store: Store) {
 
     fun isTripped(id: String): Boolean = tripped() == id
 
+    /** Why the [tripped] shader was turned off, when that is known. */
+    fun why(): String? = store.get(WHY)
+
     /** The shader named last, so `shader on` turns it on again. */
     var last: String?
         get() = store.get(LAST)
@@ -105,15 +108,16 @@ class ShaderSafety(private val store: Store) {
     }
 
     /**
-     * Turns [id] off: too slow, or gone with a crash. Returns how many trips in a row this makes,
-     * or 0 when it was tripped already.
+     * Turns [id] off: too slow, or gone with a crash ([why], for the Shaders screen). Returns how many
+     * trips in a row this makes, or 0 when it was tripped already.
      */
     @Synchronized
-    fun trip(id: String): Int {
+    fun trip(id: String, why: String? = null): Int {
         if (isTripped(id)) return 0
         val count = (store.get(TRIPS)?.toIntOrNull() ?: 0) + 1
         unmark(id)
         store.set(TRIPPED, id)
+        store.set(WHY, why)
         store.set(TRIPS, count.toString())
         _version.update { it + 1 }
         return count
@@ -123,6 +127,7 @@ class ShaderSafety(private val store: Store) {
     fun turnedOn() {
         if (tripped() == null) return
         store.set(TRIPPED, null)
+        store.set(WHY, null)
         _version.update { it + 1 }
     }
 
@@ -144,6 +149,7 @@ class ShaderSafety(private val store: Store) {
 
         private const val ARMED = "shader.armed"
         private const val TRIPPED = "shader.tripped"
+        private const val WHY = "shader.why"
         private const val TRIPS = "shader.trips"
         private const val PROVEN = "shader.proven"
         private const val LAST = "shader.last"

@@ -31,10 +31,10 @@ Kolahal itself makes network requests in exactly five cases:
 2. **Feeds** you subscribe to: one request for each feed when it is due.
 3. **Currency conversion** with `= 100 usd in eur`: a request to open.er-api.com for the base
    currency. The result is cached for six hours.
-4. **Getting scripts**: when you open Get more scripts, refresh it or run `script get`, Kolahal downloads the list of
-   shared scripts from mtwabpin.github.io and from each
+4. **Getting scripts and shaders**: when you open Get more scripts or Get more shaders, refresh it, or run `script get`,
+   `shader get` or `shader update`, Kolahal downloads the list of shared scripts and shaders from mtwabpin.github.io and from each
    [source you added](/scripting/overview/#your-own-scripts-repository) (and keeps each for an hour).
-   It also downloads the file of a script you look at or install.
+   It also downloads the file of a script or shader you look at or install.
 5. **Updates**, in the full build only, and only when you run them. `update` asks GitHub for the
    latest release, and `update install` downloads its APK from GitHub. Nothing checks in the background.
 

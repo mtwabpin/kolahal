@@ -15,6 +15,8 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptImport
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptSources
+import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.widgets.Shortcuts
 
 /**
@@ -34,7 +36,8 @@ import com.mtwabpin.kolahal.widgets.Shortcuts
  *   "font":    { "name": "...", "base64": "..." },          // an imported terminal font
  *   "widgets": [ ... ],                                     // so the app can offer to add them again
  *   "themes":  { "mine": { "background": "#0B0D0B", ... } },    // made in the theme builder
- *   "scriptSources": [ "https://owner.github.io/name/index.json" ] }   // added to Get more scripts
+ *   "scriptSources": [ "https://owner.github.io/name/index.json" ],    // added to Get more scripts
+ *   "shaders": [ { "name": "glow", "code": "..." } ] }                 // the user's own .agsl files
  * ```
  */
 class Backup(private val context: Context) {
@@ -100,6 +103,10 @@ class Backup(private val context: Context) {
             },
             // The sources added to Get more scripts, by address. Their lists aren't kept: they are read again.
             "scriptSources" to ScriptCatalog(context).added(),
+            // The user's own shaders. Where the installed ones came from is in "data", as for scripts.
+            "shaders" to Shaders.userNames.mapNotNull { name ->
+                Shaders.own(context, name)?.let { mapOf("name" to name, "code" to it) }
+            },
         )
         val text = Json.stringify(data)
         val mb = utf8Size(text) / (1024 * 1024)
@@ -129,6 +136,8 @@ class Backup(private val context: Context) {
         val review: List<String> = emptyList(),
         /** The file is from a newer Kolahal ([VERSION] is lower than its format). What this version doesn't know was skipped. */
         val newer: Boolean = false,
+        /** The shaders the file brought. */
+        val shaders: Int = 0,
     )
 
     fun import(uri: Uri): Result {
@@ -160,6 +169,15 @@ class Backup(private val context: Context) {
             ) {
                 CustomThemes.save(context, n, colors)
             } else skipped += "theme $name"
+        }
+
+        // Shaders before settings too: `screen.shader` may name one of them.
+        var shaders = 0
+        (root["shaders"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.forEach { m ->
+            val name = m["name"]?.toString().orEmpty()
+            val code = m["code"] as? String
+            if (code != null && runCatching { Shaders.save(context, name, code) }.isSuccess) shaders++
+            else skipped += "shader $name"
         }
 
         var settings = 0
@@ -293,7 +311,11 @@ class Backup(private val context: Context) {
             Keys.GESTURE_SWIPE_UP
         )
             .filterNot(config::isDefault)
-            .map { "${it.key} = ${config.display(it)}" } + sensitiveAliases + shortcuts + newSources
+            .map { "${it.key} = ${config.display(it)}" } +
+                // A shader from the file draws over home at once.
+                listOfNotNull(config[Keys.SCREEN_SHADER].takeIf { it != ShaderCatalog.OFF && it in Shaders.userNames }
+                    ?.let { "${Keys.SCREEN_SHADER.key} = $it" }) +
+                sensitiveAliases + shortcuts + newSources
         return Result(
             settings,
             aliases,
@@ -303,7 +325,8 @@ class Backup(private val context: Context) {
             restored,
             full = data != null,
             review = review,
-            newer = newer
+            newer = newer,
+            shaders = shaders
         )
     }
 

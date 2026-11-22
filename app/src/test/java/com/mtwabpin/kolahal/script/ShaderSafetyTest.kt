@@ -148,6 +148,20 @@ class ShaderSafetyTest {
         assertEquals(seen, safety.version.value)
     }
 
+    /** The Shaders screen says why one was turned off, until it is turned on again. */
+    @Test
+    fun theReasonIsKeptWhileItIsOff() {
+        assertNull(safety.why())
+        safety.trip(id, "the GPU takes 60 ms")
+        assertEquals("the GPU takes 60 ms", ShaderSafety(store).why())
+        safety.turnedOn()
+        assertNull(safety.why())
+        // One turned off without a reason doesn't keep the last one's.
+        safety.trip(id, "slow")
+        safety.trip(other)
+        assertNull(safety.why())
+    }
+
     /** Turned on again after each trip, it gives up at the third, unless it ran well in between. */
     @Test
     fun theThirdTripInARowIsTheLast() {

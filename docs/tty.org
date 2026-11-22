@@ -105,7 +105,7 @@ override the rest. Internal: nothing here is published.
 - AGSL files loaded like scripts, a =RenderEffect= on the TTY layer, uniforms (time, size, theme
   colors, touch, the grid), a frame-time watchdog, safe mode and an always-reachable off; Settings
   stays outside the effect. A bundled set: CRT, bloom, rain.
-- Built (22 November), config only: =screen.shader= (=off=, =crt=, =bloom=, =rain= or a file of the
+- Built (22 November): =screen.shader= (=off=, =crt=, =bloom=, =rain= or a file of the
   user's own) and the =shader= command (list, use, on, off, check, reload, copy, remove). It covers
   the TTY home and the full-screen screens in both styles (design §7, "As built"):
   - [X] Files: bundled ones in =assets/shaders/=, the user's in =files/shaders/=, from the script
@@ -122,8 +122,16 @@ override the rest. Internal: nothing here is published.
   - [X] Moving shaders stand still in battery saver, when hot, low on battery, with Remove animations
     on, and after a minute without a touch; shaders are off with a screen reader on.
   - [ ] Left: =cells= and =scroll= uniforms, =@param=, =@warp= and =@bloom= (with step 7's grid data
-    or a Settings slider), the app shortcut for safe mode, shaders in backups, and nothing measured on
-    a phone yet.
+    or a Settings slider), the app shortcut for safe mode, and nothing measured on a phone yet.
+- The Shaders screen and its store (22 November):
+  - [X] Settings → Shaders, in Settings by the maintainer's request of 22 November (the rest of TTY
+    stays config only): None, the bundled ones and the user's own; one tap turns one on, if it compiles.
+    Each has a sheet: preview, check, code, copy, share, update, remove with undo.
+  - [X] Get more shaders: an optional =shaders= array beside =scripts= in the sources' =index.json=
+    (=format= stays 1; released versions read only =scripts=), with the scripts' sources, cache and
+    download. =shader get= and =shader update=.
+  - [X] Backups hold the user's shaders, and where the installed ones came from.
+  - [ ] Left: the check of shaders in the shared repository, and shaders there.
 - Remark:
 
 ** DONE Step 7: scripts drawing on the grid  :scripts:

@@ -28,6 +28,15 @@ class ShaderMetaTest {
         assertTrue(meta.animated)
     }
 
+    /** What a shared shader says of itself, for its sheet and before it is installed. Empty lines say nothing. */
+    @Test
+    fun theHeaderOfASharedShaderIsRead() {
+        val meta = ShaderMeta.parse("// @author ann\n// @version 1.2\n// @license MIT\n// @requires 0.5.17\nuniform shader content;")
+        assertEquals(listOf("ann", "1.2", "MIT", "0.5.17"), listOf(meta.author, meta.version, meta.license, meta.requires))
+        val bare = ShaderMeta.parse("// @author\nuniform shader content;")
+        assertEquals(listOf(null, null, null, null), listOf(bare.author, bare.version, bare.license, bare.requires))
+    }
+
     /** The scripts' words for the same are read too, and a shader without a header is fine. */
     @Test
     fun theScriptsWordsAndNoHeaderAreFine() {

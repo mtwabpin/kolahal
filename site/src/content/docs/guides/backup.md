@@ -16,6 +16,7 @@ the system file picker. The file contains:
 - aliases
 - hidden apps, custom labels and pinned favorites
 - every script with its code, timers, notification flag and on/off state
+- your own [shaders](/scripting/shaders/), and where the installed ones came from
 - the [sources you added](/scripting/overview/#your-own-scripts-repository) to Get more scripts (their addresses only)
 - **everything else** under `data`:
   - todos, notes and reminders
@@ -58,6 +59,7 @@ When you import a file:
 - The import result lists what you may want to check: a custom search address, gesture commands, and
   aliases that run code or change settings (`lua`, `js`, `=`, `config` and the like). An alias can
   have an app's name, so typing that name would run it.
+- Shaders in the file replace yours of the same name. If one of them is in use, the result lists it.
 - It also lists each shortcut that the file brought for the
   [Shortcuts widget](/guides/widgets/#shortcuts), for example `shortcut Torch = torch`. A button
   of that widget runs its command at one tap.

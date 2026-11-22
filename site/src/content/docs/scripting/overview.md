@@ -613,7 +613,8 @@ To make a repository of your own:
    **Use this template**.
 2. In your new repository, go to **Settings → Pages** and set the source to **GitHub Actions**.
 3. Add each script as `scripts/<name>/<name>.lua` (or `.js`), and push. The repository's GitHub
-   Action checks the scripts and publishes the list.
+   Action checks the scripts and publishes the list. [Shaders](/scripting/shaders/#getting-shaders-from-others)
+   go in `shaders/<name>/<name>.agsl`.
 4. In Kolahal, add `owner/name` in **Sources**.
 
 In the terminal:

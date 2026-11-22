@@ -46,8 +46,8 @@ import kotlinx.coroutines.withContext
 /** A shared script's key in the list: the same name can be in two sources. */
 private val ScriptCatalog.Entry.key get() = "$source/$name"
 
-/** Where a shared script stands, and the other source its name was installed from, if that is why it is taken. */
-private data class SharedState(val state: ScriptCatalog.State, val takenBy: String? = null)
+/** Where a shared script or shader stands, and the other source its name was installed from, if that is why it is taken. */
+internal data class SharedState(val state: ScriptCatalog.State, val takenBy: String? = null)
 
 /**
  * Scripts → Get more scripts: the scripts shared in kolahal-scripts and in the sources you added.
@@ -87,15 +87,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
 
         GuiListPage(
             title = { Text("Get more scripts") },
-            subtitle = {
-                Text(
-                    if (added == 0) "Shared in ${ScriptCatalog.SOURCE} on GitHub" else "Shared in ${ScriptCatalog.SOURCE} and ${
-                        ScriptSources.sourceCount(
-                            added
-                        )
-                    } you added"
-                )
-            },
+            subtitle = { Text(sharedIn(added)) },
             onBack = vm::closeScreen,
             snackbar = snackbar,
             actions = {
@@ -129,21 +121,8 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
             }
             if (!shared.loading && shared.failed.isNotEmpty()) {
                 item(key = "error") {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        shared.failed.forEach { l ->
-                            Text(
-                                "Can't read ${l.source.name}: ${l.error}",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        TextButton(
-                            shapes = ButtonDefaults.shapes(),
-                            onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }) {
-                            Text(
-                                "Try again"
-                            )
-                        }
+                    SharedFailures(shared.failed) {
+                        vm.scriptActions.loadSharedScripts(refresh = true)
                     }
                 }
             }
@@ -185,18 +164,132 @@ private fun runs(e: ScriptCatalog.Entry): String = buildList {
     if (e.on.isNotEmpty()) add("on ${e.on.joinToString(", ")}")
 }.joinToString(" · ")
 
-private fun stateLabel(state: SharedState?, e: ScriptCatalog.Entry): String? = when (state?.state) {
-    ScriptCatalog.State.INSTALLED -> "Installed"
-    ScriptCatalog.State.UPDATE_AVAILABLE -> "Update to ${e.version}"
-    ScriptCatalog.State.MODIFIED -> "Installed, edited"
-    ScriptCatalog.State.NAME_TAKEN -> state.takenBy?.let { "Installed from $it" } ?: "Name taken"
-    ScriptCatalog.State.NEEDS_NEWER -> "Needs Kolahal ${e.requires}"
-    else -> null
-}
+/** What a shared script's or shader's row says of where it stands. [version] and [requires] are its entry's. */
+internal fun stateLabel(state: SharedState?, version: String, requires: String?): String? =
+    when (state?.state) {
+        ScriptCatalog.State.INSTALLED -> "Installed"
+        ScriptCatalog.State.UPDATE_AVAILABLE -> "Update to $version"
+        ScriptCatalog.State.MODIFIED -> "Installed, edited"
+        ScriptCatalog.State.NAME_TAKEN -> state.takenBy?.let { "Installed from $it" }
+            ?: "Name taken"
+
+        ScriptCatalog.State.NEEDS_NEWER -> "Needs Kolahal $requires"
+        else -> null
+    }
 
 /** The source to name for [e]: one the user added. Null for kolahal-scripts. */
-private fun addedSource(e: ScriptCatalog.Entry): String? =
+internal fun addedSource(e: ScriptSources.Listed): String? =
     e.source.takeIf { it != ScriptCatalog.SOURCE }
+
+/** Under the title of a page of shared things: where they are shared, with how many sources the user [added]. */
+internal fun sharedIn(added: Int): String =
+    if (added == 0) "Shared in ${ScriptCatalog.SOURCE} on GitHub"
+    else "Shared in ${ScriptCatalog.SOURCE} and ${ScriptSources.sourceCount(added)} you added"
+
+/** The sources that couldn't be read, each with why, and Try again. */
+@Composable
+internal fun SharedFailures(failed: List<ScriptCatalog.Listing>, onRetry: () -> Unit) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        failed.forEach { l ->
+            Text(
+                "Can't read ${l.source.name}: ${l.error}",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        TextButton(shapes = ButtonDefaults.shapes(), onClick = onRetry) { Text("Try again") }
+    }
+}
+
+/**
+ * What the sheet of a shared script or shader offers, by where it stands ([state]).
+ * - [version] and [requires] are its entry's; [taken] says why its name can't be used.
+ * - [ready]: its code is downloaded and matches the list. Until then nothing can be tapped.
+ * - [installed]: what to show of one that is installed and up to date.
+ */
+@Composable
+internal fun SharedButtons(
+    state: ScriptCatalog.State?,
+    version: String,
+    requires: String?,
+    taken: String,
+    ready: Boolean,
+    onInstall: () -> Unit,
+    onUpdate: () -> Unit,
+    onReplace: () -> Unit,
+    installed: @Composable () -> Unit = {
+        FilledTonalButton(
+            shapes = ButtonDefaults.shapes(),
+            onClick = {},
+            enabled = false
+        ) { Text("Installed") }
+    },
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        when (state) {
+            ScriptCatalog.State.NOT_INSTALLED, null -> Button(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onInstall,
+                enabled = ready,
+            ) {
+                IconLabel(R.drawable.ic_download, "Install")
+            }
+
+            ScriptCatalog.State.UPDATE_AVAILABLE -> Button(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onUpdate,
+                enabled = ready
+            ) {
+                Text("Update to $version")
+            }
+
+            ScriptCatalog.State.MODIFIED -> ErrorTextButton(
+                onClick = onReplace,
+                enabled = ready
+            ) {
+                Text("Replace your edited copy")
+            }
+
+            ScriptCatalog.State.INSTALLED -> installed()
+
+            ScriptCatalog.State.NAME_TAKEN -> Text(
+                taken,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+
+            ScriptCatalog.State.NEEDS_NEWER -> Text(
+                "Needs Kolahal $requires or newer.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
+/** The code on the sheet of a shared script or shader: downloading, why it can't be downloaded, or the code itself ([show]). */
+@Composable
+internal fun SharedCode(result: Result<String>?, show: @Composable (String) -> Unit) {
+    SectionTitle("Code")
+    Spacer(Modifier.height(8.dp))
+    when {
+        result == null -> Text(
+            "Downloading…",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        result.isSuccess -> show(result.getOrThrow())
+        else -> Text(
+            "Can't download it: ${result.exceptionOrNull()?.message}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+}
 
 @Composable
 private fun SharedRow(
@@ -225,7 +318,7 @@ private fun SharedRow(
                 listOfNotNull(
                     e.desc.ifBlank { null },
                     addedSource(e)?.let { "From $it" },
-                    stateLabel(shared, e)
+                    stateLabel(shared, e.version, e.requires)
                 ).joinToString(" · "),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -288,76 +381,22 @@ private fun SharedSheet(
         addedSource(e)?.let { Fact("From", "$it, a source you added") }
 
         Spacer(Modifier.height(16.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            when (state) {
-                ScriptCatalog.State.NOT_INSTALLED, null -> Button(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = {
-                        if (uses.isEmpty()) vm.scriptActions.installSharedScript(e) else asking =
-                            true
-                    },
-                    enabled = code?.isSuccess == true,
-                ) {
-                    IconLabel(R.drawable.ic_download, "Install")
-                }
-
-                ScriptCatalog.State.UPDATE_AVAILABLE -> Button(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = { vm.scriptActions.installSharedScript(e) },
-                    enabled = code?.isSuccess == true
-                ) {
-                    Text("Update to ${e.version}")
-                }
-
-                ScriptCatalog.State.MODIFIED -> ErrorTextButton(
-                    onClick = { confirmReplace = true },
-                    enabled = code?.isSuccess == true
-                ) {
-                    Text("Replace your edited copy")
-                }
-
-                ScriptCatalog.State.INSTALLED -> FilledTonalButton(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = {},
-                    enabled = false
-                ) { Text("Installed") }
-
-                ScriptCatalog.State.NAME_TAKEN -> Text(
-                    shared.takenBy?.let { "You installed ${e.name} from $it." }
-                        ?: "One of your scripts, a command or an app already has the name ${e.name}.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-
-                ScriptCatalog.State.NEEDS_NEWER -> Text(
-                    "Needs Kolahal ${e.requires} or newer.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
+        SharedButtons(
+            state,
+            e.version,
+            e.requires,
+            taken = shared?.takenBy?.let { "You installed ${e.name} from $it." }
+                ?: "One of your scripts, a command or an app already has the name ${e.name}.",
+            ready = code?.isSuccess == true,
+            onInstall = {
+                if (uses.isEmpty()) vm.scriptActions.installSharedScript(e) else asking = true
+            },
+            onUpdate = { vm.scriptActions.installSharedScript(e) },
+            onReplace = { confirmReplace = true },
+        )
 
         Spacer(Modifier.height(16.dp))
-        SectionTitle("Code")
-        Spacer(Modifier.height(8.dp))
-        val result = code
-        when {
-            result == null -> Text(
-                "Downloading…",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            result.isSuccess -> ReadOnlyCode(result.getOrThrow(), e.lang)
-            else -> Text(
-                "Can't download it: ${result.exceptionOrNull()?.message}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
+        SharedCode(code) { ReadOnlyCode(it, e.lang) }
     }
 
     if (asking) {

@@ -172,6 +172,55 @@ class BackupAndLibraryTest {
     }
 
     /**
+     * The user's own shaders travel in backups, ahead of settings: the one in use comes back in use, and is
+     * listed to look at. Where one came from travels with the installed scripts' records.
+     */
+    @Test
+    fun shadersTravelInBackups() {
+        val code = "uniform shader content;\nhalf4 main(float2 p) { return content.eval(p); }"
+        val store = com.mtwabpin.kolahal.script.ShaderStore(context)
+        val origin = com.mtwabpin.kolahal.script.SharedShaders.Origin("a".repeat(64), "b".repeat(64), "bk/shaders")
+        val file = File(context.cacheDir, "kolahal-backup-shaders.json")
+        try {
+            com.mtwabpin.kolahal.script.Shaders.save(context, "bk-glow", code)
+            store.record("bk-glow", origin.text())
+            config.set(Keys.SCREEN_SHADER, "bk-glow")
+            Backup(context).export(Uri.fromFile(file))
+            com.mtwabpin.kolahal.script.Shaders.remove(context, "bk-glow")
+            assertEquals("off", config[Keys.SCREEN_SHADER])
+            assertNull(store.recorded("bk-glow"))
+            val result = Backup(context).import(Uri.fromFile(file))
+            assertTrue("${result.shaders}", result.shaders >= 1)
+            assertEquals(code, com.mtwabpin.kolahal.script.Shaders.own(context, "bk-glow"))
+            assertEquals("bk-glow", config[Keys.SCREEN_SHADER])
+            assertEquals("bk/shaders", store.installedFrom("bk-glow"))
+            assertTrue("${result.review}", "screen.shader = bk-glow" in result.review)
+        } finally {
+            com.mtwabpin.kolahal.script.Shaders.remove(context, "bk-glow")
+            file.delete()
+        }
+    }
+
+    /** A shader of a backup that can't be one is skipped and named, and the rest comes in. */
+    @Test
+    fun aBadShaderInABackupIsSkipped() {
+        val file = File(context.cacheDir, "kolahal-backup-bad-shaders.json")
+        try {
+            file.writeText(
+                """{"kolahal":3,"shaders":[{"name":"../bk","code":"x"},{"name":"off","code":"x"},{"name":"bk-none"},""" +
+                        """{"name":"bk-fine","code":"uniform shader content;"}]}"""
+            )
+            val result = Backup(context).import(Uri.fromFile(file))
+            assertEquals(1, result.shaders)
+            assertEquals(listOf("shader ../bk", "shader off", "shader bk-none"), result.skipped)
+            assertEquals("uniform shader content;", com.mtwabpin.kolahal.script.Shaders.own(context, "bk-fine"))
+        } finally {
+            com.mtwabpin.kolahal.script.Shaders.remove(context, "bk-fine")
+            file.delete()
+        }
+    }
+
+    /**
      * The sources added to Get more scripts travel in a backup, by address. An import adds those that
      * aren't here, after the ones here, and lists them to look at.
      */

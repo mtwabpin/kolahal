@@ -25,10 +25,12 @@ import java.util.concurrent.ConcurrentHashMap
  * - This class reads each list only when asked and keeps it for an hour. A source that can't be
  *   read keeps its last list, with the error, and the other sources still show.
  * - It installs a script only when the downloaded file matches its list.
+ * - A source's list may have shaders too ([SharedShader]). They are read with the scripts, from the
+ *   same file; [ShaderStore] installs them.
  */
 class ScriptCatalog(private val context: Context) {
     data class Entry(
-        val name: String,
+        override val name: String,
         val lang: ScriptLang,
         val path: String,
         val title: String,
@@ -45,9 +47,10 @@ class ScriptCatalog(private val context: Context) {
         val requires: String?,
         val sha256: String,
         /** The name of the source that lists it ([ScriptSources.Source.name]). */
-        val source: String = SOURCE,
-    )
+        override val source: String = SOURCE,
+    ) : ScriptSources.Listed
 
+    /** Where a shared script stands on this phone, or a shared shader ([SharedShaders.state]). */
     enum class State {
         NOT_INSTALLED,
         INSTALLED,
@@ -118,14 +121,22 @@ class ScriptCatalog(private val context: Context) {
 
     /**
      * One source's list: its scripts, when it was last read, and why the last try failed (null when
-     * it didn't). A list that can't be read again keeps the scripts it had.
+     * it didn't). A list that can't be read again keeps the scripts it had. [shaders]: the shaders
+     * beside its scripts, if it has any.
      */
     data class Listing(
         val source: ScriptSources.Source,
         val entries: List<Entry>,
         val readAt: Long?,
-        val error: String?
+        val error: String?,
+        val shaders: List<SharedShader> = emptyList(),
     )
+
+    /** What one index.json lists. */
+    private class Index(val scripts: List<Entry>, val shaders: List<SharedShader>)
+
+    private fun listing(source: ScriptSources.Source, index: Index?, error: String?) =
+        Listing(source, index?.scripts.orEmpty(), readAt(source), error, index?.shaders.orEmpty())
 
     private fun cacheFile(s: ScriptSources.Source) =
         File(
@@ -145,7 +156,12 @@ class ScriptCatalog(private val context: Context) {
         sources().mapNotNull { cached(it) }.takeIf { it.isNotEmpty() }?.flatten()
 
     /** [source]'s list from the last download, or null when there is none yet. */
-    fun cached(source: ScriptSources.Source): List<Entry>? {
+    fun cached(source: ScriptSources.Source): List<Entry>? = index(source)?.scripts
+
+    /** Every source's shaders from the last download, in source order. */
+    fun cachedShaders(): List<SharedShader> = sources().flatMap { index(it)?.shaders.orEmpty() }
+
+    private fun index(source: ScriptSources.Source): Index? {
         val file = cacheFile(source).takeIf { it.exists() } ?: return null
         // The Scripts screen asks at each change to the scripts (a run, a save). The list is parsed
         // again only when the file changed: a new download.
@@ -157,7 +173,7 @@ class ScriptCatalog(private val context: Context) {
 
     /** Each list parsed last, by its file, with the file's time and size: one for the whole app. */
     private object Parsed {
-        val byFile = ConcurrentHashMap<String, Pair<Pair<Long, Long>, List<Entry>>>()
+        val byFile = ConcurrentHashMap<String, Pair<Pair<Long, Long>, Index>>()
     }
 
     /** Why each source's last read failed, by its address, until it is read again: one for the whole app. */
@@ -182,7 +198,7 @@ class ScriptCatalog(private val context: Context) {
 
     /** Each source's list as kept, without going online: for `script sources`. */
     fun kept(): List<Listing> =
-        sources().map { Listing(it, cached(it).orEmpty(), readAt(it), Errors.byIndex[it.index]) }
+        sources().map { listing(it, index(it), Errors.byIndex[it.index]) }
 
     /** Each source's list, in source order ([listing]). */
     fun listings(refresh: Boolean = false): List<Listing> = sources().map { listing(it, refresh) }
@@ -197,18 +213,18 @@ class ScriptCatalog(private val context: Context) {
                 0
             ) < KEEP_MS
         ) {
-            cached(source)?.let { return Listing(source, it, readAt(source), null) }
+            index(source)?.let { return listing(source, it, null) }
         }
         return try {
             val raw = get(source.index, MAX_INDEX).toString(Charsets.UTF_8)
-            val entries = parse(raw, source)
+            val index = parse(raw, source)
             keep(source, raw)
             Errors.byIndex.remove(source.index)
-            Listing(source, entries, readAt(source), null)
+            listing(source, index, null)
         } catch (e: Exception) {
             val why = e.message ?: e.javaClass.simpleName
             Errors.byIndex[source.index] = why
-            Listing(source, cached(source).orEmpty(), readAt(source), why)
+            listing(source, index(source), why)
         }
     }
 
@@ -220,7 +236,7 @@ class ScriptCatalog(private val context: Context) {
         prefs.edit(commit = true) { putLong(fetchedKey(source), System.currentTimeMillis()) }
     }
 
-    private fun parse(raw: String, source: ScriptSources.Source): List<Entry> {
+    private fun parse(raw: String, source: ScriptSources.Source): Index {
         val root = runCatching { Json.parse(raw) }.getOrNull() as? Map<*, *>
             ?: throw IOException("its index.json isn't a script list")
         val format = (root["format"] as? Number)?.toInt()
@@ -230,7 +246,7 @@ class ScriptCatalog(private val context: Context) {
         fun Map<*, *>.str(key: String) = this[key]?.toString()?.takeIf { it.isNotBlank() }
         fun Map<*, *>.list(key: String) = (this[key] as? List<*>).orEmpty().map { it.toString() }
         // Keep one entry per name, because the screen uses the name as the list key.
-        return shared(
+        val scripts = shared(
             (root["scripts"] as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().mapNotNull { m ->
                 val name =
                     m.str("name")?.takeIf(ScriptNames.NAME::matches) ?: return@mapNotNull null
@@ -259,14 +275,27 @@ class ScriptCatalog(private val context: Context) {
                     source = source.name,
                 )
             }.distinctBy { it.name })
+        return Index(scripts, SharedShaders.parse(root["shaders"], source.name))
     }
 
     /** Downloads [e]'s file from its source and checks it against the list. Throws when it doesn't match (the list changed, so refresh it). */
-    fun download(e: Entry): String {
+    fun download(e: Entry): String = download(e, e.path, e.sha256, MAX_SCRIPT, "script")
+
+    /**
+     * Downloads the file of [e] at [path] in its source, at most [max] bytes, and checks it against
+     * the list ([sha256]). [kind] is the list's word in the error: a script or a shader list.
+     */
+    internal fun download(
+        e: ScriptSources.Listed,
+        path: String,
+        sha256: String,
+        max: Long,
+        kind: String
+    ): String {
         val source = sources().firstOrNull { it.name == e.source }
             ?: throw IOException("${e.source} isn't one of your sources")
-        val bytes = get(source.base + e.path, MAX_SCRIPT)
-        if (sha256Hex(bytes) != e.sha256) throw IOException("${e.name} doesn't match the script list; refresh it and try again")
+        val bytes = get(source.base + path, max)
+        if (sha256Hex(bytes) != sha256) throw IOException("${e.name} doesn't match the $kind list; refresh it and try again")
         return bytes.toString(Charsets.UTF_8)
     }
 

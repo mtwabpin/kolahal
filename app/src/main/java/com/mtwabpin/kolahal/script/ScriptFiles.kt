@@ -21,6 +21,41 @@ class ScriptFiles(private val context: Context) {
         val shaders: List<String> = emptyList(),
     )
 
+    /**
+     * Saves one shader per `.agsl` file as the user's own. Any other file is skipped, scripts too:
+     * the Shaders screen adds only shaders.
+     */
+    fun importShaders(uris: List<Uri>): ImportResult {
+        val shaders = ArrayList<String>()
+        val skipped = ArrayList<String>()
+        for (uri in uris) {
+            val fileName = nameOf(uri)
+            if (isShader(fileName)) importShader(uri, fileName, shaders, skipped)
+            else skipped += "$fileName (not .${ShaderCatalog.EXT})"
+        }
+        return ImportResult(emptyList(), emptyList(), skipped, shaders)
+    }
+
+    private fun nameOf(uri: Uri): String =
+        Files.displayName(context, uri) ?: uri.lastPathSegment ?: "?"
+
+    private fun isShader(fileName: String) =
+        fileName.endsWith(".${ShaderCatalog.EXT}", ignoreCase = true)
+
+    /** Saves the shader in the file at [uri]: its name goes into [shaders], or why it can't into [skipped]. */
+    private fun importShader(
+        uri: Uri,
+        fileName: String,
+        shaders: MutableList<String>,
+        skipped: MutableList<String>
+    ) {
+        runCatching {
+            val name = ShaderCatalog.nameOf(fileName) ?: error("not a name a shader can have")
+            Shaders.save(context, name, Files.readText(context, uri))
+            shaders += name
+        }.onFailure { skipped += "$fileName (${it.message})" }
+    }
+
     /** Creates or updates one script per `.lua` / `.js` file. The file name becomes the script name. An `.agsl` file becomes a shader. */
     fun import(uris: List<Uri>): ImportResult {
         val created = ArrayList<String>()
@@ -29,13 +64,9 @@ class ScriptFiles(private val context: Context) {
         val shaders = ArrayList<String>()
         val importer = ScriptImport(context)
         for (uri in uris) {
-            val fileName = Files.displayName(context, uri) ?: uri.lastPathSegment ?: "?"
-            if (fileName.endsWith(".${ShaderCatalog.EXT}", ignoreCase = true)) {
-                runCatching {
-                    val name = ShaderCatalog.nameOf(fileName) ?: error("not a name a shader can have")
-                    Shaders.save(context, name, Files.readText(context, uri))
-                    shaders += name
-                }.onFailure { skipped += "$fileName (${it.message})" }
+            val fileName = nameOf(uri)
+            if (isShader(fileName)) {
+                importShader(uri, fileName, shaders, skipped)
                 continue
             }
             val lang = ScriptLang.of(fileName.substringAfterLast('.', ""))

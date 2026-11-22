@@ -97,6 +97,7 @@ import com.mtwabpin.kolahal.data.Quietly
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -306,8 +307,13 @@ internal fun GuiListPage(
  * A notice with Undo stays 10 seconds, longer than others, because it is about changes to scripts.
  */
 @Composable
-internal fun rememberNoticeSnackbar(vm: TerminalViewModel): SnackbarHostState {
-    val notice by vm.notice.collectAsStateWithLifecycle()
+internal fun rememberNoticeSnackbar(vm: TerminalViewModel): SnackbarHostState =
+    rememberNoticeSnackbar(vm.notice)
+
+/** The same, for a page that has only the [notices]. */
+@Composable
+internal fun rememberNoticeSnackbar(notices: StateFlow<TerminalViewModel.Notice?>): SnackbarHostState {
+    val notice by notices.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice) {
         val n = notice ?: return@LaunchedEffect

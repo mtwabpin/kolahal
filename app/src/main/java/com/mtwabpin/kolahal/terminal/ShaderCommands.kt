@@ -9,19 +9,24 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFolder
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderClock
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderSafety
+import com.mtwabpin.kolahal.script.ShaderStore
 import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.script.SharedShader
 
 /**
- * The `shader` command: the shader over the grid screens and the tty home (`screen.shader`).
+ * The `shader` command: the shader over home and the full-screen screens (`screen.shader`).
  * - `shader` lists them; `shader <name>` (or `use`) turns one on, if it compiles: the one that is on
  *   stays when it doesn't.
  * - `shader off` always works: the prompt takes the keys even when nothing can be read. `shader on`
  *   turns the last one on again, also after it was turned off for being slow.
+ * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
  * - `check`, `reload`, `copy` and `remove` work with the user's own files.
  *
  * On Android 12 and older, shaders are listed but can't be used.
@@ -33,6 +38,8 @@ class ShaderCommands(
 ) : CommandGroup(context) {
     private val conf = Config.get(context)
     private val folder by lazy { ScriptFolder(context) }
+    private val catalog by lazy { ScriptCatalog(context) }
+    private val store by lazy { ShaderStore(context, catalog) }
 
     fun run(args: List<String>) {
         val sub = args.firstOrNull()?.lowercase().orEmpty()
@@ -42,6 +49,9 @@ class ShaderCommands(
             "use" -> use(name ?: return usage("shader"))
             "on" -> on()
             ShaderCatalog.OFF -> off()
+            // These use the network, so they run outside the serial command queue.
+            "get" -> background("shader get") { getShared(args.drop(1)) }
+            "update" -> background("shader update") { update(args.drop(1)) }
             "check" -> check(name ?: conf[Keys.SCREEN_SHADER].takeUnless { it == ShaderCatalog.OFF } ?: return usage("shader"))
             "reload" -> reload()
             "copy" -> copy(name ?: return usage("shader"))
@@ -73,20 +83,15 @@ class ShaderCommands(
                 ) + LogContext.ITEM,
             )
         }
-        info("Tap a shader to use it · 'shader off' turns it off · your own: put .agsl files in the script folder's ${Shaders.DIR} folder, then run 'script import'")
+        info("Tap a shader to use it · 'shader off' turns it off · 'shader get' lists shared ones · your own: put .agsl files in the script folder's ${Shaders.DIR} folder, then run 'script import'")
     }
 
     private fun use(name: String) {
         if (name == ShaderCatalog.OFF) return off()
         if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
         if (!Shaders.supported) return needs()
-        problem(name)?.let { return error("Shader $name: $it") }
-        val safety = ShaderSafety.get(context)
-        safety.turnedOn()
-        safety.last = name
-        conf.set(Keys.SCREEN_SHADER, name)
-        val only = if (conf[Keys.HOME_STYLE] == "tty") "" else " · it shows on the full-screen screens (matrix, clock…)"
-        info("Shader: $name$only · 'shader off' turns it off")
+        Shaders.use(context, name)?.let { return error("Shader $name: $it") }
+        info("Shader: $name · 'shader off' turns it off")
     }
 
     private fun on() {
@@ -99,48 +104,145 @@ class ShaderCommands(
     }
 
     private fun off() {
-        val was = conf[Keys.SCREEN_SHADER]
-        if (was == ShaderCatalog.OFF) return info("No shader is on")
-        ShaderSafety.get(context).last = was
-        conf.set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
+        val was = Shaders.off(context) ?: return info("No shader is on")
         info("Shader off · 'shader on' turns $was on again")
     }
 
     private fun check(name: String) {
         if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
-        val source = Shaders.source(context, name) ?: return error("Shader $name can't be read")
-        val meta = ShaderMeta.parse(source)
-        val problem = problem(name)
-        if (problem != null) return error("Shader $name: $problem")
-        info(if (Shaders.supported) "Shader $name compiles" else "Shader $name has no problems · ${Shaders.NEEDS} to compile it")
-        val read = meta.uniforms.map { it.name }.filter { it in ShaderMeta.KNOWN }
-        if (read.isNotEmpty()) out("Kolahal sets: ${read.joinToString()}")
-        val unset = meta.unset()
-        if (unset.isNotEmpty()) out("Not set by Kolahal, so 0: ${unset.joinToString()}")
-        if (meta.animated) out("Animated: redrawn ${ShaderClock.FPS} times a second")
-    }
-
-    /** What keeps the shader [name] from being used: the first problem ([ShaderMeta.problems]) or the compiler's error. */
-    private fun problem(name: String): String? {
-        val source = Shaders.source(context, name) ?: return "can't be read"
-        ShaderMeta.problems(source).firstOrNull()?.let { return it }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Shaders.compileError(source)?.let { return it.toString() }
-        }
-        return null
+        val check = Shaders.check(context, name) ?: return error("Shader $name can't be read")
+        check.problem?.let { return error("Shader $name: $it") }
+        val (first, rest) = checkLines(check).let { it.first() to it.drop(1) }
+        info("Shader $name $first")
+        rest.forEach { out(it) }
     }
 
     /** Reads the shader files again: the script folder's, when one is picked, and Kolahal's own. */
     private fun reload() = background("shader") {
-        Shaders.load(context)
-        if (folder.uri == null) info("Shaders read again")
-        else {
-            val found = folder.importShaders()
-            if (found.names.isEmpty()) info("No shaders in the script folder · put .agsl files in its ${Shaders.DIR} folder")
-            else info("Read from the script folder: ${found.names.joinToString()}")
-            if (found.skipped.isNotEmpty()) error("Skipped ${found.skipped.joinToString()}")
+        val (found, skipped) = readAgain(context, folder)
+        info(found)
+        skipped?.let { error(it) }
+    }
+
+    // ---- shared shaders --------------------------------------------------------------------
+
+    /**
+     * `shader get [<name>|<source>/<name>] [--refresh] [--replace]`, as `script get`:
+     * - without a name, lists the shaders of every source, with the source of those not from
+     *   kolahal-scripts. A source that can't be read says why; the others still list.
+     * - with a name, installs or updates that shader. It isn't turned on: a tap on the line does that.
+     */
+    private fun getShared(args: List<String>) {
+        val refresh = "--refresh" in args
+        // `name`, `name.agsl` or `source/name`: the shader's name in lowercase, without its extension.
+        val ref = args.firstOrNull { !it.startsWith("--") }?.let { word ->
+            val name = word.substringAfterLast('/').lowercase().substringBefore('.')
+            if ('/' in word) "${word.substringBeforeLast('/')}/$name" else name
+        } ?: return listShared(refresh)
+        val sources = catalog.sources()
+        if ('/' in ref && ScriptSources.find(sources, ref.substringBeforeLast('/')) == null) {
+            return error("No source '${ref.substringBeforeLast('/')}' — 'script sources' lists them")
+        }
+        fun find(fresh: Boolean): SharedShader? =
+            ScriptSources.pick(catalog.listings(fresh).flatMap { it.shaders }, ref, sources)
+
+        val entry = find(refresh) ?: (if (refresh) null else find(true))
+        ?: return error("No shared shader '$ref' — 'shader get' lists them")
+        when (store.state(entry)) {
+            ScriptCatalog.State.NEEDS_NEWER -> error("${entry.name} needs Kolahal ${entry.requires} or newer")
+            ScriptCatalog.State.NAME_TAKEN -> error(store.taken(entry))
+            ScriptCatalog.State.INSTALLED -> info("${entry.name} is installed and up to date")
+            ScriptCatalog.State.MODIFIED ->
+                if ("--replace" in args) install(entry, replace = true)
+                else error("You edited ${entry.name}: 'shader get $ref --replace' replaces it ('shader copy ${entry.name}' keeps a copy)")
+
+            ScriptCatalog.State.NOT_INSTALLED, ScriptCatalog.State.UPDATE_AVAILABLE -> install(entry)
         }
     }
+
+    private fun listShared(refresh: Boolean) {
+        val listings = catalog.listings(refresh)
+        val entries = listings.flatMap { it.shaders }
+        info("Shared shaders from ${listings.joinToString(", ") { it.source.name }} — 'shader get <name>' installs one")
+        listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}: $it") } }
+        if (entries.isEmpty() && listings.none { it.error != null }) info("None yet")
+        entries.forEach { e ->
+            val state = when (store.state(e)) {
+                ScriptCatalog.State.NOT_INSTALLED -> null
+                ScriptCatalog.State.INSTALLED -> StyledText.tag(StyledText.ColorRole.GOOD, "installed")
+                ScriptCatalog.State.UPDATE_AVAILABLE -> StyledText.tag(StyledText.ColorRole.WARN, "update")
+                ScriptCatalog.State.MODIFIED -> StyledText.tag(StyledText.ColorRole.MUTED, "edited")
+                ScriptCatalog.State.NAME_TAKEN -> StyledText.tag(
+                    StyledText.ColorRole.BAD,
+                    store.installedFrom(e.name)?.takeIf { it != e.source }?.let { "installed from $it" }
+                        ?: "name taken",
+                )
+
+                ScriptCatalog.State.NEEDS_NEWER ->
+                    StyledText.tag(StyledText.ColorRole.BAD, "needs Kolahal ${e.requires}")
+            }
+            val desc = listOfNotNull(
+                e.source.takeIf { it != ScriptCatalog.SOURCE }?.let { "from $it" },
+                e.title,
+                e.version.ifBlank { null }?.let { "v$it" },
+                e.author.ifBlank { null }?.let { "by $it" },
+                e.desc.ifBlank { null },
+            )
+            out(
+                listOfNotNull(e.name, state).joinToString(" "),
+                LogContext.of(
+                    LogContext.COMMAND to "shader get ${ScriptSources.ref(entries, e)}",
+                    LogContext.DESC to desc.joinToString(" · "),
+                ) + LogContext.ITEM,
+            )
+        }
+    }
+
+    /**
+     * `shader update [<name>] [--replace]`: reads the lists again, then updates the shader named, or
+     * every shader installed from a list that has a newer version. One the user edited is replaced
+     * only with its name and `--replace`.
+     */
+    private fun update(args: List<String>) {
+        val name = args.firstOrNull { !it.startsWith("--") }?.lowercase()
+        if (name != null && name !in Shaders.userNames) return error("No shader '$name' of yours — 'shader' lists them")
+        if (name != null && store.installedFrom(name) == null) return error("$name wasn't installed with 'shader get', so there is nothing to update it from")
+        val installed = if (name != null) listOf(name) else Shaders.userNames.filter { store.installedFrom(it) != null }
+        if (installed.isEmpty()) return info("No shader was installed with 'shader get'")
+        val listings = catalog.listings(refresh = true)
+        listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}: $it") } }
+        val latest = listings.flatMap { it.shaders }
+        // How many have a newer version, updated or not.
+        var newer = 0
+        for (n in installed) {
+            val e = store.entry(n, latest) ?: continue
+            val copy = Shaders.own(context, n)?.let { store.copy(n, it, latest) } ?: continue
+            if (!copy.newer) continue
+            newer++
+            val replace = copy.edited && name != null && "--replace" in args
+            if (copy.edited && !replace) {
+                error("You edited $n: 'shader update $n --replace' replaces it ('shader copy $n' keeps a copy)")
+                continue
+            }
+            // One that fails doesn't keep the others from being updated.
+            runCatching { install(e, replace) }.onFailure { error("$n isn't updated: ${it.reason()}") }
+        }
+        // A list that couldn't be read has said so: nothing is known of its shaders.
+        if (newer == 0 && listings.none { it.error != null }) info(if (name != null) "$name is up to date" else "The installed shaders are up to date")
+    }
+
+    /** Downloads and installs [e]. It stays off, unless the one that is on is updated. */
+    private fun install(e: SharedShader, replace: Boolean = false) {
+        val update = e.name in Shaders.userNames
+        store.install(e, store.download(e), replace)
+        if (update) info("Updated ${e.name}" + e.version.ifBlank { null }?.let { " to $it" }.orEmpty())
+        else info(
+            "Installed ${e.name} from ${e.source} · tap to use it, or 'shader ${e.name}'",
+            LogContext.of(LogContext.RUN to "shader use ${e.name}"),
+        )
+    }
+
+    // ---- your own --------------------------------------------------------------------------
 
     private fun copy(name: String) {
         val source = Shaders.source(context, name) ?: return error("No shader '$name' — 'shader' lists them")
@@ -166,18 +268,45 @@ class ShaderCommands(
     private fun needs() = info("${Shaders.NEEDS}; this phone has Android ${Build.VERSION.RELEASE}")
 
     companion object {
-        val SUBCOMMANDS = listOf("list", "use", "on", "off", "check", "reload", "copy", "remove")
+        val SUBCOMMANDS =
+            listOf("list", "use", "on", "off", "get", "update", "check", "reload", "copy", "remove")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "check", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "get", "update", "check", "copy", "remove", "rm")
 
-        /** What completes the last word of `shader …`: the subcommands and shaders, then the shaders of the subcommand. */
-        fun completions(parts: List<String>): List<String> = when {
+        /**
+         * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of
+         * the subcommand. [shared]: the shared shaders, as far as they are known ([ScriptSources.ref]).
+         */
+        fun completions(parts: List<String>, shared: List<String> = emptyList()): List<String> = when {
             parts.size == 2 -> SUBCOMMANDS + Shaders.names
             parts.size != 3 -> emptyList()
-            parts[1] in setOf("remove", "rm") -> Shaders.userNames
+            parts[1] == "get" -> shared
+            parts[1] in setOf("update", "remove", "rm") -> Shaders.userNames
             parts[1] in TAKE_NAME -> Shaders.names
             else -> emptyList()
+        }
+
+        /** What [check] found in a shader without problems, in lines: "compiles" first, for after its name. */
+        internal fun checkLines(check: Shaders.Check): List<String> = listOfNotNull(
+            if (Shaders.supported) "compiles" else "has no problems · ${Shaders.NEEDS} to compile it",
+            check.sets.takeIf { it.isNotEmpty() }?.let { "Kolahal sets: ${it.joinToString()}" },
+            check.unset.takeIf { it.isNotEmpty() }?.let { "Not set by Kolahal, so 0: ${it.joinToString()}" },
+            if (check.animated) "Animated: redrawn ${ShaderClock.FPS} times a second" else null,
+        )
+
+        /**
+         * Reads the shader files again: Kolahal's own and, when one is picked, the script [folder]'s.
+         * What it found, and what was skipped (null: nothing).
+         */
+        internal fun readAgain(context: Context, folder: ScriptFolder): Pair<String, String?> {
+            Shaders.load(context)
+            if (folder.uri == null) return "Shaders read again" to null
+            val found = folder.importShaders()
+            val text =
+                if (found.names.isEmpty()) "No shaders in the script folder · put .agsl files in its ${Shaders.DIR} folder"
+                else "Read from the script folder: ${found.names.joinToString()}"
+            return text to found.skipped.takeIf { it.isNotEmpty() }?.let { "Skipped ${it.joinToString()}" }
         }
     }
 }

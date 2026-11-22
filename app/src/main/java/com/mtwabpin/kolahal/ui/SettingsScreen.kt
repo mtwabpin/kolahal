@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -376,7 +377,15 @@ fun SettingsScreen(vm: TerminalViewModel) {
                             )
                         }.map { c to it }
                     }
-                    if (hits.isEmpty()) item(key = "nohits") { NoMatchNote("No setting matches “${query.trim()}”") }
+                    val screens = SCREEN_ROWS.filter { it.matches(query.trim()) }
+                    if (hits.isEmpty() && screens.isEmpty()) item(key = "nohits") { NoMatchNote("No setting matches “${query.trim()}”") }
+                    if (screens.isNotEmpty()) item(key = "hit:screens") {
+                        PeekFade(peek) {
+                            Column(Modifier.padding(top = 12.dp)) {
+                                ActionGroup(screens.map { it.action(vm::openScreen) })
+                            }
+                        }
+                    }
                     hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
                         item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
                         keys.forEachIndexed { index, key ->
@@ -395,10 +404,11 @@ fun SettingsScreen(vm: TerminalViewModel) {
                 item(key = "categories") {
                     // Feed settings are in the Feeds tab, but search here still finds them.
                     ActionGroup(allCategories().filter { it.id != FEEDS_CATEGORY && it.id != BACKUP_CATEGORY }
-                        .map { c ->
-                            Action(c.icon, c.title, c.subtitle, chevron = true) {
+                        .flatMap { c ->
+                            listOf(Action(c.icon, c.title, c.subtitle, chevron = true) {
                                 openId = c.id
-                            }
+                            }) + SCREEN_ROWS.filter { it.after == c.id }
+                                .map { it.action(vm::openScreen) }
                         })
                 }
                 item(key = "h:more") { Spacer(Modifier.height(16.dp)) }
@@ -441,6 +451,10 @@ fun SettingsScreen(vm: TerminalViewModel) {
         }
     }
 }
+
+/** The row that opens this screen. */
+private fun ScreenRow.action(open: (Screen) -> Unit) =
+    Action(icon, title, subtitle, chevron = true) { open(screen) }
 
 /**
  * Adds a settings category's grouped rows to a list in another screen. For example, the Feeds tab

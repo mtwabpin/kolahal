@@ -41,6 +41,7 @@ class BackupActions(
                         "aliases"
                     )
                 }, ${count(r.scripts, "script")}" +
+                        (if (r.shaders > 0) ", ${count(r.shaders, "shader")}" else "") +
                         (if (r.full) ", ${r.restored} saved items (todos, notes, reminders, feeds, log…)" else "") +
                         (if (r.disabled == 1) " (1 new script is off — turn it on in Scripts)" else "") +
                         (if (r.disabled > 1) " (${r.disabled} new scripts are off — turn them on in Scripts)" else "") +

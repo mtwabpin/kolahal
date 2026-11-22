@@ -7,7 +7,7 @@ import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.data.Script
 
 /** Full-screen GUI pages other than the terminal. The script editor is separate. */
-enum class Screen { TERMINAL, SETTINGS, SCRIPTS, SCRIPT_LIBRARY, GET_SCRIPTS, SCRIPT_SOURCES, SETUP, ONBOARDING, FEEDS, WIDGETS, WIDGET_PICKER, THEME_BUILDER, HEADER_PARTS }
+enum class Screen { TERMINAL, SETTINGS, SCRIPTS, SCRIPT_LIBRARY, GET_SCRIPTS, SCRIPT_SOURCES, SHADERS, GET_SHADERS, SETUP, ONBOARDING, FEEDS, WIDGETS, WIDGET_PICKER, THEME_BUILDER, HEADER_PARTS }
 
 /**
  * Operations that only the UI can do. The processor cannot do them from an application context.

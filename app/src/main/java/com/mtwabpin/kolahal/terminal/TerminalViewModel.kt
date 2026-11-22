@@ -164,6 +164,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                     )
                 }
             }
+        override val sharedShaders
+            get() = scriptActions.sharedScripts.value.shaders.let { all ->
+                all.map { com.mtwabpin.kolahal.script.ScriptSources.ref(all, it) }
+            }
         override val scriptSources
             get() = scriptActions.scriptCatalog.added()
                 .map(com.mtwabpin.kolahal.script.ScriptSources::nameOf)
@@ -203,6 +207,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /** The actions that the script screens perform on scripts: switches, timers, keys, options, files and installs. */
     val scriptActions = ScriptActions(app, state, viewModelScope, scriptList, actionsHost)
+
+    /** The actions of the Shaders screen and of Get more shaders. */
+    val shaderActions = ShaderActions(app, scriptActions, actionsHost)
 
     /** Backup files, and the folder for automatic backups. */
     val backupActions = BackupActions(app, scriptActions, actionsHost)

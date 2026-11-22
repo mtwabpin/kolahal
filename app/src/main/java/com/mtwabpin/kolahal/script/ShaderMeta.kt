@@ -6,6 +6,8 @@ package com.mtwabpin.kolahal.script
 /**
  * What a shader file (AGSL) says about itself, read from its text without compiling it:
  * - `// @name` and `// @description`, and `// @animated` for one that moves by itself;
+ * - for one that is shared, `// @author`, `// @version`, `// @license` and `// @requires` (the least
+ *   Kolahal version);
  * - the uniforms it declares. The host sets the ones it knows ([KNOWN]); it skips the rest.
  *
  * Pure: the compiler runs in [Shaders.compile], on Android 13 and newer.
@@ -17,6 +19,11 @@ class ShaderMeta private constructor(
     /** It is redrawn many times a second: `time` moves. A shader without it costs nothing while the screen is still. */
     val animated: Boolean,
     val uniforms: List<Uniform>,
+    val author: String?,
+    val version: String?,
+    val license: String?,
+    /** The oldest Kolahal it works with. */
+    val requires: String?,
 ) {
     /** One declared uniform. [color]: declared with `layout(color)`. */
     data class Uniform(val name: String, val type: String, val color: Boolean, val array: Boolean) {
@@ -73,12 +80,18 @@ class ShaderMeta private constructor(
                 val m = DIRECTIVE.find(line) ?: continue
                 tags.putIfAbsent(m.groupValues[1].lowercase(), m.groupValues[2].trim())
             }
+            fun said(vararg names: String) =
+                names.firstNotNullOfOrNull { tags[it] }?.takeIf { it.isNotEmpty() }
             // The scripts' words for the same (`@title`, `@desc`) are read too.
             return ShaderMeta(
-                title = (tags["name"] ?: tags["title"])?.takeIf { it.isNotEmpty() },
-                description = (tags["description"] ?: tags["desc"])?.takeIf { it.isNotEmpty() },
+                title = said("name", "title"),
+                description = said("description", "desc"),
                 animated = "animated" in tags,
                 uniforms = uniforms(source),
+                author = said("author"),
+                version = said("version"),
+                license = said("license"),
+                requires = said("requires"),
             )
         }
 

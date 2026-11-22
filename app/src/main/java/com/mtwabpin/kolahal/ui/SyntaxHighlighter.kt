@@ -15,13 +15,15 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDocs
 
 /**
- * The colors a text gets in the editor: a script language's, or JSON's.
- * - [script]: the script language whose keywords it uses. JSON has none.
+ * The colors a text gets in the editor: a script language's, or JSON's. AGSL's are for reading a
+ * shader's code ([ReadOnlyCode]).
+ * - [script]: the script language whose keywords it uses. JSON and AGSL have none.
  */
 enum class Syntax(val script: ScriptLang?) {
     LUA(ScriptLang.LUA),
     JS(ScriptLang.JS),
-    JSON(null);
+    JSON(null),
+    AGSL(null);
 
     companion object {
         fun of(lang: ScriptLang): Syntax = when (lang) {
@@ -39,7 +41,8 @@ enum class Syntax(val script: ScriptLang?) {
  *   starts with the tokens already found.
  */
 internal class LineTokens(val syntax: Syntax) {
-    val keywords = syntax.script?.let { ApiDocs.keywords(it).toSet() } ?: emptySet()
+    val keywords = if (syntax == Syntax.AGSL) AGSL_WORDS
+    else syntax.script?.let { ApiDocs.keywords(it).toSet() } ?: emptySet()
 
     // Every token here is on one line. JS template strings (`…`) can span lines, so they are found separately.
     private val token = Regex(
@@ -148,6 +151,16 @@ internal class LineTokens(val syntax: Syntax) {
 
         /** Cache size in characters for the separate cache of [LONG_LINE]s. */
         const val KEPT_LONG_CHARS = 1_000_000L
+
+        /** The words of AGSL that stand out: the types and the control flow. */
+        private val AGSL_WORDS = setOf(
+            "uniform", "shader", "layout", "const", "in", "out", "inout", "struct", "void", "bool", "int",
+            "float", "float2", "float3", "float4", "half", "half2", "half3", "half4", "int2", "int3", "int4",
+            "float2x2", "float3x3", "float4x4", "half2x2", "half3x3", "half4x4", "vec2", "vec3", "vec4",
+            "mat2", "mat3", "mat4", "if", "else", "for", "while", "do", "return", "break", "continue",
+            "true", "false",
+        )
+
         const val COMMENT = 0
         const val STRING = 1
         const val NUMBER = 2

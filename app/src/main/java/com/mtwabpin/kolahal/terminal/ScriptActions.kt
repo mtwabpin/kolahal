@@ -27,6 +27,7 @@ import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.SecretStore
+import com.mtwabpin.kolahal.script.SharedShader
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import kotlinx.coroutines.CoroutineScope
@@ -229,7 +230,7 @@ class ScriptActions(
                     if (r.created.isNotEmpty()) add("added ${r.created.joinToString()}")
                     if (r.updated.isNotEmpty()) add("updated ${r.updated.joinToString()}")
                     if (r.created.isNotEmpty() || r.updated.isNotEmpty()) add("off until you turn them on (script on <name>)")
-                    if (r.shaders.isNotEmpty()) add("shaders ${r.shaders.joinToString()} (shader use <name>)")
+                    if (r.shaders.isNotEmpty()) add("shaders ${r.shaders.joinToString()}, under Settings → Shaders")
                     if (r.skipped.isNotEmpty()) add("skipped ${r.skipped.joinToString()}")
                 }.joinToString(" · ").ifEmpty { "nothing imported" }
                     .replaceFirstChar { it.uppercase() },
@@ -517,6 +518,9 @@ class ScriptActions(
             sources.flatMap { it.entries },
             sources = sources
         )
+
+        /** The shared shaders of every source, in source order ([ShaderActions]). */
+        val shaders: List<SharedShader> get() = sources.flatMap { it.shaders }
 
         /** The sources that couldn't be read. */
         val failed: List<ScriptCatalog.Listing> get() = sources.filter { it.error != null }

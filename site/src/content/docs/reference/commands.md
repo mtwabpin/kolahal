@@ -250,6 +250,7 @@ into the prompt (except `q`, which only quits).
 | `pipes` | | pipes grow across the screen and turn at random (also `screen pipes`) |
 | `sl` | | a steam locomotive crosses the screen, then home comes back (also `screen sl`) |
 | `shader [<name>\|list\|on\|off]` | | a [shader](/scripting/shaders/) over the screens, on Android 13 and newer: `crt`, `bloom`, `rain` or one of yours. Alone, it lists them. `off` always works |
+| `shader get [<name>]` · `shader update [<name>]` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them, or installs one; `update` updates those you installed |
 | `shader check\|copy\|remove <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
 
 The screens are `matrix`, `clock`, `pipes`, `sl`, `top` and `boot`:
@@ -283,6 +284,7 @@ sooner, so you'll mostly see it on a charger. Set it in **Settings → Look & fe
 
 **Shaders.** With `shader crt` (or `bloom`, `rain`, or [one of yours](/scripting/shaders/)), the phone's
 graphics chip draws an effect over home and the screens, on Android 13 and newer. `shader off` turns it off.
+They are in **Settings → Shaders** too.
 
 ## Profiles
 

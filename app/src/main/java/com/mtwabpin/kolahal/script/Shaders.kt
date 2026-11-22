@@ -76,6 +76,10 @@ object Shaders {
     /** Whether there is a shader [name]. */
     fun exists(name: String): Boolean = name in ShaderCatalog.BUNDLED || name in mine
 
+    /** The code of the user's own shader [name]; null when there is none. Reads a file: not on the main thread. */
+    fun own(context: Context, name: String): String? =
+        runCatching { file(context, name).takeIf { name in mine && it.isFile }?.readText() }.getOrNull()
+
     /** The code of shader [name], the user's file first; null when there is none. Reads a file: not on the main thread. */
     fun source(context: Context, name: String): String? = runCatching {
         val own = file(context, name)
@@ -99,9 +103,19 @@ object Shaders {
         load(context)
     }
 
-    /** Deletes the user's shader [name]. False when there is none. */
+    /**
+     * Deletes the user's shader [name], and where it came from ([ShaderStore]). False when there is none.
+     * One that was on is off then, unless Kolahal has one of its name: a file of the same name that
+     * comes later doesn't turn itself on.
+     */
     fun remove(context: Context, name: String): Boolean {
+        val conf = Config.get(context)
+        val on = name !in ShaderCatalog.BUNDLED && conf[Keys.SCREEN_SHADER] == name
         val gone = file(context, name).delete()
+        if (gone) {
+            if (on) conf.reset(Keys.SCREEN_SHADER)
+            ShaderStore(context).forget(name)
+        }
         load(context)
         return gone
     }
@@ -113,6 +127,64 @@ object Shaders {
         null
     } catch (e: RuntimeException) {
         ShaderMeta.compileError(e.message.orEmpty())
+    }
+
+    // ---- using one ------------------------------------------------------------------------
+
+    /**
+     * What keeps shader [name] from being used: its first problem ([ShaderMeta.problems]), or the
+     * compiler's error where Android has the compiler. Null when nothing does. Not on the main thread.
+     */
+    fun problem(context: Context, name: String): String? {
+        val source = source(context, name) ?: return "can't be read"
+        ShaderMeta.problems(source).firstOrNull()?.let { return it }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            compileError(source)?.let { return it.toString() }
+        }
+        return null
+    }
+
+    /** What checking a shader found: its [problem] (null: none), and the uniforms Kolahal [sets] and those left [unset]. */
+    class Check(
+        val problem: String?,
+        val sets: List<String>,
+        val unset: List<String>,
+        val animated: Boolean
+    )
+
+    /** Compiles shader [name] and reads its uniforms. Null when it can't be read. Not on the main thread. */
+    fun check(context: Context, name: String): Check? {
+        val meta = ShaderMeta.parse(source(context, name) ?: return null)
+        return Check(
+            problem(context, name),
+            meta.uniforms.map { it.name }.filter { it in ShaderMeta.KNOWN },
+            meta.unset(),
+            meta.animated,
+        )
+    }
+
+    /**
+     * Turns shader [name] on, also one that was turned off for being slow. Returns why it can't be
+     * used, and then the one that is on stays; null when it is on. Not on the main thread: it compiles.
+     */
+    fun use(context: Context, name: String): String? {
+        if (!supported) return NEEDS
+        problem(context, name)?.let { return it }
+        val safety = ShaderSafety.get(context)
+        safety.turnedOn()
+        safety.last = name
+        Config.get(context).set(Keys.SCREEN_SHADER, name)
+        return null
+    }
+
+    /** Turns shaders off. Returns the one that was on, which `shader on` turns on again; null when none was. */
+    fun off(context: Context): String? {
+        val conf = Config.get(context)
+        val was = conf[Keys.SCREEN_SHADER]
+        if (was == ShaderCatalog.OFF) return null
+        ShaderSafety.get(context).last = was
+        conf.set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
+        return was
     }
 
     // ---- what it says in the log ----------------------------------------------------------
@@ -131,7 +203,7 @@ object Shaders {
      */
     fun turnOff(context: Context, id: String, why: String) {
         val app = context.applicationContext
-        val count = ShaderSafety.get(app).trip(id)
+        val count = ShaderSafety.get(app).trip(id, why)
         if (count == 0) return
         val off = count >= ShaderSafety.MAX_TRIPS
         if (off) Config.get(app).set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
@@ -143,11 +215,7 @@ object Shaders {
     /** Two fingers held on home: no shader, whatever it did to the screen. One line says how to get it back. */
     fun offByHand(context: Context) {
         val app = context.applicationContext
-        val conf = Config.get(app)
-        val was = conf[Keys.SCREEN_SHADER]
-        if (was == ShaderCatalog.OFF) return
-        ShaderSafety.get(app).last = was
-        conf.set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
+        val was = off(app) ?: return
         log(app, LogKind.INFO, "Shader off: two fingers were held on the screen · 'shader on' turns $was on again", "shader")
     }
 

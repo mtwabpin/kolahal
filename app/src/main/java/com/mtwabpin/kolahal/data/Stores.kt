@@ -47,6 +47,9 @@ object Stores {
     val SCRIPT_LIBRARY = Prefs("script_library", inBackup = true)
     val SCRIPT_CATALOG = Prefs("script_catalog", inBackup = true)
 
+    /** Where the shaders from Get more shaders came from ([com.mtwabpin.kolahal.script.ShaderStore]). */
+    val SHADER_CATALOG = Prefs("shader_catalog", inBackup = true)
+
     /** The sources added to Get more scripts: a backup has them in a section of their own, added to what is here. */
     val SCRIPT_SOURCES = Prefs("script_sources", inBackup = false)
 
@@ -104,6 +107,7 @@ object Stores {
         NOTIF_PREFS,
         SCRIPT_LIBRARY,
         SCRIPT_CATALOG,
+        SHADER_CATALOG,
         SCRIPT_SOURCES,
         OLD_UNLOCKS,
         LAUNCHER,

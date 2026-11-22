@@ -28,10 +28,15 @@ import com.mtwabpin.kolahal.script.ScriptMeta
  * selected, to copy a part.
  */
 @Composable
-internal fun ReadOnlyCode(code: String, lang: ScriptLang, modifier: Modifier = Modifier) {
+internal fun ReadOnlyCode(code: String, lang: ScriptLang, modifier: Modifier = Modifier) =
+    ReadOnlyCode(code, Syntax.of(lang), modifier)
+
+/** The same for code of any [syntax]: a shader's, too. */
+@Composable
+internal fun ReadOnlyCode(code: String, syntax: Syntax, modifier: Modifier = Modifier) {
     val palette = Term.palette
-    val styled = remember(code, lang, palette) {
-        SyntaxHighlighter(Syntax.of(lang)).filter(
+    val styled = remember(code, syntax, palette) {
+        SyntaxHighlighter(syntax).filter(
             AnnotatedString(code)
         ).text
     }

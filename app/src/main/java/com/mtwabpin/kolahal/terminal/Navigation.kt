@@ -41,7 +41,8 @@ class Navigation(private val scripts: ScriptActions, private val host: Host) {
             _screen.value = screen
         }
         if (screen == Screen.SCRIPTS || screen == Screen.SCRIPT_LIBRARY || screen == Screen.GET_SCRIPTS) scripts.refreshScripts()
-        if (screen == Screen.GET_SCRIPTS) scripts.loadSharedScripts()
+        // Get more shaders reads the same lists.
+        if (screen == Screen.GET_SCRIPTS || screen == Screen.GET_SHADERS) scripts.loadSharedScripts()
         if (screen == Screen.SCRIPT_SOURCES && scripts.sharedScripts.value.sources.isEmpty()) scripts.loadSharedScripts()
         if (screen == Screen.SETUP || screen == Screen.ONBOARDING) host.refreshSetup()
     }

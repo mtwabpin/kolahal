@@ -63,7 +63,7 @@ fun ScriptSourcesScreen(vm: TerminalViewModel) {
 
         GuiListPage(
             title = { Text("Sources") },
-            subtitle = { Text("Where Get more scripts finds scripts") },
+            subtitle = { Text("Where Get more scripts and Get more shaders look") },
             onBack = vm::closeScreen,
             snackbar = snackbar,
             floatingActionButton = {
@@ -116,6 +116,7 @@ private fun SourceRow(l: ScriptCatalog.Listing, index: Int, count: Int, onRemove
     val facts = listOfNotNull(
         if (l.source.builtIn) "Reviewed" else null,
         l.readAt?.let { ScriptSources.scriptCount(l.entries.size) },
+        if (l.readAt != null && l.shaders.isNotEmpty()) ScriptSources.shaderCount(l.shaders.size) else null,
         l.readAt?.let { "Read ${relative(it)}" } ?: "Not read yet",
     ).joinToString(" · ")
     SegmentedListItem(

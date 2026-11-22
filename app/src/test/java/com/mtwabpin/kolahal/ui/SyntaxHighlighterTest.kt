@@ -34,6 +34,18 @@ class SyntaxHighlighterTest {
         }
     }
 
+    /** A shader's code, to read: its types, its numbers and its comments each have their color. */
+    @Test
+    fun aShadersCodeIsColored() {
+        val code = "uniform float time; // seconds\nhalf4 main(float2 p) { return half4(0.5); }"
+        val colored = SyntaxHighlighter(Syntax.AGSL).filter(AnnotatedString(code)).text
+        val parts = colored.spanStyles.map { code.substring(it.start, it.end) }
+        assertEquals(
+            listOf("uniform", "float", "// seconds", "half4", "float2", "return", "half4", "0.5"),
+            parts
+        )
+    }
+
     @Test
     fun theSameTextIsntColoredAgain() {
         val h = SyntaxHighlighter(Syntax.LUA)
