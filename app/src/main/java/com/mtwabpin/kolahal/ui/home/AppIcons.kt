@@ -26,6 +26,7 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.ui.theme.Term
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * App icons for the suggestions (`suggestions.icons`) and the app selector's list (`selector.icons`).
@@ -78,16 +79,32 @@ object AppIcons {
             .forEach { cache.remove(it) }
     }
 
+    /** One lock for each icon being loaded, so two callers (a row and the selector's preload) don't decode it twice. */
+    private val locks = ConcurrentHashMap<String, Any>()
+
+    /**
+     * The icon of [app] at [px] pixels, from the cache or loaded now. It blocks: call it off the main
+     * thread. While another caller loads the same icon, it waits for that one.
+     */
     fun load(context: Context, app: AppEntry, px: Int): ImageBitmap? {
         cached(app, px)?.let { return it }
-        val icon = runCatching {
-            val apps = context.getSystemService(LauncherApps::class.java)
-            val info = apps.resolveActivity(Intent().setComponent(app.component), app.profile.user)
-                ?: return null
-            info.getBadgedIcon(0).toBitmap(px, px).asImageBitmap()
-        }.getOrNull() ?: return null
-        cache.put("${app.key}@$px", icon)
-        return icon
+        val key = "${app.key}@$px"
+        val lock = locks.getOrPut(key) { Any() }
+        try {
+            synchronized(lock) {
+                cache.get(key)?.let { return it }
+                val icon = runCatching {
+                    val apps = context.getSystemService(LauncherApps::class.java)
+                    val info = apps.resolveActivity(Intent().setComponent(app.component), app.profile.user)
+                        ?: return null
+                    info.getBadgedIcon(0).toBitmap(px, px).asImageBitmap()
+                }.getOrNull() ?: return null
+                cache.put(key, icon)
+                return icon
+            }
+        } finally {
+            locks.remove(key)
+        }
     }
 }
 

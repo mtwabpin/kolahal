@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
+import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -45,7 +46,7 @@ import kotlin.math.sqrt
  * `image` widget. For each picture:
  * - It is downloaded once into the cache directory (at most [MAX_BYTES]). A log line takes http and
  *   https links. A widget's picture is fetched over https only, redirects included.
- * - It is decoded off the main thread, no wider than the log, or no larger than its card needs.
+ * - It is decoded off the main thread, no larger than the log shows it, or than its card needs.
  * - It is kept in a small memory cache, so scrolling back does not decode it again.
  *
  * Android may clear the cache directory. The picture is then downloaded again when it shows.
@@ -88,15 +89,13 @@ object LogImages {
     /** For each link, the memory key of the picture decoded last ([cachedAny]). It holds keys only, and never many. */
     private val latest = LruCache<String, String>(64)
 
-    /**
-     * The memory key of one decode of [url]. A decode for the log ([MAX_PIXELS]) and a decode for a
-     * card (fewer pixels) never share a key, also at the same width.
-     */
-    private fun key(url: String, widthPx: Int, maxPixels: Float): String =
-        if (maxPixels == MAX_PIXELS) "$url@$widthPx" else "$url@$widthPx/${maxPixels.toInt()}"
-
-    fun cached(url: String, widthPx: Int, maxPixels: Float = MAX_PIXELS): ImageBitmap? =
-        memoryFor(maxPixels).get(key(url, widthPx, maxPixels))
+    fun cached(
+        url: String,
+        widthPx: Int,
+        maxPixels: Float = MAX_PIXELS,
+        maxHeightPx: Int = Int.MAX_VALUE
+    ): ImageBitmap? =
+        memoryFor(maxPixels).get(pictureKey(url, widthPx, maxPixels, maxHeightPx))
 
     /**
      * The picture of [url] that is in memory, at the size it was decoded last. Null when none is.
@@ -116,7 +115,8 @@ object LogImages {
 
     /**
      * Returns the image at [url], or null if it cannot be loaded. Smaller images are not scaled up here.
-     * - It is at most [widthPx] wide, and it has at most [maxPixels] pixels (never more than [MAX_PIXELS]).
+     * - It is at most [widthPx] wide and [maxHeightPx] tall, and it has at most [maxPixels] pixels
+     *   (never more than [MAX_PIXELS]) ([pictureScale]).
      * - With [httpsOnly] it is fetched over https only. A link that isn't https gives null, and so
      *   does a redirect to plain http. A widget's picture is fetched so.
      *
@@ -127,20 +127,22 @@ object LogImages {
         url: String,
         widthPx: Int,
         maxPixels: Float = MAX_PIXELS,
-        httpsOnly: Boolean = false
+        httpsOnly: Boolean = false,
+        maxHeightPx: Int = Int.MAX_VALUE
     ): ImageBitmap? {
-        cached(url, widthPx, maxPixels)?.let { return it }
+        cached(url, widthPx, maxPixels, maxHeightPx)?.let { return it }
         // A link that gave no picture a short while ago is not downloaded again yet.
         if (notPicture(url)) return null
         // When several lines show the same image, only one download and one decode happen. The others wait for it.
-        val key = key(url, widthPx, maxPixels)
+        val key = pictureKey(url, widthPx, maxPixels, maxHeightPx)
         val lock = locks.getOrPut(key) { Any() }
         try {
             synchronized(lock) {
-                return cached(url, widthPx, maxPixels) ?: decode(
+                return cached(url, widthPx, maxPixels, maxHeightPx) ?: decode(
                     context,
                     url,
                     widthPx,
+                    maxHeightPx,
                     maxPixels,
                     httpsOnly
                 )
@@ -154,19 +156,18 @@ object LogImages {
         context: Context,
         url: String,
         widthPx: Int,
+        maxHeightPx: Int,
         maxPixels: Float,
         httpsOnly: Boolean
     ): ImageBitmap? {
         val file = file(context, url, httpsOnly) ?: return null
-        val most = maxPixels.coerceIn(1f, MAX_PIXELS)
         val bitmap = runCatching {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
                 val w = info.size.width.toFloat()
                 val h = info.size.height.toFloat()
                 // A small file can claim huge dimensions. Such an image is not worth decoding at any scale.
                 if (w * h > MAX_SOURCE_PIXELS) throw java.io.IOException("image too large (${info.size.width}×${info.size.height})")
-                var scale = min(1f, widthPx / w)
-                if (w * h * scale * scale > most) scale = sqrt(most / (w * h))
+                val scale = pictureScale(w, h, widthPx, maxHeightPx, maxPixels)
                 decoder.setTargetSize(
                     (w * scale).roundToInt().coerceAtLeast(1),
                     (h * scale).roundToInt().coerceAtLeast(1)
@@ -187,7 +188,7 @@ object LogImages {
             url,
             Ink(if (bitmap.hasAlpha()) measure(file) else null)
         )
-        val key = key(url, widthPx, maxPixels)
+        val key = pictureKey(url, widthPx, maxPixels, maxHeightPx)
         memoryFor(maxPixels).put(key, image)
         latest.put(url, key)
         return image
@@ -291,8 +292,30 @@ object LogImages {
 }
 
 /**
- * The picture at [url] for a place [widthPx] wide, with at most [maxPixels] pixels
- * ([LogImages.load]). Null while it loads. A failure when it can't be loaded.
+ * The memory key of one decode of [url] ([LogImages.load]). A decode for the log
+ * ([LogImages.MAX_PIXELS]) and a decode for a card (fewer pixels) never share a key, also at the
+ * same width. Nor do two decodes for different greatest heights.
+ */
+internal fun pictureKey(url: String, widthPx: Int, maxPixels: Float, maxHeightPx: Int): String {
+    val size = if (maxPixels == LogImages.MAX_PIXELS) "$url@$widthPx" else "$url@$widthPx/${maxPixels.toInt()}"
+    return if (maxHeightPx == Int.MAX_VALUE) size else "$size^$maxHeightPx"
+}
+
+/**
+ * How much a picture [w] by [h] pixels is scaled when it is decoded: no wider than [widthPx], no
+ * taller than [maxHeightPx], with at most [maxPixels] pixels (never more than
+ * [LogImages.MAX_PIXELS]), and never scaled up.
+ */
+internal fun pictureScale(w: Float, h: Float, widthPx: Int, maxHeightPx: Int, maxPixels: Float): Float {
+    val most = maxPixels.coerceIn(1f, LogImages.MAX_PIXELS)
+    var scale = min(1f, min(widthPx / w, maxHeightPx / h))
+    if (w * h * scale * scale > most) scale = sqrt(most / (w * h))
+    return scale
+}
+
+/**
+ * The picture at [url] for a place [widthPx] wide and at most [maxHeightPx] tall, with at most
+ * [maxPixels] pixels ([LogImages.load]). Null while it loads. A failure when it can't be loaded.
  * - With [enabled] it is fetched, once, and decoded, off the main thread.
  * - Without it nothing is fetched and nothing is decoded. Only a picture that is already in memory
  *   shows, at the size it has there. A card that is not in view asks so.
@@ -306,23 +329,25 @@ internal fun rememberWebImage(
     widthPx: Int,
     maxPixels: Float,
     enabled: Boolean,
-    httpsOnly: Boolean = false
+    httpsOnly: Boolean = false,
+    maxHeightPx: Int = Int.MAX_VALUE
 ): Result<ImageBitmap>? {
     val context = LocalContext.current
     var state by remember(url) {
         mutableStateOf(
-            (LogImages.cached(url, widthPx, maxPixels)
+            (LogImages.cached(url, widthPx, maxPixels, maxHeightPx)
                 ?: if (enabled) null else LogImages.cachedAny(url))?.let { Result.success(it) })
     }
-    if (enabled) LaunchedEffect(url, widthPx, maxPixels, httpsOnly) {
-        val image = LogImages.cached(url, widthPx, maxPixels)
+    if (enabled) LaunchedEffect(url, widthPx, maxPixels, httpsOnly, maxHeightPx) {
+        val image = LogImages.cached(url, widthPx, maxPixels, maxHeightPx)
             ?: withContext(LogImages.loader) {
                 LogImages.load(
                     context.applicationContext,
                     url,
                     widthPx,
                     maxPixels,
-                    httpsOnly
+                    httpsOnly,
+                    maxHeightPx
                 )
             }
         state =
@@ -348,7 +373,14 @@ fun LogImage(url: String, modifier: Modifier = Modifier) {
         val widthPx = constraints.maxWidth.coerceAtLeast(1)
         // null while loading; a failure if it cannot be loaded. On a new width (the phone was
         // rotated), the image for the old width stays until the new one is decoded. A new URL starts over.
-        val state = rememberWebImage(url, widthPx, LogImages.MAX_PIXELS, enabled = true)
+        // A tall picture is decoded no taller than it shows, so it isn't held at a size nobody sees.
+        val state = rememberWebImage(
+            url,
+            widthPx,
+            LogImages.MAX_PIXELS,
+            enabled = true,
+            maxHeightPx = ceil(maxHeightPx).toInt().coerceAtLeast(1)
+        )
         val image = state?.getOrNull()
         if (image == null) {
             Text(

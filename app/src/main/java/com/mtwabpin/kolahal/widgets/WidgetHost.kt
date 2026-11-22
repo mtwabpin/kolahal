@@ -49,6 +49,20 @@ data class ProviderEntry(val info: AppWidgetProviderInfo, val user: UserHandle, 
 }
 
 /**
+ * What a widget's view is made for: its provider, its profile, its first layout and its install
+ * ([install]: an update installs the app anew). A view made for some details shows equal ones too.
+ * When the install can't be told (null), no details are the same, so the view is made again.
+ */
+internal data class ViewDetails(
+    val provider: Any?,
+    val profile: Any?,
+    val initialLayout: Int,
+    val install: String?
+) {
+    fun sameAs(other: ViewDetails): Boolean = install != null && this == other
+}
+
+/**
  * Home-screen widget support:
  * - one [AppWidgetHost] for the whole app
  * - the list of placed widgets (SharedPreferences, see [WidgetCodec])
@@ -104,13 +118,35 @@ class WidgetHost private constructor(context: Context) {
     private val labels = HashMap<Int, String>()
 
     /**
-     * True when the details are the same for a widget's view: the provider, its profile, its first
-     * layout and its install (an update installs the app in a new folder). Before Android 12 the
-     * install can't be compared, so details read again always count as new.
+     * Before Android 12, each id's install ([installOf]) as [prune] read it with the details in
+     * [infos]. Kept and dropped with [infos], under its lock. Details read elsewhere have none here.
      */
-    private fun sameAs(a: AppWidgetProviderInfo, b: AppWidgetProviderInfo) =
-        Build.VERSION.SDK_INT >= 31 && a.provider == b.provider && a.profile == b.profile && a.initialLayout == b.initialLayout &&
-                a.activityInfo.applicationInfo?.sourceDir == b.activityInfo.applicationInfo?.sourceDir
+    private val installs = HashMap<Int, String>()
+
+    /**
+     * True when the details are the same for a widget's view ([ViewDetails]). From Android 12 they
+     * say where the app is installed (an update installs it in a new folder). Before, [prune] asks
+     * ([installOf]): [installA] and [installB] are what it read with [a] and [b].
+     */
+    private fun sameAs(a: AppWidgetProviderInfo, b: AppWidgetProviderInfo, installA: String?, installB: String?): Boolean {
+        fun details(info: AppWidgetProviderInfo, install: String?) =
+            ViewDetails(info.provider, info.profile, info.initialLayout, install)
+        return if (Build.VERSION.SDK_INT >= 31) details(a, a.activityInfo.applicationInfo?.sourceDir)
+            .sameAs(details(b, b.activityInfo.applicationInfo?.sourceDir))
+        else details(a, installA).sameAs(details(b, installB))
+    }
+
+    /**
+     * Where [w]'s app is installed, and when it was last updated, before Android 12: its details
+     * don't say. Null when it can't be told. On Android 9 and 10 an update moves the app between
+     * two folders, so the time tells two updates apart (only for an app in this profile).
+     */
+    private fun installOf(w: PlacedWidget): String? = runCatching {
+        val user = userFor(w.profileSerial) ?: return null
+        val folder = launcherApps.getApplicationInfo(w.packageName, 0, user)?.sourceDir ?: return null
+        val updated = runCatching { app.packageManager.getPackageInfo(w.packageName, 0).lastUpdateTime }.getOrNull()
+        "$folder@$updated"
+    }.getOrNull()
 
     /**
      * Views by id, kept for a return to home. Home is built again after a full-screen page (Settings,
@@ -144,10 +180,10 @@ class WidgetHost private constructor(context: Context) {
         _redrawn.update { it + 1 }
     }
 
-    private fun forgetInfos() = synchronized(infos) { infos.clear(); labels.clear() }
+    private fun forgetInfos() = synchronized(infos) { infos.clear(); labels.clear(); installs.clear() }
 
     private fun forget(id: Int) {
-        synchronized(infos) { infos.remove(id); labels.remove(id) }
+        synchronized(infos) { infos.remove(id); labels.remove(id); installs.remove(id) }
         synchronized(views) { views.remove(id) }
     }
 
@@ -807,13 +843,17 @@ class WidgetHost private constructor(context: Context) {
         if (!supported) return
         val dead = _widgets.value.filter { w ->
             val id = w.id ?: return@filter false
+            // Before Android 12, the install is read first: an update between the two reads makes the
+            // details count as new at the next check, never as the old ones.
+            val install = if (Build.VERSION.SDK_INT < 31) installOf(w) else null
             val fresh = info(id)
             synchronized(infos) {
                 val old = infos[id]
                 if (fresh == null) {
-                    infos.remove(id); labels.remove(id)
-                } else if (old == null || !sameAs(old, fresh)) {
+                    infos.remove(id); labels.remove(id); installs.remove(id)
+                } else if (old == null || !sameAs(old, fresh, installs[id], install)) {
                     infos[id] = fresh; labels.remove(id)
+                    if (install != null) installs[id] = install else installs.remove(id)
                 }
             }
             if (fresh != null) return@filter false

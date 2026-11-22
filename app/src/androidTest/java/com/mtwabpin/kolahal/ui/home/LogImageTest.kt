@@ -132,12 +132,14 @@ class LogImageTest {
             }
         }
         fun px() = compose.onNodeWithTag("log").fetchSemanticsNode().size.width
+        // The picture last decoded for this link: as wide as the log, since it is wider and not tall.
+        fun decodedWidth() = LogImages.cachedAny(url)?.width
         val narrow = px()
-        compose.waitUntil(5_000) { LogImages.cached(url, narrow) != null }
+        compose.waitUntil(5_000) { decodedWidth() == narrow }
         compose.runOnIdle { width = 400.dp }
         compose.waitForIdle()
         val wide = px()
         assertTrue("$narrow, then $wide", wide > narrow)
-        compose.waitUntil(5_000) { LogImages.cached(url, wide) != null }
+        compose.waitUntil(5_000) { decodedWidth() == wide }
     }
 }

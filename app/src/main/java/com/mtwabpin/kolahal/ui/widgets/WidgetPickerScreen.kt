@@ -93,6 +93,8 @@ private class ProviderGroup(
     val names: List<String>,
     /** The card text of [providers], loaded with them off the main thread. */
     val texts: List<CardText>,
+    /** Where the app is installed: an update installs it in a new folder ([pickerPicturesKey]). */
+    val install: String?,
 )
 
 /** A widget's name and, from Android 12, its description. */
@@ -140,7 +142,8 @@ private fun loadGroups(
             kind,
             a.providers,
             a.names.map { it.lowercase() },
-            texts
+            texts,
+            a.app?.sourceDir,
         )
     }.sortedWith(compareBy({ it.label.lowercase() }, { it.work?.ordinal ?: -1 }))
 }
@@ -239,7 +242,7 @@ internal val pickerBuiltinRows: List<PickerBuiltinRow> = listOf(
 
 /** The header of the picker's first section: Kolahal's own widgets. Some are built in, and your scripts fill the others. */
 private val kolahalGroup =
-    ProviderGroup("kolahal", "Kolahal", null, null, emptyList(), emptyList(), emptyList())
+    ProviderGroup("kolahal", "Kolahal", null, null, emptyList(), emptyList(), emptyList(), null)
 
 /**
  * The widget picker.
@@ -322,7 +325,8 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                                 g.work,
                                 found.map(g.providers::get),
                                 found.map(g.names::get),
-                                found.map(g.texts::get)
+                                found.map(g.texts::get),
+                                g.install,
                             )
                         }
                 }
@@ -435,6 +439,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                         ProviderCard(
                             p,
                             g.texts[i],
+                            g.install,
                             widgets
                         ) { onPick(p) }
                     }
@@ -539,10 +544,26 @@ private fun KolahalWidgetCard(
     }
 }
 
+/**
+ * The memory key of the pictures of the widget [provider] (flattened) in the profile [serial], at
+ * [maxPx]. It stays the same while the widget is the same: the same preview image, layout and icon
+ * from the same install ([install]). After an update, the key is new, so the pictures are read again.
+ */
+internal fun pickerPicturesKey(
+    provider: String,
+    serial: Long,
+    previewImage: Int,
+    previewLayout: Int,
+    icon: Int,
+    install: String?,
+    maxPx: Int
+): String = "$provider#$serial:$previewImage:$previewLayout:$icon:$install:$maxPx"
+
 @Composable
 private fun ProviderCard(
     p: ProviderEntry,
     text: CardText,
+    install: String?,
     widgets: WidgetHost,
     onClick: () -> Unit
 ) {
@@ -551,21 +572,37 @@ private fun ProviderCard(
     val label = text.label
     val description = text.description
     val maxPx = with(LocalDensity.current) { 280.dp.roundToPx() }
-    // The cache key is tied to this provider as loaded. After an update (new details), the key
-    // changes, so the pictures are read again.
-    val loaded = "${p.flat}#${p.serial}:${System.identityHashCode(info)}:$maxPx"
-    val preview by produceState<ImageBitmap?>(pickerImages.get("$loaded:preview"), info) {
-        value = pickerImages.get("$loaded:preview") ?: withContext(Dispatchers.IO) {
+    // The pictures are read again only when the widget changed ([pickerPicturesKey]).
+    val loaded = pickerPicturesKey(
+        p.flat,
+        p.serial,
+        info.previewImage,
+        if (Build.VERSION.SDK_INT >= 31) info.previewLayout else 0,
+        info.icon,
+        install,
+        maxPx
+    )
+    // A widget with a preview image shows it. Null while it loads; a failure when there is none, or it can't be read.
+    val hasImage = info.previewImage != 0
+    val preview by produceState(
+        pickerImages.get("$loaded:preview")?.let { Result.success(it) } ?: NO_PREVIEW.takeIf { !hasImage },
+        loaded
+    ) {
+        val image = pickerImages.get("$loaded:preview") ?: if (!hasImage) null else withContext(Dispatchers.IO) {
             runCatching { info.loadPreviewImage(context, 0) }.getOrNull()?.toImage(maxPx)
         }?.also { pickerImages.put("$loaded:preview", it) }
+        value = image?.let { Result.success(it) } ?: NO_PREVIEW
     }
-    val icon by produceState<ImageBitmap?>(pickerImages.get("$loaded:icon"), info) {
+    val icon by produceState<ImageBitmap?>(pickerImages.get("$loaded:icon"), loaded) {
         value = pickerImages.get("$loaded:icon") ?: withContext(Dispatchers.IO) {
             runCatching { info.loadIcon(context, 0) }.getOrNull()?.toImage(maxPx / 3)
         }?.also { pickerImages.put("$loaded:icon", it) }
     }
+    // The layout preview (Android 12) is only for a widget without a preview image, or whose image
+    // can't be read. It is decided before anything loads, so no layout is inflated to be dropped.
     val canLayoutPreview =
-        Build.VERSION.SDK_INT >= 31 && info.previewLayout != 0 && p.user == Process.myUserHandle()
+        Build.VERSION.SDK_INT >= 31 && info.previewLayout != 0 && p.user == Process.myUserHandle() &&
+                preview?.isFailure == true
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -581,7 +618,7 @@ private fun ProviderCard(
                     .background(MaterialTheme.colorScheme.surfaceContainerLowest),
                 contentAlignment = Alignment.Center,
             ) {
-                val img = preview
+                val img = preview?.getOrNull()
                 when {
                     img != null -> Image(
                         img,
@@ -625,6 +662,9 @@ private fun ProviderCard(
         }
     }
 }
+
+/** A widget's preview image that is not there: it has none, or it can't be read. */
+private val NO_PREVIEW = Result.failure<ImageBitmap>(IllegalStateException("no preview image"))
 
 /** The Android 12+ `previewLayout`, inflated as a view that ignores touches. Touches go to the card. */
 @RequiresApi(31)

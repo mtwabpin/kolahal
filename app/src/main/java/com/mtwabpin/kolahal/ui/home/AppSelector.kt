@@ -104,7 +104,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -468,10 +470,15 @@ fun AppSelector(
             val iconSize = minOf(rowH - 12.dp, 32.dp)
             val iconPx = with(density) { iconSize.roundToPx() }.coerceAtLeast(1)
             // Icons load ahead, off the main thread, so a fast glide never shows an empty space where an icon goes.
-            // The grid has no icons.
+            // They start at the first touch of the strip, not when the keyboard goes down: after a while away
+            // only the most used apps' icons are kept (LauncherApp), and the others load only if the selector
+            // is used. Each row loads its own icon too, so the first glide after a while away may show a few
+            // empty spaces for a few frames. The grid has no icons.
             if (icons && tty == null) LaunchedEffect(entries, iconPx, AppIcons.generation) {
+                snapshotFlow { state.mode != Mode.CLOSED }.first { it }
                 withContext(Dispatchers.IO) {
                     entries.forEach {
+                        ensureActive()
                         AppIcons.load(
                             appContext,
                             it.item,

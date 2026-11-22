@@ -47,10 +47,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.shader.ShaderPlay
 import com.mtwabpin.kolahal.ui.theme.Term
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -179,10 +181,12 @@ internal fun NowPlayingLine(
         // The playback progress bar. When the width changes, it redraws at once, without waiting for the
         // next pixel of progress.
         // While it plays and the log is on screen, the filled part is a moving wave, as media players draw it.
+        // A full-screen screen or the screensaver over home hides the bar, and the wave stands still there.
+        val covered by ShaderPlay.covered.collectAsStateWithLifecycle()
         ProgressTrack(
             { progress },
             Modifier.onSizeChanged { barWidth[0] = it.width; progress = np.progressNow() },
-            moving = np.playing && LocalTerminalShown.current,
+            moving = np.playing && LocalTerminalShown.current && covered == 0,
         )
     }
 }
@@ -242,7 +246,8 @@ internal fun ProgressTrack(
  *   header keeps its height.
  * - Only the drawing changes from frame to frame: the phase is read while drawing, so nothing is
  *   rebuilt or measured again. It moves only while this is shown: the caller passes [ProgressTrack]
- *   `moving` only while the log is on screen, and frames stop while home is hidden.
+ *   `moving` only while the log is on screen and no full-screen screen covers it, and frames stop
+ *   while home is hidden. One path is drawn again on each frame, not a new one.
  * - With the phone's animations off, the wave stands still.
  */
 @Composable
@@ -254,6 +259,7 @@ private fun WaveTrack(fraction: () -> Float, modifier: Modifier, fill: Color) {
         label = "phase",
     )
     val track = Term.dim.copy(alpha = 0.25f)
+    val path = remember { Path() }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -277,7 +283,7 @@ private fun WaveTrack(fraction: () -> Float, modifier: Modifier, fill: Color) {
                 if (end <= 0f) return@drawBehind
                 // The played part, as a wave that moves towards the end.
                 val shift = phase * wavelength
-                val path = Path()
+                path.rewind()
                 var at = 0f
                 val step = 1.5.dp.toPx()
                 while (true) {

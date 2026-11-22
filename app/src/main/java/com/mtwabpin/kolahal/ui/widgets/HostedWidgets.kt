@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.ui.widgets
 
+import android.view.View
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.ParentDataModifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -84,7 +86,8 @@ private class ArrangeOnLongPress(actions: WidgetCardActions, private val arrange
 
 /**
  * Renders an app's placed widget [w] at [height] via the shared AppWidgetHost. A long-press anywhere
- * on it calls [onLongPress]. When its profile is paused, [placeholder] is shown instead.
+ * on it calls [onLongPress]. When its profile is paused, [placeholder] is shown instead. Its view is
+ * visible only while some of it is in the window, so a widget nobody sees doesn't tick.
  *
  * A widget Kolahal draws itself ([PlacedWidget.source]) has no app widget id, and is not drawn here.
  * The widgets page and the Widgets screen draw its card themselves ([SourceWidget]).
@@ -114,16 +117,30 @@ internal fun HostedWidget(
     }
     val longPress by rememberUpdatedState(onLongPress)
     key(id, redrawn) {
+        // The view is visible only while some of it is in the window. The widgets page is composed
+        // beside the log, and the page scrolls: a hidden view's clocks, timers and spinners stop
+        // (Android tells them through onVisibilityAggregated), so they don't ask home for frames.
+        // Its visibility is set during layout, before the frame is drawn: a page that slides in shows its
+        // widgets from its first pixel. The page's own signals are too late for that, or not true
+        // there: LocalWidgetsShown is false during a swipe and on the Widgets screen, and
+        // LocalCardOnScreen changes on the next frame.
+        val hosted = remember { arrayOfNulls<View>(1) }
         AndroidView(
             factory = { ctx ->
                 // Home is rebuilt after Settings or the Widgets page, but the widget's view is reused.
                 widgets.view(ctx, id, info).apply {
                     (this as? KolahalWidgetView)?.onLongPress = { longPress() }
+                    // Hidden until its first layout says it is in the window.
+                    visibility = View.INVISIBLE
+                    hosted[0] = this
                 }
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(height),
+                .height(height)
+                .onVisibilityChanged(minFractionVisible = 0f) { seen ->
+                    hosted[0]?.visibility = if (seen) View.VISIBLE else View.INVISIBLE
+                },
         )
     }
 }
