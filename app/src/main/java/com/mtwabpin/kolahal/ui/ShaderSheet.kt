@@ -78,6 +78,7 @@ internal fun ShaderSheet(
         Spacer(Modifier.height(12.dp))
         Fact("From", from(row))
         Fact("Moves", if (row.meta.animated) "yes" else "no")
+        if (row.meta.tilt) Fact(ShaderPage.USES_TILT, "yes")
         row.meta.license?.let { Fact("License", it) }
         if (row.turnedOff) SheetError(ShaderPage.turnedOff(row))
         problem?.let { SheetError("Can't be used: $it") }

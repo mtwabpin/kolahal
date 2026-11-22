@@ -51,8 +51,17 @@ class SharedShadersTest {
         assertEquals(listOf("", "", "", ""), listOf(e.desc, e.author, e.version, e.license))
         assertTrue(e.tags.isEmpty())
         assertFalse(e.animated)
+        assertFalse(e.tilt)
         assertNull(e.requires)
         assertEquals(ScriptCatalog.SOURCE, e.source)
+    }
+
+    /** `tilt` says that it follows the phone's lean. Only true counts; a list that doesn't have it means no. */
+    @Test
+    fun tiltIsReadWhenTheListHasIt() {
+        fun tilt(value: String) = parsed(entry("glow").dropLast(1) + ""","tilt":$value}""").single().tilt
+        assertTrue(tilt("true"))
+        for (other in listOf("false", "null", "1", "\"true\"", "[]")) assertFalse(other, tilt(other))
     }
 
     /** An index without shaders, as every index was before, has none; nor has one with another thing there. */

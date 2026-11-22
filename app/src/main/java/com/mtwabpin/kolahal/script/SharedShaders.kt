@@ -22,6 +22,8 @@ data class SharedShader(
     val requires: String?,
     val sha256: String,
     override val source: String = ScriptCatalog.SOURCE,
+    /** It follows how the phone leans (it declares `tilt`). An older list doesn't say. */
+    val tilt: Boolean = false,
 ) : ScriptSources.Listed
 
 /**
@@ -61,6 +63,7 @@ object SharedShaders {
                 requires = str("requires"),
                 sha256 = sha,
                 source = source,
+                tilt = m["tilt"] == true,
             )
         }.distinctBy { it.name }
 

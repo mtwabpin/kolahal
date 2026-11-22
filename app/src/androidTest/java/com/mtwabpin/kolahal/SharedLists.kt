@@ -25,6 +25,7 @@ data class ListedShader(
     val tags: List<String> = emptyList(),
     val animated: Boolean = false,
     val requires: String? = null,
+    val tilt: Boolean = false,
 ) {
     val sha: String = MessageDigest.getInstance("SHA-256").digest(code.toByteArray())
         .joinToString("") { "%02x".format(it) }
@@ -33,6 +34,8 @@ data class ListedShader(
         .put("sha256", sha).put("title", title).put("desc", desc).put("author", author)
         .put("version", version).put("license", "MIT").put("tags", JSONArray(tags))
         .put("animated", animated).apply { requires?.let { put("requires", it) } }
+        // Optional: a list written before it doesn't have it.
+        .apply { if (tilt) put("tilt", true) }
 }
 
 /**

@@ -131,6 +131,28 @@ class GetShadersScreenTest {
         compose.onNodeWithText("Shared in ${ScriptCatalog.SOURCE} on GitHub").assertExists()
     }
 
+    /** One that follows the phone's lean says so in its row and on its sheet. */
+    @Test
+    fun oneThatUsesTiltSaysSo() {
+        val leaning = glow.copy(code = "uniform float2 tilt;\n$code", tilt = true)
+        lists.listed(leaning)
+        show(leaning)
+        compose.waitForNode(row("Soft glow", "gz-glow.agsl · uses tilt"))
+        open("Soft glow")
+        compose.waitForText("Uses tilt: yes")
+    }
+
+    /** A list that doesn't say so: the sheet does, once the code is here. */
+    @Test
+    fun theCodeSaysItUsesTiltToo() {
+        val leaning = glow.copy(code = "uniform float2 tilt;\n$code")
+        lists.listed(leaning)
+        show(leaning)
+        compose.waitForNode(row("Soft glow", "gz-glow.agsl"))
+        open("Soft glow")
+        compose.waitForText("Uses tilt: yes")
+    }
+
     /** A list without shaders says so: every list was one before. */
     @Test
     fun aListWithoutShadersSaysSo() {

@@ -2,14 +2,25 @@ package com.mtwabpin.kolahal.ui
 
 import android.app.Application
 import android.os.Build
+import android.os.SystemClock
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -28,10 +39,17 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderClock
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.tty.ActiveShaders
+import com.mtwabpin.kolahal.ui.tty.GravitySource
+import com.mtwabpin.kolahal.ui.tty.LiveTilt
+import com.mtwabpin.kolahal.ui.tty.LocalShaderSources
+import com.mtwabpin.kolahal.ui.tty.OnGravity
+import com.mtwabpin.kolahal.ui.tty.ShaderSources
+import com.mtwabpin.kolahal.ui.tty.watchTouches
 import com.mtwabpin.kolahal.waitFor
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -69,7 +87,7 @@ class TtyShaderTest {
     private val commands = CommandRunner(app)
 
     /** This class's own files: none is left behind. */
-    private val mine = listOf("zz-fine", "zz-broken", "zz-wrong")
+    private val mine = listOf("zz-fine", "zz-broken", "zz-wrong", "zz-lean", "zz-press")
 
     @Before
     fun setUp() {
@@ -87,25 +105,31 @@ class TtyShaderTest {
 
     private fun needsAndroid13() = assumeTrue("shaders need Android 13", supported)
 
-    private fun home(style: String = "tty"): TerminalViewModel {
+    private fun home(
+        style: String = "tty",
+        sources: ShaderSources = ShaderSources(),
+        shown: () -> Boolean = { true },
+    ): TerminalViewModel {
         config.set(Keys.HOME_STYLE, style)
         val vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .consumeWindowInsets(WindowInsets.safeDrawing)
-                ) {
-                    Box(Modifier.size(360.dp, 700.dp)) { TerminalScreen(vm) }
-                    HomeScreenOverlay(vm)
+                CompositionLocalProvider(LocalShaderSources provides sources, LocalTerminalShown provides shown()) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .consumeWindowInsets(WindowInsets.safeDrawing)
+                    ) {
+                        Box(Modifier.size(360.dp, 700.dp)) { TerminalScreen(vm) }
+                        HomeScreenOverlay(vm)
+                    }
                 }
             }
         }
         return vm
     }
 
-    private fun ttyHome() = home().also {
+    private fun ttyHome(sources: ShaderSources = ShaderSources(), shown: () -> Boolean = { true }) = home("tty", sources, shown).also {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("tty-home").fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -252,6 +276,214 @@ class TtyShaderTest {
         assertTrue(commands.run("shader").any { "needs Android 13" in it })
     }
 
+    // ---- the lean of the phone -------------------------------------------------------------
+
+    /** A gravity sensor that counts, and gives what the test says. */
+    private class FakeGravity : GravitySource {
+        @Volatile
+        var starts = 0
+
+        @Volatile
+        var stops = 0
+
+        @Volatile
+        var to: OnGravity? = null
+
+        override fun start(to: OnGravity): Boolean {
+            starts++
+            this.to = to
+            return true
+        }
+
+        override fun stop() {
+            stops++
+            to = null
+        }
+    }
+
+    private val gravity = FakeGravity()
+
+    /** The phone's state as the shader is told it. The tests' own phone has animations off, so nothing would move. */
+    @Volatile
+    private var phone = ShaderClock.Phone(
+        batterySaver = false, animationsOff = false, hot = false, charging = true, batteryPercent = 80,
+    )
+    private val sources = ShaderSources(phone = { phone }, gravity = { gravity })
+
+    /** A still shader that reads the lean. A moving one would never let Compose's test clock come to rest. */
+    private val leaning =
+        "uniform shader content;\nuniform float2 tilt;\nhalf4 main(float2 p) { return content.eval(p) * (1.0 - 0.1 * abs(tilt.x)); }"
+
+    private fun useLeaning() {
+        Shaders.save(app, "zz-lean", leaning)
+        config.set(Keys.SCREEN_SHADER, "zz-lean")
+        compose.waitFor("zz-lean isn't drawn") { "zz-lean" in drawn() }
+    }
+
+    private fun touchHome() = compose.onNodeWithTag("tty-home").performTouchInput {
+        down(Offset(width * 0.5f, height * 0.3f))
+        up()
+    }
+
+    /** The phone lies flat, then its right side is lowered by 30 degrees. */
+    private fun leanRight() = compose.runOnUiThread {
+        val to = gravity.to!!
+        var at = SystemClock.elapsedRealtimeNanos()
+        fun read(x: Float, z: Float) = repeat(25) {
+            to.on(x, 0f, z, false, 0, at)
+            at += 20_000_000L
+        }
+        read(0f, 9.81f)
+        read(-4.9f, 8.5f)
+    }
+
+    /** The motion sensor is read while a shader that declares `tilt` shows, and for no other. Then the lean goes back to 0. */
+    @Test
+    fun theMotionSensorIsReadOnlyForAShaderThatDeclaresTilt() {
+        needsAndroid13()
+        ttyHome(sources)
+        config.set(Keys.SCREEN_SHADER, "bloom")
+        compose.waitFor("bloom isn't drawn") { drawn() == listOf("bloom") }
+        compose.waitForIdle()
+        assertEquals(0, gravity.starts)
+        useLeaning()
+        compose.waitFor("the sensor isn't read") { gravity.starts == 1 }
+        leanRight()
+        assertTrue("${LiveTilt.x}", LiveTilt.x > 0.5f)
+        config.set(Keys.SCREEN_SHADER, "bloom")
+        compose.waitFor("the sensor is still read") { gravity.stops == 1 }
+        compose.waitFor("it still leans") { LiveTilt.x == 0f && LiveTilt.y == 0f }
+        assertEquals(1, gravity.starts)
+    }
+
+    /** Home and a screen over it share one listener, which goes with the last of them. */
+    @Test
+    fun twoSurfacesShareOneListener() {
+        needsAndroid13()
+        val vm = home(style = "gui", sources = sources)
+        useLeaning()
+        compose.waitFor("the sensor isn't read") { gravity.starts == 1 }
+        compose.runOnIdle { vm.showTtyScreen("matrix") }
+        compose.waitFor("zz-lean isn't drawn over the screen") { drawn() == listOf("zz-lean", "zz-lean") }
+        compose.waitForIdle()
+        compose.runOnIdle { vm.closeTtyScreen() }
+        compose.waitFor("the screen still draws it") { drawn() == listOf("zz-lean") }
+        compose.waitForIdle()
+        assertEquals(1, gravity.starts)
+        assertEquals(0, gravity.stops)
+        config.set(Keys.SCREEN_SHADER, "off")
+        compose.waitFor("the sensor is still read") { gravity.stops == 1 }
+    }
+
+    /** Behind the widgets page home doesn't read it. */
+    @Test
+    fun theSensorIsntReadBehindTheWidgetsPage() {
+        needsAndroid13()
+        var shown by mutableStateOf(true)
+        ttyHome(sources) { shown }
+        useLeaning()
+        compose.waitFor("the sensor isn't read") { gravity.starts == 1 }
+        compose.runOnIdle { shown = false }
+        compose.waitFor("the sensor is still read") { gravity.stops == 1 }
+        compose.runOnIdle { shown = true }
+        compose.waitFor("the sensor isn't read again") { gravity.starts == 2 }
+    }
+
+    /** What stops a moving shader stops it, too: here battery saver. A touch after it has ended starts it again. */
+    @Test
+    fun theSensorIsntReadInBatterySaver() {
+        needsAndroid13()
+        phone = phone.copy(batterySaver = true)
+        ttyHome(sources)
+        useLeaning()
+        compose.waitForIdle()
+        Thread.sleep(700)
+        assertEquals(0, gravity.starts)
+        phone = phone.copy(batterySaver = false)
+        touchHome()
+        compose.waitFor("the sensor isn't read", 15_000) { gravity.starts == 1 }
+        leanRight()
+        phone = phone.copy(batterySaver = true)
+        compose.waitFor("the sensor is still read", 15_000) { gravity.stops == 1 }
+        compose.waitFor("it still leans") { LiveTilt.x == 0f && LiveTilt.y == 0f }
+    }
+
+    // ---- a finger --------------------------------------------------------------------------
+
+    /** The press ends with the finger, and with a gesture that Android cancels; what is below still gets its taps. */
+    @Test
+    fun aPressEndsWithTheFingerAndWithACancel() {
+        var pressed = false
+        var taps = 0
+        compose.setContent {
+            Box(
+                Modifier
+                    .size(200.dp)
+                    .testTag("surface")
+                    .pointerInput(Unit) {
+                        watchTouches(onTouch = {}, onPress = { pressed = it }, onHold = {})
+                    }
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clickable { taps++ })
+            }
+        }
+        val surface = compose.onNodeWithTag("surface")
+        fun isPressed() = compose.runOnIdle { pressed }
+        assertFalse(isPressed())
+        surface.performTouchInput { down(center) }
+        assertTrue(isPressed())
+        surface.performTouchInput { up() }
+        assertFalse(isPressed())
+        assertEquals(1, compose.runOnIdle { taps })
+
+        surface.performTouchInput { down(center) }
+        assertTrue(isPressed())
+        surface.performTouchInput { cancel() }
+        assertFalse("a canceled gesture still presses", isPressed())
+        assertEquals(1, compose.runOnIdle { taps })
+
+        // Two fingers: waiting whether they are held takes the events of both.
+        surface.performTouchInput {
+            down(0, Offset(width * 0.3f, height * 0.5f))
+            down(1, Offset(width * 0.7f, height * 0.5f))
+        }
+        assertTrue(isPressed())
+        surface.performTouchInput { up(0) }
+        assertTrue(isPressed())
+        surface.performTouchInput { up(1) }
+        assertFalse(isPressed())
+        surface.performTouchInput {
+            down(0, Offset(width * 0.3f, height * 0.5f))
+            down(1, Offset(width * 0.7f, height * 0.5f))
+        }
+        assertTrue(isPressed())
+        surface.performTouchInput { cancel() }
+        assertFalse("two canceled fingers still press", isPressed())
+    }
+
+    /** A still shader that declares `pressed` is drawn again when a finger comes down and when it goes. */
+    @Test
+    fun aStillShaderIsDrawnAgainOnPressAndRelease() {
+        needsAndroid13()
+        Shaders.save(
+            app, "zz-press",
+            "uniform shader content;\nuniform float pressed;\n" +
+                    "half4 main(float2 p) { return half4(pressed, 0.0, 1.0 - pressed, 1.0) + content.eval(p) * 0.0; }",
+        )
+        ttyHome()
+        config.set(Keys.SCREEN_SHADER, "zz-press")
+        fun color(): Color =
+            compose.onNodeWithTag("tty-home").captureToImage().toPixelMap().let { it[it.width / 2, it.height / 3] }
+        compose.waitFor("it isn't drawn") { color().let { it.blue > 0.8f && it.red < 0.2f } }
+        compose.onNodeWithTag("tty-home").performTouchInput { down(Offset(width * 0.5f, height * 0.3f)) }
+        compose.waitFor("a press isn't drawn") { color().let { it.red > 0.8f && it.blue < 0.2f } }
+        compose.onNodeWithTag("tty-home").performTouchInput { cancel() }
+        compose.waitFor("the end of the press isn't drawn") { color().let { it.blue > 0.8f && it.red < 0.2f } }
+    }
+
     /** `shader` lists the bundled ones with their descriptions, and checks one. */
     @Test
     fun theCommandListsAndChecks() {
@@ -260,6 +492,8 @@ class TtyShaderTest {
         if (supported) {
             assertTrue(commands.run("shader check crt").any { "compiles" in it })
             assertTrue(commands.run("shader check rain").any { "Animated" in it })
+            assertTrue(commands.run("shader check foil").any { "Kolahal sets" in it && "tilt" in it })
+            assertTrue(commands.run("shader check frost").any { "Kolahal sets" in it && "pressed" in it })
         }
         assertFalse(commands.lines("shader check zz-none").isEmpty())
         assertEquals("off", config[Keys.SCREEN_SHADER])

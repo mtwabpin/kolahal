@@ -1,5 +1,5 @@
 // @name Pond
-// @description Light ripples over the page as on shallow water, and a touch sends rings out. It moves
+// @description Light ripples over the page as on shallow water, and a touch sends rings out
 // @animated
 //
 // The rings bend the text by a fifth of a cell at most, for about a second after a touch. The

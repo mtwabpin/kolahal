@@ -1,5 +1,5 @@
 // @name Ink drop
-// @description A touch drops a little ink in the page: a faint cloud of the accent color spreads behind the text and fades. It moves
+// @description A touch drops a little ink in the page: a faint cloud of the accent color spreads behind the text and fades
 // @animated
 //
 // Between touches nothing is drawn. The cloud is faint and gone in four seconds, so typing and

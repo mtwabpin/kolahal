@@ -174,7 +174,7 @@ private fun SharedShaderRow(
         colors = segColors(),
         overlineContent = {
             Text(
-                "${e.name}.${ShaderCatalog.EXT}" + if (e.animated) " · animated" else "",
+                ShaderPage.fileLine(e),
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -213,6 +213,7 @@ private fun SharedShaderSheet(
     val code by produceState<Result<String>?>(null, e.sha256) {
         value = runCatching { actions.sharedCode(e) }
     }
+    val tilt = remember(e, code) { ShaderPage.usesTilt(e, code?.getOrNull()) }
 
     GuiSheet(onDismiss, scroll = true) {
         Text(e.title, style = MaterialTheme.typography.titleLarge)
@@ -230,6 +231,7 @@ private fun SharedShaderSheet(
         }
         Spacer(Modifier.height(12.dp))
         Fact("Moves", if (e.animated) "yes" else "no")
+        if (tilt) Fact(ShaderPage.USES_TILT, "yes")
         if (e.license.isNotBlank()) Fact("License", e.license)
         if (e.tags.isNotEmpty()) Fact("Tags", e.tags.joinToString(", "))
         addedSource(e)?.let { Fact("From", "$it, a source you added") }

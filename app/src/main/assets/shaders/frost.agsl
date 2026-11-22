@@ -1,5 +1,5 @@
 // @name Frost
-// @description Ice grows in from the edges and corners of the screen. A touch melts a clear spot
+// @description Ice grows in from the edges and corners of the screen. It melts under your finger
 //
 // The middle of the screen stays clear. Under the ice the page is tinted and text is bent by a
 // fifth of a cell at most, so it stays readable and a tap lands on what it shows.
@@ -8,6 +8,7 @@ uniform shader content;
 uniform float2 resolution;
 uniform float2 cell;
 uniform float2 touch;
+uniform float pressed;
 uniform float dark;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 surface;
@@ -48,8 +49,8 @@ half4 main(float2 xy) {
     float reach = 0.012 + 0.085 * needle * needle + 0.025 * fine;
     float ice = 1.0 - smoothstep(reach * 0.25, reach, inside);
 
-    // A touch melts it, for as long as the finger stays there and until the next one.
-    float melt = touch.x < 0.0 ? 1.0 : smoothstep(cell.y * 3.5, cell.y * 6.5, length(xy - touch));
+    // A finger melts it, for as long as it stays there.
+    float melt = pressed < 0.5 ? 1.0 : smoothstep(cell.y * 3.5, cell.y * 6.5, length(xy - touch));
     ice *= melt;
     if (ice <= 0.0) {
         return content.eval(xy);

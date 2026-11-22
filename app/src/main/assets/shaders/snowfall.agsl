@@ -1,15 +1,17 @@
 // @name Snowfall
-// @description Snow falls behind the text, for Christmas. It moves
+// @description Snow falls behind the text, for Christmas
 // @animated
 //
 // Five layers of flakes: the near ones are bigger and fall faster. The snow only shows where the
-// background does, so text stays as it is. A touch blows the flakes away for a moment.
+// background does, so text stays as it is. A touch blows the flakes away for a moment, and they
+// drift to the side the phone leans to.
 
 uniform shader content;
 uniform float2 resolution;
 uniform float time;
 uniform float2 touch;
 uniform float touchAge;
+uniform float2 tilt;
 uniform float dark;
 layout(color) uniform half4 bg;
 
@@ -40,6 +42,10 @@ half4 main(float2 xy) {
         // It falls, and the wind sways the whole layer.
         uv.y -= time * (0.95 - 0.11 * n);
         uv.x += 0.45 * sin(time * 0.35 + n * 1.9) + 0.10 * sin(time * 0.9 + uv.y * 0.7 + n);
+
+        // A lean of the phone moves it aside, the near layers most: a place, not a speed, so it glides
+        // there and back with the phone.
+        uv -= tilt * (1.0 - 0.15 * n);
 
         // One flake in each cell, about half of them are there. Its place, size and sway are its own.
         float2 id = floor(uv);

@@ -16,8 +16,8 @@ Open **Settings → Shaders** and tap a shader. It is checked first: if it doesn
 on stays, and its row says why. **None** turns shaders off.
 
 Each row shows what the shader looks like and what it is: in use, yours or from a
-[shared list](#getting-shaders-from-others), animated, edited, turned off (and why), or with an update. Tap
-ⓘ for its details: a small preview, its version and author, its code, and what you can do with it.
+[shared list](#getting-shaders-from-others), animated, using [tilt](#tilt-and-power), edited, turned off (and why),
+or with an update. Tap ⓘ for its details: a small preview, its version and author, its code, and what you can do with it.
 
 - **Check** compiles it and says which [uniforms](#uniforms) it uses.
 - **Copy to script folder** and **Share** give you the file or its code, to edit it or pass it on.
@@ -45,14 +45,14 @@ nothing while the screen is still.
 | `paper` | uncoated paper: a fine grain and fibres, and ink that soaks in a little |
 | `riso` | a stencil print: a second impression of the text in the accent color, a little off register |
 | `graph` | squared paper behind the text |
-| `foil` | plain text stamped in foil: bands of the theme's colors that slide with your finger |
+| `foil` | plain text stamped in foil: bands of the theme's colors that slide with your finger and as the phone leans |
 | `lamp` | a soft pool of light where you last touched, and the rest of the page a little dimmer |
 | `dusk` | a sky behind the text that follows the phone's clock: night, dawn, daylight and dusk |
-| `frost` | ice grows in from the edges and corners; a touch melts a clear spot |
+| `frost` | ice grows in from the edges and corners, and melts under your finger |
 | `rain` | drops of the theme's accent color fall behind the text. It moves |
-| `snowfall` | snow falls behind the text, and a touch blows it away. It moves |
+| `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. It moves |
 | `aurora` | curtains of northern lights in the top of the screen, behind the text. It moves |
-| `night` | stars that twinkle slowly, and a meteor now and then. It moves |
+| `night` | stars that twinkle slowly and shift a little as the phone leans, and a meteor now and then. It moves |
 | `fireflies` | small lights wander behind the text, and a touch draws them near. It moves |
 | `pond` | light ripples as on shallow water, and a touch sends rings out. It moves |
 | `contour` | the contour lines of a map, slowly changing; a touch raises a hill. It moves |
@@ -82,7 +82,8 @@ times in a row, `screen.shader` is set to `off`.
 
 Shaders are off while TalkBack or another screen reader is on. Moving shaders stand still in battery
 saver, with **Remove animations** on, when the phone is hot or nearly out of battery, and after a
-minute without a touch unless the phone is charging.
+minute without a touch unless the phone is charging. Shaders that follow the phone's lean stop following
+it [at the same times](#tilt-and-power).
 
 ## Adding your own
 
@@ -204,9 +205,33 @@ of another name stays 0. `shader check` lists both.
 | `time` | `float` | seconds since the shader was turned on. It moves only in an `@animated` shader |
 | `touch` | `float2` | the last touch, in pixels. `-1, -1` before the first one |
 | `touchAge` | `float` | seconds since that touch, only in an `@animated` shader. 1000 before the first touch |
+| `pressed` | `float` | 1 while a finger is down on the surface, otherwise 0. A shader that isn't `@animated` is drawn again when it changes |
+| `tilt` | `float2` | how far the phone leans, from about -1 to 1 each way: `x` is positive when the right side is lower, `y` when the bottom edge is. `0, 0` when the phone is level or has no motion sensor. See [Tilt and power](#tilt-and-power) |
+| `battery` | `float` | how full the battery is, from 0 to 1 |
+| `charging` | `float` | 1 while the phone is plugged in, otherwise 0 |
 | `dark` | `float` | 1 in a dark theme, 0 in a light one |
 | `date` | `float4` | the phone's date and time: the year, the month (1 to 12), the day of the month, and the seconds since midnight, in local time. A shader that isn't `@animated` is drawn again once a minute when it declares it |
 | `bg` `surface` `fg` `dim` `accent` `error` `warn` `good` `info` `link` | `half4` | the theme's colors. Declare them with `layout(color)`, so they match the screen's colors |
 
 `half` and `float` are both fine for the numbers; `half2` and `float2` as well. The types have to match:
 a `time` declared as `float2` is an error, and so is an array.
+
+A shader that isn't `@animated` and declares `battery` or `charging` is drawn again when they change.
+
+### Tilt and power
+
+`tilt` is measured from how the phone is usually held: what counts as level follows the phone within
+some seconds. So a phone in a stand, or in your hand while you lie down, leans by 0. It is smoothed, and 30
+degrees is 1.
+
+Kolahal reads the phone's motion sensor only while a shader that declares `tilt` shows, with home (or the
+shader's preview in Settings) in front. It stops in battery saver, with **Remove animations** on, when the phone is hot or nearly out of
+battery, and after a minute without a touch unless the phone is charging. `tilt` then goes back to `0, 0`.
+
+A shader that isn't `@animated` is drawn again only when the lean changes, at most 30 times a second. On a
+table it isn't drawn at all.
+
+- Leave text where it is: use `tilt` for what is behind it or for its color. Text that moves with the
+  phone is hard to read, and a tap misses it.
+- Use `tilt` as a place, such as an offset. `time * tilt` jumps when the phone moves.
+- A shader with `tilt` must look right at `0, 0`.

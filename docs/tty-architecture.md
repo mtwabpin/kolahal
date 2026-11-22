@@ -768,9 +768,21 @@ tty.screen({
 - *Settings*: Settings → Shaders (`ui/ShadersScreen.kt`), by the maintainer's request of 22 November; the
   key itself is on no settings page. Its preview uses the code that sets the uniforms, but neither the
   watchdog nor the safe mode's mark.
-- *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`, `date`
-  and the ten colors. Not built: `cells` (step 7), `scroll`, `param0..7` and `@param`, `@warp`,
+- *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`, `date`,
+  `tilt`, `pressed`, `battery`, `charging` and the ten colors. Not built: `cells` (step 7), `scroll`, `param0..7` and `@param`, `@warp`,
   `@bloom`. A `layout(color)` color must be four numbers, as Android requires.
+- *Tilt*: `ShaderTilt` (pure, JVM-tested) turns gravity into the lean: compared with a level that follows
+  the phone (6 s), smoothed (0.12 s), on the screen's own sides, 1 at 30 degrees, and changed only by more
+  than 0.012 and at most 30 times a second, so it rests on a table. `LiveTilt` has the one sensor listener
+  that all surfaces share (`TYPE_GRAVITY`, or the accelerometer steadied; `SENSOR_DELAY_GAME`, so no
+  permission), registered while a surface holds it: a shader that declares `tilt`, home resumed, focused
+  and on its page, and `ShaderClock.moves`. When the last lets go it eases to 0 in about 0.7 s, and then
+  nothing runs: a surface that had to stop waits for a touch or a change of the battery. A still shader is
+  drawn again at each change; an animated one reads the lean as it draws, and follows it only while its
+  clock stands still. The preview in Settings follows it too.
+- *Finger and battery*: `pressed` comes from the touch watcher (Initial pass, nothing consumed; a cancel
+  ends it), `battery` and `charging` from `DeviceStatus`, the header's. Each draws a still shader again
+  only when it changes.
 - *Watchdog*: the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`) over 60 frames
   against two frames of the display's refresh rate, but at least 33 ms, and it has to stay over that for
   120 frames in a row; the first 60 frames don't count (the GPU compiles the program). Where the phone

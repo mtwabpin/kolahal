@@ -24,9 +24,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -51,8 +55,11 @@ import com.mtwabpin.kolahal.script.ShaderClock
 import com.mtwabpin.kolahal.script.ShaderDate
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderSafety
+import com.mtwabpin.kolahal.script.ShaderTilt
 import com.mtwabpin.kolahal.script.ShaderWatchdog
 import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.status.DeviceStatus
+import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.ui.LocalTerminalShown
 import com.mtwabpin.kolahal.ui.rememberScreenReader
@@ -63,6 +70,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
@@ -76,6 +86,14 @@ internal object ActiveShaders {
     fun add(name: String) = _names.update { it + name }
     fun remove(name: String) = _names.update { it - name }
 }
+
+/** What a shader's drawing asks of the phone: its [phone] state for [ShaderClock], and where its [gravity] comes from. A test has its own. */
+internal class ShaderSources(
+    val phone: (Context) -> ShaderClock.Phone = ::phoneOf,
+    val gravity: (Context) -> GravitySource = ::PhoneGravity,
+)
+
+internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
 
 /**
  * `screen.shader` over a TTY surface (home on the grid, a full-screen screen): a [RenderEffect] on its
@@ -91,6 +109,9 @@ internal object ActiveShaders {
  * - A still shader is drawn only when what it shows or a touch changes; one that is `@animated` at
  *   most [ShaderClock.FPS] times a second, while home is in front ([ShaderClock.moves]).
  * - A still shader that declares `date` is also drawn once a minute, while home is in front ([FollowDate]).
+ * - One that declares `tilt` follows the phone's lean, under the same conditions as one that moves
+ *   ([FollowTilt]). Nothing listens to the motion sensor for any other.
+ * - One that declares `battery` or `charging` is also drawn when they change ([FollowBattery]).
  * - [ShaderWatchdog] turns a slow one off, and [ShaderSafety] one that Kolahal crashed with.
  * - Two fingers held still for a second turn the shader off, whatever it does to the screen.
  */
@@ -141,16 +162,19 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     if (window != null) WatchFrames(shader, safety, window, view.display?.refreshRate ?: 60f, context)
     if (shader.meta.animated) AnimateShader(shader, clock, touch)
     val day = remember(shader) { ShaderDay() }
-    if (!shader.meta.animated && shader.meta.uniforms.any { it.name == ShaderDate.NAME }) FollowDate(shader, day)
+    if (!shader.meta.animated && shader.meta.uses(ShaderDate.NAME)) FollowDate(shader, day)
+    if (shader.meta.tilt) FollowTilt(shader, touch)
+    val battery = rememberShaderBattery(shader)
 
     val inputs = remember(shader, grid, cols, left) {
         ShaderInputs(shader, grid, cols, left) { Shaders.report(context, shader.name, shader.id, it) }
     }
     return Modifier
-        .shaderEffect(inputs, clock, touch, day)
+        .shaderEffect(inputs, clock, touch, battery, day)
         .pointerInput(shader) {
             watchTouches(
                 onTouch = { touch.at(it, clock.seconds) },
+                onPress = { touch.pressed = it },
                 onHold = { Shaders.offByHand(context) },
             )
         }
@@ -158,10 +182,12 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
 
 /** The effect of [inputs] over what this modifier is on. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private fun Modifier.shaderEffect(inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch, day: ShaderDay? = null): Modifier =
+private fun Modifier.shaderEffect(
+    inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null,
+): Modifier =
     graphicsLayer {
         renderEffect = if (size.width > 0f && size.height > 0f) {
-            inputs.effect(size.width, size.height, clock, touch, day)
+            inputs.effect(size.width, size.height, clock, touch, battery, day)
         } else null
         clip = true
     }
@@ -173,6 +199,7 @@ private fun Modifier.shaderEffect(inputs: ShaderInputs, clock: ShaderTime, touch
  *
  * It is only looked at, so it is kept out of what judges the shader on home: no mark in
  * [ShaderSafety], no [ShaderWatchdog], no line in the log and no touches. Home isn't drawn while it is.
+ * It leans with the phone, as on home, until it goes or a minute has passed.
  */
 @Composable
 internal fun rememberShaderPreview(name: String, code: String, grid: TtyGrid): Modifier? {
@@ -191,8 +218,10 @@ private fun previewLayer(name: String, code: String, grid: TtyGrid): Modifier? {
     val touch = remember(shader) { ShaderTouch() }
     val clock = remember(shader) { ShaderTime() }
     if (shader.meta.animated) AnimateShader(shader, clock, touch)
+    if (shader.meta.tilt) FollowTilt(shader, touch)
+    val battery = rememberShaderBattery(shader)
     val inputs = remember(shader, grid) { ShaderInputs(shader, grid, 0, 0) { } }
-    return Modifier.shaderEffect(inputs, clock, touch)
+    return Modifier.shaderEffect(inputs, clock, touch, battery)
 }
 
 /** Says in [ActiveShaders] that [name] is drawn. */
@@ -268,6 +297,7 @@ private fun WatchFrames(shader: LoadedShader, safety: ShaderSafety, window: Wind
 @Composable
 private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: ShaderTouch) {
     val context = LocalContext.current
+    val sources = LocalShaderSources.current
     val shown = LocalTerminalShown.current
     val focused = LocalWindowInfo.current.isWindowFocused
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -277,27 +307,30 @@ private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: Shader
             val frameMs = 1_000L / ShaderClock.FPS
             var last = -1L
             var checkedAt = -1L
-            var moving = false
-            while (true) {
-                val now = withFrameNanos { it } / 1_000_000L
-                if (checkedAt < 0 || now - checkedAt >= CHECK_MS) {
-                    moving = ShaderClock.moves(phoneOf(context), SystemClock.uptimeMillis() - touch.uptime)
-                    checkedAt = now
+            try {
+                while (true) {
+                    val now = withFrameNanos { it } / 1_000_000L
+                    if (checkedAt < 0 || now - checkedAt >= CHECK_MS) {
+                        clock.moving = ShaderClock.moves(sources.phone(context), SystemClock.uptimeMillis() - touch.uptime)
+                        checkedAt = now
+                    }
+                    if (clock.moving) {
+                        // A long gap (a pause) counts as one frame, so nothing jumps.
+                        val delta = if (last < 0) frameMs else (now - last).coerceIn(0L, 250L)
+                        clock.seconds += delta / 1000f
+                        last = now
+                        val spent = (System.nanoTime() / 1_000_000L - now).coerceAtLeast(0L)
+                        // Wakes just before the next frame it wants.
+                        delay((frameMs - spent - 4).coerceIn(0L, frameMs))
+                    } else {
+                        // Still: it costs nothing. A touch, or the phone charging, starts it again.
+                        last = -1L
+                        delay(IDLE_CHECK_MS)
+                        checkedAt = -1L
+                    }
                 }
-                if (moving) {
-                    // A long gap (a pause) counts as one frame, so nothing jumps.
-                    val delta = if (last < 0) frameMs else (now - last).coerceIn(0L, 250L)
-                    clock.seconds += delta / 1000f
-                    last = now
-                    val spent = (System.nanoTime() / 1_000_000L - now).coerceAtLeast(0L)
-                    // Wakes just before the next frame it wants.
-                    delay((frameMs - spent - 4).coerceIn(0L, frameMs))
-                } else {
-                    // Still: it costs nothing. A touch, or the phone charging, starts it again.
-                    last = -1L
-                    delay(IDLE_CHECK_MS)
-                    checkedAt = -1L
-                }
+            } finally {
+                clock.moving = false
             }
         }
     }
@@ -324,6 +357,72 @@ private fun FollowDate(shader: LoadedShader, day: ShaderDay) {
     }
 }
 
+/**
+ * Keeps the phone's lean live ([LiveTilt]) for a shader that declares `tilt`, while home is in front and
+ * the phone's state allows a moving shader ([ShaderClock.moves]). Otherwise it lets go: the lean goes
+ * back to 0, and nothing runs until a touch, or until the battery's level or the charger changes.
+ */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun FollowTilt(shader: LoadedShader, touch: ShaderTouch) {
+    val context = LocalContext.current
+    val sources = LocalShaderSources.current
+    val shown = LocalTerminalShown.current
+    val focused = LocalWindowInfo.current.isWindowFocused
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(shader, shown, focused) {
+        if (!shown || !focused) return@LaunchedEffect
+        val status = DeviceStatus.get(context).status
+        fun power(s: Status) = s.charging to s.batteryPct
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            try {
+                while (true) {
+                    val touched = touch.uptime
+                    val powered = power(status.value)
+                    if (ShaderClock.moves(sources.phone(context), SystemClock.uptimeMillis() - touched)) {
+                        LiveTilt.hold(context, touch, sources.gravity)
+                        delay(CHECK_MS)
+                    } else {
+                        LiveTilt.release(touch)
+                        // A drag on a phone that stays in battery saver asks once a second, not at each move.
+                        delay(IDLE_CHECK_MS)
+                        merge(
+                            snapshotFlow { touch.uptime != touched },
+                            status.map { power(it) != powered },
+                        ).first { it }
+                    }
+                }
+            } finally {
+                LiveTilt.release(touch)
+            }
+        }
+    }
+}
+
+/** The battery for [shader], which follows it when it declares it ([FollowBattery]). */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun rememberShaderBattery(shader: LoadedShader): ShaderBattery {
+    val context = LocalContext.current
+    val battery = remember(shader) { ShaderBattery(DeviceStatus.get(context).status.value) }
+    val uses = shader.meta.uses(ShaderMeta.BATTERY) || shader.meta.uses(ShaderMeta.CHARGING)
+    if (uses) FollowBattery(shader, battery)
+    return battery
+}
+
+/** Keeps [battery] at the status the header shows, so it has no receiver of its own. Only a value that changes draws the shader again. */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun FollowBattery(shader: LoadedShader, battery: ShaderBattery) {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(shader) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            DeviceStatus.get(context).status.collect { battery.set(it) }
+        }
+    }
+}
+
 /** A phone's state for [ShaderClock]. */
 private fun phoneOf(context: Context): ShaderClock.Phone {
     val power = context.getSystemService(PowerManager::class.java)
@@ -342,11 +441,34 @@ private fun phoneOf(context: Context): ShaderClock.Phone {
 /** The shader's own clock, in seconds: it moves only while the shader is animated and home is in front. */
 private class ShaderTime {
     var seconds by mutableFloatStateOf(0f)
+
+    /** It moves now, so the shader is drawn again and again as it is. */
+    var moving by mutableStateOf(false)
 }
 
 /** Counts the minutes a still shader with `date` was drawn for: a change draws it again. */
 private class ShaderDay {
     var minute by mutableIntStateOf(0)
+}
+
+/** The battery as a shader reads it. It starts at [status]. */
+private class ShaderBattery(status: Status) {
+    /** How full it is, 0 to 1. Full while it isn't known. */
+    var level by mutableFloatStateOf(1f)
+        private set
+
+    /** 1 while the phone is plugged in, else 0. */
+    var charging by mutableFloatStateOf(0f)
+        private set
+
+    init {
+        set(status)
+    }
+
+    fun set(status: Status) {
+        level = (status.batteryPct ?: 100).coerceIn(0, 100) / 100f
+        charging = if (status.charging) 1f else 0f
+    }
 }
 
 /** The last touch on the surface, in px, and when it came on the shader's clock. */
@@ -361,8 +483,11 @@ private class ShaderTouch {
         private set
 
     /** When the last touch came, by the phone's uptime. Turning a shader on counts as a touch. */
-    var uptime = SystemClock.uptimeMillis()
+    var uptime by mutableLongStateOf(SystemClock.uptimeMillis())
         private set
+
+    /** A finger is down on the surface. */
+    var pressed by mutableStateOf(false)
 
     fun at(position: Offset, seconds: Float) {
         x = position.x
@@ -440,9 +565,15 @@ private class ShaderInputs(
     private val usesTouch = "touch" in declared || "touchAge" in declared
     private val usesClock = animated && ("time" in declared || "touchAge" in declared)
     private val usesDate = declared[ShaderDate.NAME]?.floats == ShaderDate.FLOATS
+    private val usesTilt = declared[ShaderTilt.NAME]?.floats == ShaderTilt.FLOATS
+    private val usesPressed = ShaderMeta.PRESSED in declared
+    private val usesBattery = ShaderMeta.BATTERY in declared
+    private val usesCharging = ShaderMeta.CHARGING in declared
 
     /** The effect for a surface [w] × [h] px. Null when a uniform can't be set. */
-    fun effect(w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch, day: ShaderDay? = null): androidx.compose.ui.graphics.RenderEffect? {
+    fun effect(
+        w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null,
+    ): androidx.compose.ui.graphics.RenderEffect? {
         if (failed) return null
         val seconds = if (usesClock) clock.seconds else 0f
         val touched = usesTouch && touch.atSeconds >= 0f
@@ -458,6 +589,15 @@ private class ShaderInputs(
                 float2("touch", if (touched) touch.x else -1f, if (touched) touch.y else -1f)
                 // A still shader is drawn at the touch, and then not again: its age stays 0.
                 float1("touchAge", if (!touched) NEVER else if (animated) (seconds - touch.atSeconds).coerceAtLeast(0f) else 0f)
+            }
+            if (usesPressed) float1(ShaderMeta.PRESSED, if (touch.pressed) 1f else 0f)
+            if (usesBattery) float1(ShaderMeta.BATTERY, battery.level)
+            if (usesCharging) float1(ShaderMeta.CHARGING, battery.charging)
+            if (usesTilt) {
+                // A shader that moves is drawn anyway, and takes the lean as it is. One that stands still
+                // is drawn again when the lean changes.
+                if (!usesClock || !clock.moving) LiveTilt.follow()
+                runtime.setFloatUniform(ShaderTilt.NAME, LiveTilt.x, LiveTilt.y)
             }
             if (usesDate) {
                 // Read, so the minute's change draws a still shader again.
@@ -512,16 +652,32 @@ private const val CHECK_MS = 2_000L
 private const val IDLE_CHECK_MS = 1_000L
 
 /**
- * Follows touches without taking any: the last position ([onTouch]), and two fingers held still for
- * [HOLD_MS] ([onHold]).
+ * Follows touches without taking any: the last position ([onTouch]), whether a finger is down
+ * ([onPress], after its position), and two fingers held still for [HOLD_MS] ([onHold]).
+ *
+ * A gesture that Android cancels comes as an event with no finger down, so it ends the press as well.
  */
-private suspend fun PointerInputScope.watchTouches(onTouch: (Offset) -> Unit, onHold: () -> Unit) = awaitPointerEventScope {
-    while (true) {
-        val event = awaitPointerEvent(PointerEventPass.Initial)
-        val down = event.changes.filter { it.pressed }
-        down.firstOrNull()?.let { onTouch(it.position) }
-        if (event.type == PointerEventType.Press && down.size >= 2 && held(down.associate { it.id to it.position })) onHold()
+internal suspend fun PointerInputScope.watchTouches(
+    onTouch: (Offset) -> Unit,
+    onPress: (Boolean) -> Unit,
+    onHold: () -> Unit,
+) = try {
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            val down = event.changes.filter { it.pressed }
+            down.firstOrNull()?.let { onTouch(it.position) }
+            onPress(down.isNotEmpty())
+            if (event.type == PointerEventType.Press && down.size >= 2) {
+                if (held(down.associate { it.id to it.position })) onHold()
+                // Waiting for them took events, perhaps the one that lifted the last finger.
+                onPress(currentEvent.changes.any { it.pressed })
+            }
+        }
     }
+} finally {
+    // Nobody follows the finger any more.
+    onPress(false)
 }
 
 /** Waits until the two fingers ([from], where they went down) have been still for [HOLD_MS]: false when one lifts or moves. */

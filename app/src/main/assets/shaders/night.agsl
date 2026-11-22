@@ -1,14 +1,16 @@
 // @name Night sky
-// @description Stars behind the text that twinkle slowly, a pale band across the sky, and a meteor now and then. It moves
+// @description Stars behind the text that twinkle slowly, a pale band across the sky, and a meteor now and then
 // @animated
 //
 // Two layers of stars, each a soft dot of a few pixels, never a single one. They only show where
-// the page does. On a light theme it is a star chart: dark dots on the page.
+// the page does. On a light theme it is a star chart: dark dots on the page. As the phone leans, the
+// near stars shift a few pixels and the far ones less.
 
 uniform shader content;
 uniform float2 resolution;
 uniform float2 cell;
 uniform float time;
+uniform float2 tilt;
 uniform float dark;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 surface;
@@ -53,7 +55,8 @@ half4 main(float2 xy) {
 
         // Squares of this layer, each with at most one star, well inside it.
         float size = cell.y * (1.7 + 1.9 * n);
-        float2 uv = xy / size + n * float2(0.43, 0.71);
+        // The big layer is the near one, so it shifts more when the phone leans.
+        float2 uv = (xy - tilt * unit * (1.2 + 2.4 * n)) / size + n * float2(0.43, 0.71);
         float2 id = floor(uv);
         float r1 = hash(id + n * 13.0);
         float r2 = hash(id + n * 29.0 + 3.1);

@@ -1,5 +1,5 @@
 // @name Contours
-// @description The contour lines of a map behind the text, slowly changing. A touch raises a hill. It moves
+// @description The contour lines of a map behind the text, slowly changing. A touch raises a hill
 // @animated
 //
 // A height for every pixel, from smooth noise that drifts; a line is drawn where the height crosses

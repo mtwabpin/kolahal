@@ -127,6 +127,37 @@ class ShaderMetaTest {
         )
     }
 
+    /** What the phone gives a shader beside the screen: its lean, a finger and the battery, each with its own type. */
+    @Test
+    fun theHostKnowsTheLeanTheFingerAndTheBattery() {
+        val good = "uniform shader content; uniform float2 tilt; uniform float pressed; uniform half battery, charging;"
+        assertEquals(emptyList<String>(), ShaderMeta.problems(good))
+        assertEquals(emptyList<String>(), ShaderMeta.parse(good).unset())
+        assertEquals(
+            listOf(
+                "'tilt' must be a float2, not float",
+                "'pressed' must be a float, not float2",
+                "'battery' must be a float, not half4",
+                "'charging' must be a float, not float[]",
+            ),
+            ShaderMeta.problems(
+                "uniform shader content; uniform float tilt; uniform float2 pressed; uniform half4 battery; uniform float charging[2];"
+            ),
+        )
+    }
+
+    /** Only a shader that declares `tilt` uses it: a word in a comment or in a name doesn't. */
+    @Test
+    fun onlyADeclaredTiltCounts() {
+        assertTrue(ShaderMeta.parse("uniform shader content; uniform float2 tilt;").tilt)
+        assertTrue(ShaderMeta.parse("uniform float2 touch, tilt;").tilt)
+        assertFalse(ShaderMeta.parse("uniform shader content; // uniform float2 tilt;").tilt)
+        assertFalse(ShaderMeta.parse("uniform shader content; uniform float2 tilted;").tilt)
+        val meta = ShaderMeta.parse("uniform shader content; uniform float battery;")
+        assertTrue(meta.uses(ShaderMeta.BATTERY))
+        assertFalse(meta.uses(ShaderMeta.CHARGING))
+    }
+
     @Test
     fun theSurfaceIsNeededAndNoOtherInput() {
         val noContent = ShaderMeta.problems("uniform float time;")
@@ -183,6 +214,20 @@ class ShaderMetaTest {
         assertEquals(
             listOf("rain", "snowfall", "aurora", "night", "fireflies", "pond", "contour", "ink"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
+        )
+    }
+
+    /** The motion sensor is read for these and no others, and only frost asks for a finger. No shader that comes with Kolahal reads the battery. */
+    @Test
+    fun theBundledShadersThatFollowThePhone() {
+        val metas = ShaderCatalog.BUNDLED.associateWith {
+            ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText())
+        }
+        assertEquals(listOf("foil", "snowfall", "night"), metas.filterValues { it.tilt }.keys.toList())
+        assertEquals(setOf("frost"), metas.filterValues { it.uses(ShaderMeta.PRESSED) }.keys)
+        assertEquals(
+            emptySet<String>(),
+            metas.filterValues { it.uses(ShaderMeta.BATTERY) || it.uses(ShaderMeta.CHARGING) }.keys,
         )
     }
 

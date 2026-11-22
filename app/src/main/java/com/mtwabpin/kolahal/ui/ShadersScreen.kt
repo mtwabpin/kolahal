@@ -111,11 +111,14 @@ fun ShadersScreen(
                 )
             }
             if (all == null) return@GuiListPage
+            // The user's own come first: the ones that come with Kolahal fill several screens. With none of
+            // their own, None and Kolahal's are one group.
+            val noneIn = if (mine.isEmpty()) bundled.size + 1 else 1
             item(key = "none") {
                 SegmentedListItem(
                     selected = inUse == ShaderCatalog.OFF,
                     onClick = { actions.off() },
-                    shapes = segShapes(0, bundled.size + 1),
+                    shapes = segShapes(0, noneIn),
                     colors = segColors(),
                     leadingContent = {
                         RadioButton(
@@ -127,17 +130,18 @@ fun ShadersScreen(
                     modifier = Modifier.testTag("shader off"),
                 ) { Text("None") }
             }
-            itemsIndexed(bundled, key = { _, r -> "shader:" + r.name }) { i, r ->
-                ShaderChoice(
-                    r, inUse, problems[r.name], i + 1, bundled.size + 1,
-                    onUse = { actions.use(r.name) },
-                    onDetails = { details = r.name },
-                )
-            }
             if (mine.isNotEmpty()) item(key = "mine") { GroupHeader("Your shaders") }
             itemsIndexed(mine, key = { _, r -> "shader:" + r.name }) { i, r ->
                 ShaderChoice(
                     r, inUse, problems[r.name], i, mine.size,
+                    onUse = { actions.use(r.name) },
+                    onDetails = { details = r.name },
+                )
+            }
+            if (mine.isNotEmpty()) item(key = "bundled") { GroupHeader("Come with Kolahal") }
+            itemsIndexed(bundled, key = { _, r -> "shader:" + r.name }) { i, r ->
+                ShaderChoice(
+                    r, inUse, problems[r.name], if (mine.isEmpty()) i + 1 else i, if (mine.isEmpty()) bundled.size + 1 else bundled.size,
                     onUse = { actions.use(r.name) },
                     onDetails = { details = r.name },
                 )

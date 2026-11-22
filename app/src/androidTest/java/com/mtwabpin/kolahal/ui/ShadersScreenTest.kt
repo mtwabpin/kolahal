@@ -116,8 +116,16 @@ class ShadersScreenTest {
         Shaders.save(app, "zz-fine", fine)
         show()
         row(ShaderCatalog.OFF).assertIsSelected()
-        for (name in ShaderCatalog.BUNDLED) row(name).assertIsNotSelected()
+        // The user's own come first, so they are in sight at once.
+        row("zz-fine").assertExists()
+        for (name in ShaderCatalog.BUNDLED) {
+            scrollTo(name)
+            row(name).assertIsNotSelected()
+        }
+        scrollTo("rain")
         compose.onNode(hasTestTag("shader rain") and hasText("Animated", substring = true)).assertExists()
+        scrollTo("foil")
+        compose.onNode(hasTestTag("shader foil") and hasText("Uses tilt", substring = true)).assertExists()
         scrollTo("zz-fine")
         compose.onNode(
             hasTestTag("shader zz-fine") and hasText("Mine") and hasText("As it was") and hasText("Yours") and

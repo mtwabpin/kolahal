@@ -36,12 +36,27 @@ class ShaderMeta private constructor(
         override fun toString() = if (line == null) text else "line $line: $text"
     }
 
+    /** Whether it declares the uniform [name]. */
+    fun uses(name: String): Boolean = uniforms.any { it.name == name }
+
+    /** It follows how the phone leans ([ShaderTilt]), so the motion sensor is read while it shows. */
+    val tilt: Boolean = uses(ShaderTilt.NAME)
+
     /** The uniforms it declares that nothing sets: each stays 0. */
     fun unset(): List<String> = uniforms.map { it.name }.filter { it != INPUT && it !in KNOWN }
 
     companion object {
         /** The shader's input: the surface it is drawn over. */
         const val INPUT = "content"
+
+        /** The uniform that is 1 while a finger is down on the surface, else 0. */
+        const val PRESSED = "pressed"
+
+        /** The uniform that says how full the battery is, 0 to 1. */
+        const val BATTERY = "battery"
+
+        /** The uniform that is 1 while the phone is plugged in, else 0. */
+        const val CHARGING = "charging"
 
         /** The most a file may have, in bytes: far more than any shader needs. */
         const val MAX_BYTES = 64 * 1024
@@ -67,6 +82,10 @@ class ShaderMeta private constructor(
             "touchAge" to listOf(1),
             "dark" to listOf(1),
             ShaderDate.NAME to listOf(ShaderDate.FLOATS),
+            ShaderTilt.NAME to listOf(ShaderTilt.FLOATS),
+            PRESSED to listOf(1),
+            BATTERY to listOf(1),
+            CHARGING to listOf(1),
         ) + COLORS.associateWith { listOf(4) }
 
         private val COMMENTS = Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)

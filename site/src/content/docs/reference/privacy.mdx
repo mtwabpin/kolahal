@@ -124,6 +124,10 @@ Permissions declared in the manifest:
 
 `torch` needs no camera permission. It only switches the flash on or off.
 
+The motion sensor (gravity) needs no permission. Kolahal reads it only while a
+[shader that follows how the phone leans](/scripting/shaders/#tilt-and-power), such as `foil`, shows on home or in its preview
+in Settings. What it reads isn't stored or sent anywhere.
+
 Kolahal also asks Android for two lists:
 
 - the list of apps you can open (a `<queries>` entry for launcher activities). Kolahal needs it to show your apps at all.

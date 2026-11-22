@@ -244,7 +244,7 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
   table in =site/src/content/docs/scripting/shaders.md=. =ShaderMetaTest= checks its header and its
   uniforms on the JVM; =TtyShaderTest= compiles it on Android 13 or newer. Uniforms the host sets:
   =ShaderMeta.KNOWN=, and the code that sets them =ui/tty/TtyShader.kt=, which also draws the preview on
-  the Shaders screen.
+  the Shaders screen. The lean of the phone (=tilt=) is =ShaderTilt= and =ui/tty/LiveTilt.kt=.
 - New screen with a row on Settings' main page :: an entry in =SCREEN_ROWS= (=ui/SettingsCatalog.kt=), with
   the words the search finds it by. A page of settings is a =Category= instead.
 - New script API :: add it to =HostApi=, bind it in both =LuaEngine= and =JsEngine=, and describe it in

@@ -4,7 +4,9 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.SharedShader
 import com.mtwabpin.kolahal.terminal.ShaderRow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** What the Shaders screen says of a shader ([ShaderPage]). */
@@ -28,6 +30,28 @@ class ShaderPageTest {
         assertEquals(listOf("In use", "Yours"), notes(mine, "glow"))
         assertEquals(listOf("Yours"), notes(mine, "crt"))
         assertEquals(listOf("Animated"), notes(bundled))
+    }
+
+    /** A shader that follows the phone's lean says so, after whether it moves. */
+    @Test
+    fun oneThatUsesTiltSaysSo() {
+        val leaning = code.replace("uniform shader content;", "uniform shader content;\nuniform float2 tilt;")
+        assertEquals(listOf("Yours", "Uses tilt"), notes(mine.copy(code = leaning)))
+        assertEquals(listOf("Animated", "Uses tilt"), notes(bundled.copy(code = "// @animated\n$leaning")))
+    }
+
+    /** In Get more shaders the list says it, and once the code is here the code does, whatever the list left out. */
+    @Test
+    fun aSharedOneThatUsesTiltSaysSo() {
+        val e = shared.latest!!
+        assertEquals("glow.agsl", ShaderPage.fileLine(e))
+        assertEquals("glow.agsl · animated", ShaderPage.fileLine(e.copy(animated = true)))
+        assertEquals("glow.agsl · uses tilt", ShaderPage.fileLine(e.copy(tilt = true)))
+        assertEquals("glow.agsl · animated · uses tilt", ShaderPage.fileLine(e.copy(animated = true, tilt = true)))
+        assertFalse(ShaderPage.usesTilt(e, null))
+        assertFalse(ShaderPage.usesTilt(e, code))
+        assertTrue(ShaderPage.usesTilt(e.copy(tilt = true), null))
+        assertTrue(ShaderPage.usesTilt(e, "uniform shader content; uniform float2 tilt;"))
     }
 
     /** One that was turned off isn't in use, even while it is the one set; the reason shows when it is known. */

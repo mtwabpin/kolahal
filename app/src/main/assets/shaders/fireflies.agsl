@@ -1,5 +1,5 @@
 // @name Fireflies
-// @description Small lights wander behind the text and glow on and off. A touch draws them near. It moves
+// @description Small lights wander behind the text and glow on and off. A touch draws them near
 // @animated
 //
 // Two layers of flies, one in each square of its layer. They only show where the page does, so

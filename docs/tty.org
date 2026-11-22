@@ -132,6 +132,16 @@ override the rest. Internal: nothing here is published.
     download. =shader get= and =shader update=.
   - [X] Backups hold the user's shaders, and where the installed ones came from.
   - [ ] Left: the check of shaders in the shared repository, and shaders there.
+- Four more inputs (22 November), not yet built or run on a device:
+  - [X] =tilt=: the phone's lean, for =foil=, =night= and =snowfall=. The math is =ShaderTilt= (JVM-tested),
+    the one listener =LiveTilt=, on only while such a shader is drawn over home in front and the phone's
+    state lets a moving shader move. No permission.
+  - [X] =pressed=, for =frost=, which melts only under the finger now; =battery= and =charging=, from the
+    header's status.
+  - [X] "Uses tilt" on the Shaders screen and in Get more shaders (an optional =tilt= in the index); the
+    website's uniforms, power and privacy.
+  - [ ] Left: =tilt= in the shared repository's index, with its check of shaders; the lean, its direction
+    and its strength tried on a phone.
 - Remark:
 
 ** DONE Step 7: scripts drawing on the grid  :scripts:

@@ -1,5 +1,5 @@
 // @name Foil
-// @description Plain text is stamped in foil: bands of the theme's colors lie across it and slide with your finger
+// @description Plain text is stamped in foil: bands of the theme's colors lie across it and slide with your finger and as the phone leans
 //
 // Only text in the text color changes. Colored text keeps its meaning, and the page is untouched.
 // The foil is as light or dark as the text was, so it reads as well.
@@ -7,6 +7,7 @@
 uniform shader content;
 uniform float2 resolution;
 uniform float2 touch;
+uniform float2 tilt;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 fg;
 layout(color) uniform half4 accent;
@@ -34,9 +35,11 @@ half4 main(float2 xy) {
     }
 
     // Where the pixel is across the foil: bands at 45 degrees, a little wider than the screen, that
-    // start at the last touch. Before the first touch they start in the top left corner.
+    // start at the last touch. Before the first touch they start in the top left corner. A lean of
+    // the phone slides them along, by a color and a half at most.
     float2 from = xy - max(touch, float2(0.0));
-    float s = fract(dot(from, float2(0.7071, 0.7071)) / (resolution.x * 0.85));
+    float slide = 0.27 * dot(tilt, float2(0.7071, 0.7071));
+    float s = fract(dot(from, float2(0.7071, 0.7071)) / (resolution.x * 0.85) + slide);
 
     // Four colors around the band, each blending into the next.
     float at = s * 4.0;
