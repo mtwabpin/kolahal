@@ -1,9 +1,9 @@
 name: Release
 
 # Push a tag named after the version, such as v0.3.1, and this builds, signs and publishes it:
-# - kolahal-X.Y.Z.apk (the full build) and kolahal-X.Y.Z-play.apk (the Play build, for phones where
-#   Play Protect blocks the full one), both signed with the release key, and the mapping zip, on a
-#   GitHub release whose notes are docs/release/notes/X.Y.Z.md;
+# - a GitHub release with the mapping zip, whose notes are docs/release/notes/X.Y.Z.md. With
+#   PUBLISH_APKS below "true", also kolahal-X.Y.Z.apk (the full build) and kolahal-X.Y.Z-play.apk (the
+#   Play build, for phones where Play Protect blocks the full one), both signed with the release key;
 # - kolahal-X.Y.Z-play.aab, signed with the upload key, kept with this run for Play Console, and,
 #   once the PLAY_ variables are set, uploaded to Google Play on a testing track: a draft, or sent
 #   for review with PLAY_SEND_FOR_REVIEW true.
@@ -25,6 +25,12 @@ permissions:
   contents: write
   # GitHub's identity token for this run, which Google trusts for the Play upload alone.
   id-token: write
+
+env:
+  # Off until Kolahal is public on Google Play: people install it from there. The APKs are still built
+  # and checked. Turn it on together with DIRECT_DOWNLOADS_ON in site/src/release.ts.
+  PUBLISH_APKS: 'false'
+  PLAY_TEST: https://mtwabpin.github.io/kolahal/getting-started/play-testing/
 
 concurrency:
   group: release
@@ -145,16 +151,24 @@ jobs:
           # R8's names for each build, to read crash traces with retrace.
           (cd app/build/outputs/mapping && zip -qr "$GITHUB_WORKSPACE/out/kolahal-$VERSION-mapping.zip" release play)
           cp "docs/release/notes/$VERSION.md" out/notes.md
-          # shellcheck disable=SC2016  # the backticks are Markdown, not a command
-          printf '\n\nBoth APKs and the Play bundle are built from `%s`, the commit this tag points to.\n' "${GITHUB_SHA::7}" >> out/notes.md
+          if [ "$PUBLISH_APKS" = true ]; then
+            # shellcheck disable=SC2016  # the backticks are Markdown, not a command
+            printf '\n\nBoth APKs and the Play bundle are built from `%s`, the commit this tag points to.\n' "${GITHUB_SHA::7}" >> out/notes.md
+          else
+            # shellcheck disable=SC2016
+            printf '\n\nInstall Kolahal from Google Play: [join the test](%s). The Play bundle is built from `%s`, the commit this tag points to.\n' "$PLAY_TEST" "${GITHUB_SHA::7}" >> out/notes.md
+          fi
 
       - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          files=("out/kolahal-$VERSION-mapping.zip")
+          if [ "$PUBLISH_APKS" = true ]; then
+            files+=("out/kolahal-$VERSION.apk" "out/kolahal-$VERSION-play.apk")
+          fi
           gh release create "$GITHUB_REF_NAME" --verify-tag --latest \
-            --title "Kolahal $VERSION" --notes-file out/notes.md \
-            "out/kolahal-$VERSION.apk" "out/kolahal-$VERSION-play.apk" "out/kolahal-$VERSION-mapping.zip"
+            --title "Kolahal $VERSION" --notes-file out/notes.md "${files[@]}"
 
       # Tells the Discord server's #releases channel, through its webhook. Skipped while the
       # DISCORD_RELEASES_WEBHOOK secret isn't set. A failed post never stops the release.
@@ -173,7 +187,11 @@ jobs:
             if [ -s "$notes" ]; then echo; cat "$notes"; fi
             echo
             # <…> keeps Discord from adding a preview card under each link.
-            echo "Download the APK: <$apk>"
+            if [ "$PUBLISH_APKS" = true ]; then
+              echo "Download the APK: <$apk>"
+            else
+              echo "Get it on Google Play: <$PLAY_TEST>"
+            fi
             echo "All changes: <$page>"
           } > out/discord.txt
           # Discord's limit is 2000 characters. No mentions, whatever the notes say.

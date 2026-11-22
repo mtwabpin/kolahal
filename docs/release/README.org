@@ -21,7 +21,9 @@ details are in the files beside this one. (This folder is for the maintainer; th
 
 * Two builds
 
-One commit makes three files:
+One commit makes three files. The APKs aren't published until Kolahal is public on Google Play
+(=PUBLISH_APKS= in =release.yml=, since 22 November 2026): the GitHub release has the notes and the
+mapping zip, and people install from Play. They are still built and checked.
 
 | Build | File                     | Gradle task                  | Signed with     | Goes to         |
 |-------+--------------------------+------------------------------+-----------------+-----------------|
@@ -63,8 +65,8 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
                                      Release workflow on GitHub Actions
                          (tests, builds, signs, checks, publishes)
                            │                                    │
-     GitHub release: both APKs                      kolahal-X.Y.Z-play.aab, kept
-     and the mapping zip                            with the run for 90 days
+     GitHub release: the mapping zip, and           kolahal-X.Y.Z-play.aab, kept
+     both APKs if PUBLISH_APKS is on                with the run for 90 days
                            │                                    │
      the website's download button                  you upload it in Play Console
      points at it (site/src/release.ts)             (internal → closed → production)
@@ -73,8 +75,8 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
 * Making a release
 
 1. Bump =versionCode= (by one) and =versionName= in =app/build.gradle.kts= (from =X.Y.Z-dev= to
-   =X.Y.Z=), and =version= in =site/package.json=. The website's download button reads that
-   version, so it points at the new APK as soon as the site deploys: tag right after pushing.
+   =X.Y.Z=), and =version= in =site/package.json=. The website reads that version (its download
+   buttons, when they are on, point at the new APK as soon as the site deploys): tag right after pushing.
    Between releases =versionName= says the next version with =-dev= (=0.4.6-dev=), so builds from
    the branch say what they are; =site/package.json= keeps the released one until the release.
    Scripts' =@requires= compares the numbers only, so =0.4.6-dev= counts as 0.4.6.
@@ -91,7 +93,7 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
    notes, sent for review (=PLAY_SEND_FOR_REVIEW=) or as a draft to roll out in Play Console.
    By hand, when the upload isn't set up or failed: download the bundle (=gh run download <run
    id> -n kolahal-X.Y.Z-play=), upload it in Play Console, and paste the notes.
-7. Check the website deployed (the Website workflow) and its download button works.
+7. Check the website deployed (the Website workflow) and its install button works.
 
 * History
 

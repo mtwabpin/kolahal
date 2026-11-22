@@ -46,10 +46,12 @@ Pull requests and manual runs (=workflow_dispatch=) always build.
 6. *Packages*: =kolahal-X.Y.Z.apk=, =kolahal-X.Y.Z-play.apk=, =kolahal-X.Y.Z-mapping.zip= (R8's names for both builds, for
    reading crash traces with =retrace=) and the notes, with a last line naming the commit both
    APKs and the bundle are built from.
-7. *Publishes the GitHub release* with both APKs and the mapping zip, marked as the latest.
+7. *Publishes the GitHub release* with the mapping zip, marked as the latest; with both APKs too when
+   =PUBLISH_APKS= at the top of =release.yml= is =true=. It is off until Kolahal is public on Google
+   Play. Turn it on together with =DIRECT_DOWNLOADS_ON= in =site/src/release.ts=.
 8. *Posts to Discord*, when the =DISCORD_RELEASES_WEBHOOK= secret is set: a message in the
    server's =#releases= channel with the version, the Play notes (=X.Y.Z-play.txt=, when there is
-   one), and links to the APK and the release. A failed post doesn't stop the run.
+   one), and links to Google Play (the APK with =PUBLISH_APKS=) and the release. A failed post doesn't stop the run.
 9. *Keeps the Play bundle* and its =mapping.txt= with the run, for 90 days.
 10. *Uploads to Google Play*, when =PLAY_WIF_PROVIDER= and =PLAY_SERVICE_ACCOUNT= are set: the
     bundle on the testing track: a draft to roll out in Play Console, or sent for review with
