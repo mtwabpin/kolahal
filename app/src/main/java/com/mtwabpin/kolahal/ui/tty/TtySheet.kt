@@ -6,8 +6,6 @@ package com.mtwabpin.kolahal.ui.tty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,6 +34,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -226,13 +225,15 @@ private fun TtyDialog(onDismiss: () -> Unit, onKey: (Key) -> Boolean, content: @
                         .heightIn(max = maxHeight * 0.9f)
                         .background(Color(grid.palette.background))
                         // Taps on the box that no row takes stay in the box: they don't close it.
+                        // The touch's down is enough for that: the tap outside starts only from
+                        // a down nobody took. The moves and the up must stay as they are. A row
+                        // gives up its tap when anything takes a move, and a finger always moves
+                        // a little between down and up; the scroll needs the moves too.
                         .pointerInput(Unit) {
-                            awaitEachGesture {
-                                awaitFirstDown(requireUnconsumed = false)
-                                do {
-                                    val e = awaitPointerEvent()
-                                    e.changes.forEach { it.consume() }
-                                } while (e.changes.any { it.pressed })
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitPointerEvent().changes.forEach { if (it.changedToDownIgnoreConsumed()) it.consume() }
+                                }
                             }
                         }
                         .verticalScroll(rememberScrollState())

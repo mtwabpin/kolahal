@@ -207,6 +207,45 @@ class TtyHomeTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Quick actions").fetchSemanticsNodes().isEmpty() }
     }
 
+    /**
+     * A finger moves a little between down and up, and the tap still runs the action. A click
+     * without a move (`performClick`, `input tap`) passed while every tap by hand was lost.
+     */
+    @Test
+    fun aQuickActionRunsWhenTheFingerMoves() {
+        show()
+        compose.onNodeWithTag("prompt-quick").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Unlocks this week").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Unlocks this week").performTouchInput {
+            down(center)
+            moveBy(Offset(1f, 2f), delayMillis = 30)
+            moveBy(Offset(1f, -1f), delayMillis = 30)
+            up()
+        }
+        compose.waitUntil(5_000) { logs.recent(50, afterId = lines.start).any { it.text == "unlocks 7" } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Quick actions").fetchSemanticsNodes().isEmpty() }
+    }
+
+    /**
+     * A tap on the sheet's border runs nothing and leaves the sheet open. The unmerged node is the
+     * border's own row: merged, the title belongs to the whole dialog, whose middle is an action.
+     */
+    @Test
+    fun aTapOnTheSheetsBorderKeepsIt() {
+        show()
+        compose.onNodeWithTag("prompt-quick").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Quick actions").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Quick actions", useUnmergedTree = true).performTouchInput {
+            down(center)
+            moveBy(Offset(1f, 1f), delayMillis = 30)
+            up()
+        }
+        compose.onNodeWithText("Quick actions", useUnmergedTree = true).performTouchInput { click() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Quick actions").assertExists()
+        compose.onNodeWithText("Unlocks this week").assertExists()
+    }
+
     /** The app selector opens on the grid: a slide along the edge brings its list in. */
     @Test
     fun theSelectorOpens() {
