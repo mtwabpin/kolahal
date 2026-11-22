@@ -22,11 +22,11 @@ class LabeledIconButtonsTest {
      * The bare icon buttons that show no label, by file, and why.
      * - EditorBars.kt: EditorIconButton, which puts its label on itself, except on a button with a
      *   long-press of its own (Run: Run with…).
-     * - WidgetsScreen.kt: a step of a widget's size, which repeats while it is held.
+     * - WidgetsToolbar.kt: a step of a widget's size, which repeats while it is held.
      * - WidgetMedia.kt: a widget's buttons. A long-press on a card opens Arrange widgets.
      */
     private val unlabeled =
-        mapOf("EditorBars.kt" to 1, "WidgetsScreen.kt" to 1, "WidgetMedia.kt" to 3)
+        mapOf("EditorBars.kt" to 1, "WidgetsToolbar.kt" to 1, "WidgetMedia.kt" to 3)
 
     @Test
     fun everyIconButtonShowsItsLabel() {

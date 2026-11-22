@@ -5,7 +5,9 @@ package com.mtwabpin.kolahal.ui
 
 /*
  * The content of the kinds with parts of their own to tap or to tick: buttons, toggles, clock,
- * agenda and media. [KindBody] calls them. The first six kinds are in WidgetKinds.kt.
+ * agenda and media. [KindBody] calls them. The first six kinds each have a file
+ * (WidgetStat.kt, WidgetText.kt, WidgetList.kt, WidgetProgress.kt, WidgetCountdown.kt,
+ * WidgetChart.kt), and WidgetKinds.kt has what they share.
  *
  * Where they are: WidgetControls.kt (buttons and toggles, with the grids and controls they share),
  * WidgetClock.kt, WidgetAgenda.kt, WidgetMedia.kt, and WidgetTime.kt (the time the clock, media and
