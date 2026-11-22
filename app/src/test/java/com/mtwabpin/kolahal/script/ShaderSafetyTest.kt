@@ -35,7 +35,7 @@ class ShaderSafetyTest {
         assertEquals("crt", ShaderSafety.nameOf(id))
         assertEquals(id, ShaderSafety.id("crt", "half4 main() {}"))
         assertNotEquals(id, other)
-        assertNotEquals(id, ShaderSafety.id("bloom", "half4 main() {}"))
+        assertNotEquals(id, ShaderSafety.id("lcd", "half4 main() {}"))
     }
 
     /** The mark is on disk before the first frame, so a crash in it is found at the next start. */
@@ -180,7 +180,7 @@ class ShaderSafetyTest {
     @Test
     fun theShaderThatWasOnIsRemembered() {
         assertNull(safety.last)
-        safety.last = "bloom"
-        assertEquals("bloom", ShaderSafety(store).last)
+        safety.last = "lcd"
+        assertEquals("lcd", ShaderSafety(store).last)
     }
 }

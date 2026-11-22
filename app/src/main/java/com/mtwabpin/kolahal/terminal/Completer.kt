@@ -1203,7 +1203,7 @@ class Completer(private val context: Context, private val data: Data) {
             "date" to "clock",
             "theme" to "colors colors dark light",
             "screen" to "matrix clock pipes sl top boot screensaver memory",
-            "shader" to "effect agsl glsl crt bloom rain glow",
+            "shader" to "effect agsl glsl crt rain paper glow",
             "matrix" to "screen rain",
             "pipes" to "screen",
             "sl" to "screen train locomotive",

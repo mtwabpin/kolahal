@@ -104,8 +104,8 @@ override the rest. Internal: nothing here is published.
 - Size M–L. Design §7. Android 13 and newer.
 - AGSL files loaded like scripts, a =RenderEffect= on the TTY layer, uniforms (time, size, theme
   colors, touch, the grid), a frame-time watchdog, safe mode and an always-reachable off; Settings
-  stays outside the effect. A bundled set: CRT, bloom, rain.
-- Built (22 November): =screen.shader= (=off=, =crt=, =bloom=, =rain= or a file of the
+  stays outside the effect. A bundled set (as planned: CRT, bloom, rain).
+- Built (22 November): =screen.shader= (=off=, a bundled one or a file of the
   user's own) and the =shader= command (list, use, on, off, check, reload, copy, remove). It covers
   the TTY home and the full-screen screens in both styles (design §7, "As built"):
   - [X] Files: bundled ones in =assets/shaders/=, the user's in =files/shaders/=, from the script

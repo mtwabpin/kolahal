@@ -39,7 +39,6 @@ nothing while the screen is still.
 | Name | What it looks like |
 | --- | --- |
 | `crt` | an old CRT monitor: curved glass, scanlines, a glow and a little color fringe |
-| `bloom` | a soft halo around text, in its own color |
 | `lcd` | an old handheld's display: small square pixels, and text casts a shadow on the back |
 | `eink` | an e-reader's page: matte, nearly without color, with flat areas in a dither pattern |
 | `paper` | uncoated paper: a fine grain and fibres, and ink that soaks in a little |
@@ -49,12 +48,11 @@ nothing while the screen is still.
 | `lamp` | a soft pool of light where you last touched, and the rest of the page a little dimmer |
 | `dusk` | a sky behind the text that follows the phone's clock: night, dawn, daylight and dusk |
 | `frost` | ice grows in from the edges and corners, and melts under your finger |
-| `rain` | drops of the theme's accent color fall behind the text. It moves |
+| `rain` | rain falls behind the text and slants as the phone leans; a touch sends a ring out. It moves |
 | `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. It moves |
 | `aurora` | curtains of northern lights in the top of the screen, behind the text. It moves |
 | `night` | stars that twinkle slowly and shift a little as the phone leans, and a meteor now and then. It moves |
 | `fireflies` | small lights wander behind the text, and a touch draws them near. It moves |
-| `pond` | light ripples as on shallow water, and a touch sends rings out. It moves |
 | `contour` | the contour lines of a map, slowly changing; a touch raises a hill. It moves |
 | `ink` | a touch drops a faint cloud of ink that spreads behind the text and fades. It moves |
 

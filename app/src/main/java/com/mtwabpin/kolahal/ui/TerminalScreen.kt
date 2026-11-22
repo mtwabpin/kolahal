@@ -234,7 +234,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     }
     // `script secret <name> <NAME>` opens a masked input box for the value, over home.
     val secretPrompt by vm.scriptActions.secretPrompt.collectAsStateWithLifecycle()
-    secretPrompt?.let { p -> TerminalSecretPrompt(vm, p, tty) }
+    secretPrompt?.let { p -> TerminalSecretPrompt(vm, p, parts.menu) }
     // screen.saver: a screen over home after some idle minutes, while nothing is open and nothing is typed.
     // With keyboard.on-home the keyboard is up whenever home shows, so only text in the prompt is typing.
     val keyboardOnHome = remember(configVersion) { config[Keys.FOCUS_ON_HOME] }
@@ -554,11 +554,11 @@ private fun PromptSuggestions(
 }
 
 /**
- * The box that `script secret` opens, on the character grid when [tty]. It closes if the script or
+ * The box that `script secret` opens, on the character grid when [onGrid] (`tty.menu`). It closes if the script or
  * its `@secret` line is gone.
  */
 @Composable
-private fun TerminalSecretPrompt(vm: TerminalViewModel, prompt: ScriptActions.SecretPrompt, tty: Boolean) {
+private fun TerminalSecretPrompt(vm: TerminalViewModel, prompt: ScriptActions.SecretPrompt, onGrid: Boolean) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     val secret = remember(scripts, prompt) {
         scripts.firstOrNull { it.name == prompt.script }
@@ -576,7 +576,7 @@ private fun TerminalSecretPrompt(vm: TerminalViewModel, prompt: ScriptActions.Se
             )
         }
     }
-    if (tty) {
+    if (onGrid) {
         TtySecretSheet(prompt.script, secret, isSet, onDismiss = vm.scriptActions::closeSecretPrompt) { value ->
             vm.scriptActions.closeSecretPrompt()
             vm.scriptActions.setSecret(prompt.script, secret, value)

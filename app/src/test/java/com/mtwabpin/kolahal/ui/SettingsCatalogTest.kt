@@ -81,7 +81,7 @@ class SettingsCatalogTest {
         val row = SCREEN_ROWS.single { it.screen == Screen.SHADERS }
         assertEquals("Shaders", row.title)
         assertTrue(allCategories().any { it.id == row.after })
-        for (q in listOf("shader", "CRT", "effect", "bloom effect", "screen.shader")) assertTrue(q, row.matches(q))
+        for (q in listOf("shader", "CRT", "effect", "paper effect", "screen.shader")) assertTrue(q, row.matches(q))
         assertFalse(row.matches("weather"))
         // The screen sets it, so no page has it.
         assertTrue(Keys.SCREEN_SHADER in Keys.CONFIG_ONLY)

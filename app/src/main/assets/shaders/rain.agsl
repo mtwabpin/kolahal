@@ -1,66 +1,73 @@
 // @name Rain
-// @description Drops of the accent color fall behind the text, one per column of the grid
+// @description Rain falls behind the text, near and far, and slants as the phone leans. A touch sends a ring out
 // @animated
 //
-// The rain only shows where the background does, so text stays as it is. A touch sends a ring out.
+// Three layers of thin streaks: the near ones are longer, faster and brighter. The rain only shows where
+// the background does, so text stays as it is.
 
 uniform shader content;
+uniform float2 resolution;
 uniform float2 cell;
-uniform float2 grid;
-uniform float2 origin;
 uniform float time;
 uniform float2 touch;
 uniform float touchAge;
+uniform float2 tilt;
 uniform float dark;
 layout(color) uniform half4 bg;
-layout(color) uniform half4 accent;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 info;
 
-// A number from 0 to 1 that looks random for each n (Dave Hoskins' hash without sine).
-float hash(float n) {
-    float p = fract(n * 0.1031);
-    p *= p + 33.33;
-    p *= p + p;
-    return fract(p);
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
 }
 
 half4 main(float2 xy) {
     float4 here = float4(content.eval(xy));
 
-    // Where this pixel is on the grid: its column, and its row with its part of the cell.
-    float2 at = (xy - origin) / cell;
-    float col = floor(at.x);
-    float row = floor(at.y);
+    // The wind's slant, and the phone's lean. It turns about the middle of the screen, so a lean doesn't
+    // sweep the whole rain sideways.
+    float slant = 0.10 + 0.22 * tilt.x;
+    float x = xy.x + (xy.y - resolution.y * 0.5) * slant;
 
-    // The column's drop: its speed (rows a second), its length (rows), its own offset, and how far it
-    // has fallen: one fall takes the rows of the screen, its length and a rest.
-    float speed = 4.0 + 10.0 * hash(col * 1.37 + 5.0);
-    float len = 6.0 + floor(10.0 * hash(col * 2.11 + 1.0));
-    float fall = max(grid.y, 1.0) + len + 6.0;
-    float offset = fall * hash(col * 4.7 + 9.0);
-    float fallen = time * speed + offset;
-    float head = mod(fallen, fall);
-    float turn = floor(fallen / fall);
+    float rain = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float n = float(i);
 
-    // About two columns in three have a drop in each fall. Its head is the brightest cell, and the
-    // tail fades up behind it.
-    float shown = step(0.35, hash(col * 7.1 + turn * 3.9));
-    float behind = floor(head) - row;
-    float tail = step(0.0, behind) * step(behind, len) * pow(clamp(1.0 - behind / len, 0.0, 1.0), 1.5);
+        // Columns of this layer, and the drops in each: every column has its own speed and start.
+        float width = resolution.x / (16.0 + n * 12.0);
+        float at = x / width + n * 0.37;
+        float col = floor(at);
+        float own = hash(float2(col, n * 13.0 + 1.0));
+        float gap = resolution.y * (0.42 - 0.08 * n);
+        float y = xy.y / gap - time * (2.3 - 0.45 * n) * (0.85 + 0.3 * own) + own * 7.0;
+        float drop = floor(y);
+        float part = fract(y);
 
-    // Each cell of it is a mark, not a full rectangle.
-    float2 part = abs(fract(at) - 0.5);
-    float mark = (1.0 - smoothstep(0.24, 0.36, part.x)) * (1.0 - smoothstep(0.34, 0.46, part.y));
-    float amount = shown * tail * mark * mix(0.22, 0.40, dark);
+        // About half of the drops are there. Each has its place across the column, and its length.
+        float r = hash(float2(col * 1.7 + n * 31.0, mod(drop, 512.0)));
+        float there = step(0.5, r);
+        float len = mix(0.16, 0.34, fract(r * 7.3));
+        float tail = smoothstep(0.8 - len, 0.8, part) * (1.0 - smoothstep(0.8, 0.815, part));
+
+        // A thin line, soft at its sides: about a dp wide near, less far off.
+        float off = abs(fract(at) - mix(0.2, 0.8, fract(r * 3.1))) * width;
+        float thick = cell.y * (0.040 - 0.008 * n);
+        float line = 1.0 - smoothstep(thick * 0.4, thick, off);
+        rain += there * tail * line * (0.60 - 0.16 * n);
+    }
 
     // A ring grows from the last touch and fades within about a second.
-    float ring = abs(length(xy - touch) - touchAge * cell.y * 14.0);
-    float ripple = (1.0 - smoothstep(0.0, cell.y, ring)) * max(0.0, 1.0 - touchAge);
-    amount += ripple * mix(0.15, 0.30, dark);
+    float ring = abs(length(xy - touch) - touchAge * cell.y * 9.0);
+    rain += (1.0 - smoothstep(0.0, cell.y * 0.16, ring)) * max(0.0, 1.0 - touchAge) * 0.35;
+    float amount = clamp(rain, 0.0, 1.0) * mix(0.85, 0.95, dark);
 
     // Not over text: a pixel that differs from the background is text or a line.
     float text = clamp(length(here.rgb - float3(bg.rgb) * here.a) * 5.0, 0.0, 1.0);
-    amount = clamp(amount, 0.0, 1.0) * (1.0 - text);
+    amount *= 1.0 - text;
 
-    float4 drop = float4(float3(accent.rgb) * amount, amount);
-    return half4(here * (1.0 - amount) + drop);
+    float3 color = mix(float3(info.rgb), float3(fg.rgb), 0.45 * dark);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
 }

@@ -40,8 +40,8 @@ class ShaderCatalogTest {
         assertEquals(ShaderCatalog.BUNDLED + listOf("my-glow", "zoom"), list.map { it.name })
         val crt = list.first { it.name == "crt" }
         assertTrue(crt.bundled && crt.yours)
-        val bloom = list.first { it.name == "bloom" }
-        assertTrue(bloom.bundled && !bloom.yours)
+        val lcd = list.first { it.name == "lcd" }
+        assertTrue(lcd.bundled && !lcd.yours)
         val glow = list.first { it.name == "my-glow" }
         assertTrue(!glow.bundled && glow.yours)
     }

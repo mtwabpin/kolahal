@@ -156,8 +156,8 @@ class TtyShaderTest {
         needsAndroid13()
         ttyHome()
         assertTrue("drawn before it is set: ${drawn()}", drawn().isEmpty())
-        config.set(Keys.SCREEN_SHADER, "bloom")
-        compose.waitFor("bloom isn't drawn") { drawn() == listOf("bloom") }
+        config.set(Keys.SCREEN_SHADER, "lcd")
+        compose.waitFor("lcd isn't drawn") { drawn() == listOf("lcd") }
         // Another one takes its place, live.
         config.set(Keys.SCREEN_SHADER, "crt")
         compose.waitFor("crt isn't drawn") { drawn() == listOf("crt") }
@@ -170,9 +170,9 @@ class TtyShaderTest {
     @Test
     fun theGuiHomeHasTheShader() {
         needsAndroid13()
-        config.set(Keys.SCREEN_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "lcd")
         home(style = "gui")
-        compose.waitFor("bloom isn't drawn over the gui home") { drawn() == listOf("bloom") }
+        compose.waitFor("lcd isn't drawn over the gui home") { drawn() == listOf("lcd") }
         config.set(Keys.SCREEN_SHADER, "off")
         compose.waitFor("it is still drawn") { drawn().isEmpty() }
     }
@@ -181,15 +181,15 @@ class TtyShaderTest {
     @Test
     fun aScreenHasTheShaderInTheGuiStyleToo() {
         needsAndroid13()
-        config.set(Keys.SCREEN_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "lcd")
         val vm = home(style = "gui")
         // matrix, as the clock screen never lets Compose's test clock come to rest, with or without a shader.
-        compose.waitFor("bloom isn't drawn over the gui home") { drawn() == listOf("bloom") }
+        compose.waitFor("lcd isn't drawn over the gui home") { drawn() == listOf("lcd") }
         compose.runOnIdle { vm.showTtyScreen("matrix") }
         // Home's and the screen's: two surfaces draw it.
-        compose.waitFor("bloom isn't drawn over the screen") { drawn() == listOf("bloom", "bloom") }
+        compose.waitFor("lcd isn't drawn over the screen") { drawn() == listOf("lcd", "lcd") }
         compose.runOnIdle { vm.closeTtyScreen() }
-        compose.waitFor("the screen still draws it") { drawn() == listOf("bloom") }
+        compose.waitFor("the screen still draws it") { drawn() == listOf("lcd") }
     }
 
     /** A shader that doesn't compile is a line with the compiler's line and message, and home stays as it is. */
@@ -222,10 +222,10 @@ class TtyShaderTest {
     fun useKeepsTheOldOneWhenTheNewOneIsBroken() {
         needsAndroid13()
         Shaders.save(app, "zz-broken", "uniform shader content;\nhalf4 main(float2 p) { return nope; }")
-        commands.run("shader use bloom")
-        assertEquals("bloom", config[Keys.SCREEN_SHADER])
+        commands.run("shader use lcd")
+        assertEquals("lcd", config[Keys.SCREEN_SHADER])
         commands.run("shader use zz-broken")
-        assertEquals("bloom", config[Keys.SCREEN_SHADER])
+        assertEquals("lcd", config[Keys.SCREEN_SHADER])
         assertTrue(errors("Shader zz-broken: line 2").isNotEmpty())
     }
 
@@ -234,15 +234,15 @@ class TtyShaderTest {
     fun aTrippedShaderIsNotDrawnUntilItIsTurnedOnAgain() {
         needsAndroid13()
         ttyHome()
-        val id = ShaderSafety.id("bloom", Shaders.bundled(app, "bloom"))
+        val id = ShaderSafety.id("lcd", Shaders.bundled(app, "lcd"))
         ShaderSafety.get(app).trip(id)
-        config.set(Keys.SCREEN_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "lcd")
         compose.waitForIdle()
         // Read in the background: give it time to have drawn it.
         Thread.sleep(700)
         assertTrue("${drawn()}", drawn().isEmpty())
         commands.run("shader on")
-        compose.waitFor("it isn't drawn") { drawn() == listOf("bloom") }
+        compose.waitFor("it isn't drawn") { drawn() == listOf("lcd") }
     }
 
     /** Two fingers held on home turn the shader off, whatever it does to the screen. */
@@ -250,8 +250,8 @@ class TtyShaderTest {
     fun twoFingersHeldTurnItOff() {
         needsAndroid13()
         ttyHome()
-        config.set(Keys.SCREEN_SHADER, "bloom")
-        compose.waitFor("bloom isn't drawn") { drawn() == listOf("bloom") }
+        config.set(Keys.SCREEN_SHADER, "lcd")
+        compose.waitFor("lcd isn't drawn") { drawn() == listOf("lcd") }
         compose.onNodeWithTag("tty-home").performTouchInput {
             down(0, Offset(width * 0.3f, height * 0.3f))
             down(1, Offset(width * 0.7f, height * 0.3f))
@@ -269,7 +269,7 @@ class TtyShaderTest {
     fun onOldAndroidNothingIsDrawnAndTheCommandSaysWhy() {
         assumeTrue("this phone has shaders", !supported)
         ttyHome()
-        config.set(Keys.SCREEN_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "lcd")
         compose.waitForIdle()
         assertTrue(drawn().isEmpty())
         assertTrue(commands.run("shader use crt").any { "Android 13" in it })
@@ -342,15 +342,15 @@ class TtyShaderTest {
     fun theMotionSensorIsReadOnlyForAShaderThatDeclaresTilt() {
         needsAndroid13()
         ttyHome(sources)
-        config.set(Keys.SCREEN_SHADER, "bloom")
-        compose.waitFor("bloom isn't drawn") { drawn() == listOf("bloom") }
+        config.set(Keys.SCREEN_SHADER, "lcd")
+        compose.waitFor("lcd isn't drawn") { drawn() == listOf("lcd") }
         compose.waitForIdle()
         assertEquals(0, gravity.starts)
         useLeaning()
         compose.waitFor("the sensor isn't read") { gravity.starts == 1 }
         leanRight()
         assertTrue("${LiveTilt.x}", LiveTilt.x > 0.5f)
-        config.set(Keys.SCREEN_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "lcd")
         compose.waitFor("the sensor is still read") { gravity.stops == 1 }
         compose.waitFor("it still leans") { LiveTilt.x == 0f && LiveTilt.y == 0f }
         assertEquals(1, gravity.starts)

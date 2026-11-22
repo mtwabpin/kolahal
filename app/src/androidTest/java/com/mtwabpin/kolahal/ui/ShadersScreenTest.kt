@@ -138,10 +138,10 @@ class ShadersScreenTest {
     fun oneTapTurnsItOn() {
         needsAndroid13()
         show()
-        row("bloom").performClick()
-        compose.waitFor("bloom isn't on") { config[Keys.SCREEN_SHADER] == "bloom" }
-        compose.waitForNode(hasTestTag("shader bloom") and hasText("In use"))
-        row("bloom").assertIsSelected()
+        row("lcd").performClick()
+        compose.waitFor("lcd isn't on") { config[Keys.SCREEN_SHADER] == "lcd" }
+        compose.waitForNode(hasTestTag("shader lcd") and hasText("In use"))
+        row("lcd").assertIsSelected()
         row(ShaderCatalog.OFF).assertIsNotSelected().performClick()
         compose.waitFor("it is still on") { config[Keys.SCREEN_SHADER] == ShaderCatalog.OFF }
         compose.waitForIdle()
@@ -153,29 +153,29 @@ class ShadersScreenTest {
     fun oneThatDoesntCompileSaysWhy() {
         needsAndroid13()
         Shaders.save(app, "zz-broken", broken)
-        config.set(Keys.SCREEN_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "lcd")
         show()
         scrollTo("zz-broken")
         row("zz-broken").performClick()
         compose.waitForNode(
             hasTestTag("shader zz-broken") and hasText("Can't be used: line 2", substring = true)
         )
-        assertEquals("bloom", config[Keys.SCREEN_SHADER])
+        assertEquals("lcd", config[Keys.SCREEN_SHADER])
     }
 
     /** One that was turned off by itself says why, and a tap turns it on again. */
     @Test
     fun oneThatWasTurnedOffSaysWhyAndTurnsOnAgain() {
         needsAndroid13()
-        config.set(Keys.SCREEN_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "lcd")
         ShaderSafety.get(app)
-            .trip(ShaderSafety.id("bloom", Shaders.bundled(app, "bloom")), "the GPU takes 60 ms")
+            .trip(ShaderSafety.id("lcd", Shaders.bundled(app, "lcd")), "the GPU takes 60 ms")
         show()
         compose.waitForNode(
-            hasTestTag("shader bloom") and hasText("Turned off: the GPU takes 60 ms", substring = true)
+            hasTestTag("shader lcd") and hasText("Turned off: the GPU takes 60 ms", substring = true)
         )
-        row("bloom").performClick()
-        compose.waitForNode(hasTestTag("shader bloom") and hasText("In use"))
+        row("lcd").performClick()
+        compose.waitForNode(hasTestTag("shader lcd") and hasText("In use"))
         assertNull(ShaderSafety.get(app).tripped())
     }
 
@@ -236,9 +236,9 @@ class ShadersScreenTest {
     @Test
     fun aBundledOneHasNoRemove() {
         show()
-        // The title of bloom is its file's own.
-        val title = com.mtwabpin.kolahal.script.ShaderMeta.parse(Shaders.bundled(app, "bloom")).title ?: "bloom"
-        openSheet("bloom", title)
+        // The title of lcd is its file's own.
+        val title = com.mtwabpin.kolahal.script.ShaderMeta.parse(Shaders.bundled(app, "lcd")).title ?: "lcd"
+        openSheet("lcd", title)
         compose.onNodeWithText("From: Kolahal").assertExists()
         compose.onNodeWithText("Remove").assertDoesNotExist()
     }

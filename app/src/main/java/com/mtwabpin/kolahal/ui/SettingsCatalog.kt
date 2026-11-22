@@ -296,11 +296,11 @@ internal class ScreenRow(
 internal val SCREEN_ROWS = listOf(
     ScreenRow(
         "Shaders",
-        "Effects over home: CRT, bloom, your own",
+        "Effects over home: CRT, paper, your own",
         R.drawable.ic_shader,
         Screen.SHADERS,
         after = "look",
-        words = "${Keys.SCREEN_SHADER.key} shader effect crt bloom rain scanlines glow agsl glsl",
+        words = "${Keys.SCREEN_SHADER.key} shader effect crt rain paper scanlines glow agsl glsl",
     ),
 )
 

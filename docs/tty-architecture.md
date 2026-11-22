@@ -759,7 +759,7 @@ tty.screen({
 - *Files*: `ShaderMeta` and the pure rules are in `script/` (`ShaderMeta`, `ShaderCatalog`,
   `ShaderWatchdog`, `ShaderSafety`); the Android side is `script/Shaders.kt`. The user's files are in
   `files/shaders/`, kept in step with the script folder by `script import` / `script export`, so a
-  shader is found by name without the folder. Bundled: `crt`, `bloom`, `rain` and the rest of `ShaderCatalog.BUNDLED` (no `scanlines`,
+  shader is found by name without the folder. Bundled: `crt`, `rain` and the rest of `ShaderCatalog.BUNDLED` (`bloom` and `pond` were removed on 22 November) (no `scanlines`,
   `aberration`; CRT has both).
 - *Commands*: `shader list | use <name> | on | off | check <name> | reload | copy <name> | remove
   <name>`; `shader <name>` turns one on. `screen.shader` is a `Choice` whose list grows by the user's

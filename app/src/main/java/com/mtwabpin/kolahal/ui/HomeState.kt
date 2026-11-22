@@ -58,7 +58,7 @@ internal data class TtyParts(
     val selector: Boolean = false,
     val keyBar: Boolean = false,
     val quickActions: Boolean = false,
-    /** The menu a long press opens: on a line, an app or the pinned header. */
+    /** The menu a long press opens (on a line, an app or the pinned header), and the `script secret` box. */
     val menu: Boolean = false,
 ) {
     companion object {
