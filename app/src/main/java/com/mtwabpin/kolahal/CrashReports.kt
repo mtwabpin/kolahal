@@ -8,6 +8,7 @@ import android.app.ApplicationExitInfo
 import android.content.Context
 import android.os.Build
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -211,7 +212,7 @@ object CrashReports {
 
     /** Returns "at 19:55" for today, else "on 20 Oct at 19:55". The time follows `clock.24h`, like the log. */
     fun whenText(context: Context, time: Long): String {
-        val clock = com.mtwabpin.kolahal.data.Config.get(context).shortTime(time)
+        val clock = Config.get(context).shortTime(time)
         val day = SimpleDateFormat("yyyyMMdd", Locale.US)
         return if (day.format(Date(time)) == day.format(Date())) "at $clock"
         else "on " + SimpleDateFormat(

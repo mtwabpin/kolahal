@@ -32,26 +32,50 @@ import androidx.compose.ui.semantics.semantics
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.mtwabpin.kolahal.apps.PackageEvents
+import com.mtwabpin.kolahal.calls.CallEvents
+import com.mtwabpin.kolahal.contacts.ContactPicker
+import com.mtwabpin.kolahal.control.WallpaperMatch
 import com.mtwabpin.kolahal.data.Backup
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.MaterialYou
+import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.script.WallpaperChoice
+import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
+import com.mtwabpin.kolahal.ui.CreateTextFile
 import com.mtwabpin.kolahal.ui.FeedsScreen
+import com.mtwabpin.kolahal.ui.GetScriptsScreen
+import com.mtwabpin.kolahal.ui.GetShadersScreen
+import com.mtwabpin.kolahal.ui.HeaderPartsScreen
+import com.mtwabpin.kolahal.ui.HomeClock
+import com.mtwabpin.kolahal.ui.HomeScreenOverlay
 import com.mtwabpin.kolahal.ui.KolahalTheme
+import com.mtwabpin.kolahal.ui.LocalTerminalShown
+import com.mtwabpin.kolahal.ui.LocalWidgetsShown
 import com.mtwabpin.kolahal.ui.MaterialYouPalettes
+import com.mtwabpin.kolahal.ui.NotificationAccessDialog
+import com.mtwabpin.kolahal.ui.OnboardingScreen
+import com.mtwabpin.kolahal.ui.ResumeProfileDialog
 import com.mtwabpin.kolahal.ui.ScriptEditor
+import com.mtwabpin.kolahal.ui.ScriptLibraryScreen
+import com.mtwabpin.kolahal.ui.ScriptSourcesScreen
 import com.mtwabpin.kolahal.ui.ScriptsScreen
 import com.mtwabpin.kolahal.ui.SettingsOverHome
 import com.mtwabpin.kolahal.ui.SetupScreen
+import com.mtwabpin.kolahal.ui.ShadersOverHome
 import com.mtwabpin.kolahal.ui.Term
 import com.mtwabpin.kolahal.ui.TerminalScreen
 import com.mtwabpin.kolahal.ui.TextEditorActivity
+import com.mtwabpin.kolahal.ui.ThemeBuilderScreen
+import com.mtwabpin.kolahal.ui.WidgetPanel
 import com.mtwabpin.kolahal.ui.WidgetPickerScreen
 import com.mtwabpin.kolahal.ui.WidgetsScreen
 import com.mtwabpin.kolahal.ui.applyTermSettings
 import com.mtwabpin.kolahal.ui.darkTheme
+import com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter
 import com.mtwabpin.kolahal.widgets.WidgetBinder
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import kotlinx.coroutines.launch
@@ -75,7 +99,7 @@ class MainActivity : ComponentActivity() {
         }
 
     private val contactPicker =
-        registerForActivityResult(com.mtwabpin.kolahal.contacts.ContactPicker) {
+        registerForActivityResult(ContactPicker) {
             vm.onContactPicked(
                 it
             )
@@ -166,7 +190,7 @@ class MainActivity : ComponentActivity() {
         }
 
     private val newTextFile =
-        registerForActivityResult(com.mtwabpin.kolahal.ui.CreateTextFile) {
+        registerForActivityResult(CreateTextFile) {
             it?.let { uri ->
                 TextEditorActivity.open(
                     this,
@@ -176,7 +200,7 @@ class MainActivity : ComponentActivity() {
         }
 
     /** Asks where to save [s], then saves it there ([com.mtwabpin.kolahal.terminal.ScriptActions.finishExportScript]). */
-    private fun exportScriptFile(s: com.mtwabpin.kolahal.data.Script) {
+    private fun exportScriptFile(s: Script) {
         vm.scriptActions.beginExportScript(s)
         exportScript.launch("${s.name}.${s.lang.ext}")
     }
@@ -191,17 +215,17 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         (application as? LauncherApp)?.homeShown()
         WidgetHost.get(this).startListening()
-        com.mtwabpin.kolahal.status.DeviceStatus.get(this).watchBattery(true)
+        DeviceStatus.get(this).watchBattery(true)
         // Show the current time from the first frame back. Home is built again after Settings and similar screens.
-        com.mtwabpin.kolahal.ui.HomeClock.acquire(this)
+        HomeClock.acquire(this)
         vm.onStarted(true)
     }
 
     override fun onStop() {
         super.onStop()
         WidgetHost.get(this).stopListening()
-        com.mtwabpin.kolahal.status.DeviceStatus.get(this).watchBattery(false)
-        com.mtwabpin.kolahal.ui.HomeClock.release(this)
+        DeviceStatus.get(this).watchBattery(false)
+        HomeClock.release(this)
         vm.onStarted(false)
     }
 
@@ -232,18 +256,35 @@ class MainActivity : ComponentActivity() {
         // we tried, the window kept an opaque surface, and the pages' faint color piled up over old
         // frames.) When no wallpaper shows, the page color behind everything keeps home looking solid.
         window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
+        followTheme()
+        handleEvents()
+        setHomeContent()
+    }
+
+    /**
+     * Applies the theme now, and again whenever settings, a previewed value or the screen change.
+     * Also writes what the live wallpaper draws with, for its own process.
+     */
+    private fun followTheme() {
         applyPhoneColors()
         // The theme follows settings without reading config state in composition. Reading it there
         // would recompose the whole tree on every settings change.
         lifecycleScope.launch { vm.config.version.collect { applyTheme() } }
         // What the live wallpaper draws with, for its own process.
-        if (com.mtwabpin.kolahal.script.WallpaperChoice.supported) lifecycleScope.launch {
-            com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter.run(applicationContext)
+        if (WallpaperChoice.supported) lifecycleScope.launch {
+            WallpaperWriter.run(applicationContext)
         }
         lifecycleScope.launch {
             androidx.compose.runtime.snapshotFlow { vm.previewed }.collect { applyTheme() }
         }
         lifecycleScope.launch { vm.screen.collect { if (vm.livePreview != null) applyTheme() } }
+    }
+
+    /**
+     * Does what a screen asks for through `vm.events`: pickers and permissions, which need this
+     * activity.
+     */
+    private fun handleEvents() {
         lifecycleScope.launch {
             vm.events.collect {
                 when (it) {
@@ -283,6 +324,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * The window's content: the script editor, or home and the other screens, and the dialogs over
+     * them.
+     */
+    private fun setHomeContent() {
         setContent {
             KolahalTheme {
                 // GUI screens keep their state (filters, search, scroll) while the editor or another
@@ -332,7 +380,7 @@ class MainActivity : ComponentActivity() {
                         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
                             TerminalScreen(vm)
                             // `matrix`, `top`, the screensaver and the other screens run over the log page until a key or a tap.
-                            com.mtwabpin.kolahal.ui.HomeScreenOverlay(vm)
+                            HomeScreenOverlay(vm)
                         }
                     } else saved.SaveableStateProvider(screen.name) {
                         androidx.compose.foundation.layout.Box(
@@ -351,27 +399,27 @@ class MainActivity : ComponentActivity() {
                                 // widget screens get a callback, because adding a widget needs this activity.
                                 Screen.SETTINGS -> SettingsOverHome(vm)
                                 Screen.SCRIPTS -> ScriptsScreen(vm)
-                                Screen.GET_SCRIPTS -> com.mtwabpin.kolahal.ui.GetScriptsScreen(vm)
-                                Screen.SCRIPT_SOURCES -> com.mtwabpin.kolahal.ui.ScriptSourcesScreen(
+                                Screen.GET_SCRIPTS -> GetScriptsScreen(vm)
+                                Screen.SCRIPT_SOURCES -> ScriptSourcesScreen(
                                     vm
                                 )
 
-                                Screen.SHADERS -> com.mtwabpin.kolahal.ui.ShadersOverHome(vm)
+                                Screen.SHADERS -> ShadersOverHome(vm)
 
-                                Screen.GET_SHADERS -> com.mtwabpin.kolahal.ui.GetShadersScreen(
+                                Screen.GET_SHADERS -> GetShadersScreen(
                                     vm.shaderActions,
                                     vm.notice,
                                     open = vm::openScreen,
                                     onBack = vm::closeScreen
                                 )
 
-                                Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(
+                                Screen.SCRIPT_LIBRARY -> ScriptLibraryScreen(
                                     vm
                                 )
 
                                 Screen.FEEDS -> FeedsScreen(vm)
                                 Screen.SETUP -> SetupScreen(vm)
-                                Screen.ONBOARDING -> com.mtwabpin.kolahal.ui.OnboardingScreen(vm)
+                                Screen.ONBOARDING -> OnboardingScreen(vm)
                                 Screen.WIDGETS -> WidgetsScreen(
                                     vm,
                                     onReAdd = { entry, w -> widgetBinder.add(entry, w.key) })
@@ -380,11 +428,11 @@ class MainActivity : ComponentActivity() {
                                     vm,
                                     onPick = { widgetBinder.add(it) })
 
-                                Screen.THEME_BUILDER -> com.mtwabpin.kolahal.ui.ThemeBuilderScreen(
+                                Screen.THEME_BUILDER -> ThemeBuilderScreen(
                                     vm
                                 )
 
-                                Screen.HEADER_PARTS -> com.mtwabpin.kolahal.ui.HeaderPartsScreen(vm)
+                                Screen.HEADER_PARTS -> HeaderPartsScreen(vm)
                                 Screen.TERMINAL -> Unit
                             }
                         }
@@ -392,14 +440,14 @@ class MainActivity : ComponentActivity() {
                 }
                 // `notifs enable` from the prompt, Setup or the tour shows this dialog over whatever screen is open.
                 val askingNotifications by vm.notificationAccessAsk.collectAsStateWithLifecycle()
-                if (askingNotifications) com.mtwabpin.kolahal.ui.NotificationAccessDialog(
+                if (askingNotifications) NotificationAccessDialog(
                     onAllow = { vm.answerNotificationAccess(true) },
                     onDismiss = { vm.answerNotificationAccess(false) },
                 )
                 // A tap on an app whose profile is paused or locked, on any page of home: resume it and open the app?
                 val resuming by vm.resumeAsk.collectAsStateWithLifecycle()
                 resuming?.let { app ->
-                    com.mtwabpin.kolahal.ui.ResumeProfileDialog(
+                    ResumeProfileDialog(
                         app,
                         onResume = { vm.answerResume(true) },
                         onDismiss = { vm.answerResume(false) })
@@ -417,8 +465,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         vm.onResume()
         if (hasWindowFocus()) vm.onWindowFocused()
-        com.mtwabpin.kolahal.apps.PackageEvents.get(this).recheck()
-        com.mtwabpin.kolahal.calls.CallEvents.get(this).check()
+        PackageEvents.get(this).recheck()
+        CallEvents.get(this).check()
     }
 
     override fun onPause() {
@@ -514,7 +562,7 @@ class MainActivity : ComponentActivity() {
         // Skip this for a preview. The wallpaper changes only after the theme is kept.
         // - The wallpaper takes the theme's color fully opaque: a wallpaper can't be see-through.
         // - A Material You theme took its colors from the wallpaper, so the wallpaper doesn't follow it.
-        if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(
+        if (live == null) WallpaperMatch.follow(
             this,
             Term.bg.copy(alpha = 1f).toArgb(),
             fromWallpaper = MaterialYou.isOne(theme) && MaterialYou.supported,
@@ -684,12 +732,12 @@ private fun HomePager(
         ) { page ->
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
                 if (page == terminalPage) {
-                    androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
+                    androidx.compose.runtime.CompositionLocalProvider(LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
                 } else {
                     // The pager keeps this page composed beside the log. Its cards move and ask for runs only
                     // while the pager has settled on it.
-                    androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalWidgetsShown provides (pager.settledPage == page)) {
-                        com.mtwabpin.kolahal.ui.WidgetPanel(vm)
+                    androidx.compose.runtime.CompositionLocalProvider(LocalWidgetsShown provides (pager.settledPage == page)) {
+                        WidgetPanel(vm)
                     }
                 }
             }

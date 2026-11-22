@@ -12,14 +12,34 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.work.Configuration
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.PackageEvents
+import com.mtwabpin.kolahal.calls.CallEvents
+import com.mtwabpin.kolahal.contacts.ContactsRepository
+import com.mtwabpin.kolahal.data.AutoBackup
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Quietly
+import com.mtwabpin.kolahal.data.SharedSettings
+import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.data.Stores
+import com.mtwabpin.kolahal.feeds.FeedScheduler
+import com.mtwabpin.kolahal.notifications.NotifIcons
 import com.mtwabpin.kolahal.notify.Notifier
+import com.mtwabpin.kolahal.productivity.ReminderScheduler
+import com.mtwabpin.kolahal.productivity.TodoStore
+import com.mtwabpin.kolahal.script.ScriptAccess
+import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.script.TriggerDispatcher
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.unlock.UnlockCounter
+import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.WidgetStates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -87,62 +107,91 @@ class LauncherApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        startInEveryProcess()
+        // The :script process only needs the database and notifications, and the :wallpaper one less.
+        if (!Singleton.inMainProcess) return
+        prepareFirstFrame()
+        startWhenIdle()
+        repairAndScheduleInBackground()
+        val logs = listenToOtherProcesses()
+        followSettings(logs)
+    }
+
+    /** What every process needs: crash reports first, then the notification channels. */
+    private fun startInEveryProcess() {
         // Install this before anything else can fail, so a crash in either process leaves a report (see `crashes`).
         CrashReports.install(this)
         Notifier.createChannels(this)
-        // The :script process only needs the database and notifications, and the :wallpaper one less.
-        if (!com.mtwabpin.kolahal.data.Singleton.inMainProcess) return
+    }
 
+    /**
+     * What the first frame needs: custom themes and shaders before the theme is applied, the apps
+     * and the device status.
+     */
+    private fun prepareFirstFrame() {
         // Load custom themes before the theme is applied, because `theme.name` may name one of them.
-        com.mtwabpin.kolahal.data.CustomThemes.load(this)
+        CustomThemes.load(this)
         // The same for the user's shaders: `screen.shader` may name one of them.
-        com.mtwabpin.kolahal.script.Shaders.load(this)
+        Shaders.load(this)
         AppRepository.get(this).start()
         DeviceStatus.get(this).start()
+    }
+
+    /**
+     * Once the main thread is idle, starts the unlock counter, `@on` triggers, contacts, and package
+     * and call events.
+     */
+    private fun startWhenIdle() {
         // What the first frame doesn't need starts once the main thread is idle, after that frame:
         // each is a few calls to Android. Nothing is missed meanwhile: each catches up as it starts.
         android.os.Looper.getMainLooper().queue.addIdleHandler {
             UnlockCounter.get(this).start()
             // Runtime receivers and a network callback for `@on` scripts. Charger and headset events need
             // these on Android 8+.
-            com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).start()
-            com.mtwabpin.kolahal.contacts.ContactsRepository.get(this).refresh()
-            com.mtwabpin.kolahal.apps.PackageEvents.get(this).start()
-            com.mtwabpin.kolahal.calls.CallEvents.get(this).start()
+            TriggerDispatcher.get(this).start()
+            ContactsRepository.get(this).refresh()
+            PackageEvents.get(this).start()
+            CallEvents.get(this).start()
             false
         }
+    }
 
+    /**
+     * On a thread of its own: sets daily script times again, restores schedules after updates,
+     * trims the old log, and repairs rows from old versions.
+     */
+    private fun repairAndScheduleInBackground() {
         // Set daily script times again, restore schedules after updates, and trim the old log.
         Thread {
             // Do this first. Otherwise, the first log line with a notification icon would list the saved
             // icons on the main thread.
-            runCatching { com.mtwabpin.kolahal.notifications.NotifIcons.preload(this) }
+            runCatching { NotifIcons.preload(this) }
             runCatching { CrashReports.announce(this) }
             // These must not stop each other, but a failure is logged (once a day): a reminder not set again stays unseen otherwise.
-            val quietly = com.mtwabpin.kolahal.data.Quietly
+            val quietly = Quietly
             // Library scripts that nobody edited are updated to the app's library.
             quietly.run(
                 this,
                 "Updating library scripts"
-            ) { com.mtwabpin.kolahal.script.ScriptLibrary(this).updateUnedited() }
+            ) { ScriptLibrary(this).updateUnedited() }
             quietly.run(this, "Scheduling scripts") { ScriptScheduler.syncAll(this) }
             // Once: secret values from before 0.4.0 have no sites, and must be set again. Each script with one says so.
             quietly.run(
                 this,
                 "Checking script secrets"
-            ) { com.mtwabpin.kolahal.script.ScriptAccess.askForSecretsWithoutSites(this) }
-            runCatching { com.mtwabpin.kolahal.data.StatusLines.pinShownOnce(this) }
+            ) { ScriptAccess.askForSecretsWithoutSites(this) }
+            runCatching { StatusLines.pinShownOnce(this) }
             // The placed widgets decide which scripts may store a widget: a restore or an older version may have left the two apart.
-            runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(this).syncAccess() }
+            runCatching { WidgetHost.get(this).syncAccess() }
             quietly.run(this, "Scheduling feeds") {
-                com.mtwabpin.kolahal.feeds.FeedScheduler.sync(
+                FeedScheduler.sync(
                     this
                 )
             }
             quietly.run(
                 this,
                 "Setting reminders again"
-            ) { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
+            ) { ReminderScheduler.rescheduleAll(this) }
             quietly.run(this, "Trimming the old log") {
                 LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS])
             }
@@ -152,12 +201,18 @@ class LauncherApp : Application(), Configuration.Provider {
                 val prefs = Stores.LAUNCHER.open(this)
                 val version = packageManager.getPackageInfo(packageName, 0).longVersionCode
                 if (prefs.getLong("repaired_for", -1L) != version) {
-                    com.mtwabpin.kolahal.data.KvStore.repairOversized(this)
+                    KvStore.repairOversized(this)
                     prefs.edit { putLong("repaired_for", version) }
                 }
             }
         }.start()
+    }
 
+    /**
+     * The messages from the :script process: the log, a script's widget and the todos. Returns the
+     * log, which [followSettings] trims.
+     */
+    private fun listenToOtherProcesses(): LogRepository {
         // The :script process writes to the log too, and says so in a message. The log reads its own message.
         val logs = LogRepository.get(this)
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
@@ -168,9 +223,9 @@ class LauncherApp : Application(), Configuration.Provider {
             this,
             object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) =
-                    com.mtwabpin.kolahal.widgets.WidgetStates.bump(intent.getStringExtra(com.mtwabpin.kolahal.widgets.WidgetStates.EXTRA_NAME))
+                    WidgetStates.bump(intent.getStringExtra(WidgetStates.EXTRA_NAME))
             },
-            IntentFilter(com.mtwabpin.kolahal.widgets.WidgetStates.ACTION_CHANGED),
+            IntentFilter(WidgetStates.ACTION_CHANGED),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
         // A script that ticks a todo (todos.setDone) writes in :script. Home counts only its own writes, so the
@@ -179,27 +234,35 @@ class LauncherApp : Application(), Configuration.Provider {
             this,
             object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) =
-                    com.mtwabpin.kolahal.productivity.TodoStore.get(this@LauncherApp)
+                    TodoStore.get(this@LauncherApp)
                         .changedElsewhere()
             },
-            IntentFilter(com.mtwabpin.kolahal.productivity.TodoStore.ACTION_CHANGED),
+            IntentFilter(TodoStore.ACTION_CHANGED),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        return logs
+    }
 
+    /**
+     * Copies the settings :script reads, trims [logs], and follows backup.auto and the Wi-Fi-only
+     * setting, whenever they change. A new time zone or a clock set by hand schedules the daily times
+     * again.
+     */
+    private fun followSettings(logs: LogRepository) {
         // The :script process doesn't see settings changes. So home copies the ones it reads
         // (SharedSettings.KEYS) to a place where :script can read them, now and whenever one changes.
         val config = Config.get(this)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope.launch {
             config.version.map {
-                com.mtwabpin.kolahal.data.SharedSettings.KEYS.map {
+                SharedSettings.KEYS.map {
                     it.valueText(
                         config
                     )
                 }
             }.distinctUntilChanged().collect {
                 runCatching {
-                    com.mtwabpin.kolahal.data.SharedSettings.mirror(
+                    SharedSettings.mirror(
                         this@LauncherApp,
                         config
                     )
@@ -219,7 +282,7 @@ class LauncherApp : Application(), Configuration.Provider {
                 if (intent.action == Intent.ACTION_TIMEZONE_CHANGED) {
                     scope.launch {
                         runCatching {
-                            com.mtwabpin.kolahal.productivity.ReminderScheduler.followZone(
+                            ReminderScheduler.followZone(
                                 this@LauncherApp
                             )
                         }
@@ -233,13 +296,13 @@ class LauncherApp : Application(), Configuration.Provider {
         // Automatic backups follow backup.auto, however it changes (Settings, config, a restore).
         scope.launch {
             config.version.map { config[Keys.BACKUP_AUTO] }.distinctUntilChanged().collect {
-                runCatching { com.mtwabpin.kolahal.data.AutoBackup.sync(this@LauncherApp) }
+                runCatching { AutoBackup.sync(this@LauncherApp) }
             }
         }
         // The Wi-Fi-only setting changes every feed's schedule, whether it is set, reset or restored.
         scope.launch {
             config.version.map { config[Keys.FEEDS_WIFI] }.distinctUntilChanged().drop(1).collect {
-                runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this@LauncherApp) }
+                runCatching { FeedScheduler.sync(this@LauncherApp) }
             }
         }
     }
