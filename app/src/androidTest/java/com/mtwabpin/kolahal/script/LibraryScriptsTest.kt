@@ -10,6 +10,7 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.shownText
+import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.widgets.TestScriptWidgets
@@ -59,7 +60,9 @@ class LibraryScriptsTest {
             notifyEnabled = false,
             options = declared + options,
             secrets = secrets,
-            widget = ScriptMeta.widget(library.code(entry))
+            widget = ScriptMeta.widget(library.code(entry)),
+            // Its @gives line, as a run has it: the names shader.give takes.
+            gives = ScriptMeta.gives(library.code(entry)),
         )
         val args = argline.split(' ').filter(String::isNotEmpty)
         runBlocking {
@@ -87,6 +90,7 @@ class LibraryScriptsTest {
         lines().forEach { logs.delete(it.id) }
         store.all().keys.forEach { store.set(it, null) }
         status.set(name, null)
+        ShaderValues.forget(context, name)
     }
 
     /** The widget counts to the nearest date: its label is "To 20 December", and its bar starts on the day it was saved. */
