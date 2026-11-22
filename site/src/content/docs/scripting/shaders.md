@@ -8,8 +8,7 @@ one over home and the [full-screen screens](/reference/commands/#screens), such 
 `screen clock`. Settings, the widgets page, menus and the keyboard stay as they are. Shaders are
 written in AGSL, Android's version of GLSL.
 
-Shaders need **Android 13 or newer**. On older versions the [`tty.crt`](/reference/config/#screens)
-setting draws a simple CRT look instead.
+Shaders need **Android 13 or newer**.
 
 ## Turning a shader on
 

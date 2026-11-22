@@ -14,7 +14,6 @@ object SettingTitles {
         "screen.bars" to "Full screen",
         "screen.saver" to "Screensaver",
         "screen.saver-after" to "Start after (minutes)",
-        "tty.crt" to "CRT look",
         "screen.shader" to "Shader",
         "font.family" to "Font",
         "font.sans" to "System font",

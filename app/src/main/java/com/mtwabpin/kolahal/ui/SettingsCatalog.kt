@@ -113,8 +113,7 @@ private val CATEGORIES = listOf(
                 Keys.FONT_SANS,
                 Keys.FONT_SIZE,
             ),
-            // The CRT look draws over the full-screen screens (and the tty home style), not the GUI.
-            "Screen" to listOf(Keys.STATUS_BAR, Keys.TTY_CRT),
+            "Screen" to listOf(Keys.STATUS_BAR),
             "Screensaver" to listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER),
         ),
     ),

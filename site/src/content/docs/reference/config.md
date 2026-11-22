@@ -82,17 +82,18 @@ The full-screen [screens](/reference/commands/#screens), such as `matrix` and `s
 | --- | --- | --- | --- |
 | `screen.saver` | choice: `off` `matrix` `clock` `pipes` | `off` | a screensaver: this screen opens over home after `screen.saver-after` minutes without a touch, while the log page shows and nothing is open or typed. The first touch or key only closes it. It never starts while the screen is off, in battery saver, or with Android's **Remove animations** on |
 | `screen.saver-after` | number 1–60 | `5` | minutes without a touch before the screensaver starts. Settings shows it while `screen.saver` is on |
-| `tty.crt` | bool | `off` | make the screens look like an old CRT monitor: scanlines, darker corners and, on Android 12 and newer with a dark theme, a soft glow around bright text. It is kept subtle, so text stays easy to read |
 | `screen.shader` | choice: `off` `crt` `bloom` `rain`, or [one of yours](/scripting/shaders/#adding-your-own) | `off` | a [shader](/scripting/shaders/) over home and the screens (also `shader <name>`). Needs Android 13 or newer; on older versions nothing is drawn. Not in Settings |
 
 ## TTY home style
 
-With `config set home.style tty`, home is drawn on a character grid, like a terminal. Each of these keys
-sets how one part of it is drawn: `gui`, as in the default home style, or `tty`, on the grid. They only
-matter with `home.style tty`. Not in Settings.
+With `config set home.style tty`, home is drawn on a character grid, like a terminal: one font size and
+no pictures (an image shows its text, a person their initials). The widgets page stays as it is. The
+`tty.…` keys set how one part of it is drawn: `gui`, as in the default home style, or `tty`, on the grid.
+They only matter with `home.style tty`. Not in Settings.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
+| `home.style` | choice: `gui` `tty` | `gui` | how home is drawn: `gui`, or `tty`, on a character grid |
 | `tty.suggestions` | choice: `gui` `tty` | `gui` | the prompt's suggestions. On the grid they have no icons |
 | `tty.selector` | choice: `gui` `tty` | `gui` | the app selector on the edge (`selector.rail`). On the grid it has one font size and no icons |
 | `tty.keybar` | choice: `gui` `tty` | `gui` | the key bar. On the grid its keys are text |

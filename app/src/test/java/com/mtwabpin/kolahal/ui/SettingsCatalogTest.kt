@@ -62,19 +62,17 @@ class SettingsCatalogTest {
         assertTrue(Keys.LOG_KEEP_LINES in Keys.ALL)
     }
 
-    /** The screensaver and the CRT look are on Look & feel, each with a title; search finds them. */
+    /** The screensaver is on Look & feel, with a title; search finds it. */
     @Test
-    fun theScreensaverAndTheCrtLookAreOnLookAndFeel() {
+    fun theScreensaverIsOnLookAndFeel() {
         val look = allCategories().first { it.id == "look" }
         val groups = look.groups.toMap()
         assertEquals(listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER), groups["Screensaver"])
-        assertTrue(Keys.TTY_CRT in groups.getValue("Screen"))
-        for (key in listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER, Keys.TTY_CRT)) {
+        for (key in listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER)) {
             assertNotNull(key.key, SettingTitles[key.key])
         }
         assertTrue(matches(Keys.SCREEN_SAVER, "screensaver"))
         assertTrue(matches(Keys.SCREEN_SAVER, "pipes"))
-        assertTrue(matches(Keys.TTY_CRT, "scanlines"))
     }
 
     /** Settings search finds each word in any order, in a setting's title, name, help or choices. */

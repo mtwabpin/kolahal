@@ -96,8 +96,8 @@ override the rest. Internal: nothing here is published.
 - Remark:
 
 ** TODO Step 5: extras  :extras:
-- Size M, each part on its own: selection mode on the grid, =top=, an idle screensaver, =tty.crt=
-  (scanlines, vignette and glow drawn without shaders, for every Android version).
+- Size M, each part on its own: selection mode on the grid, =top=, an idle screensaver. (=tty.crt=, a
+  CRT look drawn without shaders, was built and removed on 22 November: the =crt= shader does it.)
 - Remark:
 
 ** DONE Step 6: shaders  :shaders:
@@ -123,8 +123,7 @@ override the rest. Internal: nothing here is published.
     on, and after a minute without a touch; shaders are off with a screen reader on.
   - [ ] Left: =cells= and =scroll= uniforms, =@param=, =@warp= and =@bloom= (with step 7's grid data
     or a Settings slider), the app shortcut for safe mode, shaders in backups, and nothing measured on
-    a phone yet. =tty.crt= still draws its own look on Android 13 and newer, so =screen.shader crt= and
-    =tty.crt on= stack.
+    a phone yet.
 - Remark:
 
 ** DONE Step 7: scripts drawing on the grid  :scripts:

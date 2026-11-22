@@ -281,12 +281,8 @@ only closes it. It never starts while the screen is
 off, in battery saver, or with **Remove animations** on. Your phone usually turns its screen off
 sooner, so you'll mostly see it on a charger. Set it in **Settings → Look & feel → Screensaver**.
 
-**CRT look.** With `tty.crt on`, the screens look like an old CRT monitor: scanlines, darker corners
-and, on Android 12 and newer with a dark theme, a soft glow around bright text. It is kept subtle,
-so text stays easy to read. It's under **Settings → Look & feel → Screen**.
-
 **Shaders.** With `shader crt` (or `bloom`, `rain`, or [one of yours](/scripting/shaders/)), the phone's
-graphics chip draws an effect over the screens, on Android 13 and newer. `shader off` turns it off.
+graphics chip draws an effect over home and the screens, on Android 13 and newer. `shader off` turns it off.
 
 ## Profiles
 

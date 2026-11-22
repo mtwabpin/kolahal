@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
 import com.mtwabpin.kolahal.ui.Palette
+import kotlin.math.pow
 
 /**
  * The theme's colors for the grid: each [Ink] as an ARGB color, worked out once per palette.
@@ -50,6 +51,15 @@ class TtyPalette(palette: Palette) {
 
     companion object {
         private val INKS = Ink.entries.toTypedArray()
+
+        /** WCAG's relative luminance of an opaque sRGB color. */
+        fun luminance(argb: Int): Double {
+            fun channel(shift: Int): Double {
+                val c = ((argb shr shift) and 0xFF) / 255.0
+                return if (c <= 0.04045) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)
+            }
+            return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+        }
 
         /** How much of a faint ink shows over the background: the log's dimmed lines use the same. */
         const val DIM_ALPHA = 0.62f

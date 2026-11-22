@@ -632,6 +632,9 @@ the same click/long-click presence and the same custom-action labels.
 
 ### 5.2 The CRT look without shaders (`tty.crt on`, API 28+)
 
+Removed on 22 November 2026, by the maintainer's decision: it added nothing beside the `crt` shader. `tty.crt`
+no longer exists; the rest of this section and other mentions of it are kept as the design was.
+
 Drawn by `TtyCrt`, a `drawWithContent` wrapper on the TTY home layer:
 
 - scanlines: a 1×(2–3 px) `BitmapShader` tiled over the content, 8–12 % dark;

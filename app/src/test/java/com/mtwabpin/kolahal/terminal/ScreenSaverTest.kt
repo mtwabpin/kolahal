@@ -106,9 +106,7 @@ class ScreenSaverTest {
         }
         assertEquals(5, Keys.SCREEN_SAVER_AFTER.default)
         assertEquals(1..60, Keys.SCREEN_SAVER_AFTER.range)
-        assertEquals(false, Keys.TTY_CRT.default)
-        assertTrue(Keys.TTY_CRT is ConfigKey.Bool)
-        for (key in listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER, Keys.TTY_CRT)) {
+        for (key in listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER)) {
             assertEquals(key, Keys.byName(key.key))
             assertFalse(key.key, key in Keys.CONFIG_ONLY)
         }

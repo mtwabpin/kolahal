@@ -163,7 +163,7 @@ class ShaderCommands(
     }
 
     /** What to do on a phone too old for shaders. */
-    private fun needs() = info("${Shaders.NEEDS}; this phone has Android ${Build.VERSION.RELEASE} · 'config set tty.crt on' looks like an old CRT on any Android")
+    private fun needs() = info("${Shaders.NEEDS}; this phone has Android ${Build.VERSION.RELEASE}")
 
     companion object {
         val SUBCOMMANDS = listOf("list", "use", "on", "off", "check", "reload", "copy", "remove")

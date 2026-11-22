@@ -423,13 +423,6 @@ object Keys {
         ),
     )
 
-    /** Only the full-screen screens and the tty home style draw it (ui/tty/TtyCrt.kt), so the GUI's look never changes. */
-    val TTY_CRT = ConfigKey.Bool(
-        "tty.crt",
-        false,
-        "Look like an old CRT monitor on full-screen screens (matrix, clock…) and in the tty home style: scanlines, darker corners and, on Android 12 and newer with a dark theme, a glow on bright text"
-    )
-
     // The parts of the tty home style that can be drawn as the gui style draws them, one key each:
     // gui (the default: these parts work better that way) or tty (on the character grid). They matter
     // only with home.style tty, and only `config` sets them: TTY stays a config setting.
@@ -781,7 +774,6 @@ object Keys {
         SHOW_TIMESTAMPS,
         LOG_DIM,
         HOME_STYLE,
-        TTY_CRT,
         SCREEN_SHADER,
         LOG_SPACING,
         LOG_ITEM_SPACING,

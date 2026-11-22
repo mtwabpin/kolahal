@@ -96,7 +96,7 @@ private const val SAVER_FPS = 15
  * prompt ([onClose] gets null), and leaving home, turning the page or the screen going off closes
  * it at once instead of pausing it.
  *
- * [data] is what `boot` and `top` show; [clock24] is `clock.24h`; [crt] is `tty.crt` ([rememberCrt]);
+ * [data] is what `boot` and `top` show; [clock24] is `clock.24h`;
  * [shader] is `screen.shader` ([rememberTtyShader]).
  * [make] makes the screen for [name]: one of Kolahal's, or a script's (`tty.screen`).
  */
@@ -108,7 +108,6 @@ fun TtyScreenHost(
     onClose: (typed: String?) -> Unit,
     modifier: Modifier = Modifier,
     saver: Boolean = false,
-    crt: Boolean = false,
     shader: String = ShaderCatalog.OFF,
     make: (String) -> TtyScreen? = TtyScreens::named,
 ) {
@@ -223,7 +222,6 @@ fun TtyScreenHost(
         onDispose { lifecycle.removeObserver(watch) }
     }
     BackHandler { close(null) }
-    val crtLook = rememberCrt(crt, grid.palette, metrics.cellH)
     val shaderLook = rememberTtyShader(shader, grid)
 
     Box(
@@ -231,7 +229,6 @@ fun TtyScreenHost(
             .fillMaxSize()
             .then(shaderLook)
             .background(Term.bg)
-            .then(crtLook)
             .semantics {
                 contentDescription = if (saver) "Screensaver: ${screen.title}" else screen.title
                 onClick(label = "close") { close(null); true }

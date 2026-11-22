@@ -353,7 +353,7 @@ private class ShaderInputs(
     private val cellH = grid.metrics.cellH.toFloat()
     private val palette = grid.palette
     private val dark =
-        if (CrtLook.luminance(palette.color(Ink.BG)) < CrtLook.luminance(palette.color(Ink.FG))) 1f else 0f
+        if (TtyPalette.luminance(palette.color(Ink.BG)) < TtyPalette.luminance(palette.color(Ink.FG))) 1f else 0f
     private var failed = false
 
     // Only a shader that declares the clock or the touch reads them, so a frame or a touch that can't
