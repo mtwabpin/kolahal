@@ -66,7 +66,6 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.status.Status
-import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -86,9 +85,11 @@ import kotlinx.coroutines.launch
  * top to bottom ([LocalTtyFrame]). It is laid out as the GUI's home ([com.mtwabpin.kolahal.ui.GuiHome])
  * and takes the same state, the same calls and the same settings, so a switch between the two keeps
  * where the log is, what is typed and what is open. The widgets page beside it stays the GUI's.
- * - The log comes from [logArea] (the TTY log, or a search's results), the prompt, the suggestions
- *   and the app selector from [prompt], [suggestions] and [selector], made by
- *   [com.mtwabpin.kolahal.ui.TerminalScreen] in their TTY forms.
+ * - The log comes from [logArea] (the TTY log, or a search's results), the prompt, the suggestions,
+ *   the app selector and the key bar from [prompt], [suggestions], [selector] and [keyBar], made by
+ *   [com.mtwabpin.kolahal.ui.TerminalScreen]. The prompt is always on the grid; each of the others
+ *   is on the grid or the GUI's own (`tty.suggestions`, `tty.selector`, `tty.keybar`), and goes in
+ *   the same place either way, so the grid's columns around it stay where they are.
  * - [preview]: Settings draws home under it while a look setting changes; with [previewTyping]
  *   it looks as if something were typed.
  */
@@ -118,6 +119,8 @@ internal fun TtyHome(
     prompt: @Composable (typing: Boolean) -> Unit,
     suggestions: @Composable (always: Boolean) -> Unit,
     selector: @Composable () -> Unit,
+    /** The key bar's rows; home shows and hides them under the prompt (`keybar.show`, `keybar.auto`). */
+    keyBar: @Composable () -> Unit,
     logArea: LogArea,
 ) {
     val density = LocalDensity.current
@@ -278,12 +281,7 @@ internal fun TtyHome(
                 enter = expandVertically(expandFrom = Alignment.Bottom) + slideInVertically { it },
                 exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + slideOutVertically { it },
             ) {
-                TtyKeyBar(
-                    specs = remember(configVersion) { listOf(config[Keys.KEYBAR], config[Keys.KEYBAR2]) },
-                    rowHeight = remember(configVersion) { config[Keys.KEYBAR_HEIGHT].dp },
-                    onKey = { key -> if (key == KeyBarKey.KBD) calls.onFocusPrompt() else calls.onKeyBar(key) },
-                    onText = calls.onInsert,
-                )
+                keyBar()
             }
         }
     }

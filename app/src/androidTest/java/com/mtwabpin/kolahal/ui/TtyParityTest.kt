@@ -171,6 +171,8 @@ class TtyParityTest {
         config.set(Keys.HEADER_SHOW, "on")
         config.set(Keys.KEYBAR_SHOW, "on")
         config.set(Keys.KEYBAR_AUTO, "off")
+        // The grid's own key bar; by default the tty style has the GUI's.
+        config.set(Keys.TTY_KEYBAR, "tty")
         val vm = show()
         compose.runOnIdle { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue("echo")) }
         val tags = listOf("prompt-quick", "prompt-clear", "keybar-toggle", "header")

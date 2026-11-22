@@ -426,6 +426,60 @@ object Keys {
         false,
         "Look like an old CRT monitor on full-screen screens (matrix, clock…) and in the tty home style: scanlines, darker corners and, on Android 12 and newer with a dark theme, a glow on bright text"
     )
+
+    // The parts of the tty home style that can be drawn as the gui style draws them, one key each:
+    // gui (the default: these parts work better that way) or tty (on the character grid). They matter
+    // only with home.style tty, and only `config` sets them until TTY is released (TTY step 4).
+    val TTY_SUGGESTIONS = ConfigKey.Choice(
+        "tty.suggestions",
+        "gui",
+        listOf("gui", "tty"),
+        "How the tty home style draws the prompt's suggestions: gui (as the gui style does) or tty (on the character grid)",
+        notes = mapOf(
+            "gui" to "As in the gui style, with app icons",
+            "tty" to "On the character grid, without icons",
+        ),
+    )
+    val TTY_SELECTOR = ConfigKey.Choice(
+        "tty.selector",
+        "gui",
+        listOf("gui", "tty"),
+        "How the tty home style draws the app selector on the edge: gui (as the gui style does) or tty (on the character grid)",
+        notes = mapOf(
+            "gui" to "As in the gui style: icons, magnified rows and a letter bubble",
+            "tty" to "On the character grid: one font size, no icons",
+        ),
+    )
+    val TTY_KEYBAR = ConfigKey.Choice(
+        "tty.keybar",
+        "gui",
+        listOf("gui", "tty"),
+        "How the tty home style draws the key bar: gui (as the gui style does) or tty (on the character grid)",
+        notes = mapOf(
+            "gui" to "As in the gui style, with icons for the arrows and Enter",
+            "tty" to "On the character grid, the keys as text",
+        ),
+    )
+    val TTY_QUICK_ACTIONS = ConfigKey.Choice(
+        "tty.quick-actions",
+        "gui",
+        listOf("gui", "tty"),
+        "How the tty home style shows the quick actions (\$): gui (a bottom sheet, as the gui style does) or tty (a box on the character grid)",
+        notes = mapOf(
+            "gui" to "A bottom sheet with icons, as in the gui style",
+            "tty" to "A box on the character grid, without icons",
+        ),
+    )
+    val TTY_MENU = ConfigKey.Choice(
+        "tty.menu",
+        "gui",
+        listOf("gui", "tty"),
+        "How the tty home style shows the menu a long press opens on a line, an app or the pinned header: gui (a bottom sheet, as the gui style does) or tty (a box on the character grid)",
+        notes = mapOf(
+            "gui" to "A bottom sheet with icons, as in the gui style",
+            "tty" to "A box on the character grid, without icons",
+        ),
+    )
     val LOG_SPACING = ConfigKey.Num(
         "log.spacing",
         5,
@@ -747,6 +801,13 @@ object Keys {
         WIDGETS_START,
         WIDGETS_WALLPAPER,
         AGENDA_WIDGET_DAYS,
+        // Last, so they never take the place of another setting when the prompt suggests settings by what
+        // they do (Completer): these matter only with home.style tty.
+        TTY_SUGGESTIONS,
+        TTY_SELECTOR,
+        TTY_KEYBAR,
+        TTY_QUICK_ACTIONS,
+        TTY_MENU,
     )
 
     /**
@@ -771,6 +832,11 @@ object Keys {
         HEADER_RIGHT,
         COMMANDS_OFF,
         HOME_STYLE,
+        TTY_SUGGESTIONS,
+        TTY_SELECTOR,
+        TTY_KEYBAR,
+        TTY_QUICK_ACTIONS,
+        TTY_MENU,
     )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */

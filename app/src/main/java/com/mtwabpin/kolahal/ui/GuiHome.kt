@@ -82,7 +82,6 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.status.Status
-import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
 import com.mtwabpin.kolahal.terminal.LivePreview
@@ -99,8 +98,8 @@ import kotlin.math.roundToInt
 /**
  * Home as text, chips and cards: the header, the pinned line, the log, the suggestions, the prompt
  * and the key bar. [TerminalScreen] reads what it shows from the view model and passes it in, with
- * the [calls] it may make; [state] is kept above it. The prompt, the suggestions and the app
- * selector are passed in ready made ([prompt], [suggestions], [selector]).
+ * the [calls] it may make; [state] is kept above it. The prompt, the suggestions, the app selector
+ * and the key bar are passed in ready made ([prompt], [suggestions], [selector], [keyBar]).
  * - [preview]: Settings draws home under it while a look setting changes. With [previewTyping],
  *   it looks as if something were typed.
  * - [rows]: the log's rows, newest first.
@@ -138,6 +137,8 @@ internal fun GuiHome(
     prompt: @Composable (typing: Boolean) -> Unit,
     suggestions: @Composable (always: Boolean) -> Unit,
     selector: @Composable () -> Unit,
+    /** The key bar's rows; home shows and hides them under the prompt (`keybar.show`, `keybar.auto`). */
+    keyBar: @Composable () -> Unit,
     /**
      * Draws the log in place of the list here, or null for this one. Home on the grid has a body
      * of its own ([com.mtwabpin.kolahal.ui.tty.TtyHome]), so none passes one now.
@@ -507,19 +508,7 @@ internal fun GuiHome(
             exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Bottom) +
                     androidx.compose.animation.slideOutVertically { it },
         ) {
-            KeyBar(
-                specs = remember(configVersion) {
-                    listOf(
-                        config[Keys.KEYBAR],
-                        config[Keys.KEYBAR2]
-                    )
-                },
-                rowHeight = remember(configVersion) { config[Keys.KEYBAR_HEIGHT].dp },
-                onKey = { key ->
-                    if (key == KeyBarKey.KBD) calls.onFocusPrompt() else calls.onKeyBar(key)
-                },
-                onText = calls.onInsert,
-            )
+            keyBar()
         }
     }
 }

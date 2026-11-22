@@ -1565,6 +1565,8 @@ private fun TtySelectorRow(
                 }
                 paintCells(grid, cells.grid, x.roundToInt().toFloat(), ((size.height - m.cellH) / 2f).roundToInt().toFloat())
             }
+            // The GUI's rows have no tag; this tells the grid's from them (`tty.selector`).
+            .testTag("tty-selector-row")
             .semantics { text = androidx.compose.ui.text.AnnotatedString(app.label) }
             .combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick),
     )

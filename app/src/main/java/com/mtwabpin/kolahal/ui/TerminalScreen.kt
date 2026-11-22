@@ -25,12 +25,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.terminal.lineDetail
 import com.mtwabpin.kolahal.ui.tty.PromptKeys
 import com.mtwabpin.kolahal.ui.tty.TtyHome
+import com.mtwabpin.kolahal.ui.tty.TtyKeyBar
 import com.mtwabpin.kolahal.ui.tty.TtyLog
 import com.mtwabpin.kolahal.ui.tty.TtyPrompt
 import com.mtwabpin.kolahal.ui.tty.TtySearchResults
@@ -61,7 +63,7 @@ internal fun HomeAppSelector(
     fade: androidx.compose.runtime.MutableFloatState? = null,
     /** Where the strip goes, if only in part of the height ([AppSelector]'s stripArea). The list uses the whole height. */
     stripArea: ClosedFloatingPointRange<Float>? = null,
-    /** Home is drawn on the character grid (`home.style tty`): the selector is too. */
+    /** Drawn on the character grid: `home.style tty` with `tty.selector tty` ([TtyParts.selector]). */
     tty: Boolean = false,
 ) {
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
@@ -216,15 +218,18 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     if (preview == null) LaunchedEffect(Unit) {
         vm.events.collect {
             if (it == UiEvent.ShowQuick) state.menu =
-                ActionMenu("Quick actions", vm.quickActions(), null, systemFont = true)
+                ActionMenu("Quick actions", vm.quickActions(), null, systemFont = true, quick = true)
         }
     }
     // How home is drawn (home.style). Everything here is the same for every style, so a switch
     // keeps where the log is scrolled, which lines are open, what is typed and the open menu.
     val style = remember(configVersion) { HomeStyle.of(config[Keys.HOME_STYLE]) }
     val tty = style == HomeStyle.TTY
+    // tty.*: the parts the tty style draws on the grid. The others are the GUI's own, in their place.
+    val parts = remember(configVersion) { TtyParts.of(style) { config[it] } }
     state.menu?.let {
-        if (tty) TtySheet(it, onDismiss = { state.menu = null })
+        val onGrid = if (it.quick) parts.quickActions else parts.menu
+        if (onGrid) TtySheet(it, onDismiss = { state.menu = null })
         else ActionSheet(it, onDismiss = { state.menu = null })
     }
     // `script secret <name> <NAME>` opens a masked input box for the value, over home.
@@ -313,7 +318,8 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         )
     }
 
-    // The prompt, the suggestions and the app selector, in the style home is drawn in.
+    // The prompt in the style home is drawn in. The suggestions, the app selector and the key bar on
+    // the grid or as the GUI draws them ([parts]); each body puts them in their places.
     val prompt: @Composable (Boolean) -> Unit = { typing ->
         // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
         val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
@@ -377,7 +383,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             always = always,
             configVersion = configVersion,
             onAppLongPress = calls.onAppLongPress,
-            tty = tty,
+            tty = parts.suggestions,
         )
         // [/selector]
     }
@@ -389,9 +395,19 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             // While its row-height slider in Settings is dragged, open the list so its rows are visible.
             showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
             fade = if (preview == null) vm.selectorFade else null,
-            tty = tty,
+            tty = parts.selector,
         )
         // [/selector]
+    }
+    // The bar itself; each body shows and hides it under the prompt (keybar.show, keybar.auto).
+    val keyBar: @Composable () -> Unit = {
+        val specs = remember(configVersion) { listOf(config[Keys.KEYBAR], config[Keys.KEYBAR2]) }
+        val rowHeight = remember(configVersion) { config[Keys.KEYBAR_HEIGHT].dp }
+        val onKey: (KeyBarKey) -> Unit = { key ->
+            if (key == KeyBarKey.KBD) calls.onFocusPrompt() else calls.onKeyBar(key)
+        }
+        if (parts.keyBar) TtyKeyBar(specs, rowHeight, onKey = onKey, onText = calls.onInsert)
+        else KeyBar(specs, rowHeight, onKey = onKey, onText = calls.onInsert)
     }
     if (tty) TtyHome(
         state = state,
@@ -417,6 +433,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         prompt = prompt,
         suggestions = suggestions,
         selector = selector,
+        keyBar = keyBar,
         // The log on the character grid, or a search's results in its place.
         logArea = { results, deleteRight, log, found ->
             if (results != null) TtySearchResults(
@@ -472,6 +489,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         prompt = prompt,
         suggestions = suggestions,
         selector = selector,
+        keyBar = keyBar,
     )
 }
 
@@ -487,7 +505,7 @@ private fun PromptSuggestions(
     always: Boolean,
     configVersion: Int,
     onAppLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit,
-    /** On the character grid (`home.style tty`): no icons, the same settings otherwise. */
+    /** On the character grid (`home.style tty` with `tty.suggestions tty`): no icons, the same settings otherwise. */
     tty: Boolean,
 ) {
     val config = vm.config

@@ -63,7 +63,8 @@ private val SCROLLED_KEY = 48.dp
  * - arrows and backspace repeat while held; the others act when the finger lifts on them;
  * - a sideways drag across a row that doesn't scroll moves the cursor;
  * - with more keys than fit, each takes a finger's width and the row scrolls.
- * A pressed key is inverse. Each row has the tag `keybar`, each key `key-<name>`.
+ * A pressed key is inverse. Each row has the tag `keybar`, as the GUI's, each key `key-<name>`; the
+ * bar's own tag is `tty-keybar` (the GUI's bar may stand in its place, `tty.keybar gui`).
  */
 @Composable
 internal fun TtyKeyBar(specs: List<String>, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onText: (String) -> Unit) {
@@ -71,6 +72,7 @@ internal fun TtyKeyBar(specs: List<String>, rowHeight: Dp, onKey: (KeyBarKey) ->
     Column(
         Modifier
             .fillMaxWidth()
+            .testTag("tty-keybar")
             .background(Color(frame.grid.palette.color(Ink.SURFACE))),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {

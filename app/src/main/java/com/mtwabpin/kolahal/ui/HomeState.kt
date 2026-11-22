@@ -21,6 +21,7 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.ConfigKey
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.terminal.HeaderTarget
 import com.mtwabpin.kolahal.terminal.KeyBarKey
@@ -33,7 +34,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * How home is drawn (`home.style`): [GUI] as text, chips and cards; [TTY] on a strict character
- * grid, like a terminal: home's log page and all its parts. The widgets page stays as it is.
+ * grid, like a terminal: home's log page and its parts, but for the ones [TtyParts] leaves to the
+ * GUI. The widgets page stays as it is.
  */
 internal enum class HomeStyle {
     GUI, TTY;
@@ -41,6 +43,39 @@ internal enum class HomeStyle {
     companion object {
         /** The style `home.style`'s [value] names; the GUI for anything else. */
         fun of(value: String): HomeStyle = if (value == "tty") TTY else GUI
+    }
+}
+
+/**
+ * Which of home's parts are drawn on the character grid. In the [HomeStyle.TTY] style, each is set
+ * by its own key (`tty.suggestions`, `tty.selector`, `tty.keybar`, `tty.quick-actions`, `tty.menu`):
+ * `tty` puts it on the grid; `gui`, the default, draws it with the GUI's own composable, in the place
+ * the grid has for it. In the [HomeStyle.GUI] style no part is on the grid ([NONE]).
+ */
+@Immutable
+internal data class TtyParts(
+    val suggestions: Boolean = false,
+    val selector: Boolean = false,
+    val keyBar: Boolean = false,
+    val quickActions: Boolean = false,
+    /** The menu a long press opens: on a line, an app or the pinned header. */
+    val menu: Boolean = false,
+) {
+    companion object {
+        val NONE = TtyParts()
+
+        /** The parts [style] draws on the grid, where [value] reads a key's value (`Config.get`). */
+        fun of(style: HomeStyle, value: (ConfigKey<String>) -> String): TtyParts {
+            if (style != HomeStyle.TTY) return NONE
+            fun grid(key: ConfigKey<String>) = value(key) == "tty"
+            return TtyParts(
+                suggestions = grid(Keys.TTY_SUGGESTIONS),
+                selector = grid(Keys.TTY_SELECTOR),
+                keyBar = grid(Keys.TTY_KEYBAR),
+                quickActions = grid(Keys.TTY_QUICK_ACTIONS),
+                menu = grid(Keys.TTY_MENU),
+            )
+        }
     }
 }
 

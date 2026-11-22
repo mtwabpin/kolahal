@@ -179,6 +179,29 @@ class CompleterTest {
         assertTrue(labels("config set no.such.key ").isEmpty())
     }
 
+    /** `config set tty.<part> ` offers gui and tty, and says beside each what it does, as `home.style` does. */
+    @Test
+    fun theTtyPartsOfferTheirValuesWithNotes() {
+        val parts = listOf(
+            Keys.TTY_SUGGESTIONS,
+            Keys.TTY_SELECTOR,
+            Keys.TTY_KEYBAR,
+            Keys.TTY_QUICK_ACTIONS,
+            Keys.TTY_MENU,
+        )
+        assertTrue(
+            labels("config set tty.").toString(),
+            labels("config set tty.").containsAll(parts.map { it.key })
+        )
+        for (key in parts + Keys.HOME_STYLE) {
+            val rows = completer.suggestions("config set ${key.key} ").filterIsInstance<Suggestion.Completion>()
+            for (value in listOf("gui", "tty")) {
+                val row = rows.firstOrNull { it.replacement.trim() == "config set ${key.key} $value" }
+                assertEquals("${key.key} $value", key.notes[value], row?.help)
+            }
+        }
+    }
+
     @Test
     fun fontOffersSansAndItsModes() {
         assertTrue(lines("font s").toString(), "font sans" in lines("font s"))

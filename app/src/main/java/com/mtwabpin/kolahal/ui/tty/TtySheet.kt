@@ -211,6 +211,9 @@ private fun TtyDialog(onDismiss: () -> Unit, onKey: (Key) -> Boolean, content: @
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
+                // Tells it from the GUI's sheets, which have no tag (`tty.quick-actions`, `tty.menu`). On the
+                // clickable: what is under it is read as part of it.
+                .testTag("tty-sheet")
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
             contentAlignment = Alignment.BottomCenter,
         ) {

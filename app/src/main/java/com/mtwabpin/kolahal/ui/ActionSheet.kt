@@ -51,6 +51,11 @@ data class ActionMenu(
     val url: String? = null,
     /** Where the line came from and when, to the second ([com.mtwabpin.kolahal.terminal.lineDetail]). */
     val detail: String? = null,
+    /**
+     * The quick actions (`$`), not a long-press menu: in the tty home style, `tty.quick-actions`
+     * chooses how it is drawn, and `tty.menu` chooses for the others.
+     */
+    val quick: Boolean = false,
 )
 
 /**

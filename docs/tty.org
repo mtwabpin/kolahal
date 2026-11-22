@@ -54,6 +54,12 @@ override the rest. Internal: nothing here is published.
 - Prompt (an invisible text field under a drawn row, so keyboards and composition still work),
   suggestions, key bar, header, pinned line, bands (undo, update, default home), =TtySheet= for
   menus, the app selector, empty-log tips. The widgets page swipe stays and the page stays GUI.
+- [X] Part by part, the grid or the GUI's own (22 November): =tty.suggestions=, =tty.selector=,
+  =tty.keybar=, =tty.quick-actions= and =tty.menu= (a long press's menu) are =gui=, the default, as
+  these parts work better that way, or =tty=. A =gui= part is the GUI's own composable in the grid's
+  place for it: the suggestions above the prompt, the key bar under it, the selector on the edge of
+  the log, the sheets as dialogs. They switch at once, and only =config= sets them. =TtyParts= decides
+  (JVM: =TtyPartsTest=); =TtyHomeTest= checks each part in each value (device, not run yet).
 - Remark:
 
 ** TODO Step 4: release TTY in Settings  :release:

@@ -30,6 +30,12 @@ import com.mtwabpin.kolahal.ui.Term
 import com.mtwabpin.kolahal.ui.completionHelp
 
 /**
+ * The tag of each suggestion on the grid, in the list and in the chips. Both have the GUI's tag,
+ * `suggestions`, as a whole; this one tells them from the GUI's (`tty.suggestions gui`).
+ */
+private const val SUGGESTION_TAG = "tty-suggestion"
+
+/**
  * `suggestions.style list` on the grid ([SuggestionCells.row]): the matches stacked above the
  * prompt, the best one at the bottom, nearest the thumb, as the GUI's list.
  * - Each row is `chips.height` tall at least, so it is easy to hit, and taller when its
@@ -85,6 +91,7 @@ private fun TtySuggestionRow(
     TtyBand(cells, maxOf(chipPx, cells.rows * frame.cellH)) {
         SpotAction(
             onClick = { onPick(s) },
+            tag = SUGGESTION_TAG,
             text = (s as? Suggestion.Completion)?.big?.first ?: s.label,
             more = (s as? Suggestion.Completion)?.big?.second?.takeIf { it.isNotBlank() } ?: help,
             onLongClick = (s as? Suggestion.App)?.let { app -> { onAppLongPress(app.app) } },
@@ -132,7 +139,7 @@ internal fun TtySuggestionStrip(items: List<Suggestion>, rows: Int, onPick: (Sug
                     for (spot in line.spots) key(spot.id) {
                         val s = items[spot.id]
                         SpotNode(
-                            SpotAction(onClick = { onPick(s) }, text = s.label, role = null),
+                            SpotAction(onClick = { onPick(s) }, tag = SUGGESTION_TAG, text = s.label, role = null),
                             frame.originX + spot.rect.col * m.cellW, 0, spot.rect.cols * m.cellW, height,
                         ) {}
                     }
