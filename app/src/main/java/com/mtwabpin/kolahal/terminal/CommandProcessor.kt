@@ -5,51 +5,32 @@ package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
-import androidx.core.net.toUri
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
-import com.mtwabpin.kolahal.commands.Calc
 import com.mtwabpin.kolahal.commands.CommandCatalog
-import com.mtwabpin.kolahal.commands.CommandCatalog.HELP_SECTIONS
 import com.mtwabpin.kolahal.commands.CommandCatalog.PRODUCTIVITY
 import com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
 import com.mtwabpin.kolahal.commands.CommandParsing
-import com.mtwabpin.kolahal.commands.CommandSpec
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
-import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.commands.Pipes
-import com.mtwabpin.kolahal.commands.Units
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.data.Stores
-import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.data.TimeFormats
-import com.mtwabpin.kolahal.notify.Notifier
-import com.mtwabpin.kolahal.script.Json
-import com.mtwabpin.kolahal.script.Net
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.unlock.UnlockCounter
-import com.mtwabpin.kolahal.widgets.listing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Date
 
 /**
  * Parses and runs commands typed at the prompt. Everything it prints goes into the persistent log
@@ -73,6 +54,12 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val feedCommands = FeedCommands(context, appCommands, ui)
     private val editCommands = EditCommands(context, ui)
     private val shaderCommands by lazy { ShaderCommands(context, ::background) }
+    private val aliasCommands = AliasCommands(context)
+    private val helpCommands = HelpCommands(context, ::off)
+    private val calcCommands = CalcCommands(context, ::background)
+    private val webCommands = WebCommands(context)
+    private val logCommands = LogCommands(context, ui)
+    private val systemCommands = SystemCommands(context, ui, ::background)
 
     /** Runs [block] outside the command's thread. What it prints still counts as the command's output. */
     private fun background(label: String, block: () -> Unit) {
@@ -143,7 +130,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     /** Runs one command whose aliases are already expanded. [fromApp]: see [run]. */
     private fun execute(trimmed: String, fromApp: Boolean) {
         // "= 6*7" is a quick calculator. It accepts any Lua expression.
-        if (trimmed.startsWith("=")) return calc(trimmed.drop(1).trim())
+        if (trimmed.startsWith("=")) return calcCommands.calc(trimmed.drop(1).trim())
         val name = trimmed.substringBefore(' ').lowercase()
         val rest = trimmed.substringAfter(' ', "").trim()
         val args = CommandParsing.tokenize(rest)
@@ -154,33 +141,33 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 trimmed
             )
             when (name) {
-                "alias" -> alias(rest)
-                "unalias" -> unalias(args)
+                "alias" -> aliasCommands.alias(rest)
+                "unalias" -> aliasCommands.unalias(args)
                 in AppCommands.NAMES -> appCommands.run(name, args)
                 in UsageCommands.NAMES -> usageCommands.run(name, args)
                 in UsageSummaryCommands.NAMES -> usageSummary.run(args)
                 // `data` alone opens the mobile data panel; `data today` and `data month` show the data each app used.
                 "data" if args.isNotEmpty() -> usageCommands.run(name, args)
-                "help", "?" -> if (args.isEmpty()) help() else commandHelp(args.first())
-                "fetch", "neofetch", "fastfetch" -> fetch()
+                "help", "?" -> if (args.isEmpty()) helpCommands.help() else helpCommands.commandHelp(args.first())
+                "fetch", "neofetch", "fastfetch" -> systemCommands.fetch()
                 // Full-screen screens over home, until a key or a tap (terminal/tty/screens).
                 "matrix", "pipes", "sl" -> ui.showTtyScreen(name)
-                "screen" -> screen(args)
+                "screen" -> systemCommands.screen(args)
                 "shader" -> shaderCommands.run(args)
-                "clear", "cls" -> clear(args)
-                "backup" -> backup(args)
-                "log" -> logFilter(args)
+                "clear", "cls" -> logCommands.clear(args)
+                "backup" -> systemCommands.backup(args)
+                "log" -> logCommands.logFilter(args)
                 "fresh" -> ui.freshScreen()
-                "restart", "reboot" -> restart(args)
-                "history" -> history()
+                "restart", "reboot" -> systemCommands.restart(args)
+                "history" -> logCommands.history()
                 "scripts" -> if (args.isEmpty()) ui.openScreen(Screen.SCRIPTS) else scriptCommands.script(
                     args
                 )
 
                 "script" -> scriptCommands.script(args)
                 "edit" -> editCommands.run(args)
-                "lua" -> eval(ScriptLang.LUA, rest)
-                "js" -> eval(ScriptLang.JS, rest)
+                "lua" -> calcCommands.eval(ScriptLang.LUA, rest)
+                "js" -> calcCommands.eval(ScriptLang.JS, rest)
                 // Created only behind the build switch, so R8 removes the updater from the Play build.
                 // Play allows no updates except its own (tools/check-play-build.sh checks this).
                 "update" -> if (com.mtwabpin.kolahal.BuildConfig.SELF_UPDATE) {
@@ -195,21 +182,21 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 )
 
                 "feed" -> feedCommands.feeds(args)
-                "widgets", "widget" -> widgets(args)
+                "widgets", "widget" -> systemCommands.widgets(args)
                 "notifs", "notifications-feed" -> feedCommands.notifs(args)
-                "url", "web" -> openUrl(rest)
-                "source" -> openUrl(com.mtwabpin.kolahal.Links.SOURCE)
-                "wallpaper" -> wallpaper(args)
-                "search", "g" -> search(rest)
-                "yt", "youtube" -> search(rest, "youtube")
-                "wiki" -> search(rest, "wikipedia")
-                "maps", "map" -> if (rest.isBlank()) fallbackLaunch(trimmed) else openUri(
+                "url", "web" -> webCommands.openUrl(rest)
+                "source" -> webCommands.openUrl(com.mtwabpin.kolahal.Links.SOURCE)
+                "wallpaper" -> systemCommands.wallpaper(args)
+                "search", "g" -> webCommands.search(rest)
+                "yt", "youtube" -> webCommands.search(rest, "youtube")
+                "wiki" -> webCommands.search(rest, "wikipedia")
+                "maps", "map" -> if (rest.isBlank()) fallbackLaunch(trimmed) else webCommands.openUri(
                     "geo:0,0?q=" + Uri.encode(
                         rest
                     ), "Maps: $rest"
                 )
 
-                "play", "store" -> if (rest.isBlank()) fallbackLaunch(trimmed) else openUri(
+                "play", "store" -> if (rest.isBlank()) fallbackLaunch(trimmed) else webCommands.openUri(
                     "market://search?q=" + Uri.encode(
                         rest
                     ), "Play Store: $rest"
@@ -219,9 +206,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "call", "dial" -> people.call(rest)
                 "sms", "text" -> people.sms(args)
                 "contacts", "contact" -> people.listContacts(rest)
-                "notifications" -> notifications(args)
-                "crashes" -> crashes(args)
-                "setup" -> if (args.firstOrNull() == "text") setupText() else ui.openScreen(Screen.SETUP)
+                "notifications" -> systemCommands.notifications(args)
+                "crashes" -> logCommands.crashes(args)
+                "setup" -> if (args.firstOrNull() == "text") systemCommands.setupText() else ui.openScreen(Screen.SETUP)
                 "tour" -> ui.openScreen(Screen.ONBOARDING)
                 "status" -> scriptCommands.status(args)
                 "usage-access" -> startActivity(com.mtwabpin.kolahal.usage.UsageAccess.intent())
@@ -241,9 +228,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 }
 
                 "shade" -> com.mtwabpin.kolahal.gesture.Gestures.expandShade(context)
-                "date", "time" -> if (args.isEmpty()) now() else date(args)
+                "date", "time" -> if (args.isEmpty()) systemCommands.now() else systemCommands.date(args)
                 "echo" -> out(rest)
-                "cal" -> cal(rest)
+                "cal" -> systemCommands.cal(rest)
                 "config", "set" -> if (name == "config" && args.isEmpty()) ui.openScreen(Screen.SETTINGS) else configCommands.config(
                     args,
                     rest
@@ -276,91 +263,6 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val line = expandAliases(word).trim()
         if (line == word || ScriptCommands.carriesSecret(line) || expandAliases(line).trim() != line) return null
         return line
-    }
-
-    private fun alias(rest: String) {
-        when (val request = Aliases.parse(rest, RESERVED_NAMES)) {
-            Aliases.Request.ShowAll -> {
-                val all = prefs.aliases()
-                if (all.isEmpty()) info("No aliases — e.g. alias m = open maps")
-                all.forEach { (k, v) -> out("$k = $v", LogContext.of(LogContext.COMMAND to k)) }
-            }
-
-            is Aliases.Request.Show -> prefs.alias(request.name)
-                ?.let { out("${request.name} = $it") } ?: error("No alias '${request.name}'")
-
-            Aliases.Request.Usage -> error("Usage: alias <name> = <command>")
-            is Aliases.Request.BuiltIn -> error("'${request.name}' is a built-in command and can't be an alias")
-            is Aliases.Request.Define -> {
-                prefs.setAlias(request.name, request.expansion)
-                info("Alias ${request.name} = ${request.expansion}")
-            }
-        }
-    }
-
-    private fun unalias(args: List<String>) {
-        val name = args.firstOrNull() ?: return usage("unalias")
-        if (prefs.alias(name) == null) return error("No alias '$name'")
-        prefs.setAlias(name, null)
-        info("Removed alias $name")
-    }
-
-    // ---- output helpers -------------------------------------------------------------------
-
-
-    /** `cal [dec [2027]]`: prints the month as a calendar, with today in bold. Weeks start on the locale's first day. */
-    private fun cal(rest: String) {
-        val today = java.time.LocalDate.now()
-        val month = MonthCalendar.parse(rest, today)
-            ?: return error("Unknown month '$rest'. Use cal, cal dec, cal dec 2027 or cal 2027-12")
-        val lines = MonthCalendar.lines(
-            month,
-            today
-        ) {
-            StyledText.wrap(
-                StyledText.Style.BOLD,
-                it
-            )
-        }
-        // One log line per row, in the terminal font, so the columns line up.
-        lines.forEach { out(it, LogContext(LogContext.ALIGNED)) }
-    }
-
-    /** `date`: the time large, with today's date under it. Copy gives the date and time in full. */
-    private fun now() {
-        val now = java.time.ZonedDateTime.now()
-        val clock24 = Config.get(context)[Keys.CLOCK_24H]
-        val time =
-            now.format(java.time.format.DateTimeFormatter.ofPattern(TimeFormats.clock(clock24)))
-        val day = now.format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy"))
-        out(
-            StyledText.stats(listOf(time to day)),
-            LogContext.of(LogContext.COPY to DateFormat.getDateTimeInstance().format(Date()))
-        )
-    }
-
-    /**
-     * `date tokyo new york`: prints the time in each place, one line each, and how far ahead or behind
-     * it is. One place shows its time large, with the place under it.
-     */
-    private fun date(words: List<String>) {
-        val places = WorldClock.parse(words)
-            ?: return error("Unknown place '${words.joinToString(" ")}'. Use a city (tokyo, new york), a zone (Asia/Tokyo), utc, or an offset like +5:30")
-        val now = java.time.Instant.now()
-        val clock24 = Config.get(context)[Keys.CLOCK_24H]
-        if (places.size == 1) {
-            val line = WorldClock.line(places[0], now, java.time.ZoneId.systemDefault(), clock24)
-            val under = listOf(line.place, line.day, line.relative).filter { it.isNotEmpty() }
-                .joinToString(" · ")
-            return out(
-                StyledText.stats(listOf(line.time to under)),
-                LogContext.of(LogContext.COPY to "${line.place} ${line.detail}")
-            )
-        }
-        for (place in places) {
-            val line = WorldClock.line(place, now, java.time.ZoneId.systemDefault(), clock24)
-            out(line.place, LogContext.of(LogContext.DESC to line.detail))
-        }
     }
 
     /**
@@ -423,575 +325,5 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    // ---- misc -----------------------------------------------------------------------------
-
-    private fun history() {
-        val cmds = logs.commandHistory(30).reversed()
-        cmds.forEach { out(it, LogContext.of(LogContext.COMMAND to it)) }
-        if (cmds.isEmpty()) info("History is empty")
-    }
-
-    private fun eval(lang: ScriptLang, code: String) {
-        if (code.isBlank()) {
-            usage(lang.ext)
-            return
-        }
-        if (!ScriptScheduler.eval(context, lang, code)) error("Snippet too long — use 'script new'")
-    }
-
-    private fun openUrl(raw: String) {
-        if (raw.isBlank()) return usage("url")
-        val url = if (raw.contains("://")) raw else "https://$raw"
-        startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
-        info("Opened $url", LogContext.of(LogContext.URL to url))
-    }
-
-    private fun search(query: String, engine: String? = null) {
-        if (query.isBlank()) return usage("search")
-        val template = when (engine ?: conf[Keys.SEARCH_ENGINE]) {
-            "google" -> "https://www.google.com/search?q=%s"
-            "bing" -> "https://www.bing.com/search?q=%s"
-            "brave" -> "https://search.brave.com/search?q=%s"
-            "startpage" -> "https://www.startpage.com/do/search?q=%s"
-            "kagi" -> "https://kagi.com/search?q=%s"
-            "youtube" -> "https://www.youtube.com/results?search_query=%s"
-            "wikipedia" -> "https://en.wikipedia.org/w/index.php?search=%s"
-            "custom" -> conf[Keys.SEARCH_URL].takeIf { it.contains("%s") }
-                ?: "https://duckduckgo.com/?q=%s"
-
-            else -> "https://duckduckgo.com/?q=%s"
-        }
-        val url = template.replace("%s", Uri.encode(query))
-        startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
-        info("Search: $query", LogContext.of(LogContext.URL to url))
-    }
-
-    /** Opens [uri] in the app that handles it (maps, store, ...). */
-    private fun openUri(uri: String, what: String) {
-        startActivity(Intent(Intent.ACTION_VIEW, uri.toUri()))
-        info(what, LogContext.of(LogContext.URL to uri))
-    }
-
-    // ---- calculator & conversions --------------------------------------------------------
-
-    /** `= 2^10`, `= 5 km in mi`, `= 72 f to c`, `= 100 usd in inr`. Currency uses live rates, cached for 6h. */
-    private fun calc(expr: String) {
-        val conversion = Units.parse(expr)
-        if (conversion != null) {
-            val (amount, from, to) = conversion
-            Units.convert(amount, from, to)?.let {
-                return answer(
-                    it.substringAfter("= "),
-                    it.substringBefore(" = "),
-                    fallback = it
-                )
-            }
-            if (Units.looksLikeCurrency(from) && Units.looksLikeCurrency(to)) {
-                return background("convert") { currency(amount, from.uppercase(), to.uppercase()) }
-            }
-        }
-        // Arithmetic is answered here at once. Anything else (Lua code) goes to Lua.
-        val answer = try {
-            Calc.answer(expr)
-        } catch (e: ArithmeticException) {
-            return error("$expr: ${e.message}")
-        }
-        if (answer != null) return answer(
-            answer,
-            expr.trim().takeIf { it.length <= ANSWER_LABEL_MAX }.orEmpty(),
-            fallback = answer
-        )
-        eval(ScriptLang.LUA, expr)
-    }
-
-    /**
-     * A calculator's [result], large, with [of] (what it answers) under it. Copy gives [copy].
-     * A result too long for big type stays a line of text, [fallback], so it doesn't wrap.
-     */
-    private fun answer(result: String, of: String, fallback: String, copy: String = result) {
-        val ctx = LogContext.of(LogContext.COPY to copy)
-        if (result.length > ANSWER_MAX) out(
-            fallback,
-            ctx
-        ) else out(StyledText.stats(listOf(result to of)), ctx)
-    }
-
-    private fun currency(amount: Double, from: String, to: String) {
-        val cache = KvStore(context, Stores.FX)
-        val cached =
-            cache.get(from)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
-        val fresh = (cached?.get("at") as? Number)?.toLong()
-            ?.let { System.currentTimeMillis() - it < 6 * 3_600_000L } == true
-        val rates = if (fresh) {
-            cached["rates"] as? Map<*, *>
-        } else {
-            val body = Json.parse(Net.get("https://open.er-api.com/v6/latest/$from")) as? Map<*, *>
-                ?: throw IllegalStateException("invalid response")
-            if (body["result"] != "success") throw IllegalStateException("unknown currency $from")
-            (body["rates"] as? Map<*, *>)?.also {
-                cache.set(
-                    from,
-                    Json.stringify(mapOf("at" to System.currentTimeMillis(), "rates" to it))
-                )
-            }
-        }
-        val rate = (rates?.get(to) as? Number)?.toDouble()
-            ?: throw IllegalStateException("unknown currency $to")
-        val result = "${Units.format(amount * rate)} $to"
-        answer(
-            result,
-            "${Units.format(amount)} $from",
-            fallback = "${Units.format(amount)} $from = $result",
-            copy = Units.format(amount * rate)
-        )
-    }
-
-    // ---- widgets ----------------------------------------------------------------------------
-
-    /**
-     * - `widgets` alone opens Arrange widgets.
-     * - `widgets page` turns home to the widgets page beside the log.
-     * - `widgets ls` prints the placed widgets. A tap opens Arrange widgets.
-     * - `widget add` opens the picker.
-     */
-    private fun widgets(args: List<String>) {
-        val host = com.mtwabpin.kolahal.widgets.WidgetHost.get(context)
-        when (args.firstOrNull()) {
-            null -> ui.openScreen(Screen.WIDGETS)
-            "page" -> if (conf[Keys.WIDGETS_PAGE] == "off") fix(
-                "The widgets page is off — tap to turn it on",
-                "config set widgets.page left"
-            ) else ui.showWidgetsPage()
-
-            "ls", "list" -> {
-                val lines = host.listing(context)
-                if (lines.isEmpty()) return info(
-                    "No widgets yet — widget add opens the picker",
-                    LogContext.of(LogContext.RUN to "widget add")
-                )
-                lines.forEach { (text, desc) ->
-                    out(
-                        text,
-                        LogContext.of(LogContext.RUN to "widgets", LogContext.DESC to desc)
-                    )
-                }
-            }
-
-            "add" -> ui.openScreen(Screen.WIDGET_PICKER)
-            else -> usage("widgets", "widget")
-        }
-    }
-
-    /** Asks for the runtime permission when possible. Otherwise (before Android 13, or turned off) opens settings. */
-    private fun notifications(args: List<String>) {
-        val permissionMissing = Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(
-            android.Manifest.permission.POST_NOTIFICATIONS,
-        ) != PackageManager.PERMISSION_GRANTED
-        when {
-            args.firstOrNull() == "settings" || (!permissionMissing && !Notifier.canPost(context)) ->
-                startActivity(
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                )
-
-            permissionMissing -> ui.requestNotificationPermission()
-            else -> info("Notifications are allowed")
-        }
-    }
-
-    /**
-     * - `wallpaper` says whether the home screen wallpaper is Kolahal's.
-     * - `wallpaper match` sets Kolahal's wallpaper ([com.mtwabpin.kolahal.control.WallpaperMatch]), in
-     *   the theme's color as home last showed it.
-     *   It asks first, because Android doesn't let an app read the wallpaper it replaces, so the
-     *   old one can't be restored.
-     * - The Material You themes take their colors from the wallpaper. So the wallpaper can't follow
-     *   one, and both forms say so.
-     */
-    private fun wallpaper(args: List<String>) {
-        val match = com.mtwabpin.kolahal.control.WallpaperMatch
-        // The theme in use, when it is a Material You one: its name is in the messages.
-        val theme = conf[Keys.THEME].takeIf(com.mtwabpin.kolahal.data.MaterialYou::isOne)
-            ?: com.mtwabpin.kolahal.data.MaterialYou.NAME
-        when (args.firstOrNull()?.lowercase()) {
-            null -> info(
-                when {
-                    !match.isMatched(context) -> "Your home screen wallpaper is your own; Kolahal doesn't change it (wallpaper match sets it to the theme's color)"
-                    match.themeFromWallpaper -> "Your home screen wallpaper is Kolahal's, but it doesn't follow the $theme theme, which takes its colors from the wallpaper. It follows again when you pick another theme"
-                    else -> "Your home screen wallpaper is in the theme's color, and follows the theme"
-                },
-            )
-
-            "match" -> {
-                val color = match.themeColor
-                when {
-                    match.themeFromWallpaper -> error("The $theme theme takes its colors from the wallpaper, so the wallpaper can't follow it: pick another theme, then try again")
-                    match.isMatched(context) -> info("Your home screen wallpaper already follows the theme")
-                    args.getOrNull(1) != "--yes" -> {
-                        info("This replaces your home screen wallpaper with this theme's color, so it doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal can't restore the old one, and log.wallpaper and widgets.wallpaper will show only this color.")
-                        info(
-                            "Tap to replace it",
-                            LogContext.of(LogContext.RUN to "wallpaper match --yes")
-                        )
-                    }
-
-                    color == null -> error("Kolahal doesn't know the theme's color yet: go home, then try again")
-                    match.set(
-                        context,
-                        color
-                    ) -> info("Home screen wallpaper set to this theme's color. It follows the theme until you set another wallpaper; the lock screen wallpaper isn't changed")
-
-                    else -> error("Couldn't change the wallpaper on this phone")
-                }
-            }
-
-            else -> usage("wallpaper")
-        }
-    }
-
-    /** `crashes [share|clear] [n]`: manages the crash reports kept on this phone ([com.mtwabpin.kolahal.CrashReports]). */
-    private fun crashes(args: List<String>) {
-        val reports = com.mtwabpin.kolahal.CrashReports.list(context)
-        when (args.firstOrNull()?.lowercase()) {
-            null, "ls" -> {
-                if (reports.isEmpty()) return info("No crash reports. If Kolahal stops unexpectedly, a report is kept here until you share or clear it")
-                reports.forEachIndexed { i, r ->
-                    out(
-                        "#${i + 1} ${r.kind.label} ${
-                            com.mtwabpin.kolahal.CrashReports.whenText(
-                                context,
-                                r.time
-                            )
-                        }\n${r.summary.take(160)}",
-                        LogContext(mapOf(LogContext.RUN to "crashes share ${r.id}") + LogContext.ITEM),
-                    )
-                }
-                info("Tap one to share it · crashes clear deletes them all")
-            }
-
-            "share" -> {
-                val which = args.getOrNull(1)
-                val r = when {
-                    which == null -> reports.firstOrNull()
-                    which.toIntOrNull() != null -> reports.getOrNull(which.toInt() - 1)
-                    else -> reports.firstOrNull { it.id == which }
-                }
-                    ?: return error(if (reports.isEmpty()) "No crash reports" else "No crash report $which (crashes lists them)")
-                startActivity(com.mtwabpin.kolahal.CrashReports.shareIntent(r.text()))
-            }
-
-            "clear" -> com.mtwabpin.kolahal.CrashReports.clear(context).let { n ->
-                info(if (n == 1) "Deleted 1 crash report" else "Deleted $n crash reports")
-            }
-
-            else -> usage("crashes")
-        }
-    }
-
-    /**
-     * `log only xkcd` · `log only feeds`: the log shows only those lines. This lasts until `log all`,
-     * ✕, Back, or another command.
-     */
-    private fun logFilter(args: List<String>) {
-        when (args.firstOrNull()) {
-            "only" -> ui.filterLog(
-                LogFilter.parse(args.drop(1).joinToString(" "))
-                    ?: return error("Usage: log only <script, feed or app | commands, scripts, feeds, notifications, apps, calls, reminders, starred>")
-            )
-
-            "all" -> ui.filterLog(null)
-            else -> usage("log")
-        }
-    }
-
-    /**
-     * `screen <name>`: one of the full-screen screens over home
-     * ([com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens]). Without a known name it lists them.
-     */
-    private fun screen(args: List<String>) {
-        val names = com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens.names
-        val name = args.firstOrNull()?.lowercase() ?: return usage("screen")
-        if (name !in names) return error("No screen called $name. Screens: ${names.joinToString(", ")}")
-        ui.showTtyScreen(name)
-    }
-
-    /** `fetch`: a summary of this phone and Kolahal ([Fetch]), aligned in the terminal font. */
-    private fun fetch() {
-        val (device, rows) = Fetch.facts(context)
-        val at = System.currentTimeMillis()
-        logs.addAll(
-            Fetch.layout(
-                device,
-                rows,
-                Fetch.columns(context, ui.logWidthPx()),
-                conf[Keys.USER_NAME]
-            ).map {
-                LogRepository.Pending(
-                    LogKind.OUTPUT,
-                    it,
-                    null,
-                    LogContext(LogContext.ALIGNED),
-                    at
-                )
-            })
-    }
-
-    /**
-     * - `clear` clears the screen.
-     * - `clear history` clears the ↑ recall history.
-     * - `clear all` clears everything (log and history).
-     */
-    private fun clear(args: List<String>) {
-        when (args.firstOrNull()) {
-            null, "screen" -> ui.clearScreen()
-            "history" -> {
-                logs.clearHistory()
-                info("Command history cleared")
-            }
-
-            "all", "log" -> logs.clearAll()
-            else -> usage("clear")
-        }
-    }
-
-    /**
-     * - `backup` writes today's backup file to the backup folder. If no folder is set, it asks for one first.
-     * - `backup every daily|weekly|off` sets automatic backups.
-     * - `backup dir` picks the folder.
-     */
-    private fun backup(args: List<String>) {
-        val auto = com.mtwabpin.kolahal.data.AutoBackup
-        when (args.firstOrNull()?.lowercase()) {
-            null, "now" -> if (auto.folder(context) == null) {
-                info("Pick a folder for backups; the backup is written there")
-                ui.askBackupFolder(thenBackUp = true)
-            } else background("backup") {
-                val name = auto.backUp(context)
-                val every =
-                    conf[Keys.BACKUP_AUTO].takeIf { it != "off" }?.let { " · automatic: $it" }
-                        ?: " · 'backup every daily' automates it"
-                info("Backed up: $name in ${auto.folderName(context) ?: "the backup folder"}$every")
-            }
-
-            "every", "auto" -> {
-                val value = when (val v = args.getOrNull(1)?.lowercase()) {
-                    "day" -> "daily"; "week" -> "weekly"; else -> v
-                }
-                if (value == null || value !in Keys.BACKUP_AUTO.choices) return error("Usage: backup every <daily|weekly|off>")
-                conf.set(Keys.BACKUP_AUTO, value)
-                if (value == "off") return info("Automatic backups off")
-                info("Backing up $value to ${auto.folderName(context) ?: "a folder you pick"}, keeping the newest ${conf[Keys.BACKUP_KEEP]} (backup.keep)")
-                if (auto.folder(context) == null) ui.askBackupFolder(thenBackUp = false)
-            }
-
-            "dir", "folder" -> ui.askBackupFolder(thenBackUp = false)
-            else -> usage("backup")
-        }
-    }
-
-    /**
-     * - `restart` relaunches the launcher.
-     * - `restart scripts` stops the :script process, for stuck scripts.
-     */
-    private fun restart(args: List<String>) {
-        when (args.firstOrNull()) {
-            null, "launcher" -> {
-                info("Restarting…")
-                com.mtwabpin.kolahal.LauncherApp.restart(context, afterMs = 300)
-            }
-
-            "scripts", "script" -> {
-                val am = context.getSystemService(android.app.ActivityManager::class.java)
-                val scriptProcess = am.runningAppProcesses.orEmpty()
-                    .firstOrNull { it.processName.endsWith(":script") }
-                if (scriptProcess == null) {
-                    info("Script process isn't running")
-                } else {
-                    android.os.Process.killProcess(scriptProcess.pid)
-                    info("Script process stopped; scheduled scripts will start it again")
-                }
-            }
-
-            else -> usage("restart")
-        }
-    }
-
-    /** The text form of the setup checklist (`setup text`). Tapping an unchecked line runs its fix. */
-    fun setupText() {
-        info("Setup — tap an unchecked item to fix it, run 'setup text' again to re-check")
-        SetupChecks.run(context).forEach { c ->
-            val mark = when {
-                c.ok -> "[x]"
-                c.fix == null -> "[-]"
-                else -> "[ ]"
-            }
-            out(
-                "$mark ${c.title} — ${c.detail}",
-                LogContext(
-                    LogContext.ITEM + if (c.ok || c.fix == null) emptyMap() else mapOf(LogContext.RUN to c.fix)
-                )
-            )
-        }
-    }
-
     private fun startSettings(action: String) = startActivity(Intent(action))
-
-    /**
-     * Prints a command's row in `help`: its name, in a column as wide as [column] (the longest name
-     * in the list), what it does, and its arguments muted under that. A tap puts its name in the prompt.
-     */
-    private fun helpLine(spec: CommandSpec, column: String = spec.name) = out(
-        spec.name,
-        LogContext.of(
-            LogContext.COMMAND to spec.name + " ",
-            LogContext.DESC to spec.short,
-            LogContext.NAME_COL to column,
-            LogContext.ARGS to spec.args.ifEmpty { null },
-        ),
-    )
-
-    /** Prints a script command's row in `help`, in the same form as a built-in's: its @desc, and its @usage under it. */
-    private fun helpLine(s: Script, column: String = s.name) {
-        val desc = ScriptMeta.description(s.code) ?: "${s.lang.ext} script"
-        val args = ScriptMeta.usage(s.code, s.name)?.removePrefix(s.name)?.trim()?.ifEmpty { null }
-        out(
-            s.name,
-            LogContext.of(
-                LogContext.COMMAND to s.name + " ",
-                LogContext.SCRIPT to s.name,
-                LogContext.DESC to desc,
-                LogContext.NAME_COL to column,
-                LogContext.ARGS to args,
-            ),
-        )
-    }
-
-    /** A section's heading in `help`: its name, bold in the accent color, and how many commands it has. */
-    private fun helpHeading(name: String, count: Int) = info(
-        StyledText.color(
-            StyledText.ColorRole.ACCENT,
-            StyledText.wrap(StyledText.Style.BOLD, name)
-        ) + StyledText.color(StyledText.ColorRole.MUTED, " · $count"),
-        LogContext(LogContext.ITEM),
-    )
-
-    /**
-     * `help`: every command, in sections, one row each (name, what it does, its arguments).
-     * Each built-in command is in a section of [HELP_SECTIONS]; the script commands come last.
-     */
-    private fun help() {
-        val off = off()
-        val offered = CommandCatalog.OFFERED.filter { it.name !in off }
-        val byName = offered.associateBy { it.name }
-        val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) }
-        // One column for the whole list, so the descriptions line up.
-        val column = (offered.map { it.name } + commandScripts.map { it.name }).maxBy { it.length }
-        val placed = HashSet<String>()
-        for ((section, names) in HELP_SECTIONS) {
-            val specs = names.mapNotNull(byName::get)
-            if (specs.isEmpty()) continue
-            helpHeading(section.replaceFirstChar { it.uppercase() }, specs.size)
-            specs.forEach { spec ->
-                placed += spec.name
-                helpLine(spec, column)
-            }
-        }
-        // None should be left, but a command missing from HELP_SECTIONS still shows.
-        offered.filter { it.name !in placed }.forEach { helpLine(it, column) }
-        if (commandScripts.isNotEmpty()) helpHeading("Your script commands", commandScripts.size)
-        commandScripts.forEach { helpLine(it, column) }
-        val muted = { text: String -> StyledText.color(StyledText.ColorRole.MUTED, text) }
-        val key = { text: String -> StyledText.tag(StyledText.ColorRole.TEXT, text) }
-        info(muted("Anything else opens the app it matches"), LogContext(LogContext.ITEM))
-        if (off.isNotEmpty()) info(muted("Turned off: ") + CommandsOff.CHOICES.filter { it in off }
-            .joinToString(", ") + muted(" · Settings → Commands"), LogContext(LogContext.ITEM))
-        info(key("tap") + muted(" a line to use it · ") + key("long-press") + muted(" for more"))
-        // No-break spaces keep the example on one line. A line may still break after "|" there; the word joiner stops it.
-        info(muted("Pipes: ") + Pipes.SHOWN.joinToString(" ") { key(it) } + muted(" · help\u00A0|\u2060\u00A0grep\u00A0feed"))
-    }
-
-    /**
-     * `help todo`: that command in full. Its name large, what it does, then each way to use it
-     * ([CommandSpec.uses], or its usage line), its other names, and a link to more in the guide.
-     */
-    private fun commandHelp(word: String) {
-        val typed = word.lowercase()
-        val off = off()
-        if (CommandsOff.isOff(
-                typed,
-                off
-            )
-        ) return info("${InstantRun.canonical(typed)} is turned off: its name opens the app it matches · Settings → Commands turns it on")
-        val offered = CommandCatalog.OFFERED.filter { it.name !in off }
-        offered.firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
-            out(
-                StyledText.stats(listOf(spec.name to "")),
-                LogContext.of(LogContext.COMMAND to spec.name + " ")
-            )
-            out(spec.help)
-            info(StyledText.color(StyledText.ColorRole.MUTED, "Use"), LogContext(LogContext.ITEM))
-            if (spec.uses.isEmpty()) {
-                out(
-                    StyledText.wrap(StyledText.Style.BOLD, spec.usage),
-                    LogContext.of(LogContext.COMMAND to spec.name + " ")
-                )
-            } else {
-                val column = spec.uses.maxBy { it.first.length }.first
-                spec.uses.forEach { (use, does) ->
-                    out(
-                        use,
-                        LogContext.of(
-                            LogContext.COMMAND to useCommand(use),
-                            LogContext.DESC to StyledText.color(StyledText.ColorRole.MUTED, does),
-                            LogContext.NAME_COL to column,
-                        ),
-                    )
-                }
-            }
-            val also = spec.aka
-            if (also.isNotEmpty()) info(
-                "Also known as ${also.joinToString(", ")}",
-                LogContext(LogContext.ITEM)
-            )
-            info(
-                "More in the guide's command list",
-                LogContext.of(LogContext.URL to com.mtwabpin.kolahal.Links.GUIDE + "reference/commands/") + if (also.isEmpty()) LogContext.ITEM else emptyMap()
-            )
-            return
-        }
-        prefs.alias(typed)?.let {
-            return info(
-                "$typed is your alias for: $it",
-                LogContext.of(LogContext.COMMAND to "$typed ")
-            )
-        }
-        scripts.all().firstOrNull { it.name == typed && ScriptMeta.isCommand(it.code) }
-            ?.let { return helpLine(it) }
-        // Not a command. Show the commands it may be the start of, or a typo of.
-        val near =
-            offered.filter { it.name.startsWith(typed) || CommandParsing.isNear(typed, it.name) }
-        if (near.isEmpty()) return error("No command called '$word' · help lists them all")
-        info("No command called '$word'; nearest:")
-        near.take(8).let { shown ->
-            shown.forEach {
-                helpLine(
-                    it,
-                    shown.maxBy { s -> s.name.length }.name
-                )
-            }
-        }
-    }
 }
-
-/**
- * What a tap on a use in `help <command>` puts in the prompt: its words up to the first one to fill
- * in or choose. `todo done <n>` gives "todo done ", `script on|off <name>` gives "script ".
- */
-internal fun useCommand(use: String): String =
-    use.split(" ").takeWhile { w -> w.none { it in "<[|" } }.joinToString(" ") + " "
-
-/** A calculator's result longer than this stays a line of text: in big type it would wrap. */
-internal const val ANSWER_MAX = 16
-
-/** An expression longer than this isn't shown under its result: it's on the command line above. */
-private const val ANSWER_LABEL_MAX = 32

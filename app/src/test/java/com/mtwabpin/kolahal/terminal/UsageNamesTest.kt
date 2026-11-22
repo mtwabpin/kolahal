@@ -31,7 +31,7 @@ class UsageNamesTest {
         assertTrue(asked.toString(), asked.size > 20)
         assertTrue(
             asked.toString(),
-            ("ControlCommands.kt" to "torch") in asked && ("CommandProcessor.kt" to "widget") in asked
+            ("ControlCommands.kt" to "torch") in asked && ("SystemCommands.kt" to "widget") in asked
         )
     }
 
