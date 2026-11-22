@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
-/** `decode`: home's lines, where home has them, in waves with rests between. */
+/** `decode`: home's lines, where home has them, in waves, one after the other. */
 class DecodeScreenTest {
     private val cols = 30
     private val rows = 20
@@ -45,6 +45,11 @@ class DecodeScreenTest {
                 step()
                 each()
             }
+        }
+
+        /** On to the moment between two waves, when all of it is plain text. */
+        fun settle() {
+            do step() while (screen.restMs == 0L)
         }
 
         fun text(): List<String> = grid.dump().lines().map { it.trimEnd() }.dropLastWhile { it.isEmpty() }
@@ -91,7 +96,9 @@ class DecodeScreenTest {
             }
             places += run.screen.rowLeft to run.screen.rowTop(0)
         }
-        assertTrue("${lengths.size} waves", lengths.size > 15)
+        // It goes on for as long as it is open: five minutes of waves, and hardly anything between them.
+        assertTrue("${lengths.size} waves", lengths.size > 60)
+        assertTrue("${rests.sum()} ms of rest", rests.sum() < 300_000 / 3)
         assertTrue("$scrambled frames", scrambled > 100)
         for (ms in lengths) assertTrue("a wave of $ms ms", ms <= DecodeScreen.WAVE_MAX_MS)
         // The first wait is shorter, so the effect shows at once.
@@ -118,6 +125,7 @@ class DecodeScreenTest {
     fun aNewLineDecodesIn() {
         val run = Run(home(words))
         run.until(6_000)
+        run.settle()
         assertEquals(words, run.text())
         val more = words + "Something happened"
         run.log = ShownLog(12, 76, home(more).rows)
@@ -125,10 +133,10 @@ class DecodeScreenTest {
         val until = run.t + 3_000
         run.until(until) {
             val text = run.text()
-            assertEquals(words, text.take(words.size))
             if (text.size > words.size && text.last() != more.last()) scrambled = true
         }
         assertTrue(scrambled)
+        run.settle()
         assertEquals(more, run.text())
         assertEquals(76, run.screen.rowTop(0))
     }
@@ -142,6 +150,7 @@ class DecodeScreenTest {
         run.until(run.t + DecodeScreen.READ_MS + 50)
         assertEquals(words.size - 3, run.text().size)
         run.until(7_000)
+        run.settle()
         assertEquals(words.drop(3), run.text())
         // After a pause it reads home at once.
         run.log = home(words.drop(5))
@@ -158,6 +167,7 @@ class DecodeScreenTest {
         assertEquals(words.takeLast(5), run.text())
         assertEquals(100 + 4 * 24, run.screen.rowTop(0))
         run.until(6_000)
+        run.settle()
         assertEquals(words.takeLast(5), run.text())
     }
 
@@ -168,10 +178,12 @@ class DecodeScreenTest {
         run.until(500)
         assertEquals(emptyList<String>(), run.text())
         run.until(1_300)
+        run.settle()
         assertEquals(listOf("The log is empty"), run.text())
         // Once home's lines are there, they show.
         run.log = home(words)
         run.until(8_000)
+        run.settle()
         assertEquals(words, run.text())
     }
 

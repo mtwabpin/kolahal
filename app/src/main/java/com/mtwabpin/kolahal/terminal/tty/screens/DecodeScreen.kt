@@ -14,8 +14,9 @@ import kotlin.random.Random
 
 /**
  * `decode`: the log lines on home scramble and settle again ([Decode]), where home shows them. All
- * of them first, from the top down; then, after some seconds of plain text, a wave from somewhere
- * else ([Wave]), never the same one twice in a row, and so on until you leave it.
+ * of them first, from the top down; then, at once, a wave from somewhere else ([Wave]), never the same
+ * one twice in a row, and so on for as long as it is open. A wave takes a part of the lines at a time,
+ * so the rest can be read.
  *
  * It shows what home's log shows and nothing else: it reads home again now and then ([READ_MS];
  * more often at the start and after a pause), so a line that comes in decodes in, and one that home
@@ -259,9 +260,9 @@ class DecodeScreen : TtyScreen, PlacedRows {
         /** A wave takes this long at most. */
         const val WAVE_MAX_MS = 6_000L
 
-        /** Between waves: at least this long, and up to [REST_MORE_MS] more. */
-        const val REST_MS = 7_000L
-        const val REST_MORE_MS = 5_000
+        /** Between waves: a breath, at least this long, and up to [REST_MORE_MS] more. */
+        const val REST_MS = 200L
+        const val REST_MORE_MS = 500
 
         /** How often home's lines are read, and how often for [OFTEN_FOR_MS] at the start and after a pause. */
         const val READ_MS = 1_000L
@@ -276,7 +277,7 @@ class DecodeScreen : TtyScreen, PlacedRows {
         private const val NOTHING = "The log is empty"
 
         /** Every so many waves, all of it moves to the next of these places. */
-        private const val SHIFT_EVERY = 3
+        private const val SHIFT_EVERY = 10
         private val SHIFT_COLS = intArrayOf(0, 1, 1, 0, -1, -1, -1, 0, 1)
         private val SHIFT_ROWS = intArrayOf(0, 0, -1, -1, -1, 0, 1, 1, 1)
     }
