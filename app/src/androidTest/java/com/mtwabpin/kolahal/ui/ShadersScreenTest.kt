@@ -35,6 +35,7 @@ import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
+import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -172,6 +173,52 @@ class ShadersScreenTest {
         } finally {
             ShaderPlay.current.value?.let(ShaderPlay::done)
         }
+    }
+
+    /** A one-off shader's words are kept as they are typed, and its row says them. */
+    @Test
+    fun itsWordsAreKept() {
+        needsAndroid13()
+        try {
+            show()
+            compose.onNodeWithTag("shader-search").performTextInput("hearts")
+            compose.waitForNode(hasTestTag("shader hearts"))
+            openSheet("hearts", "Hearts")
+            compose.onNodeWithTag("shader-words").performScrollTo().performTextInput("Alex, picnic")
+            compose.waitFor("not kept") { ShaderWords.words.value["hearts"] == "Alex, picnic" }
+            compose.runOnIdle { ShaderWords.load(app) }
+            assertEquals("Alex, picnic", ShaderWords.words.value["hearts"])
+            ShaderWords.onNotification("alex", "Running late")
+            assertEquals("hearts", ShaderPlay.current.value?.name)
+        } finally {
+            ShaderPlay.current.value?.let(ShaderPlay::done)
+            ShaderWords.set(app, "hearts", "")
+        }
+    }
+
+    /** A formula for what a parameter follows counts once it can be worked out. */
+    @Test
+    fun aFormulaForAParameter() {
+        needsAndroid13()
+        val camels = Shaders.params(app, "dunes").first { it.name == "camels" }
+        ShaderParams.setFollow(app, "dunes", camels, "battery")
+        try {
+            show()
+            compose.onNodeWithTag("shader-search").performTextInput("dunes")
+            compose.waitForNode(hasTestTag("shader dunes"))
+            openSheet("dunes", "Dunes")
+            val field = compose.onNodeWithTag("formula camels", useUnmergedTree = true)
+            field.performScrollTo().performTextInput("battery /")
+            compose.waitForText("Can't be worked out", substring = true)
+            assertNull(ShaderParams.formula("dunes", camels))
+            field.performTextInput(" 20")
+            compose.waitFor("not kept") { ShaderParams.formula("dunes", camels) == "battery / 20" }
+            compose.runOnIdle { ShaderParams.load(app) }
+            assertEquals("battery / 20", ShaderParams.formula("dunes", camels))
+        } finally {
+            ShaderParams.reset(app, "dunes")
+        }
+        assertNull(ShaderParams.formula("dunes", camels))
     }
 
     /** Its details say what it works well over, and warn while too much of a wallpaper shows. */

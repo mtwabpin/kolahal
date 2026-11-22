@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.Calc
+import com.mtwabpin.kolahal.commands.Units
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows

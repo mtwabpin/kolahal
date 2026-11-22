@@ -66,7 +66,7 @@ fun SettingsOverHome(vm: TerminalViewModel) {
 fun ShadersOverHome(vm: TerminalViewModel) {
     Box(Modifier.fillMaxSize()) {
         HomeUnder(vm)
-        ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, vm.peek, vm::peek)
+        ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, vm.peek, vm::peek, vm::askNotificationAccess)
     }
 }
 

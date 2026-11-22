@@ -61,7 +61,6 @@ data-month.lua 06af475e35624383
 data-month.lua 27f18b29804ef784
 data-month.lua 81937717813f5256
 data-month.lua a6ea3a475c79010a
-effect-on-word.lua f38a60e84b5a6371
 exchange.js 1acf4b149d2f1824
 exchange.js 1ecef54f1aac51f8
 exchange.js 1ff7df9f277fbc6b

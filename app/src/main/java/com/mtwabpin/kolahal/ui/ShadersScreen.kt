@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ShaderActions
@@ -78,6 +79,7 @@ fun ShadersScreen(
     onBack: () -> Unit,
     peek: StateFlow<TerminalViewModel.Peek?> = remember { MutableStateFlow(null) },
     onPeek: (TerminalViewModel.Peek?) -> Unit = {},
+    onAskNotifications: () -> Unit = {},
 ) {
     val files by Shaders.version.collectAsStateWithLifecycle()
     val trips by actions.trips.collectAsStateWithLifecycle()
@@ -245,6 +247,7 @@ fun ShadersScreen(
                 shown = { shown.value },
                 onShow = { details = it },
                 onPlay = play,
+                onAskNotifications = onAskNotifications,
                 onPeek = { shader -> onPeek(shader?.let { TerminalViewModel.Peek(null, false, it) }) },
                 onDismiss = { details = null },
             )
@@ -300,7 +303,8 @@ private fun ShaderChoice(
         supportingContent = {
             Column {
                 row.meta.description?.let { Text(it) }
-                val notes = ShaderPage.notes(row, inUse).joinToString(" · ")
+                val words by ShaderWords.words.collectAsStateWithLifecycle()
+                val notes = ShaderPage.notes(row, inUse, words[row.name].takeIf { row.meta.once != null }).joinToString(" · ")
                 if (notes.isNotEmpty()) Text(
                     notes,
                     style = MaterialTheme.typography.bodySmall,

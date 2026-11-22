@@ -24,6 +24,7 @@
         <exclude domain="sharedpref" path="logs.xml" />
         <!-- Which apps you open and when, how often you unlock, and which app played last: not for the cloud. -->
         <exclude domain="sharedpref" path="app_usage.xml" />
+        <exclude domain="sharedpref" path="shader_words.xml" />
         <exclude domain="sharedpref" path="unlocks.xml" />
         <exclude domain="sharedpref" path="media.xml" />
         <!-- The Play build's picked contacts: names and numbers stay on the phone. -->

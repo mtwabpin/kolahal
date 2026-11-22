@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuPopup
@@ -25,6 +28,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,6 +45,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
@@ -60,11 +66,13 @@ internal fun ShaderParamRows(shader: String, params: List<ShaderParam>, actions:
     val set = all[shader].orEmpty()
     val follows by ShaderParams.follows.collectAsStateWithLifecycle()
     val given by ShaderValues.given.collectAsStateWithLifecycle()
-    val phone = remember(given, follows) { actions.phone() }
+    val formulas by ShaderParams.formulas.collectAsStateWithLifecycle()
+    val phone = remember(given, follows, formulas) { actions.phone() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
         params.forEachIndexed { i, param ->
             val follow = ShaderParams.follow(follows[shader].orEmpty(), param)
-            val followed = follow?.let { ShaderValues.of(it, given, phone) }?.let(param::followed)
+            val formula = remember(formulas, follows) { ShaderParams.formula(shader, param) }
+            val followed = follow?.let { ShaderParams.followed(param, it, formula, phone) }
             val value = followed ?: ShaderParams.of(set, param)
             SegmentedListItem(
                 shapes = segShapes(i, params.size),
@@ -90,6 +98,9 @@ internal fun ShaderParamRows(shader: String, params: List<ShaderParam>, actions:
                             Spacer(Modifier.height(4.dp))
                         }
                         FollowButton(param, follow, hasValue = followed != null, actions) { actions.follow(shader, param, it) }
+                        if (follow != null && ShaderValues.of(follow, given, phone)?.toFloatOrNull() != null) {
+                            FormulaField(param, follow, formula, phone) { actions.follow(shader, param, follow, it) }
+                        }
                     }
                 },
             ) { Text(param.title) }
@@ -181,4 +192,45 @@ private fun FollowButton(param: ShaderParam, follow: String?, hasValue: Boolean,
             }
         }
     }
+}
+
+/**
+ * The formula for the value that a parameter follows, such as `battery / 20`; without one the value goes over
+ * the parameter's whole range. It counts as soon as it can be worked out. Under it is what it makes now.
+ */
+@Composable
+private fun FormulaField(param: ShaderParam, follow: String, formula: String?, phone: ShaderValues.Phone, onFormula: (String?) -> Unit) {
+    var text by remember(param.name, follow) { mutableStateOf(formula.orEmpty()) }
+    val name = follow.substringAfter('.')
+    val now = ShaderParams.followed(param, follow, text.trim().ifEmpty { null }, phone)
+    val value = ShaderValues.of(follow, ShaderValues.given.value, phone)
+    TextField(
+        value = text,
+        onValueChange = {
+            text = it.take(ShaderParams.MAX_FORMULA)
+            val typed = text.trim().ifEmpty { null }
+            if (typed == null || ShaderParams.followed(param, follow, typed, phone) != null) onFormula(typed)
+        },
+        label = { Text("Formula") },
+        placeholder = { Text("$name / 2") },
+        isError = now == null,
+        supportingText = {
+            val at = value?.let { "$name is ${ShaderValues.shown(follow, it)}" }.orEmpty()
+            Text(
+                when {
+                    now == null -> "Can't be worked out: use $name with + - * / and ( )"
+                    text.isBlank() -> "$at, which makes ${param.text(now)}. Or use a formula, such as $name / 2"
+                    else -> "$at, which makes ${param.text(now)}"
+                }
+            )
+        },
+        singleLine = true,
+        shape = TextFieldDefaults.roundedShape,
+        colors = fieldColors(),
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .testTag("formula ${param.name}"),
+    )
 }

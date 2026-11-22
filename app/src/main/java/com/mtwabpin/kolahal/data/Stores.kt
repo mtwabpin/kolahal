@@ -53,6 +53,9 @@ object Stores {
     /** What shaders' parameters are set to ([com.mtwabpin.kolahal.script.ShaderParams]). */
     val SHADER_PARAMS = Prefs("shader_params", inBackup = true)
 
+    /** The words that play one-off shaders ([com.mtwabpin.kolahal.script.ShaderWords]): names, so not for the cloud. */
+    val SHADER_WORDS = Prefs("shader_words", inBackup = true, toCloud = false)
+
     /** The sources added to Get more scripts: a backup has them in a section of their own, added to what is here. */
     val SCRIPT_SOURCES = Prefs("script_sources", inBackup = false)
 
@@ -112,6 +115,7 @@ object Stores {
         SCRIPT_CATALOG,
         SHADER_CATALOG,
         SHADER_PARAMS,
+        SHADER_WORDS,
         SCRIPT_SOURCES,
         OLD_UNLOCKS,
         LAUNCHER,

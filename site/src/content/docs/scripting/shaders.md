@@ -37,10 +37,11 @@ Or type:
 | `shader <name>` | turns it on |
 | `shader off` | turns shaders off |
 | `shader play <name>` | plays a [one-off shader](#one-off-shaders) once |
+| `shader words <name> <words>` | plays it when a notification has one of the words. `off` ends it |
 | `shader on` | turns the last one on again |
 | `shader set <name>` | a shader's parameters, and what they can be |
 | `shader set <name> <parameter> <value>` | changes one: `shader set snowfall amount 1.5` |
-| `shader follow <name> <parameter> <value>` | makes one [follow a value](#values-to-follow): `shader follow rain amount weather.rain`. `off` ends it |
+| `shader follow <name> <parameter> <value>` | makes one [follow a value](#values-to-follow): `shader follow rain amount weather.rain`, or a formula: `shader follow dunes camels battery / 20`. `off` ends it |
 | `shader values` | the values there are to follow |
 | `shader reset <name>` | resets its parameters to their defaults |
 
@@ -93,8 +94,12 @@ the same. The author rates a shader in its [header](#the-header), and one withou
 A one-off shader runs once for some seconds, over the shader that is on, and goes. Tap one under **One-off** in
 **Settings → Shaders**, or type `shader play hearts`. It can't be turned on to stay.
 
-A script plays one with [`shader.play`](/scripting/api/#shaderplayname-seconds). The library's
-[`effect-on-word`](/scripting/library/#effect-on-word) plays hearts when a notification has a word you picked, such as a name.
+**On a notification.** In its details, under **Plays on a notification**, type words with commas between, such as a name. It
+plays when a notification's title or text has one of them: whole words, in any case. Kolahal needs notification access for
+this, and asks if it has none. Notifications from the private space don't count. `shader words hearts Alex, picnic` does the same, and
+`shader words hearts off` ends it.
+
+A script can play one too, with [`shader.play`](/scripting/api/#shaderplayname-seconds).
 
 - One plays at a time. Another that comes meanwhile is left out.
 - It waits for home to be in front, for half an hour at most.
@@ -260,21 +265,26 @@ uniform float shape;
 
 A parameter can follow a value instead of its slider: tap **Follow** under it. Kolahal has these values:
 
-| Value | From 0 to 1 |
+| Value | What it is |
 | --- | --- |
-| `battery` | how full the battery is |
+| `battery` | how full the battery is, from 0 to 100 |
 | `charging` | 0, or 1 while the phone is plugged in |
-| `day` | the time of day: 0 at midnight, 0.5 at noon |
+| `day` | the time of day in hours, from 0 to 24 |
 | `night` | 0 by day and 1 at night, with a dusk and a dawn |
 
 Scripts give more, with [`shader.give`](/scripting/api/#shadergivename-value). The library's `weather` gives `weather.rain` and
 `weather.snow`: let the amount of `rain` follow `weather.rain`, and it rains on home as hard as it rains outside.
 
-- A number is spread over the parameter's range: 0 is its least and 1 its most. The parameter glides there in two seconds.
+- A number is spread over the parameter's range: a full battery is its most and an empty one its least. A script's number
+  from 0 to 1 is spread the same way. The parameter glides there in two seconds.
+- Or type a **formula** for it: with `battery / 20`, a caravan has 5 camels at 100% and 2 at 40%. The result is the
+  parameter's value, taken into its range. The value is in it by its name, and the rest is what the
+  [calculator](/guides/web-and-calculator/) knows: `+ - * /`, parentheses, `min`, `max`, `round` and more.
 - A word picks the parameter's word of that name.
 - While there is no value (the script is off, or hasn't run yet), the slider counts.
 - A parameter can suggest a value: end its line with `@follow`, as in
-  `// @param amount 0.0..2.0 = 1.0 Amount of rain @follow weather.rain`. It follows that until you pick something else.
+  `// @param amount 0.0..2.0 = 1.0 Amount of rain @follow weather.rain`. A formula can be there as well. It follows that until you pick
+  something else.
 - A shader needs no permission for this. It can't send or save anything: it only draws.
 
 ### Uniforms

@@ -28,12 +28,12 @@ import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
  * while this is shown, and stands still as on home (battery saver, Remove animations, after a minute).
  */
 @Composable
-internal fun ShaderPreview(name: String, code: String, modifier: Modifier = Modifier, moves: Boolean = true) {
+internal fun ShaderPreview(name: String, code: String, modifier: Modifier = Modifier, moves: Boolean = true, size: Modifier = Modifier.aspectRatio(0.92f)) {
     val look = rememberShaderPreview(name, code, rememberTtyGrid(), moves = moves) ?: Modifier
     Box(
         modifier
             .fillMaxWidth()
-            .aspectRatio(0.92f)
+            .then(size)
             .clip(MaterialTheme.shapes.extraLarge)
             .then(look)
             .background(Term.bg)

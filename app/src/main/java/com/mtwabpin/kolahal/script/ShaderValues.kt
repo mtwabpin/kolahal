@@ -4,9 +4,12 @@
 package com.mtwabpin.kolahal.script
 
 import android.content.Context
+import com.mtwabpin.kolahal.commands.Calc
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Stores
+import java.math.BigDecimal
+import java.math.RoundingMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +22,7 @@ import kotlin.math.roundToInt
  * scripts give with `shader.give(name, value)` under their `@gives` line. A value has one owner, and any
  * number of parameters can follow it.
  * - Kolahal's are one word (`battery`); a script's has the script's name first (`weather.rain`).
- * - A value is a number from 0 to 1, or a word.
+ * - A value is a number, or a word. Kolahal's numbers are in their own units: `battery` from 0 to 100 ([unit]).
  * - A script's values go when it is switched off, changed from outside or deleted. They stay over a restart.
  */
 object ShaderValues {
@@ -60,7 +63,7 @@ object ShaderValues {
     fun shown(id: String, value: String): String {
         val n = value.toFloatOrNull() ?: return value
         return when (id) {
-            "battery" -> "${(n * 100).roundToInt()}%"
+            "battery" -> "${n.roundToInt()}%"
             "charging" -> if (n > 0.5f) "yes" else "no"
             else -> String.format(Locale.ROOT, "%.2f", n).trimEnd('0').trimEnd('.')
         }
@@ -77,12 +80,48 @@ object ShaderValues {
         if (id in BUILT_IN) builtIn(id, phone)?.toString() else given[id]
 
     private fun builtIn(id: String, phone: Phone): Float? = when (id) {
-        "battery" -> phone.battery.coerceIn(0f, 1f)
+        "battery" -> (phone.battery.coerceIn(0f, 1f) * 100).roundToInt().toFloat()
         "charging" -> if (phone.charging) 1f else 0f
-        "day" -> phone.time.toSecondOfDay() / 86_400f
+        "day" -> phone.time.toSecondOfDay() / 3_600f
         "night" -> night(phone.time.toSecondOfDay() / 3_600f)
         else -> null
     }
+
+    /** The number [value] of [id] from 0 to 1, as a parameter without a formula takes it; a word as it is. */
+    fun unit(id: String, value: String): String {
+        val most = MOST[id] ?: return value
+        return value.toFloatOrNull()?.let { (it / most).toString() } ?: value
+    }
+
+    /** The most that Kolahal's own values are, where it isn't 1. */
+    private val MOST = mapOf("battery" to 100f, "day" to 24f)
+
+    /**
+     * What [formula] makes of [value], the value [id]: `battery / 20`. The value is in it by its name, with or
+     * without its script's, or as `value`; the rest is the calculator's ([Calc]). Null when it can't be worked out.
+     */
+    fun work(formula: String, id: String, value: String): Float? {
+        val n = value.toDoubleOrNull()?.takeIf { it.isFinite() } ?: return null
+        val number = "(" + BigDecimal(n).setScale(6, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() + ")"
+        var text = formula
+        for (name in listOf(id, id.substringAfter('.'), "value")) {
+            text = Regex("(?<![\\w.])" + Regex.escape(name) + "(?![\\w.])", RegexOption.IGNORE_CASE).replace(text, Regex.escapeReplacement(number))
+        }
+        // A division by zero is an error of the calculator's.
+        return runCatching { Calc.eval(text) }.getOrNull()?.toFloat()?.takeIf { it.isFinite() }
+    }
+
+    /**
+     * The value that [text] follows, and its formula if it has one: `battery`, `weather.rain`, `battery / 20`.
+     * [known]: the ids there are, or null for any that could be one.
+     */
+    fun parse(text: String, known: Collection<String>? = null): Pair<String, String?>? {
+        val words = ID.findAll(text.lowercase()).map { it.value }
+        val id = words.firstOrNull { w -> if (known != null) w in known else w in BUILT_IN || '.' in w } ?: return null
+        return id to text.trim().takeIf { !it.equals(id, ignoreCase = true) }
+    }
+
+    private val ID = Regex("[a-z0-9_][a-z0-9_-]*\\.[a-z][a-z0-9_-]*|[a-z][a-z0-9_]*")
 
     /** 1 at night and 0 by day, with an hour and a half of dusk and dawn around 6 and 19. */
     private fun night(hour: Float): Float = when {
@@ -93,22 +132,22 @@ object ShaderValues {
     }
 
     /**
-     * What a script gave as [value], as it is kept: a number taken into 0 to 1, or a word. `true` is 1 and
+     * What a script gave as [value], as it is kept: a number, or a word. `true` is 1 and
      * `false` 0. Null for nothing, which takes the value away. Anything else is an error.
      */
     fun clean(value: Any?): String? = when (value) {
         null -> null
         is Boolean -> if (value) "1" else "0"
         is Number -> {
-            require(value.toDouble().isFinite()) { "shader.give: a value is a number from 0 to 1, or a word" }
-            value.toDouble().coerceIn(0.0, 1.0).toFloat().toString()
+            require(value.toDouble().isFinite()) { "shader.give: a value is a number or a word" }
+            value.toFloat().toString()
         }
 
         is String -> value.trim().also {
-            require(WORD.matches(it)) { "shader.give: a value is a number from 0 to 1, or a word of letters, digits and '-', at most 20" }
+            require(WORD.matches(it)) { "shader.give: a value is a number, or a word of letters, digits and '-', at most 20" }
         }
 
-        else -> throw IllegalArgumentException("shader.give: a value is a number from 0 to 1, or a word")
+        else -> throw IllegalArgumentException("shader.give: a value is a number or a word")
     }
 
     /** Keeps [script]'s value [name], and tells home. Null takes it away. True when that changed something. Any process. */

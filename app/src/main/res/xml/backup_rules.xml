@@ -16,6 +16,7 @@
     <exclude domain="database" path="androidx.work.workdb-shm" />
     <exclude domain="sharedpref" path="logs.xml" />
     <exclude domain="sharedpref" path="app_usage.xml" />
+    <exclude domain="sharedpref" path="shader_words.xml" />
     <exclude domain="sharedpref" path="unlocks.xml" />
     <exclude domain="sharedpref" path="media.xml" />
     <exclude domain="sharedpref" path="picked_contacts.xml" />

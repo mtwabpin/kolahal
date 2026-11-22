@@ -120,9 +120,9 @@ class LibraryTagsTest {
                 WIDGET to 27,
                 COMMAND to 24,
                 TIMER to 26,
-                EVENT to 5,
+                EVENT to 4,
                 INTERNET to 31,
-                OFFLINE to 18
+                OFFLINE to 17
             ),
             LibraryTags.counts(library, emptyList()),
         )
@@ -165,7 +165,6 @@ class LibraryTagsTest {
         assertEquals(
             listOf(
                 "charge-reminder",
-                "effect-on-word",
                 "template-event-js",
                 "template-event",
                 "unlock-chart"
@@ -184,7 +183,6 @@ class LibraryTagsTest {
             "countdown",
             "counter",
             "data-month",
-            "effect-on-word",
             "habit",
             "night-dnd",
             "night-work",
@@ -203,7 +201,7 @@ class LibraryTagsTest {
         val saysNoNetwork = files.filter { (f, _) -> "No network" in f.readLines().first() }
             .map { it.first.nameWithoutExtension }
         assertEquals(emptyList<String>(), saysNoNetwork - offline.toSet())
-        assertEquals(14, saysNoNetwork.size)
+        assertEquals(13, saysNoNetwork.size)
     }
 
     /** A script that names the site it talks to has the Internet tag. */

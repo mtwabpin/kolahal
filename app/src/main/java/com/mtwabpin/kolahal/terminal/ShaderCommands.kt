@@ -9,6 +9,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.notifications.NotificationActions
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFolder
 import com.mtwabpin.kolahal.script.ScriptSources
@@ -21,6 +22,7 @@ import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderStore
 import com.mtwabpin.kolahal.script.ShaderValues
+import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
 
@@ -32,7 +34,7 @@ import com.mtwabpin.kolahal.script.SharedShader
  *   turns the last one on again, also after it was turned off for being slow.
  * - `set` changes a shader's parameters and `reset` puts them back ([ShaderParam]).
  * - `follow` makes a parameter follow a value, and `values` lists the values ([ShaderValues]).
- * - `play` plays a one-off shader ([ShaderPlay]).
+ * - `play` plays a one-off shader ([ShaderPlay]), and `words` sets the words that play it ([ShaderWords]).
  * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
  * - `check`, `reload`, `copy` and `remove` work with the user's own files.
  *
@@ -60,6 +62,7 @@ class ShaderCommands(
             "reset" -> reset(args.drop(1))
             "follow" -> follow(args.drop(1))
             "values" -> values()
+            "words" -> words(name ?: return usage("shader"), args.drop(2).joinToString(" "))
             "play" -> play(name ?: return usage("shader"), args.getOrNull(2))
             // These use the network, so they run outside the serial command queue.
             "get" -> background("shader get") { getShared(args.drop(1)) }
@@ -109,6 +112,25 @@ class ShaderCommands(
         ShaderActions.wallpaperWarning(context, name)?.let { info("$it · 'config set log.wallpaper 0' hides it") }
     }
 
+    /** `shader words <name> <words>|off`: what plays it in a notification; without words, what they are. */
+    private fun words(name: String, text: String) {
+        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
+        if (!Shaders.once(context, name)) return error("$name isn't a one-off shader: it has no @once line")
+        when {
+            text.isBlank() -> info(ShaderWords.words.value[name]?.let { "$name plays on: $it" } ?: "$name has no words")
+            text.lowercase() == ShaderCatalog.OFF -> {
+                ShaderWords.set(context, name, "")
+                info("$name plays on no words")
+            }
+
+            else -> {
+                ShaderWords.set(context, name, text)
+                info("$name plays when a notification has: ${ShaderWords.words.value[name]}")
+                if (!NotificationActions.isEnabled(context)) fix("Kolahal can't see your notifications — tap to allow it", "notifs enable")
+            }
+        }
+    }
+
     private fun play(name: String, time: String?) {
         if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
         if (!Shaders.supported) return needs()
@@ -155,21 +177,23 @@ class ShaderCommands(
         info(if (param != null) "$name: ${param.name} ${param.text(param.default)}" else "$name: parameters reset")
     }
 
-    /** `shader follow <name> <parameter> <value>|off`; without a value it says what it follows, without a parameter it lists them. */
+    /** `shader follow <name> <parameter> <value or formula>|off`; without a value it says what it follows, without a parameter it lists them. */
     private fun follow(args: List<String>) {
         val name = args.firstOrNull()?.lowercase() ?: return usage("shader")
         val params = paramsOf(name) ?: return
         if (args.size == 1) return params.forEach { line(name, it) }
         val param = params.find(args[1]) ?: return error("$name has no parameter '${args[1]}' · it has ${params.joinToString { it.name }}")
         if (args.size == 2) return line(name, param)
-        val id = args[2].lowercase()
-        if (id == ShaderCatalog.OFF) {
+        val text = args.drop(2).joinToString(" ")
+        if (text.lowercase() == ShaderCatalog.OFF) {
             ShaderParams.setFollow(context, name, param, null)
             return info("$name: ${param.name} ${param.text(ShaderParams.of(name, param))}")
         }
-        if (ShaderActions.sources(context).none { it.id == id }) return error("No value '$id' — 'shader values' lists them")
-        ShaderParams.setFollow(context, name, param, id)
-        info("$name: ${param.name} follows $id")
+        val (id, formula) = ShaderValues.parse(text, ShaderActions.sources(context).map { it.id })
+            ?: return error("No value in '$text' — 'shader values' lists them")
+        if (formula != null && ShaderValues.work(formula, id, "1") == null) return error("'$formula' can't be worked out: try $id / 20")
+        ShaderParams.setFollow(context, name, param, id, formula)
+        info("$name: ${param.name} follows ${formula ?: id}, ${param.text(ShaderParams.now(name, param, ShaderActions.phone(context)))} now")
     }
 
     private fun values() {
@@ -203,7 +227,7 @@ class ShaderCommands(
         LogContext.of(
             LogContext.COMMAND to "shader set $shader ${param.name} ",
             LogContext.DESC to "${param.title} · ${param.range} · default ${param.text(param.default)}" +
-                    ShaderParams.follow(shader, param)?.let { " · follows $it" }.orEmpty(),
+                    ShaderParams.follow(shader, param)?.let { " · follows ${ShaderParams.formula(shader, param) ?: it}" }.orEmpty(),
         ) + LogContext.ITEM,
     )
 
@@ -368,10 +392,10 @@ class ShaderCommands(
 
     companion object {
         val SUBCOMMANDS =
-            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "get", "update", "check", "reload", "copy", "remove")
+            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "words", "get", "update", "check", "reload", "copy", "remove")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "get", "update", "check", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "words", "get", "update", "check", "copy", "remove", "rm")
 
         /**
          * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of

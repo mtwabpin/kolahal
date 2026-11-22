@@ -923,8 +923,8 @@ Gives a value that [shaders' parameters can follow](/scripting/shaders/#values-t
 
 - `name` is one of the names on the script's `@gives` line: small letters, digits, `-` and `_`, at most 20
   characters. A script can have 8. Shaders see it as `<script>.<name>`: `weather.rain`.
-- `value` is a number from 0 to 1 (one outside is taken to 0 or 1; `true` is 1 and `false` 0), or a word of letters, digits
-  and `-`. `nil` / `null` takes the value away.
+- `value` is a number, or a word of letters, digits and `-`. `true` is 1 and `false` 0. A number from 0 to 1 is spread over a
+  parameter's range; others, such as a temperature, are for a formula. `nil` / `null` takes the value away.
 - It stays until the script changes it, also after a restart. It goes when the script is switched off or deleted.
 - It works only in saved scripts. A run can change values 40 times. Giving the same value again doesn't count.
 - The script's sheet shows which parameters follow it.

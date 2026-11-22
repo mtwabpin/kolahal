@@ -1,7 +1,7 @@
 /**
  * Manual Review - Pending
  */
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
 import java.math.BigDecimal
 import java.math.MathContext

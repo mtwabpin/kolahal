@@ -8,6 +8,7 @@ import android.net.Uri
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.notifications.NotificationActions
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFiles
 import com.mtwabpin.kolahal.script.ScriptFolder
@@ -23,6 +24,7 @@ import com.mtwabpin.kolahal.script.ShaderStore
 import com.mtwabpin.kolahal.script.ShaderSuits
 import com.mtwabpin.kolahal.script.ShaderSurface
 import com.mtwabpin.kolahal.script.ShaderValues
+import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
 import com.mtwabpin.kolahal.status.DeviceStatus
@@ -141,8 +143,15 @@ class ShaderActions(
     /** Sets [param] of [name], and keeps it. */
     fun setParam(name: String, param: ShaderParam, value: Float) = ShaderParams.set(context, name, param, value)
 
-    /** [param] of [name] follows the value [id]; null for none. */
-    fun follow(name: String, param: ShaderParam, id: String?) = ShaderParams.setFollow(context, name, param, id)
+    /** [param] of [name] follows the value [id], with [formula] if there is one; null for no value. */
+    fun follow(name: String, param: ShaderParam, id: String?, formula: String? = null) =
+        ShaderParams.setFollow(context, name, param, id, formula)
+
+    /** The one-off shader [name] plays when a notification has one of [words], with commas between; blank for never. */
+    fun setWords(name: String, words: String) = ShaderWords.set(context, name, words)
+
+    /** Whether Kolahal may see notifications. */
+    fun seesNotifications(): Boolean = NotificationActions.isEnabled(context)
 
     /** The values there are to follow: Kolahal's, and those of the scripts that are on. */
     suspend fun sources(): List<ShaderValues.Source> = withContext(Dispatchers.IO) { sources(context) }

@@ -522,7 +522,8 @@ private fun rememberLiveParams(shader: LoadedShader): LiveParams {
                     delay(ShaderDate.untilNextMinute(System.currentTimeMillis()))
                 }
             }
-            combine(ShaderParams.values, ShaderParams.follows, ShaderValues.given, status, minutes) { _, _, _, now, _ -> valuesPhone(now) }
+            val settings = combine(ShaderParams.values, ShaderParams.follows, ShaderParams.formulas) { a, b, c -> Triple(a, b, c) }
+            combine(settings, ShaderValues.given, status, minutes) { _, _, now, _ -> valuesPhone(now) }
                 .collect { phone ->
                     params.forEachIndexed { i, param ->
                         val followed = ShaderParams.followed(shader.name, param, phone)

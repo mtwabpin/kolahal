@@ -13,6 +13,7 @@ import androidx.core.net.toUri
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.commands.Calc
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandCatalog.HELP_SECTIONS
 import com.mtwabpin.kolahal.commands.CommandCatalog.PRODUCTIVITY
@@ -23,6 +24,7 @@ import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.commands.Pipes
+import com.mtwabpin.kolahal.commands.Units
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.KvStore

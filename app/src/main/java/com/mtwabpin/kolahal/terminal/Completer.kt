@@ -9,10 +9,12 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.Calc
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.commands.Units
 import com.mtwabpin.kolahal.commands.UsageLine
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey

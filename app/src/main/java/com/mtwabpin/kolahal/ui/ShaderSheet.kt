@@ -8,6 +8,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,6 +39,8 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +54,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -57,10 +63,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderFit
 import com.mtwabpin.kolahal.script.ShaderSurface
+import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderCommands
@@ -70,7 +79,7 @@ import kotlinx.coroutines.launch
 /**
  * The sheet for one shader on the Shaders screen ([name] of [rows]). Left and right swipe to the others,
  * in the list's order, as the preview is what one looks for.
- * - A preview, then Use or Turn off, Check (does it compile, and which uniforms Kolahal sets), Share, and
+ * - A preview, which stays in place over the rest, then Use or Turn off, Check (does it compile, and which uniforms Kolahal sets), Share, and
  *   Copy to the script folder. Holding the eye shows home with the shader, in use or not ([onPeek]).
  * - Its parameters, under the preview, which follows them ([ShaderParamRows]).
  * - Update, for one from Get more shaders with a newer version. An edited one asks first.
@@ -91,6 +100,7 @@ internal fun ShaderSheet(
     shown: () -> Float,
     onShow: (String) -> Unit,
     onPlay: (String) -> Unit,
+    onAskNotifications: () -> Unit,
     onPeek: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -112,7 +122,7 @@ internal fun ShaderSheet(
         ) { page ->
             ShaderDetails(
                 rows[page], "${page + 1} of ${rows.size}", inUse, problems[rows[page].name], actions,
-                front = page == pager.settledPage, shown, onPlay, onPeek, onDismiss,
+                front = page == pager.settledPage, shown, onPlay, onAskNotifications, onPeek, onDismiss,
             )
         }
     }
@@ -129,6 +139,7 @@ private fun ShaderDetails(
     front: Boolean,
     shown: () -> Float,
     onPlay: (String) -> Unit,
+    onAskNotifications: () -> Unit,
     onPeek: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -140,14 +151,19 @@ private fun ShaderDetails(
     val on = row.name == inUse && !row.turnedOff
     val drawable = Shaders.supported && !row.turnedOff && problem == null
 
-    Column(
+    // The preview stays in place while what is under it scrolls: what one changes there shows in it. On a
+    // screen that isn't tall enough, it scrolls too.
+    val window = LocalWindowInfo.current.containerSize.height
+    val fixed = with(LocalDensity.current) { window.toDp() } >= 560.dp
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .imePadding()
             .graphicsLayer { alpha = shown() }
-            .padding(horizontal = 24.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+      val high = maxOf(maxHeight * 0.42f, 140.dp)
+      Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(row.title, style = MaterialTheme.typography.headlineSmall)
                 Text(
@@ -162,16 +178,27 @@ private fun ShaderDetails(
                 onTap = { Toast.makeText(context, "Tap and hold the eye to see the home screen", Toast.LENGTH_SHORT).show() },
             )
         }
-        if (drawable) ShaderPreview(row.name, row.code, Modifier.padding(top = 12.dp), moves = front)
+        if (drawable && fixed) ShaderPreview(
+            row.name, row.code, Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp), moves = front, size = Modifier.height(high),
+        )
+        Spacer(Modifier.height(12.dp))
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+        ) {
+        if (drawable && !fixed) ShaderPreview(row.name, row.code, Modifier.padding(top = 12.dp), moves = front)
         row.meta.description?.let {
-            Spacer(Modifier.height(12.dp))
+            if (drawable && !fixed) Spacer(Modifier.height(12.dp))
             Text(it, style = MaterialTheme.typography.bodyLarge)
         }
-        if (row.meta.suits.isNotEmpty()) SuitsRow(row.meta.suits, Modifier.padding(top = 16.dp))
         if (row.meta.params.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             ShaderParamRows(row.name, row.meta.params, actions)
         }
+        if (row.meta.once != null) ShaderWordsField(row.name, actions, onAskNotifications, Modifier.padding(top = 16.dp))
+        if (row.meta.suits.isNotEmpty()) SuitsRow(row.meta.suits, Modifier.padding(top = 16.dp))
         if (row.turnedOff) SheetError(ShaderPage.turnedOff(row))
         problem?.let { SheetError("Can't be used: $it") }
         ShaderActions.wallpaperWarning(row.meta, row.name, actions.wallpaper())?.let { SheetError(it) }
@@ -245,6 +272,8 @@ private fun ShaderDetails(
         Spacer(Modifier.height(8.dp))
         ReadOnlyCode(row.code, Syntax.AGSL)
         Spacer(Modifier.height(16.dp))
+        }
+      }
     }
 
     val latest = row.latest
@@ -289,6 +318,42 @@ private fun CheckResult(check: Shaders.Check) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/**
+ * The words that play the one-off shader [name] when a notification has one ([ShaderWords]), kept as they are
+ * typed. Without notification access, a button asks for it.
+ */
+@Composable
+private fun ShaderWordsField(name: String, actions: ShaderActions, onAskNotifications: () -> Unit, modifier: Modifier = Modifier) {
+    var text by remember(name) { mutableStateOf(ShaderWords.words.value[name].orEmpty()) }
+    // Read again on the way back from Android's screen.
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val sees = remember(lifecycle) { actions.seesNotifications() }
+    Column(modifier) {
+        SectionTitle("Plays on a notification")
+        Spacer(Modifier.height(8.dp))
+        TextField(
+            value = text,
+            onValueChange = {
+                text = it.take(ShaderWords.MAX_CHARS)
+                actions.setWords(name, text)
+            },
+            label = { Text("Words, with commas between") },
+            supportingText = { Text("Plays when a notification has one of them, such as a name") },
+            singleLine = true,
+            shape = TextFieldDefaults.roundedShape,
+            colors = fieldColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("shader-words"),
+        )
+        if (!sees && text.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            SheetError("Kolahal can't see your notifications")
+            FilledTonalButton(onClick = onAskNotifications, shapes = ButtonDefaults.shapes()) { Text("Allow notification access") }
         }
     }
 }

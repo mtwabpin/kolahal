@@ -252,7 +252,7 @@ into the prompt (except `q`, which only quits).
 | `shader [<name>\|list\|on\|off]` | | a [shader](/scripting/shaders/) over home and the screens, on Android 13 and newer: `crt`, `paper`, `aurora` and others, or one of yours. Alone, it lists them. `off` always works |
 | `shader set <name> <parameter> <value>` · `shader reset <name>` | | change a shader's [parameters](/scripting/shaders/#parameters), such as the amount of snow, and reset them |
 | `shader follow <name> <parameter> <value>` · `shader values` | | let a parameter [follow a value](/scripting/shaders/#values-to-follow), such as `battery` or one a script gives; `values` lists them |
-| `shader play <name>` | | plays a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, once over home |
+| `shader play <name>` · `shader words <name> <words>` | | play a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, once over home; `words` plays it when a notification has one of them |
 | `shader get [<name>]` · `shader update [<name>]` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them, or installs one; `update` updates those you installed |
 | `shader check\|copy\|remove <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
 
