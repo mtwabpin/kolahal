@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
  * The shader files on the phone: the bundled ones in assets, and the user's own in
  * `files/shaders/<name>.agsl`, which arrive as scripts do (from the script folder, `script import`,
  * or a picked file). The user's file of a bundled name is the one used.
- * - Names load at start ([load]), so `tty.shader` accepts and completes them at once.
+ * - Names load at start ([load]), so `screen.shader` accepts and completes them at once.
  * - What goes wrong with a shader is a line in the log. Shaders need Android 13 ([supported]).
  */
 object Shaders {
@@ -127,16 +127,16 @@ object Shaders {
 
     /**
      * Turns the shader of [id] off for [why] until its file changes or the user turns it on again
-     * ([ShaderSafety.trip]); one line says so. After several in a row, `tty.shader` goes off.
+     * ([ShaderSafety.trip]); one line says so. After several in a row, `screen.shader` goes off.
      */
     fun turnOff(context: Context, id: String, why: String) {
         val app = context.applicationContext
         val count = ShaderSafety.get(app).trip(id)
         if (count == 0) return
         val off = count >= ShaderSafety.MAX_TRIPS
-        if (off) Config.get(app).set(Keys.TTY_SHADER, ShaderCatalog.OFF)
+        if (off) Config.get(app).set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
         val again =
-            if (off) "tty.shader is off after $count times" else "'shader on' turns it on again"
+            if (off) "screen.shader is off after $count times" else "'shader on' turns it on again"
         log(app, LogKind.ERROR, "Shader ${ShaderSafety.nameOf(id)} turned off: $why · $again", "shader")
     }
 
@@ -144,10 +144,10 @@ object Shaders {
     fun offByHand(context: Context) {
         val app = context.applicationContext
         val conf = Config.get(app)
-        val was = conf[Keys.TTY_SHADER]
+        val was = conf[Keys.SCREEN_SHADER]
         if (was == ShaderCatalog.OFF) return
         ShaderSafety.get(app).last = was
-        conf.set(Keys.TTY_SHADER, ShaderCatalog.OFF)
+        conf.set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
         log(app, LogKind.INFO, "Shader off: two fingers were held on the screen · 'shader on' turns $was on again", "shader")
     }
 

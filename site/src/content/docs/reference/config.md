@@ -83,7 +83,7 @@ The full-screen [screens](/reference/commands/#screens), such as `matrix` and `s
 | `screen.saver` | choice: `off` `matrix` `clock` `pipes` | `off` | a screensaver: this screen opens over home after `screen.saver-after` minutes without a touch, while the log page shows and nothing is open or typed. The first touch or key only closes it. It never starts while the screen is off, in battery saver, or with Android's **Remove animations** on |
 | `screen.saver-after` | number 1–60 | `5` | minutes without a touch before the screensaver starts. Settings shows it while `screen.saver` is on |
 | `tty.crt` | bool | `off` | make the screens look like an old CRT monitor: scanlines, darker corners and, on Android 12 and newer with a dark theme, a soft glow around bright text. It is kept subtle, so text stays easy to read |
-| `tty.shader` | choice: `off` `crt` `bloom` `rain`, or [one of yours](/scripting/shaders/#adding-your-own) | `off` | a [shader](/scripting/shaders/) over the screens (also `shader <name>`). Needs Android 13 or newer; on older versions nothing is drawn. Not in Settings |
+| `screen.shader` | choice: `off` `crt` `bloom` `rain`, or [one of yours](/scripting/shaders/#adding-your-own) | `off` | a [shader](/scripting/shaders/) over home and the screens (also `shader <name>`). Needs Android 13 or newer; on older versions nothing is drawn. Not in Settings |
 
 ## TTY home style
 

@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.update
  *   [recover] turns the shader off: a safe mode.
  * - A shader that is too slow ([ShaderWatchdog]) is [trip]ped too.
  * - A tripped shader isn't drawn until its file changes or the user turns a shader on again
- *   ([turnedOn]). After [MAX_TRIPS] trips in a row with none [proven] in between, `tty.shader` goes off.
+ *   ([turnedOn]). After [MAX_TRIPS] trips in a row with none [proven] in between, `screen.shader` goes off.
  */
 class ShaderSafety(private val store: Store) {
     interface Store {
@@ -139,7 +139,7 @@ class ShaderSafety(private val store: Store) {
     }
 
     companion object {
-        /** After this many trips in a row, `tty.shader` goes off. */
+        /** After this many trips in a row, `screen.shader` goes off. */
         const val MAX_TRIPS = 3
 
         private const val ARMED = "shader.armed"

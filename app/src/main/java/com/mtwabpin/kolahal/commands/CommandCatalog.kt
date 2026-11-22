@@ -684,8 +684,8 @@ object CommandCatalog {
         CommandSpec(
             "shader",
             "shader [<name>|list|use|on|off|check|reload|copy|remove] [<name>]",
-            "A shader over the full-screen screens and the tty home style: crt, bloom, rain or your own .agsl file (tty.shader). Needs Android 13 or newer",
-            short = "A shader over the screens",
+            "A shader over home and the full-screen screens: crt, bloom, rain or your own .agsl file (screen.shader). Needs Android 13 or newer",
+            short = "A shader over home and the screens",
             args = "<name> · list · use · on · off · check · reload · copy · remove",
             uses = listOf(
                 "shader" to "the shaders: tap one to use it",

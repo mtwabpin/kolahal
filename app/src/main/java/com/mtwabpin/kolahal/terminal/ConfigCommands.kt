@@ -129,7 +129,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 MaterialYou.note(conf[Keys.THEME])
             )
             // A shader turned off for being slow may be tried again, as with `shader on`.
-            if (key == Keys.TTY_SHADER && conf[Keys.TTY_SHADER] != ShaderCatalog.OFF) {
+            if (key == Keys.SCREEN_SHADER && conf[Keys.SCREEN_SHADER] != ShaderCatalog.OFF) {
                 ShaderSafety.get(context).turnedOn()
                 if (!Shaders.supported) info("${Shaders.NEEDS}: nothing is drawn on this phone")
             }

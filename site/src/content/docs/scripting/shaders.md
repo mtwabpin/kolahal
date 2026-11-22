@@ -1,11 +1,12 @@
 ---
 title: Shaders
-description: AGSL shaders over the full-screen screens, the ones that come with Kolahal, how to write and add your own, and what turns a slow one off.
+description: AGSL shaders over home and the full-screen screens, the ones that come with Kolahal, how to write and add your own, and what turns a slow one off.
 ---
 
 A shader is a small program that the phone's graphics chip runs for every pixel. Kolahal can draw
-one over the [full-screen screens](/reference/commands/#screens), such as `matrix` and
-`screen clock`. Shaders are written in AGSL, Android's version of GLSL.
+one over home and the [full-screen screens](/reference/commands/#screens), such as `matrix` and
+`screen clock`. Settings, the widgets page, menus and the keyboard stay as they are. Shaders are
+written in AGSL, Android's version of GLSL.
 
 Shaders need **Android 13 or newer**. On older versions the [`tty.crt`](/reference/config/#screens)
 setting draws a simple CRT look instead.
@@ -19,7 +20,7 @@ setting draws a simple CRT look instead.
 | `shader off` | turns shaders off |
 | `shader on` | turns the last one on again |
 
-The setting behind them is [`tty.shader`](/reference/config/#screens). Three shaders come with
+The setting behind them is [`screen.shader`](/reference/config/#screens). Three shaders come with
 Kolahal:
 
 | Name | What it looks like |
@@ -34,7 +35,7 @@ A shader can make the screen hard to read. These always work:
 
 - Type `shader off`. The keyboard and the prompt work, even when you can't see them.
 - Hold two fingers still on the screen for a second.
-- `config set tty.shader off`.
+- `config set screen.shader off`.
 
 Shaders also stop on their own:
 
@@ -47,7 +48,7 @@ Shaders also stop on their own:
   off at the next start.
 
 A shader that was turned off stays off until its file changes or you turn it on again. After three
-times in a row, `tty.shader` is set to `off`.
+times in a row, `screen.shader` is set to `off`.
 
 Shaders are off while TalkBack or another screen reader is on. Moving shaders stand still in battery
 saver, with **Remove animations** on, when the phone is hot or nearly out of battery, and after a

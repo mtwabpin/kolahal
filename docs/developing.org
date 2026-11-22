@@ -239,7 +239,7 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
   =material-you= is the one theme without fixed palettes: =ui/MaterialYouPalettes.kt= makes them
   from the phone's wallpaper colours.
 - New bundled shader :: an AGSL file =assets/shaders/<name>.agsl= with =// @name=, =// @description= (and
-  =// @animated= when it moves), its name in =ShaderCatalog.BUNDLED=, a note in =Keys.TTY_SHADER= and the
+  =// @animated= when it moves), its name in =ShaderCatalog.BUNDLED=, a note in =Keys.SCREEN_SHADER= and the
   table in =site/src/content/docs/scripting/shaders.md=. =ShaderMetaTest= checks its header and its
   uniforms on the JVM; =TtyShaderTest= compiles it on Android 13 or newer. Uniforms the host sets:
   =ShaderMeta.KNOWN=, and the code that sets them =ui/tty/TtyShader.kt=.

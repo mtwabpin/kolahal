@@ -123,7 +123,7 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
         onClose = close,
         saver = saver,
         crt = remember(configVersion) { vm.config[Keys.TTY_CRT] },
-        shader = remember(configVersion) { vm.config[Keys.TTY_SHADER] },
+        shader = remember(configVersion) { vm.config[Keys.SCREEN_SHADER] },
         // A script's own screen (tty.screen), or one of Kolahal's.
         make = { ScriptScreenRequests.screen(app, it) ?: TtyScreens.named(it) },
     )

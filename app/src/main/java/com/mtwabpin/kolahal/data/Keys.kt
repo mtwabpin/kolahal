@@ -483,12 +483,12 @@ object Keys {
             "tty" to "A box on the character grid, without icons",
         ),
     )
-    /** Where [TTY_CRT] draws, drawn by the GPU on Android 13 and newer (ui/tty/TtyShader.kt). The user's own files come and go ([Shaders.userNames]). */
-    val TTY_SHADER = ConfigKey.Choice(
-        "tty.shader",
+    /** Over home in both styles and over the full-screen screens, drawn by the GPU on Android 13 and newer (ui/tty/TtyShader.kt). The user's own files come and go ([Shaders.userNames]). */
+    val SCREEN_SHADER = ConfigKey.Choice(
+        "screen.shader",
         ShaderCatalog.OFF,
         listOf(ShaderCatalog.OFF) + ShaderCatalog.BUNDLED,
-        "A shader over full-screen screens (matrix, clock…) and the tty home style: one that comes with Kolahal or your own .agsl file (the shader command lists them). Needs Android 13 or newer",
+        "A shader over home and the full-screen screens (matrix, clock…): one that comes with Kolahal or your own .agsl file (the shader command lists them). Needs Android 13 or newer",
         added = { Shaders.userNames - ShaderCatalog.BUNDLED.toSet() },
         notes = mapOf(
             ShaderCatalog.OFF to "No shader",
@@ -782,7 +782,7 @@ object Keys {
         LOG_DIM,
         HOME_STYLE,
         TTY_CRT,
-        TTY_SHADER,
+        SCREEN_SHADER,
         LOG_SPACING,
         LOG_ITEM_SPACING,
         LOG_GUTTER,
@@ -855,7 +855,7 @@ object Keys {
         TTY_KEYBAR,
         TTY_QUICK_ACTIONS,
         TTY_MENU,
-        TTY_SHADER,
+        SCREEN_SHADER,
     )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
@@ -885,6 +885,7 @@ object Keys {
         "log.lineheight" to "log.line-height",
         "log.keepdays" to "log.keep-days",
         "keyboard.onhome" to "keyboard.on-home",
+        "tty.shader" to "screen.shader",
     )
 
     /** The old switch for swiping up on the prompt. When it is off, `gesture.swipe-up` is now `none`. */

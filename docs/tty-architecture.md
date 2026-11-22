@@ -180,7 +180,7 @@ val HOME_STYLE = ConfigKey.Choice("home.style", "gui", listOf("gui", "tty"),
   setting previews in TTY as well.
 - Also a command: `tty on|off` as an alias in the Model's command catalog.
 - Later keys, all under `tty.`: `tty.cursor` (block, bar, underline), `tty.blink`, `tty.images`
-  (picture, blocks, off), `tty.crt`, `tty.shader`, `tty.boot`. (The screensaver became
+  (picture, blocks, off), `tty.crt`, `screen.shader`, `tty.boot`. (The screensaver became
   `screen.saver` in step 5.)
 
 ### 1.5 Packages
@@ -759,7 +759,7 @@ tty.screen({
   shader is found by name without the folder. Bundled: `crt`, `bloom`, `rain` (no `scanlines`,
   `aberration`; CRT has both).
 - *Commands*: `shader list | use <name> | on | off | check <name> | reload | copy <name> | remove
-  <name>`; `shader <name>` turns one on. `tty.shader` is a `Choice` whose list grows by the user's
+  <name>`; `shader <name>` turns one on. `screen.shader` is a `Choice` whose list grows by the user's
   files (`Choice.added`, as `theme.name`), so it completes. Config only (§0's decisions): there is no
   Settings entry.
 - *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`
@@ -774,9 +774,9 @@ tty.screen({
   before the first frame, and one log line.
 - *Safe mode*: the mark is written before the shader is compiled, so a crash in the compiler counts;
   cleared after 120 good frames, when the surface stops, or with the process's end for a reason that
-  isn't a crash or a hang (`ApplicationExitInfo`). There is no `tty.shader-tripped` key: what is
+  isn't a crash or a hang (`ApplicationExitInfo`). There is no `screen.shader-tripped` key: what is
   tripped is in the crash preferences, which stay on this phone.
-- *Off*: `shader off`, `config set tty.shader off`, two fingers held for a second (observed on the
+- *Off*: `shader off`, `config set screen.shader off`, two fingers held for a second (observed on the
   layer itself). No app shortcut. The screen reader rule is as designed; with **Remove animations** a
   moving shader stands still rather than going off.
 - `tty.crt on` keeps its drawn look on Android 13+; it doesn't select the shader.
@@ -850,10 +850,10 @@ declares it (cost: one small upload per content change).
 
 | Guard | Mechanism |
 |---|---|
-| Frame-time watchdog | `Window.addOnFrameMetricsAvailableListener`: if the GPU's 90th percentile over 60 frames stays over two frame intervals (33 ms at least) for 120 frames, or 3 frames stall the GPU (250 ms), the shader is turned off (as built: see *Watchdog* above), a log line says why, and `tty.shader-tripped = <name>@<hash>` stops it from re-arming until the file changes or the user turns it on again. |
-| Crash / hang at start | An "arming" flag is written to preferences before the first frame with a new shader and cleared after 120 good frames. Found set at startup → safe mode: shaders off, one log line. Three trips in a row → `tty.shader` set to off. |
-| Always-available off | (1) Settings → TTY, which is outside the layer; (2) the `shader off` command (the prompt and IME still work even if nothing is readable); (3) a two-finger long press anywhere on home for 1 s, handled above the layer; (4) long-press on the launcher icon → app shortcut "Safe mode", which starts home with `tty.shader off` and `home.style gui`. |
-| Battery | Battery saver, thermal ≥ MODERATE, or below 15 % and not charging: `@animated` shaders freeze `time` (static frame) or turn off (`tty.shader-battery static|off`). |
+| Frame-time watchdog | `Window.addOnFrameMetricsAvailableListener`: if the GPU's 90th percentile over 60 frames stays over two frame intervals (33 ms at least) for 120 frames, or 3 frames stall the GPU (250 ms), the shader is turned off (as built: see *Watchdog* above), a log line says why, and `screen.shader-tripped = <name>@<hash>` stops it from re-arming until the file changes or the user turns it on again. |
+| Crash / hang at start | An "arming" flag is written to preferences before the first frame with a new shader and cleared after 120 good frames. Found set at startup → safe mode: shaders off, one log line. Three trips in a row → `screen.shader` set to off. |
+| Always-available off | (1) Settings → TTY, which is outside the layer; (2) the `shader off` command (the prompt and IME still work even if nothing is readable); (3) a two-finger long press anywhere on home for 1 s, handled above the layer; (4) long-press on the launcher icon → app shortcut "Safe mode", which starts home with `screen.shader off` and `home.style gui`. |
+| Battery | Battery saver, thermal ≥ MODERATE, or below 15 % and not charging: `@animated` shaders freeze `time` (static frame) or turn off (`screen.shader-battery static|off`). |
 | Idle | The frame loop for `@animated` runs only while home is resumed, focused and the terminal page is shown; it stops after 60 s without touch unless on a charger. |
 | Accessibility | Off while a screen reader or "remove animations" is on, unless the user opts in. |
 

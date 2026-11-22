@@ -81,6 +81,7 @@ import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
@@ -94,6 +95,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import kotlin.math.roundToInt
+import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
+import com.mtwabpin.kolahal.ui.tty.rememberTtyShader
 
 /**
  * Home as text, chips and cards: the header, the pinned line, the log, the suggestions, the prompt
@@ -173,9 +176,15 @@ internal fun GuiHome(
         }
     }
 
+    // screen.shader: a shader over all of home, the background too, as on the tty home. Settings' preview
+    // of home has none, and the grid is measured only while one is on.
+    val shaderName = remember(configVersion) { config[Keys.SCREEN_SHADER] }
+    val shader = if (preview || shaderName == ShaderCatalog.OFF) Modifier else rememberTtyShader(shaderName, rememberTtyGrid())
+
     Column(
         Modifier
             .fillMaxSize()
+            .then(shader)
             .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
             // No top padding here: the header fills the band beside the camera.
             .windowInsetsPadding(

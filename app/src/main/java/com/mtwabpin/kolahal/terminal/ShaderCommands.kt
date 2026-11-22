@@ -17,7 +17,7 @@ import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.Shaders
 
 /**
- * The `shader` command: the shader over the grid screens and the tty home (`tty.shader`).
+ * The `shader` command: the shader over the grid screens and the tty home (`screen.shader`).
  * - `shader` lists them; `shader <name>` (or `use`) turns one on, if it compiles: the one that is on
  *   stays when it doesn't.
  * - `shader off` always works: the prompt takes the keys even when nothing can be read. `shader on`
@@ -42,7 +42,7 @@ class ShaderCommands(
             "use" -> use(name ?: return usage("shader"))
             "on" -> on()
             ShaderCatalog.OFF -> off()
-            "check" -> check(name ?: conf[Keys.TTY_SHADER].takeUnless { it == ShaderCatalog.OFF } ?: return usage("shader"))
+            "check" -> check(name ?: conf[Keys.SCREEN_SHADER].takeUnless { it == ShaderCatalog.OFF } ?: return usage("shader"))
             "reload" -> reload()
             "copy" -> copy(name ?: return usage("shader"))
             "remove", "rm" -> remove(name ?: return usage("shader"))
@@ -52,7 +52,7 @@ class ShaderCommands(
 
     private fun list() {
         if (!Shaders.supported) needs()
-        val current = conf[Keys.TTY_SHADER]
+        val current = conf[Keys.SCREEN_SHADER]
         val tripped = ShaderSafety.get(context).tripped()
         Shaders.entries().forEach { e ->
             val source = Shaders.source(context, e.name)
@@ -84,7 +84,7 @@ class ShaderCommands(
         val safety = ShaderSafety.get(context)
         safety.turnedOn()
         safety.last = name
-        conf.set(Keys.TTY_SHADER, name)
+        conf.set(Keys.SCREEN_SHADER, name)
         val only = if (conf[Keys.HOME_STYLE] == "tty") "" else " · it shows on the full-screen screens (matrix, clock…)"
         info("Shader: $name$only · 'shader off' turns it off")
     }
@@ -92,17 +92,17 @@ class ShaderCommands(
     private fun on() {
         if (!Shaders.supported) return needs()
         val safety = ShaderSafety.get(context)
-        val current = conf[Keys.TTY_SHADER]
+        val current = conf[Keys.SCREEN_SHADER]
         val name = if (current != ShaderCatalog.OFF) current else safety.last
             ?: return error("No shader was on yet — 'shader use <name>'")
         use(name)
     }
 
     private fun off() {
-        val was = conf[Keys.TTY_SHADER]
+        val was = conf[Keys.SCREEN_SHADER]
         if (was == ShaderCatalog.OFF) return info("No shader is on")
         ShaderSafety.get(context).last = was
-        conf.set(Keys.TTY_SHADER, ShaderCatalog.OFF)
+        conf.set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
         info("Shader off · 'shader on' turns $was on again")
     }
 

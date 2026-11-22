@@ -97,7 +97,7 @@ private const val SAVER_FPS = 15
  * it at once instead of pausing it.
  *
  * [data] is what `boot` and `top` show; [clock24] is `clock.24h`; [crt] is `tty.crt` ([rememberCrt]);
- * [shader] is `tty.shader` ([rememberTtyShader]).
+ * [shader] is `screen.shader` ([rememberTtyShader]).
  * [make] makes the screen for [name]: one of Kolahal's, or a script's (`tty.screen`).
  */
 @Composable

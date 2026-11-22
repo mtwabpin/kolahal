@@ -4,11 +4,11 @@
 package com.mtwabpin.kolahal.script
 
 /**
- * The shaders `tty.shader` can name: the ones that come with Kolahal and the user's own `.agsl`
+ * The shaders `screen.shader` can name: the ones that come with Kolahal and the user's own `.agsl`
  * files ([Shaders] reads both from the phone). Their names and which file wins, as plain Kotlin.
  */
 object ShaderCatalog {
-    /** `tty.shader`'s value for no shader. */
+    /** `screen.shader`'s value for no shader. */
     const val OFF = "off"
 
     /** A shader file's extension. */

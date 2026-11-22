@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The shaders `tty.shader` can name ([ShaderCatalog]): their names, their files and the list. */
+/** The shaders `screen.shader` can name ([ShaderCatalog]): their names, their files and the list. */
 class ShaderCatalogTest {
     @Test
     fun aFileGivesItsShadersName() {
@@ -48,12 +48,12 @@ class ShaderCatalogTest {
 
     @Test
     fun theSettingTakesOffAndTheBundledOnes() {
-        assertEquals("off", Keys.TTY_SHADER.default)
-        assertTrue(Keys.TTY_SHADER.choices.containsAll(listOf("off") + ShaderCatalog.BUNDLED))
-        assertEquals(Keys.TTY_SHADER.choices, Keys.TTY_SHADER.choices.distinct())
-        assertEquals("rain", Keys.TTY_SHADER.parse("Rain"))
-        assertNull(Keys.TTY_SHADER.parse("no-such-shader"))
-        assertTrue(Keys.TTY_SHADER in Keys.ALL)
-        assertTrue(Keys.TTY_SHADER in Keys.CONFIG_ONLY)
+        assertEquals("off", Keys.SCREEN_SHADER.default)
+        assertTrue(Keys.SCREEN_SHADER.choices.containsAll(listOf("off") + ShaderCatalog.BUNDLED))
+        assertEquals(Keys.SCREEN_SHADER.choices, Keys.SCREEN_SHADER.choices.distinct())
+        assertEquals("rain", Keys.SCREEN_SHADER.parse("Rain"))
+        assertNull(Keys.SCREEN_SHADER.parse("no-such-shader"))
+        assertTrue(Keys.SCREEN_SHADER in Keys.ALL)
+        assertTrue(Keys.SCREEN_SHADER in Keys.CONFIG_ONLY)
     }
 }

@@ -45,7 +45,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * `tty.shader`: a shader over home on the grid and over the full-screen screens. It needs Android 13,
+ * `screen.shader`: a shader over home on the grid and over the full-screen screens. It needs Android 13,
  * so on older versions these tests only check that nothing is drawn.
  */
 @RunWith(AndroidJUnit4::class)
@@ -132,37 +132,40 @@ class TtyShaderTest {
         needsAndroid13()
         ttyHome()
         assertTrue("drawn before it is set: ${drawn()}", drawn().isEmpty())
-        config.set(Keys.TTY_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "bloom")
         compose.waitFor("bloom isn't drawn") { drawn() == listOf("bloom") }
         // Another one takes its place, live.
-        config.set(Keys.TTY_SHADER, "crt")
+        config.set(Keys.SCREEN_SHADER, "crt")
         compose.waitFor("crt isn't drawn") { drawn() == listOf("crt") }
         commands.run("shader off")
         compose.waitFor("it is still drawn") { drawn().isEmpty() }
-        assertEquals("off", config[Keys.TTY_SHADER])
+        assertEquals("off", config[Keys.SCREEN_SHADER])
     }
 
-    /** The GUI home has no shader: only the grid's surfaces do. */
+    /** The GUI home has it too, and loses it when it is off. */
     @Test
-    fun theGuiHomeHasNoShader() {
+    fun theGuiHomeHasTheShader() {
         needsAndroid13()
-        config.set(Keys.TTY_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "bloom")
         home(style = "gui")
-        compose.waitForIdle()
-        assertTrue("${drawn()}", drawn().isEmpty())
+        compose.waitFor("bloom isn't drawn over the gui home") { drawn() == listOf("bloom") }
+        config.set(Keys.SCREEN_SHADER, "off")
+        compose.waitFor("it is still drawn") { drawn().isEmpty() }
     }
 
     /** The full-screen screens have it in either home style. */
     @Test
     fun aScreenHasTheShaderInTheGuiStyleToo() {
         needsAndroid13()
-        config.set(Keys.TTY_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "bloom")
         val vm = home(style = "gui")
         // matrix, as the clock screen never lets Compose's test clock come to rest, with or without a shader.
+        compose.waitFor("bloom isn't drawn over the gui home") { drawn() == listOf("bloom") }
         compose.runOnIdle { vm.showTtyScreen("matrix") }
-        compose.waitFor("bloom isn't drawn over the screen") { drawn() == listOf("bloom") }
+        // Home's and the screen's: two surfaces draw it.
+        compose.waitFor("bloom isn't drawn over the screen") { drawn() == listOf("bloom", "bloom") }
         compose.runOnIdle { vm.closeTtyScreen() }
-        compose.waitFor("it is still drawn") { drawn().isEmpty() }
+        compose.waitFor("the screen still draws it") { drawn() == listOf("bloom") }
     }
 
     /** A shader that doesn't compile is a line with the compiler's line and message, and home stays as it is. */
@@ -171,7 +174,7 @@ class TtyShaderTest {
         needsAndroid13()
         Shaders.save(app, "zz-broken", "uniform shader content;\nhalf4 main(float2 p) {\n    return nope;\n}\n")
         ttyHome()
-        config.set(Keys.TTY_SHADER, "zz-broken")
+        config.set(Keys.SCREEN_SHADER, "zz-broken")
         compose.waitFor("no line says it is broken") { errors("Shader zz-broken:").isNotEmpty() }
         val error = errors("Shader zz-broken:").single().text
         assertTrue(error, "line 3" in error)
@@ -185,7 +188,7 @@ class TtyShaderTest {
         needsAndroid13()
         Shaders.save(app, "zz-wrong", "uniform shader content; uniform float2 time; half4 main(float2 p) { return content.eval(p); }")
         ttyHome()
-        config.set(Keys.TTY_SHADER, "zz-wrong")
+        config.set(Keys.SCREEN_SHADER, "zz-wrong")
         compose.waitFor("no line says it is wrong") { errors("'time' must be a float").isNotEmpty() }
         assertTrue("${drawn()}", drawn().isEmpty())
     }
@@ -196,9 +199,9 @@ class TtyShaderTest {
         needsAndroid13()
         Shaders.save(app, "zz-broken", "uniform shader content;\nhalf4 main(float2 p) { return nope; }")
         commands.run("shader use bloom")
-        assertEquals("bloom", config[Keys.TTY_SHADER])
+        assertEquals("bloom", config[Keys.SCREEN_SHADER])
         commands.run("shader use zz-broken")
-        assertEquals("bloom", config[Keys.TTY_SHADER])
+        assertEquals("bloom", config[Keys.SCREEN_SHADER])
         assertTrue(errors("Shader zz-broken: line 2").isNotEmpty())
     }
 
@@ -209,7 +212,7 @@ class TtyShaderTest {
         ttyHome()
         val id = ShaderSafety.id("bloom", Shaders.bundled(app, "bloom"))
         ShaderSafety.get(app).trip(id)
-        config.set(Keys.TTY_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "bloom")
         compose.waitForIdle()
         // Read in the background: give it time to have drawn it.
         Thread.sleep(700)
@@ -223,7 +226,7 @@ class TtyShaderTest {
     fun twoFingersHeldTurnItOff() {
         needsAndroid13()
         ttyHome()
-        config.set(Keys.TTY_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "bloom")
         compose.waitFor("bloom isn't drawn") { drawn() == listOf("bloom") }
         compose.onNodeWithTag("tty-home").performTouchInput {
             down(0, Offset(width * 0.3f, height * 0.3f))
@@ -232,17 +235,17 @@ class TtyShaderTest {
             up(0)
             up(1)
         }
-        compose.waitFor("the shader is still on") { config[Keys.TTY_SHADER] == "off" }
+        compose.waitFor("the shader is still on") { config[Keys.SCREEN_SHADER] == "off" }
         compose.waitFor("it is still drawn") { drawn().isEmpty() }
         assertTrue(newLines().any { "two fingers" in it.text })
     }
 
-    /** The full-screen host is under it without `tty.shader` too: an old Android simply draws nothing. */
+    /** The full-screen host is under it without `screen.shader` too: an old Android simply draws nothing. */
     @Test
     fun onOldAndroidNothingIsDrawnAndTheCommandSaysWhy() {
         assumeTrue("this phone has shaders", !supported)
         ttyHome()
-        config.set(Keys.TTY_SHADER, "bloom")
+        config.set(Keys.SCREEN_SHADER, "bloom")
         compose.waitForIdle()
         assertTrue(drawn().isEmpty())
         assertTrue(commands.run("shader use crt").any { "Android 13" in it })
@@ -259,7 +262,7 @@ class TtyShaderTest {
             assertTrue(commands.run("shader check rain").any { "Animated" in it })
         }
         assertFalse(commands.lines("shader check zz-none").isEmpty())
-        assertEquals("off", config[Keys.TTY_SHADER])
+        assertEquals("off", config[Keys.SCREEN_SHADER])
     }
 
     /** A shader from a file is the user's own: it shows in the list and can be used; `shader remove` deletes it. */
@@ -267,18 +270,18 @@ class TtyShaderTest {
     fun aFileOfYoursIsAShader() {
         Shaders.save(app, "zz-fine", "// @description Mine\nuniform shader content;\nhalf4 main(float2 p) { return content.eval(p); }")
         assertTrue("zz-fine" in Shaders.userNames)
-        assertTrue("zz-fine" in Keys.TTY_SHADER.choices)
+        assertTrue("zz-fine" in Keys.SCREEN_SHADER.choices)
         // The description is beside the name, in the line's own field, not in its text.
         val listed = commands.lines("shader").single { it.text.startsWith("zz-fine") }
         assertEquals("Mine", listed.ctx.values[LogContext.DESC])
         if (supported) {
             commands.run("shader use zz-fine")
-            assertEquals("zz-fine", config[Keys.TTY_SHADER])
+            assertEquals("zz-fine", config[Keys.SCREEN_SHADER])
         }
         commands.run("shader remove zz-fine")
         assertFalse("zz-fine" in Shaders.userNames)
         // The setting falls back to none when its file is gone.
-        assertEquals("off", config[Keys.TTY_SHADER])
+        assertEquals("off", config[Keys.SCREEN_SHADER])
     }
 
     /** Off always works, and says so when nothing is on. */

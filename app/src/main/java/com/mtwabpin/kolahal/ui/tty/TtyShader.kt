@@ -75,7 +75,7 @@ internal object ActiveShaders {
 }
 
 /**
- * `tty.shader` over a TTY surface (home on the grid, a full-screen screen): a [RenderEffect] on its
+ * `screen.shader` over a TTY surface (home on the grid, a full-screen screen): a [RenderEffect] on its
  * layer, so the shader works on what is drawn and the grid knows nothing of it. Nothing when [on] is
  * false, or when no shader can be drawn: no shader is set, it doesn't compile, it was turned off
  * (too slow, or Kolahal crashed while it was on), a screen reader is on, or Android is older than 13.
