@@ -16,7 +16,8 @@ override the rest. Internal: nothing here is published.
   font size (bold or inverse for emphasis; =font.size= and pinch still size the whole grid).
 - The widgets page always stays GUI.
 - The GUI gets nothing because TTY has it (no scroll thumb, no selection mode in the GUI).
-- =home.style= stays a config key (=config set home.style tty=) until step 4, then goes into Settings.
+- TTY stays a config setting only (22 November): =config set home.style tty= and the other TTY keys,
+  never a switch in Settings, and no guide page on the website.
 
 * Steps
 ** TODO Step 0: the seam, with no visible change  :seam:
@@ -60,8 +61,8 @@ override the rest. Internal: nothing here is published.
 - Right-to-left text, TalkBack and switch access, every theme dark and light, Material You,
   custom fonts, font scale, process death, rotation and resize, work and private profiles,
   performance on a long log; a parity test over the shared corpus.
-- Settings gets a TTY section with the style switch. Website: a Guides → TTY page (profiles
-  material last; nothing marked "new").
+- +Settings gets a TTY section with the style switch. Website: a Guides → TTY page.+ Dropped on
+  22 November: TTY stays a config setting only.
 - Groundwork done (22 November), still behind =config set home.style tty=:
   - [X] Right-to-left: in an Arabic, Hebrew or Persian layout the grid turns around as the GUI
     does: the gutter on the right, the time on the left, tables' first column on the right, bars
@@ -83,9 +84,9 @@ override the rest. Internal: nothing here is published.
   - [X] Process death: TTY keeps its state where the GUI does (the list state and the open folds
     are saveable in =HomeState=; the typed text is in the view model for both).
     =TtyParityTest.stateSurvivesRecreation= (device).
-  - [ ] Left: the Settings switch, the website page, a device run of the new tests, and a look on
-    the phone with real Arabic and Hebrew text. The prompt shows typed right-to-left text in the
-    order it is typed, letter by letter (no shaping while editing).
+  - [X] The device run of the new tests (22 November, 1255 tests).
+  - [ ] Left: a look on the phone with real Arabic and Hebrew text. The prompt shows typed
+    right-to-left text in the order it is typed, letter by letter (no shaping while editing).
 - Remark:
 
 ** TODO Step 5: extras  :extras:
