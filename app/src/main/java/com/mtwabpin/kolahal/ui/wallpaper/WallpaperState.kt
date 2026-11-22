@@ -52,7 +52,10 @@ data class WallpaperState(
         /** The folder it is in, which the wallpaper watches. */
         fun dir(context: Context) = File(context.filesDir, "wallpaper")
 
-        private fun file(context: Context) = File(dir(context), "state.json")
+        /** The state's file in [dir]. */
+        const val FILE = "state.json"
+
+        private fun file(context: Context) = File(dir(context), FILE)
 
         fun read(context: Context): WallpaperState? =
             runCatching { AtomicFile(file(context)).readFully().toString(Charsets.UTF_8) }.getOrNull()?.let(::decode)

@@ -6,6 +6,7 @@ import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -26,6 +27,14 @@ class WallpaperStateTest {
         assertEquals(state, WallpaperState.decode(state.encode()))
         val bare = state.copy(set = emptyMap(), follows = emptyMap(), formulas = emptyMap(), given = emptyMap(), alwaysDark = false)
         assertEquals(bare, WallpaperState.decode(bare.encode()))
+    }
+
+    /** What home writes reads back the same, so a new process sees that the file holds it already. */
+    @Test
+    fun theFileHoldsWhatWasWritten() {
+        val odd = state.copy(cellW = 14f * 0.6f * 2.625f, cellH = 14f * 1.15f * 2.625f)
+        assertEquals(odd, WallpaperState.decode(odd.encode()))
+        assertNotEquals(odd, WallpaperState.decode(odd.copy(cellW = Math.nextUp(odd.cellW)).encode()))
     }
 
     @Test

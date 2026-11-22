@@ -65,6 +65,11 @@ object WallpaperWriter {
             cellH = cellH,
         )
         if (state == last) return
+        // In a new process: the file may hold it already, and then it isn't written and synced again.
+        if (last == null && WallpaperState.read(context) == state) {
+            last = state
+            return
+        }
         WallpaperState.write(context, state)
         last = state
     }
