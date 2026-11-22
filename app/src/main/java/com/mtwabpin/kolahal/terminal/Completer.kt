@@ -23,6 +23,7 @@ import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.script.Shaders
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -719,13 +720,13 @@ class Completer(private val context: Context, private val data: Data) {
                 .map { Suggestion.Completion(it, "$head $it") }
 
             // `shader c`: its subcommands and the shaders; `shader use c`: the shaders.
-            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() }, data.sharedShaders)
+            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() }, data.sharedShaders) { Shaders.params(context, it) }
                 .filter { it.starts(last) }
                 .map {
                     val sub = parts.size == 2 && it in ShaderCommands.SUBCOMMANDS
                     Suggestion.Completion(
                         it,
-                        (parts.dropLast(1) + it).joinToString(" ") + if (sub && it in ShaderCommands.TAKE_NAME) " " else "",
+                        (parts.dropLast(1) + it).joinToString(" ") + if (sub && it in ShaderCommands.TAKE_NAME || parts.size in 3..4 && parts[1].equals("set", ignoreCase = true)) " " else "",
                         icon = if (sub) null else R.drawable.ic_palette,
                     )
                 }

@@ -19,6 +19,8 @@ Each row shows what the shader looks like and what it is: in use, yours or from 
 [shared list](#getting-shaders-from-others), animated, using [tilt](#tilt-and-power), edited, turned off (and why),
 or with an update. Tap ⓘ for its details: a small preview, its version and author, its code, and what you can do with it.
 
+- Some shaders have **parameters**, such as the amount of snow: sliders under the preview, which follows them as you
+  drag. **Reset** sets them to their defaults.
 - **Check** compiles it and says which [uniforms](#uniforms) it uses.
 - **Copy to script folder** and **Share** give you the file or its code, to edit it or pass it on.
 - **Update** brings a newer version of a shared shader.
@@ -32,6 +34,9 @@ Or type:
 | `shader <name>` | turns it on |
 | `shader off` | turns shaders off |
 | `shader on` | turns the last one on again |
+| `shader set <name>` | a shader's parameters, and what they can be |
+| `shader set <name> <parameter> <value>` | changes one: `shader set snowfall amount 1.5` |
+| `shader reset <name>` | resets its parameters to their defaults |
 
 The setting behind them is [`screen.shader`](/reference/config/#screens). These come with Kolahal. The ones marked "moves" are drawn again and again; the others cost
 nothing while the screen is still.
@@ -51,7 +56,7 @@ nothing while the screen is still.
 | `mountains` | flat mountain ridges in mist, after woodblock prints. They breathe slowly, follow the hour, and shift a little as the phone leans. It moves |
 | `pond` | a still pond under far hills, after woodblock prints, with rings of rain and a path of light. It follows the hour. It moves |
 | `rain` | a storm you stand in: mist far off, rain in between and big soft drops close by; it slants as the phone leans, and a touch holds it off. It moves |
-| `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. It moves |
+| `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. Its amount and size can be changed. It moves |
 | `grove-snow` | small, crisp flakes fall and wander slowly behind the text, and dim with the hour. It moves |
 | `grove-autumn` | a few orange, gold and rust leaves turn as they drift down, and dim with the hour. It moves |
 | `aurora` | curtains of northern lights in the top of the screen, behind the text. It moves |
@@ -185,12 +190,33 @@ Comments at the top say what the shader is. All are optional:
 | --- | --- |
 | `// @name Tint` | its name for people |
 | `// @description …` | what it looks like. `shader` shows it |
+| `// @param amount 0.0..2.0 = 1.0 …` | something people can change. See [Parameters](#parameters) |
 | `// @animated` | it changes on its own, so it is drawn up to 30 times a second. Without it a shader is only drawn when the screen changes, so it uses no power while the screen is still |
 | `// @author …` | who made it. A shared shader needs it, as it does `@version` and `@license` |
 | `// @version 1.0` | its version |
 | `// @license MIT` | its license |
 | `// @tags glow, retro` | words that find it in Get more shaders |
 | `// @requires 0.5.17` | the oldest Kolahal it works with |
+
+### Parameters
+
+A parameter is something people can change in the shader's details or with `shader set`. A header line names
+it, says what it can be and gives its default and its title. A `float` uniform of its name holds its value:
+
+```glsl
+// @param amount 0.0..2.0 = 1.0 Amount of snow
+// @param shape round|star = round Shape of the flakes
+
+uniform float amount;
+uniform float shape;
+```
+
+- **A range** is a slider. If nothing in it has a decimal point (`1..8 = 3`), it goes in whole numbers.
+- **Words**, two to four of them, are buttons. The uniform gets the word's place: 0 for the first, 1 for the second.
+- A shader can have up to 8. Their names can't be those of the uniforms below.
+- Values are kept for each shader, in the [backup file](/guides/backup/) too, and when the shader is updated. One that
+  the new version can't have becomes the default again.
+- A shader that isn't `@animated` is drawn again when one changes.
 
 ### Uniforms
 

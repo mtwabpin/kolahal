@@ -16,6 +16,7 @@ import com.mtwabpin.kolahal.script.ScriptImport
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.widgets.Shortcuts
 
@@ -171,6 +172,8 @@ class Backup(private val context: Context) {
             } else skipped += "theme $name"
         }
 
+        // The shaders' parameters came with the stores.
+        ShaderParams.load(context)
         // Shaders before settings too: `screen.shader` may name one of them.
         var shaders = 0
         (root["shaders"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.forEach { m ->

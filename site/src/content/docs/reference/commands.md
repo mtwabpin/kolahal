@@ -250,6 +250,7 @@ into the prompt (except `q`, which only quits).
 | `pipes` | | pipes grow across the screen and turn at random (also `screen pipes`) |
 | `sl` | | a steam locomotive crosses the screen, then home comes back (also `screen sl`) |
 | `shader [<name>\|list\|on\|off]` | | a [shader](/scripting/shaders/) over home and the screens, on Android 13 and newer: `crt`, `paper`, `aurora` and others, or one of yours. Alone, it lists them. `off` always works |
+| `shader set <name> <parameter> <value>` · `shader reset <name>` | | change a shader's [parameters](/scripting/shaders/#parameters), such as the amount of snow, and reset them |
 | `shader get [<name>]` · `shader update [<name>]` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them, or installs one; `update` updates those you installed |
 | `shader check\|copy\|remove <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
 

@@ -66,6 +66,7 @@ import kotlinx.coroutines.launch
  * in the list's order, as the preview is what one looks for.
  * - A preview, then Use or Turn off, Check (does it compile, and which uniforms Kolahal sets), Share, and
  *   Copy to the script folder. Holding the eye shows home with the shader, in use or not ([onPeek]).
+ * - Its parameters, under the preview, which follows them ([ShaderParamRows]).
  * - Update, for one from Get more shaders with a newer version. An edited one asks first.
  * - Remove, for the user's own. Undo puts it back.
  * - Its code is at the end.
@@ -155,6 +156,10 @@ private fun ShaderDetails(
         row.meta.description?.let {
             Spacer(Modifier.height(12.dp))
             Text(it, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (row.meta.params.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            ShaderParamRows(row.name, row.meta.params, actions)
         }
         if (row.turnedOff) SheetError(ShaderPage.turnedOff(row))
         problem?.let { SheetError("Can't be used: $it") }

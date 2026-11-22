@@ -56,6 +56,10 @@ object Shaders {
     /** Every shader's name, for completion. */
     val names: List<String> get() = ShaderCatalog.list(mine).map { it.name }
 
+    /** What people set is read with the first names; later, it is what is in memory. */
+    @Volatile
+    private var paramsRead = false
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** The problems already put in the log, so a redraw doesn't repeat them. */
@@ -66,6 +70,10 @@ object Shaders {
 
     /** Reads the user's shader names. Called at start, before home is drawn. */
     fun load(context: Context) {
+        if (!paramsRead) {
+            paramsRead = true
+            ShaderParams.load(context)
+        }
         mine = dir(context).list().orEmpty().mapNotNull(ShaderCatalog::nameOf).distinct().sorted()
         _version.update { it + 1 }
     }
@@ -144,12 +152,17 @@ object Shaders {
         return null
     }
 
-    /** What checking a shader found: its [problem] (null: none), and the uniforms Kolahal [sets] and those left [unset]. */
+    /** The parameters of shader [name]; none when it can't be read. Reads a file: not on the main thread. */
+    fun params(context: Context, name: String): List<ShaderParam> =
+        source(context, name)?.let { ShaderMeta.parse(it).params }.orEmpty()
+
+    /** What checking a shader found: its [problem] (null: none), the uniforms Kolahal [sets], those left [unset], and its [params]. */
     class Check(
         val problem: String?,
         val sets: List<String>,
         val unset: List<String>,
-        val animated: Boolean
+        val animated: Boolean,
+        val params: List<ShaderParam> = emptyList(),
     )
 
     /** Compiles shader [name] and reads its uniforms. Null when it can't be read. Not on the main thread. */
@@ -160,6 +173,7 @@ object Shaders {
             meta.uniforms.map { it.name }.filter { it in ShaderMeta.KNOWN },
             meta.unset(),
             meta.animated,
+            meta.params,
         )
     }
 

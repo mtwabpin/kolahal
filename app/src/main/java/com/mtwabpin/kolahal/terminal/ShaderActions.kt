@@ -12,6 +12,8 @@ import com.mtwabpin.kolahal.script.ScriptFiles
 import com.mtwabpin.kolahal.script.ScriptFolder
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderMeta
+import com.mtwabpin.kolahal.script.ShaderParam
+import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderStore
 import com.mtwabpin.kolahal.script.Shaders
@@ -116,6 +118,12 @@ class ShaderActions(
 
     /** No shader. `shader on` turns the last one on again. */
     fun off() = host.io { Shaders.off(context) }
+
+    /** Sets [param] of [name], and keeps it. */
+    fun setParam(name: String, param: ShaderParam, value: Float) = ShaderParams.set(context, name, param, value)
+
+    /** The parameters of [name] are as it comes. */
+    fun resetParams(name: String) = ShaderParams.reset(context, name)
 
     /** Compiles [name] and reads its uniforms. Null when it can't be read. */
     suspend fun check(name: String): Shaders.Check? =

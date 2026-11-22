@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import android.app.Application
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -29,6 +31,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.Screen
@@ -106,7 +109,8 @@ class ShadersScreenTest {
     /** Opens the sheet of the shader titled [title], whose row is [name]. */
     private fun openSheet(name: String, title: String) {
         scrollTo(name)
-        compose.onNodeWithContentDescription("Details of $title").performClick()
+        // Not a tap: the row can be under the Add button.
+        compose.onNodeWithContentDescription("Details of $title").performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForText("Code")
     }
 
@@ -246,6 +250,29 @@ class ShadersScreenTest {
         compose.waitForText("2 of ${ShaderCatalog.BUNDLED.size}")
         compose.onNodeWithTag("shader-pager").performTouchInput { swipeRight() }
         compose.waitForText("1 of ${ShaderCatalog.BUNDLED.size}")
+    }
+
+    /** A slider changes what is set at once and keeps it, also through a new read; Reset puts it back. */
+    @Test
+    fun aParameterIsKeptAndReset() {
+        needsAndroid13()
+        val param = Shaders.params(app, "snowfall").first { it.name == "amount" }
+        try {
+            show()
+            openSheet("snowfall", "Snowfall")
+            compose.onNodeWithTag("param amount", useUnmergedTree = true).performScrollTo()
+                .performSemanticsAction(SemanticsActions.SetProgress) { it(2f) }
+            compose.waitFor("not set") { ShaderParams.of("snowfall", param) == 2f }
+            compose.runOnIdle { ShaderParams.load(app) }
+            assertEquals(2f, ShaderParams.of("snowfall", param))
+            tapOnSheet("Reset")
+            compose.waitFor("not reset") { ShaderParams.of("snowfall", param) == param.default }
+            compose.onNodeWithText("Reset").assertDoesNotExist()
+            compose.runOnIdle { ShaderParams.load(app) }
+            assertEquals(param.default, ShaderParams.of("snowfall", param))
+        } finally {
+            ShaderParams.reset(app, "snowfall")
+        }
     }
 
     /** Holding the sheet's eye shows home with that shader, which isn't turned on for it; letting go ends it. */

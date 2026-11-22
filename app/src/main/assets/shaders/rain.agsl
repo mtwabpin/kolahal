@@ -1,6 +1,7 @@
 // @name Rain
 // @description A storm you stand in: mist far off, rain in between, and big soft drops that rush past close by. A touch holds it off
 // @animated
+// @param amount 0.0..2.0 = 1.0 Amount of rain
 //
 // Five depths of rain, from a far curtain of fine, slow streaks to a few near drops many times as
 // wide and fast. The far rain falls straight; the nearer it is, the more its streaks spread out from
@@ -20,6 +21,7 @@ layout(color) uniform half4 bg;
 layout(color) uniform half4 surface;
 layout(color) uniform half4 fg;
 layout(color) uniform half4 info;
+uniform float amount;
 
 // A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
 float hash(float2 p) {
@@ -82,7 +84,7 @@ half4 main(float2 xy) {
 
         // Which drops are there: more where a heavy sheet passes, and only a few of the near ones.
         float r = hash(float2(col * 1.7 + near * 31.0, mod(drop, 512.0)));
-        float there = step(mix(0.62 - 0.34 * sheet, 0.66, near * near), r);
+        float there = step(1.0 - amount * (1.0 - mix(0.62 - 0.34 * sheet, 0.66, near * near)), r);
 
         // The streak: a head and a tail behind it, sharp far off and soft at both ends close by.
         float len = mix(0.25, 0.6, fract(r * 7.3));
@@ -132,13 +134,13 @@ half4 main(float2 xy) {
         * (0.35 + 0.65 * step(0.55, spray));
     rain = rain * (1.0 - 0.92 * dry) + rim * 0.38;
 
-    float amount = clamp(rain, 0.0, 1.0) * mix(0.9, 1.0, dark);
-    amount = amount + (1.0 - amount) * clamp(haze * (1.0 - 0.6 * dry) + flicker, 0.0, 1.0);
+    float cover = clamp(rain, 0.0, 1.0) * mix(0.9, 1.0, dark);
+    cover = cover + (1.0 - cover) * clamp(haze * (1.0 - 0.6 * dry) + flicker, 0.0, 1.0);
 
     // Not over text: a pixel that differs from the page is text or a line.
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    cover *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
 
     float3 color = mix(float3(info.rgb), float3(fg.rgb), 0.45 * dark);
-    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+    return half4(here * (1.0 - cover) + float4(color * cover, cover));
 }

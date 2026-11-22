@@ -1,6 +1,7 @@
 // @name Fireflies
 // @description Small lights wander behind the text and glow on and off; on a light theme, soft motes in the sun. A touch draws them near
 // @animated
+// @param amount 0.3..2.0 = 1.0 Number of lights
 //
 // Two layers of flies, one in each square of its layer. They only show where the page does, so
 // text stays as it is. On a light theme, where a light can't show, they are motes in the sun: soft
@@ -18,6 +19,7 @@ layout(color) uniform half4 surface;
 layout(color) uniform half4 fg;
 layout(color) uniform half4 warn;
 layout(color) uniform half4 good;
+uniform float amount;
 
 // A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
 float hash(float2 p) {
@@ -46,7 +48,7 @@ half4 main(float2 xy) {
         float n = float(i);
 
         // Squares of this layer, about four or six across the screen, the second layer shifted.
-        float size = resolution.x / (3.6 + n * 2.3);
+        float size = resolution.x / ((3.6 + n * 2.3) * sqrt(amount));
         float2 uv = p / size + n * float2(0.37, 0.61);
         float2 id = floor(uv);
         float r1 = hash(id + n * 17.0);
@@ -83,17 +85,17 @@ half4 main(float2 xy) {
     float3 middle = mix(light, float3(1.0), 0.6);
     float halo = clamp(glow, 0.0, 1.0) * 0.45;
     float dot1 = clamp(core, 0.0, 1.0) * 0.85;
-    float amount = halo * (1.0 - dot1) + dot1;
-    float3 color = (light * halo * (1.0 - dot1) + middle * dot1) / max(amount, 0.001);
+    float cover = halo * (1.0 - dot1) + dot1;
+    float3 color = (light * halo * (1.0 - dot1) + middle * dot1) / max(cover, 0.001);
 
     // On a light theme the patches instead, as washes of their color.
     if (dark < 0.5) {
-        amount = clamp(patch1, 0.0, 1.0) * 0.25;
+        cover = clamp(patch1, 0.0, 1.0) * 0.25;
         color = tint / max(patch1, 0.001);
     }
 
     // Not over text: a pixel that differs from the page is text or a line.
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
-    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+    cover *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - cover) + float4(color * cover, cover));
 }

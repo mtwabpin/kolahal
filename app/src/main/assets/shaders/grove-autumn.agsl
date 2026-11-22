@@ -1,6 +1,7 @@
 // @name Grove autumn
 // @description A few leaves turn and drift down behind the text, as in Grove: orange, gold and rust. They dim with the hour
 // @animated
+// @param amount 0.25..3.0 = 1.0 Number of leaves
 //
 // Two sets of columns over each other. Each column falls at its own speed, and each of its cells has one
 // leaf, anywhere in it, with its own color, sway and turn. Sparse on purpose.
@@ -11,6 +12,7 @@ uniform float time;
 uniform float4 date;
 uniform float dark;
 layout(color) uniform half4 bg;
+uniform float amount;
 
 // A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
 float hash(float2 p) {
@@ -47,7 +49,7 @@ half4 main(float2 xy) {
     float leaf = 0.0;
     for (int i = 0; i < 2; i++) {
         float n = float(i);
-        float2 cell = float2(101.0 + 18.0 * n, 420.0 - 62.0 * n);
+        float2 cell = float2(101.0 + 18.0 * n, (420.0 - 62.0 * n) / amount);
         float x = at.x / cell.x + 0.43 * n;
         float column = floor(x);
         float part = (x - column) * cell.x;
@@ -86,6 +88,6 @@ half4 main(float2 xy) {
 
     // Warmer at sunrise and sunset and dimmer at night, but never so dark that it sinks into a dark theme.
     color *= warm * mix(float3(1.0), mix(float3(0.72, 0.75, 0.82), float3(0.60, 0.63, 0.74), dark), night);
-    float amount = leaf * open;
-    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+    float shown = leaf * open;
+    return half4(here * (1.0 - shown) + float4(color * shown, shown));
 }

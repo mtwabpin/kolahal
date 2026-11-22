@@ -1,6 +1,7 @@
 // @name Grove snow
 // @description Slow, crisp flakes fall and wander behind the text, as in Grove. They dim with the hour
 // @animated
+// @param amount 0.25..3.0 = 1.0 Amount of snow
 //
 // Four sets of columns over each other. Each column falls at its own speed, and each of its cells has one
 // flake, anywhere in it, with its own size and sway. Nothing moves in step, and nothing is wide.
@@ -11,6 +12,7 @@ uniform float time;
 uniform float4 date;
 uniform float dark;
 layout(color) uniform half4 bg;
+uniform float amount;
 
 // A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
 float hash(float2 p) {
@@ -46,7 +48,7 @@ half4 main(float2 xy) {
     float flake = 0.0;
     for (int i = 0; i < 4; i++) {
         float n = float(i);
-        float2 cell = float2(52.0 + 5.0 * n, 292.0 - 25.0 * n);
+        float2 cell = float2(52.0 + 5.0 * n, (292.0 - 25.0 * n) / amount);
         float x = at.x / cell.x + 0.37 * n;
         float column = floor(x);
         float part = (x - column) * cell.x;
@@ -73,6 +75,6 @@ half4 main(float2 xy) {
     // White by day and a moonlit blue grey by night; on a light theme a blue grey always, as white won't show.
     float3 color = mix(warm, float3(0.663, 0.725, 0.824), 0.85 * night);
     color = mix(float3(0.48, 0.58, 0.74) * mix(float3(1.0), warm, 0.5), color, dark);
-    float amount = flake * mix(0.80, 0.85, dark) * open;
-    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+    float cover = flake * mix(0.80, 0.85, dark) * open;
+    return half4(here * (1.0 - cover) + float4(color * cover, cover));
 }

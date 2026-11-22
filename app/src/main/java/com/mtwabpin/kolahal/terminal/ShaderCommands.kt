@@ -15,6 +15,8 @@ import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderClock
 import com.mtwabpin.kolahal.script.ShaderMeta
+import com.mtwabpin.kolahal.script.ShaderParam
+import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderStore
 import com.mtwabpin.kolahal.script.Shaders
@@ -26,6 +28,7 @@ import com.mtwabpin.kolahal.script.SharedShader
  *   stays when it doesn't.
  * - `shader off` always works: the prompt takes the keys even when nothing can be read. `shader on`
  *   turns the last one on again, also after it was turned off for being slow.
+ * - `set` changes a shader's parameters and `reset` puts them back ([ShaderParam]).
  * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
  * - `check`, `reload`, `copy` and `remove` work with the user's own files.
  *
@@ -49,6 +52,8 @@ class ShaderCommands(
             "use" -> use(name ?: return usage("shader"))
             "on" -> on()
             ShaderCatalog.OFF -> off()
+            "set" -> set(args.drop(1))
+            "reset" -> reset(args.drop(1))
             // These use the network, so they run outside the serial command queue.
             "get" -> background("shader get") { getShared(args.drop(1)) }
             "update" -> background("shader update") { update(args.drop(1)) }
@@ -107,6 +112,50 @@ class ShaderCommands(
         val was = Shaders.off(context) ?: return info("No shader is on")
         info("Shader off · 'shader on' turns $was on again")
     }
+
+    /** `shader set <name> <parameter> <value>`; without a value it says what it is, without a parameter it lists them. */
+    private fun set(args: List<String>) {
+        val name = args.firstOrNull()?.lowercase() ?: return usage("shader")
+        val params = paramsOf(name) ?: return
+        if (args.size == 1) return params.forEach { line(name, it) }
+        val param = params.find(args[1]) ?: return error("$name has no parameter '${args[1]}' · it has ${params.joinToString { it.name }}")
+        if (args.size == 2) return line(name, param)
+        val value = param.parse(args[2]) ?: return error("${param.name} can be ${param.range}")
+        ShaderParams.set(context, name, param, value)
+        info("$name: ${param.name} ${param.text(value)}")
+    }
+
+    /** `shader reset <name> [<parameter>]`. */
+    private fun reset(args: List<String>) {
+        val name = args.firstOrNull()?.lowercase() ?: return usage("shader")
+        val params = paramsOf(name) ?: return
+        val param = args.getOrNull(1)?.let {
+            params.find(it) ?: return error("$name has no parameter '$it' · it has ${params.joinToString { p -> p.name }}")
+        }
+        ShaderParams.reset(context, name, param)
+        info(if (param != null) "$name: ${param.name} ${param.text(param.default)}" else "$name: parameters reset")
+    }
+
+    /** The parameters of [name]. Null, and it has said so, when there are none. */
+    private fun paramsOf(name: String): List<ShaderParam>? {
+        if (!Shaders.exists(name)) {
+            error("No shader '$name' — 'shader' lists them")
+            return null
+        }
+        val params = Shaders.params(context, name)
+        if (params.isEmpty()) info("$name has no parameters")
+        return params.takeIf { it.isNotEmpty() }
+    }
+
+    private fun List<ShaderParam>.find(name: String) = firstOrNull { it.name.equals(name, ignoreCase = true) }
+
+    private fun line(shader: String, param: ShaderParam) = out(
+        "${param.name} ${param.text(ShaderParams.of(shader, param))}",
+        LogContext.of(
+            LogContext.COMMAND to "shader set $shader ${param.name} ",
+            LogContext.DESC to "${param.title} · ${param.range} · default ${param.text(param.default)}",
+        ) + LogContext.ITEM,
+    )
 
     private fun check(name: String) {
         if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
@@ -269,16 +318,26 @@ class ShaderCommands(
 
     companion object {
         val SUBCOMMANDS =
-            listOf("list", "use", "on", "off", "get", "update", "check", "reload", "copy", "remove")
+            listOf("list", "use", "on", "off", "set", "reset", "get", "update", "check", "reload", "copy", "remove")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "get", "update", "check", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "set", "reset", "get", "update", "check", "copy", "remove", "rm")
 
         /**
          * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of
-         * the subcommand. [shared]: the shared shaders, as far as they are known ([ScriptSources.ref]).
+         * the subcommand, then a shader's parameters and what they can be. [shared]: the shared shaders, as
+         * far as they are known ([ScriptSources.ref]). [params]: a shader's parameters.
          */
-        fun completions(parts: List<String>, shared: List<String> = emptyList()): List<String> = when {
+        fun completions(
+            parts: List<String>,
+            shared: List<String> = emptyList(),
+            params: (String) -> List<ShaderParam> = { emptyList() },
+        ): List<String> = when {
+            parts.size == 4 && parts[1] in setOf("set", "reset") -> params(parts[2]).map { it.name }
+            parts.size == 5 && parts[1] == "set" ->
+                params(parts[2]).firstOrNull { it.name.equals(parts[3], ignoreCase = true) }
+                    ?.let { it.choices.ifEmpty { listOf(it.text(it.min), it.text(it.default), it.text(it.max)).distinct() } }.orEmpty()
+
             parts.size == 2 -> SUBCOMMANDS + Shaders.names
             parts.size != 3 -> emptyList()
             parts[1] == "get" -> shared
@@ -292,6 +351,8 @@ class ShaderCommands(
             if (Shaders.supported) "compiles" else "has no problems · ${Shaders.NEEDS} to compile it",
             check.sets.takeIf { it.isNotEmpty() }?.let { "Kolahal sets: ${it.joinToString()}" },
             check.unset.takeIf { it.isNotEmpty() }?.let { "Not set by Kolahal, so 0: ${it.joinToString()}" },
+            check.params.takeIf { it.isNotEmpty() }
+                ?.let { all -> "Parameters: ${all.joinToString { "${it.name} ${it.range}" }}" },
             if (check.animated) "Animated: redrawn ${ShaderClock.FPS} times a second" else null,
         )
 

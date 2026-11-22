@@ -1,6 +1,8 @@
 // @name Snowfall
 // @description Snow falls behind the text, for Christmas
 // @animated
+// @param amount 0.0..2.0 = 1.0 Amount of snow
+// @param size 0.5..1.5 = 1.0 Size of the flakes
 //
 // Five layers of flakes: the near ones are bigger and fall faster. The snow only shows where the
 // background does, so text stays as it is. A touch blows the flakes away for a moment, and they
@@ -14,6 +16,8 @@ uniform float touchAge;
 uniform float2 tilt;
 uniform float dark;
 layout(color) uniform half4 bg;
+uniform float amount;
+uniform float size;
 
 // A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
 float hash(float2 p) {
@@ -36,8 +40,7 @@ half4 main(float2 xy) {
         float n = float(i);
 
         // Cells of this layer, in columns across the screen. Nearer layers (small n) have bigger cells.
-        float size = resolution.x / (6.0 + n * 4.0);
-        float2 uv = p / size;
+        float2 uv = p / (resolution.x / (6.0 + n * 4.0));
 
         // It falls, and the wind sways the whole layer.
         uv.y -= time * (0.95 - 0.11 * n);
@@ -47,13 +50,13 @@ half4 main(float2 xy) {
         // there and back with the phone.
         uv -= tilt * (1.0 - 0.15 * n);
 
-        // One flake in each cell, about half of them are there. Its place, size and sway are its own.
+        // One flake in each cell, and about half of them are there (an amount of 1). Its place, size and sway are its own.
         float2 id = floor(uv);
         float r1 = hash(id + n * 17.0);
         float r2 = hash(id + n * 31.0 + 5.2);
         float r3 = hash(id + n * 47.0 + 9.7);
-        float there = step(0.55, r1);
-        float radius = mix(0.05, 0.13, r3);
+        float there = step(1.0 - 0.45 * amount, r1);
+        float radius = mix(0.05, 0.13, r3) * size;
         float2 center = 0.5 + (float2(r2, hash(id + n * 59.0 + 2.4)) - 0.5) * 0.45;
         center.x += 0.10 * sin(time * 1.2 + r1 * 6.28);
 
@@ -61,14 +64,14 @@ half4 main(float2 xy) {
         float flake = 1.0 - smoothstep(radius * 0.35, radius, d);
         snow += flake * there * mix(0.95, 0.45, n / 4.0);
     }
-    float amount = clamp(snow, 0.0, 1.0) * 0.9;
+    float cover = clamp(snow, 0.0, 1.0) * 0.9;
 
     // Not over text: a pixel that differs from the background is text or a line.
     float text = clamp(length(here.rgb - float3(bg.rgb) * here.a) * 5.0, 0.0, 1.0);
-    amount *= 1.0 - text;
+    cover *= 1.0 - text;
 
     // White on a dark theme, a cold blue on a light one, where white would not show.
     float3 color = mix(float3(0.43, 0.58, 0.80), float3(0.96, 0.98, 1.0), dark);
-    float4 flakes = float4(color * amount, amount);
-    return half4(here * (1.0 - amount) + flakes);
+    float4 flakes = float4(color * cover, cover);
+    return half4(here * (1.0 - cover) + flakes);
 }

@@ -8,6 +8,7 @@ package com.mtwabpin.kolahal.script
  * - `// @name` and `// @description`, and `// @animated` for one that moves by itself;
  * - for one that is shared, `// @author`, `// @version`, `// @license` and `// @requires` (the least
  *   Kolahal version);
+ * - `// @param`, for each thing that people can change ([ShaderParam]);
  * - the uniforms it declares. The host sets the ones it knows ([KNOWN]); it skips the rest.
  *
  * Pure: the compiler runs in [Shaders.compile], on Android 13 and newer.
@@ -24,6 +25,8 @@ class ShaderMeta private constructor(
     val license: String?,
     /** The oldest Kolahal it works with. */
     val requires: String?,
+    /** What people can change, in the header's order. */
+    val params: List<ShaderParam>,
 ) {
     /** One declared uniform. [color]: declared with `layout(color)`. */
     data class Uniform(val name: String, val type: String, val color: Boolean, val array: Boolean) {
@@ -43,7 +46,8 @@ class ShaderMeta private constructor(
     val tilt: Boolean = uses(ShaderTilt.NAME)
 
     /** The uniforms it declares that nothing sets: each stays 0. */
-    fun unset(): List<String> = uniforms.map { it.name }.filter { it != INPUT && it !in KNOWN }
+    fun unset(): List<String> =
+        uniforms.map { it.name }.filter { name -> name != INPUT && name !in KNOWN && params.none { it.name == name } }
 
     companion object {
         /** The shader's input: the surface it is drawn over. */
@@ -112,8 +116,16 @@ class ShaderMeta private constructor(
                 version = said("version"),
                 license = said("license"),
                 requires = said("requires"),
+                params = paramLines(source).mapNotNull(ShaderParam::read).distinctBy { it.name }.take(ShaderParam.MAX),
             )
         }
+
+        /** What follows each `@param` in the header. */
+        private fun paramLines(source: String): List<String> = source.lineSequence()
+            .mapNotNull { DIRECTIVE.find(it) }
+            .filter { it.groupValues[1].lowercase() == ShaderParam.DIRECTIVE }
+            .map { it.groupValues[2].trim() }
+            .toList()
 
         /** The uniforms [source] declares, in order. One declaration can have several names. */
         fun uniforms(source: String): List<Uniform> =
@@ -148,6 +160,22 @@ class ShaderMeta private constructor(
                     counts == null -> Unit
                     u.floats !in counts ->
                         add("'${u.name}' must be a ${typeNames(counts)}, not ${u.type}${if (u.array) "[]" else ""}")
+                }
+            }
+            val lines = paramLines(source)
+            if (lines.size > ShaderParam.MAX) add("it has ${lines.size} parameters, and can have ${ShaderParam.MAX}")
+            val seen = HashSet<String>()
+            for (line in lines) {
+                val param = ShaderParam.read(line)
+                if (param == null) {
+                    add("'@param $line' can't be read: write '@param amount 0.0..2.0 = 1.0 Title' or '@param shape a|b = a Title'")
+                    continue
+                }
+                val name = param.name
+                when {
+                    name in KNOWN || name == INPUT -> add("'$name' can't be a parameter: Kolahal sets it")
+                    !seen.add(name) -> add("the parameter '$name' is there twice")
+                    all.none { it.name == name && it.floats == 1 } -> add("the parameter '$name' needs 'uniform float $name;'")
                 }
             }
         }
