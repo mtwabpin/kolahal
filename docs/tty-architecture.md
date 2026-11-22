@@ -765,10 +765,13 @@ tty.screen({
 - *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`
   and the ten colors. Not built: `cells` (step 7), `scroll`, `param0..7` and `@param`, `@warp`,
   `@bloom`. A `layout(color)` color must be four numbers, as Android requires.
-- *Watchdog*: the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`; `TOTAL_DURATION`
-  where it isn't measured) over 60 frames against two frames of the display's refresh rate, after a
-  10-frame warm-up (the GPU compiles the program); three frames over 250 ms count as a stall. A
-  compile error is checked before the first frame, and one log line.
+- *Watchdog*: the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`) over 60 frames
+  against two frames of the display's refresh rate, but at least 33 ms, and it has to stay over that for
+  120 frames in a row; the first 60 frames don't count (the GPU compiles the program). Where the phone
+  doesn't measure the GPU, only stalls count: the whole frame's time is no measure of a shader (it has
+  the wait for the screen in it, 26 ms at the 90th percentile on a healthy 120 Hz phone). Three frames
+  over 250 ms of GPU time (a whole second when unmeasured) are a stall. A compile error is checked
+  before the first frame, and one log line.
 - *Safe mode*: the mark is written before the shader is compiled, so a crash in the compiler counts;
   cleared after 120 good frames, when the surface stops, or with the process's end for a reason that
   isn't a crash or a hang (`ApplicationExitInfo`). There is no `tty.shader-tripped` key: what is
@@ -847,7 +850,7 @@ declares it (cost: one small upload per content change).
 
 | Guard | Mechanism |
 |---|---|
-| Frame-time watchdog | `Window.addOnFrameMetricsAvailableListener`: if the 90th percentile of `TOTAL_DURATION` over 60 frames exceeds 2 frame intervals, or 3 frames exceed 250 ms, the shader is turned off, a log line says why, and `tty.shader-tripped = <name>@<hash>` stops it from re-arming until the file changes or the user turns it on again. |
+| Frame-time watchdog | `Window.addOnFrameMetricsAvailableListener`: if the GPU's 90th percentile over 60 frames stays over two frame intervals (33 ms at least) for 120 frames, or 3 frames stall the GPU (250 ms), the shader is turned off (as built: see *Watchdog* above), a log line says why, and `tty.shader-tripped = <name>@<hash>` stops it from re-arming until the file changes or the user turns it on again. |
 | Crash / hang at start | An "arming" flag is written to preferences before the first frame with a new shader and cleared after 120 good frames. Found set at startup → safe mode: shaders off, one log line. Three trips in a row → `tty.shader` set to off. |
 | Always-available off | (1) Settings → TTY, which is outside the layer; (2) the `shader off` command (the prompt and IME still work even if nothing is readable); (3) a two-finger long press anywhere on home for 1 s, handled above the layer; (4) long-press on the launcher icon → app shortcut "Safe mode", which starts home with `tty.shader off` and `home.style gui`. |
 | Battery | Battery saver, thermal ≥ MODERATE, or below 15 % and not charging: `@animated` shaders freeze `time` (static frame) or turn off (`tty.shader-battery static|off`). |

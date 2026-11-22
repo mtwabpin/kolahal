@@ -199,14 +199,15 @@ private fun WatchFrames(shader: LoadedShader, safety: ShaderSafety, window: Wind
         val listener = Window.OnFrameMetricsAvailableListener { _, metrics, _ ->
             if (metrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME) == 0L) {
                 val total = metrics.getMetric(FrameMetrics.TOTAL_DURATION)
-                // What the GPU spent on it, where the phone measures it.
-                val gpu = metrics.getMetric(FrameMetrics.GPU_DURATION)
-                when (val verdict = dog.frame(if (gpu > 0) gpu else total, total)) {
+                // What the GPU spent on it, where the phone measures it. The whole frame's time is no
+                // measure of the shader: it has the wait for the screen in it.
+                val gpu = metrics.getMetric(FrameMetrics.GPU_DURATION).takeIf { it > 0 }
+                when (val verdict = dog.frame(gpu, total)) {
                     ShaderWatchdog.Verdict.Fine -> Unit
                     ShaderWatchdog.Verdict.Proven -> safety.proven(shader.id)
                     is ShaderWatchdog.Verdict.Slow -> Shaders.turnOff(
                         context, shader.id,
-                        "a frame in ten takes ${ms(verdict.frameNs)} ms or more, over this screen's limit of ${ms(budget)} ms",
+                        "the GPU takes ${ms(verdict.frameNs)} ms or more on one frame in ten, over the limit of ${ms(budget)} ms",
                     )
 
                     is ShaderWatchdog.Verdict.Stalled -> Shaders.turnOff(

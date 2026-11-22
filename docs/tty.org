@@ -114,7 +114,8 @@ override the rest. Internal: nothing here is published.
   - [X] Uniforms found in the source (=ShaderMeta=, JVM-tested); only the declared ones are set.
     Wrong types and a missing =content= are refused before compiling.
   - [X] Compile errors are one log line with the compiler's line; home stays up.
-  - [X] Watchdog on the window's frame metrics (=ShaderWatchdog=), safe mode after a crash or hang
+  - [X] Watchdog on the window's frame metrics (=ShaderWatchdog=; on 22 November made fairer: it only
+    judges the GPU's own time, at least 33 ms, and only when it stays slow for 120 frames), safe mode after a crash or hang
     (=ShaderSafety=, the mark is on disk before the shader is compiled), three trips in a row turn
     =tty.shader= off.
   - [X] Off: =shader off=, =config set tty.shader off=, two fingers held for a second.

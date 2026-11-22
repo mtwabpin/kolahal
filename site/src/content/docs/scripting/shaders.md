@@ -40,7 +40,9 @@ Shaders also stop on their own:
 
 - A shader that doesn't compile isn't used. A line in the log says why, with the line of the file
   where the compiler stopped. Tap it to check the shader again.
-- A shader that takes too long to draw is turned off. The log says how long its frames took.
+- A shader that stays too slow for the phone is turned off: one frame in ten takes the GPU more than
+  33 ms, for a second or two on end. The log says how long its frames took. On a phone that doesn't
+  measure the GPU's time, only a shader that hangs is turned off.
 - If Kolahal crashes or freezes while a shader that hasn't proven itself is on, the shader is turned
   off at the next start.
 
