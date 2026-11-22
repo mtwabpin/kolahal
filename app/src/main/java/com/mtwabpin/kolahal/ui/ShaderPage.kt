@@ -3,11 +3,11 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderFit
-import com.mtwabpin.kolahal.script.ShaderMeta
-import com.mtwabpin.kolahal.script.ShaderSurface
-import com.mtwabpin.kolahal.script.SharedShader
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderFit
+import com.mtwabpin.kolahal.shader.ShaderMeta
+import com.mtwabpin.kolahal.shader.ShaderSurface
+import com.mtwabpin.kolahal.shader.SharedShader
 import com.mtwabpin.kolahal.terminal.ShaderRow
 
 /** What the Shaders screen says of a shader, as plain functions (ShaderPageTest). */

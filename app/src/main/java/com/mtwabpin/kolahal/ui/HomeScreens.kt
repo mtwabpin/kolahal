@@ -25,8 +25,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.terminal.ScreenSaver
-import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.terminal.ScriptScreenRequests
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.tty.screens.LogDecodeScreen

@@ -11,6 +11,8 @@ import androidx.documentfile.provider.DocumentFile
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Stores
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.Shaders
 
 /**
  * Syncs scripts with a folder the user picks (Storage Access Framework). The user can then edit them

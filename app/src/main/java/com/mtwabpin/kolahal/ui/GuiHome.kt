@@ -86,7 +86,7 @@ import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
-import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions

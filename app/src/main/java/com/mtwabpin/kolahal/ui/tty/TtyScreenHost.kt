@@ -60,8 +60,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderPlay
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderPlay
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.CellStyle

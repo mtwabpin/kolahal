@@ -41,6 +41,7 @@ import com.mtwabpin.kolahal.notifications.NotificationStore
 import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.terminal.commands.CommandProcessor
 import com.mtwabpin.kolahal.waitUntil
 import kotlinx.coroutines.runBlocking
 import org.junit.After

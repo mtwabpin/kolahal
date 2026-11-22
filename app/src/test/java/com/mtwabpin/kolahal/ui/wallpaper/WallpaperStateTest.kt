@@ -1,9 +1,9 @@
 package com.mtwabpin.kolahal.ui.wallpaper
 
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderMeta
-import com.mtwabpin.kolahal.script.Shaders
-import com.mtwabpin.kolahal.script.WallpaperChoice
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderMeta
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

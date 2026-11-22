@@ -31,7 +31,7 @@ import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import com.mtwabpin.kolahal.terminal.UpdateCommands
+import com.mtwabpin.kolahal.terminal.commands.UpdateCommands
 import com.mtwabpin.kolahal.terminal.tty.BandCells
 import com.mtwabpin.kolahal.ui.searchSummary
 

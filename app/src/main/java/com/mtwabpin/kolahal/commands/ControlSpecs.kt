@@ -5,7 +5,7 @@ package com.mtwabpin.kolahal.commands
 
 /**
  * The device and media commands (`torch`, `dnd`, `media`, …): their specs, names, which are
- * sensitive, and their argument completions. [com.mtwabpin.kolahal.terminal.ControlCommands] runs them.
+ * sensitive, and their argument completions. [com.mtwabpin.kolahal.terminal.commands.ControlCommands] runs them.
  */
 object ControlSpecs {
     val SPECS = listOf(

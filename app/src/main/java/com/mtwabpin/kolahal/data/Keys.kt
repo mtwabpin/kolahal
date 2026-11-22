@@ -3,8 +3,8 @@
  */
 package com.mtwabpin.kolahal.data
 
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.Shaders
 
 
 /** A user-tunable setting, edited with `config set <key> <value>`. */

@@ -12,6 +12,8 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.sha256Hex
+import com.mtwabpin.kolahal.shader.SharedShader
+import com.mtwabpin.kolahal.shader.SharedShaders
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
@@ -26,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
  *   read keeps its last list, with the error, and the other sources still show.
  * - It installs a script only when the downloaded file matches its list.
  * - A source's list may have shaders too ([SharedShader]). They are read with the scripts, from the
- *   same file; [ShaderStore] installs them.
+ *   same file; [com.mtwabpin.kolahal.shader.ShaderStore] installs them.
  */
 class ScriptCatalog(private val context: Context) {
     data class Entry(

@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.script.ScriptNames
+import com.mtwabpin.kolahal.terminal.commands.ScriptCommands
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

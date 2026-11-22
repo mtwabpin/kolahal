@@ -16,7 +16,7 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptTemplates
 
 /**
- * Script changes that both the `script` command ([ScriptCommands]) and the script screens
+ * Script changes that both the `script` command ([com.mtwabpin.kolahal.terminal.commands.ScriptCommands]) and the script screens
  * ([ScriptActions]) make. They are written once here, together with what each change also
  * switches on, asks for and schedules.
  *

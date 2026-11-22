@@ -1,9 +1,9 @@
 package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.script.ScriptCatalog
-import com.mtwabpin.kolahal.script.ShaderMeta
-import com.mtwabpin.kolahal.script.ShaderSuits
-import com.mtwabpin.kolahal.script.SharedShader
+import com.mtwabpin.kolahal.shader.ShaderMeta
+import com.mtwabpin.kolahal.shader.ShaderSuits
+import com.mtwabpin.kolahal.shader.SharedShader
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderRow
 import org.junit.Assert.assertEquals

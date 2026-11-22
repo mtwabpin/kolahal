@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mtwabpin.kolahal.terminal.UpdateCommands
+import com.mtwabpin.kolahal.terminal.commands.UpdateCommands
 
 private const val MB = 1024 * 1024
 

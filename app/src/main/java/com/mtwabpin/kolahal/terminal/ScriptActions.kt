@@ -27,7 +27,8 @@ import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.SecretStore
-import com.mtwabpin.kolahal.script.SharedShader
+import com.mtwabpin.kolahal.shader.SharedShader
+import com.mtwabpin.kolahal.terminal.commands.reason
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import kotlinx.coroutines.CoroutineScope

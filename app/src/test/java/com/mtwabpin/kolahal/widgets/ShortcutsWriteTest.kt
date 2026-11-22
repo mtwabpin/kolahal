@@ -102,7 +102,7 @@ class ShortcutsWriteTest {
         val list = Regex("""\bShortcuts\s*[.:]|\bsaveShortcuts\b|\bShortcut\(""")
         val handlers = sources.filter { f ->
             val p = path(f)
-            p.startsWith("script/") || p.startsWith("commands/") || p.startsWith("terminal/") && (f.name.endsWith(
+            p.startsWith("script/") || p.startsWith("shader/") || p.startsWith("commands/") || p.startsWith("terminal/") && (f.name.endsWith(
                 "Commands.kt"
             ) || f.name in setOf("CommandProcessor.kt", "CommandGroup.kt", "TerminalUi.kt"))
         }

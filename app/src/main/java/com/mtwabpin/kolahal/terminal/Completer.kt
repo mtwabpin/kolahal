@@ -25,7 +25,14 @@ import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
-import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.terminal.commands.ANSWER_MAX
+import com.mtwabpin.kolahal.terminal.commands.ActivityCommands
+import com.mtwabpin.kolahal.terminal.commands.ActivityItem
+import com.mtwabpin.kolahal.terminal.commands.ActivityMatch
+import com.mtwabpin.kolahal.terminal.commands.ProductivityCommands
+import com.mtwabpin.kolahal.terminal.commands.ScriptCommands
+import com.mtwabpin.kolahal.terminal.commands.ShaderCommands
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

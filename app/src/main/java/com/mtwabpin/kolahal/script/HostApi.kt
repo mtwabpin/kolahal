@@ -15,6 +15,9 @@ import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.notify.Notifier
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderPlay
+import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetParser
@@ -1061,7 +1064,7 @@ class HostApi(
 
     /** Runs a terminal command in the launcher. Only for scripts started from the prompt. */
     fun runCommand(sent: String): Boolean {
-        // Split and checked the same way home will run it ([com.mtwabpin.kolahal.terminal.CommandProcessor.run]).
+        // Split and checked the same way home will run it ([com.mtwabpin.kolahal.terminal.commands.CommandProcessor.run]).
         val command = com.mtwabpin.kolahal.commands.CommandParsing.spaces(sent)
         live()
         // Commands (and through them, other scripts) are only for scripts that declare them and are allowed them.

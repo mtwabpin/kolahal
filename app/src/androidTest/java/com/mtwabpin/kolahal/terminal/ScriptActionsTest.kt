@@ -391,7 +391,7 @@ class ScriptActionsTest {
                 host.lastNotice()
             )
         } finally {
-            com.mtwabpin.kolahal.script.Shaders.remove(context, "sa-glow")
+            com.mtwabpin.kolahal.shader.Shaders.remove(context, "sa-glow")
         }
     }
 

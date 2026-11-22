@@ -15,11 +15,11 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptImport
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptSources
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderParams
-import com.mtwabpin.kolahal.script.ShaderWords
-import com.mtwabpin.kolahal.script.Shaders
-import com.mtwabpin.kolahal.script.WallpaperChoice
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderParams
+import com.mtwabpin.kolahal.shader.ShaderWords
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.widgets.Shortcuts
 
 /**

@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.terminal
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.terminal.commands.UpdateCommands
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

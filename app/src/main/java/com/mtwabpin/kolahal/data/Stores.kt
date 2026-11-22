@@ -47,16 +47,16 @@ object Stores {
     val SCRIPT_LIBRARY = Prefs("script_library", inBackup = true)
     val SCRIPT_CATALOG = Prefs("script_catalog", inBackup = true)
 
-    /** Where the shaders from Get more shaders came from ([com.mtwabpin.kolahal.script.ShaderStore]). */
+    /** Where the shaders from Get more shaders came from ([com.mtwabpin.kolahal.shader.ShaderStore]). */
     val SHADER_CATALOG = Prefs("shader_catalog", inBackup = true)
 
-    /** What shaders' parameters are set to ([com.mtwabpin.kolahal.script.ShaderParams]). */
+    /** What shaders' parameters are set to ([com.mtwabpin.kolahal.shader.ShaderParams]). */
     val SHADER_PARAMS = Prefs("shader_params", inBackup = true)
 
-    /** The words that play one-off shaders ([com.mtwabpin.kolahal.script.ShaderWords]): names, so not for the cloud. */
+    /** The words that play one-off shaders ([com.mtwabpin.kolahal.shader.ShaderWords]): names, so not for the cloud. */
     val SHADER_WORDS = Prefs("shader_words", inBackup = true, toCloud = false)
 
-    /** The live wallpaper's shader ([com.mtwabpin.kolahal.script.WallpaperChoice]). */
+    /** The live wallpaper's shader ([com.mtwabpin.kolahal.shader.WallpaperChoice]). */
     val WALLPAPER_SHADER = Prefs("wallpaper_shader", inBackup = true)
 
     /** The sources added to Get more scripts: a backup has them in a section of their own, added to what is here. */
@@ -184,10 +184,10 @@ object Stores {
     /** What a status line shows besides its text, by script name. */
     const val STATUS_EXTRAS = "status.extra"
 
-    /** The values that scripts give shaders, by script name ([com.mtwabpin.kolahal.script.ShaderValues]). A run makes them again. This phone only. */
+    /** The values that scripts give shaders, by script name ([com.mtwabpin.kolahal.shader.ShaderValues]). A run makes them again. This phone only. */
     const val SHADER_VALUES = "shader.values"
 
-    /** The one-off shader that a script asked for, until home takes it ([com.mtwabpin.kolahal.script.ShaderPlay]). This phone only. */
+    /** The one-off shader that a script asked for, until home takes it ([com.mtwabpin.kolahal.shader.ShaderPlay]). This phone only. */
     const val SHADER_PLAY = "shader.play"
 
     /** Exchange rates for `fx`. */

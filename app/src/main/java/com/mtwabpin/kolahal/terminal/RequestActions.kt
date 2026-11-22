@@ -17,6 +17,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.ScriptFolder
+import com.mtwabpin.kolahal.terminal.commands.PeopleCommands
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

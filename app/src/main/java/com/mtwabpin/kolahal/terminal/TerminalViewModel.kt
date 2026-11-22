@@ -47,6 +47,8 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
+import com.mtwabpin.kolahal.terminal.commands.CommandProcessor
+import com.mtwabpin.kolahal.terminal.commands.reason
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -604,8 +606,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         if (status != linesRead || scriptsChanged || read.whole) {
             linesRead = status
             _lines.value = StatusLines.all(context)
-            com.mtwabpin.kolahal.script.ShaderValues.load(context)
-            com.mtwabpin.kolahal.script.ShaderPlay.load(context)?.let { logs.add(LogKind.ERROR, "No one-off shader '$it' — 'shader' lists them") }
+            com.mtwabpin.kolahal.shader.ShaderValues.load(context)
+            com.mtwabpin.kolahal.shader.ShaderPlay.load(context)?.let { logs.add(LogKind.ERROR, "No one-off shader '$it' — 'shader' lists them") }
         }
         scriptsRead.value = true
         if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()

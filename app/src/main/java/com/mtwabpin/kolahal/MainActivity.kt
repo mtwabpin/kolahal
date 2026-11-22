@@ -40,7 +40,7 @@ import com.mtwabpin.kolahal.data.Backup
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.MaterialYou
 import com.mtwabpin.kolahal.data.Script
-import com.mtwabpin.kolahal.script.WallpaperChoice
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel

@@ -2,9 +2,9 @@ package com.mtwabpin.kolahal.ui
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.script.ShaderParams
-import com.mtwabpin.kolahal.script.Shaders
-import com.mtwabpin.kolahal.script.WallpaperChoice
+import com.mtwabpin.kolahal.shader.ShaderParams
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.ui.wallpaper.WallpaperState
 import com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter
 import kotlinx.coroutines.CoroutineScope

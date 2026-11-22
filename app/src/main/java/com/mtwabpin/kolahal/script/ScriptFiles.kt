@@ -8,6 +8,8 @@ import android.net.Uri
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.Shaders
 
 /** Single-file script import/export, for files picked in the system file manager. */
 class ScriptFiles(private val context: Context) {

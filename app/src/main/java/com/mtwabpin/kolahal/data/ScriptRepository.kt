@@ -15,8 +15,8 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
-import com.mtwabpin.kolahal.script.ShaderParams
-import com.mtwabpin.kolahal.script.ShaderValues
+import com.mtwabpin.kolahal.shader.ShaderParams
+import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetRef

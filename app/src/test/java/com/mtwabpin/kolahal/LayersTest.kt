@@ -20,6 +20,7 @@ class LayersTest {
         "commands",
         "data",
         "script",
+        "shader",
         "apps",
         "feeds",
         "productivity",

@@ -15,7 +15,7 @@ import android.view.Display
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import com.mtwabpin.kolahal.script.ShaderTilt
+import com.mtwabpin.kolahal.shader.ShaderTilt
 
 /** Takes one reading of gravity, as [ShaderTilt.gravity] does. Plain numbers: a reading allocates nothing. */
 internal fun interface OnGravity {

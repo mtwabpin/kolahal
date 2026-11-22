@@ -38,7 +38,7 @@ import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Todo
 import com.mtwabpin.kolahal.status.Status
-import com.mtwabpin.kolahal.terminal.ProductivityCommands
+import com.mtwabpin.kolahal.terminal.commands.ProductivityCommands
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.WidgetBase

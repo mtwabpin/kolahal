@@ -23,8 +23,8 @@ import com.mtwabpin.kolahal.TestViewModels
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.script.ScriptCatalog
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel

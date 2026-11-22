@@ -7,11 +7,11 @@ import android.content.Context
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Quietly
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderParams
-import com.mtwabpin.kolahal.script.ShaderValues
-import com.mtwabpin.kolahal.script.Shaders
-import com.mtwabpin.kolahal.script.WallpaperChoice
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderParams
+import com.mtwabpin.kolahal.shader.ShaderValues
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.ui.Palette
 import com.mtwabpin.kolahal.ui.Palettes
 import kotlinx.coroutines.Dispatchers

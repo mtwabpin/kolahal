@@ -49,9 +49,9 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.script.ShaderParam
-import com.mtwabpin.kolahal.script.ShaderParams
-import com.mtwabpin.kolahal.script.ShaderValues
+import com.mtwabpin.kolahal.shader.ShaderParam
+import com.mtwabpin.kolahal.shader.ShaderParams
+import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.terminal.ShaderActions
 
 /**

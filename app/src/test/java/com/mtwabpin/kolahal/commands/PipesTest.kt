@@ -3,7 +3,7 @@ package com.mtwabpin.kolahal.commands
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.pending
-import com.mtwabpin.kolahal.terminal.useCommand
+import com.mtwabpin.kolahal.terminal.commands.useCommand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue

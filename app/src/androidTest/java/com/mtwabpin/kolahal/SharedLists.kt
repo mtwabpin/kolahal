@@ -5,8 +5,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptSources
-import com.mtwabpin.kolahal.script.ShaderStore
-import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.shader.ShaderStore
+import com.mtwabpin.kolahal.shader.Shaders
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals

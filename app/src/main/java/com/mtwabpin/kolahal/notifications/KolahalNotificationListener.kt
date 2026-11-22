@@ -152,7 +152,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         // Scripts can't see notifications from the private space, just as they can't see its apps (apps.list).
         if (isPrivate(sbn.user)) return
         // Neither do they play a one-off shader.
-        com.mtwabpin.kolahal.script.ShaderWords.onNotification(n.title.orEmpty(), n.text.orEmpty())
+        com.mtwabpin.kolahal.shader.ShaderWords.onNotification(n.title.orEmpty(), n.text.orEmpty())
         com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).fire(
             "notification",
             mapOf(

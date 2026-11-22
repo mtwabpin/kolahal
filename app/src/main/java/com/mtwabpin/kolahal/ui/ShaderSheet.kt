@@ -66,15 +66,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderFit
-import com.mtwabpin.kolahal.script.ShaderSurface
-import com.mtwabpin.kolahal.script.ShaderWords
-import com.mtwabpin.kolahal.script.Shaders
-import com.mtwabpin.kolahal.script.WallpaperChoice
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderFit
+import com.mtwabpin.kolahal.shader.ShaderSurface
+import com.mtwabpin.kolahal.shader.ShaderWords
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.terminal.ShaderActions
-import com.mtwabpin.kolahal.terminal.ShaderCommands
 import com.mtwabpin.kolahal.terminal.ShaderRow
+import com.mtwabpin.kolahal.terminal.commands.ShaderCommands
 import kotlinx.coroutines.launch
 
 /**

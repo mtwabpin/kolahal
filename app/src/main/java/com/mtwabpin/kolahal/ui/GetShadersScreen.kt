@@ -31,11 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ScriptCatalog
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderMeta
-import com.mtwabpin.kolahal.script.Shaders
-import com.mtwabpin.kolahal.script.SharedShader
-import com.mtwabpin.kolahal.script.SharedShaders
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderMeta
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.SharedShader
+import com.mtwabpin.kolahal.shader.SharedShaders
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel

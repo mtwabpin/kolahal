@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.script.ScriptMeta.value
+import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetSize
 

@@ -38,11 +38,11 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderClock
-import com.mtwabpin.kolahal.script.ShaderPlay
-import com.mtwabpin.kolahal.script.ShaderSafety
-import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderClock
+import com.mtwabpin.kolahal.shader.ShaderPlay
+import com.mtwabpin.kolahal.shader.ShaderSafety
+import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.tty.ActiveShaders
 import com.mtwabpin.kolahal.ui.tty.GravitySource

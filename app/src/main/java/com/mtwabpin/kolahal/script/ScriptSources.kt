@@ -117,7 +117,7 @@ object ScriptSources {
         sources.firstOrNull { it.name == name || it.index == name }
             ?: (parse(name) as? Parsed.Ok)?.source?.let { s -> sources.firstOrNull { it.name == s.name } }
 
-    /** What a source's list has: a script ([ScriptCatalog.Entry]) or a shader ([SharedShader]). */
+    /** What a source's list has: a script ([ScriptCatalog.Entry]) or a shader ([com.mtwabpin.kolahal.shader.SharedShader]). */
     interface Listed {
         val name: String
 

@@ -34,8 +34,8 @@ import com.mtwabpin.kolahal.productivity.TodoStore
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.TriggerDispatcher
+import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 import com.mtwabpin.kolahal.widgets.WidgetHost

@@ -27,6 +27,9 @@ import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.terminal.commands.ActivityCommands
+import com.mtwabpin.kolahal.terminal.commands.CommandProcessor
+import com.mtwabpin.kolahal.terminal.commands.ProductivityCommands
 
 /**
  * Decides what a tap or a long-press on a log line does, based on the line's saved [LogContext].

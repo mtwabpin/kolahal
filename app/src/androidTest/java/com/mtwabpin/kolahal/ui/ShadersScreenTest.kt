@@ -32,12 +32,12 @@ import com.mtwabpin.kolahal.TestViewModels
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.script.ScriptCatalog
-import com.mtwabpin.kolahal.script.ShaderCatalog
-import com.mtwabpin.kolahal.script.ShaderParams
-import com.mtwabpin.kolahal.script.ShaderPlay
-import com.mtwabpin.kolahal.script.ShaderSafety
-import com.mtwabpin.kolahal.script.ShaderWords
-import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderParams
+import com.mtwabpin.kolahal.shader.ShaderPlay
+import com.mtwabpin.kolahal.shader.ShaderSafety
+import com.mtwabpin.kolahal.shader.ShaderWords
+import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.waitFor
@@ -413,7 +413,7 @@ class ShadersScreenTest {
     fun aBundledOneHasNoRemove() {
         show()
         // The title of lcd is its file's own.
-        val title = com.mtwabpin.kolahal.script.ShaderMeta.parse(Shaders.bundled(app, "lcd")).title ?: "lcd"
+        val title = com.mtwabpin.kolahal.shader.ShaderMeta.parse(Shaders.bundled(app, "lcd")).title ?: "lcd"
         openSheet("lcd", title)
         compose.onNodeWithText("From: Kolahal").assertExists()
         compose.onNodeWithText("Remove").assertDoesNotExist()

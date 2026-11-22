@@ -16,9 +16,9 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
-import com.mtwabpin.kolahal.terminal.CommandProcessor
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalUi
+import com.mtwabpin.kolahal.terminal.commands.CommandProcessor
 import org.junit.Assert.assertTrue
 
 /*
