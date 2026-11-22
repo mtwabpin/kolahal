@@ -5,7 +5,14 @@
 The TTY home style: an opt-in home where the log page and its parts are drawn on a strict
 character grid, like a real terminal, and the later shader option on top of it. The design is in
 [[file:tty-architecture.md][tty-architecture.md]]; its first section has the maintainer's decisions of 21 November 2026, which
-override the rest. Internal: nothing here is published.
+override the rest. Internal: nothing here is published. Checked against the code of 0.5.17 on
+22 November 2026.
+
+How a user reaches TTY today: =config set home.style tty= (values =gui=, the default, and =tty=). The
+key is in =Keys.CONFIG_ONLY=, so it is on no Settings page and nothing in Settings switches it; the
+part keys (=tty.suggestions=, =tty.selector=, =tty.keybar=, =tty.quick-actions=, =tty.menu=) are config
+only too. The full-screen screens (=screen <name>=), the screensaver (Settings → Look & feel →
+Screensaver) and shaders (Settings → Shaders) work in both styles.
 
 - One step at a time, in order; each leaves master shippable. Steps 0 and 1 can run in parallel.
 - Sizes: S up to 2 days, M about a week, L about two weeks.
@@ -20,26 +27,34 @@ override the rest. Internal: nothing here is published.
   never a switch in Settings, and no guide page on the website.
 
 * Steps
-** TODO Step 0: the seam, with no visible change  :seam:
+** DONE Step 0: the seam, with no visible change  :seam:
 - Size M. Design §1, §11.
 - A shared, renderer-agnostic =LineModel= (=terminal/LineModel.kt=): what a log row shows and what can
   be tapped, decided once instead of while drawing. The GUI's =LogLine= draws from it.
-- =HeaderModel= for the header's parts; the log's scroll effects in =ui/LogScroll.kt=; fold state
+- =HeaderModel= for the header's parts; the log's scroll effects in =ui/home/LogScroll.kt=; fold state
   hoisted; =TerminalScreen= split into =HomeState= and =GuiHome=.
 - Done when: no pixel changes (the gallery and line tests stay green), no new composable takes the
   whole view model, LayersTest and ExpressiveOnlyTest green.
+- Built: =LineModel= and =markRanges= in =terminal/LineModel.kt= (JVM: =LineModelTest= over =LogCorpus=),
+  =headerParts= in =terminal/HeaderModel.kt=, =LogScroll= in =ui/home/LogScroll.kt=, =FoldState= and =HomeState=
+  in =ui/home/HomeState.kt=, =GuiHome= in =ui/home/GuiHome.kt=; =LogLine= takes the model and =renderLine= takes
+  its words.
 - Remark:
 
-** TODO Step 1: the grid engine and the screens  :engine:screens:
+** DONE Step 1: the grid engine and the screens  :engine:screens:
 - Size M. Design §2, §5.1, §6.
 - Pure, JVM-tested cell layer in =terminal/tty/=: cells, =CellWidth= (0, 1 or 2 cells per glyph),
   =CellBuffer=, =TtyScreen=. Painting in =ui/tty/=: =GridMetrics=, =GridPainter=, box, block and
   sparkline glyphs drawn as geometry, =TtyPalette= from the theme's roles, =TtyScreenHost=.
 - Commands that work in today's home: =matrix=, =clock=, =pipes=, =sl=, =boot=. Any key or tap leaves.
 - What you'd see: =matrix= fills home with cmatrix rain in the theme's colors until you tap.
+- Built: all of the above, in both home styles. =matrix=, =pipes= and =sl= are commands; every screen
+  (=matrix=, =clock=, =pipes=, =decode=, =sl=, =top=, =boot=) opens with =screen <name>=, so =clock= and
+  =boot= are =screen clock= and =screen boot=. The box and block shapes are =terminal/tty/BoxShapes.kt=,
+  drawn by =ui/tty/BoxGlyphs.kt=. JVM: =CellWidthTest=, =CellBufferTest=, =BoxShapesTest=, =ScreensTest=.
 - Remark:
 
-** TODO Step 2: the TTY log  :log:
+** DONE Step 2: the TTY log  :log:
 - Size L. Design §2.5–2.9, §3.1–3.5, §4.
 - Every kind of log row laid out on the grid: groups with =│= and the time column, tables in box
   drawing, bars and sparklines in blocks, stats bold at the grid size, links underlined, tags in
@@ -47,13 +62,22 @@ override the rest. Internal: nothing here is published.
   people as initials.
 - Hit-testing, long-press sheet, swipe copy or delete with undo, script buttons, TalkBack per row.
 - =home.style= exists as a config key; the rest of home is still GUI.
+- Built: =LineLayout= and =Blocks= (=terminal/tty/=, JVM: =LineLayoutTest=), =TtyLog= and
+  =TtySearchResults= (=ui/tty/TtyLog.kt=, device: =TtyLogTest=). An image shows as
+  =[image: <file name>]=: log images have no alt text, so the name comes from the address. Group and
+  item gaps follow =log.spacing= and =log.item-spacing= in dp between the lines, not in whole rows.
 - Remark:
 
-** TODO Step 3: the rest of home on the grid  :home:
+** DONE Step 3: the rest of home on the grid  :home:
 - Size L. Design §3.6–3.9.
 - Prompt (an invisible text field under a drawn row, so keyboards and composition still work),
   suggestions, key bar, header, pinned line, bands (undo, update, default home), =TtySheet= for
   menus, the app selector, empty-log tips. The widgets page swipe stays and the page stays GUI.
+- Built: =TtyHome=, =TtyPrompt=, =TtySuggestionList= and =TtySuggestionStrip=, =TtyKeyBar=, =TtyHeader=
+  and =TtyPinned=, the bands in =TtyBands= (undo, update, search summary, filter, default home, live
+  preview, jump to newest), =TtySheet= and =TtySecretSheet=, the selector's letters, handle and wave,
+  the empty log's tips. JVM: =HomeCellsTest=; device: =TtyHomeTest=. Not built: the scroll thumb
+  (design §2.7).
 - [X] Part by part, the grid or the GUI's own (22 November): =tty.suggestions=, =tty.selector=,
   =tty.keybar=, =tty.quick-actions= and =tty.menu= (a long press's menu) are =gui=, the default, as
   these parts work better that way, or =tty=. A =gui= part is the GUI's own composable in the grid's
@@ -93,14 +117,26 @@ override the rest. Internal: nothing here is published.
   - [X] The device run of the new tests (22 November, 1255 tests).
   - [ ] Left: a look on the phone with real Arabic and Hebrew text. The prompt shows typed
     right-to-left text in the order it is typed, letter by letter (no shaping while editing).
+  - [ ] Left from the parity checklist (design §12, marked row by row there): the scroll thumb. Every
+    other row is done, or done in the plain form the decisions allow. Without tests of their own:
+    contrast on every theme (no =TtyPaletteContrastTest=, no contrast nudge for Material You and
+    custom themes), rotation and resize, and =AccessibilityChecks= on the TTY tests.
 - Remark:
 
 ** TODO Step 5: extras  :extras:
 - Size M, each part on its own: selection mode on the grid, =top=, an idle screensaver. (=tty.crt=, a
   CRT look drawn without shaders, was built and removed on 22 November: the =crt= shader does it.)
+- [X] =top= (=screen top=): Kolahal's uptime, the battery, memory, today's screen time and unlocks,
+  and the scripts by latest run (=terminal/tty/screens/Top.kt=, facts from =terminal/TopFacts.kt=;
+  JVM: =TopScreenTest=).
+- [X] The idle screensaver: =screen.saver= (=off=, =matrix=, =clock=, =pipes=, =decode=) and
+  =screen.saver-after= (1 to 60 minutes, default 5), in Settings → Look & feel → Screensaver, in both
+  styles. When it opens is =terminal/ScreenSaver.kt= (JVM: =ScreenSaverTest=; device:
+  =HomeScreensaverTest=). Unlike design §4, it opens with a screen reader on too.
+- [ ] Left: selection mode on the grid (design §3.4); nothing of it is built.
 - [X] =screen decode= and =screen.saver decode= (22 November): the
   log lines on home scramble and settle, as on the website, from where home draws them. In
-  the gui style home's own texts draw it (=ui/DecodedText.kt=, =LogDecode=), so nothing moves and the
+  the gui style home's own texts draw it (=ui/home/DecodedText.kt=, =LogDecode=), so nothing moves and the
   grid has no part in it. On the grid the effect is =terminal/tty/Decode.kt=; =boot=
   types its lines with it too. Left: the gutter doesn't run through an item's gap while it is on, and
   home's header and prompt aren't drawn. Later: =g.decode= for script screens.
@@ -108,27 +144,47 @@ override the rest. Internal: nothing here is published.
 
 ** DONE Step 6: shaders  :shaders:
 - Size M–L. Design §7. Android 13 and newer.
+- State: built, in Settings → Shaders and the =shader= command, over home in both styles, the screens
+  and the live wallpaper. Left, from the design: the =cells= and =scroll= uniforms, =@warp=, =@bloom=
+  and the app shortcut for safe mode (each under "Left" below).
 - AGSL files loaded like scripts, a =RenderEffect= on the TTY layer, uniforms (time, size, theme
   colors, touch, the grid), a frame-time watchdog, safe mode and an always-reachable off; Settings
-  stays outside the effect. A bundled set (as planned: CRT, bloom, rain).
+  stays outside the effect. A bundled set (as planned: CRT, bloom, rain; as built, the 23 of
+  =ShaderCatalog.BUNDLED=, with no =bloom=).
 - Built (22 November): =screen.shader= (=off=, a bundled one or a file of the
   user's own) and the =shader= command (list, use, on, off, check, reload, copy, remove). It covers
-  the TTY home and the full-screen screens in both styles (design §7, "As built"):
+  home in both styles and the full-screen screens (design §7, "As built"):
   - [X] Files: bundled ones in =assets/shaders/=, the user's in =files/shaders/=, from the script
     folder (=script import= and =shader reload=, top level or =shaders/=) and from a picked file
     (Scripts → Import a file). =script export= and =shader copy= write them back.
   - [X] Uniforms found in the source (=ShaderMeta=, JVM-tested); only the declared ones are set.
     Wrong types and a missing =content= are refused before compiling.
   - [X] Compile errors are one log line with the compiler's line; home stays up.
-  - [X] Watchdog on the window's frame metrics (=ShaderWatchdog=; on 22 November made fairer: it only
-    judges the GPU's own time, at least 33 ms, and only when it stays slow for 120 frames), safe mode after a crash or hang
-    (=ShaderSafety=, the mark is on disk before the shader is compiled), three trips in a row turn
-    =screen.shader= off.
+  - [X] Safe mode after a crash or hang (=ShaderSafety=, the mark is on disk before the shader is
+    compiled; a shader is proven after 10 s in front), three trips in a row turn =screen.shader= off.
+    The frame-time watchdog (=ShaderWatchdog=) was built and removed on 22 November: a slow shader is
+    the user's to turn off.
   - [X] Off: =shader off=, =config set screen.shader off=, two fingers held for a second.
   - [X] Moving shaders stand still in battery saver, when hot, low on battery, with Remove animations
     on, and after a minute without a touch; shaders are off with a screen reader on.
-  - [ ] Left: =cells= and =scroll= uniforms, =@param=, =@warp= and =@bloom= (with step 7's grid data
-    or a Settings slider), the app shortcut for safe mode, and nothing measured on a phone yet.
+  - [ ] Left: =cells= and =scroll= uniforms, =@warp= and =@bloom= (with step 7's grid data or a
+    Settings slider), the app shortcut for safe mode, and nothing measured on a phone yet.
+- Also built, beyond the plan (design §7.6–7.10):
+  - [X] Parameters: =// @param= lines (up to 8, a range or 2 to 4 words), each a =float= uniform of its
+    name; sliders and buttons in a shader's details, =shader set= and =shader reset=
+    (=shader/ShaderParam.kt=, =shader/ShaderParams.kt=).
+  - [X] Values a parameter follows: =battery=, =charging=, =day=, =night=, and scripts' own through
+    =shader.give= under =@gives=; a formula with the calculator; =shader follow=, =shader values=
+    (=shader/ShaderValues.kt=).
+  - [X] One-off shaders: =// @once <seconds>= and the =progress= uniform; =shader play=, a script's
+    =shader.play=, and words in a notification that play one (=shader words=); =hearts= is bundled
+    (=shader/ShaderPlay.kt=, =shader/ShaderWords.kt=).
+  - [X] Ratings: =// @suits= (dark, light, wallpaper: good, fair, poor) and =// @text=; a warning when
+    a shader that is poor over a wallpaper is turned on while more than 20 % of it shows.
+  - [X] The =date= uniform (a still shader that declares it is drawn again each minute).
+  - [X] The live wallpaper: =shader wallpaper <name>=, in a process of its own (=:wallpaper=), drawn
+    from what home hands over in a file; the =wallpaper= uniform (=ui/wallpaper/=,
+    =shader/WallpaperChoice.kt=).
 - The Shaders screen and its store (22 November):
   - [X] Settings → Shaders, in Settings by the maintainer's request of 22 November (the rest of TTY
     stays config only): None, the bundled ones and the user's own; one tap turns one on, if it compiles.

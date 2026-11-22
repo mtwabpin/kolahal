@@ -1,7 +1,9 @@
 # Kolahal TTY mode: architecture
 
-Status: design, written on 21 November 2026 against branch 0.5.17 (minSdk 28, compileSdk 37, Compose).
-The work is tracked in [tty.org](tty.org).
+Status: the design of the TTY home style and of shaders, written on 21 November 2026 against branch
+0.5.17 (minSdk 28, compileSdk 37, Compose), and checked against the code of 0.5.17 on 22 November
+2026. Most of it is built; each section says under **As built** where the code differs from the
+design, and **Not built** where a part does not exist. The work is tracked in [tty.org](tty.org).
 
 ## The maintainer's decisions (21 November 2026)
 
@@ -45,6 +47,28 @@ Two facts about today's GUI log that the brief lists as existing: it has no scro
 free text selection (copy is by swipe or by "Copy text"/"Copy output" in the long-press sheet).
 TTY gets both (§3.4, §2.7); the thumb should then be added to the GUI too, or it is a TTY extra.
 
+**As built (0.5.17).** Where the code differs from this table:
+
+- *What is shared*: as designed. `LineModel` is `terminal/LineModel.kt`; the GUI's `LogLine`
+  (`ui/home/LogView.kt`) and the grid's `LineLayout` both draw from it.
+- *The switch*: `home.style` is a `ConfigKey.Choice` (`gui`, `tty`) read in `TerminalScreen`
+  (`HomeStyle.of`). Five more keys choose, part by part, whether the TTY style draws a part on the
+  grid or uses the GUI's own composable: `tty.suggestions`, `tty.selector`, `tty.keybar`,
+  `tty.quick-actions`, `tty.menu` (`gui`, the default, or `tty`; `TtyParts` in `ui/home/HomeState.kt`).
+- *Rendering engine*: a `LazyColumn` of composables (`TtyLineRow` in `ui/tty/TtyLog.kt`) that paint
+  a cached `CellBlock` in `drawBehind`, not `Modifier.Node`s. A `CellBlock` is a small `CellBuffer`,
+  so log rows, home's parts and screens all paint through the same `GridPainter.draw(CellBuffer)`.
+- *Colors*: as designed; the contrast nudge is not built (§5.1).
+- *Screens*: `matrix`, `pipes` and `sl` are commands of their own; all seven open with
+  `screen <name>`. They work in both styles.
+- *Shaders*: on home in **both** styles, on the full-screen screens and as a live wallpaper; API
+  33+ only. The CRT look drawn without AGSL (`tty.crt`) was built and removed; Android 9–12 get no
+  effect (§5.2, §7.5).
+- *Shipping*: TTY stays a config setting (`config set home.style tty`), never in Settings and with
+  no page on the website: the maintainer's decision of 22 November, in [tty.org](tty.org).
+  Shaders are in Settings (Settings → Shaders).
+- Neither the scroll thumb nor selection mode was built, in either style (§2.7, §3.4).
+
 ## 1. The seam
 
 ### 1.1 What exists today
@@ -57,13 +81,16 @@ ui/          TerminalScreen → LazyColumn → LogLine(row) → renderLine()/Ric
 ```
 
 `buildRows` is already renderer-agnostic and stays exactly as it is. The gap is one level lower:
-`LogLine` (ui/LogView.kt:125–510) and `renderLine` (ui/LogLineText.kt:141) decide *what a row
+`LogLine` (ui/home/LogView.kt:125–510) and `renderLine` (ui/home/LogLineText.kt:141) decide *what a row
 consists of* while they draw it: whether the time shows, whether the row is the two-column or
 name-column form, the app grid, where the text ends and the tables and bars start
 (`StyledText.splitAtBlocks`), the built-in bar (`LogContext.BAR`), the buttons
 (`LogContext.actionsOf`), the icon that replaces the source name, the person's picture, whether
 the row is tappable, whether it may fold, the `[W]` profile tag, the unread mark. A second
 renderer that repeats those decisions will drift. So they move.
+
+(This was the code on 21 November. Step 0 moved those decisions into `LineModel`; see the
+**As built** notes in §1.2 and §1.3.)
 
 ### 1.2 The new shared layer: `LineModel`
 
@@ -133,7 +160,7 @@ fun LineModel.targets(): List<Target>
 fun LineModel.spoken(timeText: String?): String   // what TalkBack reads for the row; tables and bars as words
 ```
 
-`TimeMode` moves from `ui/LogView.kt` to `terminal/` with it (ui already imports terminal).
+`TimeMode` moves from `ui/home/LogView.kt` to `terminal/` with it (ui already imports terminal).
 
 The GUI's `LogLine` is changed to take a `LineModel` and to draw from it. This is a mechanical
 refactor: the `remember { … }` blocks that compute `richRest`, `bar`, `actions`, `actionable`,
@@ -147,11 +174,29 @@ duplicated. Why not a full "document" (rows already wrapped, positioned): wrappi
 are exactly what differs between a proportional layout and a cell grid; a shared layout would
 force one renderer's constraints on the other.
 
+**As built.** `terminal/LineModel.kt` holds `Piece`, `Para`, `LineModel`, `Target`, `LineOptions`,
+`lineModel`, `targets`, `spoken`, `markRanges` and the spoken forms of tables, bars and stats;
+`TimeMode` moved there too, and `Ink` is in `terminal/Ink.kt`. Differences from the sketch:
+
+- `LineModel` keeps the whole `entry: LogEntry` (`id` and `kind` are read from it) and has no
+  `ink` of its own: the title's ink is `Body.Words.ink`. It adds `mono` (the line aligns columns
+  with spaces).
+- `Body.Words(paras, ink, heading, indent, bullet, blank)`; `Para(role, pieces, level, prefix)`
+  with `Role` `TITLE`, `DETAIL`, `BODY`. `TwoColumns(name, desc)` and `NameColumns(name, desc,
+  args, nameWidthOf)` keep their texts as `StyledText` strings, not `Piece` lists.
+- `Source` is `Name(name)` or `Icon(key, name)`; `Person(name, photo, big)`;
+  `Button(index, label, args, done)`.
+- `Target.Button(index, label)` has no `done`: a done button is not a target.
+- `LineOptions(timeMode, foldLines)`: the clock format and `log.tables` are read by the renderers.
+
+The GUI's `LogLine` takes the model (`rememberLineModel` in `ui/home/LogView.kt`), and `RichBody`
+(`ui/home/RichText.kt`) draws its blocks.
+
 ### 1.3 Other state that must be hoisted (so both modes share it)
 
 | State | Today | After |
 |---|---|---|
-| Scroll follow, jump-to-line flash, load-older near the top, "away from bottom" | inline effects in `TerminalScreen` (lines 183–290) over a `LazyListState` | `rememberLogScroll(vm, rows): LogScroll` in `ui/LogScroll.kt`, holding the `LazyListState`; both renderers use a `LazyColumn` with it, so the anchor (an entry id key) survives a style switch |
+| Scroll follow, jump-to-line flash, load-older near the top, "away from bottom" | inline effects in `TerminalScreen` (lines 183–290) over a `LazyListState` | `rememberLogScroll(vm, rows): LogScroll` in `ui/home/LogScroll.kt`, holding the `LazyListState`; both renderers use a `LazyColumn` with it, so the anchor (an entry id key) survives a style switch |
 | Fold open/closed | `rememberSaveable(id)` inside each `Foldable` | `FoldState` (a saveable set of open entry ids) created in `TerminalScreen`, passed down |
 | Menu (long-press sheet), swipe-copy notice, undo row | `TerminalScreen` locals | stay there; the sheet composable is chosen by style |
 | Header content | computed inside `Header` composable from `Status`, config | `terminal/HeaderModel.kt`: `headerParts(status, unlocks, profiles, todoCount, config): HeaderParts` (left/right lists of `Part(kind, text, ink, target, description)`); the GUI maps `kind` to its icons, TTY to text |
@@ -163,6 +208,13 @@ same narrow things `TerminalScreen` already passes down (`vm::onTap`, `vm::actio
 values); the new files must not appear in the "52 composables take the whole view model" count
 in docs/tasks.org. `TerminalScreen` itself is split first (§11, step 0) into state (`HomeState`)
 and two bodies, so it does not grow.
+
+**As built.** All of the table exists: `LogScroll` and `rememberLogScroll` in `ui/home/LogScroll.kt`;
+`FoldState` and `HomeState` in `ui/home/HomeState.kt`; `HeaderPart`, `HeaderParts` and `headerParts` in
+`terminal/HeaderModel.kt` (a part has a `kind`, `text`, `ink`, `tag`, `label`, `description`,
+`target`, `profile`, `battery` and `charging`). `TerminalScreen` holds the state and the menu and
+calls `GuiHome` (`ui/home/GuiHome.kt`) or `TtyHome` (`ui/tty/TtyHome.kt`); both take a `HomeCalls`
+bundle of narrow callbacks.
 
 ### 1.4 The switch
 
@@ -183,6 +235,21 @@ val HOME_STYLE = ConfigKey.Choice("home.style", "gui", listOf("gui", "tty"),
   (picture, blocks, off), `tty.crt`, `screen.shader`, `tty.boot`. (The screensaver became
   `screen.saver` in step 5.)
 
+**As built.** `Keys.HOME_STYLE` is as above, applied in `TerminalScreen` through `HomeStyle.of`, and
+it is in `Keys.CONFIG_ONLY`: only `config` sets it. The live preview passes through
+(`TtyHome`'s `preview`). The keys that exist besides it:
+
+- `tty.suggestions`, `tty.selector`, `tty.keybar`, `tty.quick-actions`, `tty.menu`: each `gui`
+  (the default: the GUI's own composable in the grid's place) or `tty` (on the grid). Config only;
+  they matter only with `home.style tty`.
+- `screen.shader` (it was `tty.shader`; `Keys.RENAMED` reads the old name) and `screen.saver`,
+  `screen.saver-after`.
+
+Not built: the `tty on|off` alias, `tty.cursor` (the prompt's cursor is always a block),
+`tty.blink` (it blinks every 530 ms while the prompt has focus, and stands still when Android's
+animator scale is 0), `tty.images` (decided against), `tty.boot` (`boot` runs only as
+`screen boot`), `tty.fps` and `tty.smooth-scroll`. `tty.crt` was built and removed (§5.2).
+
 ### 1.5 Packages
 
 ```
@@ -202,6 +269,36 @@ ui/tty/         GridMetrics.kt  GridPainter.kt  BoxGlyphs.kt  TtyPalette.kt
 assertion to LayersTest: no file under `terminal/tty/` imports `android.graphics` or
 `androidx.compose.ui` — that is what keeps the layout JVM-testable.
 
+**As built.** LayersTest has both assertions: `terminal/tty` reaches no `android.graphics` or
+`androidx.compose.ui`, and `ui/tty` no `androidx.compose.material3`. The files differ from the
+sketch: there is no `layout/` folder, each part of home has one `*Cells` object, and shaders have a
+package of their own.
+
+```
+terminal/       LineModel.kt  Ink.kt  HeaderModel.kt     shared, pure
+                ScreenSaver.kt  TopFacts.kt              when the screensaver opens; what `top` reads
+terminal/tty/   Cell.kt (CellStyle, CellRect)  CellWidth.kt  CellBuffer.kt (and ShapedRun)
+                CellBlock.kt (CellTarget, CellBlock, BlockWriter)  BlockCache.kt
+                Wrap.kt  LineLayout.kt (LogLook, GridApp)  BlockLayout.kt (Blocks)  BidiText.kt  BoxShapes.kt
+                HomeCells.kt  HeaderCells.kt (and PinnedCells)  PromptCells.kt  SuggestionCells.kt
+                KeyBarCells.kt  SheetCells.kt  SelectorCells.kt  BandCells.kt  Decode.kt
+                screens/ TtyScreen.kt (TtyScreen, PlacedRows, TtyKey, ScreenEnv, ScreenData, TtyScreens)
+                         Matrix.kt  Clock.kt  Pipes.kt  Sl.kt  Top.kt  Boot.kt  DecodeScreen.kt  LogDecode.kt
+                         ShownLog.kt  ScriptScreen.kt (and FramePlayer)
+ui/tty/         GridMetrics.kt  GridPainter.kt  BoxGlyphs.kt  TtyPalette.kt  TtyGrid.kt  TtyCells.kt (TtyFrame, TtyBand)
+                TtyHome.kt  TtyLog.kt  TtyHeader.kt (and TtyPinned)  TtyPrompt.kt  TtySuggestions.kt
+                TtyKeyBar.kt  TtySheet.kt  TtyBands.kt  TtySelector.kt  TtyScreenHost.kt  ShownLogReport.kt
+                TtyShader.kt  LiveTilt.kt
+shader/         the shaders' Model: Shaders, ShaderCatalog, ShaderMeta, ShaderUniforms, ShaderParam(s),
+                ShaderValues, ShaderPlay, ShaderWords, ShaderSuits, ShaderSafety, ShaderClock, ShaderTilt,
+                ShaderDate, ShaderPhone, ShaderStore, SharedShaders, WallpaperChoice
+ui/shaders/     the Shaders screen, a shader's details, Get more shaders
+ui/wallpaper/   ShaderWallpaper (the live wallpaper service), WallpaperState, WallpaperWriter
+script/         Screen*.kt, ScriptScreenService: scripts' own screens (§6.3)
+```
+
+`decode` in the GUI style is drawn by home's own texts (`ui/home/DecodedText.kt`).
+
 ## 2. The rendering engine
 
 ### 2.1 Options weighed
@@ -219,6 +316,8 @@ C gives the pixels of A (a block's draw code is the same code a single canvas wo
 scrolling, accessibility and test surface of the existing log. The one thing A does better — a
 single buffer for full-screen programs — is kept for screens, where there is no scrolling,
 selection or per-row semantics to lose.
+
+**As built.** C, as chosen.
 
 ### 2.2 Cells
 
@@ -273,6 +372,23 @@ Runs, not per-cell objects, for log blocks: a 40-column screen with 300 cached b
 1 MB (budget: 2 MB, LRU). `CellBuffer` is dense because screens touch single cells every frame:
 60×45 cells are 2 × 2700 ints.
 
+**As built.** One dense form for everything, not runs:
+
+- `CellStyle` is as above, but its flag `1 shl 14` is `MIRROR` (a box or block shape drawn
+  flipped, for right-to-left frames), not `BLINK`; there is no blink flag.
+- `CellBuffer(cols, rows)` keeps a glyph int and a style int per cell. A glyph is 0 (empty), a code
+  point, `WIDE_TAIL` (the right half of a 2-cell cluster) or the negative id of a cluster of several
+  code points (at most 4,096 kept; unused ones are dropped). It has `put` (a code point or text),
+  `fill`, `clear`, `scrollUp`, `resize`, `copyRow`, `rowText`, `dump`, the `dirty` rows, and the
+  `shaped` runs of joining scripts (`ShapedRun`).
+- `CellBlock(grid: CellBuffer, targets: List<CellTarget>, foldedRows)` is a log row: `targetAt`,
+  `hitAt`, `hit(x, y, cellW, cellH, slop)` and `dump`. `BlockWriter` builds it and mirrors it for a
+  right-to-left frame. There is no `srcAt`, `softWrap` or `CellImage` (no images, by the
+  decisions; no selection, §3.4).
+- Home's parts are `HomeCells(grid, spots)`: a `CellBuffer` and its tappable `Spot`s.
+- A block costs `cols × rows × 8` bytes (`CellBuffer.bytes`); the log keeps 400 laid-out lines,
+  under 2 MB (`LayoutPerformanceTest`).
+
 ### 2.3 Measuring: `GridMetrics` (ui/tty)
 
 - One instance per (typeface, font size px, line height px). Rebuilt when `Term.fontFamily`,
@@ -290,6 +406,15 @@ Runs, not per-cell objects, for log blocks: a 40-column screen with 300 cached b
   still works (each glyph is centered in its cell); `font` prints a note that it is not monospace.
 - `font.sans` has no meaning on a grid. In TTY the setting shows as unavailable with the reason
   "TTY is monospace"; its stored value is kept for GUI.
+
+**As built.** `GridMetrics(regular, bold, textSizePx, lineHeightPx)` does the above (both faces get
+their own `textScaleX`; `line`, a box line's width, is `cellW / 8`, at least 1 px). `TtyGrid` holds
+the metrics, the `TtyPalette` and the `GridPainter`; `rememberTtyGrid()` makes it again when the
+font, size, line height or theme changes. `TtyFrame.of(grid, widthPx, margin)` gives the columns
+and `originX` with a 12 dp margin (`GRID_MARGIN`), and every part of home reads the same frame
+(`LocalTtyFrame`). Not built: the note from `font` that a font is not monospace (`monospace` is
+measured but not reported), and `font.sans` in TTY: the grid ignores it, and Settings shows it as
+in the GUI style.
 
 ### 2.4 Width of a glyph: `CellWidth` (terminal/tty, pure)
 
@@ -313,6 +438,14 @@ Layout must give the same answer on every phone and in JVM tests, so it cannot a
   `clusterCount`-many cells for layout, is drawn with one `drawTextRun` (shaping on), and is
   scaled horizontally to exactly its cell span. Hit-testing inside it uses
   `Paint.getOffsetForAdvance`. `CellRun.shaped` marks these.
+
+**As built.** `CellWidth` (`of`, `total`, `clusters`, `clusterEnd`, `width`, `ofCodePoint`) is as
+above, except: the marks come from `Character.getType` and the wide ranges from a table in the
+file, not from generated Unicode data; there is no device test against `BreakIterator`
+(`CellWidthTest` is JVM). Tabs advance to the next multiple of 8 (`Wrap.kt`). A joining script's
+words are `ShapedRun`s, a word at a time (`BidiText.joins`), drawn with `drawTextRun` and fitted to
+their cells, stretched at most 1.5 times; nothing inside them is hit-tested, so
+`getOffsetForAdvance` is not used.
 
 ### 2.5 Layout: `LineModel` → `CellBlock` (terminal/tty/layout, pure)
 
@@ -354,6 +487,34 @@ Long lines: `Wrap` is incremental. While a row is folded only `foldLines + 1` ro
 (the 64 K-character line case that `keepWhole` handles today); the hidden row count is an
 estimate from the remaining length until opened.
 
+**As built.** `LineLayout.layout(model, look: LogLook, time, foldOpen, marks, apps, initials,
+footer)` in `terminal/tty/LineLayout.kt`, with the blocks in `Blocks` (`BlockLayout.kt`) and
+wrapping in `Wrap.kt`. `LogLook` carries `cols`, `gutter`, `dim`, `boxedTables`, `foldLines`,
+`itemGapRows` and `rtl`. A row is at least 16 columns wide (`MIN_COLS`). Where it differs from the
+table:
+
+- *Gaps*: `log.spacing` and `log.item-spacing` stay in dp, as in the GUI: the space goes between
+  the lines' blocks, and each block's cells stay on the grid (`TtyLog` passes `itemGapRows = 0`).
+  The gutter's color is drawn down through an item's gap.
+- *Unread*: an unread script line starts with `•` (the GUI's bullet); the divider is
+  `── 3 new since you left ──…` in bold accent, under a blank row. The day divider is
+  `── Tue 17 Nov ──…`, muted, under a blank row.
+- *Source*: always the name, muted, after the title (` · name`); no icons.
+- *AppGrid*: names in `ls`-style columns, a profile's tag before the name, no icons (`GridApp`).
+- *Image*: `[image: <file name>]`, muted, or underlined in the link color when the line opens a
+  link. Log images have no alt text, so the name comes from the image's address.
+- *Person*: the initials, inverse and bold, in the color the GUI gives the avatar.
+- *Fold*: `▾ N more lines` folds only when more than two rows (`FOLD_SLACK`) would be hidden; the
+  open form is `▴ Show less`, in the link color. A folded line's hidden rows are counted while
+  laid out, not estimated.
+- *Time*: shown only when at least 8 cells of text are left beside it.
+- *Buttons*: `[ Snooze 30 min ]  [ Done ]`, a tapped one `[✓ Done ]`, muted, as designed.
+- *Search*: matches are inverse in the warn ink; a result has a `footer` line saying where hidden
+  words were found.
+
+Tables, bars and ranges, stats and charts are as in the table (a table turns into
+`header: value` records below 3 cells a column; a chart is two rows of eighths).
+
 ### 2.6 Painting: `GridPainter` (ui/tty)
 
 ```kotlin
@@ -380,6 +541,19 @@ class GridPainter(val m: GridMetrics, val palette: TtyPalette) {
   blinking cell; it stops when home is not resumed, in battery saver, and when animations are
   off system-wide.
 
+**As built.** `GridPainter(m, palette)` has `draw(canvas, buffer: CellBuffer, x0, y0, rowFrom,
+rowTo)`, used for log rows, home's parts and screens alike, and `drawBand`, which carries the box
+lines of a part's first and last rows on through the room above and below them (finger-sized
+sheet rows and key bar keys). Per row: backgrounds, glyphs, then underlines and strikes. A run of
+ASCII in one style is one `drawText`; box drawing and blocks are drawn by `BoxGlyphs` from the
+shapes in `terminal/tty/BoxShapes.kt` (light, heavy, double, dashed, rounded and diagonal lines;
+eighths, quadrants, shades); any other character is squeezed or centered in its cells. Widths are
+kept per character, so a frame allocates nothing (checked by `LayoutPerformanceTest`).
+
+The painter takes no selection, marks or pressed target: search marks are cells' styles, and a
+pressed target or a highlighted line is painted on the surface color by the composable that holds
+the block. There is no BLINK flag: only the prompt's cursor blinks (`ui/tty/TtyPrompt.kt`, 530 ms).
+
 ### 2.7 Scrolling and the list
 
 - `TtyLog` is a `LazyColumn(reverseLayout = true, state = logScroll.listState)` with the same
@@ -404,6 +578,21 @@ class GridPainter(val m: GridMetrics, val palette: TtyPalette) {
 - "↓ Scroll to bottom" becomes a row above the prompt: `── ↓ newest ──`, PROMPT ink, same
   `jump-latest` tag, 48 dp touch height (§3.1).
 
+**As built.** `TtyLog` and `TtySearchResults` (`ui/tty/TtyLog.kt`) share one list: a
+`LazyColumn(reverseLayout = true)` on the GUI's list state, with the same keys and extra items
+(the empty log's tips, `▴ N earlier lines · tap to show`, the day and unread dividers). Each line
+is a `TtyLineRow` composable: exactly its block's height in px, the block painted in
+`drawBehind`, pointer input and semantics on the same node, and a child node for each button, app
+and fold. Laid-out lines are kept in a `BlockCache` of 400 (`KEPT_LINES`), keyed by the row, the
+`LogLook`, the options, the fold, the marks, the time format and, for an apps grid, the installed
+apps; `TtyCaches` lets them go through `LauncherApp.keepsInMemory`. A miss lays out on the spot;
+nothing is laid out ahead.
+
+Not built: the snap to whole rows (the list scrolls by pixel and rests anywhere), the scroll
+thumb, and the newest row: "scroll to the newest line" is a chip over the log's bottom, centered
+on whole columns, with a 48 dp touch and the tag `jump-latest` (`TtyJumpLatest` in
+`ui/tty/TtyBands.kt`).
+
 ### 2.8 Performance budgets
 
 | Thing | Budget |
@@ -417,6 +606,14 @@ class GridPainter(val m: GridMetrics, val palette: TtyPalette) {
 
 Macrobenchmark is not in the project; measure with a `FrameMetrics` device test that scrolls
 5000 corpus lines in both styles and asserts the 90th percentile.
+
+**As built.** `LayoutPerformanceTest` (JVM) lays out 5,000 corpus rows, some right to left, in
+under 4 s in each direction (loose, for a busy machine), keeps the cache at 400 lines under 2 MB,
+and checks that reading a block as the painter does on each frame allocates under 4 KB over 100
+frames. The block cache is registered with `LauncherApp.keepsInMemory` as planned. Screens set
+their own rate (`matrix`, `pipes`, `sl` 30; `boot` 60; `decode` 24; `clock` 4; `top` 2 frames a
+second), at most 15 in battery saver; there is no `tty.fps`. Not built: the `FrameMetrics` device
+test (`TtyScrollPerfTest`), so the cold start and scroll frame budgets have no test.
 
 ### 2.9 RTL and bidi
 
@@ -460,12 +657,20 @@ item's node) → CellBlock.hitAt(col, row) → Target → the same callbacks the
   flashes, get SURFACE bg, as `highlighted` does now.
 - Haptics on long press as now.
 
+**As built.** As above, with `CellBlock.hit` and a 24 dp slop (32 dp with `log.taller-taps`) in
+`TtyLineRow`; the calls are the GUI's (`TtyLineCalls`: a long press on anything but an app opens
+the line's menu). Press feedback differs: the pressed target, or the whole line, is painted on the
+SURFACE color (after 80 ms), not inverse. The line whose menu is open and the line a search result
+jumped to get SURFACE too.
+
 ### 3.2 Swipe to copy / delete
 
 Same thresholds and directions. The block slides by whole cells; the uncovered cells show
 `⧉ Copy` (PROMPT) or `✕ Delete` (ERROR). Past a third of the width → `vm.swipeCopy` /
 `vm.swipeDelete`; the undo row appears as now. Horizontal drags that a row did not take still
 turn the pager (§3.9).
+
+**As built.** As designed (`TtyLineRow`; `deleteRight` swaps the sides).
 
 ### 3.3 Menus and sheets: `TtySheet`
 
@@ -490,6 +695,15 @@ and stay Material 3 Expressive; `ExpressiveOnlyTest` is unaffected because `ui/t
 Material component at all (add `ui/tty/` to a new assertion: it must not import
 `androidx.compose.material3`).
 
+**As built.** `TtySheet` (`ui/tty/TtySheet.kt`, cells from `SheetCells`) is a dialog with a box
+at the bottom of the screen: the line in the top border, where it came from and its link under
+it, then the actions, the destructive ones last in the error color, below a rule. It renders the
+same `ActionMenu` as `ActionSheet`, without icons; ↑/↓ move, Enter runs, Esc closes, a tap
+outside closes. The secret prompt is `TtySecretSheet`, with a masked field (`TtyField`). They are
+used only with `tty.menu tty` (a long press's menu, the pinned line's and the media line's menus,
+the secret box) and `tty.quick-actions tty` (the quick actions); by default the TTY style shows
+the GUI's `ActionSheet` and dialog. The LayersTest assertion on `ui/tty/` exists.
+
 ### 3.4 Selection and copy on the grid
 
 New in TTY (the GUI has none). Entered from the long-press sheet ("Select text") or by a
@@ -501,6 +715,9 @@ re-wrapping, a font-size change and scrolling. Display: selected cells INVERSE; 
 (`StyledText.plain` semantics: soft-wrapped rows joined, box-drawing and padding never copied,
 table cells tab-separated, the time column excluded). `Selection.kt` is pure and JVM-tested.
 
+**Not built.** There is no selection mode and no `Selection.kt`. Copy on the grid is the same as in
+the GUI: a swipe, or "Copy text" in the long-press menu. `tty.org` keeps it under step 5.
+
 ### 3.5 Search (`/`)
 
 `LogSearcher` and `vm.search` are unchanged. Results are `LogRow`s built with `trim = false`, so
@@ -508,6 +725,10 @@ table cells tab-separated, the time column excluded). `Selection.kt` is pure and
 (the pure core of today's `markMatches`, moved to `terminal/`) gives source ranges; the painter
 draws those cells INVERSE in WARN ink. A fold never hides a match (rows with marks do not fold,
 as now). `LogSearchSummary` and `LogFilterBar` are one grid row each (`TtyBands`).
+
+**As built.** As designed: `TtySearchResults` in `ui/tty/TtyLog.kt`, `markRanges` in
+`terminal/LineModel.kt`, matches inverse in WARN, and `TtySearchSummary` and `TtyFilterBar` in
+`ui/tty/TtyBands.kt` (tags `log-search-summary`, `log-filter`).
 
 ### 3.6 Prompt and keyboard: `TtyPrompt`
 
@@ -526,6 +747,17 @@ as now). `LogSearchSummary` and `LogFilterBar` are one grid row each (`TtyBands`
 - `prompt.height` and `prompt.bottom-padding` round up to whole rows (the text sits on the
   middle row).
 
+**As built.** `TtyPrompt` (`ui/tty/TtyPrompt.kt`, cells from `PromptCells`) draws `$ `, the text,
+`✕` and `⌨` (the key bar toggle); the `$` is the quick actions target (`prompt-quick`). The text
+field under the cells is as wide as its text, in the grid's font stretched to the cells
+(`gridTextStyle`), with its own text, cursor and selection clear, and it is moved by whole cells
+to keep the cursor in view, so the selection handles sit on the drawn text. The cursor is always
+a block that blinks every 530 ms while the prompt has focus (no `tty.cursor` or `tty.blink`).
+Selecting and the selection's handles are the field's own; there is no `TtySheet` with Paste /
+Select all / Copy. `prompt.height` is the row's height in dp (at least a cell);
+`prompt.bottom-padding` is space under home, as in the GUI. Keys: Enter, ↑/↓ history, Tab,
+Esc and Ctrl+U clear, Ctrl+L clears the screen, Ctrl+A and Ctrl+E (`PromptKeys`).
+
 ### 3.7 Suggestions and the app selector
 
 - `suggestions.style list`: rows above the prompt, best one nearest the prompt, the Enter
@@ -539,6 +771,17 @@ as now). `LogSearchSummary` and `LogFilterBar` are one grid row each (`TtyBands`
   the letter rail in the edge columns; the log fades through `vm.selectorFade` (the TTY log
   applies it as a blend toward bg on its inks, or as layer alpha — here alpha is fine, it is a
   transition).
+
+**As built.** `TtySuggestionList` and `TtySuggestionStrip` (`ui/tty/TtySuggestions.kt`, cells from
+`SuggestionCells`): the list's rows are `chips.height` tall at least, the Enter target has its name
+inverse and `↵` at its end, the list takes at most 40 % of the screen; chips are ` $ name ` on the
+surface color, one row or two (`suggestions.rows 2` and more than three chips). No icons on the
+grid (`suggestions.icons` has no effect there). The app selector on the grid is `TtyRailLetters`,
+`TtyRailHandle` and `TtyRailWave` (`ui/tty/TtySelector.kt`, cells from `SelectorCells`): the
+letters at rest, the handle, and the letters around the thumb with the current one inverse in
+the accent color; nothing is magnified. The log fades by layer alpha (`selectorFade`). Both are on
+the grid only with `tty.suggestions tty` and `tty.selector tty`; by default the TTY style shows
+the GUI's list, chips and selector in their place.
 
 ### 3.8 Header, pinned line, key bar, bands
 
@@ -559,6 +802,26 @@ as now). `LogSearchSummary` and `LogFilterBar` are one grid row each (`TtyBands`
 - Bands: undo / "Copied" (live region), update progress (a `█` progress bar row), default-home
   band, live preview band — each a row or two through `TtyBands`, same tags.
 
+**As built.**
+
+- Header: `TtyHeader` (`ui/tty/TtyHeader.kt`, cells from `HeaderCells`): time bold, date muted,
+  alarm `◷ 07:00`, todos `☐ 3`, unlocks `unl 41`, network as its name (`wifi`, `cell`, `offline`
+  in red), battery `▕██▌▏82%` with `↯` while charging, a profile as its tag inverse in its color,
+  settings `⚙`. Parts that don't fit are dropped from the middle outward, and a camera cutout
+  splits the row into zones the parts flow around. Each part is a node `header-<part>`; a swipe
+  down runs `gesture.swipe-down`.
+- Pinned line: `TtyPinned`, in the same file (cells from `PinnedCells`): each item is its text row
+  and a progress row under it (an eighth-cell `▔` bar), the dots `·●·` at the row's end; what's
+  playing is its line and `⏭`. Hidden while typing.
+- Key bar: `TtyKeyBar` (`ui/tty/TtyKeyBar.kt`, cells from `KeyBarCells`): each row `keybar.height`
+  tall, labels centered in equal spans on the surface color, a muted `│` between keys, the pressed
+  key inverse; with more keys than fit, each takes a finger's width and the row scrolls. Tags
+  `keybar` (each row), `key-<name>`, `tty-keybar` (the bar). On the grid only with
+  `tty.keybar tty`.
+- Bands: `TtyNotice` (`undo-row`), `TtyUpdateProgress`, `TtySearchSummary`, `TtyFilterBar`,
+  `TtyDefaultHomeBand` (`default-home`), `TtyLivePreviewBand` (`live-preview`) and `TtyJumpLatest`
+  (`jump-latest`), in `ui/tty/TtyBands.kt`, cells from `BandCells`.
+
 ### 3.9 The widgets page
 
 The pager is in `MainActivity` (line 626) and wraps `terminal()`. TTY replaces only what
@@ -566,6 +829,8 @@ The pager is in `MainActivity` (line 626) and wraps `terminal()`. TTY replaces o
 `vm.onHomePageShown` are untouched. The widgets page itself stays as it is (cards). A TTY
 rendering of widgets is a separate, later decision; it is not needed for TTY home to be
 complete, but it is listed as open in §12.
+
+**As built.** As designed: only the log page changes, and the widgets page stays the GUI's.
 
 ## 4. Accessibility
 
@@ -599,6 +864,25 @@ The canvas draws nothing TalkBack can see; the semantics tree is built from the 
 `ParityTest` (§8) asserts that for every corpus row the GUI and TTY nodes have the same text,
 the same click/long-click presence and the same custom-action labels.
 
+**As built.**
+
+- Log row: as designed. The node has `text = spoken(time)` (an unread line starts with "new"),
+  `onClick`, `onLongClick("actions")`, and custom actions from `LineLayout.actions`: each link,
+  each button, the fold, Copy and Delete. Buttons, apps and the fold are child nodes with the
+  GUI's click labels ("show the whole line", "fold the line"). Tag `line-<id>`.
+- Dividers: the day divider is a `heading()`; the unread divider reads "N new since you left".
+- Home's parts: one node per spot (`SpotNode` in `ui/tty/TtyCells.kt`) with the GUI's words.
+- Screens: the host is one node with the screen's `title` ("Screensaver: …" for the
+  screensaver) and an `onClick` labelled "close".
+- Not built: the screensaver does not check for a screen reader (`ScreenSaver` looks at the
+  screen, battery saver and Remove animations only), and `boot` has no cold-start form to skip.
+  Shaders and one-off shaders are off with a screen reader on (§7).
+- Contrast has no test of its own (§5.1).
+- The parity tests: `ParityTest` (JVM) checks that the grid shows every word `spoken` says, in
+  both directions, has every target the model lists where its words are, and offers the same
+  actions; `TtyParityTest` (device) compares the two styles' semantics for the log and home's
+  parts.
+
 ## 5. Theming
 
 ### 5.1 Palette
@@ -629,6 +913,12 @@ the same click/long-click presence and the same custom-action labels.
   For Material You and custom themes, `TtyPalette` nudges an ink's lightness until its inverse
   pair passes; the GUI colors are not touched.
 - `log.wallpaper`: BG cells are not painted; `Modifier.page(wallpaper)` stays the backdrop.
+
+**As built.** `TtyPalette(palette)` (`ui/tty/TtyPalette.kt`) maps each `Ink` with the table above
+(`colorOf`), precomputes the faint inks with `DIM_ALPHA` (0.62, the GUI's), swaps fg and bg for
+INVERSE, and leaves BG cells unpainted. Not built: the contrast nudge for Material You and custom
+themes, and `TtyPaletteContrastTest`; the palettes' own tests check some themes' contrast, not the
+grid's inverse pairs. `scriptColor` was not changed to return an `Ink`.
 
 ### 5.2 The CRT look without shaders (`tty.crt on`, API 28+)
 
@@ -684,6 +974,22 @@ with a FG head; on a light theme it is dark rain on paper).
 | `decode` | the log lines on home scramble and settle (`terminal/tty/Decode`), through `screen decode` or as the screensaver; see "The lines home shows" below |
 | `boot` | `[ ok ]` lines from real startup facts (apps read, scripts loaded, theme); at most 1.2 s; `tty.boot on` plays it at cold start only, never after process death recovery |
 
+**As built.** The interface is in `terminal/tty/screens/TtyScreen.kt` with more than the sketch:
+`title` (what TalkBack says), `animated` (false for `clock`: it keeps running with Remove
+animations on), `restMs` (a screen at rest says how long it needs no frame, 5 s at most),
+`resumed()`, and `still(grid)` / `stillEveryMs` (the one frame shown with Remove animations on or
+when the phone is hot). `PlacedRows` lets a screen put each grid row at its own place (`decode`).
+`ScreenEnv` adds `zone`, `locale`, `cellW`, `cellH` and `log` (the lines home shows);
+`ScreenData` holds what `boot`, `top` and `decode` read. `TtyScreens.names` is `matrix`, `clock`,
+`pipes`, `decode`, `sl`, `top`, `boot`.
+
+- Commands: `matrix`, `pipes` and `sl` are commands of their own; every screen opens with
+  `screen <name>` (`SystemCommands.screen`), which lists them when the name is unknown.
+- `matrix` draws half-width katakana, digits and a few signs in every other column; `clock` big
+  block digits with the date, AM/PM without `clock.24h`; `pipes` heavy box lines; `sl` crosses once.
+- `boot` types its lines through `Decode` (each character passes through a few others), 0.9 s to
+  type and 0.3 s held. It runs only as `screen boot`: there is no `tty.boot` and no cold-start run.
+
 ### 6.2 Host and lifecycle (`ui/tty/TtyScreenHost`)
 
 - State: `vm.ttyScreen: StateFlow<String?>`. A command (`matrix`, …, in `commands/` with the
@@ -719,8 +1025,21 @@ with a FG head; on a light theme it is dark rain on paper).
   `decode` reads it again each second (10 times a second at first and after a pause), so it never
   shows a line for longer than home does. A screen at rest says so (`TtyScreen.restMs`), and the
   host sleeps until then. In the gui style none of this runs: the host is see-through, and home's own
-  texts draw the effect (`LogDecode`, `ui/DecodedText.kt`) over their own layouts, so nothing moves.
+  texts draw the effect (`LogDecode`, `ui/home/DecodedText.kt`) over their own layouts, so nothing moves.
 - The same lines could let `matrix` dissolve the log into rain and `boot` scroll into it.
+
+**As built** (the host). `TtyScreenHost` (`ui/tty/TtyScreenHost.kt`) runs over home in both
+styles, shown from `vm.ttyScreen` (`TerminalUi.showTtyScreen`). Its loop runs under
+`repeatOnLifecycle(RESUMED)` with `withFrameNanos`, only while the window has focus and the log
+page is shown (`LocalTerminalShown`), and repaints changed rows only. It closes on a tap the screen
+doesn't use, Back, or a key the screen doesn't use (the typed character goes into the prompt; `q`
+types nothing); back within 30 s (`RESUME_WITHIN_MS`), the same screen goes on. Battery: at most 15
+frames a second in battery saver; with Remove animations on, or when the phone is hot (thermal
+status MODERATE or more), a moving screen shows one still frame and a hint instead of stopping. It
+never keeps the screen on. As the screensaver, a touch or key only closes it, and leaving home or
+the page closes it at once. A screen shows `screen.shader` over it, and a one-off shader that plays
+(§7). The screensaver is `terminal/ScreenSaver.kt` (pure) and `ScreenSaverWatch` in home; its
+settings are in Settings → Look & feel → Screensaver.
 
 ### 6.3 Scripts drawing on the grid (built in step 7)
 
@@ -771,27 +1090,35 @@ tty.screen({
 
 ## 7. Shaders (after TTY; API 33+)
 
-**As built (step 6, 22 November 2026).** Where it differs from what follows:
+**As built (0.5.17).** Where it differs from what follows:
 
-- *Where it attaches*: two layers, not one — home's root (`TtyHome`) and the screen host's box
-  (`TtyScreenHost`) — since they are siblings in the pager page. Both get `rememberTtyShader`
-  (`ui/tty/TtyShader.kt`), so a screen shows it in either home style, as `tty.crt` does. Settings'
-  preview of home has none.
-- *Files*: `ShaderMeta` and the pure rules are in `script/` (`ShaderMeta`, `ShaderCatalog`,
-  `ShaderWatchdog`, `ShaderSafety`); the Android side is `script/Shaders.kt`. The user's files are in
-  `files/shaders/`, kept in step with the script folder by `script import` / `script export`, so a
-  shader is found by name without the folder. Bundled: `crt`, `rain` and the rest of `ShaderCatalog.BUNDLED` (`bloom` and `pond` were removed on 22 November) (no `scanlines`,
-  `aberration`; CRT has both).
-- *Commands*: `shader list | use <name> | on | off | check <name> | reload | copy <name> | remove
-  <name>`; `shader <name>` turns one on. `screen.shader` is a `Choice` whose list grows by the user's
-  files (`Choice.added`, as `theme.name`), so it completes. `shader get` and `shader update` install
-  and update shared ones.
-- *Settings*: Settings → Shaders (`ui/ShadersScreen.kt`), by the maintainer's request of 22 November; the
-  key itself is on no settings page. Its preview uses the code that sets the uniforms, but neither the
-  watchdog nor the safe mode's mark.
-- *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`, `date`,
-  `tilt`, `pressed`, `battery`, `charging` and the ten colors. Not built: `cells` (step 7), `scroll`, `param0..7` and `@param`, `@warp`,
-  `@bloom`. A `layout(color)` color must be four numbers, as Android requires.
+- *Where it attaches*: three layers, not one: home in the GUI style (`GuiHome`), home in the TTY
+  style (`TtyHome`) and the screen host (`TtyScreenHost`). Each puts `rememberTtyShader`
+  (`ui/tty/TtyShader.kt`) first in its modifier chain, so the shader covers the background too, and
+  a screen shows it in either home style. Settings' preview of home shows a shader only while the
+  eye in a shader's sheet is held (`rememberPeekShader`); a shader's details draw it over a
+  small sample (`rememberShaderPreview`, used by `ui/shaders/ShaderPreview.kt`). Neither preview is marked
+  in `ShaderSafety`, logs a line or takes touches.
+- *Files*: the Model is the `shader/` package. `ShaderMeta` (the header and the uniforms, pure),
+  `ShaderCatalog` (names and the bundled list), `ShaderUniforms` (sets the uniforms) and
+  `ShaderSafety` are there, and the Android side is `shader/Shaders.kt` (compiling, the user's
+  files, turning one on and off, the log lines). The user's files are in `files/shaders/`, kept in
+  step with the script folder by `script import` / `script export` and `shader reload` /
+  `shader copy`, so a shader is found by name without the folder. Bundled: the 23 of
+  `ShaderCatalog.BUNDLED`, in `assets/shaders/`: `crt`, `lcd`, `eink`, `paper`, `riso`, `graph`,
+  `foil`, `lamp`, `dusk`, `frost`, `mountains`, `pond`, `dunes`, `rain`, `snowfall`, `grove-snow`,
+  `grove-autumn`, `aurora`, `night`, `fireflies`, `contour`, `ink` and `hearts` (no `scanlines`,
+  `bloom` or `aberration`; `crt` has scanlines and a color fringe). A file of the user's with a
+  bundled name is used instead of the bundled one.
+- *Commands* (`terminal/commands/ShaderCommands.kt`): `shader` or `shader list`, `shader <name>`
+  or `use <name>`, `on`, `off`, `set`, `reset`, `follow`, `values`, `play`, `words`, `wallpaper`,
+  `get`, `update`, `check`, `reload`, `copy`, `remove`. `screen.shader` is a `Choice` whose list
+  grows by the user's files (`Choice.added`, as `theme.name`), so it completes.
+- *Settings*: Settings → Shaders (`ui/shaders/ShadersScreen.kt`, a shader's sheet in `ui/shaders/ShaderSheet.kt`,
+  what a row says in `ui/shaders/ShaderPage.kt`, Get more shaders in `ui/shaders/GetShadersScreen.kt`), by the maintainer's
+  request of 22 November. The key itself is in `Keys.CONFIG_ONLY`, on no settings page.
+- *Uniforms*: see the **As built** note in §7.2. Not built: `cells`, `scroll`, `@warp`, `@bloom`.
+  `@param` is built, with named uniforms instead of `param0..7` (§7.6).
 - *Tilt*: `ShaderTilt` (pure, JVM-tested) turns gravity into the lean: compared with a level that follows
   the phone (6 s), smoothed (0.12 s), on the screen's own sides, 1 at 30 degrees, and changed only by more
   than 0.012 and at most 30 times a second, so it rests on a table. `LiveTilt` has the one sensor listener
@@ -804,22 +1131,29 @@ tty.screen({
 - *Finger and battery*: `pressed` comes from the touch watcher (Initial pass, nothing consumed; a cancel
   ends it), `battery` and `charging` from `DeviceStatus`, the header's. Each draws a still shader again
   only when it changes.
-- *Watchdog* (removed on 22 November, by the maintainer's decision: a slow shader is the user's to turn off;
-  a shader is proven after 10 s in front): the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`) over 60 frames
+- *Watchdog*: built and removed on 22 November, by the maintainer's decision: a slow shader is the
+  user's to turn off, and a shader is proven after 10 s in front. The code has no frame-time check
+  now. What it was: the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`) over 60 frames
   against two frames of the display's refresh rate, but at least 33 ms, and it has to stay over that for
   120 frames in a row; the first 60 frames don't count (the GPU compiles the program). Where the phone
   doesn't measure the GPU, only stalls count: the whole frame's time is no measure of a shader (it has
   the wait for the screen in it, 26 ms at the 90th percentile on a healthy 120 Hz phone). Three frames
   over 250 ms of GPU time (a whole second when unmeasured) are a stall. A compile error is checked
   before the first frame, and one log line.
-- *Safe mode*: the mark is written before the shader is compiled, so a crash in the compiler counts;
-  cleared after 120 good frames, when the surface stops, or with the process's end for a reason that
-  isn't a crash or a hang (`ApplicationExitInfo`). There is no `screen.shader-tripped` key: what is
-  tripped is in the crash preferences, which stay on this phone.
-- *Off*: `shader off`, `config set screen.shader off`, two fingers held for a second (observed on the
-  layer itself). No app shortcut. The screen reader rule is as designed; with **Remove animations** a
-  moving shader stands still rather than going off.
-- `tty.crt on` keeps its drawn look on Android 13+; it doesn't select the shader.
+- *Safe mode*: the mark is written to disk before the shader is compiled (`ShaderSafety.begin`), so
+  a crash in the compiler counts. It goes when the shader has been in front for 10 s (`PROVEN_MS`:
+  then it is proven, and the count of trips starts over), when the last surface stops drawing it, or
+  with the process's end for a reason that isn't a crash or a hang (`ApplicationExitInfo`; an
+  unknown reason counts as one). A tripped shader is not drawn until its file changes or the user
+  turns a shader on again; after three trips in a row (`MAX_TRIPS`) `screen.shader` is set to off.
+  There is no `screen.shader-tripped` key: what is tripped is in the crash preferences, which stay
+  on this phone. A compile error, or a uniform Android refuses, is one log line (once per shader and
+  problem) whose tap runs `shader check <name>`; home goes on without the effect.
+- *Off*: `shader off`, `config set screen.shader off`, Settings → Shaders → None, and two fingers
+  held still for a second (observed on the layer itself, nothing consumed). No app shortcut. The
+  screen reader rule is as designed; with **Remove animations** a moving shader stands still rather
+  than going off.
+- There is no drawn CRT look: `tty.crt` was removed (§5.2).
 
 ### 7.1 Where the shader attaches
 
@@ -845,6 +1179,12 @@ Modifier.graphicsLayer {
   pointer positions in `TtyHome`'s root pointer node. Undeclared warps are the author's problem,
   and the docs say so.
 
+**As built.** One layer per surface (the note at the top of §7), each with
+`renderEffect = RenderEffect.createRuntimeShaderEffect(runtime, "content")` set through the
+`shaderEffect` modifier in `ui/tty/TtyShader.kt`. Text is never drawn in the shader. Sheets and
+dialogs are their own windows, outside it. `@warp` is not built; the half-cell contract is on the
+website's shader page.
+
 ### 7.2 Uniforms (the host sets those the shader declares; missing ones are skipped)
 
 ```glsl
@@ -867,6 +1207,37 @@ half4 main(float2 xy) { … }
 `cells` is a `BitmapShader` over a cols×rows `Bitmap` the painter fills only when a shader
 declares it (cost: one small upload per content change).
 
+**As built.** The uniforms the host sets are `ShaderMeta.KNOWN`, set by `ShaderUniforms` only when
+the shader declares them with a type of the right size; `content` is the only `shader` input and is
+required. Another name stays 0 (`shader check` lists those).
+
+| Uniform | Type | Value |
+|---|---|---|
+| `content` | `shader` | the surface: home (either style) or a screen; the theme's background alone in the live wallpaper |
+| `resolution` | `float2` | the surface's size, px |
+| `cell` | `float2` | a cell's size, px |
+| `grid` | `float2` | columns and rows: the grid's columns where the surface knows them, else what fits; rows that fit |
+| `origin` | `float2` | where column 0 starts, px, and 0 |
+| `time` | `float` | the shader's own clock, seconds; it moves only in an `@animated` shader while it may move (§7.4 As built) |
+| `progress` | `float` | 0 to 1 as a one-off shader runs (§7.7) |
+| `touch` | `float2` | the last touch, px; `-1, -1` before one |
+| `touchAge` | `float` | seconds since it in an `@animated` shader, 0 in a still one, 1000 before a touch |
+| `pressed` | `float` | 1 while a finger is down on the surface |
+| `tilt` | `float2` | the phone's lean, about -1 to 1 each way (`ShaderTilt`) |
+| `battery`, `charging` | `float` | 0 to 1, and 1 while plugged in (the header's `DeviceStatus`) |
+| `wallpaper` | `float` | 1 in the live wallpaper (§7.9), else 0 |
+| `dark` | `float` | 1 for a dark theme |
+| `date` | `float4` | year, month, day, seconds since midnight, local time (`ShaderDate`) |
+| `bg` `surface` `fg` `dim` `accent` `error` `warn` `good` `info` `link` | `half4` | the theme's colors; with `layout(color)` through `setColorUniform`, else as four floats with alpha |
+
+A parameter's uniform (§7.6) is a `float` of its own name. `half` and `float` types are both
+accepted; one of these names declared as an array or with the wrong size, a second `shader` input,
+or a file over 64 KB is refused before compiling (`ShaderMeta.problems`). Not built:
+`cells`, `scroll` and `param0..7`.
+
+The user-facing page, `site/src/content/docs/scripting/shaders.md`, lists the same uniforms and
+types.
+
 ### 7.3 Files
 
 - `*.agsl` in the scripts folder's `shaders/` directory, picked up by the same folder watching
@@ -877,7 +1248,7 @@ declares it (cost: one small upload per content change).
   `// @param curvature 0..0.3 = 0.1` (becomes a slider), `// @warp`, `// @bloom <radius> <gain>`
   (asks the host for a blurred second pass, composed with `createBlendModeEffect`).
 - Commands: `shader list | use <name> | off | check <name>`; Settings → TTY → Shader.
-- Validation: metadata parse and size limit (64 KB) in the Model (`script/ShaderMeta.kt`, pure);
+- Validation: metadata parse and size limit (64 KB) in the Model (`ShaderMeta`, pure; it is `shader/ShaderMeta.kt`);
   compile with `RuntimeShader(source)` in `ui/tty/TtyShader.kt` inside try/catch
   (`IllegalArgumentException` carries the compiler's message and line). An error is a log line
   with `LogContext.LINE`, so a tap opens the editor at that line, as script errors do. A shader
@@ -885,6 +1256,15 @@ declares it (cost: one small upload per content change).
 - Sandbox: AGSL has no I/O, no loops over unbounded data, no access outside its inputs; it is a
   pure function of the uniforms. The only harms are unreadable output and GPU time. Both are
   handled below. No `@uses` is needed.
+
+**As built.** Files as above, with the bundled set and commands of the **As built** note at the top
+of §7, and Settings → Shaders instead of Settings → TTY → Shader. The header comments read by
+`ShaderMeta.parse`: `@name` (or `@title`), `@description` (or `@desc`), `@animated`, `@param`
+(§7.6), `@once` (§7.7), `@suits` and `@text` (§7.8), and for shared shaders `@author`,
+`@version`, `@license`, `@requires` (the oldest Kolahal) and `@tags`. Not built: `@warp` and
+`@bloom`. A compile error is a log line with the compiler's line number whose tap runs
+`shader check <name>` (not an editor at that line); a shader that fails to turn on keeps the one
+that was on.
 
 ### 7.4 Safety
 
@@ -897,11 +1277,101 @@ declares it (cost: one small upload per content change).
 | Idle | The frame loop for `@animated` runs only while home is resumed, focused and the terminal page is shown; it stops after 60 s without touch unless on a charger. |
 | Accessibility | Off while a screen reader or "remove animations" is on, unless the user opts in. |
 
+**As built.**
+
+| Guard | In the code |
+|---|---|
+| Frame-time watchdog | Built and removed on 22 November (the *Watchdog* note at the top of §7). |
+| Crash / hang at start | As designed, with the mark written before compiling and a shader proven after 10 s in front (*Safe mode* at the top of §7; `shader/ShaderSafety.kt`). |
+| Always-available off | (1) Settings → Shaders → None; (2) `shader off`; (3) two fingers held still for a second. Not built: the app shortcut "Safe mode". |
+| Battery | `ShaderClock.moves`: an `@animated` shader's time stands still in battery saver, with Remove animations on, at thermal status MODERATE or more, below 15 % (`LOW_BATTERY`) unless charging, and after 60 s without a touch (`IDLE_MS`) unless charging. It never turns off for these; there is no `screen.shader-battery`. |
+| Idle | The frame loop (30 frames a second, `ShaderClock.FPS`) runs only while home is in front; the phone's state is checked every 2 s. |
+| Accessibility | Shaders and one-off shaders are off while a screen reader is on, with no opt-in. With Remove animations on, a moving shader stands still. |
+
 ### 7.5 Android 9–12
 
 No AGSL (API 33). They get `tty.crt` as in §5.2: scanlines, vignette and text glow on 9–11, plus
 real bloom on 12. `shader list` on those versions says that shaders need Android 13 and lists
 the built-in look. User `.agsl` files are listed but marked unavailable.
+
+**As built.** No effect at all on Android 9–12 (`tty.crt` was removed). `shader` there says
+"Shaders need Android 13 or newer" (`Shaders.NEEDS`) and lists the shaders, and nothing is drawn.
+
+### 7.6 Parameters and the values they follow (built, not in the design)
+
+A shader can have up to 8 parameters (`ShaderParam.MAX`), each a header line
+`// @param amount 0.0..2.0 = 1.0 Amount of snow` (a range: a slider, whole numbers when no value
+has a decimal point) or `// @param shape round|star = round Shape` (2 to 4 words: buttons; the
+uniform gets the word's place). Its value is a `float` uniform of its name; a name of `KNOWN` is
+refused.
+
+- `shader/ShaderParam.kt` reads a line; `shader/ShaderParams.kt` keeps what people set, by shader
+  and name, as text (kept when a shader is updated; a value the new version can't have falls back
+  to its default). Sliders and buttons are in a shader's details (`ui/shaders/ShaderParamRows.kt`);
+  `shader set`, `shader reset`. A slider being dragged changes the shader on screen at once
+  (`ShaderParams.tryOut`).
+- A parameter can follow a value instead (`shader follow`, or Follow in its details):
+  `shader/ShaderValues.kt`. Kolahal's own are `battery` (0–100), `charging`, `day` (hours, 0–24)
+  and `night` (0 by day, 1 at night, with an hour and a half of dusk and dawn); scripts give more
+  with `shader.give(name, value)` under an `@gives` line, named `<script>.<name>` (at most 8 a
+  script, kept in a store, gone when the script is off or deleted). A number is spread over the
+  parameter's range, or worked through a formula with the calculator (`battery / 20`, at most 80
+  characters); a word picks the parameter's word. A header can suggest one:
+  `… @follow weather.rain`. `shader values` lists them.
+- On home a followed value glides to its new place in 2 s (`GLIDE_MS` in `ui/tty/TtyShader.kt`);
+  a still shader is drawn again when a parameter changes.
+
+### 7.7 One-off shaders, and words in a notification (built, not in the design)
+
+- `// @once 6`: the shader runs once for that many seconds (1 to 10) over home and over the shader
+  that is on, then goes; `progress` goes from 0 to 1 meanwhile. `shader/ShaderPlay.kt`: one plays at
+  a time, another that comes meanwhile is left out, and one waits for home to be in front for 30
+  minutes at most. `shader play <name> [seconds]` starts one, and so does a script's
+  `shader.play` (from `:script`, through a store home reads). It is drawn by `rememberPlayedShader`
+  / `rememberPlayedOnHome` (`ui/tty/TtyShader.kt`) on home, or on a full-screen screen when one is
+  open. It is not marked in `ShaderSafety` (the request is forgotten before it is drawn), and not
+  played in battery saver, with Remove animations on, when hot or low on battery, or with a screen
+  reader on. `hearts` is the bundled one.
+- Words that play one: `shader/ShaderWords.kt` keeps, per shader, words with commas between (at most
+  200 characters), set in its details or with `shader words <name> <words>|off`. Kolahal's own
+  notification listener asks it for each notification (whole words, any case, in the title or
+  text); notifications from the private space are left out. It needs notification access, not a
+  script.
+
+### 7.8 Ratings (built, not in the design)
+
+`// @suits dark good, light fair, wallpaper poor` (`shader/ShaderSuits.kt`): how well a shader
+works over a dark theme, a light one and a page the phone's wallpaper shows through, each `good`,
+`fair` or `poor`, as its author says. A shader's details show them, and the Shaders screen's
+filters use them. Turning on a shader that is poor over a wallpaper while more than 20 % of the
+wallpaper shows (`log.wallpaper`, `WALLPAPER_SHOWS`) gives a warning; it is turned on anyway.
+`// @text` says a shader works on text (`crt`, `lcd`, `eink`, `foil`, `riso`), so it can't be a
+wallpaper.
+
+### 7.9 The live wallpaper (built, not in the design)
+
+A shader can be the phone's live wallpaper, apart from `screen.shader`: `shader wallpaper <name>`
+or Set as wallpaper in its details. `shader/WallpaperChoice.kt` keeps the choice (default `pond`,
+for someone who picks Kolahal in Android's own list) and opens Android's live wallpaper preview the
+first time. Not a one-off and not an `@text` shader; Android 13 and newer.
+
+- The service is `ui/wallpaper/ShaderWallpaper.kt`, in a process of its own (`:wallpaper` in the
+  manifest), so a shader that crashes it doesn't take home along. Home writes all it needs
+  (`WallpaperState`: the code, the parameters, what they follow and the formulas, the values
+  scripts gave, the theme's colors dark and light, `theme.always-dark`, the cell size) to a file,
+  whenever one of them changes (`WallpaperWriter`, started from `MainActivity`).
+- It draws over a page of the theme's color (`wallpaper` is 1), only while it is visible; a moving
+  shader follows `ShaderClock.moves` at 30 frames a second, a still one is drawn when something it
+  shows changes. A followed parameter glides with a 0.6 s time constant (`GLIDE_S`), not home's 2 s.
+- Its own guard: a shader that was started and not proven (10 s) three times in a row
+  (`MAX_TRIES`) is not tried again until its code changes; the page shows alone.
+
+### 7.10 Tilt (built, not in the design)
+
+See *Tilt* in the **As built** note at the top of §7: `shader/ShaderTilt.kt` (pure) and
+`ui/tty/LiveTilt.kt` (the one sensor listener). Shaders that declare `tilt`: `dunes`, `foil`,
+`mountains`, `night`, `rain`, `snowfall`. "Uses tilt" shows on the Shaders screen and in Get more
+shaders (an optional `tilt` in the sources' index).
 
 ## 8. Testing
 
@@ -927,6 +1397,19 @@ the built-in look. User `.agsl` files are listed but marked unavailable.
 - `ShaderMetaTest`: header parsing, params, limits.
 - LayersTest additions (§1.5, §3.3).
 
+**As built.** JVM tests that exist: `CellWidthTest`, `CellBufferTest`, `BoxShapesTest`,
+`LineLayoutTest` (dumps checked in the test, not resource files), `BidiLayoutTest`,
+`HomeCellsTest` (header, pinned line, prompt, suggestions, chips, key bar, sheets, bands, selector
+cells), `ParityTest` (§8.2), `LayoutPerformanceTest` (§2.8), `DecodeTest`, `ScreensTest` (seeded
+`Random`, set clock), `TopScreenTest`, `screens/DecodeScreenTest`, `screens/LogDecodeTest`,
+`screens/ScriptScreenTest`, `LineModelTest` over `LogCorpus` (`terminal/`), `ScreenSaverTest`,
+`TtyPartsTest`, LayersTest's two assertions, and for shaders `ShaderMetaTest`, `ShaderParamTest`,
+`ShaderValuesTest`, `ShaderPlayTest`, `ShaderWordsTest`, `ShaderSafetyTest`, `ShaderClockTest`,
+`ShaderDateTest`, `ShaderTiltTest`, `ShaderCatalogTest`, `SharedShadersTest` and
+`WallpaperStateTest`. Not built: `WrapTest`, the separate table, meter, stats and chart layout
+tests, `HitTest` (`ParityTest` checks the targets), `SelectionTest`, the `LogContext` reflection
+test, and `TtyPaletteContrastTest`.
+
 ### 8.2 Keeping the two renderers from drifting
 
 1. One `LineModel`: both renderers `when` over the sealed `Body` and `Block` types with no
@@ -940,6 +1423,13 @@ the built-in look. User `.agsl` files are listed but marked unavailable.
    arguments.
 4. `site/…/scripting/api.mdx` examples already run as tests (`DocsExamples`); they run for both
    styles.
+
+**As built.** 1 and 2 as designed (`LogCorpus` is in the JVM tests, in their `terminal` package). 3 is
+two tests: `ParityTest` (JVM) checks the grid against the model for every corpus row at 32, 40
+and 80 columns, in both directions; `TtyParityTest` (device) composes home in both styles and
+compares the log's and home's parts' semantics (text, click and long click, actions), lines right
+to left, and state across recreation. Neither performs the actions to compare callbacks. 4: the
+`DocsExamples` do not run per style.
 
 ### 8.3 Device tests
 
@@ -962,6 +1452,18 @@ the built-in look. User `.agsl` files are listed but marked unavailable.
 - Shaders (API 33 emulator): bundled shaders compile; a deliberately slow shader trips the
   watchdog; the arming flag leads to safe mode.
 
+**As built.** The existing home suites did not get a `home.style` parameter; the TTY style has
+suites of its own: `TtyLogTest` (the lines on the grid, a switch without a restart, fold, swipe
+copy), `TtyHomeTest` (prompt, suggestions, chips, sheets, quick actions, selector, header, key bar,
+and each `tty.*` part in both values), `TtyParityTest` (§8.2; it uses `StateRestorationTester`),
+`HomeDecodeTest`, `HomeScreensaverTest`, `ScriptScreenHomeTest`, and `TtyShaderTest` (bundled
+shaders compile; drawn over home in both styles and over a screen; off; one-off shaders, and none
+in battery saver; a broken shader logs and draws nothing; a wrong uniform is caught first; a tripped
+shader stays off; two fingers; Android older than 13; the motion sensor read only when needed; a
+press redraws a still shader), which checks pixels with `captureToImage()`. Not built:
+`TtyScrollPerfTest`, `AccessibilityChecks` on the TTY tests, the watchdog test (the watchdog was
+removed), and the grid's pixel-structure checks (table lines, row tops, ruler lines).
+
 Per the project's rules, agents write code only and one Gradle run happens at the end on the
 merged branch, with `ANDROID_SERIAL=emulator-5554`.
 
@@ -983,6 +1485,22 @@ Sizes: S ≤ 2 days, M ≈ 1 week, L ≈ 2 weeks of focused work. Every step lea
 Steps 0 and 1 are independent and can go in parallel worktrees. Step 2's layouts (pure) can be
 split across agents by block type once `CellBlock` is fixed.
 
+**As built (0.5.17).** Steps 0, 1, 2, 3, 6 and 7 are built; [tty.org](tty.org) has each step's
+state and what is left.
+
+- 1: `clock` and `boot` open as `screen clock` and `screen boot`.
+- 2: `TtyLineRow` instead of `TtyBlock`; images as their names, by the decisions.
+- 3: built without the scroll thumb; each part can also be the GUI's own (`tty.*` keys).
+- 4: the groundwork is built (RTL and bidi, shaped runs, the TalkBack pass, `ParityTest`, the
+  layout performance test, process death); the Settings section and the website page were
+  dropped on 22 November: TTY stays a config setting.
+- 5: `top`, the screensaver and `decode` are built; selection mode is not; `tty.crt` was built and
+  removed; the GUI gets no thumb, by the decisions.
+- 6: built, without the watchdog (removed), the safe-mode shortcut, `@warp` and `@bloom`, and with
+  more than planned: parameters, values to follow, one-off shaders, notification words, ratings,
+  tilt and the live wallpaper (§7.6–7.10). Shaders are over the GUI home too.
+- 7: `tty.screen` is built (§6.3); the `cells` uniform is not.
+
 ### Risks
 
 | Risk | Mitigation |
@@ -997,6 +1515,11 @@ split across agents by block type once `CellBlock` is fixed.
 | GPU hang takes home down with it | Arming flag, safe-mode shortcut, Settings outside the layer. |
 | `TerminalScreen` and the view model grow | Step 0 splits first; new composables take narrow parameters only. |
 | Memory after hours | Block cache bounded and trim-aware; screens allocate once. |
+
+**As built.** Spacing stays in dp (no rows to explain), and the list does not snap, so neither
+`tty.smooth-scroll` nor a rows display in Settings exists. There is no safe-mode shortcut and no
+`@warp`; the half-cell contract is on the website's shader page. The prompt's field is laid out
+in the grid's font and cells, as the fourth row says.
 
 ## 10. What not to do
 
@@ -1018,19 +1541,27 @@ split across agents by block type once `CellBlock` is fixed.
 | Shipping TTY in Settings before step 4 | A half-converted home under the name "TTY" is the compromise. Until then it is a config key for testing. |
 | Pinning the shader feature to a blur/bloom library or to OpenGL for Android 9–12 | A second rendering path to maintain for a decorative effect; the drawn CRT look covers those versions honestly. |
 
+**As built.** Two rows turned out otherwise: the gaps between log lines follow `log.spacing` and
+`log.item-spacing` in dp (each line's cells stay on the grid, the space between them does not),
+and TTY is never shipped in Settings (decision of 22 November). The drawn CRT look was removed, so
+Android 9–12 have no effect at all.
+
 ## 11. Step 0 in detail (the only step that touches existing code heavily)
 
 1. `terminal/LineModel.kt` with `lineModel`, `targets`, `spoken`; tests from `LogCorpus`.
-2. `ui/LogView.kt`: `LogLine(model: LineModel, …)`; delete the inline derivations; `renderLine`
+2. `ui/home/LogView.kt`: `LogLine(model: LineModel, …)`; delete the inline derivations; `renderLine`
    takes `Body.Words`. `TimeMode` moves to `terminal/`. `markRanges` extracted from `markMatches`.
 3. `terminal/HeaderModel.kt`; `Header` maps parts to its icons.
-4. `ui/LogScroll.kt`: the follow/jump/load-older effects, unchanged in behavior.
+4. `ui/home/LogScroll.kt`: the follow/jump/load-older effects, unchanged in behavior.
 5. `FoldState` hoisted; `Foldable` takes `open` and `onToggle`.
 6. `TerminalScreen` → `HomeState` + `GuiHome(state, …)`; `when (style)` with only `gui` for now.
 7. `Keys.HOME_STYLE` is added in step 2, not here (a key that does nothing should not ship).
 
 Acceptance: no pixel change (the existing gallery and line tests), no new composable taking
 `TerminalViewModel`, LayersTest and ExpressiveOnlyTest green.
+
+**As built.** Done: all seven items exist (§1.2, §1.3 As built). `HomeStyle` and `TtyHome` came in
+the later steps.
 
 ## 12. Parity checklist (TTY is not released until every row is done)
 
@@ -1051,6 +1582,42 @@ gestures (double tap, swipe up/down) · widgets page swipe · Settings live prev
 Across: every built-in theme dark and light · Material You · custom themes · font family, size,
 line height · imported font · RTL · TalkBack · switch access / keyboard focus · font scale ·
 process death · rotation / fold / split-screen resize · work and private profiles.
+
+**As built (0.5.17), row by row.** *Done*: the code does it on the grid. *Plain*: done in the plain
+form the decisions allow. *Not done*: not in the code.
+
+| Row | State | In the code |
+|---|---|---|
+| tap, long-press sheet, swipe copy/delete + undo, links, script buttons | Done | `TtyLineRow`; the sheet is `TtySheet` with `tty.menu tty`, else the GUI's |
+| app grid | Plain | names in columns, profile tags, no icons |
+| two-column and name-column rows, tables (boxed, plain), bars, ranges, built-in bars, column charts | Done | `LineLayout`, `Blocks` |
+| stats | Plain | bold at the grid's size |
+| images | Plain | `[image: <file name>]` (log images have no alt text) |
+| person pictures | Plain | initials, inverse |
+| notification icons | Plain | the source's name |
+| profile tags, fold, dim, unread divider and marks, day dividers, time column (off, commands, groups), gutter | Done | |
+| group and item gaps | Done | in dp between lines, not whole rows (§2.5) |
+| hidden earlier lines, empty-log tips, search results and marks, filter bar, jump-to-line flash, scroll follow | Done | |
+| jump to newest | Done | a chip over the log, not a row (§2.7) |
+| scroll thumb | Not done | |
+| pinch font size, `log.wallpaper`, selector fade | Done | |
+| header (every part, both sides, cutout, taps, swipe down), pinned line and media line | Done | `TtyHeader`, `TtyPinned` |
+| prompt (IME, hardware keyboard, composition, cursor, clear, quick actions) | Done | `TtyPrompt` |
+| suggestions (list, chips, idle, wrap) | Done | on the grid with `tty.suggestions tty` |
+| suggestions' icons | Plain | none on the grid; the default, `tty.suggestions gui`, shows the GUI's with icons |
+| app selector, key bar (two rows, repeat, auto) | Done | with `tty.selector tty`, `tty.keybar tty`; else the GUI's |
+| undo/copied band, update progress, default-home band, live preview band | Done | `TtyBands` |
+| secret prompt, action sheets | Done | with `tty.menu tty` and `tty.quick-actions tty`; else the GUI's |
+| gestures (double tap, swipe up/down), widgets page swipe, Settings live preview | Done | |
+| every built-in theme dark and light, Material You, custom themes | Done | every theme arrives as a `Palette`; no contrast test or nudge (§5.1) |
+| font family, size, line height; imported font | Done | `GridMetrics`; a font that is not monospace is centered in its cells, with no note |
+| RTL | Done | `BidiLayoutTest`, `TtyParityTest`; [tty.org](tty.org) still lists a look with real text on a phone |
+| TalkBack | Done | `ParityTest`, `TtyParityTest` |
+| switch access / keyboard focus | Done | child nodes for buttons, apps, the fold and each part's spots; sheets take ↑/↓/Enter/Esc; no `AccessibilityChecks` |
+| font scale | Done | `font.size` is in sp |
+| process death | Done | `TtyParityTest.stateSurvivesRecreation` |
+| rotation / fold / split-screen resize | Done | columns come from the measured width; no test of its own |
+| work and private profiles | Done | profile tags on lines, in apps grids and in the header |
 
 Open, for the maintainer (not blocking): whether the widgets page gets a TTY form; whether the
 GUI log also gets the scroll thumb and selection mode added here.

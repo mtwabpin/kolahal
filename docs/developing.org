@@ -58,34 +58,77 @@ on a phone you use.
 * Architecture
 
 #+begin_example
-MainActivity (HOME) ── TerminalViewModel ── CommandProcessor
-   screens: Terminal (+ widgets page) · Settings · Scripts · Feeds · ScriptEditor · Widgets · Setup
+MainActivity (HOME) ── TerminalViewModel ── CommandProcessor ──► command groups (terminal/commands/)
+   home: TerminalScreen → GuiHome or TtyHome (home.style), the widgets page beside it
+   pages: Settings · Scripts · Shaders · Feeds · ScriptEditor · Widgets · Setup · Tour …
                                │
         AppRepository (LauncherApps, all profiles) + AppPrefs (hidden, labels, frecency, aliases)
-        UnlockCounter · DeviceStatus · Config · Backup
-        LogRepository / ScriptRepository / KvStore (SQLite, WAL)
+        UnlockCounter · DeviceStatus · Config · Backup · Shaders
+        LogRepository / ScriptRepository / KvStore (kolahal.db, SQLite, WAL) · FeedRepository (feeds.db)
                                │
         ScriptScheduler ──► WorkManager ──► ScriptWorker      [process :script]
                     └────► AlarmManager ─► ScriptRunService   (daily times)
                                 both run ScriptRun, under RunWatchdog:
                                              ├─ LuaEngine (LuaJava, Lua 5.4 native)
                                              └─ JsEngine  (quickjs-kt, QuickJS, guard.js)
-                                                   └─ HostApi (http, rss, log, notify, store, status)
+                                                   └─ HostApi (http, rss, store, widget, tty …)
+        ScriptScreenService ◄── home binds it while a script's tty.screen shows   [process :script]
+
+ShaderWallpaper (live wallpaper) ◄── files/wallpaper/state.json ◄── WallpaperWriter (home)   [process :wallpaper]
 
 TextEditorActivity (a task per file, in Recents) ── TextEditorViewModel ── documents/
    opened by: edit · the editor's own menu · another app's "Open with"
    TextDocument (read, save, conflicts) · Drafts (files/editor-drafts) · RecentFiles
 #+end_example
 
+- Layers :: Three, each using only those below it: =ui/= (Compose), =terminal/= (the view model, its
+  helpers, the command handlers in =terminal/commands/= and the grid's model in =terminal/tty/=), and
+  the Model (every other package, =commands/= with the command catalog included). =LayersTest= reads
+  the sources and fails when the Model names =ui/=, =terminal/= or =TerminalViewModel=, when
+  =terminal/= names =ui/=, when a root file other than =MainActivity= does either, when
+  =terminal/tty/= uses =android.graphics= or Compose UI, when =ui/tty/= uses Material 3, and when a
+  package isn't in its list of layers.
+- Processes :: Home and every page run in the main process. Scripts run in =:script= (WorkManager's
+  =RemoteWorkerService=, =ScriptRunService=, =ScriptScreenService=), so a native engine crash can't
+  take down the home screen; =RunWatchdog= kills that process when a run can't be stopped from
+  inside, 5 s past its timeout. The live wallpaper (=ShaderWallpaper=, Android 13 and newer) runs in
+  =:wallpaper=, so a shader that crashes doesn't take home along. =LauncherApp.onCreate= runs
+  =startInEveryProcess= (crash reports, notification channels) everywhere and its other steps only
+  in the main process (=Singleton.inMainProcess=).
+- Across processes ::
+  - =:script= and home share =kolahal.db=. After a write, =:script= sends a package-scoped broadcast
+    (=LogRepository.ACTION_LOGS_CHANGED=, =WidgetStates.ACTION_CHANGED=, =TodoStore.ACTION_CHANGED=),
+    which =LauncherApp.listenToOtherProcesses= hands on. A script sends a command to home with
+    =HostApi.ACTION_RUN_COMMAND=.
+  - =:script= reads the settings file once, when it starts, so home copies the settings it reads
+    (=SharedSettings.KEYS=) to the =shared-settings= scope whenever they change.
+  - Home writes what the live wallpaper draws (=WallpaperState=: the shader, its parameters, the
+    theme's colors) to =files/wallpaper/state.json= (=WallpaperWriter=), and the wallpaper reads it.
+- View model :: =TerminalViewModel= holds what home and the pages show, as state flows, and runs
+  commands and actions in order on one serial IO dispatcher. Most of its work is in helpers, each
+  reaching it through a small =Host= interface: =PromptActions= (the prompt, history, touch keys,
+  instant launch, Enter), =Navigation= (which page is open, and Back), =HomeSession= (leaving home
+  and coming back), =LogPager= (the log's page and its reload), =LogSearcher=, =LogLineActions= (taps
+  and long-press menus), =HeaderActions=, =RequestActions= (permissions and pickers),
+  =ScriptActions=, =ShaderActions=, =BackupActions= and =WidgetActions=. What only the activity can
+  do goes back through =TerminalUi= and =UiEvent=.
+- Two home styles :: =home.style= decides how =TerminalScreen= draws home: =GuiHome=, or =TtyHome= on a
+  character grid (=ui/tty/=), where =tty.suggestions=, =tty.selector=, =tty.keybar=,
+  =tty.quick-actions= and =tty.menu= put each of those parts on the grid or leave it as in the GUI
+  (=TtyParts=). Both draw the log from one model: =lineModel()= (=terminal/LineModel.kt=) decides
+  what a row shows and what can be tapped; the GUI draws it with =LogView= and =LogLineText=, and
+  the grid lays it out in cells (=LineLayout=, plain Kotlin in =terminal/tty/=) that =ui/tty/= paints.
+  =ParityTest= keeps the two from drifting. The design: [[file:tty-architecture.md][tty-architecture.md]].
+- Commands :: =CommandProcessor= (=terminal/commands/=) parses a line and dispatches on its first word
+  in one =when (name)= in =execute=. The work is in command groups (=CommandGroup= subclasses:
+  =AppCommands=, =SystemCommands=, =LogCommands= …). What each command is (usage, help, other names,
+  whether it is sensitive, its section in =help=) is in =commands/CommandCatalog.kt=, in the Model,
+  so completion, scripts and the safety checks read the same list.
 - The text editor :: A second activity, because a screen inside the launcher's task is lost on Home.
   It shares the editing core (=CodeEditor=, =EditorState=) with the script editor, and reads and
   writes files through the content resolver only: no storage permission.
   [[file:codebase-guide.org::*The text editor: a second window][codebase-guide.org]] has the design.
 
-- Isolation :: Scripts run in a separate =:script= process (=RemoteCoroutineWorker=, or
-  =ScriptRunService= at a daily time), so a native engine crash can't take down the home screen.
-  Results come back through the shared database plus a package-scoped broadcast. =RunWatchdog= kills
-  that process when a run can't be stopped from inside, 5 s past its timeout.
 - Script screens :: =tty.screen= (a script's own full-screen screen) runs in the =:script= process
   once the code has run. =ScreenSession= is the script's side: it waits for home's messages and calls
   the script's functions, each with its own second. Home binds =ScriptScreenService= and plays the
@@ -98,10 +141,12 @@ TextEditorActivity (a task per file, in Recents) ── TextEditorViewModel ─�
   it; the internet and pinning at the top only if the code mentions them (=ScriptMeta.usesInternet=,
   =setsStatus=; pinning stays off until the user pins it), and code from outside that starts using the internet starts with it off.
   =secrets.get= returns a stand-in; =HostApi.fillSecrets= puts the value in a request only for the
-  =@secret= line's sites, over https. Lines a script logs keep only =url=, =image=, =copy= and =mono=.
+  =@secret= line's sites, over https. Lines a script logs keep only =url=, =image=, =copy=, =mono=
+  and =gap= from their context, and their buttons (=actions=).
 - Run limits :: =HostApi= keeps the run's clock (=sleep= and requests never wait past it), refuses
-  side effects once the run is over (=finish=), and caps what one run writes: 500 log lines,
-  10 notifications, 20 status-line changes, a 100,000-character clip, a store of 16 MB in bytes.
+  side effects once the run is over (=finish=), and caps what one run does: 500 log lines (256 K
+  characters), 10 notifications, 20 status-line changes, 20 =widget.show= calls, a 100,000-character
+  clip. A script's store holds at most 16 MB in bytes (=KvStore=).
 - Lua sandbox ::
   - Fresh state per run. =java=, =io=, =package=, =require=, =debug=, =dofile=, =loadfile= and
     process-level =os= functions are removed, and only text chunks can be loaded.
@@ -120,8 +165,9 @@ TextEditorActivity (a task per file, in Recents) ── TextEditorViewModel ─�
 - Scheduling ::
   - Interval jobs are periodic work, with Android's 15-minute minimum.
   - Each daily time is an AlarmManager alarm (=ScriptAlarms=), exact when Alarms & reminders is
-    allowed. Its receiver starts =ScriptRunService=, a short foreground service in =:script= (in
-    front, as Android requires before a launcher may pause the work profile), and sets the next day's.
+    allowed. Its receiver sets the next day's, then starts =ScriptRunService=, a short foreground
+    service in =:script= (in front, as Android requires before a launcher may pause the work
+    profile); when Android doesn't allow that, the run goes in the queue like the others.
   - Event runs (=@on=) queue one after another per script (unique work), and an event queued before
     its switch went off doesn't run.
   - Two runs of one script never overlap, however each started (timer, daily time, event, the
@@ -134,166 +180,257 @@ TextEditorActivity (a task per file, in Recents) ── TextEditorViewModel ─�
 * Repository layout
 
 A map for reviewing the code or finding where to make a change. Everything lives in one Gradle
-project; the app's code is under =app/src/main/java/com/mtwabpin/kolahal/=, written as
-=launcher/= below.
+project; the app's code is under =app/src/main/java/com/mtwabpin/kolahal/=, and the package table
+gives paths from there.
 
 #+begin_example
 kolahal/
 ├── app/                        the launcher (the only shipping module)
-│   ├── build.gradle.kts        app id, SDK levels, R8, signing, dependencies
+│   ├── build.gradle.kts        app id, SDK levels, build types (debug, release, play) and their feature switches, R8, signing, dependencies
+│   ├── proguard-rules.pro      R8 rules
 │   └── src/
 │       ├── main/
-│       │   ├── AndroidManifest.xml   HOME activity, :script process, listener and accessibility services
+│       │   ├── AndroidManifest.xml   HOME activity, the text editor, the :script and :wallpaper processes, listener, accessibility and wallpaper services
 │       │   ├── assets/library/       ready-made scripts for `script lib`, each describing itself (@title, @every…)
 │       │   ├── assets/library-history.txt  every version of each library script, so an unedited copy follows the app (tools/library-history.sh)
-│       │   ├── assets/licenses/      OFL licences of the bundled fonts
-│       │   ├── java/…/launcher/      Kotlin sources, by package (table below)
-│       │   └── res/                  icons, fonts, XML config (accessibility service, backup rules, network security)
+│       │   ├── assets/shaders/       the shaders that come with Kolahal (.agsl), each describing itself (@name, @description…)
+│       │   ├── assets/licenses/      the licenses of the bundled fonts and the Material icons
+│       │   ├── java/…/kolahal/       Kotlin sources, by package (table below)
+│       │   └── res/                  icons, fonts, XML config (accessibility service, live wallpaper, backup rules, network security, update files)
+│       ├── debug/res/          the debug build's names ("Kolahal debug")
 │       ├── play/AndroidManifest.xml   the Play build: removes the accessibility service, the call log, reading contacts and update
-│       ├── release/generated/baselineProfiles/   AOT profile for fast start (generated, committed)
-│       ├── test/               JVM unit tests (pure logic: parsing, ranking, layout math, formats)
-│       └── androidTest/        on-device tests (script engines, sandbox, commands, backup, home and settings screens)
+│       ├── release/generated/baselineProfiles/   baseline and startup profiles for fast start (generated, committed)
+│       ├── test/               JVM unit tests (pure logic, the character grid and its screens, and checks that read the sources)
+│       └── androidTest/        on-device tests (script engines, sandbox, commands, backup, home in both styles, the other screens, the website's pictures)
 ├── baselineprofile/            macrobenchmark module that generates the baseline profile
-├── docs/                       notes for the maintainer: this file, codebase-guide.org, and release/ on publishing
+├── docs/                       notes for whoever works on the code (README.org lists them), and release/ on publishing
 ├── gradle/libs.versions.toml   every dependency version in one place
 ├── site/                       the website and user guide (Astro + Starlight, pnpm); see site/README.md
 ├── tools/coverage.pl           test coverage, in total and by package (README.org → Tests quotes the total)
+├── tools/device-tests.sh       the device tests on one or two emulators, each running half
+├── tools/library-history.sh    lists each library script's versions in assets/library-history.txt
 ├── tools/make-keys.sh          the release and upload keys, and the GitHub secrets for them
 ├── tools/check-play-build.sh   checks the Play build leaves out what Play's policy rules out
 ├── tools/play-graphics.sh      renders the Play store icon, feature graphic and screenshots (docs/release/graphics/)
-├── .github/workflows/          build.yml (every push), release.yml (version tags), site.yml (the website)
+├── tools/play-upload.sh        uploads the Play bundle to a testing track (the release workflow runs it)
+├── tools/widget-sheets.sh      pictures of the widgets to share, from the website's card renders
+├── .github/workflows/          build.yml (pushes that change the app, pull requests), release.yml (version tags), site.yml (the website)
 ├── .github/ISSUE_TEMPLATE/     the bug report and feature request forms, and links to security, Discord and the guide
 └── README.org                  the front page: links, status, help, the AI policy and the test coverage
 #+end_example
 
 ** Packages
 
-| Package          | What it holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Start with                                    |
-|------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------|
-| (root)           | =LauncherApp=: process start-up (repositories, receivers, schedulers). =MainActivity=: the HOME activity, screen switching, widgets pager, permission and file pickers. =CrashReports=: crash reports kept on the phone (=crashes=)                                                                                                                                                                                                                                                                                                                      | =LauncherApp.kt=, =MainActivity.kt=           |
-| =terminal/=      | The terminal's brain. =TerminalViewModel= owns UI state, with =Completer= (suggestions), =LogLineActions= (taps and long-press menus), =ScriptActions= (what the script screens do), =ShaderActions= (the Shaders screens) and =BackupActions=; =CommandProcessor= parses every command and runs it, itself or through a command group; =CommandCatalog= lists them all                                                                                                                                                                                                                                                                                                                         | =TerminalViewModel.kt=, =CommandProcessor.kt= |
-|                  | Command groups and helpers: =AppCommands= (apps, open, pins, profiles, usage), =ScriptCommands= (script, status), =FeedCommands= (feed, rss, notifs), =PeopleCommands= (call, sms, contacts, calls), =ConfigCommands= (config, theme, font), =ProductivityCommands= (todo, notes, remind, timer, agenda), =UpdateCommands= (update), =CommandParsing= (arguments, intervals, times), =Pipes= (shell-style filters such as grep, head and count after a command), =InstantRun= (run without Enter), =Units= (calculator), =SetupChecks=, =LogRows= (grouping, dimming, day dividers) |                                               |
-| =ui/=            | Compose screens. =TerminalScreen= (the home screen's layout; its parts are in =TerminalHeader=, =PinnedHeader=, =Prompt=, =KeyBar= and =SuggestionList=), =LogView= (one log line; its text is built in =LogLineText=), =ActionSheet=, =AppSelector= (the app selector on an edge; its maths is =SelectorMath=), =SettingsScreen= (=SettingItem=: one row), =FeedsScreen=, =ScriptsScreen= (=ScriptsTop=: search, filters and banner; =ScriptFilters=: what the filters keep, unit-tested; =ScriptCard=, =ScriptSheet=, =ScriptDialogs=, =ScriptCompare=, =ScriptLibraryScreen=) / =ScriptEditor=, =ShadersScreen= (=ShaderSheet=, =ShaderPreview=, =GetShadersScreen=; =ShaderPage=: what it says of a shader, unit-tested), =WidgetsScreen= / =WidgetPickerScreen= (=HostedWidgets=: widgets on the widgets page), =SetupScreen=. =Theme= is the terminal palette, =GuiTheme= the Material 3 theme for GUI screens, =GuiComponents= the pieces they share (=GuiListPage=, =SearchField=, =CountChip=, =GuiSheet=, =ValueRow=, =SectionTitle=, =ErrorTextButton=, …): use them before writing a new one                           | =TerminalScreen.kt=                           |
-|                  | The text editor: =TextEditorActivity= (a window and task of its own, one per file), =TextEditorViewModel= and =TextEditorScreen=. It shares the editing core with =ScriptEditor=: =CodeEditor= (the text field, undo, find and replace, Go to line, the symbol bar), =EditorState= (what an editor holds) and =EditorLogic= (their pure helpers, unit-tested)                                                                                                                                                                                            | =CodeEditor.kt=                               |
-| =data/=          | Storage and settings. =Keys= (every =config= key, its default and help text), =Config= (reads and writes them), =Db= (the shared SQLite database), =LogRepository= (the log), =ScriptRepository=, =KvStore= (a small key/value store per scope), =Backup= / =FullBackup= (export and import), =SearchWords= (how a page's search field finds its rows)                                                                                                                                                                                                                                                                                    | =Config.kt=                                   |
-| =apps/=          | Installed apps across profiles (=AppRepository=, via LauncherApps), per-app preferences, frecency and aliases (=AppPrefs=), and the install / update / uninstall log (=PackageEvents=)                                                                                                                                                                                                                                                                                                                                                                   | =AppRepository.kt=                            |
-| =script/=        | Scripting. =ScriptEngine= with =LuaEngine= and =JsEngine= behind one =HostApi=; =ScriptWorker= runs scripts in the =:script= process; =ScriptScheduler= (timers), =TriggerDispatcher= (=@on= events), =ScriptMeta= (comment directives), =ApiDocs= (editor completion), the library (=ScriptLibrary=; =LibraryTags=: the tags behind the chips of its page, unit-tested), shaders (=Shaders=: the files, =SharedShaders= and =ShaderStore=: the shared ones, over the scripts' =ScriptCatalog=), file and folder sync, =Net= (the shared HTTP client), =Json=, =RssParser=                                                                                                                                                                                               | =HostApi.kt=, =ScriptWorker.kt=               |
-| =feeds/=         | Built-in RSS / Atom reader: =FeedDb= (its own database), =FeedRepository= (subscriptions, items, read state), =FeedFetcher= (conditional GETs), =FeedWorker= + =FeedScheduler= (background refresh), =Opml=                                                                                                                                                                                                                                                                                                                                              | =FeedRepository.kt=                           |
-| =notifications/= | Notification listener feeding the log and the =notifs= command, mute settings, and actions on a notification (open, dismiss)                                                                                                                                                                                                                                                                                                                                                                                                                             | =KolahalNotificationListener.kt=              |
-| =notify/=        | =Notifier=: the notifications Kolahal itself posts (script notify, reminders, feeds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |                                               |
-| =control/=       | Device and media commands (=torch=, =volume=, =dnd=, =media=, =toggles= …), their argument parsing, and the media-session state                                                                                                                                                                                                                                                                                                                                                                                                                          | =ControlCommands.kt=                          |
-| =productivity/=  | Todo / note / reminder stores, reminder alarms, calendar agenda, and the time parser for =remind= / =timer= / =alarm=                                                                                                                                                                                                                                                                                                                                                                                                                                    | =Stores.kt=, =TimeSpec.kt=                    |
-| =documents/=     | Text files for the text editor, with no screen: =TextFiles= (bytes to text and back, what is refused), =TextDocument= (one open file: read, save, conflicts), =Drafts= (unsaved text, kept in =files/editor-drafts=), =RecentFiles=, and =DocumentSource= (where files are: =ContentDocuments= on the phone, files in memory in tests)                                                                                                                                                                                                                   | =TextDocument.kt=                             |
-| =calls/=         | Calls in the log, read from Android's call log once allowed, and the =calls= command (=CallEvents=)                                                                                                                                                                                                                                                                                                                                                                                                                                                      |                                               |
-| =contacts/=      | Contacts cache for =call= / =sms= / =contacts= and their suggestions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |                                               |
-| =widgets/=       | App widget hosting: the host, the add / bind / configure flow, and pure layout bookkeeping (=WidgetModel=)                                                                                                                                                                                                                                                                                                                                                                                                                                               | =WidgetHost.kt=                               |
-| =gesture/=       | Gesture actions (lock, shade, quick actions, or any command) and the lock-screen accessibility service                                                                                                                                                                                                                                                                                                                                                                                                                                                   |                                               |
-| =status/=        | Battery, network and next alarm for the header                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                               |
-| =unlock/=        | Unlock counting (Usage Access, with a =USER_PRESENT= fallback)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |                                               |
+| Package                 | What it holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Start with                          |
+|-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------|
+| (root)                  | =LauncherApp=: process start-up, as named steps (=startInEveryProcess=, =prepareFirstFrame=, =startWhenIdle=, =repairAndScheduleInBackground=, =listenToOtherProcesses=, =followSettings=). =MainActivity=: the HOME activity, the pages, the widgets pager, permission and file pickers (=followTheme=, =handleEvents=, =setHomeContent=). =CrashReports=: crash reports kept on the phone (=crashes=). =Links=: the website, the source and the chat                                                                                                                                                                                                                                                                                                                                                                                     | =LauncherApp.kt=, =MainActivity.kt= |
+| =terminal/=             | The view model: =TerminalViewModel= and its helpers (=PromptActions=, =Completer= for suggestions, =Navigation=, =HomeSession=, =LogPager=, =LogSearcher=, =LogLineActions=, =HeaderActions= with =HeaderModel=, =RequestActions=, =ScriptActions=, =ShaderActions=, =BackupActions=, =WidgetActions=); =LogRows= (=buildRows=: grouping, dimming, day dividers) and =LineModel= (what a row shows, for both styles); =Ink= (the theme's color roles); =TerminalUi= (=Screen=, and what only the activity can do); =SetupChecks=, =ScreenSaver=, =Tips=                                                                                                                                                                                                                                                                                    | =TerminalViewModel.kt=              |
+| =terminal/commands/=    | Running commands: =CommandProcessor= (aliases, pipes, dispatch) and the command groups, each a =CommandGroup=: =AppCommands= (with =ActivityCommands=), =UsageCommands=, =UsageSummaryCommands=, =ScriptCommands=, =ShaderCommands=, =FeedCommands=, =PeopleCommands=, =ConfigCommands=, =ControlCommands=, =ProductivityCommands=, =EditCommands=, =UpdateCommands=, =AliasCommands=, =HelpCommands=, =CalcCommands= (~=~, conversions, =lua=, =js=), =WebCommands=, =LogCommands=, =SystemCommands=; their helpers =Aliases= and =Fetch=                                                                                                                                                                                                                                                                                                 | =CommandProcessor.kt=               |
+| =terminal/tty/=         | The character grid, in plain Kotlin (no Android drawing, no Compose UI): cells and their widths (=Cell=, =CellWidth=, =BidiText=, =Wrap=), a log row in cells (=LineLayout=, =BlockLayout=), and home's other parts (=HeaderCells=, =PromptCells=, =SuggestionCells=, =SelectorCells=, =SheetCells=, =KeyBarCells=, =BandCells=, =HomeCells=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | =LineLayout.kt=                     |
+| =terminal/tty/screens/= | Full-screen screens (=TtyScreen=; =TtyScreens= lists them): =matrix=, =clock=, =pipes=, =decode=, =sl=, =top=, =boot=, and =ScriptScreen= (a script's =tty.screen=, drawn by =FramePlayer=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | =TtyScreen.kt=                      |
+| =ui/=                   | What several features share: =GuiComponents= (=GuiListPage=, =SearchField=, =CountChip=, =GuiSheet=, =ValueRow=, =SectionTitle=, =ConnectedChoices=, =fieldColors()=, …: use them before writing a new one), =ActionSheet=, =LabeledIconButtons=, =FeatureTabs=; and =TextEditorActivity= (a window and task of its own, one per file)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | =GuiComponents.kt=                  |
+| =ui/theme/=             | =Theme= (the =Term= object and the terminal palettes), =GuiTheme= (the Material 3 theme of the GUI pages), =TermFonts=, =MaterialYouPalettes=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | =Theme.kt=                          |
+| =ui/home/=              | Home in the GUI style and what both styles share: =TerminalScreen= (reads the view model, keeps =HomeState=, picks the body), =GuiHome=, the log (=LogView=, =LogLineText=, =RichText=, =LogScroll=, =LogSearch=, =LogTable=, =LogImages=, =DecodedText=), =Prompt=, =KeyBar=, =SuggestionList=, =AppSelector= (the app selector on an edge; its maths is =SelectorMath=), the headers (=TerminalHeader=, =PinnedHeader=), the dialogs home shows                                                                                                                                                                                                                                                                                                                                                                                                      | =TerminalScreen.kt=                 |
+| =ui/tty/=               | Home in the TTY style: =TtyHome= and its parts (=TtyLog=, =TtyPrompt=, =TtyHeader=, =TtySuggestions=, =TtySelector=, =TtyKeyBar=, =TtySheet=), =GridPainter=, =TtyScreenHost= (runs the full-screen screens), =TtyShader= (a shader over home)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | =TtyHome.kt=                        |
+| =ui/widgets/=           | The widgets page (=WidgetsScreen=, =HostedWidgets=), the cards of every kind and look (=WidgetKinds= and =WidgetKindLooks= for what the kinds share, then one file per kind: =WidgetStat=, =WidgetStatLooks=, …), the picker (=WidgetPickerScreen=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | =WidgetsScreen.kt=                  |
+| =ui/scripts/=           | The Scripts screens (=ScriptsScreen=; =ScriptsTop=: search, filters and banner; =ScriptFilters=: what the filters keep, unit-tested; =ScriptCard=, =ScriptSheet=, =ScriptDialogs=, =ScriptCompare=), the library (=ScriptLibraryScreen=), Get more scripts (=GetScriptsScreen=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | =ScriptsScreen.kt=                  |
+| =ui/shaders/=           | The Shaders screen (=ShadersScreen=), a shader's details (=ShaderSheet=, =ShaderPreview=; =ShaderPage=: what it says of a shader, unit-tested), Get more shaders (=GetShadersScreen=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | =ShadersScreen.kt=                  |
+| =ui/editor/=            | =CodeEditor= (the text field, undo, find and replace, Go to line, the symbol bar) and what the two editors share (=EditorState=: what an editor holds; =EditorLogic=: their pure helpers, unit-tested), =ScriptEditor=, =TextEditorScreen=, =TextEditorViewModel=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | =CodeEditor.kt=                     |
+| =ui/reference/=         | The script editor's API reference (=ReferencePage=, =ReferenceSearch=, =ReferenceCards=) and its examples (=ReferenceExamples=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | =ReferencePage.kt=                  |
+| =ui/settings/=          | Settings (=SettingsScreen=; =SettingsCatalog=: its pages; =SettingItem=: one row), its pages, the theme builder (=ThemeBuilder=), setup (=SetupScreen=), About                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | =SettingsCatalog.kt=                |
+| =ui/onboarding/=        | The tour (=OnboardingScreen=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |                                     |
+| =ui/feeds/=             | The Feeds screen (=FeedsScreen=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                     |
+| =ui/wallpaper/=         | The live wallpaper: =ShaderWallpaper= (the service, in =:wallpaper=), and =WallpaperState= and =WallpaperWriter= (what home hands it)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | =ShaderWallpaper.kt=                |
+| =commands/=             | The command facts, in the Model: =CommandCatalog= (each command's =CommandSpec=, =HELP_SECTIONS=, =FEATURE_COMMANDS=, =SENSITIVE=), =ControlSpecs=, =CommandParsing= (arguments, intervals, times), =UsageLine=, =Pipes= (shell-style filters such as =grep=, =head= and =count= after a command), =InstantRun= (run without Enter, and what never does), =CommandsOff= (=commands.off=), =LogFilter= (=log only=), =Calc= and =Units= (the ~=~ calculator)                                                                                                                                                                                                                                                                                                                                                                                | =CommandCatalog.kt=                 |
+| =data/=                 | Storage and settings. =Keys= (every =config= key, its default and help text), =Config= (reads and writes them), =Stores= (every preferences file and key-value scope, and where each travels), =Db= (the shared SQLite database), =LogRepository= (the log; =LogEntry=: a line and its =LogContext=; =LogMarks=), =ScriptRepository=, =KvStore= (a small key/value store per scope), =Backup= / =FullBackup= / =AutoBackup= (export and import), =StyledText= (styles inside a line's text), =CustomThemes= (=Themes.kt=), =FontFiles=, =StatusLines=, =SharedSettings=, =SettingTitles=, =SearchWords= (how a page's search field finds its rows)                                                                                                                                                                                         | =Config.kt=, =Stores.kt=            |
+| =apps/=                 | Installed apps across profiles (=AppRepository=, via LauncherApps), per-app preferences, frecency and aliases (=AppPrefs=), the search's ranking (=Fuzzy=), pausing a profile (=ProfileQuiet=), and the install / update / uninstall log (=PackageEvents=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | =AppRepository.kt=                  |
+| =script/=               | Scripting. =ScriptEngine= with =LuaEngine= and =JsEngine= behind one =HostApi= (=HostData=, =RunLog=, =RunSecrets=); =ScriptWorker= and =ScriptRun= run scripts in the =:script= process, under =RunWatchdog=; =ScriptScheduler= (timers), =ScriptAlarms= (daily times, =ScriptRunService=), =TriggerDispatcher= (=@on= events), =ScriptMeta= (comment directives), =ScriptAccess= (what a run may use), =SecretStore=, =ApiDocs= (the API as data: completion and the reference), the library (=ScriptLibrary=; =LibraryTags=: the tags behind the chips of its page, unit-tested), Get more scripts (=ScriptCatalog=, =ScriptSources=), the script folder (=ScriptFolder=), script screens (=ScreenSession=, =ScreenFrame=, =ScriptScreenService=, =ScreenRuns=), =Net= (the shared HTTP client), =Json=, =RssParser=, =Markdown=, =Fmt= | =HostApi.kt=, =ScriptWorker.kt=     |
+| =shader/=               | Shaders, without a screen: =Shaders= (the files: the bundled ones in assets, the user's own), =ShaderCatalog= (their names, =BUNDLED=), =ShaderMeta= (what a file says of itself, the uniforms the host knows), =ShaderUniforms= (sets them, for home and the wallpaper), =ShaderParam= / =ShaderParams= / =ShaderValues= (parameters, and the values they follow), =ShaderPlay= and =ShaderWords= (one-off shaders), =ShaderSafety= (turns off one that crashes or hangs home), =ShaderTilt=, =ShaderClock=, =SharedShaders= and =ShaderStore= (Get more shaders), =WallpaperChoice= (the live wallpaper's shader)                                                                                                                                                                                                                        | =Shaders.kt=, =ShaderMeta.kt=       |
+| =usage/=                | Android's usage data, behind Usage Access (=UsageAccess=): time in apps (=AppUsage=, =AppSessions=, =UsageLevels=, =UsageHistory=), data use (=DataUsage=, =DataCycle=), storage (=StorageUsage=), =DayCounts=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | =AppUsage.kt=                       |
+| =feeds/=                | Built-in RSS / Atom reader: =FeedDb= (its own database), =FeedRepository= (subscriptions, items, read state), =FeedFetcher= (conditional GETs), =FeedWorker= + =FeedScheduler= (background refresh), =Opml=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | =FeedRepository.kt=                 |
+| =notifications/=        | Notification listener feeding the log and the =notifs= command, mute settings, the icons on log lines (=NotifIcons=), and actions on a notification (open, dismiss)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | =KolahalNotificationListener.kt=    |
+| =notify/=               | =Notifier=: the notifications Kolahal itself posts (script notify, reminders, feeds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |                                     |
+| =control/=              | Device and media: the media-session state (=MediaRepository=), Do Not Disturb (=Dnd=), =wallpaper match= (=WallpaperMatch=) and argument parsing (=ControlArgs=). The commands are =terminal/commands/ControlCommands.kt=, their specs =commands/ControlSpecs.kt=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | =MediaRepository.kt=                |
+| =productivity/=         | Todo / note / reminder stores, reminder alarms, repeating reminders (=Repeat=), calendar agenda, and the time parser for =remind= / =timer= / =alarm=                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | =Stores.kt=, =TimeSpec.kt=          |
+| =documents/=            | Text files for the text editor, with no screen: =TextFiles= (=TextFormat.kt=: bytes to text and back, what is refused), =TextDocument= (one open file: read, save, conflicts), =Drafts= (unsaved text, kept in =files/editor-drafts=), =RecentFiles=, and =DocumentSource= (where files are: =ContentDocuments= on the phone, files in memory in tests)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | =TextDocument.kt=                   |
+| =calls/=                | Calls in the log, read from Android's call log once allowed, and the =calls= command (=CallEvents=)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |                                     |
+| =contacts/=             | Contacts cache for =call= / =sms= / =contacts= and their suggestions, and the contact picker the Play build uses                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |                                     |
+| =widgets/=              | The widgets page's model: hosting app widgets (=WidgetHost=; =WidgetBinder=: the add / bind / configure flow), script widgets (=WidgetSpec=: the kinds and what each shows; =WidgetParser=: what =widget.show= accepts; =WidgetStates=: what each shows now; =WidgetRef=), the Shortcuts widget (=Shortcuts=), looks and icons (=WidgetLook=, =WidgetIcons=), and pure layout bookkeeping (=WidgetModel=, =WidgetPlacement=, =WidgetDrag=, =WidgetSizes=)                                                                                                                                                                                                                                                                                                                                                                                  | =WidgetHost.kt=, =WidgetSpec.kt=    |
+| =gesture/=              | Gesture actions (lock, shade, quick actions, or any command) and the lock-screen accessibility service                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |                                     |
+| =status/=               | Battery, network and next alarm for the header                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |                                     |
+| =unlock/=               | Unlock counting (Usage Access, with a =USER_PRESENT= fallback)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |                                     |
 
 ** How a typed line flows
 
-1. =ui/Prompt.kt= shows the prompt. Every keystroke updates =TerminalViewModel.input=, and
-   =Completer.suggestions()= builds the suggestion list (commands, apps, then
-   per-command arguments, usage-line options and history).
-2. Enter (or =InstantRun=, a tap on a suggestion or a log line) calls =CommandProcessor.run(line)= on
-   the view model's single IO dispatcher.
-3. =run= logs the command line, expands aliases, splits =|= pipes (=Pipes=), then =execute= dispatches
-   on the first word in one =when=. Each branch calls a helper in =CommandProcessor= or a command
-   group (=AppCommands=, =ScriptCommands=, =ControlCommands= and the other =*Commands= classes), a
-   script command, or an app launch as the fallback.
-4. Commands write their output with =LogRepository.add= (=info=, =error=, =out= helpers). Each line
-   carries a =LogContext= (package, URL, phone number, run command …) that decides what a tap or
-   long-press on it does later (=LogLineActions.onTap= / =actionsFor=).
-5. The repository bumps its version; the view model reloads, =LogRows.buildRows= groups and dims the
-   lines off the main thread, and =LogView.LogLine= renders them.
+1. The prompt (=ui/home/Prompt.kt=, or =ui/tty/TtyPrompt.kt= on the grid) shows =TerminalViewModel.input=.
+   Every keystroke goes to =PromptActions.onInputChange=, and =Completer.suggestions()= builds the
+   suggestion list (commands, apps, then per-command arguments, usage-line options and history).
+   With =launch.instant= on, =InstantRun.target= may launch an app or run the line without Enter.
+2. Enter calls =TerminalViewModel.submit= (=PromptActions.submit=), which queues
+   =CommandProcessor.run(line)= on the view model's single IO dispatcher. Kolahal's own taps (a
+   tap-to-run log line, a header part, a button) go through =runCommand=, which runs the line as
+   given (=expand = false=) and even when its command is turned off (=fromApp=).
+3. =run= logs the command line (not =fresh=, not a line that carries a script secret, and the same
+   line again joins the one before) and marks what follows as its output (=withCause=). =runLogged=
+   writes that output in one batch, expands aliases (=Aliases=) and splits =|= pipes (=Pipes=: the
+   first stage's output is captured, then filtered). =execute= takes ~=~ as the calculator, opens
+   an app for a command turned off (=commands.off=), then dispatches on the first word in one =when=:
+   each branch calls a command group (=AppCommands.run=, =systemCommands.cal= …) or the UI
+   (=ui.openScreen=). The =else= runs a script command (=ScriptCommands.runCommand=) or launches the
+   best-matching app (=fallbackLaunch=). An exception becomes an error line.
+4. Commands write their output with =LogRepository.add= (=out=, =info=, =error= and =fix= in
+   =CommandGroup=). Each line carries a =LogContext= (package, URL, phone number, run command …) that
+   decides what a tap or long-press on it does later (=LogLineActions.onTap= / =actionsFor=).
+5. The repository bumps its =version=. While home shows, the view model reloads (=LogPager.reload=;
+   a burst of changes is one reload), and =buildRows= (=terminal/LogRows.kt=) groups and dims the
+   lines and adds day dividers off the main thread, into =TerminalViewModel.rows=.
+6. Each row is drawn from one =LineModel= (=lineModel()=, =terminal/LineModel.kt=): in the GUI style
+   by =LogLine= (=ui/home/LogView.kt=, its text built in =ui/home/LogLineText.kt=); on the grid by =TtyLog=
+   (=ui/tty/TtyLog.kt=), which lays the model out in cells with =LineLayout= and paints them.
 
 Background sources (scripts, feeds, notifications, app events) skip steps 1–3 and write to the log
 directly. Scripts do it from the =:script= process; a broadcast tells the UI process to reload.
 
 ** Where data lives
 
-| Data                                                 | Where                                                                                         |
-|------------------------------------------------------+-----------------------------------------------------------------------------------------------|
-| Settings                                             | SharedPreferences, read through =data/Config.kt=                                              |
-| A script's switches                                  | the =access= column of its row in =scripts= (=data/ScriptRepository.kt=)                      |
-| Script secrets                                       | =KvStore= scope =secret:<script>=, AES-GCM with a Keystore key; never backed up               |
-| Log, scripts, todos, notes, reminders, script stores | =kolahal.db= (=data/Db.kt=), shared by both processes (WAL)                                   |
-| Feeds and their items                                | =feeds.db= (=feeds/FeedDb.kt=)                                                                |
-| App preferences, aliases, pins                       | SharedPreferences in =apps/AppPrefs.kt=                                                       |
-| Package snapshot and install history                 | =KvStore= scope =packages= (=apps/PackageEvents.kt=)                                          |
-| Newest call already logged                           | =KvStore= scope =calls= (=calls/CallEvents.kt=)                                               |
-| Widgets                                              | Bound AppWidget ids and their layout in SharedPreferences =widgets= (=widgets/WidgetHost.kt=) |
-| Imported font                                        | =filesDir/fonts/custom.ttf= (=ui/TermFonts.kt=)                                               |
-| Images on log lines (a cache, not backed up)         | =cacheDir/log-images/=, trimmed to 50 MB (=ui/LogImages.kt=)                                  |
-| The user's shaders (=.agsl=)                         | =filesDir/shaders/= (=script/Shaders.kt=); what was turned off is in the crash preferences    |
-| Where installed shaders came from                    | SharedPreferences =shader_catalog= (=script/ShaderStore.kt=)                                  |
+| Data                                                    | Where                                                                                                                                                                                       |
+|---------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Settings                                                | preferences =config=, read through =data/Config.kt=; the keys are in =data/Keys.kt=. The =:script= process reads a copy (scope =shared-settings=, =SharedSettings=)                         |
+| Log, scripts, key-value scopes, todos, notes, reminders | =kolahal.db= (=data/Db.kt=: tables =logs=, =scripts=, =kv=, =todos=, =notes=, =reminders=), shared by both processes (WAL)                                                                  |
+| A script's switches                                     | the =access= column of its row in =scripts= (=data/ScriptRepository.kt=)                                                                                                                    |
+| A script's store and options                            | =KvStore= scopes =script:<id>= and =option:<name>=                                                                                                                                          |
+| Script secrets                                          | =KvStore= scope =secret:<name>=, AES-GCM with a Keystore key (=script/SecretStore.kt=); never backed up                                                                                     |
+| Feeds and their items                                   | =feeds.db= (=feeds/FeedDb.kt=: tables =feeds=, =items=)                                                                                                                                     |
+| App preferences, aliases, pins, launches                | preferences =apps=, =aliases= and =app_usage= (=apps/AppPrefs.kt=)                                                                                                                          |
+| The app list as last read                               | =noBackupFilesDir/apps.tsv= (=apps/AppRepository.kt=)                                                                                                                                       |
+| Package snapshot and install history                    | =KvStore= scope =packages= (=apps/PackageEvents.kt=)                                                                                                                                        |
+| Newest call already logged                              | =KvStore= scope =calls= (=calls/CallEvents.kt=)                                                                                                                                             |
+| Widgets                                                 | bound AppWidget ids and their layout in preferences =widgets= (=widgets/WidgetHost.kt=); what each script widget shows in the scopes =widget= and =widget.meta= (=widgets/WidgetStates.kt=) |
+| Custom themes                                           | =filesDir/themes/<name>.json= (=data/Themes.kt=)                                                                                                                                            |
+| Imported font                                           | =filesDir/fonts/custom.ttf= or =custom.otf= (=data/FontFiles.kt=)                                                                                                                           |
+| The user's shaders (=.agsl=)                            | =filesDir/shaders/= (=shader/Shaders.kt=); their parameters in preferences =shader_params=; what was turned off is in the crash preferences                                                 |
+| Where installed shaders came from                       | preferences =shader_catalog= (=shader/ShaderStore.kt=)                                                                                                                                      |
+| The live wallpaper                                      | its shader in preferences =wallpaper_shader=; what it draws in =filesDir/wallpaper/state.json= (=ui/wallpaper/WallpaperState.kt=)                                                           |
+| Get more scripts' lists (a cache)                       | =filesDir/script-catalog*.json= (=script/ScriptCatalog.kt=)                                                                                                                                 |
+| Notification icons                                      | =filesDir/notif-icons/= (=notifications/NotifIcons.kt=)                                                                                                                                     |
+| The text editor's drafts and recent files               | =filesDir/editor-drafts/= (=documents/Drafts.kt=); preferences =editor= (=documents/Documents.kt=)                                                                                          |
+| Crash reports                                           | =filesDir/crash/= (=CrashReports.kt=), the last 10; never backed up                                                                                                                         |
+| Images on log lines (a cache, not backed up)            | =cacheDir/log-images/=, trimmed to 50 MB (=ui/home/LogImages.kt=)                                                                                                                                |
+| Downloaded updates                                      | =cacheDir/updates/= (=terminal/commands/UpdateCommands.kt=)                                                                                                                                 |
+| Which install wrote the database                        | =noBackupFilesDir/install-id= (=data/ThisInstall.kt=)                                                                                                                                       |
 
-A backup (=Settings → Backup → Export everything=) bundles all of the above into one JSON file
-(=data/Backup.kt= and =data/FullBackup.kt=).
+Every preferences file and key-value scope is declared in =data/Stores.kt=, with whether it goes
+into Kolahal's backup, Android's cloud backup and a transfer to a new phone.
+
+A backup (=Settings → Backup → Export everything=, or the =backup= command) is one JSON file
+(=data/Backup.kt=): the changed settings, aliases, hidden, renamed and pinned apps, scripts with
+their timers, the widgets to add again, custom themes, the imported font, the user's shaders and
+added script sources. Its =data= section (=data/FullBackup.kt=) holds every preferences file marked
+=inBackup= and the tables =logs=, =kv=, =todos=, =notes=, =reminders=, =feeds= and =items=. It
+leaves out the scopes about this phone (=Stores.THIS_PHONE=), script secrets, log lines with other
+people's messages and numbers or from the private space, and the files that are caches or belong to
+this phone.
 
 ** Common changes
 
-- New command :: add a =CommandSpec= to =CommandCatalog.COMMANDS= (help and completion read it), a
-  branch in =CommandProcessor.execute= (or in its group's =run=, such as =AppCommands.run= with its
-  =NAMES=), and the name to a =HELP_SECTIONS= group. If it changes state, costs money or leaves the
-  launcher, add it to =InstantRun.SENSITIVE= too, so it never runs without Enter or from a script.
-  If a build leaves it out, add it to =FEATURE_COMMANDS=. Argument completion: options in the usage line complete
-  automatically; anything smarter goes in =Completer.argSuggestions=.
+- New command :: add a =CommandSpec= to =CommandCatalog.COMMANDS= (=commands/CommandCatalog.kt=;
+  help and completion read it), with its other names in =aka= and =sensitive = true= if it changes
+  state, costs money, runs code or leaves the launcher, so it never runs without Enter or from a
+  script. Add a branch to the =when= in =CommandProcessor.execute= (or the name to its group's
+  =NAMES=, as =AppCommands= has), and the name to a =HELP_SECTIONS= group. If a build leaves it out,
+  add it to =FEATURE_COMMANDS=. Argument completion: options in the usage line complete
+  automatically; anything smarter goes in =Completer.argSuggestions=. List it in
+  =site/src/content/docs/reference/commands.md=. =DispatchNamesTest= fails when the =when= and the
+  catalog disagree, =HelpCatalogTest= when it has no section, =ReservedNamesTest= when a group's name
+  isn't reserved.
 - New setting :: define it in =Keys= (=data/Keys.kt=) and add it to =Keys.ALL=. Put it in a page in
-  =ui/SettingsCatalog.kt= (=CATEGORIES=) with a title in =data/SettingTitles.kt=; unplaced keys appear under "More".
-  Document it in =site/src/content/docs/reference/config.md=.
-- New built-in theme :: add its dark and light =Palette= to =Palettes= (=ui/Theme.kt=) and to the
+  =ui/settings/SettingsCatalog.kt= (=CATEGORIES=) with a title in =data/SettingTitles.kt=, or in
+  =Keys.CONFIG_ONLY= for one that only =config= changes. A choice's values can say what they do
+  (=notes=). If the =:script= process reads it, add it to =SharedSettings.KEYS=. Document it in
+  =site/src/content/docs/reference/config.md=. =SettingsCatalogTest= fails for a setting on no page,
+  =ChoiceNotesTest= for a long note or one of no value, =SharedSettingsTest= for a read from
+  =:script= of a key that isn't copied.
+- New preferences file or key-value scope :: declare it in =data/Stores.kt= (a =Prefs= in =PREFS=,
+  saying whether it goes into a backup, the cloud and a new phone; or a scope constant in
+  =THIS_PHONE= or =SCOPES=), open it only through =Stores=, and leave it out in
+  =res/xml/data_extraction_rules.xml= and =backup_rules.xml= as =Stores= says. =StoresTest= fails
+  otherwise.
+- New built-in theme :: add its dark and light =Palette= to =Palettes= (=ui/theme/Theme.kt=) and to the
   =BUILT_IN= map there, and its name to =Keys.BUILT_IN_THEMES=. The theme cards, =theme <name>=, its
   completion and help, and the theme builder read that list. =ThemeVersionsTest= checks that both
   versions exist and that the light one is easy to read. A saved theme with the same name is renamed
   at start (=CustomThemes.load=). Settings shows the name with capitals (=ChoiceLabels.theme=); a
   name that needs more, like =rose-pine= ("Rosé Pine"), gets a label there. Show the theme in =site/src/components/ThemeCards.astro= and in
   the themes guide, and list its name in =reference/config.md= and =reference/commands.md=.
-  =material-you= is the one theme without fixed palettes: =ui/MaterialYouPalettes.kt= makes them
-  from the phone's wallpaper colours.
-- New bundled shader :: an AGSL file =assets/shaders/<name>.agsl= with =// @name=, =// @description= (and
-  =// @animated= when it moves), its name in =ShaderCatalog.BUNDLED=, a note in =Keys.SCREEN_SHADER= and the
-  table in =site/src/content/docs/scripting/shaders.md=. =ShaderMetaTest= checks its header and its
-  uniforms on the JVM; =TtyShaderTest= compiles it on Android 13 or newer. Uniforms the host sets:
-  =ShaderMeta.KNOWN=, and the code that sets them =ui/tty/TtyShader.kt=, which also draws the preview on
-  the Shaders screen. The lean of the phone (=tilt=) is =ShaderTilt= and =ui/tty/LiveTilt.kt=.
-- New screen with a row on Settings' main page :: an entry in =SCREEN_ROWS= (=ui/SettingsCatalog.kt=), with
-  the words the search finds it by. A page of settings is a =Category= instead.
+  =material-you= is the one theme without fixed palettes: =ui/theme/MaterialYouPalettes.kt= makes them
+  from the phone's wallpaper colors.
+- New bundled shader :: an AGSL file =assets/shaders/<name>.agsl= with =// @name=, =// @description=,
+  =// @suits= (dark, light and wallpaper) and =// @animated= when it moves; its name in
+  =ShaderCatalog.BUNDLED= (=shader/ShaderCatalog.kt=), a note in =Keys.SCREEN_SHADER= and the table
+  in =site/src/content/docs/scripting/shaders.md=. =ShaderMetaTest= checks its header and its
+  uniforms on the JVM, and lists by name the shaders that move, follow the lean or play once: add
+  it there. =TtyShaderTest= compiles it on Android 13 or newer. Uniforms the host sets:
+  =ShaderMeta.KNOWN=, set by =shader/ShaderUniforms.kt= for home (=ui/tty/TtyShader.kt=, which also
+  draws the preview on the Shaders screen) and for the live wallpaper. The lean of the phone
+  (=tilt=) is =ShaderTilt= and =ui/tty/LiveTilt.kt=.
+- New full-screen screen :: a class in =terminal/tty/screens/= that implements =TtyScreen= (pure: time
+  and chance come in through =start= and =frame=), added to =TtyScreens.names= and =named=, and
+  named in the help of the =screen= command. It can also be a screensaver (=Keys.SCREEN_SAVER=,
+  with a note) or a command of its own (as =matrix= is). =ScreensTest= fails until the catalog
+  names it, then runs it at every size.
+- New screen with a row on Settings' main page :: a value in =Screen= (=terminal/TerminalUi.kt=), its
+  branch in =MainActivity.setHomeContent=, and an entry in =SCREEN_ROWS= (=ui/settings/SettingsCatalog.kt=)
+  with the words the search finds it by. A page of settings is a =Category= instead.
 - New script API :: add it to =HostApi=, bind it in both =LuaEngine= and =JsEngine=, and describe it in
   =ApiDocs= (=ApiDocsTest= checks that the names match). A new JavaScript namespace goes into
-  =guard.js='s =spaces= list (=JsEngine.GUARD=), and an async function that waits is marked so in
-  the loop that installs the guards (as =http= and =rss= are): otherwise its arguments reach the
-  native conversion unchecked, or it escapes the cap on calls waiting at once. A call that reaches outside
-  checks the script's access (=may=), and one with an effect calls =live()= first.
-- Log line behaviour :: the tap and long-press logic is in =LogLineActions.onTap= / =actionsFor=,
-  keyed on =LogContext= values. Rendering is in =ui/LogView.kt=, and the line's text in =ui/LogLineText.kt=.
+  =guard.js='s =spaces= list (=JsEngine.GUARD=; =ApiDocsTest= checks that too), and an async
+  function that waits is marked so in the loop that installs the guards (as =http= and =rss= are):
+  otherwise its arguments reach the native conversion unchecked, or it escapes the cap on calls
+  waiting at once. A call that reaches outside checks the script's access (=may=), and one with an
+  effect calls =live()= first. Document it in =site/src/content/docs/scripting/api.mdx=.
+- New widget kind :: a value in =WidgetKind= and a class of =WidgetSpec= (=widgets/WidgetSpec.kt=,
+  with its JSON form), what =widget.show= accepts for it in =widgets/WidgetParser.kt=, its card in a
+  file of its own called from =KindBody= (=ui/widgets/WidgetKinds.kt=; =ui/widgets/WidgetStat.kt= and
+  =ui/widgets/WidgetStatLooks.kt= show the pattern), its words for a screen reader (=ui/widgets/WidgetWords.kt=) and
+  its fields in =ApiDocs=. The =when=s over kinds have no =else=, so the compiler finds the rest.
+  =WidgetParserTest=, =WidgetSpecJsonTest= and =WidgetRoundTripTest= cover the parsing; an example
+  in =ReferenceExamples= must be in =api.mdx= word for word (=ReferenceExamplesTest=). The design:
+  [[file:widgets-design.org][widgets-design.org]].
+- Log line behavior :: the tap and long-press logic is in =LogLineActions.onTap= / =actionsFor=,
+  keyed on =LogContext= values. What a line shows is decided once in =terminal/LineModel.kt=; the GUI
+  draws it in =ui/home/LogView.kt= and =ui/home/LogLineText.kt=, the grid in =terminal/tty/LineLayout.kt= and
+  =terminal/tty/BlockLayout.kt=. A new kind of body or block must be drawn by both: =ParityTest=
+  doesn't compile until it names it, and fails until =LogCorpus= has a row of it.
 - Changed a library script :: run =tools/library-history.sh=, so its new version is listed in
   =assets/library-history.txt=. A copy of a version listed there counts as unedited and follows the
   app; =LibraryHistoryTest= fails until it is listed.
 - New library script :: the chips of the library page (Template, Widget, Command, Timer, Event,
   Internet, Offline) come from the script itself: its file name and its =@widget=, =@command=,
-  =@every=, =@at= and =@on= lines (=LibraryTags=). Name a template =template-…=. =LibraryTagsTest=
-  pins the number on each chip: check the new script's tags, then change the numbers there.
+  =@every=, =@at= and =@on= lines (=LibraryTags=). Name a template =template-…=. Run
+  =tools/library-history.sh=. =LibraryFilesTest= counts the files, =LibraryTagsTest= pins the number
+  on each chip and lists the offline and event scripts: check the new script's tags, then change
+  them there. A script with a =@widget= line must be in =LibraryWidgetsTest=.
 - New search field on a page :: use =SearchField=, and find the rows with =SearchWords= (every word
   typed must be found), as the Commands page, the Scripts tab, the library and Get more scripts do.
   Say that nothing was found with =NoMatchNote=.
 - New action on the script screens :: it goes in =ScriptActions=, not the view model.
+- New package :: add it to the Model's list in =LayersTest=, unless it is under =ui/= or =terminal/=;
+  =everyPackageHasALayer= fails otherwise.
 - New control on a Material screen :: Material 3 Expressive only (Settings and everything else that
   isn't the terminal; the terminal draws its own). Read =@material3expressive= in the library's sources
   and samples first.
-  | Instead of                                     | Use                                                            |
-  |------------------------------------------------+----------------------------------------------------------------|
-  | =Button=, =TextButton=, =FilledTonalButton=    | the same with =shapes = ButtonDefaults.shapes()=               |
-  | =IconButton=, =OutlinedIconButton=             | the same with =shapes = IconButtonDefaults.shapes()=           |
-  | =IconToggleButton=                             | the same with =shapes = IconButtonDefaults.toggleableShapes()= |
-  | =OutlinedTextField=                            | =TextField= with =TextFieldDefaults.roundedShape=, =fieldColors()= |
-  | =SegmentedButton=                              | =ConnectedChoices=, or =ToggleButton= in a connected group     |
-  | =TopAppBar=                                    | =LargeFlexibleTopAppBar= or =MediumFlexibleTopAppBar=          |
-  | =AssistChip=, =SuggestionChip=                 | a button                                                       |
-  | =ExtendedFloatingActionButton=                 | =SmallExtendedFloatingActionButton=                            |
-  | =DropdownMenu=, =ExposedDropdownMenuBox=       | =DropdownMenuPopup= and =DropdownMenuGroup=                    |
-  | a row of your own                              | =SegmentedListItem=                                            |
+  | Instead of                                                | Use                                                            |
+  |-----------------------------------------------------------+----------------------------------------------------------------|
+  | =Button=, =TextButton=, =FilledTonalButton=, =OutlinedButton= | the same with =shapes = ButtonDefaults.shapes()=               |
+  | =IconButton=, =OutlinedIconButton=, =FilledIconButton=     | the same with =shapes = IconButtonDefaults.shapes()=           |
+  | =IconToggleButton=                                        | the same with =shapes = IconButtonDefaults.toggleableShapes()= |
+  | =OutlinedTextField=                                       | =TextField= with =TextFieldDefaults.roundedShape=, =fieldColors()= |
+  | =SegmentedButton=                                         | =ConnectedChoices=, or =ToggleButton= in a connected group     |
+  | =TopAppBar=                                               | =LargeFlexibleTopAppBar= or =MediumFlexibleTopAppBar=          |
+  | =AssistChip=, =SuggestionChip=                            | a button                                                       |
+  | =ExtendedFloatingActionButton=                            | =SmallExtendedFloatingActionButton=                            |
+  | =DropdownMenu=, =ExposedDropdownMenuBox=                  | =DropdownMenuPopup= and =DropdownMenuGroup=                    |
+  | =ListItem=, a row of your own                             | =SegmentedListItem=                                            |
   =ExpressiveOnlyTest= fails on the components it can name, in any file that uses Material 3, and
   on a =TextField= without =TextFieldDefaults.roundedShape= and =fieldColors()=; a row or tab bar
   of your own is left to review.
@@ -302,19 +439,18 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
 
 Most conflicts come from a few shared lists, not from the code a feature adds. To keep yours small:
 
-- A new family of commands goes in its own file (=terminal/WeatherCommands.kt=), extending
-  =CommandGroup=. The shared files then only gain a line each. Don't add its code to =CommandProcessor=
+- A new family of commands goes in its own file in =terminal/commands/= (as =terminal/commands/WebCommands.kt=
+  is), extending =CommandGroup=. The shared files then only gain a line each. Don't add its code to =CommandProcessor=
   or =TerminalViewModel=: the view model already holds a lot, so new state and actions go in a small
   class with a =Host= interface, as =ScriptActions= and =LogLineActions= have.
 - Lists are one entry per line: =Keys.ALL=, =CommandCatalog.COMMANDS=, =HELP_SECTIONS=,
-  =InstantRun.SENSITIVE= and =SettingsCatalog=. Keep them that way, and add yours beside related
+  =Stores.PREFS= and the pages in =SettingsCatalog=. Keep them that way, and add yours beside related
   entries rather than at the end, where everyone else is adding too.
 - A new script API goes in =HostApi= as usual, but keep long logic in its own file and call it from there.
 - Leave these to the maintainer, who sets them when releasing: the version in =app/build.gradle.kts=
   and =site/package.json=, =docs/release/notes/=, and the coverage figure in =README.org=.
 - Do one thing per pull request, and don't reformat or move code you aren't otherwise changing.
 - A file is worth splitting when it holds separate concerns that change for different reasons, not
-  because it's long. =ui/AppSelector.kt= is one long gesture: it stays whole. =script/HostApi.kt=
+  because it's long. =ui/home/AppSelector.kt= is one long gesture: it stays whole. =script/HostApi.kt=
   is one API, but the run's log buffer (=RunLog=) and its secrets (=RunSecrets=) change for their
   own reasons, so they have files of their own and =HostApi= calls them.
-

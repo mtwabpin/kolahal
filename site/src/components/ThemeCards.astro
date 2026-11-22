@@ -1,10 +1,10 @@
 ---
 /**
  * The built-in themes, each in its dark and light version, with the colors from the app
- * (ui/Theme.kt, Palettes). Each half draws a few log lines in that palette.
+ * (ui/theme/Theme.kt, Palettes). Each half draws a few log lines in that palette.
  * - `note` is a word or two after the theme's command.
  * - material-you takes its colors from the phone's wallpaper. It is drawn here in Material's
- *   standard colors, which Android 9 to 11 show (ui/MaterialYouPalettes.kt).
+ *   standard colors, which Android 9 to 11 show (ui/theme/MaterialYouPalettes.kt).
  */
 type P = { bg: string; fg: string; dim: string; prompt: string; info: string; link: string };
 const p = (bg: string, fg: string, dim: string, prompt: string, info: string, link: string): P => ({ bg, fg, dim, prompt, info, link });

@@ -5,8 +5,8 @@
  *
  * The phone is drawn from the app's code, at its proportions (about 14 % larger than a 412 dp phone, so it reads well); every
  * size is in dp (`--dp`), with the app's defaults (14 sp text, 22 dp log lines, 44 dp suggestion
- * rows, a 40 dp prompt and key bar; ui/LogView.kt, SuggestionList.kt, Prompt.kt, KeyBar.kt,
- * TerminalHeader.kt). The app selector follows ui/AppSelector.kt and SelectorMath.kt (browse by
+ * rows, a 40 dp prompt and key bar; ui/home/LogView.kt, SuggestionList.kt, Prompt.kt, KeyBar.kt,
+ * TerminalHeader.kt). The app selector follows ui/home/AppSelector.kt and SelectorMath.kt (browse by
  * apps, the wave of letters and the bubble, the fisheye and the hold fill). The widgets follow the
  * Material 3 Expressive cards (WidgetLayout: 12 columns, 8 dp gaps; ScriptWidgets.kt: 24/28 dp
  * corners; WidgetLooks.kt: the colors of each look; WidgetKinds.kt, WidgetKindLooks.kt,
@@ -541,7 +541,7 @@ const STRIPS = BEATS.map((_, i) => {
 		const DP_ACROSS = 360;
 		const NAMES = ['launch', 'apps', 'answers', 'log', 'widgets', 'scripts', 'themes'];
 		const CLOCK = ['4:07 PM', '4:07 PM', '4:07 PM', '4:08 PM', '4:09 PM', '4:10 PM', '4:11 PM', '4:12 PM', '4:12 PM'];
-		// The palettes of ThemeCards.astro (ui/Theme.kt): bg, fg, dim, prompt, info, link.
+		// The palettes of ThemeCards.astro (ui/theme/Theme.kt): bg, fg, dim, prompt, info, link.
 		const TH: Record<string, { d: string[]; l: string[] }> = {
 			amber: { d: ['#0E0A05', '#FFCC80', '#A08256', '#FFB000', '#D9A25F', '#FFE0A3'], l: ['#FFF7E8', '#3D2A0C', '#7E6136', '#A05F00', '#8A5E22', '#7A4B00'] },
 			dracula: { d: ['#282A36', '#F8F8F2', '#8A93C2', '#50FA7B', '#8BE9FD', '#8BE9FD'], l: ['#FFFBEB', '#1F1F1F', '#635D97', '#14710A', '#036A96', '#036A96'] },

@@ -1,6 +1,6 @@
 /*
  * Kolahal's look for Starlight. Each part borrows a part of the app:
- * - colors: the app's default theme, "green", in its dark and light versions (ui/Theme.kt);
+ * - colors: the app's default theme, "green", in its dark and light versions (ui/theme/Theme.kt);
  * - h2: a typed command, `$ ` and bold, with the log's gutter bar;
  * - the sidebar and "On this page": the suggestion list (the current row has the bar and ↵);
  * - group labels and the page's section: dividers, like "── Yesterday ──";
