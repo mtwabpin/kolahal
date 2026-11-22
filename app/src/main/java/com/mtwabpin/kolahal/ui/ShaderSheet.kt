@@ -97,6 +97,8 @@ internal fun ShaderSheet(
             pager,
             key = { rows[it].name },
             verticalAlignment = Alignment.Top,
+            // A swipe's leftover speed would stretch the page once it is in place.
+            overscrollEffect = null,
             modifier = Modifier
                 .fillMaxHeight()
                 .testTag("shader-pager"),
