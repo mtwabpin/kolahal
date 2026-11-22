@@ -9,8 +9,8 @@ import java.util.Locale
 import kotlin.random.Random
 
 /**
- * A full-screen program on the character grid (`matrix`, `clock`, `pipes`, `sl`, `boot`), like a
- * terminal program that takes the whole screen until you leave it.
+ * A full-screen program on the character grid (`matrix`, `clock`, `pipes`, `sl`, `top`, `boot`),
+ * like a terminal program that takes the whole screen until you leave it.
  *
  * Screens are pure and deterministic: time and chance come in through [start] and [frame], so a
  * JVM test can step one frame by frame and read the grid. They draw with theme roles only
@@ -77,7 +77,7 @@ sealed interface TtyKey {
  * - [random]: all chance comes from here, so a seeded one gives the same frames each time.
  * - [clock]: the wall clock in ms since 1970 (the clock screen); [zone] and [locale] format it.
  * - [clock24]: 24-hour time (`clock.24h`).
- * - [data]: real facts for `boot`.
+ * - [data]: real facts for `boot` and `top`.
  */
 class ScreenEnv(
     val cols: Int,
@@ -93,6 +93,8 @@ class ScreenEnv(
 /**
  * Facts `boot` shows, read once when the screen opens. Only what is cheap to know: counts the app
  * already holds in memory, and settings. A count that is 0 is left out.
+ *
+ * [top] is where `top` reads its live facts, each second ([TopSource]).
  */
 data class ScreenData(
     val version: String = "",
@@ -107,11 +109,12 @@ data class ScreenData(
     val font: String = "",
     val fontSize: Int = 0,
     val unlocks: Int = 0,
+    val top: TopSource = TopSource.NONE,
 )
 
 /** The screens by command name. */
 object TtyScreens {
-    val names: List<String> = listOf("matrix", "clock", "pipes", "sl", "boot")
+    val names: List<String> = listOf("matrix", "clock", "pipes", "sl", "top", "boot")
 
     /** A new screen for [name], or null when there is none by that name. */
     fun named(name: String): TtyScreen? = when (name) {
@@ -119,6 +122,7 @@ object TtyScreens {
         "clock" -> ClockScreen()
         "pipes" -> PipesScreen()
         "sl" -> SlScreen()
+        "top" -> TopScreen()
         "boot" -> BootScreen()
         else -> null
     }

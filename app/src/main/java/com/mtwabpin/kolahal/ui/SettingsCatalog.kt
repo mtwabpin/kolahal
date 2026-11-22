@@ -71,6 +71,7 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         // clock (used for the log's times) and your name (used by fetch) still apply.
         Keys.HEADER_BELOW_BAR to on(Keys.HEADER_SHOW),
         Keys.GESTURE_SWIPE_DOWN to on(Keys.HEADER_SHOW),
+        Keys.SCREEN_SAVER_AFTER to choice(Keys.SCREEN_SAVER) { it != "off" },
     )
 }
 
@@ -103,7 +104,7 @@ internal class Category(
 
 private val CATEGORIES = listOf(
     Category(
-        "look", "Look & feel", "Theme, font, text size, full screen", R.drawable.ic_palette,
+        "look", "Look & feel", "Theme, font, text size, full screen, screensaver", R.drawable.ic_palette,
         listOf(
             "Terminal" to listOf(
                 Keys.THEME,
@@ -112,7 +113,9 @@ private val CATEGORIES = listOf(
                 Keys.FONT_SANS,
                 Keys.FONT_SIZE,
             ),
-            "Screen" to listOf(Keys.STATUS_BAR),
+            // The CRT look draws over the full-screen screens (and the tty home style), not the GUI.
+            "Screen" to listOf(Keys.STATUS_BAR, Keys.TTY_CRT),
+            "Screensaver" to listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER),
         ),
     ),
     Category(

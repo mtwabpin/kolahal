@@ -74,6 +74,16 @@ The `theme` and `font` commands didn't change.
 | `font.sans` | choice: `off` `prompt` `all` | `off` | use the system font instead of the terminal font, for the prompt or for the whole terminal (also `font sans <mode>`). Lists with aligned columns and the script editor keep the terminal font |
 | `font.size` | number 10–24 | `14` | terminal font size (sp). Pinching the log also changes it |
 
+## Screens
+
+The full-screen [screens](/reference/commands/#screens), such as `matrix` and `screen clock`.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `screen.saver` | choice: `off` `matrix` `clock` `pipes` | `off` | a screensaver: this screen opens over home after `screen.saver-after` minutes without a touch, while the log page shows and nothing is open or typed. The first touch or key only closes it. It never starts while the screen is off, in battery saver, or with Android's **Remove animations** on |
+| `screen.saver-after` | number 1–60 | `5` | minutes without a touch before the screensaver starts. Settings shows it while `screen.saver` is on |
+| `tty.crt` | bool | `off` | make the screens look like an old CRT monitor: scanlines, darker corners and, on Android 12 and newer with a dark theme, a soft glow around bright text. It is kept subtle, so text stays easy to read |
+
 ## Log
 
 | Key | Type | Default | Description |

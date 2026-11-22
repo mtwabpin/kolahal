@@ -55,6 +55,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.terminal.Ink
@@ -90,7 +91,11 @@ private const val SAVER_FPS = 15
  *   on, or when the phone is hot, a moving screen shows one still frame and a hint instead.
  * - It never keeps the screen on.
  *
- * [data] is what `boot` shows; [clock24] is `clock.24h`.
+ * As the idle screensaver ([saver]), any touch or key only closes it: a key is not typed into the
+ * prompt ([onClose] gets null), and leaving home, turning the page or the screen going off closes
+ * it at once instead of pausing it.
+ *
+ * [data] is what `boot` and `top` show; [clock24] is `clock.24h`; [crt] is `tty.crt` ([rememberCrt]).
  */
 @Composable
 fun TtyScreenHost(
@@ -99,6 +104,8 @@ fun TtyScreenHost(
     clock24: Boolean,
     onClose: (typed: String?) -> Unit,
     modifier: Modifier = Modifier,
+    saver: Boolean = false,
+    crt: Boolean = false,
 ) {
     val close by rememberUpdatedState(onClose)
     val screen = remember(name) { TtyScreens.named(name) }
@@ -135,6 +142,11 @@ fun TtyScreenHost(
     }
 
     LaunchedEffect(state, cols, rows, shown, focused) {
+        // The screensaver doesn't wait for home to come back: it is over once home is left.
+        if (saver && state.started && (!shown || !focused)) {
+            close(null)
+            return@LaunchedEffect
+        }
         if (cols == 0 || rows == 0 || !shown || !focused) return@LaunchedEffect
         val buffer = state.buffer
         if (!state.started) {
@@ -197,14 +209,22 @@ fun TtyScreenHost(
     androidx.compose.runtime.DisposableEffect(screen) {
         onDispose { screen.stop() }
     }
+    // The screensaver closes as home goes: another app, the screen off, the recent apps.
+    if (saver) androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val watch = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_PAUSE) close(null) }
+        lifecycle.addObserver(watch)
+        onDispose { lifecycle.removeObserver(watch) }
+    }
     BackHandler { close(null) }
+    val crtLook = rememberCrt(crt, grid.palette, metrics.cellH)
 
     Box(
         modifier
             .fillMaxSize()
             .background(Term.bg)
+            .then(crtLook)
             .semantics {
-                contentDescription = screen.title
+                contentDescription = if (saver) "Screensaver: ${screen.title}" else screen.title
                 onClick(label = "close") { close(null); true }
             }
             .pointerInput(screen, metrics) {
@@ -221,7 +241,7 @@ fun TtyScreenHost(
                     if (!screen.tap(col, row)) close(null)
                 }
             }
-            .onKeyEvent { e -> onKey(e, screen, close) }
+            .onKeyEvent { e -> onKey(e, screen, saver, close) }
             .focusRequester(state.focus)
             .focusable(),
     ) {
@@ -278,10 +298,18 @@ private fun hint(buffer: CellBuffer, text: String) {
  * A hardware key: the screen's if it uses it; else it closes the screen. A key that types a
  * character goes on into the prompt, except q (which quits, as in less and top) and a space.
  * Back and the phone's own keys (volume, media) are left to Android.
+ *
+ * The screensaver ([saver]) closes on any key and types nothing. The phone's own keys close it
+ * too, and still do their job (the volume changes).
  */
-private fun onKey(e: KeyEvent, screen: TtyScreen, close: (String?) -> Unit): Boolean {
+private fun onKey(e: KeyEvent, screen: TtyScreen, saver: Boolean, close: (String?) -> Unit): Boolean {
     if (e.type != KeyEventType.KeyDown) return false
-    if (e.key == Key.Back || e.nativeKeyEvent.isSystem) return false
+    if (e.key == Key.Back) return false
+    if (saver) {
+        close(null)
+        return !e.nativeKeyEvent.isSystem
+    }
+    if (e.nativeKeyEvent.isSystem) return false
     val code = e.utf16CodePoint
     val typed = code > 0x20 && !Character.isISOControl(code) && !e.isCtrlPressed && !e.isAltPressed && !e.isMetaPressed
     val key = when {

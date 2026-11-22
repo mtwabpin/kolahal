@@ -53,7 +53,8 @@ class ScreensTest {
 
     /**
      * `screen <name>` opens every screen; `matrix`, `pipes` and `sl` are also commands of their own.
-     * `clock` and `boot` are not, so typing `clock` still opens the clock app.
+     * `clock`, `top` and `boot` are not, so typing `clock` still opens the clock app, and "top"
+     * stays a plain word.
      */
     @Test
     fun theCommandsAndTheScreensAgree() {
@@ -62,7 +63,11 @@ class ScreensTest {
         val commands = CommandCatalog.COMMANDS.map { it.name }.toSet()
         assertTrue("screen" in commands)
         assertFalse("clock" in commands)
+        assertFalse("top" in commands)
         assertFalse("boot" in commands)
+        // The screen command's help names every screen.
+        val help = CommandCatalog.COMMANDS.first { it.name == "screen" }.help
+        for (name in TtyScreens.names) assertTrue(name, name in help)
         for (name in TtyScreens.names) assertEquals(name, TtyScreens.named(name)?.name)
         assertNull(TtyScreens.named("ls"))
     }

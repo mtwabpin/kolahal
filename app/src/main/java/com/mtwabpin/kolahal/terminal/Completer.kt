@@ -1187,7 +1187,7 @@ class Completer(private val context: Context, private val data: Data) {
             "=" to "math sum",
             "date" to "clock",
             "theme" to "colors colors dark light",
-            "screen" to "matrix clock pipes sl boot screensaver",
+            "screen" to "matrix clock pipes sl top boot screensaver memory",
             "matrix" to "screen rain",
             "pipes" to "screen",
             "sl" to "screen train locomotive",

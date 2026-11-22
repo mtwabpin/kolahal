@@ -1174,17 +1174,61 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _widgetsTurns.tryEmit(Unit)
     }
 
-    // ---- full-screen screens (matrix, clock, pipes, sl, boot) -------------------------------
+    // ---- full-screen screens (matrix, clock, pipes, sl, top, boot) --------------------------
 
     private val _ttyScreen = MutableStateFlow<String?>(null)
 
     /** The screen that runs over home's log page ([showTtyScreen]), or null. Home shows it. */
     val ttyScreen: StateFlow<String?> = _ttyScreen.asStateFlow()
 
+    private val _screenSaverOn = MutableStateFlow(false)
+
+    /** True while the screen that runs is the idle screensaver ([showScreenSaver]), not one you opened. */
+    val screenSaverOn: StateFlow<Boolean> = _screenSaverOn.asStateFlow()
+
+    /**
+     * When the last touch or key reached Kolahal (uptime ms): MainActivity reports each one
+     * ([onUserInput]). The screensaver waits for `screen.saver-after` minutes from here.
+     */
+    @Volatile
+    var lastInputAt: Long = android.os.SystemClock.uptimeMillis()
+        private set
+
+    /** A touch or a key reached Kolahal's window. */
+    fun onUserInput() {
+        lastInputAt = android.os.SystemClock.uptimeMillis()
+    }
+
     override fun showTtyScreen(name: String) {
         _events.tryEmit(UiEvent.HideKeyboard)
         _logTurns.tryEmit(Unit)
+        _screenSaverOn.value = false
         _ttyScreen.value = name
+    }
+
+    /**
+     * Home was left alone for `screen.saver-after` minutes ([ScreenSaver]): [name] runs over the
+     * log page until any touch or key ([closeScreenSaver]). Nothing else changes: the keyboard is
+     * down already, and the page is the log's.
+     */
+    fun showScreenSaver(name: String) {
+        if (_ttyScreen.value != null) return
+        _screenSaverOn.value = true
+        _ttyScreen.value = name
+    }
+
+    /**
+     * The screensaver closed: a touch, a key, Back, or home left. The touch or key does nothing
+     * else: it isn't typed, and the keyboard stays down. With a hardware keyboard the prompt takes
+     * the focus back, as home always gives it then, so the next key types.
+     */
+    fun closeScreenSaver() {
+        if (_ttyScreen.value == null || !_screenSaverOn.value) return
+        _ttyScreen.value = null
+        _screenSaverOn.value = false
+        onUserInput()
+        val keyboard = context.resources.configuration.keyboard
+        if (keyboard != android.content.res.Configuration.KEYBOARD_NOKEYS) _events.tryEmit(UiEvent.FocusPrompt)
     }
 
     /**
@@ -1195,11 +1239,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun closeTtyScreen(typed: String? = null) {
         if (_ttyScreen.value == null) return
         _ttyScreen.value = null
+        _screenSaverOn.value = false
         if (!typed.isNullOrEmpty()) insert(typed)
         if (typed != null || config[Keys.FOCUS_ON_HOME]) _events.tryEmit(UiEvent.FocusPrompt)
     }
 
-    /** What `boot` shows: counts already in memory, and settings. Cheap enough for the main thread. */
+    /** What `top` reads each second: made once, so today's screen time is read at most once a minute. */
+    private val topFacts by lazy {
+        TopFacts(context, viewModelScope, { scriptList.value }, { status.value }, { unlocksToday.value })
+    }
+
+    /**
+     * What `boot` shows: counts already in memory, and settings. Cheap enough for the main thread.
+     * `top` gets where to read its live facts ([TopFacts]).
+     */
     fun ttyScreenData(): com.mtwabpin.kolahal.terminal.tty.screens.ScreenData {
         val all = apps.value
         val scripts = scriptList.value
@@ -1218,6 +1271,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             font = config[Keys.FONT],
             fontSize = config[Keys.FONT_SIZE],
             unlocks = unlocksToday.value,
+            top = topFacts,
         )
     }
 
@@ -1623,6 +1677,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         settingsCategory.value = null
         homeOnWidgets = null
         _ttyScreen.value = null
+        _screenSaverOn.value = false
         _homePresses.value++
         _editing.value?.let { return }
         val fromOtherScreen = screen.value != Screen.TERMINAL

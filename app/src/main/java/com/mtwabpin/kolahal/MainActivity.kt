@@ -327,16 +327,8 @@ class MainActivity : ComponentActivity() {
                     if (screen == Screen.TERMINAL) HomePager(vm) {
                         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
                             TerminalScreen(vm)
-                            // `matrix`, `clock`, `pipes`, `sl` and `boot` run over the log page until a key or a tap.
-                            val ttyScreen by vm.ttyScreen.collectAsStateWithLifecycle()
-                            ttyScreen?.let { name ->
-                                com.mtwabpin.kolahal.ui.tty.TtyScreenHost(
-                                    name = name,
-                                    data = androidx.compose.runtime.remember(name) { vm.ttyScreenData() },
-                                    clock24 = androidx.compose.runtime.remember(name) { vm.config[Keys.CLOCK_24H] },
-                                    onClose = vm::closeTtyScreen,
-                                )
-                            }
+                            // `matrix`, `top`, the screensaver and the other screens run over the log page until a key or a tap.
+                            com.mtwabpin.kolahal.ui.HomeScreenOverlay(vm)
                         }
                     } else saved.SaveableStateProvider(screen.name) {
                         androidx.compose.foundation.layout.Box(
@@ -419,6 +411,12 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         vm.onPause()
+    }
+
+    // Each touch and key, for the idle screensaver's wait (screen.saver-after).
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        vm.onUserInput()
     }
 
     override fun onNewIntent(intent: Intent) {
