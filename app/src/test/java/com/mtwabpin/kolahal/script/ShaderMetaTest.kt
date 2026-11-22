@@ -217,14 +217,14 @@ class ShaderMetaTest {
         )
     }
 
-    /** The motion sensor is read for these and no others, and only frost asks for a finger. No shader that comes with Kolahal reads the battery. */
+    /** The motion sensor is read for these and no others, and only frost and rain ask whether a finger is down. No shader that comes with Kolahal reads the battery. */
     @Test
     fun theBundledShadersThatFollowThePhone() {
         val metas = ShaderCatalog.BUNDLED.associateWith {
             ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText())
         }
         assertEquals(listOf("foil", "rain", "snowfall", "night"), metas.filterValues { it.tilt }.keys.toList())
-        assertEquals(setOf("frost"), metas.filterValues { it.uses(ShaderMeta.PRESSED) }.keys)
+        assertEquals(setOf("frost", "rain"), metas.filterValues { it.uses(ShaderMeta.PRESSED) }.keys)
         assertEquals(
             emptySet<String>(),
             metas.filterValues { it.uses(ShaderMeta.BATTERY) || it.uses(ShaderMeta.CHARGING) }.keys,

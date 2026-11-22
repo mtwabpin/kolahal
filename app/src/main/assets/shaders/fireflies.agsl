@@ -1,9 +1,10 @@
 // @name Fireflies
-// @description Small lights wander behind the text and glow on and off. A touch draws them near
+// @description Small lights wander behind the text and glow on and off; on a light theme, soft motes in the sun. A touch draws them near
 // @animated
 //
 // Two layers of flies, one in each square of its layer. They only show where the page does, so
-// text stays as it is. On a light theme they are dark motes with a warm halo.
+// text stays as it is. On a light theme, where a light can't show, they are motes in the sun: soft
+// round patches of warm color with a finer rim, out of focus, that drift and fade the same way.
 
 uniform shader content;
 uniform float2 resolution;
@@ -39,6 +40,8 @@ half4 main(float2 xy) {
 
     float glow = 0.0;
     float core = 0.0;
+    float patch1 = 0.0;
+    float3 tint = float3(0.0);
     for (int i = 0; i < 2; i++) {
         float n = float(i);
 
@@ -64,15 +67,30 @@ half4 main(float2 xy) {
         float body = cell.y * (0.10 + 0.05 * r1);
         glow += there * pulse * exp(-d * d / (body * body * 30.0)) * (1.0 - smoothstep(0.17 * size, 0.22 * size, d));
         core += there * (0.12 + 0.88 * pulse) * (1.0 - smoothstep(body * 0.6, body, d));
+
+        // On a light theme: a round patch, bigger in the first layer, even inside and a little
+        // stronger at its rim, as a point of light out of focus. Each has its own warm color.
+        float round1 = size * (0.085 + 0.095 * r1);
+        float disc = 1.0 - smoothstep(round1 * 0.90, round1, d);
+        float rim = disc * smoothstep(round1 * 0.72, round1 * 0.90, d);
+        float shown = there * (0.30 + 0.70 * pulse) * (disc * 0.62 + rim * 0.38);
+        patch1 += shown;
+        tint += shown * mix(float3(warn.rgb), float3(good.rgb), r2 * r2);
     }
 
-    // A warm green-yellow light, with a bright middle. On a light theme the middle is a dark mote.
+    // A warm green-yellow light, with a bright middle.
     float3 light = mix(float3(warn.rgb), float3(good.rgb), 0.35);
-    float3 middle = mix(float3(fg.rgb), mix(light, float3(1.0), 0.6), dark);
-    float halo = clamp(glow, 0.0, 1.0) * mix(0.22, 0.45, dark);
-    float dot1 = clamp(core, 0.0, 1.0) * mix(0.45, 0.85, dark);
+    float3 middle = mix(light, float3(1.0), 0.6);
+    float halo = clamp(glow, 0.0, 1.0) * 0.45;
+    float dot1 = clamp(core, 0.0, 1.0) * 0.85;
     float amount = halo * (1.0 - dot1) + dot1;
     float3 color = (light * halo * (1.0 - dot1) + middle * dot1) / max(amount, 0.001);
+
+    // On a light theme the patches instead, as washes of their color.
+    if (dark < 0.5) {
+        amount = clamp(patch1, 0.0, 1.0) * 0.25;
+        color = tint / max(patch1, 0.001);
+    }
 
     // Not over text: a pixel that differs from the page is text or a line.
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
