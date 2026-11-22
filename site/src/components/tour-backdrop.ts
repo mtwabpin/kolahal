@@ -10,7 +10,8 @@
  * - Decoding: a line that comes into view scrambles through random glyphs and locks into its real
  *   text, left to right. A new beat decodes its block as a cluster; on large screens a line now
  *   and then decodes again. Only a few lines decode at a time.
- * - Phones: one lane, fewer decodes, only as lines come into view. Reduced motion: no parallax,
+ * - Phone widths (under 860 px) do not load this file: HomeTour draws a few lines of the log before
+ *   each beat instead. Reduced motion: no parallax,
  *   no drift, no decoding.
  *
  * Everything is driven from the tour's one animation frame loop ([Backdrop.tick]); a line is one
