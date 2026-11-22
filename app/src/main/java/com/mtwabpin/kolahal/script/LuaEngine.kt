@@ -5,10 +5,12 @@ package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.StyledText
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import party.iroiro.luajava.JFunction
 import party.iroiro.luajava.Lua
+import party.iroiro.luajava.LuaException
 import party.iroiro.luajava.lua54.Lua54
 
 /**
@@ -28,7 +30,8 @@ class LuaEngine : ScriptEngine {
         event: Map<*, *>?,
     ): String? = withContext(Dispatchers.IO) {
         val ctx = coroutineContext
-        val deadline = System.currentTimeMillis() + timeoutMs
+        // When the script is stopped. A screen of its own moves it on, for each call of the script's.
+        var deadline = System.currentTimeMillis() + timeoutMs
         val lua = Lua54()
         host.startClock(timeoutMs)
         // The hook cannot interrupt long-running C functions (e.g. pathological string.find patterns), and
@@ -66,7 +69,36 @@ class LuaEngine : ScriptEngine {
             lua.getGlobal("__kolahal_main")
             lua.push(repl)
             lua.pCall(1, 1)
-            lua.toString(-1)
+            val result = lua.toString(-1)
+            if (host.hasScreen) host.runScreen(object : ScreenSession.Script {
+                /** Calls the script's function through the prelude's `__kolahal_screen`. Everything here is on this run's thread. */
+                override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean {
+                    watchdog.extend(limitMs)
+                    host.startClock(limitMs)
+                    deadline = System.currentTimeMillis() + limitMs
+                    val top = lua.top
+                    lua.getGlobal("__kolahal_screen")
+                    lua.push(callback)
+                    lua.push(cols.toLong())
+                    lua.push(rows.toLong())
+                    args.forEach { lua.pushValue(it) }
+                    try {
+                        lua.pCall(3 + args.size, 1)
+                    } catch (e: LuaException) {
+                        // The hook stops a canceled run in the same words: that is no slow call.
+                        ctx.ensureActive()
+                        // The hook's word, or a host call's, that the time was up.
+                        if (host.stoppedBy == RunStop.Timeout || "script timed out" in e.message.orEmpty()) throw ScreenSession.TimedOut()
+                        throw e
+                    }
+                    val closed = lua.isBoolean(-1) && !lua.toBoolean(-1)
+                    lua.top = top
+                    return !closed
+                }
+
+                override fun waiting(ms: Long) = watchdog.extend(ms)
+            })
+            result
         } finally {
             // Close while the watchdog still runs. lua_close runs pending __gc finalizers, where the
             // instruction hook is off, so only the watchdog can stop a looping finalizer. Finalizers
@@ -204,6 +236,13 @@ class LuaEngine : ScriptEngine {
             "widget",
             "show" to { l: Lua -> l.push(host.widgetShow(l.mapArg(1))); 1 },
             "clear" to { l: Lua -> host.widgetClear(); 0 },
+        )
+        // tty.screen's functions stay in Lua: the prelude passes what is data, and calls them when the screen runs.
+        lua.table("tty", "screen" to { l: Lua -> host.screenOpen(l.mapArg(1)); 0 })
+        // The drawing calls of a screen's grid. The prelude hands them to the script as `g`.
+        lua.table(
+            "__kolahal_grid",
+            *ScreenDrawing.CALLS.map { op -> op to { l: Lua -> host.screenDraw(op, l.args()); 0 } }.toTypedArray()
         )
         lua.table("apps", "list" to { l: Lua -> l.pushValue(host.appsList()); 1 })
         lua.table(
@@ -514,6 +553,41 @@ class LuaEngine : ScriptEngine {
               local t = table.pack(...)
               for i = 1, t.n do t[i] = tostring(t[i]) end
               log(table.concat(t, "\t"))
+            end
+
+            -- tty.screen: the script's functions stay here, and what is data goes to the host, which checks
+            -- it. Once the script's code has run, the host calls __kolahal_screen for each event of the
+            -- screen. g is the grid; its functions work as g.put(…) and g:put(…).
+            local rawscreen, rawgrid = tty.screen, __kolahal_grid
+            __kolahal_grid = nil
+            local next, rawget, rawset = next, rawget, rawset
+            local screenspec
+            local grid = { cols = 0, rows = 0 }
+            for k, draw in next, rawgrid do
+              grid[k] = function(a, ...)
+                if a == grid then return draw(...) end
+                return draw(a, ...)
+              end
+            end
+            tty.screen = function(spec)
+              if type(spec) ~= "table" then error("tty.screen expects a table: tty.screen{ start = …, frame = … }", 2) end
+              local names, functions = {}, {}
+              for k, v in next, spec do
+                names[#names + 1] = tostring(k)
+                if type(v) == "function" then functions[#functions + 1] = tostring(k) end
+              end
+              rawscreen({ fps = rawget(spec, "fps"), title = rawget(spec, "title"), names = names, functions = functions })
+              screenspec = spec
+            end
+            function __kolahal_screen(event, cols, rows, a, b)
+              rawset(grid, "cols", cols)
+              rawset(grid, "rows", rows)
+              local f = screenspec and rawget(screenspec, event)
+              if type(f) ~= "function" then return true end
+              if event == "frame" then return f(grid, a, b) end
+              if event == "key" then return f(a) end
+              if event == "tap" then return f(a, b) end
+              return f(grid)
             end
 
             local src, name = __kolahal_src, __kolahal_name

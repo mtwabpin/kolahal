@@ -86,6 +86,8 @@ object ScriptMeta {
      * - `reminders`: reminders.list
      * - `calendar`: calendar.events (the phone's calendar; Kolahal also needs Android's calendar permission)
      * - `feeds`: feeds.unread (the unread items of the feeds you follow)
+     * - `usage`: usage.* (your screen time, data use and unused apps)
+     * - `screen`: tty.screen (a full-screen screen of its own over home)
      * The user allows each one ([ScriptAccess]).
      *
      * A new name here also needs:
@@ -107,7 +109,8 @@ object ScriptMeta {
         "reminders",
         "calendar",
         "feeds",
-        "usage"
+        "usage",
+        "screen"
     )
 
     /** Known names from every `@uses` line. Unknown names are ignored. */
@@ -153,6 +156,11 @@ object ScriptMeta {
 
     /** Whether the code makes web requests or reads feeds (`http.`, `rss.`). A timed run of it waits for a network. */
     fun goesOnline(code: String) = online.containsMatchIn(code)
+
+    private val screenCall = Regex("""\btty\s*\.\s*screen\b""")
+
+    /** Whether the code opens a screen of its own (`tty.screen`): its run may go on as long as the screen does. */
+    fun opensScreen(code: String) = screenCall.containsMatchIn(code)
 
     private val internetRef = Regex("""\b(http|rss|url|image)\b|\blauncher\s*\.\s*run\b""")
     private val statusRef = Regex("""(?<![.:\w])status\b""")

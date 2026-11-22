@@ -271,6 +271,8 @@ Android's accessibility settings, `matrix`, `pipes`, `sl` and `boot` show a sing
 Instant launch never opens them, and scripts can't run them. `clock`, `top` and `boot` open only
 through `screen`, so typing `clock` still opens your clock app.
 
+A script can draw a full-screen screen of its own with [`tty.screen`](/scripting/api/#ttyscreenspec).
+
 **Screensaver.** With `screen.saver` set to `matrix`, `clock` or `pipes`, that screen opens over
 home after `screen.saver-after` minutes (5 by default) without a touch, while the log page shows and
 nothing is open or typed. With `keyboard.on-home` on, the keyboard being up doesn't count as typing:

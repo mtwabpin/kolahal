@@ -126,7 +126,26 @@ override the rest. Internal: nothing here is published.
     =tty.crt on= stack.
 - Remark:
 
-** TODO Step 7: scripts drawing on the grid  :scripts:
+** DONE Step 7: scripts drawing on the grid  :scripts:
 - Size M. Design §6.3.
 - A =tty.screen= API so a script can run its own full-screen screen, in both home styles.
+- Done (22 November), not yet built or run on a device:
+  - [X] =tty.screen{ fps, title, start, frame, key, tap, resize, stop }= in Lua and JavaScript, behind
+    =@uses screen=; the grid's =g.put=, =g.fill=, =g.clear=, =g.box=, =g.bar=, =g.cols= and =g.rows=.
+    In the app's reference (=ApiDocs=) and on the website's API page, with a bouncing word and the
+    game of life in both languages.
+  - [X] The script runs in =:script= as always, and the screen after its code has run: home (the UI
+    process) binds a service there (=ScriptScreenService=) and sends ticks, keys and taps; the
+    script's drawing comes back as numbers and texts (=ScreenFrame=), which home puts on its grid
+    (=FramePlayer=). Home never waits for the script: a tick goes out only once the last one's frame
+    came back, so a slow script drops its own frames.
+  - [X] Limits: 1 s for each call (QuickJS's timeout, the Lua hook), 30 frames in a row over 50 ms end
+    it, 5 minutes in all, as much drawing a call as 8 full screens; =RunWatchdog= is told of each
+    call (=extend=). Back and leaving home close it; a tap or a key does unless the script handles
+    them.
+  - [X] Tests: JVM for the drawing, the session and its limits, the home side (messages, keys, frames
+    on the grid); device for both engines, and for home with a run in =:script=.
+  - [ ] Left: a build and a device run; complex scripts (Arabic, Hindi) on a script's grid are drawn
+    letter by letter, not shaped; no screen from the screensaver. An example script for the shared
+    scripts repository.
 - Remark:

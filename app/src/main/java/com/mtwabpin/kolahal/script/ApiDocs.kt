@@ -70,6 +70,19 @@ object ApiDocs {
         WidgetKind.MEDIA -> ""
     }
 
+    /** What `tty.screen` does, the same words for Lua and JavaScript: the editor shows the start on one line. */
+    private val TTY_SCREEN =
+        "Open a full-screen screen over home once the script has run, only when you start it. " +
+                "Give it start(g) or frame(g, t, dt), or both. frame runs fps times a second " +
+                "(0 to ${ScreenSession.MAX_FPS}, ${ScreenSession.DEFAULT_FPS} by default; with 0, only start, key and tap draw); " +
+                "t and dt are milliseconds. key(k) gets each key (\"a\", \"up\", \"down\", \"left\", \"right\", \"enter\", \"space\", \"escape\", " +
+                "\"tab\", \"delete\"), tap(col, row) each tap. resize(g) runs when the size changes, stop() when it closes. " +
+                "A function that returns false closes the screen; without key a key closes it, without tap a tap does, and Back always does. " +
+                "g.cols and g.rows are the size in cells, counted from 0. Draw with g.put(col, row, text, style?), g.fill(col, row, width, height, char?, style?), " +
+                "g.clear(style?), g.box(col, row, width, height, style?) and g.bar(col, row, width, value, style?); style is a color role or " +
+                "{ color, bg, bold, faint, italic, underline, strike, inverse }. Each call has ${ScreenSession.CALL_MS / 1000} s, and " +
+                "the screen closes after ${ScreenSession.LONGEST_MS / 60_000} minutes (needs @uses screen)"
+
     val all: List<ApiDoc> = listOf(
         ApiDoc(
             "log",
@@ -203,6 +216,9 @@ object ApiDocs {
             "widget.clear()",
             "Remove the widget's content; its card then has nothing to show"
         ),
+        ApiDoc("tty", "tty", "A full-screen screen of its own over home, drawn on the character grid: screen", kind = NS),
+        ApiDoc("tty.screen", "tty.screen{ fps, title, start, frame, key, tap, resize, stop }", TTY_SCREEN, LUA),
+        ApiDoc("tty.screen", "tty.screen({ fps, title, start, frame, key, tap, resize, stop })", TTY_SCREEN, JS),
         ApiDoc("sleep", "sleep(ms)", "Pause up to 5000 ms", LUA),
         ApiDoc("sleep", "await sleep(ms)", "Pause up to 5000 ms (async)", JS),
         ApiDoc("print", "print(...)", "Log the values joined by tabs", LUA),

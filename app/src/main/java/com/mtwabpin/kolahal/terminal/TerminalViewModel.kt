@@ -511,8 +511,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
+    /** A script's own screen (`tty.screen`): shown over home as the other screens are. */
+    private val scriptScreens = ScriptScreenRequests(app) { showTtyScreen(it) }
+
     override fun onCleared() {
         runCatching { context.unregisterReceiver(runCommandReceiver) }
+        scriptScreens.stop()
     }
 
     /** Now playing, scripts' commands, and the log's reloads while home is shown. Started by the init at the end. */
@@ -522,6 +526,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             context, runCommandReceiver, android.content.IntentFilter(HostApi.ACTION_RUN_COMMAND),
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+        scriptScreens.start()
         viewModelScope.launch {
             // Bursts of changes (a script logging many lines, another process) collapse into one reload.
             // Locking or unlocking the private space shows or hides its lines.

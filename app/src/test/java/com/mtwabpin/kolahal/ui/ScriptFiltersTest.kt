@@ -229,8 +229,8 @@ class ScriptFiltersTest {
             ScriptFilters.ALL.filter { it.group == FilterGroup.USES }.map { it.id })
         val names = ScriptFilters.ALL.filter { it.group == FilterGroup.USES }.map { it.label }
         assertEquals(
-            listOf("To-dos", "Notes", "Reminders", "Calendar", "Feeds", "App usage"),
-            names.takeLast(6)
+            listOf("To-dos", "Notes", "Reminders", "Calendar", "Feeds", "App usage", "Full screen"),
+            names.takeLast(7)
         )
         // A script that reads your todos is found by its chip, and by no other.
         val reader = script("todo-card", uses = setOf("todos"))

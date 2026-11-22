@@ -85,6 +85,7 @@ object ScriptAccess {
         "calendar" -> "Your calendar"
         "feeds" -> "Your feeds"
         "usage" -> "Your app usage"
+        "screen" -> "Full screen"
         else -> "Runs on $item"
     }
 
@@ -104,6 +105,7 @@ object ScriptAccess {
         "calendar" -> "Reads the events of the next days from the phone's calendar; when off, it sees none"
         "feeds" -> "Reads the unread items of the feeds you follow; when off, it sees none"
         "usage" -> "Reads your screen time per app, your data use and the apps you don't open; when off, it sees none"
+        "screen" -> "Draws on the whole of home when you start it, and reads your taps and keys there until it closes; when off, it can't"
         else -> "Runs when this happens (@on $item)"
     }
 

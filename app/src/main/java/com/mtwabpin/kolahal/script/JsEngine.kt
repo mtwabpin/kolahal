@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.script
 
 import com.dokar.quickjs.QuickJs
+import com.dokar.quickjs.QuickJsInterruptedException
 import com.dokar.quickjs.binding.JsObject
 import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.define
@@ -46,6 +47,7 @@ class JsEngine : ScriptEngine {
             // does not unwrap returned promises.
             var result: Any? = null
             js.function("__kolahal_done") { args -> result = args.getOrNull(0) }
+            js.function("__kolahal_screen_done") { args -> screenResult = args.getOrNull(0) }
             js.evaluate<Any?>(
                 "globalThis.args = ${Json.stringify(args)}; globalThis.argline = ${
                     Json.stringify(
@@ -60,14 +62,20 @@ class JsEngine : ScriptEngine {
                 filename = "args.js",
             )
             js.evaluate<Any?>(GUARD, filename = "guard.js")
+            js.evaluate<Any?>(SCREEN, filename = "screen.js")
             // A REPL line that ends with log(…) has its line's handle as its value, which reads as {}: it prints nothing.
-            if (repl) return js.evaluate<Any?>(code, filename = "$chunkName.js")
-                ?.takeUnless { it is Map<*, *> && it.isEmpty() && host.effects > 0 }?.let(::render)
+            if (repl) {
+                val value = js.evaluate<Any?>(code, filename = "$chunkName.js")
+                    ?.takeUnless { it is Map<*, *> && it.isEmpty() && host.effects > 0 }?.let(::render)
+                runScreen(js, host, watchdog)
+                return value
+            }
             // Wrapped so that scripts may `return`. Top-level await makes evaluate() wait until the script completes.
             js.evaluate<Any?>(
                 "__kolahal_done(__kolahal_out(await (async () => {\n$code\n})()));",
                 filename = "$chunkName.js"
             )
+            runScreen(js, host, watchdog)
             return result?.let(::render)
         } finally {
             // Finish first. Closing cancels the jobs still waiting, but a request that one of them made
@@ -77,6 +85,35 @@ class JsEngine : ScriptEngine {
             // watchdog, still running, stops it.
             watchdog.use { js.close() }
         }
+    }
+
+    /** What the script's screen function that ran last returned, for [runScreen]. */
+    private var screenResult: Any? = null
+
+    /**
+     * Runs the screen the script opened with `tty.screen`, if it opened one. Its functions stay in
+     * JavaScript: each call is an evaluation of its own, so each has a timeout of its own, which
+     * QuickJS starts over at each evaluation ([ScreenSession]).
+     */
+    private suspend fun runScreen(js: QuickJs, host: HostApi, watchdog: RunWatchdog) {
+        if (!host.hasScreen) return
+        host.runScreen(object : ScreenSession.Script {
+            override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean {
+                watchdog.extend(limitMs)
+                host.startClock(limitMs)
+                js.evaluationTimeoutMillis = limitMs
+                screenResult = null
+                val values = (listOf(callback, cols, rows) + args).joinToString { Json.stringify(it) }
+                try {
+                    js.evaluate<Any?>("__kolahal_screen_done(await __kolahal_screen($values));", filename = "screen.js")
+                } catch (_: QuickJsInterruptedException) {
+                    throw ScreenSession.TimedOut()
+                }
+                return screenResult != false
+            }
+
+            override fun waiting(ms: Long) = watchdog.extend(ms)
+        })
     }
 
     private fun bindHost(js: QuickJs, host: HostApi) {
@@ -158,6 +195,14 @@ class JsEngine : ScriptEngine {
         js.define("widget") {
             function("show") { args -> host.widgetShow(args.getOrNull(0) as? Map<*, *>) }
             function("clear") { host.widgetClear() }
+        }
+        // tty.screen's functions stay in JavaScript: screen.js passes what is data, and calls them.
+        js.define("tty") {
+            function("screen") { args -> host.screenOpen(args.getOrNull(0) as? Map<*, *>) }
+        }
+        // The drawing calls of a screen's grid. screen.js hands them to the script as `g`.
+        js.define("__kolahal_grid") {
+            for (op in ScreenDrawing.CALLS) function(op) { args -> host.screenDraw(op, args.toList()) }
         }
         js.define("apps") { function("list") { toJs(host.appsList()) } }
         js.define("notifications") {
@@ -411,9 +456,9 @@ class JsEngine : ScriptEngine {
                 if (o[k] !== wrapped) throw new Error("guard.js: could not wrap " + k);
               };
               const g = globalThis;
-              for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done", "__kolahal_set"]) install(g, name, false);
+              for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done", "__kolahal_set", "__kolahal_screen_done"]) install(g, name, false);
               install(g, "sleep", true);
-              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget", "todos", "notes", "reminders", "calendar", "feeds", "usage"];
+              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget", "todos", "notes", "reminders", "calendar", "feeds", "usage", "tty", "__kolahal_grid"];
               for (const ns of spaces) {
                 const o = g[ns];
                 const ks = names(o);
@@ -445,6 +490,59 @@ class JsEngine : ScriptEngine {
               wrap(g, "log", false);
               wrap(g.md, "log", true);
               define(g, "__kolahal_out", { value: (v) => (v !== null && typeof v === "object" && lines.has(v) ? undefined : v) });
+            })();
+        """.trimIndent()
+
+        /**
+         * Runs after [GUARD]. It wraps `tty.screen` so that the script's functions stay here and the
+         * host gets only data, through the guarded call: which fields the script gave, and which of
+         * them are functions. It makes the grid the functions get, and the function the host calls for
+         * each event of the screen (`__kolahal_screen`). Whatever is used here is taken now.
+         */
+        val SCREEN = """
+            (() => {
+              "use strict";
+              const g = globalThis, define = Object.defineProperty, freeze = Object.freeze, names = Object.getOwnPropertyNames;
+              const describe = Object.getOwnPropertyDescriptor;
+              const keys = Object.keys, isArray = Array.isArray, apply = Reflect.apply, TypeErr = TypeError;
+              const open = g.tty.screen, raw = g.__kolahal_grid;
+              let spec, cols = 0, rows = 0;
+              const grid = {};
+              define(grid, "cols", { get: () => cols, enumerable: true });
+              define(grid, "rows", { get: () => rows, enumerable: true });
+              for (const k of names(raw)) {
+                const draw = raw[k];
+                if (typeof draw === "function") define(grid, k, { value: (...a) => draw(...a), enumerable: true });
+              }
+              freeze(grid);
+              // Keeps the binding's own flags, as guard.js does.
+              const screen = describe(g.tty, "screen");
+              define(g.tty, "screen", {
+                value: (s) => {
+                  if (s === null || typeof s !== "object" || isArray(s)) throw new TypeErr("tty.screen expects an object: tty.screen({ start, frame })");
+                  const all = keys(s), fields = [], functions = [];
+                  for (let i = 0; i < all.length; i++) {
+                    fields[fields.length] = all[i];
+                    if (typeof s[all[i]] === "function") functions[functions.length] = all[i];
+                  }
+                  open({ fps: s.fps, title: s.title, names: fields, functions });
+                  spec = s;
+                },
+                writable: screen.writable, enumerable: screen.enumerable, configurable: screen.configurable,
+              });
+              define(g, "__kolahal_screen", {
+                value: async (event, c, r, a, b) => {
+                  cols = c;
+                  rows = r;
+                  const f = spec === undefined ? undefined : spec[event];
+                  if (typeof f !== "function") return true;
+                  const out = event === "frame" ? apply(f, spec, [grid, a, b])
+                    : event === "key" ? apply(f, spec, [a])
+                    : event === "tap" ? apply(f, spec, [a, b])
+                    : apply(f, spec, [grid]);
+                  return (await out) !== false;
+                },
+              });
             })();
         """.trimIndent()
     }

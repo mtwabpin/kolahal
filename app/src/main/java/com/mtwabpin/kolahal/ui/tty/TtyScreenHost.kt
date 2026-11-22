@@ -98,6 +98,7 @@ private const val SAVER_FPS = 15
  *
  * [data] is what `boot` and `top` show; [clock24] is `clock.24h`; [crt] is `tty.crt` ([rememberCrt]);
  * [shader] is `tty.shader` ([rememberTtyShader]).
+ * [make] makes the screen for [name]: one of Kolahal's, or a script's (`tty.screen`).
  */
 @Composable
 fun TtyScreenHost(
@@ -109,9 +110,10 @@ fun TtyScreenHost(
     saver: Boolean = false,
     crt: Boolean = false,
     shader: String = ShaderCatalog.OFF,
+    make: (String) -> TtyScreen? = TtyScreens::named,
 ) {
     val close by rememberUpdatedState(onClose)
-    val screen = remember(name) { TtyScreens.named(name) }
+    val screen = remember(name) { make(name) }
     if (screen == null) {
         LaunchedEffect(name) { close(null) }
         return
@@ -195,7 +197,9 @@ fun TtyScreenHost(
                     }
                     // Sleep until about the next frame this screen wants, rather than wake at every vsync.
                     // Frame times are in System.nanoTime's time base.
-                    val spent = (System.nanoTime() / 1_000_000L - now).coerceAtLeast(0L)
+                    // In a test, frames have their own clock: there `spent` means nothing, and is left out, so
+                    // that the loop still waits between frames.
+                    val spent = (System.nanoTime() / 1_000_000L - now).takeIf { it in 0L..250L } ?: 0L
                     delay((frameMs - spent - 4).coerceAtLeast(0L))
                 }
             } finally {
@@ -321,6 +325,7 @@ private fun onKey(e: KeyEvent, screen: TtyScreen, saver: Boolean, close: (String
         typed -> TtyKey.Typed(code.toChar())
         e.key == Key.Enter || e.key == Key.NumPadEnter -> TtyKey.Named.ENTER
         e.key == Key.Escape -> TtyKey.Named.ESCAPE
+        e.key == Key.Spacebar -> TtyKey.Named.SPACE
         e.key == Key.DirectionUp -> TtyKey.Named.UP
         e.key == Key.DirectionDown -> TtyKey.Named.DOWN
         e.key == Key.DirectionLeft -> TtyKey.Named.LEFT

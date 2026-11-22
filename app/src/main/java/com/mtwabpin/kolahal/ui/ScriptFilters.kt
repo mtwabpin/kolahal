@@ -30,6 +30,7 @@ internal val USES_SHORT = mapOf(
     "calendar" to "calendar",
     "feeds" to "feeds",
     "usage" to "app usage",
+    "screen" to "full screen",
 )
 
 /** Where a script came from. */

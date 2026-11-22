@@ -194,6 +194,13 @@
             android:foregroundServiceType="shortService"
             android:process=":script" />
 
+        <!-- A script's own screen (tty.screen): home binds it to pass the taps and frames of a screen that
+             runs in :script, where the script runs. Only this app can bind it. -->
+        <service
+            android:name=".script.ScriptScreenService"
+            android:exported="false"
+            android:process=":script" />
+
         <!-- WorkManager is initialised manually via Configuration.Provider (multi-process setup). -->
         <provider
             android:name="androidx.startup.InitializationProvider"

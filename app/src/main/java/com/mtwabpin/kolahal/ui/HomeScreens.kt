@@ -20,7 +20,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.ScreenSaver
+import com.mtwabpin.kolahal.terminal.ScriptScreenRequests
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens
 import com.mtwabpin.kolahal.ui.tty.TtyScreenHost
 import kotlinx.coroutines.delay
 
@@ -113,6 +115,7 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
     }
     // A touch or a key only closes the screensaver; from a screen you opened, a typed key goes on into the prompt.
     val close: (String?) -> Unit = if (saver) { _ -> vm.closeScreenSaver() } else vm::closeTtyScreen
+    val app = LocalContext.current.applicationContext
     TtyScreenHost(
         name = shown,
         data = remember(shown) { vm.ttyScreenData() },
@@ -121,6 +124,8 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
         saver = saver,
         crt = remember(configVersion) { vm.config[Keys.TTY_CRT] },
         shader = remember(configVersion) { vm.config[Keys.TTY_SHADER] },
+        // A script's own screen (tty.screen), or one of Kolahal's.
+        make = { ScriptScreenRequests.screen(app, it) ?: TtyScreens.named(it) },
     )
 }
 

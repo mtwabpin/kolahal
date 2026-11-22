@@ -7,6 +7,7 @@ import android.os.Debug
 import android.os.Process
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.script.RunWatchdog.Companion.GRACE_MS
+import java.util.concurrent.locks.LockSupport
 import kotlin.concurrent.thread
 
 /**
@@ -30,48 +31,58 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
     }
 
     private val baseline = Debug.getNativeHeapAllocatedSize()
+
+    /** When the run is past its time, for the thread below. [extend] moves it. */
+    @Volatile
+    private var killAt = System.currentTimeMillis() + timeoutMs + GRACE_MS
+
+    @Volatile
+    private var closed = false
+
     private val thread = thread(isDaemon = true, name = "script-watchdog") {
-        val killAt = System.currentTimeMillis() + timeoutMs + GRACE_MS
         // While memory stays put (a run waiting on the network), the checks slow down to every
         // [IDLE_EVERY_MS]. As soon as it grows, they are every [WATCH_EVERY_MS] again.
         var every = WATCH_EVERY_MS
         var last = baseline
-        try {
-            while (true) {
-                // With no memory to watch (JavaScript has its own limit), only the clock matters. Its end time
-                // is known, so one sleep is enough instead of a hundred wake-ups a second.
-                Thread.sleep(
-                    if (nativeLimitMb == null) maxOf(
-                        WATCH_EVERY_MS,
-                        killAt - System.currentTimeMillis()
-                    ) else every
-                )
-                val heap = Debug.getNativeHeapAllocatedSize()
-                every = if (heap - last > GROWING_BYTES) WATCH_EVERY_MS else minOf(
-                    IDLE_EVERY_MS,
-                    every * 2
-                )
-                last = heap
-                val reason = when {
-                    nativeLimitMb != null && heap - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
-                    System.currentTimeMillis() > killAt -> "still running after timeout"
-                    else -> null
-                } ?: continue
-                runCatching { host.logStopped("${host.scriptName}: $reason, killed script process") }
-                if (Singleton.inScriptProcess) {
-                    stopOthers(host)
-                    Process.killProcess(Process.myPid())
-                }
-                return@thread
+        while (!closed) {
+            // With no memory to watch (JavaScript has its own limit), only the clock matters. Its end time
+            // is known, so one sleep is enough instead of a hundred wake-ups a second.
+            val wait = if (nativeLimitMb == null) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else every
+            LockSupport.parkNanos(wait * 1_000_000L)
+            if (closed) return@thread
+            val heap = Debug.getNativeHeapAllocatedSize()
+            every = if (heap - last > GROWING_BYTES) WATCH_EVERY_MS else minOf(
+                IDLE_EVERY_MS,
+                every * 2
+            )
+            last = heap
+            val reason = when {
+                nativeLimitMb != null && heap - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
+                System.currentTimeMillis() > killAt -> "still running after timeout"
+                else -> null
+            } ?: continue
+            runCatching { host.logStopped("${host.scriptName}: $reason, killed script process") }
+            if (Singleton.inScriptProcess) {
+                stopOthers(host)
+                Process.killProcess(Process.myPid())
             }
-        } catch (_: InterruptedException) {
             return@thread
         }
     }
 
+    /**
+     * The run has [ms] more from now. The calls of a script's screen (`tty.screen`) get it one by one:
+     * such a run goes on as long as its screen is open.
+     */
+    fun extend(ms: Long) {
+        killAt = System.currentTimeMillis() + ms + GRACE_MS
+        LockSupport.unpark(thread)
+    }
+
     override fun close() {
         running -= host
-        thread.interrupt()
+        closed = true
+        LockSupport.unpark(thread)
     }
 
     companion object {

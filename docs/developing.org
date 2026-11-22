@@ -76,6 +76,11 @@ TextEditorActivity (a task per file, in Recents) ── TextEditorViewModel ─�
   =ScriptRunService= at a daily time), so a native engine crash can't take down the home screen.
   Results come back through the shared database plus a package-scoped broadcast. =RunWatchdog= kills
   that process when a run can't be stopped from inside, 5 s past its timeout.
+- Script screens :: =tty.screen= (a script's own full-screen screen) runs in the =:script= process
+  once the code has run. =ScreenSession= is the script's side: it waits for home's messages and calls
+  the script's functions, each with its own second. Home binds =ScriptScreenService= and plays the
+  drawing it gets (=ScreenFrame=) on its grid (=FramePlayer=, through =ScriptScreen=), and sends ticks,
+  keys and taps. It sends the next tick only after the last one's frame, so it never waits for a script.
 - Access :: =ScriptAccess= decides what a run may use: each =@uses= item only once the user allows
   it; the internet and pinning at the top only if the code mentions them (=ScriptMeta.usesInternet=,
   =setsStatus=; pinning stays off until the user pins it), and code from outside that starts using the internet starts with it off.

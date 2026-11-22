@@ -166,7 +166,9 @@ internal object ScriptRun {
         // However the run ends, anything still in flight (a request, a timer) changes nothing after it.
         // This is also true when Android stops the run and this returns at once.
         val status = try {
-            val result = withTimeout((ScriptWorker.TIMEOUT_MS + 2_000).milliseconds) {
+            // A screen of its own runs on after the code, as long as it may (the engine limits both).
+            val most = ScriptWorker.TIMEOUT_MS + 2_000 + (if (ScriptMeta.opensScreen(code)) ScreenSession.WHOLE_MS else 0L)
+            val result = withTimeout(most.milliseconds) {
                 engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
             }
             host.flush()

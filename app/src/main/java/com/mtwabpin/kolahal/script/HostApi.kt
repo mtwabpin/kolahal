@@ -747,6 +747,65 @@ class HostApi(
         return redact(web)
     }
 
+    // ---- its own screen ------------------------------------------------------------------
+
+    /** The screen the run opened with `tty.screen` ([screenOpen]). It runs once the code has run ([runScreen]). */
+    @Volatile
+    private var screen: ScreenSession? = null
+
+    /** Where screens open, for tests; null means home ([ScriptScreens.home]). */
+    internal var screenHome: ScreenSession.Home? = null
+
+    /** Whether the run opened a screen of its own. */
+    internal val hasScreen: Boolean get() = screen != null
+
+    /**
+     * `tty.screen(spec)`: the script opens a full-screen screen of its own over home. The engine passes
+     * the fields of the spec ([ScreenSession.Spec.of]) but keeps the functions, and [runScreen] then
+     * calls them.
+     * - It is for a run you started, as a screen that takes home unasked would be in the way.
+     * - A run opens one screen. It shows once the script's code has run to its end.
+     */
+    fun screenOpen(spec: Map<*, *>?) {
+        live()
+        effects++
+        val wanted = ScreenSession.Spec.of(spec, scriptName)
+        if (!may(ScreenSession.USES, "tty.screen")) {
+            // Not decided yet: the run goes on without its screen, and the worker asks to allow it.
+            if (ScreenSession.USES in undecided) return
+            deny(ScreenSession.USES, "tty.screen: full screen is off for this script")
+        }
+        check(interactive) { "tty.screen only opens when you start the script, not on a timer or an event" }
+        check(screen == null) { "tty.screen: a run opens one screen" }
+        screen = ScreenSession(
+            scriptName,
+            ScreenSession.Spec(wanted.fps, redact(wanted.title), wanted.keys, wanted.taps),
+            screenHome ?: ScriptScreens.home(context),
+            android.os.SystemClock::uptimeMillis,
+            ::redact,
+        )
+    }
+
+    /** A drawing call of the screen's grid (`g.put`…), for the engines ([ScreenDrawing]). */
+    fun screenDraw(op: String, args: List<Any?>) {
+        val open = screen ?: throw IllegalStateException("g.$op works only inside the functions of tty.screen")
+        open.draw(op, args)
+    }
+
+    /** Runs the screen the run opened, until it closes. [script] calls the script's functions. */
+    internal suspend fun runScreen(script: ScreenSession.Script) {
+        val open = screen ?: return
+        // Lines the code logged show before the screen does.
+        flush()
+        when (open.run(script)) {
+            ScreenSession.End.CLOSED -> Unit
+            ScreenSession.End.LONGEST ->
+                runLog.add(LogKind.INFO, "$scriptName: its screen closed after ${ScreenSession.LONGEST_MS / 60_000} minutes, the longest it may run", LogContext(baseCtx))
+            ScreenSession.End.ABSENT ->
+                runLog.add(LogKind.INFO, "$scriptName: its screen didn't open, because home wasn't shown", LogContext(baseCtx))
+        }
+    }
+
     // ---- device, apps, launcher ----------------------------------------------------------
 
     fun clipboardSet(text: String) {

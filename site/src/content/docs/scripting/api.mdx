@@ -71,6 +71,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`allowed(what)`](#allowedwhat) | `true` if you let this script use `what` |
 | [`widget.show(desc)`](#widgetshowdesc) | `true` if its widget is placed; fills its [widget](#widgets) |
 | [`widget.clear()`](#widgetclear) | nothing; empties its widget |
+| [`tty.screen(spec)`](#ttyscreenspec) | nothing; opens a full-screen [screen of its own](#screens) |
 | [`http.get(url, headers?)`](#httpgeturl-headers) | `{ status, ok, body, headers }` |
 | [`http.request(opts)`](#httprequestopts) | same as `http.get` |
 | [`http.cached(url, seconds?)`](#httpcachedurl-seconds) | same, plus `cached` |
@@ -920,7 +921,7 @@ Returns whether this script may use `what`. `what` is one of:
 
 - `"internet"`, `"header"`, `"widget"`,
 - an `@uses` item: `"notifications"`, `"clipboard"`, `"apps"`, `"commands"`, `"dnd"`, `"todos"`,
-  `"notes"`, `"reminders"`, `"calendar"`, `"feeds"`, `"usage"`, `"work"`,
+  `"notes"`, `"reminders"`, `"calendar"`, `"feeds"`, `"usage"`, `"screen"`, `"work"`,
 - an `@on` event, such as `"unlock"`.
 
 You switch these on and off for each script
@@ -2150,6 +2151,218 @@ store.set(key, String((Number(store.get(key)) || 0) + 1));
 
 Removes the widget's content. The card then says "Nothing to show". Like `widget.show`, it needs
 the `@widget` line and works only in saved scripts.
+
+## Screens
+
+A script can open a full-screen screen of its own over home, and draw on the character grid, as
+`matrix` and `clock` do. It is the same in both home styles, in your theme's colors and font.
+
+### tty.screen(spec)
+
+Needs `@uses screen`. Opens a screen once the script's code has run to its end. `spec` says what it
+draws and what it does with a tap or a key.
+
+- It opens only when you start the script: from the prompt, with a tap or with Run in the editor. In
+  a timer or event run it is an error.
+- A run opens one screen. The run goes on until the screen closes, so lines logged before
+  `tty.screen` show first, and lines logged in `stop` last.
+- Any tap or key closes it, unless the script has a function for it. Back, Home or leaving home for
+  more than 30 seconds always closes it.
+- A function that returns `false` closes it. Any other result, or none, leaves it open.
+
+| Field | What it is |
+| --- | --- |
+| `fps` | how many frames a second, `0` to `30` (10 by default). With `0` there are no frames, and the screen draws in `start`, `key` and `tap` only. Home gives fewer in battery saver |
+| `title` | what a screen reader says for the screen. The script's name without one |
+| `start(g)` | runs once, when the screen is there. `g` is the [grid](#the-grid) |
+| `frame(g, t, dt)` | runs for each frame. `t` is how long the screen has been there and `dt` how long since the last frame, both in milliseconds. A script that is slow gets fewer frames, and the time that went by in `dt` |
+| `key(k)` | runs for each key on a hardware keyboard: a letter or digit as it is typed (`"a"`, `"?"`), or `"up"`, `"down"`, `"left"`, `"right"`, `"enter"`, `"space"`, `"escape"`, `"tab"` or `"delete"` |
+| `tap(col, row)` | runs for each tap, with the cell it was on |
+| `resize(g)` | runs when the grid's size changed (the phone was turned, the font size changed). The grid is blank by then |
+| `stop()` | runs when the screen closes. What it draws doesn't show |
+
+`start` and `frame` are the ones that draw: a screen needs at least one of them. A screen keeps what
+it knows in the variables of its code. In JavaScript it can also keep it on the object: `this` is
+the spec.
+
+```js
+// @uses screen
+tty.screen({ start(g) { g.put(1, 1, "hello", "accent"); } });
+```
+
+#### The grid
+
+`g` is what a screen draws on. `g.cols` and `g.rows` are its size in cells. Columns and rows count
+from `0` in both languages. In Lua, `g.put(…)` and `g:put(…)` are the same.
+
+| Call | What it does |
+| --- | --- |
+| `g.put(col, row, text, style?)` | writes text from a cell. A line break goes to the next row, at the same column. Text past the right edge is cut |
+| `g.fill(col, row, width, height, char?, style?)` | fills a rectangle with one character, or with blank cells without one |
+| `g.clear(style?)` | blanks every cell |
+| `g.box(col, row, width, height, style?)` | a frame of lines. It needs a width and height of 2 or more |
+| `g.bar(col, row, width, value, style?)` | a bar from the left, `value` from 0 to 1 of the width, drawn in eighths of a cell |
+
+A wide character takes two cells, and an emoji does too. Drawing off the grid is cut off.
+
+A style is a color, or a table of:
+
+- `color` and `bg`: the text's color and the background's, each one of `accent`, `link`, `info`,
+  `muted`, `text`, `good`, `warn` and `bad`, as [`fmt.color`](#styles-fmt) takes them. The theme picks
+  the real colors.
+- `bold`, `faint`, `italic`, `underline`, `strike` and `inverse`: each `true` or `false`.
+
+```lua
+g.put(0, 0, "over", "warn")
+g.put(0, 1, "under", { color = "good", bold = true })
+```
+
+#### Examples
+
+A word that bounces around the screen:
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @command
+-- @desc A word that bounces around
+-- @uses screen
+local word = "kolahal"
+local x, y, dx, dy = 1, 1, 1, 1
+
+tty.screen{
+  fps = 20,
+  frame = function(g)
+    if x + dx < 0 or x + dx > g.cols - #word then dx = -dx end
+    if y + dy < 0 or y + dy > g.rows - 1 then dy = -dy end
+    x, y = x + dx, y + dy
+    g.clear()
+    g.put(x, y, word, { color = "accent", bold = true })
+  end,
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @command
+// @desc A word that bounces around
+// @uses screen
+const word = "kolahal";
+let x = 1, y = 1, dx = 1, dy = 1;
+
+tty.screen({
+  fps: 20,
+  frame(g) {
+    if (x + dx < 0 || x + dx > g.cols - word.length) dx = -dx;
+    if (y + dy < 0 || y + dy > g.rows - 1) dy = -dy;
+    x += dx;
+    y += dy;
+    g.clear();
+    g.put(x, y, word, { color: "accent", bold: true });
+  },
+});
+```
+</TabItem>
+</Tabs>
+
+The game of life, where a tap turns a cell over:
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @command
+-- @desc Game of life: tap to add cells
+-- @uses screen
+local cells, cols, rows = {}, 0, 0
+
+local function alive(x, y)
+  return cells[(y % rows) * cols + x % cols]
+end
+
+tty.screen{
+  title = "Game of life",
+  fps = 8,
+  start = function(g)
+    cols, rows = g.cols, g.rows
+    for i = 0, cols * rows - 1 do cells[i] = math.random(4) == 1 end
+  end,
+  frame = function(g)
+    local after = {}
+    for y = 0, rows - 1 do
+      local row = {}
+      for x = 0, cols - 1 do
+        local n = 0
+        for dy = -1, 1 do
+          for dx = -1, 1 do
+            if (dx ~= 0 or dy ~= 0) and alive(x + dx, y + dy) then n = n + 1 end
+          end
+        end
+        after[y * cols + x] = n == 3 or (n == 2 and alive(x, y))
+        row[x + 1] = alive(x, y) and "█" or " "
+      end
+      g.put(0, y, table.concat(row), "accent")
+    end
+    cells = after
+  end,
+  tap = function(col, row) cells[row * cols + col] = not cells[row * cols + col] end,
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @command
+// @desc Game of life: tap to add cells
+// @uses screen
+let cells = [], cols = 0, rows = 0;
+
+const alive = (x, y) => cells[((y + rows) % rows) * cols + (x + cols) % cols];
+
+tty.screen({
+  title: "Game of life",
+  fps: 8,
+  start(g) {
+    cols = g.cols;
+    rows = g.rows;
+    cells = Array.from({ length: cols * rows }, () => Math.random() < 0.25);
+  },
+  frame(g) {
+    const after = [];
+    for (let y = 0; y < rows; y++) {
+      let row = "";
+      for (let x = 0; x < cols; x++) {
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++)
+            if ((dx !== 0 || dy !== 0) && alive(x + dx, y + dy)) n++;
+        after[y * cols + x] = n === 3 || (n === 2 && alive(x, y));
+        row += alive(x, y) ? "█" : " ";
+      }
+      g.put(0, y, row, "accent");
+    }
+    cells = after;
+  },
+  tap(col, row) {
+    cells[row * cols + col] = !cells[row * cols + col];
+  },
+});
+```
+</TabItem>
+</Tabs>
+
+Both draw the whole screen as one text per row, which is the quickest way to change most of it.
+
+#### Screen limits
+
+- Each call of a function has 1 second. A call that takes longer is stopped, and the screen closes
+  with an error.
+- A frame that takes over 50 ms, 30 times in a row, closes the screen too, with an error that says
+  so. Draw less each time, or use a lower `fps`.
+- A screen closes after 5 minutes. Run the script again to go on.
+- `http`, `rss` and `sleep` work in a function, but they count towards its second and the screen
+  stands still meanwhile. Fetch what a screen needs before `tty.screen`. In JavaScript, a call in a
+  function that isn't awaited is dropped when the function ends.
+- In one call a script can draw as much as 8 full screens, and more is an error. The whole screen
+  each frame is one of them.
 
 ## HTTP
 

@@ -710,7 +710,21 @@ with a FG head; on a light theme it is dark rain on paper).
   composes the visible blocks into a buffer, so `matrix` can dissolve the log into rain and
   `boot` can scroll into the log. In GUI style the screen starts from blank.
 
-### 6.3 Scripts drawing on the grid (later; sketch)
+### 6.3 Scripts drawing on the grid (built in step 7)
+
+What was built differs from the sketch below:
+
+- The script runs in its own process (`:script`), as every script does, so there is no shared buffer
+  or thread to swap. Its drawing calls go to home as numbers and texts (`ScreenFrame`), and home puts
+  them on its grid (`FramePlayer`), bounded in size. Home sends the next tick only after it got the last
+  one's frame, so a slow script drops its own frames.
+- Functions: `start(g)`, `frame(g, t, dt)`, `key(k)`, `tap(col, row)`, `resize(g)`, `stop()`. Only a
+  returned `false` closes the screen. A tap or a key closes it unless the script has `tap` or `key`;
+  Back always does.
+- The budget is per call: 1 s (QuickJS's timeout, the Lua hook) ends the screen at once; 30 frames in
+  a row over 50 ms (not 8 ms: QuickJS on a mid-range phone takes longer than that for a screen of
+  cells) end it too, with an error. A screen lasts at most 5 minutes, and a call may draw 8 screens.
+- A style names the text's `color` and `bg`, not an `ink`, as `fmt.bar` and `status` do.
 
 ```js
 // @name life

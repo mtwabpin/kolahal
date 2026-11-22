@@ -341,6 +341,8 @@ them, and the [library](/scripting/library/) scripts have them too.
 Scripts run in a separate `:script` process. If an engine crashes, the home screen keeps working.
 
 - A run can take at most **60 seconds** and use at most **64 MB** of memory.
+  - A [screen of its own](/scripting/api/#ttyscreenspec) goes on after the code, up to 5 minutes. Each
+    call of its functions has 1 second.
   - In Lua, `string.rep` refuses results over 16 MB.
   - If memory grows past 128 MB between checks, the run is stopped and the script process restarts.
 - A run can log at most **500 lines** and **256K characters**. Error lines count, and so do each
@@ -365,7 +367,8 @@ Scripts run in a separate `:script` process. If an engine crashes, the home scre
 
 Some things need permission. A script can use your notifications, the clipboard, the list of your
 apps, running commands, Do Not Disturb, your own lists (todos, notes, reminders, the calendar,
-feeds), your app usage and the work profile only if it asks for them with a `@uses` line at the top:
+feeds), your app usage, a full-screen screen and the work profile only if it asks for them with a
+`@uses` line at the top:
 
 ```lua
 -- @uses notifications, clipboard
@@ -384,6 +387,7 @@ feeds), your app usage and the work profile only if it asks for them with a `@us
 | `calendar` | [`calendar.events`](/scripting/api/#calendareventsdays): reading the events of the next days from the phone's calendar. Kolahal also needs Android's calendar permission |
 | `feeds` | [`feeds.unread`](/scripting/api/#feedsunreadn): reading the unread items of the feeds you follow |
 | `usage` | [`usage.today`](/scripting/api/#usagetodayn), [`usage.days`](/scripting/api/#usagedaysn), [`usage.data`](/scripting/api/#usagedatasince), [`usage.unused`](/scripting/api/#usageunuseddays), [`usage.summary`](/scripting/api/#usagesummaryperiod-app): your screen time, data use and the apps you don't open |
+| `screen` | [`tty.screen`](/scripting/api/#ttyscreenspec): a full-screen screen of its own over home, with the taps and keys there, when you start the script |
 | `work` | [`device.work` and `device.setWork`](/scripting/api/#devicework--devicesetworkon): reading, pausing and resuming the work profile |
 
 - If a script calls one of these without its `@uses` line, it stops with an error. The error says

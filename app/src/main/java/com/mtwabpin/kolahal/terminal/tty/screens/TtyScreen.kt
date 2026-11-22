@@ -69,7 +69,7 @@ interface TtyScreen {
 /** A key, for [TtyScreen.key]: a typed character, or one of the keys that type none. */
 sealed interface TtyKey {
     data class Typed(val char: Char) : TtyKey
-    enum class Named : TtyKey { ENTER, ESCAPE, UP, DOWN, LEFT, RIGHT, TAB, DELETE, OTHER }
+    enum class Named : TtyKey { ENTER, ESCAPE, SPACE, UP, DOWN, LEFT, RIGHT, TAB, DELETE, OTHER }
 }
 
 /**
