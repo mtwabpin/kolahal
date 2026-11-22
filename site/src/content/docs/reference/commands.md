@@ -271,7 +271,9 @@ through `screen`, so typing `clock` still opens your clock app.
 
 **Screensaver.** With `screen.saver` set to `matrix`, `clock` or `pipes`, that screen opens over
 home after `screen.saver-after` minutes (5 by default) without a touch, while the log page shows and
-nothing is open or typed. The first touch or key only closes it. It never starts while the screen is
+nothing is open or typed. With `keyboard.on-home` on, the keyboard being up doesn't count as typing:
+the screensaver puts it away, and it comes back when the screensaver closes. The first touch or key
+only closes it. It never starts while the screen is
 off, in battery saver, or with **Remove animations** on. Your phone usually turns its screen off
 sooner, so you'll mostly see it on a charger. Set it in **Settings → Look & feel → Screensaver**.
 

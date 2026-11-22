@@ -62,8 +62,8 @@ class HomeScreensaverTest {
     /** The view home is drawn in, for putting the keyboard away ([keyboardDown]). */
     private var view: android.view.View? = null
 
-    /** Home as MainActivity shows it: the terminal, with the screens over it, the keyboard down. */
-    private fun show(saver: String = "matrix"): TerminalViewModel {
+    /** Home as MainActivity shows it: the terminal, with the screens over it, the keyboard down unless [keyboardUp]. */
+    private fun show(saver: String = "matrix", keyboardUp: Boolean = false): TerminalViewModel {
         config.set(Keys.SCREEN_SAVER, saver)
         config.set(Keys.SCREEN_SAVER_AFTER, "1")
         val vm = vms.terminal(app)
@@ -78,7 +78,7 @@ class HomeScreensaverTest {
                 }
             }
         }
-        keyboardDown()
+        if (!keyboardUp) keyboardDown()
         return vm
     }
 
@@ -137,6 +137,20 @@ class HomeScreensaverTest {
         assertNull(vm.ttyScreen.value)
         compose.runOnIdle { vm.onInputChange(TextFieldValue("")) }
         compose.waitUntil(5_000) { vm.ttyScreen.value == "matrix" }
+    }
+
+    /**
+     * With keyboard.on-home the keyboard stays up on an idle home, so it isn't typing: the
+     * screensaver comes anyway and puts the keyboard away.
+     */
+    @Test
+    fun keyboardOnHomeStillOpensIt() {
+        config.set(Keys.FOCUS_ON_HOME, "on")
+        val vm = show(keyboardUp = true)
+        compose.waitUntil(5_000) { vm.ttyScreen.value == "matrix" }
+        val v = view ?: return
+        val ime = androidx.core.view.WindowInsetsCompat.Type.ime()
+        compose.waitUntil(5_000) { androidx.core.view.ViewCompat.getRootWindowInsets(v)?.isVisible(ime) != true }
     }
 
     @Test

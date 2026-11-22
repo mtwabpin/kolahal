@@ -21,7 +21,8 @@ object ScreenSaver {
      * - [inFront]: home is resumed and its window has the focus (no other app, no dialog).
      * - [logPage]: the log page shows, not the widgets page.
      * - [sheetOpen]: a long-press sheet, a menu or a box is open over home.
-     * - [typing]: the keyboard is up, or the prompt has text in it.
+     * - [typing]: the prompt has text in it, or the keyboard is up (except with keyboard.on-home,
+     *   which keeps it up on an idle home).
      * - [screenOpen]: a screen (`matrix`, `top`…) already runs.
      */
     data class Home(

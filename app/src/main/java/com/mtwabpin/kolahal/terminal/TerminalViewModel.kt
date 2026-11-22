@@ -1208,18 +1208,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /**
      * Home was left alone for `screen.saver-after` minutes ([ScreenSaver]): [name] runs over the
-     * log page until any touch or key ([closeScreenSaver]). Nothing else changes: the keyboard is
-     * down already, and the page is the log's.
+     * log page until any touch or key ([closeScreenSaver]). The keyboard goes down: it is up only
+     * with keyboard.on-home, which keeps it up on an idle home.
      */
     fun showScreenSaver(name: String) {
         if (_ttyScreen.value != null) return
         _screenSaverOn.value = true
         _ttyScreen.value = name
+        _events.tryEmit(UiEvent.HideKeyboard)
     }
 
     /**
      * The screensaver closed: a touch, a key, Back, or home left. The touch or key does nothing
-     * else: it isn't typed, and the keyboard stays down. With a hardware keyboard the prompt takes
+     * else: it isn't typed, and the keyboard stays down, unless keyboard.on-home is on, which
+     * brings it back as it does whenever home shows. With a hardware keyboard the prompt takes
      * the focus back, as home always gives it then, so the next key types.
      */
     fun closeScreenSaver() {
@@ -1228,7 +1230,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _screenSaverOn.value = false
         onUserInput()
         val keyboard = context.resources.configuration.keyboard
-        if (keyboard != android.content.res.Configuration.KEYBOARD_NOKEYS) _events.tryEmit(UiEvent.FocusPrompt)
+        if (keyboard != android.content.res.Configuration.KEYBOARD_NOKEYS || config[Keys.FOCUS_ON_HOME]) {
+            _events.tryEmit(UiEvent.FocusPrompt)
+        }
     }
 
     /**
