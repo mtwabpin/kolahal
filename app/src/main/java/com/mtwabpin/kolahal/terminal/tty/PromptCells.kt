@@ -99,6 +99,9 @@ object PromptCells {
         var col = 0
         var i = 0
         var cursorDrawn = false
+        // The text area keeps its order in a right-to-left frame: it moves as a whole, as wide as it is.
+        val area = w.newUnit()
+        w.span(area, LEAD, LEAD + width)
         while (i < text.length) {
             val e = CellWidth.clusterEnd(text, i)
             val cells = shown(text, i, e)
@@ -111,9 +114,9 @@ object PromptCells {
                 if (selected || under) style = style.with(CellStyle.INVERSE)
                 if (under) cursorDrawn = true
                 when {
-                    mask -> w.put(x, 0, "•", style)
-                    text[i] == '\t' -> w.put(x, 0, " ", style)
-                    else -> w.put(x, 0, text.substring(i, e), style)
+                    mask -> w.put(x, 0, "•", style, area)
+                    text[i] == '\t' -> w.put(x, 0, " ", style, area)
+                    else -> w.put(x, 0, text.substring(i, e), style, area)
                 }
             }
             col += cells
@@ -122,7 +125,7 @@ object PromptCells {
         // At the end of the text the cursor is a block on its own cell.
         if (cursor && !cursorDrawn && from == to) {
             val x = LEAD + columnOf(text, to) - first
-            if (x in LEAD until LEAD + width) w.put(x, 0, " ", CellStyle.of(Ink.FG, flags = CellStyle.INVERSE))
+            if (x in LEAD until LEAD + width) w.put(x, 0, " ", CellStyle.of(Ink.FG, flags = CellStyle.INVERSE), area)
         }
         if (buttons) {
             var right = cols

@@ -69,12 +69,37 @@ class CellBlock(val grid: CellBuffer, val targets: List<CellTarget>, val foldedR
  * - [keepRows]: rows from this one on are counted but not kept (a folded line's hidden end).
  * - [limit] is where text on a row must stop: the right edge, or short of the time on the row
  *   that shows it ([reserve]).
+ *
+ * Columns count from the frame's start: the left edge, or the right edge in a right-to-left
+ * frame. Layout never needs to know which: [build] with `mirrored` turns the columns around.
+ * - A *unit* ([newUnit]) is text that keeps its order when the frame turns: a row of a paragraph,
+ *   whose letters the bidi algorithm has already put in the order they show ([wrap]). It moves to
+ *   the other side as a whole.
+ * - Anything else written on its own moves to the other side; a run of box drawing and blocks is
+ *   also turned around, cell by cell, each shape mirrored (`┌` becomes `┐`), so a table's first
+ *   column is on the right and a bar fills from the right.
  */
 internal class BlockWriter(val cols: Int) {
-    private class Put(val col: Int, val row: Int, val text: String, val style: CellStyle)
+    private class Put(
+        val col: Int,
+        val row: Int,
+        val text: String,
+        val style: CellStyle,
+        val unit: Int,
+        val shaped: Shaped?,
+    )
+
+    /** A word of a joining script: its text as written, and its direction. Its cells hold it as it shows. */
+    class Shaped(val text: String, val rtl: Boolean)
+
+    private class Mark(val rect: CellRect, val unit: Int)
 
     private val puts = ArrayList<Put>()
-    private val targets = LinkedHashMap<Target, ArrayList<CellRect>>()
+    private val targets = LinkedHashMap<Target, ArrayList<Mark>>()
+
+    /** For each unit, the columns it is known to take besides its writes ([span]): from, to. */
+    private val spans = HashMap<Int, IntArray>()
+    private var units = 0
 
     /** The rows written so far, or reached with [reach]. */
     var rows = 0
@@ -107,12 +132,25 @@ internal class BlockWriter(val cols: Int) {
     /** Where text on [row] ends: the column after its last written cell, 0 if none. */
     fun end(row: Int): Int = if (row < ends.size) ends[row] else 0
 
-    /** Writes [text] from [col] on [row]; returns the column after it. Cells past the right edge are cut. */
-    fun put(col: Int, row: Int, text: String, style: CellStyle): Int {
+    /** A new unit: writes with it keep their order when the frame turns. */
+    fun newUnit(): Int = units++
+
+    /** [unit] takes the columns from [from] to [to] (exclusive), written or not: a text field's whole width. */
+    fun span(unit: Int, from: Int, to: Int) {
+        val s = spans.getOrPut(unit) { intArrayOf(from, to) }
+        s[0] = minOf(s[0], from)
+        s[1] = maxOf(s[1], to)
+    }
+
+    /**
+     * Writes [text] from [col] on [row]; returns the column after it. Cells past the right edge are
+     * cut. [unit]: the unit it belongs to, or [NO_UNIT]. [shaped]: it is one word of a joining script.
+     */
+    fun put(col: Int, row: Int, text: String, style: CellStyle, unit: Int = NO_UNIT, shaped: Shaped? = null): Int {
         val after = col + CellWidth.total(text)
         reach(row)
         if (row >= keepRows || text.isEmpty()) return after
-        puts += Put(col, row, text, style)
+        puts += Put(col, row, text, style, unit, shaped)
         if (row >= ends.size) ends = ends.copyOf(maxOf(row + 1, ends.size * 2))
         if (after > ends[row]) ends[row] = minOf(after, cols)
         return after
@@ -125,13 +163,14 @@ internal class BlockWriter(val cols: Int) {
     }
 
     /** [target] covers [cols] cells from [col] on [row]. Pieces of one target on one row join into one rectangle. */
-    fun mark(target: Target, col: Int, row: Int, cols: Int, rows: Int = 1) {
+    fun mark(target: Target, col: Int, row: Int, cols: Int, rows: Int = 1, unit: Int = NO_UNIT) {
         if (cols <= 0 || row >= keepRows) return
         val rects = targets.getOrPut(target) { ArrayList() }
         val last = rects.lastOrNull()
-        if (last != null && rows == 1 && last.rows == 1 && last.row == row && last.col + last.cols == col) {
-            rects[rects.lastIndex] = CellRect(last.col, row, last.cols + cols, 1)
-        } else rects += CellRect(col, row, cols, rows)
+        val r = last?.rect
+        if (r != null && last.unit == unit && rows == 1 && r.rows == 1 && r.row == row && r.col + r.cols == col) {
+            rects[rects.lastIndex] = Mark(CellRect(r.col, row, r.cols + cols, 1), unit)
+        } else rects += Mark(CellRect(col, row, cols, rows), unit)
     }
 
     /** Drops everything from [row] on: the end of a folded line. */
@@ -140,18 +179,121 @@ internal class BlockWriter(val cols: Int) {
         val iterator = targets.entries.iterator()
         while (iterator.hasNext()) {
             val e = iterator.next()
-            e.value.removeAll { it.row >= row }
+            e.value.removeAll { it.rect.row >= row }
             if (e.value.isEmpty()) iterator.remove()
         }
         if (rows > row) rows = row
         for (r in row until ends.size) ends[r] = 0
     }
 
-    /** The block, with [flags] added to every cell's style (the faint of an old line). */
-    fun build(flags: Int = 0, foldedRows: Int = 0): CellBlock {
+    /**
+     * The block, with [flags] added to every cell's style (the faint of an old line). [mirrored]:
+     * the frame runs right to left, so every column is counted from the right edge instead.
+     */
+    fun build(flags: Int = 0, foldedRows: Int = 0, mirrored: Boolean = false): CellBlock {
         val grid = CellBuffer(cols, rows.coerceAtLeast(1))
-        for (p in puts) grid.put(p.col, p.row, p.text, if (flags == 0) p.style else p.style.with(flags))
+        val shaped = ArrayList<ShapedRun>()
+        val from = IntArray(units) { Int.MAX_VALUE }
+        val to = IntArray(units) { Int.MIN_VALUE }
+        if (mirrored) {
+            for (p in puts) if (p.unit >= 0) {
+                from[p.unit] = minOf(from[p.unit], p.col)
+                to[p.unit] = maxOf(to[p.unit], p.col + CellWidth.total(p.text))
+            }
+            for ((u, s) in spans) if (u in 0 until units) {
+                from[u] = minOf(from[u], s[0])
+                to[u] = maxOf(to[u], s[1])
+            }
+        }
+        builtMirrored = mirrored
+        unitFrom = from
+        unitTo = to
+        for (p in puts) {
+            val style = if (flags == 0) p.style else p.style.with(flags)
+            val width = CellWidth.total(p.text)
+            if (mirrored && p.unit < 0 && isShapes(p.text)) {
+                turnShapes(grid, p.col, p.row, p.text, style)
+                continue
+            }
+            val col = place(p.col, width, p.unit)
+            grid.put(col, p.row, p.text, style)
+            p.shaped?.let { shaped += ShapedRun(p.row, col, width, it.text, it.rtl) }
+        }
         grid.dirty.clear()
-        return CellBlock(grid, targets.map { (t, r) -> CellTarget(t, r.toList()) }, foldedRows)
+        if (shaped.isNotEmpty()) grid.shaped = shaped.sortedWith(compareBy({ it.row }, { it.col }))
+        val built = targets.map { (t, marks) ->
+            CellTarget(t, marks.map { m -> m.rect.copy(col = place(m.rect.col, m.rect.cols, m.unit)) })
+        }
+        return CellBlock(grid, built, foldedRows)
+    }
+
+    private var builtMirrored = false
+    private var unitFrom = IntArray(0)
+    private var unitTo = IntArray(0)
+
+    /**
+     * Where a write of [width] cells at [col] (of [unit], or none) went in the grid [build] made
+     * last: the same column, or counted from the right in a mirrored frame.
+     */
+    fun place(col: Int, width: Int, unit: Int = NO_UNIT): Int = when {
+        !builtMirrored -> col
+        unit >= 0 && unit < unitFrom.size && unitFrom[unit] != Int.MAX_VALUE -> cols - unitTo[unit] + (col - unitFrom[unit])
+        else -> cols - col - width
+    }
+
+    /**
+     * Writes all of this into [other], moved by [dc] columns and [dr] rows: the same writes, units,
+     * words and targets, so they turn with [other]'s frame as they would have with this one's.
+     */
+    fun copyInto(other: BlockWriter, dc: Int, dr: Int) {
+        val base = other.units
+        other.units += units
+        fun moved(unit: Int) = if (unit >= 0) unit + base else NO_UNIT
+        for (p in puts) other.put(p.col + dc, p.row + dr, p.text, p.style, moved(p.unit), p.shaped)
+        for ((u, s) in spans) other.span(u + base, s[0] + dc, s[1] + dc)
+        for ((t, marks) in targets) for (m in marks) {
+            other.mark(t, m.rect.col + dc, m.rect.row + dr, m.rect.cols, m.rect.rows, moved(m.unit))
+        }
+        other.reach(rows - 1 + dr)
+    }
+
+    /**
+     * Writes [text], box drawing, blocks and spaces from [col] (counted from the right), turned
+     * around for a right-to-left frame: the last cell first, each shape mirrored.
+     */
+    private fun turnShapes(grid: CellBuffer, col: Int, row: Int, text: String, style: CellStyle) {
+        var c = col
+        var i = 0
+        while (i < text.length) {
+            val e = CellWidth.clusterEnd(text, i)
+            val w = CellWidth.width(text, i, e)
+            val cp = Character.codePointAt(text, i)
+            val m = BoxShapes.mirror(cp)
+            val x = cols - c - w
+            when {
+                m == 0 -> grid.put(x, row, cp, style.with(CellStyle.MIRROR))
+                m == cp -> grid.put(x, row, text, style, i, e)
+                else -> grid.put(x, row, m, style)
+            }
+            c += w
+            i = e
+        }
+    }
+
+    companion object {
+        /** A write that belongs to no unit. */
+        const val NO_UNIT = -1
+
+        /** True when [text] is only box drawing, blocks and spaces. */
+        private fun isShapes(text: String): Boolean {
+            if (text.isEmpty()) return false
+            var shape = false
+            for (ch in text) {
+                if (ch == ' ') continue
+                if (!BoxShapes.isDrawn(ch.code)) return false
+                shape = true
+            }
+            return shape
+        }
     }
 }

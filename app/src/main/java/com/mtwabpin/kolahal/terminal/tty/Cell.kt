@@ -12,6 +12,8 @@ import com.mtwabpin.kolahal.terminal.Ink
  * - [FAINT]: dim, drawn as the ink blended toward the background (as SGR 2 does), not with alpha.
  * - [ITALIC], [UNDERLINE], [STRIKE]: as in text.
  * - [INVERSE]: text and background swap.
+ * - [MIRROR]: a box or block shape drawn mirrored, left for right: a bar that fills from the right
+ *   in a right-to-left frame.
  */
 @JvmInline
 value class CellStyle(val bits: Int) {
@@ -39,11 +41,12 @@ value class CellStyle(val bits: Int) {
         const val UNDERLINE = 1 shl 11
         const val STRIKE = 1 shl 12
         const val INVERSE = 1 shl 13
+        const val MIRROR = 1 shl 14
 
         private val INKS = Ink.entries.toTypedArray()
         private val NAMES = listOf(
             BOLD to "bold", FAINT to "faint", ITALIC to "italic",
-            UNDERLINE to "underline", STRIKE to "strike", INVERSE to "inverse",
+            UNDERLINE to "underline", STRIKE to "strike", INVERSE to "inverse", MIRROR to "mirror",
         )
 
         fun of(fg: Ink, bg: Ink = Ink.BG, flags: Int = 0) =

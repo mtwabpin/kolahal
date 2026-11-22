@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -34,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
@@ -116,20 +118,23 @@ internal fun TtyBand(
     val height = heightPx.coerceAtLeast(cells.rows * m.cellH)
     val top = (height - cells.rows * m.cellH) / 2
     var pressed by remember { mutableIntStateOf(NONE) }
+    // In a right-to-left layout the part is drawn turned around. Its spots' nodes are placed from
+    // the part as laid out, with offsets that the layout itself turns around, so they meet.
+    val shown = if (LocalLayoutDirection.current == LayoutDirection.Rtl) cells.mirrored else cells
     Box(
         modifier
             .fillMaxWidth()
             .exactHeight(height)
             .drawBehind {
                 fill?.let { drawRect(Color(grid.palette.color(it))) }
-                cells.spot(pressed)?.let { s ->
+                shown.spot(pressed)?.let { s ->
                     drawRect(
                         Color(grid.palette.color(Ink.SURFACE)),
                         Offset((originX + s.rect.col * m.cellW).toFloat(), (top + s.rect.row * m.cellH).toFloat()),
                         Size((s.rect.cols * m.cellW).toFloat(), (s.rect.rows * m.cellH).toFloat()),
                     )
                 }
-                grid.painter.drawBand(drawContext.canvas.nativeCanvas, cells.grid, originX.toFloat(), top.toFloat(), 0f, size.height)
+                grid.painter.drawBand(drawContext.canvas.nativeCanvas, shown.grid, originX.toFloat(), top.toFloat(), 0f, size.height)
             },
     ) {
         for (s in cells.spots) {

@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.commands.LogFilter
@@ -168,7 +169,7 @@ internal fun TtyJumpLatest(onClick: () -> Unit) {
                 .exactSize(cells.cols * m.cellW, height)
                 .testTag("jump-latest")
                 .clickable(onClickLabel = "scroll to the bottom", onClick = onClick)
-                .drawBehind { paintCells(frame.grid, cells.grid, 0f, top.toFloat()) },
+                .drawBehind { paintCells(frame.grid, (if (layoutDirection == LayoutDirection.Rtl) cells.mirrored else cells).grid, 0f, top.toFloat()) },
         )
     }
 }
