@@ -3,7 +3,7 @@
 # half the tests (AndroidJUnitRunner's sharding), so the whole suite takes about half as long.
 #
 #   tools/device-tests.sh                    # the whole suite
-#   tools/device-tests.sh --class com.mtwabpin.kolahal.ui.ScriptSheetTest,com.mtwabpin.kolahal.data.LogMarksTest
+#   tools/device-tests.sh --class com.mtwabpin.kolahal.ui.scripts.ScriptSheetTest,com.mtwabpin.kolahal.data.LogMarksTest
 #   tools/device-tests.sh --emulators 1      # one emulator, when memory is short
 #   tools/device-tests.sh --keep             # leave the emulators running: the next run starts sooner
 #

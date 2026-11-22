@@ -57,8 +57,8 @@ import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.Ink
-import com.mtwabpin.kolahal.ui.LocalTerminalShown
-import com.mtwabpin.kolahal.ui.rememberScreenReader
+import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
+import com.mtwabpin.kolahal.ui.home.rememberScreenReader
 import java.time.LocalTime
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers

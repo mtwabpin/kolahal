@@ -1,0 +1,657 @@
+/**
+ * Manual Review - Pending
+ */
+package com.mtwabpin.kolahal.ui.home
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.terminal.LineModel
+import com.mtwabpin.kolahal.terminal.spokenMeters
+import com.mtwabpin.kolahal.terminal.spokenStats
+import com.mtwabpin.kolahal.ui.theme.Palette
+import com.mtwabpin.kolahal.ui.theme.Term
+import kotlin.math.ceil
+import kotlin.math.roundToInt
+
+/**
+ * A [Text] that also draws the chips behind its tags (`fmt.tag`). [appendSpans] marks each tag
+ * with [TAG_CHIP]. Links in [text] are tappable as they are in any [Text].
+ */
+@Composable
+internal fun RichText(
+    text: AnnotatedString,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    inlineContent: Map<String, InlineTextContent> = emptyMap(),
+    maxLines: Int = Int.MAX_VALUE,
+    softWrap: Boolean = true,
+    overflow: TextOverflow = TextOverflow.Clip,
+) {
+    // Each tag's range and color, read once for this text.
+    val chips = remember(text) {
+        text.getStringAnnotations(TAG_CHIP, 0, text.length)
+            .mapNotNull { a -> a.item.toIntOrNull()?.let { Chip(a.start, a.end, Color(it)) } }
+    }
+    if (chips.isEmpty()) {
+        LogText(
+            text,
+            modifier,
+            style = style,
+            inlineContent = inlineContent,
+            maxLines = maxLines,
+            softWrap = softWrap,
+            overflow = overflow
+        )
+        return
+    }
+    // The text's layout, for the chips. Not state: the text lays out before it draws, and a new
+    // layout redraws the text and its chips together, so reading it in draw needs no extra frame.
+    val layout = remember { LayoutHolder() }
+    val dark = Term.bg.luminance() < 0.5f
+    val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
+    val decoded = rememberDecodedText()
+    Text(
+        text,
+        modifier.drawBehind {
+            layout.value?.let {
+                drawChips(
+                    it,
+                    chips,
+                    dark,
+                    (size * TAG_SIZE).toPx()
+                )
+            }
+        }.then(decoded?.modifier ?: Modifier),
+        style = style,
+        inlineContent = inlineContent,
+        maxLines = maxLines,
+        softWrap = softWrap,
+        overflow = overflow,
+        onTextLayout = {
+            layout.value = it
+            decoded?.layout = it
+        },
+    )
+}
+
+private fun TextUnit.isSpecified() = this != TextUnit.Unspecified
+
+/** A tag's range in its text and its color ([TAG_CHIP]). */
+private class Chip(val start: Int, val end: Int, val color: Color)
+
+/** Holds a text's last layout, outside the snapshot system: see [RichText]. */
+private class LayoutHolder(var value: TextLayoutResult? = null)
+
+/**
+ * The chip behind each tag: a rounded box a little wider than its text, shaded in the tag's
+ * color, on each row the tag covers. [em] is the tag's text size in pixels.
+ */
+private fun DrawScope.drawChips(
+    layout: TextLayoutResult,
+    chips: List<Chip>,
+    dark: Boolean,
+    em: Float
+) {
+    val padX = 3.dp.toPx()
+    val radius = CornerRadius(4.dp.toPx())
+    val length = layout.layoutInput.text.length
+    for (chip in chips) {
+        if (chip.start >= chip.end || chip.end > length) continue
+        val color = chip.color
+        val fill = color.copy(alpha = if (dark) 0.24f else 0.14f)
+        val first = layout.getLineForOffset(chip.start)
+        val last = layout.getLineForOffset(chip.end - 1)
+        for (line in first..last) {
+            val s = maxOf(chip.start, layout.getLineStart(line))
+            val e = minOf(chip.end, layout.getLineEnd(line, visibleEnd = true))
+            if (s >= e) continue
+            val a = layout.getBoundingBox(s)
+            val b = layout.getBoundingBox(e - 1)
+            val left = minOf(a.left, b.left) - padX
+            val right = maxOf(a.right, b.right) + padX
+            // Around the tag's letters, not the whole line: from a little above a capital to a little below the baseline.
+            val baseline = layout.getLineBaseline(line)
+            drawRoundRect(
+                fill,
+                Offset(left, baseline - em * 0.92f),
+                Size(right - left, em * 1.22f),
+                radius
+            )
+        }
+    }
+}
+
+/**
+ * What follows a line's words ([LineModel.blocks]), drawn under the line's text: each table as a
+ * [LogTable], bars that follow each other as [Meters], and the text between and after them as body
+ * text. [start] lines it up with the title; [bullet] is the width of "• ", for list items.
+ */
+@Composable
+internal fun RichBody(blocks: List<LineModel.Block>, style: TextStyle, start: Dp, bullet: TextUnit) {
+    Column(Modifier.padding(start = start)) {
+        for (block in blocks) when (block) {
+            is LineModel.Block.Table -> LogTable(block.rows, style, Modifier.padding(vertical = 4.dp))
+            is LineModel.Block.Meters -> Meters(block.rows, style, Modifier.padding(vertical = 2.dp))
+            is LineModel.Block.Stats -> StatsRow(
+                block.items,
+                style,
+                Modifier.padding(top = 4.dp, bottom = 2.dp)
+            )
+
+            is LineModel.Block.Chart -> ColumnChart(
+                block.columns,
+                style,
+                Modifier.padding(vertical = 4.dp)
+            )
+
+            is LineModel.Block.Text -> RichText(
+                remember(
+                    block,
+                    Term.palette
+                ) { buildAnnotatedString { appendBody(block.paras, 0.sp, bullet) } }, style = style
+            )
+        }
+    }
+}
+
+/** How tall a bar's track is, and the least room it gets beside its texts. */
+private val TRACK = 6.dp
+private val TRACK_MIN = 40.dp
+private val COLUMN_GAP = 8.dp
+
+/**
+ * Bars on lines that follow each other (`fmt.bar`, `fmt.bars`, `fmt.ranges`), lined up in
+ * columns: the labels, the texts before the tracks, the tracks, and the texts after them. Each
+ * column is as wide as its widest text, and the tracks take the rest of the width. The label is in
+ * the body's color, the numbers in the text color, each with its own styles. [meters] is never empty.
+ */
+@Composable
+internal fun Meters(
+    meters: List<StyledText.Meter>,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
+    val labels = meters.any { it.label.isNotEmpty() }
+    val starts = meters.any { it.start.isNotEmpty() }
+    val ends = meters.any { it.end.isNotEmpty() }
+    val columns = listOf(labels, starts, true, ends).count { it }
+    val spoken = remember(meters) { spokenMeters(meters) }
+    val palette = Term.palette
+    Layout(
+        content = {
+            for (m in meters) {
+                if (labels) MeterText(m.label, style, palette)
+                if (starts) MeterText(m.start, style.copy(color = Term.fg), palette)
+                Track(m)
+                if (ends) MeterText(m.end, style.copy(color = Term.fg), palette)
+            }
+        },
+        modifier = modifier
+            .testTag("log-bars")
+            .clearAndSetSemantics { contentDescription = spoken },
+    ) { measurables, constraints ->
+        val gap = COLUMN_GAP.roundToPx()
+        val line = style.lineHeight.takeIf { it.isSp }?.toPx()?.roundToInt()
+            ?: (style.fontSize.toPx() * 1.36f).roundToInt()
+        // Texts first, at their own width; then each column is as wide as its widest text.
+        val texts = HashMap<Int, androidx.compose.ui.layout.Placeable>()
+        val trackColumn = listOf(labels, starts).count { it }
+        for (i in measurables.indices) if (i % columns != trackColumn) texts[i] =
+            measurables[i].measure(Constraints())
+        val widths = IntArray(columns) { c ->
+            if (c == trackColumn) 0 else meters.indices.maxOf { r ->
+                texts[r * columns + c]?.width ?: 0
+            }
+        }
+        val maxWidth =
+            if (constraints.hasBoundedWidth) constraints.maxWidth else widths.sum() + gap * (columns - 1) + TRACK_MIN.roundToPx() * 4
+        val track =
+            (maxWidth - widths.sum() - gap * (columns - 1)).coerceAtLeast(TRACK_MIN.roundToPx())
+        val trackHeight = TRACK.roundToPx()
+        val tracks = meters.indices.map { r ->
+            measurables[r * columns + trackColumn].measure(
+                Constraints.fixed(
+                    track,
+                    trackHeight
+                )
+            )
+        }
+        val heights = IntArray(meters.size) { r ->
+            maxOf(
+                line,
+                (0 until columns).maxOf { c -> texts[r * columns + c]?.height ?: trackHeight })
+        }
+        layout(
+            minOf(maxWidth, widths.sum() + track + gap * (columns - 1)).coerceAtLeast(0),
+            heights.sum()
+        ) {
+            var y = 0
+            for (r in meters.indices) {
+                var x = 0
+                for (c in 0 until columns) {
+                    val w = if (c == trackColumn) track else widths[c]
+                    val p = if (c == trackColumn) tracks[r] else texts[r * columns + c]!!
+                    // The text before the track lines up on the right, against it; the others on the left.
+                    val px = if (starts && c == trackColumn - 1) x + w - p.width else x
+                    p.place(px, y + (heights[r] - p.height) / 2)
+                    x += w + gap
+                }
+                y += heights[r]
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeterText(spans: List<StyledText.Span>, style: TextStyle, palette: Palette) {
+    val text = remember(spans, palette, style.color) {
+        buildAnnotatedString {
+            appendSpans(
+                spans,
+                SpanStyle(color = style.color),
+                Term.fg
+            )
+        }
+    }
+    RichText(text, style, maxLines = 1, softWrap = false)
+}
+
+/** A bar's track: a light shade of its color, and the filled part from its start to its end in the color itself. */
+@Composable
+internal fun Track(m: StyledText.Meter, modifier: Modifier = Modifier) {
+    val color = colorOf(m.color ?: StyledText.ColorRole.ACCENT)
+    Canvas(modifier) {
+        val r = CornerRadius(size.height / 2)
+        drawRoundRect(color.copy(alpha = 0.2f), cornerRadius = r)
+        if (m.to <= 0f) return@Canvas
+        // A range of no width (low and high the same) still shows, as a dot.
+        val left = m.from * size.width
+        val width = maxOf((m.to - m.from) * size.width, size.height)
+        val x = minOf(left, size.width - width).coerceAtLeast(0f)
+        drawRoundRect(color, Offset(x, 0f), Size(width, size.height), r)
+    }
+}
+
+/**
+ * [text], then a bar ([LineModel.bar]) that takes the rest of the row. The text gets the width it needs,
+ * leaving the bar at least [TRACK_MIN]. Rows with text of the same width (padded, in the terminal
+ * font) have their bars line up.
+ */
+@Composable
+internal fun WithBar(
+    bar: StyledText.Meter,
+    modifier: Modifier = Modifier,
+    text: @Composable () -> Unit
+) {
+    Layout(
+        content = {
+            Box { text() }
+            Track(bar)
+        },
+        modifier = modifier,
+    ) { measurables, constraints ->
+        val gap = COLUMN_GAP.roundToPx()
+        val min = TRACK_MIN.roundToPx()
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else min * 4
+        val shown =
+            measurables[0].measure(Constraints(maxWidth = (width - gap - min).coerceAtLeast(0)))
+        val height = TRACK.roundToPx()
+        val track = measurables[1].measure(
+            Constraints.fixed(
+                (width - shown.width - gap).coerceAtLeast(min),
+                height
+            )
+        )
+        layout(width, shown.height) {
+            shown.place(0, 0)
+            // Beside the first line of the text.
+            val firstLine = minOf(shown.height, (Term.fontSize * TEXT_LINE).sp.roundToPx())
+            track.place(shown.width + gap, (firstLine - height) / 2)
+        }
+    }
+}
+
+/** Lines past [Term.foldLines] fold only when this many more would be hidden: a fold never hides a line or two. */
+internal const val FOLD_SLACK = 2
+
+/**
+ * A line's content, folded when it is taller than [Term.foldLines] lines of [style]'s text: the
+ * first lines show, then "▾ N more lines". A tap on it calls [onToggle], which opens the line
+ * ([open]): the whole line shows, with "▴ Show less" under it. Whether it is open is kept above
+ * the line ([FoldState]), so it stays open when scrolled away and back.
+ * [enabled]: false when the line can't fold: log.fold is off, the line is short or a command, or
+ * it is a search result, where the matching words must show.
+ *
+ * [content] gets whether the line is open. While it is folded, a very long line may leave out its
+ * end ([cutLines] lines, estimated), so it isn't all laid out for the few lines that show.
+ */
+@Composable
+internal fun Foldable(
+    id: Long,
+    style: TextStyle,
+    open: Boolean,
+    onToggle: () -> Unit,
+    enabled: Boolean = true,
+    cutLines: Int = 0,
+    content: @Composable (open: Boolean) -> Unit
+) {
+    val lines = Term.foldLines
+    if (!enabled) return content(true)
+    // One lambda for the line's whole life, calling the newest onToggle, so the link isn't built again.
+    val currentToggle by rememberUpdatedState(onToggle)
+    val toggle = remember { { currentToggle() } }
+    val density = LocalDensity.current
+    val line = with(density) {
+        (style.lineHeight.takeIf { it.isSp } ?: (Term.fontSize * TEXT_LINE).sp).toPx()
+    }
+    // Remembered, so a measure without a new content or a toggle recomposes nothing.
+    val shownContent: @Composable () -> Unit = remember(content, open) { { content(open) } }
+    SubcomposeLayout(Modifier.testTag("fold-$id")) { constraints ->
+        val loose = constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)
+        // It is one layout (LogLine passes a Column).
+        val body = subcompose(FoldSlot.BODY, shownContent).first().measure(loose)
+        val limit = (line * lines).roundToInt()
+        val cut = if (open) 0 else cutLines
+        val folds = cutLines > 0 || body.height > limit + line * FOLD_SLACK
+        val shown = if (folds && !open) minOf(limit, body.height) else body.height
+        val hidden = ceil((body.height - limit) / line).toInt().coerceAtLeast(0) + cut
+        val link = if (!folds) null else subcompose(FoldSlot.LINK) {
+            FoldLink(
+                open,
+                hidden,
+                toggle
+            )
+        }.first().measure(constraints.copy(minHeight = 0))
+        layout(maxOf(body.width, link?.width ?: 0), shown + (link?.height ?: 0)) {
+            if (shown < body.height) body.placeWithLayer(0, 0) {
+                clip = true; shape = TopPart(shown.toFloat())
+            } else body.place(0, 0)
+            link?.place(0, shown)
+        }
+    }
+}
+
+private enum class FoldSlot { BODY, LINK }
+
+/** Clips to the top [height] pixels: the part of a folded line that shows. Equal ones are equal, so placing it again changes no outline. */
+private data class TopPart(private val height: Float) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
+        Outline.Rectangle(Rect(0f, 0f, size.width, minOf(height, size.height)))
+}
+
+@Composable
+private fun FoldLink(open: Boolean, hidden: Int, onClick: () -> Unit) {
+    LogText(
+        if (open) "▴ Show less" else "▾ $hidden more ${if (hidden == 1) "line" else "lines"}",
+        style = Term.small.copy(color = Term.link),
+        modifier = Modifier
+            .clickable(
+                role = Role.Button,
+                onClickLabel = if (open) "fold the line" else "show the whole line",
+                onClick = onClick
+            )
+            .heightIn(min = 32.dp)
+            .wrapContentHeight()
+            .padding(end = 12.dp)
+            .testTag("fold-link"),
+    )
+}
+
+/**
+ * A line of big numbers (`fmt.stats`): the first value large, the others smaller, each in the
+ * terminal font with its label under it in the phone's font, all sitting on one line along their
+ * bottoms. They wrap onto a second line when the screen is too narrow. A screen reader hears each
+ * value with its label.
+ */
+@Composable
+internal fun StatsRow(
+    stats: List<StyledText.Stat>,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
+    if (stats.isEmpty()) return
+    val palette = Term.palette
+    val spoken = remember(stats) { spokenStats(stats) }
+    val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = modifier
+            .testTag("log-stats")
+            .clearAndSetSemantics { contentDescription = spoken },
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(18.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+        itemVerticalAlignment = androidx.compose.ui.Alignment.Bottom,
+    ) {
+        stats.forEachIndexed { i, s ->
+            Column {
+                val valueStyle = style.copy(
+                    color = Term.fg,
+                    fontSize = size * if (i == 0) STAT_BIG else STAT_SMALL,
+                    lineHeight = size * (if (i == 0) STAT_BIG else STAT_SMALL) * 1.1f,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                )
+                RichText(remember(s.value, palette) {
+                    buildAnnotatedString {
+                        appendSpans(
+                            s.value,
+                            SpanStyle(color = Term.fg),
+                            Term.fg
+                        )
+                    }
+                }, valueStyle, maxLines = 1, softWrap = false)
+                if (s.label.isNotEmpty()) {
+                    val labelStyle = TextStyle(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Default,
+                        fontSize = (size.value - 2).sp,
+                        color = Term.dim
+                    )
+                    RichText(
+                        remember(
+                            s.label,
+                            palette
+                        ) {
+                            buildAnnotatedString {
+                                appendSpans(
+                                    s.label,
+                                    SpanStyle(color = Term.dim),
+                                    Term.fg
+                                )
+                            }
+                        }, labelStyle, maxLines = 1, softWrap = false
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** How big the first value of a line of big numbers is, and the others, against the text. */
+private const val STAT_BIG = 1.9f
+private const val STAT_SMALL = 1.3f
+
+/**
+ * Buttons under a script's line (`ctx.actions`), as tonal pills: the accent color on a light shade
+ * of it, in the phone's font. A tap runs the line's script with the button's arguments
+ * ([onAction]). Once one was tapped ([com.mtwabpin.kolahal.data.LogContext.ACTION_DONE]), only it
+ * shows ([LineModel.buttons]), muted, with a ✓, so it can't run twice.
+ */
+@Composable
+internal fun ActionPills(
+    entry: com.mtwabpin.kolahal.data.LogEntry,
+    buttons: List<LineModel.Button>,
+    onAction: (com.mtwabpin.kolahal.data.LogEntry, Int) -> Unit
+) {
+    val dark = Term.bg.luminance() < 0.5f
+    val accent = Term.prompt
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    val textStyle = TextStyle(
+        fontFamily = androidx.compose.ui.text.font.FontFamily.Default,
+        fontSize = (Term.fontSize - 1).sp,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+    )
+    androidx.compose.foundation.layout.FlowRow(
+        Modifier
+            .padding(top = 6.dp, bottom = 2.dp)
+            .testTag("line-actions"),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+    ) {
+        buttons.forEach { pill ->
+            val tapped = pill.done
+            val label = pill.label
+            Box(
+                Modifier
+                    .heightIn(min = 34.dp)
+                    .clip(shape)
+                    .background(accent.copy(alpha = if (tapped) 0.08f else if (dark) 0.22f else 0.14f))
+                    .then(
+                        if (tapped) Modifier else Modifier.clickable(
+                            role = Role.Button,
+                            onClickLabel = label
+                        ) { onAction(entry, pill.index) })
+                    .padding(horizontal = 14.dp)
+                    .testTag("line-action-${pill.index}"),
+                contentAlignment = androidx.compose.ui.Alignment.Center,
+            ) {
+                LogText(
+                    if (tapped) "✓ $label" else label,
+                    style = textStyle.copy(color = if (tapped) Term.dim else accent),
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+
+/**
+ * A small column chart (`StyledText.columns`): a column for each value, the oldest first, all on
+ * one scale, with the labels spread along its foot. The last column, the newest, is in the accent
+ * color; the others are lighter. It is drawn in one pass, with no text inside. A screen reader
+ * hears its words ([StyledText.Columns.said]).
+ */
+@Composable
+internal fun ColumnChart(
+    columns: StyledText.Columns,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
+    if (columns.heights.isEmpty()) return
+    val accent = Term.prompt
+    val faint = Term.prompt.copy(alpha = 0.4f)
+    val base = Term.dim.copy(alpha = 0.5f)
+    val said = remember(columns) { columns.said.joinToString("") { it.text } }
+    // A few columns are not stretched over the whole width: each is at most COLUMN_MAX wide, and the
+    // chart keeps room for its labels.
+    val widest = maxOf(COLUMN_MAX * columns.heights.size, COLUMNS_LEAST)
+    Column(
+        modifier
+            .widthIn(max = widest)
+            .fillMaxWidth()
+            .testTag("log-columns")
+            .clearAndSetSemantics { contentDescription = said }) {
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(COLUMNS_HEIGHT)
+        ) {
+            val n = columns.heights.size
+            val slot = size.width / n
+            val gap = minOf(2.dp.toPx(), slot / 3)
+            val w = (slot - gap).coerceAtLeast(1f)
+            val round = CornerRadius(minOf(2.dp.toPx(), w / 2))
+            // A value of 0 still shows as a sliver above the baseline, so a quiet hour is not a gap.
+            val least = 1.dp.toPx()
+            // The newest column drawn stands out; slots still to come are empty.
+            val newest = if (columns.newest) columns.heights.indexOfLast { it != null } else -1
+            columns.heights.forEachIndexed { i, h ->
+                if (h == null) return@forEachIndexed
+                val tall = (size.height - least) * h + least
+                drawRoundRect(
+                    if (i == newest) accent else faint,
+                    Offset(i * slot + gap / 2, size.height - tall),
+                    Size(w, tall),
+                    round
+                )
+            }
+            drawLine(
+                base,
+                Offset(0f, size.height),
+                Offset(size.width, size.height),
+                strokeWidth = 1.dp.toPx()
+            )
+        }
+        if (columns.labels.isNotEmpty()) {
+            val small = style.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+            ) {
+                columns.labels.forEach { label ->
+                    LogText(
+                        label.joinToString("") { it.text },
+                        style = small,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** How tall a column chart is. */
+private val COLUMNS_HEIGHT = 40.dp
+
+/** The widest a column's slot gets, and the least a chart is wide (for its labels): two days are not two half-screen columns. */
+private val COLUMN_MAX = 18.dp
+private val COLUMNS_LEAST = 160.dp

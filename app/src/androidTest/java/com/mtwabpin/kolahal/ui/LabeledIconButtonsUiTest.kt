@@ -11,6 +11,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.ui.editor.EditorIconButton
+import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.widgets.WidgetsTitleRow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

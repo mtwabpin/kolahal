@@ -46,36 +46,36 @@ import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.ui.CreateTextFile
-import com.mtwabpin.kolahal.ui.FeedsScreen
-import com.mtwabpin.kolahal.ui.GetScriptsScreen
-import com.mtwabpin.kolahal.ui.GetShadersScreen
-import com.mtwabpin.kolahal.ui.HeaderPartsScreen
-import com.mtwabpin.kolahal.ui.HomeClock
-import com.mtwabpin.kolahal.ui.HomeScreenOverlay
-import com.mtwabpin.kolahal.ui.KolahalTheme
-import com.mtwabpin.kolahal.ui.LocalTerminalShown
-import com.mtwabpin.kolahal.ui.LocalWidgetsShown
-import com.mtwabpin.kolahal.ui.MaterialYouPalettes
-import com.mtwabpin.kolahal.ui.NotificationAccessDialog
-import com.mtwabpin.kolahal.ui.OnboardingScreen
-import com.mtwabpin.kolahal.ui.ResumeProfileDialog
-import com.mtwabpin.kolahal.ui.ScriptEditor
-import com.mtwabpin.kolahal.ui.ScriptLibraryScreen
-import com.mtwabpin.kolahal.ui.ScriptSourcesScreen
-import com.mtwabpin.kolahal.ui.ScriptsScreen
-import com.mtwabpin.kolahal.ui.SettingsOverHome
-import com.mtwabpin.kolahal.ui.SetupScreen
-import com.mtwabpin.kolahal.ui.ShadersOverHome
-import com.mtwabpin.kolahal.ui.Term
-import com.mtwabpin.kolahal.ui.TerminalScreen
 import com.mtwabpin.kolahal.ui.TextEditorActivity
-import com.mtwabpin.kolahal.ui.ThemeBuilderScreen
-import com.mtwabpin.kolahal.ui.WidgetPanel
-import com.mtwabpin.kolahal.ui.WidgetPickerScreen
-import com.mtwabpin.kolahal.ui.WidgetsScreen
-import com.mtwabpin.kolahal.ui.applyTermSettings
-import com.mtwabpin.kolahal.ui.darkTheme
+import com.mtwabpin.kolahal.ui.editor.ScriptEditor
+import com.mtwabpin.kolahal.ui.feeds.FeedsScreen
+import com.mtwabpin.kolahal.ui.home.HomeClock
+import com.mtwabpin.kolahal.ui.home.HomeScreenOverlay
+import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
+import com.mtwabpin.kolahal.ui.home.NotificationAccessDialog
+import com.mtwabpin.kolahal.ui.home.ResumeProfileDialog
+import com.mtwabpin.kolahal.ui.home.TerminalScreen
+import com.mtwabpin.kolahal.ui.onboarding.OnboardingScreen
+import com.mtwabpin.kolahal.ui.scripts.GetScriptsScreen
+import com.mtwabpin.kolahal.ui.scripts.ScriptLibraryScreen
+import com.mtwabpin.kolahal.ui.scripts.ScriptSourcesScreen
+import com.mtwabpin.kolahal.ui.scripts.ScriptsScreen
+import com.mtwabpin.kolahal.ui.settings.HeaderPartsScreen
+import com.mtwabpin.kolahal.ui.settings.SettingsOverHome
+import com.mtwabpin.kolahal.ui.settings.SetupScreen
+import com.mtwabpin.kolahal.ui.settings.ShadersOverHome
+import com.mtwabpin.kolahal.ui.settings.ThemeBuilderScreen
+import com.mtwabpin.kolahal.ui.shaders.GetShadersScreen
+import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.theme.MaterialYouPalettes
+import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.applyTermSettings
+import com.mtwabpin.kolahal.ui.theme.darkTheme
 import com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter
+import com.mtwabpin.kolahal.ui.widgets.LocalWidgetsShown
+import com.mtwabpin.kolahal.ui.widgets.WidgetPanel
+import com.mtwabpin.kolahal.ui.widgets.WidgetPickerScreen
+import com.mtwabpin.kolahal.ui.widgets.WidgetsScreen
 import com.mtwabpin.kolahal.widgets.WidgetBinder
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import kotlinx.coroutines.launch
@@ -600,7 +600,7 @@ class MainActivity : ComponentActivity() {
  * - Swipe sideways on home to reach it. Back or Home returns to the terminal.
  * - A swipe that starts on a log line still belongs to the line (copy / delete). So the page swipe
  *   works from the header, empty space or the prompt. With the page on the right, the line's swipes
- *   are swapped: a swipe toward the page copies, never deletes ([com.mtwabpin.kolahal.ui.LogLine]'s
+ *   are swapped: a swipe toward the page copies, never deletes ([com.mtwabpin.kolahal.ui.home.LogLine]'s
  *   deleteRight).
  * - With `widgets.start`, the widgets page is home's first page instead. Home opens on it, and Back
  *   and Home return to it. A key typed there brings up the log and shows the key in it.

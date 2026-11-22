@@ -154,7 +154,7 @@ class BackupAndLibraryTest {
     @Test
     fun themesTravelInBackups() {
         val colors =
-            com.mtwabpin.kolahal.ui.Palettes.colorsOf(com.mtwabpin.kolahal.ui.Palettes.gruvbox)
+            com.mtwabpin.kolahal.ui.theme.Palettes.colorsOf(com.mtwabpin.kolahal.ui.theme.Palettes.gruvbox)
         CustomThemes.save(context, "bk-theme", colors)
         config.set(Keys.THEME, "bk-theme")
         val file = File(context.cacheDir, "kolahal-backup-themes.json")

@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.terminal.ActionIcon
 import com.mtwabpin.kolahal.terminal.LogAction
+import com.mtwabpin.kolahal.ui.home.BatteryGlyph
+import com.mtwabpin.kolahal.ui.theme.Term
 
 /**
  * A long-press menu.

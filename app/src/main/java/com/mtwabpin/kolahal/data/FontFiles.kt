@@ -17,7 +17,7 @@ import java.io.File
  * - one font file imported by the user, stored at `filesDir/fonts/custom.ttf|otf`.
  *
  * Commands, Settings and backups need only the names and the file, so they live here. The screen
- * turns a name into a font to draw with ([com.mtwabpin.kolahal.ui.TermFonts]).
+ * turns a name into a font to draw with ([com.mtwabpin.kolahal.ui.theme.TermFonts]).
  */
 object FontFiles {
     const val SYSTEM = "system"

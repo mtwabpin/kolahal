@@ -27,7 +27,14 @@ import androidx.lifecycle.lifecycleScope
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.documents.Documents
-import com.mtwabpin.kolahal.ui.TextEditorViewModel.Event
+import com.mtwabpin.kolahal.ui.editor.TextEditorScreen
+import com.mtwabpin.kolahal.ui.editor.TextEditorViewModel
+import com.mtwabpin.kolahal.ui.editor.TextEditorViewModel.Event
+import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.theme.MaterialYouPalettes
+import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.applyTermSettings
+import com.mtwabpin.kolahal.ui.theme.darkTheme
 import kotlinx.coroutines.launch
 
 /**

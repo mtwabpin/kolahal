@@ -70,24 +70,24 @@ import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UndoOffer
-import com.mtwabpin.kolahal.ui.HomeCalls
-import com.mtwabpin.kolahal.ui.HomeState
-import com.mtwabpin.kolahal.ui.LogArea
-import com.mtwabpin.kolahal.ui.Term
-import com.mtwabpin.kolahal.ui.page
-import com.mtwabpin.kolahal.ui.pinchToZoomFont
-import com.mtwabpin.kolahal.ui.rememberFontSizeToast
+import com.mtwabpin.kolahal.ui.home.HomeCalls
+import com.mtwabpin.kolahal.ui.home.HomeState
+import com.mtwabpin.kolahal.ui.home.LogArea
+import com.mtwabpin.kolahal.ui.home.pinchToZoomFont
+import com.mtwabpin.kolahal.ui.home.rememberFontSizeToast
+import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.page
 import kotlinx.coroutines.launch
 
 /**
  * Home on the character grid (`home.style tty`): the header, the pinned line, the log, the bands,
  * the suggestions, the prompt and the key bar, each a part of one grid whose columns line up from
- * top to bottom ([LocalTtyFrame]). It is laid out as the GUI's home ([com.mtwabpin.kolahal.ui.GuiHome])
+ * top to bottom ([LocalTtyFrame]). It is laid out as the GUI's home ([com.mtwabpin.kolahal.ui.home.GuiHome])
  * and takes the same state, the same calls and the same settings, so a switch between the two keeps
  * where the log is, what is typed and what is open. The widgets page beside it stays the GUI's.
  * - The log comes from [logArea] (the TTY log, or a search's results), the prompt, the suggestions,
  *   the app selector and the key bar from [prompt], [suggestions], [selector] and [keyBar], made by
- *   [com.mtwabpin.kolahal.ui.TerminalScreen]. The prompt is always on the grid; each of the others
+ *   [com.mtwabpin.kolahal.ui.home.TerminalScreen]. The prompt is always on the grid; each of the others
  *   is on the grid or the GUI's own (`tty.suggestions`, `tty.selector`, `tty.keybar`), and goes in
  *   the same place either way, so the grid's columns around it stay where they are.
  * - [preview]: Settings draws home under it while a look setting changes; with [previewTyping]

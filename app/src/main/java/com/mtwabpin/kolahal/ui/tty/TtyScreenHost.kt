@@ -73,8 +73,8 @@ import com.mtwabpin.kolahal.terminal.tty.screens.ShownLog
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyKey
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreen
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens
-import com.mtwabpin.kolahal.ui.LocalTerminalShown
-import com.mtwabpin.kolahal.ui.Term
+import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
+import com.mtwabpin.kolahal.ui.theme.Term
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlin.random.Random

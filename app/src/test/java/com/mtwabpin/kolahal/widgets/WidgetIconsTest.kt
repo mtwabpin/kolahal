@@ -1,6 +1,6 @@
 package com.mtwabpin.kolahal.widgets
 
-import com.mtwabpin.kolahal.ui.widgetIconDrawable
+import com.mtwabpin.kolahal.ui.widgets.widgetIconDrawable
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull

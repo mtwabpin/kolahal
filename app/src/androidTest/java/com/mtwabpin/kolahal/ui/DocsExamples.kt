@@ -9,6 +9,7 @@ import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptEngine
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.ui.DocsExamples.KEEPS_SHOWN
+import com.mtwabpin.kolahal.ui.reference.ReferenceExamples
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetParser
 import com.mtwabpin.kolahal.widgets.WidgetSize

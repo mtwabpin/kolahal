@@ -8,7 +8,7 @@ import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.ui.breaksAtSpaces
+import com.mtwabpin.kolahal.ui.home.breaksAtSpaces
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

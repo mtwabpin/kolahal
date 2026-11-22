@@ -42,7 +42,7 @@ class LayersTest {
         sourceFile("src/main/java/com/mtwabpin/kolahal/$pkg").walkTopDown()
             .filter { it.extension == "kt" }.flatMap { f ->
                 f.readLines().withIndex()
-                    // KDoc links ([com.mtwabpin.kolahal.ui.TermFonts]) only point the reader there.
+                    // KDoc links ([com.mtwabpin.kolahal.ui.theme.TermFonts]) only point the reader there.
                     .filter { (_, line) ->
                         above.containsMatchIn(line.substringBefore("//")) && !line.trimStart()
                             .startsWith("*")

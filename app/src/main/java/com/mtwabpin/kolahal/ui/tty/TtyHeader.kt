@@ -57,9 +57,9 @@ import com.mtwabpin.kolahal.terminal.headerParts
 import com.mtwabpin.kolahal.terminal.tty.HeaderCells
 import com.mtwabpin.kolahal.terminal.tty.PinnedCells
 import com.mtwabpin.kolahal.terminal.tty.filledCells
-import com.mtwabpin.kolahal.ui.PinnedItem
-import com.mtwabpin.kolahal.ui.rememberNow
-import com.mtwabpin.kolahal.ui.rememberScreenReader
+import com.mtwabpin.kolahal.ui.home.PinnedItem
+import com.mtwabpin.kolahal.ui.home.rememberNow
+import com.mtwabpin.kolahal.ui.home.rememberScreenReader
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds

@@ -14,7 +14,7 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.ui.ResumeProfileDialog
+import com.mtwabpin.kolahal.ui.home.ResumeProfileDialog
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

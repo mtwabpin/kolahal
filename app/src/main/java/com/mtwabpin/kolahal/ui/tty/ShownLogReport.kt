@@ -40,8 +40,8 @@ import com.mtwabpin.kolahal.terminal.tty.screens.ShownItem
 import com.mtwabpin.kolahal.terminal.tty.screens.ShownLog
 import com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource
 import com.mtwabpin.kolahal.terminal.tty.screens.ShownRows
-import com.mtwabpin.kolahal.ui.FoldState
-import com.mtwabpin.kolahal.ui.Term
+import com.mtwabpin.kolahal.ui.home.FoldState
+import com.mtwabpin.kolahal.ui.theme.Term
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Locale

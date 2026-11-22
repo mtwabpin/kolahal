@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
-import com.mtwabpin.kolahal.ui.Palette
+import com.mtwabpin.kolahal.ui.theme.Palette
 import kotlin.math.pow
 
 /**

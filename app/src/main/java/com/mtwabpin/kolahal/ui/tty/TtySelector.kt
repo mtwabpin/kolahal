@@ -23,8 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
 import com.mtwabpin.kolahal.terminal.tty.SelectorCells
-import com.mtwabpin.kolahal.ui.SelectorEdge
-import com.mtwabpin.kolahal.ui.SelectorMath
+import com.mtwabpin.kolahal.ui.home.SelectorEdge
+import com.mtwabpin.kolahal.ui.home.SelectorMath
 import kotlin.math.roundToInt
 
 /** How far the rail's letters and handle stand from the screen's edge, as the GUI's do. */

@@ -194,7 +194,7 @@ class CommandProcessorTest {
         themes.save(
             context,
             "cptest-theme",
-            com.mtwabpin.kolahal.ui.Palettes.colorsOf(com.mtwabpin.kolahal.ui.Palettes.mono)
+            com.mtwabpin.kolahal.ui.theme.Palettes.colorsOf(com.mtwabpin.kolahal.ui.theme.Palettes.mono)
         )
         try {
             run("theme cptest-theme")

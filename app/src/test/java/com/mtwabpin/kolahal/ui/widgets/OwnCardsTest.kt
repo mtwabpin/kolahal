@@ -1,0 +1,1003 @@
+package com.mtwabpin.kolahal.ui.widgets
+
+import android.media.session.PlaybackState
+import com.mtwabpin.kolahal.control.LastPlayer
+import com.mtwabpin.kolahal.control.MediaRepository
+import com.mtwabpin.kolahal.control.NowPlaying
+import com.mtwabpin.kolahal.productivity.AgendaEvent
+import com.mtwabpin.kolahal.productivity.Note
+import com.mtwabpin.kolahal.productivity.Reminder
+import com.mtwabpin.kolahal.productivity.Todo
+import com.mtwabpin.kolahal.sourceFile
+import com.mtwabpin.kolahal.terminal.OwnData
+import com.mtwabpin.kolahal.terminal.OwnTap
+import com.mtwabpin.kolahal.terminal.OwnTaps
+import com.mtwabpin.kolahal.widgets.Shortcut
+import com.mtwabpin.kolahal.widgets.Shortcuts
+import com.mtwabpin.kolahal.widgets.WidgetParser
+import com.mtwabpin.kolahal.widgets.WidgetSource
+import com.mtwabpin.kolahal.widgets.WidgetSpec
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.util.Locale
+
+/** What the built-in cards draw for Kolahal's own data ([OwnCards]). */
+class OwnCardsTest {
+    private val zone = ZoneId.of("Asia/Kolkata")
+
+    /** A moment in [zone], in milliseconds. */
+    private fun at(day: Int, hour: Int, minute: Int = 0, second: Int = 0): Long =
+        LocalDateTime.of(2026, 11, day, hour, minute, second).atZone(zone).toInstant()
+            .toEpochMilli()
+
+    // The store's order: open ones oldest first, then done ones.
+    private val todos = listOf(
+        Todo(1, "Buy milk", false),
+        Todo(4, "Call the bank", false),
+        Todo(6, "Water the plants", false),
+        Todo(3, "Pay rent", true),
+        Todo(2, "Post letter", true)
+    )
+
+    @Test
+    fun theCardsOwnWidgetDraws() {
+        assertTrue(
+            listOf(
+                WidgetSource.TODOS,
+                WidgetSource.REMINDERS,
+                WidgetSource.NOTES,
+                WidgetSource.SHORTCUTS,
+                WidgetSource.MEDIA,
+                WidgetSource.AGENDA
+            ).all(OwnCards::draws)
+        )
+        // Battery and network has its own card, and an id from a newer version has none.
+        assertFalse(OwnCards.draws(WidgetSource.BATTERY))
+        assertFalse(OwnCards.draws("comic"))
+        assertFalse(OwnCards.draws(null))
+    }
+
+    private val shortcuts = listOf(
+        Shortcut("Torch", "torch on", "🔦"),
+        Shortcut("Add milk", "todo buy milk"),
+        Shortcut("Maps", "open maps", "M")
+    )
+
+    @Test
+    fun shortcutsHasAButtonForEach() {
+        val spec = OwnCards.shortcuts(shortcuts)!!
+        assertEquals("Shortcuts", spec.base.title)
+        assertEquals(listOf("Torch", "Add milk", "Maps"), spec.items.map { it.label })
+        assertEquals(listOf("🔦", null, "M"), spec.items.map { it.icon })
+        // A button names its place in the list, and the view model knows these words.
+        assertEquals(listOf("run 0", "run 1", "run 2"), spec.items.map { it.tap.args })
+        assertEquals(
+            listOf(OwnTap.RunShortcut(0), OwnTap.RunShortcut(1), OwnTap.RunShortcut(2)),
+            spec.items.map { OwnTaps.parse(WidgetSource.SHORTCUTS, it.tap.args!!) },
+        )
+        assertTrue(spec.items.all { it.tap.url == null })
+        // Never more buttons than the widget has.
+        assertEquals(
+            Shortcuts.MAX,
+            OwnCards.shortcuts((1..12).map { Shortcut("S$it", "echo $it") })!!.items.size
+        )
+    }
+
+    /** A command is never in a card's description: only its place in your list. So nothing that reads a description can run or change one. */
+    @Test
+    fun aShortcutsCardNeverHoldsACommand() {
+        val text = OwnCards.shortcuts(shortcuts).toString()
+        shortcuts.forEach { assertFalse(it.command, text.contains(it.command)) }
+        // Even when the label is the command's first word, the whole command is not there.
+        assertFalse(
+            OwnCards.shortcuts(listOf(Shortcut("todo", "todo buy milk and eggs"))).toString()
+                .contains("buy milk")
+        )
+    }
+
+    /** With no shortcuts there are no buttons: the card says how to add some. */
+    @Test
+    fun anEmptyShortcutsListIsAQuietCard() {
+        assertNull(OwnCards.shortcuts(emptyList()))
+        val quiet = OwnCards.quiet(WidgetSource.SHORTCUTS, OwnCards.NO_SHORTCUTS)
+        assertEquals("Shortcuts", quiet.base.title)
+        assertEquals("No shortcuts yet. Tap to add commands.", quiet.empty)
+        // A tap on that card asks for the editor.
+        assertEquals(OwnTap.EditShortcuts, OwnTaps.parse(WidgetSource.SHORTCUTS, OwnTaps.EDIT))
+    }
+
+    /** While a command is typed in the editor, the commands that start so are offered. */
+    @Test
+    fun theEditorOffersCommandsThatStartAsTyped() {
+        val commands = listOf("agenda", "alarm", "alias", "apps", "todo", "torch", "weather")
+        assertEquals(listOf("todo", "torch"), ShortcutPicks.matching("to", commands))
+        assertEquals(listOf("torch"), ShortcutPicks.matching(" TOR", commands))
+        assertEquals(
+            listOf("agenda", "alarm", "alias", "apps"),
+            ShortcutPicks.matching("a", commands)
+        )
+        // Nothing to offer: no text, a whole command, a second word, or no match.
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("", commands))
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("torch", commands))
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("todo buy", commands))
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("zz", commands))
+        assertEquals(ShortcutPicks.MAX, ShortcutPicks.matching("c", (1..20).map { "c$it" }).size)
+    }
+
+    private fun session(
+        state: Int,
+        title: String? = "So What",
+        artist: String? = "Miles Davis",
+        position: Long = 61_000,
+        duration: Long = 562_000,
+        speed: Float = 1f
+    ) =
+        NowPlaying(
+            pkg = "com.example.player",
+            app = "Player",
+            title = title,
+            artist = artist,
+            state = state,
+            position = position,
+            positionAt = 1_800_000_000_000L,
+            speed = speed,
+            duration = duration,
+            idleSince = 1_799_999_000_000L
+        )
+
+    @Test
+    fun nowPlayingShowsTheSession() {
+        val spec = OwnCards.media(session(PlaybackState.STATE_PLAYING))
+        assertEquals("Now playing", spec.base.title)
+        assertEquals("So What", spec.title)
+        assertEquals("Miles Davis", spec.artist)
+        assertEquals("Player", spec.app)
+        assertTrue(spec.playing)
+        assertEquals(61_000L, spec.position)
+        assertEquals(1_800_000_000_000L, spec.positionAt)
+        assertEquals(1f, spec.speed)
+        assertEquals(562_000L, spec.duration)
+        // Paused: the same track, standing still.
+        val paused = OwnCards.media(session(PlaybackState.STATE_PAUSED))
+        assertFalse(paused.playing)
+        assertEquals(0f, paused.speed)
+        assertEquals(61_000L, paused.position)
+    }
+
+    /** The media body's three buttons send words ([WidgetWords]) that the view model knows ([OwnTaps]): the same words. */
+    @Test
+    fun theMediaBodysButtonsAreNowPlayingsWords() {
+        assertEquals(OwnTaps.PREV, WidgetWords.MEDIA_PREV)
+        assertEquals(OwnTaps.TOGGLE, WidgetWords.MEDIA_TOGGLE)
+        assertEquals(OwnTaps.NEXT, WidgetWords.MEDIA_NEXT)
+        assertEquals(
+            OwnTap.Media(MediaRepository.Action.PREV),
+            OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_PREV)
+        )
+        assertEquals(
+            OwnTap.Media(MediaRepository.Action.TOGGLE),
+            OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_TOGGLE)
+        )
+        assertEquals(
+            OwnTap.Media(MediaRepository.Action.NEXT),
+            OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_NEXT)
+        )
+    }
+
+    /**
+     * The card's position is on the phone's clock, as the session's is. So the media body's bar is
+     * where the header's line says the track is: moving while it plays, standing while it is paused
+     * or buffers.
+     */
+    @Test
+    fun theMediaBodysPositionIsTheSessions() {
+        listOf(
+            PlaybackState.STATE_PLAYING,
+            PlaybackState.STATE_PAUSED,
+            PlaybackState.STATE_BUFFERING
+        ).forEach { state ->
+            val p = session(state, speed = 1.5f)
+            listOf(0L, 10_000L, 120_000L, 3_600_000L).forEach { after ->
+                val now = p.positionAt + after
+                assertEquals(
+                    "state $state, $after ms later",
+                    p.positionNow(now),
+                    WidgetWords.mediaPosition(OwnCards.media(p), now)
+                )
+            }
+        }
+        // Playing at one and a half speed: 10 seconds later the track is 15 seconds on. It never passes its end.
+        val playing = OwnCards.media(session(PlaybackState.STATE_PLAYING, speed = 1.5f))
+        assertEquals(76_000L, WidgetWords.mediaPosition(playing, playing.positionAt + 10_000))
+        assertEquals(562_000L, WidgetWords.mediaPosition(playing, playing.positionAt + 3_600_000))
+        // A player that gives no position and no length: the body draws no bar.
+        val bare =
+            OwnCards.media(session(PlaybackState.STATE_PLAYING, position = -1, duration = -1))
+        assertNull(WidgetWords.mediaFraction(bare, bare.positionAt + 10_000))
+    }
+
+    /** While a track buffers, the button says "pause", and the position does not move by itself. */
+    @Test
+    fun aBufferingTrackStandsStill() {
+        val spec = OwnCards.media(session(PlaybackState.STATE_BUFFERING, speed = 1.5f))
+        assertTrue(spec.playing)
+        assertEquals(0f, spec.speed)
+        assertEquals(1.5f, OwnCards.media(session(PlaybackState.STATE_PLAYING, speed = 1.5f)).speed)
+    }
+
+    /** A player may give no title, no position and no length. */
+    @Test
+    fun whatAPlayerDoesNotSayIsLeftOut() {
+        val spec = OwnCards.media(
+            session(
+                PlaybackState.STATE_PLAYING,
+                title = " ",
+                artist = null,
+                position = -1,
+                duration = -1
+            )
+        )
+        assertNull(spec.title)
+        assertNull(spec.artist)
+        assertEquals("Player", spec.app)
+        assertEquals(0L, spec.position)
+        assertEquals(0L, spec.duration)
+    }
+
+    /** The card can move the track when the player can, and it has the session's cover. */
+    @Test
+    fun nowPlayingCarriesSeekAndCover() {
+        assertFalse(OwnCards.media(session(PlaybackState.STATE_PLAYING)).canSeek)
+        assertTrue(OwnCards.media(session(PlaybackState.STATE_PLAYING).copy(canSeek = true)).canSeek)
+        assertNull(OwnCards.media(session(PlaybackState.STATE_PLAYING)).cover)
+        assertFalse(OwnCards.media(session(PlaybackState.STATE_PAUSED)).lastPlayed)
+        // The bar and the Play of a card with nothing playing send words the view model knows.
+        assertEquals(OwnTaps.RESUME, WidgetWords.MEDIA_RESUME)
+        assertEquals(OwnTap.Resume, OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_RESUME))
+        assertEquals(OwnTaps.seek(72_000), WidgetWords.mediaSeek(72_000))
+        assertEquals(
+            OwnTap.Seek(72_000),
+            OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.mediaSeek(72_000))
+        )
+    }
+
+    private val lastPlayer = LastPlayer("com.example.player", "Player", "So What", "Miles Davis")
+
+    /**
+     * What the card shows: without notification access it asks for it, whatever else is known. A
+     * session with a track is shown. With none, the player that played last, with Play. With none
+     * ever, "Nothing playing".
+     */
+    @Test
+    fun nowPlayingChoosesWhatItShows() {
+        val playing = session(PlaybackState.STATE_PLAYING)
+        assertEquals(
+            OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS),
+            OwnCards.nowPlaying(allowed = false, playing, lastPlayer)
+        )
+        assertEquals(
+            OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS),
+            OwnCards.nowPlaying(allowed = false, null, null)
+        )
+        assertEquals(
+            OwnCards.media(playing),
+            OwnCards.nowPlaying(allowed = true, playing, lastPlayer)
+        )
+        assertEquals(
+            OwnCards.media(session(PlaybackState.STATE_STOPPED)),
+            OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_STOPPED), lastPlayer)
+        )
+        // No session, or one with nothing to control: the last player.
+        assertEquals(
+            OwnCards.lastPlayed(lastPlayer),
+            OwnCards.nowPlaying(allowed = true, null, lastPlayer)
+        )
+        assertEquals(
+            OwnCards.lastPlayed(lastPlayer),
+            OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_NONE), lastPlayer)
+        )
+        assertEquals(
+            OwnCards.lastPlayed(lastPlayer),
+            OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_ERROR), lastPlayer)
+        )
+        // Nothing ever played.
+        assertEquals(
+            OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING),
+            OwnCards.nowPlaying(allowed = true, null, null)
+        )
+        assertEquals(
+            OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING),
+            OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_NONE), null)
+        )
+    }
+
+    /** With nothing playing, the last player's app and track, with Play alone: no position, no cover, nothing to seek. */
+    @Test
+    fun theLastPlayerHasItsTrackAndPlay() {
+        val spec = OwnCards.lastPlayed(lastPlayer)
+        assertEquals("Now playing", spec.base.title)
+        assertTrue(spec.lastPlayed)
+        assertFalse(spec.playing)
+        assertEquals("So What", spec.title)
+        assertEquals("Miles Davis", spec.artist)
+        assertEquals("Player", spec.app)
+        assertEquals(0L, spec.duration)
+        assertFalse(spec.canSeek)
+        assertNull(spec.cover)
+        assertFalse(WidgetWords.mediaSeeks(spec))
+        assertEquals("Now playing: So What, Miles Davis, Player, last played", OwnCards.said(spec))
+        // After a restart the track is not known: the card names the app.
+        val restarted = OwnCards.lastPlayed(LastPlayer("com.example.player", "Player"))
+        assertNull(restarted.title)
+        assertEquals("Player", WidgetWords.mediaTitle(restarted))
+        assertEquals("Now playing: Player, last played", OwnCards.said(restarted))
+        // Blank words are no words.
+        assertNull(OwnCards.lastPlayed(LastPlayer("com.example.player", "Player", " ", "")).artist)
+    }
+
+    /** The card keeps a paused session, however old. One with no state or in an error has nothing to control. */
+    @Test
+    fun nowPlayingShowsASessionThatCanBeControlled() {
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_PLAYING)))
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_PAUSED)))
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_STOPPED)))
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_BUFFERING)))
+        assertFalse(OwnCards.shows(session(PlaybackState.STATE_NONE)))
+        assertFalse(OwnCards.shows(session(PlaybackState.STATE_ERROR)))
+        assertFalse(OwnCards.shows(null))
+        assertEquals(
+            "Nothing playing",
+            OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING).empty
+        )
+        assertEquals(
+            "Allow notification access",
+            OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS).empty
+        )
+        // The card's own taps: its three buttons, Play with nothing playing, the player, and the access.
+        val words = listOf(
+            OwnTaps.PREV,
+            OwnTaps.TOGGLE,
+            OwnTaps.NEXT,
+            OwnTaps.RESUME,
+            OwnTaps.OPEN,
+            OwnTaps.ALLOW
+        )
+        assertEquals(listOf("prev", "toggle", "next", "resume", "open", "allow"), words)
+        assertTrue(words.all { OwnTaps.parse(WidgetSource.MEDIA, it) != null })
+    }
+
+    /** Midnight UTC on a day of November 2026, in milliseconds: where the calendar keeps an all-day event. */
+    private fun utcDay(day: Int): Long =
+        LocalDate.of(2026, 11, day).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    private fun timed(id: Long, title: String, begin: Long, end: Long) =
+        AgendaEvent(id, title, begin, end, allDay = false)
+
+    private fun allDay(id: Long, title: String, first: Int, last: Int) =
+        AgendaEvent(id, title, utcDay(first), utcDay(last + 1), allDay = true)
+
+    @Test
+    fun theAgendaShowsTheNextDaysEvents() {
+        val now = at(14, 16, 5)
+        val events = listOf(
+            allDay(8, "Yesterday", 13, 13),
+            allDay(5, "Trip", 13, 16),
+            allDay(4, "Birthday", 14, 14),
+            timed(2, "Breakfast", at(14, 8), at(14, 9)),
+            timed(3, "Workshop", at(14, 15), at(14, 18)),
+            timed(1, "Standup", at(14, 17), at(14, 17, 30)),
+            timed(7, "Ping", at(15, 9), at(15, 9)),
+            timed(6, "Later", at(17, 10), at(17, 11)),
+        )
+        val spec = OwnCards.agenda(events, zone, now, days = 3)
+        assertEquals("Agenda", spec.base.title)
+        assertEquals(3, spec.days)
+        // What has ended and what is past the three days is left out. An event of several days is there once.
+        assertEquals(
+            listOf("Trip", "Birthday", "Workshop", "Standup", "Ping"),
+            spec.events.map { it.title })
+        assertEquals(listOf(true, true, false, false, false), spec.events.map { it.allDay })
+        // Times are in seconds. An event with no length ends when it starts: it leaves the card when its time has come.
+        val standup = spec.events[3]
+        assertEquals(at(14, 17) / 1000, standup.starts)
+        assertEquals(at(14, 17, 30) / 1000, standup.ends)
+        assertEquals(at(15, 9) / 1000, spec.events[4].starts)
+        assertEquals(at(15, 9) / 1000, spec.events[4].ends)
+        assertTrue(spec.events.all { it.ends != null })
+        // An event's tap names it and its start, in words the view model knows.
+        assertEquals("event 1 ${at(14, 17)}", standup.tap?.args)
+        assertEquals(
+            OwnTap.OpenEvent(1, at(14, 17)),
+            OwnTaps.parse(WidgetSource.AGENDA, standup.tap!!.args!!)
+        )
+        assertTrue(spec.events.all { it.tap?.url == null && it.tap?.label == "open event" })
+    }
+
+    /** The Agenda card shows the days widgets.agenda-days says. Auto looks as far ahead as Kolahal reads the calendar. */
+    @Test
+    fun theAgendaShowsTheDaysChosen() {
+        assertEquals(OwnData.AGENDA_READ_DAYS, OwnData.agendaDays("auto"))
+        assertEquals(1, OwnData.agendaDays("1"))
+        assertEquals(7, OwnData.agendaDays("7"))
+        assertEquals(OwnData.AGENDA_READ_DAYS, OwnData.agendaDays("99"))
+        // A script's agenda may show as many days as the built-in one reads.
+        assertEquals(OwnData.AGENDA_READ_DAYS, WidgetParser.MAX_DAYS)
+        val now = at(14, 16, 5)
+        val events = listOf(
+            timed(1, "Standup", at(14, 17), at(14, 18)),
+            timed(2, "Dentist", at(20, 10), at(20, 11))
+        )
+        assertEquals(
+            listOf("Standup"),
+            OwnCards.agenda(events, zone, now, OwnData.agendaDays("3")).events.map { it.title })
+        assertEquals(
+            listOf("Standup", "Dentist"),
+            OwnCards.agenda(events, zone, now, OwnData.agendaDays("auto")).events.map { it.title })
+        assertEquals(
+            "No events in the next 14 days",
+            OwnCards.agenda(emptyList(), zone, now, OwnData.agendaDays("auto")).empty
+        )
+    }
+
+    /** The calendar keeps an all-day event at midnight UTC. The card puts it at midnight where the phone is. */
+    @Test
+    fun anAllDayEventIsOnItsDayInAnyZone() {
+        fun midnight(day: Int, z: ZoneId) =
+            LocalDate.of(2026, 11, day).atStartOfDay(z).toEpochSecond()
+
+        val birthday = OwnCards.agenda(
+            listOf(allDay(4, "Birthday", 14, 14)),
+            zone,
+            at(14, 16, 5),
+            days = 3
+        ).events.single()
+        assertEquals(midnight(14, zone), birthday.starts)
+        assertEquals(midnight(15, zone), birthday.ends)
+        // West of UTC, midnight UTC on the 14th is still the 13th. The event is on the 14th all the same.
+        val west = ZoneId.of("America/Los_Angeles")
+        val there = LocalDateTime.of(2026, 11, 14, 10, 0).atZone(west).toInstant().toEpochMilli()
+        val same = OwnCards.agenda(
+            listOf(allDay(4, "Birthday", 14, 14)),
+            west,
+            there,
+            days = 3
+        ).events.single()
+        assertEquals(midnight(14, west), same.starts)
+        assertEquals(midnight(15, west), same.ends)
+        // One that started before today starts today, and ends after its last day.
+        val trip = OwnCards.agenda(
+            listOf(allDay(5, "Trip", 12, 16)),
+            zone,
+            at(14, 16, 5),
+            days = 3
+        ).events.single()
+        assertEquals(midnight(14, zone), trip.starts)
+        assertEquals(midnight(17, zone), trip.ends)
+        // The tap still names the event's own start, as the calendar has it.
+        assertEquals("event 5 ${utcDay(12)}", trip.tap?.args)
+    }
+
+    /** What the card's body draws for the calendar's events at a moment: each day's label, then "time title" for each event ([WidgetWords.agenda]). */
+    private fun drawn(events: List<AgendaEvent>, z: ZoneId, nowMs: Long): List<String> =
+        WidgetWords.agenda(
+            OwnCards.agenda(events, z, nowMs, days = 3),
+            nowMs / 1000,
+            z,
+            clock24 = true,
+            locale = Locale.US
+        )
+            .flatMap { day -> listOf(day.label) + day.lines.map { "${it.time} ${it.event.title}" } }
+
+    /** The body puts each event under its day, all-day ones first. One that goes on says "now", and one that has ended is gone. */
+    @Test
+    fun theBodyDrawsTheCalendarByDay() {
+        val events = listOf(
+            allDay(5, "Trip", 13, 16),
+            allDay(4, "Birthday", 14, 14),
+            timed(2, "Breakfast", at(14, 8), at(14, 9)),
+            timed(3, "Workshop", at(14, 15), at(14, 18)),
+            timed(1, "Standup", at(14, 17), at(14, 17, 30)),
+            timed(7, "Ping", at(15, 9), at(15, 9)),
+            allDay(9, "Holiday", 16, 16),
+        )
+        assertEquals(
+            listOf(
+                "Today",
+                "all day Trip",
+                "all day Birthday",
+                "now Workshop",
+                "17:00 Standup",
+                "Tomorrow",
+                "09:00 Ping",
+                "Mon 16 Nov",
+                "all day Holiday"
+            ),
+            drawn(events, zone, at(14, 16, 5)),
+        )
+    }
+
+    /**
+     * The calendar keeps an all-day event at midnight UTC, and the body goes by the phone's day. With
+     * the card's local midnights the event is under its own day, west and east of UTC.
+     */
+    @Test
+    fun theBodyDrawsAnAllDayEventOnItsOwnDay() {
+        fun moment(z: ZoneId, day: Int, hour: Int, minute: Int = 0) =
+            LocalDateTime.of(2026, 11, day, hour, minute).atZone(z).toInstant().toEpochMilli()
+
+        val birthday = listOf(allDay(4, "Birthday", 14, 14))
+        // West of UTC, the evening before: midnight UTC of the 14th has passed, but the 14th is tomorrow here.
+        val west = ZoneId.of("America/Los_Angeles")
+        assertEquals(
+            listOf("Tomorrow", "all day Birthday"),
+            drawn(birthday, west, moment(west, 13, 20))
+        )
+        assertEquals(
+            listOf("Today", "all day Birthday"),
+            drawn(birthday, west, moment(west, 14, 23, 59))
+        )
+        assertEquals(emptyList<String>(), drawn(birthday, west, moment(west, 15, 0, 1)))
+        // East of UTC, just after midnight: the 14th has begun here, and in UTC the 13th has hours to go.
+        val east = ZoneId.of("Pacific/Auckland")
+        val both = listOf(allDay(8, "Yesterday", 13, 13)) + birthday
+        assertEquals(
+            listOf("Today", "all day Birthday"),
+            drawn(both, east, moment(east, 14, 0, 30))
+        )
+        assertEquals(
+            listOf("Today", "all day Yesterday", "Tomorrow", "all day Birthday"),
+            drawn(both, east, moment(east, 13, 23, 30))
+        )
+        // An event of several days stays to the end of its last day, and not longer.
+        val trip = listOf(allDay(5, "Trip", 12, 14))
+        assertEquals(listOf("Today", "all day Trip"), drawn(trip, east, moment(east, 14, 23, 59)))
+        assertEquals(emptyList<String>(), drawn(trip, east, moment(east, 15, 0, 1)))
+    }
+
+    /** An event with no length is on the card until its time has come, as the `agenda` command lists it. */
+    @Test
+    fun anEventWithNoLengthLeavesAtItsTime() {
+        val ping = listOf(timed(7, "Ping", at(14, 17), at(14, 17)))
+        assertEquals(listOf("Today", "17:00 Ping"), drawn(ping, zone, at(14, 16, 59)))
+        assertEquals(emptyList<String>(), drawn(ping, zone, at(14, 17, 0, 1)))
+        // Between two reads of the calendar the body drops it by itself: the card of 16:59 is drawn at 17:01.
+        val before = OwnCards.agenda(ping, zone, at(14, 16, 59), days = 3)
+        assertTrue(
+            WidgetWords.agenda(
+                before,
+                at(14, 17, 1) / 1000,
+                zone,
+                clock24 = true,
+                locale = Locale.US
+            ).isEmpty()
+        )
+    }
+
+    /** A screen reader hears the agenda as the card draws it at that moment, with its times in the clock's form. */
+    @Test
+    fun theAgendaIsSaidAsItIsDrawn() {
+        val events = listOf(
+            allDay(4, "Birthday", 14, 14),
+            timed(3, "Workshop", at(14, 15), at(14, 18)),
+            timed(1, "Standup", at(14, 17), at(14, 17, 30)),
+            timed(7, "Ping", at(15, 9), at(15, 9, 30)),
+        )
+        val spec = OwnCards.agenda(events, zone, at(14, 16, 5), days = 3)
+        val in24 = OwnCards.said(spec, at(14, 16, 5), zone, clock24 = true, locale = Locale.US)
+        assertTrue(in24, in24.startsWith("Agenda: "))
+        assertTrue(
+            in24,
+            listOf("Birthday", "now Workshop", "17:00 Standup", "09:00 Ping").all(in24::contains)
+        )
+        val in12 = OwnCards.said(spec, at(14, 16, 5), zone, clock24 = false, locale = Locale.US)
+        assertTrue(in12, listOf("5:00 PM Standup", "9:00 AM Ping").all(in12::contains))
+        assertFalse(in12, in12.contains("17:00"))
+        // Two hours later, from the same read of the calendar: what has ended is not said.
+        val later = OwnCards.said(spec, at(14, 18, 30), zone, clock24 = true, locale = Locale.US)
+        assertFalse(later, later.contains("Workshop") || later.contains("Standup"))
+        assertTrue(later, later.contains("Birthday") && later.contains("09:00 Ping"))
+        // With nothing left, the card's own words.
+        val none = OwnCards.said(
+            OwnCards.agenda(emptyList(), zone, at(14, 16, 5), days = 3),
+            at(14, 16, 5),
+            zone,
+            clock24 = true,
+            locale = Locale.US
+        )
+        assertEquals("Agenda: No events in the next 3 days", none)
+    }
+
+    /** A card that does not tell the time is said the same at any moment, in any form of the clock. */
+    @Test
+    fun otherCardsAreSaidWithoutTheTime() {
+        val now = at(14, 16, 5)
+        val cards = listOf(
+            OwnCards.todos(todos),
+            OwnCards.reminders(
+                listOf(Reminder(7, at(14, 16, 30), "Tea")),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US
+            ),
+            OwnCards.notes(notes)!!,
+            OwnCards.shortcuts(shortcuts)!!,
+            OwnCards.media(session(PlaybackState.STATE_PLAYING)),
+            OwnCards.quiet(WidgetSource.AGENDA, OwnCards.ALLOW_CALENDAR),
+        )
+        cards.forEach { spec ->
+            assertFalse(WidgetWords.timed(spec))
+            assertEquals(
+                OwnCards.said(spec),
+                OwnCards.said(
+                    spec,
+                    nowMs = now,
+                    zone = ZoneId.of("America/Los_Angeles"),
+                    clock24 = true
+                )
+            )
+        }
+        // The Reminders rows hold their times as words, in the clock's form, so they are said as they are drawn.
+        assertEquals("Reminders: 25 min, Tea · 16:30", OwnCards.said(cards[1]))
+        assertEquals("Agenda: Allow calendar access", OwnCards.said(cards[5]))
+        assertTrue(WidgetWords.timed(OwnCards.agenda(emptyList(), zone, now, days = 3)))
+    }
+
+    /** A script's card gives its description the clock's form too, and makes it again when the setting changes. */
+    @Test
+    fun cardsGiveTheirDescriptionTheClocksForm() {
+        val script =
+            sourceFile("src/main/java/com/mtwabpin/kolahal/ui/widgets/ScriptWidgets.kt").readLines()
+        val call = script.single { "WidgetWords.description(title, spec, now" in it }
+        assertTrue(call, call.contains("WidgetWords.description(title, spec, now, zone, clock24)"))
+        assertTrue(script.any { "val clock24 = rememberClock24()" in it })
+        assertTrue(script.any { "remember(title, spec, note, failure, footer, now, zone, clock24)" in it })
+        // The built-in cards make their words in one place, which takes the moment and the clock's form.
+        val own = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/widgets/OwnWidgets.kt").readText()
+        assertEquals(1, Regex("""WidgetWords\.description\(""").findAll(own).count())
+        assertTrue(own.contains("OwnCards.said(it, now, zone, clock24)"))
+    }
+
+    @Test
+    fun theAgendaSaysWhenThereIsNothing() {
+        val none = OwnCards.agenda(emptyList(), zone, at(14, 16, 5), days = 3)
+        assertTrue(none.events.isEmpty())
+        assertEquals("No events in the next 3 days", none.empty)
+        assertEquals(
+            "Nothing left today",
+            OwnCards.agenda(emptyList(), zone, at(14, 16, 5), days = 1).empty
+        )
+        // Only events that have ended: the same.
+        assertTrue(
+            OwnCards.agenda(
+                listOf(timed(2, "Breakfast", at(14, 8), at(14, 9))),
+                zone,
+                at(14, 16, 5),
+                days = 3
+            ).events.isEmpty()
+        )
+        assertEquals(
+            "Allow calendar access",
+            OwnCards.quiet(WidgetSource.AGENDA, OwnCards.ALLOW_CALENDAR).empty
+        )
+    }
+
+    @Test
+    fun aFullCalendarIsCut() {
+        val many = (1..30L).map {
+            timed(
+                it,
+                "Meeting $it " + "x".repeat(100),
+                at(15, 9) + it * 60_000,
+                at(15, 10) + it * 60_000
+            )
+        }
+        val spec = OwnCards.agenda(many, zone, at(14, 16, 5), days = 3)
+        assertEquals(20, spec.events.size)
+        assertTrue(spec.events.all { it.title.length == 80 && it.title.endsWith("…") })
+        assertEquals("event 1 ${at(15, 9) + 60_000}", spec.events.first().tap?.args)
+    }
+
+    @Test
+    fun todosShowsTheOpenOnes() {
+        val spec = OwnCards.todos(todos)
+        assertEquals("Todos", spec.base.title)
+        assertEquals(
+            listOf("Buy milk", "Call the bank", "Water the plants"),
+            spec.items.map { it.title })
+        // A row names its todo by id, and its words are ones the view model knows.
+        assertEquals(listOf("done #1", "done #4", "done #6"), spec.items.map { it.tap?.args })
+        assertEquals(
+            listOf(OwnTap.SetTodo(1, true), OwnTap.SetTodo(4, true), OwnTap.SetTodo(6, true)),
+            spec.items.map { OwnTaps.parse(WidgetSource.TODOS, it.tap!!.args!!) },
+        )
+        assertTrue(spec.items.all { it.tap?.url == null && it.tap?.label == "mark as done" })
+        // Each row has a checkbox, not ticked.
+        assertEquals(listOf(false, false, false), spec.items.map { it.done })
+    }
+
+    /** The picker lists a built-in widget only when its card is drawn, under the widget's one name. */
+    @Test
+    fun thePickerListsTheBuiltInWidgetsThatAreDrawn() {
+        assertEquals(WidgetSource.BATTERY, pickerBuiltinRows.first().id)
+        assertEquals(pickerBuiltinRows.size, pickerBuiltinRows.map { it.id }.toSet().size)
+        pickerBuiltinRows.forEach { row ->
+            assertTrue(row.id, row.id == WidgetSource.BATTERY || OwnCards.draws(row.id))
+            assertEquals(WidgetSource.builtinTitle(row.id), row.title)
+            assertEquals("Built-in", row.what)
+            assertTrue(WidgetSource.isSource(row.source))
+            // The search is in lowercase, as the query is, and finds the widget by its name.
+            assertEquals(row.search.lowercase(), row.search)
+            assertTrue(row.search.contains(row.title.lowercase()))
+        }
+        // Every card that is drawn can be added.
+        val listed = pickerBuiltinRows.map { it.id }.toSet()
+        val ids = listOf(
+            WidgetSource.SHORTCUTS,
+            WidgetSource.MEDIA,
+            WidgetSource.TODOS,
+            WidgetSource.AGENDA,
+            WidgetSource.REMINDERS,
+            WidgetSource.NOTES
+        )
+        assertEquals(ids.filter(OwnCards::draws).toSet(), listed - WidgetSource.BATTERY)
+    }
+
+    /** A todo ticked on the card keeps its place until the page is turned away, and a tap opens it again. */
+    @Test
+    fun aTickedTodoStaysForAnUndo() {
+        val ticked =
+            todos.map { if (it.id == 4L) it.copy(done = true) else it }.sortedBy { it.done }
+        val spec = OwnCards.todos(ticked, kept = setOf(4))
+        assertEquals(
+            listOf("Buy milk", "Call the bank", "Water the plants"),
+            spec.items.map { it.title })
+        assertEquals(listOf("done #1", "undo #4", "done #6"), spec.items.map { it.tap?.args })
+        assertEquals(listOf(false, true, false), spec.items.map { it.done })
+        assertEquals("mark as not done", spec.items[1].tap?.label)
+        // Todos that were done before are not on the card, and nor is this one after the page was left.
+        assertEquals(
+            listOf("Buy milk", "Water the plants"),
+            OwnCards.todos(ticked).items.map { it.title })
+        // Opened again while still kept: it is an open todo like the others.
+        assertEquals(
+            listOf("done #1", "done #4", "done #6"),
+            OwnCards.todos(todos, kept = setOf(4)).items.map { it.tap?.args })
+    }
+
+    @Test
+    fun todosSaysWhenThereIsNothing() {
+        assertEquals("No todos yet", OwnCards.todos(emptyList()).empty)
+        assertTrue(OwnCards.todos(emptyList()).items.isEmpty())
+        val allDone = todos.filter { it.done }
+        assertEquals("Nothing open", OwnCards.todos(allDone).empty)
+        assertTrue(OwnCards.todos(allDone).items.isEmpty())
+        assertEquals("Todos: no todos yet", OwnCards.todosSaid(emptyList()))
+        assertEquals("Todos: nothing open", OwnCards.todosSaid(allDone))
+        assertEquals("Todos: 3 open", OwnCards.todosSaid(todos))
+    }
+
+    @Test
+    fun aLongTodoListIsCut() {
+        val many = (1..80L).map { Todo(it, "Todo $it", false) }
+        assertEquals(OwnCards.MAX_TODOS, OwnCards.todos(many).items.size)
+        assertEquals("Todos: 80 open", OwnCards.todosSaid(many))
+    }
+
+    /** The card says a reminder's time as `reminders` does ([com.mtwabpin.kolahal.data.TimeFormats.whenLabel]), with "Tomorrow" at the start of its line. */
+    @Test
+    fun aReminderSaysWhenItIsDue() {
+        val now = at(14, 16, 5)
+        assertEquals(
+            "18:30",
+            com.mtwabpin.kolahal.data.TimeFormats.whenLabel(
+                at(14, 18, 30),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US,
+                capital = true
+            )
+        )
+        assertEquals(
+            "6:30 PM",
+            com.mtwabpin.kolahal.data.TimeFormats.whenLabel(
+                at(14, 18, 30),
+                now,
+                zone,
+                clock24 = false,
+                locale = Locale.US,
+                capital = true
+            )
+        )
+        assertEquals(
+            "Tomorrow 09:00",
+            com.mtwabpin.kolahal.data.TimeFormats.whenLabel(
+                at(15, 9),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US,
+                capital = true
+            )
+        )
+        assertEquals(
+            "Fri 20 Nov 08:00",
+            com.mtwabpin.kolahal.data.TimeFormats.whenLabel(
+                at(20, 8),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US,
+                capital = true
+            )
+        )
+        // The day is the phone's day, not UTC's: 01:00 in India is still the day before in UTC.
+        assertEquals(
+            "Tomorrow 01:00",
+            com.mtwabpin.kolahal.data.TimeFormats.whenLabel(
+                at(15, 1),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US,
+                capital = true
+            )
+        )
+    }
+
+    /** The time to a reminder is in whole minutes, rounded up, so "10 min" stays until 9 minutes are left. */
+    @Test
+    fun theTimeToAReminderCountsDown() {
+        val now = at(14, 16, 5)
+        assertEquals("25" to "min", OwnCards.untilParts(at(14, 16, 30), now))
+        assertEquals("10" to "min", OwnCards.untilParts(now + 9 * 60_000L + 1, now))
+        assertEquals("9" to "min", OwnCards.untilParts(now + 9 * 60_000L, now))
+        assertEquals("1" to "min", OwnCards.untilParts(now + 1, now))
+        // Its time has come: the alarm fires any moment.
+        assertEquals("now" to null, OwnCards.untilParts(now - 90_000L, now))
+    }
+
+    /** The next reminder is the card's lead, the time to it big. The next three are rows with their time. */
+    @Test
+    fun remindersLeadWithTheNextOne() {
+        val now = at(14, 16, 5)
+        val list = listOf(
+            Reminder(7, at(14, 16, 30), "Tea"),
+            Reminder(2, at(15, 9), "Call mom"),
+            Reminder(9, at(16, 19), "Bins", repeat = "mon", time = "19:00"),
+            Reminder(4, at(20, 8), "Standup"),
+            Reminder(5, at(21, 8), "Later"),
+        )
+        val spec = OwnCards.reminders(list, now, zone, clock24 = true, locale = Locale.US)
+        assertEquals("Reminders", spec.base.title)
+        assertEquals(WidgetSpec.Lead("25", "min", "Tea · 16:30"), spec.lead)
+        assertEquals(listOf("Call mom", "Bins", "Standup"), spec.items.map { it.title })
+        // Short, so the text keeps its room: the weekday within a week, the date after.
+        assertEquals(listOf("Sun", "Mon", "Fri"), spec.items.map { it.trailing })
+        assertEquals(
+            "21 Nov",
+            OwnCards.shortWhen(at(21, 8), at(14, 7), zone, clock24 = true, locale = Locale.US)
+        )
+        assertEquals(
+            "18:30",
+            OwnCards.shortWhen(at(14, 18, 30), now, zone, clock24 = true, locale = Locale.US)
+        )
+        // One line each, and no tap of their own: a tap anywhere opens the list.
+        assertTrue(spec.items.all { it.detail == null && it.tap == null })
+        // A reminder that repeats says how, in the lead.
+        assertEquals(
+            "Bins · Mon 16 Nov 19:00 · every Mon",
+            OwnCards.reminders(
+                list.drop(2),
+                now,
+                zone,
+                clock24 = true,
+                locale = Locale.US
+            ).lead!!.label
+        )
+        // A stored rule that can't be read has no words, and the card is still drawn.
+        val odd = OwnCards.reminders(
+            listOf(Reminder(1, at(14, 18, 30), "Odd", repeat = "month:x")),
+            now,
+            zone,
+            clock24 = true,
+            locale = Locale.US
+        )
+        assertEquals("Odd · 18:30", odd.lead!!.label)
+        assertEquals(emptyList<WidgetSpec.Row>(), odd.items)
+        val none = OwnCards.reminders(emptyList(), now, zone, clock24 = true)
+        assertEquals("No reminders", none.empty)
+        assertNull(none.lead)
+        // A minute later the lead says so.
+        assertEquals(
+            "24",
+            OwnCards.reminders(
+                list,
+                now + 60_000L,
+                zone,
+                clock24 = true,
+                locale = Locale.US
+            ).lead!!.value
+        )
+    }
+
+    @Test
+    fun theTimeToAReminderIsANumberAndAUnit() {
+        val now = at(14, 16, 5)
+        assertEquals("42" to "min", OwnCards.untilParts(now + 41 * 60_000L + 1, now))
+        assertEquals("13" to "h", OwnCards.untilParts(now + (13 * 60 + 10) * 60_000L, now))
+        assertEquals("2" to "days", OwnCards.untilParts(now + 50 * 3_600_000L, now))
+        assertEquals("now" to null, OwnCards.untilParts(now, now))
+    }
+
+    private val notes = listOf(
+        Note(5, "Buy stamps\nand envelopes", at(13, 18, 5)),
+        Note(4, "Wi-Fi: blue-heron-42", at(12, 9)),
+        Note(3, "Book: The Dispossessed", at(10, 9)),
+        Note(1, "Old", at(1, 9))
+    )
+
+    @Test
+    fun notesShowsTheNewest() {
+        val one = OwnCards.notes(notes, zone = zone, locale = Locale.US)!!
+        assertEquals("Notes", one.base.title)
+        assertEquals("Buy stamps\nand envelopes", one.text)
+        // When the newest note was written, with its date always written out.
+        assertEquals("Fri 13 Nov 18:05 · +3 more", one.caption)
+        // A large card has the newest three, each on one line.
+        val three = OwnCards.notes(notes, count = 3, zone = zone, locale = Locale.US)!!
+        assertEquals(
+            "• Buy stamps and envelopes\n• Wi-Fi: blue-heron-42\n• Book: The Dispossessed",
+            three.text
+        )
+        assertEquals("Fri 13 Nov 18:05 · +1 more", three.caption)
+        assertEquals(
+            "Fri 13 Nov 6:05 PM · +1 more",
+            OwnCards.notes(
+                notes,
+                count = 3,
+                zone = zone,
+                clock24 = false,
+                locale = Locale.US
+            )!!.caption
+        )
+        // Never more than three, and no caption when all are shown.
+        assertEquals(three, OwnCards.notes(notes, count = 9, zone = zone, locale = Locale.US))
+        assertEquals(
+            "all shown: the time alone",
+            "Fri 13 Nov 18:05",
+            OwnCards.notes(notes.take(2), count = 3, zone = zone, locale = Locale.US)!!.caption
+        )
+        // One note in a large card is shown whole, as in a small one.
+        assertEquals("Buy stamps\nand envelopes", OwnCards.notes(notes.take(1), count = 3)!!.text)
+    }
+
+    @Test
+    fun aLongNoteIsCut() {
+        val long = Note(1, "word ".repeat(400), 1)
+        val one = OwnCards.notes(listOf(long))!!
+        assertEquals(500, one.text.length)
+        assertTrue(one.text.endsWith("…"))
+        val line = OwnCards.notes(listOf(long, long), count = 2)!!.text.lines()
+        assertEquals(2, line.size)
+        assertTrue(line.all { it.length <= 122 && it.endsWith("…") })
+    }
+
+    /** With no notes there is no text card: the card says "No notes yet" in the middle. */
+    @Test
+    fun noNotesIsAQuietCard() {
+        assertNull(OwnCards.notes(emptyList()))
+        val quiet = OwnCards.quiet(WidgetSource.NOTES, "No notes yet")
+        assertEquals("Notes", quiet.base.title)
+        assertTrue(quiet.items.isEmpty())
+        assertEquals("No notes yet", quiet.empty)
+    }
+}

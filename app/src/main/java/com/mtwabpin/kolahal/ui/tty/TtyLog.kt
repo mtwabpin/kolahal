@@ -85,12 +85,12 @@ import com.mtwabpin.kolahal.terminal.tty.GridApp
 import com.mtwabpin.kolahal.terminal.tty.LineLayout
 import com.mtwabpin.kolahal.terminal.tty.LogLook
 import com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource
-import com.mtwabpin.kolahal.ui.FoldState
-import com.mtwabpin.kolahal.ui.HomeCalls
-import com.mtwabpin.kolahal.ui.HomeState
-import com.mtwabpin.kolahal.ui.Term
-import com.mtwabpin.kolahal.ui.foundIn
-import com.mtwabpin.kolahal.ui.initials
+import com.mtwabpin.kolahal.ui.home.FoldState
+import com.mtwabpin.kolahal.ui.home.HomeCalls
+import com.mtwabpin.kolahal.ui.home.HomeState
+import com.mtwabpin.kolahal.ui.home.foundIn
+import com.mtwabpin.kolahal.ui.home.initials
+import com.mtwabpin.kolahal.ui.theme.Term
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -114,7 +114,7 @@ private const val PRESS_SHOWS_MS = 80L
  * block of cells ([LineLayout]) laid out once and painted on every frame; a tap goes to what is
  * under the finger, as in the GUI: the line, a link, a button, an app, the fold.
  * - [rows]: the log's rows, newest first.
- * - [modifier]: the GUI's modifier for its log list ([com.mtwabpin.kolahal.ui.LogArea]).
+ * - [modifier]: the GUI's modifier for its log list ([com.mtwabpin.kolahal.ui.home.LogArea]).
  */
 @Composable
 internal fun TtyLog(

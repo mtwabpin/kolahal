@@ -95,6 +95,9 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.Quietly
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ui.theme.navigationBarScrim
+import com.mtwabpin.kolahal.ui.theme.segColors
+import com.mtwabpin.kolahal.ui.theme.segShapes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow

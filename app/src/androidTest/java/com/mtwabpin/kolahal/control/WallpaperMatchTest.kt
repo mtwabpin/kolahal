@@ -17,9 +17,9 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.shell
-import com.mtwabpin.kolahal.ui.Palette
-import com.mtwabpin.kolahal.ui.Palettes
-import com.mtwabpin.kolahal.ui.Term
+import com.mtwabpin.kolahal.ui.theme.Palette
+import com.mtwabpin.kolahal.ui.theme.Palettes
+import com.mtwabpin.kolahal.ui.theme.Term
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

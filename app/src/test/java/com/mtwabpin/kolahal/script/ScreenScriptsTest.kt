@@ -1,7 +1,7 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
-import com.mtwabpin.kolahal.ui.EditorLogic
+import com.mtwabpin.kolahal.ui.editor.EditorLogic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

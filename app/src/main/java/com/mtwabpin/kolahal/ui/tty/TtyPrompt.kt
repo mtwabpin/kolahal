@@ -65,7 +65,7 @@ import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.tty.HomeCells
 import com.mtwabpin.kolahal.terminal.tty.PromptCells
-import com.mtwabpin.kolahal.ui.Term
+import com.mtwabpin.kolahal.ui.theme.Term
 import kotlinx.coroutines.delay
 
 /** How long the block cursor shows, and then doesn't, while it blinks. */

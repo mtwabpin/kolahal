@@ -12,8 +12,8 @@ import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.WallpaperChoice
-import com.mtwabpin.kolahal.ui.Palette
-import com.mtwabpin.kolahal.ui.Palettes
+import com.mtwabpin.kolahal.ui.theme.Palette
+import com.mtwabpin.kolahal.ui.theme.Palettes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine

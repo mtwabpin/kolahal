@@ -11,7 +11,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.mtwabpin.kolahal.ui.Term
+import com.mtwabpin.kolahal.ui.theme.Term
 
 /**
  * The grid as the terminal's settings make it: its cells ([metrics]) in the terminal font, size

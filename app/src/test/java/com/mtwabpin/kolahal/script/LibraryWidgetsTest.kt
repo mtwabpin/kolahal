@@ -2,7 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.sourceFile
-import com.mtwabpin.kolahal.ui.WidgetWords
+import com.mtwabpin.kolahal.ui.widgets.WidgetWords
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetParser

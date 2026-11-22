@@ -33,7 +33,7 @@ import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.commands.UpdateCommands
 import com.mtwabpin.kolahal.terminal.tty.BandCells
-import com.mtwabpin.kolahal.ui.searchSummary
+import com.mtwabpin.kolahal.ui.home.searchSummary
 
 /** The notice's and the filter's height, as the GUI's bands have it. */
 private val BAND_HEIGHT = 44.dp

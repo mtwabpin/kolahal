@@ -64,7 +64,7 @@ class ShortcutsWriteTest {
         val named = setOf(
             "terminal/OwnWidgets.kt",
             "terminal/TerminalViewModel.kt",
-            "ui/ShortcutsEditor.kt"
+            "ui/widgets/ShortcutsEditor.kt"
         )
         assertEquals(
             "saveShortcuts is for the Widgets screen's editor only",

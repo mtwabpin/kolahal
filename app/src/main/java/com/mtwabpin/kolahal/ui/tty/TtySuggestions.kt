@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.terminal.Suggestion
 import com.mtwabpin.kolahal.terminal.tty.SuggestionCells
-import com.mtwabpin.kolahal.ui.Term
-import com.mtwabpin.kolahal.ui.completionHelp
+import com.mtwabpin.kolahal.ui.home.completionHelp
+import com.mtwabpin.kolahal.ui.theme.Term
 
 /**
  * The tag of each suggestion on the grid, in the list and in the chips. Both have the GUI's tag,

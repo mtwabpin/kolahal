@@ -1,0 +1,58 @@
+/**
+ * Manual Review - Pending
+ */
+package com.mtwabpin.kolahal.ui.home
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mtwabpin.kolahal.terminal.commands.UpdateCommands
+import com.mtwabpin.kolahal.ui.theme.Term
+
+private const val MB = 1024 * 1024
+
+/**
+ * Shows the download that `update install` is running, if there is one.
+ * The progress is read here, so only this line redraws, not all of home.
+ */
+@Composable
+internal fun UpdateProgressLine() {
+    val progress by UpdateCommands.progress.collectAsStateWithLifecycle()
+    progress?.let { UpdateProgressLine(it) }
+}
+
+/** Shows "Downloading update  4 MB / 10 MB  40%" above a progress bar, like [NowPlayingLine]. */
+@Composable
+internal fun UpdateProgressLine(progress: UpdateCommands.Progress) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag("update-progress")
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                "Downloading update",
+                style = Term.small,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "${progress.downloaded / MB} MB / ${progress.total / MB} MB  ${progress.percent}%",
+                style = Term.small,
+                maxLines = 1
+            )
+        }
+        ProgressTrack(progress.percent / 100f)
+    }
+}

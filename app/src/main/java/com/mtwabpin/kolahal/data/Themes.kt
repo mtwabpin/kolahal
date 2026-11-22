@@ -19,7 +19,7 @@ import java.io.File
  *   the wallpaper does.
  * - Android 9 to 11 has none. There the theme shows Material's standard colors. The theme's card
  *   in Settings says so, and so does the `theme` command ([note]).
- * The screen's code reads the colors ([com.mtwabpin.kolahal.ui.MaterialYouPalettes]).
+ * The screen's code reads the colors ([com.mtwabpin.kolahal.ui.theme.MaterialYouPalettes]).
  */
 object MaterialYou {
     const val NAME = "material-you"

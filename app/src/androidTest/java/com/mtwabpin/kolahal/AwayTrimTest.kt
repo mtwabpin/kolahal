@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.ui.LogImages
+import com.mtwabpin.kolahal.ui.home.LogImages
 import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -78,7 +78,7 @@ class AwayTrimTest {
         val repo = com.mtwabpin.kolahal.apps.AppRepository.get(context)
         repo.refresh()
         assertTrue(eventually(5_000) { repo.apps.value.isNotEmpty() })
-        val icons = com.mtwabpin.kolahal.ui.AppIcons
+        val icons = com.mtwabpin.kolahal.ui.home.AppIcons
         val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
         // A pinned app counts among the most used, and a test phone has no launches to rank.
         val used =
