@@ -7,17 +7,22 @@ import android.content.Context
 import android.net.Uri
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFiles
 import com.mtwabpin.kolahal.script.ScriptFolder
+import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderParam
 import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderStore
+import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
+import com.mtwabpin.kolahal.status.DeviceStatus
+import java.time.LocalTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -121,6 +126,25 @@ class ShaderActions(
 
     /** Sets [param] of [name], and keeps it. */
     fun setParam(name: String, param: ShaderParam, value: Float) = ShaderParams.set(context, name, param, value)
+
+    /** [param] of [name] follows the value [id]; null for none. */
+    fun follow(name: String, param: ShaderParam, id: String?) = ShaderParams.setFollow(context, name, param, id)
+
+    /** The values there are to follow: Kolahal's, and those of the scripts that are on. */
+    suspend fun sources(): List<ShaderValues.Source> = withContext(Dispatchers.IO) { sources(context) }
+
+    /** Which shaders' parameters follow the values of [script], by the value's name: "rain (amount)". */
+    suspend fun followers(script: String): Map<String, List<String>> = withContext(Dispatchers.IO) {
+        Shaders.entries().flatMap { e -> Shaders.params(context, e.name).map { e.name to it } }
+            .mapNotNull { (shader, param) ->
+                val id = ShaderParams.follow(shader, param)?.takeIf { it.startsWith("$script.") } ?: return@mapNotNull null
+                id.substringAfter('.') to "$shader (${param.name})"
+            }
+            .groupBy({ it.first }, { it.second })
+    }
+
+    /** The phone as it is now, for the values that Kolahal gives. */
+    fun phone(): ShaderValues.Phone = phone(context)
 
     /** The parameters of [name] are as it comes. */
     fun resetParams(name: String) = ShaderParams.reset(context, name)
@@ -238,6 +262,24 @@ class ShaderActions(
                 "Updated ${e.name}" + e.version.ifBlank { null }?.let { " to $it" }.orEmpty(),
                 undo = { putBack(e.name, before, from) },
             )
+        }
+    }
+
+    companion object {
+        fun phone(context: Context): ShaderValues.Phone {
+            val status = DeviceStatus.get(context).status.value
+            return ShaderValues.Phone((status.batteryPct ?: 100) / 100f, status.charging, LocalTime.now())
+        }
+
+        /** [ShaderActions.sources]. Reads scripts: not on the main thread. */
+        fun sources(context: Context): List<ShaderValues.Source> {
+            val phone = phone(context)
+            val given = ShaderValues.given.value
+            val scripts = ScriptRepository.get(context).all().filter { it.enabled }
+                .flatMap { s -> ScriptMeta.parse(s.code).gives.map { ShaderValues.id(s.name, it) } }.sorted()
+            return (ShaderValues.BUILT_IN.keys + scripts).map { id ->
+                ShaderValues.Source(id, ShaderValues.label(id), ShaderValues.of(id, given, phone))
+            }
         }
     }
 }

@@ -4,9 +4,10 @@
 -- @usage [<city>]
 -- @title Weather
 -- @author Kolahal
--- @version 1.0
--- @requires 0.5.9
+-- @version 1.1
+-- @requires 0.5.17
 -- @widget stat 2x1
+-- @gives rain, snow
 -- @every 1h
 -- @option city "" Default city; empty: your IP address's location
 --
@@ -16,7 +17,8 @@
 --
 -- On a timer (no arguments) it sets the result as its status line; pin it
 -- (script pin weather) to see it at the top of home. It also fills its widget, once you
--- placed it on the widgets page: the temperature, the sky, humidity and wind.
+-- placed it on the widgets page: the temperature, the sky, humidity and wind. And it gives
+-- shaders how hard it rains and snows: a shader's parameter can follow them.
 
 local function urlencode(s)
   return (s:gsub("[^%w%-_%.~]", function(c)
@@ -84,6 +86,23 @@ local function skyIcon(symbol)
   if has("☁") or has("⛅") then return "cloud" end
   if has("☀") then return "sun" end
   return nil
+end
+
+-- How hard it rains or snows by wttr.in's words ("Light rain shower", "Heavy snow"), 0 to 1.
+local function force(words, kinds)
+  words = words:lower()
+  local falls = false
+  for _, kind in ipairs(kinds) do falls = falls or words:find(kind, 1, true) ~= nil end
+  if not falls then return 0 end
+  if words:find("heavy", 1, true) or words:find("torrential", 1, true) or words:find("blizzard", 1, true) then return 1 end
+  if words:find("moderate", 1, true) or words:find("thunder", 1, true) then return 0.6 end
+  if words:find("light", 1, true) or words:find("drizzle", 1, true) or words:find("patchy", 1, true) then return 0.25 end
+  return 0.5
+end
+
+if line == "" then
+  shader.give("rain", force(sky, { "rain", "drizzle", "shower", "thunder" }))
+  shader.give("snow", force(sky, { "snow", "sleet", "blizzard", "ice pellets" }))
 end
 
 -- Only background runs (no arguments) update the status line: "Pune: ☀️ 25°C".

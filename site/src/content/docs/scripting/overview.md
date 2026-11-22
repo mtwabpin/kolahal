@@ -332,6 +332,7 @@ them, and the [library](/scripting/library/) scripts have them too.
 | `@author <name>`, `@version <x.y>` | Shown in the script's sheet in the script manager. |
 | `@every <15m\|1h\|1d>`, `@at <HH:mm>[, …]` | The suggested timer. Kolahal sets it when you add the script from a file, a folder or the library. |
 | `@notify` | Suggests notifications. Kolahal switches them on when you add the script. |
+| `@gives <name>[, …]` | The values it gives [shaders](/scripting/shaders/#values-to-follow) with `shader.give`. |
 | `@widget <kind> [<size>]` | The script has a [widget](#widgets) for the widgets page, of this kind. The size is the one it starts with. |
 | `@tags <word>[, …]` | Search keywords for Get more scripts. |
 | `@requires <x.y.z>` | The oldest Kolahal version the script works with. Kolahal won't add it from a file, a folder, a backup or Get more scripts until you have that version or newer. |

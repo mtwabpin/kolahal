@@ -26,6 +26,7 @@ import com.mtwabpin.kolahal.widgets.WidgetSize
  *   -- @every <15m|1h|1d>, @at <HH:mm>[, ...], @notify — the timers and notifications it suggests,
  *                            set when it is added from a file or the library
  *   -- @requires <x.y.z>   — the oldest Kolahal it works with; older versions don't import it
+ *   -- @gives <name>[, ...] — the values it gives shaders ([gives])
  *   -- @widget <kind> [<size>] — it has a widget for the widgets page ([Widget]): `@widget stat 2x1`
  */
 object ScriptMeta {
@@ -46,6 +47,7 @@ object ScriptMeta {
         val secrets by lazy { secrets(code) }
         val options by lazy { options(code) }
         val widget by lazy { widget(code) }
+        val gives by lazy { gives(code) }
         val usesInternet by lazy { usesInternet(code) }
         val setsStatus by lazy { setsStatus(code) }
         val postsNotifications by lazy { postsNotifications(code) }
@@ -300,6 +302,13 @@ object ScriptMeta {
         val kind = WidgetKind.named(words.firstOrNull()) ?: return null
         return Widget(kind, WidgetSize.named(words.getOrNull(1)) ?: kind.size)
     }
+
+    private val givesLine = Regex("""^\s*(--|//)\s*@gives\b(.*)$""", RegexOption.MULTILINE)
+
+    /** The names of the values it gives shaders with `shader.give` ([ShaderValues]), from its `@gives` lines: at most [ShaderValues.MAX]. */
+    fun gives(code: String): List<String> =
+        givesLine.findAll(code).flatMap { usesNames(it.groupValues[2]) }
+            .filter(ShaderValues.NAME::matches).distinct().take(ShaderValues.MAX).toList()
 
     fun title(code: String): String? = value(code, "title")
 

@@ -244,6 +244,24 @@ internal fun ScriptSheet(
             }
         }
 
+        // What it gives shaders with @gives, and which of their parameters follow it.
+        val gives = remember(s.code) { ScriptMeta.gives(s.code) }
+        if (gives.isNotEmpty()) {
+            val followers by produceIo(emptyMap<String, List<String>>(), s.name, what = "Reading what follows a script") {
+                vm.shaderActions.followers(s.name)
+            }
+            Spacer(Modifier.height(16.dp))
+            SectionTitle("Gives shaders")
+            gives.forEach { name ->
+                Text(
+                    "$name · " + (followers[name]?.joinToString()?.let { "followed by $it" } ?: "nothing follows it"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+
         // Keys and tokens it declares with @secret. The user sets them here, never in the code.
         if (secrets.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))

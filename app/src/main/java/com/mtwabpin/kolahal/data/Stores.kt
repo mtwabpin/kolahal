@@ -176,6 +176,9 @@ object Stores {
     /** What a status line shows besides its text, by script name. */
     const val STATUS_EXTRAS = "status.extra"
 
+    /** The values that scripts give shaders, by script name ([com.mtwabpin.kolahal.script.ShaderValues]). A run makes them again. This phone only. */
+    const val SHADER_VALUES = "shader.values"
+
     /** Exchange rates for `fx`. */
     const val FX = "fx"
 
@@ -214,7 +217,8 @@ object Stores {
         INSTALL,
         WIDGET,
         WIDGET_META,
-        WIDGET_PLACED
+        WIDGET_PLACED,
+        SHADER_VALUES
     )
 
     val SCOPES = THIS_PHONE + listOf(STATUS, STATUS_EXTRAS, FX, UNLOCKS, LOG_MARKS, OLD_PINS)

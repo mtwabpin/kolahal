@@ -22,7 +22,7 @@ object ScriptCheck {
     /** Every `@` line the header may have ([ScriptMeta]). */
     internal val DIRECTIVES = setOf(
         "command", "desc", "usage", "on", "uses", "secret", "option",
-        "title", "author", "version", "tags", "every", "at", "notify", "requires", "widget",
+        "title", "author", "version", "tags", "every", "at", "notify", "requires", "widget", "gives",
     )
 
     /** What is wrong with a `@widget <kind> [<size>]` line, whose text after `@widget` is [rest]. Null when it reads well. */
@@ -116,6 +116,8 @@ object ScriptCheck {
                     }
 
                 "widget" -> widgetIssue(rest)?.let { out += Issue(i + 1, it) }
+                "gives" -> ScriptMeta.usesNames(rest).firstOrNull { !ShaderValues.NAME.matches(it) }
+                    ?.let { out += Issue(i + 1, "@gives $it isn't a name: small letters, digits, - and _, at most 20") }
             }
         }
 

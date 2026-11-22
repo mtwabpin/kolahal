@@ -683,10 +683,10 @@ object CommandCatalog {
         ),
         CommandSpec(
             "shader",
-            "shader [<name>|list|use|on|off|set|reset|get|update|check|reload|copy|remove] [<name>]",
+            "shader [<name>|list|use|on|off|set|reset|follow|values|get|update|check|reload|copy|remove] [<name>]",
             "A shader over home and the full-screen screens: crt, paper, aurora and others, or your own .agsl file (screen.shader). Needs Android 13 or newer",
             short = "A shader over home and the screens",
-            args = "<name> · list · use · on · off · set · reset · get · update · check · reload · copy · remove",
+            args = "<name> · list · use · on · off · set · reset · follow · values · get · update · check · reload · copy · remove",
             uses = listOf(
                 "shader" to "the shaders: tap one to use it",
                 "shader <name>" to "use a shader",
@@ -694,6 +694,8 @@ object CommandCatalog {
                 "shader on" to "the last one again, also after it was turned off for being slow",
                 "shader set <name> <parameter> <value>" to "change a shader, such as the amount of snow; without a value, what it can be",
                 "shader reset <name>" to "reset its parameters to their defaults",
+                "shader follow <name> <parameter> <value>" to "make a parameter follow a value, such as battery or one a script gives; off ends it",
+                "shader values" to "the values there are to follow",
                 "shader get" to "shaders people share; tap one to install it",
                 "shader get <name>" to "install or update a shared shader; it stays off until you use it",
                 "shader update" to "update the shaders you installed with shader get",

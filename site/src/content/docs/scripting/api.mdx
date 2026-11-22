@@ -71,6 +71,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`allowed(what)`](#allowedwhat) | `true` if you let this script use `what` |
 | [`widget.show(desc)`](#widgetshowdesc) | `true` if its widget is placed; fills its [widget](#widgets) |
 | [`widget.clear()`](#widgetclear) | nothing; empties its widget |
+| [`shader.give(name, value)`](#shadergivename-value) | nothing; gives a value that shaders' parameters can follow |
 | [`tty.screen(spec)`](#ttyscreenspec) | nothing; opens a full-screen [screen of its own](#screens) |
 | [`http.get(url, headers?)`](#httpgeturl-headers) | `{ status, ok, body, headers }` |
 | [`http.request(opts)`](#httprequestopts) | same as `http.get` |
@@ -911,6 +912,33 @@ status("Pune: 24°C");
 status("NZ 136/8 (33.2 ov) v IND", { progress: 200 / 300, refresh: 30 });
 status("AQI 168", { progress: 168 / 300, color: "bad" });
 status(null);
+```
+</TabItem>
+</Tabs>
+
+### shader.give(name, value)
+
+Gives a value that [shaders' parameters can follow](/scripting/shaders/#values-to-follow), such as how hard it rains.
+
+- `name` is one of the names on the script's `@gives` line: small letters, digits, `-` and `_`, at most 20
+  characters. A script can have 8. Shaders see it as `<script>.<name>`: `weather.rain`.
+- `value` is a number from 0 to 1 (one outside is taken to 0 or 1; `true` is 1 and `false` 0), or a word of letters, digits
+  and `-`. `nil` / `null` takes the value away.
+- It stays until the script changes it, also after a restart. It goes when the script is switched off or deleted.
+- It works only in saved scripts. A run can change values 40 times. Giving the same value again doesn't count.
+- The script's sheet shows which parameters follow it.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @gives rain
+shader.give("rain", 0.25)
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @gives rain
+shader.give("rain", 0.25);
 ```
 </TabItem>
 </Tabs>

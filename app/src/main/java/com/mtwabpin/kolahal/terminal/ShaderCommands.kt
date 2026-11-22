@@ -19,6 +19,7 @@ import com.mtwabpin.kolahal.script.ShaderParam
 import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderStore
+import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
 
@@ -29,6 +30,7 @@ import com.mtwabpin.kolahal.script.SharedShader
  * - `shader off` always works: the prompt takes the keys even when nothing can be read. `shader on`
  *   turns the last one on again, also after it was turned off for being slow.
  * - `set` changes a shader's parameters and `reset` puts them back ([ShaderParam]).
+ * - `follow` makes a parameter follow a value, and `values` lists the values ([ShaderValues]).
  * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
  * - `check`, `reload`, `copy` and `remove` work with the user's own files.
  *
@@ -54,6 +56,8 @@ class ShaderCommands(
             ShaderCatalog.OFF -> off()
             "set" -> set(args.drop(1))
             "reset" -> reset(args.drop(1))
+            "follow" -> follow(args.drop(1))
+            "values" -> values()
             // These use the network, so they run outside the serial command queue.
             "get" -> background("shader get") { getShared(args.drop(1)) }
             "update" -> background("shader update") { update(args.drop(1)) }
@@ -136,6 +140,36 @@ class ShaderCommands(
         info(if (param != null) "$name: ${param.name} ${param.text(param.default)}" else "$name: parameters reset")
     }
 
+    /** `shader follow <name> <parameter> <value>|off`; without a value it says what it follows, without a parameter it lists them. */
+    private fun follow(args: List<String>) {
+        val name = args.firstOrNull()?.lowercase() ?: return usage("shader")
+        val params = paramsOf(name) ?: return
+        if (args.size == 1) return params.forEach { line(name, it) }
+        val param = params.find(args[1]) ?: return error("$name has no parameter '${args[1]}' · it has ${params.joinToString { it.name }}")
+        if (args.size == 2) return line(name, param)
+        val id = args[2].lowercase()
+        if (id == ShaderCatalog.OFF) {
+            ShaderParams.setFollow(context, name, param, null)
+            return info("$name: ${param.name} ${param.text(ShaderParams.of(name, param))}")
+        }
+        if (ShaderActions.sources(context).none { it.id == id }) return error("No value '$id' — 'shader values' lists them")
+        ShaderParams.setFollow(context, name, param, id)
+        info("$name: ${param.name} follows $id")
+    }
+
+    private fun values() {
+        ShaderActions.sources(context).forEach { s ->
+            out(
+                s.id,
+                LogContext.of(
+                    LogContext.DESC to listOfNotNull(s.value?.let { ShaderValues.shown(s.id, it) } ?: "no value yet", s.label.takeIf { s.id in ShaderValues.BUILT_IN })
+                        .joinToString(" · "),
+                ) + LogContext.ITEM,
+            )
+        }
+        info("'shader follow <name> <parameter> <value>' makes a shader's parameter follow one")
+    }
+
     /** The parameters of [name]. Null, and it has said so, when there are none. */
     private fun paramsOf(name: String): List<ShaderParam>? {
         if (!Shaders.exists(name)) {
@@ -150,10 +184,11 @@ class ShaderCommands(
     private fun List<ShaderParam>.find(name: String) = firstOrNull { it.name.equals(name, ignoreCase = true) }
 
     private fun line(shader: String, param: ShaderParam) = out(
-        "${param.name} ${param.text(ShaderParams.of(shader, param))}",
+        "${param.name} ${param.text(ShaderParams.now(shader, param, ShaderActions.phone(context)))}",
         LogContext.of(
             LogContext.COMMAND to "shader set $shader ${param.name} ",
-            LogContext.DESC to "${param.title} · ${param.range} · default ${param.text(param.default)}",
+            LogContext.DESC to "${param.title} · ${param.range} · default ${param.text(param.default)}" +
+                    ShaderParams.follow(shader, param)?.let { " · follows $it" }.orEmpty(),
         ) + LogContext.ITEM,
     )
 
@@ -318,22 +353,26 @@ class ShaderCommands(
 
     companion object {
         val SUBCOMMANDS =
-            listOf("list", "use", "on", "off", "set", "reset", "get", "update", "check", "reload", "copy", "remove")
+            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "get", "update", "check", "reload", "copy", "remove")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "set", "reset", "get", "update", "check", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "set", "reset", "follow", "get", "update", "check", "copy", "remove", "rm")
 
         /**
          * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of
          * the subcommand, then a shader's parameters and what they can be. [shared]: the shared shaders, as
-         * far as they are known ([ScriptSources.ref]). [params]: a shader's parameters.
+         * far as they are known ([ScriptSources.ref]). [values]: the values to follow. [params]: a shader's parameters.
          */
         fun completions(
             parts: List<String>,
             shared: List<String> = emptyList(),
+            values: () -> List<String> = { emptyList() },
             params: (String) -> List<ShaderParam> = { emptyList() },
         ): List<String> = when {
-            parts.size == 4 && parts[1] in setOf("set", "reset") -> params(parts[2]).map { it.name }
+            parts.size == 4 && parts[1] in setOf("set", "reset", "follow") -> params(parts[2]).map { it.name }
+            parts.size == 5 && parts[1] == "follow" ->
+                if (params(parts[2]).any { it.name.equals(parts[3], ignoreCase = true) }) values() + ShaderCatalog.OFF else emptyList()
+
             parts.size == 5 && parts[1] == "set" ->
                 params(parts[2]).firstOrNull { it.name.equals(parts[3], ignoreCase = true) }
                     ?.let { it.choices.ifEmpty { listOf(it.text(it.min), it.text(it.default), it.text(it.max)).distinct() } }.orEmpty()

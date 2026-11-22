@@ -1,0 +1,339 @@
+// @name Dunes
+// @description Sand dunes after woodblock prints that follow the hour, with sand blowing off their crests and a caravan far off
+// @param wind 0.0..2.0 = 1.0 Wind
+// @param camels 0..7 = 5 Camels in the caravan
+// @animated
+//
+// Flat shapes with one soft gradient each: every dune has a side in the light and a side in the shade, which
+// change places as the sun or the moon crosses the sky. The lower part of the page is the theme's own, where
+// the newest lines are.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float4 date;
+uniform float2 tilt;
+uniform float2 touch;
+uniform float touchAge;
+uniform float dark;
+uniform float wind;
+uniform float camels;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+
+// Where the plain begins, as a part of the height.
+const float PLAIN = 0.385;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise over the plane, 0 to 1.
+float noise2(float2 p) {
+    float2 at = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(at), hash2(at + float2(1.0, 0.0)), f.x),
+        mix(hash2(at + float2(0.0, 1.0)), hash2(at + float2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's color, from those of morning, day, evening and night.
+float3 pick(float4 w, float3 a, float3 b, float3 c, float3 d) {
+    return a * w.x + b * w.y + c * w.z + d * w.w;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends.
+float ground(float y) {
+    return y < 0.64 ? 0.80 * clamp((y - 0.42) / 0.22, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.64) / 0.20, 0.0, 1.0);
+}
+
+// How far down from its top a dune's outline is at t, from -1 to 1: long and round against the wind (left),
+// short and hollow behind it. At 0 they meet in an edge.
+float outline(float t) {
+    float a = min(abs(t), 1.0);
+    return t < 0.0 ? mix(a * a * (3.0 - 2.0 * a), a, 0.12) : 1.0 - (1.0 - a) * (1.0 - a);
+}
+
+// The crest comes from the top of the outline towards the viewer, swinging: its x at depth v, and how that changes.
+float2 crest(float v, float swing, float turn) {
+    float root = sqrt(sqrt(max(v, 0.0001)));
+    float at = turn * root * root * root;
+    float wave = swing * sin(at);
+    return float2(wave * (0.5 + v), wave + swing * cos(at) * turn * 0.75 / root * (0.5 + v));
+}
+
+// How much of what is behind a dune it hides at p: nothing where its sides and its foot run out.
+float hides(float2 p, float2 top, float4 size) {
+    float2 d = p - top;
+    float t = d.x < 0.0 ? d.x / size.x : d.x / size.y;
+    return clamp((d.y - size.z * outline(t)) * resolution.y, 0.0, 1.0)
+        * (1.0 - smoothstep(0.68, 1.0, abs(t))) * (1.0 - smoothstep(0.25, 1.0, d.y / size.w));
+}
+
+// How near p is to the line from a to b.
+float stroke(float2 p, float2 a, float2 b) {
+    float2 ab = b - a;
+    return length(p - a - ab * clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0));
+}
+
+// Paints one dune. p is the place and top the dune's top: x in parts of the unit, y in parts of the height.
+// size is its reach to the left and to the right, its height, and how far down it fades out; bend how far its
+// crest swings, how often, and how clear its ripples are. light is the place of the light, the
+// wind, and how much of the light there is.
+float3 dune(float3 color, float2 p, float2 top, float4 size, float3 bend, float3 light,
+    float3 lit, float3 shade, float3 haze, float unit) {
+    float2 d = p - top;
+    if (d.x > -size.x && d.x < size.y && d.y > -0.014 && d.y < size.w) {
+        float t = d.x < 0.0 ? d.x / size.x : d.x / size.y;
+        float down = d.y - size.z * outline(t);
+        float cover = clamp(down * resolution.y + 0.5, 0.0, 1.0);
+        float v = d.y / size.w;
+        float shown = cover * (1.0 - smoothstep(0.68, 1.0, abs(t))) * (1.0 - smoothstep(0.25, 1.0, v));
+        float3 dust = mix(lit, haze, 0.35);
+
+        if (shown > 0.002) {
+            // Which side of the crest this is on, and how far from it.
+            float2 c = crest(v, bend.x, bend.y);
+            float lean = c.y * unit / (size.w * resolution.y);
+            float e = (d.x - c.x) / sqrt(1.0 + lean * lean);
+            float right = clamp(e * unit + 0.5, 0.0, 1.0);
+
+            // The light comes from the sun's side. Each side is at its own color at the crest, and the two grow
+            // alike away from it.
+            float from = light.x - top.x;
+            from = from / (abs(from) + 0.02) * light.z;
+            float reach = abs(e) / (e < 0.0 ? size.x : size.y);
+            float apart = exp(-reach * 1.3) * (1.0 - smoothstep(0.45, 1.05, v));
+            float bright = mix(0.52, clamp(0.5 + mix(-0.56, 0.56, right) * from, 0.0, 1.0), apart);
+
+            if (bend.z > 0.001 && v > 0.03 && v < 0.95 && p.y < 0.68) {
+                // Ripples: lines across the wind, near each other far off and wider apart nearby.
+                float row = 46.0 * sqrt(v + 0.02) + 0.9 * sin(p.x * 23.0 + 6.0 * v) + 0.45 * sin(p.x * 57.0 - 9.0 * v) + 5.0 * exp(-abs(e) * 14.0);
+                float line = 0.4 - smoothstep(0.0, 0.20, abs(fract(row) - 0.35)) + 0.6 * smoothstep(0.0, 0.30, abs(fract(row + 0.32) - 0.35));
+                float where = smoothstep(-0.6, 0.8, sin(p.x * 13.0 - time * 0.012 + 2.2 * sin(v * 9.0 + p.x * 6.0)));
+                bright += line * where * bend.z * smoothstep(0.03, 0.12, v) * (1.0 - smoothstep(0.6, 0.95, v)) * mix(1.0, 0.45, right);
+            }
+            float3 sand = mix(mix(shade, lit, clamp(bright, 0.0, 1.15)), haze, 0.50 * smoothstep(0.0, 0.9, v));
+            color = mix(color, sand, shown);
+        }
+
+        if (bend.z > 0.0 && d.x > -0.07 && d.x < 0.16 && d.y < 0.05 && (d.x > 0.0 || cover < 1.0)) {
+            // Sand that the wind carries off the top: thin and level, and wider as it goes.
+            float past = max(d.x, 0.0);
+            float off = (d.x < 0.0 ? down : d.y - 0.10 * past) / (0.0012 + 0.055 * past);
+            float air = exp(-abs(off) - past * 13.0) * smoothstep(-0.07, 0.0, d.x) * (1.0 - smoothstep(0.08, 0.16, d.x));
+            if (air > 0.01) {
+                air *= 0.2 + 0.8 * smoothstep(0.2, 0.8, noise2(float2((d.x - time * 0.02) * 34.0, off * 0.9 + top.x * 40.0)));
+                color = mix(color, max(color, dust), clamp(air * light.y * 0.8, 0.0, 1.0));
+            }
+        }
+    }
+    return color;
+}
+
+// Haze in a band around y = at, thicker in some places and moving slowly.
+float band(float2 xy, float at, float thick, float n) {
+    float off = (xy.y / resolution.y - at) / thick;
+    float sum = 0.0;
+    if (abs(off) < 2.2) {
+        float u = (xy.x - time * (2.5 + n)) / resolution.x * 6.2832 + n * 1.7;
+        float sides = (sin(u) + 0.5 * sin(2.0 * u + 1.0) + 0.333 * sin(3.0 * u + 2.1)) / 1.833;
+        sum = exp(-off * off) * (0.7 + 0.3 * sides);
+    }
+    return sum;
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float y = xy.y / resolution.y;
+    if (y > 0.84) return half4(here);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
+    float4 w = hours(date.w / 3600.0);
+    // A dark theme's hours are all dark, so its light text is readable. A light one's night is a pale, moonlit one.
+    float3 sky, mid, horizonSky, haze, litFar, litNear, shadeFar, shadeNear;
+    if (dark > 0.5) {
+        sky = pick(w, float3(0.102, 0.141, 0.220), float3(0.086, 0.137, 0.180), float3(0.098, 0.102, 0.188), float3(0.039, 0.063, 0.137));
+        mid = pick(w, float3(0.173, 0.173, 0.247), float3(0.129, 0.188, 0.220), float3(0.200, 0.149, 0.227), float3(0.086, 0.122, 0.227));
+        horizonSky = pick(w, float3(0.294, 0.224, 0.239), float3(0.192, 0.227, 0.235), float3(0.318, 0.200, 0.200), float3(0.180, 0.231, 0.373));
+        haze = pick(w, float3(0.251, 0.227, 0.251), float3(0.204, 0.231, 0.235), float3(0.290, 0.188, 0.204), float3(0.220, 0.271, 0.404));
+        litFar = pick(w, float3(0.294, 0.251, 0.251), float3(0.271, 0.255, 0.220), float3(0.345, 0.220, 0.192), float3(0.259, 0.318, 0.475));
+        litNear = pick(w, float3(0.310, 0.243, 0.220), float3(0.286, 0.247, 0.204), float3(0.361, 0.220, 0.169), float3(0.235, 0.298, 0.455));
+        shadeFar = pick(w, float3(0.165, 0.161, 0.212), float3(0.145, 0.173, 0.184), float3(0.188, 0.133, 0.180), float3(0.102, 0.141, 0.251));
+        shadeNear = pick(w, float3(0.090, 0.094, 0.141), float3(0.075, 0.098, 0.110), float3(0.106, 0.075, 0.122), float3(0.047, 0.071, 0.141));
+    } else {
+        sky = pick(w, float3(0.722, 0.792, 0.871), float3(0.596, 0.761, 0.847), float3(0.557, 0.545, 0.718), float3(0.651, 0.706, 0.796));
+        mid = pick(w, float3(0.906, 0.843, 0.859), float3(0.773, 0.867, 0.882), float3(0.863, 0.620, 0.627), float3(0.776, 0.780, 0.839));
+        horizonSky = pick(w, float3(0.980, 0.851, 0.737), float3(0.945, 0.925, 0.835), float3(0.984, 0.757, 0.522), float3(0.886, 0.851, 0.847));
+        haze = pick(w, float3(0.980, 0.894, 0.827), float3(0.965, 0.933, 0.851), float3(0.965, 0.792, 0.675), float3(0.894, 0.863, 0.855));
+        litFar = pick(w, float3(0.969, 0.847, 0.737), float3(0.953, 0.886, 0.757), float3(0.957, 0.729, 0.557), float3(0.863, 0.824, 0.804));
+        litNear = pick(w, float3(0.957, 0.780, 0.596), float3(0.933, 0.820, 0.604), float3(0.922, 0.604, 0.396), float3(0.827, 0.765, 0.722));
+        shadeFar = pick(w, float3(0.808, 0.741, 0.773), float3(0.855, 0.769, 0.659), float3(0.745, 0.573, 0.612), float3(0.682, 0.690, 0.757));
+        shadeNear = pick(w, float3(0.612, 0.557, 0.655), float3(0.757, 0.612, 0.478), float3(0.573, 0.475, 0.612), float3(0.510, 0.533, 0.639));
+    }
+    float3 disc = pick(w, float3(1.000, 0.949, 0.847), float3(1.000, 0.992, 0.949), float3(1.000, 0.890, 0.722), float3(0.910, 0.925, 0.957));
+    float3 glow = pick(w, float3(1.000, 0.871, 0.682), float3(1.000, 0.957, 0.816), float3(1.000, 0.741, 0.463), float3(0.616, 0.706, 0.847));
+
+    float s = y / PLAIN;
+    float3 color = haze;
+    if (y < PLAIN + 0.002) color = s < 0.55 ? mix(sky, mid, s / 0.55) : mix(mid, horizonSky, clamp((s - 0.55) / 0.45, 0.0, 1.0));
+
+    // The sun by day and the moon by night, each on its own arc, from left to right.
+    float h = date.w / 3600.0;
+    bool moon = h < 5.5 || h > 19.5;
+    float arc = moon ? (h > 12.0 ? h - 19.5 : h + 4.5) / 10.0 : (h - 5.5) / 14.0;
+    float up = sin(3.1416 * clamp(arc, 0.0, 1.0));
+    float low = moon ? 0.0 : 1.0 - smoothstep(0.25, 0.75, up);
+    float small = min(resolution.x, resolution.y);
+    float r = small * mix(0.050, 0.064, low);
+    float2 sunAt = float2(mix(0.50, 0.84, arc) * resolution.x, mix(0.37, 0.13, pow(up, 0.8)) * resolution.y);
+    float there = smoothstep(0.0, 0.10, up);
+
+    float unit = max(resolution.x, 0.9 * resolution.y);
+    float2 off = xy - sunAt;
+    float far = length(off);
+    float halo = max(0.0, 1.0 - far / (4.5 * r));
+    float shine = 0.0;
+    if (y < 0.56) {
+        float wide = exp(-(off.x * off.x / 6.76 + off.y * off.y) / (resolution.y * resolution.y * 0.0110));
+        float peak = moon ? 0.16 : mix(0.40, 0.62, low);
+        shine = clamp((peak * wide + 0.35 * halo * halo * (moon ? 0.6 : 1.0)) * there * mix(1.0, 0.45, dark), 0.0, 1.0);
+        color = mix(color, glow, shine);
+    }
+    if (moon && dark > 0.5 && y < PLAIN) {
+        // Small stars, fewer near the moon and the horizon.
+        float2 cellAt = xy / (small * 0.052);
+        float2 id = floor(cellAt);
+        float s = hash2(id);
+        float2 star = fract(cellAt) - (0.2 + 0.6 * float2(hash2(id + 7.1), hash2(id + 3.7)));
+        float dot1 = 1.0 - smoothstep(0.012, 0.036 + 0.02 * s, length(star));
+        color += disc * dot1 * step(0.62, s) * 0.45 * (1.0 - smoothstep(0.5, 1.0, y / PLAIN)) * (1.0 - halo);
+    }
+    float face = clamp(r - far + 0.5, 0.0, 1.0) * there;
+    color = mix(color, disc, face * mix(1.0, moon ? 0.86 : 0.66, dark));
+
+    float lift = tilt.x * 0.0016;
+    float2 p = float2(xy.x / unit, y);
+
+    // The plain, and then the dunes on it from far to near.
+    if (y > PLAIN - 0.004) {
+        float deep = clamp((y - PLAIN) / 0.22, 0.0, 1.0);
+        float3 plain = mix(haze, mix(shadeNear, litNear, 0.6), deep);
+        color = mix(color, plain, clamp((y - PLAIN) * resolution.y + 0.5, 0.0, 1.0));
+    }
+    const float2 TOP1 = float2(0.322, 0.465);
+    const float2 TOP2 = float2(0.900, 0.452);
+    const float4 SIZE1 = float4(0.60, 0.34, 0.090, 0.40);
+    const float4 SIZE2 = float4(0.41, 0.34, 0.090, 0.40);
+    const float2 TOP3 = float2(0.07, 0.402);
+    const float2 TOP4 = float2(0.605, 0.390);
+    const float4 SIZE3 = float4(0.34, 0.26, 0.075, 0.26);
+    const float4 SIZE4 = float4(0.42, 0.26, 0.085, 0.27);
+    const float2 TOP5 = float2(0.315, 0.325);
+    const float4 SIZE5 = float4(0.54, 0.24, 0.085, 0.24);
+    float3 light = float3(sunAt.x / unit, wind, there);
+    float2 front = p + float2(lift * 4.0, 0.0);
+    float2 middle = p + float2(lift * 3.0, 0.0);
+    float2 back = p + float2(lift * 2.0, 0.0);
+
+    // What the nearest dunes hide is not drawn.
+    float hidden = y < 0.45 ? 0.0 : max(hides(front, TOP1, SIZE1), hides(front, TOP2, SIZE2));
+    if (y > 0.28 && y < 0.67 && hidden < 0.996) {
+        if (y < 0.565) {
+            if (y > 0.345 && y < 0.45) {
+                float2 q = p + float2(lift, 0.0);
+                float3 l1 = mix(litFar, litNear, 0.10);
+                float3 s1 = mix(shadeFar, shadeNear, 0.05);
+                color = dune(color, q, float2(0.235, 0.368), float4(0.15, 0.11, 0.022, 0.06), float3(-0.016, 4.6, 0.0), light, l1, s1, haze, unit);
+                color = dune(color, q, float2(0.45, 0.364), float4(0.18, 0.12, 0.026, 0.07), float3(0.018, 4.4, 0.0), light, l1, s1, haze, unit);
+                color = dune(color, q, float2(0.66, 0.370), float4(0.15, 0.10, 0.020, 0.06), float3(-0.014, 4.6, 0.0), light, l1, s1, haze, unit);
+                color = dune(color, q, float2(0.955, 0.360), float4(0.17, 0.14, 0.028, 0.07), float3(0.018, 4.4, 0.0), light, l1, s1, haze, unit);
+                color = mix(color, haze, 0.55 * band(xy, 0.398, 0.018, 0.0));
+                color = mix(color, glow, shine * 0.45 * smoothstep(PLAIN - 0.03, PLAIN + 0.03, y));
+            }
+
+            // A caravan on its way over the highest dune.
+            float camel = small * 0.0085;
+            float way = fract(time * 0.0007 + 0.42) * 0.62 - 0.12;
+            float box = (back.x - way) * unit / camel;
+            if (camels > 0.5 && y < PLAIN + 0.03 && box < 4.0 && box > 1.2 - 5.2 * camels) {
+                float n = clamp(floor(0.5 - box / 5.2), 0.0, camels - 1.0);
+                float at = way - n * 5.2 * camel / unit;
+                float foot = TOP5.y + SIZE5.z * outline(clamp((at - TOP5.x) / SIZE5.x, -1.0, 0.0)) + 0.5 * max(0.0, at - TOP5.x + 0.06);
+                float2 c = float2((back.x - at) * unit, (foot - y) * resolution.y) / (camel * (0.9 + 0.2 * hash(n + 4.0)));
+                if (c.y > -0.5 && c.y < 2.4) {
+                    float gait = 0.22 * sin(time * 1.6 + n * 2.0);
+                    float body = (length((c - float2(0.0, 1.08)) / float2(0.68, 0.36)) - 1.0) * 0.36;
+                    body = min(body, (length((c - float2(-0.04, 1.42)) / float2(0.32, 0.28)) - 1.0) * 0.28);
+                    body = min(body, stroke(c, float2(0.50, 1.08), float2(0.88, 1.14)) - 0.13);
+                    body = min(body, stroke(c, float2(0.88, 1.14), float2(1.02, 1.70)) - 0.09);
+                    body = min(body, stroke(c, float2(1.02, 1.70), float2(1.28, 1.64)) - 0.09);
+                    body = min(body, stroke(c, float2(0.44, 0.95), float2(0.42 + gait, 0.0)) - 0.07);
+                    body = min(body, stroke(c, float2(0.36, 0.95), float2(0.34 - gait, 0.0)) - 0.07);
+                    body = min(body, stroke(c, float2(-0.46, 0.95), float2(-0.46 + gait, 0.0)) - 0.07);
+                    body = min(body, stroke(c, float2(-0.54, 0.95), float2(-0.54 - gait, 0.0)) - 0.07);
+                    color = mix(color, shadeNear, 0.9 * clamp(0.5 - body * camel, 0.0, 1.0));
+                }
+            }
+
+            float3 l2 = mix(litFar, litNear, 0.5);
+            float3 s2 = mix(shadeFar, shadeNear, 0.45);
+            color = dune(color, back, TOP5, SIZE5, float3(-0.042, 5.6, 0.0001), light, l2, s2, haze, unit);
+            color = dune(color, back, float2(0.80, 0.338), float4(0.34, 0.30, 0.070, 0.22), float3(0.045, 5.6, 0.0001), light, l2, s2, haze, unit);
+            color = mix(color, haze, 0.30 * band(xy, 0.435, 0.022, 1.0));
+            color = mix(color, glow, shine * 0.25 * smoothstep(PLAIN - 0.02, PLAIN + 0.04, y));
+        }
+        if (y > 0.37) {
+            float3 l3 = mix(litFar, litNear, 0.75);
+            float3 s3 = mix(shadeFar, shadeNear, 0.75);
+            color = dune(color, middle, TOP3, SIZE3, float3(0.05, 5.4, 0.03), light, l3, s3, haze, unit);
+            color = dune(color, middle, TOP4, SIZE4, float3(-0.05, 5.4, 0.03), light, l3, s3, haze, unit);
+        }
+    }
+    if (y > 0.43) {
+        color = dune(color, front, TOP1, SIZE1, float3(-0.085, 6.0, 0.06), light, litNear, shadeNear, haze, unit);
+        color = dune(color, front, TOP2, SIZE2, float3(-0.055, 5.0, 0.06), light, litNear, shadeNear, haze, unit);
+    }
+
+    // A touch on the sand raises a little of it.
+    if (touchAge < 5.0 && touch.y > PLAIN * resolution.y) {
+        float2 q = (xy - touch - small * float2(0.06, -0.015) * touchAge * wind) / (small * float2(0.035 + 0.06 * touchAge, 0.02 + 0.03 * touchAge));
+        float puff = exp(-dot(q, q) - 0.8 * touchAge) * smoothstep(0.0, 0.15, touchAge);
+        if (puff > 0.005) color = mix(color, mix(litNear, haze, 0.5), puff * (0.4 + 0.6 * noise2(float2(q.x + q.y, q.y * 1.7 - q.x) * 1.3 + 9.0)));
+    }
+
+    color = mix(color, float3(bg.rgb), ground(y));
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

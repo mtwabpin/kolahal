@@ -604,6 +604,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         if (status != linesRead || scriptsChanged || read.whole) {
             linesRead = status
             _lines.value = StatusLines.all(context)
+            com.mtwabpin.kolahal.script.ShaderValues.load(context)
         }
         scriptsRead.value = true
         if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()

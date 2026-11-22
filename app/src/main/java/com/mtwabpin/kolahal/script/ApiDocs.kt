@@ -216,6 +216,12 @@ object ApiDocs {
             "widget.clear()",
             "Remove the widget's content; its card then has nothing to show"
         ),
+        ApiDoc("shader", "shader", "Values that shaders' parameters can follow: give", kind = NS),
+        ApiDoc(
+            "shader.give",
+            "shader.give(name, value)",
+            "Give a value under a name from @gives: a number from 0 to 1, or a word; nil/null takes it away. A shader's parameter follows it when you pick it there"
+        ),
         ApiDoc("tty", "tty", "A full-screen screen of its own over home, drawn on the character grid: screen", kind = NS),
         ApiDoc("tty.screen", "tty.screen{ fps, title, start, frame, key, tap, resize, stop }", TTY_SCREEN, LUA),
         ApiDoc("tty.screen", "tty.screen({ fps, title, start, frame, key, tap, resize, stop })", TTY_SCREEN, JS),
@@ -582,6 +588,7 @@ object ApiDocs {
             "<NAME> <site> <description>",
             "A key you set in its sheet, never in the code; read with secrets.get, sent only to that site"
         ),
+        Directive("gives", "<name>, …", "The values it gives with shader.give, for shaders' parameters to follow"),
         Directive("every", "<15m|1h|1d>", "The timer it suggests, set when it is added"),
         Directive("at", "<HH:mm>, …", "The daily times it suggests"),
         Directive("notify", "", "Suggests allowing notifications"),

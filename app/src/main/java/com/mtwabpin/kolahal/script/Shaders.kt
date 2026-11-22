@@ -73,6 +73,7 @@ object Shaders {
         if (!paramsRead) {
             paramsRead = true
             ShaderParams.load(context)
+            ShaderValues.load(context)
         }
         mine = dir(context).list().orEmpty().mapNotNull(ShaderCatalog::nameOf).distinct().sorted()
         _version.update { it + 1 }

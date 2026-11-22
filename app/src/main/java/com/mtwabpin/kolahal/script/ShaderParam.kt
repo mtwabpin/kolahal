@@ -12,6 +12,8 @@ import kotlin.math.roundToInt
  *   line, whole numbers.
  * - `// @param flakes round|star = round Shape of the flakes`: one of some words. The shader gets its place, from 0.
  *
+ * - `@follow weather.rain` at the end of either: the value it follows until people pick another ([ShaderValues]).
+ *
  * The uniform of its name, a `float`, holds its value.
  */
 class ShaderParam private constructor(
@@ -24,6 +26,8 @@ class ShaderParam private constructor(
     val whole: Boolean,
     /** The words to choose from; empty for a number. */
     val choices: List<String>,
+    /** The id of the value it follows at first, if any. */
+    val follow: String?,
 ) {
     /** The value that [text] says: a number, taken into the range, or one of the words. Null when it says none. */
     fun parse(text: String): Float? {
@@ -46,6 +50,12 @@ class ShaderParam private constructor(
         return String.format(Locale.ROOT, "%.2f", v).trimEnd('0').trimEnd('.').let { if (it == "-0") "0" else it }
     }
 
+    /** What the value [text] that it follows makes it: a number from 0 to 1 over its range, or its word of that name. Null: it can't have it. */
+    fun followed(text: String): Float? {
+        val n = text.toFloatOrNull()?.takeIf { it.isFinite() } ?: return if (choices.isEmpty()) null else parse(text)
+        return clean(min + n.coerceIn(0f, 1f) * (max - min))
+    }
+
     /** What it can be: `0..2`, or its words. */
     val range: String get() = if (choices.isNotEmpty()) choices.joinToString(" · ") else "${text(min)}..${text(max)}"
 
@@ -60,25 +70,28 @@ class ShaderParam private constructor(
         const val MAX_CHOICES = 4
 
         private val LINE = Regex("""^([A-Za-z_]\w{0,39})\s+(\S+)\s*=\s*(\S+)\s*(.*)$""")
+        private val FOLLOW = Regex("""(?:^|\s+)@follow\s+([a-z0-9_-]+(?:\.[a-z0-9_-]+)?)\s*$""")
         private val RANGE = Regex("""^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$""")
         private val CHOICE = Regex("""^[A-Za-z0-9][A-Za-z0-9-]{0,19}$""")
 
         /** Reads what follows `@param`. Null when it can't be read. */
         fun read(line: String): ShaderParam? {
-            val (name, values, first, words) = LINE.find(line.trim())?.destructured ?: return null
+            val (name, values, first, rest) = LINE.find(line.trim())?.destructured ?: return null
+            val follow = FOLLOW.find(rest)?.groupValues?.get(1)
+            val words = rest.replace(FOLLOW, "")
             val title = words.trim().ifEmpty { name.replace('_', ' ').replaceFirstChar { it.uppercase() } }
             RANGE.find(values)?.let { m ->
                 val min = m.groupValues[1].toFloat()
                 val max = m.groupValues[2].toFloat()
                 val default = first.toFloatOrNull() ?: return null
                 if (min >= max || default !in min..max) return null
-                return ShaderParam(name, title, min, max, default, whole = '.' !in values.replace("..", "") && '.' !in first, choices = emptyList())
+                return ShaderParam(name, title, min, max, default, whole = '.' !in values.replace("..", "") && '.' !in first, choices = emptyList(), follow = follow)
             }
             val choices = values.split('|')
             if (choices.size !in 2..MAX_CHOICES || choices.distinctBy { it.lowercase() }.size != choices.size) return null
             if (!choices.all(CHOICE::matches)) return null
             val default = choices.indexOf(first).takeIf { it >= 0 } ?: return null
-            return ShaderParam(name, title, 0f, choices.lastIndex.toFloat(), default.toFloat(), whole = true, choices = choices)
+            return ShaderParam(name, title, 0f, choices.lastIndex.toFloat(), default.toFloat(), whole = true, choices = choices, follow = follow)
         }
     }
 }

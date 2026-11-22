@@ -193,6 +193,7 @@ internal object ScriptRun {
             }.orEmpty(),
             widget = script?.let { ScriptMeta.widget(it.code) },
             widgetId = widgetId,
+            gives = script?.let { ScriptMeta.gives(it.code) }.orEmpty(),
         )
         host.handover = handover
         host.screens = handover != null

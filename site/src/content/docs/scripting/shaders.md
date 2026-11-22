@@ -36,6 +36,8 @@ Or type:
 | `shader on` | turns the last one on again |
 | `shader set <name>` | a shader's parameters, and what they can be |
 | `shader set <name> <parameter> <value>` | changes one: `shader set snowfall amount 1.5` |
+| `shader follow <name> <parameter> <value>` | makes one [follow a value](#values-to-follow): `shader follow rain amount weather.rain`. `off` ends it |
+| `shader values` | the values there are to follow |
 | `shader reset <name>` | resets its parameters to their defaults |
 
 The setting behind them is [`screen.shader`](/reference/config/#screens). These come with Kolahal. The ones marked "moves" are drawn again and again; the others cost
@@ -55,6 +57,7 @@ nothing while the screen is still.
 | `frost` | ice grows in from the edges and corners, and melts under your finger |
 | `mountains` | flat mountain ridges in mist, after woodblock prints. They breathe slowly, follow the hour, and shift a little as the phone leans. It moves |
 | `pond` | a still pond under far hills, after woodblock prints, with rings of rain and a path of light. It follows the hour. It moves |
+| `dunes` | sand dunes under a wide sky, after woodblock prints, with sand blowing off their crests and a caravan far off. It follows the hour. The wind and the number of camels can be changed. It moves |
 | `rain` | a storm you stand in: mist far off, rain in between and big soft drops close by; it slants as the phone leans, and a touch holds it off. It moves |
 | `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. Its amount and size can be changed. It moves |
 | `grove-snow` | small, crisp flakes fall and wander slowly behind the text, and dim with the hour. It moves |
@@ -217,6 +220,27 @@ uniform float shape;
 - Values are kept for each shader, in the [backup file](/guides/backup/) too, and when the shader is updated. One that
   the new version can't have becomes the default again.
 - A shader that isn't `@animated` is drawn again when one changes.
+
+#### Values to follow
+
+A parameter can follow a value instead of its slider: tap **Follow** under it. Kolahal has these values:
+
+| Value | From 0 to 1 |
+| --- | --- |
+| `battery` | how full the battery is |
+| `charging` | 0, or 1 while the phone is plugged in |
+| `day` | the time of day: 0 at midnight, 0.5 at noon |
+| `night` | 0 by day and 1 at night, with a dusk and a dawn |
+
+Scripts give more, with [`shader.give`](/scripting/api/#shadergivename-value). The library's `weather` gives `weather.rain` and
+`weather.snow`: let the amount of `rain` follow `weather.rain`, and it rains on home as hard as it rains outside.
+
+- A number is spread over the parameter's range: 0 is its least and 1 its most. The parameter glides there in two seconds.
+- A word picks the parameter's word of that name.
+- While there is no value (the script is off, or hasn't run yet), the slider counts.
+- A parameter can suggest a value: end its line with `@follow`, as in
+  `// @param amount 0.0..2.0 = 1.0 Amount of rain @follow weather.rain`. It follows that until you pick something else.
+- A shader needs no permission for this. It can't send or save anything: it only draws.
 
 ### Uniforms
 

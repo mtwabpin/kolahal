@@ -12,10 +12,11 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,23 +52,30 @@ import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderTilt
+import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.ui.LocalTerminalShown
 import com.mtwabpin.kolahal.ui.rememberScreenReader
+import java.time.LocalTime
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 
@@ -104,7 +112,7 @@ internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
  * - A still shader that declares `date` is also drawn once a minute, while home is in front ([FollowDate]).
  * - One that declares `tilt` follows the phone's lean, under the same conditions as one that moves
  *   ([FollowTilt]). Nothing listens to the motion sensor for any other.
- * - One with parameters is also drawn when one is changed ([ShaderParams]).
+ * - One with parameters is also drawn when one changes, by hand or with the value it follows ([rememberLiveParams]).
  * - One that declares `battery` or `charging` is also drawn when they change ([FollowBattery]).
  * - [ShaderSafety] turns one off that Kolahal crashed with. A slow one is the user's to turn off.
  * - Two fingers held still for a second turn the shader off, whatever it does to the screen.
@@ -157,7 +165,7 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     if (!shader.meta.animated && shader.meta.uses(ShaderDate.NAME)) FollowDate(shader, day)
     if (shader.meta.tilt) FollowTilt(shader, touch)
     val battery = rememberShaderBattery(shader)
-    val params = ShaderParams.values.collectAsStateWithLifecycle()
+    val params = rememberLiveParams(shader)
 
     val inputs = remember(shader, grid, cols, left) {
         ShaderInputs(shader, grid, cols, left, params) { Shaders.report(context, shader.name, shader.id, it) }
@@ -221,7 +229,7 @@ private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, l
     if (shader.meta.animated && moves) AnimateShader(shader, clock, touch)
     if (shader.meta.tilt && moves) FollowTilt(shader, touch)
     val battery = rememberShaderBattery(shader)
-    val params = ShaderParams.values.collectAsStateWithLifecycle()
+    val params = rememberLiveParams(shader)
     val inputs = remember(shader, grid, cols, left) { ShaderInputs(shader, grid, cols, left, params) { } }
     return Modifier.shaderEffect(inputs, clock, touch, battery)
 }
@@ -406,6 +414,73 @@ private fun FollowBattery(shader: LoadedShader, battery: ShaderBattery) {
     }
 }
 
+/** A shader's parameters as they are drawn, in its header's order. Read as it draws, so a change draws it again. */
+private class LiveParams(start: List<Float>) {
+    private val states = start.map { mutableFloatStateOf(it) }
+
+    operator fun get(i: Int): Float = states[i].floatValue
+
+    operator fun set(i: Int, value: Float) {
+        states[i].floatValue = value
+    }
+
+    fun all(): List<Float> = states.map { it.floatValue }
+}
+
+/**
+ * [shader]'s parameters: what people set ([ShaderParams]), at once, as a slider is dragged; and for one that
+ * follows a value ([ShaderValues]), that value, to which it glides in [GLIDE_MS] when it changes. One of
+ * several words changes at once.
+ */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun rememberLiveParams(shader: LoadedShader): LiveParams {
+    val context = LocalContext.current.applicationContext
+    val params = shader.meta.params
+    val status = remember(context) { DeviceStatus.get(context).status }
+    val live = remember(shader) {
+        val phone = valuesPhone(status.value)
+        LiveParams(params.map { ShaderParams.now(shader.name, it, phone) })
+    }
+    if (params.isEmpty()) return live
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(shader, live) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val aims = live.all().toFloatArray()
+            val glides = arrayOfNulls<Job>(params.size)
+            // The time of day moves each minute.
+            val minutes = flow {
+                while (true) {
+                    emit(Unit)
+                    delay(ShaderDate.untilNextMinute(System.currentTimeMillis()))
+                }
+            }
+            combine(ShaderParams.values, ShaderParams.follows, ShaderValues.given, status, minutes) { _, _, _, now, _ -> valuesPhone(now) }
+                .collect { phone ->
+                    params.forEachIndexed { i, param ->
+                        val followed = ShaderParams.followed(shader.name, param, phone)
+                        val aim = followed ?: ShaderParams.of(shader.name, param)
+                        if (aim == aims[i]) return@forEachIndexed
+                        aims[i] = aim
+                        glides[i]?.cancel()
+                        // A step too small to see, such as a minute of the day, isn't worth frames.
+                        val far = abs(aim - live[i]) > (param.max - param.min) * 0.02f
+                        if (followed == null || param.choices.isNotEmpty() || !far) live[i] = aim
+                        else glides[i] = launch { animate(live[i], aim, animationSpec = tween(GLIDE_MS)) { x, _ -> live[i] = x } }
+                    }
+                }
+        }
+    }
+    return live
+}
+
+/** How long a parameter takes to the value it follows. */
+private const val GLIDE_MS = 2_000
+
+/** The phone for [ShaderValues], at [status] and now. */
+private fun valuesPhone(status: Status): ShaderValues.Phone =
+    ShaderValues.Phone((status.batteryPct ?: 100) / 100f, status.charging, LocalTime.now())
+
 /** A phone's state for [ShaderClock]. */
 private fun phoneOf(context: Context): ShaderClock.Phone {
     val power = context.getSystemService(PowerManager::class.java)
@@ -531,8 +606,7 @@ private class ShaderInputs(
     grid: TtyGrid,
     private val cols: Int,
     private val left: Int,
-    /** What every shader's parameters are set to: read as it draws, so a change draws it again. */
-    private val params: State<Map<String, Map<String, String>>>,
+    private val params: LiveParams,
     private val onError: (String) -> Unit,
 ) {
     private val runtime = shader.runtime
@@ -590,10 +664,7 @@ private class ShaderInputs(
                 val now = ShaderDate.of(LocalDateTime.now())
                 runtime.setFloatUniform(ShaderDate.NAME, now[0], now[1], now[2], now[3])
             }
-            if (shader.meta.params.isNotEmpty()) {
-                val set = params.value[shader.name].orEmpty()
-                for (p in shader.meta.params) float1(p.name, ShaderParams.of(set, p))
-            }
+            shader.meta.params.forEachIndexed { i, p -> float1(p.name, params[i]) }
             for ((name, ink) in COLORS) color(name, palette.color(ink))
             RenderEffect.createRuntimeShaderEffect(runtime, ShaderMeta.INPUT).asComposeRenderEffect()
         } catch (e: RuntimeException) {

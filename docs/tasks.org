@@ -482,6 +482,14 @@ Looks, positions and the new Arrange widgets screen shipped in 0.5.15. Still to 
   script's and the user's choice.
 - Remark:
 
+** WAITING [#C] A shader and the script it needs, as one download  :shaders:scripts:project:
+- A shader's parameter can follow a value that a script gives (=@follow weather.rain=, 22 November 2026), but
+  they are two downloads: whoever installs the shader alone sees a slider that nothing moves.
+- The idea: both are in the same shared repository and name each other, so installing one offers the other.
+- Why it waits: the maintainer wants to try following values first. Combining the Shaders and Scripts screens
+  is too much; how the two show that they belong together is to be explored.
+- Remark:
+
 * Keep as it is
 Checked and found sound, or left as it is on purpose. Don't raise these again.
 

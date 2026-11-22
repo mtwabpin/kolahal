@@ -43,6 +43,8 @@ class ShaderCompletionTest {
         assertTrue(of("reset", "snow", "amount", "").isEmpty())
         assertTrue(of("set", "other", "").isEmpty())
         assertTrue(of("use", "snow", "").isEmpty())
+        val follow = ShaderCommands.completions(listOf("shader", "follow", "snow", "amount", ""), values = { listOf("battery") }, params = { params })
+        assertEquals(listOf("battery", "off"), follow)
     }
 
     /** A word the command reads can't be a shader's name, or that shader couldn't be named. */

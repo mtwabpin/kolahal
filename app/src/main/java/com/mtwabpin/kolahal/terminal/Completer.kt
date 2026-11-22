@@ -720,13 +720,13 @@ class Completer(private val context: Context, private val data: Data) {
                 .map { Suggestion.Completion(it, "$head $it") }
 
             // `shader c`: its subcommands and the shaders; `shader use c`: the shaders.
-            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() }, data.sharedShaders) { Shaders.params(context, it) }
+            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() }, data.sharedShaders, { ShaderActions.sources(context).map { it.id } }) { Shaders.params(context, it) }
                 .filter { it.starts(last) }
                 .map {
                     val sub = parts.size == 2 && it in ShaderCommands.SUBCOMMANDS
                     Suggestion.Completion(
                         it,
-                        (parts.dropLast(1) + it).joinToString(" ") + if (sub && it in ShaderCommands.TAKE_NAME || parts.size in 3..4 && parts[1].equals("set", ignoreCase = true)) " " else "",
+                        (parts.dropLast(1) + it).joinToString(" ") + if (sub && it in ShaderCommands.TAKE_NAME || parts.size in 3..4 && parts[1].lowercase() in setOf("set", "follow")) " " else "",
                         icon = if (sub) null else R.drawable.ic_palette,
                     )
                 }

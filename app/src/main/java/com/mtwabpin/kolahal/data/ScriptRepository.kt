@@ -15,6 +15,8 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
+import com.mtwabpin.kolahal.script.ShaderParams
+import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetRef
@@ -80,6 +82,7 @@ class ScriptRepository private constructor(private val context: Context) {
     fun create(name: String, lang: ScriptLang, code: String, enabled: Boolean = true): Script {
         // Nothing from an earlier script with this name carries over: no status line a run left behind, no widget content, no values.
         StatusLines.clear(context, name)
+        ShaderValues.forget(context, name)
         WidgetStates.forgetScript(context, name)
         db.writableDatabase.delete("kv", "scope = ?", arrayOf(SecretStore.scope(name)))
         db.writableDatabase.insertOrThrow("scripts", null, ContentValues().apply {
@@ -182,6 +185,8 @@ class ScriptRepository private constructor(private val context: Context) {
             context,
             s.name
         )
+        // The same for the values it gives shaders: those it no longer names go.
+        ShaderValues.forget(context, s.name, keep = ScriptMeta.gives(code).toSet())
         // The same for its widgets: code without its `@widget` line leaves no content behind, on any of them.
         if (ScriptMeta.widget(s.code) != null && ScriptMeta.widget(code) == null) WidgetStates.forgetScript(
             context,
@@ -262,6 +267,7 @@ class ScriptRepository private constructor(private val context: Context) {
         setAtTimes(id, ScriptMeta.timesAfter(s.code, code, s.atTimes))
         forgetRemovedSecrets(s.name, code)
         StatusLines.clear(context, s.name)
+        ShaderValues.forget(context, s.name)
         // What its widgets showed came from the old code. They stay placed, and say the script is off.
         WidgetStates.forgetScript(context, s.name)
     }
@@ -322,6 +328,7 @@ class ScriptRepository private constructor(private val context: Context) {
         // a line left by a run while it was off would show.
         if (enabled != s.enabled) {
             StatusLines.clear(context, s.name)
+            ShaderValues.forget(context, s.name)
             // Its widgets' content goes for the same reasons. The widgets stay placed.
             WidgetStates.forgetScript(context, s.name)
         }
@@ -472,10 +479,10 @@ class ScriptRepository private constructor(private val context: Context) {
                 ScriptOptions.scope(to),
                 ScriptOptions.furtherScopes(to)
             )
-            // Its status line, and which of its widgets are on the page. The placed list writes that row
+            // Its status line, the values it gives shaders, and which of its widgets are on the page. The placed list writes that row
             // again in a moment ([WidgetHost.renameScript]). Moved here, a run in between does not find the
             // script with its `widget` access on and no row, which would read as "the first widget is placed".
-            for (scope in listOf(Stores.STATUS, Stores.STATUS_EXTRAS, Stores.WIDGET_PLACED)) {
+            for (scope in listOf(Stores.STATUS, Stores.STATUS_EXTRAS, Stores.SHADER_VALUES, Stores.WIDGET_PLACED)) {
                 delete("kv", "scope = ? AND k = ?", arrayOf(scope, to))
                 update(
                     "kv",
@@ -498,6 +505,11 @@ class ScriptRepository private constructor(private val context: Context) {
         version.incrementAndGet()
         // Its placed widgets follow the name. The list of placed widgets belongs to the main process.
         runCatching { widgetsPage?.renameScript(s.name, to) }
+        // So do the shaders' parameters that follow its values.
+        if (!Singleton.inScriptProcess) {
+            ShaderParams.renameScript(context, s.name, to)
+            ShaderValues.load(context)
+        }
         WidgetStates.bump()
     }
 
@@ -565,6 +577,7 @@ class ScriptRepository private constructor(private val context: Context) {
             )
             db.writableDatabase.delete("kv", options, args.toTypedArray())
             StatusLines.clear(context, it.name)
+            ShaderValues.forget(context, it.name)
             // What its widgets showed goes. The widgets stay on the page and say the script was removed,
             // until you remove them or a script takes the name again. So the name's `widget.placed`
             // row stays too: it belongs to the placed list.

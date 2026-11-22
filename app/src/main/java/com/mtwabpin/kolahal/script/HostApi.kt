@@ -41,6 +41,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *   rss.fresh(url)              -> like fetch, but only items that no earlier call returned
  *   store.get(key) / store.set(key, value) -> persistent strings, per script
  *   device.dnd() / device.setDnd(mode), device.work() / device.setWork(on) -> Do Not Disturb, the work profile
+ *   shader.give(name, value) -> a value that shaders' parameters can follow
  *   widget.show(desc) / widget.clear() -> this script's widget on the widgets page
  *   json.encode(v) / json.decode(s)
  */
@@ -68,6 +69,8 @@ class HostApi(
      * every run fills that is not for a further one. [options] are that widget's.
      */
     private val widgetId: String = "",
+    /** The names on its `@gives` line ([ScriptMeta.gives]): what `shader.give` takes. */
+    private val gives: List<String> = emptyList(),
 ) {
     class Secrets(val declared: List<ScriptMeta.Secret>, val values: Map<String, String>)
 
@@ -615,6 +618,28 @@ class HostApi(
     /** Status line writes in this run. */
     private var statusWrites = 0
 
+    /**
+     * `shader.give(name, value)`: a value that shaders' parameters can follow ([ShaderValues]). [name] is one
+     * of its `@gives` line. The same value again changes nothing, and a run can change [MAX_GIVES_PER_RUN].
+     */
+    fun shaderGive(name: String, value: Any?) {
+        live()
+        effects++
+        if (scriptId == null) {
+            log("shader.give() only works in saved scripts (it is keyed by script name)")
+            return
+        }
+        check(name in gives) { "shader.give: add `@gives $name` at the top of the script" }
+        val text = ShaderValues.clean(value)
+        // Home shows it in a shader's details, so it must never hold a secret.
+        require(text == null || redact(text) == text) { "shader.give: the value contains one of this script's secrets" }
+        if (gaveValues >= MAX_GIVES_PER_RUN) return
+        if (ShaderValues.give(context, scriptName, name, text)) gaveValues++
+    }
+
+    /** The values this run changed. */
+    private var gaveValues = 0
+
     // ---- its widget ----------------------------------------------------------------------
 
     /**
@@ -1113,6 +1138,9 @@ class HostApi(
         private const val MAX_BODY = 4L * 1024 * 1024
         private const val MAX_SEEN = 500
         private const val STATUS_MAX = 80
+
+        /** How often one run can change a value it gives shaders. */
+        private const val MAX_GIVES_PER_RUN = 40
 
         /** What `status(text, opts)` takes in opts. */
         private val STATUS_OPTIONS = listOf("progress", "refresh", "color")
