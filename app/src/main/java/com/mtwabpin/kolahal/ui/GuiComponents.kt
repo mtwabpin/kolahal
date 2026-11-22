@@ -350,18 +350,24 @@ internal fun GuiSheet(
     onDismiss: () -> Unit,
     scroll: Boolean = false,
     scrimColor: Color = BottomSheetDefaults.ScrimColor,
+    /** How much of the sheet shows, 0 to 1: it clears while home is looked at through it. */
+    alpha: () -> Float = { 1f },
+    /** The space at the sides: 0 for content that goes from edge to edge. */
+    sides: Dp = 24.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val shown = alpha()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberExpandedSheetState(),
-        scrimColor = scrimColor,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        scrimColor = scrimColor.copy(alpha = scrimColor.alpha * shown),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = shown),
+        dragHandle = { Box(Modifier.graphicsLayer { this.alpha = shown }) { BottomSheetDefaults.DragHandle() } },
     ) {
         Column(
             (if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                 .navigationBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                .padding(start = sides, end = sides, bottom = 16.dp),
             content = content,
         )
     }

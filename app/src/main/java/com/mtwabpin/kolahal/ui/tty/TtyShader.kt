@@ -188,17 +188,25 @@ private fun Modifier.shaderEffect(
  *
  * It is only looked at, so it is kept out of what judges the shader on home: no mark in
  * [ShaderSafety], no line in the log and no touches. Home isn't drawn while it is.
- * It leans with the phone, as on home, until it goes or a minute has passed.
+ * It leans with the phone, as on home, until it goes or a minute has passed. With [moves] off it stands still.
  */
 @Composable
-internal fun rememberShaderPreview(name: String, code: String, grid: TtyGrid): Modifier? {
+internal fun rememberShaderPreview(name: String, code: String, grid: TtyGrid, cols: Int = 0, left: Int = 0, moves: Boolean = true): Modifier? {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
-    return previewLayer(name, code, grid)
+    return previewLayer(name, code, grid, cols, left, moves)
+}
+
+/** Home as a preview shows it with the shader [name] over it ([rememberShaderPreview]): nothing until it is read and compiled. */
+@Composable
+internal fun rememberPeekShader(name: String, grid: TtyGrid, cols: Int = 0, left: Int = 0): Modifier {
+    val context = LocalContext.current.applicationContext
+    val code by produceState<String?>(null, name) { value = withContext(Dispatchers.IO) { Shaders.source(context, name) } }
+    return code?.let { rememberShaderPreview(name, it, grid, cols, left) } ?: Modifier
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun previewLayer(name: String, code: String, grid: TtyGrid): Modifier? {
+private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, left: Int, moves: Boolean): Modifier? {
     if (rememberScreenReader()) return null
     val loaded by produceState<LoadedShader?>(null, name, code) {
         value = withContext(Dispatchers.IO) { LoadedShader.compile(name, code) }
@@ -206,10 +214,10 @@ private fun previewLayer(name: String, code: String, grid: TtyGrid): Modifier? {
     val shader = loaded ?: return null
     val touch = remember(shader) { ShaderTouch() }
     val clock = remember(shader) { ShaderTime() }
-    if (shader.meta.animated) AnimateShader(shader, clock, touch)
-    if (shader.meta.tilt) FollowTilt(shader, touch)
+    if (shader.meta.animated && moves) AnimateShader(shader, clock, touch)
+    if (shader.meta.tilt && moves) FollowTilt(shader, touch)
     val battery = rememberShaderBattery(shader)
-    val inputs = remember(shader, grid) { ShaderInputs(shader, grid, 0, 0) { } }
+    val inputs = remember(shader, grid, cols, left) { ShaderInputs(shader, grid, cols, left) { } }
     return Modifier.shaderEffect(inputs, clock, touch, battery)
 }
 

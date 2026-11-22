@@ -13,6 +13,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -231,6 +234,40 @@ class ShadersScreenTest {
         compose.onNodeWithText("Undo").performClick()
         compose.waitFor("it isn't back") { "zz-fine" in Shaders.userNames && config[Keys.SCREEN_SHADER] == "zz-fine" }
         assertEquals(fine, Shaders.own(app, "zz-fine"))
+    }
+
+    /** A swipe on the sheet goes to the next shader, and back, in the list's order. */
+    @Test
+    fun aSwipeShowsTheNextOne() {
+        show()
+        openSheet("crt", "CRT")
+        compose.onNodeWithText("1 of ${ShaderCatalog.BUNDLED.size}").assertExists()
+        compose.onNodeWithTag("shader-pager").performTouchInput { swipeLeft() }
+        compose.waitForText("2 of ${ShaderCatalog.BUNDLED.size}")
+        compose.onNodeWithTag("shader-pager").performTouchInput { swipeRight() }
+        compose.waitForText("1 of ${ShaderCatalog.BUNDLED.size}")
+    }
+
+    /** Holding the sheet's eye shows home with that shader, which isn't turned on for it; letting go ends it. */
+    @Test
+    fun theEyeShowsHomeWithTheShader() {
+        needsAndroid13()
+        val vm = vms.terminal(app)
+        val peek = kotlinx.coroutines.flow.MutableStateFlow<TerminalViewModel.Peek?>(null)
+        compose.setContent {
+            ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, peek, { peek.value = it })
+        }
+        compose.waitForNode(hasTestTag("shader off"))
+        openSheet("crt", "CRT")
+        val eye = compose.onNode(
+            androidx.compose.ui.test.hasContentDescription("Hold to see the home screen") and
+                    androidx.compose.ui.test.hasAnyAncestor(hasTestTag("shader-pager"))
+        )
+        eye.performTouchInput { down(center); advanceEventTime(1_000) }
+        compose.waitFor("home isn't shown") { peek.value?.shader == "crt" }
+        eye.performTouchInput { up() }
+        compose.waitFor("home is still shown") { peek.value == null }
+        assertEquals(ShaderCatalog.OFF, config[Keys.SCREEN_SHADER])
     }
 
     @Test

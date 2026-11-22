@@ -102,6 +102,8 @@ internal fun TtyHome(
     configVersion: Int,
     preview: Boolean,
     previewTyping: Boolean,
+    /** The shader a preview shows home with, if any. */
+    previewShader: String?,
     hasInput: Boolean,
     status: Status,
     unlocks: Int,
@@ -143,7 +145,7 @@ internal fun TtyHome(
         config[Keys.GESTURE_DOUBLE_TAP].trim().let { it.isNotEmpty() && it != com.mtwabpin.kolahal.gesture.Gestures.NONE }
     }
     // screen.shader: a shader over all of it, the background too. Settings' preview of home has none.
-    val shader = rememberTtyShader(
+    val shader = if (preview && previewShader != null) rememberPeekShader(previewShader, grid, frame.cols, frame.originX) else rememberTtyShader(
         remember(configVersion) { config[Keys.SCREEN_SHADER] }, grid, frame.cols, frame.originX, on = !preview,
     )
 

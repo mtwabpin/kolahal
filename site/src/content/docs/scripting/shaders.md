@@ -60,6 +60,9 @@ nothing while the screen is still.
 | `contour` | the contour lines of a map, slowly changing; a touch raises a hill. It moves |
 | `ink` | a touch drops a faint cloud of ink that spreads behind the text and fades. It moves |
 
+In **Settings → Shaders**, a tap turns one on. Its details (ⓘ) have a preview: swipe left or right for the
+others, and hold the eye to see your own home with it, without turning it on.
+
 ## If something goes wrong
 
 A shader can make the screen hard to read. These always work:

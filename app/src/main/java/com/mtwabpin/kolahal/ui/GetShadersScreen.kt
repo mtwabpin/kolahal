@@ -254,7 +254,7 @@ private fun SharedShaderSheet(
                     shapes = ButtonDefaults.shapes(),
                     onClick = { actions.use(e.name) },
                     enabled = Shaders.supported
-                ) { IconLabel(R.drawable.ic_check, "Use") }
+                ) { Text("Use") }
             },
         )
         val error = problem?.let { "Can't be used: $it" } ?: Shaders.NEEDS.takeIf { !Shaders.supported }

@@ -1636,8 +1636,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * - while a slider is dragged ([key] stays visible);
      * - while the page's eye button is held ([key] is null).
      * [typing]: show home as if typing, for the key bar, prompt and suggestions.
+     * [shader]: draw home with this shader, whether or not it is the one in use (the Shaders screen).
      */
-    data class Peek(val key: String?, val typing: Boolean)
+    data class Peek(val key: String?, val typing: Boolean, val shader: String? = null)
 
     private val _peek = MutableStateFlow<Peek?>(null)
     val peek: StateFlow<Peek?> = _peek.asStateFlow()

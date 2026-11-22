@@ -91,6 +91,7 @@ import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.terminal.UndoOffer
+import com.mtwabpin.kolahal.ui.tty.rememberPeekShader
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -117,6 +118,8 @@ internal fun GuiHome(
     configVersion: Int,
     preview: Boolean,
     previewTyping: Boolean,
+    /** The shader a preview shows home with, if any. */
+    previewShader: String?,
     /** Something is typed at the prompt. Its text is read only where it shows, so a key press doesn't rebuild home. */
     hasInput: Boolean,
     status: Status,
@@ -180,7 +183,11 @@ internal fun GuiHome(
     // screen.shader: a shader over all of home, the background too, as on the tty home. Settings' preview
     // of home has none, and the grid is measured only while one is on.
     val shaderName = remember(configVersion) { config[Keys.SCREEN_SHADER] }
-    val shader = if (preview || shaderName == ShaderCatalog.OFF) Modifier else rememberTtyShader(shaderName, rememberTtyGrid())
+    val shader = when {
+        preview -> if (previewShader != null) rememberPeekShader(previewShader, rememberTtyGrid()) else Modifier
+        shaderName == ShaderCatalog.OFF -> Modifier
+        else -> rememberTtyShader(shaderName, rememberTtyGrid())
+    }
 
     Column(
         Modifier

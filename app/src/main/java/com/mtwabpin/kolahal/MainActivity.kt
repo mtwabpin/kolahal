@@ -332,12 +332,12 @@ class MainActivity : ComponentActivity() {
                         }
                     } else saved.SaveableStateProvider(screen.name) {
                         androidx.compose.foundation.layout.Box(
-                            // Solid over the wallpaper too. Settings is the exception: it shows home through
-                            // it while you hold the eye button.
+                            // Solid over the wallpaper too. Settings and Shaders are the exceptions: they show home
+                            // through them while you hold the eye button.
                             androidx.compose.ui.Modifier
                                 .fillMaxSize()
                                 .then(
-                                    if (screen == Screen.SETTINGS) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.background(
+                                    if (screen == Screen.SETTINGS || screen == Screen.SHADERS) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.background(
                                         Term.bg
                                     ),
                                 ),
@@ -352,12 +352,7 @@ class MainActivity : ComponentActivity() {
                                     vm
                                 )
 
-                                Screen.SHADERS -> com.mtwabpin.kolahal.ui.ShadersScreen(
-                                    vm.shaderActions,
-                                    vm.notice,
-                                    open = vm::openScreen,
-                                    onBack = vm::closeScreen
-                                )
+                                Screen.SHADERS -> com.mtwabpin.kolahal.ui.ShadersOverHome(vm)
 
                                 Screen.GET_SHADERS -> com.mtwabpin.kolahal.ui.GetShadersScreen(
                                     vm.shaderActions,

@@ -56,6 +56,24 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsOverHome(vm: TerminalViewModel) {
     Box(Modifier.fillMaxSize()) {
+        HomeUnder(vm)
+        SettingsScreen(vm)
+    }
+}
+
+/** The Shaders screen, with home drawn underneath while its eye button is held. */
+@Composable
+fun ShadersOverHome(vm: TerminalViewModel) {
+    Box(Modifier.fillMaxSize()) {
+        HomeUnder(vm)
+        ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, vm.peek, vm::peek)
+    }
+}
+
+/** Home, while a page over it shows it through itself ([TerminalViewModel.Peek]). It takes no touches. */
+@Composable
+private fun HomeUnder(vm: TerminalViewModel) {
+    Box(Modifier.fillMaxSize()) {
         val peek by vm.peek.collectAsStateWithLifecycle()
         // Keep the last peek after it ends, so home fades out instead of disappearing at once.
         val lastPeek = remember { arrayOfNulls<TerminalViewModel.Peek>(1) }
@@ -80,7 +98,6 @@ fun SettingsOverHome(vm: TerminalViewModel) {
                 }
             }
         }
-        SettingsScreen(vm)
     }
 }
 

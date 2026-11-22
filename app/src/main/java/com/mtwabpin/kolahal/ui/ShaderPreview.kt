@@ -6,11 +6,13 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -26,18 +28,20 @@ import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
  * while this is shown, and stands still as on home (battery saver, Remove animations, after a minute).
  */
 @Composable
-internal fun ShaderPreview(name: String, code: String, modifier: Modifier = Modifier) {
-    val look = rememberShaderPreview(name, code, rememberTtyGrid()) ?: return
+internal fun ShaderPreview(name: String, code: String, modifier: Modifier = Modifier, moves: Boolean = true) {
+    val look = rememberShaderPreview(name, code, rememberTtyGrid(), moves = moves) ?: Modifier
     Box(
         modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
+            .aspectRatio(0.92f)
+            .clip(MaterialTheme.shapes.extraLarge)
             .then(look)
             .background(Term.bg)
             // A picture: a screen reader has nothing to read here.
-            .clearAndSetSemantics { testTag = "shader-preview" }
+            .clearAndSetSemantics { testTag = "shader-preview" },
+        contentAlignment = Alignment.BottomStart,
     ) {
-        Column(Modifier.padding(12.dp)) {
+        Column(Modifier.padding(16.dp)) {
             SampleLine("$ weather", Term.prompt)
             SampleLine("  London  14°  light rain", Term.fg)
             SampleLine("  wttr.in/london", Term.link)

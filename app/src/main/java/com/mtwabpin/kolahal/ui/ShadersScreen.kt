@@ -7,7 +7,11 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,9 +27,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -38,7 +45,9 @@ import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Settings → Shaders: the shader over home and the full-screen screens (`screen.shader`).
@@ -57,6 +66,8 @@ fun ShadersScreen(
     notice: StateFlow<TerminalViewModel.Notice?>,
     open: (Screen) -> Unit,
     onBack: () -> Unit,
+    peek: StateFlow<TerminalViewModel.Peek?> = remember { MutableStateFlow(null) },
+    onPeek: (TerminalViewModel.Peek?) -> Unit = {},
 ) {
     val files by Shaders.version.collectAsStateWithLifecycle()
     val trips by actions.trips.collectAsStateWithLifecycle()
@@ -84,17 +95,37 @@ fun ShadersScreen(
             actions.importFiles(it)
         }
     BackHandler { onBack() }
+    // While home shows through (an eye is held), the page and an open sheet clear.
+    val peeking by peek.collectAsStateWithLifecycle()
+    val shown = animateFloatAsState(if (peeking == null) 1f else 0f, tween(PEEK_FADE_MS), label = "peek")
+    val scope = rememberCoroutineScope()
 
     GuiTheme {
+      Box(Modifier.fillMaxSize()) {
         val snackbar = rememberNoticeSnackbar(notice)
+        val sayHold: () -> Unit = {
+            scope.launch {
+                snackbar.currentSnackbarData?.dismiss()
+                snackbar.showSnackbar("Tap and hold the eye to see the home screen")
+            }
+        }
 
         GuiListPage(
             title = { Text("Shaders") },
             subtitle = { Text("Effects over home and the full-screen screens") },
             onBack = onBack,
             snackbar = snackbar,
+            actions = {
+                PeekButton(
+                    onHold = { holding -> onPeek(if (holding) TerminalViewModel.Peek(null, false, inUse.takeIf { it != ShaderCatalog.OFF }) else null) },
+                    onTap = sayHold,
+                )
+            },
+            fade = { shown.value },
+            listModifier = Modifier.graphicsLayer { alpha = shown.value },
             floatingActionButton = {
                 SmallExtendedFloatingActionButton(
+                    modifier = Modifier.graphicsLayer { alpha = shown.value },
                     onClick = { adding = true },
                     icon = { Icon(painterResource(R.drawable.ic_add), null) },
                     text = { Text("Add shader") },
@@ -154,8 +185,15 @@ fun ShadersScreen(
             }
         }
 
-        details?.let { name -> all?.firstOrNull { it.name == name } }?.let { row ->
-            ShaderSheet(row, inUse, problems[row.name], actions, onDismiss = { details = null })
+        val order = mine + bundled
+        details?.takeIf { name -> order.any { it.name == name } }?.let { name ->
+            ShaderSheet(
+                order, name, inUse, problems, actions,
+                shown = { shown.value },
+                onShow = { details = it },
+                onPeek = { shader -> onPeek(shader?.let { TerminalViewModel.Peek(null, false, it) }) },
+                onDismiss = { details = null },
+            )
         }
 
         if (adding) AddShaderSheet(
@@ -164,6 +202,8 @@ fun ShadersScreen(
             onImport = { adding = false; importFiles.launch(arrayOf("*/*")) },
             onReadFolder = { adding = false; actions.readFolder() },
         )
+        if (peeking != null) PeekHint(Modifier.align(Alignment.TopCenter))
+      }
     }
 }
 
