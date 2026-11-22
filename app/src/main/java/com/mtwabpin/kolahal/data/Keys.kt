@@ -390,12 +390,12 @@ object Keys {
     )
     val LOG_DIM = ConfigKey.Bool("log.dim", true, "Dim output older than the latest command")
 
-    /** Only `config` sets it until TTY is complete: the rest of home is still drawn as gui. */
+    /** Only `config` sets it until TTY is released (TTY step 4), when Settings gets it. */
     val HOME_STYLE = ConfigKey.Choice(
         "home.style",
         "gui",
         listOf("gui", "tty"),
-        "How home's log is drawn: gui (text, chips and cards) or tty (a strict character grid, like a terminal)",
+        "How home is drawn: gui (text, chips and cards) or tty (a strict character grid, like a terminal)",
         notes = mapOf(
             "gui" to "Text, chips and cards, with pictures and sizes",
             "tty" to "A character grid, like a terminal: one font size, no pictures",

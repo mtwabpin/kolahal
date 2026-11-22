@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -92,6 +93,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.terminal.tty.SelectorCells
+import com.mtwabpin.kolahal.ui.tty.TtyGrid
+import com.mtwabpin.kolahal.ui.tty.TtyRailHandle
+import com.mtwabpin.kolahal.ui.tty.TtyRailLetters
+import com.mtwabpin.kolahal.ui.tty.TtyRailWave
+import com.mtwabpin.kolahal.ui.tty.paintCells
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -313,6 +320,13 @@ fun AppSelector(
      * the strip is under the same thumb on both pages.
      */
     stripArea: ClosedFloatingPointRange<Float>? = null,
+    /**
+     * The character grid, when home is drawn on it (`home.style tty`): the list's rows, the letters,
+     * the handle and the letter beside the thumb are its cells, in its one font size. Nothing is
+     * magnified: the app under the thumb is inverse instead. No icons. The gestures are the same.
+     * Null: the GUI's look.
+     */
+    tty: TtyGrid? = null,
 ) {
     val text = if (systemFont) Term.phoneText else Term.text
     // Plan F: when the strip is at the bottom of the edge, favorites go last, where the thumb rests.
@@ -445,14 +459,16 @@ fun AppSelector(
             if (stripHPx < with(density) { 160.dp.toPx() }) return@BoxWithConstraints
             val count = entries.size
             // Rows grow with the text. At a large text size, a fixed row height would overlap the next row.
-            val rowH =
-                maxOf(rowHeightDp.dp, with(density) { (Term.fontSize * 1.36f).sp.toDp() } + 8.dp)
+            // On the grid, a row is at least a row of cells tall.
+            val rowH = if (tty != null) with(density) { maxOf(rowHeightDp.dp.roundToPx(), tty.metrics.cellH).toDp() }
+            else maxOf(rowHeightDp.dp, with(density) { (Term.fontSize * 1.36f).sp.toDp() } + 8.dp)
             val rowPx = with(density) { rowH.roundToPx() }
             // Plan E: a 26dp icon in a 38dp row. The icon grows with the row, up to 32dp.
             val iconSize = minOf(rowH - 12.dp, 32.dp)
             val iconPx = with(density) { iconSize.roundToPx() }.coerceAtLeast(1)
             // Icons load ahead, off the main thread, so a fast glide never shows an empty space where an icon goes.
-            if (icons) LaunchedEffect(entries, iconPx, AppIcons.generation) {
+            // The grid has no icons.
+            if (icons && tty == null) LaunchedEffect(entries, iconPx, AppIcons.generation) {
                 withContext(Dispatchers.IO) {
                     entries.forEach {
                         AppIcons.load(
@@ -605,8 +621,25 @@ fun AppSelector(
                         // A sideways drag on the open panel must not turn the home page.
                         .pointerInput(Unit) { detectHorizontalDragGestures { change, _ -> change.consume() } },
                 ) {
+                    // On the grid: as many cells as the row has room for, short of its room on the strip's side.
+                    val rowCols = tty?.metrics?.cols((panelWPx - with(density) { 12.dp.toPx() }).roundToInt().coerceAtLeast(1)) ?: 0
                     itemsIndexed(shown, key = { _, e -> e.key }) { index, entry ->
-                        SelectorRow(
+                        if (tty != null) TtySelectorRow(
+                            entry = entry,
+                            edge = edge,
+                            index = index,
+                            count = shown.size,
+                            state = state,
+                            height = rowH,
+                            pinned = entry.item.key in pinned,
+                            enabled = state.mode == Mode.OPEN,
+                            dimOthers = byLetter && !onlyLetter,
+                            dim = { dim.value },
+                            grid = tty,
+                            cols = rowCols,
+                            onClick = { state.close(); launch(entry.item) },
+                            onLongClick = { state.close(); longPress(entry.item) },
+                        ) else SelectorRow(
                             entry = entry,
                             edge = edge,
                             index = index,
@@ -640,10 +673,20 @@ fun AppSelector(
                     .testTag("app-selector-strip"),
             ) {
                 val touching = state.mode == Mode.SCRUB || state.mode == Mode.SELECT
+                // On the grid: the letters and the handle are cells of its one size.
+                if (tty != null) {
+                    if (letters && !touching && !waveShown && count > 0) {
+                        TtyRailLetters(tty, edge, sectionLetters, edgeMiddles, stripHPx, zoneTopPx, zoneHPx)
+                    }
+                    if (showHandle && !letters && !touching) {
+                        val handlePx = if (edgeBackGesture) zoneHPx else with(density) { 64.dp.toPx() }
+                        TtyRailHandle(tty, edge, handlePx, faded = open, stripHPx = stripHPx)
+                    }
+                }
                 // selector.letters: each letter sits in the middle of its stretch of the strip, nudged apart where
                 // they crowd. Letters outside the part where a touch may start are fainter. At rest they replace
                 // the handle, in the edge's gutter, clear of the log's text. Under the thumb, the wave takes over.
-                if (letters && !touching && !waveShown && count > 0) {
+                else if (letters && !touching && !waveShown && count > 0) {
                     val linePx = with(density) { 9.sp.toPx() }
                     val gapPx = linePx + with(density) { 1.dp.toPx() }
                     val placed = remember(edgeMiddles, stripHPx, gapPx) {
@@ -675,7 +718,7 @@ fun AppSelector(
                         }
                     }
                 }
-                if (showHandle && !letters && !touching) {
+                if (tty == null && showHandle && !letters && !touching) {
                     // 64dp in the middle, or with gesture navigation the whole part where a touch may start.
                     val handleH = if (edgeBackGesture) with(density) { zoneHPx.toDp() } else 64.dp
                     Column(
@@ -707,7 +750,25 @@ fun AppSelector(
             // The current letter shows big in a bubble next to the thumb. The letters around it bulge out
             // from the edge in a wave: they grow a little, and the nearest ones are pushed apart to make room.
             // So you see where you are and in which direction the letter you want is.
-            if (waveShown && letter in sectionLetters.indices) {
+            // On the grid: the letters around the thumb's are cells, none bigger than another, and the
+            // current letter is inverse beside the thumb.
+            if (tty != null && waveShown && letter in sectionLetters.indices) {
+                TtyRailWave(
+                    grid = tty,
+                    edge = edge,
+                    letters = sectionLetters,
+                    letter = letter,
+                    middles = edgeMiddles,
+                    stripTopPx = stripTopPx,
+                    stripHPx = stripHPx,
+                    restPx = restPx,
+                    bubbleFromEdge = bubbleFromEdge,
+                    waveIn = { waveIn },
+                    waveAt = { waveAt.value },
+                    clearPx = bubblePx / 2,
+                    containerW = containerW,
+                )
+            } else if (waveShown && letter in sectionLetters.indices) {
                 val unit = stripHPx * (1f - 2 * SelectorMath.DEAD) / sectionLetters.size
                 val spread = SelectorMath.waveSpread(unit, with(density) { WAVE_ROOM.toPx() })
                 val letterGap = with(density) { 10.dp.toPx() }
@@ -1431,4 +1492,80 @@ private fun SelectorRow(
             letter(); appIcon(); marks(); name(); actionsNote()
         }
     }
+}
+
+/**
+ * One list row on the character grid (`home.style tty`): [SelectorCells.row], a row of [cols] cells
+ * in the middle of the row's [height], from the screen's other edge as [SelectorRow] is. One font
+ * size, so nothing is magnified: the app under the thumb is inverse in the accent color instead,
+ * and while it is held, its row fills with the surface color from its start, cell by cell. The
+ * apps of other letters fade back as in the GUI. TalkBack reads the app's name.
+ */
+@Composable
+private fun TtySelectorRow(
+    entry: SelectorEntry<AppEntry>,
+    edge: SelectorEdge,
+    index: Int,
+    count: Int,
+    state: SelectorState,
+    height: Dp,
+    pinned: Boolean,
+    enabled: Boolean,
+    dimOthers: Boolean,
+    dim: () -> Float,
+    grid: TtyGrid,
+    cols: Int,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    val app = entry.item
+    val focused by remember(index, count) {
+        derivedStateOf { state.mode == Mode.SELECT && SelectorMath.focusedIndex(state.contact, count) == index }
+    }
+    val far = focused && state.far
+    val kind = app.profile.kind
+    val cells = remember(app.label, entry, pinned, focused, far, cols, edge) {
+        SelectorCells.row(
+            label = app.label,
+            letter = if (entry.sectionStart || focused) entry.section else null,
+            tag = if (kind == ProfileKind.PERSONAL) null else kind.tag,
+            tagInk = com.mtwabpin.kolahal.terminal.Ink.of(kind),
+            star = pinned && !entry.favorite,
+            favorite = entry.favorite,
+            focused = focused,
+            far = far,
+            quiet = app.profile.quiet,
+            mirrored = edge.left,
+            cols = cols.coerceAtLeast(SelectorCells.LETTER + 2),
+        )
+    }
+    val m = grid.metrics
+    val surface = androidx.compose.ui.graphics.Color(grid.palette.color(com.mtwabpin.kolahal.terminal.Ink.SURFACE))
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .graphicsLayer {
+                val faded = dimOthers && entry.sectionIndex != state.letter &&
+                        SelectorMath.focusedIndex(state.contact, count) != index
+                alpha = if (faded) 1f - 0.6f * dim() else 1f
+            }
+            .drawBehind {
+                val width = cells.cols * m.cellW
+                // From the screen's other edge: on the left edge, the row ends at the right.
+                val x = if (edge.left) size.width - width else 0f
+                // The held row fills from its start while the hold counts (read in the draw phase only).
+                if (SelectorMath.focusedIndex(state.contact, count) == index && state.hold > 0f) {
+                    val fill = (state.hold * cells.cols).toInt().coerceAtMost(cells.cols) * m.cellW.toFloat()
+                    drawRect(
+                        surface,
+                        Offset(if (edge.left) x + width - fill else x, 0f),
+                        Size(fill, size.height),
+                    )
+                }
+                paintCells(grid, cells.grid, x.roundToInt().toFloat(), ((size.height - m.cellH) / 2f).roundToInt().toFloat())
+            }
+            .semantics { text = androidx.compose.ui.text.AnnotatedString(app.label) }
+            .combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick),
+    )
 }
