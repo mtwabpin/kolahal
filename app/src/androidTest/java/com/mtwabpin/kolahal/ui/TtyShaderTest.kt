@@ -40,6 +40,7 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderClock
+import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -175,6 +176,32 @@ class TtyShaderTest {
         compose.waitFor("lcd isn't drawn over the gui home") { drawn() == listOf("lcd") }
         config.set(Keys.SCREEN_SHADER, "off")
         compose.waitFor("it is still drawn") { drawn().isEmpty() }
+    }
+
+    /** A one-off shader runs over the one that is on, in either home style, and goes by itself. */
+    @Test
+    fun aOneOffShaderPlaysOnTop() {
+        needsAndroid13()
+        config.set(Keys.SCREEN_SHADER, "lcd")
+        home(style = "gui", sources = ShaderSources(phone = { ShaderClock.Phone(false, false, false, true, 100) }))
+        compose.waitFor("lcd isn't drawn") { drawn() == listOf("lcd") }
+        commands.run("shader play hearts 1")
+        compose.waitFor("hearts isn't played") { drawn().toSet() == setOf("lcd", "hearts") }
+        compose.waitFor("it doesn't end", 10_000) { drawn() == listOf("lcd") && ShaderPlay.current.value == null }
+        // It isn't one that can be on.
+        commands.run("shader hearts")
+        assertEquals("lcd", config[Keys.SCREEN_SHADER])
+        commands.run("shader play lcd")
+        assertEquals(null, ShaderPlay.current.value)
+    }
+
+    /** In battery saver it isn't played, and doesn't wait for later. */
+    @Test
+    fun aOneOffShaderIsntPlayedInBatterySaver() {
+        needsAndroid13()
+        home(style = "tty", sources = ShaderSources(phone = { ShaderClock.Phone(true, false, false, true, 100) }))
+        commands.run("shader play hearts 1")
+        compose.waitFor("it waits") { ShaderPlay.current.value == null }
     }
 
     /** The full-screen screens have it in either home style. */

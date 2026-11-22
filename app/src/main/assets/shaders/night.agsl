@@ -1,5 +1,6 @@
 // @name Night sky
 // @description Stars behind the text that twinkle slowly, a pale band across the sky, and a meteor now and then; on a light theme, an engraved star chart
+// @suits dark good, light fair, wallpaper fair
 // @animated
 //
 // Two layers of stars, each a soft dot of a few pixels, never a single one. They only show where

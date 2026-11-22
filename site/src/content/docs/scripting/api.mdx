@@ -72,6 +72,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`widget.show(desc)`](#widgetshowdesc) | `true` if its widget is placed; fills its [widget](#widgets) |
 | [`widget.clear()`](#widgetclear) | nothing; empties its widget |
 | [`shader.give(name, value)`](#shadergivename-value) | nothing; gives a value that shaders' parameters can follow |
+| [`shader.play(name, seconds?)`](#shaderplayname-seconds) | nothing; plays a one-off shader over home |
 | [`tty.screen(spec)`](#ttyscreenspec) | nothing; opens a full-screen [screen of its own](#screens) |
 | [`http.get(url, headers?)`](#httpgeturl-headers) | `{ status, ok, body, headers }` |
 | [`http.request(opts)`](#httprequestopts) | same as `http.get` |
@@ -943,13 +944,38 @@ shader.give("rain", 0.25);
 </TabItem>
 </Tabs>
 
+### shader.play(name, seconds?)
+
+Plays a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, over home once. Needs `@uses effects`.
+
+- `seconds` is how long, from 1 to 10. Without it, it is the shader's own time.
+- Home plays one at a time, and a run can ask once. If home isn't in front, the shader waits for it, for half an hour at most.
+- If you haven't allowed it, nothing plays.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @on notification
+-- @uses notifications, effects
+if event and (event.text or ""):find("Alex", 1, true) then shader.play("hearts") end
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @on notification
+// @uses notifications, effects
+if (event && (event.text ?? "").includes("Alex")) shader.play("hearts");
+```
+</TabItem>
+</Tabs>
+
 ### allowed(what)
 
 Returns whether this script may use `what`. `what` is one of:
 
 - `"internet"`, `"header"`, `"widget"`,
 - an `@uses` item: `"notifications"`, `"clipboard"`, `"apps"`, `"commands"`, `"dnd"`, `"todos"`,
-  `"notes"`, `"reminders"`, `"calendar"`, `"feeds"`, `"usage"`, `"screen"`, `"work"`,
+  `"notes"`, `"reminders"`, `"calendar"`, `"feeds"`, `"usage"`, `"screen"`, `"effects"`, `"work"`,
 - an `@on` event, such as `"unlock"`.
 
 You switch these on and off for each script

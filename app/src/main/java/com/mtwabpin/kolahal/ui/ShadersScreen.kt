@@ -9,13 +9,22 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -23,6 +32,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,8 +94,19 @@ fun ShadersScreen(
         what = "Reading the shaders"
     ) { actions.rows() }
     val all = rows
-    val bundled = remember(all) { all.orEmpty().filter { it.bundled } }
-    val mine = remember(all) { all.orEmpty().filter { !it.bundled } }
+    var query by rememberSaveable { mutableStateOf("") }
+    var chips by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    val filters = remember(chips) { ShaderPage.Filter.entries.filterTo(LinkedHashSet()) { it.name in chips } }
+    val looking = query.isNotBlank() || filters.isNotEmpty()
+    val found = remember(all, query, filters) { all.orEmpty().filter { ShaderPage.matches(it, query.trim(), filters) } }
+    // The one-off shaders are a group of their own: they aren't turned on, but played.
+    val bundled = remember(found) { found.filter { it.bundled && it.meta.once == null } }
+    val mine = remember(found) { found.filter { !it.bundled && it.meta.once == null } }
+    val once = remember(found) { found.filter { it.meta.once != null } }
+    val play: (String) -> Unit = {
+        actions.play(it)
+        open(Screen.TERMINAL)
+    }
     var adding by rememberSaveable { mutableStateOf(false) }
     // The shader whose sheet is open, by name. It survives rotation.
     var details by rememberSaveable { mutableStateOf<String?>(null) }
@@ -142,10 +163,34 @@ fun ShadersScreen(
                 )
             }
             if (all == null) return@GuiListPage
+            item(key = "search") {
+                Column(Modifier.padding(bottom = 8.dp)) {
+                    SearchField(query, { query = it }, "Search shaders", Modifier.fillMaxWidth().testTag("shader-search"), clear = "Clear the search")
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        for (f in ShaderPage.Filter.entries) FilterChip(
+                            selected = f in filters,
+                            onClick = { chips = if (f.name in chips) chips - f.name else chips + f.name },
+                            label = { Text(f.label) },
+                            modifier = Modifier.testTag("shader-filter ${f.name}"),
+                        )
+                    }
+                }
+            }
+            if (looking && found.isEmpty()) item(key = "none-found") {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("No shader matches", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 24.dp))
+                    TextButton(onClick = { query = ""; chips = emptyList() }, shapes = ButtonDefaults.shapes()) { Text("Clear") }
+                }
+            }
             // The user's own come first: the ones that come with Kolahal fill several screens. With none of
             // their own, None and Kolahal's are one group.
+            val above = if (mine.isEmpty() && !looking) 1 else 0
             val noneIn = if (mine.isEmpty()) bundled.size + 1 else 1
-            item(key = "none") {
+            if (!looking) item(key = "none") {
                 SegmentedListItem(
                     selected = inUse == ShaderCatalog.OFF,
                     onClick = { actions.off() },
@@ -169,11 +214,19 @@ fun ShadersScreen(
                     onDetails = { details = r.name },
                 )
             }
-            if (mine.isNotEmpty()) item(key = "bundled") { GroupHeader("Come with Kolahal") }
+            if (mine.isNotEmpty() && bundled.isNotEmpty()) item(key = "bundled") { GroupHeader("Come with Kolahal") }
             itemsIndexed(bundled, key = { _, r -> "shader:" + r.name }) { i, r ->
                 ShaderChoice(
-                    r, inUse, problems[r.name], if (mine.isEmpty()) i + 1 else i, if (mine.isEmpty()) bundled.size + 1 else bundled.size,
+                    r, inUse, problems[r.name], i + above, bundled.size + above,
                     onUse = { actions.use(r.name) },
+                    onDetails = { details = r.name },
+                )
+            }
+            if (once.isNotEmpty()) item(key = "once") { GroupHeader("One-off: played once over home") }
+            itemsIndexed(once, key = { _, r -> "shader:" + r.name }) { i, r ->
+                ShaderChoice(
+                    r, inUse, problems[r.name], i, once.size,
+                    onUse = { play(r.name) },
                     onDetails = { details = r.name },
                 )
             }
@@ -185,12 +238,13 @@ fun ShadersScreen(
             }
         }
 
-        val order = mine + bundled
+        val order = mine + bundled + once
         details?.takeIf { name -> order.any { it.name == name } }?.let { name ->
             ShaderSheet(
                 order, name, inUse, problems, actions,
                 shown = { shown.value },
                 onShow = { details = it },
+                onPlay = play,
                 onPeek = { shader -> onPeek(shader?.let { TerminalViewModel.Peek(null, false, it) }) },
                 onDismiss = { details = null },
             )
@@ -230,7 +284,8 @@ private fun ShaderChoice(
         colors = segColors(),
         enabled = Shaders.supported,
         leadingContent = {
-            RadioButton(
+            if (row.meta.once != null) Icon(painterResource(R.drawable.ic_play), null, tint = colors.primary)
+            else RadioButton(
                 selected = selected,
                 onClick = null,
                 enabled = Shaders.supported

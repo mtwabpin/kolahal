@@ -61,6 +61,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
@@ -256,10 +257,16 @@ fun TtyScreenHost(
     }
     BackHandler { close(null) }
     val shaderLook = rememberTtyShader(shader, grid)
+    // A one-off shader is drawn here then, not on home.
+    if (!seeThrough) androidx.compose.runtime.DisposableEffect(Unit) {
+        ShaderPlay.cover(true)
+        onDispose { ShaderPlay.cover(false) }
+    }
 
     Box(
         modifier
             .fillMaxSize()
+            .then(rememberPlayedShader(on = !seeThrough))
             .then(shaderLook)
             .then(if (seeThrough) Modifier else Modifier.background(Term.bg))
             .semantics {

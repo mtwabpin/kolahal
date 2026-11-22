@@ -98,6 +98,7 @@ import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.terminal.UndoOffer
 import com.mtwabpin.kolahal.terminal.tty.screens.LogDecode
 import com.mtwabpin.kolahal.ui.tty.rememberPeekShader
+import com.mtwabpin.kolahal.ui.tty.rememberPlayedOnHome
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -201,6 +202,7 @@ internal fun GuiHome(
     Column(
         Modifier
             .fillMaxSize()
+            .then(rememberPlayedOnHome(on = !preview))
             .then(shader)
             .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
             .then(if (decode == null) Modifier else decodeArea.only)

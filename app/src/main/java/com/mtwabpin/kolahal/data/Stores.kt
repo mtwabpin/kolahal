@@ -179,6 +179,9 @@ object Stores {
     /** The values that scripts give shaders, by script name ([com.mtwabpin.kolahal.script.ShaderValues]). A run makes them again. This phone only. */
     const val SHADER_VALUES = "shader.values"
 
+    /** The one-off shader that a script asked for, until home takes it ([com.mtwabpin.kolahal.script.ShaderPlay]). This phone only. */
+    const val SHADER_PLAY = "shader.play"
+
     /** Exchange rates for `fx`. */
     const val FX = "fx"
 
@@ -218,7 +221,8 @@ object Stores {
         WIDGET,
         WIDGET_META,
         WIDGET_PLACED,
-        SHADER_VALUES
+        SHADER_VALUES,
+        SHADER_PLAY
     )
 
     val SCOPES = THIS_PHONE + listOf(STATUS, STATUS_EXTRAS, FX, UNLOCKS, LOG_MARKS, OLD_PINS)

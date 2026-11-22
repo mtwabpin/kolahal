@@ -732,4 +732,5 @@ internal val PILL_ICONS = mapOf(
     "feeds" to R.drawable.ic_rss,
     "usage" to R.drawable.ic_schedule,
     "screen" to R.drawable.ic_terminal,
+    "effects" to R.drawable.ic_palette,
 )

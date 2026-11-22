@@ -91,6 +91,7 @@ object ScriptMeta {
      * - `feeds`: feeds.unread (the unread items of the feeds you follow)
      * - `usage`: usage.* (your screen time, data use and unused apps)
      * - `screen`: tty.screen (a full-screen screen of its own over home). It makes the script a command only ([isScreen])
+     * - `effects`: shader.play (a one-off shader over home, for some seconds)
      * The user allows each one ([ScriptAccess]).
      *
      * A new name here also needs:
@@ -113,7 +114,8 @@ object ScriptMeta {
         "calendar",
         "feeds",
         "usage",
-        "screen"
+        "screen",
+        "effects"
     )
 
     /** Known names from every `@uses` line. Unknown names are ignored. */

@@ -86,6 +86,7 @@ object ScriptAccess {
         "feeds" -> "Your feeds"
         "usage" -> "Your app usage"
         "screen" -> "Full screen"
+        "effects" -> "Effects"
         else -> "Runs on $item"
     }
 
@@ -106,6 +107,7 @@ object ScriptAccess {
         "feeds" -> "Reads the unread items of the feeds you follow; when off, it sees none"
         "usage" -> "Reads your screen time per app, your data use and the apps you don't open; when off, it sees none"
         "screen" -> "Draws on the whole of home when you start it, and reads your taps and keys there until it closes; when off, it can't"
+        "effects" -> "Plays a one-off shader, such as hearts, over home for some seconds; when off, it plays none"
         else -> "Runs when this happens (@on $item)"
     }
 

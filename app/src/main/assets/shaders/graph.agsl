@@ -1,5 +1,6 @@
 // @name Graph paper
 // @description Squared paper behind the text: faint lines in squares, a stronger one every fifth
+// @suits dark good, light good, wallpaper good
 //
 // The squares are one row high and two columns wide, and start at the grid's first column. The log
 // scrolls over them, as writing that doesn't keep to the lines: they only show where the page does.

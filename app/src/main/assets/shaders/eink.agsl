@@ -1,5 +1,6 @@
 // @name E-paper
 // @description An e-reader's page: matte, nearly without color, with flat areas in a dither pattern
+// @suits dark fair, light good, wallpaper fair
 //
 // Text keeps its edges: only areas wider than a letter's stroke are dithered. Colors keep half of
 // their strength, so an error still differs from a warning.

@@ -533,6 +533,16 @@ doesn't use the network.
 - It notifies you when you unplug below 30% (its `low` option).
 - When you run it yourself, it shows the last session.
 
+## effect-on-word
+
+**Effect on a word**: plays a [one-off shader](/scripting/shaders/#one-off-shaders), such as hearts, over home when a
+notification has one of your words. It has no timer and doesn't use the network. It needs `@uses notifications, effects`.
+
+- Set the words with its `words` option, with commas between: `script set effect-on-word words "Alex, home"`. It looks for
+  whole words in the notification's title and text.
+- Its `effect` option is the shader it plays.
+- When you run it yourself, it plays the effect once.
+
 ## screen-time
 
 **Screen time**: a [widget](#widgets) with today's screen time, large, over a bar for each of the

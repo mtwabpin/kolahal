@@ -13,11 +13,15 @@ import com.mtwabpin.kolahal.script.ScriptFiles
 import com.mtwabpin.kolahal.script.ScriptFolder
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderFit
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderParam
 import com.mtwabpin.kolahal.script.ShaderParams
+import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderStore
+import com.mtwabpin.kolahal.script.ShaderSuits
+import com.mtwabpin.kolahal.script.ShaderSurface
 import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
@@ -114,12 +118,22 @@ class ShaderActions(
     /** Turns [name] on, if it compiles. Otherwise the one that is on stays, and the screen says why. */
     fun use(name: String) = host.io {
         val why = Shaders.use(context, name)
-        if (why == null) forgetProblems(listOf(name))
-        else {
+        if (why == null) {
+            forgetProblems(listOf(name))
+            wallpaperWarning(context, name)?.let { host.notice(it) }
+        } else {
             _problems.update { it + (name to why) }
             host.notice("Shader $name: $why", error = true)
         }
     }
+
+    /** Plays the one-off shader [name] over home, once it is in front. */
+    fun play(name: String) {
+        ShaderPlay.play(name, null)
+    }
+
+    /** How much of the wallpaper shows behind the log, in percent. */
+    fun wallpaper(): Int = config[Keys.LOG_WALLPAPER]
 
     /** No shader. `shader on` turns the last one on again. */
     fun off() = host.io { Shaders.off(context) }
@@ -266,6 +280,18 @@ class ShaderActions(
     }
 
     companion object {
+        /** That shader [name] doesn't go with a wallpaper, while enough of one shows. Reads a file: not on the main thread. */
+        fun wallpaperWarning(context: Context, name: String): String? {
+            val shows = Config.get(context)[Keys.LOG_WALLPAPER]
+            val meta = Shaders.source(context, name)?.let(ShaderMeta::parse) ?: return null
+            return wallpaperWarning(meta, name, shows)
+        }
+
+        /** The same for a shader with [meta], while [shows] percent of the wallpaper does. */
+        fun wallpaperWarning(meta: ShaderMeta, name: String, shows: Int): String? =
+            if (shows <= ShaderSuits.WALLPAPER_SHOWS || meta.suits[ShaderSurface.WALLPAPER] != ShaderFit.POOR) null
+            else "${meta.title ?: name} doesn't work well with a wallpaper, and yours shows at $shows%"
+
         fun phone(context: Context): ShaderValues.Phone {
             val status = DeviceStatus.get(context).status.value
             return ShaderValues.Phone((status.batteryPct ?: 100) / 100f, status.charging, LocalTime.now())

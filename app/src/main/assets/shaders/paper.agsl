@@ -1,5 +1,6 @@
 // @name Paper
 // @description Uncoated paper: a fine grain and fibres in the page, and ink that soaks in a little
+// @suits dark fair, light good, wallpaper fair
 //
 // The grain only shows where the page does. Text gains a little weight and loses none.
 

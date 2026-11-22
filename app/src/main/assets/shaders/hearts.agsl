@@ -1,0 +1,87 @@
+// @name Hearts
+// @description Hearts rise from the bottom of the screen, sway and fade
+// @once 6
+// @suits dark good, light good, wallpaper good
+// @param amount 0.2..1.6 = 1.0 Number of hearts
+//
+// Three layers of columns. Each column has two hearts, which start at their own times, grow in with a little
+// bounce, rise at their own pace and fade near the end. A heart stays in its column, so each pixel looks at
+// six of them.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float progress;
+uniform float amount;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// How far p is from a heart about 1 high whose tip is at 0 and which points up (Inigo Quilez' distance).
+float heart(float2 p) {
+    p.x = abs(p.x);
+    if (p.x + p.y > 1.0) {
+        float2 d = p - float2(0.25, 0.75);
+        return length(d) - 0.3535534;
+    }
+    float2 a = p - float2(0.0, 1.0);
+    float m = 0.5 * max(p.x + p.y, 0.0);
+    float2 b = p - float2(m, m);
+    return sqrt(min(dot(a, a), dot(b, b))) * (p.x < p.y ? -1.0 : 1.0);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float3 color = float3(0.0);
+    float cover = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float n = float(i);
+        // The far layer first: smaller and paler.
+        float width = resolution.x / (9.0 - 2.0 * n);
+        float column = floor(xy.x / width);
+        for (int j = 0; j < 2; j++) {
+            float2 id = float2(column * 1.7 + n * 31.0, float(j) * 13.0 + n * 7.0);
+            float r1 = hash(id);
+            float r2 = hash(id + 19.7);
+            float r3 = hash(id + 43.1);
+            if (r3 > 0.62 * amount) continue;
+
+            // Its own time, 0 to 1: it starts in the first half, and is gone before the end.
+            float start = 0.02 + 0.45 * r1;
+            float t = (progress - start) / (0.40 + 0.13 * r2);
+            if (t <= 0.0 || t >= 1.0) continue;
+
+            // It grows past its size and back, and rises fast at first.
+            float size = width * mix(0.30, 0.42, r2);
+            float grow = smoothstep(0.0, 0.16, t) * (1.0 + 0.28 * sin(min(t / 0.30, 1.0) * 3.1416));
+            float rise = 1.0 - (1.0 - t) * (1.0 - t);
+            float2 center = float2(
+                (column + 0.5) * width + width * 0.12 * sin(6.2832 * (r1 + 1.3 * t)),
+                resolution.y * (1.02 - mix(0.45, 0.98, r3 / max(0.62 * amount, 0.001)) * rise));
+            float2 p = (xy - center) / (size * grow);
+            if (abs(p.x) > 0.8 || abs(p.y) > 0.8) continue;
+
+            // It leans with its sway.
+            float lean = 0.22 * cos(6.2832 * (r1 + 1.3 * t));
+            p = float2(p.x * cos(lean) - p.y * sin(lean), p.x * sin(lean) + p.y * cos(lean));
+            float d = heart(float2(p.x, 0.55 - p.y));
+            float soft = 1.2 / (size * grow);
+            float shape = 1.0 - smoothstep(-soft, soft, d);
+            float shown = shape * (1.0 - smoothstep(0.72, 1.0, t)) * mix(0.70, 0.95, n / 2.0);
+            if (shown <= 0.0) continue;
+
+            // Rose to red, lighter toward the upper left, with a small bright spot.
+            float3 own = mix(float3(1.0, 0.42, 0.55), float3(0.91, 0.16, 0.30), r2);
+            own += 0.16 * clamp(-p.x - p.y, -0.6, 0.8);
+            own += 0.45 * (1.0 - smoothstep(0.04, 0.13, length(p - float2(-0.20, -0.24))));
+            color = mix(color, clamp(own, 0.0, 1.0), shown);
+            cover = mix(cover, 1.0, shown);
+        }
+    }
+    return half4(here * (1.0 - cover) + float4(color, cover));
+}

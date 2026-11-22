@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
 import com.mtwabpin.kolahal.script.SharedShaders
@@ -213,6 +214,7 @@ private fun SharedShaderSheet(
     val code by produceState<Result<String>?>(null, e.sha256) {
         value = runCatching { actions.sharedCode(e) }
     }
+    val once = remember(code) { code?.getOrNull()?.let { ShaderMeta.parse(it).once } != null }
     val tilt = remember(e, code) { ShaderPage.usesTilt(e, code?.getOrNull()) }
 
     GuiSheet(onDismiss, scroll = true) {
@@ -250,6 +252,7 @@ private fun SharedShaderSheet(
                 if (on) OutlinedButton(
                     shapes = ButtonDefaults.shapes(),
                     onClick = { actions.off() }) { Text("Turn off") }
+                else if (once) Text("A one-off: 'shader play ${e.name}' plays it", style = MaterialTheme.typography.bodyMedium)
                 else Button(
                     shapes = ButtonDefaults.shapes(),
                     onClick = { actions.use(e.name) },

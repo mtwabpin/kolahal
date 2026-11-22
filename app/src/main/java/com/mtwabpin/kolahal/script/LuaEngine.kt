@@ -237,7 +237,11 @@ class LuaEngine : ScriptEngine {
             "show" to { l: Lua -> l.push(host.widgetShow(l.mapArg(1))); 1 },
             "clear" to { l: Lua -> host.widgetClear(); 0 },
         )
-        lua.table("shader", "give" to { l: Lua -> host.shaderGive(l.str(1).orEmpty(), l.args().getOrNull(1)); 0 })
+        lua.table(
+            "shader",
+            "give" to { l: Lua -> host.shaderGive(l.str(1).orEmpty(), l.args().getOrNull(1)); 0 },
+            "play" to { l: Lua -> host.shaderPlay(l.checkString(), l.args().getOrNull(1)); 0 },
+        )
         // tty.screen's functions stay in Lua: the prelude passes what is data, and calls them when the screen runs.
         lua.table("tty", "screen" to { l: Lua -> host.screenOpen(l.mapArg(1)); 0 })
         // The drawing calls of a screen's grid. The prelude hands them to the script as `g`.

@@ -1,5 +1,6 @@
 // @name Dunes
 // @description Sand dunes after woodblock prints that follow the hour, with sand blowing off their crests and a caravan far off
+// @suits dark good, light good, wallpaper poor
 // @param wind 0.0..2.0 = 1.0 Wind
 // @param camels 0..7 = 5 Camels in the caravan
 // @animated

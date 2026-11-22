@@ -50,6 +50,7 @@ import com.mtwabpin.kolahal.script.ShaderClock
 import com.mtwabpin.kolahal.script.ShaderDate
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderParams
+import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderTilt
 import com.mtwabpin.kolahal.script.ShaderValues
@@ -168,7 +169,7 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int): Modi
     val params = rememberLiveParams(shader)
 
     val inputs = remember(shader, grid, cols, left) {
-        ShaderInputs(shader, grid, cols, left, params) { Shaders.report(context, shader.name, shader.id, it) }
+        ShaderInputs(shader, grid, cols, left, params, shader.meta.once) { Shaders.report(context, shader.name, shader.id, it) }
     }
     return Modifier
         .shaderEffect(inputs, clock, touch, battery, day)
@@ -225,12 +226,78 @@ private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, l
     }
     val shader = loaded ?: return null
     val touch = remember(shader) { ShaderTouch() }
-    val clock = remember(shader) { ShaderTime() }
+    // A one-off shader shows what it is at a moment in the middle, until it moves: again and again here.
+    val clock = remember(shader) { ShaderTime().apply { seconds = (shader.meta.once ?: 0f) * 0.4f } }
     if (shader.meta.animated && moves) AnimateShader(shader, clock, touch)
     if (shader.meta.tilt && moves) FollowTilt(shader, touch)
     val battery = rememberShaderBattery(shader)
     val params = rememberLiveParams(shader)
-    val inputs = remember(shader, grid, cols, left) { ShaderInputs(shader, grid, cols, left, params) { } }
+    val inputs = remember(shader, grid, cols, left) { ShaderInputs(shader, grid, cols, left, params, shader.meta.once) { } }
+    return Modifier.shaderEffect(inputs, clock, touch, battery)
+}
+
+/**
+ * The one-off shader that plays ([ShaderPlay]), over the surface and the shader it has: put it before
+ * that one. Nothing while none plays, when [on] is false, with a screen reader on, in battery saver, with
+ * animations off, when the phone is hot or nearly out of battery, and on an Android older than 13.
+ *
+ * It isn't marked in [ShaderSafety]: what asked for it is forgotten before it is drawn, so one that
+ * crashes Kolahal doesn't come back.
+ */
+@Composable
+internal fun rememberPlayedShader(cols: Int = 0, left: Int = 0, on: Boolean = true): Modifier {
+    if (!on || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return Modifier
+    val playing by ShaderPlay.current.collectAsStateWithLifecycle()
+    return playing?.let { playedLayer(it, rememberTtyGrid(), cols, left) } ?: Modifier
+}
+
+/** [rememberPlayedShader] for home, where a full-screen screen over it plays it instead. */
+@Composable
+internal fun rememberPlayedOnHome(cols: Int = 0, left: Int = 0, on: Boolean = true): Modifier {
+    val covered by ShaderPlay.covered.collectAsStateWithLifecycle()
+    return rememberPlayedShader(cols, left, on && covered == 0)
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun playedLayer(playing: ShaderPlay.Playing, grid: TtyGrid, cols: Int, left: Int): Modifier {
+    if (rememberScreenReader()) {
+        LaunchedEffect(playing) { ShaderPlay.done(playing) }
+        return Modifier
+    }
+    val context = LocalContext.current.applicationContext
+    val loaded by produceState<LoadedShader?>(null, playing) {
+        val found = withContext(Dispatchers.IO) { Shaders.source(context, playing.name)?.let { LoadedShader.compile(playing.name, it) } }
+        if (found?.meta?.once == null) ShaderPlay.done(playing) else value = found
+    }
+    val shader = loaded?.takeIf { it.name == playing.name } ?: return Modifier
+    val seconds = playing.seconds ?: shader.meta.once ?: return Modifier
+    val touch = remember(playing) { ShaderTouch() }
+    val clock = remember(playing) { ShaderTime() }
+    val sources = LocalShaderSources.current
+    val shown = LocalTerminalShown.current
+    val focused = LocalWindowInfo.current.isWindowFocused
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    ActiveMark(shader.name)
+    LaunchedEffect(playing, shader, shown, focused) {
+        if (!shown || !focused) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            val late = System.currentTimeMillis() - playing.at > ShaderPlay.WAIT_MS
+            if (!late && ShaderClock.moves(sources.phone(context), 0L)) {
+                var last = -1L
+                while (clock.seconds < seconds) {
+                    val now = withFrameNanos { it } / 1_000_000L
+                    // A long gap (a pause) counts as one frame, so it goes on where it was.
+                    if (last >= 0) clock.seconds += (now - last).coerceIn(0L, 100L) / 1000f
+                    last = now
+                }
+            }
+            ShaderPlay.done(playing)
+        }
+    }
+    val battery = rememberShaderBattery(shader)
+    val params = rememberLiveParams(shader)
+    val inputs = remember(shader, grid, cols, left, seconds) { ShaderInputs(shader, grid, cols, left, params, seconds) { ShaderPlay.done(playing) } }
     return Modifier.shaderEffect(inputs, clock, touch, battery)
 }
 
@@ -607,6 +674,8 @@ private class ShaderInputs(
     private val cols: Int,
     private val left: Int,
     private val params: LiveParams,
+    /** How long a one-off shader runs, in seconds. Where it isn't played ([playedLayer]) it starts again after a second. */
+    private val once: Float?,
     private val onError: (String) -> Unit,
 ) {
     private val runtime = shader.runtime
@@ -622,7 +691,7 @@ private class ShaderInputs(
     // Only a shader that declares the clock or the touch reads them, so a frame or a touch that can't
     // change a still shader doesn't draw it again.
     private val usesTouch = "touch" in declared || "touchAge" in declared
-    private val usesClock = animated && ("time" in declared || "touchAge" in declared)
+    private val usesClock = animated && ("time" in declared || "touchAge" in declared || ShaderMeta.PROGRESS in declared)
     private val usesDate = declared[ShaderDate.NAME]?.floats == ShaderDate.FLOATS
     private val usesTilt = declared[ShaderTilt.NAME]?.floats == ShaderTilt.FLOATS
     private val usesPressed = ShaderMeta.PRESSED in declared
@@ -638,6 +707,7 @@ private class ShaderInputs(
         val touched = usesTouch && touch.atSeconds >= 0f
         return try {
             float1("time", seconds)
+            if (once != null) float1(ShaderMeta.PROGRESS, ((seconds % (once + 1f)) / once).coerceAtMost(1f))
             float2("resolution", w, h)
             float2("cell", cellW, cellH)
             val columns = if (cols > 0) cols else (w / cellW).toInt()

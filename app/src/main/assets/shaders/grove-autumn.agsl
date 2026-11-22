@@ -1,5 +1,6 @@
 // @name Grove autumn
 // @description A few leaves turn and drift down behind the text, as in Grove: orange, gold and rust. They dim with the hour
+// @suits dark good, light good, wallpaper good
 // @animated
 // @param amount 0.25..3.0 = 1.0 Number of leaves
 //

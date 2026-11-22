@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,7 +33,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,12 +52,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderFit
+import com.mtwabpin.kolahal.script.ShaderSurface
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderCommands
@@ -84,6 +90,7 @@ internal fun ShaderSheet(
     actions: ShaderActions,
     shown: () -> Float,
     onShow: (String) -> Unit,
+    onPlay: (String) -> Unit,
     onPeek: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -105,7 +112,7 @@ internal fun ShaderSheet(
         ) { page ->
             ShaderDetails(
                 rows[page], "${page + 1} of ${rows.size}", inUse, problems[rows[page].name], actions,
-                front = page == pager.settledPage, shown, onPeek, onDismiss,
+                front = page == pager.settledPage, shown, onPlay, onPeek, onDismiss,
             )
         }
     }
@@ -121,6 +128,7 @@ private fun ShaderDetails(
     actions: ShaderActions,
     front: Boolean,
     shown: () -> Float,
+    onPlay: (String) -> Unit,
     onPeek: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -159,12 +167,14 @@ private fun ShaderDetails(
             Spacer(Modifier.height(12.dp))
             Text(it, style = MaterialTheme.typography.bodyLarge)
         }
+        if (row.meta.suits.isNotEmpty()) SuitsRow(row.meta.suits, Modifier.padding(top = 16.dp))
         if (row.meta.params.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             ShaderParamRows(row.name, row.meta.params, actions)
         }
         if (row.turnedOff) SheetError(ShaderPage.turnedOff(row))
         problem?.let { SheetError("Can't be used: $it") }
+        ShaderActions.wallpaperWarning(row.meta, row.name, actions.wallpaper())?.let { SheetError(it) }
         if (!Shaders.supported) SheetError(Shaders.NEEDS)
 
         Spacer(Modifier.height(16.dp))
@@ -173,7 +183,14 @@ private fun ShaderDetails(
             val wide = Modifier
                 .weight(1f)
                 .heightIn(size)
-            if (on) FilledTonalButton(
+            if (row.meta.once != null) Button(
+                onClick = { onDismiss(); onPlay(row.name) },
+                shapes = ButtonDefaults.shapesFor(size),
+                enabled = drawable,
+                contentPadding = ButtonDefaults.contentPaddingFor(size),
+                modifier = wide,
+            ) { Text("Play", style = ButtonDefaults.textStyleFor(size)) }
+            else if (on) FilledTonalButton(
                 onClick = { actions.off() },
                 shapes = ButtonDefaults.shapesFor(size),
                 contentPadding = ButtonDefaults.contentPaddingFor(size),
@@ -219,7 +236,7 @@ private fun ShaderDetails(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Fact("From", from(row))
-        Fact("Moves", if (row.meta.animated) "yes" else "no")
+        row.meta.once?.let { Fact("Plays for", if (it % 1f == 0f) "${it.toInt()} s" else "$it s") } ?: Fact("Moves", if (row.meta.animated) "yes" else "no")
         if (row.meta.tilt) Fact("Uses tilt", "yes")
         row.meta.license?.let { Fact("License", it) }
 
@@ -272,6 +289,52 @@ private fun CheckResult(check: Shaders.Check) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/** How well a shader works over a dark theme, a light one and a wallpaper: a card for each that is rated. */
+@Composable
+private fun SuitsRow(suits: Map<ShaderSurface, ShaderFit>, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val rated = ShaderSurface.entries.filter { it in suits }
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+        rated.forEachIndexed { i, surface ->
+            val fit = suits.getValue(surface)
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = if (i == 0) 16.dp else 4.dp, bottomStart = if (i == 0) 16.dp else 4.dp,
+                    topEnd = if (i == rated.lastIndex) 16.dp else 4.dp, bottomEnd = if (i == rated.lastIndex) 16.dp else 4.dp,
+                ),
+                color = colors.surfaceContainerHigh,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("suits ${surface.word}")
+                    .clearAndSetSemantics { contentDescription = "${surface.label}: ${fit.label}" },
+            ) {
+                Column(Modifier.padding(vertical = 12.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        painterResource(
+                            when (surface) {
+                                ShaderSurface.DARK -> R.drawable.wi_moon
+                                ShaderSurface.LIGHT -> R.drawable.wi_sun
+                                ShaderSurface.WALLPAPER -> R.drawable.ic_wallpaper
+                            }
+                        ),
+                        null, Modifier.size(20.dp), tint = colors.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(surface.label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant, maxLines = 1)
+                    Text(
+                        fit.label, style = MaterialTheme.typography.titleSmall,
+                        color = when (fit) {
+                            ShaderFit.GOOD -> colors.primary
+                            ShaderFit.FAIR -> colors.onSurface
+                            ShaderFit.POOR -> colors.error
+                        },
+                    )
+                }
+            }
         }
     }
 }

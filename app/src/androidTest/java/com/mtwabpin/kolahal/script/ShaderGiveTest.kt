@@ -97,6 +97,30 @@ class ShaderGiveTest {
         assertNull(given()["giver2.rain"])
     }
 
+    /** A script asks for a one-off shader once, if it may, and home takes it. */
+    @Test
+    fun aScriptPlaysAOneOffShader() {
+        val s = script("-- @uses effects\nshader.play('hearts', 3)\nshader.play('hearts', 3)")
+        run(s)
+        assertNull("not one that isn't a one-off", ShaderPlay.load(context))
+        assertEquals("hearts" to 3f, ShaderPlay.current.value?.let { it.name to it.seconds })
+        ShaderPlay.done(ShaderPlay.current.value!!)
+        // Taken: it doesn't play again.
+        ShaderPlay.load(context)
+        assertNull(ShaderPlay.current.value)
+        // One that stays on isn't played; home says so.
+        ShaderPlay.request(context, "lcd", null)
+        assertEquals("lcd", ShaderPlay.load(context))
+        assertNull(ShaderPlay.current.value)
+        // Not allowed: nothing. Not declared: an error.
+        scripts.setAccess(s.id, "effects", false)
+        run(s)
+        assertNull(ShaderPlay.load(context))
+        assertNull(ShaderPlay.current.value)
+        scripts.saveCode(s.id, "shader.play('hearts')", byUser = true)
+        assertThrows(IllegalStateException::class.java) { host(scripts.byName("giver")!!).shaderPlay("hearts", null) }
+    }
+
     /** The parameter is the value's while there is one; then the slider's. */
     @Test
     fun aParameterFollowsIt() {

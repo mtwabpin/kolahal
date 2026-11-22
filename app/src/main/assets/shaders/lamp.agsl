@@ -1,5 +1,6 @@
 // @name Reading lamp
 // @description A soft pool of light where you last touched, and the rest of the page a little dimmer
+// @suits dark good, light fair, wallpaper fair
 //
 // Text is never dimmed by more than a tenth, anywhere, so the prompt stays readable outside the
 // pool. Before the first touch the lamp is over the middle of the screen.

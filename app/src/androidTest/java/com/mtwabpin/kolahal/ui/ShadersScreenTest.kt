@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -32,6 +33,7 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderParams
+import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.terminal.Screen
@@ -138,6 +140,51 @@ class ShadersScreenTest {
             hasTestTag("shader zz-fine") and hasText("Mine") and hasText("As it was") and hasText("Yours") and
                     hasText("zz-fine.agsl")
         ).assertExists()
+    }
+
+    /** The search and the chips keep what they say; None is away while something is looked for. */
+    @Test
+    fun theSearchAndTheChipsFindThem() {
+        show()
+        compose.onNodeWithTag("shader-search").performTextInput("pond")
+        compose.waitFor("others still show") { compose.onAllNodesWithTag("shader crt").fetchSemanticsNodes().isEmpty() }
+        row("pond").assertExists()
+        compose.onNodeWithTag("shader off").assertDoesNotExist()
+        // The pond hides a wallpaper.
+        compose.onNodeWithTag("shader-filter WALLPAPER").performScrollTo().performClick()
+        compose.waitForText("No shader matches")
+        compose.onNodeWithText("Clear").performClick()
+        compose.waitForNode(hasTestTag("shader off"))
+    }
+
+    /** A one-off shader is played from its row, on home; it isn't turned on. */
+    @Test
+    fun aOneOffShaderIsPlayed() {
+        needsAndroid13()
+        val vm = show()
+        compose.onNodeWithTag("shader-search").performTextInput("hearts")
+        compose.waitForNode(hasTestTag("shader hearts"))
+        try {
+            row("hearts").performClick()
+            compose.waitFor("not played") { ShaderPlay.current.value?.name == "hearts" }
+            assertEquals(Screen.TERMINAL, vm.screen.value)
+            assertEquals(ShaderCatalog.OFF, config[Keys.SCREEN_SHADER])
+        } finally {
+            ShaderPlay.current.value?.let(ShaderPlay::done)
+        }
+    }
+
+    /** Its details say what it works well over, and warn while too much of a wallpaper shows. */
+    @Test
+    fun theDetailsRateItAndWarn() {
+        needsAndroid13()
+        config.set(Keys.LOG_WALLPAPER, "40")
+        show()
+        compose.onNodeWithTag("shader-search").performTextInput("pond")
+        compose.waitForNode(hasTestTag("shader pond"))
+        openSheet("pond", "Pond")
+        for (surface in listOf("dark", "light", "wallpaper")) compose.onNodeWithTag("suits $surface").assertExists()
+        compose.waitForText("yours shows at 40%", substring = true)
     }
 
     /** One tap turns one on and selects it, and None turns it off. */

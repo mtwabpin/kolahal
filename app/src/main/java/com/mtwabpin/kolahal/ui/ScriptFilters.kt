@@ -31,6 +31,7 @@ internal val USES_SHORT = mapOf(
     "feeds" to "feeds",
     "usage" to "app usage",
     "screen" to "full screen",
+    "effects" to "effects",
 )
 
 /** Where a script came from. */

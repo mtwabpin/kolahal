@@ -17,6 +17,7 @@ import com.mtwabpin.kolahal.script.ShaderClock
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderParam
 import com.mtwabpin.kolahal.script.ShaderParams
+import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
 import com.mtwabpin.kolahal.script.ShaderStore
 import com.mtwabpin.kolahal.script.ShaderValues
@@ -31,6 +32,7 @@ import com.mtwabpin.kolahal.script.SharedShader
  *   turns the last one on again, also after it was turned off for being slow.
  * - `set` changes a shader's parameters and `reset` puts them back ([ShaderParam]).
  * - `follow` makes a parameter follow a value, and `values` lists the values ([ShaderValues]).
+ * - `play` plays a one-off shader ([ShaderPlay]).
  * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
  * - `check`, `reload`, `copy` and `remove` work with the user's own files.
  *
@@ -58,6 +60,7 @@ class ShaderCommands(
             "reset" -> reset(args.drop(1))
             "follow" -> follow(args.drop(1))
             "values" -> values()
+            "play" -> play(name ?: return usage("shader"), args.getOrNull(2))
             // These use the network, so they run outside the serial command queue.
             "get" -> background("shader get") { getShared(args.drop(1)) }
             "update" -> background("shader update") { update(args.drop(1)) }
@@ -75,19 +78,21 @@ class ShaderCommands(
         val tripped = ShaderSafety.get(context).tripped()
         Shaders.entries().forEach { e ->
             val source = Shaders.source(context, e.name)
-            val description = source?.let { ShaderMeta.parse(it).description }
+            val meta = source?.let(ShaderMeta::parse)
+            val description = meta?.description
             val tags = buildList {
                 if (e.name == current) add(StyledText.tag(StyledText.ColorRole.ACCENT, "on"))
                 if (source != null && tripped == ShaderSafety.id(e.name, source)) {
                     add(StyledText.tag(StyledText.ColorRole.WARN, "turned off"))
                 }
+                if (meta?.once != null) add(StyledText.tag(StyledText.ColorRole.INFO, "one-off"))
                 if (e.yours) add(StyledText.tag(StyledText.ColorRole.MUTED, "yours"))
                 if (!Shaders.supported) add(StyledText.tag(StyledText.ColorRole.MUTED, "needs Android 13"))
             }
             out(
                 (listOf(e.name) + tags).joinToString(" "),
                 LogContext.of(
-                    LogContext.RUN to "shader use ${e.name}",
+                    LogContext.RUN to if (meta?.once != null) "shader play ${e.name}" else "shader use ${e.name}",
                     LogContext.DESC to (description ?: if (e.yours) "Your shader" else ""),
                 ) + LogContext.ITEM,
             )
@@ -101,6 +106,16 @@ class ShaderCommands(
         if (!Shaders.supported) return needs()
         Shaders.use(context, name)?.let { return error("Shader $name: $it") }
         info("Shader: $name · 'shader off' turns it off")
+        ShaderActions.wallpaperWarning(context, name)?.let { info("$it · 'config set log.wallpaper 0' hides it") }
+    }
+
+    private fun play(name: String, time: String?) {
+        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
+        if (!Shaders.supported) return needs()
+        if (!Shaders.once(context, name)) return error("$name isn't a one-off shader: it has no @once line")
+        Shaders.problem(context, name)?.let { return error("Shader $name: $it") }
+        val seconds = time?.let { it.toFloatOrNull()?.takeIf { s -> s > 0f } ?: return usage("shader") }
+        if (!ShaderPlay.play(name, seconds)) info("A shader is playing")
     }
 
     private fun on() {
@@ -353,10 +368,10 @@ class ShaderCommands(
 
     companion object {
         val SUBCOMMANDS =
-            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "get", "update", "check", "reload", "copy", "remove")
+            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "get", "update", "check", "reload", "copy", "remove")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "set", "reset", "follow", "get", "update", "check", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "get", "update", "check", "copy", "remove", "rm")
 
         /**
          * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of

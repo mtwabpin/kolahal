@@ -1,5 +1,6 @@
 // @name Rain
 // @description A storm you stand in: mist far off, rain in between, and big soft drops that rush past close by. A touch holds it off
+// @suits dark good, light fair, wallpaper good
 // @animated
 // @param amount 0.0..2.0 = 1.0 Amount of rain
 //

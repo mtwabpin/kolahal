@@ -15,6 +15,9 @@ Shaders need **Android 13 or newer**.
 Open **Settings → Shaders** and tap a shader. It is checked first: if it doesn't compile, the one that is
 on stays, and its row says why. **None** turns shaders off.
 
+The search looks in names, descriptions and tags. The chips under it keep the shaders that work well in a
+[dark theme, a light one or over a wallpaper](#what-it-works-well-over), are still or animated, use tilt, can be adjusted, are one-off or are yours.
+
 Each row shows what the shader looks like and what it is: in use, yours or from a
 [shared list](#getting-shaders-from-others), animated, using [tilt](#tilt-and-power), edited, turned off (and why),
 or with an update. Tap ⓘ for its details: a small preview, its version and author, its code, and what you can do with it.
@@ -33,6 +36,7 @@ Or type:
 | `shader` | lists the shaders; a tap on one turns it on |
 | `shader <name>` | turns it on |
 | `shader off` | turns shaders off |
+| `shader play <name>` | plays a [one-off shader](#one-off-shaders) once |
 | `shader on` | turns the last one on again |
 | `shader set <name>` | a shader's parameters, and what they can be |
 | `shader set <name> <parameter> <value>` | changes one: `shader set snowfall amount 1.5` |
@@ -66,10 +70,39 @@ nothing while the screen is still.
 | `night` | stars that twinkle slowly and shift a little as the phone leans, and a meteor now and then; on a light theme, an engraved star chart. It moves |
 | `fireflies` | small lights wander behind the text, and a touch draws them near; on a light theme, soft motes in the sun. It moves |
 | `contour` | the contour lines of a map, slowly changing; a touch raises a hill. It moves |
+| `hearts` | a [one-off](#one-off-shaders): hearts rise from the bottom of the screen, sway and fade. Their number can be changed |
 | `ink` | a touch drops a faint cloud of ink that spreads behind the text and fades. It moves |
 
 In **Settings → Shaders**, a tap turns one on. Its details (ⓘ) have a preview: swipe left or right for the
 others, and hold the eye to see your own home with it, without turning it on.
+
+## What it works well over
+
+A shader's details rate it for a dark theme, a light theme and a wallpaper that shows behind the log
+([`log.wallpaper`](/reference/config/#log)):
+
+- **Good**: it looks as it should.
+- **Fair**: it works, but shows less, or takes some of what is behind it.
+- **Poor**: it hides what is behind it, or is hard to read.
+
+If more than 20% of your wallpaper shows, turning on a shader that is poor over one gives a warning. It is turned on all
+the same. The author rates a shader in its [header](#the-header), and one without a rating shows none.
+
+## One-off shaders
+
+A one-off shader runs once for some seconds, over the shader that is on, and goes. Tap one under **One-off** in
+**Settings → Shaders**, or type `shader play hearts`. It can't be turned on to stay.
+
+A script plays one with [`shader.play`](/scripting/api/#shaderplayname-seconds). The library's
+[`effect-on-word`](/scripting/library/#effect-on-word) plays hearts when a notification has a word you picked, such as a name.
+
+- One plays at a time. Another that comes meanwhile is left out.
+- It waits for home to be in front, for half an hour at most.
+- It isn't played in battery saver, with **Remove animations** on, when the phone is hot or nearly out of battery, or with a
+  screen reader on.
+
+To write one, say for how many seconds it runs, from 1 to 10, with `// @once 6`. Its `progress` uniform goes from 0 to 1
+meanwhile: start and end with nothing.
 
 ## If something goes wrong
 
@@ -194,6 +227,8 @@ Comments at the top say what the shader is. All are optional:
 | `// @name Tint` | its name for people |
 | `// @description …` | what it looks like. `shader` shows it |
 | `// @param amount 0.0..2.0 = 1.0 …` | something people can change. See [Parameters](#parameters) |
+| `// @suits dark good, light fair, wallpaper poor` | [what it works well over](#what-it-works-well-over): `good`, `fair` or `poor` |
+| `// @once 6` | it is a [one-off](#one-off-shaders), and runs for this many seconds |
 | `// @animated` | it changes on its own, so it is drawn up to 30 times a second. Without it a shader is only drawn when the screen changes, so it uses no power while the screen is still |
 | `// @author …` | who made it. A shared shader needs it, as it does `@version` and `@license` |
 | `// @version 1.0` | its version |
@@ -255,6 +290,7 @@ of another name stays 0. `shader check` lists both.
 | `grid` | `float2` | how many columns and rows of cells fit |
 | `origin` | `float2` | where the first column starts, in pixels from the left, and 0 |
 | `time` | `float` | seconds since the shader was turned on. It moves only in an `@animated` shader |
+| `progress` | `float` | how far a [one-off shader](#one-off-shaders) has come, from 0 to 1 |
 | `touch` | `float2` | the last touch, in pixels. `-1, -1` before the first one |
 | `touchAge` | `float` | seconds since that touch, only in an `@animated` shader. 1000 before the first touch |
 | `pressed` | `float` | 1 while a finger is down on the surface, otherwise 0. A shader that isn't `@animated` is drawn again when it changes |

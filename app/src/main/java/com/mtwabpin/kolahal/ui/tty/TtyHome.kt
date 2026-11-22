@@ -153,6 +153,7 @@ internal fun TtyHome(
         Column(
             Modifier
                 .fillMaxSize()
+                .then(rememberPlayedOnHome(frame.cols, frame.originX, on = !preview))
                 .then(shader)
                 .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
                 .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal))

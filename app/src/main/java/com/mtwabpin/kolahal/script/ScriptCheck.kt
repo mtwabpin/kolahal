@@ -64,6 +64,7 @@ object ScriptCheck {
         "feeds" to Regex("""(?<![.\w])feeds\s*\.\s*unread\b"""),
         "usage" to Regex("""(?<![.\w])usage\s*\.\s*(today|days|data|summary|unused)\b"""),
         "screen" to Regex("""(?<![.\w])tty\s*\.\s*screen\b"""),
+        "effects" to Regex("""(?<![.\w])shader\s*\.\s*play\b"""),
     )
 
     /** The `@` lines a script with a screen of its own can't have ([ScriptMeta.isScreen]). */

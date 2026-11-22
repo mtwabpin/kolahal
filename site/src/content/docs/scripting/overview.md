@@ -389,6 +389,7 @@ feeds), your app usage, a full-screen screen and the work profile only if it ask
 | `feeds` | [`feeds.unread`](/scripting/api/#feedsunreadn): reading the unread items of the feeds you follow |
 | `usage` | [`usage.today`](/scripting/api/#usagetodayn), [`usage.days`](/scripting/api/#usagedaysn), [`usage.data`](/scripting/api/#usagedatasince), [`usage.unused`](/scripting/api/#usageunuseddays), [`usage.summary`](/scripting/api/#usagesummaryperiod-app): your screen time, data use and the apps you don't open |
 | `screen` | [`tty.screen`](/scripting/api/#ttyscreenspec): a full-screen screen of its own over home, with the taps and keys there, when you start the script. Such a script is a command, with no timer, event or widget |
+| `effects` | [`shader.play`](/scripting/api/#shaderplayname-seconds): a one-off shader, such as hearts, over home for some seconds |
 | `work` | [`device.work` and `device.setWork`](/scripting/api/#devicework--devicesetworkon): reading, pausing and resuming the work profile |
 
 - If a script calls one of these without its `@uses` line, it stops with an error. The error says

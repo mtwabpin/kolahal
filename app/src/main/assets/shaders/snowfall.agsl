@@ -1,5 +1,6 @@
 // @name Snowfall
 // @description Snow falls behind the text, for Christmas
+// @suits dark good, light fair, wallpaper good
 // @animated
 // @param amount 0.0..2.0 = 1.0 Amount of snow
 // @param size 0.5..1.5 = 1.0 Size of the flakes

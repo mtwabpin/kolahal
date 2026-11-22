@@ -1,7 +1,10 @@
 package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.script.ScriptCatalog
+import com.mtwabpin.kolahal.script.ShaderMeta
+import com.mtwabpin.kolahal.script.ShaderSuits
 import com.mtwabpin.kolahal.script.SharedShader
+import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -52,6 +55,39 @@ class ShaderPageTest {
         assertFalse(ShaderPage.usesTilt(e, code))
         assertTrue(ShaderPage.usesTilt(e.copy(tilt = true), null))
         assertTrue(ShaderPage.usesTilt(e, "uniform shader content; uniform float2 tilt;"))
+    }
+
+    /** The search finds every word of the query, and each chip keeps what it says. */
+    @Test
+    fun searchAndChips() {
+        val night = ShaderRow(
+            "stars", bundled = true, yours = false,
+            code = "// @name Night sky\n// @description A meteor now and then\n// @tags space, calm\n// @suits dark good, light poor, wallpaper fair\n// @param amount 0.0..1.0 = 0.5\n// @animated\nuniform shader content;\nuniform float amount;",
+        )
+        fun has(query: String, vararg f: ShaderPage.Filter) = ShaderPage.matches(night, query, f.toSet())
+        for (query in listOf("", "night", "STARS", "meteor", "sky calm", "space")) assertTrue(query, has(query))
+        for (query in listOf("rain", "night rain")) assertFalse(query, has(query))
+        assertTrue(has("", ShaderPage.Filter.DARK, ShaderPage.Filter.ANIMATED, ShaderPage.Filter.ADJUSTABLE))
+        for (f in listOf(
+            ShaderPage.Filter.LIGHT, ShaderPage.Filter.WALLPAPER, ShaderPage.Filter.STILL, ShaderPage.Filter.TILT,
+            ShaderPage.Filter.ONCE, ShaderPage.Filter.YOURS,
+        )) assertFalse(f.name, has("", f))
+        // Every chip has to pass, and the words too.
+        assertFalse(has("", ShaderPage.Filter.DARK, ShaderPage.Filter.LIGHT))
+        assertFalse(has("rain", ShaderPage.Filter.DARK))
+        assertTrue(ShaderPage.matches(mine, "glow", setOf(ShaderPage.Filter.YOURS, ShaderPage.Filter.STILL)))
+    }
+
+    /** A shader that is poor over a wallpaper is worth a warning once enough of one shows. */
+    @Test
+    fun theWallpaperWarning() {
+        fun warning(suits: String, shows: Int) =
+            ShaderActions.wallpaperWarning(ShaderMeta.parse("// @name Pond\n// @suits $suits\nuniform shader content;"), "pond", shows)
+        assertEquals("Pond doesn't work well with a wallpaper, and yours shows at 40%", warning("wallpaper poor", 40))
+        assertNull(warning("wallpaper poor", ShaderSuits.WALLPAPER_SHOWS))
+        assertNull(warning("wallpaper poor", 0))
+        assertNull(warning("wallpaper fair", 40))
+        assertNull(warning("dark poor", 40))
     }
 
     /** One that was turned off isn't in use, even while it is the one set; the reason shows when it is known. */

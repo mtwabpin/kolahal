@@ -41,6 +41,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *   rss.fresh(url)              -> like fetch, but only items that no earlier call returned
  *   store.get(key) / store.set(key, value) -> persistent strings, per script
  *   device.dnd() / device.setDnd(mode), device.work() / device.setWork(on) -> Do Not Disturb, the work profile
+ *   shader.play(name, seconds?) -> a one-off shader over home
  *   shader.give(name, value) -> a value that shaders' parameters can follow
  *   widget.show(desc) / widget.clear() -> this script's widget on the widgets page
  *   json.encode(v) / json.decode(s)
@@ -639,6 +640,30 @@ class HostApi(
 
     /** The values this run changed. */
     private var gaveValues = 0
+
+    /**
+     * `shader.play(name, seconds?)`: a one-off shader over home, for [seconds] or its own time ([ShaderPlay]).
+     * Home plays one at a time; a run can ask once.
+     */
+    fun shaderPlay(name: String, seconds: Any?) {
+        live()
+        effects++
+        val time = when (seconds) {
+            null -> null
+            is Number -> seconds.toFloat().takeIf { it.isFinite() && it > 0f }
+                ?: throw IllegalArgumentException("shader.play: seconds is a number above 0")
+
+            else -> throw IllegalArgumentException("shader.play: seconds is a number above 0")
+        }
+        val shader = name.trim().lowercase()
+        require(ShaderCatalog.valid(shader)) { "shader.play: '$name' can't be a shader's name" }
+        if (!may("effects", "shader.play") || played) return
+        played = true
+        ShaderPlay.request(context, shader, time)
+    }
+
+    /** This run asked for a one-off shader. */
+    private var played = false
 
     // ---- its widget ----------------------------------------------------------------------
 

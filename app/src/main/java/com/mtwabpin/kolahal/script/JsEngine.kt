@@ -216,7 +216,10 @@ class JsEngine : ScriptEngine {
                 )
             }
         }
-        js.define("shader") { function("give") { args -> host.shaderGive(args.req(), args.getOrNull(1)) } }
+        js.define("shader") {
+            function("give") { args -> host.shaderGive(args.req(), args.getOrNull(1)) }
+            function("play") { args -> host.shaderPlay(args.req(), args.getOrNull(1)) }
+        }
         js.define("launcher") { function("run") { args -> host.runCommand(args.req()) } }
         // Your own lists, each behind the `@uses` item of its name ([HostData]). They read what is on the
         // phone and wait for nothing, so they are plain functions: no await. One HostData for the run: it

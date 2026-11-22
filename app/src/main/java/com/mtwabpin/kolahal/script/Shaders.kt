@@ -157,6 +157,10 @@ object Shaders {
     fun params(context: Context, name: String): List<ShaderParam> =
         source(context, name)?.let { ShaderMeta.parse(it).params }.orEmpty()
 
+    /** Whether [name] is a one-off shader ([ShaderPlay]). Reads a file: not on the main thread. */
+    fun once(context: Context, name: String): Boolean =
+        source(context, name)?.let { ShaderMeta.parse(it).once } != null
+
     /** What checking a shader found: its [problem] (null: none), the uniforms Kolahal [sets], those left [unset], and its [params]. */
     class Check(
         val problem: String?,
@@ -184,6 +188,7 @@ object Shaders {
      */
     fun use(context: Context, name: String): String? {
         if (!supported) return NEEDS
+        if (once(context, name)) return "it is a one-off: 'shader play $name' plays it"
         problem(context, name)?.let { return it }
         val safety = ShaderSafety.get(context)
         safety.turnedOn()

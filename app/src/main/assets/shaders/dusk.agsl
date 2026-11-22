@@ -1,5 +1,6 @@
 // @name Dusk
 // @description A sky behind the text that follows the day: night, dawn, daylight and dusk
+// @suits dark good, light good, wallpaper fair
 //
 // The sky only shows where the page does. It reads the phone's time once a minute; the sun rises at
 // six and sets at six in the evening, whatever the season.

@@ -35,7 +35,7 @@ class ScriptUsesTest {
                 "commands",
                 "dnd",
                 "work"
-            ) + lists + "usage" + "screen", ScriptMeta.USES
+            ) + lists + "usage" + "screen" + "effects", ScriptMeta.USES
         )
     }
 

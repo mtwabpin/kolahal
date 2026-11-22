@@ -1,5 +1,6 @@
 // @name Two-color print
 // @description A stencil print: a second impression of the text in the accent color, a little off register
+// @suits dark good, light good, wallpaper fair
 //
 // The first impression is untouched. The second is a pixel or two beside it, never more, and a
 // dot screen of the accent color fills the corners.

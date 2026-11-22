@@ -1,5 +1,6 @@
 // @name Fireflies
 // @description Small lights wander behind the text and glow on and off; on a light theme, soft motes in the sun. A touch draws them near
+// @suits dark good, light fair, wallpaper good
 // @animated
 // @param amount 0.3..2.0 = 1.0 Number of lights
 //

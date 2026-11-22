@@ -216,11 +216,16 @@ object ApiDocs {
             "widget.clear()",
             "Remove the widget's content; its card then has nothing to show"
         ),
-        ApiDoc("shader", "shader", "Values that shaders' parameters can follow: give", kind = NS),
+        ApiDoc("shader", "shader", "Values that shaders' parameters can follow, and one-off shaders: give, play", kind = NS),
         ApiDoc(
             "shader.give",
             "shader.give(name, value)",
             "Give a value under a name from @gives: a number from 0 to 1, or a word; nil/null takes it away. A shader's parameter follows it when you pick it there"
+        ),
+        ApiDoc(
+            "shader.play",
+            "shader.play(name, seconds?)",
+            "Play a one-off shader, such as hearts, over home once (needs @uses effects)"
         ),
         ApiDoc("tty", "tty", "A full-screen screen of its own over home, drawn on the character grid: screen", kind = NS),
         ApiDoc("tty.screen", "tty.screen{ fps, title, start, frame, key, tap, resize, stop }", TTY_SCREEN, LUA),

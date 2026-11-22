@@ -1,5 +1,6 @@
 // @name Frost
 // @description Ice grows in from the edges and corners of the screen. It melts under your finger
+// @suits dark good, light good, wallpaper good
 //
 // The middle of the screen stays clear. Under the ice the page is tinted and text is bent by a
 // fifth of a cell at most, so it stays readable and a tap lands on what it shows.

@@ -605,6 +605,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             linesRead = status
             _lines.value = StatusLines.all(context)
             com.mtwabpin.kolahal.script.ShaderValues.load(context)
+            com.mtwabpin.kolahal.script.ShaderPlay.load(context)?.let { logs.add(LogKind.ERROR, "No one-off shader '$it' — 'shader' lists them") }
         }
         scriptsRead.value = true
         if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()

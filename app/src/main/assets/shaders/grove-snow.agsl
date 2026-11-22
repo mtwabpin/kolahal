@@ -1,5 +1,6 @@
 // @name Grove snow
 // @description Slow, crisp flakes fall and wander behind the text, as in Grove. They dim with the hour
+// @suits dark good, light fair, wallpaper good
 // @animated
 // @param amount 0.25..3.0 = 1.0 Amount of snow
 //

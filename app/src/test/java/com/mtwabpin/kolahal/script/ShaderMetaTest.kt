@@ -212,7 +212,7 @@ class ShaderMetaTest {
         }
         // Only the ones that say they move are drawn over and over.
         assertEquals(
-            listOf("mountains", "pond", "dunes", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink"),
+            listOf("mountains", "pond", "dunes", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "hearts"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
         )
     }
@@ -229,6 +229,37 @@ class ShaderMetaTest {
             emptySet<String>(),
             metas.filterValues { it.uses(ShaderMeta.BATTERY) || it.uses(ShaderMeta.CHARGING) }.keys,
         )
+    }
+
+    /** A one-off shader says for how long it runs, within bounds, and moves. */
+    @Test
+    fun aOneOffShader() {
+        fun once(line: String) = ShaderMeta.parse("$line\nuniform shader content;")
+        assertEquals(6f, once("// @once 6").once)
+        assertTrue(once("// @once 6").animated)
+        assertEquals(ShaderPlay.MAX_SECONDS, once("// @once 900").once)
+        assertEquals(ShaderPlay.MIN_SECONDS, once("// @once 0").once)
+        for (none in listOf("", "// @once", "// @once soon")) assertNull(none, once(none).once)
+        // It can be told how far it has come.
+        assertTrue(ShaderMeta.PROGRESS in ShaderMeta.KNOWN)
+        assertTrue("must be a float" in ShaderMeta.problems("uniform shader content; uniform float2 progress;").single())
+        assertEquals(listOf("hearts"), ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).once != null })
+    }
+
+    /** What it works well over. What can't be read isn't rated; every bundled shader is, for all three. */
+    @Test
+    fun whatItSuits() {
+        assertEquals(
+            mapOf(ShaderSurface.DARK to ShaderFit.GOOD, ShaderSurface.WALLPAPER to ShaderFit.POOR),
+            ShaderSuits.read("Dark good, light great, wallpaper  poor, paper good, light"),
+        )
+        assertEquals(emptyMap<ShaderSurface, ShaderFit>(), ShaderMeta.parse("uniform shader content;").suits)
+        for (name in ShaderCatalog.BUNDLED) {
+            val suits = ShaderMeta.parse(sourceFile("src/main/assets/shaders/$name.agsl").readText()).suits
+            assertEquals(name, ShaderSurface.entries.toSet(), suits.keys)
+            // One that is poor on both themes wouldn't be worth having.
+            assertTrue(name, suits[ShaderSurface.DARK] != ShaderFit.POOR || suits[ShaderSurface.LIGHT] != ShaderFit.POOR)
+        }
     }
 
     /** Every bundled shader has a file, and every file is a bundled shader. */

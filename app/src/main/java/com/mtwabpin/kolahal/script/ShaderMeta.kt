@@ -9,6 +9,8 @@ package com.mtwabpin.kolahal.script
  * - for one that is shared, `// @author`, `// @version`, `// @license` and `// @requires` (the least
  *   Kolahal version);
  * - `// @param`, for each thing that people can change ([ShaderParam]);
+ * - `// @once 6`: a one-off shader, which runs for so many seconds and goes ([ShaderPlay]);
+ * - `// @suits`: what it works well over ([ShaderSuits]);
  * - the uniforms it declares. The host sets the ones it knows ([KNOWN]); it skips the rest.
  *
  * Pure: the compiler runs in [Shaders.compile], on Android 13 and newer.
@@ -27,6 +29,11 @@ class ShaderMeta private constructor(
     val requires: String?,
     /** What people can change, in the header's order. */
     val params: List<ShaderParam>,
+    /** How long a one-off shader runs, in seconds; null for one that stays on. */
+    val once: Float?,
+    val suits: Map<ShaderSurface, ShaderFit>,
+    /** Words that find it. */
+    val tags: List<String>,
 ) {
     /** One declared uniform. [color]: declared with `layout(color)`. */
     data class Uniform(val name: String, val type: String, val color: Boolean, val array: Boolean) {
@@ -62,6 +69,9 @@ class ShaderMeta private constructor(
         /** The uniform that is 1 while the phone is plugged in, else 0. */
         const val CHARGING = "charging"
 
+        /** The uniform that goes from 0 to 1 as a one-off shader runs. */
+        const val PROGRESS = "progress"
+
         /** The most a file may have, in bytes: far more than any shader needs. */
         const val MAX_BYTES = 64 * 1024
 
@@ -90,6 +100,7 @@ class ShaderMeta private constructor(
             PRESSED to listOf(1),
             BATTERY to listOf(1),
             CHARGING to listOf(1),
+            PROGRESS to listOf(1),
         ) + COLORS.associateWith { listOf(4) }
 
         private val COMMENTS = Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
@@ -106,17 +117,22 @@ class ShaderMeta private constructor(
             }
             fun said(vararg names: String) =
                 names.firstNotNullOfOrNull { tags[it] }?.takeIf { it.isNotEmpty() }
+            val once = said("once")?.toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(ShaderPlay.MIN_SECONDS, ShaderPlay.MAX_SECONDS)
             // The scripts' words for the same (`@title`, `@desc`) are read too.
             return ShaderMeta(
                 title = said("name", "title"),
                 description = said("description", "desc"),
-                animated = "animated" in tags,
+                // A one-off shader moves, or it would be nothing.
+                animated = "animated" in tags || once != null,
                 uniforms = uniforms(source),
                 author = said("author"),
                 version = said("version"),
                 license = said("license"),
                 requires = said("requires"),
                 params = paramLines(source).mapNotNull(ShaderParam::read).distinctBy { it.name }.take(ShaderParam.MAX),
+                once = once,
+                suits = said(ShaderSuits.DIRECTIVE)?.let(ShaderSuits::read).orEmpty(),
+                tags = said("tags")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
             )
         }
 
