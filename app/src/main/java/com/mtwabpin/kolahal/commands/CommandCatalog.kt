@@ -649,13 +649,13 @@ object CommandCatalog {
             args = "<month> [<year>]"
         ),
         // The screens take the whole screen until a key or a tap. Each is sensitive: typing `ma`
-        // or `pi` on the way to an app must not open one, and a script can't. `clock`, `top` and
-        // `boot` are only reached through `screen`, so typing an app's name (Clock) still opens the
-        // app, and "top" stays a plain word.
+        // or `pi` on the way to an app must not open one, and a script can't. `clock`, `decode`,
+        // `top` and `boot` are only reached through `screen`, so typing an app's name (Clock) still
+        // opens the app, and "top" stays a plain word.
         CommandSpec(
             "screen",
             "screen <name>",
-            "A full-screen screen until a key or a tap: matrix, clock, pipes, sl, top or boot",
+            "A full-screen screen until a key or a tap: matrix, clock, pipes, decode, sl, top or boot",
             short = "A full-screen screen",
             args = "<name>",
             sensitive = true

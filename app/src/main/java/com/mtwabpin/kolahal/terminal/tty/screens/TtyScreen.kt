@@ -9,8 +9,8 @@ import java.util.Locale
 import kotlin.random.Random
 
 /**
- * A full-screen program on the character grid (`matrix`, `clock`, `pipes`, `sl`, `top`, `boot`),
- * like a terminal program that takes the whole screen until you leave it.
+ * A full-screen program on the character grid (`matrix`, `clock`, `pipes`, `decode`, `sl`, `top`,
+ * `boot`), like a terminal program that takes the whole screen until you leave it.
  *
  * Screens are pure and deterministic: time and chance come in through [start] and [frame], so a
  * JVM test can step one frame by frame and read the grid. They draw with theme roles only
@@ -49,6 +49,15 @@ interface TtyScreen {
     fun frame(grid: CellBuffer, timeMs: Long, deltaMs: Long): Boolean
 
     /**
+     * How long the screen needs no frame after the one it just drew, in ms; 0 for its usual pace
+     * ([fps]). For a screen that rests now and then; the host sleeps that long, 5 s at most.
+     */
+    val restMs: Long get() = 0L
+
+    /** Home is in front again after the screen was paused. [frame] comes next. */
+    fun resumed() {}
+
+    /**
      * One frame that stands for the screen, for when animations are off. By default, the frame
      * 2.5 s in (30 frames a second), or the last one if the program ends sooner.
      */
@@ -57,6 +66,12 @@ interface TtyScreen {
         while (t < 2_500L && frame(grid, t, 33L)) t += 33L
     }
 
+    /**
+     * With animations off, how often [still] draws again, in ms, for a screen whose still frame
+     * shows something that changes; 0 for once.
+     */
+    val stillEveryMs: Long get() = 0L
+
     /** A key typed on a hardware keyboard. True if the screen used it; otherwise the host closes it. */
     fun key(key: TtyKey): Boolean = false
 
@@ -64,6 +79,23 @@ interface TtyScreen {
     fun tap(col: Int, row: Int): Boolean = false
 
     fun stop() {}
+}
+
+/**
+ * A screen that puts its grid's rows where it wants them: each row of cells is drawn at its own
+ * place in the host's area instead of right under the one above (`decode` draws home's lines where
+ * home does, with the gaps between them). Columns are still whole cells.
+ */
+interface PlacedRows {
+    /** Where the first column of the placed rows starts, in px from the area's left. */
+    val rowLeft: Int
+
+    /** Where [row] starts, in px from the area's top, or [UNPLACED] for its usual place. */
+    fun rowTop(row: Int): Int
+
+    companion object {
+        const val UNPLACED = Int.MIN_VALUE
+    }
 }
 
 /** A key, for [TtyScreen.key]: a typed character, or one of the keys that type none. */
@@ -78,6 +110,8 @@ sealed interface TtyKey {
  * - [clock]: the wall clock in ms since 1970 (the clock screen); [zone] and [locale] format it.
  * - [clock24]: 24-hour time (`clock.24h`).
  * - [data]: real facts for `boot` and `top`.
+ * - [cellW], [cellH]: a cell's size in px, for a screen that places its rows ([PlacedRows]).
+ * - [log]: the log lines home shows now, in px from the area's top left (`decode`).
  */
 class ScreenEnv(
     val cols: Int,
@@ -88,13 +122,17 @@ class ScreenEnv(
     val data: ScreenData = ScreenData(),
     val zone: ZoneId = ZoneId.systemDefault(),
     val locale: Locale = Locale.getDefault(),
+    val cellW: Int = 10,
+    val cellH: Int = 20,
+    val log: () -> ShownLog? = { null },
 )
 
 /**
  * Facts `boot` shows, read once when the screen opens. Only what is cheap to know: counts the app
  * already holds in memory, and settings. A count that is 0 is left out.
  *
- * [top] is where `top` reads its live facts, each second ([TopSource]).
+ * [top] is where `top` reads its live facts, each second ([TopSource]); [log] is where `decode`
+ * reads the log lines home shows.
  */
 data class ScreenData(
     val version: String = "",
@@ -110,17 +148,19 @@ data class ScreenData(
     val fontSize: Int = 0,
     val unlocks: Int = 0,
     val top: TopSource = TopSource.NONE,
+    val log: ShownLogSource? = null,
 )
 
 /** The screens by command name. */
 object TtyScreens {
-    val names: List<String> = listOf("matrix", "clock", "pipes", "sl", "top", "boot")
+    val names: List<String> = listOf("matrix", "clock", "pipes", "decode", "sl", "top", "boot")
 
     /** A new screen for [name], or null when there is none by that name. */
     fun named(name: String): TtyScreen? = when (name) {
         "matrix" -> MatrixScreen()
         "clock" -> ClockScreen()
         "pipes" -> PipesScreen()
+        "decode" -> DecodeScreen()
         "sl" -> SlScreen()
         "top" -> TopScreen()
         "boot" -> BootScreen()

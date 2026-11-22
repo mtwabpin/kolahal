@@ -97,6 +97,7 @@ import java.time.LocalDate
 import kotlin.math.roundToInt
 import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
 import com.mtwabpin.kolahal.ui.tty.rememberTtyShader
+import com.mtwabpin.kolahal.ui.tty.shownLogReport
 
 /**
  * Home as text, chips and cards: the header, the pinned line, the log, the suggestions, the prompt
@@ -292,6 +293,11 @@ internal fun GuiHome(
                     .graphicsLayer { alpha = 1f - selectorFade.floatValue }
                 if (logArea != null) logArea(results, deleteRight, logModifier, resultsModifier)
                 else CompositionLocalProvider(LocalUriHandler provides linkOpener) {
+                    // The lines on screen, for `screen decode`.
+                    val report = if (results != null) Modifier else shownLogReport(
+                        calls.shownLog, state.scroll.list, rows, null, state.folds, calls.apps, config, hiddenLines,
+                        timeFormat, today, onGrid = false,
+                    )
                     if (results != null) LogSearchResults(
                         search = results,
                         timeFormat = timeFormat,
@@ -306,12 +312,14 @@ internal fun GuiHome(
                         onSwipeCopy = calls.onSwipeCopy,
                         onSwipeDelete = calls.onSwipeDelete,
                         deleteRight = deleteRight,
+                        shownLog = calls.shownLog,
+                        config = config,
                         modifier = resultsModifier,
                     ) else LazyColumn(
                         state = state.scroll.list,
                         reverseLayout = true,
                         // Taps that no log line used (empty space) bring up the keyboard.
-                        modifier = logModifier,
+                        modifier = logModifier.then(report),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         // Not before the first read: a cold start would flash it over a log that isn't empty.

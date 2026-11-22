@@ -58,6 +58,7 @@ class CellBuffer(cols: Int, rows: Int) {
         this.rows = r
         glyphs.fill(EMPTY)
         styles.fill(CellStyle.PLAIN.bits)
+        shaped = emptyList()
         dirty.clear()
         dirty.set(0, r)
     }
@@ -130,6 +131,43 @@ class CellBuffer(cols: Int, rows: Int) {
 
     /** Blanks every cell, in [style] (its background shows). */
     fun clear(style: CellStyle = CellStyle.PLAIN) = fill(0, 0, cols, rows, EMPTY, style)
+
+    /**
+     * Copies the cell at [fromCol], [fromRow] of [from] to [col], [row], in [style]. A wide
+     * character's first cell copies both; its second copies nothing.
+     */
+    fun copyCell(
+        from: CellBuffer,
+        fromCol: Int,
+        fromRow: Int,
+        col: Int,
+        row: Int,
+        style: CellStyle = from.styleAt(fromCol, fromRow),
+    ) {
+        val g = from.glyphAt(fromCol, fromRow)
+        if (g >= 0) put(col, row, g, style)
+        else if (g != WIDE_TAIL) put(col, row, from.clusterOf(g), style)
+    }
+
+    /** Copies row [fromRow] of [from] to [row], from its first column; cells past its end become blank. */
+    fun copyRow(from: CellBuffer, fromRow: Int, row: Int) {
+        for (c in 0 until cols) {
+            if (c < from.cols) copyCell(from, c, fromRow, c, row) else put(c, row, EMPTY, CellStyle.PLAIN)
+        }
+    }
+
+    /** True when row [otherRow] of [other] (as wide as this grid) has the same characters in the same styles as [row]. */
+    fun sameRow(row: Int, other: CellBuffer, otherRow: Int): Boolean {
+        for (c in 0 until cols) {
+            if (styleAt(c, row) != other.styleAt(c, otherRow)) return false
+            val a = glyphAt(c, row)
+            val b = other.glyphAt(c, otherRow)
+            // A cluster's id is its own buffer's, so clusters compare by their text.
+            val same = if (a < WIDE_TAIL && b < WIDE_TAIL) clusterOf(a) == other.clusterOf(b) else a == b
+            if (!same) return false
+        }
+        return true
+    }
 
     /** Moves every row up by [n]; the rows that come in at the bottom are blank in [style]. */
     fun scrollUp(n: Int, style: CellStyle = CellStyle.PLAIN) {

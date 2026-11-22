@@ -66,7 +66,6 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
-import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
@@ -85,6 +84,7 @@ import com.mtwabpin.kolahal.terminal.tty.CellWidth
 import com.mtwabpin.kolahal.terminal.tty.GridApp
 import com.mtwabpin.kolahal.terminal.tty.LineLayout
 import com.mtwabpin.kolahal.terminal.tty.LogLook
+import com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource
 import com.mtwabpin.kolahal.ui.FoldState
 import com.mtwabpin.kolahal.ui.HomeCalls
 import com.mtwabpin.kolahal.ui.HomeState
@@ -149,6 +149,7 @@ internal fun TtyLog(
         list = state.scroll.list,
         search = null,
         folds = folds,
+        shownLog = calls.shownLog,
         highlight = state.menu?.entryId to state.scroll.flash,
         calls = lineCalls,
         apps = calls.apps,
@@ -204,6 +205,7 @@ internal fun TtySearchResults(
         list = list,
         search = search.words,
         folds = null,
+        shownLog = calls.shownLog,
         highlight = menuEntryId to null,
         calls = lineCalls,
         apps = calls.apps,
@@ -231,6 +233,7 @@ private fun TtyList(
     list: LazyListState,
     search: List<String>?,
     folds: FoldState?,
+    shownLog: ShownLogSource?,
     highlight: Pair<Long?, Long?>,
     calls: TtyLineCalls,
     apps: (LogEntry) -> List<AppEntry>,
@@ -265,6 +268,10 @@ private fun TtyList(
     val marks = search.orEmpty()
     // In a right-to-left layout the grid turns: the gutter on the right, the time on the left.
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    // The lines on screen, for `screen decode`.
+    val report = shownLogReport(
+        shownLog, list, rows, search, folds, apps, config, hiddenLines, timeFormat, today, onGrid = true, cache = cache,
+    )
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth else m.cellW * 40
         val margin = with(density) { GRID_MARGIN.roundToPx() }
@@ -286,11 +293,11 @@ private fun TtyList(
         LazyColumn(
             state = list,
             reverseLayout = true,
-            modifier = modifier,
+            modifier = modifier.then(report),
             contentPadding = PaddingValues(vertical = 6.dp),
         ) {
             // Not before the first read: a cold start would flash it over a log that isn't empty.
-            if (search == null && rows.isEmpty() && hiddenLines == 0 && rowsLoaded) item(key = "empty-hint") {
+            if (search == null && rows.isEmpty() && hiddenLines == 0 && rowsLoaded) item(key = EMPTY_HINT_KEY) {
                 val block = remember(cols, rtl) { LineLayout.lines(cols, EMPTY_HINT, rtl) }
                 TtyText(block, grid, originX, Modifier
                     .testTag("empty-hint")
@@ -300,8 +307,7 @@ private fun TtyList(
                 when (row) {
                     is LogRow.Day -> {
                         // Built on each composition, not remembered, so the dividers follow a change of language.
-                        val label = if (row.day == today.minusDays(1)) "Yesterday"
-                        else row.day.format(TimeFormats.dayFormat(LocalConfiguration.current.locales[0]))
+                        val label = dayLabel(row, today, LocalConfiguration.current.locales[0])
                         val block = remember(label, cols, rtl) { LineLayout.day(label, cols, rtl) }
                         TtyText(block, grid, originX, Modifier.semantics {
                             heading()
@@ -346,9 +352,9 @@ private fun TtyList(
                 }
             }
             // log.fresh: older output is hidden, not deleted. The last item is the top of the reversed list.
-            if (search == null && hiddenLines > 0) item(key = "hidden-lines") {
-                val text = "▴ $hiddenLines earlier lines · tap to show"
-                val block = remember(text, cols, rtl) { LineLayout.lines(cols, listOf("" to CellStyle.PLAIN, text to MUTED), rtl) }
+            if (search == null && hiddenLines > 0) item(key = HIDDEN_LINES_KEY) {
+                val text = hiddenLinesText(hiddenLines)
+                val block = remember(text, cols, rtl) { hiddenLinesBlock(hiddenLines, cols, rtl) }
                 TtyText(
                     block, grid, originX, Modifier
                         .clickable(onClickLabel = "show earlier output") { onShowHidden() }
@@ -359,7 +365,7 @@ private fun TtyList(
 }
 
 /** The empty log's hints: what to do, then the other tips, muted. */
-private val EMPTY_HINT = listOf(
+internal val EMPTY_HINT = listOf(
     "" to CellStyle.PLAIN,
     "Type an app name or a command" to CellStyle.PLAIN,
     "" to CellStyle.PLAIN,
@@ -368,8 +374,14 @@ private val EMPTY_HINT = listOf(
 
 private val MUTED = CellStyle.of(Ink.DIM)
 
+private fun hiddenLinesText(n: Int) = "▴ $n earlier lines · tap to show"
+
+/** The row for the [n] lines that log.fresh hides, under a blank one. */
+internal fun hiddenLinesBlock(n: Int, cols: Int, rtl: Boolean): CellBlock =
+    LineLayout.lines(cols, listOf("" to CellStyle.PLAIN, hiddenLinesText(n) to MUTED), rtl)
+
 /** [row]'s line, laid out: its model, its time as shown, an apps grid's apps, and its cells. */
-private fun layoutLine(
+internal fun layoutLine(
     row: LogRow.Entry,
     options: LineOptions,
     look: LogLook,
@@ -409,7 +421,7 @@ private fun layoutLine(
 internal class TtyLine(val model: LineModel, val block: CellBlock, val time: String?, val apps: List<AppEntry>)
 
 /** What a line's cells depend on: the row, the settings, the grid's width, whether it is open, a search's words. */
-private data class LineKey(
+internal data class LineKey(
     val row: LogRow.Entry,
     val look: LogLook,
     val options: LineOptions,
@@ -424,7 +436,7 @@ private data class LineKey(
  * [value] compared by identity. A time format compares its whole calendar to be equal, and a list
  * of apps hashes every app; both are made again when they change, so the same object is enough.
  */
-private class Same<T : Any>(val value: T) {
+internal class Same<T : Any>(val value: T) {
     override fun equals(other: Any?) = other is Same<*> && other.value === value
     override fun hashCode() = System.identityHashCode(value)
 }
@@ -434,7 +446,7 @@ private class Same<T : Any>(val value: T) {
  * ([com.mtwabpin.kolahal.LauncherApp.keepsInMemory]): when home is away a while, or memory is short.
  * Held weakly, so a log that is gone takes its cache with it. Main thread only, as the trim is.
  */
-private object TtyCaches {
+internal object TtyCaches {
     private val live = java.util.WeakHashMap<BlockCache<*, *>, Unit>()
 
     init {

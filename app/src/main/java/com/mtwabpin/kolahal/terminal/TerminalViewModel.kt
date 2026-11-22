@@ -1186,7 +1186,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _widgetsTurns.tryEmit(Unit)
     }
 
-    // ---- full-screen screens (matrix, clock, pipes, sl, top, boot) --------------------------
+    // ---- full-screen screens (matrix, clock, pipes, decode, sl, top, boot) ------------------
 
     private val _ttyScreen = MutableStateFlow<String?>(null)
 
@@ -1265,6 +1265,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         TopFacts(context, viewModelScope, { scriptList.value }, { status.value }, { unlocksToday.value })
     }
 
+    /** The log lines home shows now, for `decode`. Home's log says what they are while it is on screen. */
+    val shownLog = com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource()
+
     /**
      * What `boot` shows: counts already in memory, and settings. Cheap enough for the main thread.
      * `top` gets where to read its live facts ([TopFacts]).
@@ -1288,6 +1291,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             fontSize = config[Keys.FONT_SIZE],
             unlocks = unlocksToday.value,
             top = topFacts,
+            log = shownLog,
         )
     }
 

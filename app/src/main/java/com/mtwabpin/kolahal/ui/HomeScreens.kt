@@ -7,12 +7,18 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.os.PowerManager
 import android.os.SystemClock
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -25,6 +31,8 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens
 import com.mtwabpin.kolahal.ui.tty.TtyScreenHost
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * How long the screensaver's minute is, and how it reads the phone's state ([ScreenSaver.Phone]).
@@ -100,6 +108,8 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
     val saver by vm.screenSaverOn.collectAsStateWithLifecycle()
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val shown = name ?: return
+    // decode takes over home's lines where they are, so it waits a moment for the keyboard to be down.
+    if (shown == "decode" && !keyboardDown()) return
     if (saver) {
         val context = LocalContext.current
         val timing = LocalScreenSaverTiming.current
@@ -127,6 +137,21 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
         make = { ScriptScreenRequests.screen(app, it) ?: TtyScreens.named(it) },
     )
 }
+
+/** True once the keyboard is down, or after [KEYBOARD_WAIT_MS] at most. */
+@Composable
+private fun keyboardDown(): Boolean {
+    val ime = WindowInsets.ime
+    val density = LocalDensity.current
+    var down by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        withTimeoutOrNull(KEYBOARD_WAIT_MS) { snapshotFlow { ime.getBottom(density) }.first { it == 0 } }
+        down = true
+    }
+    return down || ime.getBottom(density) == 0
+}
+
+private const val KEYBOARD_WAIT_MS = 600L
 
 /** While the screensaver runs, how often it checks that battery saver and animations still allow it. */
 private const val SAVER_RECHECK_MS = 10_000L

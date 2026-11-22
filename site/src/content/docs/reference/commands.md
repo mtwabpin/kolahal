@@ -253,10 +253,13 @@ into the prompt (except `q`, which only quits).
 | `shader get [<name>]` · `shader update [<name>]` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them, or installs one; `update` updates those you installed |
 | `shader check\|copy\|remove <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
 
-The screens are `matrix`, `clock`, `pipes`, `sl`, `top` and `boot`:
+The screens are `matrix`, `clock`, `pipes`, `decode`, `sl`, `top` and `boot`:
 
 - `clock`: the time in big digits, with the date under it. The seconds show when they fit.
   `clock.24h` sets 12- or 24-hour time.
+- `decode`: the log lines on home scramble into random characters and settle into their text again,
+  in waves with some seconds of plain text between them. It shows what home shows at that moment,
+  search results and `log only` included, and a line that comes in while it runs decodes in too.
 - `top`: this phone and Kolahal at a glance, as the Unix `top` shows a computer, updated every
   second. The first line has the time, how long Kolahal has been running and today's unlocks. Under
   it are bars for the battery, the phone's memory, Kolahal's own memory and today's screen time
@@ -267,15 +270,16 @@ The screens are `matrix`, `clock`, `pipes`, `sl`, `top` and `boot`:
 
 They pause while the screen is off or another app is open, and close if you're away for more than
 30 seconds. In battery saver they run at a lower frame rate. With **Remove animations** on in
-Android's accessibility settings, `matrix`, `pipes`, `sl` and `boot` show a single still frame.
+Android's accessibility settings, `matrix`, `pipes`, `sl` and `boot` show a single still frame, and
+`decode` shows the plain text.
 
-Instant launch never opens them, and scripts can't run them. `clock`, `top` and `boot` open only
-through `screen`, so typing `clock` still opens your clock app.
+Instant launch never opens them, and scripts can't run them. `clock`, `decode`, `top` and `boot`
+open only through `screen`, so typing `clock` still opens your clock app.
 
 A script can draw a full-screen screen of its own with [`tty.screen`](/scripting/api/#ttyscreenspec). Such
 a script is a command: type its name.
 
-**Screensaver.** With `screen.saver` set to `matrix`, `clock` or `pipes`, that screen opens over
+**Screensaver.** With `screen.saver` set to `matrix`, `clock`, `pipes` or `decode`, that screen opens over
 home after `screen.saver-after` minutes (5 by default) without a touch, while the log page shows and
 nothing is open or typed. With `keyboard.on-home` on, the keyboard being up doesn't count as typing:
 the screensaver puts it away, and it comes back when the screensaver closes. The first touch or key

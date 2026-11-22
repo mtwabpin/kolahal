@@ -27,6 +27,7 @@ import com.mtwabpin.kolahal.terminal.HeaderTarget
 import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.LogAction
 import com.mtwabpin.kolahal.terminal.LogRow
+import com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -220,4 +221,6 @@ internal class HomeCalls(
     val onSaveFontSize: (Int) -> Unit,
     /** Puts the focus in the prompt and brings up the keyboard. */
     val onFocusPrompt: () -> Unit,
+    /** Home's log says here which lines show, for the screen that takes them over (`decode`). Null in a preview. */
+    val shownLog: ShownLogSource? = null,
 )

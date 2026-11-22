@@ -14,7 +14,7 @@ package com.mtwabpin.kolahal.terminal
  */
 object ScreenSaver {
     /** The screens it can be: `screen.saver`'s values other than off. */
-    val SCREENS = listOf("matrix", "clock", "pipes")
+    val SCREENS = listOf("matrix", "clock", "pipes", "decode")
 
     /**
      * What home is doing.

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
@@ -44,6 +45,8 @@ import com.mtwabpin.kolahal.data.shownText
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.TimeMode
+import com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource
+import com.mtwabpin.kolahal.ui.tty.shownLogReport
 import java.text.SimpleDateFormat
 
 /**
@@ -69,6 +72,9 @@ fun LogSearchResults(
     onSwipeDelete: (LogEntry) -> Unit,
     /** Swipes the other way round ([LogLine]'s deleteRight). */
     deleteRight: Boolean = false,
+    /** Told which lines show, with [config]'s look, for `screen decode`. */
+    shownLog: ShownLogSource? = null,
+    config: Config? = null,
     modifier: Modifier = Modifier,
 ) {
     val reversed = remember(search.rows) { search.rows.asReversed() }
@@ -76,10 +82,13 @@ fun LogSearchResults(
     val state = rememberLazyListState()
     // When the words change, scroll back to the newest match, next to the prompt.
     LaunchedEffect(search.words) { state.scrollToItem(0) }
+    val report = if (config == null) Modifier else shownLogReport(
+        shownLog, state, reversed, search.words, null, apps, config, 0, timeFormat, today, onGrid = false,
+    )
     LazyColumn(
         state = state,
         reverseLayout = true,
-        modifier = modifier.testTag("log-search"),
+        modifier = modifier.testTag("log-search").then(report),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
     ) {
         items(

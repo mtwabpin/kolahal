@@ -209,13 +209,14 @@ object Keys {
     val SCREEN_SAVER = ConfigKey.Choice(
         "screen.saver",
         "off",
-        listOf("off", "matrix", "clock", "pipes"),
+        listOf("off", "matrix", "clock", "pipes", "decode"),
         "A full-screen screen over home after some minutes without a touch (screen.saver-after); any touch or key closes it. Never while the screen is off, in battery saver or with Remove animations on",
         notes = mapOf(
             "off" to "No screensaver",
             "matrix" to "Characters fall down the screen",
             "clock" to "The time in big digits, with the date",
             "pipes" to "Pipes grow across the screen",
+            "decode" to "The log's lines scramble and settle again",
         ),
     )
     val SCREEN_SAVER_AFTER = ConfigKey.Num(

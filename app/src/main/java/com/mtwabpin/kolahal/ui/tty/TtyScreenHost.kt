@@ -46,8 +46,10 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -63,14 +65,17 @@ import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
 import com.mtwabpin.kolahal.terminal.tty.CellWidth
+import com.mtwabpin.kolahal.terminal.tty.screens.PlacedRows
 import com.mtwabpin.kolahal.terminal.tty.screens.ScreenData
 import com.mtwabpin.kolahal.terminal.tty.screens.ScreenEnv
+import com.mtwabpin.kolahal.terminal.tty.screens.ShownLog
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyKey
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreen
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens
 import com.mtwabpin.kolahal.ui.LocalTerminalShown
 import com.mtwabpin.kolahal.ui.Term
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /** Back after this long away from home, a screen closes instead of going on. */
@@ -78,6 +83,9 @@ private const val RESUME_WITHIN_MS = 30_000L
 
 /** The most frames a second a screen gets in battery saver. */
 private const val SAVER_FPS = 15
+
+/** The longest a screen may rest between frames ([TtyScreen.restMs]). */
+private const val MAX_REST_MS = 5_000L
 
 /**
  * Runs the screen [name] (`matrix`, `clock`…) over home, on one grid that fills the page, in the
@@ -92,11 +100,14 @@ private const val SAVER_FPS = 15
  *   on, or when the phone is hot, a moving screen shows one still frame and a hint instead.
  * - It never keeps the screen on.
  *
+ * A screen that says it rests ([TtyScreen.restMs]) is woken only after that; one that places its rows
+ * ([PlacedRows]) has each drawn where it says.
+ *
  * As the idle screensaver ([saver]), any touch or key only closes it: a key is not typed into the
  * prompt ([onClose] gets null), and leaving home, turning the page or the screen going off closes
  * it at once instead of pausing it.
  *
- * [data] is what `boot` and `top` show; [clock24] is `clock.24h`;
+ * [data] is what `boot`, `top` and `decode` show; [clock24] is `clock.24h`;
  * [shader] is `screen.shader` ([rememberTtyShader]).
  * [make] makes the screen for [name]: one of Kolahal's, or a script's (`tty.screen`).
  */
@@ -156,7 +167,12 @@ fun TtyScreenHost(
         if (!state.started) {
             buffer.resize(cols, rows)
             screen.start(
-                ScreenEnv(cols, rows, Random(SystemClock.uptimeMillis()), System::currentTimeMillis, clock24, data)
+                ScreenEnv(
+                    cols, rows, Random(SystemClock.uptimeMillis()), System::currentTimeMillis, clock24, data,
+                    cellW = metrics.cellW,
+                    cellH = metrics.cellH,
+                    log = { data.log?.read(metrics.cellW, metrics.cellH)?.let(state::inArea) },
+                )
             )
             state.started = true
         } else if (buffer.cols != cols || buffer.rows != rows) {
@@ -171,6 +187,17 @@ fun TtyScreenHost(
                 state.stillDrawn = true
                 frames++
             }
+            // A still frame that shows something that changes is drawn again now and then.
+            if (screen.stillEveryMs > 0) lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) {
+                    screen.still(buffer)
+                    if (!buffer.dirty.isEmpty) {
+                        hint(buffer, "Animations are off · tap to close")
+                        frames++
+                    }
+                    delay(screen.stillEveryMs)
+                }
+            }
             return@LaunchedEffect
         }
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -178,14 +205,16 @@ fun TtyScreenHost(
                 close(null)
                 return@repeatOnLifecycle
             }
+            if (state.pausedAt != 0L) screen.resumed()
             state.pausedAt = 0L
             val frameMs = 1_000L / fps
             var last = -1L
+            var rest = 0L
             try {
                 while (true) {
                     val now = withFrameNanos { it } / 1_000_000L
                     // A long gap (a pause) counts as one frame, so nothing jumps.
-                    val delta = if (last < 0) frameMs else (now - last).coerceIn(0L, 250L)
+                    val delta = if (last < 0) frameMs else (now - last).coerceIn(0L, 250L + rest)
                     last = now
                     state.time += delta
                     val going = screen.frame(buffer, state.time, delta)
@@ -199,7 +228,9 @@ fun TtyScreenHost(
                     // In a test, frames have their own clock: there `spent` means nothing, and is left out, so
                     // that the loop still waits between frames.
                     val spent = (System.nanoTime() / 1_000_000L - now).takeIf { it in 0L..250L } ?: 0L
-                    delay((frameMs - spent - 4).coerceAtLeast(0L))
+                    // A screen at rest sleeps longer.
+                    rest = screen.restMs.coerceIn(0L, MAX_REST_MS)
+                    delay((maxOf(frameMs, rest) - spent - 4).coerceAtLeast(0L))
                 }
             } finally {
                 state.pausedAt = SystemClock.uptimeMillis()
@@ -260,6 +291,7 @@ fun TtyScreenHost(
                     areaX = at.x.toInt()
                     areaY = at.y.toInt()
                     area = it.size
+                    state.place = it
                 }
                 .drawBehind {
                     if (frames < 0 || !state.started) return@drawBehind
@@ -268,7 +300,19 @@ fun TtyScreenHost(
                     state.originX = ((size.width - buffer.cols * metrics.cellW) / 2f).toInt().coerceAtLeast(0)
                     state.originY = ((size.height - buffer.rows * metrics.cellH) / 2f).toInt().coerceAtLeast(0)
                     drawIntoCanvas {
-                        painter.draw(it.nativeCanvas, buffer, state.originX.toFloat(), state.originY.toFloat())
+                        val canvas = it.nativeCanvas
+                        val x = state.originX.toFloat()
+                        val y = state.originY.toFloat()
+                        if (screen !is PlacedRows) {
+                            painter.draw(canvas, buffer, x, y)
+                        } else {
+                            // Each row where the screen wants it.
+                            for (row in 0 until buffer.rows) {
+                                val top = screen.rowTop(row)
+                                if (top == PlacedRows.UNPLACED) painter.draw(canvas, buffer, x, y, row, row + 1)
+                                else painter.draw(canvas, buffer, screen.rowLeft.toFloat(), (top - row * metrics.cellH).toFloat(), row, row + 1)
+                            }
+                        }
                     }
                 },
         )
@@ -291,6 +335,15 @@ private class HostState {
     /** Where the grid's first cell is in its area, in px. */
     var originX = 0
     var originY = 0
+
+    /** Where the area itself is. */
+    var place: LayoutCoordinates? = null
+
+    /** [log]'s place in the window as its place in the area. Null while the area has none. */
+    fun inArea(log: ShownLog): ShownLog? {
+        val at = place?.takeIf { it.isAttached }?.positionInWindow() ?: return null
+        return log.minus(at.x.roundToInt(), at.y.roundToInt())
+    }
 }
 
 /** The bottom row says why nothing moves. */

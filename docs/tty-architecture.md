@@ -37,7 +37,7 @@ These override anything below that says otherwise.
 | Width of a glyph | A pure `cellWidth(cluster)` table (0, 1 or 2 cells) decides layout. The painter then makes the pixels fit the cells (scale or center), so layout never depends on a device's fallback fonts. |
 | Colors | Only the 14 `Palette` roles, as `Ink`. Dim is a color (blend toward bg), not layer alpha. |
 | Accessibility | One semantics node per log row built from `LineModel.spoken()` and `LineModel.targets`, the same source the GUI uses. The canvas itself is not exposed. |
-| Screens | `TtyScreen` interface over `CellBuffer`, pure and deterministic; hosted by `TtyScreenHost`. The commands (`matrix`, `clock`, `pipes`, `sl`, `top`, `boot`) work in both home styles. |
+| Screens | `TtyScreen` interface over `CellBuffer`, pure and deterministic; hosted by `TtyScreenHost`. The commands (`matrix`, `clock`, `pipes`, `decode`, `sl`, `top`, `boot`) work in both home styles. |
 | Shaders | `RenderEffect.createRuntimeShaderEffect` on the one `graphicsLayer` that wraps the TTY home (API 33+). The grid knows nothing about shaders. API 28–32 get a built-in CRT look drawn without AGSL (scanlines, vignette, glow; real bloom from API 31). |
 | Shipping | `home.style` stays out of Settings until the parity checklist (§12) is complete. Screens ship first because they are complete on their own. |
 
@@ -681,6 +681,7 @@ with a FG head; on a light theme it is dark rain on paper).
 | `pipes` | box-drawing geometry, so pipes join at any font |
 | `sl` | ends by itself; `frame` returns false |
 | `top` | built in step 5, through `screen top` only: Kolahal's uptime, today's unlocks, bars for the battery, free memory, Kolahal's memory and today's screen time (usage access), then the scripts by latest run with their result and next timer; read each second from `ScreenData.top` (`TopSource`, made by `terminal/TopFacts`); any key or tap leaves |
+| `decode` | the log lines on home scramble and settle (`terminal/tty/Decode`), through `screen decode` or as the screensaver; see "The lines home shows" below |
 | `boot` | `[ ok ]` lines from real startup facts (apps read, scripts loaded, theme); at most 1.2 s; `tty.boot on` plays it at cold start only, never after process death recovery |
 
 ### 6.2 Host and lifecycle (`ui/tty/TtyScreenHost`)
@@ -703,15 +704,23 @@ with a FG head; on a light theme it is dark rain on paper).
   after a reboot too); the log, input and scroll anchor restore as today.
 - Battery: 30 fps default; 15 fps and no screensaver in battery saver; stop at thermal status
   ≥ MODERATE (API 29+); never a wake lock; never `FLAG_KEEP_SCREEN_ON`.
-- Screensaver (built in step 5 as `screen.saver off|matrix|clock|pipes` and `screen.saver-after`
+- Screensaver (built in step 5 as `screen.saver off|matrix|clock|pipes|decode` and `screen.saver-after`
   minutes, default 5, both in Settings → Look & feel): after that long with no touch while home is
   resumed and focused, on the log page, with no sheet open and nothing typed. Since the phone's own
   screen timeout usually comes first, it mostly shows on a charger or dock; that is intended. First
   touch only dismisses it (the touch is not passed to the log); not in battery saver, with the
   screen off or with "Remove animations" on.
-- Entering a screen from TTY home can use the visible grid: `TtyLog.snapshot(): CellBuffer`
-  composes the visible blocks into a buffer, so `matrix` can dissolve the log into rain and
-  `boot` can scroll into the log. In GUI style the screen starts from blank.
+- **The lines home shows** (built for `decode`): home's list, in either style and for the log or a
+  search's results, sets a reader on `vm.shownLog` (`ShownLogSource`) while it is on screen
+  (`ui/tty/ShownLogReport`). Asked with a cell's size, it lays out the items on screen as the TTY log
+  has them and says where each whole row is, in px (`ShownLog`). In the tty style that is where the
+  log draws it, gaps and scroll included; in the gui style the rows are stacked from the bottom with
+  the same gaps, as a line takes other rows there. The host gives it to the screen in its own area's
+  px (`ScreenEnv.log`), and a screen that is `PlacedRows` has each grid row drawn at its own place.
+  `decode` reads it again each second (10 times a second at first and after a pause), so it never
+  shows a line for longer than home does. A screen at rest says so (`TtyScreen.restMs`), and the
+  host sleeps until then.
+- The same lines could let `matrix` dissolve the log into rain and `boot` scroll into it.
 
 ### 6.3 Scripts drawing on the grid (built in step 7)
 

@@ -31,6 +31,7 @@ class ScreenSaverTest {
         assertEquals(Next.Open("matrix"), next(now = 1_000L + 5 * minute))
         assertEquals(Next.Open("clock"), next(saver = "clock", now = 1_000L + 9 * minute))
         assertEquals(Next.Open("pipes"), next(saver = "pipes", after = 1, now = 1_000L + minute))
+        assertEquals(Next.Open("decode"), next(saver = "decode", after = 1, now = 1_000L + minute))
     }
 
     /** A touch moves the start of the quiet: the wait is from the last touch. */

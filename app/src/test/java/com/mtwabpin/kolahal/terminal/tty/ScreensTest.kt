@@ -53,7 +53,7 @@ class ScreensTest {
 
     /**
      * `screen <name>` opens every screen; `matrix`, `pipes` and `sl` are also commands of their own.
-     * `clock`, `top` and `boot` are not, so typing `clock` still opens the clock app, and "top"
+     * `clock`, `decode`, `top` and `boot` are not, so typing `clock` still opens the clock app, and "top"
      * stays a plain word.
      */
     @Test
@@ -66,6 +66,7 @@ class ScreensTest {
         val commands = CommandCatalog.COMMANDS.map { it.name }.toSet()
         assertTrue("screen" in commands)
         assertFalse("clock" in commands)
+        assertFalse("decode" in commands)
         assertFalse("top" in commands)
         assertFalse("boot" in commands)
         // The screen command's help names every screen.
@@ -189,6 +190,33 @@ class ScreensTest {
         assertFalse(grid.dump(), "OK" in grid.dump())
     }
 
+    /** Its characters pass through others first, and all have settled before it ends. On a short screen it scrolls to its last lines. */
+    @Test
+    fun bootDecodes() {
+        val data = ScreenData(version = "0.5.17", apps = 142, scripts = 12, scriptsOn = 9, theme = "green", unlocks = 3)
+        val lines = BootScreen.bootLines(data)
+        val full = listOf(lines[0]) + lines.drop(1).map { "[  OK  ] $it" }
+        val screen = BootScreen()
+        val grid = CellBuffer(60, 20)
+        screen.start(env(60, 20, data = data))
+        var scrambled = false
+        for (t in 0L..BootScreen.TYPE_MS step 33L) {
+            screen.frame(grid, t, 33)
+            assertWhole("boot at $t", grid)
+            for ((r, line) in full.withIndex()) for (c in 0 until grid.cols) {
+                val g = grid.glyphAt(c, r)
+                if (g == CellBuffer.EMPTY) continue
+                assertTrue("something at $c after '$line'", c < line.length)
+                if (g != line[c].code) scrambled = true
+            }
+        }
+        assertTrue(scrambled)
+        screen.frame(grid, BootScreen.TYPE_MS + 200, 33)
+        assertEquals(full, grid.dump().lines().map { it.trimEnd() }.take(full.size))
+        val (short, _) = runFor(BootScreen(), env(60, 3, data = data), 10_000)
+        assertEquals(full.takeLast(3), short.dump().lines().map { it.trimEnd() })
+    }
+
     @Test
     fun clockShowsTheTimeInBigDigitsAndTheDateUnder() {
         val (grid, _) = runFor(ClockScreen(), env(40, 12), 100)
@@ -243,7 +271,7 @@ class ScreensTest {
 
     @Test
     fun stillFramesShowSomething() {
-        for (name in listOf("matrix", "pipes", "sl", "boot")) {
+        for (name in listOf("matrix", "pipes", "decode", "sl", "boot")) {
             val screen = TtyScreens.named(name)!!
             val grid = CellBuffer(40, 20)
             screen.start(env(40, 20))
