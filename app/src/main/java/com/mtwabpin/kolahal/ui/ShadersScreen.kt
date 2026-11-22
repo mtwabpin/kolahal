@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,11 +48,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.script.WallpaperChoice
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderRow
@@ -96,6 +100,11 @@ fun ShadersScreen(
         what = "Reading the shaders"
     ) { actions.rows() }
     val all = rows
+    // Asked again on the way back from Android's preview.
+    val chosen by WallpaperChoice.name.collectAsStateWithLifecycle()
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val isWallpaper by produceState(false, chosen, lifecycle) { value = actions.isWallpaper() }
+    val wallpaper = chosen.takeIf { isWallpaper }
     var query by rememberSaveable { mutableStateOf("") }
     var chips by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val filters = remember(chips) { ShaderPage.Filter.entries.filterTo(LinkedHashSet()) { it.name in chips } }
@@ -212,6 +221,7 @@ fun ShadersScreen(
             itemsIndexed(mine, key = { _, r -> "shader:" + r.name }) { i, r ->
                 ShaderChoice(
                     r, inUse, problems[r.name], i, mine.size,
+                    wallpaper = r.name == wallpaper,
                     onUse = { actions.use(r.name) },
                     onDetails = { details = r.name },
                 )
@@ -220,6 +230,7 @@ fun ShadersScreen(
             itemsIndexed(bundled, key = { _, r -> "shader:" + r.name }) { i, r ->
                 ShaderChoice(
                     r, inUse, problems[r.name], i + above, bundled.size + above,
+                    wallpaper = r.name == wallpaper,
                     onUse = { actions.use(r.name) },
                     onDetails = { details = r.name },
                 )
@@ -228,6 +239,7 @@ fun ShadersScreen(
             itemsIndexed(once, key = { _, r -> "shader:" + r.name }) { i, r ->
                 ShaderChoice(
                     r, inUse, problems[r.name], i, once.size,
+                    wallpaper = false,
                     onUse = { play(r.name) },
                     onDetails = { details = r.name },
                 )
@@ -243,7 +255,7 @@ fun ShadersScreen(
         val order = mine + bundled + once
         details?.takeIf { name -> order.any { it.name == name } }?.let { name ->
             ShaderSheet(
-                order, name, inUse, problems, actions,
+                order, name, inUse, wallpaper, problems, actions,
                 shown = { shown.value },
                 onShow = { details = it },
                 onPlay = play,
@@ -275,6 +287,7 @@ private fun ShaderChoice(
     problem: String?,
     index: Int,
     count: Int,
+    wallpaper: Boolean,
     onUse: () -> Unit,
     onDetails: () -> Unit
 ) {
@@ -304,7 +317,7 @@ private fun ShaderChoice(
             Column {
                 row.meta.description?.let { Text(it) }
                 val words by ShaderWords.words.collectAsStateWithLifecycle()
-                val notes = ShaderPage.notes(row, inUse, words[row.name].takeIf { row.meta.once != null }).joinToString(" · ")
+                val notes = ShaderPage.notes(row, inUse, words[row.name].takeIf { row.meta.once != null }, wallpaper).joinToString(" · ")
                 if (notes.isNotEmpty()) Text(
                     notes,
                     style = MaterialTheme.typography.bodySmall,

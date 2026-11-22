@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shaders need Android 13: before it, the live wallpaper isn't offered. -->
+    <bool name="shader_wallpaper">false</bool>
+</resources>

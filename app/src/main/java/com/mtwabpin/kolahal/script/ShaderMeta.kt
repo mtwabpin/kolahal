@@ -11,6 +11,7 @@ package com.mtwabpin.kolahal.script
  * - `// @param`, for each thing that people can change ([ShaderParam]);
  * - `// @once 6`: a one-off shader, which runs for so many seconds and goes ([ShaderPlay]);
  * - `// @suits`: what it works well over ([ShaderSuits]);
+ * - `// @text`: it works on text, and shows nothing without any;
  * - the uniforms it declares. The host sets the ones it knows ([KNOWN]); it skips the rest.
  *
  * Pure: the compiler runs in [Shaders.compile], on Android 13 and newer.
@@ -32,6 +33,8 @@ class ShaderMeta private constructor(
     /** How long a one-off shader runs, in seconds; null for one that stays on. */
     val once: Float?,
     val suits: Map<ShaderSurface, ShaderFit>,
+    /** It works on text: as a wallpaper it would be nothing. */
+    val text: Boolean,
     /** Words that find it. */
     val tags: List<String>,
 ) {
@@ -69,6 +72,9 @@ class ShaderMeta private constructor(
         /** The uniform that is 1 while the phone is plugged in, else 0. */
         const val CHARGING = "charging"
 
+        /** The uniform that is 1 in the live wallpaper, where no text is, else 0. */
+        const val WALLPAPER = "wallpaper"
+
         /** The uniform that goes from 0 to 1 as a one-off shader runs. */
         const val PROGRESS = "progress"
 
@@ -101,6 +107,7 @@ class ShaderMeta private constructor(
             BATTERY to listOf(1),
             CHARGING to listOf(1),
             PROGRESS to listOf(1),
+            WALLPAPER to listOf(1),
         ) + COLORS.associateWith { listOf(4) }
 
         private val COMMENTS = Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
@@ -132,6 +139,7 @@ class ShaderMeta private constructor(
                 params = paramLines(source).mapNotNull(ShaderParam::read).distinctBy { it.name }.take(ShaderParam.MAX),
                 once = once,
                 suits = said(ShaderSuits.DIRECTIVE)?.let(ShaderSuits::read).orEmpty(),
+                text = "text" in tags,
                 tags = said("tags")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
             )
         }

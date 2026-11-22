@@ -71,6 +71,7 @@ import com.mtwabpin.kolahal.script.ShaderFit
 import com.mtwabpin.kolahal.script.ShaderSurface
 import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.script.WallpaperChoice
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderCommands
 import com.mtwabpin.kolahal.terminal.ShaderRow
@@ -82,6 +83,7 @@ import kotlinx.coroutines.launch
  * - A preview, which stays in place over the rest, then Use or Turn off, Check (does it compile, and which uniforms Kolahal sets), Share, and
  *   Copy to the script folder. Holding the eye shows home with the shader, in use or not ([onPeek]).
  * - Its parameters, under the preview, which follows them ([ShaderParamRows]).
+ * - Set as wallpaper, for one that can be ([WallpaperChoice]).
  * - Update, for one from Get more shaders with a newer version. An edited one asks first.
  * - Remove, for the user's own. Undo puts it back.
  * - Its code is at the end.
@@ -95,6 +97,7 @@ internal fun ShaderSheet(
     rows: List<ShaderRow>,
     name: String,
     inUse: String,
+    wallpaper: String?,
     problems: Map<String, String>,
     actions: ShaderActions,
     shown: () -> Float,
@@ -121,7 +124,7 @@ internal fun ShaderSheet(
                 .testTag("shader-pager"),
         ) { page ->
             ShaderDetails(
-                rows[page], "${page + 1} of ${rows.size}", inUse, problems[rows[page].name], actions,
+                rows[page], "${page + 1} of ${rows.size}", inUse, wallpaper, problems[rows[page].name], actions,
                 front = page == pager.settledPage, shown, onPlay, onAskNotifications, onPeek, onDismiss,
             )
         }
@@ -134,6 +137,7 @@ private fun ShaderDetails(
     row: ShaderRow,
     place: String,
     inUse: String,
+    wallpaper: String?,
     problem: String?,
     actions: ShaderActions,
     front: Boolean,
@@ -239,6 +243,21 @@ private fun ShaderDetails(
                 contentPadding = ButtonDefaults.contentPaddingFor(size),
                 modifier = wide,
             ) { Text(ShaderPage.update(row), style = ButtonDefaults.textStyleFor(size)) }
+        }
+        if (drawable && WallpaperChoice.problem(row.name, row.meta) == null) {
+            Spacer(Modifier.height(8.dp))
+            FilledTonalButton(
+                onClick = { actions.setWallpaper(row.name) },
+                shapes = ButtonDefaults.shapes(),
+                enabled = row.name != wallpaper,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("set-wallpaper"),
+            ) {
+                Icon(painterResource(R.drawable.ic_wallpaper), null, Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(if (row.name == wallpaper) "Your wallpaper" else "Set as wallpaper")
+            }
         }
         Spacer(Modifier.height(8.dp))
         SheetActions(

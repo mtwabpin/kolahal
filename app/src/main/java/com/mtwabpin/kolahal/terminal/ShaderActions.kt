@@ -27,6 +27,7 @@ import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
+import com.mtwabpin.kolahal.script.WallpaperChoice
 import com.mtwabpin.kolahal.status.DeviceStatus
 import java.time.LocalTime
 import kotlinx.coroutines.Dispatchers
@@ -132,6 +133,21 @@ class ShaderActions(
     /** Plays the one-off shader [name] over home, once it is in front. */
     fun play(name: String) {
         ShaderPlay.play(name, null)
+    }
+
+    /** Whether Kolahal's live wallpaper is the phone's. */
+    suspend fun isWallpaper(): Boolean = withContext(Dispatchers.IO) { WallpaperChoice.isWallpaper(context) }
+
+    /** [name] is the live wallpaper's shader: at once when Kolahal's is the wallpaper, else in Android's preview, where people set it. */
+    fun setWallpaper(name: String) = host.io {
+        val before = WallpaperChoice.name.value
+        WallpaperChoice.set(context, name)
+        if (WallpaperChoice.isWallpaper(context)) {
+            val title = Shaders.source(context, name)?.let { ShaderMeta.parse(it).title } ?: name
+            host.notice("$title is your wallpaper", undo = { WallpaperChoice.set(context, before) })
+        } else if (runCatching { context.startActivity(WallpaperChoice.preview(context)) }.isFailure) {
+            host.notice("This phone has no preview for live wallpapers", error = true)
+        }
     }
 
     /** How much of the wallpaper shows behind the log, in percent. */

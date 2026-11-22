@@ -1,6 +1,7 @@
 // @name Pocket LCD
 // @description An old handheld's display: small square pixels, and text that casts a shadow on the back
 // @suits dark fair, light good, wallpaper fair
+// @text
 //
 // Nothing moves: the gaps between the pixels and the shadow are drawn over the page, text stays
 // where it is.

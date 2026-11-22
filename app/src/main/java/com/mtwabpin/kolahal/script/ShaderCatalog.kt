@@ -23,7 +23,7 @@ object ShaderCatalog {
 
     /** What the `shader` command reads as its own words: no shader has one of these names. */
     val WORDS =
-        listOf("list", "ls", "use", "on", OFF, "set", "reset", "follow", "values", "play", "words", "get", "update", "check", "reload", "copy", "rm", "remove")
+        listOf("list", "ls", "use", "on", OFF, "set", "reset", "follow", "values", "play", "words", "wallpaper", "get", "update", "check", "reload", "copy", "rm", "remove")
 
     /** A shader's name: one word at the prompt, like a script's. */
     private val NAME = Regex("[a-z0-9][a-z0-9_-]{0,39}")

@@ -25,14 +25,21 @@ open class Singleton<T : Any>(
 
     fun get(context: Context): T = instance ?: synchronized(this) {
         instance ?: run {
-            if (mainOnly && BuildConfig.DEBUG && inScriptProcess) {
-                error("${this::class.java.name} is for the main process only: the :script process can't see its file change")
+            if (mainOnly && BuildConfig.DEBUG && !inMainProcess) {
+                error("${this::class.java.name} is for the main process only: another process can't see its file change")
             }
             create(context.applicationContext).also { instance = it }
         }
     }
 
     companion object {
+        /** True in the process of home; false in `:script`, where scripts run, and `:wallpaper`, the live wallpaper's. */
+        val inMainProcess: Boolean by lazy {
+            runCatching {
+                android.app.Application.getProcessName()?.contains(':') != true
+            }.getOrDefault(true)
+        }
+
         /** True in the :script process, where scripts run; false in the main one. */
         val inScriptProcess: Boolean by lazy {
             runCatching {

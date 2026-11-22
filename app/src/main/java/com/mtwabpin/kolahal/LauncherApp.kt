@@ -90,8 +90,8 @@ class LauncherApp : Application(), Configuration.Provider {
         // Install this before anything else can fail, so a crash in either process leaves a report (see `crashes`).
         CrashReports.install(this)
         Notifier.createChannels(this)
-        // The :script process only needs the database and notifications.
-        if (com.mtwabpin.kolahal.data.Singleton.inScriptProcess) return
+        // The :script process only needs the database and notifications, and the :wallpaper one less.
+        if (!com.mtwabpin.kolahal.data.Singleton.inMainProcess) return
 
         // Load custom themes before the theme is applied, because `theme.name` may name one of them.
         com.mtwabpin.kolahal.data.CustomThemes.load(this)

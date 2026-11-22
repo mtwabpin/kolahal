@@ -19,6 +19,7 @@ import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderParams
 import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
+import com.mtwabpin.kolahal.script.WallpaperChoice
 import com.mtwabpin.kolahal.widgets.Shortcuts
 
 /**
@@ -176,6 +177,7 @@ class Backup(private val context: Context) {
         // The shaders' parameters came with the stores.
         ShaderParams.load(context)
         ShaderWords.load(context)
+        WallpaperChoice.load(context)
         // Shaders before settings too: `screen.shader` may name one of them.
         var shaders = 0
         (root["shaders"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.forEach { m ->

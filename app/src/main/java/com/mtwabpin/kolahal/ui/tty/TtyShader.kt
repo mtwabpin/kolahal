@@ -3,13 +3,10 @@
  */
 package com.mtwabpin.kolahal.ui.tty
 
-import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
-import android.os.BatteryManager
 import android.os.Build
-import android.os.PowerManager
 import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animate
@@ -48,11 +45,13 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.script.ShaderClock
 import com.mtwabpin.kolahal.script.ShaderDate
+import com.mtwabpin.kolahal.script.ShaderFrame
 import com.mtwabpin.kolahal.script.ShaderMeta
 import com.mtwabpin.kolahal.script.ShaderParams
+import com.mtwabpin.kolahal.script.ShaderPhone
 import com.mtwabpin.kolahal.script.ShaderPlay
 import com.mtwabpin.kolahal.script.ShaderSafety
-import com.mtwabpin.kolahal.script.ShaderTilt
+import com.mtwabpin.kolahal.script.ShaderUniforms
 import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.status.DeviceStatus
@@ -78,7 +77,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
 
 /** The shaders drawn now, by name. A test asks for it; a surface can't be asked what its layer does. */
 internal object ActiveShaders {
@@ -91,7 +89,7 @@ internal object ActiveShaders {
 
 /** What a shader's drawing asks of the phone: its [phone] state for [ShaderClock], and where its [gravity] comes from. A test has its own. */
 internal class ShaderSources(
-    val phone: (Context) -> ShaderClock.Phone = ::phoneOf,
+    val phone: (Context) -> ShaderClock.Phone = ShaderPhone::of,
     val gravity: (Context) -> GravitySource = ::PhoneGravity,
 )
 
@@ -549,21 +547,6 @@ private const val GLIDE_MS = 2_000
 private fun valuesPhone(status: Status): ShaderValues.Phone =
     ShaderValues.Phone((status.batteryPct ?: 100) / 100f, status.charging, LocalTime.now())
 
-/** A phone's state for [ShaderClock]. */
-private fun phoneOf(context: Context): ShaderClock.Phone {
-    val power = context.getSystemService(PowerManager::class.java)
-    val battery = context.getSystemService(BatteryManager::class.java)
-    return ShaderClock.Phone(
-        batterySaver = power?.isPowerSaveMode == true,
-        animationsOff = !ValueAnimator.areAnimatorsEnabled(),
-        hot = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                (power?.currentThermalStatus ?: 0) >= PowerManager.THERMAL_STATUS_MODERATE,
-        charging = battery?.isCharging == true,
-        batteryPercent = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            ?.takeIf { it in 0..100 } ?: 100,
-    )
-}
-
 /** The shader's own clock, in seconds: it moves only while the shader is animated and home is in front. */
 private class ShaderTime {
     var seconds by mutableFloatStateOf(0f)
@@ -664,79 +647,66 @@ private class LoadedShader(val id: String, val name: String, val meta: ShaderMet
 }
 
 /**
- * Sets the uniforms of a [LoadedShader] and makes its effect. Uniforms it doesn't declare are skipped.
- * One that Android refuses in spite of [ShaderMeta.problems] goes to [onError] (a line in the log), and
- * no effect is drawn: home never stops for a shader.
+ * Sets the uniforms of a [LoadedShader] ([ShaderUniforms]) and makes its effect. One that Android refuses in
+ * spite of [ShaderMeta.problems] goes to [onError] (a line in the log), and no effect is drawn: home never
+ * stops for a shader.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private class ShaderInputs(
-    private val shader: LoadedShader,
+    shader: LoadedShader,
     grid: TtyGrid,
-    private val cols: Int,
-    private val left: Int,
+    cols: Int,
+    left: Int,
     private val params: LiveParams,
     /** How long a one-off shader runs, in seconds. Where it isn't played ([playedLayer]) it starts again after a second. */
-    private val once: Float?,
+    once: Float?,
     private val onError: (String) -> Unit,
 ) {
     private val runtime = shader.runtime
     private val animated = shader.meta.animated
-    private val declared = shader.meta.uniforms.associateBy { it.name }
-    private val cellW = grid.metrics.cellW.toFloat()
-    private val cellH = grid.metrics.cellH.toFloat()
-    private val palette = grid.palette
-    private val dark =
-        if (TtyPalette.luminance(palette.color(Ink.BG)) < TtyPalette.luminance(palette.color(Ink.FG))) 1f else 0f
+    private val uniforms = ShaderUniforms(
+        shader.meta, runtime, grid.metrics.cellW.toFloat(), grid.metrics.cellH.toFloat(),
+        colors = COLORS.associate { (name, ink) -> name to grid.palette.color(ink) },
+        dark = TtyPalette.luminance(grid.palette.color(Ink.BG)) < TtyPalette.luminance(grid.palette.color(Ink.FG)),
+        once = once,
+    )
+    private val frame = ShaderFrame().also {
+        it.cols = cols
+        it.left = left
+    }
     private var failed = false
 
-    // Only a shader that declares the clock or the touch reads them, so a frame or a touch that can't
-    // change a still shader doesn't draw it again.
-    private val usesTouch = "touch" in declared || "touchAge" in declared
-    private val usesClock = animated && ("time" in declared || "touchAge" in declared || ShaderMeta.PROGRESS in declared)
-    private val usesDate = declared[ShaderDate.NAME]?.floats == ShaderDate.FLOATS
-    private val usesTilt = declared[ShaderTilt.NAME]?.floats == ShaderTilt.FLOATS
-    private val usesPressed = ShaderMeta.PRESSED in declared
-    private val usesBattery = ShaderMeta.BATTERY in declared
-    private val usesCharging = ShaderMeta.CHARGING in declared
-
-    /** The effect for a surface [w] × [h] px. Null when a uniform can't be set. */
+    /**
+     * The effect for a surface [w] × [h] px. Null when a uniform can't be set. Only a shader that declares the
+     * clock or the touch reads them, so a frame or a touch that can't change a still shader doesn't draw it again.
+     */
     fun effect(
         w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null,
     ): androidx.compose.ui.graphics.RenderEffect? {
         if (failed) return null
-        val seconds = if (usesClock) clock.seconds else 0f
-        val touched = usesTouch && touch.atSeconds >= 0f
+        val seconds = if (uniforms.usesClock) clock.seconds else 0f
+        val touched = uniforms.usesTouch && touch.atSeconds >= 0f
         return try {
-            float1("time", seconds)
-            if (once != null) float1(ShaderMeta.PROGRESS, ((seconds % (once + 1f)) / once).coerceAtMost(1f))
-            float2("resolution", w, h)
-            float2("cell", cellW, cellH)
-            val columns = if (cols > 0) cols else (w / cellW).toInt()
-            float2("grid", columns.toFloat(), (h / cellH).toInt().toFloat())
-            float2("origin", if (cols > 0) left.toFloat() else (w - columns * cellW) / 2f, 0f)
-            float1("dark", dark)
-            if (usesTouch) {
-                float2("touch", if (touched) touch.x else -1f, if (touched) touch.y else -1f)
-                // A still shader is drawn at the touch, and then not again: its age stays 0.
-                float1("touchAge", if (!touched) NEVER else if (animated) (seconds - touch.atSeconds).coerceAtLeast(0f) else 0f)
-            }
-            if (usesPressed) float1(ShaderMeta.PRESSED, if (touch.pressed) 1f else 0f)
-            if (usesBattery) float1(ShaderMeta.BATTERY, battery.level)
-            if (usesCharging) float1(ShaderMeta.CHARGING, battery.charging)
-            if (usesTilt) {
+            frame.width = w
+            frame.height = h
+            frame.seconds = seconds
+            frame.touchX = if (touched) touch.x else -1f
+            frame.touchY = if (touched) touch.y else -1f
+            // A still shader is drawn at the touch, and then not again: its age stays 0.
+            frame.touchAge = if (!touched) ShaderFrame.NEVER else if (animated) (seconds - touch.atSeconds).coerceAtLeast(0f) else 0f
+            if (uniforms.usesPressed) frame.pressed = touch.pressed
+            if (uniforms.usesBattery) frame.battery = battery.level
+            if (uniforms.usesCharging) frame.charging = battery.charging
+            if (uniforms.usesTilt) {
                 // A shader that moves is drawn anyway, and takes the lean as it is. One that stands still
                 // is drawn again when the lean changes.
-                if (!usesClock || !clock.moving) LiveTilt.follow()
-                runtime.setFloatUniform(ShaderTilt.NAME, LiveTilt.x, LiveTilt.y)
+                if (!uniforms.usesClock || !clock.moving) LiveTilt.follow()
+                frame.tiltX = LiveTilt.x
+                frame.tiltY = LiveTilt.y
             }
-            if (usesDate) {
-                // Read, so the minute's change draws a still shader again.
-                day?.minute
-                val now = ShaderDate.of(LocalDateTime.now())
-                runtime.setFloatUniform(ShaderDate.NAME, now[0], now[1], now[2], now[3])
-            }
-            shader.meta.params.forEachIndexed { i, p -> float1(p.name, params[i]) }
-            for ((name, ink) in COLORS) color(name, palette.color(ink))
+            // Read, so the minute's change draws a still shader again.
+            if (uniforms.usesDate) day?.minute
+            uniforms.set(frame) { params[it] }
             RenderEffect.createRuntimeShaderEffect(runtime, ShaderMeta.INPUT).asComposeRenderEffect()
         } catch (e: RuntimeException) {
             failed = true
@@ -745,27 +715,7 @@ private class ShaderInputs(
         }
     }
 
-    private fun float1(name: String, value: Float) {
-        if (declared[name]?.floats == 1) runtime.setFloatUniform(name, value)
-    }
-
-    private fun float2(name: String, x: Float, y: Float) {
-        if (declared[name]?.floats == 2) runtime.setFloatUniform(name, x, y)
-    }
-
-    private fun color(name: String, argb: Int) {
-        val d = declared[name] ?: return
-        if (d.color) runtime.setColorUniform(name, argb)
-        else if (d.floats == 4) runtime.setFloatUniform(
-            name,
-            ((argb shr 16) and 0xFF) / 255f, ((argb shr 8) and 0xFF) / 255f, (argb and 0xFF) / 255f, (argb ushr 24) / 255f,
-        )
-    }
-
     private companion object {
-        /** `touchAge` before any touch: longer than any ring or fade. */
-        const val NEVER = 1000f
-
         val COLORS = listOf(
             "bg" to Ink.BG, "surface" to Ink.SURFACE, "fg" to Ink.FG, "dim" to Ink.DIM, "accent" to Ink.PROMPT,
             "error" to Ink.ERROR, "warn" to Ink.WARN, "good" to Ink.GOOD, "info" to Ink.INFO, "link" to Ink.LINK,

@@ -1,6 +1,7 @@
 // @name CRT
 // @description An old CRT monitor: curved glass, scanlines, a soft glow and a little color fringe
 // @suits dark good, light poor, wallpaper poor
+// @text
 //
 // The glass pulls the picture in by less than half a cell, except near the corners, so a tap still
 // lands on what it shows.

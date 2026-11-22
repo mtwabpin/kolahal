@@ -13,7 +13,7 @@ import com.mtwabpin.kolahal.terminal.ShaderRow
 /** What the Shaders screen says of a shader, as plain functions (ShaderPageTest). */
 internal object ShaderPage {
     /** Under a shader's description: whether it is on or was turned off, where it is from and what differs. [inUse] is the one set. */
-    fun notes(row: ShaderRow, inUse: String, words: String? = null): List<String> = listOfNotNull(
+    fun notes(row: ShaderRow, inUse: String, words: String? = null, wallpaper: Boolean = false): List<String> = listOfNotNull(
         when {
             row.turnedOff -> turnedOff(row)
             row.name == inUse -> "In use"
@@ -25,6 +25,7 @@ internal object ShaderPage {
         if (row.meta.tilt) USES_TILT else null,
         if (row.meta.params.isNotEmpty()) "Adjustable" else null,
         words?.let { "Plays on: $it" },
+        if (wallpaper) "Your wallpaper" else null,
         if (row.origin?.newer == true) update(row) else null,
     )
 

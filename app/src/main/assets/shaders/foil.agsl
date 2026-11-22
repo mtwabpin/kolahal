@@ -1,6 +1,7 @@
 // @name Foil
 // @description Plain text is stamped in foil: bands of the theme's colors lie across it and slide with your finger and as the phone leans
 // @suits dark good, light good, wallpaper good
+// @text
 //
 // Only text in the text color changes. Colored text keeps its meaning, and the page is untouched.
 // The foil is as light or dark as the text was, so it reads as well.

@@ -60,6 +60,13 @@ object ShaderParams {
         _formulas.value = worked
     }
 
+    /** What home handed over for [shader], in the live wallpaper's process: nothing is kept there. */
+    fun restore(shader: String, set: Map<String, String>, follows: Map<String, String>, formulas: Map<String, String>) {
+        _values.value = mapOf(shader to set)
+        _follows.value = mapOf(shader to follows)
+        _formulas.value = mapOf(shader to formulas)
+    }
+
     /** The value of [param] of shader [shader]: what was set, or its default. */
     fun of(shader: String, param: ShaderParam): Float = of(_values.value[shader].orEmpty(), param)
 

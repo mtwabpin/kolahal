@@ -12,6 +12,7 @@ uniform float time;
 uniform float4 date;
 uniform float2 tilt;
 uniform float dark;
+uniform float wallpaper;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 fg;
 
@@ -68,22 +69,25 @@ float4 themed(float4 w) {
     return dark > 0.5 ? deep : pale;
 }
 
-// The page is this shader's where it is the background, and the theme's own lower down, where the log ends.
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends. As a
+// live wallpaper, with no log over it, it is this shader's all the way down.
 float ground(float y) {
     return y < 0.64 ? 0.80 * clamp((y - 0.42) / 0.22, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.64) / 0.20, 0.0, 1.0);
 }
 
 half4 main(float2 xy) {
+    // The wallpaper shows less of the scene's height, so less of its flat foot.
+    float2 res = float2(resolution.x, resolution.y / mix(1.0, 0.80, wallpaper));
     float4 here = float4(content.eval(xy));
-    float y = xy.y / resolution.y;
-    if (y > 0.84) return half4(here);
+    float y = xy.y / res.y;
+    if (y > 0.84 && wallpaper < 0.5) return half4(here);
 
     // Not over text: a pixel that differs from the background is text or a line. Faint text over the
     // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
     float3 page = float3(bg.rgb) * here.a;
     float ink = length(here.rgb - page);
     float full = length(float3(fg.rgb) - float3(bg.rgb));
-    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y) * (1.0 - wallpaper));
     float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
     float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
     if (amount <= 0.0) return half4(float4(letters, here.a));
@@ -123,14 +127,14 @@ half4 main(float2 xy) {
     float arc = moon ? (h > 12.0 ? h - 19.5 : h + 4.5) / 10.0 : (h - 5.5) / 14.0;
     float up = sin(3.1416 * clamp(arc, 0.0, 1.0));
     float low = moon ? 0.0 : 1.0 - smoothstep(0.25, 0.75, up);
-    float small = min(resolution.x, resolution.y);
+    float small = min(res.x, res.y);
     float r = small * mix(0.050, 0.064, low);
-    float2 sunAt = float2(mix(0.60, 0.84, arc) * resolution.x, mix(0.37, 0.13, pow(up, 0.8)) * resolution.y);
+    float2 sunAt = float2(mix(0.60, 0.84, arc) * res.x, mix(0.37, 0.13, pow(up, 0.8)) * res.y);
     float there = smoothstep(0.0, 0.10, up);
 
     float2 off = xy - sunAt;
     float far = length(off);
-    float wide = exp(-(off.x * off.x / 6.76 + off.y * off.y) / (resolution.y * resolution.y * 0.0110));
+    float wide = exp(-(off.x * off.x / 6.76 + off.y * off.y) / (res.y * res.y * 0.0110));
     float peak = moon ? 0.16 : mix(0.40, 0.62, low);
     float halo = max(0.0, 1.0 - far / (4.5 * r));
     float shine = (peak * wide + 0.35 * halo * halo * (moon ? 0.6 : 1.0)) * there * mix(1.0, 0.45, dark);
@@ -160,8 +164,8 @@ half4 main(float2 xy) {
     float when = time - slot * 46.0;
     float side = hash(slot + 11.0) < 0.5 ? 1.0 : -1.0;
     float across = when / 27.0 * 1.4 - 0.2;
-    float2 flock = float2((side > 0.0 ? across : 1.0 - across) * resolution.x,
-        sunAt.y + (hash(slot + 3.0) - 0.3) * 0.06 * resolution.y - 0.02 * resolution.y * sin(across * 2.4));
+    float2 flock = float2((side > 0.0 ? across : 1.0 - across) * res.x,
+        sunAt.y + (hash(slot + 3.0) - 0.3) * 0.06 * res.y - 0.02 * res.y * sin(across * 2.4));
     float wing = small * 0.017;
     if (hash(slot + 29.0) < 0.75 && abs(xy.x - flock.x) < wing * 11.0 && abs(xy.y - flock.y) < wing * 7.0) {
         float birds = 0.0;
@@ -184,8 +188,8 @@ half4 main(float2 xy) {
     near = mix(near, haze, mix(0.40, 0.0, dark));
 
     // Five ridges from far to near, with a band of mist behind each nearer one.
-    float x = xy.x / max(resolution.x, 1.3 * resolution.y);
-    float pixel = 1.0 / resolution.y;
+    float x = xy.x / max(res.x, 1.3 * res.y);
+    float pixel = 1.0 / res.y;
     for (int i = 0; i < 5; i++) {
         float n = float(i);
         float t = n / 4.0;
@@ -214,14 +218,16 @@ half4 main(float2 xy) {
         color = mix(color, mix(ridge, haze, pale), cover);
 
         if (i < 4 && y > base - 0.6 * amp) {
-            float u = (xy.x + time * (2.0 + 0.5 * n)) / resolution.x * 6.2832 + n * 1.7;
+            float u = (xy.x + time * (2.0 + 0.5 * n)) / res.x * 6.2832 + n * 1.7;
             float sides = (sin(u) + 0.5 * sin(2.0 * u + 1.0) + 0.333 * sin(3.0 * u + 2.1) + 0.2 * sin(5.0 * u + 4.0)) / 2.033;
             float band = clamp((y - (base - 0.6 * amp)) / (0.6 * amp + 0.06), 0.0, 1.0);
             color = mix(color, haze, band * mist * (0.78 + 0.22 * sides) * (0.8 + 0.2 * b));
         }
     }
 
-    color = mix(color, float3(bg.rgb), ground(y));
+    // The foot: the theme's color over the log, and a quiet one of the scene's own in the wallpaper.
+    float3 foot = mix(mix(haze, float3(0.94, 0.92, 0.89), 0.6), mix(float3(0.059, 0.086, 0.149), near, 0.55), dark);
+    color = mix(color, mix(float3(bg.rgb), foot, wallpaper), mix(ground(y), 0.92 * smoothstep(0.52, 0.84, y), wallpaper));
     // Dither, so the long gradients have no bands.
     color += (hash2(xy) - 0.5) / 255.0;
 

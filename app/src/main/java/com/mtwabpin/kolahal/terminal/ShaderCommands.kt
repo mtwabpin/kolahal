@@ -25,6 +25,7 @@ import com.mtwabpin.kolahal.script.ShaderValues
 import com.mtwabpin.kolahal.script.ShaderWords
 import com.mtwabpin.kolahal.script.Shaders
 import com.mtwabpin.kolahal.script.SharedShader
+import com.mtwabpin.kolahal.script.WallpaperChoice
 
 /**
  * The `shader` command: the shader over home and the full-screen screens (`screen.shader`).
@@ -34,6 +35,7 @@ import com.mtwabpin.kolahal.script.SharedShader
  *   turns the last one on again, also after it was turned off for being slow.
  * - `set` changes a shader's parameters and `reset` puts them back ([ShaderParam]).
  * - `follow` makes a parameter follow a value, and `values` lists the values ([ShaderValues]).
+ * - `wallpaper` makes one the live wallpaper ([WallpaperChoice]).
  * - `play` plays a one-off shader ([ShaderPlay]), and `words` sets the words that play it ([ShaderWords]).
  * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
  * - `check`, `reload`, `copy` and `remove` work with the user's own files.
@@ -62,6 +64,7 @@ class ShaderCommands(
             "reset" -> reset(args.drop(1))
             "follow" -> follow(args.drop(1))
             "values" -> values()
+            "wallpaper" -> wallpaper(name)
             "words" -> words(name ?: return usage("shader"), args.drop(2).joinToString(" "))
             "play" -> play(name ?: return usage("shader"), args.getOrNull(2))
             // These use the network, so they run outside the serial command queue.
@@ -110,6 +113,19 @@ class ShaderCommands(
         Shaders.use(context, name)?.let { return error("Shader $name: $it") }
         info("Shader: $name · 'shader off' turns it off")
         ShaderActions.wallpaperWarning(context, name)?.let { info("$it · 'config set log.wallpaper 0' hides it") }
+    }
+
+    /** `shader wallpaper [<name>]`: the live wallpaper's shader; without a name, which it is. */
+    private fun wallpaper(name: String?) {
+        if (name == null) {
+            val now = WallpaperChoice.name.value
+            return info(if (now != null && WallpaperChoice.isWallpaper(context)) "Live wallpaper: $now" else "No shader is your wallpaper — 'shader wallpaper <name>'")
+        }
+        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
+        val meta = Shaders.source(context, name)?.let(ShaderMeta::parse) ?: return error("Shader $name can't be read")
+        (WallpaperChoice.problem(name, meta) ?: Shaders.problem(context, name))?.let { return error("Shader $name: $it") }
+        WallpaperChoice.set(context, name)
+        if (WallpaperChoice.isWallpaper(context)) info("Live wallpaper: $name") else startActivity(WallpaperChoice.preview(context))
     }
 
     /** `shader words <name> <words>|off`: what plays it in a notification; without words, what they are. */
@@ -392,10 +408,10 @@ class ShaderCommands(
 
     companion object {
         val SUBCOMMANDS =
-            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "words", "get", "update", "check", "reload", "copy", "remove")
+            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "words", "wallpaper", "get", "update", "check", "reload", "copy", "remove")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "words", "get", "update", "check", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "words", "wallpaper", "get", "update", "check", "copy", "remove", "rm")
 
         /**
          * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of

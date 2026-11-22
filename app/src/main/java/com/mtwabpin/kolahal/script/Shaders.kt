@@ -75,6 +75,7 @@ object Shaders {
             ShaderParams.load(context)
             ShaderValues.load(context)
             ShaderWords.load(context)
+            WallpaperChoice.load(context)
         }
         mine = dir(context).list().orEmpty().mapNotNull(ShaderCatalog::nameOf).distinct().sorted()
         _version.update { it + 1 }

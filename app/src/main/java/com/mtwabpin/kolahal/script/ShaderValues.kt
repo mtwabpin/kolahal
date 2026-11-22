@@ -75,6 +75,11 @@ object ShaderValues {
         _given.value = all.flatMap { (script, raw) -> read(raw).map { (name, value) -> id(script, name) to value } }.toMap()
     }
 
+    /** What home handed over, in the live wallpaper's process. */
+    fun restore(given: Map<String, String>) {
+        _given.value = given
+    }
+
     /** The value [id] as it is now, or null when there is none. */
     fun of(id: String, given: Map<String, String>, phone: Phone): String? =
         if (id in BUILT_IN) builtIn(id, phone)?.toString() else given[id]

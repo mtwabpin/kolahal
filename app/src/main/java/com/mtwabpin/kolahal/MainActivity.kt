@@ -236,6 +236,10 @@ class MainActivity : ComponentActivity() {
         // The theme follows settings without reading config state in composition. Reading it there
         // would recompose the whole tree on every settings change.
         lifecycleScope.launch { vm.config.version.collect { applyTheme() } }
+        // What the live wallpaper draws with, for its own process.
+        if (com.mtwabpin.kolahal.script.WallpaperChoice.supported) lifecycleScope.launch {
+            com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter.run(applicationContext)
+        }
         lifecycleScope.launch {
             androidx.compose.runtime.snapshotFlow { vm.previewed }.collect { applyTheme() }
         }

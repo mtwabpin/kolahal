@@ -56,6 +56,9 @@ object Stores {
     /** The words that play one-off shaders ([com.mtwabpin.kolahal.script.ShaderWords]): names, so not for the cloud. */
     val SHADER_WORDS = Prefs("shader_words", inBackup = true, toCloud = false)
 
+    /** The live wallpaper's shader ([com.mtwabpin.kolahal.script.WallpaperChoice]). */
+    val WALLPAPER_SHADER = Prefs("wallpaper_shader", inBackup = true)
+
     /** The sources added to Get more scripts: a backup has them in a section of their own, added to what is here. */
     val SCRIPT_SOURCES = Prefs("script_sources", inBackup = false)
 
@@ -116,6 +119,7 @@ object Stores {
         SHADER_CATALOG,
         SHADER_PARAMS,
         SHADER_WORDS,
+        WALLPAPER_SHADER,
         SCRIPT_SOURCES,
         OLD_UNLOCKS,
         LAUNCHER,

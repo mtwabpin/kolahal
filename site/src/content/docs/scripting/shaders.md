@@ -36,6 +36,7 @@ Or type:
 | `shader` | lists the shaders; a tap on one turns it on |
 | `shader <name>` | turns it on |
 | `shader off` | turns shaders off |
+| `shader wallpaper <name>` | makes it your [live wallpaper](#as-a-live-wallpaper). Without a name, it says which one is |
 | `shader play <name>` | plays a [one-off shader](#one-off-shaders) once |
 | `shader words <name> <words>` | plays it when a notification has one of the words. `off` ends it |
 | `shader on` | turns the last one on again |
@@ -88,6 +89,24 @@ A shader's details rate it for a dark theme, a light theme and a wallpaper that 
 
 If more than 20% of your wallpaper shows, turning on a shader that is poor over one gives a warning. It is turned on all
 the same. The author rates a shader in its [header](#the-header), and one without a rating shows none.
+
+## As a live wallpaper
+
+A shader can be your phone's wallpaper, behind any launcher and on the lock screen. Open its details and tap **Set as
+wallpaper**, or type `shader wallpaper pond`. The first time, Android shows its own preview, where you set it. After that
+another shader takes its place at once.
+
+- It is apart from the shader over home: both can be on, or one of them.
+- Its parameters, and what they follow, are the same as on home. The theme's colors are Kolahal's.
+- It draws only while you can see it: behind an app and with the screen off it stops. In battery saver, with **Remove
+  animations** on, when the phone is hot or nearly out of battery, and after a minute without a touch unless it charges, a moving
+  shader stands still.
+- Shaders that change text (`crt`, `lcd`, `eink`, `foil`, `riso`) and [one-off shaders](#one-off-shaders) can't be one.
+- It runs apart from home, so a shader that crashes doesn't stop Kolahal. One that does so three times in a row isn't drawn until
+  its code changes.
+- To end it, pick another wallpaper in Android's settings.
+
+To see it behind the log, use [`log.wallpaper`](/reference/config/#log).
 
 ## One-off shaders
 
@@ -233,6 +252,7 @@ Comments at the top say what the shader is. All are optional:
 | `// @description …` | what it looks like. `shader` shows it |
 | `// @param amount 0.0..2.0 = 1.0 …` | something people can change. See [Parameters](#parameters) |
 | `// @suits dark good, light fair, wallpaper poor` | [what it works well over](#what-it-works-well-over): `good`, `fair` or `poor` |
+| `// @text` | it works on text, so it can't be a [live wallpaper](#as-a-live-wallpaper) |
 | `// @once 6` | it is a [one-off](#one-off-shaders), and runs for this many seconds |
 | `// @animated` | it changes on its own, so it is drawn up to 30 times a second. Without it a shader is only drawn when the screen changes, so it uses no power while the screen is still |
 | `// @author …` | who made it. A shared shader needs it, as it does `@version` and `@license` |
@@ -307,6 +327,7 @@ of another name stays 0. `shader check` lists both.
 | `tilt` | `float2` | how far the phone leans, from about -1 to 1 each way: `x` is positive when the right side is lower, `y` when the bottom edge is. `0, 0` when the phone is level or has no motion sensor. See [Tilt and power](#tilt-and-power) |
 | `battery` | `float` | how full the battery is, from 0 to 1 |
 | `charging` | `float` | 1 while the phone is plugged in, otherwise 0 |
+| `wallpaper` | `float` | 1 as a [live wallpaper](#as-a-live-wallpaper), where `content` is the theme's background alone, otherwise 0 |
 | `dark` | `float` | 1 in a dark theme, 0 in a light one |
 | `date` | `float4` | the phone's date and time: the year, the month (1 to 12), the day of the month, and the seconds since midnight, in local time. A shader that isn't `@animated` is drawn again once a minute when it declares it |
 | `bg` `surface` `fg` `dim` `accent` `error` `warn` `good` `info` `link` | `half4` | the theme's colors. Declare them with `layout(color)`, so they match the screen's colors |

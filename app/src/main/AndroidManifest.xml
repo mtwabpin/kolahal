@@ -120,6 +120,22 @@
             </intent-filter>
         </activity>
 
+        <!-- A shader as the live wallpaper (Android 13 and newer), in a process of its own: one that crashes doesn't take home along. -->
+        <service
+            android:name=".ui.wallpaper.ShaderWallpaper"
+            android:enabled="@bool/shader_wallpaper"
+            android:exported="true"
+            android:label="@string/shader_wallpaper_label"
+            android:permission="android.permission.BIND_WALLPAPER"
+            android:process=":wallpaper">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/shader_wallpaper" />
+        </service>
+
         <!-- Scripts (Lua / QuickJS) run here so a native crash can never take down the home screen. -->
         <service
             android:name="androidx.work.multiprocess.RemoteWorkerService"

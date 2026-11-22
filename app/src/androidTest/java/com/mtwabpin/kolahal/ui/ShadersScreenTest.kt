@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -219,6 +220,23 @@ class ShadersScreenTest {
             ShaderParams.reset(app, "dunes")
         }
         assertNull(ShaderParams.formula("dunes", camels))
+    }
+
+    /** A scene can be the wallpaper; one that works on text, or plays once, can't. */
+    @Test
+    fun aSceneCanBeTheWallpaper() {
+        needsAndroid13()
+        show()
+        for ((name, title, can) in listOf(Triple("dunes", "Dunes", true), Triple("crt", "CRT", false), Triple("hearts", "Hearts", false))) {
+            compose.onNodeWithTag("shader-search").performTextClearance()
+            compose.onNodeWithTag("shader-search").performTextInput(name)
+            compose.waitForNode(hasTestTag("shader $name"))
+            openSheet(name, title)
+            val buttons = compose.onAllNodesWithTag("set-wallpaper").fetchSemanticsNodes().size
+            assertEquals(name, if (can) 1 else 0, buttons)
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            compose.waitFor("the sheet stays") { compose.onAllNodesWithTag("shader-pager").fetchSemanticsNodes().isEmpty() }
+        }
     }
 
     /** Its details say what it works well over, and warn while too much of a wallpaper shows. */
