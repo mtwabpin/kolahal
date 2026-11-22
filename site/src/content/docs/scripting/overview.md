@@ -637,4 +637,4 @@ Tap the ✎ next to a script's name in its sheet (Scripts → tap the script), o
 
 Scripts are part of the [backup file](/guides/backup/). You can also import and export them as
 single `.lua` / `.js` files, or sync them with a folder (`script dir`, `script export`,
-`script import`).
+`script import`). [Shaders](/scripting/shaders/) travel the same way, as `.agsl` files.

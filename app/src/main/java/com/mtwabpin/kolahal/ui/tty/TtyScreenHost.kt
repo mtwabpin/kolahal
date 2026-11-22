@@ -58,6 +58,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.mtwabpin.kolahal.script.ShaderCatalog
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
@@ -95,7 +96,8 @@ private const val SAVER_FPS = 15
  * prompt ([onClose] gets null), and leaving home, turning the page or the screen going off closes
  * it at once instead of pausing it.
  *
- * [data] is what `boot` and `top` show; [clock24] is `clock.24h`; [crt] is `tty.crt` ([rememberCrt]).
+ * [data] is what `boot` and `top` show; [clock24] is `clock.24h`; [crt] is `tty.crt` ([rememberCrt]);
+ * [shader] is `tty.shader` ([rememberTtyShader]).
  */
 @Composable
 fun TtyScreenHost(
@@ -106,6 +108,7 @@ fun TtyScreenHost(
     modifier: Modifier = Modifier,
     saver: Boolean = false,
     crt: Boolean = false,
+    shader: String = ShaderCatalog.OFF,
 ) {
     val close by rememberUpdatedState(onClose)
     val screen = remember(name) { TtyScreens.named(name) }
@@ -217,10 +220,12 @@ fun TtyScreenHost(
     }
     BackHandler { close(null) }
     val crtLook = rememberCrt(crt, grid.palette, metrics.cellH)
+    val shaderLook = rememberTtyShader(shader, grid)
 
     Box(
         modifier
             .fillMaxSize()
+            .then(shaderLook)
             .background(Term.bg)
             .then(crtLook)
             .semantics {

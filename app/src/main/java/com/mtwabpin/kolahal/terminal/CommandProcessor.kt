@@ -70,6 +70,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val usageSummary by lazy { UsageSummaryCommands(context) }
     private val feedCommands = FeedCommands(context, appCommands, ui)
     private val editCommands = EditCommands(context, ui)
+    private val shaderCommands by lazy { ShaderCommands(context, ::background) }
 
     /** Runs [block] outside the command's thread. What it prints still counts as the command's output. */
     private fun background(label: String, block: () -> Unit) {
@@ -163,6 +164,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 // Full-screen screens over home, until a key or a tap (terminal/tty/screens).
                 "matrix", "pipes", "sl" -> ui.showTtyScreen(name)
                 "screen" -> screen(args)
+                "shader" -> shaderCommands.run(args)
                 "clear", "cls" -> clear(args)
                 "backup" -> backup(args)
                 "log" -> logFilter(args)

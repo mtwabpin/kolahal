@@ -100,11 +100,30 @@ override the rest. Internal: nothing here is published.
   (scanlines, vignette and glow drawn without shaders, for every Android version).
 - Remark:
 
-** TODO Step 6: shaders  :shaders:
+** DONE Step 6: shaders  :shaders:
 - Size M–L. Design §7. Android 13 and newer.
 - AGSL files loaded like scripts, a =RenderEffect= on the TTY layer, uniforms (time, size, theme
   colors, touch, the grid), a frame-time watchdog, safe mode and an always-reachable off; Settings
   stays outside the effect. A bundled set: CRT, bloom, rain.
+- Built (22 November), config only: =tty.shader= (=off=, =crt=, =bloom=, =rain= or a file of the
+  user's own) and the =shader= command (list, use, on, off, check, reload, copy, remove). It covers
+  the TTY home and the full-screen screens in both styles (design §7, "As built"):
+  - [X] Files: bundled ones in =assets/shaders/=, the user's in =files/shaders/=, from the script
+    folder (=script import= and =shader reload=, top level or =shaders/=) and from a picked file
+    (Scripts → Import a file). =script export= and =shader copy= write them back.
+  - [X] Uniforms found in the source (=ShaderMeta=, JVM-tested); only the declared ones are set.
+    Wrong types and a missing =content= are refused before compiling.
+  - [X] Compile errors are one log line with the compiler's line; home stays up.
+  - [X] Watchdog on the window's frame metrics (=ShaderWatchdog=), safe mode after a crash or hang
+    (=ShaderSafety=, the mark is on disk before the shader is compiled), three trips in a row turn
+    =tty.shader= off.
+  - [X] Off: =shader off=, =config set tty.shader off=, two fingers held for a second.
+  - [X] Moving shaders stand still in battery saver, when hot, low on battery, with Remove animations
+    on, and after a minute without a touch; shaders are off with a screen reader on.
+  - [ ] Left: =cells= and =scroll= uniforms, =@param=, =@warp= and =@bloom= (with step 7's grid data
+    or a Settings slider), the app shortcut for safe mode, shaders in backups, and nothing measured on
+    a phone yet. =tty.crt= still draws its own look on Android 13 and newer, so =tty.shader crt= and
+    =tty.crt on= stack.
 - Remark:
 
 ** TODO Step 7: scripts drawing on the grid  :scripts:

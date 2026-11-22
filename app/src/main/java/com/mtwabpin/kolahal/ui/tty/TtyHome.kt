@@ -144,11 +144,16 @@ internal fun TtyHome(
     }
     // tty.crt: scanlines, a vignette and a glow over the whole of home, its bars and margins too.
     val crt = rememberCrt(remember(configVersion) { config[Keys.TTY_CRT] }, grid.palette, grid.metrics.cellH)
+    // tty.shader: a shader over all of it, the background too. Settings' preview of home has none.
+    val shader = rememberTtyShader(
+        remember(configVersion) { config[Keys.TTY_SHADER] }, grid, frame.cols, frame.originX, on = !preview,
+    )
 
     CompositionLocalProvider(LocalTtyFrame provides frame) {
         Column(
             Modifier
                 .fillMaxSize()
+                .then(shader)
                 .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
                 .then(crt)
                 .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal))

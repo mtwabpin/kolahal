@@ -682,6 +682,24 @@ object CommandCatalog {
             sensitive = true
         ),
         CommandSpec(
+            "shader",
+            "shader [<name>|list|use|on|off|check|reload|copy|remove] [<name>]",
+            "A shader over the full-screen screens and the tty home style: crt, bloom, rain or your own .agsl file (tty.shader). Needs Android 13 or newer",
+            short = "A shader over the screens",
+            args = "<name> · list · use · on · off · check · reload · copy · remove",
+            uses = listOf(
+                "shader" to "the shaders: tap one to use it",
+                "shader <name>" to "use a shader",
+                "shader off" to "no shader; this always works, even when the screen can't be read",
+                "shader on" to "the last one again, also after it was turned off for being slow",
+                "shader check <name>" to "whether it compiles, and what Kolahal sets for it",
+                "shader reload" to "read the .agsl files in the script folder again",
+                "shader copy <name>" to "copy a shader to the script folder's shaders folder, to edit it there",
+                "shader remove <name>" to "remove your own shader",
+            ),
+            sensitive = true,
+        ),
+        CommandSpec(
             "alias", "alias [name = command]", "List or define aliases",
             short = "Your aliases", args = "<name> = <command>",
             uses = listOf(
@@ -1010,6 +1028,7 @@ object CommandCatalog {
             "matrix",
             "pipes",
             "sl",
+            "shader",
         ),
     )
 }

@@ -3,6 +3,9 @@
  */
 package com.mtwabpin.kolahal.data
 
+import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.Shaders
+
 
 /** A user-tunable setting, edited with `config set <key> <value>`. */
 sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
@@ -429,7 +432,7 @@ object Keys {
 
     // The parts of the tty home style that can be drawn as the gui style draws them, one key each:
     // gui (the default: these parts work better that way) or tty (on the character grid). They matter
-    // only with home.style tty, and only `config` sets them until TTY is released (TTY step 4).
+    // only with home.style tty, and only `config` sets them: TTY stays a config setting.
     val TTY_SUGGESTIONS = ConfigKey.Choice(
         "tty.suggestions",
         "gui",
@@ -478,6 +481,20 @@ object Keys {
         notes = mapOf(
             "gui" to "A bottom sheet with icons, as in the gui style",
             "tty" to "A box on the character grid, without icons",
+        ),
+    )
+    /** Where [TTY_CRT] draws, drawn by the GPU on Android 13 and newer (ui/tty/TtyShader.kt). The user's own files come and go ([Shaders.userNames]). */
+    val TTY_SHADER = ConfigKey.Choice(
+        "tty.shader",
+        ShaderCatalog.OFF,
+        listOf(ShaderCatalog.OFF) + ShaderCatalog.BUNDLED,
+        "A shader over full-screen screens (matrix, clock…) and the tty home style: one that comes with Kolahal or your own .agsl file (the shader command lists them). Needs Android 13 or newer",
+        added = { Shaders.userNames - ShaderCatalog.BUNDLED.toSet() },
+        notes = mapOf(
+            ShaderCatalog.OFF to "No shader",
+            "crt" to "An old CRT monitor: curved glass, scanlines and a glow",
+            "bloom" to "A soft halo around text, in its own color",
+            "rain" to "Drops of the accent color fall behind the text",
         ),
     )
     val LOG_SPACING = ConfigKey.Num(
@@ -765,6 +782,7 @@ object Keys {
         LOG_DIM,
         HOME_STYLE,
         TTY_CRT,
+        TTY_SHADER,
         LOG_SPACING,
         LOG_ITEM_SPACING,
         LOG_GUTTER,
@@ -837,6 +855,7 @@ object Keys {
         TTY_KEYBAR,
         TTY_QUICK_ACTIONS,
         TTY_MENU,
+        TTY_SHADER,
     )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */

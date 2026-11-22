@@ -16,17 +16,28 @@ class ScriptFiles(private val context: Context) {
     data class ImportResult(
         val created: List<String>,
         val updated: List<String>,
-        val skipped: List<String>
+        val skipped: List<String>,
+        /** The shaders (`.agsl` files), now the user's own ([Shaders]). */
+        val shaders: List<String> = emptyList(),
     )
 
-    /** Creates or updates one script per `.lua` / `.js` file. The file name becomes the script name. */
+    /** Creates or updates one script per `.lua` / `.js` file. The file name becomes the script name. An `.agsl` file becomes a shader. */
     fun import(uris: List<Uri>): ImportResult {
         val created = ArrayList<String>()
         val updated = ArrayList<String>()
         val skipped = ArrayList<String>()
+        val shaders = ArrayList<String>()
         val importer = ScriptImport(context)
         for (uri in uris) {
             val fileName = Files.displayName(context, uri) ?: uri.lastPathSegment ?: "?"
+            if (fileName.endsWith(".${ShaderCatalog.EXT}", ignoreCase = true)) {
+                runCatching {
+                    val name = ShaderCatalog.nameOf(fileName) ?: error("not a name a shader can have")
+                    Shaders.save(context, name, Files.readText(context, uri))
+                    shaders += name
+                }.onFailure { skipped += "$fileName (${it.message})" }
+                continue
+            }
             val lang = ScriptLang.of(fileName.substringAfterLast('.', ""))
             val name =
                 fileName.substringBeforeLast('.').lowercase().replace(Regex("[^a-z0-9_-]"), "-")
@@ -62,7 +73,7 @@ class ScriptFiles(private val context: Context) {
                 }
             }
         }
-        return ImportResult(created, updated, skipped)
+        return ImportResult(created, updated, skipped, shaders)
     }
 
     fun export(script: Script, uri: Uri) {

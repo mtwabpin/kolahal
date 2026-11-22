@@ -626,7 +626,7 @@ private fun addActions(
     Action(
         R.drawable.ic_upload,
         "Import a file",
-        ".lua or .js; the file name becomes the script name",
+        ".lua or .js, or .agsl for a shader; the file name becomes its name",
         onClick = onImportFiles
     ),
 )

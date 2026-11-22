@@ -120,6 +120,7 @@ fun HomeScreenOverlay(vm: TerminalViewModel) {
         onClose = close,
         saver = saver,
         crt = remember(configVersion) { vm.config[Keys.TTY_CRT] },
+        shader = remember(configVersion) { vm.config[Keys.TTY_SHADER] },
     )
 }
 

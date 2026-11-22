@@ -95,6 +95,8 @@ class LauncherApp : Application(), Configuration.Provider {
 
         // Load custom themes before the theme is applied, because `theme.name` may name one of them.
         com.mtwabpin.kolahal.data.CustomThemes.load(this)
+        // The same for the user's shaders: `tty.shader` may name one of them.
+        com.mtwabpin.kolahal.script.Shaders.load(this)
         AppRepository.get(this).start()
         DeviceStatus.get(this).start()
         // What the first frame doesn't need starts once the main thread is idle, after that frame:

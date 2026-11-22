@@ -1,0 +1,62 @@
+// @name CRT
+// @description An old CRT monitor: curved glass, scanlines, a soft glow and a little color fringe
+//
+// The glass pulls the picture in by less than half a cell, except near the corners, so a tap still
+// lands on what it shows.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float dark;
+layout(color) uniform half4 bg;
+
+// A pixel of home, kept inside the picture.
+float4 pixel(float2 p) {
+    return float4(content.eval(clamp(p, float2(0.5), resolution - float2(0.5))));
+}
+
+half4 main(float2 xy) {
+    float2 mid = resolution * 0.5;
+    float2 p = (xy - mid) / mid;
+    float r2 = dot(p, p);
+
+    // Barrel curvature. At the middle of an edge the picture moves k * mid, under half a cell.
+    float k = min(0.05, 0.45 * min(cell.x / mid.x, cell.y / mid.y));
+    float2 q = mid + p * (1.0 + k * r2) * mid;
+
+    // Outside the glass it is black, with a soft edge.
+    float2 inside = min(q, resolution - q);
+    float edge = clamp(min(inside.x, inside.y) + 0.5, 0.0, 1.0);
+    if (edge <= 0.0) {
+        return half4(0.0, 0.0, 0.0, 1.0);
+    }
+
+    // The red and the blue of a pixel land a little apart, more toward the edges.
+    float2 fringe = float2(0.5 * (0.4 + r2), 0.0);
+    float4 here = pixel(q);
+    float3 color = float3(pixel(q + fringe).r, here.g, pixel(q - fringe).b);
+
+    // A soft glow around bright text, on dark themes: how much the pixels around differ from the background.
+    if (dark > 0.5) {
+        float3 glow = float3(0.0);
+        float reach = cell.x * 0.4;
+        for (int i = 0; i < 8; i++) {
+            float angle = 0.785398 * float(i);
+            float4 around = pixel(q + reach * float2(cos(angle), sin(angle)));
+            glow += max(around.rgb - float3(bg.rgb) * around.a, float3(0.0));
+        }
+        color += glow * (0.5 / 8.0) * (1.0 - color);
+    }
+
+    // Scanlines: rows of pixels pulled toward the background, so contrast stays.
+    float period = max(2.0, floor(cell.y / 18.0 + 0.5));
+    float line = 0.5 - 0.5 * cos(6.2831853 * q.y / period);
+    float strength = mix(0.10, 0.22, dark);
+    color = mix(color, float3(bg.rgb) * here.a, line * strength);
+
+    // A little darker toward the corners.
+    color *= 1.0 - mix(0.08, 0.25, dark) * smoothstep(0.3, 2.0, r2);
+
+    float alpha = max(here.a, max(color.r, max(color.g, color.b)));
+    return half4(mix(float4(0.0, 0.0, 0.0, 1.0), float4(color, alpha), edge));
+}

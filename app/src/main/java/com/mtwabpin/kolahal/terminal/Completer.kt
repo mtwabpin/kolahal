@@ -713,6 +713,18 @@ class Completer(private val context: Context, private val data: Data) {
             "screen" -> com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens.names.filter { it.starts(arg) }
                 .map { Suggestion.Completion(it, "$head $it") }
 
+            // `shader c`: its subcommands and the shaders; `shader use c`: the shaders.
+            "shader" -> ShaderCommands.completions(parts.map { it.lowercase() })
+                .filter { it.starts(last) }
+                .map {
+                    val sub = parts.size == 2 && it in ShaderCommands.SUBCOMMANDS
+                    Suggestion.Completion(
+                        it,
+                        (parts.dropLast(1) + it).joinToString(" ") + if (sub && it in ShaderCommands.TAKE_NAME) " " else "",
+                        icon = if (sub) null else R.drawable.ic_palette,
+                    )
+                }
+
             "theme" -> Keys.THEME.choices.filter { it.starts(arg) }
                 .map { Suggestion.Completion(it, "$head $it", icon = R.drawable.ic_palette) }
             // `cal dec`: offer the month names.
@@ -1188,6 +1200,7 @@ class Completer(private val context: Context, private val data: Data) {
             "date" to "clock",
             "theme" to "colors colors dark light",
             "screen" to "matrix clock pipes sl top boot screensaver memory",
+            "shader" to "effect agsl glsl crt bloom rain glow",
             "matrix" to "screen rain",
             "pipes" to "screen",
             "sl" to "screen train locomotive",

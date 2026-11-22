@@ -58,8 +58,11 @@ class ScreensTest {
      */
     @Test
     fun theCommandsAndTheScreensAgree() {
-        assertEquals(listOf("screen", "matrix", "pipes", "sl"), CommandCatalog.HELP_SECTIONS["screens"])
-        for (name in CommandCatalog.HELP_SECTIONS.getValue("screens") - "screen") assertTrue(name, name in TtyScreens.names)
+        assertEquals(listOf("screen", "matrix", "pipes", "sl", "shader"), CommandCatalog.HELP_SECTIONS["screens"])
+        // shader is in the section too: it draws over the screens and the tty home, it isn't a screen.
+        for (name in CommandCatalog.HELP_SECTIONS.getValue("screens") - setOf("screen", "shader")) {
+            assertTrue(name, name in TtyScreens.names)
+        }
         val commands = CommandCatalog.COMMANDS.map { it.name }.toSet()
         assertTrue("screen" in commands)
         assertFalse("clock" in commands)

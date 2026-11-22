@@ -229,10 +229,11 @@ class ScriptActions(
                     if (r.created.isNotEmpty()) add("added ${r.created.joinToString()}")
                     if (r.updated.isNotEmpty()) add("updated ${r.updated.joinToString()}")
                     if (r.created.isNotEmpty() || r.updated.isNotEmpty()) add("off until you turn them on (script on <name>)")
+                    if (r.shaders.isNotEmpty()) add("shaders ${r.shaders.joinToString()} (shader use <name>)")
                     if (r.skipped.isNotEmpty()) add("skipped ${r.skipped.joinToString()}")
                 }.joinToString(" · ").ifEmpty { "nothing imported" }
                     .replaceFirstChar { it.uppercase() },
-                error = r.created.isEmpty() && r.updated.isEmpty(),
+                error = r.created.isEmpty() && r.updated.isEmpty() && r.shaders.isEmpty(),
             )
         }
     }

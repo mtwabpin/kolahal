@@ -115,6 +115,7 @@ export default defineConfig({
 						{ slug: 'scripting/library' },
 						{ slug: 'scripting/examples' },
 						{ slug: 'scripting/editor' },
+						{ slug: 'scripting/shaders' },
 					],
 				},
 				{

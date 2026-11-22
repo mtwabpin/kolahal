@@ -10,6 +10,9 @@ import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.MaterialYou
+import com.mtwabpin.kolahal.script.ShaderCatalog
+import com.mtwabpin.kolahal.script.ShaderSafety
+import com.mtwabpin.kolahal.script.Shaders
 
 /** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
 class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
@@ -125,6 +128,11 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             if (key == Keys.THEME && MaterialYou.isOne(conf[Keys.THEME]) && !MaterialYou.supported) info(
                 MaterialYou.note(conf[Keys.THEME])
             )
+            // A shader turned off for being slow may be tried again, as with `shader on`.
+            if (key == Keys.TTY_SHADER && conf[Keys.TTY_SHADER] != ShaderCatalog.OFF) {
+                ShaderSafety.get(context).turnedOn()
+                if (!Shaders.supported) info("${Shaders.NEEDS}: nothing is drawn on this phone")
+            }
         } else error("Invalid value for ${key.key}: ${hint(key)}")
     }
 

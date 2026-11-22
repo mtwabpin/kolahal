@@ -168,10 +168,17 @@ class ScriptCommands(
                 )
             }
             // Folder sync can be slow on SAF providers, so run it outside the serial command queue.
-            "export" -> background("export") { info("Exported ${folder.export()} scripts + kolahal.json") }
+            "export" -> background("export") {
+                val shaders = folder.exportShaders()
+                info("Exported ${folder.export()} scripts + kolahal.json" + if (shaders > 0) " + $shaders shaders" else "")
+            }
             "import" -> background("import") {
                 val r = folder.import()
-                info("Imported: ${r.created} new, ${r.updated} updated" + if (r.skipped.isNotEmpty()) ", skipped ${r.skipped.joinToString()}" else "")
+                info(
+                    "Imported: ${r.created} new, ${r.updated} updated" +
+                            (if (r.shaders.isNotEmpty()) ", shaders ${r.shaders.joinToString()}" else "") +
+                            if (r.skipped.isNotEmpty()) ", skipped ${r.skipped.joinToString()}" else ""
+                )
             }
 
             "new" -> {

@@ -208,6 +208,7 @@ directly. Scripts do it from the =:script= process; a broadcast tells the UI pro
 | Widgets                                              | Bound AppWidget ids and their layout in SharedPreferences =widgets= (=widgets/WidgetHost.kt=) |
 | Imported font                                        | =filesDir/fonts/custom.ttf= (=ui/TermFonts.kt=)                                               |
 | Images on log lines (a cache, not backed up)         | =cacheDir/log-images/=, trimmed to 50 MB (=ui/LogImages.kt=)                                  |
+| The user's shaders (=.agsl=)                         | =filesDir/shaders/= (=script/Shaders.kt=); what was turned off is in the crash preferences    |
 
 A backup (=Settings → Backup → Export everything=) bundles all of the above into one JSON file
 (=data/Backup.kt= and =data/FullBackup.kt=).
@@ -232,6 +233,11 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
   the themes guide, and list its name in =reference/config.md= and =reference/commands.md=.
   =material-you= is the one theme without fixed palettes: =ui/MaterialYouPalettes.kt= makes them
   from the phone's wallpaper colours.
+- New bundled shader :: an AGSL file =assets/shaders/<name>.agsl= with =// @name=, =// @description= (and
+  =// @animated= when it moves), its name in =ShaderCatalog.BUNDLED=, a note in =Keys.TTY_SHADER= and the
+  table in =site/src/content/docs/scripting/shaders.md=. =ShaderMetaTest= checks its header and its
+  uniforms on the JVM; =TtyShaderTest= compiles it on Android 13 or newer. Uniforms the host sets:
+  =ShaderMeta.KNOWN=, and the code that sets them =ui/tty/TtyShader.kt=.
 - New script API :: add it to =HostApi=, bind it in both =LuaEngine= and =JsEngine=, and describe it in
   =ApiDocs= (=ApiDocsTest= checks that the names match). A new JavaScript namespace goes into
   =guard.js='s =spaces= list (=JsEngine.GUARD=), and an async function that waits is marked so in

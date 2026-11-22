@@ -1,0 +1,66 @@
+// @name Rain
+// @description Drops of the accent color fall behind the text, one per column of the grid
+// @animated
+//
+// The rain only shows where the background does, so text stays as it is. A touch sends a ring out.
+
+uniform shader content;
+uniform float2 cell;
+uniform float2 grid;
+uniform float2 origin;
+uniform float time;
+uniform float2 touch;
+uniform float touchAge;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 accent;
+
+// A number from 0 to 1 that looks random for each n (Dave Hoskins' hash without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // Where this pixel is on the grid: its column, and its row with its part of the cell.
+    float2 at = (xy - origin) / cell;
+    float col = floor(at.x);
+    float row = floor(at.y);
+
+    // The column's drop: its speed (rows a second), its length (rows), its own offset, and how far it
+    // has fallen: one fall takes the rows of the screen, its length and a rest.
+    float speed = 4.0 + 10.0 * hash(col * 1.37 + 5.0);
+    float len = 6.0 + floor(10.0 * hash(col * 2.11 + 1.0));
+    float fall = max(grid.y, 1.0) + len + 6.0;
+    float offset = fall * hash(col * 4.7 + 9.0);
+    float fallen = time * speed + offset;
+    float head = mod(fallen, fall);
+    float turn = floor(fallen / fall);
+
+    // About two columns in three have a drop in each fall. Its head is the brightest cell, and the
+    // tail fades up behind it.
+    float shown = step(0.35, hash(col * 7.1 + turn * 3.9));
+    float behind = floor(head) - row;
+    float tail = step(0.0, behind) * step(behind, len) * pow(clamp(1.0 - behind / len, 0.0, 1.0), 1.5);
+
+    // Each cell of it is a mark, not a full rectangle.
+    float2 part = abs(fract(at) - 0.5);
+    float mark = (1.0 - smoothstep(0.24, 0.36, part.x)) * (1.0 - smoothstep(0.34, 0.46, part.y));
+    float amount = shown * tail * mark * mix(0.22, 0.40, dark);
+
+    // A ring grows from the last touch and fades within about a second.
+    float ring = abs(length(xy - touch) - touchAge * cell.y * 14.0);
+    float ripple = (1.0 - smoothstep(0.0, cell.y, ring)) * max(0.0, 1.0 - touchAge);
+    amount += ripple * mix(0.15, 0.30, dark);
+
+    // Not over text: a pixel that differs from the background is text or a line.
+    float text = clamp(length(here.rgb - float3(bg.rgb) * here.a) * 5.0, 0.0, 1.0);
+    amount = clamp(amount, 0.0, 1.0) * (1.0 - text);
+
+    float4 drop = float4(float3(accent.rgb) * amount, amount);
+    return half4(here * (1.0 - amount) + drop);
+}

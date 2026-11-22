@@ -92,9 +92,69 @@ class ScriptFolder(private val context: Context) {
         return all.size
     }
 
-    data class ImportResult(val created: Int, val updated: Int, val skipped: List<String>)
+    /** The user's own shaders, which this writes into `shaders/<name>.agsl` in the folder. Returns how many. */
+    fun exportShaders(): Int = exportShaders(folder())
 
-    /** Reads `*.lua` / `*.js` from the folder, creates or updates scripts, and applies the manifest. */
+    internal fun exportShaders(dir: DocumentFile): Int {
+        val mine = Shaders.userNames
+        mine.forEach { name ->
+            Shaders.source(context, name)?.let { exportShader(dir, name, it) }
+        }
+        return mine.size
+    }
+
+    /** Writes shader [name] with [code] into the folder's `shaders` folder. Returns its path there. */
+    fun exportShader(name: String, code: String): String = exportShader(folder(), name, code)
+
+    private fun exportShader(dir: DocumentFile, name: String, code: String): String {
+        val fileName = "$name.${ShaderCatalog.EXT}"
+        val sub = dir.findFile(Shaders.DIR) ?: dir.createDirectory(Shaders.DIR)
+        ?: throw IllegalStateException("can't create ${Shaders.DIR}")
+        val file = sub.findFile(fileName) ?: sub.createFile(MIME_TEXT, fileName)
+        ?: throw IllegalStateException("can't create $fileName")
+        context.contentResolver.openOutputStream(file.uri, "wt")!!
+            .use { it.write(code.toByteArray()) }
+        return "${Shaders.DIR}/$fileName"
+    }
+
+    /** Shader files read from the folder: the names kept, and those that were not (with why). */
+    data class ShaderImport(val names: List<String>, val skipped: List<String>)
+
+    /**
+     * Reads the `.agsl` files at the top of the folder and in its `shaders` folder, which become the
+     * user's own shaders ([Shaders.save]).
+     */
+    fun importShaders(): ShaderImport = importShaders(folder())
+
+    internal fun importShaders(dir: DocumentFile): ShaderImport {
+        val names = LinkedHashSet<String>()
+        val skipped = ArrayList<String>()
+        val places = listOfNotNull(dir, dir.findFile(Shaders.DIR)?.takeIf { it.isDirectory })
+        for (place in places) for (file in place.listFiles()) {
+            val fileName = file.name ?: continue
+            if (file.isDirectory || !fileName.endsWith(".${ShaderCatalog.EXT}", ignoreCase = true)) continue
+            val name = ShaderCatalog.nameOf(fileName)
+            if (name == null) {
+                skipped += fileName
+                continue
+            }
+            val code = readText(file.uri) ?: continue
+            runCatching { Shaders.save(context, name, code) }
+                .onSuccess { names += name }
+                .onFailure { skipped += "$fileName (${it.message})" }
+        }
+        return ShaderImport(names.toList(), skipped)
+    }
+
+    data class ImportResult(
+        val created: Int,
+        val updated: Int,
+        val skipped: List<String>,
+        /** The shaders that came along ([importShaders]). */
+        val shaders: List<String> = emptyList(),
+    )
+
+    /** Reads `*.lua` / `*.js` from the folder, creates or updates scripts, and applies the manifest. Shaders (`*.agsl`) come along. */
     fun import(): ImportResult = import(folder())
 
     internal fun import(dir: DocumentFile): ImportResult {
@@ -135,7 +195,8 @@ class ScriptFolder(private val context: Context) {
                 }
             }
         }
-        return ImportResult(created, updated, skipped)
+        val shaders = importShaders(dir)
+        return ImportResult(created, updated, skipped + shaders.skipped, shaders.names)
     }
 
     /** Manifest entries keyed by script name. */

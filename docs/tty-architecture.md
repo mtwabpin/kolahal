@@ -733,6 +733,37 @@ tty.screen({
 
 ## 7. Shaders (after TTY; API 33+)
 
+**As built (step 6, 22 November 2026).** Where it differs from what follows:
+
+- *Where it attaches*: two layers, not one — home's root (`TtyHome`) and the screen host's box
+  (`TtyScreenHost`) — since they are siblings in the pager page. Both get `rememberTtyShader`
+  (`ui/tty/TtyShader.kt`), so a screen shows it in either home style, as `tty.crt` does. Settings'
+  preview of home has none.
+- *Files*: `ShaderMeta` and the pure rules are in `script/` (`ShaderMeta`, `ShaderCatalog`,
+  `ShaderWatchdog`, `ShaderSafety`); the Android side is `script/Shaders.kt`. The user's files are in
+  `files/shaders/`, kept in step with the script folder by `script import` / `script export`, so a
+  shader is found by name without the folder. Bundled: `crt`, `bloom`, `rain` (no `scanlines`,
+  `aberration`; CRT has both).
+- *Commands*: `shader list | use <name> | on | off | check <name> | reload | copy <name> | remove
+  <name>`; `shader <name>` turns one on. `tty.shader` is a `Choice` whose list grows by the user's
+  files (`Choice.added`, as `theme.name`), so it completes. Config only (§0's decisions): there is no
+  Settings entry.
+- *Uniforms*: `content`, `resolution`, `cell`, `grid`, `origin`, `time`, `touch`, `touchAge`, `dark`
+  and the ten colors. Not built: `cells` (step 7), `scroll`, `param0..7` and `@param`, `@warp`,
+  `@bloom`. A `layout(color)` color must be four numbers, as Android requires.
+- *Watchdog*: the 90th percentile of the GPU time (`FrameMetrics.GPU_DURATION`; `TOTAL_DURATION`
+  where it isn't measured) over 60 frames against two frames of the display's refresh rate, after a
+  10-frame warm-up (the GPU compiles the program); three frames over 250 ms count as a stall. A
+  compile error is checked before the first frame, and one log line.
+- *Safe mode*: the mark is written before the shader is compiled, so a crash in the compiler counts;
+  cleared after 120 good frames, when the surface stops, or with the process's end for a reason that
+  isn't a crash or a hang (`ApplicationExitInfo`). There is no `tty.shader-tripped` key: what is
+  tripped is in the crash preferences, which stay on this phone.
+- *Off*: `shader off`, `config set tty.shader off`, two fingers held for a second (observed on the
+  layer itself). No app shortcut. The screen reader rule is as designed; with **Remove animations** a
+  moving shader stands still rather than going off.
+- `tty.crt on` keeps its drawn look on Android 13+; it doesn't select the shader.
+
 ### 7.1 Where the shader attaches
 
 On the single `graphicsLayer` that wraps `TtyHome` (header to key bar) and the screen host:
