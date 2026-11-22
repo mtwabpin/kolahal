@@ -170,6 +170,11 @@ class ScriptRepository private constructor(private val context: Context) {
             put("code", code)
             put("access", ScriptAccess.encode(access))
             put("changed_at", System.currentTimeMillis())
+            // You gave it a screen of its own: its timers go. (An update's go later, as you may undo it: [dropScreenTimers].)
+            if (byUser && ScriptMeta.isScreen(code)) {
+                put("interval_min", 0)
+                putNull("at_times")
+            }
             asks = newUses.toList() + newEvents + newInternet
         } ?: return
         // Code that no longer sets a status line leaves none behind on its card, in `status` or pinned.
@@ -294,7 +299,11 @@ class ScriptRepository private constructor(private val context: Context) {
         }
     }
 
-    fun setInterval(id: Long, minutes: Int) = update(id) { put("interval_min", minutes) }
+    /** Sets a script's timer. One with a screen of its own has none. */
+    fun setInterval(id: Long, minutes: Int) {
+        val every = if (minutes > 0 && isScreen(id)) 0 else minutes
+        update(id) { put("interval_min", every) }
+    }
 
     /**
      * Switches a script on or off. [grant] is the user's approval for what the script declares that
@@ -409,8 +418,12 @@ class ScriptRepository private constructor(private val context: Context) {
         if (wrote) version.incrementAndGet()
     }
 
-    fun setAtTimes(id: Long, times: List<String>) = update(id) {
-        if (times.isEmpty()) putNull("at_times") else put("at_times", times.joinToString(","))
+    /** Sets a script's daily times. One with a screen of its own has none. */
+    fun setAtTimes(id: Long, times: List<String>) {
+        val none = times.isEmpty() || isScreen(id)
+        update(id) {
+            if (none) putNull("at_times") else put("at_times", times.joinToString(","))
+        }
     }
 
     fun setNotify(id: Long, notify: Boolean) = update(id) { put("notify", if (notify) 1 else 0) }
@@ -584,7 +597,7 @@ class ScriptRepository private constructor(private val context: Context) {
     private fun Cursor.toScript(): Script? {
         val lang = ScriptLang.of(getString(getColumnIndexOrThrow("lang"))) ?: return null
         val lastRunIdx = getColumnIndexOrThrow("last_run")
-        return Script(
+        val script = Script(
             id = getLong(getColumnIndexOrThrow("id")),
             name = getString(getColumnIndexOrThrow("name")),
             lang = lang,
@@ -603,6 +616,31 @@ class ScriptRepository private constructor(private val context: Context) {
                 )
             },
         )
+        // A script with a screen of its own has no timers, whatever was stored before it had the screen.
+        val timed = script.intervalMin > 0 || script.atTimes.isNotEmpty()
+        return if (timed && ScriptMeta.isScreen(script.code)) script.copy(intervalMin = 0, atTimes = emptyList()) else script
+    }
+
+    /** Whether [id] is a script with a screen of its own, which has no timers ([ScriptMeta.isScreen]). */
+    private fun isScreen(id: Long) = byId(id)?.let { ScriptMeta.isScreen(it.code) } == true
+
+    /**
+     * Forgets the timers stored for scripts that have a screen of their own since. They count for
+     * nothing from the start ([toScript]); this is so that they don't come back later. Not done when
+     * the code changes, so that undoing an update brings the timer back with the code.
+     */
+    fun dropScreenTimers() {
+        val ids = ArrayList<Long>()
+        db.readableDatabase.rawQuery(
+            "SELECT id, code FROM scripts WHERE interval_min > 0 OR at_times IS NOT NULL",
+            null
+        ).use { c -> while (c.moveToNext()) if (ScriptMeta.isScreen(c.getString(1))) ids += c.getLong(0) }
+        ids.forEach { id ->
+            update(id) {
+                put("interval_min", 0)
+                putNull("at_times")
+            }
+        }
     }
 
     companion object : Singleton<ScriptRepository>(::ScriptRepository) {

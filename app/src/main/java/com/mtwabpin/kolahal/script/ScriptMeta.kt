@@ -40,6 +40,7 @@ object ScriptMeta {
         val author by lazy { author(code) }
         val version by lazy { version(code) }
         val isCommand by lazy { isCommand(code) }
+        val isScreen by lazy { isScreen(code) }
         val events by lazy { events(code) }
         val uses by lazy { uses(code) }
         val secrets by lazy { secrets(code) }
@@ -87,7 +88,7 @@ object ScriptMeta {
      * - `calendar`: calendar.events (the phone's calendar; Kolahal also needs Android's calendar permission)
      * - `feeds`: feeds.unread (the unread items of the feeds you follow)
      * - `usage`: usage.* (your screen time, data use and unused apps)
-     * - `screen`: tty.screen (a full-screen screen of its own over home)
+     * - `screen`: tty.screen (a full-screen screen of its own over home). It makes the script a command only ([isScreen])
      * The user allows each one ([ScriptAccess]).
      *
      * A new name here also needs:
@@ -127,7 +128,18 @@ object ScriptMeta {
     val EVENTS =
         listOf("unlock", "charger", "unplug", "wifi", "offline", "notification", "boot", "headset")
 
-    fun isCommand(code: String) = command.containsMatchIn(code)
+    /** Whether it runs by its name: it says `@command`, or it has a screen of its own ([isScreen]). */
+    fun isCommand(code: String) = command.containsMatchIn(code) || isScreen(code)
+
+    /**
+     * Whether it has a full-screen screen of its own: it says `@uses screen`. Such a script is a command
+     * and nothing else, as a screen that takes home unasked would be in the way. So its `@every`, `@at`,
+     * `@on` and `@widget` lines count for nothing: [every], [at], [events] and [widget] read none.
+     */
+    fun isScreen(code: String) = "screen" in uses(code)
+
+    /** Why a script with a screen of its own has no timer, event or widget, after its name. */
+    const val SCREEN_ONLY = "draws a full screen, so it runs only when you start it"
 
     /**
      * An `event` like the one that [name] brings (or that a daily [time] brings, `at`), with made-up
@@ -281,6 +293,7 @@ object ScriptMeta {
      *   So a wrong size does not hide the widget.
      */
     fun widget(code: String): Widget? {
+        if (isScreen(code)) return null
         val words =
             widgetLine.find(code)?.groupValues?.get(2)?.split(' ', '\t')?.filter { it.isNotBlank() }
                 ?: return null
@@ -296,12 +309,12 @@ object ScriptMeta {
 
     /** `@every 1h`: the interval it suggests, in minutes. Null if there is none (or it is `off`). */
     fun every(code: String): Int? =
-        value(code, "every")?.let { com.mtwabpin.kolahal.commands.CommandParsing.parseInterval(it) }
+        value(code, "every")?.takeUnless { isScreen(code) }?.let { com.mtwabpin.kolahal.commands.CommandParsing.parseInterval(it) }
             ?.takeIf { it > 0 }
 
     /** `@at 07:00, 18:30`: the daily times it suggests, as "HH:mm". */
     fun at(code: String): List<String> =
-        value(code, "at")?.split(',', ' ')?.filter { it.isNotBlank() }
+        value(code, "at")?.takeUnless { isScreen(code) }?.split(',', ' ')?.filter { it.isNotBlank() }
             ?.mapNotNull(ScriptScheduler::normalizeTime)
             ?.distinct()?.sorted().orEmpty()
 
@@ -309,8 +322,10 @@ object ScriptMeta {
      * A script's interval after its code changes from [old] to [new]. [current] is the interval now.
      * - A new or changed `@every` line sets the interval.
      * - A removed `@every` line undoes the interval it had set. A timer set in the sheet stays.
+     * - A script that now has a screen of its own has none ([isScreen]).
      */
     fun intervalAfter(old: String, new: String, current: Int): Int {
+        if (isScreen(new)) return 0
         val was = every(old)?.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN)
         val now = every(new)?.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN)
         return when {
@@ -323,6 +338,7 @@ object ScriptMeta {
 
     /** A script's daily times after its code changes from [old] to [new]. [current] is the value now. Same rule as [intervalAfter], for `@at` lines. */
     fun timesAfter(old: String, new: String, current: List<String>): List<String> {
+        if (isScreen(new)) return emptyList()
         val was = at(old)
         val now = at(new)
         return when {
@@ -375,6 +391,7 @@ object ScriptMeta {
 
     /** Known events from every `@on` line, in [EVENTS] order. Unknown names are ignored. */
     fun events(code: String): List<String> {
+        if (isScreen(code)) return emptyList()
         val named = words(code).toSet()
         return EVENTS.filter { it in named }
     }

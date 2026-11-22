@@ -760,10 +760,21 @@ class HostApi(
     internal val hasScreen: Boolean get() = screen != null
 
     /**
+     * How the run leaves its worker when its screen shows ([ScreenRuns]), or null for a run that stays
+     * where it is. A run in a worker that can't leave it ([screens] is false) opens no screen: Android
+     * stops a worker after about ten minutes.
+     */
+    internal var handover: ScreenHandover? = null
+
+    /** Whether a screen can open from where this run is. */
+    internal var screens = true
+
+    /**
      * `tty.screen(spec)`: the script opens a full-screen screen of its own over home. The engine passes
      * the fields of the spec ([ScreenSession.Spec.of]) but keeps the functions, and [runScreen] then
      * calls them.
-     * - It is for a run you started, as a screen that takes home unasked would be in the way.
+     * - It is for a run you started, as a screen that takes home unasked would be in the way. So not for
+     *   a timer, an event or a refresh, and not for a run another script started with launcher.run.
      * - A run opens one screen. It shows once the script's code has run to its end.
      */
     fun screenOpen(spec: Map<*, *>?) {
@@ -776,6 +787,8 @@ class HostApi(
             deny(ScreenSession.USES, "tty.screen: full screen is off for this script")
         }
         check(interactive) { "tty.screen only opens when you start the script, not on a timer or an event" }
+        check(!byScript) { "tty.screen only opens when you start the script, not when another script starts it" }
+        check(screens) { "tty.screen opens only in a script with `@uses screen`, or in typed code that says tty.screen" }
         check(screen == null) { "tty.screen: a run opens one screen" }
         screen = ScreenSession(
             scriptName,
@@ -783,6 +796,7 @@ class HostApi(
             screenHome ?: ScriptScreens.home(context),
             android.os.SystemClock::uptimeMillis,
             ::redact,
+            from = baseCtx[LogContext.FROM]?.toLongOrNull(),
         )
     }
 
@@ -797,10 +811,21 @@ class HostApi(
         val open = screen ?: return
         // Lines the code logged show before the screen does.
         flush()
-        when (open.run(script)) {
+        handover?.codeDone?.complete(Unit)
+        // A line a function logs is written as the function ends, not with the next lines: the screen may
+        // stay open for hours. A run logs at most 500 lines, so this is never many writes.
+        val prompt = object : ScreenSession.Script {
+            override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean =
+                try {
+                    script.call(callback, cols, rows, args, limitMs)
+                } finally {
+                    runLog.flushWaiting()
+                }
+
+            override fun waiting(ms: Long) = script.waiting(ms)
+        }
+        when (open.run(prompt) { handover?.shown?.complete(Unit) }) {
             ScreenSession.End.CLOSED -> Unit
-            ScreenSession.End.LONGEST ->
-                runLog.add(LogKind.INFO, "$scriptName: its screen closed after ${ScreenSession.LONGEST_MS / 60_000} minutes, the longest it may run", LogContext(baseCtx))
             ScreenSession.End.ABSENT ->
                 runLog.add(LogKind.INFO, "$scriptName: its screen didn't open, because home wasn't shown", LogContext(baseCtx))
         }

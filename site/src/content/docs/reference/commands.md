@@ -272,7 +272,8 @@ Android's accessibility settings, `matrix`, `pipes`, `sl` and `boot` show a sing
 Instant launch never opens them, and scripts can't run them. `clock`, `top` and `boot` open only
 through `screen`, so typing `clock` still opens your clock app.
 
-A script can draw a full-screen screen of its own with [`tty.screen`](/scripting/api/#ttyscreenspec).
+A script can draw a full-screen screen of its own with [`tty.screen`](/scripting/api/#ttyscreenspec). Such
+a script is a command: type its name.
 
 **Screensaver.** With `screen.saver` set to `matrix`, `clock` or `pipes`, that screen opens over
 home after `screen.saver-after` minutes (5 by default) without a touch, while the log page shows and

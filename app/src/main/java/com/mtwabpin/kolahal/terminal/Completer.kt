@@ -618,6 +618,8 @@ class Completer(private val context: Context, private val data: Data) {
                             "pin" -> pins(scriptList).pinnable
                             "unpin" -> pins(scriptList).pinned
                             in SCRIPT_NO_NAME -> emptyList()
+                            // A script with a screen of its own has no timers.
+                            "every", "at" -> scriptList.filterNot { ScriptMeta.parse(it.code).isScreen }.map { it.name }
                             else -> scriptList.map { it.name }
                         }
                         names.filter { it.starts(prefix) }.map {

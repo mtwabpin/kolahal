@@ -207,4 +207,155 @@ class ScriptScreenHomeTest {
         }
         throw AssertionError("the error was never said")
     }
+
+    /** The screens a script may not open: each run ends with a line that says why, and home shows none. */
+    private fun refuses(vm: TerminalViewModel, says: String, start: () -> Unit) {
+        val from = logs.maxId()
+        start()
+        val until = System.currentTimeMillis() + 30_000
+        while (logs.recent(200, afterId = from).none { says in it.text }) {
+            if (System.currentTimeMillis() > until) throw AssertionError(
+                "no line with “$says”: ${logs.recent(200, afterId = from).map { it.text }}"
+            )
+            Thread.sleep(100)
+        }
+        compose.waitForIdle()
+        assertTrue("a screen opened", vm.ttyScreen.value == null)
+    }
+
+    private val life = """
+        -- @uses screen
+        tty.screen{ title = "Test screen", start = function(g) end }
+    """.trimIndent()
+
+    /** What runs a script by itself runs none with a screen: an event, a timer's run, a late daily time. */
+    @Test
+    fun nothingByItselfOpensIt() {
+        val vm = show()
+        val s = script("auto", ScriptLang.LUA, life)
+        val why = "${s.name} ${com.mtwabpin.kolahal.script.ScriptMeta.SCREEN_ONLY}"
+        refuses(vm, why) { ScriptScheduler.runForEvent(app, s.id, mapOf("name" to "unlock")) }
+        refuses(vm, why) { ScriptScheduler.runForEvent(app, s.id, mapOf("name" to "boot")) }
+        refuses(vm, why) { ScriptScheduler.runScheduled(app, s, "07:00") }
+    }
+
+    /** A pinned line's and a widget's refresh aren't even queued for it. */
+    @Test
+    fun aRefreshRunsNothing() {
+        val s = script("fresh", ScriptLang.LUA, life)
+        ScriptScheduler.refreshPinned(app, s)
+        ScriptScheduler.refreshWidget(app, s)
+        val queued = androidx.work.WorkManager.getInstance(app)
+            .getWorkInfosForUniqueWork(ScriptScheduler.refreshQueue(s.id)).get()
+        assertTrue(queued.toString(), queued.isEmpty())
+    }
+
+    /** Another script sends its name, its run or the code itself: no screen. */
+    @Test
+    fun anotherScriptOpensNone() {
+        val vm = show()
+        val s = script("sent", ScriptLang.LUA, life)
+        refuses(vm, "not when another script starts it") { vm.runCommand(s.name, byScript = true) }
+        refuses(vm, "not when another script starts it") {
+            ScriptScheduler.sentByScript { ScriptScheduler.eval(app, ScriptLang.LUA, "tty.screen{ start = function(g) end }") }
+        }
+    }
+
+    /** Without its `@uses` line the call is an error that says what to add, as any other item's is. */
+    @Test
+    fun withoutItsLineItIsAnError() {
+        val vm = show()
+        val s = script("bare", ScriptLang.LUA, "tty.screen{ start = function(g) end }")
+        refuses(vm, "needs `@uses screen`") { ScriptScheduler.runNow(app, s) }
+    }
+
+    /** You may: by its name (it is a command without saying so), with a tap on a button, and with typed code. */
+    @Test
+    fun youMayOpenIt() {
+        val vm = show()
+        val s = script("yours", ScriptLang.LUA, life)
+        for (start in listOf<() -> Unit>(
+            { vm.runCommand(s.name) },
+            { ScriptScheduler.runNow(app, s, event = mapOf("name" to "action", "label" to "Play")) },
+            { ScriptScheduler.eval(app, ScriptLang.LUA, "tty.screen{ title = 'Test screen', start = function(g) end }") },
+        )) {
+            start()
+            compose.waitUntil(30_000) { vm.onScriptScreen() }
+            compose.waitUntil(10_000) {
+                compose.onAllNodes(hasContentDescription("Test screen")).fetchSemanticsNodes().isNotEmpty()
+            }
+            tapScreen()
+            compose.waitUntil(10_000) { vm.ttyScreen.value == null }
+            compose.waitForIdle()
+        }
+    }
+
+    /** A timer it had before counts for nothing, isn't set again, and is forgotten at the next sync. */
+    @Test
+    fun itsTimersAreGone() {
+        val s = script("timed", ScriptLang.LUA, "-- @uses clipboard\nlog('x')")
+        scripts.setInterval(s.id, 60)
+        scripts.setAtTimes(s.id, listOf("07:00"))
+        assertEquals(60, scripts.byId(s.id)!!.intervalMin)
+        // As an update brings it.
+        scripts.saveCode(s.id, life)
+        assertEquals(0, scripts.byId(s.id)!!.intervalMin)
+        assertEquals(emptyList<String>(), scripts.byId(s.id)!!.atTimes)
+        // Undone, the timer is back with the code.
+        scripts.saveCode(s.id, s.code)
+        assertEquals(60, scripts.byId(s.id)!!.intervalMin)
+        // Synced meanwhile (at Kolahal's next start), it isn't.
+        scripts.saveCode(s.id, life)
+        scripts.dropScreenTimers()
+        scripts.saveCode(s.id, s.code)
+        assertEquals(0, scripts.byId(s.id)!!.intervalMin)
+        assertEquals(emptyList<String>(), scripts.byId(s.id)!!.atTimes)
+        // And none can be set while it has the screen.
+        scripts.saveCode(s.id, life)
+        scripts.setInterval(s.id, 60)
+        scripts.setAtTimes(s.id, listOf("08:00"))
+        scripts.saveCode(s.id, s.code)
+        assertEquals(0, scripts.byId(s.id)!!.intervalMin)
+        assertEquals(emptyList<String>(), scripts.byId(s.id)!!.atTimes)
+    }
+
+    /** Its worker is done while the screen is open: the screen no longer needs it. */
+    @Test
+    fun theWorkerIsDoneWhileTheScreenIsOpen() {
+        val vm = show()
+        val s = script("long", ScriptLang.LUA, life)
+        open(vm, s)
+        val work = androidx.work.WorkManager.getInstance(app)
+        fun running() = work.getWorkInfosByTag(com.mtwabpin.kolahal.script.ScriptWorker::class.java.name).get()
+            .count { it.state == androidx.work.WorkInfo.State.RUNNING }
+        compose.waitUntil(20_000) { running() == 0 }
+        Thread.sleep(2_000)
+        assertTrue("the screen closed with its worker", vm.onScriptScreen())
+        tapScreen()
+        compose.waitUntil(10_000) { vm.ttyScreen.value == null }
+        compose.waitForIdle()
+        // Its run ended as any run does: its result is kept.
+        val until = System.currentTimeMillis() + 20_000
+        while (scripts.byId(s.id)!!.lastStatus?.startsWith("ok") != true && System.currentTimeMillis() < until) Thread.sleep(100)
+        assertTrue("${scripts.byId(s.id)!!.lastStatus}", scripts.byId(s.id)!!.lastStatus.orEmpty().startsWith("ok"))
+    }
+
+    /** If the script process is stopped, the screen closes with a line that says so. */
+    @Test
+    fun aStoppedProcessIsSaid() {
+        val vm = show()
+        val s = script("killed", ScriptLang.LUA, life)
+        open(vm, s)
+        compose.waitForIdle()
+        val manager = app.getSystemService(android.app.ActivityManager::class.java)
+        val process = manager.runningAppProcesses.first { it.processName.endsWith(":script") }
+        android.os.Process.killProcess(process.pid)
+        compose.waitUntil(20_000) { vm.ttyScreen.value == null }
+        val says = "${s.name}: its screen closed, because the script process stopped"
+        val until = System.currentTimeMillis() + 10_000
+        while (logs.recent(200, afterId = logLines.start).none { it.text == says }) {
+            if (System.currentTimeMillis() > until) throw AssertionError("the line was never logged")
+            Thread.sleep(100)
+        }
+    }
 }

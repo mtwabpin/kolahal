@@ -145,6 +145,9 @@ object ScriptScheduler {
 
     /** Syncs every script again. One bad script can't stop the rest, and its failure is logged once a day ([com.mtwabpin.kolahal.data.Quietly]). */
     fun syncAll(context: Context) {
+        com.mtwabpin.kolahal.data.Quietly.run(context, "Removing timers of scripts with a screen") {
+            ScriptRepository.get(context).dropScreenTimers()
+        }
         Stores.DAILY_SCHEDULE.open(context)
             .edit { putLong(KEY_SYNCED_AT, System.currentTimeMillis()) }
         val wm = WorkManager.getInstance(context)
@@ -307,6 +310,8 @@ object ScriptScheduler {
      * Call it off the main thread: it waits for WorkManager to read the queue.
      */
     private fun refresh(context: Context, script: Script, kind: String, again: Boolean = false) {
+        // A script with a screen of its own runs only when you start it.
+        if (ScriptMeta.isScreen(script.code)) return
         val wm = WorkManager.getInstance(context)
         val queue = refreshQueue(script.id)
         val request = OneTimeWorkRequestBuilder<ScriptWorker>()

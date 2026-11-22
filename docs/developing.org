@@ -81,6 +81,9 @@ TextEditorActivity (a task per file, in Recents) ── TextEditorViewModel ─�
   the script's functions, each with its own second. Home binds =ScriptScreenService= and plays the
   drawing it gets (=ScreenFrame=) on its grid (=FramePlayer=, through =ScriptScreen=), and sends ticks,
   keys and taps. It sends the next tick only after the last one's frame, so it never waits for a script.
+  The run leaves its worker when home shows the screen (=ScreenRuns=), as Android stops a worker after about
+  ten minutes; home's binding then keeps the process. A script with =@uses screen= is a command only
+  (=ScriptMeta.isScreen=).
 - Access :: =ScriptAccess= decides what a run may use: each =@uses= item only once the user allows
   it; the internet and pinning at the top only if the code mentions them (=ScriptMeta.usesInternet=,
   =setsStatus=; pinning stays off until the user pins it), and code from outside that starts using the internet starts with it off.

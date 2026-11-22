@@ -116,6 +116,11 @@ internal class RunLog(
     /** Writes buffered lines, and the changes to lines already written. The worker calls this when the run ends (success or failure). */
     fun flush() = synchronized(pending) { flushLocked() }
 
+    /** [flush], when something waits to be written. Without anything it costs nothing. */
+    fun flushWaiting() = synchronized(pending) {
+        if (pending.isNotEmpty() || changes.isNotEmpty()) flushLocked()
+    }
+
     private fun flushLocked() {
         // Null when the lines aren't written yet (a pipe's capture): those lines can't be changed later.
         val ids = write(pending.toList())

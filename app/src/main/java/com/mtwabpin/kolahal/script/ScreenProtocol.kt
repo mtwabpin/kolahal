@@ -46,6 +46,7 @@ internal object ScreenProtocol {
     private const val FPS = "fps"
     private const val KEYS = "keys"
     private const val TAPS = "taps"
+    private const val FROM = "from"
 
     /** A script opened a screen. Sent within the app only. */
     const val ACTION_OPEN = "com.mtwabpin.kolahal.OPEN_SCREEN"
@@ -58,6 +59,8 @@ internal object ScreenProtocol {
         val fps: Int,
         val keys: Boolean,
         val taps: Boolean,
+        /** The typed line that started the run, when one did. */
+        val from: Long?,
     )
 
     /** Asks home to show [session]. */
@@ -70,6 +73,7 @@ internal object ScreenProtocol {
                 .putExtra(FPS, session.spec.fps)
                 .putExtra(KEYS, session.spec.keys)
                 .putExtra(TAPS, session.spec.taps)
+                .putExtra(FROM, session.from ?: -1L)
         )
     }
 
@@ -84,6 +88,7 @@ internal object ScreenProtocol {
             fps = intent.getIntExtra(FPS, ScreenSession.DEFAULT_FPS),
             keys = intent.getBooleanExtra(KEYS, false),
             taps = intent.getBooleanExtra(TAPS, false),
+            from = intent.getLongExtra(FROM, -1L).takeIf { it >= 0 },
         )
     }
 

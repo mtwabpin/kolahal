@@ -16,6 +16,10 @@ import android.os.Message
 import android.os.Messenger
 import android.os.RemoteException
 import androidx.core.content.ContextCompat
+import com.mtwabpin.kolahal.data.LogContext
+import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScreenProtocol
 import com.mtwabpin.kolahal.script.ScriptScreenService
 import com.mtwabpin.kolahal.terminal.tty.screens.ScriptScreen
@@ -58,7 +62,7 @@ internal class ScriptScreenRequests(private val context: Context, private val sh
         fun screen(context: Context, name: String): TtyScreen? {
             if (!name.startsWith(PREFIX)) return null
             val request = latest?.takeIf { name == PREFIX + it.token } ?: return null
-            val link = MessengerLink(context.applicationContext, request.token)
+            val link = MessengerLink(context.applicationContext, request)
             return ScriptScreen(name, request.title, request.fps, request.keys, request.taps, link)
                 .also { link.screen = it }
         }
@@ -66,11 +70,21 @@ internal class ScriptScreenRequests(private val context: Context, private val sh
 }
 
 /**
- * A script's screen in the `:script` process, reached through [ScriptScreenService] with the [token]
+ * A script's screen in the `:script` process, reached through [ScriptScreenService] with the token
  * the script's run gave. The service is bound once the screen starts, and the messages wait until it
- * answers. What comes back is handled on the main thread. If the process goes away, the screen ends.
+ * answers. What comes back is handled on the main thread.
+ *
+ * - The binding is what keeps the process while the screen shows: the run has left its worker by then
+ *   ([com.mtwabpin.kolahal.script.ScreenRuns]). It is an important one, so the process counts as in
+ *   front while home is. No notification and no wake lock.
+ * - It stays [LINGER_MS] after the screen closed, so that the run can end: its last call, its lines, its
+ *   result.
+ * - If the process goes away while the screen shows, the screen ends, and a line says so.
  */
-private class MessengerLink(private val context: Context, private val token: String) : ScriptScreen.Link {
+private class MessengerLink(private val context: Context, private val request: ScreenProtocol.Request) : ScriptScreen.Link {
+    private val token = request.token
+    private val main = Handler(Looper.getMainLooper())
+
     /** The screen of this link. Set right after it is made. */
     lateinit var screen: ScriptScreen
 
@@ -79,6 +93,9 @@ private class MessengerLink(private val context: Context, private val token: Str
     private val waiting = ArrayList<Message>()
     private var bound = false
     private var closed = false
+
+    /** The screen ended or closed as it should. What happens to the process after that is no news. */
+    private var over = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
@@ -89,19 +106,46 @@ private class MessengerLink(private val context: Context, private val token: Str
         }
 
         /** The `:script` process was stopped, or crashed. */
-        override fun onServiceDisconnected(name: ComponentName) {
-            service = null
-            screen.ended()
-        }
-
-        override fun onBindingDied(name: ComponentName) = screen.ended()
+        override fun onServiceDisconnected(name: ComponentName) = lost()
+        override fun onBindingDied(name: ComponentName) = lost()
         override fun onNullBinding(name: ComponentName) = screen.ended()
+    }
+
+    /** The process is gone, with the run: the screen ends, and the run's line and result say why. */
+    private fun lost() {
+        service = null
+        // Or Android would start the process again for this binding, with no run in it.
+        unbind()
+        if (!over) {
+            over = true
+            val script = request.script
+            // Off the main thread: it writes to the database.
+            Thread {
+                runCatching {
+                    val ctx = LogContext.of(LogContext.SCRIPT to script) +
+                            request.from?.let { mapOf(LogContext.FROM to it.toString()) }.orEmpty()
+                    LogRepository.get(context).add(LogKind.ERROR, "$script: $LOST", script, ctx)
+                    val scripts = ScriptRepository.get(context)
+                    scripts.byName(script)?.let { scripts.recordRun(it.id, "stopped: $LOST") }
+                }
+            }.start()
+        }
+        screen.ended()
+    }
+
+    private fun unbind() {
+        if (!bound) return
+        bound = false
+        runCatching { context.unbindService(connection) }
     }
 
     private fun receive(msg: Message) {
         when (msg.what) {
             ScreenProtocol.DRAW -> ScreenProtocol.frame(msg)?.let(screen::received)
-            ScreenProtocol.END -> screen.ended()
+            ScreenProtocol.END -> {
+                over = true
+                screen.ended()
+            }
         }
     }
 
@@ -121,7 +165,8 @@ private class MessengerLink(private val context: Context, private val token: Str
 
     override fun attach(cols: Int, rows: Int) {
         bound = context.bindService(
-            Intent(context, ScriptScreenService::class.java), connection, Context.BIND_AUTO_CREATE
+            Intent(context, ScriptScreenService::class.java), connection,
+            Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT
         )
         if (!bound) return screen.ended()
         send(ScreenProtocol.attach(token, cols, rows, inbox))
@@ -137,7 +182,14 @@ private class MessengerLink(private val context: Context, private val token: Str
         if (closed) return
         send(ScreenProtocol.close(token))
         closed = true
+        over = true
         waiting.clear()
-        if (bound) runCatching { context.unbindService(connection) }
+        if (service == null) unbind() else main.postDelayed(::unbind, LINGER_MS)
+    }
+
+    private companion object {
+        /** How long the process is kept for the run's end. */
+        const val LINGER_MS = 5_000L
+        const val LOST = "its screen closed, because the script process stopped"
     }
 }

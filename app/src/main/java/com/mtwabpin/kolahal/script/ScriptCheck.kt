@@ -66,6 +66,9 @@ object ScriptCheck {
         "screen" to Regex("""(?<![.\w])tty\s*\.\s*screen\b"""),
     )
 
+    /** The `@` lines a script with a screen of its own can't have ([ScriptMeta.isScreen]). */
+    internal val SCREEN_REFUSES = setOf("every", "at", "on", "widget")
+
     private val directive = Regex("""^\s*(--|//)\s*@(\w+)\b[ \t]*(.*)$""")
 
     fun check(code: String, lang: ScriptLang): List<Issue> {
@@ -114,6 +117,17 @@ object ScriptCheck {
 
                 "widget" -> widgetIssue(rest)?.let { out += Issue(i + 1, it) }
             }
+        }
+
+        // A script with a screen of its own is a command only: these lines count for nothing in it.
+        if (ScriptMeta.isScreen(code)) lines.forEachIndexed { i, line ->
+            val m = directive.find(line) ?: return@forEachIndexed
+            val (_, name, rest) = m.destructured
+            val off = name == "every" && CommandParsing.parseInterval(rest.trim()) == 0
+            if (name in SCREEN_REFUSES && !off) out += Issue(
+                i + 1,
+                "@$name doesn't work with @uses screen: a script that draws a full screen runs only when you start it"
+            )
         }
 
         // The code with its comment lines emptied, because a note about `http.get` is not a call.

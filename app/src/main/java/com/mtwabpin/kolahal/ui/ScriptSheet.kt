@@ -192,7 +192,11 @@ internal fun ScriptSheet(
         Spacer(Modifier.height(8.dp))
         SwitchRow(
             "Enabled",
-            if (isCommand) "Runs on its timers and events, and from the prompt" else "Runs on its timers and events",
+            when {
+                info.isScreen -> "Runs from the prompt, when you type its name"
+                isCommand -> "Runs on its timers and events, and from the prompt"
+                else -> "Runs on its timers and events"
+            },
             s.enabled,
         ) { onEnabled(it) }
 
@@ -277,82 +281,85 @@ internal fun ScriptSheet(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-        IntervalSelector(
-            "Runs every",
-            s.intervalMin,
-            { vm.scriptActions.setScriptInterval(s, it) },
-            INTERVALS
-        )
-
-        Spacer(Modifier.height(12.dp))
-        TextField(
-            shape = TextFieldDefaults.roundedShape,
-            colors = fieldColors(),
-            value = times,
-            onValueChange = { times = it; timesError = false },
-            label = { Text("Daily at") },
-            placeholder = { Text("08:00, 18:30") },
-            // Or pick a time on a clock. It is added to the times and saved at once.
-            leadingIcon = {
-                LabeledIconButton(
-                    R.drawable.ic_alarm,
-                    "Add a time",
-                    onClick = { pickingTime = true })
-            },
-            singleLine = true,
-            isError = timesError,
-            supportingText = if (timesError) {
-                { Text("Use HH:mm, separated by commas") }
-            } else null,
-            keyboardOptions = KeyboardOptions(
-                autoCorrectEnabled = false,
-                capitalization = KeyboardCapitalization.None,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(onDone = {
-                timesError = !vm.scriptActions.setScriptTimes(s, times)
-            }),
-            trailingIcon = if (times != s.atTimes.joinToString(", ")) {
-                {
-                    LabeledIconButton(
-                        R.drawable.ic_check,
-                        "Set times",
-                        onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) })
-                }
-            } else null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { if (!it.isFocused) applyTimes.value() }
-                .testTag("daily-at"),
-        )
-
-        if (pickingTime) {
-            val clock = rememberTimePickerState(
-                initialHour = 8,
-                initialMinute = 0,
-                is24Hour = vm.config[Keys.CLOCK_24H]
+        // A script with a screen of its own runs only when you start it, so it is offered no timer.
+        if (!info.isScreen) {
+            Spacer(Modifier.height(16.dp))
+            IntervalSelector(
+                "Runs every",
+                s.intervalMin,
+                { vm.scriptActions.setScriptInterval(s, it) },
+                INTERVALS
             )
-            TimePickerDialog(
-                onDismissRequest = { pickingTime = false },
-                title = { Text("Daily at") },
-                confirmButton = {
-                    TextButton(shapes = ButtonDefaults.shapes(), onClick = {
-                        val picked = "%02d:%02d".format(clock.hour, clock.minute)
-                        // Add it to the current text in the box, saved or not.
-                        times =
-                            (times.split(',', ' ').filter { it.isNotBlank() } + picked).distinct()
-                                .sorted().joinToString(", ")
-                        timesError = !vm.scriptActions.setScriptTimes(s, times)
-                        pickingTime = false
-                    }) { Text("Add") }
+
+            Spacer(Modifier.height(12.dp))
+            TextField(
+                shape = TextFieldDefaults.roundedShape,
+                colors = fieldColors(),
+                value = times,
+                onValueChange = { times = it; timesError = false },
+                label = { Text("Daily at") },
+                placeholder = { Text("08:00, 18:30") },
+                // Or pick a time on a clock. It is added to the times and saved at once.
+                leadingIcon = {
+                    LabeledIconButton(
+                        R.drawable.ic_alarm,
+                        "Add a time",
+                        onClick = { pickingTime = true })
                 },
-                dismissButton = {
-                    TextButton(
-                        shapes = ButtonDefaults.shapes(),
-                        onClick = { pickingTime = false }) { Text("Cancel") }
-                },
-            ) { TimePicker(clock) }
+                singleLine = true,
+                isError = timesError,
+                supportingText = if (timesError) {
+                    { Text("Use HH:mm, separated by commas") }
+                } else null,
+                keyboardOptions = KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    capitalization = KeyboardCapitalization.None,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = {
+                    timesError = !vm.scriptActions.setScriptTimes(s, times)
+                }),
+                trailingIcon = if (times != s.atTimes.joinToString(", ")) {
+                    {
+                        LabeledIconButton(
+                            R.drawable.ic_check,
+                            "Set times",
+                            onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) })
+                    }
+                } else null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { if (!it.isFocused) applyTimes.value() }
+                    .testTag("daily-at"),
+            )
+
+            if (pickingTime) {
+                val clock = rememberTimePickerState(
+                    initialHour = 8,
+                    initialMinute = 0,
+                    is24Hour = vm.config[Keys.CLOCK_24H]
+                )
+                TimePickerDialog(
+                    onDismissRequest = { pickingTime = false },
+                    title = { Text("Daily at") },
+                    confirmButton = {
+                        TextButton(shapes = ButtonDefaults.shapes(), onClick = {
+                            val picked = "%02d:%02d".format(clock.hour, clock.minute)
+                            // Add it to the current text in the box, saved or not.
+                            times =
+                                (times.split(',', ' ').filter { it.isNotBlank() } + picked).distinct()
+                                    .sorted().joinToString(", ")
+                            timesError = !vm.scriptActions.setScriptTimes(s, times)
+                            pickingTime = false
+                        }) { Text("Add") }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            shapes = ButtonDefaults.shapes(),
+                            onClick = { pickingTime = false }) { Text("Cancel") }
+                    },
+                ) { TimePicker(clock) }
+            }
         }
 
         Spacer(Modifier.height(8.dp))

@@ -24,17 +24,26 @@ import kotlin.concurrent.thread
  * Other runs in the process die with it. Each logs a line saying so first, with what it had waiting
  * ([stopOthers]); before, they vanished mid-run without a word.
  */
-internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLimitMb: Long?) :
-    AutoCloseable {
+internal class RunWatchdog(
+    private val host: HostApi,
+    timeoutMs: Long,
+    private val nativeLimitMb: Long?
+) : AutoCloseable {
     init {
         running += host
     }
 
-    private val baseline = Debug.getNativeHeapAllocatedSize()
+    /** The native memory the run started from; for a screen's call, what that call started from ([call]). */
+    @Volatile
+    private var baseline = Debug.getNativeHeapAllocatedSize()
 
-    /** When the run is past its time, for the thread below. [extend] moves it. */
+    /** When the run is past its time, for the thread below. [call] and [rest] move it. */
     @Volatile
     private var killAt = System.currentTimeMillis() + timeoutMs + GRACE_MS
+
+    /** A screen waits for home: nothing of the script runs, so nothing is watched but the clock ([rest]). */
+    @Volatile
+    private var resting = false
 
     @Volatile
     private var closed = false
@@ -45,9 +54,12 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
         var every = WATCH_EVERY_MS
         var last = baseline
         while (!closed) {
-            // With no memory to watch (JavaScript has its own limit), only the clock matters. Its end time
-            // is known, so one sleep is enough instead of a hundred wake-ups a second.
-            val wait = if (nativeLimitMb == null) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else every
+            // With no memory to watch (JavaScript has its own limit, and a screen between its calls runs
+            // nothing), only the clock matters. Its end time is known, so one sleep is enough instead of a
+            // hundred wake-ups a second. A call of a screen's ends that sleep.
+            val idle = nativeLimitMb == null || resting
+            if (idle) every = WATCH_EVERY_MS
+            val wait = if (idle) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else every
             LockSupport.parkNanos(wait * 1_000_000L)
             if (closed) return@thread
             val heap = Debug.getNativeHeapAllocatedSize()
@@ -57,7 +69,7 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
             )
             last = heap
             val reason = when {
-                nativeLimitMb != null && heap - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
+                nativeLimitMb != null && !resting && heap - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
                 System.currentTimeMillis() > killAt -> "still running after timeout"
                 else -> null
             } ?: continue
@@ -71,12 +83,21 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
     }
 
     /**
-     * The run has [ms] more from now. The calls of a script's screen (`tty.screen`) get it one by one:
-     * such a run goes on as long as its screen is open.
+     * A call of a script's screen (`tty.screen`) starts, and has [ms]: a run with a screen goes on for as
+     * long as its screen is open, so its time and its memory are watched call by call. Over hours, the
+     * process's memory may grow with other runs, which is none of this one's.
      */
-    fun extend(ms: Long) {
+    fun call(ms: Long) {
+        if (nativeLimitMb != null) baseline = Debug.getNativeHeapAllocatedSize()
         killAt = System.currentTimeMillis() + ms + GRACE_MS
+        resting = false
         LockSupport.unpark(thread)
+    }
+
+    /** The screen waits for home now, up to [ms]. The thread sleeps until then, or until the next [call]. */
+    fun rest(ms: Long) {
+        killAt = System.currentTimeMillis() + ms + GRACE_MS
+        resting = true
     }
 
     override fun close() {

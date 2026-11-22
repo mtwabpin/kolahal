@@ -267,8 +267,9 @@ class ScriptCatalog(private val context: Context) {
                     tags = m.list("tags"),
                     uses = ScriptMeta.USES.filter { it in m.list("uses") },
                     on = ScriptMeta.EVENTS.filter { it in m.list("on") },
-                    command = m["command"] == true,
-                    every = (m["every"] as? Number)?.toInt()?.takeIf { it > 0 },
+                    // One with a screen of its own is a command only, whatever the list says ([ScriptMeta.isScreen]).
+                    command = m["command"] == true || "screen" in m.list("uses"),
+                    every = (m["every"] as? Number)?.toInt()?.takeIf { it > 0 && "screen" !in m.list("uses") },
                     at = m.list("at"),
                     requires = m.str("requires"),
                     sha256 = sha,

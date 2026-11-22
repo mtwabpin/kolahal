@@ -14,7 +14,7 @@ import java.util.BitSet
  * - a positive code point;
  * - [WIDE_TAIL]: the right half of a 2-cell cluster that starts in the cell to its left;
  * - a negative id of a cluster of several code points (an emoji with its skin tone, a letter with
- *   its accent). [clusterOf] gives its text. Ids are kept for the buffer's life.
+ *   its accent). [clusterOf] gives its text. An id is good until the next write to the buffer.
  *
  * Writes outside the grid are ignored, so a screen can draw something that is partly off the edge.
  * [dirty] has a bit for each row changed since the painter last cleared it.
@@ -201,15 +201,42 @@ class CellBuffer(cols: Int, rows: Int) {
     private fun idOf(text: CharSequence, start: Int, end: Int): Int {
         val cluster = text.subSequence(start, end).toString()
         clusterIds[cluster]?.let { return it }
+        if (clusters.size >= maxOf(MAX_CLUSTERS, 2 * glyphs.size)) keepUsedClusters()
         clusters += cluster
         val id = -(clusters.size - 1) - 2
         clusterIds[cluster] = id
         return id
     }
 
+    /**
+     * Forgets the clusters no cell shows any more, and numbers the others again. A screen that runs for
+     * hours and draws ever other clusters would otherwise keep them all.
+     */
+    private fun keepUsedClusters() {
+        val kept = ArrayList<String>()
+        val ids = HashMap<String, Int>()
+        for (i in glyphs.indices) {
+            if (glyphs[i] >= WIDE_TAIL) continue
+            glyphs[i] = ids.getOrPut(clusterOf(glyphs[i])) {
+                kept += clusterOf(glyphs[i])
+                -(kept.size - 1) - 2
+            }
+        }
+        clusters.clear()
+        clusters += kept
+        clusterIds.clear()
+        clusterIds += ids
+    }
+
+    /** How many clusters it keeps the text of, for tests. */
+    internal val clustersKept: Int get() = clusters.size
+
     companion object {
         const val EMPTY = 0
         const val WIDE_TAIL = -1
+
+        /** With this many clusters known, the ones no cell shows are forgotten. */
+        private const val MAX_CLUSTERS = 4_096
     }
 }
 

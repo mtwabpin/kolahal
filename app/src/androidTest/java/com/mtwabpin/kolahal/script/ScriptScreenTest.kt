@@ -34,11 +34,18 @@ class ScriptScreenTest {
     private val ended = AtomicInteger()
 
     /** The newest line before the run: the lines after it are the run's. */
+    @Volatile
     private var before = 0L
+
+    /** The run's lines in the log when its last tick was answered: while its screen was open. */
+    @Volatile
+    private var linesAtTick = emptyList<String>()
+    private var readsLines = false
 
     private val out = object : ScreenSession.Out {
         override fun draw(frame: ScreenFrame): Boolean {
             frames.add(frame)
+            if (frame.tick && readsLines) linesAtTick = lines()
             return true
         }
 
@@ -60,11 +67,12 @@ class ScriptScreenTest {
 
     private fun host(
         interactive: Boolean = true,
+        byScript: Boolean = false,
         grants: ScriptAccess.Grants? = null,
         events: List<ScreenSession.Event> = emptyList(),
     ): HostApi = HostApi(
         context, "screentest", scriptId = null, notifyEnabled = false,
-        interactive = interactive, grants = grants,
+        interactive = interactive, byScript = byScript, grants = grants,
     ).apply { screenHome = Home(events) }
 
     private fun run(lang: ScriptLang, code: String, host: HostApi): String? {
@@ -376,6 +384,51 @@ class ScriptScreenTest {
             assertEquals("$lang", "42", run(lang, "return 42", host))
             assertFalse("$lang", host.hasScreen)
             assertTrue("$lang", frames.isEmpty())
+        }
+    }
+
+    /** A run another script started (launcher.run) opens none either, whoever started that script. */
+    @Test
+    fun anotherScriptOpensNoScreen() {
+        for ((lang, code) in opens) {
+            val host = host(byScript = true, grants = ScriptAccess.Grants(setOf("screen"), mapOf("screen" to true)))
+            val error = runCatching { run(lang, code, host) }.exceptionOrNull()
+            assertTrue("$lang: $error", error != null && "not when another script starts it" in error.toString())
+            assertFalse("$lang", host.hasScreen)
+        }
+    }
+
+    /** A line a function logs is in the log while the screen is open, not when it closes. */
+    @Test
+    fun linesShowWhileTheScreenIsOpen() {
+        readsLines = true
+        inBoth(
+            lua = """
+                tty.screen{
+                  key = function(k) log("key " .. k) end,
+                  frame = function(g) return true end,
+                }
+            """.trimIndent(),
+            js = """
+                tty.screen({
+                  key(k) { log("key " + k); },
+                  frame(g) { return true; },
+                });
+            """.trimIndent(),
+            events = listOf(ScreenSession.Event.Key("a"), ScreenSession.Event.Key("b"), tick(1), close),
+        ) { lang, error ->
+            assertNull("$lang: $error", error)
+            assertEquals("$lang", listOf("key a", "key b"), linesAtTick)
+        }
+    }
+
+    /** The watchdog's thread goes with its run, and a long screen starts no more of them. */
+    @Test
+    fun theWatchdogIsGoneAfterTheRun() {
+        fun watchdogs() = Thread.getAllStackTraces().keys.count { it.name == "script-watchdog" && it.isAlive }
+        for ((lang, code) in opens) {
+            run(lang, code, host(events = List(500) { tick(it.toLong()) } + close))
+            com.mtwabpin.kolahal.waitUntil("$lang: a watchdog is still there") { watchdogs() == 0 }
         }
     }
 }

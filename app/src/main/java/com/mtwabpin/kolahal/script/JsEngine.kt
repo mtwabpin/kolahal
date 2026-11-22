@@ -99,7 +99,7 @@ class JsEngine : ScriptEngine {
         if (!host.hasScreen) return
         host.runScreen(object : ScreenSession.Script {
             override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean {
-                watchdog.extend(limitMs)
+                watchdog.call(limitMs)
                 host.startClock(limitMs)
                 js.evaluationTimeoutMillis = limitMs
                 screenResult = null
@@ -112,7 +112,7 @@ class JsEngine : ScriptEngine {
                 return screenResult != false
             }
 
-            override fun waiting(ms: Long) = watchdog.extend(ms)
+            override fun waiting(ms: Long) = watchdog.rest(ms)
         })
     }
 

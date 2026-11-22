@@ -80,8 +80,8 @@ object ApiDocs {
                 "A function that returns false closes the screen; without key a key closes it, without tap a tap does, and Back always does. " +
                 "g.cols and g.rows are the size in cells, counted from 0. Draw with g.put(col, row, text, style?), g.fill(col, row, width, height, char?, style?), " +
                 "g.clear(style?), g.box(col, row, width, height, style?) and g.bar(col, row, width, value, style?); style is a color role or " +
-                "{ color, bg, bold, faint, italic, underline, strike, inverse }. Each call has ${ScreenSession.CALL_MS / 1000} s, and " +
-                "the screen closes after ${ScreenSession.LONGEST_MS / 60_000} minutes (needs @uses screen)"
+                "{ color, bg, bold, faint, italic, underline, strike, inverse }. Each call has ${ScreenSession.CALL_MS / 1000} s; " +
+                "the screen stays for as long as you leave it open. A script with @uses screen is a command, with no timer, event or widget (needs @uses screen)"
 
     val all: List<ApiDoc> = listOf(
         ApiDoc(

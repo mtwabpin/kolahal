@@ -136,4 +136,19 @@ class CellBufferTest {
         assertEquals("      \n      ", b.dump())
         assertEquals(2, b.dirty.cardinality())
     }
+
+    /** A screen that draws ever other clusters for hours keeps only those it shows. */
+    @Test
+    fun clustersNoCellShowsAreForgotten() {
+        val b = CellBuffer(4, 2)
+        // A letter with two of 100 accents: ten thousand clusters, each in one cell.
+        for (i in 0 until 10_000) {
+            val text = "e" + (0x300 + i / 100).toChar() + (0x300 + i % 100).toChar()
+            b.put(i % 4, i / 4 % 2, text, CellStyle.PLAIN)
+            assertEquals(text, b.clusterOf(b.glyphAt(i % 4, i / 4 % 2)))
+        }
+        assertTrue("${b.clustersKept} kept", b.clustersKept <= 4_200)
+        // The others on the grid are still what they were.
+        assertEquals("e" + (0x300 + 99).toChar() + (0x300 + 98).toChar(), b.clusterOf(b.glyphAt(2, 1)))
+    }
 }

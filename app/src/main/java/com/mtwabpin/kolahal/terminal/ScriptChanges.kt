@@ -10,6 +10,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
+import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptTemplates
@@ -28,10 +29,11 @@ internal class ScriptChanges(private val context: Context) {
     /**
      * Sets the script's timer to [minutes], or turns it off with 0. Android's minimum is 15 minutes.
      * A timer switches the script on, but it does not grant any access the script asks for.
-     * The user grants that with a tap. Returns the interval in minutes.
+     * The user grants that with a tap. Returns the interval in minutes. A script with a screen of its own
+     * has no timer ([ScriptMeta.isScreen]): 0.
      */
     fun interval(s: Script, minutes: Int): Int {
-        val every = if (minutes > 0) minutes.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) else 0
+        val every = if (minutes > 0 && !ScriptMeta.isScreen(s.code)) minutes.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) else 0
         scripts.setInterval(s.id, every)
         if (every > 0) switchOn(s)
         sync(s)
@@ -40,11 +42,11 @@ internal class ScriptChanges(private val context: Context) {
 
     /**
      * Sets the script's daily times ("HH:mm", as [com.mtwabpin.kolahal.commands.CommandParsing.dailyTimes] reads them). Like a timer,
-     * times switch the script on, unless [on] is false.
+     * times switch the script on, unless [on] is false. A script with a screen of its own has none.
      */
     fun times(s: Script, times: List<String>, on: Boolean = true) {
         scripts.setAtTimes(s.id, times)
-        if (on && times.isNotEmpty()) switchOn(s)
+        if (on && times.isNotEmpty() && !ScriptMeta.isScreen(s.code)) switchOn(s)
         sync(s)
     }
 

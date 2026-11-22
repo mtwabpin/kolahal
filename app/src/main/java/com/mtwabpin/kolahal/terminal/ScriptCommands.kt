@@ -208,6 +208,7 @@ class ScriptCommands(
             "every" -> withScript(target) { s ->
                 val minutes = CommandParsing.parseInterval(args.getOrNull(2))
                     ?: return error("Usage: script every <name> <15m|30m|2h|1d|off>")
+                if (minutes > 0 && ScriptMeta.isScreen(s.code)) return error("${s.name} ${ScriptMeta.SCREEN_ONLY}")
                 val effective = changes.interval(s, minutes)
                 info(
                     if (effective == 0) "${s.name}: timer off" else "${s.name}: runs every ${
@@ -227,6 +228,7 @@ class ScriptCommands(
                     is CommandParsing.DailyTimes.Bad -> return error("Invalid time '${read.word}' — use HH:mm")
                     is CommandParsing.DailyTimes.Times -> read.times
                 }
+                if (times.isNotEmpty() && ScriptMeta.isScreen(s.code)) return error("${s.name} ${ScriptMeta.SCREEN_ONLY}")
                 changes.times(s, times)
                 info(
                     if (times.isEmpty()) "${s.name}: no daily times" else "${s.name}: daily at ${

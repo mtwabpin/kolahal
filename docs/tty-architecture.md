@@ -726,7 +726,19 @@ What was built differs from the sketch below:
   Back always does.
 - The budget is per call: 1 s (QuickJS's timeout, the Lua hook) ends the screen at once; 30 frames in
   a row over 50 ms (not 8 ms: QuickJS on a mid-range phone takes longer than that for a screen of
-  cells) end it too, with an error. A screen lasts at most 5 minutes, and a call may draw 8 screens.
+  cells) end it too, with an error. A call may draw 8 screens.
+- A screen has no limit in all (the maintainer's decision of 22 November): it runs for as long as home
+  shows it. WorkManager stops a worker after about ten minutes, so the run leaves its worker once home
+  shows the screen (`ScreenRuns`): the worker ends, and the same run goes on in the `:script` process,
+  which home's binding to `ScriptScreenService` (`BIND_IMPORTANT`) keeps. The run is one coroutine from
+  its first line to its last, so everything a run does (access, secrets, lines, last run, errors, one at
+  a time) is the same code. Home keeps the binding 5 s after the screen closed, for the run's end; if
+  the process goes away while the screen shows, home closes it and logs why.
+- Nothing grows over hours: one tick out at a time, at most 256 events waiting, a frame's calls let go
+  when sent, at most 500 lines a run, and the grid forgets the clusters it no longer shows.
+- A script with `@uses screen` is a command only: `@every`, `@at`, `@on` and `@widget` count for nothing
+  (`ScriptMeta.isScreen`), stored timers are ignored, and only a run you started opens a screen: not a
+  timer, an event, a refresh, or a run another script sent.
 - A style names the text's `color` and `bg`, not an `ink`, as `fmt.bar` and `status` do.
 
 ```js

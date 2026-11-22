@@ -2162,12 +2162,15 @@ A script can open a full-screen screen of its own over home, and draw on the cha
 Needs `@uses screen`. Opens a screen once the script's code has run to its end. `spec` says what it
 draws and what it does with a tap or a key.
 
-- It opens only when you start the script: from the prompt, with a tap or with Run in the editor. In
-  a timer or event run it is an error.
-- A run opens one screen. The run goes on until the screen closes, so lines logged before
-  `tty.screen` show first, and lines logged in `stop` last.
+- A script with `@uses screen` is always a command, with or without `@command`. It has no timer, event
+  or widget: `@every`, `@at`, `@on` and `@widget` don't work in it, and the editor says so.
+- It opens only when you start the script: from the prompt, with a tap, a shortcut or a gesture, or
+  with Run in the editor. In any other run it is an error: a timer, an event, or another script's
+  `launcher.run`.
+- A run opens one screen, and goes on until it closes. The screen stays for as long as you leave it
+  open. Lines a function logs are in the log at once, under the screen.
 - Any tap or key closes it, unless the script has a function for it. Back, Home or leaving home for
-  more than 30 seconds always closes it.
+  more than 30 seconds always closes it. Like any app, it doesn't keep the phone's screen on.
 - A function that returns `false` closes it. Any other result, or none, leaves it open.
 
 | Field | What it is |
@@ -2349,7 +2352,95 @@ tty.screen({
 </TabItem>
 </Tabs>
 
-Both draw the whole screen as one text per row, which is the quickest way to change most of it.
+It draws the whole screen as one text per row, which is the quickest way to change most of it.
+
+Characters that fall down the screen. Only three cells of each column change in a frame, so only those
+are drawn:
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @command
+-- @desc Characters fall down the screen
+-- @uses screen
+local signs = "0123456789ABCDEFHKLNTXZ+*=<>"
+local head = { color = "text", bold = true }
+local drops, rows = {}, 0
+
+local function sign()
+  local i = math.random(#signs)
+  return signs:sub(i, i)
+end
+
+-- One drop for each column: its head's row, how long it is, and the sign at its head.
+local function drop()
+  return { row = -math.random(rows), length = math.random(3, math.max(4, rows // 2)), sign = " " }
+end
+
+local function begin(g)
+  rows, drops = g.rows, {}
+  for col = 0, g.cols - 1 do drops[col] = drop() end
+  g.clear()
+end
+
+tty.screen{
+  title = "Falling characters",
+  fps = 12,
+  start = begin,
+  resize = begin,
+  frame = function(g)
+    for col = 0, #drops do
+      local d = drops[col]
+      g.put(col, d.row, d.sign, "good")
+      d.row, d.sign = d.row + 1, sign()
+      g.put(col, d.row, d.sign, head)
+      g.put(col, d.row - d.length, " ")
+      if d.row - d.length >= rows then drops[col] = drop() end
+    end
+  end,
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @command
+// @desc Characters fall down the screen
+// @uses screen
+const signs = "0123456789ABCDEFHKLNTXZ+*=<>";
+const head = { color: "text", bold: true };
+let drops = [], rows = 0;
+
+const upTo = (n) => 1 + Math.floor(Math.random() * n);
+const sign = () => signs[upTo(signs.length) - 1];
+
+// One drop for each column: its head's row, how long it is, and the sign at its head.
+const drop = () => ({ row: -upTo(rows), length: 2 + upTo(Math.max(2, Math.floor(rows / 2))), sign: " " });
+
+function begin(g) {
+  rows = g.rows;
+  drops = Array.from({ length: g.cols }, drop);
+  g.clear();
+}
+
+tty.screen({
+  title: "Falling characters",
+  fps: 12,
+  start: begin,
+  resize: begin,
+  frame(g) {
+    drops.forEach((d, col) => {
+      g.put(col, d.row, d.sign, "good");
+      d.row++;
+      d.sign = sign();
+      g.put(col, d.row, d.sign, head);
+      g.put(col, d.row - d.length, " ");
+      if (d.row - d.length >= rows) drops[col] = drop();
+    });
+  },
+});
+```
+</TabItem>
+</Tabs>
 
 #### Screen limits
 
@@ -2357,7 +2448,8 @@ Both draw the whole screen as one text per row, which is the quickest way to cha
   with an error.
 - A frame that takes over 50 ms, 30 times in a row, closes the screen too, with an error that says
   so. Draw less each time, or use a lower `fps`.
-- A screen closes after 5 minutes. Run the script again to go on.
+- The code before the screen has the limit of any run, 60 seconds. The screen itself has none.
+- If Android stops the script's process, the screen closes, and a line in the log says so.
 - `http`, `rss` and `sleep` work in a function, but they count towards its second and the screen
   stands still meanwhile. Fetch what a screen needs before `tty.screen`. In JavaScript, a call in a
   function that isn't awaited is dropped when the function ends.

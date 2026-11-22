@@ -158,12 +158,16 @@ override the rest. Internal: nothing here is published.
     (=FramePlayer=). Home never waits for the script: a tick goes out only once the last one's frame
     came back, so a slow script drops its own frames.
   - [X] Limits: 1 s for each call (QuickJS's timeout, the Lua hook), 30 frames in a row over 50 ms end
-    it, 5 minutes in all, as much drawing a call as 8 full screens; =RunWatchdog= is told of each
-    call (=extend=). Back and leaving home close it; a tap or a key does unless the script handles
+    it, as much drawing a call as 8 full screens; =RunWatchdog= is told of each call (=call=, =rest=). Back and leaving home close it; a tap or a key does unless the script handles
     them.
   - [X] Tests: JVM for the drawing, the session and its limits, the home side (messages, keys, frames
     on the grid); device for both engines, and for home with a run in =:script=.
-  - [ ] Left: a build and a device run; complex scripts (Arabic, Hindi) on a script's grid are drawn
+  - [X] No limit in all: the run leaves its worker once home shows the screen (=ScreenRuns=), and goes on in
+    =:script= under home's binding, until the screen closes. Its log lines are written at once.
+  - [X] A script with =@uses screen= is a command only: no =@every=, =@at=, =@on= or =@widget=, no timer offered or
+    kept, and no screen from a timer, an event, a refresh or another script. The editor says so.
+  - [X] Falling characters on the API page, in both languages.
+  - [ ] Left: a build and a device run, with a screen open for more than 12 minutes; complex scripts (Arabic, Hindi) on a script's grid are drawn
     letter by letter, not shaped; no screen from the screensaver. An example script for the shared
-    scripts repository.
+    scripts repository, and =screen= in its check.
 - Remark:

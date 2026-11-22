@@ -16,6 +16,9 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
@@ -29,7 +32,7 @@ class ScriptWorker(context: Context, params: WorkerParameters) :
     RemoteCoroutineWorker(context, params) {
 
     override suspend fun doRemoteWork(): Result =
-        if (ScriptRun.run(applicationContext, inputData)) Result.success() else Result.failure()
+        if (ScriptRun.runForWorker(applicationContext, inputData)) Result.success() else Result.failure()
 
     companion object {
         const val KEY_SCRIPT_ID = "script_id"
@@ -66,15 +69,40 @@ internal object ScriptRun {
     private val running =
         java.util.concurrent.ConcurrentHashMap<Long, kotlinx.coroutines.sync.Mutex>()
 
-    /** Runs what [inputData] names ([ScriptWorker]'s keys). Returns false when it names nothing that can run. */
-    suspend fun run(ctx: Context, inputData: Data): Boolean {
-        val scriptId = inputData.getLong(ScriptWorker.KEY_SCRIPT_ID, -1L)
-        if (scriptId < 0) return runOne(ctx, inputData, scriptId)
-        return running.getOrPut(scriptId) { kotlinx.coroutines.sync.Mutex() }
-            .withLock { runOne(ctx, inputData, scriptId) }
+    /** The runs with a screen of their own, which go on outside their worker. */
+    private val screenRuns =
+        ScreenRuns(CoroutineScope(SupervisorJob() + Dispatchers.Default)) { e ->
+            android.util.Log.w("Kolahal", "a run with a screen failed", e)
+        }
+
+    /**
+     * [run], for a worker. A run that may open a screen of its own (`tty.screen`) leaves the worker once
+     * the screen shows: Android stops a worker after about ten minutes, and the screen may stay open for
+     * hours. Until then it is the worker's, like any other run. Every other run is only [run].
+     */
+    suspend fun runForWorker(ctx: Context, inputData: Data): Boolean =
+        if (mayOpenScreen(ctx, inputData)) screenRuns.run { run(ctx, inputData, it) } else run(ctx, inputData)
+
+    /** Whether this run is of a script that declares `@uses screen`, or of typed code that names `tty.screen`. */
+    private fun mayOpenScreen(ctx: Context, inputData: Data): Boolean {
+        if (inputData.getBoolean(ScriptWorker.KEY_SCHEDULED, false)) return false
+        val id = inputData.getLong(ScriptWorker.KEY_SCRIPT_ID, -1L)
+        return if (id >= 0) ScriptRepository.get(ctx).byId(id)?.let { ScriptMeta.isScreen(it.code) } == true
+        else ScriptMeta.opensScreen(inputData.getString(ScriptWorker.KEY_CODE).orEmpty())
     }
 
-    private suspend fun runOne(ctx: Context, inputData: Data, scriptId: Long): Boolean {
+    /**
+     * Runs what [inputData] names ([ScriptWorker]'s keys). Returns false when it names nothing that can run.
+     * Only a run with a [handover] may open a screen.
+     */
+    suspend fun run(ctx: Context, inputData: Data, handover: ScreenHandover? = null): Boolean {
+        val scriptId = inputData.getLong(ScriptWorker.KEY_SCRIPT_ID, -1L)
+        if (scriptId < 0) return runOne(ctx, inputData, scriptId, handover)
+        return running.getOrPut(scriptId) { kotlinx.coroutines.sync.Mutex() }
+            .withLock { runOne(ctx, inputData, scriptId, handover) }
+    }
+
+    private suspend fun runOne(ctx: Context, inputData: Data, scriptId: Long, handover: ScreenHandover?): Boolean {
         val logs = LogRepository.get(ctx)
         val scripts = ScriptRepository.get(ctx)
 
@@ -131,6 +159,17 @@ internal object ScriptRun {
             failed = text
             if (text != lastError) logs.add(LogKind.ERROR, text, name, context)
         }
+        // A script with a screen of its own is a command only. Something still queued by itself (a timer set
+        // before it declared the screen) doesn't run.
+        if (script != null && ScriptMeta.isScreen(code) && inputData.getBoolean(
+                ScriptWorker.KEY_SCHEDULED,
+                false
+            )
+        ) {
+            fail("$name ${ScriptMeta.SCREEN_ONLY}", LogContext.of(LogContext.SCRIPT to name))
+            if (refresh) refreshes.set(refreshKey, failed)
+            return true
+        }
 
         val host = HostApi(
             ctx, name, script?.id,
@@ -155,6 +194,8 @@ internal object ScriptRun {
             widget = script?.let { ScriptMeta.widget(it.code) },
             widgetId = widgetId,
         )
+        host.handover = handover
+        host.screens = handover != null
         val engine = ScriptEngine.forLang(lang)
         val started = System.currentTimeMillis()
         val errorCtx = LogContext(
@@ -166,9 +207,11 @@ internal object ScriptRun {
         // However the run ends, anything still in flight (a request, a timer) changes nothing after it.
         // This is also true when Android stops the run and this returns at once.
         val status = try {
-            // A screen of its own runs on after the code, as long as it may (the engine limits both).
-            val most = ScriptWorker.TIMEOUT_MS + 2_000 + (if (ScriptMeta.opensScreen(code)) ScreenSession.WHOLE_MS else 0L)
-            val result = withTimeout(most.milliseconds) {
+            val most = ScriptWorker.TIMEOUT_MS + 2_000
+            val result = if (handover == null) withTimeout(most.milliseconds) {
+                engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
+            } else ScreenRuns.limited(most, handover) {
+                // Only its code has the limit of a run. Its screen goes on for as long as it shows.
                 engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
             }
             host.flush()

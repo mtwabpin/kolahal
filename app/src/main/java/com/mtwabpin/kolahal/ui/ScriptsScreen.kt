@@ -162,6 +162,7 @@ internal class ScriptCode(code: String, name: String) {
     val desc = p.description
     val author = p.author
     val isCommand = p.isCommand
+    val isScreen = p.isScreen
     val usage = if (isCommand) p.usage(name) else null
     val events = p.events
     val uses = p.uses
@@ -192,6 +193,9 @@ internal class ScriptInfo(val script: Script, private val code: ScriptCode) {
     val author = code.author
     val version get() = code.version
     val isCommand = code.isCommand
+
+    /** It has a screen of its own: a command, with no timer, event or widget ([ScriptMeta.isScreen]). */
+    val isScreen = code.isScreen
     val usage = code.usage
     val events = code.events
     val uses = code.uses

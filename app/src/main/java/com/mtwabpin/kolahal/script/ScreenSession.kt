@@ -23,9 +23,15 @@ import java.util.concurrent.TimeUnit
  * - Each call of the script's has [CALL_MS]; a call that runs longer is stopped, and the screen closes
  *   with an error.
  * - A frame that takes longer than [FRAME_MS], [SLOW_FRAMES] times in a row, closes the screen too.
- * - A screen runs at most [LONGEST_MS]. If home sends nothing for [IDLE_MS], it ended.
+ * - A screen runs for as long as home shows it: it has no limit of its own. If home sends nothing for
+ *   [IDLE_MS], it ended.
  *
- * [clock] is in ms and never goes back. [text] makes a text fit to show (secrets masked).
+ * Nothing grows while it runs, however long: home has one tick out at a time, what it says waits in a
+ * queue of at most [MAX_WAITING] ([Queue]), and a call's drawing is let go once it is sent.
+ *
+ * [clock] is in ms and never goes back. [text] makes a text fit to show (secrets masked). [inbox] is
+ * where home's events wait; a test puts one of its own, with a clock of its own. [from] is the typed
+ * line that started the run, for a line home logs about the screen.
  */
 internal class ScreenSession(
     val name: String,
@@ -34,6 +40,8 @@ internal class ScreenSession(
     private val clock: () -> Long,
     text: (String) -> String = { it },
     private val limits: Limits = Limits(),
+    private val inbox: Inbox = Queue(),
+    val from: Long? = null,
 ) {
     /** How long things may take. Tests make them short. */
     class Limits(
@@ -42,14 +50,12 @@ internal class ScreenSession(
         val slowFrames: Int = SLOW_FRAMES,
         val attachMs: Long = ATTACH_MS,
         val idleMs: Long = IDLE_MS,
-        val longestMs: Long = LONGEST_MS,
     )
 
     /** Names this screen in home's messages. */
     val token: String = UUID.randomUUID().toString()
 
     private val drawing = ScreenDrawing(text)
-    private val events = LinkedBlockingQueue<Event>()
 
     /** True while a call of the script's runs: only then may it draw. */
     @Volatile
@@ -144,17 +150,37 @@ internal class ScreenSession(
         /** It closed itself, or home closed it. */
         CLOSED,
 
-        /** It ran as long as a screen may. */
-        LONGEST,
-
         /** Home never showed it. */
         ABSENT,
     }
 
-    /** Home says [event]. Any thread. */
-    fun post(event: Event) {
-        events.offer(event)
+    /** Where what home says waits for the script. */
+    interface Inbox {
+        /** Any thread. */
+        fun post(event: Event)
+
+        /** The next event, or null when none came in [ms]. */
+        suspend fun next(ms: Long): Event?
     }
+
+    /**
+     * Home's events, in order. A slow script holds them up, so past [MAX_WAITING] further keys and taps
+     * are left out. Waiting holds a thread of the run's own, not home's.
+     */
+    class Queue : Inbox {
+        private val events = LinkedBlockingQueue<Event>()
+
+        override fun post(event: Event) {
+            val optional = event is Event.Key || event is Event.Tap || event is Event.Alive
+            if (!optional || events.size < MAX_WAITING) events.offer(event)
+        }
+
+        override suspend fun next(ms: Long): Event? =
+            runInterruptible(Dispatchers.IO) { events.poll(ms.coerceAtLeast(1), TimeUnit.MILLISECONDS) }
+    }
+
+    /** Home says [event]. Any thread. */
+    fun post(event: Event) = inbox.post(event)
 
     /** A drawing call of the script's grid ([ScreenDrawing]). Only inside one of its functions. */
     fun draw(op: String, args: List<Any?>) {
@@ -162,8 +188,11 @@ internal class ScreenSession(
         drawing.call(op, args)
     }
 
-    /** Opens the screen and runs it until it ends. The script's error, or a limit past which it is stopped, ends the run. */
-    suspend fun run(script: Script): End {
+    /**
+     * Opens the screen and runs it until it ends. [shown] is called once home shows it. The script's
+     * error, or a limit past which it is stopped, ends the run.
+     */
+    suspend fun run(script: Script, shown: () -> Unit = {}): End {
         var out: Out? = null
         try {
             if (!home.open(this)) return End.ABSENT
@@ -171,7 +200,9 @@ internal class ScreenSession(
             val attach = attached() ?: return End.ABSENT
             out = attach.out
             drawing.resize(attach.cols, attach.rows)
-            return loop(script, attach.out)
+            shown()
+            loop(script, attach.out)
+            return End.CLOSED
         } finally {
             home.closed(this)
             runCatching { out?.end() }
@@ -183,7 +214,7 @@ internal class ScreenSession(
         while (true) {
             val left = until - clock()
             if (left <= 0) return null
-            when (val event = next(left) ?: return null) {
+            when (val event = inbox.next(left) ?: return null) {
                 is Event.Attach -> return event
                 is Event.Close -> return null
                 else -> Unit
@@ -191,18 +222,12 @@ internal class ScreenSession(
         }
     }
 
-    private suspend fun loop(script: Script, out: Out): End {
-        val began = clock()
+    private suspend fun loop(script: Script, out: Out) {
         var slow = 0
-        var end = End.CLOSED
         var going = step(script, out, "start", emptyList())
         while (going) {
-            if (clock() - began >= limits.longestMs) {
-                end = End.LONGEST
-                break
-            }
             script.waiting(limits.idleMs)
-            val event = next(limits.idleMs) ?: break
+            val event = inbox.next(limits.idleMs) ?: break
             going = when (event) {
                 is Event.Tick -> {
                     val at = clock()
@@ -225,7 +250,6 @@ internal class ScreenSession(
         }
         // A last word of the script's (its score, say). What it draws goes nowhere: the screen is gone.
         call(script, "stop", emptyList())
-        return end
     }
 
     /** Calls [callback] and sends home what it drew. False when the script closed its screen, or home is gone. */
@@ -246,10 +270,6 @@ internal class ScreenSession(
             calling = false
         }
     }
-
-    /** The next event, or null when none came in [ms]. It holds a thread of the run's own, not home's. */
-    private suspend fun next(ms: Long): Event? =
-        runInterruptible(Dispatchers.IO) { events.poll(ms.coerceAtLeast(1), TimeUnit.MILLISECONDS) }
 
     companion object {
         /** The `@uses` item a script needs for `tty.screen`. */
@@ -274,11 +294,8 @@ internal class ScreenSession(
         /** With no word from home for this long, the screen ends. */
         const val IDLE_MS = 60_000L
 
-        /** A screen may run this long, in all. */
-        const val LONGEST_MS = 5 * 60_000L
-
-        /** The most a run may take for its screen, on top of its code: the waits for home, the screen, and its last words. */
-        const val WHOLE_MS = ATTACH_MS + LONGEST_MS + 2 * IDLE_MS
+        /** This many events may wait for a slow script; further keys and taps are left out. */
+        const val MAX_WAITING = 256
 
         private const val MAX_TITLE = 60
     }

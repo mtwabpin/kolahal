@@ -73,7 +73,7 @@ class LuaEngine : ScriptEngine {
             if (host.hasScreen) host.runScreen(object : ScreenSession.Script {
                 /** Calls the script's function through the prelude's `__kolahal_screen`. Everything here is on this run's thread. */
                 override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean {
-                    watchdog.extend(limitMs)
+                    watchdog.call(limitMs)
                     host.startClock(limitMs)
                     deadline = System.currentTimeMillis() + limitMs
                     val top = lua.top
@@ -96,7 +96,7 @@ class LuaEngine : ScriptEngine {
                     return !closed
                 }
 
-                override fun waiting(ms: Long) = watchdog.extend(ms)
+                override fun waiting(ms: Long) = watchdog.rest(ms)
             })
             result
         } finally {

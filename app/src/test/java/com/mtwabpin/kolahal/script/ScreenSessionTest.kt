@@ -185,18 +185,101 @@ class ScreenSessionTest {
         assertEquals(1, home.closed)
     }
 
-    /** A screen runs so long and no longer. */
-    @Test
-    fun aScreenHasALimit() {
+    /**
+     * Home's events for [hours] of a screen open and never left, at 30 frames a second, on a clock that
+     * only these events move. Each tick comes once the last one's frame was sent, as home's do.
+     */
+    private class LongInbox(private val out: ScreenSession.Out, hours: Int) : ScreenSession.Inbox {
         var now = 0L
-        val script = Script("frame" to { _, _ -> now += 100; null })
-        val (session, _) = session(
-            script, { out -> listOf(attach(out)) + List(10) { Event.Tick(it * 100L, 100) } },
-            clock = { now }, limits = ScreenSession.Limits(longestMs = 500, frameMs = 1_000),
+        private val until = hours * 3_600_000L
+        private var attached = false
+        val posted = ArrayList<Event>()
+
+        override fun post(event: Event) {
+            posted += event
+        }
+
+        override suspend fun next(ms: Long): Event? {
+            if (!attached) return Event.Attach(45, 40, out).also { attached = true }
+            now += 33
+            return if (now >= until) Event.Close else Event.Tick(now, 33)
+        }
+    }
+
+    /** A screen has no limit of its own: hours of frames, each small and none kept. */
+    @Test
+    fun aScreenRunsForHours() {
+        var frames = 0
+        var most = 0
+        var ends = 0
+        val out = object : ScreenSession.Out {
+            override fun draw(frame: ScreenFrame): Boolean {
+                frames++
+                most = maxOf(most, frame.ops.size + frame.texts.sumOf { it.length })
+                return true
+            }
+
+            override fun end() {
+                ends++
+            }
+        }
+        val inbox = LongInbox(out, hours = 5)
+        val session = ScreenSession(
+            "life", ScreenSession.Spec(30, "Life", keys = false, taps = false), Opens(emptyList()),
+            clock = { inbox.now }, inbox = inbox,
         )
-        assertEquals(End.LONGEST, run(session, script))
-        // start, five frames of 100 ms, and stop: the rest of the ticks go unanswered.
-        assertEquals(listOf("start()") + List(5) { "frame(${it * 100}, 100)" } + "stop()", script.calls)
+        var called = 0
+        var last = 0L
+        val script = object : ScreenSession.Script {
+            override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean {
+                if (callback == "frame") {
+                    called++
+                    last = args[0] as Long
+                    session.draw("put", listOf(called % cols, called % rows, "x", "good"))
+                }
+                return true
+            }
+
+            override fun waiting(ms: Long) = Unit
+        }
+        var shown = 0
+        assertEquals(End.CLOSED, runBlocking { session.run(script) { shown++ } })
+        assertEquals(1, shown)
+        assertEquals(1, ends)
+        assertEquals(called, frames)
+        assertTrue("$called frames", called > 500_000)
+        assertTrue("the last at $last ms", last > 5 * 3_600_000L - 100)
+        // The last frame is as small as the first: nothing adds up.
+        assertTrue("a frame of $most", most < 20)
+        assertEquals(emptyList<Event>(), inbox.posted)
+    }
+
+    /** Home is told of only once, when it shows the screen, and not at all when it never does. */
+    @Test
+    fun shownIsToldWhenHomeShowsIt() {
+        val script = Script("start" to { _, _ -> false })
+        val (session, _) = session(script, { out -> listOf(attach(out)) })
+        var shown = 0
+        runBlocking { session.run(script) { shown++ } }
+        assertEquals(1, shown)
+        val (absent, _) = session(script, { listOf(Event.Close) })
+        runBlocking { absent.run(script) { shown++ } }
+        assertEquals(1, shown)
+    }
+
+    /** A slow script holds up keys and taps, but not without end; a tick and a close are never left out. */
+    @Test
+    fun theQueueHasAnEnd() {
+        val queue = ScreenSession.Queue()
+        repeat(10_000) { queue.post(Event.Key("x")) }
+        queue.post(Event.Tick(1, 1))
+        queue.post(Event.Tap(0, 0))
+        queue.post(Event.Close)
+        val got = ArrayList<Event>()
+        runBlocking { while (true) got += queue.next(1) ?: break }
+        assertEquals(ScreenSession.MAX_WAITING + 2, got.size)
+        assertTrue(got[got.size - 2] is Event.Tick)
+        assertEquals(Event.Close, got.last())
     }
 
     /** Too many slow frames in a row close the screen with an error. A quick one between them starts the count over. */
