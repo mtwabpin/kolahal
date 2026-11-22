@@ -471,6 +471,17 @@ Looks, positions and the new Arrange widgets screen shipped in 0.5.15. Still to 
 - Dragging on the widgets page itself, as phone home screens do.
 - =widget look <name> <look>= at the prompt.
 
+** WAITING [#C] Rich responses from scripts with A2UI  :scripts:project:
+- A2UI is Google's open protocol with which an AI agent describes a UI as data, and the app draws it with its
+  own components. Watched, not planned (the maintainer, 22 November 2026).
+- The idea: a script that asks an AI service may hand its A2UI answer to Kolahal, which draws a small, safe part
+  of it as a card in the log or a widget, with the components scripts' cards already have. TTY could follow.
+- Why it waits: the protocol's 1.0 came out on 11 November 2026, but Android's renderer
+  (=androidx.a2ui.compose=) is at 1.0.0-alpha01 and supports 0.9.1. Look again when it supports 1.0.
+- To settle then: a button in an answer must not run a command unasked, and what is sent to the service is the
+  script's and the user's choice.
+- Remark:
+
 * Keep as it is
 Checked and found sound, or left as it is on purpose. Don't raise these again.
 
