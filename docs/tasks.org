@@ -217,6 +217,10 @@ ships (the release notes then say what changed).
 - Remark:
 
 ** TODO [#B] App widgets are built on the main thread in home's first frame  :perf:
+- Checked 23 November 2026: the whole widgets page is composed in the log's first frame and again
+  after each full page, not only other apps' widgets (=MainActivity.kt=, =HomePager=,
+  =beyondViewportPageCount = 1=). With no widget placed it costs nothing measurable. Other apps'
+  widgets are invisible while off screen since 23 November, so their clocks don't tick there.
 - =ui/widgets/HostedWidgets.kt= (=HostedWidget=), =widgets/WidgetHost.kt= (=host= and its =onCreateView=,
   =cachedInfo=, =view=).
 - After a restart, the log's first frame waits for each app widget's details, its views and their
@@ -231,6 +235,71 @@ ships (the release notes then say what changed).
 - With the page in view, a toggles or live-score card scrolled out of sight still asks for a run each
   minute.
 - Fix: repeat the check only while the card is seen, as =refresh= already does. Small.
+- Remark:
+
+** TODO [#B] Back from a full page builds all of home again  :perf:home:
+- =MainActivity.kt= (=setHomeContent=): home and the widgets page beside it are composed only while
+  the page is the terminal. Settings, Scripts, Feeds, Shaders and the editor take its place.
+- Each Back composes the header, the prompt and every row on screen from nothing (line model,
+  text, layout), and every card of the widgets page, in one frame. A cold start pays the same:
+  measured on an emulator (23 November 2026), a first frame with the log in it takes 400 to 470 ms
+  from process start, one without it 335 to 350 ms.
+- What you'd see: possibly a dropped frame or two after Back. Not measured on a phone.
+- Fix: keep home composed under the full pages (placed, not drawn, =LocalTerminalShown= false); or
+  keep each row's =LineModel= and text outside composition, as =BlockCache= does for the grid.
+  Measure the frame after Back on a phone first; if it is under 16 ms, drop this.
+- Remark:
+
+** TODO [#B] The music bar's wave is drawn on every frame while music plays  :perf:home:
+- =ui/home/NowPlayingLine.kt= (=WaveTrack=): the wave moves 16 dp in 1.2 s, and its phase changes on
+  every frame of the display, 60 to 120 times a second, for as long as music plays and the log is
+  in front.
+- What you'd see: nothing; it costs battery, and a 120 Hz screen can't slow down meanwhile.
+- Done on 23 November: the path is reused, and the wave stands still under a full-screen screen.
+- Left, a choice about the look: at about 40 frames a second each step is under a pixel on most
+  phones, and 30 gives steps of about 1.2 pixels.
+- Remark:
+
+** TODO [#B] =ink= draws for a minute after each touch, and slow scenes draw 30 times a second  :perf:shaders:
+- =shader/ShaderUniforms.kt= (=usesClock=), =shader/ShaderClock.kt= (=FPS=, =IDLE_MS=),
+  =assets/shaders/ink.agsl=, =contour.agsl=, =dunes.agsl=, =mountains.agsl=.
+- A shader whose only clock is =touchAge= moves for 60 s after a touch (on a charger without end).
+  =ink= changes nothing 4 s after the touch, so about 1,680 of 1,800 frames a minute draw the same
+  picture. =contour=, =dunes= and =mountains= move a few pixels a second but draw 30 frames.
+- Fix: two optional header lines, read by =ShaderMeta=: =// @settles 4= (stop that long after the
+  last touch) and =// @fps 10=. Both are additions to the shader file format, so the website and the
+  shared repository's check change too.
+- Remark:
+
+** TODO [#B] Every process start schedules everything again, twice at boot  :perf:
+- =LauncherApp.kt= (=repairAndScheduleInBackground=): =ScriptLibrary.updateUnedited= (reads the 48
+  library files), =ScriptScheduler.syncAll= (per script: cancel, alarms, a WorkManager write),
+  =FeedScheduler.sync=, =ReminderScheduler.rescheduleAll=. =productivity/Reminders.kt=
+  (=ReminderBootReceiver=) runs the last two again at boot and after an update, in the same start.
+- Android kills a launcher for memory often; a kill loses neither alarms nor WorkManager jobs.
+- What you'd see: nothing; it is off the main thread and competes with the first frame for the
+  processor and the database.
+- Fix, in order of risk: run each once per process (both callers share it); update the library
+  once per app version, as =repaired_for= does; sync feeds only when feeds or =feeds.wifi= change;
+  check that one alarm is still there (=FLAG_NO_CREATE=) before setting them all again. A
+  force-stop cancels alarms and sends nothing, so the start must still set them then.
+- Remark:
+
+** TODO [#B] Check whether each write to the log is synced to disk  :perf:
+- =data/Db.kt=: write-ahead logging is on and =synchronous= is not set. If Android's default for
+  this is FULL, every commit waits for the disk: each notification line, each app launch (two
+  commits), each status line, each typed command before its app opens.
+- Fix: read =PRAGMA synchronous= once on a phone. If it is 2, set NORMAL in =onConfigure=: with
+  write-ahead logging the database stays whole, and a power cut can lose the last few lines.
+- Remark:
+
+** TODO [#B] A script with =@on unlock= runs at every unlock, also when it does nothing  :perf:scripts:
+- =unlock/UnlockCounter.kt=, =script/TriggerDispatcher.kt= (=fire=), =assets/library/unlock-chart.lua=.
+- The chart returns at once when its widget isn't placed, but each unlock (at most one in 30 s)
+  still starts a run: a WorkManager job, the =:script= process, a Lua state, =recordRun= and a
+  message back. About 0.1 to 0.3 s of processor time for each unlock, by the code.
+- Fix: don't record a run that had no effect and no error (refresh runs already skip that); or let
+  the chart ask for =unlock= only while its widget is placed.
 - Remark:
 
 ** TODO [#B] A widget's fields are listed by hand in five places  :arch:
@@ -409,6 +478,47 @@ ships (the release notes then say what changed).
 - Plot makes its paths on every draw; a Shape clock with no second hand still ticks each second; the
   wide Shape clock recomposes its row each second (=ui/widgets/WidgetChart.kt=, =Plot=; =ui/widgets/WidgetClock.kt=,
   =ClockBody='s =rememberMillis= and =ShapeClock=).
+- Remark:
+
+** TODO [#C] Smaller performance items from the review of 23 November 2026  :perf:
+- Each app launch compares the text of every INFO line to find the earlier "Launched X"
+  (=data/LogRepository.kt=, =addReplacing=). A bound by id would leave two such lines for an app
+  opened rarely; it needs an index on kind and text, or a match on the line's package.
+- A =/words= search left in the prompt searches the whole log again for each new line, and counts
+  it again (=terminal/LogSearcher.kt=, =data/LogRepository.kt= =search=).
+- The first =store.set= of each run reads the script's whole store to count it, and =http.cached=
+  entries never expire (=data/KvStore.kt=, =countSize=; =script/HostApi.kt=, =httpCached=).
+- Each install or update lists every app twice (=apps/AppRepository.kt= =reload=,
+  =apps/PackageEvents.kt= =diff=).
+- The automatic backup has no conditions: it can run on battery while the phone is in use
+  (=data/AutoBackup.kt=, =sync=).
+- A pinch sets the font size at each whole step, and all of home is laid out again each time
+  (=ui/home/GuiHome.kt=, =pinchToZoomFont=).
+- =decode= in the GUI style draws every text of the log again 24 times a second, also between
+  waves (=ui/home/DecodedText.kt=, =terminal/tty/screens/LogDecode.kt=).
+- =matrix= makes one =drawText= call for each lit cell, about 500 a frame
+  (=ui/tty/GridPainter.kt=, =single=); a one-off shader is drawn at the display's rate, not 30 a
+  second (=ui/tty/TtyShader.kt=, =playedLayer=); a screen decides its frame rate once, when it
+  opens (=ui/tty/TtyScreenHost.kt=).
+- The live wallpaper reads its state file on its main thread and draws it also when it isn't
+  visible (=ui/wallpaper/ShaderWallpaper.kt=, =load=).
+- Other apps' widgets get their updates applied on the main thread while they are out of view, and
+  the host listens and checks them with =widgets.page off= (=widgets/WidgetHost.kt=).
+- The baseline profile has no start in the TTY style, and the startup profile records the tour
+  (=baselineprofile/=, =BaselineProfileGenerator=).
+- Remark:
+
+** TODO [#C] Smaller bugs noticed in the review of 23 November 2026  :home:
+- A contact's photo that failed once is never tried again until Kolahal restarts
+  (=ui/home/Avatars.kt=, =Photos.failed=).
+- A notification posted again unchanged gets no log line, but still runs =@on notification=
+  scripts and can play a one-off shader's words again
+  (=notifications/KolahalNotificationListener.kt=, =onNotificationPosted=).
+- Plugging in the charger doesn't start a stopped shader on the live wallpaper; on home it does
+  (=ui/wallpaper/ShaderWallpaper.kt=).
+- Two comments say something else than the code: the selector "stays built" while the keyboard is
+  up (=ui/home/TerminalScreen.kt=), and a memory trim drops log pictures "also those on disk"
+  (=LauncherApp.kt=, =onTrimMemory=).
 - Remark:
 
 ** TODO [#C] Smaller architecture items  :arch:

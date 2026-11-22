@@ -246,8 +246,8 @@ it is in `Keys.CONFIG_ONLY`: only `config` sets it. The live preview passes thro
   `screen.saver-after`.
 
 Not built: the `tty on|off` alias, `tty.cursor` (the prompt's cursor is always a block),
-`tty.blink` (it blinks every 530 ms while the prompt has focus, and stands still when Android's
-animator scale is 0), `tty.images` (decided against), `tty.boot` (`boot` runs only as
+`tty.blink` (it blinks every 530 ms while the prompt has focus, the window has focus and home is
+started, and stands still when Android's animator scale is 0), `tty.images` (decided against), `tty.boot` (`boot` runs only as
 `screen boot`), `tty.fps` and `tty.smooth-scroll`. `tty.crt` was built and removed (§5.2).
 
 ### 1.5 Packages
@@ -601,7 +601,7 @@ on whole columns, with a 48 dp touch and the tag `jump-latest` (`TtyJumpLatest` 
 | Main-thread time per scroll frame (draw of ~45 rows) | < 3 ms; no allocation |
 | Block cache | ≤ 2 MB, LRU ~400 blocks, registered with `LauncherApp.keepsInMemory` so it is dropped on trim-memory like the screen's other caches |
 | Cold start to first log frame | not slower than GUI by more than 10 ms (the newest screenful is laid out before first draw) |
-| Screen animation | 30 fps default, 60 with `tty.fps 60`; frame work < 2 ms; only dirty rows repainted |
+| Screen animation | 30 fps default, 60 with `tty.fps 60`; frame work < 2 ms; only dirty rows repainted (as built: the whole buffer is painted when any row changed) |
 | A 50 000-line log | unchanged cost: `LogPager` pages the entries; only visible + 60 rows are laid out |
 
 Macrobenchmark is not in the project; measure with a `FrameMetrics` device test that scrolls
@@ -752,7 +752,8 @@ as now). `LogSearchSummary` and `LogFilterBar` are one grid row each (`TtyBands`
 field under the cells is as wide as its text, in the grid's font stretched to the cells
 (`gridTextStyle`), with its own text, cursor and selection clear, and it is moved by whole cells
 to keep the cursor in view, so the selection handles sit on the drawn text. The cursor is always
-a block that blinks every 530 ms while the prompt has focus (no `tty.cursor` or `tty.blink`).
+a block that blinks every 530 ms while the prompt and the window have focus and home is started
+(no `tty.cursor` or `tty.blink`); behind another app or under a dialog it stands still.
 Selecting and the selection's handles are the field's own; there is no `TtySheet` with Paste /
 Select all / Copy. `prompt.height` is the row's height in dp (at least a cell);
 `prompt.bottom-padding` is space under home, as in the GUI. Keys: Enter, ↑/↓ history, Tab,
@@ -1031,7 +1032,7 @@ when the phone is hot). `PlacedRows` lets a screen put each grid row at its own 
 **As built** (the host). `TtyScreenHost` (`ui/tty/TtyScreenHost.kt`) runs over home in both
 styles, shown from `vm.ttyScreen` (`TerminalUi.showTtyScreen`). Its loop runs under
 `repeatOnLifecycle(RESUMED)` with `withFrameNanos`, only while the window has focus and the log
-page is shown (`LocalTerminalShown`), and repaints changed rows only. It closes on a tap the screen
+page is shown (`LocalTerminalShown`), and repaints the whole buffer when any row changed. It closes on a tap the screen
 doesn't use, Back, or a key the screen doesn't use (the typed character goes into the prompt; `q`
 types nothing); back within 30 s (`RESUME_WITHIN_MS`), the same screen goes on. Battery: at most 15
 frames a second in battery saver; with Remove animations on, or when the phone is hot (thermal
@@ -1285,7 +1286,7 @@ that was on.
 | Crash / hang at start | As designed, with the mark written before compiling and a shader proven after 10 s in front (*Safe mode* at the top of §7; `shader/ShaderSafety.kt`). |
 | Always-available off | (1) Settings → Shaders → None; (2) `shader off`; (3) two fingers held still for a second. Not built: the app shortcut "Safe mode". |
 | Battery | `ShaderClock.moves`: an `@animated` shader's time stands still in battery saver, with Remove animations on, at thermal status MODERATE or more, below 15 % (`LOW_BATTERY`) unless charging, and after 60 s without a touch (`IDLE_MS`) unless charging. It never turns off for these; there is no `screen.shader-battery`. |
-| Idle | The frame loop (30 frames a second, `ShaderClock.FPS`) runs only while home is in front; the phone's state is checked every 2 s. |
+| Idle | The frame loop (30 frames a second, `ShaderClock.FPS`) runs only while home is in front, and home's own loop stops under a full-screen screen, which has its own. The phone's state is checked every 2 s while a shader moves and every second while it stands still. A shader that was in front for 10 s is kept compiled (`ShaderCache`), so home shows it at once when it is composed again. |
 | Accessibility | Shaders and one-off shaders are off while a screen reader is on, with no opt-in. With Remove animations on, a moving shader stands still. |
 
 ### 7.5 Android 9–12

@@ -425,25 +425,29 @@ In the ViewModel's =startWatching()= ([[src:terminal/TerminalViewModel.kt::readi
 reading.flatMapLatest { on ->
     if (on) combine(logs.version, reloadRequests) { a, b -> a to b }.withIndex() else emptyFlow()
 }
-    .debounce { if (it.index == 0 && back) 0L.also { back = false } else 40L }
+    .debounce { if (it.index == 0 && (back || !pager.rowsLoaded.value)) 0L.also { back = false } else 40L }
     .collectLatest { reload() }   // a failed reload keeps the previous rows
 #+end_src
 
 Read it as: while home is shown (=reading=, which [[src:terminal/HomeSession.kt::class HomeSession][HomeSession]] keeps), whenever the log changes
 or someone asks for a reload, wait until things have been quiet for 40 ms (a script printing 50
 lines causes one reload, not 50), then run =reload()=, cancelling any reload still in progress.
-Coming back to home reads once, at once. Away from home nothing is read: nobody would see it.
+The first read of the process and the one on coming back to home don't wait. The pipeline runs
+off the main thread, so the first read doesn't queue behind the first frame. Away from home
+nothing is read: nobody would see it.
 
 =reload()= hands over to [[src:terminal/LogPager.kt::suspend fun reload][LogPager.reload]], which, on one background thread:
 
 1. reads only the lines newer than the newest one already shown (an /incremental/ load), and
    merges them into the page (=mergePage=); or reads the whole page after a change in its middle,
    a trim that reached it, and once a minute;
-2. calls back into the ViewModel's =refreshCaches=, which refreshes what depends on the log
-   (scripts, status lines, history, the hidden count, the log's sources) only when needed;
+2. calls back into the ViewModel's =refreshCaches=, which refreshes what shows with the rows
+   (scripts, status lines, the hidden count) only when needed;
 3. calls the pure function [[src:terminal/LogRows.kt::fun buildRows][buildRows()]] to turn entries into =LogRow=s: dimming, colored
    gutters, day separators, the "N new since you left" divider;
-4. sets its =rows=, which the terminal screen is collecting.
+4. sets its =rows=, which the terminal screen is collecting;
+5. calls =refreshAfterRows= for what only completion and the widgets use (↑ history, the log's
+   sources, Kolahal's own data), so the rows never wait for it.
 
 *** The serial command queue
 
@@ -813,8 +817,10 @@ stays.
 1. =startInEveryProcess=: the crash handler first, so any later failure leaves a report
    (=crashes=), then the notification channels. Outside the main process it stops here.
 2. =prepareFirstFrame=, on the main thread: what the first frame needs. Custom themes and the
-   user's shaders load before the theme is applied (=theme.name= and =screen.shader= may name
-   them), then the apps and the device status start.
+   names of the user's shaders load before the theme is applied (=theme.name= and =screen.shader=
+   may name them), then the apps and the device status start. What people set for shaders and
+   what scripts gave them is read on another thread (it opens the database); whatever draws a
+   shader waits for that read (=Shaders.settingsRead=).
 3. =startWhenIdle=: an idle handler, so after the first frame: the unlock counter, the =@on=
    triggers, contacts, and package and call events. Each catches up as it starts.
 4. =repairAndScheduleInBackground=, on a thread of its own: unedited library scripts are updated,
@@ -827,8 +833,8 @@ stays.
 
 Then =MainActivity.onCreate= runs (=followTheme=, =handleEvents=, =setHomeContent=), and the first
 =by viewModels()= read builds =TerminalViewModel=. Its one =init= is the last thing in the class
-and starts the watching (the reload pipeline, now playing, the =launcher.run= receiver, scripts'
-screens), the log search, and the first-run check. Keep it last: a launch started earlier could
+and starts the watching (the reload pipeline, now playing once the main thread is idle, the
+=launcher.run= receiver, scripts' screens), the log search, and the first-run check. Keep it last: a launch started earlier could
 find later fields still unset.
 
 ** Background work at a glance
