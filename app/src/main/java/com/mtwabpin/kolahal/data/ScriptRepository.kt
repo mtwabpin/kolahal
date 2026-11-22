@@ -272,17 +272,36 @@ class ScriptRepository private constructor(private val context: Context) {
         WidgetStates.forgetScript(context, s.name)
     }
 
+    /** A script's last run as stored: when it ended, and its result ([recordRun]). */
+    data class Run(val at: Long?, val status: String?)
+
+    /**
+     * What tells home that the script list changed ([fingerprint]), in two parts:
+     * - [scripts]: writes from this process ([version]), and the scripts there are and which are on;
+     * - [runs]: each script's last run, by id. The script process records runs ([recordRun]) and
+     *   nothing else, so when only these moved, the list needs only them again ([withRuns]).
+     */
+    data class Fingerprint(val scripts: String, val runs: Map<Long, Run>)
+
     /**
      * Changes whenever the script list would change: writes from this process ([version]) and runs
      * that the script process records. It is cheap because it reads no code. Home uses it to skip
      * reading every script again.
      */
-    fun fingerprint(): String = db.readableDatabase.rawQuery(
-        "SELECT COUNT(*), COALESCE(MAX(last_run), 0), COALESCE(SUM(enabled), 0), COALESCE(MAX(id), 0) FROM scripts",
+    fun fingerprint(): Fingerprint = db.readableDatabase.rawQuery(
+        "SELECT id, enabled, last_run, last_status FROM scripts",
         null,
     ).use { c ->
-        c.moveToFirst()
-        "${version.get()}:${c.getLong(0)}:${c.getLong(1)}:${c.getLong(2)}:${c.getLong(3)}"
+        val runs = HashMap<Long, Run>()
+        var on = 0
+        var maxId = 0L
+        while (c.moveToNext()) {
+            val id = c.getLong(0)
+            if (c.getInt(1) != 0) on++
+            maxId = maxOf(maxId, id)
+            runs[id] = Run(if (c.isNull(2)) null else c.getLong(2), c.getString(3))
+        }
+        Fingerprint("${version.get()}:${runs.size}:$on:$maxId", runs)
     }
 
     /**
@@ -657,6 +676,19 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     companion object : Singleton<ScriptRepository>(::ScriptRepository) {
+        /**
+         * [list] with each script's last run from [runs] (by id, as [fingerprint] read them). A script
+         * whose run didn't change stays the same object. Null when a script of [list] is not in
+         * [runs]: then the list must be read whole.
+         */
+        fun withRuns(list: List<Script>, runs: Map<Long, Run>): List<Script>? {
+            return list.map { s ->
+                val run = runs[s.id] ?: return null
+                if (run.at == s.lastRun && run.status == s.lastStatus) s
+                else s.copy(lastRun = run.at, lastStatus = run.status)
+            }
+        }
+
         /**
          * The longest last-run status kept (an error's first line). A row larger than the 2 MB cursor
          * window can't be read back, and every script list would fail on it.

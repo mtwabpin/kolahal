@@ -3,6 +3,8 @@
  */
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.data.ScriptRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,27 +18,44 @@ import kotlinx.coroutines.withContext
  *
  * [all] reads the list and [write] sets it, with what follows from it (the command scripts).
  */
-internal class ScriptListReads<T>(
-    private val fingerprint: () -> String,
-    private val all: () -> T,
-    private val write: (T) -> Unit,
+internal class ScriptListReads(
+    private val fingerprint: () -> ScriptRepository.Fingerprint,
+    private val all: () -> List<Script>,
+    private val write: (List<Script>) -> Unit,
     private val lane: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
 ) {
-    /** The [fingerprint] at the last [readIfChanged] that read. Only touched on [lane]. */
-    private var readAt: String? = null
+    /** The [fingerprint] at the last [readIfChanged] that read or patched. Only touched on [lane]. */
+    private var readAt: ScriptRepository.Fingerprint? = null
+
+    /** The list written last, by [read] or [readIfChanged]. Only touched on [lane]. */
+    private var written: List<Script>? = null
+
+    private fun writeList(list: List<Script>) {
+        write(list)
+        written = list
+    }
 
     /** Reads the list and writes it. [readIfChanged] still reads once after it, if the scripts changed since its last read. */
-    suspend fun read() = withContext(lane) { write(all()) }
+    suspend fun read() = withContext(lane) { writeList(all()) }
 
     /**
-     * Reads the list and writes it if [fingerprint] changed since this was last called. True if it read.
-     * The fingerprint is taken before the list: a change in between makes the next call read again.
+     * Reads the list and writes it if [fingerprint] changed since this was last called. The
+     * fingerprint is taken before the list: a change in between makes the next call read again.
+     * - When only runs moved (no script added, removed, renamed, edited or switched), the list
+     *   written last gets the new runs ([ScriptRepository.withRuns]): no code is read.
+     * - Otherwise every script is read again.
+     * True only when every script was read again.
      */
     suspend fun readIfChanged(): Boolean = withContext(lane) {
         val print = fingerprint()
-        if (print == readAt) return@withContext false
-        write(all())
+        val before = readAt
+        if (print == before) return@withContext false
+        val list = written
+        val patched = if (before != null && list != null && print.scripts == before.scripts) {
+            ScriptRepository.withRuns(list, print.runs)
+        } else null
+        writeList(patched ?: all())
         readAt = print
-        true
+        patched == null
     }
 }

@@ -17,8 +17,84 @@ import kotlinx.coroutines.withContext
 private const val PAGE = 400
 private const val MAX_PAGE = 5000
 
-/** The whole page is read again at least this often, to catch trims by other processes. */
+/**
+ * The whole page is read again at least this often: a safety net for a change another process made
+ * whose message never came. Trims, removals, changes in place and changes in the middle are
+ * followed by their own counts.
+ */
 private const val FULL_RELOAD_MS = 60_000L
+
+/** How a reload reads the page ([pageReading]). */
+internal enum class PageReading {
+    /** Only the lines after the newest one on the page, on top of the page it has. */
+    NEW_LINES,
+
+    /** The whole page, only because [FULL_RELOAD_MS] passed since the last whole read. */
+    TIMED,
+
+    /** The whole page, because there is no page yet, or a change can't be applied to it. */
+    WHOLE,
+}
+
+/**
+ * How a reload reads the page:
+ * - [WHOLE][PageReading.WHOLE] with no page yet ([hasPage]), after a change in the middle of the log
+ *   ([sameStructure] false), when a trim reached into the page ([trimReached]), and when the
+ *   removals or the changes in place since the last reload are no longer known ([removalsKnown], [updatesKnown]);
+ * - else [TIMED][PageReading.TIMED] when [sinceWhole] ms passed since the last whole read is
+ *   [FULL_RELOAD_MS] or more;
+ * - else [NEW_LINES][PageReading.NEW_LINES].
+ */
+internal fun pageReading(
+    hasPage: Boolean,
+    sameStructure: Boolean,
+    trimReached: Boolean,
+    removalsKnown: Boolean,
+    updatesKnown: Boolean,
+    sinceWhole: Long,
+): PageReading = when {
+    !hasPage || !sameStructure || trimReached || !removalsKnown || !updatesKnown -> PageReading.WHOLE
+    sinceWhole >= FULL_RELOAD_MS -> PageReading.TIMED
+    else -> PageReading.NEW_LINES
+}
+
+/**
+ * What a reload tells the view model ([LogPager.Read]) after it read [lines] the way [reading] says.
+ * After a [TIMED][PageReading.TIMED] read, [LogPager.Read.fresh] holds only the lines after [newest],
+ * the newest line of the page before: what else follows the log is up to date by its own signals.
+ */
+internal fun readOf(
+    reading: PageReading,
+    lines: List<LogEntry>,
+    newest: Long?,
+    trimmed: Boolean,
+    commandGone: Boolean,
+): LogPager.Read = LogPager.Read(
+    whole = reading == PageReading.WHOLE,
+    fresh = if (reading == PageReading.TIMED && newest != null) lines.filter { it.id > newest } else lines,
+    trimmed = trimmed,
+    commandGone = commandGone,
+    timed = reading == PageReading.TIMED,
+)
+
+/**
+ * What the work after the rows ([LogPager.reload]'s `afterShown`) still has to apply: [read], and
+ * [before] when that work did not finish for an earlier reload (canceled by a newer change, or failed).
+ * Together they say what both said. Past [MAX_PAGE] new lines, it becomes a whole read.
+ */
+internal fun owed(before: LogPager.Read?, read: LogPager.Read): LogPager.Read {
+    if (before == null) return read
+    val whole = before.whole || read.whole
+    // With a whole read the lines don't matter: everything that follows them is read again.
+    val fresh = if (read.whole) read.fresh else before.fresh + read.fresh
+    return LogPager.Read(
+        whole = whole || fresh.size > MAX_PAGE,
+        fresh = fresh,
+        trimmed = before.trimmed || read.trimmed,
+        commandGone = before.commandGone || read.commandGone,
+        timed = before.timed || read.timed,
+    )
+}
 
 /**
  * The log's page: its lines, oldest first. [atStart] is true when the log is known to have no
@@ -143,18 +219,26 @@ class LogPager(
     private val requestReload: () -> Unit,
 ) {
     /**
-     * What one [reload] read, before the page shows. The view model refreshes from it what else
-     * follows the log (↑ history, the todo cache, …).
+     * What one [reload] read. The view model refreshes from it what else follows the log (↑ history,
+     * the todo cache, …).
      */
     class Read(
-        /** True when the whole page was read again, not only what changed. Then anything may be different. */
+        /**
+         * True when the whole page was read again because a change could not be applied to it (or
+         * there was no page yet). Then anything may be different.
+         */
         val whole: Boolean,
-        /** The lines read, oldest first: the page with [whole], otherwise the lines that came after it. */
+        /**
+         * The lines read, oldest first: the page with [whole], otherwise the lines that came after
+         * the page before (also with [timed]).
+         */
         val fresh: List<LogEntry>,
         /** True when a trim removed lines since the last reload. */
         val trimmed: Boolean,
         /** True when a command's line may be gone: after a trim, or when a removed line was a command or was not on the page. */
         val commandGone: Boolean,
+        /** True when the whole page was read again only because a minute passed ([FULL_RELOAD_MS]). */
+        val timed: Boolean = false,
     )
 
     private val _entries = MutableStateFlow<List<LogEntry>>(emptyList())
@@ -174,8 +258,23 @@ class LogPager(
 
     private val _rowsLoaded = MutableStateFlow(false)
 
-    /** False until the first reload has set [rows], so an empty list then means an empty log, not "not read yet". */
+    /**
+     * False until a reload has set [rows], so an empty list then means an empty log, not "not read
+     * yet": before the first reload, and from [dropUpTo] to the next.
+     */
     val rowsLoaded: StateFlow<Boolean> = _rowsLoaded.asStateFlow()
+
+    /**
+     * The marks ([seenUpTo], [unreadUntil]) that the rows were last built with, or null before the
+     * first build. It is set before the rows are built, so a reload under way that read older marks
+     * is seen here as not having the new ones.
+     */
+    @Volatile
+    var rowsMarks: Pair<Long, Long>? = null
+        private set
+
+    /** What the work after the rows ([reload]'s `afterShown`) did not finish applying ([owed]). Only the reload collector touches it. */
+    private var owedRead: Read? = null
 
     /** How many log lines are loaded. It grows as the user scrolls up (older lines load on demand). */
     @Volatile
@@ -229,6 +328,26 @@ class LogPager(
     }
 
     /**
+     * Takes the lines up to [id] off the screen at once, as a fresh screen hides them
+     * ([LogRepository.hideScreen]: every line up to its mark, starred ones too). Home calls it on the
+     * main thread when it is shown again, before the hide is written and the page read again.
+     * - Under `log only …` nothing changes: the filter's lines come from the whole log, hidden lines too.
+     * - [rowsLoaded] is false until the next reload, so the empty log's hint doesn't show meanwhile.
+     * Only [entries], [rows] and [rowsLoaded] change: the next reload reads the whole page, because
+     * the hide changes the log's structure. True when lines left the screen.
+     */
+    fun dropUpTo(id: Long): Boolean {
+        if (only.value != null) return false
+        val shown = _entries.value
+        if (shown.none { it.id <= id }) return false
+        val kept = shown.filter { it.id > id }
+        _entries.value = kept
+        _rowsLoaded.value = false
+        _rows.value = buildRows(kept, seenUpTo(), unreadUntil())
+        return true
+    }
+
+    /**
      * Makes the page long enough to hold the line [id] and a few lines before it, up to the cap.
      * The next reload reads them. The caller asks for that reload.
      */
@@ -243,17 +362,23 @@ class LogPager(
      * - Removed lines (a swipe, a launch line moved down) are dropped from the page.
      * - The whole page is read again: after a change in its middle (a restore, a hide, a clear),
      *   when a trim reached into it, and once a minute (another process may have changed something
-     *   this one didn't see).
+     *   this one didn't see) ([pageReading]).
      *
-     * [afterRead] runs once the page is read, before it shows. The view model reads there what else
-     * follows the log, only when something it shows could have changed.
+     * [afterRead] runs once the page is read, before it shows: the view model reads there what the
+     * screen shows with the rows. [afterShown] runs once the rows are published: the view model
+     * reads there what only completion and the widgets use. Each reads only when something it
+     * follows could have changed. If [afterShown] doesn't finish (a newer change came in), the next
+     * reload hands it this reload's [Read] too ([owed]).
      *
      * Everything runs on one background thread. A trip back to the main thread between the reads
      * would wait for its current work (a frame while typing or scrolling), so new lines would show
      * later. Only the view model's reload collector calls this, so only it writes the fields kept
      * here (the page's size apart). The main thread reads the page from [rows].
      */
-    suspend fun reload(afterRead: suspend (Read) -> Unit): Unit = withContext(Dispatchers.IO) {
+    suspend fun reload(
+        afterRead: suspend (Read) -> Unit,
+        afterShown: suspend (Read) -> Unit = {},
+    ): Unit = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         // Home keeps the log at its size limit as it grows: one trim every few hundred lines written.
         logs.trimIfOverdue()
@@ -273,9 +398,16 @@ class LogPager(
         val newest = loaded.lastOrNull()?.id
         // Trims keep starred lines. So the oldest non-starred line tells whether a trim reached into the page.
         val oldest = loaded.firstOrNull { !it.starred }?.id ?: Long.MAX_VALUE
-        val incremental = newest != null && structure == loadedStructure && trimmed < oldest &&
-                removed != null && updated != null && now - fullAt < FULL_RELOAD_MS
-        val fresh = if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit)
+        val reading = pageReading(
+            hasPage = newest != null,
+            sameStructure = structure == loadedStructure,
+            trimReached = trimmed >= oldest,
+            removalsKnown = removed != null,
+            updatesKnown = updated != null,
+            sinceWhole = now - fullAt,
+        )
+        val incremental = reading == PageReading.NEW_LINES
+        val fresh = if (incremental && newest != null) logs.recent(limit, afterId = newest) else logs.recent(limit)
         // Lines changed in place since the last reload, read again once for the page and for `log only …`.
         val again: Map<Long, LogEntry> =
             if (incremental && changed.isNotEmpty()) logs.byIds(changed)
@@ -290,14 +422,14 @@ class LogPager(
             ) { count, beforeId -> logs.recent(count, beforeId = beforeId) }
         }
         val all = page.lines
-        afterRead(
-            Read(
-                whole = !incremental,
-                fresh = fresh,
-                trimmed = trimmed != loadedTrimmed,
-                commandGone = trimmed != loadedTrimmed || mayRemoveCommand(loaded, gone)
-            )
+        val read = readOf(
+            reading,
+            fresh,
+            newest,
+            trimmed = trimmed != loadedTrimmed,
+            commandGone = trimmed != loadedTrimmed || mayRemoveCommand(loaded, gone),
         )
+        afterRead(read)
         // A locked private space hides its apps. Its lines (launches, notifications) are hidden too.
         val locked = locks()
         val list = if (locked.isEmpty()) all else all.filterNot { it.ctx.userSerial in locked }
@@ -357,10 +489,18 @@ class LogPager(
         filteredFor = filter
         filteredLimit = limit
         filteredLocks = locked
+        // From here on the state says these lines are read. The work after the rows owes them until it ends.
+        val after = owed(owedRead, read)
+        owedRead = after
         _filterCount.value = count
         _entries.value = shown
-        _rows.value =
-            withContext(Dispatchers.Default) { buildRows(shown, seenUpTo(), unreadUntil()) }
+        _rows.value = withContext(Dispatchers.Default) {
+            val marks = seenUpTo() to unreadUntil()
+            rowsMarks = marks
+            buildRows(shown, marks.first, marks.second)
+        }
         _rowsLoaded.value = true
+        afterShown(after)
+        owedRead = null
     }
 }

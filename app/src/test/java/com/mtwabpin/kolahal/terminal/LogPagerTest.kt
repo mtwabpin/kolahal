@@ -8,6 +8,7 @@ import com.mtwabpin.kolahal.logEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
@@ -217,6 +218,85 @@ class LogPagerTest {
         assertTrue(mayRemoveCommand(log.lines, setOf(printed.id, typed.id)))
         // A line that isn't on the page: nothing tells what it was.
         assertTrue(mayRemoveCommand(log.lines, setOf(printed.id, 99)))
+    }
+
+    // ---- how a reload reads ---------------------------------------------------------------
+
+    private fun reading(
+        hasPage: Boolean = true,
+        sameStructure: Boolean = true,
+        trimReached: Boolean = false,
+        removalsKnown: Boolean = true,
+        updatesKnown: Boolean = true,
+        sinceWhole: Long = 1_000,
+    ) = pageReading(hasPage, sameStructure, trimReached, removalsKnown, updatesKnown, sinceWhole)
+
+    @Test
+    fun aReloadReadsOnlyNewLinesUntilAMinutePassed() {
+        assertEquals(PageReading.NEW_LINES, reading())
+        assertEquals(PageReading.NEW_LINES, reading(sinceWhole = 59_999))
+        assertEquals(PageReading.TIMED, reading(sinceWhole = 60_000))
+    }
+
+    @Test
+    fun aChangeThePageCantFollowReadsItWhole() {
+        assertEquals(PageReading.WHOLE, reading(hasPage = false))
+        assertEquals(PageReading.WHOLE, reading(sameStructure = false, sinceWhole = 60_000))
+        assertEquals(PageReading.WHOLE, reading(trimReached = true))
+        assertEquals(PageReading.WHOLE, reading(removalsKnown = false))
+        assertEquals(PageReading.WHOLE, reading(updatesKnown = false))
+    }
+
+    /**
+     * Back home after a quiet minute: the page is read whole, but what else follows the log hears
+     * only of the lines that came since. A change in the middle (a hide, a clear) still says "whole".
+     */
+    @Test
+    fun aTimedReadTellsOnlyTheNewLines() {
+        val log = log(5)
+        val newest = log.lines.last().id
+        val came = log.add("came while away", LogKind.COMMAND)
+        val timed = readOf(PageReading.TIMED, log.recent(400), newest, trimmed = false, commandGone = false)
+        assertFalse(timed.whole)
+        assertTrue(timed.timed)
+        assertEquals(listOf(came.id), timed.fresh.map { it.id })
+        assertEquals(listOf("came while away"), withNewCommands(emptyList(), timed.fresh))
+        val whole = readOf(PageReading.WHOLE, log.recent(400), newest, trimmed = false, commandGone = false)
+        assertTrue(whole.whole)
+        assertFalse(whole.timed)
+        assertEquals(6, whole.fresh.size)
+        val newLines = readOf(PageReading.NEW_LINES, listOf(came), newest, trimmed = false, commandGone = false)
+        assertFalse(newLines.whole || newLines.timed)
+        assertEquals(listOf(came), newLines.fresh)
+    }
+
+    /** The work after the rows didn't finish for a reload: the next one hands over what both read. */
+    @Test
+    fun anUnfinishedReadIsOwedToTheNext() {
+        val log = FakeLog()
+        val a = LogPager.Read(false, listOf(log.add("ls", LogKind.COMMAND)), trimmed = false, commandGone = false)
+        val b = LogPager.Read(false, listOf(log.add("pwd", LogKind.COMMAND)), trimmed = true, commandGone = true)
+        assertSame(b, owed(null, b))
+        val both = owed(a, b)
+        assertFalse(both.whole)
+        assertEquals(listOf("ls", "pwd"), both.fresh.map { it.text })
+        assertTrue(both.trimmed && both.commandGone)
+        // History built from both is what one read of both lines gives.
+        assertEquals(listOf("pwd", "ls"), withNewCommands(emptyList(), both.fresh))
+        // A whole read on either side makes it whole.
+        val page = LogPager.Read(true, log.lines.toList(), trimmed = false, commandGone = false)
+        assertTrue(owed(a, page).whole)
+        assertEquals(2, owed(a, page).fresh.size)
+        assertTrue(owed(page, b).whole)
+    }
+
+    /** Too many lines owed: they are read again whole instead. */
+    @Test
+    fun tooManyOwedLinesMakeAWholeRead() {
+        val log = log(5001)
+        val a = LogPager.Read(false, log.lines.take(3000), trimmed = false, commandGone = false)
+        val b = LogPager.Read(false, log.lines.drop(3000), trimmed = false, commandGone = false)
+        assertTrue(owed(a, b).whole)
     }
 
     // ---- `log only …` ---------------------------------------------------------------------

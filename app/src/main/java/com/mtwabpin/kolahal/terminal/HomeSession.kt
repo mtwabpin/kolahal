@@ -36,8 +36,17 @@ class HomeSession(
         /** `log.fresh`: the minutes away after which home starts clean. 0 is off. */
         val freshMinutes: Long
 
+        /**
+         * Takes the lines up to [seen] off the screen at once, before [hideScreen] hides them in the
+         * log ([LogPager.dropUpTo]). It is called on the main thread, from [onResume].
+         */
+        fun dropScreen(seen: Long)
+
         /** Hides the lines up to [seen] from the screen. It is called on [io]. */
         fun hideScreen(seen: Long)
+
+        /** The marks (seen up to, unread until) the rows were last built with, or null before the first build ([LogPager.rowsMarks]). */
+        val rowsMarks: Pair<Long, Long>?
 
         /** The newest line's id in the log. It is called on [io]. */
         fun maxId(): Long
@@ -86,8 +95,10 @@ class HomeSession(
 
     /**
      * Home is shown again. After some time away (log.fresh), only lines you had already seen are
-     * hidden: script lines that arrived meanwhile stay. Nothing is deleted. Then the page is read,
-     * once, in [scope].
+     * hidden: script lines that arrived meanwhile stay. Nothing is deleted. They leave the screen
+     * before this returns, so no frame of the return shows them; the hide is written in [scope].
+     * Then the page is read, once. A home that wasn't stopped reads it only if its rows don't have
+     * the new marks yet: the first read of the process may already have them.
      */
     fun onResume(scope: CoroutineScope) {
         seenUpTo = host.storedSeenUpTo
@@ -95,6 +106,7 @@ class HomeSession(
         val seen = seenUpTo
         val hide =
             freshMin > 0 && pausedAt > 0 && clock() - pausedAt >= freshMin * 60_000L && seen != Long.MAX_VALUE
+        if (hide) host.dropScreen(seen)
         scope.launch {
             withContext(io) {
                 if (hide) runCatching { host.hideScreen(seen) }
@@ -102,7 +114,7 @@ class HomeSession(
             }
             // On return after a stop, the page is read here, once, after the fresh screen is applied.
             when {
-                reading.value -> host.requestReload()
+                reading.value -> if (host.rowsMarks != (seenUpTo to unreadUntil)) host.requestReload()
                 activityStarted -> {
                     back = true; reading.value = true
                 }

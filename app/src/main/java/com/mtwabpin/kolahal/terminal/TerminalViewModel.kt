@@ -108,6 +108,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 logs.seenUpTo = value
             }
         override val freshMinutes: Long get() = config[Keys.LOG_FRESH].toLong()
+        override fun dropScreen(seen: Long) {
+            // The "earlier lines" row comes back with the reload, with the new count.
+            if (pager.dropUpTo(seen)) _hiddenLines.value = 0
+        }
+
+        override val rowsMarks: Pair<Long, Long>? get() = pager.rowsMarks
         override fun hideScreen(seen: Long) = logs.hideScreen(seen)
         override fun maxId(): Long = logs.maxId()
         override fun requestReload() {
@@ -427,7 +433,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /** What the log list shows: entries (with dimming and gutter) and day separators. */
     val rows: StateFlow<List<LogRow>> get() = pager.rows
-
+    /** False until a reload has set [rows] ([LogPager.rowsLoaded]), so an empty list then means an empty log, not "not read yet". */
     /** False until the first reload has set [rows], so an empty list then means an empty log, not "not read yet". */
     val rowsLoaded: StateFlow<Boolean> get() = pager.rowsLoaded
 
@@ -545,17 +551,23 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             }
             // Away from home, only the trim continues. It keeps the log at its size limit as new lines arrive.
             launch { logs.version.collect { if (!reading.value) withContext(Dispatchers.IO) { runCatching { logs.trimIfOverdue() } } } }
-            // Reload only while home is shown, because nobody sees the page otherwise.
-            // - On return, it reads what arrived in the meantime at once, and only once.
-            // - Bursts wait as before (debounce).
-            // - The first read waits too.
+        }
+        // Reload only while home is shown, because nobody sees the page otherwise.
+        // - The first read starts here, at once: when the view model is made, home is about to be
+        //   shown ([reading] starts true). So the rows can be there for the first frame.
+        // - On return, it reads what arrived in the meantime at once, and only once.
+        // - Bursts wait (debounce).
+        // It runs off the main thread, so neither a wait nor the start of a read waits for a frame.
+        // collectLatest runs one reload at a time: a newer change cancels the one under way, and the
+        // next starts once it ended.
+        viewModelScope.launch(Dispatchers.Default) {
             reading.flatMapLatest { on ->
                 if (on) combine(
                     logs.version,
                     reloadRequests
                 ) { a, b -> a to b }.withIndex() else emptyFlow()
             }
-                .debounce { if (it.index == 0 && back) 0L.also { back = false } else 40L }
+                .debounce { if (it.index == 0 && (back || !pager.rowsLoaded.value)) 0L.also { back = false } else 40L }
                 .collectLatest {
                     // A failed reload keeps the previous rows instead of crashing home. It is not logged,
                     // because writing to the log would trigger the next reload.
@@ -581,21 +593,23 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /**
      * Brings the log up to date: its page ([LogPager.reload]), and what else follows the log
-     * ([refreshCaches]).
+     * ([refreshCaches] before the rows show, [refreshAfterRows] after).
      *
      * Everything runs on one background thread. A trip back to the main thread between the reads
      * would wait for its current work (a frame while typing or scrolling), so new lines would show
      * later. Only this collector writes the fields it keeps. The main thread reads the page from [rows].
      */
-    private suspend fun reload() = pager.reload(::refreshCaches)
+    private suspend fun reload() = pager.reload(::refreshCaches, ::refreshAfterRows)
 
     /**
-     * Reads what else follows the log. A reload calls it once the page is read, before the page shows.
-     * Scripts, the hidden count, history, the todo and feed caches and the log's sources are read
-     * only when something they show could have changed.
+     * Reads what shows with the rows: the scripts (the pinned header, the widgets), their status
+     * lines and the hidden count. A reload calls it once the page is read, before the page shows.
+     * Each is read only when something it shows could have changed. A read that is whole only
+     * because a minute passed ([LogPager.Read.timed]) reads the hidden count again, and nothing else
+     * here: the status lines have a count of their own ([LogRepository.statusVersion]).
      *
      * If the reload is canceled before the page shows (a newer change came in), the next reload
-     * reads the same lines again, and refreshes history, todos and the hidden count for them.
+     * reads the same lines again, and refreshes these for them.
      */
     private suspend fun refreshCaches(read: LogPager.Read) {
         // Read and written by the script list's one writer, only when the scripts changed since the last reload.
@@ -610,7 +624,16 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             com.mtwabpin.kolahal.shader.ShaderPlay.load(context)?.let { logs.add(LogKind.ERROR, "No one-off shader '$it' — 'shader' lists them") }
         }
         scriptsRead.value = true
-        if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()
+        if (read.whole || read.timed || read.trimmed) _hiddenLines.value = logs.hiddenCount()
+    }
+
+    /**
+     * Reads what only completion and the widgets use: ↑ history, the todo and feed caches and the
+     * log's sources. A reload calls it once the rows are published, so they may be one reload late.
+     * A read that is whole only because a minute passed ([LogPager.Read.timed]) counts as the new
+     * lines it brought: history and sources follow them, and the stores count their own writes.
+     */
+    private fun refreshAfterRows(read: LogPager.Read) {
         // A typed command's own line puts it first in the history. Read the history again only when a
         // command may be gone: after a trim, or when a removed line was a command or is not on this page.
         history = if (read.whole || read.commandGone) logs.commandHistory() else withNewCommands(

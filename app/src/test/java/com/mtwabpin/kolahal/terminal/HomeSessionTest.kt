@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.terminal
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -18,8 +19,17 @@ class HomeSessionTest {
         var maxFails = false
         var hidden: Long? = null
         var reloads = 0
+        override var rowsMarks: Pair<Long, Long>? = null
+
+        /** What the session asked for, in order. */
+        val events = ArrayList<String>()
+
+        override fun dropScreen(seen: Long) {
+            events += "drop $seen"
+        }
 
         override fun hideScreen(seen: Long) {
+            events += "hide $seen"
             hidden = seen
         }
 
@@ -62,6 +72,20 @@ class HomeSessionTest {
         assertFalse(session.back)
     }
 
+    /** At start, the first read may already have built the rows with the marks of this resume: it isn't read twice. */
+    @Test
+    fun rowsWithTheNewMarksAreNotReadAgain() {
+        host.storedSeenUpTo = 42
+        host.max = 50
+        host.rowsMarks = 42L to 50L
+        session.onResume(scope)
+        assertEquals(0, host.reloads)
+        // Built before the marks were known: read again, so the lines that came while away are marked.
+        host.rowsMarks = Long.MAX_VALUE to Long.MAX_VALUE
+        session.onResume(scope)
+        assertEquals(1, host.reloads)
+    }
+
     @Test
     fun aResumeWhileStoppedReadsNothing() {
         session.onStarted(false)
@@ -87,11 +111,34 @@ class HomeSessionTest {
         assertEquals(42L, host.hidden)
     }
 
+    /**
+     * The seen lines leave the screen before onResume returns, so no frame of the return shows them.
+     * The hide is written and the page read after, on another thread.
+     */
+    @Test
+    fun theSeenLinesLeaveTheScreenBeforeTheHideIsWritten() {
+        host.newest = 42
+        host.max = 50
+        val queued = ArrayList<Runnable>()
+        val later = CoroutineScope(java.util.concurrent.Executor { queued += it }.asCoroutineDispatcher())
+        session.onPause()
+        session.onStarted(false)
+        now += 10 * 60_000L
+        session.onStarted(true)
+        session.onResume(later)
+        assertEquals(listOf("drop 42"), host.events)
+        assertNull(host.hidden)
+        while (queued.isNotEmpty()) queued.removeAt(0).run()
+        assertEquals(listOf("drop 42", "hide 42"), host.events)
+        assertTrue(session.reading.value)
+    }
+
     @Test
     fun aShortTimeAwayHidesNothing() {
         host.newest = 42
         away(9)
         assertNull(host.hidden)
+        assertTrue(host.events.isEmpty())
     }
 
     @Test

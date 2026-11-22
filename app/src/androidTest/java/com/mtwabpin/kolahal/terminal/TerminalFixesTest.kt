@@ -160,6 +160,22 @@ class TerminalFixesTest {
         return text
     }
 
+    /**
+     * The newest [n] commands ↑ recalls, with the prompt left as it was. ↑ follows the log a moment
+     * after its lines show (the history is read after the rows), so a test waits for it with this.
+     */
+    private fun TerminalViewModel.recall(n: Int): List<String> {
+        val out = ArrayList<String>()
+        instrumentation.runOnMainSync {
+            repeat(n) {
+                historyUp()
+                out += input.text
+            }
+            repeat(n) { historyDown() }
+        }
+        return out
+    }
+
     private fun TerminalViewModel.shown(line: String) =
         entries.value.count { it.kind == LogKind.COMMAND && it.text == line }
 
@@ -173,6 +189,7 @@ class TerminalFixesTest {
         waitUntil("the second") { vm.shown("echo tf two") == 1 }
         vm.type("echo tf one")
         waitUntil("the first again") { vm.shown("echo tf one") == 2 }
+        waitUntil("↑ follows") { vm.recall(2) == listOf("echo tf one", "echo tf two") }
         assertEquals("echo tf one", vm.up())
         assertEquals("echo tf two", vm.up())
         // Typed twice, it's there once.
@@ -189,6 +206,7 @@ class TerminalFixesTest {
         waitUntil("the second") { vm.shown("echo tf stays") == 1 }
         logs.delete(vm.entries.value.single { it.kind == LogKind.COMMAND && it.text == "echo tf gone" }.id)
         waitUntil("it leaves the page") { vm.shown("echo tf gone") == 0 }
+        waitUntil("↑ follows") { vm.recall(2).let { it.first() == "echo tf stays" && "echo tf gone" !in it } }
         assertEquals("echo tf stays", vm.up())
         assertTrue(vm.up() != "echo tf gone")
     }
