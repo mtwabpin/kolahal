@@ -70,7 +70,12 @@ object ShaderValues {
         }
     }
 
-    /** Reads what scripts gave: at start, and when one may have given something ([LogRepository.statusVersion]). Main process. */
+    /**
+     * Reads what scripts gave: at start, off the main thread ([Shaders.load]), and when one may have given
+     * something ([LogRepository.statusVersion]). Main process. One read at a time, so the last to finish is
+     * the last to read.
+     */
+    @Synchronized
     fun load(context: Context) {
         val all = KvStore(context, Stores.SHADER_VALUES).all()
         _given.value = all.flatMap { (script, raw) -> read(raw).map { (name, value) -> id(script, name) to value } }.toMap()

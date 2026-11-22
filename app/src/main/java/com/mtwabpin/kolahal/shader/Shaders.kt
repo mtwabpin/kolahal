@@ -27,7 +27,8 @@ import java.util.concurrent.ConcurrentHashMap
  * The shader files on the phone: the bundled ones in assets, and the user's own in
  * `files/shaders/<name>.agsl`, which arrive as scripts do (from the script folder, `script import`,
  * or a picked file). The user's file of a bundled name is the one used.
- * - Names load at start ([load]), so `screen.shader` accepts and completes them at once.
+ * - Names load at start ([load]), so `screen.shader` accepts and completes them at once. What people set
+ *   for shaders loads then too, off the main thread.
  * - What goes wrong with a shader is a line in the log. Shaders need Android 13 ([supported]).
  */
 object Shaders {
@@ -60,6 +61,13 @@ object Shaders {
     @Volatile
     private var paramsRead = false
 
+    /**
+     * The first read of what people set and scripts gave ([load]), on a thread of [scope]: it opens the
+     * database, and home's first frame has no shader in it. Null in a process that never called [load].
+     */
+    @Volatile
+    private var settings: Lazy<Unit>? = null
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** The problems already put in the log, so a redraw doesn't repeat them. */
@@ -68,17 +76,42 @@ object Shaders {
     private fun dir(context: Context) = File(context.filesDir, DIR)
     private fun file(context: Context, name: String) = File(dir(context), "$name.${ShaderCatalog.EXT}")
 
-    /** Reads the user's shader names. Called at start, before home is drawn. */
+    /**
+     * Reads the user's shader names. Called at start, before home is drawn. The first time, it also
+     * reads what people set and scripts gave, off the main thread ([settings]), except the live
+     * wallpaper's shader where there are shaders: the wallpaper's writer starts with home.
+     */
     fun load(context: Context) {
         if (!paramsRead) {
             paramsRead = true
-            ShaderParams.load(context)
-            ShaderValues.load(context)
-            ShaderWords.load(context)
-            WallpaperChoice.load(context)
+            val app = context.applicationContext
+            if (supported) WallpaperChoice.load(app)
+            readSoon({
+                // A read that fails leaves that part empty, as before anything was set; home goes on.
+                runCatching { ShaderWords.load(app) }
+                runCatching { ShaderParams.load(app) }
+                if (!supported) runCatching { WallpaperChoice.load(app) }
+                runCatching { ShaderValues.load(app) }
+            }) { read -> scope.launch { read() } }
         }
         mine = dir(context).list().orEmpty().mapNotNull(ShaderCatalog::nameOf).distinct().sorted()
         _version.update { it + 1 }
+    }
+
+    /**
+     * Waits until the first read of what people set and scripts gave is done ([load]). If it hasn't
+     * started yet, it reads them on this thread. Before a shader is read to be drawn, so a parameter
+     * starts at the value it follows instead of gliding to it; and before a notification is looked at.
+     */
+    internal fun settingsRead() {
+        settings?.value
+    }
+
+    /** Makes [read] the first read that [settingsRead] waits for, and has [start] run it on another thread. It runs once. */
+    internal fun readSoon(read: () -> Unit, start: (run: () -> Unit) -> Unit) {
+        val once = lazy(read)
+        settings = once
+        start { once.value }
     }
 
     /** The shaders there are, the bundled ones first. */
@@ -91,8 +124,12 @@ object Shaders {
     fun own(context: Context, name: String): String? =
         runCatching { file(context, name).takeIf { name in mine && it.isFile }?.readText() }.getOrNull()
 
-    /** The code of shader [name], the user's file first; null when there is none. Reads a file: not on the main thread. */
+    /**
+     * The code of shader [name], the user's file first; null when there is none. Reads a file: not on
+     * the main thread. Everything that draws a shader reads its code here, so this waits for [settingsRead].
+     */
     fun source(context: Context, name: String): String? = runCatching {
+        settingsRead()
         val own = file(context, name)
         when {
             name in mine && own.isFile -> own.readText()

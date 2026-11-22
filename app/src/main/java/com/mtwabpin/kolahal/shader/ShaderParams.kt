@@ -44,7 +44,7 @@ object ShaderParams {
 
     private fun store(context: Context) = Stores.SHADER_PARAMS.open(context)
 
-    /** Reads what was saved. With the shaders' names at start, and after a backup is imported. */
+    /** Reads what was saved: at start, off the main thread ([Shaders.load]), and after a backup is imported. */
     fun load(context: Context) {
         val set = HashMap<String, HashMap<String, String>>()
         val followed = HashMap<String, HashMap<String, String>>()

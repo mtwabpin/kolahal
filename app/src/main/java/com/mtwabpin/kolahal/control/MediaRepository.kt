@@ -233,6 +233,11 @@ class MediaRepository private constructor(private val context: Context) {
 
     @Volatile
     private var listening = false
+
+    /** [start] was called last, not [stop]: the listening that [start] puts off is still wanted. */
+    @Volatile
+    private var wanted = false
+
     private var watches: List<Watch> = emptyList()
 
     @Volatile
@@ -289,7 +294,11 @@ class MediaRepository private constructor(private val context: Context) {
             return
         }
         if (listening) return
-        main.post { listen() }
+        wanted = true
+        // Reading the sessions is about ten calls to Android and a cover scaled per player. So it waits
+        // until the main thread is idle: at a start, that is after the first frame, and what plays shows
+        // a frame later. The handler is added on the main thread, which then wakes to run it.
+        main.post { Looper.myQueue().addIdleHandler { if (wanted) listen(); false } }
     }
 
     /** Main thread. Without access, Android refuses, and then it doesn't listen. */
@@ -322,6 +331,7 @@ class MediaRepository private constructor(private val context: Context) {
 
     /** Stops following players. Used when access is turned off, and when a test is done with them. */
     fun stop() {
+        wanted = false
         main.post { unlisten() }
     }
 

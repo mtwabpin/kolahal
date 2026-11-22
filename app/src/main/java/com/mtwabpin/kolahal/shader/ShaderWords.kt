@@ -36,8 +36,12 @@ object ShaderWords {
         Stores.SHADER_WORDS.open(context).edit { if (kept.isBlank()) remove(shader) else putString(shader, kept) }
     }
 
-    /** A notification came: the first shader with a word of it plays. From any thread of the main process. */
+    /**
+     * A notification came: the first shader with a word of it plays. From any thread of the main process.
+     * One that comes as Kolahal starts waits for the words to be read ([Shaders.settingsRead]).
+     */
     fun onNotification(title: String, text: String) {
+        Shaders.settingsRead()
         val all = _words.value
         if (all.isEmpty()) return
         val said = "$title\n$text"
