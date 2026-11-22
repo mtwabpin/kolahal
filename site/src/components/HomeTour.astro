@@ -18,13 +18,18 @@
  * and the site's colors come back after it.
  *
  * - Reduced motion: no parallax, drift or typing; each state switches at once.
- * - Phone widths: the phone is a sticky panel at the top, one background column, no keyboard.
- * - Without JavaScript: the beats read as text, and the phone shows an empty home screen.
+ * - Phone widths (under 860 px): a simpler page. Nothing is pinned or tied to the scroll position:
+ *   each beat is a section with its text and its own phone, keyboard included, which plays the
+ *   beat on a clock while it is on screen (Pause stops it). The background is a few lines of the
+ *   log before each beat, which decode once as they come into view. The background's code and
+ *   text are not loaded.
+ * - Without JavaScript: the beats read as text; on large screens the phone shows an empty home screen.
  *
  * The hero (title, tagline, buttons) comes in through the `intro` slot, from Hero.astro.
  */
 import { LinkButton } from '@astrojs/starlight/components';
 import { APK, DIRECT_DOWNLOADS } from '../release';
+import { BG_BLOCKS } from './tour-background';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? base + href : href);
@@ -49,7 +54,12 @@ const SHAPES = [
 	`--circle:${blob(1, 0)}`,
 ].join(';');
 
-type Beat = { id: string; cmd: string; title: string; text: string[]; len: number; bar: string; cmds?: string[] };
+/**
+ * A beat. len: its length on large screens, in hundredths of the window's height. On phones:
+ * secs, how long its phone takes to play it; pose, the point of it (0–1) shown still with reduced
+ * motion; tall, the phone's height for its width.
+ */
+type Beat = { id: string; cmd: string; title: string; text: string[]; len: number; bar: string; cmds?: string[]; secs: number; pose: number; tall: number };
 const BEATS: Beat[] = [
 	{
 		id: 'launch',
@@ -61,6 +71,7 @@ const BEATS: Beat[] = [
 		],
 		len: 140,
 		bar: 'var(--accent)',
+		secs: 9, pose: 0.3, tall: 1.8,
 	},
 	{
 		id: 'apps',
@@ -72,6 +83,7 @@ const BEATS: Beat[] = [
 		],
 		len: 160,
 		bar: 'var(--info)',
+		secs: 11, pose: 0.5, tall: 2,
 	},
 	{
 		id: 'answers',
@@ -81,6 +93,7 @@ const BEATS: Beat[] = [
 		cmds: ['= 5 km in mi', 'date tokyo london', 'todo add call the bank', 'cal', 'timer 10m tea', 'remind 6pm call home', 'note buy lentils', 'dnd on', 'usage'],
 		len: 190,
 		bar: 'var(--warn)',
+		secs: 14, pose: 0.6, tall: 1.9,
 	},
 	{
 		id: 'log',
@@ -92,6 +105,7 @@ const BEATS: Beat[] = [
 		],
 		len: 170,
 		bar: 'var(--link)',
+		secs: 13, pose: 0.8, tall: 1.9,
 	},
 	{
 		id: 'widgets',
@@ -103,6 +117,7 @@ const BEATS: Beat[] = [
 		],
 		len: 190,
 		bar: 'var(--accent)',
+		secs: 16, pose: 0.5, tall: 2.15,
 	},
 	{
 		id: 'scripts',
@@ -114,6 +129,7 @@ const BEATS: Beat[] = [
 		],
 		len: 190,
 		bar: 'var(--private)',
+		secs: 15, pose: 0.36, tall: 2.15,
 	},
 	{
 		id: 'themes',
@@ -125,6 +141,7 @@ const BEATS: Beat[] = [
 		],
 		len: 200,
 		bar: 'var(--accent)',
+		secs: 14, pose: 0.5, tall: 1.8,
 	},
 ];
 
@@ -177,6 +194,23 @@ const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 /** The touch key bar's default keys (Keys.kt DEFAULT_KEYBAR). */
 const KEYBAR = ['/', '@', '|', '=', '+', '-', '*', 'up', 'down'];
 const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
+
+/**
+ * The background on phones: for each beat, three columns of lines from its block of the log
+ * (the second and third show as the width allows), each a few commands with their output.
+ */
+const STRIPS = BEATS.map((_, i) => {
+	const groups = BG_BLOCKS[i + 1].groups.filter((g) => g.c);
+	return [0, 1, 2].map((col) => {
+		const lines: { t: string; c: boolean }[] = [];
+		// A long output (a script's source) is cut to the lines that fit.
+		for (let k = col; k < groups.length && lines.length < 5; k += 3) {
+			const g = groups[k];
+			lines.push({ t: `$ ${g.c}`, c: true }, ...g.o.slice(0, 5 - lines.length).map((t) => ({ t, c: false })));
+		}
+		return lines;
+	});
+});
 ---
 
 <div class="tour" data-tour style={SHAPES}>
@@ -390,7 +424,12 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 
 		<div class="t-copy">
 			{BEATS.map((b, i) => (
-				<section class="t-beat" id={`tour-${b.id}`} style={`--len:${b.len};--bar:${b.bar}`}>
+				<section class="t-beat" id={`tour-${b.id}`} style={`--len:${b.len};--bar:${b.bar};--tall:${b.tall}`}>
+					<div class="t-strip" aria-hidden="true">
+						{STRIPS[i].map((col) => (
+							<div>{col.map((l) => <span class:list={['ln', { c: l.c }]}>{l.t}</span>)}</div>
+						))}
+					</div>
 					<div class="t-card">
 						<p class="t-cmd"><span><b>$</b> {b.cmd}</span><i>{i + 1} / {BEATS.length}</i></p>
 						<h2>{b.title}</h2>
@@ -400,6 +439,13 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 								{b.cmds.map((c) => <li><code>{c}</code></li>)}
 							</ul>
 						)}
+					</div>
+					<div class="t-mock" data-pose={b.pose} data-secs={b.secs}>
+						<div class="t-mph"></div>
+						<div class="t-mctl">
+							<span class="t-mbar" aria-hidden="true"><b /></span>
+							<button type="button" class="t-play" aria-pressed="false">Pause</button>
+						</div>
 					</div>
 				</section>
 			))}
@@ -436,7 +482,7 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 	 * (chapter) and how far into it the reading line is (0–1), and renders the phone from those two
 	 * numbers alone. Scrolling back plays everything backwards.
 	 */
-	import { createBackdrop } from './tour-backdrop';
+	import type { Backdrop } from './tour-backdrop';
 
 	const tour = document.querySelector<HTMLElement>('[data-tour]');
 	if (tour) run(tour);
@@ -605,525 +651,563 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 		/* ---------- elements ---------- */
 		const bgEl = $('.t-bg-in');
 		const beats = $$('.t-beat');
-		const screen = $('.t-screen');
-		const clockEl = $('[data-clock]');
-		const todosEl = $('[data-todos]');
-		const logEl = $('.t-log');
-		const hintEl = $('.t-hint0');
-		const suggEl = $('.t-sugg');
-		const typedEl = $('.t-typed');
-		const clearEl = $('.t-clear');
-		const kbdEl = $('.t-kbd');
-		const pagesEl = $('.t-pages');
-		const mapsEl = $('.t-maps');
-		const photosEl = $('.t-photos');
-		const selEl = $('.t-sel');
-		const slistEl = $('.t-slist');
-		const railEl = $('.t-rail');
-		const bubbleEl = $('.t-bubble');
-		const edEl = $('.t-ed');
-		const codeEl = $('.t-code');
-		const runEl = $('.t-run');
-		const sheetEl = $('.t-sheetwrap');
-		const touchEl = $('.t-touch');
-		const wview = $('.t-wview');
-		const wgrid = $('.t-wgrid');
-		const wplus = $('.t-wplus');
-		const torch = $('.t-torch');
-		const todo1 = $('.t-todo1');
-		const habit = $('.w-habit');
-		const streakEl = $('.t-streak');
-		const waterCard = $('.w-water');
-		const waterEl = $('.t-water');
-		const waterLevel = $('.w-level', waterCard);
-		const lookName = $('.t-lookname');
-		const wpage = $('.t-wpage');
-		const wbar = $('.t-wbar');
-		const lookEls = $$('.t-looks i');
 		const chapters = $$('.t-chapters a');
 		const progSegs = $$('.t-prog i b');
 		const capEl = $('.t-cap');
+		const phoneEl = $('.t-phone');
+		/** The phone as the page has it, before anything is built in it: phone widths draw one copy for each beat. */
+		const proto = phoneEl.cloneNode(true) as HTMLElement;
 
-		/* ---------- build: log groups ---------- */
-		const groups: { el: HTMLElement; ch: number; at: number; on: boolean }[] = [];
-		let lpLine: HTMLElement | null = null;
-		for (const t of TYPES) {
-			const el = doc.createElement('div');
-			el.className = 't-g';
-			el.innerHTML =
-				`<div class="t-ln"><span><b class="ps">$</b> <b>${esc(t.t)}</b></span><span class="t-time">${t.time}</span></div>` +
-				t.out.map((o) => `<div class="t-o">${o}</div>`).join('');
-			if (t.lp) lpLine = el.children[1] as HTMLElement;
-			logEl.appendChild(el);
-			groups.push({ el, ch: t.ch, at: t.at, on: false });
-		}
+		/**
+		 * A phone: builds the screen in [P] and returns its renderer. Themes go on [themeEl] (the tour
+		 * on large screens, the beat's own section on phones).
+		 */
+		function makePhone(P: HTMLElement, themeEl: HTMLElement) {
+			const $ = <E extends Element = HTMLElement>(s: string, el: ParentNode = P) => el.querySelector<E>(s)!;
+			const $$ = <E extends Element = HTMLElement>(s: string, el: ParentNode = P) => [...el.querySelectorAll<E>(s)];
+			const screen = $('.t-screen');
+			const clockEl = $('[data-clock]');
+			const todosEl = $('[data-todos]');
+			const logEl = $('.t-log');
+			const hintEl = $('.t-hint0');
+			const suggEl = $('.t-sugg');
+			const typedEl = $('.t-typed');
+			const clearEl = $('.t-clear');
+			const kbdEl = $('.t-kbd');
+			const pagesEl = $('.t-pages');
+			const mapsEl = $('.t-maps');
+			const photosEl = $('.t-photos');
+			const selEl = $('.t-sel');
+			const slistEl = $('.t-slist');
+			const railEl = $('.t-rail');
+			const bubbleEl = $('.t-bubble');
+			const edEl = $('.t-ed');
+			const codeEl = $('.t-code');
+			const runEl = $('.t-run');
+			const sheetEl = $('.t-sheetwrap');
+			const touchEl = $('.t-touch');
+			const wview = $('.t-wview');
+			const wgrid = $('.t-wgrid');
+			const wplus = $('.t-wplus');
+			const torch = $('.t-torch');
+			const todo1 = $('.t-todo1');
+			const habit = $('.w-habit');
+			const streakEl = $('.t-streak');
+			const waterCard = $('.w-water');
+			const waterEl = $('.t-water');
+			const waterLevel = $('.w-level', waterCard);
+			const lookName = $('.t-lookname');
+			const wpage = $('.t-wpage');
+			const wbar = $('.t-wbar');
+			const lookEls = $$('.t-looks i');
 
-		/* ---------- build: the keyboard (Android's, as Gboard draws it) ---------- */
-		const keys: Record<string, HTMLElement> = {};
-		{
-			const icon = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
-			let h = '<div class="r1">';
-			[...'qwertyuiop'].forEach((c, i) => (h += `<i data-k="${c}"><sup>${(i + 1) % 10}</sup>${c}</i>`));
-			h += '</div><div class="r2">';
-			for (const c of 'asdfghjkl') h += `<i data-k="${c}">${c}</i>`;
-			h += `</div><div class="r3"><i class="fn w15" data-k="shift">${icon('shift')}</i>`;
-			for (const c of 'zxcvbnm') h += `<i data-k="${c}">${c}</i>`;
-			h += `<i class="fn w15" data-k="del">${icon('back')}</i></div>`;
-			h += `<div class="r4"><i class="fn w15 sym" data-k="sym">?123</i><i class="fn" data-k=",">,</i><i class="fn">${icon('globe')}</i><i class="space" data-k=" "></i><i class="fn" data-k=".">.</i><i class="enter w15" data-k="enter">${icon('ret')}</i></div>`;
-			h += '<div class="t-kpop"></div><span class="t-navpill"></span>';
-			kbdEl.innerHTML = h;
-			for (const k of $$('i', kbdEl)) if (k.dataset.k) keys[k.dataset.k] = k;
-		}
-		const kpop = $('.t-kpop', kbdEl);
-		const keyFor = (c: string) => (!c ? null : keys[c] || keys.sym);
-
-		/* ---------- build: suggestion rows (SuggestionList.kt) ---------- */
-		function rowsHtml(rows: Row[]) {
-			return rows
-				.map(
-					(r) =>
-						`<div class="t-row${r.best ? ' best' : ''}${r.big ? ' tall' : ''}"><i class="t-bar"></i>` +
-						(r.big ? '<svg class="t-ic a"><use href="#t-terminal"/></svg>' : appIcon(r.label)) +
-						(r.big ? stats(r.big[0], r.big[1]) : `<span class="t-lab">${esc(r.label)}</span>`) +
-						(r.best ? '<svg class="t-ret"><use href="#t-ret"/></svg>' : '') +
-						'</div>',
-				)
-				.join('');
-		}
-
-		/* ---------- build: app selector (AppSelector.kt) ---------- */
-		slistEl.innerHTML = APPS.map(
-			([l, name, tag], i) =>
-				`<div class="t-sr" data-i="${i}">` +
-				(i === PICK_ROW ? '<span class="t-fill"></span>' : '') +
-				`<span class="t-sl">${SECTIONS.some((s) => s.first === i) || i === PICK_ROW ? l : ''}</span>` +
-				appIcon(name, 't-sic') +
-				`<span class="t-sn">${tag ? `<span class="t-tag">[${tag}]</span> ` : ''}${name}</span></div>`,
-		).join('');
-		railEl.innerHTML = SECTIONS.map((s) => `<i>${s.l}</i>`).join('');
-		const srows = $$('.t-sr', slistEl);
-		const railLetters = $$('i', railEl);
-		const fillEl = $('.t-fill', slistEl);
-
-		/* ---------- the background ---------- */
-		const backdrop = createBackdrop(T, bgEl);
-
-		/* ---------- themes: on the tour's own element ---------- */
-		let curTheme = '';
-		let curLight: boolean | null = null;
-		const VARS = ['--bg', '--fg', '--dim', '--accent', '--info', '--link'];
-		function applyTheme(name: string) {
-			const light = root.dataset.theme === 'light';
-			if (name === curTheme && light === curLight) return;
-			curTheme = name;
-			curLight = light;
-			if (name === 'green') {
-				for (const v of VARS) T.style.removeProperty(v);
-				T.style.removeProperty('--surface');
-			} else {
-				const c = TH[name][light ? 'l' : 'd'];
-				VARS.forEach((v, i) => T.style.setProperty(v, c[i]));
-				T.style.setProperty('--surface', `color-mix(in srgb, ${c[1]} 6%, ${c[0]})`);
+			/* ---------- build: log groups ---------- */
+			const groups: { el: HTMLElement; ch: number; at: number; on: boolean }[] = [];
+			let lpLine: HTMLElement | null = null;
+			for (const t of TYPES) {
+				const el = doc.createElement('div');
+				el.className = 't-g';
+				el.innerHTML =
+					`<div class="t-ln"><span><b class="ps">$</b> <b>${esc(t.t)}</b></span><span class="t-time">${t.time}</span></div>` +
+					t.out.map((o) => `<div class="t-o">${o}</div>`).join('');
+				if (t.lp) lpLine = el.children[1] as HTMLElement;
+				logEl.appendChild(el);
+				groups.push({ el, ch: t.ch, at: t.at, on: false });
 			}
-		}
 
-		/* ---------- measure ---------- */
-		/** The selector's box: the log's area, which changes with the keyboard. */
-		function measureSel() {
-			const sr = screen.getBoundingClientRect();
-			const r = selEl.getBoundingClientRect();
-			selW = r.width;
-			selH = r.height;
-			selTop = r.top - sr.top;
+			/* ---------- build: the keyboard (Android's, as Gboard draws it) ---------- */
+			const keys: Record<string, HTMLElement> = {};
+			{
+				const icon = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
+				let h = '<div class="r1">';
+				[...'qwertyuiop'].forEach((c, i) => (h += `<i data-k="${c}"><sup>${(i + 1) % 10}</sup>${c}</i>`));
+				h += '</div><div class="r2">';
+				for (const c of 'asdfghjkl') h += `<i data-k="${c}">${c}</i>`;
+				h += `</div><div class="r3"><i class="fn w15" data-k="shift">${icon('shift')}</i>`;
+				for (const c of 'zxcvbnm') h += `<i data-k="${c}">${c}</i>`;
+				h += `<i class="fn w15" data-k="del">${icon('back')}</i></div>`;
+				h += `<div class="r4"><i class="fn w15 sym" data-k="sym">?123</i><i class="fn" data-k=",">,</i><i class="fn">${icon('globe')}</i><i class="space" data-k=" "></i><i class="fn" data-k=".">.</i><i class="enter w15" data-k="enter">${icon('ret')}</i></div>`;
+				h += '<div class="t-kpop"></div><span class="t-navpill"></span>';
+				kbdEl.innerHTML = h;
+				for (const k of $$('i', kbdEl)) if (k.dataset.k) keys[k.dataset.k] = k;
+			}
+			const kpop = $('.t-kpop', kbdEl);
+			const keyFor = (c: string) => (!c ? null : keys[c] || keys.sym);
+
+			/* ---------- build: suggestion rows (SuggestionList.kt) ---------- */
+			function rowsHtml(rows: Row[]) {
+				return rows
+					.map(
+						(r) =>
+							`<div class="t-row${r.best ? ' best' : ''}${r.big ? ' tall' : ''}"><i class="t-bar"></i>` +
+							(r.big ? '<svg class="t-ic a"><use href="#t-terminal"/></svg>' : appIcon(r.label)) +
+							(r.big ? stats(r.big[0], r.big[1]) : `<span class="t-lab">${esc(r.label)}</span>`) +
+							(r.best ? '<svg class="t-ret"><use href="#t-ret"/></svg>' : '') +
+							'</div>',
+					)
+					.join('');
+			}
+
+			/* ---------- build: app selector (AppSelector.kt) ---------- */
+			slistEl.innerHTML = APPS.map(
+				([l, name, tag], i) =>
+					`<div class="t-sr" data-i="${i}">` +
+					(i === PICK_ROW ? '<span class="t-fill"></span>' : '') +
+					`<span class="t-sl">${SECTIONS.some((s) => s.first === i) || i === PICK_ROW ? l : ''}</span>` +
+					appIcon(name, 't-sic') +
+					`<span class="t-sn">${tag ? `<span class="t-tag">[${tag}]</span> ` : ''}${name}</span></div>`,
+			).join('');
+			railEl.innerHTML = SECTIONS.map((s) => `<i>${s.l}</i>`).join('');
+			const srows = $$('.t-sr', slistEl);
+			const railLetters = $$('i', railEl);
+			const fillEl = $('.t-fill', slistEl);
+
+			/* ---------- themes: on the tour's own element ---------- */
+			let curTheme = '';
+			let curLight: boolean | null = null;
+			const VARS = ['--bg', '--fg', '--dim', '--accent', '--info', '--link'];
+			function applyTheme(name: string) {
+				const light = root.dataset.theme === 'light';
+				if (name === curTheme && light === curLight) return;
+				curTheme = name;
+				curLight = light;
+				if (name === 'green') {
+					for (const v of VARS) themeEl.style.removeProperty(v);
+					themeEl.style.removeProperty('--surface');
+				} else {
+					const c = TH[name][light ? 'l' : 'd'];
+					VARS.forEach((v, i) => themeEl.style.setProperty(v, c[i]));
+					themeEl.style.setProperty('--surface', `color-mix(in srgb, ${c[1]} 6%, ${c[0]})`);
+				}
+			}
+
+			/* ---------- measure ---------- */
+			/** The selector's box: the log's area, which changes with the keyboard. */
+			function measureSel() {
+				const sr = screen.getBoundingClientRect();
+				const r = selEl.getBoundingClientRect();
+				selW = r.width;
+				selH = r.height;
+				selTop = r.top - sr.top;
+			}
+			let dp = 1;
+			let selW = 0;
+			let selH = 0;
+			let selTop = 0;
+			function measure() {
+				dp = screen.clientWidth / DP_ACROSS || 1;
+				measureSel();
+				S.wshift = -1;
+			}
+
+			/* ---------- render: everything is a function of (beat, progress) ---------- */
+			const S = { txt: '', key: '', code: -1, look: '', water: -1, wshift: -1, kbd: true, arrange: false };
+
+			/** The middle of [el] in the screen's coordinates. */
+			function center(el: Element) {
+				const r = el.getBoundingClientRect();
+				const s = screen.getBoundingClientRect();
+				return [r.left - s.left + r.width / 2, r.top - s.top + r.height / 2];
+			}
+			/** The touch mark (like Android's "Show taps"): at x, y in the screen, with opacity o. */
+			function touch(x: number, y: number, o: number, scale = 1) {
+				st(touchEl, 'opacity', o.toFixed(2));
+				if (o > 0) st(touchEl, 'transform', `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${scale.toFixed(2)})`);
+			}
+			function show(el: HTMLElement, o: number) {
+				st(el, 'visibility', o > 0.001 ? 'visible' : 'hidden');
+			}
+
+			function renderCode(n: number) {
+				let h = '';
+				let line = 1;
+				let cur = '';
+				let run = '';
+				const flush = () => {
+					if (run) h += cur ? `<span class="${cur}">${esc(run)}</span>` : esc(run);
+					run = '';
+				};
+				h += '<span class="t-ln-n">1</span>';
+				for (let i = 0; i < n; i++) {
+					const ch = CODE[i];
+					if (ch === '\n') {
+						flush();
+						line++;
+						h += `\n<span class="t-ln-n">${line}</span>`;
+						continue;
+					}
+					if (CODE_CLS[i] !== cur) {
+						flush();
+						cur = CODE_CLS[i];
+					}
+					run += ch;
+				}
+				flush();
+				codeEl.innerHTML = h + (n < CODE.length ? '<span class="t-caret"></span>' : '');
+			}
+
+			/* SelectorMath: a bell that is 1 at 0 and falls to 0 at ±reach, and its integral. */
+			const bell = (x: number, reach = 3) => (Math.abs(x) >= reach ? 0 : (1 + Math.cos((Math.PI * x) / reach)) / 2);
+			const bellInt = (x: number, reach = 3) => {
+				const a = Math.min(Math.abs(x), reach);
+				return (Math.sign(x) * (a + (reach / Math.PI) * Math.sin((Math.PI * a) / reach))) / 2;
+			};
+
+			/**
+			 * The app selector, beat 2 (browse by apps, the default): the thumb slides down the strip on
+			 * the right edge, the list follows it with the focused app level with the thumb, and the
+			 * letter's bubble and its wave of letters come out from the edge. Then the thumb slides onto
+			 * the list: the fisheye magnifies the rows around it, and the held row fills until Photos opens.
+			 */
+			function renderSel(ch: number, p: number) {
+				const W = selW;
+				const H = selH;
+				const rowH = 50 * dp;
+				const stripH = Math.min(H - 16 * dp, 400 * dp);
+				const stripTop = H - stripH - 8 * dp;
+				const y0 = stripTop + 0.04 * stripH;
+				const usable = stripH * 0.92;
+				const mids = SECTIONS.map((_, i) => y0 + usable * (WSTART[i] + WEIGHTS[i] / WSUM / 2));
+				const yOf = (pos: number) => {
+					const s = Math.max(0, sectionOf(Math.min(APPS.length - 1, Math.floor(pos))));
+					const sec = SECTIONS[s];
+					return y0 + usable * (WSTART[s] + (((pos - sec.first) / sec.n) * WEIGHTS[s]) / WSUM);
+				};
+				// The bubble's place: between the strip and the list (AppSelector: bubbleFromEdge).
+				const touchW = Math.max(W * 0.55, Math.min(200 * dp, W - 44 * dp));
+				const gap = W - touchW - 36 * dp;
+				const bubbleFrom = Math.max(24 * dp, Math.min(36 * dp + gap / 2, 36 * dp + gap - 24 * dp));
+				st(selEl, '--row-w', `${(W - bubbleFrom - 24 * dp).toFixed(1)}px`);
+
+				const active = ch === 2 && p < 0.8;
+				const sliding = active && p < 0.58;
+				const waveIn = active ? ease(ramp(p, 0.12, 0.16)) * (1 - ease(ramp(p, 0.57, 0.61))) : 0;
+				const pos = RM ? PICK_ROW + 0.5 : 0.5 + ease(ramp(p, 0.14, 0.55)) * PICK_ROW;
+				const thumbY = yOf(pos);
+				const focus = Math.min(APPS.length - 1, Math.floor(pos));
+				const sec = Math.max(0, sectionOf(focus));
+				const c = mids[sec];
+				const unit = usable / SECTIONS.length;
+				const spread = Math.max(0, ((38 * dp) / unit - 1) / bellInt(1));
+				const rest = 6 * dp;
+				const clear = (20 + 6) * dp * waveIn;
+
+				// The letters: at rest along the edge (8 sp), in a wave around the bubble while sliding.
+				const ys: number[] = [];
+				const outs: number[] = [];
+				SECTIONS.forEach((_, i) => {
+					const x = (mids[i] - c) / unit;
+					ys.push(c + unit * (x + spread * waveIn * bellInt(x)));
+					outs.push(bell(x) * waveIn);
+				});
+				const shown = SECTIONS.map(() => false);
+				for (const step of [-1, 1]) {
+					let last = NaN;
+					for (let i = sec + step; i >= 0 && i < SECTIONS.length; i += step) {
+						const off = Math.abs(ys[i] - ys[sec]) >= clear;
+						const apart = isNaN(last) || Math.abs(ys[i] - last) >= 10 * dp * (1 + 0.6 * outs[i]);
+						if (off && apart) {
+							shown[i] = true;
+							last = ys[i];
+						}
+					}
+				}
+				const restShown = !S.kbd && ch === 2;
+				railLetters.forEach((el, i) => {
+					const from = rest + (bubbleFrom - rest) * outs[i];
+					const scale = (8 / 13) * (1 - waveIn) + waveIn * (1 + 0.6 * outs[i]);
+					st(el, 'transform', `translate(${(W - from).toFixed(1)}px,${(waveIn ? ys[i] : mids[i]).toFixed(1)}px) scale(${scale.toFixed(3)})`);
+					const a = waveIn > 0 ? (i === sec || !shown[i] ? 0 : waveIn * (0.55 + 0.45 * outs[i])) : restShown ? 0.8 : 0;
+					st(el, 'opacity', a.toFixed(2));
+					st(el, '--mix', `${Math.round(outs[i] * 100)}%`);
+				});
+				st(bubbleEl, 'transform', `translate(${(W - (rest + (bubbleFrom - rest) * waveIn)).toFixed(1)}px,${c.toFixed(1)}px) scale(${waveIn.toFixed(3)})`);
+				st(bubbleEl, 'opacity', waveIn.toFixed(2));
+				text(bubbleEl, SECTIONS[sec].l);
+				if (!active) return;
+
+				// The list: the focused app level with the thumb. Off the edge, it holds still.
+				const listY = thumbY - pos * rowH;
+				st(slistEl, 'transform', `translateY(${listY.toFixed(1)}px)`);
+				const lens = sliding ? 0 : ease(ramp(p, 0.58, 0.63));
+				srows.forEach((el, i) => {
+					const d = i + 0.5 - pos;
+					const s = 1 + 0.2 * bell(d) * lens;
+					st(el, 'transform', `translateY(${(0.2 * bellInt(d) * rowH * lens).toFixed(1)}px) scale(${s.toFixed(3)})`);
+					cls(el, 'hot', lens > 0 && i === PICK_ROW);
+				});
+				st(fillEl, 'transform', `scaleX(${ramp(p, 0.66, 0.79).toFixed(3)})`);
+				const tx = W - 10 * dp - ease(ramp(p, 0.57, 0.62)) * (W * 0.62);
+				touch(tx, thumbY + selTop, !RM && p >= 0.12 ? 1 : 0);
+			}
+
+			/** Whether the keyboard is up: all the time the phone is on home, down while it is anywhere else. */
+			function keyboardUp(ch: number, p: number) {
+				if (ch === 1) return p < 0.42 || p >= 0.9;
+				if (ch === 2) return p < 0.04 || p >= 0.97;
+				if (ch === 5) return p < 0.05;
+				if (ch === 6) return false;
+				if (ch === 7) return p >= 0.07;
+				return true;
+			}
+
+			function render(ch: number, p: number) {
+				let touched = false;
+
+				/* header: the clock, and the open todos */
+				text(clockEl, CLOCK[Math.min(ch, 8)]);
+				const added = ch > 3 || (ch === 3 && p >= 0.84);
+				const ticked = ch > 5 || (ch === 5 && p >= 0.31);
+				text(todosEl, String(2 + (added ? 1 : 0) - (ticked ? 1 : 0)));
+
+				/* the log: empty at first; the newest command's group is bright, the older ones dim */
+				let lastOn = -1;
+				groups.forEach((g, i) => {
+					const on = g.ch < ch || (g.ch === ch && p >= g.at);
+					if (on !== g.on) {
+						g.on = on;
+						g.el.classList.toggle('on', on);
+					}
+					if (on) lastOn = i;
+				});
+				groups.forEach((g, i) => cls(g.el, 'dim', i !== lastOn));
+				cls(hintEl, 'off', lastOn >= 0);
+
+				/* the keyboard: up on home */
+				const kbd = keyboardUp(ch, p);
+				if (kbd !== S.kbd) {
+					S.kbd = kbd;
+					cls(screen, 'kb', kbd);
+					measureSel();
+					S.wshift = -1;
+				}
+
+				/* prompt, suggestions, keys */
+				let txt = '';
+				let key = '';
+				for (const t of TYPES) {
+					if (t.ch === ch && p >= t.a && p < t.at) {
+						const n = Math.ceil(ramp(p, t.a, t.b) * t.t.length);
+						txt = t.t.slice(0, n);
+						key = p >= t.b ? (p >= (t.b + t.at) / 2 ? 'enter' : '') : n ? t.t.charAt(n - 1) : '';
+						break;
+					}
+				}
+				if (txt !== S.txt) {
+					S.txt = txt;
+					typedEl.textContent = txt;
+					cls(clearEl, 'on', txt !== '');
+					html(suggEl, SUG[txt] ? rowsHtml(SUG[txt]) : '');
+				}
+				if (key !== S.key) {
+					keyFor(S.key)?.classList.remove('hit');
+					const k = keyFor(key);
+					k?.classList.add('hit');
+					S.key = key;
+					// The key preview over a letter, as Android shows it.
+					const letter = k && /^[a-z]$/.test(key) ? k : null;
+					cls(kpop, 'on', !!letter && !RM);
+					if (letter) {
+						kpop.textContent = key;
+						st(kpop, 'left', `${letter.offsetLeft + letter.offsetWidth / 2}px`);
+						st(kpop, 'top', `${letter.offsetTop + letter.offsetHeight}px`);
+						st(kpop, '--kw', `${letter.offsetWidth}px`);
+					}
+				}
+
+				/* beat 1: Maps opens, then home again */
+				let o = ch === 1 ? ease(ramp(p, 0.42, 0.5)) * (1 - ease(ramp(p, 0.8, 0.9))) : 0;
+				show(mapsEl, o);
+				st(mapsEl, 'opacity', o.toFixed(3));
+				st(mapsEl, 'transform', `scale(${(0.9 + 0.1 * o).toFixed(3)})`);
+
+				/* beat 2: the app selector (the log fades out behind its list), then Photos opens */
+				o = ch === 2 && p < 0.8 ? ease(ramp(p, 0.06, 0.12)) : 0;
+				st(selEl, '--o', o.toFixed(3));
+				cls(selEl, 'open', o > 0.001);
+				st(logEl, 'opacity', (1 - o).toFixed(3));
+				renderSel(ch, p);
+				if (ch === 2 && p >= 0.12 && p < 0.8) touched = true;
+				o = ch === 2 ? ease(ramp(p, 0.8, 0.84)) * (1 - ease(ramp(p, 0.92, 0.97))) : 0;
+				show(photosEl, o);
+				st(photosEl, 'opacity', o.toFixed(3));
+				st(photosEl, 'transform', `scale(${(0.9 + 0.1 * o).toFixed(3)})`);
+
+				/* beat 4: long-press a feed line, and its action sheet */
+				if (lpLine) cls(lpLine, 'held', ch === 4 && p >= 0.52 && p < 0.93);
+				o = ch === 4 ? ease(ramp(p, 0.62, 0.66)) * (1 - ease(ramp(p, 0.91, 0.95))) : 0;
+				show(sheetEl, o);
+				st(sheetEl, '--o', o.toFixed(3));
+				if (ch === 4 && lpLine && p >= 0.46 && p < 0.64 && !RM) {
+					const [x, y] = center(lpLine);
+					touch(x - lpLine.offsetWidth * 0.2, y, ramp(p, 0.46, 0.5) * (1 - ramp(p, 0.6, 0.64)), 0.8 + 0.4 * ramp(p, 0.5, 0.62));
+					touched = true;
+				}
+
+				/* the widgets page: beat 5 swipes to it, beat 7 back */
+				const swipe = ch < 5 ? 0 : ch === 5 ? ease(ramp(p, 0.05, 0.2)) : ch === 6 ? 1 : ch === 7 ? 1 - ease(ramp(p, 0.01, 0.07)) : 0;
+				st(pagesEl, 'transform', `translateX(${(-swipe * 50).toFixed(2)}%)`);
+				if (ch === 5 && p >= 0.04 && p < 0.21 && !RM) {
+					const w = screen.clientWidth;
+					touch(w * (0.82 - 0.64 * ramp(p, 0.05, 0.2)), screen.clientHeight * 0.45, ramp(p, 0.04, 0.05) * (1 - ramp(p, 0.2, 0.21)));
+					touched = true;
+				}
+
+				/* beat 5: a shortcut pressed, a todo ticked, the habit done, then the looks */
+				cls(torch, 'pressed', ch === 5 && p >= 0.23 && p < 0.27);
+				cls(todo1, 'done', ticked);
+				const habitDone = ch > 5 || (ch === 5 && p >= 0.42);
+				cls(habit, 'done', habitDone);
+				text(streakEl, habitDone ? '5' : '4');
+				const arrange = ch === 5 && p >= 0.53 && p < 0.92;
+				cls(habit, 'picked', arrange);
+				cls(wbar, 'on', arrange);
+				if (arrange !== S.arrange) {
+					S.arrange = arrange;
+					S.wshift = -1;
+				}
+				let look = 'tonal';
+				if (ch === 5 && p >= 0.6) look = LOOKS[Math.min(4, Math.floor((p - 0.6) / 0.06))];
+				if (look !== S.look) {
+					S.look = look;
+					habit.dataset.look = look;
+					lookEls.forEach((el) => el.classList.toggle('on', el.dataset.look === look));
+					text(lookName, LOOK_NAMES[look]);
+				}
+				if (ch === 5 && !touched && !RM) {
+					let target: Element | null = null;
+					let tp = 0;
+					if (p >= 0.22 && p < 0.28) [target, tp] = [torch, bump(p, 0.22, 0.28)];
+					else if (p >= 0.28 && p < 0.35) [target, tp] = [$('.w-box', todo1), bump(p, 0.28, 0.35)];
+					else if (p >= 0.37 && p < 0.46) [target, tp] = [$('.w-hd', habit), bump(p, 0.37, 0.46)];
+					else if (p >= 0.47 && p < 0.55) [target, tp] = [$('.w-hv', habit), ramp(p, 0.47, 0.49) * (1 - ramp(p, 0.53, 0.55))];
+					else if (p >= 0.57 && p < 0.87) {
+						// Each look is tapped just before it shows (at 0.6, 0.66, … 0.84).
+						const k = Math.min(4, Math.floor((p - 0.57) / 0.06));
+						target = lookEls.find((el) => el.dataset.look === LOOKS[k]) || null;
+						tp = bump(p, 0.57 + k * 0.06, 0.63 + k * 0.06);
+					}
+					if (target) {
+						const [x, y] = center(target);
+						touch(x, y, Math.min(1, tp * 2));
+						touched = true;
+					}
+				}
+
+				/* beat 6: the editor (the code goes in fast, as a paste); Run; back on the widgets page, + adds the Water widget; taps count */
+				o = ch === 6 ? ease(ramp(p, 0.03, 0.1)) * (1 - ease(ramp(p, 0.56, 0.63))) : 0;
+				show(edEl, o);
+				st(edEl, 'transform', `translateY(${((1 - o) * 101).toFixed(2)}%)`);
+				if (ch === 6) {
+					const n = Math.round(ease(ramp(p, 0.12, 0.3)) * CODE.length);
+					if (n !== S.code) {
+						S.code = n;
+						renderCode(n);
+					}
+					let target: Element | null = null;
+					let tp = 0;
+					if (p >= 0.45 && p < 0.54) [target, tp] = [runEl, bump(p, 0.45, 0.54)];
+					else if (p >= 0.68 && p < 0.75) [target, tp] = [wplus, bump(p, 0.68, 0.75)];
+					else if (p >= 0.8 && p < 0.86) [target, tp] = [waterCard, bump(p, 0.8, 0.86)];
+					else if (p >= 0.89 && p < 0.95) [target, tp] = [waterCard, bump(p, 0.89, 0.95)];
+					if (target && !RM) {
+						const [x, y] = center(target);
+						touch(x, y, Math.min(1, tp * 2));
+						touched = true;
+					}
+				} else if (S.code !== CODE.length) {
+					S.code = CODE.length;
+					renderCode(CODE.length);
+				}
+				const water = ch > 6 ? 2 : ch === 6 ? (p >= 0.92 ? 2 : p >= 0.83 ? 1 : p >= 0.72 ? 0 : -1) : -1;
+				if (water !== S.water) {
+					S.water = water;
+					cls(waterCard, 'on', water >= 0);
+					text(waterEl, `${Math.max(0, water)} / 8`);
+					st(waterLevel, 'height', `${(Math.max(0, water) / 8) * 100}%`);
+					cls(waterCard, 'some', water > 0);
+					S.wshift = -1;
+				}
+				if (S.wshift < 0) {
+					// Like scrolling the page: the new card comes into view if it is below the edge.
+					// While arranging, the chosen card stays clear of the toolbar, as the Widgets screen scrolls to it.
+					const toolbar = S.arrange ? Math.max(0, habit.offsetTop + habit.offsetHeight + 12 * dp - (wpage.clientHeight - wbar.offsetHeight)) : 0;
+					const over = Math.max(toolbar, water >= 0 ? Math.max(0, wgrid.offsetHeight - wview.clientHeight) : 0);
+					S.wshift = over;
+					st(wgrid, 'transform', `translateY(${-over}px)`);
+				}
+
+				if (!touched) touch(0, 0, 0);
+
+				/* beat 7: the tour takes the phone's theme */
+				let theme = 'green';
+				if (ch === 7) for (const t of TYPES) if (t.theme && p >= t.at) theme = t.theme;
+				applyTheme(theme);
+			}
+
+			return {
+				render,
+				measure,
+				/** The site's theme changed: the phone's theme is worked out again. */
+				retheme() {
+					curTheme = '';
+				},
+			};
 		}
+		type Phone = ReturnType<typeof makePhone>;
+
+		/* ---------- large screens: one phone beside the beats, drawn from the scroll position ---------- */
+		let desk: Phone | null = null;
+		let backdrop: Backdrop | null = null;
+		let loading = false;
 		let navH = 56;
-		let dp = 1;
-		let selW = 0;
-		let selH = 0;
-		let selTop = 0;
+		let curCh = -1;
+		let lastSy = -1;
+		let stale = true;
+
 		function measure() {
 			SMALL = mqSmall.matches;
 			RM = mqRM.matches;
 			const header = doc.querySelector('header.header');
 			navH = header ? header.getBoundingClientRect().height : 56;
+			if (SMALL) {
+				// Phone widths have no background layer and no pinned phone: see the mocks below.
+				if (desk) {
+					desk.render(0, 0);
+					bgEl.textContent = '';
+					curCh = -1;
+				}
+				measureMocks();
+				return;
+			}
+			resetMocks();
+			desk ||= makePhone(phoneEl, T);
 			// The background spans the window: its width without the scrollbar, from the window's left edge.
 			T.style.setProperty('--vw', `${root.clientWidth}px`);
 			T.style.setProperty('--bgl', `${-$('.t-story').getBoundingClientRect().left}px`);
-			backdrop.layout(SMALL, navH);
-			dp = screen.clientWidth / DP_ACROSS || 1;
-			measureSel();
-			S.dirty = true;
-			S.wshift = -1;
+			if (backdrop) backdrop.layout(false, navH);
+			else if (!loading) {
+				// The background's code and text are fetched on large screens only.
+				loading = true;
+				import('./tour-backdrop').then((m) => {
+					backdrop = m.createBackdrop(T, bgEl);
+					remeasure();
+				});
+			}
+			desk.measure();
+			stale = true;
 		}
 
-		/* ---------- render: everything is a function of (beat, progress) ---------- */
-		const S = { ch: -1, p: 0, txt: '', key: '', dirty: true, sy: -1, code: -1, look: '', water: -1, wshift: -1, kbd: true, arrange: false };
-
-		/** The middle of [el] in the screen's coordinates. */
-		function center(el: Element) {
-			const r = el.getBoundingClientRect();
-			const s = screen.getBoundingClientRect();
-			return [r.left - s.left + r.width / 2, r.top - s.top + r.height / 2];
-		}
-		/** The touch mark (like Android's "Show taps"): at x, y in the screen, with opacity o. */
-		function touch(x: number, y: number, o: number, scale = 1) {
-			st(touchEl, 'opacity', o.toFixed(2));
-			if (o > 0) st(touchEl, 'transform', `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${scale.toFixed(2)})`);
-		}
-		function show(el: HTMLElement, o: number) {
-			st(el, 'visibility', o > 0.001 ? 'visible' : 'hidden');
-		}
-
-		function renderCode(n: number) {
-			let h = '';
-			let line = 1;
-			let cur = '';
-			let run = '';
-			const flush = () => {
-				if (run) h += cur ? `<span class="${cur}">${esc(run)}</span>` : esc(run);
-				run = '';
-			};
-			h += '<span class="t-ln-n">1</span>';
-			for (let i = 0; i < n; i++) {
-				const ch = CODE[i];
-				if (ch === '\n') {
-					flush();
-					line++;
-					h += `\n<span class="t-ln-n">${line}</span>`;
-					continue;
-				}
-				if (CODE_CLS[i] !== cur) {
-					flush();
-					cur = CODE_CLS[i];
-				}
-				run += ch;
-			}
-			flush();
-			codeEl.innerHTML = h + (n < CODE.length ? '<span class="t-caret"></span>' : '');
-		}
-
-		/* SelectorMath: a bell that is 1 at 0 and falls to 0 at ±reach, and its integral. */
-		const bell = (x: number, reach = 3) => (Math.abs(x) >= reach ? 0 : (1 + Math.cos((Math.PI * x) / reach)) / 2);
-		const bellInt = (x: number, reach = 3) => {
-			const a = Math.min(Math.abs(x), reach);
-			return (Math.sign(x) * (a + (reach / Math.PI) * Math.sin((Math.PI * a) / reach))) / 2;
-		};
-
-		/**
-		 * The app selector, beat 2 (browse by apps, the default): the thumb slides down the strip on
-		 * the right edge, the list follows it with the focused app level with the thumb, and the
-		 * letter's bubble and its wave of letters come out from the edge. Then the thumb slides onto
-		 * the list: the fisheye magnifies the rows around it, and the held row fills until Photos opens.
-		 */
-		function renderSel(ch: number, p: number) {
-			const W = selW;
-			const H = selH;
-			const rowH = 50 * dp;
-			const stripH = Math.min(H - 16 * dp, 400 * dp);
-			const stripTop = H - stripH - 8 * dp;
-			const y0 = stripTop + 0.04 * stripH;
-			const usable = stripH * 0.92;
-			const mids = SECTIONS.map((_, i) => y0 + usable * (WSTART[i] + WEIGHTS[i] / WSUM / 2));
-			const yOf = (pos: number) => {
-				const s = Math.max(0, sectionOf(Math.min(APPS.length - 1, Math.floor(pos))));
-				const sec = SECTIONS[s];
-				return y0 + usable * (WSTART[s] + (((pos - sec.first) / sec.n) * WEIGHTS[s]) / WSUM);
-			};
-			// The bubble's place: between the strip and the list (AppSelector: bubbleFromEdge).
-			const touchW = Math.max(W * 0.55, Math.min(200 * dp, W - 44 * dp));
-			const gap = W - touchW - 36 * dp;
-			const bubbleFrom = Math.max(24 * dp, Math.min(36 * dp + gap / 2, 36 * dp + gap - 24 * dp));
-			st(selEl, '--row-w', `${(W - bubbleFrom - 24 * dp).toFixed(1)}px`);
-
-			const active = ch === 2 && p < 0.8;
-			const sliding = active && p < 0.58;
-			const waveIn = active ? ease(ramp(p, 0.12, 0.16)) * (1 - ease(ramp(p, 0.57, 0.61))) : 0;
-			const pos = RM ? PICK_ROW + 0.5 : 0.5 + ease(ramp(p, 0.14, 0.55)) * PICK_ROW;
-			const thumbY = yOf(pos);
-			const focus = Math.min(APPS.length - 1, Math.floor(pos));
-			const sec = Math.max(0, sectionOf(focus));
-			const c = mids[sec];
-			const unit = usable / SECTIONS.length;
-			const spread = Math.max(0, ((38 * dp) / unit - 1) / bellInt(1));
-			const rest = 6 * dp;
-			const clear = (20 + 6) * dp * waveIn;
-
-			// The letters: at rest along the edge (8 sp), in a wave around the bubble while sliding.
-			const ys: number[] = [];
-			const outs: number[] = [];
-			SECTIONS.forEach((_, i) => {
-				const x = (mids[i] - c) / unit;
-				ys.push(c + unit * (x + spread * waveIn * bellInt(x)));
-				outs.push(bell(x) * waveIn);
-			});
-			const shown = SECTIONS.map(() => false);
-			for (const step of [-1, 1]) {
-				let last = NaN;
-				for (let i = sec + step; i >= 0 && i < SECTIONS.length; i += step) {
-					const off = Math.abs(ys[i] - ys[sec]) >= clear;
-					const apart = isNaN(last) || Math.abs(ys[i] - last) >= 10 * dp * (1 + 0.6 * outs[i]);
-					if (off && apart) {
-						shown[i] = true;
-						last = ys[i];
-					}
-				}
-			}
-			const restShown = !S.kbd && ch === 2;
-			railLetters.forEach((el, i) => {
-				const from = rest + (bubbleFrom - rest) * outs[i];
-				const scale = (8 / 13) * (1 - waveIn) + waveIn * (1 + 0.6 * outs[i]);
-				st(el, 'transform', `translate(${(W - from).toFixed(1)}px,${(waveIn ? ys[i] : mids[i]).toFixed(1)}px) scale(${scale.toFixed(3)})`);
-				const a = waveIn > 0 ? (i === sec || !shown[i] ? 0 : waveIn * (0.55 + 0.45 * outs[i])) : restShown ? 0.8 : 0;
-				st(el, 'opacity', a.toFixed(2));
-				st(el, '--mix', `${Math.round(outs[i] * 100)}%`);
-			});
-			st(bubbleEl, 'transform', `translate(${(W - (rest + (bubbleFrom - rest) * waveIn)).toFixed(1)}px,${c.toFixed(1)}px) scale(${waveIn.toFixed(3)})`);
-			st(bubbleEl, 'opacity', waveIn.toFixed(2));
-			text(bubbleEl, SECTIONS[sec].l);
-			if (!active) return;
-
-			// The list: the focused app level with the thumb. Off the edge, it holds still.
-			const listY = thumbY - pos * rowH;
-			st(slistEl, 'transform', `translateY(${listY.toFixed(1)}px)`);
-			const lens = sliding ? 0 : ease(ramp(p, 0.58, 0.63));
-			srows.forEach((el, i) => {
-				const d = i + 0.5 - pos;
-				const s = 1 + 0.2 * bell(d) * lens;
-				st(el, 'transform', `translateY(${(0.2 * bellInt(d) * rowH * lens).toFixed(1)}px) scale(${s.toFixed(3)})`);
-				cls(el, 'hot', lens > 0 && i === PICK_ROW);
-			});
-			st(fillEl, 'transform', `scaleX(${ramp(p, 0.66, 0.79).toFixed(3)})`);
-			const tx = W - 10 * dp - ease(ramp(p, 0.57, 0.62)) * (W * 0.62);
-			touch(tx, thumbY + selTop, !RM && p >= 0.12 ? 1 : 0);
-		}
-
-		/** Whether the keyboard is up: all the time the phone is on home, down while it is anywhere else. */
-		function keyboardUp(ch: number, p: number) {
-			if (ch === 1) return p < 0.42 || p >= 0.9;
-			if (ch === 2) return p < 0.04 || p >= 0.97;
-			if (ch === 5) return p < 0.05;
-			if (ch === 6) return false;
-			if (ch === 7) return p >= 0.07;
-			return true;
-		}
-
-		function render(ch: number, p: number) {
-			if (ch !== S.ch) {
-				S.ch = ch;
-				bgEl.dataset.ch = String(ch);
-				beats.forEach((b, k) => b.classList.toggle('active', k + 1 === ch));
-				chapters.forEach((a, k) => (k + 1 === ch ? a.setAttribute('aria-current', 'step') : a.removeAttribute('aria-current')));
-				T.classList.toggle('in', ch >= 1 && ch <= 7);
-				capEl.textContent = ch === 0 ? 'scroll' : ch > 7 ? 'done' : `${ch} / 7 ${NAMES[ch - 1]}`;
-			}
-			let touched = false;
-
-			/* header: the clock, and the open todos */
-			text(clockEl, CLOCK[Math.min(ch, 8)]);
-			const added = ch > 3 || (ch === 3 && p >= 0.84);
-			const ticked = ch > 5 || (ch === 5 && p >= 0.31);
-			text(todosEl, String(2 + (added ? 1 : 0) - (ticked ? 1 : 0)));
-
-			/* the log: empty at first; the newest command's group is bright, the older ones dim */
-			let lastOn = -1;
-			groups.forEach((g, i) => {
-				const on = g.ch < ch || (g.ch === ch && p >= g.at);
-				if (on !== g.on) {
-					g.on = on;
-					g.el.classList.toggle('on', on);
-				}
-				if (on) lastOn = i;
-			});
-			groups.forEach((g, i) => cls(g.el, 'dim', i !== lastOn));
-			cls(hintEl, 'off', lastOn >= 0);
-
-			/* the keyboard: up on home */
-			const kbd = keyboardUp(ch, p);
-			if (kbd !== S.kbd) {
-				S.kbd = kbd;
-				cls(screen, 'kb', kbd);
-				measureSel();
-				S.wshift = -1;
-			}
-
-			/* prompt, suggestions, keys */
-			let txt = '';
-			let key = '';
-			for (const t of TYPES) {
-				if (t.ch === ch && p >= t.a && p < t.at) {
-					const n = Math.ceil(ramp(p, t.a, t.b) * t.t.length);
-					txt = t.t.slice(0, n);
-					key = p >= t.b ? (p >= (t.b + t.at) / 2 ? 'enter' : '') : n ? t.t.charAt(n - 1) : '';
-					break;
-				}
-			}
-			if (txt !== S.txt) {
-				S.txt = txt;
-				typedEl.textContent = txt;
-				cls(clearEl, 'on', txt !== '');
-				html(suggEl, SUG[txt] ? rowsHtml(SUG[txt]) : '');
-			}
-			if (key !== S.key) {
-				keyFor(S.key)?.classList.remove('hit');
-				const k = keyFor(key);
-				k?.classList.add('hit');
-				S.key = key;
-				// The key preview over a letter, as Android shows it.
-				const letter = k && /^[a-z]$/.test(key) ? k : null;
-				cls(kpop, 'on', !!letter && !RM);
-				if (letter) {
-					kpop.textContent = key;
-					st(kpop, 'left', `${letter.offsetLeft + letter.offsetWidth / 2}px`);
-					st(kpop, 'top', `${letter.offsetTop + letter.offsetHeight}px`);
-					st(kpop, '--kw', `${letter.offsetWidth}px`);
-				}
-			}
-
-			/* beat 1: Maps opens, then home again */
-			let o = ch === 1 ? ease(ramp(p, 0.42, 0.5)) * (1 - ease(ramp(p, 0.8, 0.9))) : 0;
-			show(mapsEl, o);
-			st(mapsEl, 'opacity', o.toFixed(3));
-			st(mapsEl, 'transform', `scale(${(0.9 + 0.1 * o).toFixed(3)})`);
-
-			/* beat 2: the app selector (the log fades out behind its list), then Photos opens */
-			o = ch === 2 && p < 0.8 ? ease(ramp(p, 0.06, 0.12)) : 0;
-			st(selEl, '--o', o.toFixed(3));
-			cls(selEl, 'open', o > 0.001);
-			st(logEl, 'opacity', (1 - o).toFixed(3));
-			renderSel(ch, p);
-			if (ch === 2 && p >= 0.12 && p < 0.8) touched = true;
-			o = ch === 2 ? ease(ramp(p, 0.8, 0.84)) * (1 - ease(ramp(p, 0.92, 0.97))) : 0;
-			show(photosEl, o);
-			st(photosEl, 'opacity', o.toFixed(3));
-			st(photosEl, 'transform', `scale(${(0.9 + 0.1 * o).toFixed(3)})`);
-
-			/* beat 4: long-press a feed line, and its action sheet */
-			if (lpLine) cls(lpLine, 'held', ch === 4 && p >= 0.52 && p < 0.93);
-			o = ch === 4 ? ease(ramp(p, 0.62, 0.66)) * (1 - ease(ramp(p, 0.91, 0.95))) : 0;
-			show(sheetEl, o);
-			st(sheetEl, '--o', o.toFixed(3));
-			if (ch === 4 && lpLine && p >= 0.46 && p < 0.64 && !RM) {
-				const [x, y] = center(lpLine);
-				touch(x - lpLine.offsetWidth * 0.2, y, ramp(p, 0.46, 0.5) * (1 - ramp(p, 0.6, 0.64)), 0.8 + 0.4 * ramp(p, 0.5, 0.62));
-				touched = true;
-			}
-
-			/* the widgets page: beat 5 swipes to it, beat 7 back */
-			const swipe = ch < 5 ? 0 : ch === 5 ? ease(ramp(p, 0.05, 0.2)) : ch === 6 ? 1 : ch === 7 ? 1 - ease(ramp(p, 0.01, 0.07)) : 0;
-			st(pagesEl, 'transform', `translateX(${(-swipe * 50).toFixed(2)}%)`);
-			if (ch === 5 && p >= 0.04 && p < 0.21 && !RM) {
-				const w = screen.clientWidth;
-				touch(w * (0.82 - 0.64 * ramp(p, 0.05, 0.2)), screen.clientHeight * 0.45, ramp(p, 0.04, 0.05) * (1 - ramp(p, 0.2, 0.21)));
-				touched = true;
-			}
-
-			/* beat 5: a shortcut pressed, a todo ticked, the habit done, then the looks */
-			cls(torch, 'pressed', ch === 5 && p >= 0.23 && p < 0.27);
-			cls(todo1, 'done', ticked);
-			const habitDone = ch > 5 || (ch === 5 && p >= 0.42);
-			cls(habit, 'done', habitDone);
-			text(streakEl, habitDone ? '5' : '4');
-			const arrange = ch === 5 && p >= 0.53 && p < 0.92;
-			cls(habit, 'picked', arrange);
-			cls(wbar, 'on', arrange);
-			if (arrange !== S.arrange) {
-				S.arrange = arrange;
-				S.wshift = -1;
-			}
-			let look = 'tonal';
-			if (ch === 5 && p >= 0.6) look = LOOKS[Math.min(4, Math.floor((p - 0.6) / 0.06))];
-			if (look !== S.look) {
-				S.look = look;
-				habit.dataset.look = look;
-				lookEls.forEach((el) => el.classList.toggle('on', el.dataset.look === look));
-				text(lookName, LOOK_NAMES[look]);
-			}
-			if (ch === 5 && !touched && !RM) {
-				let target: Element | null = null;
-				let tp = 0;
-				if (p >= 0.22 && p < 0.28) [target, tp] = [torch, bump(p, 0.22, 0.28)];
-				else if (p >= 0.28 && p < 0.35) [target, tp] = [$('.w-box', todo1), bump(p, 0.28, 0.35)];
-				else if (p >= 0.37 && p < 0.46) [target, tp] = [$('.w-hd', habit), bump(p, 0.37, 0.46)];
-				else if (p >= 0.47 && p < 0.55) [target, tp] = [$('.w-hv', habit), ramp(p, 0.47, 0.49) * (1 - ramp(p, 0.53, 0.55))];
-				else if (p >= 0.57 && p < 0.87) {
-					// Each look is tapped just before it shows (at 0.6, 0.66, … 0.84).
-					const k = Math.min(4, Math.floor((p - 0.57) / 0.06));
-					target = lookEls.find((el) => el.dataset.look === LOOKS[k]) || null;
-					tp = bump(p, 0.57 + k * 0.06, 0.63 + k * 0.06);
-				}
-				if (target) {
-					const [x, y] = center(target);
-					touch(x, y, Math.min(1, tp * 2));
-					touched = true;
-				}
-			}
-
-			/* beat 6: the editor (the code goes in fast, as a paste); Run; back on the widgets page, + adds the Water widget; taps count */
-			o = ch === 6 ? ease(ramp(p, 0.03, 0.1)) * (1 - ease(ramp(p, 0.56, 0.63))) : 0;
-			show(edEl, o);
-			st(edEl, 'transform', `translateY(${((1 - o) * 101).toFixed(2)}%)`);
-			if (ch === 6) {
-				const n = Math.round(ease(ramp(p, 0.12, 0.3)) * CODE.length);
-				if (n !== S.code) {
-					S.code = n;
-					renderCode(n);
-				}
-				let target: Element | null = null;
-				let tp = 0;
-				if (p >= 0.45 && p < 0.54) [target, tp] = [runEl, bump(p, 0.45, 0.54)];
-				else if (p >= 0.68 && p < 0.75) [target, tp] = [wplus, bump(p, 0.68, 0.75)];
-				else if (p >= 0.8 && p < 0.86) [target, tp] = [waterCard, bump(p, 0.8, 0.86)];
-				else if (p >= 0.89 && p < 0.95) [target, tp] = [waterCard, bump(p, 0.89, 0.95)];
-				if (target && !RM) {
-					const [x, y] = center(target);
-					touch(x, y, Math.min(1, tp * 2));
-					touched = true;
-				}
-			} else if (S.code !== CODE.length) {
-				S.code = CODE.length;
-				renderCode(CODE.length);
-			}
-			const water = ch > 6 ? 2 : ch === 6 ? (p >= 0.92 ? 2 : p >= 0.83 ? 1 : p >= 0.72 ? 0 : -1) : -1;
-			if (water !== S.water) {
-				S.water = water;
-				cls(waterCard, 'on', water >= 0);
-				text(waterEl, `${Math.max(0, water)} / 8`);
-				st(waterLevel, 'height', `${(Math.max(0, water) / 8) * 100}%`);
-				cls(waterCard, 'some', water > 0);
-				S.wshift = -1;
-			}
-			if (S.wshift < 0) {
-				// Like scrolling the page: the new card comes into view if it is below the edge.
-				// While arranging, the chosen card stays clear of the toolbar, as the Widgets screen scrolls to it.
-				const toolbar = S.arrange ? Math.max(0, habit.offsetTop + habit.offsetHeight + 12 * dp - (wpage.clientHeight - wbar.offsetHeight)) : 0;
-				const over = Math.max(toolbar, water >= 0 ? Math.max(0, wgrid.offsetHeight - wview.clientHeight) : 0);
-				S.wshift = over;
-				st(wgrid, 'transform', `translateY(${-over}px)`);
-			}
-
-			if (!touched) touch(0, 0, 0);
-
-			/* beat 7: the tour takes the phone's theme */
-			let theme = 'green';
-			if (ch === 7) for (const t of TYPES) if (t.theme && p >= t.at) theme = t.theme;
-			applyTheme(theme);
-
-			/* progress */
-			for (let i = 0; i < 7; i++) {
-				st(progSegs[i], 'transform', `scaleX(${i < ch - 1 ? 1 : i === ch - 1 ? clamp(p, 0, 1).toFixed(3) : 0})`);
-			}
-		}
-
-		/* ---------- one loop ---------- */
 		let raf = 0;
 		function frame(now: number) {
 			raf = 0;
+			if (SMALL || !desk) return;
 			const sy = window.scrollY;
-			if (sy !== S.sy || S.dirty) {
-				S.sy = sy;
-				S.dirty = false;
+			if (sy !== lastSy || stale) {
+				lastSy = sy;
+				stale = false;
 				const vh = window.innerHeight;
-				const line = navH + (vh - navH) * (SMALL ? 0.8 : 0.6);
+				const line = navH + (vh - navH) * 0.6;
 				let ch = 0;
 				let p = 0;
 				for (let i = 0; i < beats.length; i++) {
@@ -1137,22 +1221,187 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 					ch = 8;
 					p = 0;
 				}
-				render(ch, p);
+				if (ch !== curCh) {
+					curCh = ch;
+					bgEl.dataset.ch = String(ch);
+					beats.forEach((b, k) => b.classList.toggle('active', k + 1 === ch));
+					chapters.forEach((a, k) => (k + 1 === ch ? a.setAttribute('aria-current', 'step') : a.removeAttribute('aria-current')));
+					T.classList.toggle('in', ch >= 1 && ch <= 7);
+					capEl.textContent = ch === 0 ? 'scroll' : ch > 7 ? 'done' : `${ch} / 7 ${NAMES[ch - 1]}`;
+				}
+				desk.render(ch, p);
+				for (let i = 0; i < 7; i++) {
+					st(progSegs[i], 'transform', `scaleX(${i < ch - 1 ? 1 : i === ch - 1 ? clamp(p, 0, 1).toFixed(3) : 0})`);
+				}
 			}
-			// The background: parallax, decoding, and on large screens a slow sway while the tour is on screen.
+			// The background: parallax, decoding, and a slow sway while the tour is on screen.
 			const tr = T.getBoundingClientRect();
 			const visible = tr.bottom > 0 && tr.top < window.innerHeight;
 			if (!visible || doc.hidden) return;
-			const busy = backdrop.tick(now || performance.now(), sy, S.ch, RM);
-			if (busy || (!RM && !SMALL)) kick();
+			const busy = backdrop ? backdrop.tick(now || performance.now(), sy, curCh, RM) : false;
+			if (busy || !RM) kick();
 		}
 		function kick() {
-			if (!raf) raf = requestAnimationFrame(frame);
+			if (!raf && !SMALL) raf = requestAnimationFrame(frame);
 		}
-		function dirty() {
-			S.dirty = true;
-			kick();
+
+		/* ---------- phone widths: a phone in each beat, which plays its scene while it is on screen ---------- */
+		/*
+		 * No pinned phone and nothing tied to the scroll position: each beat's phone is built when it
+		 * comes near the screen, and the one most in view plays its beat on a clock, in a loop. With
+		 * reduced motion it shows one still state of the beat.
+		 */
+		type Mock = { ch: number; beat: HTMLElement; host: HTMLElement; pose: number; secs: number; phone: Phone | null; bar: HTMLElement | null; t: number; ratio: number };
+		const mocks: Mock[] = beats.map((beat, i) => {
+			const host = $('.t-mock', beat);
+			return { ch: i + 1, beat, host, pose: Number(host.dataset.pose), secs: Number(host.dataset.secs), phone: null, bar: null, t: 0, ratio: 0 };
+		});
+		/** The beat stays at its end for this long before it plays again (s). */
+		const HOLD = 1.6;
+		let playing: Mock | null = null;
+		let paused = false;
+		let mraf = 0;
+		let mlast = 0;
+
+		function mount(m: Mock) {
+			if (m.phone || !SMALL) return;
+			const el = proto.cloneNode(true) as HTMLElement;
+			$('.t-mph', m.host).append(el);
+			m.phone = makePhone(el, m.beat);
+			m.bar = $('.t-mbar b', m.host);
+			m.phone.measure();
+			pose(m);
 		}
+		/** The still state: the whole of the beat at once, as far as one screen shows it. */
+		function pose(m: Mock) {
+			m.phone?.render(m.ch, m.pose);
+			if (m.bar) st(m.bar, 'transform', `scaleX(${m.pose})`);
+		}
+		function measureMocks() {
+			for (const m of mocks) {
+				if (!m.phone) continue;
+				m.phone.measure();
+				if (m !== playing || RM || paused) pose(m);
+			}
+			choose();
+		}
+		/** Large screens again: the beats' own themes go, and nothing plays. */
+		function resetMocks() {
+			playing = null;
+			for (const m of mocks) m.phone?.render(0, 0);
+		}
+		function choose() {
+			let best: Mock | null = null;
+			for (const m of mocks) if (m.phone && m.ratio >= 0.4 && (!best || m.ratio > best.ratio)) best = m;
+			if (!SMALL || RM) best = null;
+			if (best !== playing) {
+				if (playing) pose(playing);
+				playing = best;
+				if (best) best.t = 0;
+				mlast = 0;
+			}
+			mkick();
+		}
+		function mframe(now: number) {
+			mraf = 0;
+			const m = playing;
+			if (!m || !m.phone || paused || doc.hidden || !SMALL || RM) {
+				mlast = 0;
+				return;
+			}
+			if (mlast) m.t += Math.min(0.1, (now - mlast) / 1000);
+			mlast = now;
+			if (m.t >= m.secs + HOLD) m.t = 0;
+			const p = Math.min(0.999, m.t / m.secs);
+			m.phone.render(m.ch, p);
+			if (m.bar) st(m.bar, 'transform', `scaleX(${p.toFixed(3)})`);
+			mraf = requestAnimationFrame(mframe);
+		}
+		function mkick() {
+			if (!mraf && playing && !paused) mraf = requestAnimationFrame(mframe);
+		}
+		const playBtns = $$<HTMLButtonElement>('.t-play');
+		for (const b of playBtns) {
+			b.addEventListener('click', () => {
+				paused = !paused;
+				for (const x of playBtns) {
+					x.textContent = paused ? 'Play' : 'Pause';
+					x.setAttribute('aria-pressed', String(paused));
+				}
+				mlast = 0;
+				mkick();
+			});
+		}
+
+		/* The background on phones: a few lines of the log before each beat, which decode once as they come into view. */
+		const GLYPHS = 'abcdefghijklmnopqrstuvwxyz0123456789$=/|{}[]<>*#%+-';
+		function decode(strip: HTMLElement) {
+			if (RM || strip.dataset.on) return;
+			strip.dataset.on = '1';
+			const lines = $$('.ln', strip).map((el, i) => {
+				const text = (el.dataset.t ||= el.textContent || '');
+				// One line in five flickers in amber or rose-pine while it decodes.
+				const pal = (i * 7 + text.length) % 5 === 0 ? (i % 2 ? 'g-amber' : 'g-rose') : '';
+				if (pal) el.classList.add(pal);
+				return { el, text, pal, from: i * 60 };
+			});
+			const t0 = performance.now();
+			const timer = setInterval(() => {
+				const t = performance.now() - t0;
+				let busy = false;
+				lines.forEach((l, k) => {
+					const at = t - l.from;
+					const dur = 420 + l.text.length * 9;
+					if (at >= dur) {
+						if (l.el.textContent !== l.text) l.el.textContent = l.text;
+						if (l.pal) l.el.classList.remove(l.pal);
+						return;
+					}
+					busy = true;
+					if (at < 0) return;
+					const locked = Math.floor((l.text.length * Math.max(0, at - 120)) / (dur - 120));
+					const step = Math.floor(at / 50);
+					let s = l.text.slice(0, locked);
+					for (let j = locked; j < l.text.length; j++) {
+						const h = (Math.imul(j + 1, 2654435761) ^ Math.imul(step + 7, 40503) ^ Math.imul(k + 3, 9973)) >>> 0;
+						s += l.text[j] === ' ' ? ' ' : GLYPHS[h % GLYPHS.length];
+					}
+					l.el.textContent = s;
+				});
+				if (!busy) clearInterval(timer);
+			}, 50);
+		}
+
+		if ('IntersectionObserver' in window) {
+			// Build a beat's phone a screen before it shows.
+			const near = new IntersectionObserver(
+				(entries) => {
+					for (const e of entries) {
+						const m = mocks.find((x) => x.host === e.target);
+						if (m && e.isIntersecting) mount(m);
+					}
+				},
+				{ rootMargin: '100% 0px' },
+			);
+			const seen = new IntersectionObserver(
+				(entries) => {
+					for (const e of entries) {
+						const m = mocks.find((x) => x.host === e.target);
+						if (m) m.ratio = e.isIntersecting ? e.intersectionRatio : 0;
+						else if (e.isIntersecting) decode(e.target as HTMLElement);
+						else delete (e.target as HTMLElement).dataset.on;
+					}
+					choose();
+				},
+				{ threshold: [0, 0.2, 0.4, 0.6, 0.8, 1] },
+			);
+			for (const m of mocks) {
+				near.observe(m.host);
+				seen.observe(m.host);
+			}
+			for (const s of $$('.t-strip')) seen.observe(s);
+		}
+
 		const remeasure = () => {
 			measure();
 			kick();
@@ -1161,12 +1410,19 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 		addEventListener('scroll', kick, { passive: true });
 		addEventListener('resize', remeasure);
 		addEventListener('load', remeasure);
-		doc.addEventListener('visibilitychange', kick);
+		doc.addEventListener('visibilitychange', () => {
+			kick();
+			mlast = 0;
+			mkick();
+		});
 		mqRM.addEventListener('change', remeasure);
 		mqSmall.addEventListener('change', remeasure);
 		new MutationObserver(() => {
-			curTheme = '';
-			dirty();
+			desk?.retheme();
+			for (const m of mocks) m.phone?.retheme();
+			stale = true;
+			kick();
+			if (SMALL) measureMocks();
 		}).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
 		doc.fonts?.ready.then(remeasure);
 
@@ -3213,104 +3469,236 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 		gap: 0.75rem;
 	}
 
-	/* ---------- phone widths: the phone is a panel at the top; lighter ---------- */
+	/* ---------- phone widths: no pinned phone; each beat is a section with its own phone ---------- */
+	.t-strip,
+	.t-mock {
+		display: none;
+	}
 	@media (max-width: 859px) {
 		.t-story {
 			display: block;
 		}
+		/* No background layer and no pinned phone: tour-backdrop.ts isn't loaded at these widths. */
+		.t-bg,
+		.t-stage {
+			display: none;
+		}
 		.t-hero {
 			min-height: 0;
-			padding: 0.5rem 0 1.5rem;
+			padding: 0.5rem 0 2rem;
 			gap: 1.25rem;
 		}
-		.t-stage {
-			height: var(--stage-h);
-			padding: 8px 0 10px;
-			/* The phone takes the panel's whole width, half of the page's side margin too, for larger text. */
-			margin-inline: -0.5rem;
-			gap: 8px;
-			justify-content: flex-start;
-			align-items: stretch;
-			background: linear-gradient(to bottom, var(--bg) 0, var(--bg) 94%, transparent 100%);
-		}
-		.t-stage::before {
-			display: none;
-		}
-		.t-phone {
-			order: 2;
-			width: 100%;
-			height: auto;
-			flex: 1;
-			min-height: 0;
-			padding: 5px;
-			border-radius: 16px;
+		.t-intro {
+			background: none;
 			box-shadow: none;
-		}
-		.t-screen {
-			border-radius: 11px;
-		}
-		/* No room for the keyboard here: the prompt stays at the bottom. */
-		/* A compact Arrange toolbar: the widget's line and its looks. */
-		.t-wb-more,
-		.t-wb-label {
-			display: none;
-		}
-		.kb .t-keys {
-			display: none;
-		}
-		.t-sugg {
-			max-height: calc(2 * 44 * var(--dp));
-		}
-		.t-edh {
-			margin-top: 0;
-		}
-		.t-appbar {
-			top: calc(12 * var(--dp));
-		}
-		.t-appbar.plain {
-			margin-top: calc(12 * var(--dp));
-		}
-		.t-prog {
-			order: 1;
-			width: 100%;
 		}
 		.t-beat {
-			min-height: calc(var(--len) * 0.85vh);
-			padding-bottom: 12vh;
-			scroll-margin-top: calc(var(--nav) + var(--stage-h) + 10px);
+			/* A beat takes its own theme here (the themes beat), so the colors made from it are worked out again. */
+			--line: color-mix(in srgb, var(--fg) 16%, var(--bg));
+			--card: color-mix(in srgb, var(--bg) 92%, transparent);
+			--halo: color-mix(in srgb, var(--accent) 13%, transparent);
+			--m-high: color-mix(in srgb, var(--fg) 10%, var(--bg));
+			--m-highest: color-mix(in srgb, var(--fg) 14%, var(--bg));
+			--m-container: color-mix(in srgb, var(--accent) 30%, var(--bg));
+			position: relative;
+			z-index: 0;
+			min-height: 0;
+			padding: 0 0 3.25rem;
+			color: var(--fg);
+			scroll-margin-top: calc(var(--nav) + 0.5rem);
+			transition: color 0.6s ease;
 		}
-		.t-card {
-			top: calc(var(--nav) + var(--stage-h) + 6px);
-			padding: 0.75rem 0.9rem 0.9rem;
-			box-shadow: none;
+		/* The beat's own background, as wide as the window. */
+		.t-beat::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+			z-index: -1;
 			background: var(--bg);
-			max-width: none;
+			box-shadow: 0 0 0 100vw var(--bg);
+			clip-path: inset(0 -100vw);
+			transition:
+				background-color 0.6s ease,
+				box-shadow 0.6s ease;
 		}
-		.t-card > * + * {
-			margin-top: 0.4rem;
+
+		/* The background: a few lines of the log before each beat, a little tilted, as on large screens. */
+		.t-strip {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			column-gap: 1.25rem;
+			height: 8.25rem;
+			margin: 0 calc(-1 * var(--sl-content-pad-x, 1rem)) 1rem;
+			padding: 0 0.75rem;
+			overflow: hidden;
+			font: 12px / 21px var(--mono);
+			font-variant-ligatures: none;
+			white-space: pre;
+			mask-image: linear-gradient(to bottom, transparent 0, #000 30%, #000 70%, transparent 100%);
 		}
-		.t-cmd {
-			font-size: 0.75rem;
+		.t-strip > div {
+			min-width: 0;
+			transform: rotate(-4deg);
+			transform-origin: 0 50%;
+			mask-image: linear-gradient(to right, #000 80%, transparent);
 		}
-		.t-card h2 {
-			font-size: 1.2rem;
-		}
-		.t-card p {
-			line-height: 1.45;
-			font-size: 0.9375rem;
-		}
-		.t-cmds li:nth-child(n + 6) {
+		.t-strip > div:nth-child(3) {
 			display: none;
 		}
+		.t-strip .ln {
+			--ln-dim: var(--dim);
+			--ln-fg: var(--fg);
+			--ln-acc: var(--accent);
+			display: block;
+			position: relative;
+			padding-left: 10px;
+			overflow: hidden;
+			color: var(--ln-dim);
+			opacity: 0.36;
+			transition:
+				opacity 0.5s ease,
+				color 0.5s ease;
+		}
+		.t-strip .ln::before {
+			content: '';
+			position: absolute;
+			inset: 0 auto 0 0;
+			width: 2px;
+			background: color-mix(in srgb, var(--ln-acc) 60%, transparent);
+		}
+		.t-strip .ln.c {
+			color: color-mix(in srgb, var(--ln-fg) 70%, var(--ln-dim));
+			font-weight: 600;
+		}
+		/* A line that decodes may borrow the amber or the rose-pine theme until it settles. */
+		.t-strip .ln.g-amber {
+			--ln-acc: #ffb000;
+			color: #ffb000;
+			opacity: 0.7;
+		}
+		.t-strip .ln.g-rose {
+			--ln-acc: #ebbcba;
+			color: #ebbcba;
+			opacity: 0.7;
+		}
+		:root[data-theme='light'] .t-strip .ln.g-amber {
+			--ln-acc: #a05f00;
+			color: #a05f00;
+		}
+		:root[data-theme='light'] .t-strip .ln.g-rose {
+			--ln-acc: #9c5e5b;
+			color: #9c5e5b;
+		}
+
+		.t-card {
+			position: static;
+			max-width: none;
+			padding: 0 0 0 0.9rem;
+			opacity: 1;
+			background: none;
+			box-shadow: none;
+		}
+		.t-card h2 {
+			font-size: 1.375rem;
+		}
+
+		/* The beat's phone: as wide as the page, a little into its margins, so the text on it is as large as on a phone. */
+		.tour.js .t-mock {
+			display: block;
+			--mw: min(100% + 1.25rem, 25rem);
+			width: var(--mw);
+			margin: 1.5rem calc((100% - var(--mw)) / 2) 0;
+			container-type: inline-size;
+		}
+		.t-mph {
+			--pw: 100cqw;
+			position: relative;
+			/* As tall as the beat needs, and no taller than the window under the nav. */
+			height: clamp(33rem, calc(100cqw * var(--tall)), calc(100vh - var(--nav) - 4.5rem));
+		}
+		.t-mph::before {
+			content: '';
+			position: absolute;
+			/* Inside the phone's width: anything wider would make the page scroll sideways. */
+			inset: 6% 0;
+			background: radial-gradient(closest-side, var(--halo), transparent);
+			pointer-events: none;
+		}
+		.t-mph .t-phone {
+			width: 100%;
+			height: 100%;
+			padding: 6px;
+			border-radius: 28px;
+			box-shadow: 0 24px 48px -30px var(--shadow);
+		}
+		.t-mph .t-screen {
+			border-radius: 22px;
+		}
+		/* Under the phone: how far its beat has played, and Pause. */
+		.t-mctl {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+			padding: 0 0.75rem;
+		}
+		.t-mbar {
+			flex: 1;
+			height: 3px;
+			border-radius: 3px;
+			background: var(--line);
+			overflow: hidden;
+		}
+		.t-mbar b {
+			display: block;
+			height: 100%;
+			background: var(--accent);
+			transform: scaleX(0);
+			transform-origin: 0 50%;
+		}
+		.t-play {
+			appearance: none;
+			min-width: 4.5em;
+			padding: 0.8rem 0 0.8rem 0.5rem;
+			border: 0;
+			background: none;
+			color: var(--dim);
+			font: 0.8125rem / 1 var(--mono);
+			text-align: end;
+			cursor: pointer;
+		}
+		.t-play:hover,
+		.t-play[aria-pressed='true'] {
+			color: var(--accent);
+		}
 		.t-end {
-			padding-top: 6vh;
+			padding: 2.5rem 0 4rem;
 		}
 	}
 	@supports (height: 1svh) {
 		@media (max-width: 859px) {
-			.t-beat {
-				min-height: calc(var(--len) * 0.85svh);
+			.t-mph {
+				height: clamp(33rem, calc(100cqw * var(--tall)), calc(100svh - var(--nav) - 4.5rem));
 			}
+		}
+	}
+	/* Tablets: the text beside its phone. */
+	@media (min-width: 640px) and (max-width: 859px) {
+		.t-beat {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 22rem;
+			column-gap: 2rem;
+			align-items: center;
+		}
+		.t-strip {
+			grid-column: 1 / -1;
+			grid-template-columns: repeat(3, 1fr);
+		}
+		.t-strip > div:nth-child(3) {
+			display: block;
+		}
+		.tour.js .t-mock {
+			width: 22rem;
+			margin: 0;
 		}
 	}
 
@@ -3322,6 +3710,10 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 		.tour::before {
 			animation: none !important;
 			transition: none !important;
+		}
+		/* The phones on phone widths are still: nothing to pause. */
+		.t-mctl {
+			display: none;
 		}
 	}
 </style>
