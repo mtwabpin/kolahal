@@ -412,7 +412,7 @@ object Keys {
     )
     val LOG_DIM = ConfigKey.Bool("log.dim", true, "Dim output older than the latest command")
 
-    /** Only `config` sets it until TTY is released (TTY step 4), when Settings gets it. */
+    /** Only `config` sets it: TTY is opt-in, and never a switch in Settings (docs/tty.org, Decided). */
     val HOME_STYLE = ConfigKey.Choice(
         "home.style",
         "gui",

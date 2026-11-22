@@ -11,7 +11,7 @@ import com.mtwabpin.kolahal.script.Json
  * a checked [WidgetSpec]. The rules are in docs/widgets-design.org:
  * - Typed. Each field has one type. A number where text is expected becomes text. Anything else
  *   is an error that names the field and says what to pass.
- * - Closed. An unknown field is an error that lists the known ones, so a typo (`color`) doesn't
+ * - Closed. An unknown field is an error that lists the known ones, so a typo (`colour`) doesn't
  *   pass unseen.
  * - Bounded. Text is cut with "…" at its limit. A list keeps its first items. Buttons and switches
  *   are the exception: more than their limit is an error, because one that is cut is a tap the

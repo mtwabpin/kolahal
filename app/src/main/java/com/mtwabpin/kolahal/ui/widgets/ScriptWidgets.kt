@@ -292,8 +292,8 @@ internal fun WidgetCard(
 
 /**
  * The look [chosen] for a card, as it can be drawn. A look shows only on content: a card with a
- * [note] (loading, failed, off) or a failed run ("Failed 10:42") needs its title line to say so,
- * and draws as Plain, or Tonal when that is the choice. Old content keeps the look: a card whose
+ * [note] (loading, failed, off) or a failed run ("Failed 10:42") has that to say first, and draws
+ * as Plain, or Tonal when that is the choice. Old content keeps the look: a card whose
  * content counts as old after a minute (Quick toggles) would change its look on most visits, until
  * its run fills it again. A look the kind doesn't offer draws Plain.
  */

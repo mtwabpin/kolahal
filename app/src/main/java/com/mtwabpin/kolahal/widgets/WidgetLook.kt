@@ -7,10 +7,10 @@ package com.mtwabpin.kolahal.widgets
  * How Kolahal draws one of its own widgets. Each placed widget has its own, chosen on the Widgets
  * screen; the script and its description stay the same. An app's widget draws itself and is always
  * [PLAIN].
- * - [PLAIN]: the card as it was up to 0.5.14: the surface color, 28 dp corners, a title line.
+ * - [PLAIN]: the card on the surface color, with 28 dp corners.
  * - [TONAL]: the card in its color's container (from the script's `color`), chips and rows in a
  *   lighter tint of it.
- * - [BOLD]: the main value at display size, in the accent color. The title line goes.
+ * - [BOLD]: the main value at display size, in the accent color.
  * - [SPLIT]: the card in connected tiles: 28 dp corners outside, 8 dp inside, 4 dp apart.
  * - [SHAPE]: the main thing takes a Material shape. In a square box (1×1, 2×2) that is the whole
  *   card; in a wide one the main value sits in a shape with the rest beside it. Buttons, switches
