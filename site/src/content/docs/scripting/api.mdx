@@ -620,8 +620,8 @@ and the texts after them.
 | Function | Shows |
 | --- | --- |
 | `fmt.bar(value, opts?)` | one bar as wide as the line: `value` out of `opts.max` (1 by default) |
-| `fmt.bars(rows, opts?)` | a bar for each row `{ label, value, text? }`, all on one scale from 0 to `opts.max` (by default the largest value), so the rows compare at a glance. `text` shows after the bar; by default it is the value with `opts.unit` |
-| `fmt.ranges(rows, opts?)` | for each row `{ label, low, high, lowText?, highText? }`, a bar from low to high, all on one scale from `opts.min` to `opts.max` (by default the lowest low and the highest high). The low shows before the bar and the high after it |
+| `fmt.bars(rows, opts?)` | a bar for each row, all on one scale from 0 to `opts.max` (by default the largest value), so the rows compare at a glance. `text` shows after the bar; by default it is the value with `opts.unit`. A row is a list in this order: label, value, text, as `{ "Mon", 42 }` |
+| `fmt.ranges(rows, opts?)` | for each row, a bar from low to high, all on one scale from `opts.min` to `opts.max` (by default the lowest low and the highest high). The low shows before the bar and the high after it. A row is a list in this order: label, low, high, lowText, highText, as `{ "Mon", 18, 27 }` |
 
 - `opts.color` is the bars' color, by role (`accent` by default). The unfilled part of a bar is
   a light shade of the same color.
@@ -703,8 +703,8 @@ log(
 
 ### Big numbers
 
-`fmt.stats(items)` makes a line of big numbers for a body. Each item is `{ value, label }`: the
-value large, in the terminal font, and its label under it, small. The first value is the biggest;
+`fmt.stats(items)` makes a line of big numbers for a body. Each item is a list of a value and its
+label, in that order, as `{ "25°C", "Sunny" }`: the value large, in the terminal font, and its label under it, small. The first value is the biggest;
 the others are smaller. They sit side by side and wrap when the screen is narrow.
 
 - Use it for the one number that matters and a few beside it: the weather, a score, a count.
@@ -2211,6 +2211,11 @@ the `@widget` line and works only in saved scripts.
 
 A script can open a full-screen screen of its own over home, and draw on the character grid, as
 `matrix` and `clock` do. It is the same in both home styles, in your theme's colors and font.
+
+To start from a screen that works, install one of the library's
+[screen templates](/scripting/library/#templates): `template-screen-matrix`, `template-screen-pipes`,
+`template-screen-sl`, `template-screen-clock`, `template-screen-top`, `template-screen-decode` and
+`template-screen-boot` each draw one of Kolahal's screens, in Lua, with comments on how it works.
 
 ### tty.screen(spec)
 

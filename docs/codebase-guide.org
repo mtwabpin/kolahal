@@ -519,7 +519,8 @@ wallpaper can show behind home), then calls three named steps:
    to import, a script to export, a text file for =edit=). A screen never gets a callback for
    these: it asks the ViewModel, which emits the event;
 3. [[src:MainActivity.kt::private fun setHomeContent][setHomeContent]]: calls =setContent { ... }=, which picks what to show: the script editor if
-   =vm.editing= is set, otherwise the page named by =vm.screen=, and the dialogs over it.
+   =vm.editing= is set, the shader editor if =vm.shaderActions.editing= is, otherwise the page named by
+   =vm.screen=, and the dialogs over it.
 
 It also forwards lifecycle callbacks: =onStart= / =onStop= → =vm.onStarted(on)=, =onResume= →
 =vm.onResume()=, =onPause= → =vm.onPause()=, each touch or key (=onUserInteraction=) →
@@ -650,6 +651,15 @@ deterministic: time and chance come in as arguments, so a JVM test steps one fra
 - *Their data.* =top= reads [[src:terminal/TopFacts.kt::internal class TopFacts][TopFacts]] each second; =boot= gets =vm.ttyScreenData()=. =decode=
   takes over the lines home shows (=ShownLog=); in the GUI style, home's own text scrambles where
   it is (=LogDecode=).
+- *=scramble=.* [[src:data/HomeScramble.kt::class HomeScramble][HomeScramble]] keeps whether it is on and its seed, read before home's first
+  frame. =TerminalScreen= scrambles what home is made from in the composition that reads it: the
+  rows ([[src:terminal/Scramble.kt::class ScrambledLog][ScrambledLog]], each line through the pure [[src:terminal/Scramble.kt::data class Scramble][Scramble]]), a search's rows, the pinned
+  lines, what is playing, the sheet and the suggestions that name something of the user's (by
+  their icon, or =Suggestion.Completion.ownFrom= for earlier lines and the log's sources). Both
+  styles draw from those, so the cells and the texts never hold the real words. Settings' preview
+  of the header (=HeaderPreview=) scrambles its pinned lines and media the same way. Calls from a line
+  go to its real one (=ScrambledLog.real=), so nothing scrambled is stored or run. In the GUI style
+  =ScrambleWaves= runs =LogDecode='s waves over the scrambled texts when the log scrolls or a line comes.
 - *A script's own screen.* A script that says =@uses screen= can call =tty.screen= and draw on the
   grid. It runs in =:script= ([[src:script/ScreenSession.kt::internal class ScreenSession(][ScreenSession]]); its drawing calls become a =ScreenFrame= of plain
   numbers and texts. It asks home by broadcast (=ScreenProtocol=); home's =ScriptScreenRequests=
@@ -706,6 +716,11 @@ The facts are in =shader/=, part of the Model and plain Kotlin where it can be:
   =// @once=, ...), read without compiling it. =ShaderParam= and =ShaderParams= are the parameters
   and what you set them to; =ShaderValues= are the values a parameter can follow: Kolahal's own
   (the battery, ...) and a script's, given with =shader.give= under its =@gives= line.
+- =UsageValues= (pure) are Kolahal's values from the phone's use: unlocks, screen time and the time
+  away. =UsageWatch= works them out in the main process, only while a shader in use follows one, or
+  one that Settings → Shaders lists while it is open (=UsageWatch.list=) (after an unlock, and at
+  most every five minutes while home is in front), and keeps them with the
+  scripts' values, so the live wallpaper gets them in its state.
 - =ShaderPlay=: one-off shaders (=@once=) that play for some seconds over home (=shader play=, a
   script's =shader.play=); =ShaderWords= plays one when a notification has its words.
 - [[src:shader/ShaderSafety.kt::class ShaderSafety][ShaderSafety]]: a shader is armed in a store before its first frame; if Kolahal dies with it on
@@ -716,7 +731,8 @@ The facts are in =shader/=, part of the Model and plain Kotlin where it can be:
 Where it is drawn: [[src:ui/tty/TtyShader.kt::internal fun rememberTtyShader][rememberTtyShader]] in =ui/tty/TtyShader.kt= puts the shader on a surface's
 layer as a =RenderEffect=, so neither the GUI nor the grid knows about it. It hands the shader only
 the uniforms it declares, draws a still one only when something changes, and draws nothing with a
-screen reader on. Two fingers held still for a second turn it off.
+screen reader on. =corner= is the window's rounded corner and =cutout= the camera's cutout at its
+top when the surface fills the window. Two fingers held still for a second turn it off.
 
 The screens: Settings → Shaders (=ShadersScreen=, =ShaderPage=, =ShaderSheet=), shown over home so
 the shader is seen as you change it, and Get more shaders; =ShaderActions= is their helper and
@@ -731,7 +747,7 @@ and holds three kinds of card in one layout:
 - *Other apps' widgets.* [[src:widgets/WidgetHost.kt::class WidgetHost private constructor][WidgetHost]] owns the one =AppWidgetHost= and the list of placed widgets
   (where each sits, its size, its look); the pure parts (=WidgetModel=, =WidgetPlacement=,
   =WidgetDrag=) are unit-tested. =WidgetBinder= in =MainActivity= runs Android's bind and configure
-  steps.
+  steps, and opens a placed widget's setup again (Widget settings in Arrange widgets).
 - *A script's widget.* A script with a =@widget= line calls =widget.show{…}= with a description:
   one of a fixed set of kinds (stat, list, chart, …) and its fields. [[src:widgets/WidgetParser.kt::object WidgetParser][WidgetParser]] checks it into
   a [[src:widgets/WidgetSpec.kt::sealed interface WidgetSpec][WidgetSpec]], and [[src:widgets/WidgetStates.kt::object WidgetStates][WidgetStates]] stores it in =kv=. The script runs in =:script=, so
@@ -756,7 +772,8 @@ the page and the picker adds to it. The design record is [[file:widgets-design.o
   Settings, Feeds and Scripts are tabs of one place: =switchTab= replaces the page instead.
 - Each page installs a =BackHandler= that calls =vm.closeScreen()=. On the terminal, Back
   does nothing: a launcher never "goes back" off home.
-- The script editor isn't a =Screen=: it's an overlay shown whenever =vm.editing= is non-null.
+- The script editor isn't a =Screen=: it's an overlay shown whenever =vm.editing= is non-null. The
+  shader editor (=ui/editor/ShaderEditor.kt=) is shown the same way while =vm.shaderActions.editing= is.
 - The text editor isn't a page of home at all: it is another activity, in a task of its own
   (see [[*The text editor: a second window][The text editor]]).
 - =HomePager= (bottom of =MainActivity.kt=) puts the optional widgets page beside the terminal.
@@ -798,7 +815,7 @@ How they cooperate:
     the ViewModel receives it and refuses sensitive commands.
   - *A script's screen* talks to home through a bound service (see [[*Full-screen screens][Full-screen screens]]).
   - *The wallpaper* reads nothing of home's: =WallpaperWriter= (main process) writes
-    [[src:ui/wallpaper/WallpaperState.kt::data class WallpaperState][WallpaperState]] (the shader, its parameters, the theme's colors) to
+    [[src:ui/wallpaper/WallpaperState.kt::data class WallpaperState][WallpaperState]] (the shader, its parameters, the values it follows, the theme's colors) to
     =files/wallpaper/state.json=, and the wallpaper watches that folder.
 
 Keep this in mind when you add state: an in-memory singleton field written in =:script= is
@@ -979,8 +996,8 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =terminal/=                   | the ViewModel and its helpers, suggestions, log row building, the line model, the widgets' own data                                                                                      | [[src:terminal/TerminalViewModel.kt::class TerminalViewModel][TerminalViewModel.kt]]            |
 | =terminal/commands/=          | command parsing and dispatch (=CommandProcessor=), the command groups, =Aliases=, =Fetch=                                                                                                | [[src:terminal/commands/CommandProcessor.kt::class CommandProcessor][CommandProcessor.kt]]             |
 | =terminal/tty/=               | the character grid, plain Kotlin: cells, widths, layout of each part of home; =screens/=: the full-screen screens                                                                        | [[src:terminal/tty/LineLayout.kt::object LineLayout][LineLayout.kt]]                   |
-| =ui/=                         | what several features share (=GuiComponents=, =ActionSheet=, =LabeledIconButtons=, =FeatureTabs=), =TextEditorActivity=                                                                         | [[src:ui/GuiComponents.kt::fun GuiListPage][GuiComponents.kt]]                |
-| =ui/theme/=                   | =Theme= (the =Term= object), =GuiTheme=, =TermFonts=, =MaterialYouPalettes=                                                                                                              | [[src:ui/theme/Theme.kt::object Term][Theme.kt]]                        |
+| =ui/=                         | what several features share (=GuiComponents=, =ActionSheet=, =LabeledIconButtons=, =FeatureTabs=, =TypeValueDialog=), =TextEditorActivity=                                                                         | [[src:ui/GuiComponents.kt::fun GuiListPage][GuiComponents.kt]]                |
+| =ui/theme/=                   | =Theme= (the =Term= object), =GuiTheme=, =TermFonts=, =MaterialYouPalettes=, =ScreenCorners= (the screen's rounded corners)                                                              | [[src:ui/theme/Theme.kt::object Term][Theme.kt]]                        |
 | =ui/home/=                    | home in the GUI style and what both styles share: =TerminalScreen=, =GuiHome=, =HomeState=, the log, the prompt, the key bar, suggestions, the app selector, the headers, home's dialogs | [[src:ui/home/HomeState.kt::internal class HomeState(][HomeState.kt]]                    |
 | =ui/tty/=                     | home in the TTY style: the grid's painter and its Compose pieces; the shader layer (=TtyShader=)                                                                                         | [[src:ui/tty/TtyHome.kt::internal fun TtyHome(][TtyHome.kt]]                      |
 | =ui/widgets/=                 | the widgets page, the cards of every kind and look, the picker                                                                                                                           | [[src:ui/widgets/ScriptWidgets.kt::internal fun WidgetCard(][ScriptWidgets.kt]]                |
@@ -1117,7 +1134,8 @@ Some JVM tests read the source and fail on a rule, not on behavior. You will mee
 - The script library: =LibraryFilesTest= reads every bundled script as the editor does,
   =LibraryTagsTest= checks their tags, =LibraryWidgetsTest= passes what each hands to =widget.show=
   through the real parser, =LibraryHistoryTest= checks =assets/library-history.txt=; on a device,
-  =LibraryScriptsTest= runs the ones that need no network.
+  =LibraryScriptsTest= runs the ones that need no network, and =LibraryScreensTest= runs the screen
+  templates (=template-screen-*=) on a made-up home at two sizes.
 - The catalogs: =DispatchNamesTest= (every name =execute= dispatches is in =CommandCatalog=),
   =HelpCatalogTest= (every command is in a =help= section), =SettingsCatalogTest= (every setting is
   on a Settings page, or in =Keys.CONFIG_ONLY=).
@@ -1156,7 +1174,9 @@ Add =hello [name]=, which prints =Hello, name!=.
 1. In =CommandCatalog=, add =CommandSpec("hello", "hello [name]", "Say hello", short = "Say hello")=
    to the [[src:commands/CommandCatalog.kt::val COMMANDS = listOf(][COMMANDS]] list, and ="hello"= to a group of =HELP_SECTIONS= (=HelpCatalogTest=
    fails otherwise). That puts it in =help=, in suggestions (=Completer= reads =OFFERED_NAMES= and
-   =COMMAND_USAGES=), and protects the name from being used as an alias (=RESERVED_NAMES=).
+   =COMMAND_USAGES=), and protects the name from being used as an alias (=RESERVED_NAMES=). A
+   command that nobody is offered, such as =skill.md=, goes in =CommandCatalog.HIDDEN= instead of a
+   section: it isn't suggested, listed or run by instant launch, and runs when typed in full.
 2. In =execute()= (=terminal/commands/CommandProcessor.kt=), add a branch:
    ="hello" -> out("Hello, ${args.firstOrNull() ?: "world"}!")=. A command bigger than one line
    belongs in a command group instead.

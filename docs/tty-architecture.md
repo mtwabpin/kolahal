@@ -290,8 +290,8 @@ ui/tty/         GridMetrics.kt  GridPainter.kt  BoxGlyphs.kt  TtyPalette.kt  Tty
                 TtyKeyBar.kt  TtySheet.kt  TtyBands.kt  TtySelector.kt  TtyScreenHost.kt  ShownLogReport.kt
                 TtyShader.kt  LiveTilt.kt
 shader/         the shaders' Model: Shaders, ShaderCatalog, ShaderMeta, ShaderUniforms, ShaderParam(s),
-                ShaderValues, ShaderPlay, ShaderWords, ShaderSuits, ShaderSafety, ShaderClock, ShaderTilt,
-                ShaderDate, ShaderPhone, ShaderStore, SharedShaders, WallpaperChoice
+                ShaderValues, UsageValues, UsageWatch, ShaderPlay, ShaderWords, ShaderSuits, ShaderSafety,
+                ShaderClock, ShaderTilt, ShaderDate, ShaderPhone, ShaderStore, SharedShaders, WallpaperChoice
 ui/shaders/     the Shaders screen, a shader's details, Get more shaders
 ui/wallpaper/   ShaderWallpaper (the live wallpaper service), WallpaperState, WallpaperWriter
 script/         Screen*.kt, ScriptScreenService: scripts' own screens (§6.3)
@@ -756,7 +756,13 @@ a block that blinks every 530 ms while the prompt and the window have focus and 
 (no `tty.cursor` or `tty.blink`); behind another app or under a dialog it stands still.
 Selecting and the selection's handles are the field's own; there is no `TtySheet` with Paste /
 Select all / Copy. `prompt.height` is the row's height in dp (at least a cell);
-`prompt.bottom-padding` is space under home, as in the GUI. Keys: Enter, ↑/↓ history, Tab,
+`prompt.bottom-padding` is space under home, as in the GUI. Where the screen's rounded bottom
+corners (Android 12 and newer) cut the row, the cells they would cut at its ends, 4 dp clear
+included, stay empty, as the header's do at the top: the `$` and the buttons move in by whole
+cells, and their targets still reach the row's ends (`HeaderCells.zones`, `PromptCells.ends`,
+`ScreenCorners`). The GUI's prompt moves its `$` and ⌨ in the same way, by pixels. Both prompts and
+both headers take their x on home's page (`cornerX`, `LocalHomePage`), not in the window, so while
+home turns to the widgets page their ends move with the page. Keys: Enter, ↑/↓ history, Tab,
 Esc and Ctrl+U clear, Ctrl+L clears the screen, Ctrl+A and Ctrl+E (`PromptKeys`).
 
 ### 3.7 Suggestions and the app selector
@@ -792,7 +798,9 @@ the GUI's list, chips and selector in their place.
   `vm.onHeaderTap(target)` / `vm.onProfileTap`; swipe down on the row → the gesture.
   `header.left`, `header.right`, `header.padding` (rows), `header.below-bar`, `header.show` keep
   working. The camera cutout: the row starts under the status-bar inset as now; cells under a
-  cutout are skipped by layout (parts flow around it).
+  cutout are skipped by layout (parts flow around it). The screen's rounded corners (Android 12
+  and newer) are kept clear the same way: a cell at either end that a corner would cut, 4 dp clear
+  included, stays empty (`HeaderCells.zones`, `ScreenCorners`).
 - Pinned line: one row (two with the media line): `▸ name: text`, turning as `PinnedTurns`
   decides; the dots become `·●·`; `header.pinned-bar-above/below` become `─` rows. What's
   playing: `♪ title — artist  ⏯ ⏭` with the two controls as targets. Hidden while typing, by
@@ -1098,23 +1106,38 @@ tty.screen({
   (`ui/tty/TtyShader.kt`) first in its modifier chain, so the shader covers the background too, and
   a screen shows it in either home style. Settings' preview of home shows a shader only while the
   eye in a shader's sheet is held (`rememberPeekShader`); a shader's details draw it over a
-  small sample (`rememberShaderPreview`, used by `ui/shaders/ShaderPreview.kt`). Neither preview is marked
-  in `ShaderSafety`, logs a line or takes touches.
+  small sample (`rememberShaderPreview`, used by `ui/shaders/ShaderPreview.kt`), and Start from a
+  template draws each template still, over a whole screen made small (`SmallShaderPreview`: the
+  sample laid out at a smaller density, so the shader runs at the box's own pixels). No preview is
+  marked in `ShaderSafety`, logs a line or takes touches.
 - *Files*: the Model is the `shader/` package. `ShaderMeta` (the header and the uniforms, pure),
   `ShaderCatalog` (names and the bundled list), `ShaderUniforms` (sets the uniforms) and
   `ShaderSafety` are there, and the Android side is `shader/Shaders.kt` (compiling, the user's
   files, turning one on and off, the log lines). The user's files are in `files/shaders/`, kept in
   step with the script folder by `script import` / `script export` and `shader reload` /
-  `shader copy`, so a shader is found by name without the folder. Bundled: the 23 of
+  `shader copy`, so a shader is found by name without the folder. Bundled: the 33 of
   `ShaderCatalog.BUNDLED`, in `assets/shaders/`: `crt`, `lcd`, `eink`, `paper`, `riso`, `graph`,
   `foil`, `lamp`, `dusk`, `frost`, `mountains`, `pond`, `dunes`, `rain`, `snowfall`, `grove-snow`,
-  `grove-autumn`, `aurora`, `night`, `fireflies`, `contour`, `ink` and `hearts` (no `scanlines`,
+  `grove-autumn`, `aurora`, `night`, `fireflies`, `contour`, `ink`, `aura`, `day-ring`, `lanterns`,
+  `kintsugi`, `record`, `candle`, `hourglass`, `windows`, `seismograph`, `hearts` and `pulse` (no `scanlines`,
   `bloom` or `aberration`; `crt` has scanlines and a color fringe). A file of the user's with a
   bundled name is used instead of the bundled one.
 - *Commands* (`terminal/commands/ShaderCommands.kt`): `shader` or `shader list`, `shader <name>`
   or `use <name>`, `on`, `off`, `set`, `reset`, `follow`, `values`, `play`, `words`, `wallpaper`,
-  `get`, `update`, `check`, `reload`, `copy`, `remove`. `screen.shader` is a `Choice` whose list
-  grows by the user's files (`Choice.added`, as `theme.name`), so it completes.
+  `get`, `update`, `check`, `reload`, `edit`, `copy`, `remove`. `screen.shader` is a `Choice` whose list
+  grows by the user's files (`Choice.added`, as `theme.name`), so it completes. `copy` of a
+  template's name (`ShaderCatalog.TEMPLATES`: `template-*.agsl` beside the bundled files, never
+  listed or used) saves a copy as the user's `my-<idea>` (`my-<idea>-2` when that is taken, also by a
+  file in the script folder) and writes it into the script folder, as Add shader → Start from a
+  template does (`ShaderCommands.fromTemplate`).
+- *Editor*: `shader edit <name>` and Edit in a shader's sheet open its code in `ui/editor/ShaderEditor.kt`, a screen
+  around the editing core the script and text editors share (`CodeEditor`), with AGSL's colors (`Syntax.AGSL`: its
+  types, the word of a header line, and the names Kolahal sets) and Save and Close only. `ShaderActions.editing` says
+  which is open; `MainActivity` shows it in place of the pages, as it does the script editor. Save goes through
+  `Shaders.save`, so `Shaders.version` grows and home and the live wallpaper read it again, then runs
+  `Shaders.check`: the message line has its problem, with the compiler's line (`Shaders.Check.line`) to go to. A
+  shader that fails is saved all the same. One that comes with Kolahal (`ShaderCatalog.Edit.COPY`) is saved as
+  the user's file of its name, used instead of it.
 - *Settings*: Settings → Shaders (`ui/shaders/ShadersScreen.kt`, a shader's sheet in `ui/shaders/ShaderSheet.kt`,
   what a row says in `ui/shaders/ShaderPage.kt`, Get more shaders in `ui/shaders/GetShadersScreen.kt`), by the maintainer's
   request of 22 November. The key itself is in `Keys.CONFIG_ONLY`, on no settings page.
@@ -1226,6 +1249,8 @@ required. Another name stays 0 (`shader check` lists those).
 | `pressed` | `float` | 1 while a finger is down on the surface |
 | `tilt` | `float2` | the phone's lean, about -1 to 1 each way (`ShaderTilt`) |
 | `battery`, `charging` | `float` | 0 to 1, and 1 while plugged in (the header's `DeviceStatus`) |
+| `corner` | `float` | the radius of the screen's rounded corners, px, the largest of the four: on home and a screen `WindowInsets.getRoundedCorner` of the window when the surface is as large as the window (`WindowCorner` in `ui/tty/TtyShader.kt`, read once), else 0 (the sample in a shader's details); in the live wallpaper `Display.getRoundedCorner`. It draws nothing again |
+| `cutout` | `float4` | the camera's cutout at the top of the screen, px: left, top, right, bottom. On home and a screen `DisplayCutout.getBoundingRectTop` of the window's insets when the surface is as large as the window (`WindowCorner.cutout`, read again when the window's size changes), else 0; in the live wallpaper `Display.getCutout`, read with the surface's size. All 0 with no cutout at the top, as in landscape. It draws nothing again |
 | `wallpaper` | `float` | 1 in the live wallpaper (§7.9), else 0 |
 | `dark` | `float` | 1 for a dark theme |
 | `date` | `float4` | year, month, day, seconds since midnight, local time (`ShaderDate`) |
@@ -1266,8 +1291,8 @@ for shared shaders `@author`, `@version`, `@license`, `@requires` (the oldest Ko
 A `@fps` or `@settles` line that can't be read is left out with a message (`ShaderMeta.warnings`,
 shown by `shader check` and the sheet's Check), and the shader still runs. Not built: `@warp` and
 `@bloom`. A compile error is a log line with the compiler's line number whose tap runs
-`shader check <name>` (not an editor at that line); a shader that fails to turn on keeps the one
-that was on.
+`shader check <name>` (not an editor at that line; the editor's own Save goes to it); a shader that
+fails to turn on keeps the one that was on.
 
 ### 7.4 Safety
 
@@ -1311,12 +1336,27 @@ refused.
 
 - `shader/ShaderParam.kt` reads a line; `shader/ShaderParams.kt` keeps what people set, by shader
   and name, as text (kept when a shader is updated; a value the new version can't have falls back
-  to its default). Sliders and buttons are in a shader's details (`ui/shaders/ShaderParamRows.kt`);
+  to its default). Sliders and buttons are in a shader's details (`ui/shaders/ShaderParamRows.kt`: a
+  parameter that follows a value has no slider, and a run of three or more that follow one series, such
+  as `screen.h1`…`h8`, is one row that opens, `ui/shaders/ShaderSeries.kt`);
   `shader set`, `shader reset`. A slider being dragged changes the shader on screen at once
   (`ShaderParams.tryOut`).
 - A parameter can follow a value instead (`shader follow`, or Follow in its details):
   `shader/ShaderValues.kt`. Kolahal's own are `battery` (0–100), `charging`, `day` (hours, 0–24)
-  and `night` (0 by day, 1 at night, with an hour and a half of dusk and dawn); scripts give more
+  and `night` (0 by day, 1 at night, with an hour and a half of dusk and dawn), and the phone's use
+  (`shader/UsageValues.kt`, pure: `unlocks`, `unlocks.usual`, `unlocks.d1`…`d7`, `screen` in minutes,
+  `screen.usual`, `screen.d1`…`d7`, `screen.h1`…`h8`, `away` in minutes). `UsageWatch` works those out in
+  the main process only while home's shader or the live wallpaper's follows one, or one that Settings →
+  Shaders lists while it is open (`UsageWatch.list`): after an unlock
+  (`UnlockCounter.unlocked`, 2 s later), when home resumes after 5 minutes or more, and every 5 minutes
+  while it stays resumed; unlocks from `UnlockCounter.history`, screen time and `away` from one
+  `AppUsage.read` (from today's midnight, yesterday's with `away`, and from the oldest finished day not
+  kept yet, once a day). Screen time and `away` need usage access. They are kept with the scripts'
+  values in `ShaderValues.given` (`setUse`, only when they changed), so they reach the live wallpaper
+  in its state, and in the scripts' store under `@use`, no script's name (`keepUse`), so the next start
+  begins with them rather than the sliders; a script named `unlocks` or `screen` (both commands) has its values dropped. The Follow
+  menu lists `unlocks`, `unlocks.usual`, `screen`, `screen.usual` and `away`, not the rows of days and
+  blocks; `shader values` puts each row on one line. Scripts give more
   with `shader.give(name, value)` under an `@gives` line, named `<script>.<name>` (at most 8 a
   script, kept in a store, gone when the script is off or deleted). A number is spread over the
   parameter's range, or worked through a formula with the calculator (`battery / 20`, at most 80
@@ -1333,14 +1373,16 @@ refused.
   minutes at most. `shader play <name> [seconds]` starts one, and so does a script's
   `shader.play` (from `:script`, through a store home reads). It is drawn by `rememberPlayedShader`
   / `rememberPlayedOnHome` (`ui/tty/TtyShader.kt`) on home, or on a full-screen screen when one is
-  open. It is not marked in `ShaderSafety` (the request is forgotten before it is drawn), and not
+  open. It is marked in `ShaderSafety` while it plays, as home's shader is (`LoadedShader.play`,
+  `ArmWhileShown`): one that was playing when Kolahal crashed or hung is turned off at the next start
+  and isn't played until its file changes or a shader is turned on. It is not
   played in battery saver, with Remove animations on, when hot or low on battery, or with a screen
   reader on. `hearts` is the bundled one.
 - Words that play one: `shader/ShaderWords.kt` keeps, per shader, words with commas between (at most
   200 characters), set in its details or with `shader words <name> <words>|off`. Kolahal's own
   notification listener asks it for each notification (whole words, any case, in the title or
   text); notifications from the private space are left out. It needs notification access, not a
-  script.
+  script. The words of a shader that was removed stay (Undo brings it back), but don't play it.
 
 ### 7.8 Ratings (built, not in the design)
 
@@ -1362,13 +1404,18 @@ first time. Not a one-off and not an `@text` shader; Android 13 and newer.
 - The service is `ui/wallpaper/ShaderWallpaper.kt`, in a process of its own (`:wallpaper` in the
   manifest), so a shader that crashes it doesn't take home along. Home writes all it needs
   (`WallpaperState`: the code, the parameters, what they follow and the formulas, the values
-  scripts gave, the theme's colors dark and light, `theme.always-dark`, the cell size) to a file,
+  scripts gave and those of the phone's use (§7.6), the theme's colors dark and light,
+  `theme.always-dark`, the cell size) to a file,
   whenever one of them changes (`WallpaperWriter`, started from `MainActivity`).
 - It draws over a page of the theme's color (`wallpaper` is 1), only while it is visible; a moving
   shader follows `ShaderClock.moves` at 30 frames a second or its header's pace (`ShaderClock.frameMs`,
   §7.4 As built), a still one is drawn when something it shows changes. A followed parameter glides with a 0.6 s time constant (`GLIDE_S`), not home's 2 s.
-- Its own guard: a shader that was started and not proven (10 s) three times in a row
-  (`MAX_TRIES`) is not tried again until its code changes; the page shows alone.
+- Its own guard (`WallpaperGuard`): a shader that was started and not proven (10 s) in three processes
+  in a row (`MAX_TRIES`) is not tried again until its code changes; the page shows alone. A process
+  counts a shader once, however many engines Android makes for it (the preview, the picker's pictures).
+- It reads `state.json` itself, not through `AtomicFile`, whose read deletes home's write in progress.
+- On Android 14 and newer it can be the lock screen's alone: `WallpaperChoice.isWallpaper` asks for
+  both screens.
 
 ### 7.10 Tilt (built, not in the design)
 
@@ -1408,7 +1455,7 @@ cells), `ParityTest` (§8.2), `LayoutPerformanceTest` (§2.8), `DecodeTest`, `Sc
 `Random`, set clock), `TopScreenTest`, `screens/DecodeScreenTest`, `screens/LogDecodeTest`,
 `screens/ScriptScreenTest`, `LineModelTest` over `LogCorpus` (`terminal/`), `ScreenSaverTest`,
 `TtyPartsTest`, LayersTest's two assertions, and for shaders `ShaderMetaTest`, `ShaderParamTest`,
-`ShaderValuesTest`, `ShaderPlayTest`, `ShaderWordsTest`, `ShaderSafetyTest`, `ShaderClockTest`,
+`ShaderValuesTest`, `UsageValuesTest`, `ShaderPlayTest`, `ShaderWordsTest`, `ShaderSafetyTest`, `ShaderClockTest`,
 `ShaderDateTest`, `ShaderTiltTest`, `ShaderCatalogTest`, `SharedShadersTest` and
 `WallpaperStateTest`. Not built: `WrapTest`, the separate table, meter, stats and chart layout
 tests, `HitTest` (`ParityTest` checks the targets), `SelectionTest`, the `LogContext` reflection

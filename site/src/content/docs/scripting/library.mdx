@@ -1,6 +1,6 @@
 ---
 title: Script library
-description: The 48 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 55 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
 import Cards from "../../../components/Cards.astro";
@@ -22,7 +22,7 @@ import clocks from "../../../assets/widgets/worldclocks-2x2.png";
 import toggles from "../../../assets/widgets/quicktoggles-4x1.png";
 import webnumber from "../../../assets/widgets/webnumber-2x1.png";
 
-Kolahal includes 48 ready-made scripts, 16 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 55 ready-made scripts, 23 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -178,6 +178,13 @@ None of the network scripts need an API key.
 | [template-widget-js](#templates) | JS | | | |
 | [template-widget-list](#templates) | Lua | | daily 00:01 | |
 | [template-widget-list-js](#templates) | JS | | daily 00:01 | |
+| [template-screen-matrix](#templates) | Lua | yes | | |
+| [template-screen-pipes](#templates) | Lua | yes | | |
+| [template-screen-sl](#templates) | Lua | yes | | |
+| [template-screen-clock](#templates) | Lua | yes | | |
+| [template-screen-top](#templates) | Lua | yes | | |
+| [template-screen-decode](#templates) | Lua | yes | | |
+| [template-screen-boot](#templates) | Lua | yes | | |
 
 ## Widgets
 
@@ -731,8 +738,8 @@ profile when the phone has one. It doesn't use the network.
 
 ## Templates
 
-Short, commented scripts to start your own from. Each shows one way of working, and each comes in
-Lua and in JavaScript: the JavaScript one has `-js` at the end of its name.
+Short, commented scripts to start your own from. Each shows one way of working. Most come in Lua
+and in JavaScript: the JavaScript one has `-js` at the end of its name. The screens are in Lua only.
 
 - **template-command** / **template-command-js**: a command you type. It reads its words and logs
   lines that do something when tapped.
@@ -757,6 +764,21 @@ Lua and in JavaScript: the JavaScript one has `-js` at the end of its name.
   day, with a checkbox on each row (its `items` option lists the things). A tap on a row runs the
   script again, which ticks the row and fills the card again. Each new day starts with no ticks,
   and each placed widget keeps its own.
+- The screen templates: a [screen of its own](/scripting/api/#screens), drawn with `tty.screen` on
+  the character grid. Each draws one of Kolahal's screens as a script does, with comments on how
+  time passes, how the grid is addressed, the frame rate, the keys, and the limits a screen has.
+  Where the script API can't read what the built-in shows, the script shows the nearest thing it
+  can read, and says so in its comments.
+
+  | Script | Draws | Not as the built-in |
+  | --- | --- | --- |
+  | template-screen-matrix | `matrix`: streams of characters fall, each with a bright head that fades toward its tail | |
+  | template-screen-pipes | `pipes`: pipes grow and turn at random, in a new color at each edge | 7 colors, the ones a script can name |
+  | template-screen-sl | `sl`: a steam locomotive crosses once, with smoke, and the screen closes | |
+  | template-screen-clock | `screen clock`: the time in big digits, the date under them | 12- or 24-hour time from its `hours` option; the date in English |
+  | template-screen-top | `screen top`: the time, today's unlocks, the battery and today's screen time, each second | the network instead of memory, and the apps used most today instead of your scripts. It has `@uses usage` |
+  | template-screen-decode | `screen decode`: lines scramble and settle in waves of five kinds | its own lines, or the words you give it, instead of home's log. Only plain letters, digits and signs scramble |
+  | template-screen-boot | `screen boot`: a boot log typed out with an OK before each line, then the screen closes | the apps, the battery, the network and the unlocks; not the versions, theme, font or scripts. It has `@uses apps` |
 
 Install one, then copy it under a new name to make it yours, so library updates don't replace your
 changes: `script mv template-command mycommand`.

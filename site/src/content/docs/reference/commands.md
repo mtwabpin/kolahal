@@ -194,6 +194,7 @@ Script names can use lowercase letters, digits, `-` and `_` (up to 40 characters
 | `backup [now\|every daily\|weekly\|off\|dir]` | | write the [backup file](/guides/backup/#automatic-backups) to your backup folder now, set automatic backups, or pick the folder |
 | `log only <name\|kind>` / `log all` | | show only the lines of one script, feed or app, or of one kind (`commands`, `scripts`, `feeds`, `notifications`, `apps`, `calls`, `reminders`, `starred`). This lasts until `log all`, ✕, Back or another command |
 | `fresh` | | show a clean screen now, like `log.fresh`. Nothing is deleted: "▴ N earlier lines" brings it back. Not added to the log |
+| `scramble [on\|off]` | | scramble home for a [screen recording](/reference/privacy/#screen-recordings): every line keeps its shape and colors but none of its text, and pictures show as plain blocks, until `scramble off`. Nothing stored changes |
 | `restart [scripts]` | `reboot` | restart the launcher, or stop running scripts |
 | `update [install]` | | full build only. Tells you if a newer release is available. `install` downloads it, checks it's signed with Kolahal's key and opens Android's installer |
 | `alias [name = command]` | | list or define aliases |
@@ -228,7 +229,7 @@ See [Widgets](/guides/widgets/).
 | `unlocks [<days> \| week \| month]` | | unlock counts (1–30 days); `week` and `month` as a chart; `month` also with the trend and a line per week |
 | `fetch` | `neofetch`, `fastfetch` | a summary of this phone and Kolahal, in fastfetch style, under `name@device` (`user.name`). It shows Kolahal's icon next to the Android version, device, kernel, uptime, Kolahal's version, apps, scripts, feeds, theme, font, display, CPU, memory, storage, battery, network and today's unlocks, then the theme's colors |
 | `notifications [settings]` | | allow script notifications |
-| `usage-access` | | grant usage access (for the unlock count) |
+| `usage-access` | | grant usage access (for the unlock count and screen time) |
 | `crashes [share\|clear] [<n>]` | | crash reports kept on this phone, newest first (tap one to share it). `share` opens the share sheet with report `n` (by default, the newest). `clear` deletes all reports. See [Privacy](/reference/privacy/#crash-reports) |
 | `battery` | | battery optimization settings |
 | `home` | | choose the default home app |
@@ -256,6 +257,7 @@ into the prompt (except `q`, which only quits).
 | `shader play <name>` · `shader words <name> <words>` | | play a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, once over home; `words` plays it when a notification has one of them |
 | `shader get [<name>]` · `shader update [<name>]` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them, or installs one; `update` updates those you installed |
 | `shader check\|copy\|remove <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
+| `shader edit <name>` | | open a shader's code in the [editor](/scripting/shaders/#editing-one); one that comes with Kolahal becomes yours when you save it |
 
 The screens are `matrix`, `clock`, `pipes`, `decode`, `sl`, `top` and `boot`:
 

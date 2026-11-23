@@ -75,6 +75,52 @@ can include Kolahal's data in it, as it does for other apps. Kolahal's own
 [backup file](/guides/backup/) is separate. Kolahal writes it only where you choose.
 :::
 
+## Screen recordings
+
+`scramble` hides what home says before you record the screen or share a screenshot, and `scramble off` shows it again.
+It works the same with the [header](/getting-started/basics/#the-header) on or off. The mark that it is on is in the
+header: `scrambled`, first on its left. So it shows only while the header is on (`header.show`, off at first).
+
+While it is on:
+
+- every line of the log keeps its length, its colors, its styles and its place, but each letter and digit is
+  replaced, in every script, with its accents and vowel signs, and each emoji is another one. A table, a bar or
+  a button stays where it is, with its words scrambled. The replacements are new each time you turn it on, and
+  don't come from your text.
+  In the gui style, the lines scramble and settle as in `screen decode` when the log scrolls and when a line comes.
+- pictures in the log, a notification's icon and a contact's photo show as plain blocks or initials of a
+  scrambled name, and nothing is downloaded for them.
+- the times and dates of lines, a search's results, the bar of `log only`, the pinned lines, what is playing (also
+  in the preview of the header in Settings), and the sheet a long press opens are scrambled too. A suggestion for
+  an app, a contact, a todo, a note, a file, a reminder, a feed or a source of the log (`/@`, `log only`) is
+  scrambled, and so are the words of an earlier command it offers again: `note buy milk` shows `note` and two
+  scrambled words. The suggestions show no app icons.
+- it stays on when Kolahal restarts.
+
+It doesn't change what is stored: the log, searches, scripts, backups and what scripts read stay as they are. A
+tap, a swipe or a long press works on the real line, and a copy is marked so that Android's clipboard preview
+hides it. A tap that puts a line in the prompt, and **Edit in prompt**, show its real text there.
+
+Some things stay readable:
+
+- the prompt, what you type and what ↑ recalls into it, and the suggestions for commands, aliases and settings;
+- the header's time, date, alarm, battery and counts, and the hints and bands around the log;
+- the app selector, the widgets page, the app list and every other screen, such as Settings and the script
+  manager;
+- notifications in Android's own shade, the share sheet, and anything another app shows.
+
+And a recording still shows:
+
+- the length of each word and its capitals;
+- punctuation and symbols as they are, so the form of an amount, a phone number, an address or a link, though
+  none of its letters or digits;
+- the form of a time and a date;
+- which script a line is in, and how many emoji it has;
+- which lines are notifications, calls or errors, their order, and when they come;
+- which lines a search finds for what you type;
+- the screens over home, such as `screen top`, and what a script draws with `tty.screen`;
+- with `keyboard.suggestions` on, the keyboard's own suggestions.
+
 ## Permissions
 
 <Downloads>
@@ -114,7 +160,7 @@ Permissions declared in the manifest:
 | `REQUEST_DELETE_PACKAGES` | `uninstall` and the Uninstall action open Android's uninstall dialog |
 | `EXPAND_STATUS_BAR` | swiping down on the header (or `shade`) pulls down the notification shade |
 | `SET_WALLPAPER` | `wallpaper match` sets the home screen's wallpaper when you ask for it. It sets it again when the theme changes, if the wallpaper is still Kolahal's |
-| `PACKAGE_USAGE_STATS` | Usage Access, which you grant in Settings: accurate unlock counts and `usage` screen time |
+| `PACKAGE_USAGE_STATS` | Usage Access, which you grant in Settings: accurate unlock counts, `usage` screen time, the screen time that [shaders can follow](/scripting/shaders/#values-to-follow) and `screen top` |
 | `ACCESS_NOTIFICATION_POLICY` | lists Kolahal on the Do Not Disturb access page, for `dnd`, `ring silent` and scripts with `@uses dnd`. You still have to grant it |
 | `WRITE_SETTINGS` | "Modify system settings", which you grant in Settings: `brightness`, `rotate`, `screen-timeout` |
 | `ACCESS_WIFI_STATE` | whether Wi-Fi is on, for `toggles` |
@@ -126,7 +172,12 @@ Permissions declared in the manifest:
 
 The motion sensor (gravity) needs no permission. Kolahal reads it only while a
 [shader that follows how the phone leans](/scripting/shaders/#tilt-and-power), such as `foil`, shows on home or in its preview
-in Settings. What it reads isn't stored or sent anywhere.
+in Settings, or shows as your live wallpaper. What it reads isn't stored or sent anywhere.
+
+A shader set as your [live wallpaper](/scripting/shaders/#as-a-live-wallpaper) is drawn by Android's wallpaper
+service, in a part of Kolahal of its own. Home hands it one small file: the shader, your theme's colors and the
+values the shader follows, your screen time and unlocks among them. The file stays on this phone and is left
+out of backups.
 
 Kolahal also asks Android for two lists:
 
@@ -140,8 +191,8 @@ These are off until you turn them on, usually from the [setup checklist](/gettin
 | Access | Why | Without it |
 | --- | --- | --- |
 | Default home app | opens when you press Home; app shortcuts, pausing and resuming profiles, private space | works as a normal app |
-| Usage access | accurate unlock counts, `usage` | unlocks are counted only while the launcher runs; no `usage` |
-| Notification access | notifications in the log, `notifs`, `notifications.recent()`, `media` and the header's now-playing line (reading media sessions) | none of these |
+| Usage access | accurate unlock counts, `usage`, the screen time that shaders follow, `screen top` | unlocks are counted only while the launcher runs; no `usage`, and a shader that follows screen time stays at its own setting |
+| Notification access | notifications in the log, `notifs`, `notifications.recent()`, `media` and the header's now-playing line (reading media sessions), and the words that play a [one-off shader](/scripting/shaders/#one-off-shaders) | none of these |
 | Do Not Disturb access | `dnd`, `ring silent`, scripts with `@uses dnd` | those commands print a line you can tap to grant it; scripts can't change Do Not Disturb |
 | Modify system settings | `brightness`, `rotate`, `screen-timeout` | those commands print a line you can tap to grant it |
 | Accessibility service **Kolahal screen lock** | double-tap and `lock` lock the screen. It can't read window content and receives no events | no lock gesture |

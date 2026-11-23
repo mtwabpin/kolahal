@@ -13,6 +13,8 @@ The editor is a monospace text area with line numbers. It colors Lua and JavaScr
 in the terminal theme. [Parts of the app](/getting-started/parts/#script-editor) shows each part of
 it, numbered.
 
+A [shader's code](/scripting/shaders/#editing-one) opens in the same editor, with **Save** and **Close**.
+
 - The title shows `name.lua`, with `*` while there are unsaved changes.
 - Next to the title are icon buttons: **Find** (magnifier), **API reference** (question mark),
   **Save**, **Run** (play) and **Close** (×). Run saves first. TalkBack reads each button's name.

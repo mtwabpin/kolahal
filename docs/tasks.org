@@ -17,7 +17,7 @@ ships (the release notes then say what changed).
   reading.
 - Every item and its places were checked against the code of 0.5.17 on 22 November 2026. A place
   is named by its file and its function, class or constant, which stay true when lines move.
-- Checked again on 24 November 2026, by five read-only reviews of the code (nothing was run on a
+- Checked again on 23 November 2026, by five read-only reviews of the code (nothing was run on a
   device for them): of 95 points, 94 were still true. Those with one right fix were fixed that
   day and are gone from this list. Where an item waits for a choice, a line that starts "To
   decide:" says which.
@@ -26,24 +26,13 @@ ships (the release notes then say what changed).
 
 * Tasks
 
-** TODO [#B] An app widget's settings can't be changed without removing it  :appwidgets:arrange:
-- =widgets/WidgetBinder.kt= (=configure=): the widget's setup screen opens only as it is placed.
-- To pick another city or calendar, remove the widget, add it again, set it up, then move and resize
-  it back.
-- Fix: a Settings button in the toolbar for widgets that can be set up again. Small.
-- Checked 24 November 2026: a widget whose setup is optional
-  (=WIDGET_FEATURE_CONFIGURATION_OPTIONAL=) is never set up at all: =WidgetBinder.configure= skips
-  it, and nothing offers it later.
-- To decide: a "Widget settings" button in the toolbar, shown when the widget has a setup screen?
-- Remark:
-
 ** TODO [#B] Bold and Shape charts: the older bars are nearly invisible /(checked)/  :cards:
 - =ui/widgets/WidgetChartLooks.kt= (=BoldChart=, and =ShapeBesideChart='s call of =PillChart=): =val rest =
   MaterialTheme.colorScheme.surfaceContainerHighest=.
 - On the card's own surface that is about 1.1:1 in every theme, so Unlocks, Screen time and Habit
   show one coloured pill and a ghost of the week.
 - Fix: the role colour at 40%, as Plain's older bars already are. Small.
-- Checked 24 November 2026: Plain's choice, the role colour at 40 %, is still only about 1.6:1 on
+- Checked 23 November 2026: Plain's choice, the role colour at 40 %, is still only about 1.6:1 on
   a Bold card in a light theme. To decide: which colour.
 - Remark:
 
@@ -53,7 +42,7 @@ ships (the release notes then say what changed).
 - On a Tonal card in Green light, "TODAY" and "Up 2.4%" are about 3.2:1, and 2.6:1 on Tonal's tiles.
 - Fix: on Tonal, the words in the content colour with only the arrow or dot in the role colour, as
   the ring's label already does. Small.
-- Checked 24 November 2026: the same small text on Plain and Bold cards is about 3.9:1, also
+- Checked 23 November 2026: the same small text on Plain and Bold cards is about 3.9:1, also
   under 4.5:1.
 - To decide: the words in the content colour with only the arrow or dot in the role's, or a darker
   tone of the role's colour; and on Plain and Bold too?
@@ -124,13 +113,18 @@ ships (the release notes then say what changed).
 - Remark:
 
 ** TODO [#B] A locked private space's widget is still named in two places  :profiles:
-- Done on 24 November 2026: the widgets page, =widgets ls= and Arrange widgets say "Private space
+- Done on 23 November 2026: the widgets page, =widgets ls= and Arrange widgets say "Private space
   locked" and name neither the app nor the widget.
 - Left: an entry under "Restored from backup" that belongs to a private space still shows its
   package and class (=ui/widgets/WidgetsScreen.kt=, =PendingRow=). And where Android hides a locked
   private space altogether, its profile isn't among the known ones, so the widget's place reads
   "[Widget unavailable] com.example.app" (=ui/widgets/HostedWidgets.kt=, the placeholder).
 - Fix: leave the name out wherever the widget's profile is a private space, or can't be found.
+- Found by the release review of 23 November 2026, not seen on a device: when Android hides a
+  locked private space altogether, the space is missing from the list of profiles, so
+  =pausedKind= (=ui/widgets/HostedWidgets.kt=) is null and its widget is shown live, or as
+  "Widget unavailable", on the widgets page. Widget settings is no longer offered for it since
+  that review (=isRunning=). Fix: ask =WidgetHost.isLockedPrivate=, which asks Android directly.
 - Remark:
 
 ** TODO [#B] App widgets are built on the main thread in home's first frame  :perf:
@@ -170,7 +164,7 @@ ships (the release notes then say what changed).
 - Remark:
 
 ** TODO [#B] Every process start reads the library and sets every timer again  :perf:
-- Done on 24 November 2026: reminders and script times are set once in a process. At boot and
+- Done on 23 November 2026: reminders and script times are set once in a process. At boot and
   after an update the boot receiver waits for the run that has started and doesn't repeat it
   (=productivity/Reminders.kt=, =StartScheduling=; =data/RunOnce.kt=).
 - Left, in =LauncherApp.kt= (=repairAndScheduleInBackground=): each start still reads the 48
@@ -197,7 +191,7 @@ ships (the release notes then say what changed).
   message back. About 0.1 to 0.3 s of processor time for each unlock, by the code.
 - Fix: don't record a run that had no effect and no error (refresh runs already skip that); or let
   the chart ask for =unlock= only while its widget is placed.
-- Checked 24 November 2026: the first fix has nothing to stand on. A widget's refresh run isn't
+- Checked 23 November 2026: the first fix has nothing to stand on. A widget's refresh run isn't
   recorded when it ends as the last one did (=script/ScriptWorker.kt=), which is about errors, not
   effects; and =HostApi.effects= counts only what shows (log, notify, status, shader, widget,
   screen), not =store.set=, =launcher.run=, =device.setDnd= or a POST. Every effect would have to be
@@ -262,7 +256,7 @@ ships (the release notes then say what changed).
   (fixed for 0.5.16: before, those whose app wasn't back yet were removed as uninstalled).
 - Fix: handle =ACTION_APPWIDGET_HOST_RESTORED=, which maps the old phone's ids to new ones, so
   the widgets come back without a tap. Medium.
-- Checked 24 November 2026, two traps: =WidgetCodec.fromElsewhere= throws away the old ids that
+- Checked 23 November 2026, two traps: =WidgetCodec.fromElsewhere= throws away the old ids that
   the mapping needs, and =WidgetHost.prune= deletes every host id that no placed widget uses, so
   ids that Android restored are deleted before anything could map them.
 - Remark:
@@ -287,7 +281,7 @@ ships (the release notes then say what changed).
   row at any font size (3 + 16 + 32 + 3 dp in 48).
 - Shape: a level above about 85 % reaches the label at the top, which keeps the content colour;
   and the trailing text of =ShapeBars= has no ellipsis.
-- A row's trailing text that doesn't fit is cut to leave the title its room (24 November 2026). One
+- A row's trailing text that doesn't fit is cut to leave the title its room (23 November 2026). One
   that fits still squeezes the title: a forecast's "22–31°" on a card 150 dp wide leaves the day
   15 dp (=ui/widgets/WidgetList.kt=, =trailingShare=; =RangeBarsTest= holds the numbers whole). To
   decide: which of the two gives way there. A cap at 40 % of the row would cut the numbers.
@@ -295,7 +289,7 @@ ships (the release notes then say what changed).
   To decide: leave the name out on the card, where the card is the script's own.
 - The media card measures its texts' heights by the font size setting alone (=ui/widgets/WidgetMedia.kt=,
   =linesHeight=), but Android scales a line with its text, so at the largest font sizes it counts
-  too little room. =linesDp= (=ui/widgets/WidgetClock.kt=) has it right since 24 November 2026.
+  too little room. =linesDp= (=ui/widgets/WidgetClock.kt=) has it right since 23 November 2026.
 - Remark:
 
 ** TODO [#C] Smaller ease-of-use items  :arrange:
@@ -316,7 +310,7 @@ ships (the release notes then say what changed).
   list that look alike.
 - Fix: in a wide box, the name small over the empty and note lines (Named already does it for
   notes in large boxes); in a 1×1, the name as the note's first line.
-- Checked 24 November 2026: a note in a wide box is named already (=Named= draws the name for every
+- Checked 23 November 2026: a note in a wide box is named already (=Named= draws the name for every
   box but a small one). Left: wide lists, wide texts, an empty wide list and a 1×1 note.
 - Remark:
 
@@ -325,7 +319,7 @@ ships (the release notes then say what changed).
   before it and everything after it are the prompt's, so a miss opens the keyboard, not quick
   actions and Settings.
 - Fix: move the start padding inside =$='s target and make it at least 48 dp wide.
-- Checked 24 November 2026: Compose widens a target under 48 dp towards space nothing else takes,
+- Checked 23 November 2026: Compose widens a target under 48 dp towards space nothing else takes,
   so the 12 dp before =$= probably reach it already. Only a device can tell.
 - Remark:
 
@@ -335,7 +329,7 @@ ships (the release notes then say what changed).
   Android's battery screen, not the alarms.
 - Fix: share the space between neighbours evenly, at least 48 dp of width each where the line has
   room.
-- Checked 24 November 2026: the parts' touch areas are 4 dp apart, not 6, and a miss goes to the
+- Checked 23 November 2026: the parts' touch areas are 4 dp apart, not 6, and a miss goes to the
   nearest part, since Compose widens each to 48 dp.
 - Remark:
 
@@ -365,7 +359,7 @@ ships (the release notes then say what changed).
   character, "white circle unlock", and never says "selected".
 - Fix: =selectable(selected, role = Role.RadioButton)= on rows 48 dp tall, with the circle left out
   of what is said.
-- Checked 24 November 2026: in the Material style the dialog draws the same text circles, where
+- Checked 23 November 2026: in the Material style the dialog draws the same text circles, where
   the Expressive rule asks for the library's own radio rows.
 - Remark:
 
@@ -396,10 +390,89 @@ ships (the release notes then say what changed).
   snackbar of its own.
 - Remark:
 
+** TODO [#C] A number setting's slider is as wide as its value leaves it  :screens:
+- =ui/settings/SettingItem.kt= (the =ConfigKey.Num= row): the value at the end of the row is as wide
+  as its text, and the slider under the title gets the rest. With "30 seconds" for the
+  screensaver's least (=screen.saver-after= 0, 23 November 2026) the slider was very small; the
+  words are "30 s" since, which is no wider than "60".
+- Fix: give the value a width of its own, the widest the setting can show, so the slider never
+  moves. Then the words can be whole again.
+- Remark:
+
+** TODO [#C] Smaller items left by the shader round of 23 November 2026  :screens:
+- In Start from a template, the picture of Ripple (=template-touch=) is the plain page: it draws
+  only around a touch, and the small preview has none (=ui/shaders/ShaderPreview.kt=,
+  =SmallShaderPreview=). The picture of Sea stands still.
+- Typing a value (a hold on a number row's title) has no minus key on some keyboards, for a
+  shader's parameter whose range starts below zero (=ui/TypeValueDialog.kt=).
+- The window's corners are read in two places: for the header (=ui/theme/WindowCorners.kt=) and for
+  a shader's =corner= (=ui/tty/TtyShader.kt=, =WindowCorner=). One reader would do.
+- Remark:
+
 ** TODO [#C] The clear button of a search field has two names  :screens:
 - "Clear" in Settings, Commands and the Library; "Clear the search" in Scripts, Get more scripts,
   Add widget, Shaders, Get more shaders and Reference.
 - To decide: one of the two.
+- Remark:
+
+** TODO [#C] Pictures in the log go through a scene shader  :home:
+- A scene shader (=pond=, =mountains=, =candle= and the others) takes every pixel of home for page
+  or text: a color near the theme's background is replaced by the scene, and a color a little off
+  it has its contrast raised, as faint text needs. A picture in the log is neither: a
+  notification's picture, a contact's face or the icons of an =apps= grid look washed out where
+  the scene is drawn, in the upper part of home, and right lower down.
+- The app selector had the same fault and is drawn over the shader's picture since 23 November
+  2026 (=ui/tty/OverShader.kt=: the selector is recorded into a layer of its own, which home draws
+  after the shader). Shaders that work on the text (=crt=, =lcd=, =eink=, =foil=, =riso=) still
+  cover it.
+- Fix: the same for each picture in the log that shows, a layer for each with its place and a clip
+  to the log's box. The cost: pictures in a scrolling list move every frame, so home's surface
+  is drawn again while scrolling, and the log's fade and pinch to zoom must reach those layers too.
+- Remark:
+
+** TODO [#C] Smaller items from the release review of 23 November 2026  :home:screens:
+Seven reviewers read 0.5.17 before its release. What they found and had one right fix was fixed that
+day. These are left: each is small, rare, or was not seen on a device.
+- The prompt's first frame: where a rounded corner cuts the prompt, its =$= and keyboard button
+  may be drawn under the corner for one frame each time home is built, then move in
+  (=ui/home/Prompt.kt= and =ui/tty/TtyPrompt.kt=, =ends= before the line is placed). Not seen on
+  a device. Fix: home hands the prompt the bottom it expects, as the header assumes its place.
+- A large shader's details lay out its whole code in one text (=ui/scripts/ScriptCode.kt=,
+  =ReadOnlyCode=). The highlighting is off the main thread since the review; whether the layout
+  of a 45 KB file drops frames in the details' pager is not measured.
+- Undo of a shader's removal and a shader installed from Get more shaders don't write the script
+  folder's copy (=terminal/ShaderActions.kt=, =putBack= and =install=), so =shader reload= can
+  bring the folder's older file back. The editor's Save writes both since the review.
+- The Shortcuts card's editor still offers a built-in command that =commands.off= turned off
+  (=ui/widgets/ShortcutsEditor.kt=, =ShortcutPicks.commands=).
+- A command a build leaves out can still be the target of instant launch (=commands/InstantRun.kt=).
+- One-off shaders and the crash guard (=shader/ShaderSafety.kt=): there is one "turned off" slot,
+  so a one-off that trips takes the place of a tripped home shader, which is then drawn again;
+  with no shader on home a crash is only looked for when the next one-off plays; and
+  =shader play= of a turned-off one-off shows nothing and says nothing.
+- Words left on a shader that is no longer a one-off still keep another one-off with the same
+  word from playing (=shader/ShaderWords.kt=, =pick= skips only shaders that are gone).
+- No test fails if =MainActivity= stops passing =onSettings= to the Widgets screen: the device
+  test of Widget settings checks the callback, not the wiring.
+- =scramble=: old Hangul written as separate jamo changes its width in cells when scrambled; a
+  random pair of vowel signs can show a dotted circle in some fonts; the device test of
+  suggestions runs in the GUI style only.
+- Typing a number (=ui/TypedNumber.kt=) reads the digits 0 to 9 only. Whether a keyboard set to
+  Arabic or Persian sends other digits was not checked.
+- Remark:
+
+** TODO [#C] Behind another launcher, a wallpaper shader's values stand still  :perf:
+- The values a shader follows (screen time, unlocks, what scripts give) are worked out in home's
+  process and written to the live wallpaper's state file (=MainActivity.followTheme= starts
+  =WallpaperWriter= and =UsageWatch=). With another launcher as the home app they change only while
+  Kolahal is open: a =candle= wallpaper that burnt down yesterday stays burnt down today.
+- Found by the release review of 23 November 2026. The guide says so since then
+  (=site/src/content/docs/scripting/shaders.md=, As a live wallpaper).
+- Fix: the wallpaper's process works the usage values out itself (it has the same usage access);
+  what scripts give would still need home.
+- Also from that review, not checked on a device: when the phone's Material You colors change, the
+  wallpaper keeps the old palette until something else writes its state
+  (=MaterialYouPalettes.refresh= triggers no write).
 - Remark:
 
 ** TODO [#C] Smaller performance items  :perf:
@@ -410,7 +483,7 @@ ships (the release notes then say what changed).
 - Plot makes its paths on every draw; a Shape clock with no second hand still ticks each second; the
   wide Shape clock recomposes its row each second (=ui/widgets/WidgetChart.kt=, =Plot=; =ui/widgets/WidgetClock.kt=,
   =ClockBody='s =rememberMillis= and =ShapeClock=).
-- Checked 24 November 2026: none of these costs anything measurable. A card decodes its JSON again
+- Checked 23 November 2026: none of these costs anything measurable. A card decodes its JSON again
   only when its own widget changed, and the Shape clock ticks by the second only with =seconds=.
 - Remark:
 
@@ -440,7 +513,7 @@ ships (the release notes then say what changed).
   the host listens and checks them with =widgets.page off= (=widgets/WidgetHost.kt=).
 - The baseline profile has no start in the TTY style, and the startup profile records the tour
   (=baselineprofile/=, =BaselineProfileGenerator=).
-- Checked 24 November 2026. Worth doing, if any: =http.cached= entries that never expire, the two
+- Checked 23 November 2026. Worth doing, if any: =http.cached= entries that never expire, the two
   listings of every app, a battery condition for the automatic backup, the one-off shader's frame
   rate, a screen's frame rate (and whether it stands still) decided once, the widget host with
   =widgets.page off=, and the two points about the profiles. The rest costs nothing measurable.
@@ -496,7 +569,7 @@ ships (the release notes then say what changed).
 - Fix: activity requests (pickers, permissions) on a =Channel=, which keeps them until they are
   collected. The terminal's hints (ScrollToBottom, FocusPrompt, HideKeyboard) become state the
   terminal reads when it appears, in place of =arrival=.
-- Checked 24 November 2026: narrower than written. The activity collects for its whole life, so
+- Checked 23 November 2026: narrower than written. The activity collects for its whole life, so
   its requests are lost only while it is made again. What can be lost are the hints for home
   (scroll to the end, focus the prompt, hide the keyboard, show the quick actions) sent while home
   isn't composed. No loss that a user would see was found in the code.
@@ -509,7 +582,7 @@ ships (the release notes then say what changed).
   one, else the first in Android's list.
 - With two paused players, =media play= can go to another app than the one the card shows.
 - Fix: one pure =pick(sessions, lastPlaying)= for both, tested beside NowPlayingTest.
-- Checked 24 November 2026: once the listener runs, the commands use the card's choice. They can
+- Checked 23 November 2026: once the listener runs, the commands use the card's choice. They can
   differ only before it starts, with nothing playing.
 - Remark:
 
@@ -608,7 +681,7 @@ Checked and found sound, or left as it is on purpose. Don't raise these again.
 - The log: SQLite in WAL mode, incremental reload, stable keys; caches are bounded.
 - The database's sync mode: with write-ahead logging Android uses NORMAL, so a log line doesn't
   wait for the disk. Read from =dumpsys dbinfo= on a phone and on the emulator, both Android 16, on
-  24 November 2026. Older versions were not checked.
+  23 November 2026. Older versions were not checked.
 - The two-process design overall: shared state goes through =kolahal.db=.
 - =Keys= / =Config=: one typed list drives Settings, =config=, completion and backups.
 - Theme files are read by a regex on purpose: it also reads a hand-edited file.

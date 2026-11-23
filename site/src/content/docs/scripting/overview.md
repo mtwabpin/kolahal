@@ -32,6 +32,20 @@ script every hn 30m        # and every 30 minutes
 The fastest way to start is the [script library](/scripting/library/). `script lib` lists its
 ready-made scripts. `script install weather` installs one, with useful timers already set.
 
+## Writing one with an assistant
+
+`skill.md` copies a guide for an AI assistant: how to write scripts and
+[shaders](/scripting/shaders/) for Kolahal, with the whole API, the header lines, the uniforms and
+a few examples. Kolahal doesn't suggest it or list it in `help`, so type it in full.
+
+1. Type `skill.md`. A line in the log says how long the copied text is.
+2. Paste it into the assistant you use, and say what to build: "a widget that shows my next
+   train", "a shader that looks like rain on glass".
+3. Add what it writes, as the guide tells it to explain: `script new <name>` and paste the code
+   into the editor, or `shader copy template-tint`, then `shader edit my-tint` for a shader.
+
+Read the code before you allow what it asks for, as for any script you didn't write.
+
 ## Lua or JavaScript?
 
 |  | Lua 5.4 | JavaScript (QuickJS) |
@@ -583,7 +597,9 @@ To share one of your scripts, see the repository's
 The scripts named `template-…` are starting points. Their comments explain each part. There is a
 template for a command, a timer, an API key, an event and fetching from the web, each in Lua and in
 JavaScript (the JavaScript one ends in `-js`). `template-logs` shows every kind of line a script can
-log, next to the code that makes it. Install one and [rename it](#renaming-a-script) to make it yours.
+log, next to the code that makes it. The `template-screen-…` scripts, in Lua, each draw one of
+Kolahal's full-screen screens, such as `matrix`, with `tty.screen`. Install one and
+[rename it](#renaming-a-script) to make it yours.
 See [Templates](/scripting/library/#templates).
 
 ### Your own scripts repository

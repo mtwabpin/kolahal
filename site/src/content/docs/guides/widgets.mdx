@@ -75,7 +75,8 @@ The picker lists every installed widget, grouped by app. It shows each widget's 
 1. The first time, Android asks if Kolahal may create widgets. Allow it. Tick "always" so Android doesn't ask
    again.
 2. Some widgets have a setup screen, for example to pick a city, a calendar or a note. It opens next.
-   If you leave it before you finish, the widget isn't added.
+   If you leave it before you finish, the widget isn't added. To change it later, see
+   [Widget settings](#change-a-widgets-settings).
 
 ## Kolahal's own widgets
 
@@ -316,8 +317,24 @@ For another app's widget, the toolbar has:
 
 Hold − or + to repeat. Kolahal gives each widget its real width and height, so it fits the space.
 
+It also has **Widget settings** when the widget's app lets you change its setup ([below](#change-a-widgets-settings)),
+**Remove** and **Done**.
+
 With TalkBack, each widget on this screen has actions to move it up, down, left or right, to make it
-wider, narrower, taller or shorter, and to remove it.
+wider, narrower, taller or shorter, to open its **Options**, **Edit shortcuts** or **Widget settings**
+(when it has them), and to remove it.
+
+### Change a widget's settings
+
+Another app's widget can have a setup screen, for example to pick a city, a calendar or a note. To
+change what you picked:
+
+1. Long-press the widget, or open **Settings → Widgets → Arrange widgets** and tap it.
+2. Tap **Widget settings** in the toolbar. The widget's setup screen opens.
+3. Change what you want and save it there. Back leaves the widget as it was.
+
+The widget keeps its place and size. **Widget settings** shows only for a widget whose app says its
+setup can run again. For other widgets, remove the widget and add it again.
 
 ### Looks
 
@@ -384,4 +401,6 @@ See also the [command reference](/reference/commands/#widgets) and
 Work-profile widgets work like any other widget. They have a **work** badge in the picker.
 
 While the work profile is paused, or the private space is locked, these widgets show a dim placeholder that says
-"Work profile paused" or "Private space locked". They come back when you turn work apps on.
+"Work profile paused" or "Private space locked". They come back when you turn work apps on. A long-press on
+the placeholder opens **Arrange widgets**, as on any widget. There it has no **Widget settings** until the
+profile is on again.

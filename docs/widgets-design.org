@@ -78,8 +78,13 @@ Built, and not in the design:
   guides, handles on its end and bottom edges resize it, and dropping it on the Remove target
   removes it (after a question). Close gaps packs the page. The toolbar has a Look row and a Size
   row (the six sizes, one tap each) for Kolahal's own widgets, a Days row for Agenda, Options for a
-  script with options, and Edit shortcuts for Shortcuts. A screen reader has Move up, Move down,
-  Move left, Move right, Wider, Narrower, Taller, Shorter and Remove on each widget.
+  script with options, and Edit shortcuts for Shortcuts. Another app's widget has Widget settings
+  when its setup can run again (=setUpAgain= in =WidgetHost.kt=: a setup screen, and
+  =reconfigurable=, or =configuration_optional= from Android 12), not while its profile is paused or
+  its private space locked; =WidgetBinder.reconfigure= opens it with a request code of its own, so
+  its answer, OK or Back, leaves the widget as it is. A screen reader has Move up, Move down, Move
+  left, Move right, Wider, Narrower, Taller, Shorter, the widget's Options, Edit shortcuts or Widget
+  settings, and Remove on each widget.
 - *Other apps' widgets* share the page and the grid with Kolahal's own. They have no look: they
   draw themselves. On a phone without app widgets (Android Go) Kolahal's own still work.
 - *Fields the design didn't have*: =note= on every kind (up to 16 characters on a large card's last
@@ -712,8 +717,11 @@ Kolahal never guesses the new state. The script reports it.
 *** The card's own menu
 
 Not built. A long-press on any card of the widgets page opens Arrange widgets, with that card
-chosen. Its toolbar has what the menu was to have, as far as it is built: the look, the size,
-Options (for a script with options), Edit shortcuts (for Shortcuts), and Remove. There is no
+chosen, and so does one on the line that stands for a widget that can't show (a paused profile, a
+locked private space, an app that took its id back). Another app's widget has the long-press for a
+screen reader too (=KolahalWidgetView=). Its toolbar has what the menu was to have, as far as it is
+built: the look, the size, Options (for a script with options), Edit shortcuts (for Shortcuts),
+Widget settings (for another app's widget whose setup can run again), and Remove. There is no
 Refresh (a tap on a card with no =tap= refreshes it), Run in the log or Edit script.
 
 On Arrange widgets, a tap chooses a widget and does not reach it. App widgets behave the same.
@@ -983,6 +991,8 @@ names. What is there:
 - =WidgetWordsTest=, =OwnCardsTest=, =BatteryCardsTest=, =WidgetTitlesTest=, =WidgetScriptsTest=:
   what a card says, what the built-in cards draw, and how the screens name a widget.
 - =ShortcutsTest= and =ShortcutsWriteTest=: the Shortcuts list, and that only the editor writes it.
+- =SetUpAgainTest= and =WidgetSettingsOfferTest=: which app widgets can be set up again, and when
+  Arrange widgets offers Widget settings.
 - =LibraryWidgetsTest=: what each library script hands to =widget.show= passes the real parser.
 - =ScriptMetaTest=: the =@widget= line. =ScriptAccessTest=: =widget= is off until placed, and it is
   not caught by the "anything else is on" branch of =Grants.allows=.
@@ -997,7 +1007,12 @@ names. What is there:
 - =WidgetShowTest= (the design's =ScriptWidgetsTest=): =widget.show= and =widget.clear= from Lua
   and from JavaScript, a wrong description, code typed at the prompt.
 - =WidgetGridTest= (the design's =WidgetFlowTest=) and =WidgetsScreenTest=: places on the page,
-  right to left, and Arrange widgets with looks and sizes.
+  right to left, and Arrange widgets with looks, sizes and Widget settings. The test APK has two
+  app widgets with a setup screen for it (=TestSetupWidgets.kt=, its =AndroidManifest.xml= and
+  =res/=): one that may run it again, one that may not.
+- =WidgetPanelTest=: a long-press on the widgets page, on an app's widget for a screen reader and on
+  the line that stands for a widget that can't show. =WidgetBinderTest=: adding a widget, and a
+  setup opened again, whose answer keeps the widget.
 - =WidgetPlacementTest= and =WidgetInstancesTest=: placing turns the =widget= access on, removing
   turns it off, a rename, a delete, several widgets of one script, and a backup that brings them
   back without "Add again".
@@ -1713,7 +1728,7 @@ became =terminal/OwnWidgets.kt= and =WidgetAge= in =terminal/WidgetActions.kt=.
 | =WidgetIcons.kt=             | The icon names. Pure; the drawables are in =ui/widgets/WidgetIconDrawables.kt=.                                |
 | =Shortcuts.kt=               | The Shortcuts widget's list: what is kept, its stored form, and the review after an import.            |
 | =WidgetHost.kt=              | The Android side: the =AppWidgetHost=, the placed list, placing Kolahal's own widgets and a script's further ones, the copies in the database (=syncAccess=), moving, resizing and looks, the backup's export and import, and =widgets ls=. |
-| =WidgetBinder.kt=, =WidgetProviders.kt= | Adding another app's widget, and the apps' widgets for the picker.                          |
+| =WidgetBinder.kt=, =WidgetProviders.kt= | Adding another app's widget, opening its setup again, and the apps' widgets for the picker. |
 
 =terminal/=:
 

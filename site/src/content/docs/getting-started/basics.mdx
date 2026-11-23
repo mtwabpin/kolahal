@@ -379,7 +379,8 @@ The header is one line at the top of the home screen, like a status bar of its o
 
 **Below the status bar area** (`header.below-bar`, on by default) puts the header below the status bar's area, also in full screen.
 If you turn it off, then in full screen the header sits next to the camera, in the band the camera leaves across the top. So it takes
-no room from the log. The header looks the same all the time, also while you type and while you scroll back.
+no room from the log. It keeps clear of the camera, and on Android 12 and newer of the screen's rounded corners. The header looks the same all the time,
+also while you type and while you scroll back.
 
 To arrange the parts, open **Settings → Header → Arrange the header**:
 
@@ -449,7 +450,7 @@ The key bar appears only while the on-screen keyboard is open for the prompt. So
 
 - `keybar.height`: the key bar's row height, 20–64 dp.
 - `prompt.height`: the prompt's height while typing, 20–72 dp.
-- `prompt.bottom-padding`: space under the prompt while the keyboard is closed, 0–48 dp. On a phone whose rounded corners cut the `$`, raise it until the `$` shows.
+- `prompt.bottom-padding`: space under the prompt while the keyboard is closed, 0–48 dp. Where the screen's rounded corners would cut the prompt's ends, the `$` and the ⌨ button move in past them (Android 12 and newer). On older Android, raise it until the `$` shows.
 - `log.line-height` (default 22; only with `config set log.line-height <n>`, not in Settings): the height of log lines. Lower it for a denser log (down to the height of the text).
   Raise it for more room. It scales with the phone's text size.
 - **Taller tappable lines** (`log.taller-taps`): makes lines you can tap a little taller than other lines, so they're easier to hit.
