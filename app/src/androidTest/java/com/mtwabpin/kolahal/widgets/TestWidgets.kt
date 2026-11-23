@@ -38,6 +38,18 @@ class TestWidgets {
         return found
     }
 
+    /**
+     * One of the test APK's widgets with a setup screen ([ReconfigurableTestWidget] when [again], else
+     * [SetUpOnceTestWidget]), in this profile.
+     */
+    fun withSetup(again: Boolean): ProviderEntry {
+        assumeTrue("no app widgets on this device", host.supported)
+        val name = (if (again) ReconfigurableTestWidget::class else SetUpOnceTestWidget::class).java.name
+        return checkNotNull(host.providers().firstOrNull {
+            it.user == Process.myUserHandle() && it.info.provider.className == name
+        }) { "the test APK's widget $name isn't listed" }
+    }
+
     fun label(p: ProviderEntry): String = p.info.loadLabel(context.packageManager)
 
     /** Lets Kolahal bind widgets as a launcher the user allowed; [close] takes it back when this gave it. */

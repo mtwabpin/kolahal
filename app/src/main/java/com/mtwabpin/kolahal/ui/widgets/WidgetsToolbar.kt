@@ -70,6 +70,7 @@ internal class ToolbarEdit(val label: String, val icon: Int, val onClick: () -> 
  * - One of Kolahal's own widgets: its look and its size, one tap each. With [edit], a button for
  *   what the widget itself holds: the Shortcuts widget's list, or the options of a script's widget.
  * - An app's widget: width and height in steps, and Square. It draws itself, so it has no look.
+ *   With [edit], Widget settings: its setup screen, opened again.
  */
 @Composable
 internal fun WidgetToolbar(

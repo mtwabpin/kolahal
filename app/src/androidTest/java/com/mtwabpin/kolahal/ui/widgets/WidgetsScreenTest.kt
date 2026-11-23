@@ -2,6 +2,8 @@ package com.mtwabpin.kolahal.ui.widgets
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.os.Process
+import android.os.UserManager
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -32,6 +34,8 @@ import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.apps.Profile
+import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
@@ -81,9 +85,13 @@ class WidgetsScreenTest {
         widgets.releaseViews(compose.activity)
     }
 
-    /** The screen, as it opens. A widget just placed is chosen at once, unless [fresh] is false. */
+    /**
+     * The screen, as it opens. A widget just placed is chosen at once, unless [fresh] is false.
+     * [onSettings] gets the widget whose Widget settings was asked for.
+     */
     private fun show(
         fresh: Boolean = false,
+        onSettings: (PlacedWidget) -> Unit = {},
         onReAdd: (ProviderEntry, PlacedWidget) -> Unit = { _, _ -> }
     ): TerminalViewModel {
         if (!fresh) widgets.chosen()
@@ -92,7 +100,7 @@ class WidgetsScreenTest {
             vm = vms.terminal(app)
             vm.openScreen(Screen.WIDGETS)
         }
-        compose.setContent { WidgetsScreen(vm, onReAdd) }
+        compose.setContent { WidgetsScreen(vm, onSettings = onSettings, onReAdd = onReAdd) }
         return vm
     }
 
@@ -387,6 +395,82 @@ class WidgetsScreenTest {
         assertTrue("a row down", t.get(w.key)!!.topDp >= top + widgets.rowDp())
         card(label).act("Wider")
         assertEquals(7, t.get(w.key)!!.span)
+    }
+
+    /** The screen reader's actions on the card called [label]. */
+    private fun actionsOf(label: String) =
+        card(label).fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label }
+
+    /** Waits until the card called [label] is named so: its app's name loads off the main thread. */
+    private fun waitForCard(label: String) = compose.waitUntil(5_000) {
+        compose.onAllNodes(hasClickLabel("change $label")).fetchSemanticsNodes().isNotEmpty()
+    }
+
+    /**
+     * An app's widget whose setup may run again has Widget settings in its toolbar and for a screen
+     * reader; each hands the widget to the screen's caller, which opens its setup.
+     */
+    @Test
+    fun widgetSettingsOpenAnAppWidgetsSetupAgain() {
+        val p = t.withSetup(again = true)
+        t.allowBinding(p)
+        val w = t.place(p)
+        val label = t.label(p)
+        val asked = mutableListOf<String>()
+        show(onSettings = { asked += it.key })
+        waitForCard(label)
+        compose.waitUntil(5_000) { "Widget settings" in actionsOf(label) }
+        // Before Remove, as in the toolbar.
+        val actions = actionsOf(label)
+        assertEquals(actions.indexOf("Remove") - 1, actions.indexOf("Widget settings"))
+        choose(label)
+        compose.onNodeWithContentDescription("Widget settings").performClick()
+        compose.runOnIdle { assertEquals(listOf(w.key), asked) }
+        card(label).act("Widget settings")
+        assertEquals(listOf(w.key, w.key), asked)
+    }
+
+    /**
+     * No Widget settings for an app's widget whose setup runs only as it is placed, nor for one with
+     * no setup screen. A card that holds something has its own edit as a screen reader's action too.
+     */
+    @Test
+    fun widgetSettingsOnlyWhereTheSetupMayRunAgain() {
+        val again = t.withSetup(again = true)
+        val once = t.withSetup(again = false)
+        val clock = t.clocks(unconfigured = true).first()
+        t.allowBinding(clock)
+        t.place(again)
+        t.place(once)
+        t.place(clock)
+        val (_, shortcuts) = placeBuiltin(WidgetSource.SHORTCUTS)
+        show()
+        listOf(again, once, clock).forEach { waitForCard(t.label(it)) }
+        // Once the first one has it, the screen has read which can run their setup again.
+        compose.waitUntil(5_000) { "Widget settings" in actionsOf(t.label(again)) }
+        listOf(once, clock).forEach {
+            val label = t.label(it)
+            assertFalse(label, "Widget settings" in actionsOf(label))
+            choose(label)
+            compose.onNodeWithContentDescription("Widget settings").assertDoesNotExist()
+        }
+        assertTrue("Edit shortcuts" in actionsOf(shortcuts))
+        assertFalse("Widget settings" in actionsOf(shortcuts))
+    }
+
+    /**
+     * Widget settings need the widget's profile listed and running ([isRunning]). A private space that
+     * Android hides while it is locked isn't listed: its widget opens nothing.
+     */
+    @Test
+    fun widgetSettingsNeedTheProfileListedAndRunning() {
+        val me = Process.myUserHandle()
+        val serial = app.getSystemService(UserManager::class.java).getSerialNumberForUser(me)
+        val personal = Profile(me, serial, ProfileKind.PERSONAL, quiet = false)
+        assertTrue(listOf(personal).isRunning(serial))
+        assertFalse(listOf(personal.copy(quiet = true)).isRunning(serial))
+        assertFalse("not listed", listOf(personal).isRunning(serial + 1))
+        assertFalse("not read yet", emptyList<Profile>().isRunning(serial))
     }
 
     /** Close gaps moves every widget up as far as it goes. */

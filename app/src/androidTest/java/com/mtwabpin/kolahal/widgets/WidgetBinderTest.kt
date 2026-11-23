@@ -22,7 +22,8 @@ import org.junit.runner.RunWith
 /**
  * Adding a widget once Kolahal may bind them: no dialog, the widget on the page and "Added" said; a
  * request that outlived Kolahal being stopped finishes, or frees its id, when the widget's setup
- * answers. Without leave, the dialog's No frees the id.
+ * answers. Without leave, the dialog's No frees the id. A placed widget's setup opened again keeps
+ * the widget whatever it answers.
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetBinderTest {
@@ -196,6 +197,88 @@ class WidgetBinderTest {
             }
         } finally {
             instrumentation.removeMonitor(monitor)
+        }
+    }
+
+    /** A placed widget's setup opened again: Back or OK, the widget keeps its id and place, and nothing is said. */
+    @Test
+    fun aSetupOpenedAgainKeepsTheWidget() {
+        val clock = t.clocks().first()
+        t.allowBinding(clock)
+        val w = t.place(clock)
+        withBinder { scenario, binder ->
+            listOf(Activity.RESULT_CANCELED, Activity.RESULT_OK).forEach { result ->
+                scenario.onActivity {
+                    binder.onActivityResult(WidgetBinder.REQUEST_RECONFIGURE, result)
+                }
+                assertEquals(w, t.get(w.key))
+                assertTrue("its id freed after $result", w.id in t.ids())
+            }
+            assertTrue(added.isEmpty())
+            assertTrue(widgets.messages.value.isEmpty())
+        }
+    }
+
+    /**
+     * A setup opened again while an add waits for its own: its answer leaves the waiting add alone,
+     * and that add, turned down, still frees its id.
+     */
+    @Test
+    fun aSetupOpenedAgainLeavesAWaitingAddAlone() {
+        val clock = t.clocks().first()
+        t.allowBinding(clock)
+        val placed = t.place(clock)
+        val waiting = t.bound(clock)
+        withBinder(kept(waiting)) { scenario, binder ->
+            scenario.onActivity {
+                binder.onActivityResult(WidgetBinder.REQUEST_RECONFIGURE, Activity.RESULT_CANCELED)
+            }
+            assertTrue("the waiting add's id freed", waiting in t.ids())
+            assertEquals(waiting, Bundle().also(binder::save).getInt("widget_binder_id"))
+            assertTrue(added.isEmpty())
+            scenario.onActivity {
+                binder.onActivityResult(WidgetBinder.REQUEST_CONFIGURE, Activity.RESULT_CANCELED)
+            }
+            assertFalse(waiting in t.ids())
+            assertEquals(listOf("Widget setup canceled"), widgets.messages.value)
+            // The placed one is as it was.
+            assertEquals(placed, t.get(placed.key))
+            assertTrue(placed.id in t.ids())
+        }
+    }
+
+    /** A test widget whose setup may run again: its setup opens for it, and the widget stays as it is. */
+    @Test
+    fun aWidgetsSetupOpensAgain() {
+        val again = t.withSetup(again = true)
+        t.allowBinding(again)
+        val w = t.place(again)
+        SetupOpenings(instrumentation.targetContext).use { setup ->
+            withBinder { scenario, binder ->
+                scenario.onActivity { binder.reconfigure(w) }
+                waitUntil("the setup screen opened") { setup.opened.isNotEmpty() }
+                assertEquals(listOf(w.id), setup.opened.toList())
+                instrumentation.waitForIdleSync()
+                assertTrue(widgets.messages.value.isEmpty())
+                assertEquals(w, t.get(w.key))
+                assertTrue(w.id in t.ids())
+            }
+        }
+    }
+
+    /** A setup that can't be opened (here, an id bound to nothing) says why; the widget stays. */
+    @Test
+    fun aSetupThatCantOpenSaysWhy() {
+        val clock = t.clocks().first()
+        // An id given out and never bound, as one whose app took it back.
+        val id = widgets.allocate()
+        widgets.place(id, clock.info)
+        val w = t.get("w$id")!!
+        withBinder { scenario, binder ->
+            scenario.onActivity { binder.reconfigure(w) }
+            val said = widgets.messages.value.single()
+            assertTrue(said, said.startsWith("Can't open the widget's settings: "))
+            assertEquals(w, t.get(w.key))
         }
     }
 

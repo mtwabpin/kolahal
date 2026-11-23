@@ -21,6 +21,7 @@ import android.util.SizeF
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
@@ -63,6 +64,27 @@ internal data class ViewDetails(
 ) {
     fun sameAs(other: ViewDetails): Boolean = install != null && this == other
 }
+
+/**
+ * Whether a placed app widget's setup screen may be opened again, after it was placed. The widget
+ * must have a setup screen ([hasSetup]: its `android:configure`), and its features ([features]:
+ * `android:widgetFeatures`) must say the setup may run again:
+ * - [AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE] (Android 9, the app's least version), or
+ * - [AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL] from Android 12 ([sdk] 31): the
+ *   widget works without its setup, so [WidgetBinder] skips it at placing, and it is offered here.
+ *
+ * A widget with a setup screen and neither flag is not set up again: its app expects the setup only
+ * once, when the widget is added.
+ */
+internal fun setUpAgain(hasSetup: Boolean, features: Int, sdk: Int): Boolean {
+    if (!hasSetup) return false
+    if (features and AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE != 0) return true
+    return sdk >= 31 && features and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
+}
+
+/** [setUpAgain] for [info], on this phone's Android version. */
+fun setUpAgain(info: AppWidgetProviderInfo): Boolean =
+    setUpAgain(info.configure != null, info.widgetFeatures, Build.VERSION.SDK_INT)
 
 /**
  * Home-screen widget support:
@@ -695,6 +717,17 @@ class WidgetHost private constructor(context: Context) {
         w.id?.let { cachedInfo(it) }?.let { minSpan(it) }
             ?: WidgetLayout.minSpan(w.source != null)
 
+    /**
+     * True when [w] is an app's widget whose setup screen can be opened again ([setUpAgain]). It reads
+     * the widget's details ([cachedInfo]): call it off the main thread. A widget whose app is gone has
+     * no details, and is never set up again.
+     */
+    fun canSetUpAgain(w: PlacedWidget): Boolean {
+        if (w.source != null) return false
+        val info = w.id?.let { cachedInfo(it) } ?: return false
+        return setUpAgain(info)
+    }
+
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
         val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
         if (h != w.heightDp) update { WidgetPlacement.resize(it, w.key, w.span, h) }
@@ -1004,7 +1037,8 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
 
 /**
  * Host view that reports its real size to the provider. A long-press anywhere on the widget calls
- * [onLongPress] and cancels the touch for the widget's own views.
+ * [onLongPress] and cancels the touch for the widget's own views. A screen reader has the same
+ * long-press, said as "arrange widgets", as Kolahal's own cards have it.
  */
 class KolahalWidgetView(context: Context) : AppWidgetHostView(context) {
     var onLongPress: (() -> Unit)? = null
@@ -1056,6 +1090,27 @@ class KolahalWidgetView(context: Context) : AppWidgetHostView(context) {
         return handled || (onLongPress != null && ev.actionMasked == MotionEvent.ACTION_DOWN)
     }
 
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        if (onLongPress == null) return
+        info.isLongClickable = true
+        info.addAction(
+            AccessibilityNodeInfo.AccessibilityAction(
+                AccessibilityNodeInfo.ACTION_LONG_CLICK,
+                LONG_PRESS_LABEL
+            )
+        )
+    }
+
+    override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean {
+        val longPress = onLongPress
+        if (action == AccessibilityNodeInfo.ACTION_LONG_CLICK && longPress != null) {
+            longPress()
+            return true
+        }
+        return super.performAccessibilityAction(action, arguments)
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w <= 0 || h <= 0 || appWidgetId == 0) return
@@ -1082,6 +1137,9 @@ class KolahalWidgetView(context: Context) : AppWidgetHostView(context) {
     private companion object {
         /** Report a size only after it stays the same this long, because holding − or + changes it every few frames. */
         const val SETTLE_MS = 150L
+
+        /** What a screen reader says the long-press does: the words Kolahal's own cards use. */
+        const val LONG_PRESS_LABEL = "arrange widgets"
     }
 
     private fun reportSize(wDp: Float, hDp: Float) {

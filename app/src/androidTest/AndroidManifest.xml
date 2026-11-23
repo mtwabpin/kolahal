@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Two app widgets with a setup screen, in the test APK, for the tests of Widget settings in Arrange
+  widgets: one that says its setup may run again (reconfigurable), and one that doesn't.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <receiver
+            android:name="com.mtwabpin.kolahal.widgets.ReconfigurableTestWidget"
+            android:exported="true"
+            android:label="Test setup again">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/test_widget_setup_again" />
+        </receiver>
+
+        <receiver
+            android:name="com.mtwabpin.kolahal.widgets.SetUpOnceTestWidget"
+            android:exported="true"
+            android:label="Test setup once">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/test_widget_setup_once" />
+        </receiver>
+
+        <activity
+            android:name="com.mtwabpin.kolahal.widgets.TestWidgetSetup"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

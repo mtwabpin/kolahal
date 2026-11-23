@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import android.media.session.PlaybackState
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.control.LastPlayer
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
@@ -129,6 +130,18 @@ class OwnCardsTest {
         assertEquals(emptyList<String>(), ShortcutPicks.matching("todo buy", commands))
         assertEquals(emptyList<String>(), ShortcutPicks.matching("zz", commands))
         assertEquals(ShortcutPicks.MAX, ShortcutPicks.matching("c", (1..20).map { "c$it" }).size)
+    }
+
+    /**
+     * The editor offers the commands this build offers, as `help` lists them, and the command scripts: not
+     * `skill.md`, offered to nobody, nor in the Play build its missing commands (`lock`, `calls`, `update`).
+     */
+    @Test
+    fun theEditorOffersOnlyWhatThisBuildOffers() {
+        val commands = ShortcutPicks.commands(listOf("weather", "help"))
+        assertEquals((CommandCatalog.OFFERED_NAMES + "weather").sorted(), commands)
+        assertTrue(CommandCatalog.HIDDEN.none { it in commands })
+        assertTrue(CommandCatalog.UNAVAILABLE.none { it in commands })
     }
 
     private fun session(

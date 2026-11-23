@@ -5,6 +5,7 @@ package com.mtwabpin.kolahal.ui.widgets
 
 import android.view.View
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.ParentDataModifier
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -41,7 +44,10 @@ import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
@@ -79,6 +85,13 @@ import kotlinx.coroutines.withContext
 /** Returns the kind of the profile with [serial] if it is paused/locked, else null. A paused/locked profile's widget shows a placeholder instead. */
 internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? =
     firstOrNull { it.serial == serial }?.takeIf { it.quiet }?.kind
+
+/**
+ * True when the profile with [serial] is listed and neither paused nor locked. A private space that
+ * Android hides while it is locked isn't listed, so its widget counts as not running.
+ */
+internal fun List<Profile>.isRunning(serial: Long): Boolean =
+    any { it.serial == serial && !it.quiet }
 
 /** What one card on the widgets page can ask for: as [actions], but a long-press calls [arrange], which knows the card. */
 private class ArrangeOnLongPress(actions: WidgetCardActions, private val arrange: () -> Unit) :
@@ -223,7 +236,8 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
  * The widgets page beside the terminal (`widgets.page`). It shows every widget placed on the
  * "Widgets page" where it was put, at its width and height ([WidgetGrid]), on a page that scrolls,
  * in the terminal's colors. Add and Edit open the GUI pages. A long-press on a widget opens the
- * Widgets screen with that widget chosen.
+ * Widgets screen with that widget chosen, and so does one on the line that stands for a widget of a
+ * paused profile, a locked private space or a gone app.
  */
 @Composable
 fun WidgetPanel(vm: TerminalViewModel) {
@@ -372,6 +386,7 @@ private fun WidgetPanelContent(
                             )
                             else {
                                 val paused = profiles.pausedKind(w.profileSerial)
+                                val haptics = LocalHapticFeedback.current
                                 HostedWidget(
                                     w = w,
                                     height = w.heightDp.dp,
@@ -379,11 +394,20 @@ private fun WidgetPanelContent(
                                     onLongPress = arrange,
                                 ) { why ->
                                     // A locked private space hides its apps: its widget doesn't name one.
+                                    // A long-press opens Arrange widgets, as on a card: the only way there
+                                    // when the page has no title row. A tap does nothing.
                                     Text(
                                         if (paused == ProfileKind.PRIVATE) "[$why]" else "[$why] ${w.packageName}",
                                         style = Term.text.copy(color = Term.dim),
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            .semantics { onLongClick(label = "arrange widgets") { arrange(); true } }
+                                            .pointerInput(arrange) {
+                                                detectTapGestures(onLongPress = {
+                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    arrange()
+                                                })
+                                            }
                                             .alpha(0.7f)
                                             .padding(vertical = 6.dp, horizontal = 4.dp),
                                     )

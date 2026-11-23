@@ -131,6 +131,15 @@ internal fun sourceTitle(provider: String, scripts: Map<String, WidgetScript>): 
 }
 
 /**
+ * Whether Arrange widgets offers "Widget settings" for [w]: an app's widget, placed, whose setup can
+ * run again ([setUpAgain], from [WidgetHost.canSetUpAgain]). Only while its profile is listed and
+ * neither paused nor locked ([running], [isRunning]): a locked private space names no app, and nothing
+ * there opens one, also when Android leaves it out of the list while it is locked.
+ */
+internal fun offersWidgetSettings(w: PlacedWidget, running: Boolean, setUpAgain: Boolean): Boolean =
+    w.source == null && w.id != null && running && setUpAgain
+
+/**
  * The Widgets screen (Material 3 Expressive). It shows the widgets page as it is, live, each widget
  * where it was put ([WidgetGrid]), to arrange it.
  * - A tap chooses a widget: an outline, handles on its end and bottom edges, and its toolbar at the
@@ -140,12 +149,18 @@ internal fun sourceTitle(provider: String, scripts: Map<String, WidgetScript>): 
  *   bar's place; dropping it there asks first.
  * - The toolbar of one of Kolahal's own widgets sets its look and its size, one tap each. An app's
  *   widget has steps for width and height (they repeat while held) and Square.
+ * - The toolbar also has what the widget itself holds, if anything: Options, Edit shortcuts, or
+ *   Widget settings for an app's widget whose setup can run again ([onSettings]).
  * - The top bar has Close gaps and Add widget. A screen reader has actions on each widget: move it,
- *   resize it, remove it.
+ *   resize it, the toolbar's Options, Edit shortcuts or Widget settings, remove it.
  * Entries restored from a backup show an "Add again" row.
  */
 @Composable
-fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) -> Unit) {
+fun WidgetsScreen(
+    vm: TerminalViewModel,
+    onSettings: (PlacedWidget) -> Unit = {},
+    onReAdd: (ProviderEntry, PlacedWidget) -> Unit,
+) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val widgets = remember { WidgetHost.get(context) }
@@ -229,9 +244,46 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
         }.toMap()
     }
 
+    // The app widgets whose setup can run again, by key. Each needs the widget's details, read off the
+    // main thread, again when widgets are added or removed, or apps change.
+    val setUpAgain by produceState(emptySet<String>(), placed, providersVersion) {
+        value = withContext(Dispatchers.IO) {
+            all.filter(widgets::canSetUpAgain).map { it.key }.toSet()
+        }
+    }
+
     // A locked private space hides its apps: its widget is named by what the page says of it, not by its app.
     fun lockedPrivate(w: PlacedWidget): Boolean =
         w.source == null && profiles.pausedKind(w.profileSerial) == ProfileKind.PRIVATE
+
+    // What the widget itself holds, if anything, for the toolbar and a screen reader:
+    // - the Shortcuts widget: its list of commands;
+    // - a widget of a script that declares options: its options. The first widget's
+    //   are the script's own, and a further widget can have values of its own;
+    // - an app's widget whose setup can run again: its setup screen. Not while its profile is
+    //   paused or its private space locked: then it opens no app.
+    fun editOf(w: PlacedWidget): ToolbarEdit? {
+        val ref = WidgetSource.scriptRef(w.source)
+        return when {
+            w.source == WidgetSource.builtin(WidgetSource.SHORTCUTS) -> ToolbarEdit(
+                "Edit shortcuts",
+                R.drawable.ic_edit
+            ) { shortcutsEditor = true }
+
+            ref != null && scripts?.get(ref.script)?.hasOptions == true -> ToolbarEdit(
+                "Options",
+                R.drawable.ic_tune
+            ) { optionsFor = ref.key }
+
+            offersWidgetSettings(
+                w,
+                profiles.isRunning(w.profileSerial),
+                w.key in setUpAgain
+            ) -> ToolbarEdit("Widget settings", R.drawable.ic_settings) { onSettings(w) }
+
+            else -> null
+        }
+    }
 
     fun labelOf(w: PlacedWidget): String? =
         if (lockedPrivate(w)) "Private space locked" else titles[w.key] ?: labels[w.key]
@@ -309,23 +361,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
                         onWidth = { widgets.resizeWidth(chosen.key, it) },
                         onSquare = { widgets.square(chosen.key) },
-                        // What the widget itself holds, if anything:
-                        // - the Shortcuts widget: its list of commands;
-                        // - a widget of a script that declares options: its options. The first widget's
-                        //   are the script's own, and a further widget can have values of its own.
-                        edit = when {
-                            chosen.source == WidgetSource.builtin(WidgetSource.SHORTCUTS) -> ToolbarEdit(
-                                "Edit shortcuts",
-                                R.drawable.ic_edit
-                            ) { shortcutsEditor = true }
-
-                            chosenRef != null && scripts?.get(chosenRef.script)?.hasOptions == true -> ToolbarEdit(
-                                "Options",
-                                R.drawable.ic_tune
-                            ) { optionsFor = chosenRef.key }
-
-                            else -> null
-                        },
+                        edit = editOf(chosen),
                         onRemove = { confirmRemove = chosen },
                         onDone = { selected = null },
                         // The Agenda card: how many days it shows (widgets.agenda-days).
@@ -423,6 +459,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         topRoom = padding.calculateTopPadding(),
                         bottomRoom = liveBottom,
                         onRemove = { confirmRemove = it },
+                        editOf = { editOf(it) },
                     )
                 }
                 if (pending.isNotEmpty()) {

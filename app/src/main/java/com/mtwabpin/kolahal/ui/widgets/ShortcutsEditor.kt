@@ -67,6 +67,13 @@ internal object ShortcutPicks {
         if (start.isEmpty() || start.any { it.isWhitespace() }) return emptyList()
         return commands.filter { it.startsWith(start) && it != start }.take(MAX)
     }
+
+    /**
+     * The commands to pick from, in order: the built-in commands this build offers
+     * ([CommandCatalog.OFFERED_NAMES], as the prompt's suggestions and `help`) and [scriptCommands].
+     */
+    fun commands(scriptCommands: List<String>): List<String> =
+        (CommandCatalog.OFFERED_NAMES + scriptCommands).distinct().sorted()
 }
 
 /**
@@ -81,9 +88,7 @@ internal fun ShortcutsEditor(vm: TerminalViewModel, onDismiss: () -> Unit) {
     val stored by vm.shortcuts.collectAsStateWithLifecycle()
     val scriptCommands by vm.commandNames.collectAsStateWithLifecycle()
     // The built-in commands and your command scripts, to pick from while typing.
-    val commands = remember(scriptCommands) {
-        (CommandCatalog.COMMAND_USAGES.keys + scriptCommands).distinct().sorted()
-    }
+    val commands = remember(scriptCommands) { ShortcutPicks.commands(scriptCommands) }
     val list = stored.orEmpty()
     // The place in the list that is being changed. The list's size means a new shortcut.
     var editing by rememberSaveable { mutableStateOf<Int?>(null) }

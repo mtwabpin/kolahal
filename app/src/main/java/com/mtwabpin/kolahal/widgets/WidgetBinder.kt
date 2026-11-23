@@ -6,6 +6,7 @@ package com.mtwabpin.kolahal.widgets
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -26,6 +27,10 @@ import androidx.activity.result.contract.ActivityResultContracts
  * That reports through Activity.onActivityResult, so MainActivity forwards it to [onActivityResult].
  * A widget's setup screen can stay open a long time, and Android may stop the launcher meanwhile.
  * The request survives this: MainActivity keeps it in its saved state ([save], [restore]).
+ *
+ * [reconfigure] opens a placed widget's setup screen again, from Arrange widgets. It has a request
+ * code of its own ([REQUEST_RECONFIGURE]): whatever its setup answers, the widget stays as it is, and
+ * a widget still being added is left alone.
  */
 class WidgetBinder(
     private val activity: ComponentActivity,
@@ -124,7 +129,35 @@ class WidgetBinder(
         }
     }
 
-    /** Handles the result of the configure step. It ignores results of other requests. */
+    /**
+     * Opens the setup screen of [w], a placed app widget, again ([setUpAgain] says which widgets may).
+     * Its answer changes nothing here: OK or Back, the widget keeps its id and place, and the app
+     * updates the widget itself. When the setup can't be opened, the widgets screen says why.
+     */
+    fun reconfigure(w: PlacedWidget) {
+        val id = w.id ?: return
+        runCatching {
+            widgets.host.startAppWidgetConfigureActivityForResult(
+                activity,
+                id,
+                0,
+                REQUEST_RECONFIGURE,
+                null
+            )
+        }.onFailure {
+            val why = when (it) {
+                is ActivityNotFoundException -> "the app no longer has it"
+                is SecurityException -> "the app doesn't let other apps open it"
+                else -> it.message ?: it.javaClass.simpleName
+            }
+            widgets.message("Can't open the widget's settings: $why")
+        }
+    }
+
+    /**
+     * Handles the result of the configure step. It ignores results of other requests, and the result
+     * of a setup opened again ([reconfigure]): that one keeps the widget whatever it says.
+     */
     fun onActivityResult(requestCode: Int, resultCode: Int) {
         if (requestCode != REQUEST_CONFIGURE) return
         val req = pending ?: return
@@ -148,6 +181,9 @@ class WidgetBinder(
 
     companion object {
         const val REQUEST_CONFIGURE = 0x4B50
+
+        /** The request of a setup opened again ([reconfigure]). Apart from [REQUEST_CONFIGURE], whose Back frees the id. */
+        const val REQUEST_RECONFIGURE = 0x4B51
         private const val KEY_ID = "widget_binder_id"
         private const val KEY_REPLACING = "widget_binder_replacing"
     }

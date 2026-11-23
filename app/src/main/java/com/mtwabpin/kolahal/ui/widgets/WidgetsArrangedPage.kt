@@ -112,7 +112,8 @@ private data class Drop(val w: PlacedWidget, val column: Int, val topDp: Int)
  *   finger is near the top or bottom of [shown]. When it is let go, it moves there
  *   ([WidgetHost.moveTo]), or on the Remove target ([overRemove]) [onRemove] asks first.
  * - Each widget has actions for a screen reader: Move up, Move down, Move left, Move right, Wider,
- *   Narrower, Taller, Shorter and Remove.
+ *   Narrower, Taller, Shorter, what the widget itself holds ([editOf]: Options, Edit shortcuts or
+ *   Widget settings, as in its toolbar) and Remove.
  * - The chosen widget is scrolled into view, clear of the bars ([topRoom], [bottomRoom]), when it is
  *   chosen and each time it moves or changes size.
  */
@@ -137,6 +138,7 @@ internal fun ArrangedPage(
     topRoom: Dp,
     bottomRoom: Dp,
     onRemove: (PlacedWidget) -> Unit,
+    editOf: (PlacedWidget) -> ToolbarEdit?,
 ) {
     val density = LocalDensity.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -406,7 +408,14 @@ internal fun ArrangedPage(
                         lifted = lifted,
                         pausedKind = profiles(w),
                         feed = feed,
-                        actions = screenReaderActions(w, widgets, rtl, minHeight, minSpan) { onRemove(w) },
+                        actions = screenReaderActions(
+                            w,
+                            widgets,
+                            rtl,
+                            minHeight,
+                            minSpan,
+                            editOf(w)
+                        ) { onRemove(w) },
                         onSelect = { onSelect(w.key) },
                     )
                 }
@@ -474,7 +483,8 @@ internal fun Modifier.dashedBorder(color: Color, width: Dp, radius: Dp): Modifie
 /**
  * What a screen reader can do with [w]: move it a row up or down, a column left or right, make it a
  * column wider or narrower (not under [minSpan]), a step (8 dp) taller or shorter (not under
- * [minHeight]), and remove it ([onRemove], which asks first). Only what can happen is offered.
+ * [minHeight]), what it holds ([edit]: the toolbar's Options, Edit shortcuts or Widget settings),
+ * and remove it ([onRemove], which asks first). Only what can happen is offered.
  */
 private fun screenReaderActions(
     w: PlacedWidget,
@@ -482,6 +492,7 @@ private fun screenReaderActions(
     rtl: Boolean,
     minHeight: Int,
     minSpan: Int,
+    edit: ToolbarEdit?,
     onRemove: () -> Unit
 ): List<CustomAccessibilityAction> {
     fun act(label: String, run: () -> Unit) = CustomAccessibilityAction(label) { run(); true }
@@ -512,6 +523,7 @@ private fun screenReaderActions(
                 -WidgetLayout.STEP_DP
             )
         })
+        if (edit != null) add(act(edit.label, edit.onClick))
         add(act("Remove", onRemove))
     }
 }
