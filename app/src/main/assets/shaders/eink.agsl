@@ -47,22 +47,24 @@ half4 main(float2 xy) {
     float t = tone(here, axis, len2);
     float3 chroma = here.rgb - float3(bg.rgb) * here.a - t * axis;
 
-    // A flat area: the pixels a stroke's width away, on four sides, have the same shade.
-    float reach = max(3.0, cell.x * 0.35);
-    float flatness = 1.0;
-    for (int i = 0; i < 4; i++) {
-        // Right, below, above, left.
-        float2 side = i < 2 ? float2(1.0 - float(i), float(i)) : float2(2.0 - float(i), float(i) - 3.0);
-        float there = tone(pixel(xy + reach * side), axis, len2);
-        flatness *= 1.0 - smoothstep(0.04, 0.10, abs(there - t));
-    }
-
     // A flat shade between the page and the ink becomes a pattern of four shades, in squares of a
-    // few pixels. Text and the page stay as they are.
-    float square = max(2.0, floor(cell.y / 16.0 + 0.5));
-    float shade = floor(t * 3.0 + bayer4(xy / square)) / 3.0;
+    // few pixels. Text and the page stay as they are; only a shade between them needs the pixels
+    // around it.
     float mid = smoothstep(0.06, 0.12, t) * (1.0 - smoothstep(0.88, 0.94, t));
-    t = mix(t, shade, flatness * mid);
+    float square = max(2.0, floor(cell.y / 16.0 + 0.5));
+    if (mid > 0.0) {
+        // Only a flat area: the pixels a stroke's width away, on four sides, have the same shade.
+        float reach = max(3.0, cell.x * 0.35);
+        float flatness = 1.0;
+        for (int i = 0; i < 4; i++) {
+            // Right, below, above, left.
+            float2 side = i < 2 ? float2(1.0 - float(i), float(i)) : float2(2.0 - float(i), float(i) - 3.0);
+            float there = tone(pixel(xy + reach * side), axis, len2);
+            flatness *= 1.0 - smoothstep(0.04, 0.10, abs(there - t));
+        }
+        float shade = floor(t * 3.0 + bayer4(xy / square)) / 3.0;
+        t = mix(t, shade, flatness * mid);
+    }
 
     // E-paper is never quite white or black: the shades are pulled together a little, and the page
     // has a faint grain.

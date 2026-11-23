@@ -33,9 +33,12 @@ float4 pixel(float2 p) {
     return float4(content.eval(clamp(p, float2(0.5), resolution - float2(0.5))));
 }
 
-// How far a pixel is from the page: 0 where the page or a card shows, more on text and lines.
-float ink(float4 c) {
-    return min(length(c.rgb - float3(bg.rgb) * c.a), length(c.rgb - float3(surface.rgb) * c.a));
+// How far a pixel is from the page, squared: 0 where the page or a card shows, more on text and
+// lines. Comparing squares picks the same pixel as comparing distances, without a square root.
+float ink2(float4 c) {
+    float3 a = c.rgb - float3(bg.rgb) * c.a;
+    float3 b = c.rgb - float3(surface.rgb) * c.a;
+    return min(dot(a, a), dot(b, b));
 }
 
 half4 main(float2 xy) {
@@ -45,19 +48,25 @@ half4 main(float2 xy) {
     float u = max(1.0, floor(cell.y / 24.0 + 0.5));
 
     // The ink soaks in: a pixel takes a little of the inkiest pixel beside it.
-    float most = ink(here);
+    float most = ink2(here);
     float4 soaked = here;
     for (int i = 0; i < 4; i++) {
         // Right, below, above, left.
         float2 side = i < 2 ? float2(1.0 - float(i), float(i)) : float2(2.0 - float(i), float(i) - 3.0);
         float4 beside = pixel(xy + u * side);
-        float its = ink(beside);
+        float its = ink2(beside);
         if (its > most) {
             most = its;
             soaked = beside;
         }
     }
     here = mix(here, soaked, 0.22);
+
+    // The page shows as much as the pixel is close to it. Text and lines show none of it.
+    float page = 1.0 - clamp(sqrt(ink2(here)) * 5.0, 0.0, 1.0);
+    if (page <= 0.0) {
+        return half4(here);
+    }
 
     // The page: grains, long thin fibres lying two ways, and a slow unevenness.
     float grain = hash(floor(xy / u)) - 0.5;
@@ -67,7 +76,7 @@ half4 main(float2 xy) {
     float tone = clamp(0.045 + 0.04 * grain + 0.022 * fibres + 0.03 * cloud, 0.0, 1.0);
 
     // It is the color of the dim text with a little warmth, only where the page shows.
-    float amount = tone * (1.0 - clamp(ink(here) * 5.0, 0.0, 1.0));
+    float amount = tone * page;
     float3 color = mix(float3(dim.rgb), float3(warn.rgb), 0.3);
     return half4(here * (1.0 - amount) + float4(color * amount, amount));
 }

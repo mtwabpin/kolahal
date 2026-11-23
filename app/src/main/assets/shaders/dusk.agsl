@@ -26,6 +26,11 @@ float hash(float2 p) {
 half4 main(float2 xy) {
     float4 here = float4(content.eval(xy));
 
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
     // The hour of the day, and how high the sun is: 1 at noon, 0 at six and at eighteen, -1 at
     // midnight. Without a date (an older Kolahal) it is a quarter past six in the evening.
     float hour = date.x < 1.0 ? 18.25 : date.w / 3600.0;
@@ -46,11 +51,11 @@ half4 main(float2 xy) {
     // The glow at the horizon when the sun is low: yellow at dawn, red at dusk. It reaches up into
     // the sky and a little down below it.
     float3 warm = mix(float3(error.rgb), float3(warn.rgb), mix(0.35, 0.75, morning));
-    float above = exp(-pow((horizon - y) / 0.22, 2.0));
-    float below = exp(-pow((y - horizon) / 0.10, 2.0));
-    float glow = (y < horizon ? above : below) * low * 0.26;
+    float near = y < horizon ? (horizon - y) / 0.22 : (y - horizon) / 0.10;
+    float band = exp(-near * near);
+    float glow = band * low * 0.26;
     // By day a pale haze sits there instead.
-    glow += (y < horizon ? above : below) * day * (1.0 - low) * 0.05;
+    glow += band * day * (1.0 - low) * 0.05;
 
     // One color over the other, the glow on top.
     float amount = sky * (1.0 - glow) + glow;
@@ -58,9 +63,6 @@ half4 main(float2 xy) {
     // A light theme takes less of it, and a little noise hides the steps of a slow gradient.
     amount *= mix(0.6, 1.0, dark);
     amount += (hash(xy) - 0.5) * 0.012;
-
-    // Not over text: a pixel that differs from the page is text or a line.
-    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount = clamp(amount, 0.0, 1.0) * (1.0 - clamp(d * 5.0, 0.0, 1.0));
+    amount = clamp(amount, 0.0, 1.0) * open;
     return half4(here * (1.0 - amount) + float4(color * amount, amount));
 }

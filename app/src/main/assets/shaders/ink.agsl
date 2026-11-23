@@ -2,6 +2,7 @@
 // @description A touch drops a little ink in the page: a faint cloud of the accent color spreads behind the text and fades
 // @suits dark good, light good, wallpaper good
 // @animated
+// @settles 4.5
 //
 // Between touches nothing is drawn. The cloud is faint and gone in four seconds, so typing and
 // tapping as usual doesn't fill the page.

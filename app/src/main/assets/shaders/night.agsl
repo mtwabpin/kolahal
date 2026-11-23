@@ -45,6 +45,11 @@ float3 chartStar(float2 id) {
     return float3(0.5 + (float2(r2, r3) - 0.5) * 0.5, step(0.5, r1) * (0.15 + 0.85 * r1 * r2));
 }
 
+// Whether a square of the chart has a star: the first number of chartStar alone, as a cheap test.
+float chartThere(float2 id) {
+    return step(0.5, hash(id + 13.0));
+}
+
 // How far p is from the line between a and b, and 0 to 1 along it.
 float2 toLine(float2 p, float2 a, float2 b) {
     float2 ab = b - a;
@@ -52,13 +57,21 @@ float2 toLine(float2 p, float2 a, float2 b) {
     return float2(length(p - a - ab * along), along);
 }
 
-// The line of a constellation between two stars in neighbouring squares, where both are there and
-// this pair is joined. It stops short of each star. p, a and b are in squares; the result is 0 to 1.
-float joined(float2 p, float2 a, float3 sa, float2 b, float3 sb, float pair, float size, float unit) {
+// Whether p can be on a line, w wide, from the star at s to the star of square b: inside the box
+// around s and the middle half of b, where that star is, widened by w. All are in squares.
+float nearLine(float2 p, float2 s, float2 b, float w) {
+    float2 lo = min(s, b + 0.25) - w;
+    float2 hi = max(s, b + 0.75) + w;
+    return step(lo.x, p.x) * step(lo.y, p.y) * step(p.x, hi.x) * step(p.y, hi.y);
+}
+
+// The line of a constellation between two stars in neighbouring squares. It stops short of each
+// star. p, a and b are in squares; the result is 0 to 1.
+float joined(float2 p, float2 a, float3 sa, float2 b, float3 sb, float size, float unit) {
     float2 at = toLine(p, a + sa.xy, b + sb.xy);
     float line = 1.0 - smoothstep(unit * 0.35, unit * 0.9, at.x * size);
     float clear = smoothstep(0.12, 0.2, at.y) * (1.0 - smoothstep(0.8, 0.88, at.y));
-    return line * clear * step(0.001, sa.z) * step(0.001, sb.z) * step(0.52, pair);
+    return line * clear;
 }
 
 // The light theme's night: a star chart engraved on the page. Circles of declination and lines of
@@ -77,32 +90,53 @@ float4 chart(float2 xy, float t) {
     float turn = atan(fromPole.x, fromPole.y) / 0.2617994;
     float hour = abs(fract(turn) - 0.5) * 0.2617994 * far;
     float grid = 1.0 - smoothstep(unit * 0.3, unit * 0.9, min(circle, hour));
-    // The path of the sun: one more circle, about another center, in dashes.
+    // The path of the sun: one more circle, about another center, in dashes. The dashes are
+    // worked out only near the circle.
     float2 fromSun = p - float2(resolution.x * 1.5, resolution.x * 0.1);
     float sunFar = length(fromSun);
-    float path = (1.0 - smoothstep(unit * 0.4, unit * 1.1, abs(sunFar - resolution.x * 1.25)))
-        * step(0.4, fract(atan(fromSun.x, fromSun.y) * 40.0));
+    float path = 1.0 - smoothstep(unit * 0.4, unit * 1.1, abs(sunFar - resolution.x * 1.25));
+    if (path > 0.0) path *= step(0.4, fract(atan(fromSun.x, fromSun.y) * 40.0));
 
     // The stars, one square each, and the four squares beside this one for the lines between them.
+    // Half the squares have a star; in the others there is nothing more to draw. A line joins this
+    // star to a neighbour only where the pair's own number says so (about half the pairs) and the
+    // neighbour has a star too; it is worked out only then, and only near where it can pass.
     float size = cell.y * 3.4;
     float2 uv = p / size;
     float2 id = floor(uv);
-    float3 own = chartStar(id);
-    float3 right = chartStar(id + float2(1.0, 0.0));
-    float3 left = chartStar(id - float2(1.0, 0.0));
-    float3 below = chartStar(id + float2(0.0, 1.0));
-    float3 above = chartStar(id - float2(0.0, 1.0));
-    float lines = joined(uv, id, own, id + float2(1.0, 0.0), right, hash(id + 71.0), size, unit)
-        + joined(uv, id - float2(1.0, 0.0), left, id, own, hash(id - float2(1.0, 0.0) + 71.0), size, unit)
-        + joined(uv, id, own, id + float2(0.0, 1.0), below, hash(id + 97.0), size, unit)
-        + joined(uv, id - float2(0.0, 1.0), above, id, own, hash(id - float2(0.0, 1.0) + 97.0), size, unit);
+    float lines = 0.0;
+    float star = 0.0;
+    float ring = 0.0;
+    if (chartThere(id) > 0.0) {
+        float3 own = chartStar(id);
+        float2 starAt = id + own.xy;
+        float w = unit / size; // how far from its middle a line reaches, in squares, and a little more
+        float2 right = id + float2(1.0, 0.0);
+        if (nearLine(uv, starAt, right, w) > 0.0 && hash(id + 71.0) >= 0.52 && chartThere(right) > 0.0) {
+            lines += joined(uv, id, own, right, chartStar(right), size, unit);
+        }
+        float2 left = id - float2(1.0, 0.0);
+        if (nearLine(uv, starAt, left, w) > 0.0 && hash(left + 71.0) >= 0.52 && chartThere(left) > 0.0) {
+            lines += joined(uv, left, chartStar(left), id, own, size, unit);
+        }
+        float2 below = id + float2(0.0, 1.0);
+        if (nearLine(uv, starAt, below, w) > 0.0 && hash(id + 97.0) >= 0.52 && chartThere(below) > 0.0) {
+            lines += joined(uv, id, own, below, chartStar(below), size, unit);
+        }
+        float2 above = id - float2(0.0, 1.0);
+        if (nearLine(uv, starAt, above, w) > 0.0 && hash(above + 97.0) >= 0.52 && chartThere(above) > 0.0) {
+            lines += joined(uv, above, chartStar(above), id, own, size, unit);
+        }
 
-    // The star itself: a dot, and for the brightest a ring around it that breathes slowly.
-    float d = length(uv - id - own.xy) * size;
-    float radius = unit * (1.9 + 3.0 * own.z * own.z);
-    float star = step(0.001, own.z) * (1.0 - smoothstep(radius - unit * 0.7, radius, d));
-    float ringAt = radius * (2.3 + 0.2 * sin(t * 0.7 + own.x * 40.0));
-    float ring = step(0.62, own.z) * (1.0 - smoothstep(unit * 0.3, unit * 0.9, abs(d - ringAt)));
+        // The star itself: a dot, and for the brightest a ring around it that breathes slowly.
+        float d = length(uv - id - own.xy) * size;
+        float radius = unit * (1.9 + 3.0 * own.z * own.z);
+        star = 1.0 - smoothstep(radius - unit * 0.7, radius, d);
+        if (own.z >= 0.62) {
+            float ringAt = radius * (2.3 + 0.2 * sin(t * 0.7 + own.x * 40.0));
+            ring = 1.0 - smoothstep(unit * 0.3, unit * 0.9, abs(d - ringAt));
+        }
+    }
 
     // Ink for the stars, and a blue-grey, fainter, for the grid and the lines between stars, so a
     // line that passes between two rows of text is never taken for part of it.
@@ -119,21 +153,31 @@ half4 main(float2 xy) {
     // Time, wrapped where every twinkle repeats, so it stays exact when the shader is on for days.
     float t = mod(time, 6283.1853);
 
+    // Not over text: a pixel that differs from the page is text or a line. Where it differs clearly,
+    // nothing is drawn, so the page is left as it is.
+    float page = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(page * 5.0, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
     // A light theme has the chart instead of the sky.
     if (dark < 0.5) {
         float4 ink = chart(xy, t);
-        float page = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-        float a = ink.a * (1.0 - clamp(page * 5.0, 0.0, 1.0));
+        float a = ink.a * open;
         return half4(here * (1.0 - a) + float4(ink.rgb * a, a));
     }
     // The smallest star's radius, in pixels: more than one pixel on any screen.
     float unit = max(1.6, cell.y / 22.0);
 
     // The pale band: a strip across the screen from the lower left to the upper right, with clouds
-    // in it. More stars are in it, too.
+    // in it. More stars are in it, too. The clouds make it 0.45 to 1 times its spread. They are
+    // worked out only where they can show: near the middle of the band, where they shade it, and in
+    // a square whose star they decide (below). Farther out, the band is so faint that the clouds'
+    // middle value looks the same.
     float2 p = xy / resolution.x;
     float across = (p.y - 1.25 + 0.75 * p.x) * 0.8;
-    float band = exp(-across * across / 0.03) * (0.45 + 0.55 * noise(p * 5.0 + 2.0));
+    float spread = exp(-across * across / 0.03);
+    float band = spread * 0.725;
+    if (spread >= 0.078) band = spread * (0.45 + 0.55 * noise(p * 5.0 + 2.0));
 
     float stars = 0.0;
     float3 tint = float3(0.0);
@@ -146,19 +190,25 @@ half4 main(float2 xy) {
         float2 uv = (xy - tilt * unit * (1.2 + 2.4 * n)) / size + n * float2(0.43, 0.71);
         float2 id = floor(uv);
         float r1 = hash(id + n * 13.0);
+
+        // More squares have a star inside the band. The big layer has the brighter ones. A square
+        // without a star, or a pixel outside the star, adds nothing. Where the clouds weren't worked
+        // out and they could decide this star, they are worked out here.
+        if (spread < 0.078 && r1 >= 0.719 - 0.40 * spread && r1 < 0.721 - 0.18 * spread) {
+            band = spread * (0.45 + 0.55 * noise(p * 5.0 + 2.0));
+        }
+        if (r1 < 0.72 - 0.40 * band) continue;
         float r2 = hash(id + n * 29.0 + 3.1);
         float r3 = hash(id + n * 43.0 + 7.9);
-
-        // More squares have a star inside the band. The big layer has the brighter ones.
-        float there = step(0.72 - 0.40 * band, r1);
         float radius = unit * (1.0 + 1.3 * n * r3 + 0.5 * r2);
         float2 center = 0.5 + (float2(r2, r3) - 0.5) * 0.5;
         float d = length(fract(uv) - center) * size;
+        if (d >= radius) continue;
         float star = 1.0 - smoothstep(radius * 0.45, radius, d);
 
         // Each twinkles at its own pace, never going out.
         float twinkle = 0.70 + 0.30 * sin(t * (0.6 + 1.6 * r3) + r1 * 6.28);
-        float bright = there * star * twinkle * mix(0.55, 1.0, r2 * r2);
+        float bright = star * twinkle * mix(0.55, 1.0, r2 * r2);
         stars += bright;
         // Most are white, some a little blue or yellow.
         tint += bright * mix(mix(float3(info.rgb), float3(warn.rgb), step(0.5, r3)), float3(fg.rgb), 0.3 + 0.7 * step(r2, 0.6));
@@ -166,16 +216,19 @@ half4 main(float2 xy) {
 
     // A meteor in the top of the sky, for the first second of every eleven: a short streak whose
     // head runs down and to the left.
-    float turn = floor(t / 11.0);
     float age = fract(t / 11.0) * 11.0;
-    float2 start = resolution * float2(0.35 + 0.6 * hash(float2(turn, 1.0)), 0.04 + 0.22 * hash(float2(turn, 2.0)));
-    float2 way = normalize(float2(-0.80, 0.60));
-    float2 rel = xy - start - way * age * resolution.x * 0.55;
-    float along = -dot(rel, way);
-    float aside = abs(dot(rel, float2(-way.y, way.x)));
-    float tail = cell.y * 5.0;
-    float meteor = step(0.0, along) * step(along, tail) * (1.0 - along / tail)
-        * (1.0 - smoothstep(unit * 0.4, unit * 1.2, aside)) * (1.0 - smoothstep(0.5, 0.9, age));
+    float meteor = 0.0;
+    if (age < 0.9) {
+        float turn = floor(t / 11.0);
+        float2 start = resolution * float2(0.35 + 0.6 * hash(float2(turn, 1.0)), 0.04 + 0.22 * hash(float2(turn, 2.0)));
+        float2 way = normalize(float2(-0.80, 0.60));
+        float2 rel = xy - start - way * age * resolution.x * 0.55;
+        float along = -dot(rel, way);
+        float aside = abs(dot(rel, float2(-way.y, way.x)));
+        float tail = cell.y * 5.0;
+        meteor = step(0.0, along) * step(along, tail) * (1.0 - along / tail)
+            * (1.0 - smoothstep(unit * 0.4, unit * 1.2, aside)) * (1.0 - smoothstep(0.5, 0.9, age));
+    }
 
     // The stars in their colors, the meteor white; the band is only a breath of color.
     float dots = clamp(stars + meteor, 0.0, 1.0) * 0.95;
@@ -184,8 +237,6 @@ half4 main(float2 xy) {
     float3 starColor = mix(float3(fg.rgb), tint / max(stars, 0.001), step(0.001, stars));
     float3 color = (float3(info.rgb) * haze * (1.0 - dots) + starColor * dots) / max(amount, 0.001);
 
-    // Not over text: a pixel that differs from the page is text or a line.
-    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    amount *= open;
     return half4(here * (1.0 - amount) + float4(color * amount, amount));
 }

@@ -42,9 +42,6 @@ half4 main(float2 xy) {
     float dp = min(resolution.x, resolution.y) / 400.0;
     float2 at = xy / dp;
     float soft = 1.0 / dp;
-    float h = date.w / 3600.0;
-    float night = nightAt(h);
-    float3 warm = mix(float3(1.0), float3(1.0, 0.843, 0.659), warmthAt(h));
 
     float3 color = float3(0.0);
     float leaf = 0.0;
@@ -64,12 +61,14 @@ half4 main(float2 xy) {
             float y = (at.y - time * (12.0 + 10.0 * own)) / cell.y + own * 67.0;
             float row = floor(y);
             float2 id = float2(c * 1.7 + n * 53.0, mod(row, 2048.0));
+            // How far the leaf's middle is, up and down first: most pixels are above or below it.
+            float r3 = hash(id + 57.9);
+            float dy = (y - row) * cell.y - (4.0 + r3 * (cell.y - 8.0));
+            if (abs(dy) > 4.0) continue;
             float r1 = hash(id);
             float r2 = hash(id + 29.3);
-            float r3 = hash(id + 57.9);
-            float2 center = float2((c - 0.43 * n + r1) * cell.x + 18.0 * sin(0.9 * time + 6.2832 * r2),
-                4.0 + r3 * (cell.y - 8.0));
-            float2 off = float2(at.x - center.x, (y - row) * cell.y - center.y);
+            float across = (c - 0.43 * n + r1) * cell.x + 18.0 * sin(0.9 * time + 6.2832 * r2);
+            float2 off = float2(at.x - across, dy);
             if (dot(off, off) > 16.0) continue;
 
             // Turned in the plane, always one way, then the distance to a 6 by 3 ellipse.
@@ -87,7 +86,13 @@ half4 main(float2 xy) {
         }
     }
 
+    // Where no leaf is, the page stays as it is.
+    if (leaf <= 0.0) return half4(here);
+
     // Warmer at sunrise and sunset and dimmer at night, but never so dark that it sinks into a dark theme.
+    float h = date.w / 3600.0;
+    float night = nightAt(h);
+    float3 warm = mix(float3(1.0), float3(1.0, 0.843, 0.659), warmthAt(h));
     color *= warm * mix(float3(1.0), mix(float3(0.72, 0.75, 0.82), float3(0.60, 0.63, 0.74), dark), night);
     float shown = leaf * open;
     return half4(here * (1.0 - shown) + float4(color * shown, shown));

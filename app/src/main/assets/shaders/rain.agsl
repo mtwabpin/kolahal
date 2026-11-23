@@ -42,6 +42,13 @@ float noise(float2 p) {
 
 half4 main(float2 xy) {
     float4 here = float4(content.eval(xy));
+    // Not over text: a pixel that differs from the page is text or a line. Where it differs fully,
+    // there is nothing to draw.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float clear = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    if (clear <= 0.0) {
+        return half4(here);
+    }
     float2 size = resolution;
     // Time, wrapped once an hour, so the fall stays smooth when the shader is on for days.
     float t = mod(time, 3600.0);
@@ -65,6 +72,13 @@ half4 main(float2 xy) {
 
     float rain = 0.0;
     for (int i = 0; i < 5; i++) {
+        // Each depth after the first: twice as wide, with more room and more speed.
+        if (i > 0) {
+            scale *= 2.06;
+            width *= 2.56;
+            gap *= 2.21;
+            speed *= 1.92;
+        }
         // How near this depth is, from 0 (far) to 1.
         float near = float(i) / 4.0;
 
@@ -78,35 +92,43 @@ half4 main(float2 xy) {
         float spread = from.y / (above + size.y * 0.5);
         float at = from.x / (spread * width) + near * 7.3;
         float col = floor(at);
+        // Each streak lies in the middle half of its room across, so a pixel near the room's edge
+        // misses it.
+        float thick = unit * 0.9 * scale * spread;
+        float across = fract(at);
+        if (max(0.25 - across, across - 0.75) * spread * width >= thick) {
+            continue;
+        }
         float own = hash(float2(col, near * 53.0 + 1.0));
         float y = (from.y - t * speed * (0.85 + 0.3 * own)) / gap + own * 7.0;
         float drop = floor(y);
         float part = fract(y);
+        // A streak lies between 0.2 and the head's end down its room, so a pixel elsewhere misses it.
+        float head = mix(0.02, 0.18, near);
+        if (part <= 0.19 || part >= 0.8 + head) {
+            continue;
+        }
 
         // Which drops are there: more where a heavy sheet passes, and only a few of the near ones.
         float r = hash(float2(col * 1.7 + near * 31.0, mod(drop, 512.0)));
         float there = step(1.0 - amount * (1.0 - mix(0.62 - 0.34 * sheet, 0.66, near * near)), r);
 
-        // The streak: a head and a tail behind it, sharp far off and soft at both ends close by.
-        float len = mix(0.25, 0.6, fract(r * 7.3));
-        float head = mix(0.02, 0.18, near);
-        float tail = smoothstep(0.8 - len, 0.8 - 0.3 * len * near, part) * (1.0 - smoothstep(0.8, 0.8 + head, part));
-
         // Its width: a thin line far off, a wide blur close by, out of focus.
-        float off = abs(fract(at) - mix(0.25, 0.75, fract(r * 3.1))) * spread * width;
-        float thick = unit * 0.9 * scale * spread;
+        float off = abs(across - mix(0.25, 0.75, fract(r * 3.1))) * spread * width;
+        // A drop that isn't there, or a pixel beside its streak: nothing of this depth.
+        if (there <= 0.0 || off >= thick) {
+            continue;
+        }
         float line = 1.0 - smoothstep(thick * mix(0.4, 0.0, near), thick, off);
         line *= line;
+
+        // The streak: a head and a tail behind it, sharp far off and soft at both ends close by.
+        float len = mix(0.25, 0.6, fract(r * 7.3));
+        float tail = smoothstep(0.8 - len, 0.8 - 0.3 * len * near, part) * (1.0 - smoothstep(0.8, 0.8 + head, part));
 
         // Far rain is faint, the middle is clearest, and the near blur is faint again.
         float bright = mix(0.20, 0.42, near) * mix(1.0, 0.5, smoothstep(0.5, 1.0, near));
         rain += there * tail * line * bright * mix(0.6 + 0.8 * sheet, 1.0, near);
-
-        // The next depth: twice as wide, with more room and more speed.
-        scale *= 2.06;
-        width *= 2.56;
-        gap *= 2.21;
-        speed *= 1.92;
     }
 
     // Haze: the far rain as mist, thicker lower down and where a heavy sheet is.
@@ -115,32 +137,41 @@ half4 main(float2 xy) {
 
     // Far off, now and then, light swells in the haze near the top and dies away: once in about
     // twenty seconds at most, slowly, and never bright. Only where the page is dark.
-    float turn = floor(t / 19.0);
-    float age = t - turn * 19.0 - 3.0 - 9.0 * hash(float2(turn, 5.0));
-    float swell = step(0.5, hash(float2(turn, 9.0))) * smoothstep(0.0, 0.25, age) * exp(-max(age, 0.0) * 2.2)
-        * (1.0 + 0.5 * sin(age * 9.0));
-    float2 glowAt = (xy - size * float2(0.2 + 0.6 * hash(float2(turn, 2.0)), 0.08)) / size.x;
-    float flicker = dark * 0.07 * swell * exp(-dot(glowAt, glowAt) * 2.5) * (0.5 + 0.7 * sheet);
+    float flicker = 0.0;
+    if (dark > 0.0) {
+        float turn = floor(t / 19.0);
+        float age = t - turn * 19.0 - 3.0 - 9.0 * hash(float2(turn, 5.0));
+        float swell = step(0.5, hash(float2(turn, 9.0))) * smoothstep(0.0, 0.25, age) * exp(-max(age, 0.0) * 2.2)
+            * (1.0 + 0.5 * sin(age * 9.0));
+        if (swell != 0.0) {
+            float2 glowAt = (xy - size * float2(0.2 + 0.6 * hash(float2(turn, 2.0)), 0.08)) / size.x;
+            flicker = dark * 0.07 * swell * exp(-dot(glowAt, glowAt) * 2.5) * (0.5 + 0.7 * sheet);
+        }
+    }
 
     // A finger holds the rain off, as an umbrella would: a dry round space while it is down and
     // for a moment after, with drops breaking on its upper edge.
-    float2 away = xy - touch;
-    float far = length(away);
     float held = step(0.0, touch.x) * max(pressed, 1.0 - smoothstep(0.0, 1.2, touchAge));
-    float dome = cell.y * 3.2;
-    float dry = held * (1.0 - smoothstep(dome * 0.85, dome * 1.1, away.y > 0.0 ? abs(away.x) : far))
-        * (1.0 - smoothstep(dome * 2.0, dome * 7.0, away.y));
-    float spray = hash(float2(floor(atan(away.x, -away.y) * 14.0), floor(t * 14.0)));
-    float rim = held * (1.0 - smoothstep(0.0, cell.y * 0.22, abs(far - dome))) * max(0.0, -away.y / max(far, 1.0))
-        * (0.35 + 0.65 * step(0.55, spray));
-    rain = rain * (1.0 - 0.92 * dry) + rim * 0.38;
+    float dry = 0.0;
+    if (held > 0.0) {
+        float2 away = xy - touch;
+        float far = length(away);
+        float dome = cell.y * 3.2;
+        dry = held * (1.0 - smoothstep(dome * 0.85, dome * 1.1, away.y > 0.0 ? abs(away.x) : far))
+            * (1.0 - smoothstep(dome * 2.0, dome * 7.0, away.y));
+        float rim = held * (1.0 - smoothstep(0.0, cell.y * 0.22, abs(far - dome))) * max(0.0, -away.y / max(far, 1.0));
+        if (rim > 0.0) {
+            float spray = hash(float2(floor(atan(away.x, -away.y) * 14.0), floor(t * 14.0)));
+            rim *= 0.35 + 0.65 * step(0.55, spray);
+        }
+        rain = rain * (1.0 - 0.92 * dry) + rim * 0.38;
+    }
 
     float cover = clamp(rain, 0.0, 1.0) * mix(0.9, 1.0, dark);
     cover = cover + (1.0 - cover) * clamp(haze * (1.0 - 0.6 * dry) + flicker, 0.0, 1.0);
 
-    // Not over text: a pixel that differs from the page is text or a line.
-    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    cover *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    // Less over the edges of text.
+    cover *= clear;
 
     float3 color = mix(float3(info.rgb), float3(fg.rgb), 0.45 * dark);
     return half4(here * (1.0 - cover) + float4(color * cover, cover));

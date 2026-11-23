@@ -2,6 +2,7 @@
 // @description Curtains of northern lights hang in the top of the screen, behind the text
 // @suits dark good, light fair, wallpaper fair
 // @animated
+// @fps 20
 //
 // Three curtains in the theme's green, blue and accent, each a band that folds and drifts. They
 // only show where the page does, so text stays as it is.
@@ -40,6 +41,8 @@ float curtain(float2 p, float base, float height, float seed, float t) {
         + 0.030 * sin(p.x * 11.3 - t * 0.33 + seed * 2.3)
         + 0.012 * sin(p.x * 23.0 + t * 0.52 + seed * 4.1);
     float up = (edge - p.y) / height;
+    // Well below its edge a curtain has no light.
+    if (up <= -0.16) return 0.0;
     float band = smoothstep(-0.16, 0.02, up) * exp(-2.6 * max(up, 0.0));
     // Thin rays that drift sideways with the folds.
     float ray = 0.55 + 0.45 * rays(p.x * 46.0 + 3.0 * sin(p.x * 4.0 + t * 0.15 + seed) + seed * 7.0);
@@ -55,6 +58,12 @@ half4 main(float2 xy) {
     if (p.y > 0.52) {
         return half4(here);
     }
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    if (open <= 0.0) {
+        return half4(here);
+    }
     // Time, wrapped at a little under an hour, so it stays exact when the shader is on for days.
     float t = mod(time, 3141.59265);
 
@@ -67,9 +76,6 @@ half4 main(float2 xy) {
     // Light over the page: stronger on a dark theme, a wash of color on a light one.
     float amount = clamp(sum, 0.0, 1.0) * mix(0.20, 0.34, dark);
     float3 color = light / max(sum, 0.001);
-
-    // Not over text: a pixel that differs from the page is text or a line.
-    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    amount *= open;
     return half4(here * (1.0 - amount) + float4(color * amount, amount));
 }

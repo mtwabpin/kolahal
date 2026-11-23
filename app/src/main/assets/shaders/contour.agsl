@@ -2,6 +2,8 @@
 // @description The contour lines of a map behind the text, slowly changing. A touch raises a hill
 // @suits dark good, light good, wallpaper good
 // @animated
+// @fps 10
+// @settles 14
 //
 // A height for every pixel, from smooth noise that drifts; a line is drawn where the height crosses
 // a step. The lines only show where the page does.
@@ -42,6 +44,11 @@ float3 noise(float2 p) {
 half4 main(float2 xy) {
     float4 here = float4(content.eval(xy));
 
+    // Not over text: a pixel that differs from the page is text or a line.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
     // The land: broad hills, with smaller ones on them that drift another way. One hill is about
     // nine rows across. Time is wrapped, so it stays exact when the shader is on for days.
     float t = mod(time, 4096.0);
@@ -53,11 +60,13 @@ half4 main(float2 xy) {
     float2 slope = (broad.yz + 0.45 * 2.1 * small.yz) / size;
 
     // A touch raises a hill, which sinks again within a few seconds.
-    float2 away = xy - touch;
-    float wide = cell.y * 5.0;
-    float hill = step(0.0, touch.x) * 0.6 * exp(-touchAge * 0.6) * exp(-dot(away, away) / (wide * wide));
-    height += hill;
-    slope += -2.0 * away / (wide * wide) * hill;
+    if (touch.x >= 0.0) {
+        float2 away = xy - touch;
+        float wide = cell.y * 5.0;
+        float hill = 0.6 * exp(-touchAge * 0.6) * exp(-dot(away, away) / (wide * wide));
+        height += hill;
+        slope += -2.0 * away / (wide * wide) * hill;
+    }
 
     // Ten lines for each unit of height. How far this pixel is from the nearest one, in pixels: its
     // distance in height, over how fast the height changes here.
@@ -73,9 +82,6 @@ half4 main(float2 xy) {
     float fifth = step(mod(floor(steps + 0.5), 5.0), 0.5);
     float3 color = mix(float3(dim.rgb), float3(accent.rgb), fifth);
     float amount = line * mix(mix(0.30, 0.34, dark), mix(0.42, 0.50, dark), fifth);
-
-    // Not over text: a pixel that differs from the page is text or a line.
-    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    amount *= open;
     return half4(here * (1.0 - amount) + float4(color * amount, amount));
 }

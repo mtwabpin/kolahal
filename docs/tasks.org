@@ -260,17 +260,6 @@ ships (the release notes then say what changed).
   phones, and 30 gives steps of about 1.2 pixels.
 - Remark:
 
-** TODO [#B] =ink= draws for a minute after each touch, and slow scenes draw 30 times a second  :perf:shaders:
-- =shader/ShaderUniforms.kt= (=usesClock=), =shader/ShaderClock.kt= (=FPS=, =IDLE_MS=),
-  =assets/shaders/ink.agsl=, =contour.agsl=, =dunes.agsl=, =mountains.agsl=.
-- A shader whose only clock is =touchAge= moves for 60 s after a touch (on a charger without end).
-  =ink= changes nothing 4 s after the touch, so about 1,680 of 1,800 frames a minute draw the same
-  picture. =contour=, =dunes= and =mountains= move a few pixels a second but draw 30 frames.
-- Fix: two optional header lines, read by =ShaderMeta=: =// @settles 4= (stop that long after the
-  last touch) and =// @fps 10=. Both are additions to the shader file format, so the website and the
-  shared repository's check change too.
-- Remark:
-
 ** TODO [#B] Every process start schedules everything again, twice at boot  :perf:
 - =LauncherApp.kt= (=repairAndScheduleInBackground=): =ScriptLibrary.updateUnedited= (reads the 48
   library files), =ScriptScheduler.syncAll= (per script: cancel, alarms, a WorkManager write),
