@@ -233,7 +233,8 @@ widget.show{
   it in the **Kolahal** group. A script can't place itself.
 - Until you place it, `widget.show` only checks what it gets, and stores nothing.
 - A tap on the card can run the script again with arguments, or open a web link
-  ([Taps](/scripting/api/#taps)). Without either, a tap refreshes the card.
+  ([Taps](/scripting/api/#taps)). Without either, a tap refreshes the card. After a run that an
+  access switch stopped, the tap opens Scripts instead, where you can allow it.
 - A row, a button, a switch and an event can have a tap of their own.
 - A script can't put a terminal command behind a tap.
 

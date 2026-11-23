@@ -17,40 +17,24 @@ ships (the release notes then say what changed).
   reading.
 - Every item and its places were checked against the code of 0.5.17 on 22 November 2026. A place
   is named by its file and its function, class or constant, which stay true when lines move.
+- Checked again on 24 November 2026, by five read-only reviews of the code (nothing was run on a
+  device for them): of 95 points, 94 were still true. Those with one right fix were fixed that
+  day and are gone from this list. Where an item waits for a choice, a line that starts "To
+  decide:" says which.
 - Paths are under =app/src/main/java/com/mtwabpin/kolahal/=.
 - Write what to do after =Remark:= (do it, skip it, or change it), and I'll follow that.
 
 * Tasks
-
-** TODO [#B] Importing your own backup on the same phone offers every app widget again  :appwidgets:backup:
-- =widgets/WidgetModel.kt= (=WidgetCodec.mergePending=): it skips only pending entries and widgets
-  with a source that are there already, and a placed app widget is neither.
-- Every app widget already on the page also shows under "Restored from backup"; Add again places a
-  second copy and pushes the first down.
-- Fix: skip an imported app widget when one with the same app and profile is already placed. Small.
-- Remark:
-
-** TODO [#B] New app widgets start full width, and resizing ignores their least width /(checked)/  :appwidgets:arrange:
-- =widgets/WidgetHost.kt= (=place=): =span = old?.span ?: WidgetLayout.COLUMNS=.
-- The picker says "2×2" for a clock, but it lands 12 columns wide, under everything. Width − goes down
-  to a sixth of the page whatever the widget needs.
-- Fix: start at the widget's own cells × 3 columns, and stop at its least width. Small.
-- Remark:
 
 ** TODO [#B] An app widget's settings can't be changed without removing it  :appwidgets:arrange:
 - =widgets/WidgetBinder.kt= (=configure=): the widget's setup screen opens only as it is placed.
 - To pick another city or calendar, remove the widget, add it again, set it up, then move and resize
   it back.
 - Fix: a Settings button in the toolbar for widgets that can be set up again. Small.
-- Remark:
-
-** TODO [#B] Shape: a level near half draws its number in the wrong colour /(checked)/  :cards:
-- =ui/widgets/WidgetProgressLooks.kt= (=onLevel=): the number changes colour at exactly 50%, but it sits
-  below the middle.
-- Between about 37% and 51% the digits straddle the fill line in one colour: "47%" in the empty
-  part's colour on the full role colour, about 1.3:1 in Green. The battery card in Shape shows it.
-- Fix: draw the number twice, clipped at the fill line, or fill with the role's container colour and
-  always use the content colour. Small.
+- Checked 24 November 2026: a widget whose setup is optional
+  (=WIDGET_FEATURE_CONFIGURATION_OPTIONAL=) is never set up at all: =WidgetBinder.configure= skips
+  it, and nothing offers it later.
+- To decide: a "Widget settings" button in the toolbar, shown when the widget has a setup screen?
 - Remark:
 
 ** TODO [#B] Bold and Shape charts: the older bars are nearly invisible /(checked)/  :cards:
@@ -59,6 +43,8 @@ ships (the release notes then say what changed).
 - On the card's own surface that is about 1.1:1 in every theme, so Unlocks, Screen time and Habit
   show one coloured pill and a ghost of the week.
 - Fix: the role colour at 40%, as Plain's older bars already are. Small.
+- Checked 24 November 2026: Plain's choice, the role colour at 40 %, is still only about 1.6:1 on
+  a Bold card in a light theme. To decide: which colour.
 - Remark:
 
 ** TODO [#B] Small role-coloured text is too faint in light themes  :cards:
@@ -67,13 +53,10 @@ ships (the release notes then say what changed).
 - On a Tonal card in Green light, "TODAY" and "Up 2.4%" are about 3.2:1, and 2.6:1 on Tonal's tiles.
 - Fix: on Tonal, the words in the content colour with only the arrow or dot in the role colour, as
   the ring's label already does. Small.
-- Remark:
-
-** TODO [#B] A long trailing text hides a row's title  :cards:
-- =ui/widgets/WidgetList.kt= (=ListRow=), =ui/widgets/WidgetListLooks.kt= (=BoldRows=, =RowWords=).
-- The trailing text is measured first. GitHub releases at 2×2 shows the tag and no repo name, and
-  the tag is cut mid-letter with no "…".
-- Fix: cap the trailing text at about 40% of the row, with "…". Small.
+- Checked 24 November 2026: the same small text on Plain and Bold cards is about 3.9:1, also
+  under 4.5:1.
+- To decide: the words in the content colour with only the arrow or dot in the role's, or a darker
+  tone of the role's colour; and on Plain and Bold too?
 - Remark:
 
 ** TODO [#B] Tappable rows drop under 44 dp in Shape and Bold  :cards:
@@ -81,39 +64,8 @@ ships (the release notes then say what changed).
 - Shape packs Todos at 1×1 into two 30 dp rows with no gap, so a near miss ticks the next todo. In
   Bold at 1×1 only the row's text is tappable.
 - Fix: rows with a tap are at least 44 dp in every look, and fewer fit. Small.
-- Remark:
-
-** TODO [#B] Fixed text heights don't grow with the font size  :cards:
-- =ui/widgets/WidgetList.kt= (=RowList=, =TAP_ROW_DP=, =ListRow=); =ui/widgets/WidgetAgenda.kt= (=AGENDA_HEAD_DP= to
-  =AGENDA_NARROW_LINE_DP=, =AgendaBody='s =headedDp=, =DayHeading=).
-- A two-line list row fits a 20 sp and a 16 sp line into 44 dp. From 1.3× font size the second line
-  loses its descenders, at 1.5× half of it; the narrow agenda clips at the first step.
-- Fix: work the heights out from the styles' line heights, today's values as the least, and count
-  rows with them. Medium. Worked out from the styles, not seen on a device.
-- Remark:
-
-** TODO [#B] A countdown's moment text stays out of date  :cards:
-- =ui/widgets/WidgetCountdown.kt= (=CountdownBody='s =day=), =ui/widgets/WidgetCountdownLooks.kt= (=SplitCountdown='s
-  =parts=).
-- The moment ("27 Dec", or "17:25" on the day) changes with the UTC day, not the local one: at 05:30
-  in India. Split's large card also keeps its first moment and label.
-- Fix: key on the local date, and on the moment and the label. Small.
-- Remark:
-
-** TODO [#B] A failed card repeats the script's name, and the line /(checked)/  :cards:
-- =script/RunOutcome.kt= (=runOutcome=) makes the log line, ="$name: $msg (tap to edit line N)"=,
-  which the worker stores for the card (=WidgetWords.cardError= turns the end into "(line N)"), and a
-  Lua error already starts with =name:N:=.
-- The card says "weather: weather:12: attempt to index a nil value (line 12)"; at 2×1 only
-  "weather: weather:12: att…" fits. The widget template's own =error(why)= does the same.
-- Fix: keep the message without the name and Lua's prefix, plus "(line N)"; =error(why, 0)= in the
-  template. Small.
-- Remark:
-
-** TODO [#B] Emoji icons made of several characters are cut in half  :cards:
-- =widgets/WidgetParser.kt= (=icon=, =MAX_ICON=): the 4-character icon limit counts UTF-16 units.
-- =icon = "👩‍💻"= shows "👩…"; flags and skin tones the same.
-- Fix: cut at grapheme boundaries, keep one emoji whole, never add "…" to an icon. Small.
+- To decide: fewer rows (a 1×1 Shape then shows one todo, not two), or the same rows with the
+  touch area widened into the gaps?
 - Remark:
 
 ** TODO [#B] No way to refresh a card that has its own tap  :cards:
@@ -123,29 +75,14 @@ ships (the release notes then say what changed).
 - Fix: Refresh in the Arrange widgets toolbar, beside Options, and as a TalkBack action. Small.
 - Remark:
 
-** TODO [#B] A card stopped by an access switch can't lead to the fix  :scripts:
-- =script/ScriptWorker.kt= (=runOne='s =fail=, =widgetEnd=), =script/RunOutcome.kt= (=runOutcome=),
-  =ui/widgets/WidgetWords.kt= (=ALLOW_TAIL=, =cardError=).
-- "Internet is off for this script" with "Failed 10:42"; the "tap to allow" goes, a tap only
-  refreshes and fails again, and the one log line that offers Allow is far up the log.
-- Fix: remember that the run was stopped by a switch; the card then says so and its tap opens
-  Scripts. A card tap never grants access. Small to medium.
-- Remark:
-
 ** TODO [#B] An offline first run says "Nothing to show"  :scripts:
 - =ui/widgets/ScriptWidgets.kt= (=LOADING_MS=; =ScriptWidget='s =gaveUp= and =note=).
 - Place Weather while offline: the loading shape turns for 20 s, then "Nothing to show", the words
   for a script that cleared its widget. The run waits for a network and taps are dropped meanwhile.
 - Fix: "Waiting for network" when offline and the script goes online, else a still "Not loaded
   yet". Small.
-- Remark:
-
-** TODO [#B] An option changed in the Scripts sheet doesn't refresh the widgets  :scripts:
-- =terminal/ScriptActions.kt= (=setOption=, =setWidgetOption=), =terminal/commands/ScriptCommands.kt=
-  (=option=).
-- Change weather's city in its Scripts sheet or with =script set=: the widget keeps the old city for
-  up to an hour. The same change in the widget's Options runs it at once.
-- Fix: both go through =setWidgetOption=, which runs the placed widgets that read it. Small.
+- To decide: what the card says after 20 s without a first run, for example "Waiting for
+  network" when the phone is offline and the script goes online.
 - Remark:
 
 ** TODO [#B] =allowed("widget")= says yes while this run's widget isn't placed /(checked)/  :scripts:
@@ -176,18 +113,7 @@ ships (the release notes then say what changed).
 - One tap on Close gaps packs the whole page with no way back; a drop that pushed widgets down can't
   be reversed by dragging back.
 - Fix: a snackbar with Undo after each of them. Medium.
-- Remark:
-
-** TODO [#B] The widgets page goes back to the top after Arrange widgets  :arrange:
-- =ui/widgets/HostedWidgets.kt= (=WidgetPanelContent='s =rememberScrollState=).
-- Resize a widget near the bottom of a long page, press Back: the page is at the top again.
-- Fix: keep the scroll position beside =homeOnWidgets=, and scroll to the chosen widget. Small.
-- Remark:
-
-** TODO [#B] Dragging lines widgets up only by luck  :arrange:
-- =widgets/WidgetDrag.kt= (=dropTopDp=): tops snap to 8 dp steps only.
-- A drop has to land within 4 dp of a neighbour's top to line up, so pages look ragged.
-- Fix: pull the top to a neighbour's top or bottom within about 16 dp, with the existing tick. Small.
+- To decide: Undo after Close gaps only, or after every move and resize too?
 - Remark:
 
 ** TODO [#B] The picker has no preview of Kolahal's own widgets  :arrange:
@@ -197,23 +123,14 @@ ships (the release notes then say what changed).
   Medium.
 - Remark:
 
-** TODO [#B] A locked private space's widget names its app /(checked)/  :profiles:
-- =ui/widgets/HostedWidgets.kt= (=HostedWidget='s placeholder, which =WidgetPanelContent= writes as "[why]
-  package"), and =widgets ls= (=WidgetHost.listing= in =widgets/WidgetHost.kt=).
-- While the private space is locked, its widget's place reads "[Private space locked]
-  com.example.app", naming the app the private space hides.
-- Fix: leave the package out for a private-space widget while it is locked. Small.
-- Remark:
-
-** TODO [#B] The slim seek bar is a 20 dp target with no margin  :home:
-- Tried on 21 November 2026 and taken out: a box reaching 14 dp under the band, clipped, with the
-  slider in it, took no touch under the band in the device test (NowPlayingCardTest), though the
-  slider's bounds reached there. Find out why (hit-testing of a child over its parent's bounds) first.
-- =ui/widgets/WidgetMedia.kt= (=SEEK_SLIM=, =ExactTouches=): on a one-row Now playing card the slider takes
-  touches only in its 20 dp band, with a 4×14 dp handle. A drag a little above it opens the player;
-  one off it turns the page.
-- Fix: keep the exact edge upwards, where the texts are, and let the touch area reach down into the
-  card's bottom padding, to 32 dp or more.
+** TODO [#B] A locked private space's widget is still named in two places  :profiles:
+- Done on 24 November 2026: the widgets page, =widgets ls= and Arrange widgets say "Private space
+  locked" and name neither the app nor the widget.
+- Left: an entry under "Restored from backup" that belongs to a private space still shows its
+  package and class (=ui/widgets/WidgetsScreen.kt=, =PendingRow=). And where Android hides a locked
+  private space altogether, its profile isn't among the known ones, so the widget's place reads
+  "[Widget unavailable] com.example.app" (=ui/widgets/HostedWidgets.kt=, the placeholder).
+- Fix: leave the name out wherever the widget's profile is a private space, or can't be found.
 - Remark:
 
 ** TODO [#B] App widgets are built on the main thread in home's first frame  :perf:
@@ -227,14 +144,6 @@ ships (the release notes then say what changed).
   inflation, even when home opens on the log.
 - Fix: =setExecutor= so inflation happens off the main thread, and compose the hosted views a frame
   after the log. Small. Not measured.
-- Remark:
-
-** TODO [#B] Cards below the fold still run every minute  :perf:
-- =ui/widgets/ScriptWidgets.kt= (=LOOK_AGAIN_MS=; in =ScriptWidget=, the effect that asks for a run when the
-  content is due).
-- With the page in view, a toggles or live-score card scrolled out of sight still asks for a run each
-  minute.
-- Fix: repeat the check only while the card is seen, as =refresh= already does. Small.
 - Remark:
 
 ** TODO [#B] Back from a full page builds all of home again  :perf:home:
@@ -260,26 +169,25 @@ ships (the release notes then say what changed).
   phones, and 30 gives steps of about 1.2 pixels.
 - Remark:
 
-** TODO [#B] Every process start schedules everything again, twice at boot  :perf:
-- =LauncherApp.kt= (=repairAndScheduleInBackground=): =ScriptLibrary.updateUnedited= (reads the 48
-  library files), =ScriptScheduler.syncAll= (per script: cancel, alarms, a WorkManager write),
-  =FeedScheduler.sync=, =ReminderScheduler.rescheduleAll=. =productivity/Reminders.kt=
-  (=ReminderBootReceiver=) runs the last two again at boot and after an update, in the same start.
-- Android kills a launcher for memory often; a kill loses neither alarms nor WorkManager jobs.
+** TODO [#B] Every process start reads the library and sets every timer again  :perf:
+- Done on 24 November 2026: reminders and script times are set once in a process. At boot and
+  after an update the boot receiver waits for the run that has started and doesn't repeat it
+  (=productivity/Reminders.kt=, =StartScheduling=; =data/RunOnce.kt=).
+- Left, in =LauncherApp.kt= (=repairAndScheduleInBackground=): each start still reads the 48
+  library files (=ScriptLibrary.updateUnedited=), syncs the feeds (=FeedScheduler.sync=) and sets
+  every alarm again. Android kills a launcher for memory often; a kill loses neither alarms nor
+  WorkManager jobs.
 - What you'd see: nothing; it is off the main thread and competes with the first frame for the
   processor and the database.
-- Fix, in order of risk: run each once per process (both callers share it); update the library
-  once per app version, as =repaired_for= does; sync feeds only when feeds or =feeds.wifi= change;
-  check that one alarm is still there (=FLAG_NO_CREATE=) before setting them all again. A
-  force-stop cancels alarms and sends nothing, so the start must still set them then.
-- Remark:
-
-** TODO [#B] Check whether each write to the log is synced to disk  :perf:
-- =data/Db.kt=: write-ahead logging is on and =synchronous= is not set. If Android's default for
-  this is FULL, every commit waits for the disk: each notification line, each app launch (two
-  commits), each status line, each typed command before its app opens.
-- Fix: read =PRAGMA synchronous= once on a phone. If it is 2, set NORMAL in =onConfigure=: with
-  write-ahead logging the database stays whole, and a power cut can lose the last few lines.
+- The library step was written and taken out again, because a user could see it. With the update
+  run once for each install (keyed on the package's =lastUpdateTime=), an Update or a Reset that you
+  undo stays undone until the next install, where today the next start applies it again; and a copy
+  that gets an older library text by a rename or a paste waits for the next install. Imports would
+  update what they bring themselves (=data/Backup.kt=, =script/ScriptFiles.kt=, =script/ScriptFolder.kt=).
+- To decide: should an undone library update come back at the next start, as today?
+- Then: sync feeds only when feeds or =feeds.wifi= change; check that one alarm is still there
+  (=FLAG_NO_CREATE=) before setting them all again. A force-stop cancels alarms and sends nothing,
+  so the start must still set them then.
 - Remark:
 
 ** TODO [#B] A script with =@on unlock= runs at every unlock, also when it does nothing  :perf:scripts:
@@ -289,6 +197,11 @@ ships (the release notes then say what changed).
   message back. About 0.1 to 0.3 s of processor time for each unlock, by the code.
 - Fix: don't record a run that had no effect and no error (refresh runs already skip that); or let
   the chart ask for =unlock= only while its widget is placed.
+- Checked 24 November 2026: the first fix has nothing to stand on. A widget's refresh run isn't
+  recorded when it ends as the last one did (=script/ScriptWorker.kt=), which is about errors, not
+  effects; and =HostApi.effects= counts only what shows (log, notify, status, shader, widget,
+  screen), not =store.set=, =launcher.run=, =device.setDnd= or a POST. Every effect would have to be
+  counted first. The second fix is a new rule for scripts.
 - Remark:
 
 ** TODO [#B] A widget's fields are listed by hand in five places  :arch:
@@ -349,6 +262,9 @@ ships (the release notes then say what changed).
   (fixed for 0.5.16: before, those whose app wasn't back yet were removed as uninstalled).
 - Fix: handle =ACTION_APPWIDGET_HOST_RESTORED=, which maps the old phone's ids to new ones, so
   the widgets come back without a tap. Medium.
+- Checked 24 November 2026, two traps: =WidgetCodec.fromElsewhere= throws away the old ids that
+  the mapping needs, and =WidgetHost.prune= deletes every host id that no placed widget uses, so
+  ids that Android restored are deleted before anything could map them.
 - Remark:
 
 ** TODO [#C] Smaller bugs  :cards:
@@ -358,21 +274,38 @@ ships (the release notes then say what changed).
   (=ui/widgets/WidgetChart.kt=, =ChartBody= and =Plot=; =ui/widgets/WidgetMedia.kt=, from =MediaButtons= to
   =ShapeMedia=).
 - A Lua list with a gap is refused as "not a table"; say "a list with a gap (a nil in the middle)".
-- =@widget stats= (no such kind) says "needs =@widget <kind>=" at run time; use the editor's words.
 - The placed check reads the switch and the row separately, so a run between the two writes can
-  keep content for a removed widget (=script/HostApi.kt=, =widgetPlacedNow=): one read.
+  keep content for a removed widget (=script/HostApi.kt=, =widgetPlacedNow=): one read. That alone
+  doesn't close it: =widgetShow= checks, then reads what it got, then writes, so the check and the
+  write belong in one transaction.
 - Sizes are measured against the page's width now, so after rotation or on a foldable a 2×2 is
   twice as tall (=widgets/WidgetHost.kt=, =setSize=, =sizeOf= and =rowDp=, from =pageWidthDp=): base
-  the row on the shorter screen side.
+  the row on the shorter screen side. To decide: on a wide screen, does a 2×2 keep its portrait
+  height or grow with the page?
+- At a font size of 1.3 the "+3 more" line of a list or an agenda is clipped a little (=MORE_DP=
+  and =AGENDA_MORE_DP= are 20 dp for a 16 sp line), and Tonal's narrow agenda clips a day's first
+  row at any font size (3 + 16 + 32 + 3 dp in 48).
+- Shape: a level above about 85 % reaches the label at the top, which keeps the content colour;
+  and the trailing text of =ShapeBars= has no ellipsis.
+- A row's trailing text that doesn't fit is cut to leave the title its room (24 November 2026). One
+  that fits still squeezes the title: a forecast's "22–31°" on a card 150 dp wide leaves the day
+  15 dp (=ui/widgets/WidgetList.kt=, =trailingShare=; =RangeBarsTest= holds the numbers whole). To
+  decide: which of the two gives way there. A cap at 40 % of the row would cut the numbers.
+- A failed card's text still starts with the script's name ("weather: attempt to index…"), once.
+  To decide: leave the name out on the card, where the card is the script's own.
+- The media card measures its texts' heights by the font size setting alone (=ui/widgets/WidgetMedia.kt=,
+  =linesHeight=), but Android scales a line with its text, so at the largest font sizes it counts
+  too little room. =linesDp= (=ui/widgets/WidgetClock.kt=) has it right since 24 November 2026.
 - Remark:
 
 ** TODO [#C] Smaller ease-of-use items  :arrange:
-- TalkBack on Arrange widgets reads each Kolahal card twice, and an app widget's own buttons stay
-  reachable under the overlay (=ui/widgets/WidgetsArrangedPage.kt=, =ArrangedCard=).
 - One screen has three names: "Arrange widgets", "Edit widgets" and "Widgets"; use "Arrange widgets".
 - App widgets' toolbar says "Looks are for Kolahal's own widgets." where the drag hint would help.
 - A paused app widget's placeholder is one line with blank space under it; draw it at full height.
-- The picker is blank while it loads; show a loading indicator.
+- The picker's list of apps is blank while it loads (the search field and Kolahal's own widgets
+  show); show a loading indicator there.
+- A row of an app's widget is 90 dp and a row of Kolahal's own about 96 dp, so a 2×2 of each never
+  line up (=widgets/WidgetModel.kt=, =WidgetLayout=; =WidgetSizes.heightDp=).
 - Remark:
 
 ** TODO [#C] A one-row list or text card never says which card it is  :home:
@@ -383,6 +316,8 @@ ships (the release notes then say what changed).
   list that look alike.
 - Fix: in a wide box, the name small over the empty and note lines (Named already does it for
   notes in large boxes); in a 1×1, the name as the note's first line.
+- Checked 24 November 2026: a note in a wide box is named already (=Named= draws the name for every
+  box but a small one). Left: wide lists, wide texts, an empty wide list and a 1×1 note.
 - Remark:
 
 ** TODO [#C] =$= is a narrow target inside the prompt  :home:
@@ -390,6 +325,8 @@ ships (the release notes then say what changed).
   before it and everything after it are the prompt's, so a miss opens the keyboard, not quick
   actions and Settings.
 - Fix: move the start padding inside =$='s target and make it at least 48 dp wide.
+- Checked 24 November 2026: Compose widens a target under 48 dp towards space nothing else takes,
+  so the 12 dp before =$= probably reach it already. Only a device can tell.
 - Remark:
 
 ** TODO [#C] The header's parts are small and close together  :home:
@@ -398,6 +335,8 @@ ships (the release notes then say what changed).
   Android's battery screen, not the alarms.
 - Fix: share the space between neighbours evenly, at least 48 dp of width each where the line has
   room.
+- Checked 24 November 2026: the parts' touch areas are 4 dp apart, not 6, and a miss goes to the
+  nearest part, since Compose widens each to 48 dp.
 - Remark:
 
 ** TODO [#C] Three of home's own lines are unclear  :home:
@@ -409,6 +348,8 @@ ships (the release notes then say what changed).
   - "Kolahal isn't your home app · Tap to make it".
 - Fix: "Tap $ for quick actions and Settings"; "1 earlier line"; "Kolahal isn't the default home
   app · Tap to set it".
+- To decide: the words for the first and the third. The second's plural ("1 earlier line") needs
+  no answer.
 - Remark:
 
 ** TODO [#C] A waiting tap can't be called back  :home:
@@ -419,20 +360,13 @@ ships (the release notes then say what changed).
   that removing a widget calls.
 - Remark:
 
-** TODO [#C] Some search fields have no clear button, and Back leaves instead of clearing  :screens:
-- =ui/scripts/GetScriptsScreen.kt= and =ui/widgets/WidgetPickerScreen.kt= (each screen's =BackHandler= and
-  =SearchField=, with no =clear=), =ui/reference/ReferencePage.kt= (=ReferencePage='s =BackHandler=). Scripts,
-  the library and Settings clear the search first.
-- What you'd see: search "weather" in Get more scripts and press Back to see the whole list: you're
-  on the Scripts tab instead.
-- Fix: =clear = "Clear the search"= everywhere, and Back clears a query first on these three.
-- Remark:
-
 ** TODO [#C] Run with's events are plain text with drawn circles  :screens:
 - =ui/editor/EditorBars.kt= (=RunWithDialog=): rows 40 dp tall reading "● at 08:00". TalkBack reads the circle
   character, "white circle unlock", and never says "selected".
 - Fix: =selectable(selected, role = Role.RadioButton)= on rows 48 dp tall, with the circle left out
   of what is said.
+- Checked 24 November 2026: in the Material style the dialog draws the same text circles, where
+  the Expressive rule asks for the library's own radio rows.
 - Remark:
 
 ** TODO [#C] Unread and "in use" are shown by look alone  :screens:
@@ -457,6 +391,15 @@ ships (the release notes then say what changed).
   arrows on each shortcut row.
 - Fix: a snackbar with Undo for the shortcut, as Sources has (=terminal/ScriptActions.kt=,
   =removeSource=); a question for Delete all.
+- To decide: for Delete all, a dialog to confirm or an Undo. Undo for a removed shortcut needs no
+  answer, but it needs a place to show: the editor is a sheet, and the Widgets screen has no
+  snackbar of its own.
+- Remark:
+
+** TODO [#C] The clear button of a search field has two names  :screens:
+- "Clear" in Settings, Commands and the Library; "Clear the search" in Scripts, Get more scripts,
+  Add widget, Shaders, Get more shaders and Reference.
+- To decide: one of the two.
 - Remark:
 
 ** TODO [#C] Smaller performance items  :perf:
@@ -467,6 +410,8 @@ ships (the release notes then say what changed).
 - Plot makes its paths on every draw; a Shape clock with no second hand still ticks each second; the
   wide Shape clock recomposes its row each second (=ui/widgets/WidgetChart.kt=, =Plot=; =ui/widgets/WidgetClock.kt=,
   =ClockBody='s =rememberMillis= and =ShapeClock=).
+- Checked 24 November 2026: none of these costs anything measurable. A card decodes its JSON again
+  only when its own widget changed, and the Shape clock ticks by the second only with =seconds=.
 - Remark:
 
 ** TODO [#C] Smaller performance items from the review of 23 November 2026  :perf:
@@ -495,6 +440,12 @@ ships (the release notes then say what changed).
   the host listens and checks them with =widgets.page off= (=widgets/WidgetHost.kt=).
 - The baseline profile has no start in the TTY style, and the startup profile records the tour
   (=baselineprofile/=, =BaselineProfileGenerator=).
+- Checked 24 November 2026. Worth doing, if any: =http.cached= entries that never expire, the two
+  listings of every app, a battery condition for the automatic backup, the one-off shader's frame
+  rate, a screen's frame rate (and whether it stands still) decided once, the widget host with
+  =widgets.page off=, and the two points about the profiles. The rest costs nothing measurable.
+- Found then: the live wallpaper reads its whole state again on every change of configuration,
+  not only dark or light (=ui/wallpaper/ShaderWallpaper.kt=, =onConfigurationChanged=).
 - Remark:
 
 ** TODO [#C] Smaller bugs noticed in the review of 23 November 2026  :home:
@@ -502,12 +453,10 @@ ships (the release notes then say what changed).
   (=ui/home/Avatars.kt=, =Photos.failed=).
 - A notification posted again unchanged gets no log line, but still runs =@on notification=
   scripts and can play a one-off shader's words again
-  (=notifications/KolahalNotificationListener.kt=, =onNotificationPosted=).
+  (=notifications/KolahalNotificationListener.kt=, =onNotificationPosted=). To decide: should a
+  script and a shader's words fire for an unchanged notification that an app posts again?
 - Plugging in the charger doesn't start a stopped shader on the live wallpaper; on home it does
   (=ui/wallpaper/ShaderWallpaper.kt=).
-- Two comments say something else than the code: the selector "stays built" while the keyboard is
-  up (=ui/home/TerminalScreen.kt=), and a memory trim drops log pictures "also those on disk"
-  (=LauncherApp.kt=, =onTrimMemory=).
 - Remark:
 
 ** TODO [#C] Smaller architecture items  :arch:
@@ -521,7 +470,7 @@ ships (the release notes then say what changed).
   time helpers are in =ui/widgets/WidgetTime.kt=).
 - Bold's clock and agenda use =asBold= instead of =boldValueStyle=, so their digits differ.
 - Levels glide in Plain but jump in Bold, Split and Shape.
-- Two comments still say the bar never waves, and a paused media bar thickens at once.
+- A paused media bar thickens at once, from 4 to 6 dp. To decide: glide, or one width.
 - Remark:
 
 ** TODO [#C] Which widgets are placed is kept three times, in two stores  :arch:
@@ -547,6 +496,10 @@ ships (the release notes then say what changed).
 - Fix: activity requests (pickers, permissions) on a =Channel=, which keeps them until they are
   collected. The terminal's hints (ScrollToBottom, FocusPrompt, HideKeyboard) become state the
   terminal reads when it appears, in place of =arrival=.
+- Checked 24 November 2026: narrower than written. The activity collects for its whole life, so
+  its requests are lost only while it is made again. What can be lost are the hints for home
+  (scroll to the end, focus the prompt, hide the keyboard, show the quick actions) sent while home
+  isn't composed. No loss that a user would see was found in the code.
 - Remark:
 
 ** TODO [#C] Media commands and the card can pick different players  :arch:
@@ -556,6 +509,8 @@ ships (the release notes then say what changed).
   one, else the first in Android's list.
 - With two paused players, =media play= can go to another app than the one the card shows.
 - Fix: one pure =pick(sessions, lastPlaying)= for both, tested beside NowPlayingTest.
+- Checked 24 November 2026: once the listener runs, the commands use the card's choice. They can
+  differ only before it starts, with nothing playing.
 - Remark:
 
 ** TODO [#C] A list's bars repeat the rows' layout numbers, once for each look  :arch:
@@ -651,6 +606,9 @@ Checked and found sound, or left as it is on purpose. Don't raise these again.
 - Backup import parses before it changes anything, uses one transaction per table, strips run
   contexts, drops unknown columns, and imported scripts arrive off.
 - The log: SQLite in WAL mode, incremental reload, stable keys; caches are bounded.
+- The database's sync mode: with write-ahead logging Android uses NORMAL, so a log line doesn't
+  wait for the disk. Read from =dumpsys dbinfo= on a phone and on the emulator, both Android 16, on
+  24 November 2026. Older versions were not checked.
 - The two-process design overall: shared state goes through =kolahal.db=.
 - =Keys= / =Config=: one typed list drives Settings, =config=, completion and backups.
 - Theme files are read by a regex on purpose: it also reads a hand-edited file.

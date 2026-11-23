@@ -266,9 +266,8 @@ What to know:
   further widgets that follow it.
 - The script's timer fills the first widget only. A further widget runs the script for itself:
   when you place it, when you look at it and its content is old, when you tap it, and when you
-  change an option in its **Options** sheet. So more widgets don't run anything more in the
-  background. A change made in the script's sheet on the Scripts screen, or with `script set`,
-  runs no widget.
+  change an option it reads: in its **Options** sheet, in the script's sheet on the Scripts screen,
+  or with `script set`. So more widgets don't run anything more in the background.
 - If you removed the first widget and a further one is still placed, a tap on the row brings the
   first widget back. The timer fills only the first.
 - Removing a widget deletes what it showed and its own options. The script and its other widgets
@@ -288,7 +287,8 @@ screen shows the page as it is:
 - **Tap** a widget to choose it. A toolbar comes up at the bottom, and the widget gets handles on
   its right and bottom edges.
 - **Long-press and drag** a widget to move it. Lines show the columns, and a dashed box shows where
-  it will land. Widgets in the way move down to make room. The space a widget leaves stays empty.
+  it will land. Dropped near another widget's edge, it lines up with it. Widgets in the way move
+  down to make room. The space a widget leaves stays empty.
 - **Drag a handle** to make the widget wider, narrower, taller or shorter: a twelfth of the page or
   8dp at a time, never below the size the widget needs.
 - **Drop a widget on Remove**, at the top while you drag, to remove it. Kolahal asks first.
@@ -349,7 +349,8 @@ from the page.
 A [backup](/guides/backup/) records which widgets you placed, with their size, place and look. But other apps'
 widgets themselves can't move between installs. So after an import:
 
-1. Open **Settings → Widgets → Arrange widgets**. The widgets are listed under **Restored from backup**.
+1. Open **Settings → Widgets → Arrange widgets**. The widgets that aren't on the page already are
+   listed under **Restored from backup**.
 2. Tap **Add again** on each widget to add it back. Run its setup if it has one.
 
 Each widget keeps its size and position.

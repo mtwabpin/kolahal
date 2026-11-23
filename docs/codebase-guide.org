@@ -824,9 +824,12 @@ stays.
 3. =startWhenIdle=: an idle handler, so after the first frame: the unlock counter, the =@on=
    triggers, contacts, and package and call events. Each catches up as it starts.
 4. =repairAndScheduleInBackground=, on a thread of its own: unedited library scripts are updated,
-   script times, feeds and reminders are scheduled again, the old log is trimmed, and rows from old
+   reminders, script times and feeds are scheduled again, the old log is trimmed, and rows from old
    versions are repaired once per version. Most steps go through =Quietly=: a failure doesn't
-   stop the next one, and is logged once a day.
+   stop the next one, and is logged once a day. Reminders and script times are set once in a
+   process (=StartScheduling=, =data/RunOnce.kt=): at boot and after an update
+   =ReminderBootReceiver= asks for them in the same process, waits for the run that has started,
+   and doesn't repeat it.
 5. =listenToOtherProcesses=: the three receivers above.
 6. =followSettings=: copies the shared settings, trims the log on =log.keep-lines=, and follows
    =backup.auto=, the feeds' Wi-Fi setting, and time zone or clock changes.

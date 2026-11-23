@@ -179,9 +179,9 @@ Where each ready-made widget is in the code:
 - *GitHub releases* reads each feed once more for its widget, with =rss.fetch=. A release that the
   card shows must still be new to the check.
 - *Lobsters* has no widget. Only Hacker News got the list.
-- *An option change* runs the widget only when it is set in the widget's own Options sheet on the
-  Widgets screen. A change in the script's sheet on the Scripts screen, or with =script set=, runs
-  no widget: the widget follows it at its next run.
+- *An option change* runs the placed widgets that read the option, wherever it is set: in the
+  widget's own Options sheet on the Widgets screen, in the script's sheet on the Scripts screen, or
+  with =script set=.
 - *Backups.* A script widget whose script is missing is placed all the same. Its card says
   "Script removed" until you remove it or a script takes the name.
 - *The picker* lists Kolahal's own widgets as plain rows: a name, the kind and the start size, with
@@ -568,11 +568,12 @@ view model read the log again. Widgets get their own message and their own count
 | A daily time               | =@at=.                                                                                          | ="at"=                  |
 | A device event             | =@on=. At most once in 30 seconds for each event.                                               | the event               |
 | The widget was just placed | One run at once.                                                                                | ="widget"=              |
-| The page shows old content | While the widgets page is in view, each card whose content (or last try) is older than its =staleAfter= asks for one run. It looks again every minute. | ="widget"=           |
+| The card shows old content | While the card can be seen (the page in view, the card on screen), a card whose content (or last try) is older than its =staleAfter= asks for one run. It looks again every minute. | ="widget"=           |
 | =refresh= in the description | While the card can be seen (the page in view, the card on screen), run again that often.     | ="widget"=              |
 | A tap with arguments       | See [[*4. Interaction][Interaction]].                                                           | ="action"=              |
 | A tap on a card with no =tap= | One quiet run, at most one in 2 seconds.                                                     | ="widget"=              |
-| An option changed          | A value set in the widget's Options sheet on the Widgets screen. The design had the script's sheet and =script set= do it too; they run no widget. | ="widget"=              |
+| An option changed          | A value set in the widget's Options sheet on the Widgets screen, in the script's sheet or with =script set=: the placed widgets that read it run. | ="widget"=              |
+| A switch turned on         | An access switch of the script was allowed: its placed widgets run, so a card that the switch had stopped is filled at once. | ="widget"=              |
 
 The design had a "Refresh" item in a menu on the card. There is no menu: a long-press opens
 Arrange widgets, and a tap on a card with no =tap= refreshes it.
@@ -742,7 +743,8 @@ know from home screens. One cell is 3 columns.
   Kolahal's own widgets the toolbar has the six sizes as one-tap buttons; an app's widget has width
   and height steppers and Square instead.
 - A widget Kolahal draws is at least 3 columns wide and 72 dp tall; an app's widget at least 2
-  columns and 48 dp.
+  columns and 48 dp, and never narrower than its app says it can be. A new app widget starts at the
+  width its app asks for, not at the page's.
 - The card draws for the box it gets, not for the size it asked for. Each kind has three layouts:
   small, wide and large, chosen from the measured box
   ([[src:widgets/WidgetSizes.kt::fun box][WidgetSizes.box]]): large from 150 dp tall, else wide
@@ -851,7 +853,8 @@ When the phone's animations are off, values change without motion. To verify on 
 
 - Each card is one item for a screen reader: "Weather, Pune: 24 degrees, Sunny. Updated 5 minutes
   ago." Items with their own tap are separate items inside it.
-- Every button and switch is at least 48 dp. A row of a list or an agenda that takes a tap is 44 dp:
+- Every button and switch is at least 48 dp. A row of a list or an agenda that takes a tap is 44 dp,
+  or as tall as its text at a larger font size:
   a list is read more than tapped, and a 4×2 card then shows three rows. A kind shows fewer buttons
   in a small box and never smaller ones.
 - A chart has words. The script can give =summary=. Without one, Kolahal says "7 values, from 3 to
@@ -1165,8 +1168,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 *** 10. =agenda=: events by day                                  :phase2:built:
 
 - Shows :: Events under "Today", "Tomorrow" and dates. Each has its time and title.
-- Layout :: A day's heading is at the top of its first event's row. That row is 44 dp: the
-  heading's 16 and the event's line of 28. So every event keeps its 44 dp tap, and a 4×2 card
+- Layout :: A day's heading is at the top of its first event's row. That row is 44 dp at the usual
+  font size (it grows with a larger one): the heading's 16 and the event's line of 28. So every event keeps its 44 dp tap, and a 4×2 card
   shows two events of today and one of tomorrow, as the mockup has them. "+3 more" is the line
   under the events (today's date at the end of the title line went with the title line, 21 Nov 2026).
 - Fields :: =events= (needed; the first 20 are kept): each ~{ title, starts, ends, allDay, where,
