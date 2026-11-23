@@ -57,9 +57,15 @@ import com.mtwabpin.kolahal.terminal.headerParts
 import com.mtwabpin.kolahal.terminal.tty.HeaderCells
 import com.mtwabpin.kolahal.terminal.tty.PinnedCells
 import com.mtwabpin.kolahal.terminal.tty.filledCells
+import com.mtwabpin.kolahal.ui.home.LocalScramble
 import com.mtwabpin.kolahal.ui.home.PinnedItem
 import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.ui.home.rememberScreenReader
+import com.mtwabpin.kolahal.ui.theme.LocalHomePage
+import com.mtwabpin.kolahal.ui.theme.LocalTopCorners
+import com.mtwabpin.kolahal.ui.theme.ScreenCorners
+import com.mtwabpin.kolahal.ui.theme.cornerX
+import com.mtwabpin.kolahal.ui.theme.windowTopCorners
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
@@ -71,7 +77,8 @@ private val CUTOUT_GAP = 4.dp
 /**
  * The header on the grid ([HeaderCells]): one row of cells with `header.padding` above and below
  * it, placed as the GUI's header is (beside the camera in full screen, else under the status bar,
- * or below both with `header.below-bar`). A part that a camera cutout would cover moves aside.
+ * or below both with `header.below-bar`). A part that a camera cutout would cover moves aside, and
+ * the cells that the screen's rounded corners would cut at the row's ends are left empty.
  * Each part is a node of its own (`header-<part>`), with the GUI's tap and words. A swipe down on
  * the row runs `gesture.swipe-down`.
  */
@@ -90,8 +97,10 @@ internal fun TtyHeader(
 ) {
     val frame = LocalTtyFrame.current ?: return
     val (now, zone) = rememberNow()
-    val parts = remember(now, zone, status, unlocks, profiles, todoCount, version) {
-        headerParts(status, unlocks, profiles, todoCount, config, now.time)
+    // While home is scrambled (`scramble`), the header says so first.
+    val scrambled = LocalScramble.current != null
+    val parts = remember(now, zone, status, unlocks, profiles, todoCount, version, scrambled) {
+        headerParts(status, unlocks, profiles, todoCount, config, now.time).let { if (scrambled) it.scrambled() else it }
     }
     val belowBar = remember(version) { config[Keys.HEADER_BELOW_BAR] }
     val padding = remember(version) { config[Keys.HEADER_PADDING].dp }
@@ -106,12 +115,33 @@ internal fun TtyHeader(
         if (barTop > 0 || band == 0) emptyList()
         else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }.map { it.left..it.right }
     }
-    // The row's x in the window, to move the cutouts into the row's own pixels.
+    // The row's x, to move the cutouts into the row's own pixels and to measure the corners from. It is
+    // its x on home's page, which slides while home turns to the widgets page (cornerX): the row keeps
+    // its parts where they are at rest.
+    val homePage = LocalHomePage.current
     var rowX by remember { mutableFloatStateOf(0f) }
+    // The row's y in the window, for the screen's rounded corners. Until it is known (NaN), the row
+    // is taken to be where home puts it: at the window's top, under its top insets.
+    var rowY by remember { mutableFloatStateOf(Float.NaN) }
+    val expectedY = topInsets.getTop(density)
     val gap = with(density) { CUTOUT_GAP.roundToPx() }
     val shift = rowX.roundToInt()
-    val zones = remember(cutouts, shift, frame) {
-        HeaderCells.zones(frame.cols, frame.originX, frame.cellW, cutouts.map { (it.first - shift)..(it.last - shift) }, gap)
+    val givenCorners = LocalTopCorners.current
+    val zones = remember(cutouts, shift, rowY, expectedY, frame, height, givenCorners) {
+        // What the screen's corners hide at each end, over the rows of the cells (centered in the band).
+        val corners = givenCorners ?: windowTopCorners(view)
+        val top = (if (rowY.isNaN()) expectedY else rowY.roundToInt()) + (height - frame.cellH).coerceAtLeast(0) / 2
+        val bottom = top + frame.cellH
+        HeaderCells.zones(
+            frame.cols,
+            frame.originX,
+            frame.cellW,
+            cutouts.map { (it.first - shift)..(it.last - shift) },
+            gap,
+            cornerLeft = ScreenCorners.hiddenLeft(corners.left, top, bottom, edge = shift),
+            cornerRight = ScreenCorners.hiddenRight(corners.right, top, bottom, edge = shift + frame.widthPx),
+            widthPx = frame.widthPx,
+        )
     }
     // The zones are columns on the screen; the row is laid out from its start, which in a
     // right-to-left layout is the right edge, so they are turned around for it.
@@ -127,7 +157,10 @@ internal fun TtyHeader(
         Modifier
             .windowInsetsPadding(topInsets.only(WindowInsetsSides.Top))
             .testTag("header")
-            .onPlaced { rowX = it.positionInWindow().x }
+            .onPlaced {
+                rowX = cornerX(it, homePage)
+                rowY = it.positionInWindow().y
+            }
             .pointerInput(Unit) {
                 var total = 0f
                 detectVerticalDragGestures(

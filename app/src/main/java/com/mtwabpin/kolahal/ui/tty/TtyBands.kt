@@ -33,6 +33,8 @@ import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.commands.UpdateCommands
 import com.mtwabpin.kolahal.terminal.tty.BandCells
+import com.mtwabpin.kolahal.ui.home.LocalScramble
+import com.mtwabpin.kolahal.ui.home.scrambledFilter
 import com.mtwabpin.kolahal.ui.home.searchSummary
 
 /** The notice's and the filter's height, as the GUI's bands have it. */
@@ -95,8 +97,10 @@ internal fun TtySearchSummary(search: TerminalViewModel.LogSearch) {
 @Composable
 internal fun TtyFilterBar(filter: LogFilter, count: Int, onClear: () -> Unit) {
     val frame = LocalTtyFrame.current ?: return
-    val cells = remember(filter.label, count, frame) { BandCells.filter(filter.label, count, frame.cols) }
-    val words = "only ${filter.label} · $count line" + if (count == 1) "" else "s"
+    // While home is scrambled, so is the name of what the log shows only.
+    val label = scrambledFilter(filter.label, LocalScramble.current)
+    val cells = remember(label, count, frame) { BandCells.filter(label, count, frame.cols) }
+    val words = "only $label · $count line" + if (count == 1) "" else "s"
     TtyBand(
         cells,
         with(LocalDensity.current) { 40.dp.roundToPx() },

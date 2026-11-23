@@ -13,6 +13,7 @@ import com.mtwabpin.kolahal.terminal.Ink
  * - Selected text is inverse; the word being composed is underlined.
  * - Text longer than the row scrolls by cells, as little as keeps the cursor in view ([scroll]).
  * - A secret is shown as one `•` per character ([mask]).
+ * - Where the screen's rounded bottom corners cut the row, its ends move in by whole cells ([ends]).
  *
  * Spot ids: [QUICK] (the `$`), [CLEAR], [KEYS].
  */
@@ -31,6 +32,21 @@ object PromptCells {
 
     /** ⌨ as text, never as a color emoji. */
     private const val KEYS_GLYPH = "⌨\uFE0E"
+
+    /**
+     * The cells the prompt leaves empty at its two ends where the screen's rounded corners cut the
+     * row: before the `$` and after the key bar's button, as the row is laid out (left to right; in
+     * a right-to-left layout the `$` is on the right). [free]: the row's columns clear of the
+     * corners, as [HeaderCells.zones] gives them, left to right on the screen. The button's last
+     * cell is only room around its glyph, so it may stay where a corner is. None when [free] is not
+     * one stretch.
+     */
+    fun ends(cols: Int, free: List<IntRange>, rtl: Boolean): Pair<Int, Int> {
+        val zone = free.singleOrNull() ?: return 0 to 0
+        val left = zone.first.coerceIn(0, cols)
+        val right = (cols - 1 - zone.last).coerceIn(0, cols)
+        return if (rtl) right to (left - 1).coerceAtLeast(0) else left to (right - 1).coerceAtLeast(0)
+    }
 
     /** The cells the text has, in a row [cols] wide, with the clear button or without it. */
     fun textCols(cols: Int, clear: Boolean): Int =
@@ -72,6 +88,7 @@ object PromptCells {
      * - [first]: the first column of the text that shows ([scroll]).
      * - [keyBarOn]: the key bar's button in the accent color, else muted.
      * - [buttons]: false for a field with no `✕` and `⌨` (a secret's).
+     * - [lead], [trail]: cells left empty before the `$` and after the buttons ([ends]).
      */
     fun row(
         text: String,
@@ -86,12 +103,14 @@ object PromptCells {
         mask: Boolean = false,
         prompt: String = "$",
         buttons: Boolean = true,
+        lead: Int = 0,
+        trail: Int = 0,
     ): HomeCells {
         val w = HomeWriter(cols)
         val clear = buttons && text.isNotEmpty()
-        val width = if (buttons) textCols(cols, clear) else (cols - LEAD).coerceAtLeast(1)
-        w.put(0, 0, prompt, CellStyle.of(Ink.PROMPT, flags = CellStyle.BOLD))
-        if (buttons) w.spot(QUICK, 0, 0, LEAD)
+        val width = if (buttons) textCols(cols - lead - trail, clear) else (cols - lead - trail - LEAD).coerceAtLeast(1)
+        w.put(lead, 0, prompt, CellStyle.of(Ink.PROMPT, flags = CellStyle.BOLD))
+        if (buttons) w.spot(QUICK, lead, 0, LEAD)
         val plain = CellStyle.of(Ink.FG)
         val composition = if (compStart in 0 until compEnd) compStart until compEnd else null
         val from = minOf(selStart, selEnd)
@@ -101,11 +120,11 @@ object PromptCells {
         var cursorDrawn = false
         // The text area keeps its order in a right-to-left frame: it moves as a whole, as wide as it is.
         val area = w.newUnit()
-        w.span(area, LEAD, LEAD + width)
+        w.span(area, lead + LEAD, lead + LEAD + width)
         while (i < text.length) {
             val e = CellWidth.clusterEnd(text, i)
             val cells = shown(text, i, e)
-            val x = LEAD + col - first
+            val x = lead + LEAD + col - first
             if (col >= first && col + cells <= first + width) {
                 var style = plain
                 if (composition != null && i in composition) style = style.with(CellStyle.UNDERLINE)
@@ -124,11 +143,11 @@ object PromptCells {
         }
         // At the end of the text the cursor is a block on its own cell.
         if (cursor && !cursorDrawn && from == to) {
-            val x = LEAD + columnOf(text, to) - first
-            if (x in LEAD until LEAD + width) w.put(x, 0, " ", CellStyle.of(Ink.FG, flags = CellStyle.INVERSE), area)
+            val x = lead + LEAD + columnOf(text, to) - first
+            if (x in lead + LEAD until lead + LEAD + width) w.put(x, 0, " ", CellStyle.of(Ink.FG, flags = CellStyle.INVERSE), area)
         }
         if (buttons) {
-            var right = cols
+            var right = cols - trail
             right -= BUTTON
             w.put(right + 1, 0, KEYS_GLYPH, CellStyle.of(if (keyBarOn) Ink.PROMPT else Ink.DIM, flags = CellStyle.BOLD))
             w.spot(KEYS, right, 0, BUTTON)

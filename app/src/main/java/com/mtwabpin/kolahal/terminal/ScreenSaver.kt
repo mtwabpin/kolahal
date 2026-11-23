@@ -8,7 +8,7 @@ package com.mtwabpin.kolahal.terminal
  * time something about it changes, and again when the answer says to wait. It is pure, so a JVM
  * test can walk it through time.
  *
- * The screensaver opens after the set minutes with no touch and no key, while home is in front
+ * The screensaver opens after the set minutes (or half a minute, [waitMs]) with no touch and no key, while home is in front
  * with its log page showing and nothing over it. It never opens while the screen is off, in
  * battery saver, or with Android's "Remove animations" on.
  */
@@ -63,6 +63,13 @@ object ScreenSaver {
      * - Long enough, but the phone doesn't allow it ([Phone.allows]): nothing opens; it asks again
      *   in a minute, as battery saver may end while home stays idle.
      */
+    /**
+     * How long home must be quiet: `screen.saver-after` minutes, and half a minute for 0, the least
+     * the setting has. [minuteMs] is a minute's length.
+     */
+    fun waitMs(afterMinutes: Int, minuteMs: Long = 60_000L): Long =
+        if (afterMinutes <= 0) minuteMs / 2 else afterMinutes * minuteMs
+
     fun next(
         saver: String,
         afterMinutes: Int,
@@ -72,8 +79,8 @@ object ScreenSaver {
         phone: Phone,
         minuteMs: Long = 60_000L,
     ): Next {
-        if (saver !in SCREENS || afterMinutes <= 0 || !home.ready) return Next.Never
-        val due = quietSince + afterMinutes * minuteMs
+        if (saver !in SCREENS || !home.ready) return Next.Never
+        val due = quietSince + waitMs(afterMinutes, minuteMs)
         if (now < due) return Next.Wait(due - now)
         if (!phone.allows) return Next.Wait(minuteMs)
         return Next.Open(saver)

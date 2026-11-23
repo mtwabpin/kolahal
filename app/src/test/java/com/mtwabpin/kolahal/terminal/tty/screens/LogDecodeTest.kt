@@ -83,11 +83,9 @@ class LogDecodeTest {
         assertTrue("${kinds.size} waves", kinds.size > 25)
         assertFalse(kinds.drop(1).contains(DecodeWave.Kind.ALL))
         for ((a, b) in kinds.zipWithNext()) assertTrue(a != b)
-        assertTrue(decode.shift != 0)
         screen.stop()
         assertFalse(decode.active)
         assertNull(decode.wave)
-        assertEquals(0, decode.shift)
     }
 
     /** With no text on screen yet it waits; a screen that closes late doesn't end the next one. */
@@ -108,6 +106,33 @@ class LogDecodeTest {
         assertTrue(decode.active)
         second.stop()
         assertFalse(decode.active)
+    }
+
+    /**
+     * A text that came during a wave decodes in from when it came, in `decode`'s time. `scramble` starts
+     * each wave again from a time of 0: a text that came during an earlier wave follows the new one.
+     */
+    @Test
+    fun aTextFromAnEarlierWaveFollowsTheNext() {
+        val decode = LogDecode()
+        decode.add(At(10f))
+        val owner = Any()
+        decode.start(owner, Random(1), 40)
+        decode.frame(DecodeScreen.FIRST_MS)
+        decode.frame(3_000)
+        val born = decode.now
+        val bornIn = decode.runs
+        decode.frame(3_500)
+        assertEquals(500L, decode.age(born, bornIn))
+        // A text that was there before the first wave follows it.
+        assertNull(decode.age(-1, bornIn))
+        // The next wave of `scramble`: its time is under 3000 again.
+        decode.stop(owner)
+        decode.start(owner, Random(1), 40)
+        decode.frame(DecodeScreen.FIRST_MS)
+        assertNotNull(decode.wave)
+        assertNull(decode.age(born, bornIn))
+        assertEquals(0L, decode.age(decode.now, decode.runs))
     }
 
     /** With animations off nothing scrambles. */

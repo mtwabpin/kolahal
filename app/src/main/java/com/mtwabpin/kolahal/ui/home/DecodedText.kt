@@ -131,6 +131,9 @@ internal class DecodedText(private val decode: LogDecode) : LogDecode.Part {
     /** When it came into the log, or -1 if it was there before the first wave. Then it decodes in. */
     private var born = UNSEEN
 
+    /** The run of [decode] it came in ([LogDecode.runs]): [born] is a time of that run. */
+    private var bornIn = 0
+
     private val hidden = Path()
 
     val modifier: Modifier = Modifier
@@ -159,7 +162,10 @@ internal class DecodedText(private val decode: LogDecode) : LogDecode.Part {
         val now = decode.now
         val wave = decode.wave
         val layout = layout
-        if (born == UNSEEN) born = if (wave == null) BEFORE else now
+        if (born == UNSEEN) {
+            born = if (wave == null) BEFORE else now
+            bornIn = decode.runs
+        }
         if (wave == null || layout == null) return drawContent()
         if (seen !== wave) {
             val p = place() ?: return drawContent()
@@ -173,7 +179,7 @@ internal class DecodedText(private val decode: LogDecode) : LogDecode.Part {
             madeFrom = layout
         }
         val t = (now - decode.waveAt).toInt()
-        val age = if (born == BEFORE) Int.MAX_VALUE else (now - born).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val age = decode.age(born, bornIn)?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt() ?: Int.MAX_VALUE
         var any = false
         hidden.rewind()
         for (i in chars.indices) if (scrambles(wave, i, t, age)) {

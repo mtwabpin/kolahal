@@ -21,8 +21,6 @@ import kotlin.random.Random
  * It shows what home's log shows and nothing else: it reads home again now and then ([READ_MS];
  * more often at the start and after a pause), so a line that comes in decodes in, and one that home
  * no longer shows goes. Between waves it needs no frame but for that ([restMs]).
- *
- * Now and then it all moves by a cell, so a screen that shows it for hours doesn't burn in.
  */
 class DecodeScreen : TtyScreen, PlacedRows {
     override val name = "decode"
@@ -66,9 +64,6 @@ class DecodeScreen : TtyScreen, PlacedRows {
     private var waves = 0
     private var lastWave = Wave.ALL
 
-    /** The place in [SHIFT_COLS] and [SHIFT_ROWS]. */
-    private var shift = 0
-
     override fun start(env: ScreenEnv) {
         this.env = env
         resize(env.cols, env.rows)
@@ -92,10 +87,10 @@ class DecodeScreen : TtyScreen, PlacedRows {
         oftenUntil = now + OFTEN_FOR_MS
     }
 
-    override val rowLeft: Int get() = left + SHIFT_COLS[shift] * env.cellW
+    override val rowLeft: Int get() = left
 
     override fun rowTop(row: Int): Int =
-        if (row < count) tops[row] + SHIFT_ROWS[shift] * env.cellH else PlacedRows.UNPLACED
+        if (row < count) tops[row] else PlacedRows.UNPLACED
 
     override val restMs: Long
         get() = when {
@@ -205,10 +200,6 @@ class DecodeScreen : TtyScreen, PlacedRows {
 
     /** Starts the next wave. */
     private fun begin(grid: CellBuffer) {
-        if (waves > 0 && waves % SHIFT_EVERY == 0) {
-            shift = (shift + 1) % SHIFT_COLS.size
-            grid.dirty.set(0, grid.rows)
-        }
         val others = Wave.entries.filter { it != Wave.ALL && it != lastWave }
         val wave = if (waves == 0) Wave.ALL else others[random.nextInt(others.size)]
         lastWave = wave
@@ -275,10 +266,5 @@ class DecodeScreen : TtyScreen, PlacedRows {
         private const val ALL_STEP_MS = 40
         private const val NEW_STEP_MS = 60
         private const val NOTHING = "The log is empty"
-
-        /** Every so many waves, all of it moves to the next of these places. */
-        private const val SHIFT_EVERY = 10
-        private val SHIFT_COLS = intArrayOf(0, 1, 1, 0, -1, -1, -1, 0, 1)
-        private val SHIFT_ROWS = intArrayOf(0, 0, -1, -1, -1, 0, 1, 1, 1)
     }
 }

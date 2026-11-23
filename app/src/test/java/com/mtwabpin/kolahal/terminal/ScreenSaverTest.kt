@@ -48,7 +48,6 @@ class ScreenSaverTest {
         // Only the screens it can be; not sl, which ends by itself, nor top.
         assertEquals(Next.Never, next(saver = "sl", now = 99 * minute))
         assertEquals(Next.Never, next(saver = "top", now = 99 * minute))
-        assertEquals(Next.Never, next(after = 0, now = 99 * minute))
     }
 
     /** Not over another app, the widgets page, a sheet, the keyboard, typed text or another screen. */
@@ -84,6 +83,16 @@ class ScreenSaverTest {
         assertEquals(Next.Wait(5 * minute), next(now = 1_000L, phone = willing.copy(batterySaver = true)))
     }
 
+    /** The setting's least, 0, is half a minute: 30 seconds. */
+    @Test
+    fun theLeastIsHalfAMinute() {
+        assertEquals(30_000L, ScreenSaver.waitMs(0))
+        assertEquals(60_000L, ScreenSaver.waitMs(1))
+        assertEquals(Next.Wait(20_000L), ScreenSaver.next("matrix", 0, 0L, 10_000L, idle, willing))
+        assertEquals(Next.Open("matrix"), ScreenSaver.next("matrix", 0, 0L, 30_000L, idle, willing))
+        assertEquals(0, com.mtwabpin.kolahal.data.Keys.SCREEN_SAVER_AFTER.range.first)
+    }
+
     /** A test's short minute scales every wait. */
     @Test
     fun aShortMinute() {
@@ -106,7 +115,7 @@ class ScreenSaverTest {
             assertFalse("$value: '$note' ends with a full stop", note.endsWith("."))
         }
         assertEquals(5, Keys.SCREEN_SAVER_AFTER.default)
-        assertEquals(1..60, Keys.SCREEN_SAVER_AFTER.range)
+        assertEquals(0..60, Keys.SCREEN_SAVER_AFTER.range)
         for (key in listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER)) {
             assertEquals(key, Keys.byName(key.key))
             assertFalse(key.key, key in Keys.CONFIG_ONLY)

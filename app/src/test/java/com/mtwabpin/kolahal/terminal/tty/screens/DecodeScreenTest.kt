@@ -105,12 +105,8 @@ class DecodeScreenTest {
         for (ms in rests.drop(1)) {
             assertTrue("a rest of $ms ms", ms >= DecodeScreen.REST_MS && ms <= DecodeScreen.REST_MS + DecodeScreen.REST_MORE_MS + 200)
         }
-        // Against burn-in it all moves now and then, by a cell at most.
-        assertTrue(places.size > 2)
-        for ((x, y) in places) {
-            assertTrue("$x", x in 12 - cellW..12 + cellW)
-            assertTrue("$y", y in 100 - cellH..100 + cellH)
-        }
+        // It all stays where it is: nothing moves between waves.
+        assertEquals(setOf(12 to 100), places.toSet())
     }
 
     @Test

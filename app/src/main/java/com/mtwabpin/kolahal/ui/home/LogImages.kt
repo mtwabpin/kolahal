@@ -364,9 +364,11 @@ internal fun rememberWebImage(
  * - It is never taller than 75% of the screen.
  * - A dim note shows while it loads, or if it cannot be loaded.
  * - A see-through picture whose lines barely show on the log gets a light or a dark backdrop ([pictureBackdrop]).
+ * - While home is scrambled, a plain block stands in ([ScrambledPicture]), and nothing is fetched.
  */
 @Composable
 fun LogImage(url: String, modifier: Modifier = Modifier) {
+    if (com.mtwabpin.kolahal.terminal.Scramble.isPicture(url)) return ScrambledPicture(modifier)
     val density = LocalDensity.current
     val maxHeightPx = LocalWindowInfo.current.containerSize.height * 0.75f
     BoxWithConstraints(modifier.fillMaxWidth()) {

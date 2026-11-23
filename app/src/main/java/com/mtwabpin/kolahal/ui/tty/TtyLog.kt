@@ -70,6 +70,7 @@ import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
 import com.mtwabpin.kolahal.terminal.LogRow
+import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.Target
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.TimeMode
@@ -393,7 +394,10 @@ internal fun layoutLine(
 ): TtyLine {
     // No icons on the grid: a notification's line ends with its app's name.
     val model = lineModel(row, options)
-    val time = model.time?.let { format.format(Date(it)) }
+    // A scrambled line (`scramble`): its time and its apps' names are scrambled with it.
+    val scramble = Scramble.of(row.entry)
+    val id = row.entry.id
+    val time = model.time?.let { format.format(Date(it)) }?.let { t -> scramble?.line(t, id, Scramble.TIME) ?: t }
     val shown = if (model.body is LineModel.Body.AppGrid) apps(model.entry) else emptyList()
     val block = LineLayout.layout(
         model = model,
@@ -401,11 +405,11 @@ internal fun layoutLine(
         time = time,
         foldOpen = open,
         marks = marks,
-        apps = shown.map { app ->
+        apps = shown.mapIndexed { i, app ->
             val kind = app.profile.kind
             GridApp(
-                label = app.label,
-                tag = if (kind == ProfileKind.PERSONAL) null else kind.tag + if (app.profile.quiet) "⏸" else "",
+                label = appLabel(app, scramble, id, i),
+                tag = if (kind == ProfileKind.PERSONAL) null else (scramble?.line(kind.tag, id, Scramble.APP) ?: kind.tag) + if (app.profile.quiet) "⏸" else "",
                 tagInk = Ink.of(kind),
                 quiet = app.profile.quiet,
             )
@@ -415,6 +419,10 @@ internal fun layoutLine(
     )
     return TtyLine(model, block, time, shown)
 }
+
+/** App [i] of line [id]'s grid by its name, scrambled with the line when it is ([scramble]). */
+private fun appLabel(app: AppEntry, scramble: Scramble?, id: Long, i: Int): String =
+    scramble?.line(app.label, id, Scramble.APP * 100 + i) ?: app.label
 
 /** One log line as the TTY log shows it: its model, its cells, its time as shown, and an apps grid's apps. */
 @Immutable
@@ -644,7 +652,8 @@ private fun TtyLineRow(
             val r = t.rects.first()
             val label = when (target) {
                 is Target.Button -> target.label
-                is Target.App -> line.apps.getOrNull(target.index)?.label.orEmpty()
+                is Target.App -> line.apps.getOrNull(target.index)
+                    ?.let { appLabel(it, Scramble.of(entry), entry.id, target.index) }.orEmpty()
                 else -> foldLabel(block)
             }
             Spacer(

@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +44,12 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -59,6 +63,7 @@ import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,13 +72,23 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.KeyBarKey
+import com.mtwabpin.kolahal.terminal.tty.HeaderCells
 import com.mtwabpin.kolahal.terminal.tty.HomeCells
 import com.mtwabpin.kolahal.terminal.tty.PromptCells
+import com.mtwabpin.kolahal.ui.theme.LocalBottomCorners
+import com.mtwabpin.kolahal.ui.theme.LocalHomePage
+import com.mtwabpin.kolahal.ui.theme.ScreenCorners
 import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.cornerX
+import com.mtwabpin.kolahal.ui.theme.windowBottomCorners
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /** How long the block cursor shows, and then doesn't, while it blinks. */
 private const val BLINK_MS = 530L
+
+/** Room kept clear past what a rounded corner hides, as the header keeps at the top. */
+private val CORNER_GAP = 4.dp
 
 /**
  * What the prompt's keys do, besides typing: the same calls the GUI's prompt makes. Enter submits,
@@ -103,6 +118,10 @@ internal class PromptKeys(
  * - [value], [onValueChange]: the prompt's text; [readOnly] for Settings' preview.
  * - [height]: `prompt.height`; the row is at least as tall as its cells.
  * - [onSwipeUp]: `gesture.swipe-up` on the row, or null when none is set.
+ * Where the screen's rounded bottom corners cut the row (the keyboard down, the row at the screen's
+ * bottom), the cells they would cut at its ends stay empty, 4 dp clear included, as the header's do
+ * at the top ([LocalBottomCorners], [PromptCells.ends]): the `$` and the buttons move in by whole
+ * cells, and their targets still reach the screen's edges. A row above the corners keeps its place.
  * The tags are the GUI's: `prompt`, `prompt-quick`, `prompt-clear`, `keybar-toggle`.
  */
 @Composable
@@ -127,9 +146,41 @@ internal fun TtyPrompt(
     val density = LocalDensity.current
     val rowH = maxOf(with(density) { height.roundToPx() }, m.cellH + with(density) { 4.dp.roundToPx() })
     var focused by remember { mutableStateOf(false) }
+    // The screen's rounded bottom corners: a test's, else the window's, read where the row is placed.
+    val view = LocalView.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val givenCorners = LocalBottomCorners.current
+    val gap = with(density) { CORNER_GAP.roundToPx() }
+    val homePage = LocalHomePage.current
+    // The row's place in the window, once it is placed. Its x is on home's page, which slides while
+    // home turns to the widgets page (cornerX), so the ends keep their place on the page as it slides.
+    var placed by remember { mutableStateOf<IntRect?>(null) }
+    // The cells left empty before the `$` and after the buttons. They change only when the row moves
+    // into the corners or out, so the keyboard's animation builds the row again only then.
+    val ends by remember(givenCorners, view, rtl, frame, rowH, gap) {
+        derivedStateOf {
+            val at = placed ?: return@derivedStateOf 0 to 0
+            val corners = givenCorners ?: windowBottomCorners(view)
+            // The rows of the cells, centered in the row.
+            val top = at.top + (rowH - m.cellH) / 2
+            val bottom = top + m.cellH
+            val free = HeaderCells.zones(
+                frame.cols,
+                frame.originX,
+                frame.cellW,
+                emptyList(),
+                gap,
+                cornerLeft = ScreenCorners.hiddenBottomLeft(corners.left, top, bottom, edge = at.left),
+                cornerRight = ScreenCorners.hiddenBottomRight(corners.right, top, bottom, edge = at.left + frame.widthPx),
+                widthPx = frame.widthPx,
+            )
+            PromptCells.ends(frame.cols, free, rtl)
+        }
+    }
+    val (lead, trail) = ends
     val text = value.text
     val clear = text.isNotEmpty()
-    val width = PromptCells.textCols(frame.cols, clear)
+    val width = PromptCells.textCols(frame.cols - lead - trail, clear)
     // The first column of the text that shows: it moves only as far as keeps the cursor in view.
     val last = remember { intArrayOf(0) }
     val first = remember(text, value.selection.end, width) {
@@ -138,11 +189,11 @@ internal fun TtyPrompt(
     val selStart = value.selection.start
     val selEnd = value.selection.end
     val comp = value.composition
-    val on = remember(text, selStart, selEnd, comp, first, frame, keyBarOn) {
-        PromptCells.row(text, selStart, selEnd, cursor = true, first = first, cols = frame.cols, keyBarOn = keyBarOn, compStart = comp?.start ?: -1, compEnd = comp?.end ?: -1)
+    val on = remember(text, selStart, selEnd, comp, first, frame, keyBarOn, lead, trail) {
+        PromptCells.row(text, selStart, selEnd, cursor = true, first = first, cols = frame.cols, keyBarOn = keyBarOn, compStart = comp?.start ?: -1, compEnd = comp?.end ?: -1, lead = lead, trail = trail)
     }
-    val off = remember(text, selStart, selEnd, comp, first, frame, keyBarOn) {
-        PromptCells.row(text, selStart, selEnd, cursor = false, first = first, cols = frame.cols, keyBarOn = keyBarOn, compStart = comp?.start ?: -1, compEnd = comp?.end ?: -1)
+    val off = remember(text, selStart, selEnd, comp, first, frame, keyBarOn, lead, trail) {
+        PromptCells.row(text, selStart, selEnd, cursor = false, first = first, cols = frame.cols, keyBarOn = keyBarOn, compStart = comp?.start ?: -1, compEnd = comp?.end ?: -1, lead = lead, trail = trail)
     }
     // The cursor blinks while the prompt has the focus, and stays on while typing. It stands still
     // when the phone's animations are off, while a dialog or a sheet has the window's focus, and
@@ -176,6 +227,11 @@ internal fun TtyPrompt(
         Modifier
             .fillMaxWidth()
             .exactHeight(rowH)
+            .onPlaced {
+                val x = cornerX(it, homePage).roundToInt()
+                val y = it.positionInWindow().y.roundToInt()
+                placed = IntRect(x, y, x + it.size.width, y + it.size.height)
+            }
             .then(
                 if (onSwipeUp == null) Modifier else Modifier.pointerInput(Unit) {
                     var total = 0f
@@ -208,7 +264,7 @@ internal fun TtyPrompt(
             onFocus = { focused = it; onFocus(it) },
             keys = keys,
             frame = frame,
-            x = frame.originX + PromptCells.LEAD * m.cellW,
+            x = frame.originX + (lead + PromptCells.LEAD) * m.cellW,
             width = width,
             height = rowH,
             first = first,

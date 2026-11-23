@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -40,6 +41,8 @@ import com.mtwabpin.kolahal.data.Backup
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.MaterialYou
 import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.UsageWatch
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.terminal.Screen
@@ -48,6 +51,7 @@ import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.ui.CreateTextFile
 import com.mtwabpin.kolahal.ui.TextEditorActivity
 import com.mtwabpin.kolahal.ui.editor.ScriptEditor
+import com.mtwabpin.kolahal.ui.editor.ShaderEditor
 import com.mtwabpin.kolahal.ui.feeds.FeedsScreen
 import com.mtwabpin.kolahal.ui.home.HomeClock
 import com.mtwabpin.kolahal.ui.home.HomeScreenOverlay
@@ -66,7 +70,9 @@ import com.mtwabpin.kolahal.ui.settings.SetupScreen
 import com.mtwabpin.kolahal.ui.settings.ShadersOverHome
 import com.mtwabpin.kolahal.ui.settings.ThemeBuilderScreen
 import com.mtwabpin.kolahal.ui.shaders.GetShadersScreen
+import com.mtwabpin.kolahal.ui.theme.HomePage
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.theme.LocalHomePage
 import com.mtwabpin.kolahal.ui.theme.MaterialYouPalettes
 import com.mtwabpin.kolahal.ui.theme.Term
 import com.mtwabpin.kolahal.ui.theme.applyTermSettings
@@ -274,6 +280,10 @@ class MainActivity : ComponentActivity() {
         if (WallpaperChoice.supported) lifecycleScope.launch {
             WallpaperWriter.run(applicationContext)
         }
+        // Unlocks and screen time for the shaders that follow them, here and in the live wallpaper.
+        if (Shaders.supported) lifecycleScope.launch {
+            UsageWatch.run(applicationContext, lifecycle)
+        }
         lifecycleScope.launch {
             androidx.compose.runtime.snapshotFlow { vm.previewed }.collect { applyTheme() }
         }
@@ -327,8 +337,8 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The window's content: the script editor, or home and the other screens, and the dialogs over
-     * them.
+     * The window's content: the script editor or the shader editor, or home and the other screens, and
+     * the dialogs over them.
      */
     private fun setHomeContent() {
         setContent {
@@ -338,6 +348,8 @@ class MainActivity : ComponentActivity() {
                 val saved = rememberSaveableStateHolder()
                 val editing by vm.editing.collectAsStateWithLifecycle()
                 val script = editing
+                val editingShader by vm.shaderActions.editing.collectAsStateWithLifecycle()
+                val shader = editingShader
                 // A launcher never "goes back" from the home screen. The editor installs its own handler.
                 BackHandler(enabled = script == null) { }
                 if (script != null) {
@@ -369,6 +381,21 @@ class MainActivity : ComponentActivity() {
                             },
                             runLines = { since -> vm.runLines(script.name, since) },
                             onClose = vm::closeEditor,
+                        )
+                    }
+                } else if (shader != null) {
+                    // A shader's code, from its sheet or `shader edit`. Solid, as the script editor is.
+                    androidx.compose.foundation.layout.Box(
+                        androidx.compose.ui.Modifier
+                            .fillMaxSize()
+                            .background(Term.bg),
+                    ) {
+                        ShaderEditor(
+                            name = shader.name,
+                            code = shader.code,
+                            bundled = shader.bundled,
+                            onSave = { code -> vm.shaderActions.save(shader.name, code) },
+                            onClose = vm.shaderActions::closeEditor,
                         )
                     }
                 } else {
@@ -422,6 +449,7 @@ class MainActivity : ComponentActivity() {
                                 Screen.ONBOARDING -> OnboardingScreen(vm)
                                 Screen.WIDGETS -> WidgetsScreen(
                                     vm,
+                                    onSettings = { widgetBinder.reconfigure(it) },
                                     onReAdd = { entry, w -> widgetBinder.add(entry, w.key) })
 
                                 Screen.WIDGET_PICKER -> WidgetPickerScreen(
@@ -732,7 +760,19 @@ private fun HomePager(
         ) { page ->
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
                 if (page == terminalPage) {
-                    androidx.compose.runtime.CompositionLocalProvider(LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
+                    // The prompt and the header measure the screen's corners from where they are on this page,
+                    // which slides while home turns, not from where they are in the window.
+                    val homePage = androidx.compose.runtime.remember { HomePage() }
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        LocalTerminalShown provides (pager.currentPage == terminalPage),
+                        LocalHomePage provides homePage,
+                    ) {
+                        androidx.compose.foundation.layout.Box(
+                            androidx.compose.ui.Modifier
+                                .fillMaxSize()
+                                .onPlaced { homePage.coordinates = it },
+                        ) { terminal() }
+                    }
                 } else {
                     // The pager keeps this page composed beside the log. Its cards move and ask for runs only
                     // while the pager has settled on it.

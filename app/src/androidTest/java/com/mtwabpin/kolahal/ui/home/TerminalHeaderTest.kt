@@ -1,12 +1,16 @@
 package com.mtwabpin.kolahal.ui.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -18,6 +22,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -26,8 +31,13 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.HeaderTarget
+import com.mtwabpin.kolahal.ui.theme.HomePage
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.theme.LocalHomePage
+import com.mtwabpin.kolahal.ui.theme.LocalTopCorners
+import com.mtwabpin.kolahal.ui.theme.ScreenCorner
 import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.TopCorners
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -50,24 +60,29 @@ class TerminalHeaderTest {
     private var todos by mutableIntStateOf(2)
     private var version by mutableIntStateOf(0)
 
+    /** The screen's corners the header sees: square, whatever the emulator's screen has, unless a test sets some. */
+    private var corners by mutableStateOf<TopCorners?>(TopCorners.NONE)
+
     @get:Rule
     val configReset = ConfigReset()
 
     /** The header, drawn once; [status], [todos] and settings (with [version]) change it after. */
     private fun show(width: Dp = 400.dp) = compose.setContent {
         KolahalTheme {
-            Box(Modifier.width(width)) {
-                Header(
-                    status = status,
-                    unlocks = 7,
-                    profiles = emptyList(),
-                    todoCount = todos,
-                    config = config,
-                    version = version,
-                    onTarget = { taps += it },
-                    onProfileTap = {},
-                    onSwipeDown = { swipes++ },
-                )
+            CompositionLocalProvider(LocalTopCorners provides corners) {
+                Box(Modifier.width(width)) {
+                    Header(
+                        status = status,
+                        unlocks = 7,
+                        profiles = emptyList(),
+                        todoCount = todos,
+                        config = config,
+                        version = version,
+                        onTarget = { taps += it },
+                        onProfileTap = {},
+                        onSwipeDown = { swipes++ },
+                    )
+                }
             }
         }
     }
@@ -206,6 +221,108 @@ class TerminalHeaderTest {
                 val right = with(compose.density) { node.boundsInRoot.right.toDp() }
                 assertTrue("$tag ends at $right, the line at ${line.right}", right <= line.right)
             }
+        }
+    }
+
+    /**
+     * Rounded screen corners: the line's ends start past what they hide over its text, so the time
+     * moves in. The preview in Settings is not at the screen's corner, so it stays where it was.
+     */
+    @Test
+    fun theCornersMoveTheEndsInButNotThePreview() {
+        val lineWidth = 400.dp
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalTopCorners provides corners) {
+                    Column(Modifier.width(lineWidth)) {
+                        Header(
+                            status = status,
+                            unlocks = 7,
+                            profiles = emptyList(),
+                            todoCount = todos,
+                            config = config,
+                            version = version,
+                            onTarget = {},
+                            onProfileTap = {},
+                            onSwipeDown = {},
+                        )
+                        Header(
+                            status = status,
+                            unlocks = 7,
+                            profiles = emptyList(),
+                            todoCount = todos,
+                            config = config,
+                            version = version,
+                            onTarget = {},
+                            onProfileTap = {},
+                            onSwipeDown = {},
+                            preview = true,
+                        )
+                    }
+                }
+            }
+        }
+        // The line's time first, the preview's second.
+        fun timeLeft(i: Int) = compose.onAllNodesWithTag("header-time")[i].getUnclippedBoundsInRoot().left
+        val line = timeLeft(0)
+        val preview = timeLeft(1)
+        // Corners of 400 px centered 400 px in from each side and from the top: they cut well into
+        // both lines, wherever the test's window puts them under the status bar.
+        val widthPx = with(compose.density) { lineWidth.roundToPx() }
+        compose.runOnIdle {
+            corners = TopCorners(ScreenCorner(400, 400, 400), ScreenCorner(400, widthPx - 400, 400))
+        }
+        val moved = timeLeft(0)
+        assertTrue("the time at $moved, at $line without corners", moved >= line + 4.dp)
+        assertEquals(preview, timeLeft(1))
+    }
+
+    /**
+     * While home turns to or from the widgets page, the log's page slides. The corners belong to the
+     * screen, so the line's parts keep where they stand on the page at rest and move with it
+     * ([LocalHomePage]): none of them is dropped on the way.
+     */
+    @Test
+    fun thePartsMoveWithTheirPage() {
+        val lineWidth = 400.dp
+        val widthPx = with(compose.density) { lineWidth.roundToPx() }
+        corners = TopCorners(ScreenCorner(400, 400, 400), ScreenCorner(400, widthPx - 400, 400))
+        val page = HomePage()
+        var shift by mutableIntStateOf(0)
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalTopCorners provides corners, LocalHomePage provides page) {
+                    Box(
+                        Modifier
+                            .width(lineWidth)
+                            .offset { IntOffset(shift, 0) }
+                            .onPlaced { page.coordinates = it },
+                    ) {
+                        Header(
+                            status = status,
+                            unlocks = 7,
+                            profiles = emptyList(),
+                            todoCount = todos,
+                            config = config,
+                            version = version,
+                            onTarget = {},
+                            onProfileTap = {},
+                            onSwipeDown = {},
+                        )
+                    }
+                }
+            }
+        }
+        fun left(tag: String) = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot().left
+        val time = left("header-time")
+        val battery = left("header-battery")
+        // Halfway through a turn either way: the parts move with the page, by as much as it does.
+        for (s in listOf(widthPx / 2, -widthPx / 2)) {
+            compose.runOnIdle { shift = s }
+            compose.waitForIdle()
+            val by = with(compose.density) { s.toDp() }
+            assertEquals((time + by).value, left("header-time").value, 1f)
+            assertEquals((battery + by).value, left("header-battery").value, 1f)
         }
     }
 }

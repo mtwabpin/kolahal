@@ -74,6 +74,7 @@ import com.mtwabpin.kolahal.terminal.Gutter
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
 import com.mtwabpin.kolahal.terminal.LogRow
+import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.terminal.lineModel
 import com.mtwabpin.kolahal.terminal.plainOf
@@ -93,7 +94,7 @@ fun DayDivider(row: LogRow.Day, today: LocalDate) {
         if (row.day == today.minusDays(1)) "Yesterday"
         else row.day.format(com.mtwabpin.kolahal.data.TimeFormats.dayFormat(LocalConfiguration.current.locales[0]))
     LogText(
-        "── $label ──",
+        "── ${row.scramble?.text(label, Scramble.DAY) ?: label} ──",
         style = Term.small,
         modifier = Modifier.padding(top = 14.dp, bottom = 4.dp),
     )
@@ -180,7 +181,7 @@ fun LogLine(
 internal fun rememberLineModel(row: LogRow.Entry, options: LineOptions): LineModel {
     val context = LocalContext.current
     val iconSaved =
-        row.entry.ctx.values[LogContext.ICON]?.let { NotifIcons.has(context, it) } == true
+        row.entry.ctx.values[LogContext.ICON]?.let { Scramble.isPicture(it) || NotifIcons.has(context, it) } == true
     return remember(row, options, iconSaved) { lineModel(row, options) { iconSaved } }
 }
 
@@ -450,7 +451,9 @@ fun LogLine(
                             AppGrid(
                                 remember(entry.id, entry.ctx, installed) { apps(entry) },
                                 onAppTap,
-                                onAppLongPress
+                                onAppLongPress,
+                                Scramble.of(entry),
+                                entry.id,
                             )
                         }
 
@@ -545,8 +548,14 @@ fun LogLine(
                 }
                 model.time?.let { time ->
                     Spacer(Modifier.width(8.dp))
+                    // A scrambled line's time is scrambled with it.
+                    val scramble = Scramble.of(entry)
                     LogText(
-                        remember(time, timeFormat) { timeFormat.format(Date(time)) },
+                        remember(time, timeFormat, scramble) {
+                            timeFormat.format(Date(time)).let { t ->
+                                scramble?.line(t, entry.id, Scramble.TIME) ?: t
+                            }
+                        },
                         // Trimmed like the line, so it never makes the line taller.
                         style = timeStyle,
                         modifier = Modifier.padding(top = timeShift),
@@ -768,12 +777,14 @@ private object NameWidth {
     }
 }
 
-/** `apps` output: one line of chips instead of one line per app. */
+/** `apps` output: one line of chips instead of one line per app. With [scramble], their names are scrambled as line [id] is. */
 @Composable
 private fun AppGrid(
     apps: List<AppEntry>,
     onTap: (AppEntry) -> Unit,
-    onLongPress: (AppEntry) -> Unit
+    onLongPress: (AppEntry) -> Unit,
+    scramble: Scramble?,
+    id: Long,
 ) {
     val haptics = LocalHapticFeedback.current
     if (apps.isEmpty()) {
@@ -785,7 +796,7 @@ private fun AppGrid(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.padding(vertical = 4.dp),
     ) {
-        apps.forEach { app ->
+        apps.forEachIndexed { i, app ->
             val color = Term.profileColor(app.profile.kind)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -804,7 +815,7 @@ private fun AppGrid(
             ) {
                 if (app.profile.kind != ProfileKind.PERSONAL) {
                     LogText(
-                        app.profile.kind.tag + if (app.profile.quiet) "⏸" else "",
+                        (scramble?.line(app.profile.kind.tag, id, Scramble.APP) ?: app.profile.kind.tag) + if (app.profile.quiet) "⏸" else "",
                         style = Term.text.copy(
                             color = color,
                             fontWeight = FontWeight.Bold,
@@ -813,7 +824,7 @@ private fun AppGrid(
                     )
                     Spacer(Modifier.width(6.dp))
                 }
-                LogText(app.label, style = Term.text)
+                LogText(scramble?.line(app.label, id, Scramble.APP * 100 + i) ?: app.label, style = Term.text)
             }
         }
     }
@@ -821,6 +832,16 @@ private fun AppGrid(
 
 @Composable
 internal fun NotifIcon(key: String) {
+    // A scrambled line's icon ([Scramble.PICTURE]): a plain block in its place.
+    if (Scramble.isPicture(key)) {
+        androidx.compose.foundation.layout.Box(
+            Modifier
+                .fillMaxSize()
+                .background(Term.dim, RoundedCornerShape(2.dp))
+                .testTag("scrambled-icon")
+        )
+        return
+    }
     val context = LocalContext.current
     val icon by produceState(NotifIcons.cached(key), key) {
         if (value == null) value =

@@ -18,9 +18,11 @@ import kotlin.math.floor
  * - battery `▕██▌▏82%`, with `↯` while charging;
  * - a profile as its tag, inverse in the profile's color (` W `), muted while it is off;
  * - settings `⚙`.
+ * - while home is scrambled, `scrambled` in the warning color, first on the left.
  * Parts that don't fit are dropped from the middle outward, as the GUI drops them: the left side
  * loses its last part first, the right side its first. A camera cutout across the row splits it
- * into zones ([zones]); the parts flow around it.
+ * into zones ([zones]); the parts flow around it. Cells that the screen's rounded corners would
+ * cut, at the row's ends, are left empty the same way.
  *
  * A part's spot id is its index in `left + right`.
  */
@@ -51,6 +53,7 @@ object HeaderCells {
 
             HeaderPart.Kind.SETTINGS -> listOf(Seg(SETTINGS, muted))
             HeaderPart.Kind.BATTERY -> listOf(Seg(part.text, ink))
+            HeaderPart.Kind.SCRAMBLE -> listOf(Seg(part.text, ink))
         }
     }
 
@@ -98,10 +101,27 @@ object HeaderCells {
      * The columns of a row [cols] wide that are free of the cutouts, as pixel ranges [cutouts]
      * across a row whose first cell starts at [originX] and whose cells are [cellW] pixels wide.
      * Each cutout keeps [gap] pixels clear on both sides; a cell that touches it is not free.
+     * [cornerLeft] and [cornerRight]: the pixels the screen's rounded corners hide at the row's left
+     * end and at its right end, [widthPx] from the left. They are kept clear as a cutout is, so a
+     * cell that a corner would cut stays empty.
      */
-    fun zones(cols: Int, originX: Int, cellW: Int, cutouts: List<IntRange>, gap: Int): List<IntRange> {
+    fun zones(
+        cols: Int,
+        originX: Int,
+        cellW: Int,
+        cutouts: List<IntRange>,
+        gap: Int,
+        cornerLeft: Int = 0,
+        cornerRight: Int = 0,
+        widthPx: Int = 2 * originX + cols * cellW,
+    ): List<IntRange> {
         var zones = listOf(0 until cols)
-        for (c in cutouts) {
+        // A corner is a cutout at the row's end.
+        val all = cutouts + listOfNotNull(
+            if (cornerLeft > 0) 0 until cornerLeft else null,
+            if (cornerRight > 0) (widthPx - cornerRight) until widthPx else null,
+        )
+        for (c in all) {
             val from = floor((c.first - gap - originX).toDouble() / cellW).toInt()
             val to = ceil((c.last + 1 + gap - originX).toDouble() / cellW).toInt() - 1
             zones = zones.flatMap { z ->

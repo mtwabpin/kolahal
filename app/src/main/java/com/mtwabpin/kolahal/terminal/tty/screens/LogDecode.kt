@@ -4,7 +4,6 @@
 package com.mtwabpin.kolahal.terminal.tty.screens
 
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -38,14 +37,17 @@ class LogDecode {
     var now by mutableLongStateOf(0L)
         private set
 
-    /** Against burn-in the log moves by a little, now and then: an index into [SHIFTS]. */
-    var shift by mutableIntStateOf(0)
-        private set
-
     /** The wave that runs or ran last, and when it began. */
     var wave: DecodeWave? = null
         private set
     var waveAt = 0L
+        private set
+
+    /**
+     * Counts the runs. `decode` is one run, however many waves it shows; `scramble` starts a run for
+     * each wave, with the time from 0 again.
+     */
+    var runs = 0
         private set
 
     private val parts = LinkedHashSet<Part>()
@@ -65,15 +67,22 @@ class LogDecode {
 
     internal fun start(by: Any, random: Random, rowPx: Int) {
         owner = by
+        runs++
         this.random = random
         this.rowPx = rowPx.coerceAtLeast(1)
         wave = null
         waves = 0
-        shift = 0
         now = 0L
         nextWave = DecodeScreen.FIRST_MS
         active = true
     }
+
+    /**
+     * How long ago, in ms, a text came that came at [born] during the run [bornIn]. Null when the text
+     * is to follow the waves as one that was there before them: it came before the first wave
+     * ([born] below 0), or during an earlier run, whose time doesn't count in this one.
+     */
+    fun age(born: Long, bornIn: Int): Long? = if (born < 0 || bornIn != runs) null else now - born
 
     internal fun frame(timeMs: Long) {
         if (timeMs >= nextWave) begin(timeMs)
@@ -86,13 +95,11 @@ class LogDecode {
         owner = null
         active = false
         wave = null
-        shift = 0
     }
 
     private fun begin(timeMs: Long) {
         val places = parts.mapNotNull { it.place() }
         if (places.isEmpty()) return
-        if (waves > 0 && waves % SHIFT_EVERY == 0) shift = (shift + 1) % SHIFTS.size
         val others = DecodeWave.Kind.entries.filter { it != DecodeWave.Kind.ALL && it != wave?.kind }
         val one = places[random.nextInt(places.size)]
         val next = DecodeWave(
@@ -107,13 +114,6 @@ class LogDecode {
         wave = next
         waveAt = timeMs
         nextWave = timeMs + next.lengthMs + DecodeScreen.REST_MS + random.nextInt(DecodeScreen.REST_MORE_MS)
-    }
-
-    companion object {
-        /** Every so many waves, the log moves to the next of these places, in thirds of a row. */
-        private const val SHIFT_EVERY = 10
-        val SHIFTS: List<Pair<Int, Int>> =
-            listOf(0 to 0, 1 to 0, 1 to -1, 0 to -1, -1 to -1, -1 to 0, -1 to 1, 0 to 1, 1 to 1)
     }
 }
 

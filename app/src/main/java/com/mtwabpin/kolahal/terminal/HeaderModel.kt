@@ -38,12 +38,30 @@ data class HeaderPart(
     val battery: Int? = null,
     val charging: Boolean = false,
 ) {
-    enum class Kind { TIME, DATE, ALARM, TODO, NETWORK, UNLOCKS, PROFILE, SETTINGS, BATTERY }
+    /** [SCRAMBLE]: home is scrambled (`scramble`); it isn't a part one can choose. */
+    enum class Kind { TIME, DATE, ALARM, TODO, NETWORK, UNLOCKS, PROFILE, SETTINGS, BATTERY, SCRAMBLE }
 }
 
 /** The header's parts on each side, in their order. */
 @Immutable
-data class HeaderParts(val left: List<HeaderPart>, val right: List<HeaderPart>)
+data class HeaderParts(val left: List<HeaderPart>, val right: List<HeaderPart>) {
+    /**
+     * These parts with `scramble`'s first on the left, where it always shows: home's log has no
+     * real text now, and whoever is about to record the screen sees so.
+     */
+    fun scrambled(): HeaderParts = copy(left = listOf(SCRAMBLED) + left)
+
+    companion object {
+        val SCRAMBLED = HeaderPart(
+            HeaderPart.Kind.SCRAMBLE,
+            "scrambled",
+            Ink.WARN,
+            "scramble",
+            "scramble",
+            description = "Home is scrambled",
+        )
+    }
+}
 
 /** The header's parts as [config] lists them (`header.left`, `header.right`), at [now]. */
 fun headerParts(

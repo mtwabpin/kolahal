@@ -71,6 +71,29 @@ class HomeCellsTest {
         for (c in 14..19) assertEquals(CellBuffer.EMPTY, cells.grid.glyphAt(c, 0))
     }
 
+    /** A cell that a rounded screen corner would cut, with 4 px clear past it, is left empty at that end. */
+    @Test
+    fun theCornersLeaveTheirCellsEmpty() {
+        // Cells 10 px wide from x 5 on a row 410 px wide; the corners hide 20 px at each end.
+        // Cell 1 (x 15–24) touches the 4 px past the left corner; cell 38 (x 385–394) the 4 px before the right one.
+        val zones = HeaderCells.zones(40, 5, 10, emptyList(), 4, cornerLeft = 20, cornerRight = 20, widthPx = 410)
+        assertEquals(listOf(2..37), zones)
+        // Each side on its own, and with a cutout in the middle.
+        assertEquals(listOf(2..39), HeaderCells.zones(40, 5, 10, emptyList(), 4, cornerLeft = 20, widthPx = 410))
+        assertEquals(listOf(0..37), HeaderCells.zones(40, 5, 10, emptyList(), 4, cornerRight = 20, widthPx = 410))
+        assertEquals(
+            listOf(2..13, 19..37),
+            HeaderCells.zones(40, 5, 10, listOf(150..189), 4, cornerLeft = 20, cornerRight = 20, widthPx = 410)
+        )
+        // A corner within the grid's margin, 4 px clear included, leaves every cell; so do square corners.
+        assertEquals(listOf(0..39), HeaderCells.zones(40, 5, 10, emptyList(), 4, cornerLeft = 1, cornerRight = 1, widthPx = 410))
+        assertEquals(listOf(0..39), HeaderCells.zones(40, 5, 10, emptyList(), 4, widthPx = 410))
+        val cells = HeaderCells.row(HeaderParts(listOf(time, date), listOf(battery)), 40, zones)
+        assertTrue(cells.text(), cells.text().startsWith("  14:02  Tue 17 Nov"))
+        assertTrue(cells.text(), cells.text().endsWith("82%"))
+        for (c in listOf(0, 1, 38, 39)) assertEquals(CellBuffer.EMPTY, cells.grid.glyphAt(c, 0))
+    }
+
     @Test
     fun theBatteryShowsItsLevelAndCharging() {
         val charging = part(HeaderPart.Kind.BATTERY, "100%", "battery", Ink.PROMPT, battery = 100, charging = true)
@@ -134,6 +157,37 @@ class HomeCellsTest {
         // The cursor inside the text inverts the character under it; no cursor without the focus.
         assertTrue(PromptCells.row("ls", 0, 0, cursor = true, first = 0, cols = 20, keyBarOn = false).style(2).has(CellStyle.INVERSE))
         assertFalse(PromptCells.row("ls", 0, 0, cursor = false, first = 0, cols = 20, keyBarOn = false).style(2).has(CellStyle.INVERSE))
+    }
+
+    /**
+     * The prompt at the bottom of a phone 1080 px wide, 46 cells of 22 px from x 34, where the rounded
+     * corners hide 36 px at each end of its cells' rows. Cell 0 (x 34–55) is within 11 px (4 dp) of the
+     * left corner, so the `$` moves a cell in. The last cell is only the key bar button's room, so the
+     * buttons stay.
+     */
+    @Test
+    fun theCornersMoveThePromptsEndsIn() {
+        val free = HeaderCells.zones(46, 34, 22, emptyList(), 11, cornerLeft = 36, cornerRight = 36, widthPx = 1080)
+        assertEquals(listOf(1..44), free)
+        assertEquals(1 to 0, PromptCells.ends(46, free, rtl = false))
+        // Uneven: the `$` takes its side's cells, the buttons one fewer. In a right-to-left layout the `$` is on the right.
+        assertEquals(2 to 2, PromptCells.ends(46, listOf(2..42), rtl = false))
+        assertEquals(3 to 1, PromptCells.ends(46, listOf(2..42), rtl = true))
+        // Square corners, or a row above them: nothing moves.
+        assertEquals(0 to 0, PromptCells.ends(46, listOf(0..45), rtl = false))
+        assertEquals(0 to 0, PromptCells.ends(46, emptyList(), rtl = false))
+
+        val cells = PromptCells.row("ls", 2, 2, cursor = true, first = 0, cols = 20, keyBarOn = false, lead = 1, trail = 1)
+        assertTrue(cells.text(), cells.text().startsWith(" $ ls"))
+        assertEquals(CellBuffer.EMPTY, cells.grid.glyphAt(0, 0))
+        assertEquals(CellBuffer.EMPTY, cells.grid.glyphAt(19, 0))
+        // The cursor after the text, the targets moved with what they show.
+        assertTrue(cells.style(5).has(CellStyle.INVERSE))
+        assertEquals(CellRect(1, 0, 2, 1), cells.spot(PromptCells.QUICK)!!.rect)
+        assertEquals(CellRect(13, 0, 3, 1), cells.spot(PromptCells.CLEAR)!!.rect)
+        assertEquals(CellRect(16, 0, 3, 1), cells.spot(PromptCells.KEYS)!!.rect)
+        // Turned around for a right-to-left layout, the `$` stands a cell in from the right.
+        assertEquals('$'.code, cells.mirrored.grid.glyphAt(18, 0))
     }
 
     @Test

@@ -182,6 +182,7 @@ private class ShownLogReport(
     }
 }
 
-/** A day's divider as the log names it: "Yesterday", or its date. */
+/** A day's divider as the log names it: "Yesterday", or its date; scrambled while the log is ([LogRow.Day.scramble]). */
 internal fun dayLabel(row: LogRow.Day, today: LocalDate, locale: Locale): String =
-    if (row.day == today.minusDays(1)) "Yesterday" else row.day.format(TimeFormats.dayFormat(locale))
+    (if (row.day == today.minusDays(1)) "Yesterday" else row.day.format(TimeFormats.dayFormat(locale)))
+        .let { label -> row.scramble?.text(label, com.mtwabpin.kolahal.terminal.Scramble.DAY) ?: label }

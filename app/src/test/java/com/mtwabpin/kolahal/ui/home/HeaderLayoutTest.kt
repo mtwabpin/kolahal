@@ -14,6 +14,35 @@ class HeaderLayoutTest {
         assertEquals(listOf(46..989), HeaderLayout.zones(1000, 10, listOf(0..40), 5))
     }
 
+    /**
+     * The screen's rounded corners hide 36 px at each end (the phone of ScreenCornersTest): each end
+     * starts 11 px past them (4 dp there) instead of 23 (8 dp). A corner that hides less keeps 23.
+     */
+    @Test
+    fun theCornersMoveTheEndsIn() {
+        assertEquals(listOf(47..1032), HeaderLayout.zones(1080, 23, emptyList(), 11, cornerLeft = 36, cornerRight = 36))
+        // Each side on its own.
+        assertEquals(listOf(47..1056), HeaderLayout.zones(1080, 23, emptyList(), 11, cornerLeft = 36))
+        assertEquals(listOf(23..1032), HeaderLayout.zones(1080, 23, emptyList(), 11, cornerRight = 36))
+        // Small corners and square ones change nothing.
+        assertEquals(listOf(23..1056), HeaderLayout.zones(1080, 23, emptyList(), 11, cornerLeft = 5, cornerRight = 12))
+        assertEquals(listOf(23..1056), HeaderLayout.zones(1080, 23, emptyList(), 11))
+        // With the camera in the middle as well.
+        assertEquals(
+            listOf(47..488, 591..1032),
+            HeaderLayout.zones(1080, 23, listOf(500..579), 11, cornerLeft = 36, cornerRight = 36)
+        )
+        // The parts follow: the time starts past the left corner, the battery ends before the right one.
+        val p = HeaderLayout.place(
+            HeaderLayout.zones(1080, 23, listOf(500..579), 11, cornerLeft = 36, cornerRight = 36),
+            left = listOf(100, 120),
+            right = listOf(80),
+            spacing = 10
+        )
+        assertEquals(listOf(47, 157), p.left)
+        assertEquals(listOf(953), p.right)
+    }
+
     /** The left side starts the first stretch; the right side ends the last one, in its order. */
     @Test
     fun theSidesGoToTheirEnds() {

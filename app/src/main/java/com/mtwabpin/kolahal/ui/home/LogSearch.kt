@@ -211,6 +211,8 @@ fun LogFilterBar(
     onClear: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // While home is scrambled, so is the name of what the log shows only.
+    val label = scrambledFilter(filter.label, LocalScramble.current)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -224,7 +226,7 @@ fun LogFilterBar(
                 append("only ")
                 withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) {
                     append(
-                        filter.label
+                        label
                     )
                 }
                 append(" · $count line" + if (count == 1) "" else "s")

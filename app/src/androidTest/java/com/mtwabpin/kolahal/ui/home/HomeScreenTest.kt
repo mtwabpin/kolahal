@@ -6,10 +6,18 @@ import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
@@ -35,6 +43,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -50,7 +59,12 @@ import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.terminal.lineTimeFormat
+import com.mtwabpin.kolahal.ui.theme.BottomCorners
+import com.mtwabpin.kolahal.ui.theme.HomePage
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.theme.LocalBottomCorners
+import com.mtwabpin.kolahal.ui.theme.LocalHomePage
+import com.mtwabpin.kolahal.ui.theme.ScreenCorner
 import com.mtwabpin.kolahal.ui.theme.Term
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
@@ -605,6 +619,93 @@ class HomeScreenTest {
             assertEquals(Term.fontSize, config[Keys.FONT_SIZE])
         } finally {
             Term.fontSize = before
+        }
+    }
+
+    /**
+     * Rounded screen corners at the bottom: where they cut the prompt's line, the `$` and the key bar
+     * button move in past what they hide, and their targets still start and end where they did. A line
+     * above the corners keeps its place.
+     */
+    @Test
+    fun theBottomCornersMoveThePromptsEndsIn() {
+        val vm = vms.terminal(app)
+        var corners by mutableStateOf<BottomCorners?>(BottomCorners.NONE)
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalBottomCorners provides corners) {
+                    Box(Modifier.size(360.dp, 700.dp)) {
+                        TerminalScreen(vm, preview = TerminalViewModel.Peek(null, typing = false))
+                    }
+                }
+            }
+        }
+        fun bounds(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        fun icon() = compose.onNodeWithContentDescription("Key bar", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val field = bounds("prompt")
+        val quick = bounds("prompt-quick")
+        val toggle = bounds("keybar-toggle")
+        val keys = icon()
+        assertTrue("the text starts at ${field.left}", field.left < 150f)
+        // Corners of 100 px centered 150 px in from each side, near the window's top: every row lower
+        // than 101 px is past their circles, so they hide 150 px at each end of the line.
+        val widthPx = with(compose.density) { 360.dp.roundToPx() }
+        compose.runOnIdle { corners = BottomCorners(ScreenCorner(100, 150, 1), ScreenCorner(100, widthPx - 150, 1)) }
+        compose.waitForIdle()
+        assertTrue("the text starts at ${bounds("prompt").left}", bounds("prompt").left > 150f)
+        assertTrue("the key bar icon ends at ${icon().right}", icon().right < widthPx - 150f)
+        assertEquals(quick.left, bounds("prompt-quick").left, 1f)
+        assertEquals(toggle.right, bounds("keybar-toggle").right, 1f)
+        // The same corners far under the line: it keeps its place.
+        compose.runOnIdle {
+            corners = BottomCorners(ScreenCorner(100, 150, 100_000), ScreenCorner(100, widthPx - 150, 100_000))
+        }
+        compose.waitForIdle()
+        assertEquals(field.left, bounds("prompt").left, 1f)
+        assertEquals(keys.right, icon().right, 1f)
+    }
+
+    /**
+     * While home turns to or from the widgets page, the log's page slides. The corners belong to the
+     * screen, so the prompt's ends keep where they stand on the page at rest and move with it
+     * ([LocalHomePage]).
+     */
+    @Test
+    fun thePromptsEndsMoveWithTheirPage() {
+        val vm = vms.terminal(app)
+        val widthPx = with(compose.density) { 360.dp.roundToPx() }
+        // Corners that hide 150 px at each end of every row, as in the test above.
+        val corners = BottomCorners(ScreenCorner(100, 150, 1), ScreenCorner(100, widthPx - 150, 1))
+        val page = HomePage()
+        var shift by mutableIntStateOf(0)
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalBottomCorners provides corners, LocalHomePage provides page) {
+                    Box(Modifier.size(360.dp, 700.dp)) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .offset { IntOffset(shift, 0) }
+                                .onPlaced { page.coordinates = it },
+                        ) {
+                            TerminalScreen(vm, preview = TerminalViewModel.Peek(null, typing = false))
+                        }
+                    }
+                }
+            }
+        }
+        fun left(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).getUnclippedBoundsInRoot().left
+        fun icon() = compose.onNodeWithContentDescription("Key bar", useUnmergedTree = true).getUnclippedBoundsInRoot().right
+        val field = left("prompt")
+        val keys = icon()
+        assertTrue("the text starts at $field", with(compose.density) { field.toPx() } > 150f)
+        // Halfway through a turn either way: the ends move with the page, by as much as it does.
+        for (s in listOf(widthPx / 2, -widthPx / 2)) {
+            compose.runOnIdle { shift = s }
+            compose.waitForIdle()
+            val by = with(compose.density) { s.toDp() }
+            assertEquals((field + by).value, left("prompt").value, 1f)
+            assertEquals((keys + by).value, icon().value, 1f)
         }
     }
 }

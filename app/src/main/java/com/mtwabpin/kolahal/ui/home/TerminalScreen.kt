@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -22,10 +23,15 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mtwabpin.kolahal.data.HomeScramble
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.KeyBarKey
+import com.mtwabpin.kolahal.terminal.Scramble
+import com.mtwabpin.kolahal.terminal.ScrambledLog
+import com.mtwabpin.kolahal.terminal.Suggestion
 import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
@@ -134,12 +140,27 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val unlocks by vm.unlocksToday.collectAsStateWithLifecycle()
     val status by vm.status.collectAsStateWithLifecycle()
-    val pinnedLines by vm.pinned.collectAsStateWithLifecycle()
-    val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
+    // `scramble`: its state is read before home's first frame, and what home is made from (the log's
+    // rows, a search's, the pinned lines, what is playing, a sheet) is scrambled here, in the same
+    // composition that reads it. So no frame shows them as they are while it is on, in either style.
+    val scrambleSeed by HomeScramble.get(LocalContext.current).seed.collectAsStateWithLifecycle()
+    val scramble = remember(scrambleSeed) { scrambleSeed?.let(::Scramble) }
+    val scrambled = remember(scramble) { scramble?.let(::ScrambledLog) }
+    val pinned by vm.pinned.collectAsStateWithLifecycle()
+    val pinnedLines = remember(pinned, scramble) { scramble?.let { scrambledPins(pinned, it) } ?: pinned }
+    val playing by vm.nowPlaying.collectAsStateWithLifecycle()
+    val nowPlaying = remember(playing, scramble) { playing?.let { np -> scramble?.let { scrambledMedia(np, it) } ?: np } }
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
-    val rows by vm.rows.collectAsStateWithLifecycle()
+    val logRows by vm.rows.collectAsStateWithLifecycle()
+    val rows = remember(logRows, scrambled) { scrambled?.rows(logRows) ?: logRows }
     val reversedRows = remember(rows) { rows.asReversed() }
+    // A tap, a swipe or a sheet works on the line itself, never on its scrambled copy: nothing
+    // scrambled is stored, run or copied. A copy that is no longer shown gets nothing.
+    val scrambledNow by rememberUpdatedState(scrambled)
+    val real: (LogEntry) -> LogEntry? = remember {
+        { e -> if (Scramble.of(e) == null) e else scrambledNow?.real(e) }
+    }
     // When a result is tapped: once its line is loaded, the log scrolls to it (with a few newer lines
     // below it) and highlights it briefly ([LogScroll]).
     val jumpTo by vm.jumpTo.collectAsStateWithLifecycle()
@@ -191,7 +212,10 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         }
     }
     // Typing `/words` at the prompt searches: the matching lines replace the log until the search ends.
-    val search by vm.search.collectAsStateWithLifecycle()
+    val found by vm.search.collectAsStateWithLifecycle()
+    val search = remember(found, scrambled) {
+        found?.let { f -> scrambled?.let { f.copy(rows = it.rows(f.rows, search = true)) } ?: f }
+    }
     // Not while the widgets page is showing: there, Back returns to the terminal.
     if (preview == null) BackHandler(enabled = search != null && LocalTerminalShown.current) { vm.escape() }
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -232,7 +256,12 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     val tty = style == HomeStyle.TTY
     // tty.*: the parts the tty style draws on the grid. The others are the GUI's own, in their place.
     val parts = remember(configVersion) { TtyParts.of(style) { config[it] } }
-    state.menu?.let {
+    // While home is scrambled a sheet is too, but for the quick actions, which show the phone's state.
+    val menu = state.menu
+    val shownMenu = remember(menu, scramble) {
+        menu?.let { m -> if (scramble == null || m.quick) m else scrambledMenu(m, scramble) }
+    }
+    shownMenu?.let {
         val onGrid = if (it.quick) parts.quickActions else parts.menu
         if (onGrid) TtySheet(it, onDismiss = { state.menu = null })
         else ActionSheet(it, onDismiss = { state.menu = null })
@@ -291,24 +320,26 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             // As on a script's turn, a long press opens a sheet: Next track, Previous track, Open the player.
             onMediaLongPress = { np -> state.showMenu(np.line, null) { mediaActions(appContext, np) } },
             onRefreshPinned = { vm.refreshPinned() },
-            apps = vm::appsOf,
-            onTap = vm::onTap,
-            onLineLongPress = { e ->
-                state.showMenu(
-                    StyledText.plain(e.text),
-                    e.id,
-                    e.ctx.url,
-                    lineDetail(e, config[Keys.CLOCK_24H])
-                ) { vm.actionsFor(e) }
+            apps = { e -> real(e)?.let(vm::appsOf).orEmpty() },
+            onTap = { e -> real(e)?.let(vm::onTap) },
+            onLineLongPress = { shown ->
+                real(shown)?.let { e ->
+                    state.showMenu(
+                        StyledText.plain(e.text),
+                        e.id,
+                        e.ctx.url,
+                        lineDetail(e, config[Keys.CLOCK_24H])
+                    ) { vm.actionsFor(e) }
+                }
             },
-            onShowInLog = vm::showInLog,
+            onShowInLog = { e -> real(e)?.let(vm::showInLog) },
             onAppTap = vm::launchApp,
             // A long-press on an app opens its menu, wherever the app shows: in a line, in the search
             // results, in the selector and in the suggestions.
             onAppLongPress = { app -> state.showMenu(app.label, null) { vm.appActions(app) } },
-            onSwipeCopy = { e -> vm.swipeCopy(e); state.copies++ },
-            onSwipeDelete = vm::swipeDelete,
-            onAction = vm::runLineAction,
+            onSwipeCopy = { shown -> real(shown)?.let { e -> vm.swipeCopy(e); state.copies++ } },
+            onSwipeDelete = { e -> real(e)?.let(vm::swipeDelete) },
+            onAction = { e, index -> real(e)?.let { vm.runLineAction(it, index) } },
             onOpenUrl = vm::openUrl,
             onLogWidth = vm::onLogWidth,
             onSelectorArea = { vm.selectorArea = it },
@@ -391,6 +422,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             configVersion = configVersion,
             onAppLongPress = calls.onAppLongPress,
             tty = parts.suggestions,
+            scramble = scramble,
         )
         // [/selector]
     }
@@ -416,90 +448,93 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         if (parts.keyBar) TtyKeyBar(specs, rowHeight, onKey = onKey, onText = calls.onInsert)
         else KeyBar(specs, rowHeight, onKey = onKey, onText = calls.onInsert)
     }
-    if (tty) TtyHome(
-        state = state,
-        calls = calls,
-        config = config,
-        configVersion = configVersion,
-        preview = preview != null,
-        previewTyping = preview?.typing == true,
-        previewShader = preview?.shader,
-        hasInput = hasInput,
-        status = status,
-        unlocks = unlocks,
-        profiles = profiles,
-        todoCount = todoCount,
-        nowPlaying = nowPlaying,
-        pinnedLines = pinnedLines,
-        search = search,
-        filter = filter,
-        filterCount = filterCount,
-        undoOffer = undoOffer,
-        isHome = isHome,
-        livePreview = livePreview,
-        selectorFade = vm.selectorFade,
-        prompt = prompt,
-        suggestions = suggestions,
-        selector = selector,
-        keyBar = keyBar,
-        // The log on the character grid, or a search's results in its place.
-        logArea = { results, deleteRight, log, found ->
-            if (results != null) TtySearchResults(
-                search = results,
-                menuEntryId = state.menu?.entryId,
-                calls = calls,
-                config = config,
-                configVersion = configVersion,
-                timeFormat = lineTimeFormat,
-                today = today,
-                deleteRight = deleteRight,
-                modifier = found,
-            ) else TtyLog(
-                rows = reversedRows,
-                state = state,
-                calls = calls,
-                config = config,
-                configVersion = configVersion,
-                hiddenLines = hiddenLines,
-                rowsLoaded = rowsLoaded,
-                timeFormat = lineTimeFormat,
-                today = today,
-                deleteRight = deleteRight,
-                modifier = log,
-            )
-        },
-    ) else GuiHome(
-        state = state,
-        calls = calls,
-        config = config,
-        configVersion = configVersion,
-        preview = preview != null,
-        previewTyping = preview?.typing == true,
-        previewShader = preview?.shader,
-        hasInput = hasInput,
-        status = status,
-        unlocks = unlocks,
-        profiles = profiles,
-        todoCount = todoCount,
-        nowPlaying = nowPlaying,
-        pinnedLines = pinnedLines,
-        rows = reversedRows,
-        hiddenLines = hiddenLines,
-        rowsLoaded = rowsLoaded,
-        search = search,
-        filter = filter,
-        filterCount = filterCount,
-        undoOffer = undoOffer,
-        isHome = isHome,
-        livePreview = livePreview,
-        timeFormat = lineTimeFormat,
-        today = today,
-        selectorFade = vm.selectorFade,
-        prompt = prompt,
-        suggestions = suggestions,
-        selector = selector,
-        keyBar = keyBar,
-    )
+    // The header says while home is scrambled, and the parts that show more than the rows read it.
+    CompositionLocalProvider(LocalScramble provides scramble) {
+        if (tty) TtyHome(
+            state = state,
+            calls = calls,
+            config = config,
+            configVersion = configVersion,
+            preview = preview != null,
+            previewTyping = preview?.typing == true,
+            previewShader = preview?.shader,
+            hasInput = hasInput,
+            status = status,
+            unlocks = unlocks,
+            profiles = profiles,
+            todoCount = todoCount,
+            nowPlaying = nowPlaying,
+            pinnedLines = pinnedLines,
+            search = search,
+            filter = filter,
+            filterCount = filterCount,
+            undoOffer = undoOffer,
+            isHome = isHome,
+            livePreview = livePreview,
+            selectorFade = vm.selectorFade,
+            prompt = prompt,
+            suggestions = suggestions,
+            selector = selector,
+            keyBar = keyBar,
+            // The log on the character grid, or a search's results in its place.
+            logArea = { results, deleteRight, log, found ->
+                if (results != null) TtySearchResults(
+                    search = results,
+                    menuEntryId = state.menu?.entryId,
+                    calls = calls,
+                    config = config,
+                    configVersion = configVersion,
+                    timeFormat = lineTimeFormat,
+                    today = today,
+                    deleteRight = deleteRight,
+                    modifier = found,
+                ) else TtyLog(
+                    rows = reversedRows,
+                    state = state,
+                    calls = calls,
+                    config = config,
+                    configVersion = configVersion,
+                    hiddenLines = hiddenLines,
+                    rowsLoaded = rowsLoaded,
+                    timeFormat = lineTimeFormat,
+                    today = today,
+                    deleteRight = deleteRight,
+                    modifier = log,
+                )
+            },
+        ) else GuiHome(
+            state = state,
+            calls = calls,
+            config = config,
+            configVersion = configVersion,
+            preview = preview != null,
+            previewTyping = preview?.typing == true,
+            previewShader = preview?.shader,
+            hasInput = hasInput,
+            status = status,
+            unlocks = unlocks,
+            profiles = profiles,
+            todoCount = todoCount,
+            nowPlaying = nowPlaying,
+            pinnedLines = pinnedLines,
+            rows = reversedRows,
+            hiddenLines = hiddenLines,
+            rowsLoaded = rowsLoaded,
+            search = search,
+            filter = filter,
+            filterCount = filterCount,
+            undoOffer = undoOffer,
+            isHome = isHome,
+            livePreview = livePreview,
+            timeFormat = lineTimeFormat,
+            today = today,
+            selectorFade = vm.selectorFade,
+            prompt = prompt,
+            suggestions = suggestions,
+            selector = selector,
+            keyBar = keyBar,
+        )
+    }
 }
 
 
@@ -516,6 +551,8 @@ private fun PromptSuggestions(
     onAppLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit,
     /** On the character grid (`home.style tty` with `tty.suggestions tty`): no icons, the same settings otherwise. */
     tty: Boolean,
+    /** `scramble`: the rows that name something of the user's are scrambled, and apps show no icon. */
+    scramble: Scramble?,
 ) {
     val config = vm.config
     val apps by vm.apps.collectAsStateWithLifecycle()
@@ -531,31 +568,44 @@ private fun PromptSuggestions(
         remember(inputText, apps, maxSuggestions, commandNames, prefsVersion, contacts, loaded) {
             vm.suggestions(inputText).take(maxSuggestions)
         }
-    val showIcons = remember(configVersion) { config[Keys.SUGGEST_ICONS] }
+    // Scrambled, a row shows its scrambled copy, and a tap or a long press goes to the real one by its key.
+    val shown = remember(suggestions, scramble) {
+        if (scramble == null) suggestions else suggestions.mapIndexed { i, s -> scrambledSuggestion(s, i, scramble) }
+    }
+    val onPick: (Suggestion) -> Unit = remember(suggestions) {
+        { picked -> suggestions.firstOrNull { it.key == picked.key }?.let(vm::onSuggestion) }
+    }
+    val onAppHeld: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit = remember(suggestions, onAppLongPress) {
+        { held ->
+            suggestions.firstNotNullOfOrNull { (it as? Suggestion.App)?.app?.takeIf { app -> app.key == held.key } }
+                ?.let(onAppLongPress)
+        }
+    }
+    val showIcons = remember(configVersion) { config[Keys.SUGGEST_ICONS] } && scramble == null
     val chips = remember(configVersion) { config[Keys.SUGGESTIONS_STYLE] } == "chips"
     if (tty) {
         if (chips) TtySuggestionStrip(
-            suggestions,
+            shown,
             rows = remember(configVersion) { config[Keys.SUGGESTION_ROWS] },
-            onPick = vm::onSuggestion,
+            onPick = onPick,
         ) else TtySuggestionList(
-            suggestions,
-            onPick = vm::onSuggestion,
-            onAppLongPress = onAppLongPress,
+            shown,
+            onPick = onPick,
+            onAppLongPress = onAppHeld,
             wrapHelp = remember(configVersion) { config[Keys.SUGGESTIONS_WRAP] },
         )
     } else if (chips) {
         SuggestionStrip(
-            suggestions,
+            shown,
             rows = remember(configVersion) { config[Keys.SUGGESTION_ROWS] },
-            onPick = vm::onSuggestion,
+            onPick = onPick,
             icons = showIcons
         )
     } else {
         SuggestionList(
-            suggestions,
-            onPick = vm::onSuggestion,
-            onAppLongPress = onAppLongPress,
+            shown,
+            onPick = onPick,
+            onAppLongPress = onAppHeld,
             icons = showIcons,
             wrapHelp = remember(configVersion) { config[Keys.SUGGESTIONS_WRAP] },
         )

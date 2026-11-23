@@ -55,7 +55,13 @@ import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.HeaderPart
 import com.mtwabpin.kolahal.terminal.HeaderTarget
 import com.mtwabpin.kolahal.terminal.headerParts
+import com.mtwabpin.kolahal.ui.theme.LocalHomePage
+import com.mtwabpin.kolahal.ui.theme.LocalTopCorners
+import com.mtwabpin.kolahal.ui.theme.ScreenCorners
 import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.TopCorners
+import com.mtwabpin.kolahal.ui.theme.cornerX
+import com.mtwabpin.kolahal.ui.theme.windowTopCorners
 import java.util.Date
 
 /**
@@ -180,13 +186,32 @@ private val HEADER_SPACING = 4.dp
 /**
  * Computes where the header's parts go along its line, in pixels. It is separate from Compose so
  * it can be tested. The line starts `pad` in from each end. A camera cutout across the line
- * (`cutouts`, as x ranges) splits it.
+ * (`cutouts`, as x ranges) splits it. The screen's rounded corners can hide more than `pad` at the
+ * ends (`cornerLeft`, `cornerRight`); the line then starts `gap` past them, as it keeps clear of a
+ * cutout.
  */
 internal object HeaderLayout {
-    /** The parts of the line that are free for text, left to right. Each cutout keeps [gap] clear on both sides. */
-    fun zones(width: Int, pad: Int, cutouts: List<IntRange>, gap: Int): List<IntRange> {
+    /**
+     * The parts of the line that are free for text, left to right. Each cutout keeps [gap] clear on
+     * both sides. [cornerLeft] and [cornerRight]: the pixels the screen's corners hide at the line's
+     * left and right ends (ScreenCorners); an end then starts [gap] past what is hidden, never nearer
+     * than [pad].
+     */
+    fun zones(
+        width: Int,
+        pad: Int,
+        cutouts: List<IntRange>,
+        gap: Int,
+        cornerLeft: Int = 0,
+        cornerRight: Int = 0,
+    ): List<IntRange> {
         var zones = listOf(pad..<(width - pad))
-        for (c in cutouts) {
+        // A corner is a cutout at the line's end.
+        val all = cutouts + listOfNotNull(
+            if (cornerLeft > 0) 0..<cornerLeft else null,
+            if (cornerRight > 0) (width - cornerRight)..<width else null,
+        )
+        for (c in all) {
             zones = zones.flatMap { z ->
                 val from = c.first - gap
                 val to = c.last + gap
@@ -255,13 +280,14 @@ internal object HeaderLayout {
  * - `header.right`: by default the alarm, todos and battery.
  * Placement:
  * - In full screen it sits in the band beside the camera cutout at the top, clear of the cutout,
- *   so it takes no room from the log.
+ *   so it takes no room from the log. Each end starts past what the screen's rounded corners hide
+ *   over its text's rows ([LocalTopCorners]), and at least 8 dp in.
  * - When the status bar is shown, it sits under the status bar.
  * - With `header.below-bar` it sits under the status bar's space and the camera, even in full screen.
  * Parts that don't fit are dropped from the middle outward (HeaderLayout.place), so the outermost
  * parts stay longest. Tapping a part opens what it shows. Swiping down on the line pulls down the
  * notification shade. When [preview] is true, Settings draws it (HeaderPreview): it has no status
- * bar or camera to avoid and no swipe.
+ * bar, camera or screen corners to avoid and no swipe.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -279,8 +305,10 @@ internal fun Header(
 ) {
     val (now, zone) = rememberNow()
     // What each side shows (headerParts). A part with nothing to show (no alarm set, no todos) is left out.
-    val parts = remember(now, zone, status, unlocks, profiles, todoCount, version) {
-        headerParts(status, unlocks, profiles, todoCount, config, now.time)
+    // While home is scrambled (`scramble`), the header says so first.
+    val scrambled = LocalScramble.current != null
+    val parts = remember(now, zone, status, unlocks, profiles, todoCount, version, scrambled) {
+        headerParts(status, unlocks, profiles, todoCount, config, now.time).let { if (scrambled) it.scrambled() else it }
     }
     val belowBar = remember(version) { config[Keys.HEADER_BELOW_BAR] }
     val textPadding = remember(version) { config[Keys.HEADER_PADDING].dp }
@@ -312,9 +340,21 @@ internal fun Header(
         else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }
             .map { it.left..it.right }
     }
-    // The line's x in the window, used to shift the cutout zones. It is known only after placement,
-    // so the measure below reads it as state and measures again when it changes. The first measure sees 0.
+    // The line's x, used to shift the cutout zones and to measure the corners from. It is its x on home's
+    // page, which slides while home turns to the widgets page (cornerX): the line keeps its parts where
+    // they are at rest. It is known only after placement, so the measure below reads it as state and
+    // measures again when it changes. The first measure sees 0.
+    val homePage = LocalHomePage.current
     val originX = remember { mutableFloatStateOf(0f) }
+    // The line's y in the window, for the screen's rounded corners. Until it is known (NaN), the line
+    // is taken to be where home puts it: at the window's top, under its top insets.
+    val originY = remember { mutableFloatStateOf(Float.NaN) }
+    val expectedY = topInsets.getTop(density)
+    // The screen's rounded corners: a test's, else the window's, read when the line is measured.
+    // The preview in Settings is not at the screen's corner, so it takes none.
+    val givenCorners = LocalTopCorners.current
+    // The height of the line's content (its text, or an icon if taller), centered in the line.
+    val contentHeight = with(density) { maxOf(Term.small.lineHeight.toPx(), iconSize.toPx()) }.toInt()
 
     /** One part of the line: as tall as the line, with room to tap. */
     @Composable
@@ -380,6 +420,7 @@ internal fun Header(
             )
 
             HeaderPart.Kind.SETTINGS -> TintedIcon(R.drawable.ic_settings, Term.dim, iconSize)
+            HeaderPart.Kind.SCRAMBLE -> Text(part.text, style = bold.copy(color = color), maxLines = 1)
             HeaderPart.Kind.BATTERY -> {
                 BatteryGlyph(part.battery ?: 0, part.charging, color, iconSize); Text(
                     part.text,
@@ -422,7 +463,10 @@ internal fun Header(
             )
             .testTag(if (preview) "header-preview-line" else "header")
             .height(height)
-            .onPlaced { originX.floatValue = it.positionInWindow().x }
+            .onPlaced {
+                originX.floatValue = cornerX(it, homePage)
+                originY.floatValue = it.positionInWindow().y
+            }
             // Swiping down on the line pulls the notification shade.
             .pointerInput(preview) {
                 if (preview) return@pointerInput
@@ -436,11 +480,19 @@ internal fun Header(
         val h = constraints.maxHeight
         val parts = measurables.map { it.measure(Constraints(minHeight = h, maxHeight = h)) }
         val shift = originX.floatValue.toInt()
+        val width = constraints.maxWidth
+        // What the screen's corners hide at each end, over the rows of the line's content.
+        val y = originY.floatValue.let { if (it.isNaN()) expectedY else it.toInt() }
+        val corners = if (preview) TopCorners.NONE else givenCorners ?: windowTopCorners(view)
+        val top = y + (h - contentHeight) / 2
+        val bottom = top + contentHeight
         val zones = HeaderLayout.zones(
-            constraints.maxWidth,
+            width,
             8.dp.roundToPx(),
             cutouts.map { (it.first - shift)..(it.last - shift) },
-            CUTOUT_GAP.roundToPx()
+            CUTOUT_GAP.roundToPx(),
+            cornerLeft = ScreenCorners.hiddenLeft(corners.left, top, bottom, edge = shift),
+            cornerRight = ScreenCorners.hiddenRight(corners.right, top, bottom, edge = shift + width),
         )
         val n = left.size
         val places = HeaderLayout.place(
@@ -449,7 +501,7 @@ internal fun Header(
             parts.drop(n).map { it.width },
             HEADER_SPACING.roundToPx()
         )
-        layout(constraints.maxWidth, h) {
+        layout(width, h) {
             places.left.forEachIndexed { i, x -> x?.let { parts[i].place(it, 0) } }
             places.right.forEachIndexed { i, x -> x?.let { parts[n + i].place(it, 0) } }
         }

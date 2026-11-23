@@ -54,7 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -99,6 +98,8 @@ import com.mtwabpin.kolahal.terminal.UndoOffer
 import com.mtwabpin.kolahal.terminal.tty.screens.LogDecode
 import com.mtwabpin.kolahal.ui.theme.Term
 import com.mtwabpin.kolahal.ui.theme.page
+import com.mtwabpin.kolahal.ui.tty.OverShaderBox
+import com.mtwabpin.kolahal.ui.tty.rememberOverShader
 import com.mtwabpin.kolahal.ui.tty.rememberPeekShader
 import com.mtwabpin.kolahal.ui.tty.rememberPlayedOnHome
 import kotlinx.coroutines.launch
@@ -191,15 +192,21 @@ internal fun GuiHome(
     // screen.shader: a shader over all of home, the background too, as on the tty home. Settings' preview
     // of home has none, and the grid is measured only while one is on.
     val shaderName = remember(configVersion) { config[Keys.SCREEN_SHADER] }
+    // The app selector is drawn over the picture of a shader that isn't for text, so its icons look as without one.
+    val over = rememberOverShader(if (preview) previewShader else shaderName)
     val shader = when {
-        preview -> if (previewShader != null) rememberPeekShader(previewShader, rememberTtyGrid()) else Modifier
+        preview -> if (previewShader != null) rememberPeekShader(previewShader, rememberTtyGrid(), over = over) else Modifier
         shaderName == ShaderCatalog.OFF -> Modifier
-        else -> rememberTtyShader(shaderName, rememberTtyGrid())
+        else -> rememberTtyShader(shaderName, rememberTtyGrid(), over = over)
     }
 
     // `decode`: the log scrambles in place, and nothing else of home shows. It all keeps its place.
     val decode = calls.logDecode?.takeIf { it.active }
     val decodeArea = remember { DecodeArea() }
+    // `scramble`: decode's waves run over the scrambled log when it scrolls and when a line comes.
+    val scrambledHome = LocalScramble.current != null && !preview
+    val scrambleWaves = remember { LogDecode() }.takeIf { scrambledHome }
+    if (scrambleWaves != null) ScrambleWaves(scrambleWaves, state.scroll.list, rows.firstOrNull()?.key)
 
     Column(
         Modifier
@@ -303,7 +310,6 @@ internal fun GuiHome(
                     // While the app selector is open, the log fades out so the background shows behind the list.
                     .graphicsLayer {
                         alpha = 1f - selectorFade.floatValue
-                        decodeShift(decode)
                     }
                     .onSizeChanged { calls.onLogWidth(it.width) }
                     .testTag("log")
@@ -317,10 +323,9 @@ internal fun GuiHome(
                     .fillMaxSize()
                     .graphicsLayer {
                         alpha = 1f - selectorFade.floatValue
-                        decodeShift(decode)
                     }
                 if (logArea != null) logArea(results, deleteRight, logModifier, resultsModifier)
-                else CompositionLocalProvider(LocalUriHandler provides linkOpener, LocalLogDecode provides decode) {
+                else CompositionLocalProvider(LocalUriHandler provides linkOpener, LocalLogDecode provides (decode ?: scrambleWaves)) {
                     if (results != null) LogSearchResults(
                         search = results,
                         timeFormat = timeFormat,
@@ -462,7 +467,7 @@ internal fun GuiHome(
                     }
                 }
                 // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
-                if (decode == null) selector()
+                if (decode == null) OverShaderBox(over) { selector() }
                 // [/selector]
             }
             // Behind the build flag, so R8 removes the updater from the Play build.
@@ -568,14 +573,6 @@ private class DecodeArea {
             if (at == null) drawContent()
             else clipRect(at.left, at.top, at.right, at.bottom) { this@drawWithContent.drawContent() }
         }
-}
-
-/** Against burn-in, `decode` moves the log by a third of a row, now and then. */
-private fun GraphicsLayerScope.decodeShift(decode: LogDecode?) {
-    val (x, y) = LogDecode.SHIFTS[decode?.shift ?: 0]
-    val third = Term.fontSize.sp.toPx() * 0.45f
-    translationX = x * third
-    translationY = y * third
 }
 
 /** Shows a pinch's new font size in a toast. A new pinch replaces the toast instead of queueing another. */

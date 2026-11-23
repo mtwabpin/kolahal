@@ -145,8 +145,13 @@ internal fun TtyHome(
         config[Keys.GESTURE_DOUBLE_TAP].trim().let { it.isNotEmpty() && it != com.mtwabpin.kolahal.gesture.Gestures.NONE }
     }
     // screen.shader: a shader over all of it, the background too. Settings' preview of home has none.
-    val shader = if (preview && previewShader != null) rememberPeekShader(previewShader, grid, frame.cols, frame.originX) else rememberTtyShader(
-        remember(configVersion) { config[Keys.SCREEN_SHADER] }, grid, frame.cols, frame.originX, on = !preview,
+    val shaderName = remember(configVersion) { config[Keys.SCREEN_SHADER] }
+    // The GUI's app selector (tty.selector gui) is drawn over the picture of a shader that isn't for text, so its
+    // icons look as without one. The grid's has no icons: it stays under the shader with the rest of the grid.
+    val selectorOnGrid = remember(configVersion) { config[Keys.TTY_SELECTOR] == "tty" }
+    val over = rememberOverShader((if (preview) previewShader else shaderName).takeIf { !selectorOnGrid })
+    val shader = if (preview && previewShader != null) rememberPeekShader(previewShader, grid, frame.cols, frame.originX, over) else rememberTtyShader(
+        shaderName, grid, frame.cols, frame.originX, on = !preview, over = over,
     )
 
     CompositionLocalProvider(LocalTtyFrame provides frame) {
@@ -254,7 +259,7 @@ internal fun TtyHome(
                             scope.launch { state.scroll.list.animateScrollToItem(0) }
                         }
                     }
-                    selector()
+                    OverShaderBox(over) { selector() }
                 }
                 // Behind the build flag, so R8 removes the updater from the Play build.
                 if (BuildConfig.SELF_UPDATE && !preview) TtyUpdateProgress()
