@@ -16,9 +16,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -85,7 +87,7 @@ class TtyShaderTest {
     private val commands = CommandRunner(app)
 
     /** This class's own files: none is left behind. */
-    private val mine = listOf("zz-fine", "zz-broken", "zz-wrong", "zz-lean", "zz-press")
+    private val mine = listOf("zz-fine", "zz-broken", "zz-wrong", "zz-lean", "zz-press", "zz-fill", "zz-fill-text")
 
     @Before
     fun setUp() {
@@ -111,6 +113,7 @@ class TtyShaderTest {
         config.set(Keys.HOME_STYLE, style)
         val vm = vms.terminal(app)
         compose.setContent {
+            view = LocalView.current
             KolahalTheme {
                 CompositionLocalProvider(LocalShaderSources provides sources, LocalTerminalShown provides shown()) {
                     Box(
@@ -138,11 +141,11 @@ class TtyShaderTest {
 
     private fun drawn() = ActiveShaders.names.value
 
-    /** The shaders that come with Kolahal compile on this phone's Android. */
+    /** The shaders that come with Kolahal, and the templates to start one from, compile on this phone's Android. */
     @Test
     fun theBundledShadersCompile() {
         needsAndroid13()
-        for (name in ShaderCatalog.BUNDLED) {
+        for (name in ShaderCatalog.BUNDLED + ShaderCatalog.TEMPLATES) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 assertNull(name, Shaders.compileError(Shaders.bundled(app, name)))
             }
@@ -199,6 +202,36 @@ class TtyShaderTest {
         home(style = "tty", sources = ShaderSources(phone = { ShaderClock.Phone(true, false, false, true, 100) }))
         commands.run("shader play hearts 1")
         compose.waitFor("it waits") { ShaderPlay.current.value == null }
+    }
+
+    /**
+     * A one-off is marked while it plays, as the shader on home is: one that was playing when Kolahal crashed is
+     * turned off at the next start, and doesn't play again at the next word until a shader is turned on.
+     */
+    @Test
+    fun aOneOffShaderThatCrashedDoesntPlayAgain() {
+        needsAndroid13()
+        config.set(Keys.SCREEN_SHADER, "off")
+        home(style = "tty", sources = ShaderSources(phone = { ShaderClock.Phone(false, false, false, true, 100) }))
+        val safety = ShaderSafety.get(app)
+        val id = ShaderSafety.id("hearts", Shaders.bundled(app, "hearts"))
+        commands.run("shader play hearts 5")
+        compose.waitFor("hearts isn't played") { "hearts" in drawn() }
+        // What the next start finds, if Kolahal crashes now.
+        assertEquals(id, safety.recover(ShaderSafety.Exit.CRASH))
+        compose.waitFor("it doesn't end", 10_000) { ShaderPlay.current.value == null && "hearts" !in drawn() }
+        safety.trip(id)
+        commands.run("shader play hearts 1")
+        // Turned off, it is never drawn: not at once, and not a moment later.
+        repeat(15) {
+            compose.waitForIdle()
+            assertTrue("${drawn()}", "hearts" !in drawn())
+            Thread.sleep(100)
+        }
+        compose.waitFor("it waits") { ShaderPlay.current.value == null }
+        safety.turnedOn()
+        commands.run("shader play hearts 1")
+        compose.waitFor("hearts isn't played") { "hearts" in drawn() }
     }
 
     /** The full-screen screens have it in either home style. */
@@ -506,6 +539,119 @@ class TtyShaderTest {
         compose.waitFor("a press isn't drawn") { color().let { it.red > 0.8f && it.blue < 0.2f } }
         compose.onNodeWithTag("tty-home").performTouchInput { cancel() }
         compose.waitFor("the end of the press isn't drawn") { color().let { it.blue > 0.8f && it.red < 0.2f } }
+    }
+
+    // ---- the app selector ------------------------------------------------------------------
+
+    /** The view home is drawn in, for putting the keyboard away ([keyboardDown]). */
+    private var view: android.view.View? = null
+
+    /** Puts the keyboard away, as a person does before sliding on the edge: the selector's strip shows only then. */
+    private fun keyboardDown() {
+        val v = view ?: return
+        val ime = androidx.core.view.WindowInsetsCompat.Type.ime()
+        compose.runOnUiThread {
+            val window = (v.context as? android.app.Activity)?.window ?: return@runOnUiThread
+            androidx.core.view.WindowCompat.getInsetsController(window, v).hide(ime)
+        }
+        compose.waitUntil(5_000) { androidx.core.view.ViewCompat.getRootWindowInsets(v)?.isVisible(ime) != true }
+    }
+
+    /**
+     * A still shader that paints all of home magenta, a color no app icon has in its middle: one for text
+     * ([text]), or one that isn't, as a scene.
+     */
+    private fun useFill(text: Boolean) {
+        val name = if (text) "zz-fill-text" else "zz-fill"
+        Shaders.save(
+            app, name,
+            (if (text) "// @text\n" else "") +
+                    "uniform shader content;\nhalf4 main(float2 p) { return half4(1.0, 0.0, 1.0, 1.0) + content.eval(p) * 0.0; }",
+        )
+        config.set(Keys.SCREEN_SHADER, name)
+        compose.waitFor("$name isn't drawn") { name in drawn() }
+    }
+
+    private fun isFill(c: Color) = c.red > 0.95f && c.green < 0.05f && c.blue > 0.95f
+
+    private fun icons() = compose.onAllNodesWithTag("app-selector-icon", useUnmergedTree = true)
+
+    /** Slides along the edge and lifts there, so the list stays open with its icons. */
+    private fun openSelector() {
+        keyboardDown()
+        compose.waitFor("no selector") { compose.onAllNodesWithTag("app-selector").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("app-selector").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, 20.dp.toPx()), delayMillis = 50)
+        }
+        compose.waitFor("the list doesn't open") { icons().fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("app-selector").performTouchInput { up() }
+        compose.waitForIdle()
+    }
+
+    /**
+     * The highest app icon the open list shows whole (a row cut by the list's edge is left out): where it
+     * is, and the color in its middle, as the screen shows it. One picture; null while the list shows none.
+     */
+    private fun topIcon(): Pair<Rect, Color>? {
+        val nodes = icons().fetchSemanticsNodes()
+        val i = nodes.indices
+            .filter { nodes[it].boundsInRoot.let { b -> b.width > 0f && b.height >= b.width - 1f } }
+            .minByOrNull { nodes[it].boundsInRoot.top } ?: return null
+        val picture = icons()[i].captureToImage().toPixelMap()
+        return nodes[i].boundsInRoot to picture[picture.width / 2, picture.height / 2]
+    }
+
+    /**
+     * A shader that isn't for text (a scene) takes the page and faint text apart by their color, and would
+     * wash out an app icon high on the screen: the app selector is drawn over its picture, and an icon looks
+     * as it does with no shader.
+     */
+    @Test
+    fun theSelectorIsDrawnOverAShaderThatIsntForText() {
+        needsAndroid13()
+        config.set(Keys.SELECTOR_RAIL, "on")
+        home(style = "gui")
+        useFill(text = false)
+        openSelector()
+        // Its icon loads in the background: until then the shader's picture shows where it goes.
+        var over: Pair<Rect, Color>? = null
+        compose.waitFor("the icon is drawn through the shader") {
+            topIcon()?.also { over = it }?.second?.let { !isFill(it) } == true
+        }
+        // The same icon with no shader. Without it, the selector is built again, closed.
+        config.set(Keys.SCREEN_SHADER, "off")
+        compose.waitFor("the shader is still drawn") { drawn().isEmpty() }
+        if (compose.onAllNodesWithTag("app-selector-panel").fetchSemanticsNodes().isEmpty()) openSelector()
+        val plain = checkNotNull(topIcon()) { "no icon shows whole" }
+        assertEquals("another icon is highest", plain.first, over!!.first)
+        val (a, b) = plain.second to over!!.second
+        for ((x, y) in listOf(a.red to b.red, a.green to b.green, a.blue to b.blue)) {
+            assertEquals("$b over the shader, $a without it", x, y, 0.02f)
+        }
+    }
+
+    /** A shader for text works on all of home, the app selector too: a CRT's curve and lines cover the whole screen. */
+    @Test
+    fun aShaderForTextIsOverTheSelector() {
+        needsAndroid13()
+        config.set(Keys.SELECTOR_RAIL, "on")
+        home(style = "gui")
+        useFill(text = true)
+        openSelector()
+        assertTrue("the selector is drawn over a shader for text", isFill(checkNotNull(topIcon()) { "no icon shows whole" }.second))
+    }
+
+    /** On the grid's home, the GUI's selector (`tty.selector gui`) with its icons is drawn over a scene too. */
+    @Test
+    fun theGuisSelectorOnTheGridIsDrawnOverAShaderThatIsntForText() {
+        needsAndroid13()
+        config.set(Keys.SELECTOR_RAIL, "on")
+        config.set(Keys.TTY_SELECTOR, "gui")
+        ttyHome()
+        useFill(text = false)
+        openSelector()
+        compose.waitFor("the icon is drawn through the shader") { topIcon()?.second?.let { !isFill(it) } == true }
     }
 
     /** `shader` lists the bundled ones with their descriptions, and checks one. */

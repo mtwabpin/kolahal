@@ -1,6 +1,7 @@
 // @name Mountains
 // @description Mountain ridges in mist, after woodblock prints, that breathe slowly and follow the hour. The sun or the moon is over them
 // @suits dark good, light good, wallpaper poor
+// @param birds 0..7 = 5 Birds
 // @animated
 // @fps 20
 //
@@ -14,6 +15,7 @@ uniform float4 date;
 uniform float2 tilt;
 uniform float dark;
 uniform float wallpaper;
+uniform float birds;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 fg;
 
@@ -226,14 +228,17 @@ half4 main(float2 xy) {
             if (moon) {
                 // Very faint patches.
                 float2 m = off / r;
-                float patches = smoothstep(0.62, 0.10, length((m - float2(-0.26, -0.22)) * float2(0.8, 1.2))) + smoothstep(0.40, 0.06, length((m - float2(0.12, 0.02)) * float2(1.3, 0.9)))
-                    + 0.7 * smoothstep(0.40, 0.05, length((m - float2(0.34, 0.40)) * float2(0.9, 1.4)));
+                float patches = (1.0 - smoothstep(0.10, 0.62, length((m - float2(-0.26, -0.22)) * float2(0.8, 1.2)))) + (1.0 - smoothstep(0.06, 0.40, length((m - float2(0.12, 0.02)) * float2(1.3, 0.9))))
+                    + 0.7 * (1.0 - smoothstep(0.05, 0.40, length((m - float2(0.34, 0.40)) * float2(0.9, 1.4))));
                 facing *= 1.0 - 0.022 * clamp(patches, 0.0, 1.0);
             }
             behind = mix(behind, facing, face * mix(1.0, moon ? 0.92 : 0.75, dark));
         }
 
-        // A small flock now and then, level with the sun, flapping and gliding.
+        // A small flock now and then, level with the sun, flapping and gliding: `birds` of them, at most 7.
+        // The third bird is the highest and the others step down from it on each side; a sixth and a
+        // seventh are at the two ends. The loop goes to 7 and stops at `birds`, and past five the box
+        // around the flock is one step wider and lower.
         float slot = floor(time / 46.0);
         float when = time - slot * 46.0;
         float side = hash(slot + 11.0) < 0.5 ? 1.0 : -1.0;
@@ -241,20 +246,27 @@ half4 main(float2 xy) {
         float2 flock = float2((side > 0.0 ? across : 1.0 - across) * res.x,
             sunAt.y + (hash(slot + 3.0) - 0.3) * 0.06 * res.y - 0.02 * res.y * sin(across * 2.4));
         float wing = small * 0.017;
-        if (hash(slot + 29.0) < 0.75 && abs(xy.x - flock.x) < wing * 11.0 && abs(xy.y - flock.y) < wing * 7.0) {
-            float birds = 0.0;
-            for (int i = 0; i < 5; i++) {
+        float longer = birds > 5.5 ? 1.0 : 0.0;
+        if (birds > 0.5 && hash(slot + 29.0) < 0.75 && abs(xy.x - flock.x) < wing * (11.0 + 3.4 * longer)
+            && abs(xy.y - flock.y) < wing * (7.0 + 1.7 * longer)) {
+            float ink = 0.0;
+            for (int i = 0; i < 7; i++) {
                 float n = float(i);
+                if (n > birds - 0.5) {
+                    break;
+                }
+                // Its place from one end to the other, -3 to 3; the third bird's is 0.
+                float k = n < 4.5 ? n - 2.0 : (n < 5.5 ? -3.0 : 3.0);
                 float own = hash(slot * 7.0 + n);
-                float2 b = (xy - flock - float2((n - 2.0) * 3.4 + own * 1.6, abs(n - 2.0) * 1.7 + own * 2.2) * wing * float2(-side, 1.0))
+                float2 b = (xy - flock - float2(k * 3.4 + own * 1.6, abs(k) * 1.7 + own * 2.2) * wing * float2(-side, 1.0))
                     / (wing * (0.75 + 0.35 * own));
                 float a = abs(b.x);
                 float flap = smoothstep(-0.1, 0.6, sin(time * 0.9 + n * 1.3)) * sin(time * (6.0 + own) + n * 2.0);
                 float line = -(0.42 + 0.42 * flap) * (1.7 * a - 1.0 * a * a) + 0.18;
                 float thick = 0.13 * (1.0 - 0.8 * a);
-                birds = max(birds, step(a, 1.0) * (1.0 - smoothstep(thick * 0.6, thick + 0.06, abs(b.y - line))));
+                ink = max(ink, step(a, 1.0) * (1.0 - smoothstep(thick * 0.6, thick + 0.06, abs(b.y - line))));
             }
-            behind = mix(behind, nearColor(w), birds * 0.75);
+            behind = mix(behind, nearColor(w), ink * 0.75);
         }
         color += behind * through;
     }

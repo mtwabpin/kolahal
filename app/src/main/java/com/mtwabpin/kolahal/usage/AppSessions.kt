@@ -31,6 +31,9 @@ class AppSessions(
         const val SHUTDOWN = 26
         const val STARTUP = 27
 
+        /** The phone was unlocked (KEYGUARD_HIDDEN): not read for sessions, only for how long it was locked before ([AppUsage.read]). */
+        const val UNLOCKED = 18
+
         /**
          * With no event of any kind for this long, the app in front was not in use: the phone was off
          * with no "shut down" written (a flat battery), or it slept. Its session ends at the last event.

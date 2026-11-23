@@ -1,0 +1,32 @@
+// @name Tint
+// @description The smallest shader: a wash of the theme's accent color, strongest at the top
+// @suits dark good, light good, wallpaper good
+// @param amount 0.0..0.4 = 0.12 Amount of color
+//
+// A starting point for a shader of your own. Change @name and @description first: the Shaders
+// screen shows them. @suits says how it looks over a dark theme, a light one and a wallpaper that
+// shows behind the text (log.wallpaper): good, fair or poor. @param makes a slider in the shader's
+// details (and for 'shader set'): its name, what it can be, its default, and its title.
+//
+// It has no @animated line, so it is drawn only when the screen changes: it costs nothing while
+// the screen is still.
+
+// What is on the screen. Every shader has it, and it is its only input.
+uniform shader content;
+// The size of the screen, in pixels.
+uniform float2 resolution;
+// The theme's accent color. layout(color) makes it match the colors on the screen.
+layout(color) uniform half4 accent;
+// The parameter: a float of its name holds what its slider says.
+uniform float amount;
+
+// main runs once for every pixel. xy is the pixel, in pixels from the top left corner.
+half4 main(float2 xy) {
+    // The pixel's color. Red, green and blue are already multiplied by its alpha.
+    float4 here = float4(content.eval(xy));
+    // 1 at the top of the screen and 0.3 at the bottom. Try 1.0 for the same everywhere.
+    float fade = mix(1.0, 0.3, xy.y / resolution.y);
+    // Some of the accent color, multiplied by the alpha too, as the pixel's own color is.
+    float3 color = mix(here.rgb, float3(accent.rgb) * here.a, amount * fade);
+    return half4(color, here.a);
+}

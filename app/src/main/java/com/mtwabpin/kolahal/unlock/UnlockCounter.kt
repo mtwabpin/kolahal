@@ -20,8 +20,12 @@ import com.mtwabpin.kolahal.usage.UsageHistory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -41,6 +45,11 @@ class UnlockCounter private constructor(private val context: Context) {
     private val _today = MutableStateFlow(0)
     val today: StateFlow<Int> = _today.asStateFlow()
 
+    private val _unlocked = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /** Each unlock seen while the main process runs, when `@on unlock` scripts fire too. */
+    val unlocked: SharedFlow<Unit> = _unlocked.asSharedFlow()
+
     private var registered = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
 
@@ -54,6 +63,7 @@ class UnlockCounter private constructor(private val context: Context) {
                 scope.launch { counts.set(dayKey(day), (fallbackCount(day) + 1).toString()) }
                 com.mtwabpin.kolahal.script.TriggerDispatcher.get(context).fire("unlock")
                 refresh()
+                _unlocked.tryEmit(Unit)
             }
             // USER_PRESENT comes from SystemUI, not from the system's own uid, so a receiver that isn't
             // exported never gets it. It is a protected broadcast, so only the system can send it anyway.

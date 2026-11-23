@@ -1,0 +1,50 @@
+// @name Sea
+// @description A moving scene: slow waves roll at the bottom of the screen, behind the text
+// @suits dark good, light good, wallpaper good
+// @animated
+// @fps 10
+//
+// @animated makes Kolahal draw it again and again, and time counts the seconds. That costs power:
+// every pixel is worked out at every frame. So:
+// - @fps 10 draws it 10 times a second instead of 30. Slow waves look the same, for a third.
+// - A pixel it doesn't change returns at once: the top of the screen, and text.
+// Kolahal stops it in battery saver, and after a minute without a touch unless the phone charges.
+// Change the speed of the waves first: the number that time is multiplied by.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 info;
+layout(color) uniform half4 link;
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float2 p = xy / resolution;
+    // Above the sea: the page as it is. Most pixels end here, and cost nearly nothing.
+    if (p.y < 0.68) return half4(here);
+    // Behind the text only, as in the template Hills.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
+    // Time, wrapped at about an hour, so it stays exact when the shader is on for days.
+    float t = mod(time, 3141.59265);
+    float3 color = float3(0.0);
+    float amount = 0.0;
+    // Three waves, the far one first. Each nearer one is lower, faster and stronger.
+    for (int i = 0; i < 3; i++) {
+        float n = float(i);
+        float top = 0.72 + 0.07 * n + 0.012 * sin(p.x * (5.0 + 3.0 * n) + t * (0.4 + 0.25 * n) + n * 2.0);
+        float wave = smoothstep(top, top + 2.0 / resolution.y, p.y);
+        color = mix(color, mix(float3(info.rgb), float3(link.rgb), n / 2.0), wave);
+        amount = mix(amount, 0.10 + 0.07 * n, wave);
+        // More of its color in a line along its top, a few pixels thick.
+        float crest = (p.y - top) * resolution.y / 4.0;
+        amount += 0.12 * exp(-crest * crest);
+    }
+    amount *= mix(0.75, 1.0, dark) * open;
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

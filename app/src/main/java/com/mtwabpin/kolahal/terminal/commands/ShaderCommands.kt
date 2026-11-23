@@ -25,8 +25,10 @@ import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.SharedShader
+import com.mtwabpin.kolahal.shader.UsageValues
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.terminal.ShaderActions
+import com.mtwabpin.kolahal.terminal.TerminalUi
 
 /**
  * The `shader` command: the shader over home and the full-screen screens (`screen.shader`).
@@ -39,12 +41,16 @@ import com.mtwabpin.kolahal.terminal.ShaderActions
  * - `wallpaper` makes one the live wallpaper ([WallpaperChoice]).
  * - `play` plays a one-off shader ([ShaderPlay]), and `words` sets the words that play it ([ShaderWords]).
  * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
- * - `check`, `reload`, `copy` and `remove` work with the user's own files.
+ * - `edit` opens a shader in the editor ([TerminalUi.openShaderEditor]). One that comes with Kolahal
+ *   becomes the user's own when it is saved ([ShaderCatalog.Edit.COPY]).
+ * - `check`, `reload`, `copy` and `remove` work with the user's own files. `copy` of a template's
+ *   name ([ShaderCatalog.TEMPLATES]) makes a shader of the user's from it.
  *
  * On Android 12 and older, shaders are listed but can't be used.
  */
 class ShaderCommands(
     context: Context,
+    private val ui: TerminalUi,
     /** Runs slow work (the script folder) outside the serial command queue. Failures are logged. */
     private val background: (label: String, block: () -> Unit) -> Unit,
 ) : CommandGroup(context) {
@@ -73,6 +79,7 @@ class ShaderCommands(
             "update" -> background("shader update") { update(args.drop(1)) }
             "check" -> check(name ?: conf[Keys.SCREEN_SHADER].takeUnless { it == ShaderCatalog.OFF } ?: return usage("shader"))
             "reload" -> reload()
+            "edit" -> edit(name ?: return usage("shader"))
             "copy" -> copy(name ?: return usage("shader"))
             "remove", "rm" -> remove(name ?: return usage("shader"))
             else -> use(sub)
@@ -119,8 +126,8 @@ class ShaderCommands(
     /** `shader wallpaper [<name>]`: the live wallpaper's shader; without a name, which it is. */
     private fun wallpaper(name: String?) {
         if (name == null) {
-            val now = WallpaperChoice.name.value
-            return info(if (now != null && WallpaperChoice.isWallpaper(context)) "Live wallpaper: $now" else "No shader is your wallpaper — 'shader wallpaper <name>'")
+            val now = wallpaperDrawn(WallpaperChoice.name.value)
+            return info(if (WallpaperChoice.isWallpaper(context)) "Live wallpaper: $now" else "No shader is your wallpaper — 'shader wallpaper <name>'")
         }
         if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
         val meta = Shaders.source(context, name)?.let(ShaderMeta::parse) ?: return error("Shader $name can't be read")
@@ -213,15 +220,10 @@ class ShaderCommands(
         info("$name: ${param.name} follows ${formula ?: id}, ${param.text(ShaderParams.now(name, param, ShaderActions.phone(context)))} now")
     }
 
+    /** `shader values`: one line for each value, and one for each row of days or blocks of the phone's use. */
     private fun values() {
-        ShaderActions.sources(context).forEach { s ->
-            out(
-                s.id,
-                LogContext.of(
-                    LogContext.DESC to listOfNotNull(s.value?.let { ShaderValues.shown(s.id, it) } ?: "no value yet", s.label.takeIf { s.id in ShaderValues.BUILT_IN })
-                        .joinToString(" · "),
-                ) + LogContext.ITEM,
-            )
+        valueLines(ShaderActions.sources(context, fresh = true)).forEach { (id, desc) ->
+            out(id, LogContext.of(LogContext.DESC to desc) + LogContext.ITEM)
         }
         info("'shader follow <name> <parameter> <value>' makes a shader's parameter follow one")
     }
@@ -260,6 +262,12 @@ class ShaderCommands(
         }
         // Header lines that are left out: the shader works without them.
         check.warnings.forEach { error(it) }
+    }
+
+    /** `shader edit <name>`: the shader in the editor. */
+    private fun edit(name: String) {
+        if (ShaderCatalog.edit(name, Shaders.userNames) == null) return error("No shader '$name' — 'shader' lists them")
+        ui.openShaderEditor(name)
     }
 
     /** Reads the shader files again: the script folder's, when one is picked, and Kolahal's own. */
@@ -390,12 +398,25 @@ class ShaderCommands(
     // ---- your own --------------------------------------------------------------------------
 
     private fun copy(name: String) {
+        if (Shaders.isTemplate(name)) return background("shader") { startFrom(name) }
         val source = Shaders.source(context, name) ?: return error("No shader '$name' — 'shader' lists them")
         if (folder.uri == null) return fix("Copying a shader needs a script folder — tap to pick one", "script dir")
         background("shader") {
             val path = folder.exportShader(name, source)
             info("Copied $name to $path in the script folder · edit it there, then run 'shader reload'")
         }
+    }
+
+    /** `shader copy template-…`: a shader of the user's from the template, to edit as a file. */
+    private fun startFrom(template: String) {
+        val (name, path) = fromTemplate(context, folder, template)
+        val once = Shaders.once(context, name)
+        info(
+            "Added $name to your shaders, from $template · tap to ${if (once) "play" else "use"} it",
+            LogContext.of(LogContext.RUN to "shader ${if (once) "play" else "use"} $name"),
+        )
+        if (path != null) info("Its file is $path in the script folder · edit it there, then run 'shader reload'")
+        else fix("Copying $name to edit it needs a script folder — tap to pick one, then run 'shader copy $name'", "script dir")
     }
 
     private fun remove(name: String) {
@@ -414,10 +435,10 @@ class ShaderCommands(
 
     companion object {
         val SUBCOMMANDS =
-            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "words", "wallpaper", "get", "update", "check", "reload", "copy", "remove")
+            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "words", "wallpaper", "get", "update", "check", "reload", "edit", "copy", "remove")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "words", "wallpaper", "get", "update", "check", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "words", "wallpaper", "get", "update", "check", "edit", "copy", "remove", "rm")
 
         /**
          * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of
@@ -442,8 +463,30 @@ class ShaderCommands(
             parts.size != 3 -> emptyList()
             parts[1] == "get" -> shared
             parts[1] in setOf("update", "remove", "rm") -> Shaders.userNames
+            // A template's name makes a shader of the user's from it.
+            parts[1] == "copy" -> Shaders.names + ShaderCatalog.TEMPLATES.filter { it !in Shaders.names }
             parts[1] in TAKE_NAME -> Shaders.names
             else -> emptyList()
+        }
+
+        /**
+         * What `shader values` lists for [sources]: each value's id, and what it is now with Kolahal's own names. A row of
+         * days or blocks of the phone's use ([UsageValues.series]) is one line, `unlocks.d1 … unlocks.d7`, with its values in order.
+         */
+        internal fun valueLines(sources: List<ShaderValues.Source>): List<Pair<String, String>> {
+            val byId = sources.associateBy { it.id }
+            val listed = HashSet<UsageValues.Series>()
+            return sources.mapNotNull { s ->
+                val series = UsageValues.series(s.id)
+                    ?: return@mapNotNull s.id to listOfNotNull(
+                        s.value?.let { ShaderValues.shown(s.id, it) } ?: "no value yet",
+                        s.label.takeIf { ShaderValues.own(s.id) },
+                    ).joinToString(" · ")
+                if (!listed.add(series)) return@mapNotNull null
+                val values = series.ids.map { id -> byId[id]?.value?.let { ShaderValues.shown(id, it) } }
+                val now = if (values.all { it == null }) "no value yet" else values.joinToString(" ") { it ?: "-" }
+                "${series.ids.first()} … ${series.ids.last()}" to "$now · ${series.label}"
+            }
         }
 
         /** What [check] found in a shader without problems, in lines: "compiles" first, for after its name. */
@@ -465,6 +508,38 @@ class ShaderCommands(
                     "redrawn ${pace.fps} times a second, ${ShaderClock.FPS} for $seconds s after a touch"
                 else -> "redrawn ${pace.fps} times a second"
             }
+        }
+
+        /**
+         * The shader the live wallpaper draws while [chosen] is chosen: it, or [WallpaperChoice.DEFAULT] when none is
+         * chosen or it [exists] no more, as the wallpaper's writer picks it.
+         */
+        internal fun wallpaperDrawn(chosen: String?, exists: (String) -> Boolean = Shaders::exists): String =
+            chosen?.takeIf(exists) ?: WallpaperChoice.DEFAULT
+
+        /**
+         * After a save of the user's shader [name] with [code]: when the script [folder] has a file of it, the file
+         * gets the same code, so `shader reload` reads what was saved. Why it couldn't, or null. Not on the main thread.
+         */
+        internal fun saveInFolder(folder: ScriptFolder, name: String, code: String): String? =
+            if (folder.uri == null) null
+            else saveInFolder(name, code, names = folder::shaderNames, write = { n, c -> folder.exportShader(n, c) })
+
+        /** The same with the folder's [names] and its [write]r. */
+        internal fun saveInFolder(name: String, code: String, names: () -> Set<String>, write: (String, String) -> Unit): String? =
+            runCatching { if (name in names()) write(name, code) }.exceptionOrNull()
+                ?.let { "not saved to the script folder: ${it.message ?: it.javaClass.simpleName}" }
+
+        /**
+         * A shader of the user's from [template] ([Shaders.fromTemplate]), under a name that no file in the
+         * script [folder] has either, and written into its `shaders` folder when a folder is picked. Its
+         * name, and its file's path in the folder (null: no folder). Not on the main thread.
+         */
+        internal fun fromTemplate(context: Context, folder: ScriptFolder, template: String): Pair<String, String?> {
+            val picked = folder.uri != null
+            val there = if (picked) folder.shaderNames() else emptySet()
+            val (name, code) = Shaders.fromTemplate(context, template) { it in there }
+            return name to if (picked) folder.exportShader(name, code) else null
         }
 
         /**

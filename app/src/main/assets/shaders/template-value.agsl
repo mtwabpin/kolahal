@@ -1,0 +1,50 @@
+// @name Gauge
+// @description Follows a value: a bar at the right edge of the screen, as full as the battery
+// @suits dark good, light good, wallpaper good
+// @param level 0.0..1.0 = 0.6 Level @follow battery
+// @param ends round|square = round Ends of the bar
+//
+// level can follow a value instead of its slider: @follow battery makes it the battery, until you
+// pick another value under Follow in its details ('shader values' lists them). Kolahal spreads a
+// value over the range: a full battery is 1.0, an empty one 0.0. A formula works the number out
+// first: with 'shader follow <name> level 1 - battery / 100' the bar shows how much is used.
+// ends is a choice of words, shown as buttons: its float is the word's place, 0 for round and 1
+// for square. With no @animated line, it is drawn again only when the level changes.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float level;
+uniform float ends;
+layout(color) uniform half4 dim;
+layout(color) uniform half4 good;
+layout(color) uniform half4 warn;
+layout(color) uniform half4 error;
+
+// How far a pixel is outside a bar of half width r (below 0: inside). across: how far it is from
+// the bar's middle line; beyond: how far above the bar's top or below its bottom.
+float bar(float across, float beyond, float r) {
+    if (ends < 0.5) return length(float2(across, max(beyond + r, 0.0))) - r;
+    return max(across - r, beyond);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    // Half a character wide (cell is one's size), at the right edge: pixels left of it return at once.
+    float r = cell.x * 0.3;
+    float x = resolution.x - cell.x * 0.6;
+    if (xy.x < x - r - 2.0) return half4(here);
+    // From 15% to 85% down the screen, clear of its rounded corners. The full part rises from the bottom.
+    float top = resolution.y * 0.15;
+    float bottom = resolution.y * 0.85;
+    float fill = mix(bottom, top, level);
+    float across = abs(xy.x - x);
+    // 1 inside, 0 outside, with a soft edge one pixel wide.
+    float track = clamp(0.5 - bar(across, max(top - xy.y, xy.y - bottom), r), 0.0, 1.0);
+    float full = clamp(0.5 - bar(across, max(fill - xy.y, xy.y - bottom), r), 0.0, 1.0) * step(0.005, level);
+    // Red when it is low, then yellow, then green; the empty part is faint.
+    float3 color = level < 0.2 ? float3(error.rgb) : (level < 0.5 ? float3(warn.rgb) : float3(good.rgb));
+    color = mix(float3(dim.rgb), color, full);
+    float amount = max(track * 0.3, full * 0.9);
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

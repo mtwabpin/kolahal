@@ -1,0 +1,181 @@
+// @name Aura
+// @description A soft light along the edges of the screen, whose colors drift slowly around it
+// @suits dark good, light good, wallpaper good
+// @param width 0.5..2.0 = 1.0 Width
+// @param brightness 0.0..1.5 = 1.0 Brightness
+// @param colors twilight|theme|accent = twilight Colors
+// @param speed 0.2..3.0 = 1.0 Speed
+// @animated
+// @fps 10
+// @settles 3
+//
+// The light hugs the screen's outline, rounded like its corners, and fades inward within about a
+// tenth of its shorter side. It only shows where the page does, so text stays as it is. A touch
+// gathers it a little on the nearest edge. Brightness 0 turns it off: let it follow charging, and
+// it glows only while the phone charges.
+//
+// Its colors go round the screen once in 100 seconds: on a phone 1080 pixels wide that is about 80
+// pixels a second, over a blend that changes color across some 1600 pixels. At 10 frames a second
+// a step is too small to see. Pixels farther in than the light reaches return at once: a frame
+// costs about as much as Aurora's, drawn half as often.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float2 cell;
+uniform float corner;
+uniform float time;
+uniform float2 touch;
+uniform float touchAge;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 accent;
+layout(color) uniform half4 link;
+layout(color) uniform half4 info;
+layout(color) uniform half4 warn;
+uniform float width;
+uniform float brightness;
+uniform float colors;
+uniform float speed;
+
+// How far p is inside a box of half size b with corners of radius r, centered at 0 (negative outside).
+float inside(float2 p, float2 b, float r) {
+    float2 q = abs(p) - b + r;
+    return r - length(max(q, float2(0.0))) - min(max(q.x, q.y), 0.0);
+}
+
+// Where p is along the outline of that box, from 0 to 1: 0 at the top middle, growing clockwise.
+// It is the length of the outline up to the point nearest p, not an angle, so the sides of a tall
+// screen get their share. r must be more than the light is wide, or two sides meet in a seam.
+float along(float2 p, float2 b, float r) {
+    float top = b.x - r;
+    float side = b.y - r;
+    float arc = 1.5707963 * r;
+    float quarter = top + arc + side;
+    float2 q = abs(p) - float2(top, side);
+    float s;
+    if (q.x > 0.0 && q.y > 0.0) {
+        s = top + r * atan(q.x, q.y);
+    } else if (q.y > q.x) {
+        s = abs(p.x);
+    } else {
+        s = quarter - abs(p.y);
+    }
+    // s is measured in the top right quarter; the others are its mirror images.
+    if (p.x >= 0.0) {
+        s = p.y < 0.0 ? s : 2.0 * quarter - s;
+    } else {
+        s = p.y > 0.0 ? 2.0 * quarter + s : 4.0 * quarter - s;
+    }
+    return s / (4.0 * quarter);
+}
+
+// How much of each of four colors there is at x, from 0 to 1 around the outline. Each color has its
+// place, a quarter of the way after the one before, and blends smoothly into the next.
+float4 shares(float x) {
+    float4 w = clamp(1.0 - 4.0 * abs(fract(x - float4(0.0, 0.25, 0.5, 0.75) + 0.5) - 0.5), 0.0, 1.0);
+    return w * w * (3.0 - 2.0 * w);
+}
+
+// A color as bright as it can be, so it reads as light on a light page too, not as a gray.
+float3 vivid(float3 col) {
+    return col / max(max(col.r, col.g), max(col.b, 0.001));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (brightness <= 0.0) return half4(here);
+
+    float2 mid = 0.5 * resolution;
+    float2 p = xy - mid;
+    float small = min(resolution.x, resolution.y);
+    float r = clamp(corner, 0.0, small * 0.5);
+    float reach = small * 0.1 * width;
+    float limit = min(reach * 1.25, small * 0.5);
+    // Where the first column of text can start: about 12 dp in, a little less than a cell and a half.
+    float near = max(min(small * 0.029, 1.4 * cell.x), 2.0);
+    // How far in from the screen's edge. The light is at most a quarter wider than usual; the rest
+    // of the screen is the page as it is.
+    float depth = max(inside(p, mid, r), 0.0);
+    if (depth > limit) return half4(here);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float differs = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(differs * 5.0, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
+    // The glow is measured from an outline whose corners are at least as round as the light is
+    // wide. On a screen with square corners the glows of two sides then meet in a curve, not in a
+    // sharp diagonal, and the corner itself fills with light.
+    float curve = max(r, limit);
+    float soft = max(inside(p, mid, curve), 0.0);
+    float u = along(p, mid, curve);
+    float turn = 6.2831853 * u;
+
+    // Every movement turns a whole number of times in ten minutes, so the clock can wrap there
+    // without a jump, and stays exact when the shader is on for days.
+    float t = 6.2831853 * mod(time * speed, 600.0) / 600.0;
+
+    // Wider in places: two waves of different lengths that travel at their own speeds.
+    float swell = 0.55 + 0.25 * sin(2.0 * turn - 7.0 * t + 1.3) + 0.20 * sin(3.0 * turn + 11.0 * t);
+
+    // A touch gathers the light on the edge nearest the finger, for about three seconds.
+    if (touch.x >= 0.0 && touchAge < 3.0) {
+        float gap = abs(u - along(touch - mid, mid, curve));
+        gap = min(gap, 1.0 - gap) * 2.0 * (resolution.x + resolution.y);
+        float life = smoothstep(0.0, 0.25, touchAge) * (1.0 - smoothstep(0.4, 3.0, touchAge));
+        swell += 0.4 * life * exp(-gap * gap / (small * small * 0.06));
+    }
+
+    // Two layers of light: at the edge a bright line and a glow as wide as the swell, and behind
+    // them a wider haze.
+    float wide = reach * clamp(swell, 0.25, 1.6);
+    float rim = exp(-depth / (small * 0.005));
+    float close = soft / (wide * 0.4);
+    float core = exp(-close * close);
+    float spread = soft / (wide * 0.6);
+    float haze = exp(-spread * spread) * (1.0 - smoothstep(0.6, 1.0, depth / limit));
+    // Four colors that follow each other: the accent alone, richer and paler in turn;
+    // or twilight's own; or the theme's.
+    float3 a = float3(accent.rgb);
+    float3 b = float3(accent.rgb) * float3(accent.rgb);
+    float3 c = float3(accent.rgb);
+    float3 d = mix(float3(accent.rgb), float3(1.0), 0.3);
+    if (colors < 0.5) {
+        // Twilight: blue, violet, rose and apricot.
+        a = float3(0.26, 0.50, 1.00);
+        b = float3(0.56, 0.38, 1.00);
+        c = float3(1.00, 0.36, 0.60);
+        d = float3(1.00, 0.62, 0.36);
+    } else if (colors < 1.5) {
+        a = float3(link.rgb);
+        b = float3(accent.rgb);
+        c = float3(info.rgb);
+        d = float3(warn.rgb);
+    }
+
+    // They travel around the outline, and wobble a little as they go. The haze's colors travel the
+    // other way, and lean toward the first two (blue and violet in twilight), so the haze fades into
+    // a cool light rather than into a dim orange, which looks like a stain on a dark page.
+    float travel = 6.0 * t / 6.2831853;
+    float wobble = 0.04 * sin(2.0 * turn + 5.0 * t);
+    float4 w = shares(u + wobble - travel);
+    float3 front = vivid(a * w.x + b * w.y + c * w.z + d * w.w);
+    w = shares(u - wobble + 0.5 * travel + 0.2);
+    float3 back = vivid(mix(a * w.x + b * w.y + c * w.z + d * w.w, 0.5 * (a + b), 0.45));
+    float3 light = (front * (0.45 * rim + 0.5 * core) + back * 0.6 * haze) * brightness * open;
+
+    // The light is laid over the page as a layer of its own color, as much as it is bright: on a
+    // dark page that adds light, on a light page it tints, so the edge looks lit rather than
+    // shaded, and over a wallpaper that shows through the page it is light on its own. Where it is
+    // brightest, at the very edge of a dark page, it goes toward white. Where text can be, a dark page's
+    // light stays under what dim text reads on, softly, so a bright or wide glow still grows toward the
+    // edge, and only the margin outside the text goes white.
+    float amount = max(max(light.r, light.g), light.b);
+    float inText = smoothstep(0.6 * near, near, depth) * dark;
+    float cover = clamp(amount * mix(0.65, 1.0, dark), 0.0, mix(0.7, 1.0, dark));
+    float3 color = mix(light / max(amount, 0.001), float3(1.0), clamp(amount - 1.0, 0.0, 0.5) * dark * (1.0 - inText));
+    float glow = cover * dot(color, float3(0.299, 0.587, 0.114));
+    if (inText > 0.0 && glow > 0.10) cover *= mix(1.0, (0.10 + 0.10 * (1.0 - exp(-(glow - 0.10) / 0.10))) / glow, inText);
+    return half4(here * (1.0 - cover) + float4(color * cover, cover));
+}

@@ -23,6 +23,11 @@ import kotlin.math.roundToInt
  * scripts give with `shader.give(name, value)` under their `@gives` line. A value has one owner, and any
  * number of parameters can follow it.
  * - Kolahal's are one word (`battery`); a script's has the script's name first (`weather.rain`).
+ * - Kolahal's values from the phone's use ([UsageValues]: `unlocks`, `screen.usual`, `away`) are worked out by
+ *   [UsageWatch] and kept with the scripts' in [given], so they reach the live wallpaper the same way. Their
+ *   first words are commands, which no script can be called, and a script's value under one is dropped. As
+ *   they were last worked out, they are kept with the scripts' values too ([keepUse]), so a parameter that
+ *   follows one starts there at the next start, rather than at its slider.
  * - A value is a number, or a word. Kolahal's numbers are in their own units: `battery` from 0 to 100 ([unit]).
  * - A script's values go when it is switched off, changed from outside or deleted. They stay over a restart.
  */
@@ -52,20 +57,38 @@ object ShaderValues {
 
     private val _given = MutableStateFlow<Map<String, String>>(emptyMap())
 
-    /** What scripts gave, by id. */
+    /** What scripts gave, by id, and Kolahal's values from the phone's use ([UsageValues]) while a shader follows them. */
     val given: StateFlow<Map<String, String>> = _given.asStateFlow()
+
+    /** What scripts gave, as [load] read it, and Kolahal's values from the phone's use, as [UsageWatch] worked them out. */
+    private var fromScripts: Map<String, String> = emptyMap()
+    private var fromUse: Map<String, String> = emptyMap()
+
+    /** [UsageWatch] worked out the phone's use in this process: what was kept from before is old. */
+    private var useSet = false
+
+    /** Where the values from the phone's use are kept among the scripts' ([keepUse]): no script has this name. */
+    internal const val USE = "@use"
 
     fun id(script: String, name: String) = "$script.$name"
 
-    /** What the value [id] is called. */
-    fun label(id: String): String = BUILT_IN[id] ?: id.replace(".", " · ")
+    /** Whether [id] is Kolahal's own value: one of [BUILT_IN], or one from the phone's use ([UsageValues]). */
+    fun own(id: String): Boolean = id in BUILT_IN || UsageValues.has(id)
 
-    /** The value [id] as people read it: a battery in percent, charging as yes or no, other numbers with two decimals at most. */
+    /** What the value [id] is called. */
+    fun label(id: String): String = BUILT_IN[id] ?: UsageValues.label(id) ?: id.replace(".", " · ")
+
+    /**
+     * The value [id] as people read it: a battery in percent, charging as yes or no, unlocks as a whole number,
+     * screen time and time away in whole minutes, other numbers with two decimals at most.
+     */
     fun shown(id: String, value: String): String {
         val n = value.toFloatOrNull() ?: return value
         return when (id) {
             "battery" -> "${n.roundToInt()}%"
             "charging" -> if (n > 0.5f) "yes" else "no"
+            UsageValues.UNLOCKS -> "${n.roundToInt()}"
+            UsageValues.SCREEN, UsageValues.AWAY -> "${n.roundToInt()} min"
             else -> String.format(Locale.ROOT, "%.2f", n).trimEnd('0').trimEnd('.')
         }
     }
@@ -73,13 +96,37 @@ object ShaderValues {
     /**
      * Reads what scripts gave: at start, off the main thread ([Shaders.load]), and when one may have given
      * something ([LogRepository.statusVersion]). Main process. One read at a time, so the last to finish is
-     * the last to read.
+     * the last to read. Until [UsageWatch] works out the phone's use, it reads that too, as it was kept ([keepUse]).
      */
     @Synchronized
     fun load(context: Context) {
         val all = KvStore(context, Stores.SHADER_VALUES).all()
-        _given.value = all.flatMap { (script, raw) -> read(raw).map { (name, value) -> id(script, name) to value } }.toMap()
+        fromScripts = scripts(all)
+        if (!useSet) fromUse = read(all[USE])
+        _given.value = fromScripts + fromUse
     }
+
+    /** What scripts gave, by id, of [all] that the store keeps ([load]). */
+    internal fun scripts(all: Map<String, String>): Map<String, String> =
+        // A script under the name of a command can be restored from a backup: its values would pass for Kolahal's.
+        all.filterKeys { it !in UsageValues.GROUPS && it != USE }
+            .flatMap { (script, raw) -> read(raw).map { (name, value) -> id(script, name) to value } }.toMap()
+
+    /**
+     * Kolahal's values from the phone's use are [values] now ([UsageWatch]); those that aren't there have none. True
+     * when that changed something, and only then is [given] another, so the live wallpaper's state is written again.
+     */
+    @Synchronized
+    fun setUse(values: Map<String, String>): Boolean {
+        useSet = true
+        if (values == fromUse) return false
+        fromUse = values
+        _given.value = fromScripts + fromUse
+        return true
+    }
+
+    /** Keeps [values] from the phone's use for the next start ([load]). Not on the main thread. */
+    fun keepUse(context: Context, values: Map<String, String>) = write(KvStore(context, Stores.SHADER_VALUES), USE, values)
 
     /** What home handed over, in the live wallpaper's process. */
     fun restore(given: Map<String, String>) {
@@ -105,7 +152,11 @@ object ShaderValues {
     }
 
     /** The most that Kolahal's own values are, where it isn't 1. */
-    private val MOST = mapOf("battery" to 100f, "day" to 24f)
+    private val MOST = mapOf(
+        "battery" to 100f, "day" to 24f,
+        UsageValues.UNLOCKS to 100f, UsageValues.SCREEN to 480f, UsageValues.AWAY to 240f,
+        "${UsageValues.UNLOCKS}.usual" to UsageValues.MOST_USUAL, "${UsageValues.SCREEN}.usual" to UsageValues.MOST_USUAL,
+    )
 
     /**
      * What [formula] makes of [value], the value [id]: `battery / 20`. The value is in it by its name, with or
@@ -128,7 +179,7 @@ object ShaderValues {
      */
     fun parse(text: String, known: Collection<String>? = null): Pair<String, String?>? {
         val words = ID.findAll(text.lowercase()).map { it.value }
-        val id = words.firstOrNull { w -> if (known != null) w in known else w in BUILT_IN || '.' in w } ?: return null
+        val id = words.firstOrNull { w -> if (known != null) w in known else own(w) || '.' in w } ?: return null
         return id to text.trim().takeIf { !it.equals(id, ignoreCase = true) }
     }
 

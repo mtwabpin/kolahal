@@ -1,0 +1,581 @@
+// @name Record
+// @description A turntable seen from above under a lamp. Its record has a band of grooves for each day of the week's screen time, and the needle rides today's
+// @suits dark good, light fair, wallpaper poor
+// @param d1 0.0..1.0 = 0.0 Six days ago @follow screen.d1
+// @param d2 0.0..1.0 = 0.0 Five days ago @follow screen.d2
+// @param d3 0.0..1.0 = 0.0 Four days ago @follow screen.d3
+// @param d4 0.0..1.0 = 0.0 Three days ago @follow screen.d4
+// @param d5 0.0..1.0 = 0.0 Two days ago @follow screen.d5
+// @param d6 0.0..1.0 = 0.0 Yesterday @follow screen.d6
+// @param d7 0.0..1.0 = 0.0 Today @follow screen.d7
+// @animated
+// @fps 10
+//
+// A turntable from straight above, under a lamp. The record's grooves are cut in seven bands with a
+// narrow smooth gap between each, one band for each of the last seven days: the oldest outermost, where a
+// record begins, and today's innermost, where the needle rides. The bands share the room between the
+// label and the rim by their days' screen time, each at least a thin band, so a long day is a wide one.
+// Each parameter follows Kolahal's screen time for its day; without usage access they stay at 0, and the
+// seven bands are all as wide.
+// The grooves catch the lamp in two fans on either side of the spindle, which stay where they are while
+// the record turns: only the label's print shows it turning, and a slight warp lifts the arm a hair once
+// a turn. The label is in the accent color. The hour sets the light: a dark theme is a room under the
+// lamp, a light one a pale table in daylight, and there the record is pale over the log, so dark text
+// reads on it. Over the log the lower part of the page is the theme's; as a wallpaper the table goes
+// on, with a record's sleeve on it. The wood costs the most: its grain is worked out for every pixel.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float4 date;
+uniform float dark;
+uniform float wallpaper;
+uniform float d1;
+uniform float d2;
+uniform float d3;
+uniform float d4;
+uniform float d5;
+uniform float d6;
+uniform float d7;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 accent;
+
+// Where the spindle is and how big the record is, in screen heights from the top middle.
+const float2 MIDDLE = float2(-0.035, 0.300);
+const float R = 0.155;
+// The lamp: where it is over the table, and how high.
+const float3 LAMP = float3(-0.120, 0.100, 0.40);
+// The plinth: its middle and half its size.
+const float2 PLINTH = float2(0.0, 0.325);
+const float2 PLINTH_SIZE = float2(0.215, 0.240);
+// How fast the record turns, in radians a second.
+const float SPIN = 0.20;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise along a line and over the plane, 0 to 1.
+float noise1(float x) {
+    float at = floor(x);
+    float f = fract(x);
+    return mix(hash(at), hash(at + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+float noise2(float2 p) {
+    float2 at = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(at), hash2(at + float2(1.0, 0.0)), f.x),
+        mix(hash2(at + float2(0.0, 1.0)), hash2(at + float2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float dawn = clamp((h - 5.0) / 1.3, 0.0, 1.0);
+    float noon = clamp((h - 9.3) / 1.4, 0.0, 1.0);
+    float late = clamp((h - 16.2) / 1.1, 0.0, 1.0);
+    float dusk = clamp((h - 18.9) / 1.1, 0.0, 1.0);
+    float morning = dawn - noon;
+    float midday = noon - late;
+    float evening = late - dusk;
+    float4 w = float4(morning, midday, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's color, from those of morning, day, evening and night. For most of the day one of the four counts
+// alone: then it is that one, and nothing is multiplied for the pixel.
+float3 pick(float4 w, float3 a, float3 b, float3 c, float3 d) {
+    if (w.y >= 1.0) return b;
+    if (w.w >= 1.0) return d;
+    if (w.x >= 1.0) return a;
+    if (w.z >= 1.0) return c;
+    return a * w.x + b * w.y + c * w.z + d * w.w;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends.
+float ground(float y) {
+    return y < 0.64 ? 0.80 * clamp((y - 0.42) / 0.22, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.64) / 0.20, 0.0, 1.0);
+}
+
+// Day k of the week, 0 for six days ago and 6 for today.
+float day(int k) {
+    float v = k == 0 ? d1 : k == 1 ? d2 : k == 2 ? d3 : k == 3 ? d4 : k == 4 ? d5 : k == 5 ? d6 : d7;
+    return clamp(v, 0.0, 1.0);
+}
+
+// Distance to a box with round corners around 0, and to a line from a to b.
+float box(float2 p, float2 size, float radius) {
+    float2 d = abs(p) - size + radius;
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - radius;
+}
+
+float segment(float2 p, float2 a, float2 b) {
+    float2 ab = b - a;
+    return length(p - a - ab * clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0));
+}
+
+// How much of the lamp's light reaches the table at p: 1 right under it, less farther off.
+float lampAt(float2 p, float spread) {
+    float2 d = p - LAMP.xy;
+    float h2 = spread * spread;
+    float e = h2 / (dot(d, d) + h2);
+    return e * sqrt(e);
+}
+
+// The bright fans that a lamp makes on anything turned in circles, as grooves are: brightest where the
+// line from the middle points at the lamp or away from it, and the same whichever way it turns.
+// dir is the way out from the middle and toLamp the way to the lamp, both of length 1. A sharp fan and a
+// wide soft one around it.
+float fan(float2 dir, float2 toLamp, float width, float soft) {
+    float s = dir.x * toLamp.y - dir.y * toLamp.x;
+    float a = s * s / (width * width);
+    return (exp(-a) + soft / (1.0 + a * 0.09)) * (dot(dir, toLamp) > 0.0 ? 1.0 : 0.92);
+}
+
+// Wood grain along x: long lines that wander a little, denser wood at the end of each, fine fibres and
+// pores drawn out along the grain. 0 is the darkest wood and 1 the palest.
+float grain(float2 p, float perPx) {
+    float shape = noise1(p.x * 0.9 + p.y * 2.1);
+    float t = p.y * 52.0 + 3.0 * shape + 1.1 * sin(p.x * 4.3 - p.y * 7.0) + 0.5 * sin(p.x * 11.0 + p.y * 23.0);
+    float ring = fract(t);
+    float late = clamp((ring - 0.40) * 2.0, 0.0, 1.0) * clamp((1.0 - ring) * 10.0, 0.0, 1.0) * (0.35 + 0.65 * hash(floor(t)));
+    // Fibres and pores: short streaks along the grain, each thin row of it with its own.
+    float fibre = noise1(p.x * perPx * 0.111 + floor(t * 24.0) * 7.31);
+    float pore = clamp((fibre - 0.84) * 9.0, 0.0, 1.0);
+    return clamp(0.17 + 0.34 * shape + 0.17 * abs(fract(t * 0.13) - 0.5) * 2.0 - 0.30 * late + 0.10 * (fibre - 0.5) - 0.20 * pore * (1.0 - late), 0.0, 1.0);
+}
+
+// The tone arm from above, as distances: x the tube, y the headshell and its finger lift, z the
+// counterweight. pivot is where it turns, stylus where the needle is, head the headshell's way.
+float3 armParts(float2 p, float2 pivot, float2 stylus, float2 head) {
+    float2 headMid = stylus - head * 0.075 * R;
+    float2 back = headMid - head * 0.13 * R;
+    float2 across = float2(-head.y, head.x);
+    float2 hp = float2(dot(p - headMid, head), dot(p - headMid, across));
+    float shell = box(hp, float2(0.150 * R, 0.058 * R), 0.022 * R);
+    // The finger lift, out to the side away from the record.
+    shell = min(shell, segment(hp, float2(-0.03 * R, -0.04 * R), float2(-0.08 * R, -0.20 * R)) - 0.012 * R);
+    float2 way = normalize(back - pivot);
+    float tube = segment(p, pivot - way * 0.24 * R, back) - 0.022 * R;
+    float2 wp = float2(dot(p - pivot, way), dot(p - pivot, float2(-way.y, way.x)));
+    float weight = box(wp - float2(-0.31 * R, 0.0), float2(0.110 * R, 0.096 * R), 0.024 * R);
+    return float3(tube, shell, weight);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float y = xy.y / resolution.y;
+    if (y > 0.84 && wallpaper < 0.5) return half4(here);
+
+    // The scene is measured in screen heights from the top middle, so a wider screen shows more of the table.
+    float px = 1.0 / resolution.y;
+    float perPx = resolution.y;
+    float2 p = float2((xy.x - 0.5 * resolution.x) * px, y - 0.045 * wallpaper);
+    float2 rel = p - MIDDLE;
+    float rr = length(rel);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y) * (1.0 - wallpaper));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
+    // The hour's light. A dark theme is a room at night under the lamp, with a little of the hour's
+    // light from the window; a light one is a pale room in daylight, and under the lamp after dark.
+    float4 w = hours(date.w / 3600.0);
+    float3 lampColor, ambient, tablePale, tableDeep, woodPale, woodDeep;
+    float spread, strength, glossy;
+    if (dark > 0.5) {
+        lampColor = pick(w, float3(1.00, 0.84, 0.66), float3(1.00, 0.90, 0.78), float3(1.00, 0.72, 0.46), float3(1.00, 0.74, 0.48));
+        ambient = pick(w, float3(0.060, 0.066, 0.095), float3(0.072, 0.076, 0.084), float3(0.074, 0.054, 0.062), float3(0.036, 0.038, 0.052));
+        spread = dot(w, float4(0.42, 0.46, 0.40, 0.40));
+        strength = 1.0;
+        glossy = 0.55;
+        tablePale = float3(0.190, 0.170, 0.155);
+        tableDeep = float3(0.120, 0.108, 0.100);
+        woodPale = float3(0.360, 0.215, 0.120);
+        woodDeep = float3(0.130, 0.068, 0.036);
+    } else {
+        lampColor = pick(w, float3(1.00, 0.92, 0.80), float3(1.00, 0.98, 0.94), float3(1.00, 0.84, 0.64), float3(1.00, 0.82, 0.60));
+        ambient = pick(w, float3(0.74, 0.74, 0.78), float3(0.80, 0.81, 0.82), float3(0.74, 0.70, 0.70), float3(0.66, 0.68, 0.74));
+        spread = dot(w, float4(0.55, 0.70, 0.50, 0.40));
+        strength = dot(w, float4(0.30, 0.26, 0.32, 0.40));
+        glossy = 1.6;
+        tablePale = float3(0.965, 0.955, 0.935);
+        tableDeep = float3(0.910, 0.900, 0.880);
+        woodPale = float3(0.910, 0.800, 0.650);
+        woodDeep = float3(0.720, 0.585, 0.430);
+    }
+    float3 light = lampColor * strength * lampAt(p, spread);
+    // Light through a window falls on the table in front: two panes and the bar between them. It comes
+    // from the left in the morning and from the right in the evening, warm at sunset, and at night it is
+    // the moon's, faint and blue. Only the wallpaper has it: over the log this part is the theme's.
+    float3 sun = float3(0.0);
+    if (p.y > 0.58 && wallpaper > 0.5) {
+        float lean = 0.70 * (w.z - w.x);
+        float2 s = p - float2(-0.16 * (w.z - w.x), 0.82);
+        float2 pane = float2(s.x - s.y * lean, s.y);
+        float glass = (1.0 - smoothstep(-0.006, 0.016, box(pane, float2(0.21, 0.12), 0.01)));
+        glass *= smoothstep(0.004, 0.010, abs(pane.x)) * smoothstep(0.003, 0.009, abs(pane.y + 0.01));
+        if (dark > 0.5) {
+            sun = pick(w, float3(0.80, 0.82, 0.96), float3(0.86, 0.88, 0.94), float3(1.00, 0.70, 0.48), float3(0.50, 0.60, 0.92)) * glass * dot(w, float4(0.42, 0.36, 0.42, 0.34));
+        } else {
+            sun = pick(w, float3(1.00, 0.90, 0.76), float3(1.00, 0.97, 0.90), float3(1.00, 0.80, 0.58), float3(0.62, 0.68, 0.86)) * glass * dot(w, float4(0.30, 0.18, 0.32, 0.07));
+        }
+    }
+    float2 fromLamp = p - LAMP.xy;
+    float2 toLamp = normalize(-fromLamp);
+
+    // The record turns, and a slight warp in it lifts the arm a hair once a turn.
+    float turn = time * SPIN;
+    float lift = 0.5 + 0.5 * sin(turn + 1.3);
+
+    // Where the needle is: in the middle of today's band. The bands share the room between the label
+    // and the rim by their days, each at least LEAST wide, with a narrow smooth gap between each two.
+    const float INNER = 0.405;
+    const float OUTER = 0.962;
+    const float GAP = 0.013;
+    const float LEAST = 0.22;
+    float week = 7.0 * LEAST + clamp(d1, 0.0, 1.0) + clamp(d2, 0.0, 1.0) + clamp(d3, 0.0, 1.0) + clamp(d4, 0.0, 1.0)
+        + clamp(d5, 0.0, 1.0) + clamp(d6, 0.0, 1.0) + clamp(d7, 0.0, 1.0);
+    float room = (OUTER - INNER - 6.0 * GAP) * R;
+
+    // The arm turns on its pivot so that its needle is on that radius. Wherever the needle is, the arm
+    // and its shadow stay in a box right of the spindle; the rest of the screen needs none of this.
+    float2 pivot = MIDDLE + float2(1.13, -0.86) * R;
+    float2 fromPivot = p - pivot;
+    bool armNear = rel.x > -0.10 * R && rel.x < 1.75 * R && rel.y > -1.45 * R && rel.y < 1.0 * R && dot(fromPivot, fromPivot) < 3.0 * R * R;
+    float2 stylus = pivot;
+    float2 head = float2(1.0, 0.0);
+    float2 armWay = float2(0.0, 1.0);
+    float armShade = 1.0;
+    if (armNear) {
+        float needle = INNER * R + 0.5 * room * (LEAST + clamp(d7, 0.0, 1.0)) / week;
+        float reach = 1.50 * R;
+        float2 toPivot = pivot - MIDDLE;
+        float apart = length(toPivot);
+        float2 u = toPivot / apart;
+        float along = (needle * needle - reach * reach + apart * apart) / (2.0 * apart);
+        stylus = MIDDLE + u * along + float2(-u.y, u.x) * sqrt(max(needle * needle - along * along, 0.0));
+        float2 tangent = normalize(float2(stylus.y - MIDDLE.y, MIDDLE.x - stylus.x));
+        armWay = normalize(stylus - pivot);
+        if (dot(tangent, armWay) < 0.0) tangent = -tangent;
+        head = normalize(tangent + 0.30 * armWay);
+        // The arm's shadow, cast away from the lamp, a little farther as the arm lifts.
+        float armHigh = 0.016 + 0.0008 * lift;
+        // The tube and the headshell, simply: a line and a round end.
+        float2 ps = p - fromLamp * armHigh / LAMP.z;
+        float2 headMid = stylus - head * 0.075 * R;
+        float body = min(segment(ps, pivot, headMid - head * 0.13 * R) - 0.022 * R, length(ps - headMid) - 0.10 * R);
+        armShade = smoothstep(-0.001, mix(0.0035, 0.006, 1.0 - dark), body);
+    }
+
+    float plinthAt = box(p - PLINTH, PLINTH_SIZE, 0.010);
+    float3 color;
+    if (plinthAt > 0.0) {
+        // The table: a linen cloth, and the plinth's soft shadow on it, away from the lamp.
+        float3 cloth = mix(tableDeep, tablePale, 0.6);
+        float shade = smoothstep(-0.006, 0.030, box(p - PLINTH - fromLamp * 0.045, PLINTH_SIZE, 0.014));
+        float contact = smoothstep(-0.002, 0.008, plinthAt);
+        float3 lightHere = light * shade + sun;
+        color = cloth * (ambient * (0.88 + 0.12 * contact) + lightHere);
+
+        // A record's sleeve lying on the table in front of the turntable, turned a little: a field of
+        // color with a pale disc and a few lines printed on it, worn pale at its edges.
+        // Only the wallpaper has it: over the log this part of the page is the theme's.
+        float2 s = p - float2(-0.165, 0.870);
+        float2 sq = float2(0.955 * s.x + 0.296 * s.y, -0.296 * s.x + 0.955 * s.y);
+        float sleeveAt = wallpaper > 0.5 && p.y > 0.6 ? box(sq, float2(0.163), 0.003) : 1.0;
+        if (sleeveAt < 0.012) color *= 0.72 + 0.28 * smoothstep(-0.002, 0.012, box(sq - float2(-0.002, 0.007), float2(0.163), 0.004));
+        if (sleeveAt < px) {
+            float2 c = sq / 0.163;
+            float3 field = dark > 0.5 ? float3(0.120, 0.140, 0.190) : float3(0.440, 0.520, 0.560);
+            float3 pale = dark > 0.5 ? float3(0.380, 0.350, 0.300) : float3(0.880, 0.840, 0.740);
+            float disc = clamp((0.40 - length(c - float2(0.22, -0.20))) * 0.163 * perPx + 0.5, 0.0, 1.0);
+            float lines = 0.0;
+            for (int k = 0; k < 3; k++) {
+                float at = 0.42 + 0.11 * float(k);
+                lines = max(lines, clamp((0.006 + 0.004 * float(k) - abs(c.y - at)) * 0.163 * perPx + 0.5, 0.0, 1.0));
+            }
+            float title = step(abs(c.y + 0.80), 0.035) * step(abs(c.x + 0.55), 0.30) * step(0.25, hash(floor(c.x * 30.0) + 7.0));
+            float3 cover = mix(field, pale, max(max(disc, lines * 0.85), title * 0.9));
+            float worn = 1.0 - smoothstep(0.0, 0.006, -sleeveAt);
+            float fleck = hash2(floor(sq * perPx * 0.5));
+            cover = mix(cover, pale, 0.35 * worn * (0.5 + 0.5 * fleck));
+            cover *= 0.96 + 0.04 * fleck;
+            color = mix(color, cover * (ambient + lightHere), clamp(-sleeveAt * perPx + 0.5, 0.0, 1.0));
+        }
+    } else {
+        // The plinth: wood, oiled, with a soft sheen of the lamp in it.
+        float g = grain(p, perPx);
+        float3 wood = mix(woodDeep, woodPale, g);
+        // Shadows on the wood: the platter's, the arm base's and the small parts'.
+        float shade = smoothstep(1.045 * R, 1.13 * R, length(rel - fromLamp * 0.05));
+        if (armNear) shade *= smoothstep(0.20 * R, 0.29 * R, length(fromPivot - fromLamp * 0.035)) * armShade;
+        color = wood * (ambient + light * shade);
+        float2 g2 = p - LAMP.xy;
+        float gloss = max(0.0, 1.0 - dot(g2, g2) / 0.016);
+        color += lampColor * strength * 0.10 * gloss * gloss * shade * (0.7 + 0.6 * g);
+        // The plinth's rounded edge: bright on the lamp's side, dark on the other.
+        float edge = -plinthAt * perPx;
+        float rim = 1.0 - smoothstep(0.0, 5.0, edge);
+        if (rim > 0.0) {
+            float2 corner = clamp(p - PLINTH, -PLINTH_SIZE + 0.02, PLINTH_SIZE - 0.02);
+            float2 n = normalize(p - PLINTH - corner + 0.00001);
+            float facing = dot(n, toLamp);
+            color *= 1.0 + rim * (facing > 0.0 ? 0.9 * facing : 0.55 * facing);
+            color *= clamp(edge + 0.5, 0.0, 1.0);
+            color += (1.0 - clamp(edge + 0.5, 0.0, 1.0)) * tableDeep * ambient * 0.8;
+        }
+
+        // Two hinges for the lid at the back.
+        float2 hinge = float2(abs(p.x - PLINTH.x) - 0.115, p.y - (PLINTH.y - PLINTH_SIZE.y) - 0.004);
+        float hingeAt = hinge.y < 0.012 ? box(hinge, float2(0.030, 0.006), 0.002) : 1.0;
+        if (hingeAt < 0.004) {
+            float2 m = hinge / float2(0.030, 0.006) - float2(toLamp.x * 0.4, 0.0);
+            float3 hinged = float3(0.30, 0.30, 0.32) * (ambient + light) * (0.75 + 0.25 * noise1(hinge.x * perPx * 0.7)) + lampColor * strength * 0.25 * exp(-m.x * m.x * 2.0);
+            hinged *= 1.0 - 0.6 * step(abs(hinge.y + 0.0005), 0.0007);
+            color = mix(color * (0.6 + 0.4 * smoothstep(0.0, 0.004, box(hinge - fromLamp * 0.02, float2(0.030, 0.006), 0.002))), hinged, clamp(-hingeAt * perPx + 0.5, 0.0, 1.0));
+        }
+
+        // The start button, the speed buttons and the pitch slider, at the front.
+        float2 b = (p - MIDDLE) / R;
+        if (b.y > 1.25 && b.y < 1.60 && b.x < -0.10) {
+            float startAt = box(b - float2(-0.80, 1.42), float2(0.17, 0.075), 0.03);
+            float speedAt = min(box(b - float2(-0.48, 1.42), float2(0.075, 0.045), 0.02), box(b - float2(-0.30, 1.42), float2(0.075, 0.045), 0.02));
+            float partAt = min(startAt, speedAt) * R;
+            float dropAt = min(box(b - float2(-0.80, 1.42) - fromLamp / R * 0.03, float2(0.17, 0.075), 0.03),
+                min(box(b - float2(-0.48, 1.42) - fromLamp / R * 0.02, float2(0.075, 0.045), 0.02), box(b - float2(-0.30, 1.42) - fromLamp / R * 0.02, float2(0.075, 0.045), 0.02))) * R;
+            color *= 0.55 + 0.45 * smoothstep(-0.002, 0.006, dropAt);
+            if (partAt < px) {
+                float3 key = (startAt < speedAt ? float3(0.20, 0.20, 0.21) : float3(0.50, 0.50, 0.52)) * (ambient + light);
+                float lip = 1.0 - smoothstep(0.0, 3.0 * px, -partAt);
+                float2 off = b - (startAt < speedAt ? float2(-0.80, 1.42) : (b.x < -0.39 ? float2(-0.48, 1.42) : float2(-0.30, 1.42)));
+                key *= 1.0 + lip * 0.9 * dot(normalize(off * float2(0.4, 1.0) + 0.0001), toLamp);
+                color = mix(color, key, clamp(-partAt * perPx + 0.5, 0.0, 1.0));
+            }
+        }
+        if (b.x > 1.24 && b.x < 1.50 && b.y > 0.30 && b.y < 1.45) {
+            float slotAt = box(b - float2(1.37, 0.88), float2(0.022, 0.48), 0.02) * R;
+            color *= 0.25 + 0.75 * smoothstep(-px, px, slotAt);
+            float knobAt = box(b - float2(1.37, 0.80), float2(0.090, 0.050), 0.018) * R;
+            float knobDrop = box(b - float2(1.37, 0.80) - fromLamp / R * 0.03, float2(0.090, 0.050), 0.018) * R;
+            color *= 0.6 + 0.4 * smoothstep(-0.002, 0.005, knobDrop);
+            if (knobAt < px) {
+                float3 knob = float3(0.42, 0.42, 0.44) * (ambient + light) * (1.0 + 0.35 * sin((b.y - 0.80) * 260.0));
+                color = mix(color, knob, clamp(-knobAt * perPx + 0.5, 0.0, 1.0));
+            }
+        }
+
+        // The arm rest, empty while the record plays, and the cue lever beside it.
+        float2 rest = MIDDLE + float2(1.24, -0.04) * R;
+        float2 cue = MIDDLE + float2(1.43, -0.30) * R;
+        float2 cueEnd = cue + float2(-0.05, 0.15) * R;
+        if (abs(p.x - rest.x - 0.1 * R) < 0.2 * R && abs(p.y - rest.y + 0.12 * R) < 0.25 * R) {
+            // The rest: a steel post, and on it a rubber cradle of two prongs that the tube would lie between.
+            float2 prong = float2(abs(p.x - rest.x) - 0.034 * R, p.y - rest.y);
+            float cradle = box(prong, float2(0.013 * R, 0.042 * R), 0.008 * R);
+            float restAt = min(length(p - rest) - 0.050 * R, cradle);
+            float cueAt = min(length(p - cue) - 0.040 * R, segment(p, cue, cueEnd) - 0.016 * R);
+            float2 sh = p - fromLamp * 0.03;
+            float dropAt = min(length(sh - rest) - 0.050 * R, min(length(sh - cue) - 0.040 * R, segment(sh, cue, cueEnd) - 0.016 * R));
+            color *= 0.55 + 0.45 * smoothstep(-0.0015, 0.005, dropAt);
+            // The rest: a steel post with a rubber cradle across its top. The lever: steel, with a knob.
+            float2 c = restAt < cueAt ? rest : (length(p - cue) < length(p - cueEnd) ? cue : cueEnd);
+            float2 m = (p - c) / (0.045 * R) - toLamp * 0.55;
+            float3 part = float3(0.36, 0.36, 0.38) * (ambient + light) + lampColor * strength * 0.45 * exp(-dot(m, m) * 2.0);
+            if (restAt < cueAt && cradle < 0.0) part = float3(0.05, 0.05, 0.055) * (ambient + light) * (1.0 + 0.8 * (1.0 - smoothstep(-0.03 * R, 0.03 * R, prong.y)));
+            color = mix(color, part, clamp(-min(restAt, cueAt) * perPx + 0.5, 0.0, 1.0));
+        }
+
+        // The platter and the record.
+        if (rr < 1.07 * R) {
+            float2 dir = rel / max(rr, 0.00001);
+            float3 disc;
+            float3 lit = light * armShade;
+            // The fans take the lamp's light where the record's middle is, so both are alike.
+            float3 shineLight = lampColor * strength * lampAt(MIDDLE, spread) * armShade;
+            if (rr < 0.335 * R) {
+                // The label, in the accent color, turning with the record.
+                float2 turned = float2(rel.x * cos(turn) - rel.y * sin(turn), rel.x * sin(turn) + rel.y * cos(turn)) / R;
+                float3 paper = float3(accent.rgb);
+                if (dark > 0.5) paper = mix(paper, float3(0.05), 0.25);
+                // A printed ring near its edge, a mark, and lines of small print.
+                float printAt = 1.0 - smoothstep(0.0, 1.2 * px / R, abs(rr / R - 0.300) - 0.002);
+                float2 logo = turned - float2(0.0, -0.215);
+                printAt = max(printAt, 1.0 - smoothstep(0.0, 1.2 * px / R, abs(length(logo * float2(0.8, 1.4)) - 0.040) - 0.005));
+                // Lines of print: a title over the spindle, two small lines under it. Each letter is a
+                // short bar of its own height; a gap between words.
+                for (int k = 0; k < 3; k++) {
+                    float at = k == 0 ? -0.115 : (k == 1 ? 0.095 : 0.135);
+                    float tall = k == 0 ? 0.020 : 0.011;
+                    float wide = k == 0 ? 0.17 : (k == 1 ? 0.15 : 0.10);
+                    float cellW = tall * 0.62;
+                    float2 c = float2(turned.x / cellW, (turned.y - at) / tall);
+                    if (abs(c.y) < 0.5 && abs(turned.x) < wide) {
+                        float id = floor(c.x) + float(k) * 41.0;
+                        float letter = step(0.16, hash(id + 0.5)) * step(abs(fract(c.x) - 0.5), 0.34);
+                        letter *= step(abs(c.y), 0.5 - 0.22 * step(0.6, hash(id * 3.1)));
+                        printAt = max(printAt, letter * (k == 0 ? 0.8 : 0.6));
+                    }
+                }
+                paper = mix(paper, paper * 0.40, printAt);
+                paper *= 0.95 + 0.05 * noise2(p * perPx * 0.5);
+                // Paper is matte: it takes the lamp's light with less of its color, so the accent stays itself.
+                disc = paper * (ambient + mix(lit, float3(dot(lit, float3(0.30, 0.55, 0.15))), 0.55));
+                // The edge of the label sits a hair into the vinyl.
+                disc *= 0.75 + 0.25 * smoothstep(0.0, 2.0 * px, 0.335 * R - rr);
+                // The spindle, in polished steel.
+                float sp = rr / R;
+                if (sp < 0.045) {
+                    float2 m = rel / (0.026 * R) - toLamp * 0.45;
+                    float3 steel = float3(0.30) * (ambient + light) + lampColor * strength * 0.8 * exp(-dot(m, m) * 3.0);
+                    float hole = 1.0 - smoothstep(0.026, 0.026 + px / R, sp);
+                    disc = mix(disc * (0.35 + 0.65 * smoothstep(0.026, 0.045, sp)), steel, hole);
+                }
+            } else if (rr < R) {
+                // The vinyl: black, with the lamp's two fans across the grooves.
+                float3 black = dark > 0.5 ? float3(0.012, 0.012, 0.014) : float3(0.026, 0.026, 0.029);
+                float sheen = fan(dir, toLamp, 0.13, 0.40);
+                float r = rr / R;
+                float grooves = 0.0;
+                float outer = OUTER * R;
+                float share = room / week;
+                // Which band this is, from the outside in; past the place, the rest need not be looked at.
+                float band = 0.0;
+                for (int k = 0; k < 7; k++) {
+                    if (rr > outer + px) break;
+                    float inner = outer - share * (LEAST + day(k));
+                    float inside = clamp(min(rr - inner, outer - rr) * perPx + 0.5, 0.0, 1.0);
+                    if (inside > grooves) {
+                        grooves = inside;
+                        band = float(k);
+                    }
+                    outer = inner - GAP * R;
+                }
+                // Louder and quieter passages, and the grooves themselves.
+                if (grooves > 0.0) {
+                    float loud = 0.60 + 0.40 * hash(floor(rr / R * 70.0) + band * 17.0);
+                    float fine = noise1(rr * perPx * 0.45);
+                    grooves *= loud * (0.45 + 0.55 * fine);
+                }
+                // Grooves catch the lamp in the fans and the room's light faintly everywhere; the smooth
+                // gaps between bands are darker in the fans and a little glossier elsewhere.
+                float shine = sheen * (0.08 + 0.92 * grooves);
+                disc = black + shineLight * shine * glossy + (dark > 0.5 ? float3(0.016, 0.015, 0.014) : ambient * 0.05) * (grooves + 0.3) * (0.4 + 0.6 * armShade);
+                // The run-out between the last band and the label, with its one wide groove.
+                float run = 1.0 - smoothstep(INNER - 0.002, INNER, r);
+                if (run > 0.0) {
+                    float last = 1.0 - smoothstep(0.0, 1.5 * px, abs(rr - 0.372 * R));
+                    disc = mix(disc, black + (shineLight * sheen * glossy + ambient * glossy * 0.05) * (0.10 + 0.6 * last), run);
+                }
+                // The bead around the edge, and the edge itself.
+                float bead = smoothstep(0.988, 0.994, r) * (1.0 - smoothstep(0.994, 1.0, r));
+                disc += (light + ambient * 0.5) * bead * 0.35 * max(dot(dir, toLamp), 0.0) * glossy;
+                disc = mix(disc, black * 0.4, 1.0 - smoothstep(0.0, 1.5 * px, R - rr));
+            } else {
+                // The rubber mat's edge, then the platter's turned aluminium rim.
+                float r = rr / R;
+                float3 rubber = float3(0.055, 0.055, 0.058) * (ambient + lit) * (0.85 + 0.15 * noise1(rr * perPx * 0.5));
+                float3 metal = float3(0.46, 0.46, 0.48) * (ambient + lit) + shineLight * 1.2 * fan(dir, toLamp, 0.10, 0.0) * glossy;
+                metal *= 0.85 + 0.15 * noise1(rr * perPx * 0.7);
+                disc = mix(rubber, metal, smoothstep(1.030, 1.030 + px / R, r));
+                disc *= 1.0 - 0.6 * (1.0 - smoothstep(0.0, 2.0 * px, rr - R));
+                disc *= 1.0 + 0.5 * dot(dir, toLamp) * smoothstep(1.050, 1.064, r);
+                float edgeIn = clamp((1.065 * R - rr) * perPx + 0.5, 0.0, 1.0);
+                disc = mix(color, disc, edgeIn);
+            }
+            color = disc;
+        }
+
+        // The arm: its base, counterweight, tube and headshell.
+        // Only near one of its parts: the base and counterweight, the tube, or the headshell.
+        float2 fromHead = p - stylus;
+        float alongArm = dot(fromPivot, armWay);
+        bool armHere = armNear && (dot(fromPivot, fromPivot) < 0.25 * R * R || dot(fromHead, fromHead) < 0.09 * R * R
+            || (abs(dot(fromPivot, float2(-armWay.y, armWay.x))) < 0.05 * R && alongArm > 0.0 && alongArm < 1.5 * R));
+        if (armHere) {
+            float3 arm = armParts(p, pivot, stylus, head);
+            float2 way = normalize(stylus - head * 0.205 * R - pivot);
+            float2 side = float2(-way.y, way.x);
+            float lampSide = dot(side, toLamp);
+            // The base: a dark ring on the plinth with a steel gimbal in its middle.
+            float bp = length(p - pivot);
+            if (bp < 0.215 * R) {
+                // Turned rings on the base, and its edge catching the lamp.
+                float3 ringColor = float3(0.085, 0.085, 0.09) * (ambient + light) * (1.0 + 0.6 * dot((p - pivot) / bp, toLamp) * smoothstep(0.18 * R, 0.205 * R, bp));
+                ringColor *= 1.0 + 0.5 * (1.0 - smoothstep(0.0, 1.2 * px, abs(bp - 0.160 * R))) + 0.08 * sin(bp * perPx * 1.3);
+                float2 m = (p - pivot) / (0.11 * R) - toLamp * 0.5;
+                float3 steel = float3(0.40, 0.40, 0.42) * (ambient + light) + lampColor * strength * 0.45 * exp(-dot(m, m) * 2.5);
+                float gimbal = clamp((0.115 * R - bp) * perPx + 0.5, 0.0, 1.0);
+                color = mix(color, mix(ringColor, steel, gimbal), clamp((0.205 * R - bp) * perPx + 0.5, 0.0, 1.0));
+            }
+            // The counterweight: a dark knurled drum, round on top.
+            float weightIn = clamp(-arm.z * perPx + 0.5, 0.0, 1.0);
+            if (weightIn > 0.0) {
+                float a = dot(p - pivot, side) / (0.096 * R);
+                float roll = exp(-(a - 0.5 * lampSide) * (a - 0.5 * lampSide) * 5.0);
+                float knurl = 0.85 + 0.15 * step(0.5, fract(dot(p - pivot, way) / R * 60.0));
+                float3 drum = float3(0.07, 0.07, 0.075) * (ambient + light) * knurl * (0.6 + 0.4 * sqrt(max(1.0 - a * a, 0.0)));
+                drum += lampColor * strength * 0.22 * roll * knurl;
+                color = mix(color, drum, weightIn);
+            }
+            // The tube: a polished cylinder with a line of light along it.
+            float tubeIn = clamp(-arm.x * perPx + 0.5, 0.0, 1.0);
+            if (tubeIn > 0.0) {
+                float a = dot(p - pivot, side) / (0.022 * R);
+                float3 silver = float3(0.50, 0.50, 0.52) * (ambient + light) * (0.45 + 0.55 * sqrt(max(1.0 - a * a, 0.0)));
+                silver += lampColor * strength * 0.6 * exp(-(a - 0.55 * lampSide) * (a - 0.55 * lampSide) * 9.0);
+                color = mix(color, silver, tubeIn);
+            }
+            // The headshell: a black plate over the cartridge, its finger lift in steel.
+            float shellIn = clamp(-arm.y * perPx + 0.5, 0.0, 1.0);
+            if (shellIn > 0.0) {
+                float2 hs = float2(-head.y, head.x);
+                float2 hp = float2(dot(p - stylus, head), dot(p - stylus, hs)) / R;
+                bool liftHere = hp.y < -0.07;
+                float3 plate = (liftHere ? float3(0.45, 0.45, 0.47) : float3(0.08, 0.08, 0.085)) * (ambient + light);
+                // A bevel on its edge, and the two screws that hold the cartridge.
+                plate *= 1.0 + 0.8 * (1.0 - smoothstep(0.0, 3.0 * px, -arm.y)) * dot(normalize(hp + float2(0.075, 0.0)), float2(dot(toLamp, head), dot(toLamp, hs)));
+                float screws = min(length(hp - float2(-0.08, 0.03)), length(hp - float2(-0.08, -0.03)));
+                plate = mix(plate, float3(0.5) * (ambient + light) + lampColor * strength * 0.2, 1.0 - smoothstep(0.010, 0.010 + px / R, screws));
+                color = mix(color, plate, shellIn);
+            }
+        }
+    }
+
+    // Over the log in a light theme the record is pale, so the theme's dark text reads on it, and what is
+    // darker than that text can stand, as the tonearm's black parts, goes toward the page as well.
+    if (dark < 0.5 && wallpaper < 0.5) {
+        color = mix(color, float3(bg.rgb), 0.8 * clamp((1.07 * R - rr) * perPx + 0.5, 0.0, 1.0));
+        float lum = dot(color, float3(0.299, 0.587, 0.114));
+        if (lum < 0.68) {
+            float want = 0.58 + 0.10 * exp(-(0.68 - lum) / 0.10);
+            float lumPage = dot(float3(bg.rgb), float3(0.299, 0.587, 0.114));
+            color = mix(color, float3(bg.rgb), clamp((want - lum) / max(lumPage - lum, 0.01), 0.0, 1.0));
+        }
+    }
+    // The foot: the theme's color over the log.
+    color = mix(color, float3(bg.rgb), ground(y) * (1.0 - wallpaper));
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

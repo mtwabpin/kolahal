@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -34,6 +35,7 @@ import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -44,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -53,13 +56,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderMeta
 import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.UsageWatch
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.commands.ShaderCommands
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
 import com.mtwabpin.kolahal.ui.GroupHeader
@@ -67,7 +73,9 @@ import com.mtwabpin.kolahal.ui.GuiListPage
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.PageHint
 import com.mtwabpin.kolahal.ui.SearchField
+import com.mtwabpin.kolahal.ui.home.rememberScreenReader
 import com.mtwabpin.kolahal.ui.produceIo
+import com.mtwabpin.kolahal.ui.rememberExpandedSheetState
 import com.mtwabpin.kolahal.ui.rememberNoticeSnackbar
 import com.mtwabpin.kolahal.ui.settings.PEEK_FADE_MS
 import com.mtwabpin.kolahal.ui.settings.PeekButton
@@ -83,9 +91,12 @@ import kotlinx.coroutines.launch
  * Settings → Shaders: the shader over home and the full-screen screens (`screen.shader`).
  * - None, the shaders that come with Kolahal, then the user's own. A tap turns one on, if it compiles:
  *   otherwise the one that is on stays, and the row says why. The one in use is selected.
- * - Details, on each row, opens its sheet ([ShaderSheet]).
- * - Add shader: Get more shaders, Import a file, Read the script folder again.
+ * - Details, on each row, opens its sheet ([ShaderSheet]). Its Edit opens the shader's code in the editor ([onEdit]).
+ * - Add shader: Get more shaders, Import a file, Read the script folder again, Start from a template
+ *   ([TemplateSheet]).
  * - On Android 12 and older the shaders are listed, but can't be used.
+ * - While it is open, the values from the phone's use that any listed shader follows are worked out ([UsageWatch.list]),
+ *   so its details and previews show them even when it isn't in use.
  *
  * Without the view model: it needs its [actions], the page's [notice], and the way to other screens
  * ([open]) and [onBack].
@@ -99,6 +110,7 @@ fun ShadersScreen(
     peek: StateFlow<TerminalViewModel.Peek?> = remember { MutableStateFlow(null) },
     onPeek: (TerminalViewModel.Peek?) -> Unit = {},
     onAskNotifications: () -> Unit = {},
+    onEdit: (String) -> Unit = {},
 ) {
     val files by Shaders.version.collectAsStateWithLifecycle()
     val trips by actions.trips.collectAsStateWithLifecycle()
@@ -115,11 +127,17 @@ fun ShadersScreen(
         what = "Reading the shaders"
     ) { actions.rows() }
     val all = rows
+    // While the screen is open, the phone's use is worked out for every shader listed, not only the one in use.
+    DisposableEffect(all) {
+        UsageWatch.list(all.orEmpty().filter { it.meta.params.isNotEmpty() }.associate { it.name to it.meta.params })
+        onDispose { UsageWatch.list(emptyMap()) }
+    }
     // Asked again on the way back from Android's preview.
     val chosen by WallpaperChoice.name.collectAsStateWithLifecycle()
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val isWallpaper by produceState(false, chosen, lifecycle) { value = actions.isWallpaper() }
-    val wallpaper = chosen.takeIf { isWallpaper }
+    // The one the wallpaper draws: Kolahal's when the chosen one is gone, or none was chosen.
+    val wallpaper = ShaderCommands.wallpaperDrawn(chosen).takeIf { isWallpaper }
     var query by rememberSaveable { mutableStateOf("") }
     var chips by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val filters = remember(chips) { ShaderPage.Filter.entries.filterTo(LinkedHashSet()) { it.name in chips } }
@@ -134,6 +152,7 @@ fun ShadersScreen(
         open(Screen.TERMINAL)
     }
     var adding by rememberSaveable { mutableStateOf(false) }
+    var templates by rememberSaveable { mutableStateOf(false) }
     // The shader whose sheet is open, by name. It survives rotation.
     var details by rememberSaveable { mutableStateOf<String?>(null) }
     // Many file managers don't know .agsl. So accept any file and check its name.
@@ -276,6 +295,7 @@ fun ShadersScreen(
                 onPlay = play,
                 onAskNotifications = onAskNotifications,
                 onPeek = { shader -> onPeek(shader?.let { TerminalViewModel.Peek(null, false, it) }) },
+                onEdit = onEdit,
                 onDismiss = { details = null },
             )
         }
@@ -285,6 +305,12 @@ fun ShadersScreen(
             onGetMore = { adding = false; open(Screen.GET_SHADERS) },
             onImport = { adding = false; importFiles.launch(arrayOf("*/*")) },
             onReadFolder = { adding = false; actions.readFolder() },
+            onTemplate = { adding = false; templates = true },
+        )
+        if (templates) TemplateSheet(
+            actions,
+            onDismiss = { templates = false },
+            onPick = { templates = false; actions.startFrom(it) },
         )
         if (peeking != null) PeekHint(Modifier.align(Alignment.TopCenter))
       }
@@ -364,7 +390,8 @@ private fun AddShaderSheet(
     onDismiss: () -> Unit,
     onGetMore: () -> Unit,
     onImport: () -> Unit,
-    onReadFolder: () -> Unit
+    onReadFolder: () -> Unit,
+    onTemplate: () -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -396,8 +423,78 @@ private fun AddShaderSheet(
                         "The .agsl files in it, and in its ${Shaders.DIR} folder",
                         onClick = onReadFolder
                     ),
+                    Action(
+                        R.drawable.ic_edit,
+                        "Start from a template",
+                        "A short shader of your own to edit, with comments",
+                        chevron = true,
+                        onClick = onTemplate
+                    ),
                 )
             )
+        }
+    }
+}
+
+/**
+ * Add shader → Start from a template: the templates ([ShaderCatalog.TEMPLATES]), each with its name and
+ * description. A tap makes a shader of the user's from one ([ShaderActions.startFrom]).
+ *
+ * Each row starts with a picture of its template over a whole screen, small ([SmallShaderPreview]): each is
+ * drawn once, and stands still (one that moves doesn't, a one-off shows itself part way, one that follows
+ * touches has none). Nothing is drawn once the sheet closes. Without shaders (Android 12 and older), or with a
+ * screen reader on, where none is drawn, the rows have their icon instead.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemplateSheet(
+    actions: ShaderActions,
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit
+) {
+    val context = LocalContext.current.applicationContext
+    // Their files are read off the main thread: what each header says, and its code for the picture.
+    val templates by produceIo<List<Triple<String, ShaderMeta, String>>?>(null, what = "Reading the templates") {
+        actions.templates().map { (name, meta) -> Triple(name, meta, Shaders.bundled(context, name)) }
+    }
+    val pictures = Shaders.supported && !rememberScreenReader()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberExpandedSheetState(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+        ) {
+            Text(
+                "Start from a template",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+            Text(
+                "It becomes one of your shaders, as a file in the script folder. Edit in its details opens it; for a file you changed elsewhere, 'shader reload' reads it again.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 12.dp),
+            )
+            templates?.let { all ->
+                ActionGroup(
+                    all.map { (name, meta, _) ->
+                        Action(
+                            R.drawable.ic_code,
+                            meta.title ?: name,
+                            meta.description.orEmpty(),
+                            onClick = { onPick(name) }
+                        )
+                    },
+                    leading = if (pictures) {
+                        { i -> SmallShaderPreview(all[i].first, all[i].third, Modifier.testTag("template-preview ${all[i].first}")) }
+                    } else null,
+                )
+            }
         }
     }
 }

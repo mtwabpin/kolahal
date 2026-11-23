@@ -1,0 +1,670 @@
+// @name Candle
+// @description A candle on a table in a quiet room, after the candlelight painters, that burns down as the day's screen time is spent, beside a brass rod with a notch for a usual day
+// @suits dark good, light good, wallpaper poor
+// @param level 0.0..2.0 = 0.0 Today against a usual day @follow screen.usual
+// @animated
+// @fps 12
+//
+// A candle in a brass dish on a polished table, against a plaster wall. The flame is the one light: the wall and
+// the table get it by the square of the distance and the angle it comes in at, less where the candle's own top
+// stands in the way (so a tall candle stands in its own shadow, and a stub lights the table around it), and the
+// brass rod throws a thin shadow across the table and up the wall. The candle is as tall as what is left of a
+// usual day's screen time: its top is level with the rod's notch after a usual day, a stub at twice that, and
+// past a usual day it gutters and smokes. Its level follows Kolahal's screen time against a usual day; without
+// usage access it stays at 0, and the candle is new. Brass shows the room and the flame as a mirror does, a
+// little blurred.
+// A light theme is a pale room by day, with the window's light on the wall moving with the hour; a dark theme
+// keeps the room dark at every hour. The flame breathes and leans, and the light follows it, 12 times a second.
+// The lower part of the page is the theme's own, where the newest lines are. It costs about what pond does.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float4 date;
+uniform float dark;
+uniform float wallpaper;
+uniform float level;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 accent;
+
+// The room, in parts of the screen's height. The table meets the wall at WALL on the screen; a place DEPTH out
+// from the wall is DEPTH * SLANT lower on the screen.
+const float WALL = 0.50;
+const float SLANT = 0.26;
+// The candle: across from the middle, out from the wall, its radius, and its height when new, above the socket.
+const float CX = -0.030;
+const float CZ = 0.100;
+const float RC = 0.030;
+const float HC = 0.300;
+// The flame's height and half its width.
+const float FH = 0.054;
+const float FW = 0.0125;
+// The dish: its radius, the height of its rim and of its floor; the socket the candle stands in.
+const float RD = 0.088;
+const float RIM = 0.013;
+const float FLOOR = 0.004;
+const float SR = 0.037;
+const float SOCKET = 0.026;
+// The rod: across, out from the wall, its radius.
+const float RX = 0.070;
+const float RZ = 0.030;
+const float RR = 0.0032;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise along a line and over the plane, 0 to 1.
+float noise1(float x) {
+    float at = floor(x);
+    float f = fract(x);
+    return mix(hash(at), hash(at + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+float noise2(float2 p) {
+    float2 at = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(at), hash2(at + float2(1.0, 0.0)), f.x),
+        mix(hash2(at + float2(0.0, 1.0)), hash2(at + float2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's color, from those of morning, day, evening and night.
+float3 pick(float4 w, float3 a, float3 b, float3 c, float3 d) {
+    if (w.y >= 1.0) return b;
+    if (w.w >= 1.0) return d;
+    if (w.x >= 1.0) return a;
+    if (w.z >= 1.0) return c;
+    return a * w.x + b * w.y + c * w.z + d * w.w;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends.
+float ground(float y) {
+    return y < 0.68 ? 0.80 * clamp((y - 0.50) / 0.18, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.68) / 0.16, 0.0, 1.0);
+}
+
+// How much of the flame a place at height h sees past the candle's own top, 0 to 1, when it is D across from
+// the candle's middle. The flame stands a little over a disc of wax: a low place near the candle sees it only
+// over the wax's edge, and from below it sees none of it.
+float seen(float h, float D, float top) {
+    float need = (top - h) * RC / max(D - RC, 0.001);
+    return 1.0 - smoothstep(0.004, 0.060, need);
+}
+
+// The flame's light at p on a surface with normal n: by the square of the distance and the angle it comes in at,
+// less where the candle's top stands between them, and a little light from the lit room all around. lamp is the
+// flame's place across, its height and its strength.
+float onSurface(float3 p, float3 n, float3 lamp, float top) {
+    float3 to = float3(lamp.x, lamp.y, CZ) - p;
+    float d2 = dot(to, to);
+    float direct = CZ * CZ * max(dot(n, to), 0.0) / (d2 * sqrt(d2));
+    return lamp.z * (direct * mix(0.30 + 0.15 * n.y, 1.0, seen(p.y, length(to.xz), top)) + 0.16 / (1.0 + d2 * 8.0));
+}
+
+float onWall(float x, float h, float3 lamp, float top) {
+    return onSurface(float3(x, h, 0.0), float3(0.0, 0.0, 1.0), lamp, top);
+}
+
+float onTable(float x, float z, float3 lamp, float top) {
+    return onSurface(float3(x, 0.0, z), float3(0.0, 1.0, 0.0), lamp, top);
+}
+
+// What a polished surface at p shows in the direction r: the candle and its flame, the wall, the table or the
+// dark of the room. lamp is the flame's place across, the height of its middle, its strength and its height.
+float3 mirror(float3 p, float3 r, float4 lamp, float top, float3 amb, float3 wallC, float3 woodC, float3 waxC, float3 warm) {
+    float3 flame = float3(0.0);
+    float2 o = p.xz - float2(CX, CZ);
+    float a = dot(r.xz, r.xz);
+    float b = dot(o, r.xz);
+    if (b < 0.0 && a > 0.0001) {
+        // The flame, where the ray passes nearest the candle's middle: far brighter than anything it lights.
+        float t0 = -b / a;
+        float miss = sqrt(max(dot(o, o) - b * b / a, 0.0));
+        float fv = (p.y + r.y * t0 - top - 0.005) / lamp.w;
+        if (fv > -0.1 && fv < 1.1) {
+            float tall = 1.0 - (fv - 0.35) * (fv - 0.35) / 0.42;
+            flame = float3(1.0, 0.78, 0.48) * lamp.z * 2.4 * exp(-miss * miss / (FW * FW * 1.6)) * max(tall, 0.0);
+        }
+        float c = dot(o, o) - RC * RC;
+        float disc = b * b - a * c;
+        if (disc > 0.0) {
+            float h = p.y + r.y * (-b - sqrt(disc)) / a;
+            if (h > SOCKET && h < top) {
+                return waxC * (amb * 0.8 + warm * 0.10) + float3(1.0, 0.55, 0.22) * exp(-(top - h) / 0.03) * 0.5 * lamp.z + flame;
+            }
+        }
+    }
+    float3 lamp3 = lamp.xyz;
+    if (r.z < -0.02) {
+        float t = p.z / -r.z;
+        float h = p.y + r.y * t;
+        if (h > 0.0) return wallC * (amb + warm * onWall(p.x + r.x * t, h, lamp3, top)) + flame;
+    }
+    if (r.y < 0.0) {
+        float t = p.y / max(-r.y, 0.05);
+        return woodC * (amb + warm * onTable(p.x + r.x * t, p.z + r.z * t, lamp3, top)) * 0.8 + flame;
+    }
+    // Above: the dark of the room, or in a light theme the pale ceiling and the window's light.
+    return amb * mix(0.35, 0.80, 1.0 - dark) + (1.0 - dark) * 0.5 * pow(max(dot(r, normalize(float3(-0.62, 0.50, 0.60))), 0.0), 6.0) + flame;
+}
+
+// Brass at p with normal n: a little of its own color in the light, and mostly what it shows of the room.
+float3 brass(float3 p, float3 n, float4 lamp, float top, float3 amb, float3 alb, float3 wallC, float3 woodC, float3 waxC, float3 warm) {
+    float3 toLamp = float3(lamp.x, lamp.y, CZ) - p;
+    float d2 = dot(toLamp, toLamp);
+    float3 l = toLamp / sqrt(d2);
+    float3 v = float3(0.0, 0.259, 0.966);
+    float lit = mix(0.55, 1.0, seen(p.y, length(p.xz - float2(lamp.x, CZ)), top)) * lamp.z * CZ * CZ / d2;
+    float3 r = 2.0 * dot(v, n) * n - v;
+    float3 shows = mirror(p, r, lamp, top, amb, wallC, woodC, waxC, warm);
+    float fres = 0.55 + 0.45 * pow(1.0 - max(dot(n, v), 0.0), 3.0);
+    // Brass is not a perfect mirror: the flame's glint spreads a little, and the lit room around gives it a glow.
+    float sheen = pow(max(dot(n, normalize(l + v)), 0.0), 24.0) * max(lit, 0.12 * lamp.z);
+    return alb * (amb * 0.30 + warm * (lit * max(dot(n, l), 0.0) * 0.5 + 0.05 * lamp.z)) + mix(alb, float3(1.0), 0.2) * shows * fres
+        + mix(alb, float3(1.0), 0.4) * warm * sheen * 1.4;
+}
+
+// The light from a window on the left that falls on the wall: four panes of sun by day in a light theme, and in a
+// dark one the faint light of the hour outside. Their lower edges slant down as the light comes in from above,
+// and they move along the wall with the hour.
+float windowLight(float x, float h, float4 w) {
+    float hr = date.w / 3600.0;
+    float strength = dark > 0.5 ? 1.0 : 0.20 * (w.x + w.y + w.z);
+    if (strength <= 0.0) return 0.0;
+    float along = fract((hr - 6.0) / 24.0);
+    float left = mix(-0.42, -0.12, smoothstep(0.0, 0.6, along));
+    float u = (x - left) / 0.20;
+    if (u < -0.25 || u > 1.35 || h < 0.10) return 0.0;
+    float slant = mix(0.55, 0.25, w.y);
+    float v = (h - 0.36 - mix(0.06, 0.0, w.z) + slant * (x - left)) / 0.20;
+    float soft = 0.05 + 0.10 * u;
+    float inside = smoothstep(-soft, soft, u) * smoothstep(-soft, soft, 1.0 - u) * smoothstep(-soft, soft, v) * smoothstep(-soft, soft, 1.0 - v);
+    // The frame between the panes.
+    float bars = 1.0 - (1.0 - smoothstep(0.02, 0.05 + 0.04 * u, abs(u - 0.5))) * 0.8 - (1.0 - smoothstep(0.02, 0.05 + 0.04 * u, abs(v - 0.5))) * 0.8;
+    return strength * inside * max(bars, 0.0);
+}
+
+half4 main(float2 xy) {
+    // The wallpaper shows less of the scene's height, so less of the table.
+    float2 res = float2(resolution.x, resolution.y / mix(1.0, 0.80, wallpaper));
+    float4 here = float4(content.eval(xy));
+    float y = xy.y / res.y;
+    if (y > 0.86 && wallpaper < 0.5) return half4(here);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y) * (1.0 - wallpaper));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+    // Low on home the page is the theme's all but a fortieth: nothing of the scene is worked out there.
+    if (y > 0.82 && wallpaper < 0.5) return half4(float4(mix(letters, float3(bg.rgb), amount), mix(here.a, 1.0, amount)));
+    // Where the page has faded the table four fifths of the way, a plain board will do.
+    bool plain = y > 0.68 && wallpaper < 0.5;
+
+    // The scene is measured in heights from the middle of the screen, so a wider screen shows more of the room.
+    float px = 1.0 / res.y;
+    float2 q = float2((xy.x - 0.5 * res.x) / res.y, y);
+    float4 w = hours(date.w / 3600.0);
+    float spent = clamp(level, 0.0, 2.0);
+
+    // The flame breathes and leans a little. Past a usual day it gutters: smaller, and less steady.
+    float f1 = 0.30 * sin(time * 1.31 + 3.0) + 0.18 * sin(time * 2.97 + 1.0);
+    float f2 = 0.40 * sin(time * 5.3 + 0.5 + 2.0 * f1);
+    float gutter = smoothstep(1.1, 2.0, spent);
+    float top = SOCKET + HC * (1.0 - 0.42 * spent);
+    float fh = FH * (1.0 - 0.2 * gutter) * (1.0 + 0.07 * f1 + (0.03 + 0.06 * gutter) * f2);
+    float lean = 0.10 * f1 + 0.04 * sin(time * 0.43 + 5.0);
+    float base = WALL + CZ * SLANT;
+    float topY = base - top;
+    float flameY = topY - 0.005;
+    float2 F = float2(CX + lean * fh * 0.15, flameY - 0.36 * fh);
+    float4 lamp4 = float4(F.x, base - F.y, (1.0 + 0.06 * f1 + 0.04 * f2) * (1.0 - 0.15 * gutter), fh);
+    float3 lamp = lamp4.xyz;
+
+    // The hour's colors. A dark theme's room is dark at every hour, lit by the candle alone. A light one is a pale
+    // room by day, and a pale one at night.
+    float3 amb, wallC, woodC, waxC, brassC;
+    float3 warm = float3(1.0, 0.64, 0.34);
+    float day = 0.0;
+    if (dark > 0.5) {
+        amb = pick(w, float3(0.056, 0.052, 0.058), float3(0.060, 0.058, 0.056), float3(0.066, 0.050, 0.046), float3(0.048, 0.042, 0.042));
+        wallC = float3(0.62, 0.54, 0.44);
+        woodC = float3(0.44, 0.29, 0.17);
+        waxC = float3(0.92, 0.81, 0.62);
+        brassC = float3(0.66, 0.50, 0.28);
+        warm *= 1.5;
+    } else {
+        amb = pick(w, float3(0.93, 0.92, 0.95), float3(0.98, 0.96, 0.92), float3(1.00, 0.91, 0.83), float3(0.87, 0.89, 0.95));
+        wallC = float3(0.93, 0.90, 0.85);
+        woodC = float3(0.84, 0.73, 0.60);
+        waxC = float3(0.98, 0.95, 0.87);
+        brassC = float3(0.62, 0.50, 0.30);
+        warm *= mix(0.16, 0.30, w.w);
+        day = 1.0 - 0.6 * w.w;
+    }
+    // Daylight in a light theme comes from a window on the left: brighter there, and it casts soft shadows to the
+    // right of the candle and the rod.
+    float3 sun = normalize(float3(-0.62, 0.50, 0.60));
+
+    // The wall and the table are lit the same way: a place on them, its normal, the flame's light there less the
+    // rod's thin shadow, and in a light theme the daylight less the soft shadows of the candle and the rod.
+    float rodTop = SOCKET + HC + 0.030 - (CZ - RZ) * SLANT;
+    bool wall = y < WALL;
+    float3 P = wall ? float3(q.x, WALL - y, 0.0) : float3(q.x, 0.0, (y - WALL) / SLANT);
+    float e = onSurface(P, wall ? float3(0.0, 0.0, 1.0) : float3(0.0, 1.0, 0.0), lamp, top);
+    // The rod's shadow: seen from above, the line from the flame to here passes the rod, below its top. On the table
+    // it runs from the rod's foot away from the flame, and then up the wall.
+    float2 A = float2(lamp.x, CZ);
+    float2 AB = P.xz - A;
+    float t = dot(float2(RX, RZ) - A, AB) / max(dot(AB, AB), 0.000001);
+    if (t > 0.0 && t < 1.0 && q.x > RX - 0.02 && !plain) {
+        float off = length(A + AB * t - float2(RX, RZ));
+        float pen = 0.0035 * (1.0 - t) / max(t, 0.05) + 0.0006;
+        float rod = clamp((RR + pen - off) / (2.0 * pen), 0.0, 1.0) * min(1.0, 2.0 * RR / pen)
+            * (1.0 - smoothstep(rodTop - 0.01, rodTop + 0.02, mix(lamp.y, P.y, t)));
+        e *= 1.0 - 0.7 * rod;
+    }
+    float3 room = amb;
+    float seam = 0.0;
+    if (day > 0.0) {
+        // Daylight falls off away from the window, and the candle and the rod stand in its way: from here toward
+        // the window, seen from above, the line passes them below their tops.
+        room *= 1.0 - 0.10 * day * smoothstep(-0.5, 0.7, q.x) - 0.05 * day * (1.0 - smoothstep(0.0, 0.3, P.y)) * (wall ? 1.0 : 0.0);
+        float2 s = normalize(sun.xz);
+        float rise = sun.y / length(sun.xz);
+        float tc = dot(float2(CX, CZ) - P.xz, s);
+        float dc = length(P.xz + s * tc - float2(CX, CZ));
+        float candle = tc > 0.0 ? (1.0 - smoothstep(RC - 0.004, RC + 0.012 + 0.15 * tc, dc)) * (1.0 - smoothstep(top - 0.01, top + 0.03, P.y + tc * rise)) : 0.0;
+        float tr = dot(float2(RX, RZ) - P.xz, s);
+        float dr = length(P.xz + s * tr - float2(RX, RZ));
+        float rodDay = tr > 0.0 ? (1.0 - smoothstep(RR, RR + 0.003 + 0.08 * tr, dr)) * 0.6 * (1.0 - smoothstep(rodTop - 0.01, rodTop + 0.01, P.y + tr * rise)) : 0.0;
+        room *= 1.0 - 0.17 * day * max(candle, rodDay);
+    }
+    float3 alb;
+    if (wall) {
+        // Plaster, a little uneven, and the light from the window on it.
+        alb = wallC * (0.95 + 0.03 * sin(q.x * 11.0 + 3.0 * sin(q.y * 5.0)) * sin(q.y * 9.0 + 2.0 * sin(q.x * 7.0)));
+        float pane = windowLight(q.x, P.y, w);
+        if (pane > 0.0) room += pane * (dark > 0.5 ? pick(w, float3(0.050, 0.056, 0.072), float3(0.050, 0.054, 0.060), float3(0.070, 0.048, 0.040), float3(0.060, 0.072, 0.100)) : amb);
+    } else if (plain) {
+        alb = woodC * 0.92;
+    } else {
+        // Polished boards that run across, with grain along them that wanders a little. Near the wall the table is
+        // a little darker, and its back edge catches a line of light.
+        float plank = P.z / 0.24 + 0.3;
+        seam = 1.0 - smoothstep(0.0, 0.0012 + 1.5 * px / SLANT, (0.5 - abs(fract(plank) - 0.5)) * 0.24);
+        float wander = 1.5 * sin(q.x * 3.1 + floor(plank) * 7.0) + 0.8 * sin(q.x * 7.3 + floor(plank) * 3.0);
+        float grain = noise1(P.z * 70.0 + wander + q.x * 0.8);
+        float fine = 0.5 + 0.5 * sin(P.z * 1900.0 + wander * 4.0 + grain * 9.0);
+        alb = woodC * (0.84 + 0.18 * grain + 0.06 * fine + 0.08 * hash(floor(plank))) * (1.0 - 0.18 * seam);
+        alb *= (0.80 + 0.20 * smoothstep(0.0, 0.05, P.z)) * (1.0 + 0.25 * (1.0 - smoothstep(0.0, 2.5 * px, y - WALL - px)));
+    }
+    float3 color = alb * (room + warm * e);
+    if (!wall) {
+        // The polish shows the candle dimly, upside down below its dish, and the flame below that.
+        float mirrored = y - base;
+        float cu = (q.x - CX) / (RC * 1.15);
+        if (abs(cu) < 1.0 && mirrored < top) {
+            float cz = sqrt(1.0 - cu * cu);
+            float3 seenWax = waxC * (amb * (0.4 + 0.6 * cz) + warm * 0.08) + float3(1.0, 0.56, 0.24) * exp(-(top - mirrored) / 0.04) * lamp.z * 0.5;
+            color = mix(color, seenWax, (0.10 + 0.08 * dark) * (1.0 - smoothstep(0.6, 1.0, abs(cu))) * (1.0 - 0.6 * seam) * smoothstep(SOCKET * 0.5, SOCKET, mirrored));
+        }
+        float2 m = float2((q.x - lamp.x) / 0.012, (y - (base + lamp.y)) / (0.012 + 0.10 * lamp.y));
+        if (abs(m.x) < 3.0) color += warm * lamp.z * 0.16 * exp(-dot(m, m)) * (1.0 - 0.5 * seam);
+    }
+
+    float3 v = float3(0.0, 0.259, 0.966);
+
+    // Brass is worked out once for a pixel, for the nearest brass surface in it: its place, its normal and how much
+    // of the pixel it covers. What lies on it (the notch, the wax in the dish) is laid over it after.
+    float3 bp = float3(0.0);
+    float3 bn = float3(0.0, 1.0, 0.0);
+    float bA = 0.0;
+    float bDim = 1.0;
+    float4 notch = float4(0.0);
+    float4 pool = float4(0.0);
+    float socket = 0.0;
+
+    // The rod: brass, with its foot, a mark for each quarter of a usual day, and the notch in the accent color.
+    float shift = (CZ - RZ) * SLANT;
+    float rodBase = WALL + RZ * SLANT;
+    if (abs(q.x - RX) < 0.02 && y > rodBase - rodTop - 0.012 && y < rodBase + 0.006) {
+        float hh = rodBase - y;
+        // The foot: a low round base.
+        float2 f = float2((q.x - RX) / 0.016, (y - (rodBase - 0.005)) / (0.016 * SLANT));
+        float footTop = 1.0 - length(f);
+        if (footTop > 0.0 || (abs(q.x - RX) < 0.016 && hh > 0.0 && hh < 0.005)) {
+            float ux = clamp((q.x - RX) / 0.016, -1.0, 1.0);
+            bn = footTop > 0.0 ? normalize(float3(f.x * 0.5, 1.0, f.y * 0.5)) : normalize(float3(ux, 0.2, sqrt(1.0 - ux * ux)));
+            bp = float3(q.x, max(hh, 0.0), RZ);
+            bA = footTop > 0.0 ? clamp(footTop / (px * 60.0), 0.0, 1.0) : 1.0;
+        }
+        float u = (q.x - RX) / RR;
+        float cover = clamp((1.0 - abs(u)) * RR / px + 0.5, 0.0, 1.0);
+        if (cover > 0.0 && hh > 0.004 && hh < rodTop) {
+            if (cover > 0.5 || bA <= 0.0) {
+                bp = float3(q.x, hh, RZ);
+                bn = float3(u, 0.0, sqrt(max(1.0 - u * u, 0.0)));
+            }
+            bA = max(bA, cover);
+            // A mark every quarter of a usual day, from a new candle down to twice a usual day.
+            float k = (SOCKET + HC - shift - hh) / (HC * 0.105);
+            float mark = k > -0.5 && k < 8.5 ? 1.0 - smoothstep(0.5, 1.4, abs(fract(k + 0.5) - 0.5) * HC * 0.105 / px) : 0.0;
+            bDim = 1.0 - 0.55 * mark;
+        }
+        // The notch: a collar in the accent color where the candle's top stands after a usual day.
+        float notchH = SOCKET + HC * 0.58 - shift;
+        float nu = (q.x - RX) / (RR * 1.8);
+        float collar = clamp((1.0 - abs(nu)) * RR * 1.8 / px + 0.5, 0.0, 1.0) * clamp((0.0035 - abs(hh - notchH)) / px + 0.5, 0.0, 1.0);
+        if (collar > 0.0) {
+            float nz = sqrt(max(1.0 - nu * nu, 0.0));
+            float3 toLamp = float3(lamp.x - RX, lamp.y - hh, CZ - RZ);
+            float lit = lamp.z * CZ * CZ / dot(toLamp, toLamp);
+            toLamp = normalize(toLamp);
+            float diff = max(dot(float3(nu, 0.0, nz), toLamp), 0.0);
+            notch = float4(float3(accent.rgb) * (0.55 + 0.25 * nz + diff * lit * 0.8) + warm * pow(max(dot(float3(nu, 0.0, nz), normalize(toLamp + v)), 0.0), 40.0) * lit, collar);
+        }
+        // A small ball on top.
+        float2 b = float2(q.x - RX, y - (rodBase - rodTop - 0.005)) / 0.0055;
+        float ball = clamp((1.0 - length(b)) * 0.0055 / px + 0.5, 0.0, 1.0);
+        if (ball > 0.0) {
+            bn = float3(b.x, -b.y, sqrt(max(1.0 - dot(b, b), 0.0)));
+            bp = float3(q.x, rodTop + 0.005, RZ);
+            bA = ball;
+        }
+    }
+
+    // The dish, the wax that has run into it, the socket, the candle and its flame.
+    float4 over = float4(0.0);
+    float dx = q.x - CX;
+    float sTop = base - SOCKET;
+    // The ring to hold it by, on its left at the height of the rim.
+    float2 hr = float2(dx + RD + 0.011, (y - (base - RIM * 0.8)) / SLANT) / 0.016;
+    float hl = length(hr);
+    if (abs(hl - 1.0) < 0.40) {
+        float tilt = clamp((hl - 1.0) / 0.30, -1.0, 1.0);
+        float band = clamp((0.30 - abs(hl - 1.0)) * 0.016 * SLANT / px + 0.5, 0.0, 1.0);
+        if (band > 0.0) {
+            float2 radial = hr / max(hl, 0.001);
+            bn = normalize(float3(radial.x * tilt, 1.0 - 0.5 * abs(tilt), radial.y * tilt));
+            bp = float3(q.x, RIM * 0.8, CZ + hr.y * 0.016);
+            bA = band;
+        }
+    }
+    bool here2 = abs(dx) < RD + 0.004 && y > topY - 0.012 - FH * 1.2 && y < base + RD * SLANT + 0.004;
+    if (here2) {
+        // The dish: its rim seen from a little above, and its outer side below that.
+        float rimY = base - RIM;
+        float2 er = float2(dx / RD, (y - rimY) / (RD * SLANT));
+        if (er.y > -1.1) {
+        float rr = length(er);
+        float frontRim = rimY + RD * SLANT * sqrt(max(1.0 - er.x * er.x, 0.0));
+        float bw = RD * 0.86;
+        float frontFoot = base + bw * SLANT * sqrt(max(1.0 - dx * dx / (bw * bw), 0.0));
+        if (rr < 1.0 + px / (RD * SLANT)) {
+            float edge = clamp((1.0 - rr) * RD * SLANT / px + 0.5, 0.0, 1.0);
+            float2 radial = normalize(er + float2(0.0, 0.0001));
+            bp = float3(q.x, RIM, CZ + er.y * RD);
+            bA = max(edge, bA * (1.0 - edge));
+            if (rr > 0.88) {
+                // The rolled rim: its normal turns from in to out across it.
+                float tilt = clamp((rr - 0.94) / 0.06, -1.0, 1.0);
+                bn = normalize(float3(radial.x * tilt, 1.0 - 0.6 * abs(tilt), radial.y * tilt));
+            } else {
+                // Inside: the floor, and the slope up to the rim.
+                float slope = smoothstep(0.62, 0.88, rr);
+                bn = normalize(float3(-radial.x * slope * 0.8, 1.0, -radial.y * slope * 0.8));
+                bp.y = mix(FLOOR, RIM, slope);
+                bDim = 0.85 + 0.15 * slope;
+                // The wax that has run down into the dish: a pool, wider as the candle burns down.
+                float2 wz = float2(dx, er.y * RD);
+                float a = atan(wz.y, wz.x);
+                float pr = mix(SR + 0.004, RD * 0.82, clamp(spent * 0.5, 0.0, 1.0)) * (1.0 + 0.07 * sin(3.0 * a + 1.0) + 0.04 * sin(5.0 * a + 2.5));
+                float lw = length(wz);
+                float inPool = clamp((pr - lw) / px * SLANT + 0.5, 0.0, 1.0);
+                if (inPool > 0.0) {
+                    // Set wax: matte, a little darker by the socket and at its rounded edge, whose near side
+                    // catches the light.
+                    float lip = smoothstep(pr - 0.005, pr, lw);
+                    float lit = onTable(q.x, CZ + wz.y, lamp, top);
+                    float3 wax = waxC * 0.90 * (amb * (0.85 - 0.25 * lip - 0.2 * (1.0 - smoothstep(SR, SR + 0.008, lw))) + warm * lit * 0.8);
+                    pool = float4(wax * (1.0 + 0.10 * lip * (wz.y / max(lw, 0.001))), inPool);
+                }
+            }
+        } else if (y > rimY && y < frontFoot && abs(dx) < RD) {
+            // The outer side, which narrows to its foot on the table.
+            float ux = dx / mix(RD, bw, clamp((y - frontRim) / max(frontFoot - frontRim, 0.001), 0.0, 1.0));
+            bn = normalize(float3(ux, -0.45, sqrt(max(1.0 - ux * ux, 0.0))));
+            bp = float3(q.x, RIM * 0.5, CZ + RD * sqrt(max(1.0 - ux * ux, 0.0)));
+            bA = clamp((1.0 - abs(ux)) * RD / px + 0.5, 0.0, 1.0) * clamp((frontFoot - y) / px + 0.5, 0.0, 1.0);
+            bDim = 0.9;
+        }
+        }
+
+        // The socket: a short brass cup the candle stands in.
+        float su = dx / SR;
+        if (abs(su) < 1.0 + px / SR && y > sTop - SR * SLANT - px && y < base - FLOOR + SR * SLANT * sqrt(max(1.0 - su * su, 0.0))) {
+            float nz = sqrt(max(1.0 - su * su, 0.0));
+            float ring = length(float2(su, (y - sTop) / (SR * SLANT)));
+            bool onTop = y < sTop + SR * SLANT * nz;
+            // Its top is a ring of brass around the candle; its side has a fillet of light along the top edge.
+            float cover = onTop ? clamp((1.0 - ring) * SR * SLANT / px + 0.5, 0.0, 1.0) : clamp((1.0 - abs(su)) * SR / px + 0.5, 0.0, 1.0);
+            if (cover > 0.0) {
+                socket = cover;
+                bDim = 1.0;
+                bA = cover;
+                if (onTop) {
+                    bp = float3(q.x, SOCKET, CZ);
+                    bn = normalize(float3(su * 0.3, 1.0, (y - sTop) / (SR * SLANT) * 0.3));
+                } else {
+                    float hh = base - y - SR * nz * SLANT;
+                    bn = normalize(float3(su, 0.6 * (1.0 - smoothstep(0.0, 0.004, SOCKET - hh)), nz));
+                    bp = float3(q.x, clamp(hh, FLOOR, SOCKET), CZ + SR * nz);
+                }
+            }
+        }
+    }
+    // The brass, then what lies on it: the wax in the dish lies under the socket and over the dish.
+    if (bA > 0.0) {
+        float3 shone = brass(bp, bn, lamp4, top, amb, brassC, wallC, woodC, waxC, warm) * bDim;
+        if (socket > 0.0) color = mix(mix(color, pool.rgb, pool.a), shone, bA);
+        else color = mix(mix(color, shone, bA), pool.rgb, pool.a);
+    } else {
+        color = mix(color, pool.rgb, pool.a);
+    }
+    color = mix(color, notch.rgb, notch.a);
+
+    if (here2) {
+        // The candle.
+        float u = dx / RC;
+        if (abs(u) < 1.2 && y > topY - RC * SLANT - px * 2.0 && y < sTop + RC * SLANT) {
+            float nz = sqrt(max(1.0 - u * u, 0.0));
+            // Its top is not quite even: a little lower where the wax has run over.
+            float dip = 0.0025 * (0.5 + 0.5 * sin(u * 5.0 + 1.3)) + 0.0015 * sin(u * 11.0 + 4.0);
+            float rimFront = topY + RC * SLANT * nz + dip;
+            float bottom = sTop + RC * SLANT * nz;
+            float side = clamp((1.0 - abs(u)) * RC / px + 0.5, 0.0, 1.0);
+            float3 col = float3(0.0);
+            float cover = 0.0;
+            float2 te = float2(u, (y - topY) / (RC * SLANT));
+            float tr = length(te);
+            // The side: wax lets the light through, so near the flame it glows and lower down it is solid. The lit
+            // wall behind lights its edges. Worked out for the runs of wax over the edges too.
+            float cu = clamp(u, -0.999, 0.999);
+            float cz = sqrt(1.0 - cu * cu);
+            float below = max(y - topY - RC * SLANT * cz, 0.0);
+            float through = exp(-below / 0.040) * (0.75 + 0.25 * (1.0 - cz)) * lamp.z;
+            float3 room = amb * (0.40 + 0.60 * cz);
+            if (day > 0.0) room = amb * (0.60 + 0.40 * max(dot(float3(cu, 0.0, cz), sun), 0.0));
+            float behind = onWall(q.x, base - y, lamp, top);
+            float3 waxSide = waxC * (room + warm * (0.05 + 0.05 * dark + 0.5 * behind * (1.0 - cz) * (1.0 - cz))) + float3(1.0, 0.56, 0.24) * through * mix(0.35, 1.1, dark);
+            // Closer to the socket the wax is in its shadow.
+            waxSide *= 1.0 - 0.25 * (1.0 - smoothstep(0.0, 0.02, bottom - y));
+            if (y < rimFront && tr < 1.0 + px / (RC * SLANT)) {
+                // The top: a rim of wax lit through by the flame, and inside it the pool of melted wax, clear and
+                // amber, with a dark ring where it meets the rim and the flame's light in it before the wick.
+                cover = clamp((1.0 - tr) * RC * SLANT / px + 0.5, 0.0, 1.0);
+                float rim = smoothstep(0.66, 0.78, tr);
+                float3 glowWax = mix(float3(1.0, 0.80, 0.52), float3(1.0, 0.90, 0.70), smoothstep(0.78, 1.0, tr) * step(0.0, te.y));
+                float2 spot = (te - float2(0.0, 0.32)) * float2(2.6, 1.6);
+                float3 melted = mix(float3(0.80, 0.48, 0.18), float3(1.0, 0.86, 0.56), exp(-dot(spot, spot)));
+                melted *= 1.0 - 0.35 * smoothstep(0.50, 0.68, tr) * (1.0 - rim);
+                col = mix(melted, glowWax, rim) * lamp.z * mix(0.75, 1.5, dark);
+                if (dark < 0.5) col = mix(waxC * amb, col, 0.70);
+            } else if (y >= rimFront && y < bottom) {
+                cover = side;
+                col = waxSide;
+            }
+            // Runs of wax down the front: more as the candle burns down, each lit through near the top and
+            // older, duller and more yellow lower down.
+            float runs = 0.0;
+            float3 runC = waxSide;
+            for (int i = 0; i < 7; i++) {
+                float n = float(i);
+                // Where the run is around the candle, as the sine of its angle: only one near this pixel is worked out.
+                float across = (hash(n * 3.7 + 1.0) - 0.5) * 1.9;
+                if (n < 3.0 + 2.0 * spent && abs(dx - RC * across) < 0.3 * RC) {
+                    float facing = sqrt(1.0 - across * across);
+                    float xs = CX + RC * across;
+                    float wd = RC * (0.12 + 0.14 * hash(n * 5.1 + 2.0)) * max(facing, 0.35);
+                    float start = topY + RC * SLANT * facing + 0.001;
+                    float run = (0.06 + 0.70 * hash(n * 7.3 + 4.0) * hash(n * 2.9 + 9.0)) * (sTop - start + 0.01);
+                    float end = start + run;
+                    float wig = 0.20 * wd * sin(y * 140.0 + n * 3.0);
+                    float yy = clamp(y, start, end - wd);
+                    float r = wd * (0.60 + 0.55 * smoothstep(end - 4.0 * wd, end - wd, y));
+                    float d = length(float2(q.x - xs - wig, y - yy)) - r;
+                    float inside = clamp(-d / px + 0.5, 0.0, 1.0);
+                    if (inside > 0.0 && y > start - 0.001) {
+                        // A run stands out from the side: lighter on its left, darker on its right, with a soft
+                        // sheen. Older wax, lower down, is a little duller and more yellow.
+                        float slope = clamp((q.x - xs - wig) / r, -1.0, 1.0);
+                        float age = smoothstep(0.0, 0.12, y - start);
+                        float3 drip = waxSide * (1.07 - 0.13 * slope) * mix(float3(1.0), float3(0.97, 0.93, 0.85), age);
+                        drip += mix(warm * 0.08, float3(0.10), day) * (1.0 - smoothstep(0.0, 0.35, abs(slope + 0.5))) * (1.0 - 0.6 * age);
+                        runC = mix(runC, drip, inside);
+                        runs = max(runs, inside);
+                    }
+                }
+            }
+            col = mix(col, runC, runs * step(0.0, 1.0 - abs(u)) + runs * step(1.0, abs(u)));
+            cover = max(cover, runs);
+            color = mix(color, col, cover);
+
+            // The wick.
+            float wv = (topY - y) / 0.012;
+            if (wv > -0.2 && wv < 1.0) {
+                float wx = CX + lean * 0.004 * wv * wv + 0.0015 * wv * wv;
+                float wick = clamp((0.0011 - abs(q.x - wx)) / px + 0.5, 0.0, 1.0);
+                float3 wc = mix(float3(0.06, 0.04, 0.03), float3(1.0, 0.35, 0.10), smoothstep(0.7, 1.0, wv));
+                color = mix(color, wc, wick);
+            }
+        }
+
+        // The flame: a soft blue foot, a dark middle around the wick, a bright body and an orange tip.
+        float fv = (flameY - y) / fh;
+        if (fv > -0.2 && fv < 1.1 && abs(dx) < FW * 2.5) {
+            float fx = CX + lean * fh * fv * fv;
+            float fu = (q.x - fx) / FW;
+            float r = fv < 0.30 ? sqrt(max(1.0 - (fv - 0.30) * (fv - 0.30) / 0.16, 0.0)) : pow(max(1.0 - pow(max((fv - 0.30) / 0.70, 0.0), 1.6), 0.0), 0.9) * (1.0 - 0.2 * (fv - 0.30));
+            float at = abs(fu) / max(r, 0.001);
+            float body = (1.0 - smoothstep(0.55, 1.0, at)) * step(0.0, r - 0.001);
+            if (body > 0.0) {
+                float inner = (1.0 - smoothstep(0.30, 0.85, at)) * smoothstep(0.10, 0.40, fv) * (1.0 - smoothstep(0.70, 1.0, fv));
+                float core = exp(-(fu * fu) / 0.16 - (fv - 0.15) * (fv - 0.15) / 0.020);
+                float blue = (1.0 - smoothstep(0.0, 0.18, fv)) * smoothstep(0.35, 0.85, at);
+                float3 flame = mix(float3(1.0, 0.66, 0.26), float3(1.0, 0.97, 0.86), inner);
+                flame = mix(flame, float3(1.0, 0.80, 0.55), smoothstep(0.75, 1.0, fv) * 0.6);
+                flame = mix(flame, float3(0.50, 0.32, 0.30), core * 0.70);
+                flame = mix(flame, float3(0.35, 0.48, 0.95), blue * 0.6);
+                float alpha = body * (1.0 - 0.45 * smoothstep(0.65, 1.0, fv)) * (1.0 - 0.5 * blue);
+                over = float4(flame * mix(1.0, 0.95, gutter), alpha);
+            }
+        }
+    }
+
+    // A dark theme's light is pressed into the screen's range softly, so the brightest wall still has color.
+    // The flame is brighter than anything it lights: it comes after.
+    if (dark > 0.5) color = color * 1.15 / (1.0 + 0.62 * color * 1.15);
+    color = mix(color, over.rgb, over.a);
+
+    // The halo around the flame.
+    float2 g = (q - F) * float2(1.0, 0.8);
+    float g2 = dot(g, g);
+    if (g2 < 0.03) {
+        float tight = 1.0 / (1.0 + g2 * 4000.0);
+        float wide = 1.0 / (1.0 + g2 * 260.0);
+        float halo = lamp.z * (0.40 * tight * tight + 0.12 * wide * wide + 0.04 / (1.0 + g2 * 50.0)) * (1.0 - g2 / 0.03);
+        color += float3(1.0, 0.72, 0.42) * halo * mix(0.45, 1.0, dark);
+    }
+
+    // Past a usual day a thread of smoke rises from the guttering flame: straight at first, then it wavers,
+    // spreads and breaks up as it drifts. As it spreads it grows fainter.
+    float smoke = smoothstep(1.05, 1.5, spent);
+    float tipY = flameY - fh;
+    float above = tipY - y;
+    if (smoke > 0.0 && above > 0.0 && above < 0.30 && abs(dx) < 0.10) {
+        float curl = max(above - 0.02, 0.0);
+        float wisp = 0.0;
+        for (int i = 0; i < 2; i++) {
+            float n = float(i);
+            float sway = (0.0004 + 0.8 * curl * curl) * sin(above * (24.0 + 10.0 * n) - time * (0.8 + 0.35 * n) + n * 2.4 + 1.6 * sin(above * 6.0 - time * 0.3));
+            float thick = 0.0008 + 0.030 * curl;
+            float sx = (q.x - CX - lean * fh * 0.6 - sway - 0.20 * curl * curl) / thick;
+            wisp += exp(-sx * sx) * min(1.0, 0.0011 / thick) * (n < 0.5 ? 1.0 : 0.7 * smoothstep(0.02, 0.07, above));
+        }
+        wisp *= smoothstep(0.0, 0.008, above) * (1.0 - smoothstep(0.08, 0.30, above));
+        wisp *= mix(1.0, smoothstep(0.2, 0.75, noise2(float2(q.x * 70.0, above * 22.0 - time * 0.45))), smoothstep(0.03, 0.12, above));
+        float3 smokeC = dark > 0.5 ? float3(0.62, 0.55, 0.48) : float3(0.52, 0.53, 0.57);
+        color = mix(color, smokeC, clamp(wisp * smoke * 0.55, 0.0, 1.0));
+    }
+
+    color = clamp(color, 0.0, 1.0);
+    // Over the log the scene stays something the theme's text reads on. In a dark theme what is brighter than
+    // a dim wall rises a third as fast, under what light text can stand, so the flame is still the brightest
+    // thing, only not white. In a light theme what is dark goes toward the page, so dark text reads on the brass.
+    if (wallpaper < 0.5) {
+        float lum = dot(color, float3(0.299, 0.587, 0.114));
+        if (dark > 0.5 && lum > 0.30) {
+            // What is pressed down takes the halo's warm color, so a white flame turns golden, not gray.
+            float held = (0.30 + (lum - 0.30) * 0.314) / lum;
+            float3 golden = float3(1.0, 0.55, 0.20);
+            color = mix(color * held, golden * (lum * held / dot(golden, float3(0.299, 0.587, 0.114))), 1.0 - held);
+        }
+        if (dark < 0.5 && lum < 0.68) {
+            float want = 0.58 + 0.10 * exp(-(0.68 - lum) / 0.10);
+            float lumPage = dot(float3(bg.rgb), float3(0.299, 0.587, 0.114));
+            color = mix(color, float3(bg.rgb), clamp((want - lum) / max(lumPage - lum, 0.01), 0.0, 1.0));
+        }
+    }
+    color = mix(color, float3(bg.rgb), ground(y) * (1.0 - wallpaper));
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

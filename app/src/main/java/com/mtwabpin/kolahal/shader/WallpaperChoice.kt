@@ -47,9 +47,15 @@ object WallpaperChoice {
         context.packageManager.queryIntentServices(Intent(WallpaperService.SERVICE_INTERFACE).setPackage(context.packageName), 0)
             .firstOrNull()?.serviceInfo?.let { ComponentName(it.packageName, it.name) }
 
-    /** Whether Kolahal's live wallpaper is the phone's. Asks Android: not on the main thread. */
+    /**
+     * Whether Kolahal's live wallpaper is the phone's: the home screen's, or from Android 14 the lock screen's
+     * alone. Asks Android: not on the main thread.
+     */
     fun isWallpaper(context: Context): Boolean = supported && runCatching {
-        WallpaperManager.getInstance(context).wallpaperInfo?.component?.let { it == component(context) } == true
+        val manager = WallpaperManager.getInstance(context)
+        val own = component(context) ?: return@runCatching false
+        val lock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) manager.getWallpaperInfo(WallpaperManager.FLAG_LOCK) else null
+        manager.wallpaperInfo?.component == own || lock?.component == own
     }.getOrDefault(false)
 
     /** Android's preview of it, where people set it. */

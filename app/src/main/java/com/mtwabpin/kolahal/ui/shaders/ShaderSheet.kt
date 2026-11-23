@@ -8,6 +8,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,7 +35,9 @@ import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,6 +47,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,17 +59,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderFit
 import com.mtwabpin.kolahal.shader.ShaderSurface
@@ -89,8 +94,9 @@ import kotlinx.coroutines.launch
 /**
  * The sheet for one shader on the Shaders screen ([name] of [rows]). Left and right swipe to the others,
  * in the list's order, as the preview is what one looks for.
- * - A preview, which stays in place over the rest, then Use or Turn off, Check (does it compile, and which uniforms Kolahal sets), Share, and
- *   Copy to the script folder. Holding the eye shows home with the shader, in use or not ([onPeek]).
+ * - A preview, which stays in place over the rest where there is room, then Use or Turn off, Edit (its code in the editor, [onEdit]), Check (does it
+ *   compile, and which uniforms Kolahal sets), Share, and Copy to the script folder. Holding the eye shows home with the shader, in
+ *   use or not ([onPeek]).
  * - Its parameters, under the preview, which follows them ([ShaderParamRows]).
  * - Set as wallpaper, for one that can be ([WallpaperChoice]).
  * - Update, for one from Get more shaders with a newer version. An edited one asks first.
@@ -114,11 +120,14 @@ internal fun ShaderSheet(
     onPlay: (String) -> Unit,
     onAskNotifications: () -> Unit,
     onPeek: (String?) -> Unit,
+    onEdit: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     GuiSheet(onDismiss, alpha = shown, sides = 0.dp) {
         val pager = rememberPagerState(initialPage = rows.indexOfFirst { it.name == name }.coerceAtLeast(0)) { rows.size }
         val current by rememberUpdatedState(rows)
+        // The rows of parameters that are open, kept while the sheet is: a page that is swiped away comes back as it was.
+        val opened = remember { mutableStateMapOf<String, Boolean>() }
         LaunchedEffect(pager) {
             snapshotFlow { pager.settledPage }.collect { page -> current.getOrNull(page)?.let { onShow(it.name) } }
         }
@@ -134,7 +143,7 @@ internal fun ShaderSheet(
         ) { page ->
             ShaderDetails(
                 rows[page], "${page + 1} of ${rows.size}", inUse, wallpaper, problems[rows[page].name], actions,
-                front = page == pager.settledPage, shown, onPlay, onAskNotifications, onPeek, onDismiss,
+                front = page == pager.settledPage, shown, onPlay, onAskNotifications, onPeek, onEdit, onDismiss, opened,
             )
         }
     }
@@ -154,7 +163,9 @@ private fun ShaderDetails(
     onPlay: (String) -> Unit,
     onAskNotifications: () -> Unit,
     onPeek: (String?) -> Unit,
-    onDismiss: () -> Unit
+    onEdit: (String) -> Unit,
+    onDismiss: () -> Unit,
+    opened: MutableMap<String, Boolean>,
 ) {
     var confirmReplace by remember(row.name) { mutableStateOf(false) }
     // Checked again only when asked: a changed file has no result yet.
@@ -164,17 +175,21 @@ private fun ShaderDetails(
     val on = row.name == inUse && !row.turnedOff
     val drawable = Shaders.supported && !row.turnedOff && problem == null
 
-    // The preview stays in place while what is under it scrolls: what one changes there shows in it. On a
-    // screen that isn't tall enough, it scrolls too.
-    val window = LocalWindowInfo.current.containerSize.height
-    val fixed = with(LocalDensity.current) { window.toDp() } >= 560.dp
+    // The preview stays in place while what is under it scrolls: what one changes there shows in it. Where the
+    // sheet hasn't room for both, such as on a phone on its side, it scrolls too. The room without the keyboard
+    // decides, so the preview doesn't jump while one types; the keyboard makes it smaller.
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .imePadding()
             .graphicsLayer { alpha = shown() }
     ) {
-      val high = maxOf(maxHeight * 0.42f, 140.dp)
+      val fixed = maxHeight >= PINNED_ROOM
+      BoxWithConstraints(
+          Modifier
+              .fillMaxSize()
+              .imePadding()
+      ) {
+      val high = maxOf(maxHeight * 0.36f, 140.dp)
       Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -208,7 +223,7 @@ private fun ShaderDetails(
         }
         if (row.meta.params.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
-            ShaderParamRows(row.name, row.meta.params, actions)
+            ShaderParamRows(row.name, row.meta.params, actions, opened = opened)
         }
         if (row.meta.once != null) ShaderWordsField(row.name, actions, onAskNotifications, Modifier.padding(top = 16.dp))
         if (row.meta.suits.isNotEmpty()) SuitsRow(row.meta.suits, Modifier.padding(top = 16.dp))
@@ -271,6 +286,8 @@ private fun ShaderDetails(
         Spacer(Modifier.height(8.dp))
         SheetActions(
             buildList {
+                // As a script's sheet does, Edit closes the sheet. One that comes with Kolahal becomes yours when it is saved.
+                add(SheetAction("Edit", R.drawable.ic_edit) { onDismiss(); onEdit(row.name) })
                 add(SheetAction("Check", R.drawable.ic_info) { scope.launch { check = actions.check(row.name) } })
                 add(SheetAction("Share", R.drawable.ic_share) { share(context, row) })
                 // Its message is on the page, behind the sheet.
@@ -302,6 +319,7 @@ private fun ShaderDetails(
         Spacer(Modifier.height(16.dp))
         }
       }
+      }
     }
 
     val latest = row.latest
@@ -314,6 +332,9 @@ private fun ShaderDetails(
         ) { confirmReplace = false; actions.install(latest, replace = true) }
     }
 }
+
+/** The height a shader's details need to keep the preview in place over the rest: about a third for it, the rest for what scrolls. */
+private val PINNED_ROOM = 520.dp
 
 private fun from(row: ShaderRow): String = when {
     row.origin != null -> row.origin.source
@@ -437,41 +458,91 @@ private fun SuitsRow(suits: Map<ShaderSurface, ShaderFit>, modifier: Modifier = 
 /** One of the smaller things to do with a shader. [says] is what a screen reader hears, when it is more than [label]. */
 private class SheetAction(val label: String, val icon: Int, val says: String = label, val error: Boolean = false, val run: () -> Unit)
 
-/** [actions] in an Expressive button group: the pressed one widens, and its neighbors give way. */
+/**
+ * Whether [count] buttons with their words fit side by side in [room]: all are as wide as the one with
+ * the longest word ([widest], the width of its button with its icon and padding), with [gap] between
+ * two. A pressed button widens by [grows] of its width and takes that from a neighbor, which must
+ * still hold its word. All in dp.
+ */
+internal fun wordsFit(room: Float, widest: Float, count: Int, gap: Float, grows: Float): Boolean {
+    if (count <= 0) return true
+    val each = (room - gap * (count - 1)) / count
+    return each * (1f - grows) >= widest
+}
+
+/**
+ * [actions] in an Expressive button group: the pressed one widens, and its neighbors give way. Each has
+ * its icon and its word. Where the words don't fit on the line ([wordsFit]: four or five of them on a phone),
+ * each is its icon alone, and says its word in a bubble on a long-press and to a screen reader.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SheetActions(actions: List<SheetAction>) {
     val colors = MaterialTheme.colorScheme
-    ButtonGroup(
-        overflowIndicator = { menu -> ButtonGroupDefaults.OverflowIndicator(menu) },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        for (a in actions) customItem(
-            buttonGroupContent = {
-                val source = remember { MutableInteractionSource() }
-                FilledTonalButton(
-                    onClick = a.run,
-                    shapes = ButtonDefaults.shapes(),
-                    colors = if (a.error) ButtonDefaults.filledTonalButtonColors(containerColor = colors.errorContainer, contentColor = colors.onErrorContainer)
-                    else ButtonDefaults.filledTonalButtonColors(),
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                    interactionSource = source,
-                    modifier = Modifier
-                        .weight(1f)
-                        .animateWidth(source)
-                        .semantics { if (a.says != a.label) contentDescription = a.says },
-                ) {
-                    Icon(painterResource(a.icon), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(6.dp))
-                    Text(a.label, maxLines = 1, softWrap = false)
-                }
-            },
-            menuContent = { state ->
-                DropdownMenuItem(text = { Text(a.says) }, onClick = { a.run(); state.dismiss() })
-            },
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelLarge
+    val density = LocalDensity.current
+    val labels = actions.map { it.label }
+    // The widest word, as a button draws it.
+    val widest = remember(labels, style, measurer, density) {
+        with(density) { labels.maxOfOrNull { measurer.measure(it, style, softWrap = false, maxLines = 1).size.width }?.toDp() ?: 0.dp }
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // A button's own parts beside its word: the padding at both ends, the icon and the room after it.
+        val words = wordsFit(
+            room = maxWidth.value,
+            widest = (widest + WORD_PADDING * 2 + ButtonDefaults.IconSize + WORD_GAP).value,
+            count = actions.size,
+            gap = ButtonGroupDefaults.HorizontalArrangement.spacing.value,
+            grows = ButtonGroupDefaults.ExpandedRatio,
         )
+        ButtonGroup(
+            overflowIndicator = { menu -> ButtonGroupDefaults.OverflowIndicator(menu) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            for (a in actions) customItem(
+                buttonGroupContent = {
+                    val source = remember { MutableInteractionSource() }
+                    if (words) FilledTonalButton(
+                        onClick = a.run,
+                        shapes = ButtonDefaults.shapes(),
+                        colors = if (a.error) ButtonDefaults.filledTonalButtonColors(containerColor = colors.errorContainer, contentColor = colors.onErrorContainer)
+                        else ButtonDefaults.filledTonalButtonColors(),
+                        contentPadding = PaddingValues(horizontal = WORD_PADDING),
+                        interactionSource = source,
+                        modifier = Modifier
+                            .weight(1f)
+                            .animateWidth(source)
+                            .semantics { if (a.says != a.label) contentDescription = a.says },
+                    ) {
+                        Icon(painterResource(a.icon), null, Modifier.size(ButtonDefaults.IconSize))
+                        Spacer(Modifier.width(WORD_GAP))
+                        Text(a.label, maxLines = 1, softWrap = false)
+                    } else Box(Modifier.weight(1f).animateWidth(source)) {
+                        // The bubble's own box takes no weight from the group: the box around it does.
+                        Labeled(a.says, Modifier.fillMaxWidth()) {
+                            FilledTonalIconButton(
+                                onClick = a.run,
+                                shapes = IconButtonDefaults.shapes(),
+                                colors = if (a.error) IconButtonDefaults.filledTonalIconButtonColors(containerColor = colors.errorContainer, contentColor = colors.onErrorContainer)
+                                else IconButtonDefaults.filledTonalIconButtonColors(),
+                                interactionSource = source,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Icon(painterResource(a.icon), a.says, Modifier.size(ButtonDefaults.IconSize)) }
+                        }
+                    }
+                },
+                menuContent = { state ->
+                    DropdownMenuItem(text = { Text(a.says) }, onClick = { a.run(); state.dismiss() })
+                },
+            )
+        }
     }
 }
+
+/** The padding at each end of a button with its word, and the room between its icon and the word. */
+private val WORD_PADDING = 8.dp
+private val WORD_GAP = 6.dp
 
 /** Offers the shader's code, as text, to another app. Without one that takes it, nothing happens. */
 private fun share(context: Context, row: ShaderRow) {

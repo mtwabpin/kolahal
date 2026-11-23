@@ -1,0 +1,44 @@
+// @name Ripple
+// @description Follows touches: a ring spreads from each one, and a finger held down glows
+// @suits dark good, light good, wallpaper fair
+// @animated
+// @settles 2
+//
+// touch is where the last touch was, in pixels: -1, -1 before the first one. touchAge is the
+// seconds since then, and pressed is 1 while a finger is down. @settles 2 says that a touch changes
+// the picture for 2 seconds. A shader whose only clock is touchAge isn't drawn again after that,
+// until the next touch: between touches it costs nothing. One that declares time is drawn all
+// the time, so leave time out. Change the ring's size and color first.
+
+uniform shader content;
+uniform float2 cell;
+uniform float2 touch;
+uniform float touchAge;
+uniform float pressed;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 accent;
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    // No touch yet, or the ring is gone and no finger is down: the page as it is.
+    if (touch.x < 0.0 || (touchAge >= 2.0 && pressed < 0.5)) return half4(here);
+
+    // How far this pixel is from the touch. cell is the size of one character, so the ring is as
+    // large next to the text on any screen.
+    float far = length(xy - touch);
+    // The ring grows to 12 lines of text in 2 seconds, and fades meanwhile.
+    float age = min(touchAge / 2.0, 1.0);
+    float off = (far - cell.y * 12.0 * sqrt(age)) / (cell.y * 0.5);
+    float ring = exp(-off * off) * (1.0 - age) * (1.0 - age);
+    // Under a finger that is down, a soft glow.
+    float glow = pressed * exp(-far * far / (cell.y * cell.y * 6.0));
+    float amount = max(ring * 0.4, glow * 0.3) * mix(0.75, 1.0, dark);
+    if (amount <= 0.002) return half4(here);
+
+    // Behind the text only, as in the template Hills.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    return half4(here * (1.0 - amount) + float4(float3(accent.rgb) * amount, amount));
+}

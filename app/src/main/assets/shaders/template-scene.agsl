@@ -1,0 +1,50 @@
+// @name Hills
+// @description A scene behind the text: two hills under a sky, in the theme's colors
+// @suits dark good, light good, wallpaper good
+//
+// A scene draws only where the page shows, so text stays as it is. It uses the theme's colors, so
+// it fits every theme; dark says whether the theme is dark, and a light one takes less of it. As a
+// live wallpaper (wallpaper is 1) the page is the theme's background alone, with no text: there it
+// is a little stronger. Change the hills first: where they are, how they wave, their colors.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float dark;
+uniform float wallpaper;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 link;
+layout(color) uniform half4 info;
+layout(color) uniform half4 good;
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    // Page or text? A pixel that differs from the background (bg) and from cards and bars (surface)
+    // is text or a line. open is 1 on the page and 0 on text, with a soft edge between.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    // On text there is nothing more to work out.
+    if (open <= 0.0) return half4(here);
+
+    // Across and down the screen from 0 to 1, so the scene fits any screen.
+    float2 p = xy / resolution;
+    // The sky: some of the link color at the top, none from the middle down.
+    float3 color = float3(link.rgb);
+    float amount = 0.14 * clamp(1.0 - p.y * 1.8, 0.0, 1.0);
+    // Each hill has a top line that waves across the screen; below it is the hill.
+    // smoothstep over 2 pixels gives the line a soft edge instead of steps.
+    float far = 0.70 + 0.035 * sin(p.x * 5.0 + 1.0) + 0.015 * sin(p.x * 13.0);
+    float hill = smoothstep(far, far + 2.0 / resolution.y, p.y);
+    color = mix(color, float3(info.rgb), hill);
+    amount = mix(amount, 0.16, hill);
+    float near = 0.80 + 0.045 * sin(p.x * 3.0 + 4.0) + 0.012 * sin(p.x * 17.0 + 2.0);
+    hill = smoothstep(near, near + 2.0 / resolution.y, p.y);
+    color = mix(color, float3(good.rgb), hill);
+    amount = mix(amount, 0.24, hill);
+
+    // Less on a light theme, more as the wallpaper, and only where the page is.
+    amount *= mix(0.75, 1.0, dark) * mix(1.0, 1.4, wallpaper) * open;
+    // The scene's color over the page: amount of it, the rest the page.
+    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+}

@@ -1,9 +1,11 @@
 // @name Frost
 // @description Ice grows in from the edges and corners of the screen. It melts under your finger
 // @suits dark good, light good, wallpaper good
+// @param amount 0.0..2.0 = 1.0 Amount of ice
 //
 // The middle of the screen stays clear. Under the ice the page is tinted and text is bent by a
-// fifth of a cell at most, so it stays readable and a tap lands on what it shows.
+// fifth of a cell at most, so it stays readable and a tap lands on what it shows. The amount is
+// how far in the ice reaches: at 2, twice as far; at 0, there is none.
 
 uniform shader content;
 uniform float2 resolution;
@@ -11,6 +13,7 @@ uniform float2 cell;
 uniform float2 touch;
 uniform float pressed;
 uniform float dark;
+uniform float amount;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 surface;
 layout(color) uniform half4 info;
@@ -32,8 +35,14 @@ float noise(float2 p) {
 }
 
 half4 main(float2 xy) {
-    // How far in from the nearest edge, in screen widths; the corners count as nearer.
-    float2 in2 = min(xy, resolution - xy) / resolution.x;
+    // No ice at all.
+    if (amount <= 0.0) {
+        return content.eval(xy);
+    }
+
+    // How far in from the nearest edge, in screen widths times the amount; the corners count as
+    // nearer. So all the ice below grows with the amount.
+    float2 in2 = min(xy, resolution - xy) / (resolution.x * amount);
     float inside = min(in2.x, in2.y) - 0.03 * exp(-max(in2.x, in2.y) * 8.0);
 
     // Clear of the ice: only the page's own pixel is read.
@@ -69,10 +78,10 @@ half4 main(float2 xy) {
 
     // White frost on a dark theme, a blue-grey one on a light theme, where white would not show.
     float3 frost = mix(mix(float3(info.rgb), float3(0.35, 0.45, 0.60), 0.5), mix(float3(info.rgb), float3(1.0), 0.75), dark);
-    float amount = ice * mix(0.13, 0.17, dark) + crystal * mix(0.22, 0.26, dark) + glint * 0.4 * dark;
+    float cover = ice * mix(0.13, 0.17, dark) + crystal * mix(0.22, 0.26, dark) + glint * 0.4 * dark;
 
     // Not over text: a pixel that differs from the page is text or a line.
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount = clamp(amount, 0.0, 1.0) * (1.0 - clamp(d * 5.0, 0.0, 1.0));
-    return half4(here * (1.0 - amount) + float4(frost * amount, amount));
+    cover = clamp(cover, 0.0, 1.0) * (1.0 - clamp(d * 5.0, 0.0, 1.0));
+    return half4(here * (1.0 - cover) + float4(frost * cover, cover));
 }

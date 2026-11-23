@@ -15,7 +15,7 @@ import java.io.File
 data class WallpaperState(
     val name: String,
     val code: String,
-    /** What its parameters are set to, what they follow and the formulas, and the values that scripts gave. */
+    /** What its parameters are set to, what they follow and the formulas, and the values that scripts gave and the phone's use ([com.mtwabpin.kolahal.shader.UsageValues]). */
     val set: Map<String, String>,
     val follows: Map<String, String>,
     val formulas: Map<String, String>,
@@ -71,8 +71,13 @@ data class WallpaperState(
 
         private fun file(context: Context) = File(dir(context), FILE)
 
+        /**
+         * The state home wrote last, or null when there is none. The file itself is read, not through [AtomicFile]:
+         * that deletes a write in progress ([write]'s other file), and the state it holds would be lost. The file
+         * is always whole, as [write] renames a whole one over it.
+         */
         fun read(context: Context): WallpaperState? =
-            runCatching { AtomicFile(file(context)).readFully().toString(Charsets.UTF_8) }.getOrNull()?.let(::decode)
+            runCatching { file(context).readText() }.getOrNull()?.let(::decode)
 
         /** Not on the main thread. */
         fun write(context: Context, state: WallpaperState) {

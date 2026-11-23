@@ -16,6 +16,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /** Home hands the live wallpaper its shader and what it is set to, when either changes. */
 @RunWith(AndroidJUnit4::class)
@@ -57,5 +58,31 @@ class WallpaperWriterTest {
         waitFor("not the default") { it.name == WallpaperChoice.DEFAULT }
         assertEquals(WallpaperChoice.DEFAULT, WallpaperState.read(context)?.name)
         assertFalse(WallpaperChoice.isWallpaper(context))
+    }
+
+    /**
+     * The wallpaper reads while home writes, as when Android's preview makes an engine just after Set as wallpaper:
+     * it reads the state before, and leaves home's write in progress alone, so that state isn't lost.
+     */
+    @Test
+    fun aReadLeavesAWriteInProgressAlone() {
+        val dir = WallpaperState.dir(context).apply { mkdirs() }
+        val file = File(dir, WallpaperState.FILE)
+        // Home's write in progress, under the name it has until it is whole.
+        val writing = File(dir, WallpaperState.FILE + ".new")
+        val was = file.takeIf { it.isFile }?.readBytes()
+        val state = WallpaperState(
+            name = "dunes", code = "uniform shader content;", set = emptyMap(), follows = emptyMap(), formulas = emptyMap(),
+            given = emptyMap(), dark = mapOf("bg" to -16777216), light = mapOf("bg" to -1), alwaysDark = false, cellW = 20f, cellH = 50f,
+        )
+        try {
+            file.writeText(state.encode())
+            writing.writeText(state.copy(name = "pond").encode())
+            assertEquals(state, WallpaperState.read(context))
+            assertTrue("the write in progress is gone", writing.isFile)
+        } finally {
+            writing.delete()
+            if (was != null) file.writeBytes(was) else file.delete()
+        }
     }
 }

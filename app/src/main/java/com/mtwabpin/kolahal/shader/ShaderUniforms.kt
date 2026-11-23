@@ -31,6 +31,15 @@ class ShaderFrame {
     var tiltX = 0f
     var tiltY = 0f
 
+    /** The radius of the screen's rounded corners, in px; 0 when they are square or the surface isn't the whole screen. */
+    var corner = 0f
+
+    /**
+     * The camera's cutout at the top of the screen, in px: left, top, right, bottom. All 0 when there is none or
+     * the surface isn't the whole screen.
+     */
+    val cutout = FloatArray(4)
+
     companion object {
         /** `touchAge` before any touch: longer than any ring or fade. */
         const val NEVER = 1000f
@@ -65,6 +74,12 @@ class ShaderUniforms(
     val usesBattery = ShaderMeta.BATTERY in declared
     val usesCharging = ShaderMeta.CHARGING in declared
 
+    /** The corner doesn't change while a window lives: a rotation brings another size, which draws it again anyway. */
+    val usesCorner = ShaderMeta.CORNER in declared
+
+    /** The cutout changes only with the window's size (a rotation), which draws it again anyway. */
+    val usesCutout = ShaderMeta.CUTOUT in declared
+
     /** Sets them all for [f]; [param] is the value of the header's parameter at a place. Throws when Android refuses one. */
     fun set(f: ShaderFrame, param: (Int) -> Float) {
         float1("time", f.seconds)
@@ -81,6 +96,8 @@ class ShaderUniforms(
         float1(ShaderMeta.PRESSED, if (f.pressed) 1f else 0f)
         float1(ShaderMeta.BATTERY, f.battery)
         float1(ShaderMeta.CHARGING, f.charging)
+        float1(ShaderMeta.CORNER, f.corner)
+        float4(ShaderMeta.CUTOUT, f.cutout)
         float2(ShaderTilt.NAME, f.tiltX, f.tiltY)
         if (usesDate) {
             val now = ShaderDate.of(LocalDateTime.now())
@@ -96,6 +113,11 @@ class ShaderUniforms(
 
     private fun float2(name: String, x: Float, y: Float) {
         if (declared[name]?.floats == 2) runtime.setFloatUniform(name, x, y)
+    }
+
+    private fun float4(name: String, v: FloatArray) {
+        val d = declared[name] ?: return
+        if (d.floats == 4 && !d.color) runtime.setFloatUniform(name, v[0], v[1], v[2], v[3])
     }
 
     private fun color(name: String, argb: Int) {

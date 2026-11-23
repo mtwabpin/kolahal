@@ -1,10 +1,12 @@
 // @name Night sky
 // @description Stars behind the text that twinkle slowly, a pale band across the sky, and a meteor now and then; on a light theme, an engraved star chart
 // @suits dark good, light fair, wallpaper fair
+// @param stars 0.2..2.0 = 1.0 Number of stars
 // @animated
 //
 // Two layers of stars, each a soft dot of a few pixels, never a single one. They only show where
 // the page does. As the phone leans, the near stars shift a few pixels and the far ones less.
+// The number of stars changes one star at a time: each has its place, and more of them show.
 // On a light theme, where stars can't shine, it is a star chart engraved on the page: fine circles
 // and hour lines, ink stars sized by brightness, and lines that join some into constellations.
 
@@ -14,6 +16,7 @@ uniform float2 cell;
 uniform float time;
 uniform float2 tilt;
 uniform float dark;
+uniform float stars;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 surface;
 layout(color) uniform half4 fg;
@@ -37,17 +40,23 @@ float noise(float2 p) {
                mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), f.x), f.y);
 }
 
+// The least first number of a square that has a star. At 1 star, half the squares have one; each
+// step of 1 halves the squares without.
+float chartLeast() {
+    return exp2(-stars);
+}
+
 // A star of the chart: where it is in its square (xy), and how bright (z), or 0 for none.
 float3 chartStar(float2 id) {
     float r1 = hash(id + 13.0);
     float r2 = hash(id + 32.1);
     float r3 = hash(id + 50.9);
-    return float3(0.5 + (float2(r2, r3) - 0.5) * 0.5, step(0.5, r1) * (0.15 + 0.85 * r1 * r2));
+    return float3(0.5 + (float2(r2, r3) - 0.5) * 0.5, step(chartLeast(), r1) * (0.15 + 0.85 * r1 * r2));
 }
 
 // Whether a square of the chart has a star: the first number of chartStar alone, as a cheap test.
 float chartThere(float2 id) {
-    return step(0.5, hash(id + 13.0));
+    return step(chartLeast(), hash(id + 13.0));
 }
 
 // How far p is from the line between a and b, and 0 to 1 along it.
@@ -98,9 +107,10 @@ float4 chart(float2 xy, float t) {
     if (path > 0.0) path *= step(0.4, fract(atan(fromSun.x, fromSun.y) * 40.0));
 
     // The stars, one square each, and the four squares beside this one for the lines between them.
-    // Half the squares have a star; in the others there is nothing more to draw. A line joins this
-    // star to a neighbour only where the pair's own number says so (about half the pairs) and the
-    // neighbour has a star too; it is worked out only then, and only near where it can pass.
+    // At 1 star half the squares have a star (chartLeast); in the others there is nothing more to
+    // draw. A line joins this star to a neighbour only where the pair's own number says so (about
+    // half the pairs) and the neighbour has a star too; it is worked out only then, and only near
+    // where it can pass.
     float size = cell.y * 3.4;
     float2 uv = p / size;
     float2 id = floor(uv);
@@ -179,7 +189,13 @@ half4 main(float2 xy) {
     float band = spread * 0.725;
     if (spread >= 0.078) band = spread * (0.45 + 0.55 * noise(p * 5.0 + 2.0));
 
-    float stars = 0.0;
+    // A square has a star when its first number, r1, is over a line: 0.72, less in the band. The
+    // number of stars moves every square's number alike (pick): its distance below 1 is divided by
+    // stars, so twice the stars have twice as many squares over the line. A star that shows stays
+    // where it is, and others join it. Only in the thickest of the band, above 1.7 stars, does every
+    // square have one.
+    float apart = 1.0 / stars;
+    float lit = 0.0;
     float3 tint = float3(0.0);
     for (int i = 0; i < 2; i++) {
         float n = float(i);
@@ -190,14 +206,15 @@ half4 main(float2 xy) {
         float2 uv = (xy - tilt * unit * (1.2 + 2.4 * n)) / size + n * float2(0.43, 0.71);
         float2 id = floor(uv);
         float r1 = hash(id + n * 13.0);
+        float pick = 1.0 - (1.0 - r1) * apart;
 
         // More squares have a star inside the band. The big layer has the brighter ones. A square
         // without a star, or a pixel outside the star, adds nothing. Where the clouds weren't worked
         // out and they could decide this star, they are worked out here.
-        if (spread < 0.078 && r1 >= 0.719 - 0.40 * spread && r1 < 0.721 - 0.18 * spread) {
+        if (spread < 0.078 && pick >= 0.719 - 0.40 * spread && pick < 0.721 - 0.18 * spread) {
             band = spread * (0.45 + 0.55 * noise(p * 5.0 + 2.0));
         }
-        if (r1 < 0.72 - 0.40 * band) continue;
+        if (pick < 0.72 - 0.40 * band) continue;
         float r2 = hash(id + n * 29.0 + 3.1);
         float r3 = hash(id + n * 43.0 + 7.9);
         float radius = unit * (1.0 + 1.3 * n * r3 + 0.5 * r2);
@@ -209,7 +226,7 @@ half4 main(float2 xy) {
         // Each twinkles at its own pace, never going out.
         float twinkle = 0.70 + 0.30 * sin(t * (0.6 + 1.6 * r3) + r1 * 6.28);
         float bright = star * twinkle * mix(0.55, 1.0, r2 * r2);
-        stars += bright;
+        lit += bright;
         // Most are white, some a little blue or yellow.
         tint += bright * mix(mix(float3(info.rgb), float3(warn.rgb), step(0.5, r3)), float3(fg.rgb), 0.3 + 0.7 * step(r2, 0.6));
     }
@@ -231,10 +248,10 @@ half4 main(float2 xy) {
     }
 
     // The stars in their colors, the meteor white; the band is only a breath of color.
-    float dots = clamp(stars + meteor, 0.0, 1.0) * 0.95;
+    float dots = clamp(lit + meteor, 0.0, 1.0) * 0.95;
     float haze = band * 0.09;
     float amount = haze * (1.0 - dots) + dots;
-    float3 starColor = mix(float3(fg.rgb), tint / max(stars, 0.001), step(0.001, stars));
+    float3 starColor = mix(float3(fg.rgb), tint / max(lit, 0.001), step(0.001, lit));
     float3 color = (float3(info.rgb) * haze * (1.0 - dots) + starColor * dots) / max(amount, 0.001);
 
     amount *= open;

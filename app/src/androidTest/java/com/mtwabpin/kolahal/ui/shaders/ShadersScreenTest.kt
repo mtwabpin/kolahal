@@ -1,10 +1,16 @@
 package com.mtwabpin.kolahal.ui.shaders
 
 import android.app.Application
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -14,9 +20,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -24,6 +32,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.ListedShader
 import com.mtwabpin.kolahal.LogLinesSince
@@ -33,6 +42,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.ShaderMeta
 import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderPlay
 import com.mtwabpin.kolahal.shader.ShaderSafety
@@ -40,6 +50,9 @@ import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ui.editor.BUNDLED_NOTE
+import com.mtwabpin.kolahal.ui.editor.ShaderEditor
+import com.mtwabpin.kolahal.ui.theme.KolahalTheme
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
@@ -118,8 +131,9 @@ class ShadersScreenTest {
         compose.waitForText("Code")
     }
 
+    /** A button of the sheet, by its word: where four don't fit with their words, each is an icon that says it. */
     private fun tapOnSheet(label: String) =
-        compose.onNode(hasText(label) and hasClickAction()).performScrollTo().performClick()
+        compose.onNode((hasText(label) or hasContentDescription(label)) and hasClickAction()).performScrollTo().performClick()
 
     /** None, the ones that come with Kolahal and the user's own, each with what it says of itself. None is selected at first. */
     @Test
@@ -197,7 +211,10 @@ class ShadersScreenTest {
         }
     }
 
-    /** A formula for what a parameter follows counts once it can be worked out. */
+    /**
+     * A formula for what a parameter follows counts once it can be worked out. Without one, its field is in the
+     * Follow menu, and the row is one line.
+     */
     @Test
     fun aFormulaForAParameter() {
         needsAndroid13()
@@ -208,6 +225,10 @@ class ShadersScreenTest {
             compose.onNodeWithTag("shader-search").performTextInput("dunes")
             compose.waitForNode(hasTestTag("shader dunes"))
             openSheet("dunes", "Dunes")
+            assertTrue(compose.onAllNodesWithTag("formula camels", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+            compose.onNodeWithTag("follow camels", useUnmergedTree = true).performScrollTo().performClick()
+            compose.waitForNode(hasTestTag("add-formula camels"))
+            compose.onNodeWithTag("add-formula camels").performClick()
             val field = compose.onNodeWithTag("formula camels", useUnmergedTree = true)
             field.performScrollTo().performTextInput("battery /")
             compose.waitForText("Can't be worked out", substring = true)
@@ -387,6 +408,99 @@ class ShadersScreenTest {
         }
     }
 
+    /** While a parameter follows a value it has no slider; picking Nothing in its Follow menu brings the slider back. */
+    @Test
+    fun aFollowingParameterHasNoSlider() {
+        needsAndroid13()
+        val param = Shaders.params(app, "snowfall").first { it.name == "amount" }
+        ShaderParams.setFollow(app, "snowfall", param, "battery")
+        fun sliders() = compose.onAllNodesWithTag("param amount", useUnmergedTree = true).fetchSemanticsNodes().size
+        try {
+            show()
+            openSheet("snowfall", "Snowfall")
+            compose.onNodeWithTag("follow amount", useUnmergedTree = true).performScrollTo()
+            assertEquals(0, sliders())
+            compose.onNodeWithTag("follow amount", useUnmergedTree = true).performClick()
+            compose.waitForText("Nothing")
+            compose.onNodeWithText("Nothing").performClick()
+            compose.waitFor("no slider") { sliders() == 1 }
+            assertNull(ShaderParams.follow("snowfall", param))
+        } finally {
+            ShaderParams.reset(app, "snowfall")
+        }
+    }
+
+    /**
+     * Seismograph's eight blocks of today are one row, closed at first; a tap shows their own rows and a second one
+     * hides them. A screen reader hears whether it is open.
+     */
+    @Test
+    fun aSeriesIsOneRowThatOpens() {
+        needsAndroid13()
+        show()
+        compose.onNodeWithTag("shader-search").performTextInput("seismograph")
+        compose.waitForNode(hasTestTag("shader seismograph"))
+        openSheet("seismograph", "Seismograph")
+        val series = compose.onNodeWithTag("series h1")
+        fun rows() = (1..8).count { compose.onAllNodesWithTag("follow h$it", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        fun state() = series.fetchSemanticsNode().config.getOrNull(SemanticsProperties.StateDescription)
+        series.performScrollTo()
+        assertEquals(0, rows())
+        assertEquals("Collapsed", state())
+        series.performClick()
+        compose.waitFor("the series stays closed") { rows() == 8 }
+        assertEquals("Expanded", state())
+        series.performScrollTo().performClick()
+        compose.waitFor("the series stays open") { rows() == 0 }
+    }
+
+    /** The preview stays where it is while the details scroll to their end. */
+    @Test
+    fun thePreviewStaysInView() {
+        needsAndroid13()
+        show()
+        compose.onNodeWithTag("shader-search").performTextInput("seismograph")
+        compose.waitForNode(hasTestTag("shader seismograph"))
+        openSheet("seismograph", "Seismograph")
+        fun top() = compose.onAllNodesWithTag("shader-preview").fetchSemanticsNodes().first { it.layoutInfo.isPlaced }.boundsInRoot.top
+        val before = top()
+        compose.onNodeWithText("Code").performScrollTo()
+        compose.waitForIdle()
+        assertEquals(before, top())
+    }
+
+    /**
+     * A parameter's value can be typed, with a comma for the decimal point: the row's screen reader action opens
+     * the same box as a hold on its title. A value outside its range is not kept.
+     */
+    @Test
+    fun aParameterCanBeTyped() {
+        needsAndroid13()
+        val param = Shaders.params(app, "snowfall").first { it.name == "amount" }
+        try {
+            show()
+            openSheet("snowfall", "Snowfall")
+            compose.onNodeWithTag("param amount", useUnmergedTree = true).performScrollTo()
+            val row = compose.onNode(hasText(param.title) and SemanticsMatcher.keyIsDefined(SemanticsActions.CustomActions))
+            val type = row.fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Type a value" }
+            compose.runOnUiThread { type.action() }
+            val box = compose.onNodeWithTag("type-value")
+            compose.onNodeWithText("0.0 to 2.0").assertExists()
+
+            box.performTextReplacement("2,5")
+            box.performImeAction()
+            box.assertExists()
+            assertEquals(param.default, ShaderParams.of("snowfall", param))
+
+            box.performTextReplacement("1,5")
+            box.performImeAction()
+            compose.waitFor("not set") { ShaderParams.of("snowfall", param) == 1.5f }
+            box.assertDoesNotExist()
+        } finally {
+            ShaderParams.reset(app, "snowfall")
+        }
+    }
+
     /** Holding the sheet's eye shows home with that shader, which isn't turned on for it; letting go ends it. */
     @Test
     fun theEyeShowsHomeWithTheShader() {
@@ -417,6 +531,144 @@ class ShadersScreenTest {
         openSheet("lcd", title)
         compose.onNodeWithText("From: Kolahal").assertExists()
         compose.onNodeWithText("Remove").assertDoesNotExist()
+        compose.onNode(hasContentDescription("Remove") and hasClickAction()).assertDoesNotExist()
+        // Its four buttons: Edit, Check, Share and Copy, as words or as icons that say them.
+        for (word in listOf("Edit", "Check", "Share", "Copy to script folder")) {
+            compose.onNode((hasText(word) or hasContentDescription(word)) and hasClickAction()).performScrollTo().assertExists()
+        }
+    }
+
+    /**
+     * The words of five buttons don't fit on a phone's line: each is then its icon, which says its word to
+     * a screen reader and on a long-press.
+     */
+    @Test
+    fun fiveButtonsAreIconsWhereTheirWordsDontFit() {
+        Shaders.save(app, "zz-fine", fine)
+        show()
+        openSheet("zz-fine", "Mine")
+        for (word in listOf("Edit", "Check", "Share", "Copy to script folder", "Remove")) {
+            compose.onNode(hasContentDescription(word) and hasClickAction()).performScrollTo().assertExists()
+        }
+        compose.onNodeWithText("Edit").assertDoesNotExist()
+        compose.onNodeWithText("Check").assertDoesNotExist()
+        compose.onNodeWithText("Remove").assertDoesNotExist()
+        // The five share the line's width, as the buttons with words do: the first starts where the last ends, mirrored.
+        fun button(word: String) = compose.onNode(hasContentDescription(word) and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        val first = button("Edit")
+        val last = button("Remove")
+        val screen = app.resources.displayMetrics.widthPixels.toFloat()
+        assertEquals(first.left, screen - last.right, 2f)
+        assertTrue("an icon button is ${first.width} px of $screen", first.width > screen * 0.12f)
+        assertEquals(first.width, last.width, 2f)
+    }
+
+    /** Shows the Shaders screen, or the shader editor while one is open, as home's window does. */
+    private fun showWithEditor(): TerminalViewModel {
+        val vm = vms.terminal(app)
+        compose.setContent {
+            val editing by vm.shaderActions.editing.collectAsState()
+            val open = editing
+            if (open != null) KolahalTheme {
+                ShaderEditor(
+                    name = open.name,
+                    code = open.code,
+                    bundled = open.bundled,
+                    onSave = { code -> vm.shaderActions.save(open.name, code) },
+                    onClose = vm.shaderActions::closeEditor,
+                )
+            } else ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, onEdit = vm::openShaderEditor)
+        }
+        compose.waitForNode(hasTestTag("shader off"))
+        return vm
+    }
+
+    /** The message line of the editor. */
+    private fun editorMessage() = runCatching {
+        compose.onNodeWithTag("message").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString()
+    }.getOrDefault("")
+
+    /**
+     * Edit in a shader's sheet opens its code in the editor. Save writes the user's file, which the list reads again,
+     * and the message says what the check found; Close comes back to the list.
+     */
+    @Test
+    fun editSavesYourShader() {
+        Shaders.save(app, "zz-fine", fine)
+        val vm = showWithEditor()
+        openSheet("zz-fine", "Mine")
+        tapOnSheet("Edit")
+        compose.waitForNode(hasTestTag("editor"))
+        compose.onNodeWithText("zz-fine.agsl", substring = true).assertExists()
+        val changed = fine.replace("As it was", "Changed in the editor")
+        compose.onNodeWithTag("editor").performTextReplacement(changed)
+        compose.onNodeWithContentDescription("Save").performClick()
+        compose.waitFor("it isn't saved") { Shaders.own(app, "zz-fine") == changed }
+        compose.waitFor("no check") { editorMessage().startsWith("Saved · ") }
+        if (Shaders.supported) assertEquals("Saved · compiles", editorMessage())
+        compose.onNodeWithContentDescription("Close").performClick()
+        compose.waitFor("the editor stays") { vm.shaderActions.editing.value == null }
+        compose.waitForNode(hasTestTag("shader zz-fine") and hasText("Changed in the editor"))
+    }
+
+    /** A shader that doesn't compile is saved all the same, and the editor says why, at its line. */
+    @Test
+    fun aBrokenEditIsSavedAndSaysWhy() {
+        needsAndroid13()
+        Shaders.save(app, "zz-fine", fine)
+        showWithEditor()
+        openSheet("zz-fine", "Mine")
+        tapOnSheet("Edit")
+        compose.waitForNode(hasTestTag("editor"))
+        compose.onNodeWithTag("editor").performTextReplacement(broken)
+        compose.onNodeWithContentDescription("Save").performClick()
+        compose.waitFor("it isn't saved") { Shaders.own(app, "zz-fine") == broken }
+        compose.waitFor("no check") { editorMessage().startsWith("Saved · ") }
+        assertTrue(editorMessage(), editorMessage().startsWith("Saved · can't be used: line 2: "))
+    }
+
+    /** `shader edit <name>` opens it in the editor; a name that is no shader says so, and opens nothing. */
+    @Test
+    fun shaderEditOpensTheEditor() {
+        Shaders.save(app, "zz-fine", fine)
+        val vm = showWithEditor()
+        val commands = CommandRunner(app, vm)
+        assertTrue(commands.run("shader edit zz-none").any { "No shader 'zz-none'" in it })
+        assertNull(vm.shaderActions.editing.value)
+        commands.run("shader edit zz-fine")
+        compose.waitForNode(hasTestTag("editor"))
+        assertEquals(fine, vm.shaderActions.editing.value?.code)
+        compose.onNodeWithContentDescription("Close").performClick()
+        compose.waitFor("the editor stays") { vm.shaderActions.editing.value == null }
+        assertEquals(fine, Shaders.own(app, "zz-fine"))
+    }
+
+    /**
+     * Edit on one that comes with Kolahal opens its code and says that saving makes your copy. Closing with a change
+     * saves it as your file of the same name, used instead of Kolahal's; Remove brings Kolahal's back.
+     */
+    @Test
+    fun editingABundledOneMakesYourCopy() {
+        Shaders.remove(app, "lcd")
+        try {
+            showWithEditor()
+            val bundled = Shaders.bundled(app, "lcd")
+            val title = ShaderMeta.parse(bundled).title ?: "lcd"
+            openSheet("lcd", title)
+            tapOnSheet("Edit")
+            compose.waitForText(BUNDLED_NOTE)
+            // Nothing is saved until there is a change.
+            assertFalse("lcd" in Shaders.userNames)
+            compose.onNodeWithTag("editor").performTextReplacement("$bundled\n// mine")
+            compose.onNodeWithContentDescription("Close").performClick()
+            compose.waitFor("it isn't saved") { Shaders.own(app, "lcd") == "$bundled\n// mine" }
+            assertTrue("lcd" in Shaders.userNames)
+            assertEquals("$bundled\n// mine", Shaders.source(app, "lcd"))
+            compose.waitForText("Saved lcd.agsl", substring = true)
+        } finally {
+            Shaders.remove(app, "lcd")
+        }
+        assertEquals(Shaders.bundled(app, "lcd"), Shaders.source(app, "lcd"))
     }
 
     /** One from a list says which, and a newer version there can be installed from its sheet. */
@@ -452,6 +704,52 @@ class ShadersScreenTest {
         lists.listed()
         compose.onNode(hasText("Get more shaders") and hasClickAction()).performClick()
         compose.waitUntil(5_000) { vm.screen.value == Screen.GET_SHADERS }
+    }
+
+    /**
+     * Start from a template lists the templates by their names and descriptions, each row with a small
+     * picture of its template where shaders can be drawn (a box taller than wide, inside the row's one touch
+     * target); one becomes a shader of the user's under a free name, with the template's code, and the
+     * templates themselves aren't listed.
+     */
+    @Test
+    fun aTemplateBecomesOneOfYours() {
+        val before = Shaders.userNames.toSet()
+        try {
+            show()
+            compose.onNodeWithText("Add shader", useUnmergedTree = true).performClick()
+            compose.onNode(hasText("Start from a template") and hasClickAction()).performClick()
+            // Two sheets open and six templates are read first: under the coverage run that takes longer than most waits.
+            compose.waitForText("Burst", ms = 20_000)
+            for (title in listOf("Tint", "Hills", "Sea", "Ripple", "Gauge")) compose.onNodeWithText(title).assertExists()
+            for (template in ShaderCatalog.TEMPLATES) {
+                val meta = ShaderMeta.parse(Shaders.bundled(app, template))
+                // The row says what it said before the pictures: its name and its description, and nothing more.
+                val title = meta.title ?: template
+                val said = compose.onNode(hasText(title) and hasClickAction()).fetchSemanticsNode().config
+                assertEquals(setOf(title, meta.description.orEmpty()), said[SemanticsProperties.Text].map { it.text }.toSet())
+                assertEquals(2, said[SemanticsProperties.Text].size)
+                assertNull(said.getOrNull(SemanticsProperties.ContentDescription))
+                val previews = compose.onAllNodesWithTag("template-preview $template", useUnmergedTree = true).fetchSemanticsNodes()
+                if (!Shaders.supported) assertTrue(previews.isEmpty())
+                else {
+                    assertEquals(template, 1, previews.size)
+                    val size = previews.single().size
+                    assertTrue("$template: $size", size.width > 0 && size.height > size.width)
+                }
+            }
+            compose.onNode(hasText("Tint") and hasClickAction()).performClick()
+            compose.waitFor("no shader was made from it") { (Shaders.userNames - before).isNotEmpty() }
+            val made = (Shaders.userNames - before).single()
+            assertTrue(made, made == "my-tint" || made.startsWith("my-tint-"))
+            assertEquals(Shaders.bundled(app, "template-tint"), Shaders.own(app, made))
+            // The list reads the files again off the main thread: its row comes a moment after the file.
+            compose.waitFor("$made isn't listed") { runCatching { scrollTo(made) }.isSuccess }
+            row(made).assertExists()
+            for (template in ShaderCatalog.TEMPLATES) row(template).assertDoesNotExist()
+        } finally {
+            (Shaders.userNames - before).forEach { Shaders.remove(app, it) }
+        }
     }
 
     /** On Android 12 and older the shaders are listed, and the screen says why none can be used. */

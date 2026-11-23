@@ -1,0 +1,780 @@
+// @name Windows
+// @description An apartment block that follows the hour, with a floor for each day of the week, as many windows lit on a floor as that day had screen time
+// @suits dark good, light good, wallpaper poor
+// @param d1 0.0..1.0 = 0.0 Six days ago @follow screen.d1
+// @param d2 0.0..1.0 = 0.0 Five days ago @follow screen.d2
+// @param d3 0.0..1.0 = 0.0 Four days ago @follow screen.d3
+// @param d4 0.0..1.0 = 0.0 Three days ago @follow screen.d4
+// @param d5 0.0..1.0 = 0.0 Two days ago @follow screen.d5
+// @param d6 0.0..1.0 = 0.0 Yesterday @follow screen.d6
+// @param d7 0.0..1.0 = 0.0 Today @follow screen.d7
+//
+// A block of seven floors seen from the street, the oldest day at the bottom and today on top, behind a
+// balcony rail in the accent color. Each floor has eight windows, and as many of them are lit as an
+// eighth of the week's highest day goes into that day's screen time: all eight on the highest day.
+// Each parameter follows Kolahal's screen time for its day; without usage access they stay at 0, and no
+// window is lit.
+// Which ones is fixed for each floor and looks random, so a floor fills like a lived-in one. A lit
+// window is a room: a lamp under a curtain or a blind, the cool light of a screen, a plant or someone's
+// shadow. In a light theme it is the block by day, and a lit window is one with its blind up and its
+// room showing, against the pale blinds of the others. The street lamp lights the foot of the wall, and
+// the hour colors the sky. Only the window a pixel is in, and its neighbor, are worked out. It is still,
+// so it is drawn again only when a value or the minute changes.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float4 date;
+uniform float dark;
+uniform float wallpaper;
+uniform float d1;
+uniform float d2;
+uniform float d3;
+uniform float d4;
+uniform float d5;
+uniform float d6;
+uniform float d7;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 accent;
+
+// The block, in parts of the scene's height from the top and across from the middle: the top of its
+// cornice, the top of today's floor, a floor's height, the foot of the oldest floor, the pavement and
+// the kerb, and half its width. Its windows stand in pairs in four bays.
+const float ROOF = 0.125;
+const float TOP = 0.138;
+const float FH = 0.073;
+const float BASE = 0.649;
+const float STREET = 0.735;
+const float KERB = 0.772;
+const float HALF = 0.18;
+const float BAY = 0.09;
+// Half a window's width, how far below its floor's top it starts, and its height.
+const float WW = 0.013;
+const float WT = 0.016;
+const float WH = 0.040;
+// The street lamp's post across, and the middle of its lantern.
+const float LAMPX = -0.205;
+const float2 LAMP = float2(-0.177, 0.621);
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise along a line and over the plane, 0 to 1.
+float noise1(float x) {
+    float at = floor(x);
+    float f = fract(x);
+    return mix(hash(at), hash(at + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+float noise2(float2 p) {
+    float2 at = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(at), hash2(at + float2(1.0, 0.0)), f.x),
+        mix(hash2(at + float2(0.0, 1.0)), hash2(at + float2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's colors for the theme. A dark one keeps its light text readable: each hour is a night with
+// that hour's color, darkened, in it. A light one has no dark sky: its night is a pale, moonlit one.
+float4 themed(float4 w) {
+    float4 deep = float4(w.xyz * 0.19, 1.0 - 0.60 * (w.x + w.y + w.z));
+    float4 pale = float4(w.x + 0.50 * w.w, w.y + 0.10 * w.w, w.z + 0.32 * w.w, 0.08 * w.w);
+    return dark > 0.5 ? deep : pale;
+}
+
+// A color of the scene at this hour: its morning, day, evening and night colors, weighed by w.
+float3 tint(float4 w, float3 morning, float3 day, float3 evening, float3 night) {
+    return morning * w.x + day * w.y + evening * w.z + night * w.w;
+}
+
+// The sky from the top down to the roofs, which hide its foot. A dark theme has skies of its own, all dark
+// enough for light text, with the hour's color low down; w is then the hour's own weights. A light theme's
+// are pale, and w is its weights from [themed]. At night a town's glow is low in the sky.
+float3 skyAt(float v, float4 w) {
+    float3 top;
+    float3 mid;
+    float3 low;
+    if (dark > 0.5) {
+        top = tint(w, float3(0.100, 0.135, 0.215), float3(0.090, 0.135, 0.185), float3(0.085, 0.090, 0.180), float3(0.035, 0.051, 0.110));
+        mid = tint(w, float3(0.175, 0.170, 0.250), float3(0.125, 0.180, 0.215), float3(0.180, 0.135, 0.220), float3(0.075, 0.090, 0.180));
+        low = tint(w, float3(0.380, 0.250, 0.240), float3(0.190, 0.225, 0.235), float3(0.430, 0.230, 0.190), float3(0.200, 0.165, 0.250));
+    } else {
+        top = tint(w, float3(0.788, 0.847, 0.902), float3(0.663, 0.796, 0.878), float3(0.604, 0.627, 0.769), float3(0.035, 0.051, 0.110));
+        mid = tint(w, float3(0.902, 0.875, 0.894), float3(0.812, 0.886, 0.902), float3(0.890, 0.718, 0.706), float3(0.075, 0.090, 0.180));
+        low = tint(w, float3(0.973, 0.863, 0.784), float3(0.933, 0.941, 0.875), float3(0.965, 0.812, 0.624), float3(0.200, 0.165, 0.250));
+    }
+    float s = clamp(v / 0.62, 0.0, 1.0);
+    return s < 0.45 ? mix(top, mid, s / 0.45) : mix(mid, low, (s - 0.45) / 0.55);
+}
+
+// The share of the week's highest day for floor f, counted from the top: today is 0.
+float dayOf(float f) {
+    if (f < 0.5) return d7;
+    if (f < 1.5) return d6;
+    if (f < 2.5) return d5;
+    if (f < 3.5) return d4;
+    if (f < 4.5) return d3;
+    if (f < 5.5) return d2;
+    return d1;
+}
+
+// The order each floor's windows come on in, chosen so that a floor fills the way a lived-in one does:
+// the place of each of its eight windows in that order, as the digits of a number in base 8, the first
+// window from the left in the lowest digit. Floor f is counted from the top. Today's floor has the places
+// 4 1 6 0 3 7 2 5 from the left, so its fourth window comes on first, then its second, then its seventh.
+// Each number is less than 2^24, which a float holds exactly.
+float orderOf(float f) {
+    if (f < 0.5) return 11252108.0;
+    if (f < 1.5) return 9239062.0;
+    if (f < 2.5) return 12988227.0;
+    if (f < 3.5) return 7628257.0;
+    if (f < 4.5) return 10047583.0;
+    if (f < 5.5) return 4033834.0;
+    return 15740109.0;
+}
+
+// How lit windows k and k2 of floor f are, 0 to 1: those whose place is less than the day's share of
+// eight, rounded, are lit. Between two values a window comes on softly.
+float2 litOf(float f, float k, float k2, float share) {
+    float order = orderOf(f);
+    // 8 to the power of each window's number, multiplied up, so that it is exact.
+    float2 digit = float2(1.0);
+    for (int i = 0; i < 7; i++) {
+        if (float(i) < k) digit.x *= 8.0;
+        if (float(i) < k2) digit.y *= 8.0;
+    }
+    float2 place = mod(floor(order / digit), 8.0);
+    float eighths = clamp(share, 0.0, 1.0) * 8.0;
+    return float2(smoothstep(place.x + 0.4, place.x + 0.6, eighths), smoothstep(place.y + 0.4, place.y + 0.6, eighths));
+}
+
+// The middle of window k across.
+float windowX(float k) {
+    float b = floor(k * 0.5);
+    return -HALF + b * BAY + (k - 2.0 * b > 0.5 ? 0.063 : 0.027);
+}
+
+// How far p is outside a box around c with half sizes s: less than 0 inside.
+float box(float2 p, float2 c, float2 s) {
+    float2 d = abs(p - c) - s;
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+}
+
+// How near p is to the line from a to b.
+float stroke(float2 p, float2 a, float2 b) {
+    float2 ab = b - a;
+    return length(p - a - ab * clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0));
+}
+
+// How much a pot plant on the sill covers q (from the middle of the glass's top): a pot, and a fan of five
+// leaves over it.
+float plantAt(float2 q, float hw, float hh, float tone) {
+    float2 r = q - float2((tone - 0.5) * hw, hh);
+    float pot = box(r, float2(0.0, -hh * 0.06), float2(hw * 0.20, hh * 0.06));
+    float2 l = r - float2(0.0, -hh * 0.12);
+    float a = atan(l.x, -l.y) + 0.3 * (tone - 0.5);
+    float lobe = 0.5 + 0.5 * cos(a * 10.13);
+    float reach = hh * 0.36 * (0.25 + 0.75 * lobe * lobe) * (1.0 - smoothstep(1.2, 1.5, abs(a)));
+    float plant = min(pot, (length(l) - reach) * 0.6);
+    return clamp(0.5 - plant / (hw * 0.05), 0.0, 1.0);
+}
+
+// The inside of a lit window by night, seen from the street. q is from the middle of the glass's top, in
+// the scene's units, hw half the glass's width and hh its height; kind and tone are the window's own.
+float3 roomByNight(float2 q, float hw, float hh, float kind, float tone) {
+    float gx = q.x / hw;
+    float gy = q.y / hh;
+    float3 warm = mix(float3(1.0, 0.62, 0.30), float3(1.0, 0.80, 0.52), tone);
+    // From below, the ceiling is seen, brightest under the lamp, and the back wall under it.
+    float3 c = warm * (0.50 + 0.50 * exp(-gx * gx * 1.2 - (gy - 0.06) * (gy - 0.06) * 6.0));
+    c *= 1.0 - 0.14 * smoothstep(0.26, 0.30, gy);
+    if (kind < 0.30) {
+        // Curtains drawn to the sides, each with its folds, gathered a little below the middle.
+        float3 cloth = mix(float3(0.92, 0.42, 0.24), float3(0.70, 0.55, 0.85), step(0.5, hash(tone * 91.0))) * (0.9 + 0.1 * tone);
+        float side = 0.30 + 0.12 * tone - 0.08 * exp(-(gy - 0.62) * (gy - 0.62) * 30.0);
+        float curtain = smoothstep(1.0 - side - 0.06, 1.0 - side, abs(gx));
+        float folds = 0.72 + 0.28 * sin(abs(gx) * 34.0 + gy * 3.0);
+        c = mix(c, cloth * folds * (0.55 + 0.25 * (1.0 - gy)), curtain);
+    } else if (kind < 0.48) {
+        // A roller blind, part of the way down, glowing through, with its bar along the foot.
+        float down = 0.30 + 0.34 * tone;
+        float3 blind = mix(float3(0.95, 0.70, 0.42), float3(0.98, 0.86, 0.66), tone) * 0.66;
+        c = mix(c, blind * (0.94 + 0.06 * sin(gy * 90.0)), step(gy, down));
+        c *= 1.0 - 0.6 * (1.0 - smoothstep(0.0, 0.035, abs(gy - down - 0.02)));
+    } else if (kind < 0.62) {
+        // The cool light of a screen on the ceiling, and someone's head before it.
+        float3 cool = float3(0.42, 0.58, 0.92);
+        c = cool * (0.34 + 0.50 * exp(-(gx + 0.3) * (gx + 0.3) * 1.5 - (gy - 0.10) * (gy - 0.10) * 4.0));
+        float head = length((q - float2(hw * 0.25, hh * 0.80)) / float2(1.0, 1.15)) - hw * 0.34;
+        float shoulders = length((q - float2(hw * 0.25, hh * 1.06)) / float2(2.1, 1.0)) - hw * 0.42;
+        c *= 1.0 - 0.75 * clamp(0.5 - min(head, shoulders) / (hw * 0.08), 0.0, 1.0);
+    } else if (kind < 0.73) {
+        // Someone's shadow on a thin curtain.
+        float sx = (tone - 0.5) * hw * 0.8;
+        float2 hd = (q - float2(sx, hh * 0.55)) / float2(hw * 0.26, hh * 0.12);
+        float2 sh = (q - float2(sx, hh * 0.98)) / float2(hw * 0.80, hh * 0.27);
+        float body = min((length(hd) - 1.0) * hw * 0.26, (length(sh) - 1.0) * hh * 0.27);
+        body = min(body, box(q, float2(sx, hh * 0.68), float2(hw * 0.10, hh * 0.05)));
+        float shadow = clamp(0.5 - body / (hw * 0.10), 0.0, 1.0);
+        c = mix(c, warm * 0.82, 0.55) * (1.0 - 0.50 * shadow) * (0.93 + 0.07 * sin(gx * 40.0));
+    } else if (kind < 0.87) {
+        // A plant on the sill, against the light.
+        c *= 1.0 - 0.82 * plantAt(q, hw, hh, tone);
+    } else {
+        // A venetian blind, closed, with the light between its slats.
+        c *= 0.55 + 0.45 * smoothstep(0.10, 0.45, fract(gy * 15.0));
+    }
+    return c;
+}
+
+// The inside of a window with its blind up by day (a light theme). evening is how much its lamp is on.
+float3 roomByDay(float2 q, float hw, float hh, float kind, float tone, float evening, float3 sky) {
+    float gx = q.x / hw;
+    float gy = q.y / hh;
+    float3 c = mix(float3(0.30, 0.26, 0.24), float3(0.44, 0.38, 0.33), gy);
+    float3 warm = mix(float3(0.95, 0.66, 0.40), float3(0.98, 0.80, 0.58), tone);
+    c = mix(c, warm * (0.62 + 0.25 * exp(-gx * gx - gy * gy * 4.0)), evening);
+    // A curtain tied at each side, in a color of its own.
+    float3 cloth = tone < 0.33 ? float3(0.78, 0.50, 0.40) : tone < 0.66 ? float3(0.52, 0.62, 0.70) : float3(0.80, 0.70, 0.46);
+    float side = 0.24 + 0.08 * tone - 0.08 * exp(-(gy - 0.55) * (gy - 0.55) * 30.0);
+    float curtain = smoothstep(1.0 - side - 0.05, 1.0 - side, abs(gx));
+    c = mix(c, cloth * (0.82 + 0.18 * sin(abs(gx) * 34.0)), curtain);
+    if (kind > 0.73 && kind < 0.87) {
+        c = mix(c, float3(0.24, 0.40, 0.24), plantAt(q, hw, hh, tone));
+    }
+    // The glass gives back the sky in its upper part, except where a casement stands open.
+    bool open = kind < 0.5;
+    float glazed = open ? step(0.55, gx) : 1.0;
+    float shine = (0.30 + 0.25 * (1.0 - smoothstep(0.0, 0.6, gy))) * (0.6 + 0.4 * smoothstep(-0.2, 0.2, sin(gx * 2.0 - gy * 3.0 + tone * 6.0)));
+    c = mix(c, sky, shine * glazed * (open && gx > 0.55 ? 1.6 : 1.0));
+    return c;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends.
+// It starts lower than in other scenes, under the block's lowest floor.
+float ground(float y) {
+    return y < 0.66 ? 0.80 * clamp((y - 0.50) / 0.16, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.66) / 0.12, 0.0, 1.0);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float y = xy.y / resolution.y;
+    if (y > 0.78 && wallpaper < 0.5) return half4(here);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y) * (1.0 - wallpaper));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
+    // The scene is measured in its height from the middle of the screen, so a wider screen shows more of
+    // the street. On home it is smaller, so the block's floors stand above the log.
+    float unit = resolution.y * mix(0.86, 1.0, wallpaper);
+    float2 p = float2((xy.x - 0.5 * resolution.x) / unit, xy.y / unit - 0.075 * wallpaper);
+    float px = 1.0 / unit;
+    float u = p.x;
+    float v = p.y;
+
+    float h = date.w / 3600.0;
+    float4 raw = hours(h);
+    float4 w = themed(raw);
+    bool darkTheme = dark > 0.5;
+    // The street lamp is on from dusk to morning; a light theme's is fainter.
+    float lampOn = clamp(raw.w + 0.7 * raw.x + 0.85 * raw.z, 0.0, 1.0) * mix(0.45, 1.0, dark);
+    // The weights the sky's colors take: see [skyAt].
+    float4 sw = darkTheme ? raw : w;
+    float3 lampColor = float3(1.0, 0.72, 0.42);
+    float2 toLamp = p - LAMP;
+    // The lamp's light on the wall behind it, which is a little farther away than the lantern.
+    float lampLight = lampOn * 0.0022 / (dot(toLamp, toLamp) + 0.0016) * (0.45 + 0.55 * smoothstep(-0.04, 0.01, toLamp.y));
+    float3 wallColor = tint(w, float3(0.80, 0.74, 0.70), float3(0.84, 0.80, 0.73), float3(0.82, 0.70, 0.63), float3(0.085, 0.076, 0.092));
+    float3 color = float3(0.0);
+
+    if (v >= STREET) {
+        // The street: a pavement of slabs, the kerb and the road, all in the lamp's pool of light.
+        float3 stone = mix(wallColor, float3(0.55, 0.55, 0.56) * (wallColor.g + 0.05), 0.5) * 0.95;
+        if (v < KERB) {
+            float rowAt = (v - STREET) / 0.0095;
+            float rowN = floor(rowAt);
+            float joints = 1.0 - smoothstep(0.0, px * 1.2, min(fract(rowAt), 1.0 - fract(rowAt)) * 0.0095);
+            float colAt = (u + 0.5 * hash(rowN)) / 0.034;
+            joints = max(joints, 1.0 - smoothstep(0.0, px * 1.2, min(fract(colAt), 1.0 - fract(colAt)) * 0.034));
+            color = stone * (0.92 + 0.08 * hash2(float2(floor(colAt), rowN)) + 0.05 * (hash2(floor(p * 1100.0)) - 0.5)) * (1.0 - 0.25 * joints);
+            // The foot of the wall throws a little shade on the pavement.
+            color *= 0.82 + 0.18 * smoothstep(0.0, 0.010, v - STREET);
+        } else if (v < KERB + 0.006) {
+            color = stone * mix(1.15, 0.70, (v - KERB) / 0.006);
+        } else {
+            float3 tar = (darkTheme ? mix(wallColor * 0.55, float3(0.10, 0.10, 0.11), 0.4) : wallColor * 0.86) * (0.92 + 0.08 * hash2(floor(p * 1100.0)));
+            // The wet road gives back the lamp and the light over the door as long streaks.
+            float streak = exp(-(u - LAMP.x) * (u - LAMP.x) / 0.00012) * exp(-(v - KERB) / 0.20);
+            float door = exp(-u * u / 0.00008) * exp(-(v - KERB) / 0.12);
+            float wet = (0.30 * streak + 0.10 * door) * lampOn * dark;
+            if (wet > 0.002) tar += lampColor * wet * (0.7 + 0.3 * noise2(float2(u * 200.0, v * 30.0)));
+            // A broken line along the road.
+            float lane = (1.0 - smoothstep(0.0, px, abs(v - KERB - 0.070) - 0.0016)) * step(fract(u / 0.09), 0.55);
+            tar = mix(tar, mix(float3(0.90, 0.88, 0.80), tar, mix(0.35, 0.80, dark)), lane);
+            color = tar;
+        }
+        float2 pool = (p - float2(LAMP.x, KERB - 0.004)) / float2(0.11, 0.030);
+        color += lampColor * lampOn * 0.55 * exp(-dot(pool, pool)) * (v < KERB ? 1.0 : 0.55) * mix(stone, float3(1.0), 0.3);
+    } else if (abs(u) < HALF + 0.002 && v >= ROOF) {
+        // The block.
+        float f = floor((v - TOP) / FH);
+        float fy = v - TOP - f * FH;
+        float grain = 0.94 + 0.07 * (hash2(floor(p * 1100.0)) - 0.5);
+        float3 wall = wallColor * grain;
+        // Older paint is darker near the ground, and the sky lights the top of the wall more.
+        wall *= (1.0 - 0.10 * smoothstep(0.45, BASE, v)) * (1.0 + mix(0.0, 0.45, dark) * (1.0 - smoothstep(ROOF, 0.55, v)));
+        // Patches of older paint, and long streaks where rain has run down it.
+        float weather = noise1(u * 120.0 + 9.0 * floor(v * 7.0));
+        wall *= 1.0 + 0.10 * (weather - 0.5) - 0.06 * smoothstep(0.65, 0.95, weather);
+        float3 lit = lampColor * lampLight;
+        float edge = HALF - abs(u);
+
+        if (v < TOP) {
+            // The cornice: a lit coping, a band, and a shadow under it.
+            float c = (v - ROOF) / (TOP - ROOF);
+            float shade = c < 0.25 ? 1.25 : c < 0.75 ? 1.05 - 0.15 * fract((u + HALF) / 0.012) : 0.62;
+            color = wall * shade;
+        } else if (f > 6.5) {
+            // The ground floor: a sign band, two shops with their shutters down, and the door in the middle.
+            float gy = v - BASE;
+            color = wall * 0.92;
+            if (gy < 0.010) {
+                color = wall * (gy < 0.002 ? 1.2 : 0.75);
+            } else if (abs(u) > 0.030 && edge > 0.014 && gy > 0.016 && v < STREET - 0.008) {
+                float rib = 0.80 + 0.20 * smoothstep(0.2, 0.8, fract((v - BASE) / 0.0026));
+                color = mix(wall, float3(0.55, 0.57, 0.60) * (wallColor.g + 0.04), 0.6) * rib;
+                color *= 1.0 - 0.3 * (1.0 - smoothstep(0.0, 0.004, gy - 0.016));
+            } else if (abs(u) < 0.016 && gy > 0.016 && v < STREET - 0.002) {
+                // The door: wood below, a lit stair behind its glass, a fanlight over it.
+                float3 hall = darkTheme ? float3(0.92, 0.80, 0.60) * 0.50 : float3(0.30, 0.30, 0.32);
+                float glass = step(gy, 0.052) * step(0.004, abs(u)) * step(abs(u), 0.013) * step(0.022, gy);
+                float3 wood = float3(0.30, 0.20, 0.14) * (wallColor.g * 0.9 + 0.08);
+                color = mix(wood, hall, glass);
+                if (gy < 0.020) color = hall * 0.8;
+            } else if (abs(u) < 0.022 && gy > 0.010 && gy < 0.016) {
+                color = wall * 0.7;
+            }
+            if (v > STREET - 0.008) color = wall * 0.62 * (0.9 + 0.1 * noise2(p * 300.0));
+            // The lamp over the door.
+            float2 bulb = (p - float2(0.0, BASE + 0.013)) / 0.0025;
+            color += float3(1.0, 0.80, 0.55) * exp(-dot(bulb, bulb)) * lampOn * 1.2;
+            float2 porch = (p - float2(0.0, BASE + 0.028)) / float2(0.030, 0.024);
+            color += float3(1.0, 0.78, 0.52) * wallColor * mix(0.6, 3.0, dark) * exp(-dot(porch, porch)) * lampOn;
+            color += wall * lit * 2.5;
+        } else {
+            // A floor: its ledge along the foot, and two windows near this pixel.
+            float b = floor((u + HALF) / BAY);
+            float inBay = u + HALF - b * BAY;
+            float k = clamp(2.0 * b + step(0.045, inBay), 0.0, 7.0);
+            float cx = windowX(k);
+            float share = dayOf(f);
+            float2 q = float2(u - cx, fy - WT);
+            float k2 = clamp(q.x < 0.0 ? k - 1.0 : k + 1.0, 0.0, 7.0);
+            float2 both = litOf(f, k, k2, share);
+            float on = both.x;
+            float kind = hash(f * 8.0 + k + 41.0);
+            float tone = hash(f * 8.0 + k + 97.0);
+            // The light of this window and of the one beside it on the wall around them.
+            float on2 = k2 == k ? 0.0 : both.y;
+            float3 warm = float3(1.0, 0.70, 0.40);
+            float spill = 0.0;
+            if (darkTheme) {
+                float a1 = max(box(p, float2(cx, TOP + f * FH + WT + 0.5 * WH), float2(WW, 0.5 * WH)), 0.0);
+                float a2 = max(box(p, float2(windowX(k2), TOP + f * FH + WT + 0.5 * WH), float2(WW, 0.5 * WH)), 0.0);
+                float2 fall = max(1.0 - float2(a1, a2) / 0.016, 0.0);
+                fall *= fall;
+                spill = on * fall.x * fall.x + on2 * fall.y * fall.y;
+            }
+            color = wall + wall * lit * 2.2 + warm * spill * 0.10;
+
+            // Stains under each sill, where the rain runs off it.
+            float below = fy - (WT + WH + 0.0035);
+            if (below > 0.0 && abs(q.x) < WW + 0.002) {
+                float stain = (1.0 - smoothstep(0.0, 0.016 + 0.006 * noise1(u * 300.0), below)) * (0.4 + 0.6 * noise1(u * 420.0 + f * 9.0));
+                color *= 1.0 - 0.16 * stain;
+            }
+            // The ledge under the floor, lit from above, and its shadow on the floor below.
+            float ledge = FH - fy;
+            if (ledge < 0.005) {
+                color = wall * (ledge > 0.004 ? 1.35 : 1.10) + wall * lit * (ledge < 0.0012 ? 4.0 : 1.5);
+            } else if (fy < 0.005) {
+                color *= 0.55 + 0.45 * smoothstep(0.0, 0.005, fy);
+            }
+            // The lintel over the window.
+            if (abs(q.x) < WW + 0.002 && q.y > -0.004 && q.y < 0.0) {
+                color = wall * 0.96 * (q.y > -0.0012 ? 0.7 : 1.0) + wall * lit * 2.0;
+            }
+            // The sill, and its shadow.
+            float sill = q.y - WH;
+            if (abs(q.x) < WW + 0.003 && sill >= 0.0 && sill < 0.0035) {
+                color = wall * (sill < 0.0008 ? 1.4 : 1.12) + warm * spill * 0.10 + wall * lit * 3.0;
+            } else if (abs(q.x) < WW + 0.003 && sill >= 0.0035 && sill < 0.0065) {
+                color *= 0.70 + 0.30 * smoothstep(0.0035, 0.0065, sill);
+            }
+
+            // Under a few windows, an air conditioner on its brackets, and the mark its water has left.
+            float box1 = hash(f * 8.0 + k + 5.0);
+            if (f > 0.5 && box1 < 0.11) {
+                float2 ac = q - float2((box1 - 0.055) * 0.08, WH + 0.0115);
+                if (abs(ac.x) < WW * 0.62 && abs(ac.y) < 0.0048) {
+                    float3 metal = mix(wall, float3(0.86, 0.86, 0.84) * (wallColor.g * 0.9 + 0.1), 0.65);
+                    color = metal * (ac.y < -0.0040 ? 1.2 : 0.95 - 0.10 * step(0.5, fract(ac.x / 0.0016)) * step(abs(ac.x), WW * 0.32));
+                    color += wall * lit * 2.0;
+                } else if (abs(ac.x) < WW * 0.62 && ac.y >= 0.0048 && ac.y < 0.0090) {
+                    color *= 0.72 + 0.28 * smoothstep(0.0048, 0.0090, ac.y);
+                } else if (abs(ac.x - WW * 0.3) < 0.0012 && ac.y >= 0.0090 && ac.y < 0.030) {
+                    color *= 0.90;
+                }
+            }
+
+            // The window: its frame, and in it a room or the glass.
+            if (abs(q.x) < WW && q.y >= 0.0 && q.y < WH) {
+                float frame = 0.0022;
+                float3 trim = darkTheme ? wall * 1.5 + float3(0.012) : mix(wall, float3(0.97, 0.96, 0.93), 0.7);
+                float2 g = float2(q.x, q.y - frame);
+                float hw = WW - frame;
+                float hh = WH - 2.0 * frame;
+                float3 pane;
+                if (darkTheme) {
+                    float3 shut = skyAt(0.30 + 0.5 * g.y / hh, sw) * 0.40 + wall * 0.25;
+                    shut *= 0.75 + 0.25 * smoothstep(-0.25, 0.25, sin(g.x / hw * 1.4 + g.y / hh * 2.6 + tone * 6.0));
+                    if (kind > 0.6) shut *= 0.8 + 0.2 * sin(abs(g.x) / hw * 30.0);
+                    shut += lampColor * lampLight * 0.10;
+                    pane = shut;
+                    if (on > 0.0) pane = mix(shut, roomByNight(g, hw, hh, kind, tone), on);
+                } else {
+                    float3 sky = skyAt(0.25 + 0.3 * g.y / hh, sw);
+                    float3 blind = mix(float3(0.95, 0.93, 0.88), wall, 0.25) * (0.94 + 0.06 * smoothstep(0.2, 0.6, fract(g.y / hh * 12.0)));
+                    if (kind > 0.55) blind = mix(float3(0.93, 0.90, 0.84), wall, 0.2) * (0.92 + 0.08 * sin(abs(g.x) / hw * 26.0));
+                    blind *= 0.86 + 0.14 * smoothstep(0.0, 0.25, g.y / hh);
+                    pane = blind;
+                    if (on > 0.0) pane = mix(blind, roomByDay(g, hw, hh, kind, tone, raw.w + 0.6 * raw.z, sky), on);
+                }
+                // The bars: the frame round the glass, a mullion down the middle and a transom near the top.
+                float bar = max(step(abs(q.x), 0.0007), step(abs(q.y - 0.013), 0.0006));
+                bar = max(bar, 1.0 - step(abs(q.x), hw) * step(frame, q.y) * step(q.y, WH - frame));
+                // Over a lit room the bars are against the light.
+                float3 barColor = mix(trim, trim * (darkTheme ? 0.45 : 0.9), on);
+                color = mix(pane, barColor, bar);
+                // The top of the opening is in its own shade.
+                color *= 0.82 + 0.18 * smoothstep(0.0, 0.004, q.y);
+            }
+
+            // Today's floor has a balcony with a rail and plants, in the accent color.
+            if (f < 0.5) {
+                float3 rail = mix(float3(accent.rgb), float3(dot(float3(accent.rgb), float3(0.333))), 0.25);
+                float slab = FH - fy;
+                float top = 0.026;
+                if (slab < 0.007) {
+                    color = wall * (slab > 0.0058 ? 1.3 : 1.0) + wall * lit;
+                    color = mix(color, rail * mix(0.55, 0.85, dark), 0.12);
+                } else if (slab < top + 0.0016 && abs(u) < HALF) {
+                    float bars = 1.0 - smoothstep(0.0004, 0.0004 + px, abs(fract(u / 0.0062) - 0.5) * 0.0062);
+                    float plants = 0.0;
+                    float leaves = 0.007 + 0.005 * noise1(u * 260.0) + 0.003 * noise1(u * 900.0);
+                    if (slab < 0.007 + leaves) plants = 1.0;
+                    float3 leafColor = darkTheme ? mix(float3(0.04, 0.06, 0.05), rail * 0.25, 0.4) + float3(0.9, 0.6, 0.3) * spill * 0.12 : mix(float3(0.36, 0.46, 0.32), rail, 0.15);
+                    leafColor *= 0.8 + 0.4 * noise2(p * 1400.0);
+                    color = mix(color, leafColor, plants * smoothstep(0.0, px, 0.007 + leaves - slab));
+                    float railBar = step(top - 0.0002, slab);
+                    float3 metal = rail * mix(0.62, 0.42, dark) * (darkTheme ? 0.75 : 1.0);
+                    color = mix(color, metal * (railBar > 0.5 ? 1.25 : 1.0), max(bars, railBar));
+                }
+            }
+        }
+
+        // The drainpipe at the right, with a bracket at each floor.
+        float pipe = (u - (HALF - 0.0065)) / 0.0024;
+        if (abs(pipe) < 1.0 && v > TOP) {
+            float round1 = 1.0 - pipe * pipe;
+            float3 metal = wall * (0.55 + 0.75 * round1 - 0.35 * smoothstep(0.2, 1.0, pipe));
+            if (abs(fract((v - TOP) / FH + 0.35) - 0.5) < 0.03) metal *= 0.7;
+            color = metal + wall * lit * 2.0;
+        }
+
+    } else {
+        // The houses beside the block, lower, each with its own roof, and set in the air a little. Where they
+        // stand, the sky behind them isn't worked out.
+        float side = u < 0.0 ? -1.0 : 1.0;
+        float a = abs(u);
+        bool near1 = a < (side < 0.0 ? 0.56 : 0.60);
+        // 0 the old house at the left, with a pitched roof; 1 the plain one at the right; 2 and 3 the
+        // ones beyond them, which only a wide screen shows, the last with a slate mansard.
+        float id = side < 0.0 ? (near1 ? 0.0 : 2.0) : (near1 ? 1.0 : 3.0);
+        float roofLine = id < 0.5 ? 0.385 : id < 1.5 ? 0.290 : id < 2.5 ? 0.300 : 0.440;
+        float over = id < 0.5 ? 0.040 : id > 2.5 ? 0.036 : 0.0;
+        bool chimney = id < 0.5 && abs(u + 0.40) < 0.007 && v > 0.318 && v < 0.36;
+        if (a >= HALF && v >= roofLine - over) {
+            float3 house = id < 0.5 ? tint(w, float3(0.74, 0.60, 0.53), float3(0.78, 0.64, 0.55), float3(0.74, 0.54, 0.47), float3(0.072, 0.058, 0.064))
+                : id < 1.5 ? tint(w, float3(0.74, 0.73, 0.72), float3(0.79, 0.79, 0.76), float3(0.74, 0.66, 0.62), float3(0.064, 0.067, 0.080))
+                : id < 2.5 ? tint(w, float3(0.80, 0.74, 0.62), float3(0.84, 0.78, 0.64), float3(0.80, 0.68, 0.56), float3(0.076, 0.070, 0.062))
+                : tint(w, float3(0.64, 0.50, 0.46), float3(0.68, 0.54, 0.48), float3(0.64, 0.46, 0.42), float3(0.066, 0.052, 0.056));
+            float3 dusky = skyAt(0.55, sw);
+            float3 c = house * (0.95 + 0.06 * hash2(floor(p * 1100.0))) * (0.95 + 0.10 * noise2(float2(a * 110.0 + id * 31.0, v * 7.0)));
+            float floors = id < 0.5 ? 0.082 : id < 1.5 ? 0.068 : id < 2.5 ? 0.074 : 0.080;
+            float pitch = id < 0.5 ? 0.066 : id < 1.5 ? 0.050 : id < 2.5 ? 0.056 : 0.062;
+            float half1 = id < 1.5 && id > 0.5 ? 0.0095 : 0.0115;
+            float tall = id < 1.5 && id > 0.5 ? 0.034 : 0.040;
+            float wx = mod(a - HALF - 0.035, pitch) - 0.5 * pitch;
+            float cell = floor((a - HALF - 0.035) / pitch);
+            if (v < roofLine) {
+                if (id < 0.5) {
+                    // A pitched roof of tiles, the rows of them darker at their foot.
+                    c = house * 0.60 * (0.82 + 0.18 * smoothstep(0.2, 0.8, fract((v - roofLine) / 0.0045))) * (0.94 + 0.06 * hash2(float2(floor(a / 0.006), floor(v / 0.0045))));
+                } else {
+                    // A slate mansard with a dormer over each column of windows.
+                    float3 slate = mix(house, float3(0.40, 0.44, 0.50) * (house.g + 0.06), 0.65);
+                    c = slate * (0.85 + 0.15 * (v - roofLine + over) / over) * (0.93 + 0.07 * step(0.5, fract(a / 0.004 + 0.5 * floor(v / 0.004))));
+                    if (abs(wx) < 0.010 && v > roofLine - 0.026) {
+                        c = house * 1.1;
+                        if (abs(wx) < 0.0065 && v > roofLine - 0.020 && v < roofLine - 0.002) c = darkTheme ? skyAt(0.30, sw) * 0.40 : mix(float3(0.92, 0.90, 0.86), house, 0.2);
+                    }
+                }
+            } else if (v < roofLine + 0.010) {
+                // The cornice: a lit top, a band, and its shadow.
+                float c1 = (v - roofLine) / 0.010;
+                c = house * (c1 < 0.2 ? 1.25 : c1 < 0.75 ? 1.04 : 0.70);
+            } else if (v > BASE + 0.004) {
+                // At the foot, shops: a sign over each window, and the glass, which the street gives back.
+                float shopX = mod(a - HALF, 0.12) - 0.06;
+                float gy = v - BASE;
+                if (gy < 0.014) {
+                    c = mix(house, float3(0.20, 0.22, 0.26) * (house.g * 2.0 + 0.05), 0.55) * (gy < 0.002 ? 1.3 : 1.0);
+                } else if (abs(shopX) < 0.046 && gy > 0.020 && v < STREET - 0.008) {
+                    float3 glass = darkTheme ? skyAt(0.45, sw) * 0.35 + house * 0.25 : mix(float3(0.30, 0.30, 0.32), skyAt(0.45, sw), 0.45);
+                    float shopId = floor((a - HALF) / 0.12) + id * 5.0;
+                    c = glass * (0.88 + 0.16 * (1.0 - smoothstep(0.0, 0.012, abs(shopX * 0.6 + gy - 0.03 - 0.02 * hash(shopId)))));
+                    if (abs(shopX) > 0.043 || abs(abs(shopX) - 0.015) < 0.0008) c = house * 0.8;
+                    // Some shops have their shutters down.
+                    if (hash(shopId * 3.1) < 0.4) c = mix(house, float3(0.55, 0.57, 0.60) * (house.g + 0.04), 0.6) * (0.80 + 0.20 * smoothstep(0.2, 0.8, fract(gy / 0.0026)));
+                }
+                if (v > STREET - 0.008) c = house * 0.62;
+            } else {
+                float fy = mod(v - roofLine - 0.010, floors);
+                float row = floor((v - roofLine - 0.010) / floors);
+                float own = hash(cell * 7.0 + row * 13.0 + id * 29.0);
+                // A floor whose windows would reach the shops has none.
+                bool above = v - fy + 0.022 + tall < BASE;
+                if (above && fy > 0.016 && fy < 0.016 + tall && abs(wx) < half1) {
+                    // A window: glass with the sky in it, or a blind or curtains down.
+                    float gy = (fy - 0.016) / tall;
+                    float3 glass;
+                    if (darkTheme) {
+                        glass = skyAt(0.30 + 0.4 * gy, sw) * 0.38 + house * 0.25;
+                        if (own > 0.55) glass *= 0.75 + 0.25 * sin(wx * 2800.0);
+                    } else {
+                        glass = own < 0.45 ? mix(float3(0.93, 0.91, 0.86), house, 0.25) * (0.94 + 0.06 * smoothstep(0.2, 0.6, fract(gy * 11.0)))
+                            : mix(mix(float3(0.34, 0.31, 0.30), house, 0.3), skyAt(0.30 + 0.3 * gy, sw), 0.35 + 0.25 * (1.0 - gy));
+                    }
+                    c = glass * (0.80 + 0.20 * smoothstep(0.0, 0.10, gy));
+                    if (abs(wx) > half1 - 0.0016 || abs(wx) < 0.0006 || fy < 0.0176 || fy > 0.0144 + tall) c = darkTheme ? house * 1.5 : mix(house, float3(0.96, 0.95, 0.92), 0.6);
+                } else if (above && fy >= 0.016 + tall && fy < 0.019 + tall && abs(wx) < half1 + 0.0022) {
+                    c = house * 1.22;
+                } else if (above && fy >= 0.019 + tall && fy < 0.022 + tall && abs(wx) < half1 + 0.0022) {
+                    c *= 0.78;
+                } else if (id < 0.5 && fy > floors - 0.004) {
+                    // The old house has a ledge at each floor.
+                    c = house * (fy > floors - 0.001 ? 0.75 : 1.12);
+                }
+            }
+            c += house * lampColor * lampLight * 2.0;
+            color = mix(c, dusky, darkTheme ? 0.10 : 0.20);
+        } else if (chimney) {
+            // A chimney on the old house.
+            color = mix(tint(w, float3(0.6, 0.5, 0.45), float3(0.64, 0.54, 0.47), float3(0.6, 0.45, 0.40), float3(0.06, 0.05, 0.055)), skyAt(0.55, sw), 0.2);
+        } else {
+            color = skyAt(v, sw);
+            // The sun by day and the moon by night, each on its own arc, from left to right.
+            bool moon = h < 5.5 || h > 19.5;
+            float arc = moon ? (h > 12.0 ? h - 19.5 : h + 4.5) / 10.0 : (h - 5.5) / 14.0;
+            float up = sin(3.1416 * clamp(arc, 0.0, 1.0));
+            float halfWide = 0.5 * resolution.x / unit;
+            float span = min(0.80 * halfWide, 0.42);
+            float2 sunAt = float2(mix(-span, span, arc), mix(0.16, 0.055, pow(up, 0.8)));
+            float r = moon ? 0.017 : 0.020;
+            float there = smoothstep(0.0, 0.10, up);
+            float2 off = p - sunAt;
+            float away = length(off);
+            float3 disc = tint(raw, float3(1.000, 0.953, 0.863), float3(1.000, 0.992, 0.949), float3(1.000, 0.902, 0.753), float3(0.910, 0.925, 0.957));
+            float halo = exp(-away * away / (r * r * 5.0));
+            float shine = (0.30 * exp(-(off.x * off.x / 6.0 + off.y * off.y) / 0.008) + 0.35 * halo) * there * mix(1.0, 0.45, dark) * (moon ? 0.7 : 1.0);
+            if (shine > 0.002) {
+                float3 glow = tint(raw, float3(1.000, 0.886, 0.722), float3(1.000, 0.965, 0.847), float3(1.000, 0.788, 0.541), float3(0.616, 0.706, 0.847));
+                color = mix(color, glow, clamp(shine, 0.0, 1.0));
+            }
+            if (moon && darkTheme && v < 0.40) {
+                // Small stars, fewer low down, where the town's glow is.
+                float2 cellAt = p / 0.024;
+                float2 starId = floor(cellAt);
+                float s = hash2(starId);
+                if (s >= 0.66) {
+                    float2 star = fract(cellAt) - (0.2 + 0.6 * float2(hash2(starId + 7.1), hash2(starId + 3.7)));
+                    float dot1 = 1.0 - smoothstep(0.02, 0.05 + 0.03 * s, length(star));
+                    color += disc * dot1 * 0.40 * (1.0 - smoothstep(0.12, 0.40, v)) * (1.0 - halo);
+                }
+            }
+            float face = clamp((r - away) / px + 0.5, 0.0, 1.0) * there;
+            if (face > 0.0) {
+                float3 facing = disc;
+                if (moon) {
+                    float2 m = off / r;
+                    float patches = (1.0 - smoothstep(0.10, 0.55, length((m - float2(-0.26, -0.22)) * float2(0.8, 1.2))))
+                        + (1.0 - smoothstep(0.06, 0.40, length((m - float2(0.12, 0.10)) * float2(1.3, 0.9))));
+                    facing *= 1.0 - 0.06 * clamp(patches, 0.0, 1.0);
+                }
+                color = mix(color, facing, face * mix(1.0, moon ? 0.90 : 0.70, dark));
+            }
+
+            // On the block's roof: a stair house, a water tank on legs and an aerial.
+            if (v < ROOF && v > 0.05 && a < HALF) {
+                float3 thing = tint(w, float3(0.56, 0.52, 0.52), float3(0.60, 0.57, 0.53), float3(0.54, 0.46, 0.44), float3(0.030, 0.030, 0.042));
+                float3 wood = tint(w, float3(0.56, 0.44, 0.36), float3(0.60, 0.47, 0.37), float3(0.54, 0.38, 0.32), float3(0.040, 0.032, 0.036));
+                float shape = 1e3;
+                float3 c = thing;
+                // The stair house.
+                float sh = box(p, float2(-0.140, 0.112), float2(0.024, 0.013));
+                if (sh < 0.0) c = thing * (u < -0.140 + 0.016 ? 1.0 : 0.85);
+                shape = min(shape, sh);
+                // The tank: staves and hoops, a pointed lid, legs.
+                float2 t = p - float2(-0.070, 0.0);
+                float barrel = box(t, float2(0.0, 0.094), float2(0.018, 0.016));
+                float lid = max(t.y - 0.0785, abs(t.x) * 0.62 - (t.y - 0.067));
+                float legs = min(abs(abs(t.x) - 0.014) - 0.0010, abs(abs(t.x) - 0.004) - 0.0009);
+                legs = max(legs, max(t.y - ROOF, 0.110 - t.y));
+                float brace = max(stroke(t, float2(-0.014, 0.111), float2(0.014, 0.124)) - 0.0006, 0.0);
+                float tank = min(min(barrel, lid), min(legs, brace));
+                if (barrel < px) {
+                    float hoop = step(abs(fract((t.y - 0.078) / 0.008) - 0.5), 0.09);
+                    float roundness = 1.0 - (t.x / 0.018) * (t.x / 0.018);
+                    c = wood * (0.55 + 0.6 * roundness - 0.25 * smoothstep(0.0, 1.0, t.x / 0.018)) * (0.9 + 0.1 * step(0.5, fract(t.x / 0.003))) * (1.0 - 0.4 * hoop);
+                } else if (lid < px) {
+                    c = wood * 0.8 * (1.0 - 0.3 * smoothstep(-0.01, 0.01, t.x));
+                }
+                shape = min(shape, tank);
+                // The aerial: a mast with three bars.
+                float2 m = p - float2(0.100, 0.0);
+                float aerial = max(abs(m.x) - 0.0008, max(0.062 - m.y, m.y - ROOF));
+                for (int i = 0; i < 3; i++) {
+                    float at = 0.066 + 0.008 * float(i);
+                    aerial = min(aerial, max(abs(m.y - at) - 0.0006, abs(m.x) - (0.016 - 0.004 * float(i))));
+                }
+                shape = min(shape, aerial);
+                // A vent pipe.
+                shape = min(shape, box(p, float2(0.030, 0.118), float2(0.003, 0.007)));
+                float cover = clamp(0.5 - shape / px, 0.0, 1.0);
+                color = mix(color, c, cover);
+            }
+        }
+    }
+
+    // In front: the street lamp, its glow and its cone of light.
+    float2 lt = p - LAMP;
+    float3 iron = float3(0.05, 0.05, 0.06) + wallColor * 0.25;
+    if (u < LAMPX + 0.036 && u > LAMPX - 0.004 && v > 0.596 && v < KERB) {
+        float post = max(abs(u - LAMPX) - (v > KERB - 0.026 ? 0.0030 : 0.0017), max(0.612 - v, v - (KERB - 0.003)));
+        float2 crook = p - float2(LAMPX + 0.014, 0.612);
+        post = min(post, max(abs(length(crook) - 0.014) - 0.0014, crook.y));
+        float lantern = max(abs(lt.x) - 0.0035 - 0.25 * (lt.y + 0.009), max(-0.009 - lt.y, lt.y - 0.005));
+        if (post < px) {
+            color = mix(color, iron * (1.0 + 0.6 * smoothstep(0.0, 0.002, LAMPX - u)), clamp(0.5 - post / px, 0.0, 1.0));
+        }
+        if (lantern < px) {
+            float3 glass = lt.y > -0.004 ? mix(lampColor, float3(1.0, 0.95, 0.85), 0.6) : iron;
+            if (lampOn < 0.05) glass = iron * 1.5;
+            color = mix(color, mix(iron * 1.4, glass, max(lampOn, 0.0)), clamp(0.5 - lantern / px, 0.0, 1.0));
+        }
+    }
+    // Its glow is gone by 0.12 away, and the cone is under it.
+    float d2 = dot(lt, lt);
+    if (lampOn > 0.0 && d2 < 0.0144) {
+        color += lampColor * lampOn * (0.55 * exp(-d2 / 0.00012) + 0.12 * exp(-d2 / 0.003)) * mix(0.5, 1.0, dark);
+    }
+    if (lampOn > 0.0 && lt.y > 0.0 && v < KERB && abs(lt.x) < 0.62 * lt.y) {
+        float cone = 1.0 - smoothstep(0.30, 0.62, abs(lt.x) / lt.y);
+        color += lampColor * lampOn * cone * 0.07 * (1.0 - lt.y / (KERB - LAMP.y)) * mix(0.3, 1.0, dark);
+    }
+
+    // The tree at the right, its crown in front of the house beside the block.
+    float2 tr = p - float2(0.222, 0.668);
+    if (abs(tr.x) < 0.06 && tr.y > -0.06 && v < KERB) {
+        float trunk = max(abs(tr.x + 0.08 * (tr.y - 0.10) * (tr.y - 0.10)) - 0.0028 - 0.012 * max(tr.y - 0.09, 0.0), max(-tr.y, v - (KERB - 0.004)));
+        float crown = length(tr / float2(1.0, 0.92)) - 0.042 * (1.0 + 0.30 * (noise2(tr * 60.0 + 7.0) - 0.5));
+        float leaves = 0.7 * noise2(p * 300.0) + 0.3 * noise2(p * 950.0);
+        float3 leaf = darkTheme ? float3(0.025, 0.035, 0.030) + wallColor * 0.2 : tint(w, float3(0.42, 0.52, 0.40), float3(0.40, 0.54, 0.36), float3(0.44, 0.44, 0.34), float3(0.04, 0.05, 0.045));
+        float inCrown = clamp(0.5 - (crown + 0.006 * (leaves - 0.5)) / px, 0.0, 1.0) * smoothstep(0.26, 0.40, leaves + 0.4 * clamp(-crown / 0.008, 0.0, 1.0));
+        float3 foliage = leaf * (0.75 + 0.5 * leaves) * (0.85 + 0.3 * (1.0 - smoothstep(-0.03, 0.02, tr.y)));
+        color = mix(color, iron * 0.9, clamp(0.5 - trunk / px, 0.0, 1.0));
+        color = mix(color, foliage, inCrown);
+    }
+
+    // A bicycle against the wall beside the door.
+    float2 bk = p - float2(-0.075, STREET + 0.010);
+    if (abs(bk.x) < 0.040 && bk.y > -0.040 && bk.y < 0.003) {
+        float2 rear = float2(-0.023, -0.0135);
+        float2 front = float2(0.023, -0.0135);
+        float2 crank = float2(-0.004, -0.0125);
+        float2 seat = float2(-0.010, -0.031);
+        float2 head = float2(0.016, -0.032);
+        float bike = abs(length(bk - rear) - 0.0130) - 0.0010;
+        bike = min(bike, abs(length(bk - front) - 0.0130) - 0.0010);
+        bike = min(bike, stroke(bk, rear, crank) - 0.0006);
+        bike = min(bike, stroke(bk, rear, seat) - 0.0006);
+        bike = min(bike, stroke(bk, crank, seat) - 0.0007);
+        bike = min(bike, stroke(bk, crank, head) - 0.0007);
+        bike = min(bike, stroke(bk, seat + float2(0.002, 0.002), head) - 0.0007);
+        bike = min(bike, stroke(bk, head, front) - 0.0007);
+        bike = min(bike, stroke(bk, seat + float2(-0.002, -0.003), seat + float2(0.0015, 0.0)) - 0.0012);
+        bike = min(bike, stroke(bk, seat + float2(-0.006, -0.0035), seat + float2(0.004, -0.0035)) - 0.0010);
+        bike = min(bike, stroke(bk, head, head + float2(-0.004, -0.004)) - 0.0007);
+        bike = min(bike, stroke(bk, head + float2(-0.004, -0.004), head + float2(-0.009, -0.0035)) - 0.0008);
+        color = mix(color, iron * 0.8 + lampColor * lampLight * 0.6, clamp(0.5 - bike / px, 0.0, 1.0));
+    }
+
+    // Over the log the scene stays something the theme's text reads on. In a dark theme what is brighter than
+    // a dim wall rises a third as fast, under what light text can stand, so a lit window is still the
+    // brightest thing, only not white. In a light theme what is dark goes toward the page, so dark text reads
+    // on a room that shows.
+    if (wallpaper < 0.5) {
+        float lum = dot(color, float3(0.299, 0.587, 0.114));
+        if (dark > 0.5 && lum > 0.30) color *= (0.30 + (lum - 0.30) * 0.314) / lum;
+        if (dark < 0.5 && lum < 0.68) {
+            float want = 0.58 + 0.10 * exp(-(0.68 - lum) / 0.10);
+            float lumPage = dot(float3(bg.rgb), float3(0.299, 0.587, 0.114));
+            color = mix(color, float3(bg.rgb), clamp((want - lum) / max(lumPage - lum, 0.01), 0.0, 1.0));
+        }
+    }
+    // The foot: the theme's color over the log. As a live wallpaper the street is the scene's own.
+    color = mix(color, float3(bg.rgb), ground(y) * (1.0 - wallpaper));
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

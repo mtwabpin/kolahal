@@ -146,6 +146,36 @@ class ShaderMetaTest {
         )
     }
 
+    /** The screen's rounded corners: one float that Kolahal sets, so no parameter can take its name. */
+    @Test
+    fun theHostKnowsTheCorner() {
+        assertEquals(listOf(1), ShaderMeta.KNOWN[ShaderMeta.CORNER])
+        val good = "uniform shader content; uniform half corner;"
+        assertEquals(emptyList<String>(), ShaderMeta.problems(good))
+        assertEquals(emptyList<String>(), ShaderMeta.parse(good).unset())
+        assertTrue(ShaderMeta.parse(good).uses(ShaderMeta.CORNER))
+        assertEquals(listOf("'corner' must be a float, not float2"), ShaderMeta.problems("uniform shader content; uniform float2 corner;"))
+        assertEquals(
+            listOf("'corner' can't be a parameter: Kolahal sets it"),
+            ShaderMeta.problems("// @param corner 0.0..1.0 = 0.5 Corner\nuniform shader content; uniform float corner;"),
+        )
+    }
+
+    /** The camera's cutout: four floats that Kolahal sets (left, top, right, bottom), so no parameter can take its name. */
+    @Test
+    fun theHostKnowsTheCutout() {
+        assertEquals(listOf(4), ShaderMeta.KNOWN[ShaderMeta.CUTOUT])
+        val good = "uniform shader content; uniform float4 cutout;"
+        assertEquals(emptyList<String>(), ShaderMeta.problems(good))
+        assertEquals(emptyList<String>(), ShaderMeta.parse(good).unset())
+        assertTrue(ShaderMeta.parse(good).uses(ShaderMeta.CUTOUT))
+        assertEquals(listOf("'cutout' must be a float4, not float"), ShaderMeta.problems("uniform shader content; uniform float cutout;"))
+        assertEquals(
+            listOf("'cutout' can't be a parameter: Kolahal sets it"),
+            ShaderMeta.problems("// @param cutout 0.0..1.0 = 0.5 Cutout\nuniform shader content; uniform float4 cutout;"),
+        )
+    }
+
     /** Only a shader that declares `tilt` uses it: a word in a comment or in a name doesn't. */
     @Test
     fun onlyADeclaredTiltCounts() {
@@ -212,7 +242,7 @@ class ShaderMetaTest {
         }
         // Only the ones that say they move are drawn over and over.
         assertEquals(
-            listOf("mountains", "pond", "dunes", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "hearts"),
+            listOf("mountains", "pond", "dunes", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "aura", "lanterns", "record", "candle", "hearts", "pulse"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
         )
     }
@@ -231,6 +261,20 @@ class ShaderMetaTest {
         )
     }
 
+    /**
+     * The app selector on home is under a shader that works on the text itself, as the rest of home; over
+     * any other, a scene that would wash out its icons. Of those that come with Kolahal, these five.
+     */
+    @Test
+    fun theShadersForTextCoverTheSelector() {
+        assertTrue(ShaderMeta.parse("// @text\nuniform shader content;").coversSelector)
+        assertFalse(ShaderMeta.parse("uniform shader content;").coversSelector)
+        assertEquals(
+            setOf("crt", "lcd", "eink", "foil", "riso"),
+            ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).coversSelector }.toSet(),
+        )
+    }
+
     /** A one-off shader says for how long it runs, within bounds, and moves. */
     @Test
     fun aOneOffShader() {
@@ -243,7 +287,7 @@ class ShaderMetaTest {
         // It can be told how far it has come.
         assertTrue(ShaderMeta.PROGRESS in ShaderMeta.KNOWN)
         assertTrue("must be a float" in ShaderMeta.problems("uniform shader content; uniform float2 progress;").single())
-        assertEquals(listOf("hearts"), ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).once != null })
+        assertEquals(listOf("hearts", "pulse"), ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).once != null })
     }
 
     /** How often it needs to be drawn: a whole number of frames a second, and the seconds a touch lasts, each within its range. */
@@ -301,10 +345,59 @@ class ShaderMetaTest {
         }
     }
 
-    /** Every bundled shader has a file, and every file is a bundled shader. */
+    /** Every bundled shader and template has a file, and every file is a bundled shader or a template. */
     @Test
     fun theBundledShadersAreTheFilesInAssets() {
         val files = sourceFile("src/main/assets/shaders").listFiles()!!.map { it.name }.sorted()
-        assertEquals(ShaderCatalog.BUNDLED.map { "$it.${ShaderCatalog.EXT}" }.sorted(), files)
+        assertEquals((ShaderCatalog.BUNDLED + ShaderCatalog.TEMPLATES).map { "$it.${ShaderCatalog.EXT}" }.sorted(), files)
+    }
+
+    /**
+     * The templates can be used as they come, are short, and each shows its one idea: the header lines and
+     * the uniforms it is about. None is a bundled shader.
+     */
+    @Test
+    fun theTemplatesAreInOrder() {
+        val metas = ShaderCatalog.TEMPLATES.associateWith { name ->
+            val source = sourceFile("src/main/assets/shaders/$name.agsl").readText()
+            assertTrue(name, name.startsWith("template-") && name !in ShaderCatalog.BUNDLED && ShaderCatalog.valid(name))
+            assertEquals(name, emptyList<String>(), ShaderMeta.problems(source))
+            assertEquals(name, emptyList<String>(), ShaderMeta.warnings(source))
+            assertTrue(name, source.trimEnd().lines().size in 25..50)
+            assertTrue(name, "half4 main(float2" in source)
+            val code = source.replace(Regex("//[^\n]*"), "")
+            for ((open, close) in listOf("{" to "}", "(" to ")")) {
+                assertEquals("$name has unbalanced $open$close", code.count { it == open[0] }, code.count { it == close[0] })
+            }
+            val meta = ShaderMeta.parse(source)
+            assertNotNull(name, meta.title)
+            assertNotNull(name, meta.description)
+            assertEquals("$name reads uniforms nothing sets", emptyList<String>(), meta.unset())
+            assertEquals(name, ShaderSurface.entries.toSet(), meta.suits.keys)
+            meta
+        }
+        val tint = metas.getValue("template-tint")
+        assertFalse(tint.animated)
+        assertEquals(listOf("amount"), tint.params.map { it.name })
+        val scene = metas.getValue("template-scene")
+        assertTrue(scene.uses("dark") && scene.uses(ShaderMeta.WALLPAPER) && scene.uses("bg") && scene.uses("surface"))
+        assertFalse(scene.animated)
+        val moving = metas.getValue("template-moving")
+        assertTrue(moving.animated && moving.uses("time"))
+        assertEquals(10, moving.fps)
+        // Its only clock is the touch's age: between touches it isn't drawn.
+        val touch = metas.getValue("template-touch")
+        assertTrue(touch.animated && touch.uses("touch") && touch.uses("touchAge") && touch.uses(ShaderMeta.PRESSED))
+        assertFalse(touch.uses("time"))
+        assertEquals(2f, touch.settles)
+        val value = metas.getValue("template-value")
+        assertEquals("battery", value.params.first { it.name == "level" }.follow)
+        assertEquals(listOf("round", "square"), value.params.first { it.name == "ends" }.choices)
+        assertFalse(value.animated)
+        val once = metas.getValue("template-once")
+        assertEquals(3f, once.once)
+        assertTrue(once.uses(ShaderMeta.PROGRESS))
+        // Only the one-off is one.
+        assertEquals(listOf("template-once"), metas.filterValues { it.once != null }.keys.toList())
     }
 }

@@ -138,9 +138,24 @@ object Shaders {
         }
     }.getOrNull()
 
-    /** The code of the bundled shader [name]. */
+    /** The code of the bundled shader or template [name] ([ShaderCatalog.TEMPLATES]). */
     fun bundled(context: Context, name: String): String =
         context.assets.open("$DIR/$name.${ShaderCatalog.EXT}").use { it.readBytes().toString(Charsets.UTF_8) }
+
+    /** Whether [name] is a template ([ShaderCatalog.TEMPLATES]) and no shader of the user's has its name. */
+    fun isTemplate(name: String): Boolean = name in ShaderCatalog.TEMPLATES && name !in mine
+
+    /**
+     * Saves a copy of the template [template] as a shader of the user's, under a free name
+     * ([ShaderCatalog.yourName]): none of the user's shaders has it, and [taken] doesn't say it is taken.
+     * Returns its name and its code. Reads a file: not on the main thread.
+     */
+    fun fromTemplate(context: Context, template: String, taken: (String) -> Boolean = { false }): Pair<String, String> {
+        val code = bundled(context, template)
+        val name = ShaderCatalog.yourName(template) { it in mine || taken(it) }
+        save(context, name, code)
+        return name to code
+    }
 
     /** Saves the user's shader [name] with code [code]. */
     fun save(context: Context, name: String, code: String) {
@@ -183,11 +198,14 @@ object Shaders {
      * What keeps shader [name] from being used: its first problem ([ShaderMeta.problems]), or the
      * compiler's error where Android has the compiler. Null when nothing does. Not on the main thread.
      */
-    fun problem(context: Context, name: String): String? {
-        val source = source(context, name) ?: return "can't be read"
-        ShaderMeta.problems(source).firstOrNull()?.let { return it }
+    fun problem(context: Context, name: String): String? = fault(context, name)?.toString()
+
+    /** The same as [problem], with the line the compiler names, when it names one. */
+    private fun fault(context: Context, name: String): ShaderMeta.CompileError? {
+        val source = source(context, name) ?: return ShaderMeta.CompileError(null, "can't be read")
+        ShaderMeta.problems(source).firstOrNull()?.let { return ShaderMeta.CompileError(null, it) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            compileError(source)?.let { return it.toString() }
+            compileError(source)?.let { return it }
         }
         return null
     }
@@ -203,6 +221,7 @@ object Shaders {
     /**
      * What checking a shader found: its [problem] (null: none), the uniforms Kolahal [sets], those left [unset],
      * its [params], how often it is drawn while it moves ([pace]), and the header's lines that were left out ([warnings]).
+     * [line]: the line of the problem, counted from 1, when the compiler names one.
      */
     class Check(
         val problem: String?,
@@ -212,20 +231,23 @@ object Shaders {
         val params: List<ShaderParam> = emptyList(),
         val pace: ShaderClock.Pace = ShaderClock.Pace.DEFAULT,
         val warnings: List<String> = emptyList(),
+        val line: Int? = null,
     )
 
     /** Compiles shader [name] and reads its uniforms. Null when it can't be read. Not on the main thread. */
     fun check(context: Context, name: String): Check? {
         val source = source(context, name) ?: return null
         val meta = ShaderMeta.parse(source)
+        val fault = fault(context, name)
         return Check(
-            problem(context, name),
+            fault?.toString(),
             meta.uniforms.map { it.name }.filter { it in ShaderMeta.KNOWN },
             meta.unset(),
             meta.animated,
             meta.params,
             ShaderClock.Pace.of(meta),
             ShaderMeta.warnings(source),
+            fault?.line,
         )
     }
 

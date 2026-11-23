@@ -1,0 +1,642 @@
+// @name Seismograph
+// @description A recording instrument on a desk draws today's screen time on a strip of paper: level while the phone rested, shaking where it was used
+// @suits dark good, light good, wallpaper poor
+// @param h1 0.0..1.0 = 0.0 0:00 to 3:00 @follow screen.h1
+// @param h2 0.0..1.0 = 0.0 3:00 to 6:00 @follow screen.h2
+// @param h3 0.0..1.0 = 0.0 6:00 to 9:00 @follow screen.h3
+// @param h4 0.0..1.0 = 0.0 9:00 to 12:00 @follow screen.h4
+// @param h5 0.0..1.0 = 0.0 12:00 to 15:00 @follow screen.h5
+// @param h6 0.0..1.0 = 0.0 15:00 to 18:00 @follow screen.h6
+// @param h7 0.0..1.0 = 0.0 18:00 to 21:00 @follow screen.h7
+// @param h8 0.0..1.0 = 0.0 21:00 to 24:00 @follow screen.h8
+//
+// A pen on a long arm draws the day on a strip of paper, from midnight at the left roller to midnight at
+// the right. The line is level where the phone rested and shakes as wildly as each three hours were busy;
+// the three hours under way count only the part of them that is over. The pen rests at now, on the middle
+// line, and a small mark in the theme's accent color on the rail below shows where that is; the paper to its
+// right is blank. The line depends only on the place on the strip and the values, never on the time, so it
+// is the same from one minute to the next and only grows longer. The dial on the housing leans as far as
+// the phone is busy now. Each parameter follows Kolahal's screen time for its three hours; without usage
+// access they stay at 0, and the line is level all day.
+//
+// A desk lamp to the upper left lights the instrument, and by day a window's light falls on the wall and
+// the desk, moving with the hour. A dark theme's room is dim, so light text stays readable; a light theme's
+// is bright, with white paper. The strip is in the upper half of the screen, and the desk below it fades
+// into the page where the log is. A wider screen shows a longer strip, up to a limit, and more of the desk.
+//
+// It isn't animated: it is drawn again when a value or the minute changes. Pixels away from each part skip
+// it, and the line is worked out only near itself, from the four samples around the pixel.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float4 date;
+uniform float dark;
+uniform float wallpaper;
+uniform float h1;
+uniform float h2;
+uniform float h3;
+uniform float h4;
+uniform float h5;
+uniform float h6;
+uniform float h7;
+uniform float h8;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 accent;
+
+// The instrument's lines, down from the top in parts of the screen's height.
+const float RAIL_TOP = 0.200;
+const float PAPER_TOP = 0.210;
+const float GRID_TOP = 0.221;
+const float GRID_BOTTOM = 0.337;
+const float PAPER_BOTTOM = 0.348;
+const float RAIL_BOTTOM = 0.360;
+const float BASE_BOTTOM = 0.392;
+// The rollers' radius, and how far above the top rail they stand.
+const float ROLL = 0.019;
+const float ROLL_TOP = 0.186;
+// Where the desk meets the wall, behind the instrument.
+const float DESK_BACK = 0.352;
+// One sample of the line, in parts of the height: the pen's place is worked out at each and joined by straight strokes.
+const float STEP = 0.0015;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise along a line and over the plane, 0 to 1.
+float noise1(float x) {
+    float at = floor(x);
+    float f = fract(x);
+    return mix(hash(at), hash(at + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+float noise2(float2 p) {
+    float2 at = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(at), hash2(at + float2(1.0, 0.0)), f.x),
+        mix(hash2(at + float2(0.0, 1.0)), hash2(at + float2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's color, from those of morning, day, evening and night. For most of the day one of the four counts
+// alone: then it is that one, and nothing is multiplied for the pixel.
+float3 pick(float4 w, float3 a, float3 b, float3 c, float3 d) {
+    if (w.y >= 1.0) return b;
+    if (w.w >= 1.0) return d;
+    if (w.x >= 1.0) return a;
+    if (w.z >= 1.0) return c;
+    return a * w.x + b * w.y + c * w.z + d * w.w;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends. As a
+// live wallpaper, with no log over it, it is this shader's all the way down.
+float ground(float y) {
+    return y < 0.64 ? 0.80 * clamp((y - 0.42) / 0.22, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.64) / 0.20, 0.0, 1.0);
+}
+
+// The use of the three hours numbered i, from 0 (midnight to three) to 7.
+float used(float i) {
+    return i < 0.5 ? h1 : i < 1.5 ? h2 : i < 2.5 ? h3 : i < 3.5 ? h4 : i < 4.5 ? h5 : i < 5.5 ? h6 : i < 6.5 ? h7 : h8;
+}
+
+// How busy the phone was around hour t, 0 to 1, with now at hour `now`. Each three hours has its value in its
+// middle and blends into the next. The three hours under way count only the part of them that is over, and
+// the ones after it, which haven't come, take its value.
+float usage(float t, float now) {
+    float under = floor(now / 3.0);
+    float over = clamp((now - 3.0 * under) / 3.0, 0.34, 1.0);
+    float x = t / 3.0 - 0.5;
+    float i = floor(x);
+    float a = clamp(i, 0.0, under);
+    float b = clamp(i + 1.0, 0.0, under);
+    float va = min(used(a) / (a < under ? 1.0 : over), 1.0);
+    float vb = min(used(b) / (b < under ? 1.0 : over), 1.0);
+    return mix(va, vb, smoothstep(0.2, 0.8, x - i));
+}
+
+// How far the pen was from the middle line at sample k (a whole number), as a part of the grid's half
+// height: a fast jagged swing from side to side over a slower roll (whose phase is warp), now and then a
+// long one. size is how wide it swings there, and the last few samples before now (toNow) come back to the
+// middle, where the pen rests.
+float swingAt(float k, float size, float warp, float toNow) {
+    float side = fract(k * 0.5) < 0.25 ? 1.0 : -1.0;
+    float jag = side * (0.20 + 0.80 * hash(k * 1.91 + 3.0));
+    float roll = sin(k * 0.71 + warp);
+    float spike = hash(k * 0.73 + 41.0) > 0.955 ? 1.8 : 1.0;
+    float rest = clamp((toNow - k) / 6.0, 0.0, 1.0);
+    return (clamp((0.80 * jag + 0.28 * roll) * size * spike, -0.95, 0.95) + 0.006 * sin(k * 0.37)) * rest;
+}
+
+// How far p is from the segment from a to b.
+float segment(float2 p, float2 a, float2 b) {
+    float2 ab = b - a;
+    return length(p - a - ab * clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0));
+}
+
+// How far p is inside a box of half size b with corners of radius r, centered at 0 (negative outside).
+float box(float2 p, float2 b, float r) {
+    float2 d = abs(p) - b + r;
+    return r - length(max(d, float2(0.0))) - min(max(d.x, d.y), 0.0);
+}
+
+// A rod from a to b of radius r, lit from the lamp: its color where it covers p, in .rgb, and how much it
+// covers p, in .a. Its middle catches a highlight on the side toward the light.
+float4 rod(float2 p, float2 a, float2 b, float r, float3 albedo, float3 light, float3 shine, float px) {
+    float2 ab = b - a;
+    float t = clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
+    float2 off = p - a - ab * t;
+    float d = length(off);
+    float cover = clamp((r - d) / px + 0.5, 0.0, 1.0);
+    if (cover <= 0.0) return float4(0.0);
+    float2 side = normalize(float2(-ab.y, ab.x));
+    float across = clamp(dot(off, side) / r, -1.0, 1.0);
+    // Its surface faces this way: across the rod, and out toward the viewer.
+    float3 n = float3(side * across, sqrt(max(0.0, 1.0 - across * across)));
+    float lit = 0.35 + 0.65 * max(0.0, dot(n, float3(-0.45, -0.55, 0.70)));
+    float glint = pow(max(0.0, dot(n, float3(-0.24, -0.30, 0.92))), 24.0);
+    return float4(albedo * light * lit + shine * glint, cover);
+}
+
+// A brass cylinder standing upright, seen from the front: its shade at x across it, from -1 to 1.
+float3 column(float x, float3 brass, float3 light, float3 shine) {
+    float z = sqrt(max(0.0, 1.0 - x * x));
+    float lit = 0.30 + 0.75 * max(0.0, -0.55 * x + 0.75 * z);
+    return brass * light * lit + shine * 0.55 * pow(max(0.0, -0.35 * x + 0.94 * z), 30.0);
+}
+
+half4 main(float2 xy) {
+    // The wallpaper shows less of the scene's height, so less of the desk.
+    float2 res = float2(resolution.x, resolution.y / mix(1.0, 0.76, wallpaper));
+    float4 here = float4(content.eval(xy));
+    float y = xy.y / res.y;
+    if (y > 0.84 && wallpaper < 0.5) return half4(here);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y) * (1.0 - wallpaper));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
+    float now = date.x < 1.0 ? 18.25 : date.w / 3600.0;
+    float4 w = hours(now);
+
+    // The scene is measured in heights from the middle of the screen. The strip runs nearly from one side to
+    // the other, and on a wide screen it is longer, up to a limit, with more desk beside it.
+    float wide = res.x / res.y;
+    float2 q = float2((xy.x - 0.5 * res.x) / res.y, y);
+    float px = 1.0 / res.y;
+    float halfLen = min(0.43 * wide, 0.45);
+    float ax = abs(q.x);
+    float baseHalf = halfLen + ROLL + 0.010;
+
+    // The light: the room's, which follows the hour, and a warm pool from a lamp to the upper left. A dark
+    // theme's room is dim, so its light text stays readable; a light theme's is a bright one.
+    float3 room;
+    float3 lamp;
+    if (dark > 0.5) {
+        room = pick(w, float3(0.140, 0.135, 0.165), float3(0.150, 0.165, 0.190), float3(0.150, 0.120, 0.140), float3(0.100, 0.120, 0.180));
+        lamp = pick(w, float3(0.250, 0.200, 0.140), float3(0.170, 0.150, 0.115), float3(0.290, 0.210, 0.130), float3(0.340, 0.265, 0.165));
+    } else {
+        room = pick(w, float3(0.930, 0.905, 0.870), float3(0.930, 0.940, 0.950), float3(0.935, 0.875, 0.805), float3(0.815, 0.830, 0.880));
+        lamp = pick(w, float3(0.090, 0.075, 0.050), float3(0.065, 0.058, 0.042), float3(0.110, 0.075, 0.040), float3(0.170, 0.125, 0.060));
+    }
+    float2 lampAt = float2(-0.30 * halfLen - 0.03, 0.23);
+    float2 toLamp = (q - lampAt) / float2(0.20 + 0.22 * halfLen, 0.17);
+    float pool = exp(-dot(toLamp, toLamp));
+    // As a wallpaper in a dark theme no text sits on the scene, so the lamp can light the instrument fully:
+    // the paper is the brightest thing in the room and the brass catches it.
+    float hot = dark * wallpaper;
+    float3 light = room + lamp * pool * (1.0 + 1.7 * hot);
+    float3 shine = (room + lamp * (0.4 + pool) * (1.0 + 1.4 * hot)) * mix(0.55, 0.9, dark);
+
+
+    // In the dim room of a dark theme the metal is a little brighter, so it still reads as brass and enamel.
+    float3 enamel = float3(0.105, 0.170, 0.160) * mix(1.0, 1.6, dark);
+    float3 brass = float3(0.800, 0.600, 0.300) * mix(1.0, 1.25, dark);
+    float3 inkColor = float3(0.42, 0.07, 0.08);
+    float3 color;
+    // How much this pixel is the instrument's metal and enamel, which a light theme's home makes pale.
+    float metal = 0.0;
+
+    // The pen: where it is now, on the strip, and the pivot its arm hangs from.
+    float uNow = clamp(now / 24.0, 0.0, 1.0) * 2.0 * halfLen;
+    float mid = 0.5 * (GRID_TOP + GRID_BOTTOM);
+    float half1 = 0.5 * (GRID_BOTTOM - GRID_TOP);
+    float2 tip = float2(uNow - halfLen, mid);
+    float2 pivot = float2(0.35 * halfLen, 0.130);
+    float2 fall = float2(0.016, 0.024);
+    bool nearArm = y > 0.08 && y < RAIL_BOTTOM && ax < baseHalf + 0.03;
+
+    if (ax < halfLen + ROLL && y > ROLL_TOP && y < RAIL_BOTTOM) {
+        // The rollers: brass, standing at each end, with a knurled cap on top.
+        float rx = (ax - halfLen) / ROLL;
+        color = column(q.x < 0.0 ? -rx : rx, brass, light, shine);
+        metal = 1.0;
+        if (y < ROLL_TOP + 0.006) color *= 0.85 + 0.25 * step(0.5, fract(q.x / 0.0016)) * (1.0 - smoothstep(0.7, 1.0, abs(rx)));
+        color *= 1.0 - 0.5 * exp(-(RAIL_BOTTOM - y) / 0.003);
+        bool inside = ax < halfLen;
+        if (y > PAPER_TOP && y < PAPER_BOTTOM) {
+            // The paper, flat between the rollers and bent over them at each end, where it turns away from
+            // the light. u is the place along the paper from midnight.
+            float bend = max(rx, 0.0);
+            float facing = sqrt(max(0.0, 1.0 - bend * bend));
+            float u = q.x + halfLen;
+            if (bend > 0.0) {
+                float around = ROLL * atan(bend, facing);
+                u = q.x < 0.0 ? -around : 2.0 * halfLen + around;
+            }
+            float3 paper = dark > 0.5 ? float3(0.950, 0.920, 0.860) : float3(0.985, 0.975, 0.955);
+            // Fibres.
+            paper *= 0.985 + 0.03 * hash2(floor(float2(u, y) * 900.0));
+            float hourAt = u / (2.0 * halfLen) * 24.0;
+            float3 printInk = float3(0.36, 0.56, 0.60);
+            // A fine grid: a line every half hour and every tenth of the height, stronger every three hours.
+            if (y > GRID_TOP && y < GRID_BOTTOM) {
+                float perHour = 2.0 * halfLen / 24.0;
+                float dx = abs(fract(hourAt * 2.0 + 0.5) - 0.5) * perHour * 0.5 / px;
+                float d3 = abs(fract(hourAt / 3.0 + 0.5) - 0.5) * perHour * 3.0 / px;
+                float dy = abs(fract((y - GRID_TOP) / (2.0 * half1) * 8.0 + 0.5) - 0.5) * 0.25 * half1 / px;
+                float grid = max(0.20 * (1.0 - smoothstep(0.3, 1.0, min(dx, dy))), 0.36 * (1.0 - smoothstep(0.4, 1.2, d3)));
+                paper = mix(paper, paper * printInk, grid);
+                // The hour ticks along the bottom of the grid: longer every three hours and every six.
+                float dh = abs(fract(hourAt + 0.5) - 0.5) * perHour / px;
+                float d6 = abs(fract(hourAt / 6.0 + 0.5) - 0.5) * 6.0;
+                float tall = d6 < 0.1 ? 0.014 : (d3 * px / perHour < 0.1 ? 0.009 : 0.005);
+                float tick = (1.0 - smoothstep(0.5, 1.2, dh)) * step(GRID_BOTTOM - tall, y);
+                paper = mix(paper, float3(0.20, 0.27, 0.30), 0.75 * tick);
+            }
+            // Small holes along both edges, for the sprockets that pull it.
+            float hy = y < mid ? y - 0.5 * (PAPER_TOP + GRID_TOP) : y - 0.5 * (GRID_BOTTOM + PAPER_BOTTOM);
+            float2 hole = float2((fract(u / 0.0125) - 0.5) * 0.0125, hy);
+            float holed = clamp(box(hole, float2(0.0015, 0.0020), 0.0008) / px + 0.5, 0.0, 1.0);
+
+            // The line, from midnight to the pen: worked out only where it can reach.
+            float inked = 0.0;
+            float bleed = 0.0;
+            if (u > -STEP && u < uNow + STEP && y > GRID_TOP && y < GRID_BOTTOM) {
+                float v = usage(hourAt, now);
+                float reach = half1 * (0.95 * min(1.0, 1.9 * pow(v, 0.75)) + 0.02) + 0.003;
+                if (abs(y - mid) < reach) {
+                    float k0 = floor(u / STEP);
+                    float2 p = float2(u, y - mid);
+                    // How wide the pen swings here: in bursts, which a busier stretch has more of. It changes
+                    // slowly, so it is worked out once for the four samples near this pixel.
+                    float burst = smoothstep(0.15, 0.85, noise1(u / STEP * 0.055 + 17.0));
+                    float size = pow(v, 0.75) * mix(0.14 + 0.86 * burst, 1.0, 0.35 * v);
+                    float warp = 6.0 * noise1(u / STEP * 0.04 + 5.0);
+                    float toNow = uNow / STEP;
+                    float ya = half1 * swingAt(k0 - 1.0, size, warp, toNow);
+                    float yb = half1 * swingAt(k0, size, warp, toNow);
+                    float yc = half1 * swingAt(k0 + 1.0, size, warp, toNow);
+                    float yd = half1 * swingAt(k0 + 2.0, size, warp, toNow);
+                    float closest = 1.0;
+                    float thin = 1.0;
+                    for (int j = 0; j < 3; j++) {
+                        float k = k0 - 1.0 + float(j);
+                        float s0 = j == 0 ? ya : (j == 1 ? yb : yc);
+                        float s1 = j == 0 ? yb : (j == 1 ? yc : yd);
+                        float x0 = max(k * STEP, 0.0);
+                        float x1 = min((k + 1.0) * STEP, uNow);
+                        if (x1 > x0) {
+                            // A segment cut at midnight or at now ends where the pen was then.
+                            float2 a = float2(x0, mix(s0, s1, x0 / STEP - k));
+                            float2 b = float2(x1, mix(s0, s1, x1 / STEP - k));
+                            float d = segment(p, a, b);
+                            if (d < closest) {
+                                closest = d;
+                                // Where the pen moved fast the line is thinner.
+                                thin = mix(1.0, 0.45, smoothstep(0.8, 6.0, abs(s1 - s0) / STEP));
+                            }
+                        }
+                    }
+                    float width = 0.00050 * thin;
+                    inked = clamp((width - closest) / px + 0.5, 0.0, 1.0);
+                    if (closest < 0.004) bleed = 0.6 * exp(-max(closest - width, 0.0) / 0.0007) * (0.5 + 0.9 * noise2(float2(u, y) * 1400.0));
+                }
+            }
+            // A small blot where the pen rests.
+            float2 atTip = float2(u - uNow, y - tip.y);
+            if (dot(atTip, atTip) < 0.00004) {
+                float blot = length(atTip * float2(1.0, 1.15)) - 0.0019 * (0.85 + 0.3 * noise1(atan(atTip.y, atTip.x) * 2.0 + 7.0));
+                inked = max(inked, clamp(-blot / px + 0.5, 0.0, 1.0));
+                bleed = max(bleed, exp(-max(blot, 0.0) / 0.0014));
+            }
+            paper = mix(paper, paper * mix(float3(1.0), inkColor * 1.6, 0.20), clamp(bleed, 0.0, 1.0) * (1.0 - inked));
+            paper = mix(paper, inkColor, inked * 0.94);
+
+            // Shade: around the rollers' curve, under the top rail, above the bottom one, and the arm's shadow,
+            // which starts at the pen's tip and grows softer and farther off up toward the pivot.
+            float shade = 1.0;
+            shade *= 1.0 - 0.45 * exp(-(y - PAPER_TOP) / 0.0035);
+            shade *= 1.0 - 0.25 * exp(-(PAPER_BOTTOM - y) / 0.0020);
+            float2 ab = pivot + fall - tip;
+            if (abs(q.x - tip.x - ab.x * (y - tip.y) / ab.y) < 0.012) {
+                float t = clamp(dot(q - tip, ab) / dot(ab, ab), 0.0, 1.0);
+                float sd = length(q - tip - ab * t);
+                shade *= 1.0 - (0.42 - 0.18 * t) * (1.0 - smoothstep(0.0, 0.0016 + 0.0065 * t, sd - 0.0010));
+            }
+            float3 sheet = paper * light * shade;
+            // Over a roller the paper turns away: toward the lamp on the left one, away from it on the right.
+            if (bend > 0.0) {
+                float nx = q.x < 0.0 ? -bend : bend;
+                sheet *= 0.25 + 0.75 * clamp((-0.45 * nx + 0.85 * facing) / 0.85, 0.0, 1.1);
+            }
+            if (bend > 0.0) sheet = mix(sheet, color * 0.5, 1.0 - smoothstep(0.0, 1.5 * px, ROLL * (1.0 - bend)));
+            color = mix(sheet, enamel * light * 0.25, holed);
+            // The holes show the enamel behind the paper.
+            metal = holed;
+        } else if (inside && y > RAIL_TOP) {
+            // The rails above and below the paper: enamel bars with a lit upper edge.
+            bool topRail = y < PAPER_TOP;
+            float edgeTop = topRail ? RAIL_TOP : PAPER_BOTTOM;
+            float edgeLow = topRail ? PAPER_TOP : RAIL_BOTTOM;
+            float lit = 1.05 - 0.45 * (y - edgeTop) / (edgeLow - edgeTop) + 1.4 * exp(-(y - edgeTop) / (1.5 * px));
+            color = enamel * light * lit + shine * 0.08 * exp(-(y - edgeTop) / (2.0 * px));
+            // Where a rail meets a roller.
+            color *= 1.0 - 0.4 * exp(-(halfLen - ax) / 0.0015);
+            // The mark for now: a small pointer in the accent color below the pen, on the lower rail.
+            if (!topRail) {
+                float2 m = float2(q.x - tip.x, y - PAPER_BOTTOM - 0.0012);
+                float tri = max(abs(m.x) - 0.0055 * clamp(m.y / 0.0095, 0.0, 1.0), max(-m.y, m.y - 0.0095));
+                if (tri < px) {
+                    float3 mark = float3(accent.rgb) * clamp(dot(light, float3(0.33)) * 2.4, 0.62, 1.05) * (m.x < 0.0 ? 1.05 : 0.85);
+                    color = mix(color, mark, clamp(-tri / px + 0.5, 0.0, 1.0));
+                }
+            }
+            // The arm's shadow falls on the rails as well.
+            float2 ab = pivot + fall - tip;
+            float t = clamp(dot(q - tip, ab) / dot(ab, ab), 0.0, 1.0);
+            float sd = length(q - tip - ab * t);
+            color *= 1.0 - (0.35 - 0.15 * t) * (1.0 - smoothstep(0.0, 0.0016 + 0.0065 * t, sd - 0.0010));
+        } else if (rx <= -1.0) {
+            color = float3(-1.0);
+        }
+    } else {
+        color = float3(-1.0);
+    }
+
+    if (color.r < 0.0) {
+        if (y > RAIL_BOTTOM && y < BASE_BOTTOM && ax < baseHalf) {
+            metal = 1.0;
+            // The base: a slab of enamel with a lit top edge, a small brass plate in its middle, and the
+            // shadow of the rollers standing on it.
+            float lit = 0.75 - 0.25 * (y - RAIL_BOTTOM) / (BASE_BOTTOM - RAIL_BOTTOM) + 1.6 * exp(-(y - RAIL_BOTTOM) / (1.5 * px));
+            color = enamel * light * lit * (1.0 - 0.5 * smoothstep(-1.5 * px, 0.0, ax - baseHalf + 0.0015));
+            color *= 1.0 - 0.45 * exp(-(y - RAIL_BOTTOM) / 0.004) * (1.0 - smoothstep(ROLL * 0.6, ROLL * 1.3, abs(ax - halfLen - 0.003)));
+            float plate = box(float2(q.x, y - 0.5 * (RAIL_BOTTOM + BASE_BOTTOM) - 0.002), float2(0.030, 0.0075), 0.0015);
+            if (plate > -px) {
+                float3 face = brass * light * (0.85 + 0.2 * noise2(float2(q.x * 3000.0, y * 120.0)));
+                face = mix(face, enamel * light * 0.4, 0.8 * (1.0 - smoothstep(0.0, 1.4 * px, abs(plate - 0.0022))));
+                color = mix(color, face, clamp(plate / px + 0.5, 0.0, 1.0));
+            }
+        } else if (y < DESK_BACK) {
+            // The wall: plaster, lit by the lamp, darker toward the top.
+            float3 wall = dark > 0.5 ? float3(0.46, 0.50, 0.55) : float3(0.905, 0.900, 0.890);
+            
+            // The lamp's shade lets its light out below a curve that rises toward the lamp, up to the left.
+            float cut = y - 0.035 - 1.6 * (q.x - lampAt.x + 0.06) * (q.x - lampAt.x + 0.06);
+            float shaded = smoothstep(-0.012, 0.020, cut) * sqrt(pool);
+            color = wall * (room * mix(0.86, 1.0, dark) * (0.80 + 0.20 * smoothstep(0.0, 0.35, y)) + lamp * (0.35 * pool + 0.75 * shaded));
+            // Sunlight through a window to the right, by day: a patch of light with the window's cross in it,
+            // high and long in the morning and the evening, lower and squarer at noon.
+            float sunUp = smoothstep(5.8, 7.2, now) * (1.0 - smoothstep(18.3, 19.6, now));
+            float sunH = clamp((now - 6.0) / 13.0, 0.0, 1.0);
+            float2 wc = float2(-0.45 * halfLen - 0.02, mix(0.075, 0.115, sin(3.1416 * sunH)));
+            if (sunUp > 0.0 && abs(y - wc.y) < 0.08 && abs(q.x - wc.x) < 0.14) {
+                float3 sunColor = mix(mix(float3(1.00, 0.84, 0.62), float3(1.00, 0.97, 0.90), smoothstep(0.0, 0.35, sunH)), float3(1.00, 0.68, 0.40), smoothstep(0.62, 1.0, sunH));
+                sunColor *= sunUp * mix(0.24, 0.085, dark);
+                float2 wp = q - wc;
+                wp.x -= mix(0.60, -0.60, sunH) * wp.y;
+                float2 size = float2(0.080, mix(0.070, 0.050, sin(3.1416 * sunH)));
+                float soft = 0.004;
+                float pane = smoothstep(-soft, soft, box(wp, size, 0.002));
+                float bars = min(abs(wp.x), abs(wp.y)) - 0.0035;
+                pane *= smoothstep(-soft, soft, bars);
+                color += wall * sunColor * pane;
+            }
+            // The housing's shadow, cast down and to the right.
+            float2 c = q - pivot - float2(0.050, -0.012) - float2(0.022, 0.034);
+            if (abs(c.x) < 0.11 && abs(c.y) < 0.08) color *= 1.0 - 0.18 * smoothstep(-0.030, 0.020, box(c, float2(0.060, 0.032), 0.03));
+            // Where the wall meets the desk.
+            if (y > DESK_BACK - 0.02) color *= 1.0 - 0.35 * exp(-(DESK_BACK - y) / 0.004);
+        } else {
+            // The desk: wood seen from above at a slant, its grain running across in fine lines, with the lamp's
+            // light on it. Far off the grain is too fine to see, and fades.
+            // Boards run away from the viewer, so their seams meet far behind the instrument. X is the place
+            // across the desk and deep how far off it is.
+            float3 wood = dark > 0.5 ? float3(0.40, 0.33, 0.29) : float3(0.82, 0.75, 0.66);
+            // On home the lower desk is mostly the page's color, and its grain isn't worked out there.
+            float deep = 1.0 / (y - 0.30);
+            float across = q.x * deep;
+            bool front = y > 0.700;
+            if (front) {
+                if (wallpaper > 0.5) {
+                    // The desk's front edge, low in the wallpaper: its face, in shade, with the grain running along it.
+                float g = noise1((y - 0.70) * 700.0 + 3.0 * noise1(q.x * 6.0)) * 0.6 + 0.4 * noise1(y * 2600.0 + q.x * 40.0);
+                wood *= 0.93 + 0.10 * g;
+                }
+            } else if (y < 0.64 || wallpaper > 0.5) {
+                float board = floor(across / 0.36 + 0.5);
+                float seam = abs(across - board * 0.36) / deep / px;
+                // The grain: broad figure and fine lines, each fading where it would be finer than a pixel.
+                float figure = noise1(across * 70.0 + 1.4 * noise1(deep * 0.7 + board * 7.0) + board * 13.0);
+                float grain = mix(0.5, figure, 1.0 - smoothstep(0.2, 0.5, 70.0 * deep * px)) * 0.6 + 0.2;
+                float fine = 1.0 - smoothstep(0.2, 0.5, 380.0 * deep * px);
+                if (fine > 0.0) grain += (noise1(across * 380.0 + 6.0 * figure + board * 5.0) - 0.5) * 0.4 * fine;
+                wood *= (0.94 + 0.12 * grain) * (0.95 + 0.10 * hash(board + 31.0));
+                wood *= 1.0 - 0.30 * (1.0 - smoothstep(0.3, 1.1, seam)) * (1.0 - smoothstep(5.0, 9.0, deep));
+            }
+            float2 toPool = (q - float2(lampAt.x + 0.05, 0.45 + 0.03 * hot)) / float2(0.26 + 0.30 * halfLen + 0.06 * hot, 0.15 + 0.07 * hot);
+            // The lamp's pool on the desk has a soft edge where its shade cuts the light off.
+            float spot = dot(toPool, toPool);
+            float3 lit = room * 0.92 + lamp * (pool * 0.4 + (0.55 + 0.75 * exp(-spot)) * (1.0 - smoothstep(0.55, 1.15, spot))) * (1.0 + 1.1 * hot);
+            // The window's light falls on the desk too, by day: farther to the left as the day goes.
+            float sunUp = smoothstep(5.8, 7.2, now) * (1.0 - smoothstep(18.3, 19.6, now));
+            if (sunUp > 0.0 && deep > 2.2 && deep < 4.8 && !front) {
+                float sunH = clamp((now - 6.0) / 13.0, 0.0, 1.0);
+                float2 sp = float2(across - mix(0.55, -0.35, sunH) * (0.5 + halfLen), deep - 3.5);
+                sp.x -= mix(-0.45, 0.45, sunH) * sp.y;
+                float soft = 0.03;
+                float pane = smoothstep(-soft, soft, box(sp, float2(0.30, 0.62), 0.01));
+                pane *= smoothstep(-soft, soft, min(abs(sp.x) * 1.0, abs(sp.y) * 0.5) - 0.022);
+                float3 sunColor = mix(mix(float3(1.00, 0.84, 0.62), float3(1.00, 0.97, 0.90), smoothstep(0.0, 0.35, sunH)), float3(1.00, 0.68, 0.40), smoothstep(0.62, 1.0, sunH));
+                lit += sunColor * sunUp * mix(0.20, 0.07, dark) * pane;
+            }
+            color = wood * lit;
+            // The desk's front edge, low on the screen: a lit rounded lip and the face below it in shade.
+            if (front) {
+                float down = (y - 0.700) / px;
+                color = mix(color * 1.15, color * (mix(0.66, 0.50, dark) + 0.16 * hot), smoothstep(1.5, 9.0, down));
+                color *= 1.0 - (0.30 - 0.12 * hot) * smoothstep(0.71, 0.77, y);
+            }
+            // The instrument's shadow on the desk, below and to the right of its base.
+            if (y < BASE_BOTTOM + 0.03) {
+                float under = box(float2(q.x - 0.010, y - BASE_BOTTOM), float2(baseHalf + 0.004, 0.004), 0.004);
+                color *= 1.0 - 0.55 * smoothstep(-0.018, 0.004, under);
+            }
+            // A faint, soft reflection of the base in the polished top.
+            if (ax < baseHalf && y < BASE_BOTTOM + 0.022) color = mix(color, enamel * light * 0.5, 0.22 * (1.0 - (y - BASE_BOTTOM) / 0.022));
+            // In a dark wallpaper the lit paper shows in the polished top, below the base: soft, and fading
+            // with distance. The point mirrored is as far above the desk as this one is below it, a little
+            // shortened by the slant.
+            if (hot > 0.0 && ax < halfLen + ROLL && y < BASE_BOTTOM + 0.16) {
+                float ym = BASE_BOTTOM - (y - BASE_BOTTOM) / 0.8;
+                float band = (1.0 - smoothstep(PAPER_BOTTOM - 0.008, PAPER_BOTTOM + 0.004, ym)) * smoothstep(PAPER_TOP - 0.006, PAPER_TOP + 0.012, ym);
+                float sides = (1.0 - smoothstep(halfLen - 0.02, halfLen + ROLL, ax));
+                float2 mt = (float2(q.x, ym) - lampAt) / float2(0.20 + 0.22 * halfLen, 0.17);
+                float3 sheen = float3(0.95, 0.92, 0.86) * (room + lamp * exp(-dot(mt, mt)) * (1.0 + 1.7 * hot));
+                color += sheen * band * sides * 0.20 * hot * exp(-(y - BASE_BOTTOM) / 0.10);
+            }
+        }
+    }
+
+    // The housing on its post, above the right of the strip: brass, with screws, a dial and the pivot of the arm.
+    float2 hc = pivot + float2(0.050, -0.012);
+    if (abs(q.x - hc.x) < 0.075 && y > 0.07 && y < RAIL_TOP + 0.002) {
+        // The post.
+        float post = box(q - float2(hc.x + 0.012, 0.175), float2(0.011, 0.026), 0.002);
+        if (post > -px && y > 0.150) {
+            float lit = 0.8 + 0.5 * (1.0 - smoothstep(-0.011, 0.011, q.x - hc.x - 0.012));
+            color = mix(color, enamel * light * lit * (1.0 - 0.5 * exp(-(y - 0.154) / 0.004)), clamp(post / px + 0.5, 0.0, 1.0));
+            metal = max(metal, clamp(post / px + 0.5, 0.0, 1.0));
+        }
+        float2 c = q - hc;
+        float body = box(c, float2(0.068, 0.036), 0.007);
+        if (body > -px) {
+            // Brushed brass, lighter toward the lamp, with a bevel round its edge.
+            float3 face = brass * light * (0.78 + 0.25 * (1.0 - smoothstep(-0.04, 0.04, c.x + c.y)) + 0.06 * noise2(float2(c.x * 260.0, c.y * 9000.0)));
+            float bevel = 1.0 - smoothstep(0.0, 0.0030, body);
+            float edge = clamp(-(c.x + 1.3 * c.y) * 30.0, -1.0, 1.0);
+            face *= 1.0 + bevel * 0.45 * edge;
+            face += shine * 0.35 * exp(-dot(c - float2(-0.035, -0.025), c - float2(-0.035, -0.025)) / 0.0006);
+            // Four screws, their slots at random turns.
+            float2 sc = float2(abs(c.x) - 0.059, abs(c.y) - 0.027);
+            float sd = length(sc);
+            if (sd < 0.0045) {
+                float turn = hash(floor(c.x * 10.0) + 3.0 * floor(c.y * 10.0)) * 3.14;
+                float2 dir = float2(cos(turn), sin(turn));
+                float slot = abs(dot(sc, float2(-dir.y, dir.x)));
+                float3 head = brass * light * (0.95 - 18.0 * (sc.x + sc.y)) + shine * 0.2;
+                head = mix(head, brass * light * 0.25, (1.0 - smoothstep(0.0005, 0.0009, slot)) * step(sd, 0.0028));
+                face = mix(face, head, clamp((0.0033 - sd) / px + 0.5, 0.0, 1.0));
+                face *= 1.0 - 0.3 * (1.0 - smoothstep(0.0, 0.0012, abs(sd - 0.0035)));
+            }
+            // The dial: a ring of enamel, a cream face with ticks, a needle that leans as far as the phone is
+            // busy now, and the glass's reflection.
+            float2 dc = c - float2(0.030, 0.0);
+            float dd = length(dc);
+            if (dd < 0.024) {
+                float3 dial = enamel * light * (0.9 + 0.6 * clamp(-(dc.x + dc.y) / 0.024, -1.0, 1.0));
+                if (dd < 0.019) {
+                    float3 cream = (dark > 0.5 ? float3(0.90, 0.86, 0.76) : float3(0.97, 0.95, 0.90)) * light;
+                    float ang = atan(dc.x, -dc.y);
+                    float tk = abs(fract(ang / 0.3927 + 0.5) - 0.5) * 0.3927 * dd;
+                    float ticks = (1.0 - smoothstep(0.0003, 0.0007, tk)) * step(0.014, dd) * step(abs(ang), 2.4);
+                    cream = mix(cream, float3(0.1) * light, ticks * 0.8);
+                    float lean = -2.2 + 4.4 * usage(now, now);
+                    float2 nd = float2(sin(lean), -cos(lean));
+                    float needle = segment(dc, float2(0.0), nd * 0.016) - 0.0006;
+                    cream = mix(cream, inkColor * light * 1.4, clamp(-needle / px + 0.5, 0.0, 1.0));
+                    cream = mix(cream, brass * light, clamp((0.0022 - dd) / px + 0.5, 0.0, 1.0));
+                    cream *= 1.0 - 0.35 * exp(-(0.019 - dd) / 0.002);
+                    cream += shine * 0.25 * (1.0 - smoothstep(0.0, 0.004, abs(length(dc - float2(0.004, 0.006)) - 0.014))) * step(dc.x + dc.y, -0.004);
+                    dial = mix(dial, cream, clamp((0.019 - dd) / px + 0.5, 0.0, 1.0));
+                }
+                face = mix(face, dial, clamp((0.024 - dd) / px + 0.5, 0.0, 1.0));
+            }
+            color = mix(color, face, clamp(body / px + 0.5, 0.0, 1.0));
+            metal = max(metal, clamp(body / px + 0.5, 0.0, 1.0));
+        }
+    }
+
+    // The arm: a steel rod from the pivot to the pen, its short end beyond the pivot carrying a brass weight.
+    if (nearArm) {
+        float2 d = normalize(tip - pivot);
+        float2 lo = min(pivot - d * 0.05, tip) - 0.014;
+        float2 hi = max(pivot - d * 0.05, tip) + 0.014;
+        if (q.x > lo.x && q.x < hi.x && y > lo.y && y < hi.y && segment(q, pivot - d * 0.05, tip) < 0.012) {
+            float3 steel = float3(0.62, 0.64, 0.67);
+            float4 part = rod(q, pivot - d * 0.036, tip - d * 0.020, 0.0017, steel, light, shine, px);
+            color = mix(color, part.rgb, part.a);
+            metal = max(metal, part.a);
+            part = rod(q, pivot - d * 0.040, pivot - d * 0.027, 0.0095, brass, light, shine, px);
+            color = mix(color, part.rgb, part.a);
+            metal = max(metal, part.a);
+            part = rod(q, pivot - d * 0.027, pivot - d * 0.024, 0.0050, steel, light, shine, px);
+            color = mix(color, part.rgb, part.a);
+            metal = max(metal, part.a);
+            // The pen: a brass holder and a fine nib down to the paper.
+            part = rod(q, tip - d * 0.022, tip - d * 0.009, 0.0030, brass, light, shine, px);
+            color = mix(color, part.rgb, part.a);
+            metal = max(metal, part.a);
+            part = rod(q, tip - d * 0.010, tip - d * 0.001, 0.0010, float3(0.25, 0.10, 0.10), light, shine, px);
+            color = mix(color, part.rgb, part.a);
+            metal = max(metal, part.a);
+            // The pivot: a round boss with a screw in it.
+            float2 pc = q - pivot;
+            float pd = length(pc);
+            if (pd < 0.011) {
+                float2 n = pc / 0.010;
+                float3 boss = steel * light * (0.6 + 0.55 * clamp(-0.6 * n.x - 0.7 * n.y + 0.3, 0.0, 1.0)) + shine * 0.5 * exp(-dot(n + float2(0.4, 0.45), n + float2(0.4, 0.45)) * 6.0);
+                boss *= 1.0 - 0.4 * (1.0 - smoothstep(0.0, 0.0012, abs(pd - 0.0045)));
+                color = mix(color, boss, clamp((0.010 - pd) / px + 0.5, 0.0, 1.0));
+                metal = max(metal, clamp((0.010 - pd) / px + 0.5, 0.0, 1.0));
+            }
+        }
+    }
+
+    // The foot: the theme's color over the log, and in the wallpaper the desk darkens a little toward the bottom.
+    if (wallpaper > 0.5) {
+        color *= 1.0 - mix(0.10, 0.18, dark) * smoothstep(0.50, 0.76, y);
+    } else {
+        // Over the log in a light theme the dark metal and enamel are paled toward the page, so that dark and
+        // dimmed text reads on them; they keep their order of light and shade. The page's own colors are kept.
+        if (metal > 0.0 && dark < 0.5) {
+            float3 page1 = float3(bg.rgb);
+            float lum = dot(color, float3(0.30, 0.59, 0.11));
+            float lumPage = dot(page1, float3(0.30, 0.59, 0.11));
+            float want = 0.66 + 0.34 * lum;
+            color = mix(color, page1, metal * clamp((want - lum) / max(lumPage - lum, 0.01), 0.0, 1.0));
+        }
+        // The wall and the desk, where they are darker than that text can stand, go toward the page as well.
+        // The paper keeps its line.
+        if (dark < 0.5 && !(ax < halfLen + ROLL && y > PAPER_TOP && y < PAPER_BOTTOM)) {
+            float lum = dot(color, float3(0.299, 0.587, 0.114));
+            if (lum < 0.68) {
+                float want = 0.58 + 0.10 * exp(-(0.68 - lum) / 0.10);
+                float lumPage = dot(float3(bg.rgb), float3(0.299, 0.587, 0.114));
+                color = mix(color, float3(bg.rgb), clamp((want - lum) / max(lumPage - lum, 0.01), 0.0, 1.0));
+            }
+        }
+        color = mix(color, float3(bg.rgb), ground(y));
+    }
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

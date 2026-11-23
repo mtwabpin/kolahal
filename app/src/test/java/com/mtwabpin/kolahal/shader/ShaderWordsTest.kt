@@ -1,6 +1,8 @@
 package com.mtwabpin.kolahal.shader
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,5 +35,17 @@ class ShaderWordsTest {
     @Test
     fun noWordsMatchNothing() {
         for (none in listOf("", " ", ",", " , ,")) assertFalse(has("anything", none))
+    }
+
+    /** A shader that was removed keeps its words (Undo puts it back): they don't keep another one-off with the word from playing. */
+    @Test
+    fun aShaderThatIsGoneDoesntPlay() {
+        val words = linkedMapOf("gone" to "alex", "hearts" to "Alex, picnic", "confetti" to "alex")
+        val said = "Alex\nRunning late"
+        assertEquals("hearts", ShaderWords.pick(words, said) { it != "gone" })
+        assertEquals("gone", ShaderWords.pick(words, said) { true })
+        assertEquals("confetti", ShaderWords.pick(words, said) { it == "confetti" })
+        assertNull(ShaderWords.pick(words, said) { false })
+        assertNull(ShaderWords.pick(words, "Bob\nhello") { true })
     }
 }

@@ -27,6 +27,9 @@ class ShaderCompletionTest {
         assertTrue(of("update", "").isEmpty())
         assertTrue(of("off", "").isEmpty())
         assertTrue(of("get", "glow", "", shared = listOf("glow")).isEmpty())
+        // copy offers the templates too, which make a shader of the user's; the others don't.
+        assertTrue(of("copy", "").containsAll(ShaderCatalog.BUNDLED + ShaderCatalog.TEMPLATES))
+        assertTrue(of("use", "").none { it in ShaderCatalog.TEMPLATES })
     }
 
     /** `set` completes a shader's parameters, then what one can be. */
@@ -45,6 +48,18 @@ class ShaderCompletionTest {
         assertTrue(of("use", "snow", "").isEmpty())
         val follow = ShaderCommands.completions(listOf("shader", "follow", "snow", "amount", ""), values = { listOf("battery") }, params = { params })
         assertEquals(listOf("battery", "off"), follow)
+    }
+
+    /** `edit` takes a shader's name: it completes the shaders there are, and not the templates. */
+    @Test
+    fun editCompletesTheShaders() {
+        assertTrue("edit" in of(""))
+        assertTrue("edit" in ShaderCommands.TAKE_NAME)
+        assertTrue(of("edit", "").containsAll(ShaderCatalog.BUNDLED))
+        assertTrue(of("edit", "").none { it in ShaderCatalog.TEMPLATES })
+        assertTrue(of("edit", "crt", "").isEmpty())
+        // No shader can be called edit: `shader edit` is always the subcommand.
+        assertTrue("edit" in ShaderCatalog.WORDS)
     }
 
     /** A word the command reads can't be a shader's name, or that shader couldn't be named. */

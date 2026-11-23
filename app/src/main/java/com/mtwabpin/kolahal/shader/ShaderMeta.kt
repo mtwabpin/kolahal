@@ -61,6 +61,14 @@ class ShaderMeta private constructor(
     /** It follows how the phone leans ([ShaderTilt]), so the motion sensor is read while it shows. */
     val tilt: Boolean = uses(ShaderTilt.NAME)
 
+    /**
+     * On home, the app selector is drawn under it with the rest of home: true for one that works on the
+     * text itself ([text]), as a CRT's curve and lines cover the whole screen. Any other is a picture
+     * behind the text. It takes a pixel close to the page's color for the page and one a little off it
+     * for faint text, so it would wash out an app icon. The selector is drawn over its picture instead.
+     */
+    val coversSelector: Boolean get() = text
+
     /** The uniforms it declares that nothing sets: each stays 0. */
     fun unset(): List<String> =
         uniforms.map { it.name }.filter { name -> name != INPUT && name !in KNOWN && params.none { it.name == name } }
@@ -83,6 +91,19 @@ class ShaderMeta private constructor(
 
         /** The uniform that goes from 0 to 1 as a one-off shader runs. */
         const val PROGRESS = "progress"
+
+        /**
+         * The uniform that holds the radius of the screen's rounded corners, in pixels of the surface: 0 where
+         * they are square, below Android 12, or on a surface that isn't the whole screen (a preview).
+         */
+        const val CORNER = "corner"
+
+        /**
+         * The uniform that holds the rectangle of the camera's cutout at the top of the screen, in pixels of the
+         * surface: left, top, right, bottom. All 0 where there is none (as in landscape, where the camera is at a
+         * side), or on a surface that isn't the whole screen (a preview).
+         */
+        const val CUTOUT = "cutout"
 
         /** The header's words for the frames a second ([fps]) and the seconds a touch lasts ([settles]). */
         const val FPS = "fps"
@@ -122,6 +143,8 @@ class ShaderMeta private constructor(
             CHARGING to listOf(1),
             PROGRESS to listOf(1),
             WALLPAPER to listOf(1),
+            CORNER to listOf(1),
+            CUTOUT to listOf(4),
         ) + COLORS.associateWith { listOf(4) }
 
         private val COMMENTS = Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)

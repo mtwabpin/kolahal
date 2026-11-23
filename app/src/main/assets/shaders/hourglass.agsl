@@ -1,0 +1,694 @@
+// @name Hourglass
+// @description An hourglass on a table: its top holds what is left of a usual day's screen time, and past a usual day the sand spills at the foot of the stand
+// @suits dark good, light good, wallpaper poor
+// @param level 0.0..2.0 = 0.0 Today against a usual day @follow screen.usual
+//
+// A turned wooden stand with three posts holds the glass, on a table against a wall, lit from the right and a
+// little from behind. The top bulb holds what is left of a usual day's screen time and the bottom one what is
+// spent: at a usual day the top is empty and the sand in the bottom stands at the mark in the theme's accent
+// color. Past that the sand lies in a heap at the foot of the stand, a larger one the further past. Its level
+// follows Kolahal's screen time against a usual day; without usage access it stays at 0, and the top is full.
+// A thin stream stands at the neck while there is sand left to run. Nothing moves, so it is drawn again only
+// when the level or the minute changes.
+//
+// The glass, the sand, the posts and the caps are solids turned about one upright axis, seen a little from
+// above: each pixel works out which surface it sees, from where the line of sight meets it, and how that
+// surface faces the light. The shadow on the table comes from the same shapes, with a bright ring where the
+// empty glass gathers the light. The lower part of the page is the theme's own, where the newest lines are;
+// as a wallpaper the table ends in a front edge. A frame costs about 0.85 of pond's on home and 0.8 of pond's
+// as a wallpaper: the glass and the caps are the costly part, and only their pixels pay for them.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float4 date;
+uniform float dark;
+uniform float wallpaper;
+uniform float level;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 accent;
+
+// Sizes in parts of the screen's height. The stand's foot meets the table at YB on the screen, under its axis.
+const float YB = 0.545;
+// A cap's thickness, the stand's height, and the glass between the caps: its top, its neck and half its height.
+const float CAP = 0.036;
+const float TOP = 0.430;
+const float G1 = 0.394;
+const float GM = 0.215;
+const float GH = 0.179;
+// The widest bulb, the neck, and the circle the posts stand on.
+const float RB = 0.078;
+const float RN = 0.0036;
+const float RP = 0.098;
+// The slopes of the sand: the cone below and the hollow above.
+const float KB = 0.62;
+const float KT = 0.58;
+// The mark on the glass, where the sand stands after a usual day.
+const float HM = 0.131;
+// The top of the cone then: the mark, and the slope across the glass's radius there.
+const float FULL = 0.1756;
+// The eye: how far it is from the stand and how high. A place at height H on a circle around the axis is
+// seen (EYE - H) / DEPTH from above, and the table goes back to the wall at WALLZ.
+const float DEPTH = 4.76;
+const float EYE = 0.952;
+const float WALLZ = -0.20;
+// Where the table's front edge is on the screen.
+const float EDGE = 0.805;
+// The room's own light on the things in it, from the front and the left, without shadows.
+const float3 FILL = float3(-0.45, 0.45, 0.77);
+// The heap's slope, and the radius of its round top.
+const float KH = 0.56;
+const float ROUND = 0.006;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise along a line, 0 to 1.
+float noise1(float x) {
+    float at = floor(x);
+    float f = fract(x);
+    return mix(hash(at), hash(at + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's color, from those of morning, day, evening and night. For most of the day one of the four counts
+// alone: then it is that one, and nothing is multiplied for the pixel.
+float3 pick(float4 w, float3 a, float3 b, float3 c, float3 d) {
+    if (w.y >= 1.0) return b;
+    if (w.w >= 1.0) return d;
+    if (w.x >= 1.0) return a;
+    if (w.z >= 1.0) return c;
+    return a * w.x + b * w.y + c * w.z + d * w.w;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends. As a
+// live wallpaper, with no log over it, it is this shader's all the way down.
+float ground(float y) {
+    return y < 0.70 ? 0.80 * clamp((y - 0.55) / 0.15, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.70) / 0.16, 0.0, 1.0);
+}
+
+// The colors of the things in the room, for a dark theme's dim room and a light theme's pale one. They are
+// worked out where they are used.
+float3 wallColor() {
+    return dark > 0.5 ? float3(0.300, 0.275, 0.255) : float3(0.930, 0.910, 0.880);
+}
+
+float3 tableColor() {
+    return dark > 0.5 ? float3(0.240, 0.165, 0.115) : float3(0.880, 0.780, 0.640);
+}
+
+float3 woodColor() {
+    return dark > 0.5 ? float3(0.300, 0.190, 0.115) : float3(0.600, 0.430, 0.280);
+}
+
+float3 sandColor() {
+    return dark > 0.5 ? float3(0.773, 0.589, 0.350) : float3(0.960, 0.800, 0.560);
+}
+
+// How far from above a circle at height H is seen: its height on the screen is this part of its width.
+float slant(float H) {
+    return (EYE - H) / DEPTH;
+}
+
+// The glass's radius at height H: a round shoulder at each cap, the widest a little way in, and a long taper
+// to the neck.
+float glassR(float H) {
+    float a = clamp(abs(H - GM) / GH, 0.0, 1.0);
+    float s = clamp(a / 0.60, 0.0, 1.0);
+    float rise = s * (1.1 + s * (0.8 - 0.9 * s));
+    float t = max(a - 0.60, 0.0) / 0.52;
+    return RN + (RB - RN) * rise * sqrt(max(1.0 - t * t, 0.0));
+}
+
+// A cap's radius at h from its outer face (0) to the face the glass stands on (CAP): a rounded foot, a small
+// cove, a full round bead, a fillet and a rounded edge.
+float capR(float h) {
+    if (h < 0.0035) return 0.115 + 0.004 * sqrt(max(h, 0.0) / 0.0035);
+    if (h < 0.0065) return 0.119 - 0.002 * sin(3.1416 * (h - 0.0035) / 0.003);
+    if (h < 0.0235) {
+        float u = (h - 0.015) / 0.0085;
+        return 0.119 + 0.007 * sqrt(max(1.0 - u * u, 0.0));
+    }
+    if (h < 0.027) return 0.117;
+    float u = (h - 0.027) / 0.009;
+    return 0.112 + 0.005 * sqrt(max(1.0 - u * u, 0.0));
+}
+
+// A post's radius at height H: a long slim shaft, and at each end a ball, a ring and a collar.
+float postR(float H) {
+    float v = min(H - CAP, G1 - H);
+    float u = (H - CAP) / (G1 - CAP);
+    float r = 0.0046 + 0.0007 * sin(3.1416 * u);
+    float b = (v - 0.013) / 0.0048;
+    r += 0.0030 * exp(-b * b);
+    b = (v - 0.0255) / 0.0016;
+    r += 0.0017 * exp(-b * b);
+    b = (v - 0.0035) / 0.0030;
+    r += 0.0016 * exp(-b * b);
+    return r;
+}
+
+// How much of the light reaches P (across, up, and towards the viewer from the axis) past the stand: 1 is all of it. The way to
+// the light passes nearest the axis at some height, and what the stand has there (a cap, glass, sand or a post)
+// decides. Edges are softer the farther P is from what casts them. Empty glass lets most of the light through,
+// and gathers some of it into a brighter ring.
+float shade(float3 P, float3 L, float4 sand) {
+    float2 dir = L.xz;
+    float dd = dot(dir, dir);
+    float through = 1.0;
+    float t = -dot(P.xz, dir) / dd;
+    // A way to the light that passes far from the axis, or goes away from it, or above the stand, meets nothing.
+    float H = P.y + t * L.y;
+    float d = length(P.xz + t * dir);
+    float soft = 0.0015 + 0.035 * t;
+    if (t < -0.02 || d > 0.135 + soft || H > TOP + soft) return 1.0;
+    if (t > 0.0) {
+        if (H > -soft && H < TOP + soft && d < 0.13 + soft) {
+            float tall = smoothstep(-soft, soft, H) * (1.0 - smoothstep(TOP - soft, TOP + soft, H));
+            float caps = (1.0 - smoothstep(CAP - soft, CAP + soft, H) + smoothstep(G1 - soft, G1 + soft, H)) * tall;
+            through *= 1.0 - caps * (1.0 - smoothstep(-soft, soft, d - 0.122));
+            if (H > CAP - soft && H < G1 + soft) {
+                float rg = glassR(clamp(H, CAP, G1));
+                float inGlass = 1.0 - smoothstep(-soft, soft, d - rg);
+                float sandy = 0.0;
+                if (H > GM) {
+                    if (sand.z > 0.0) sandy = 1.0 - smoothstep(-soft, soft, H - sand.x - KT * min(d, rg));
+                } else if (sand.w > 0.0) {
+                    sandy = 1.0 - smoothstep(-soft, soft, H - sand.y + KB * d);
+                }
+                // Glass seen edge on turns the light away: its shadow has a dark rim, a paler middle and a
+                // bright ring where the curved glass gathers the light.
+                float across = d / max(rg, 0.001);
+                float ring = across - 0.45;
+                float caustic = 1.3 * exp(-ring * ring / 0.025) * (1.0 - smoothstep(0.10, 0.50, t));
+                float pane = mix(0.72, 0.25, smoothstep(0.70, 0.95, across));
+                inGlass *= smoothstep(CAP - soft, CAP + soft, H) * (1.0 - smoothstep(G1 - soft, G1 + soft, H));
+                through *= mix(1.0, (pane + caustic) * (1.0 - sandy), inGlass);
+            }
+        }
+    }
+    for (int i = 0; i < 3; i++) {
+        float2 at = i == 0 ? float2(0.0970, 0.0136) : (i == 1 ? float2(-0.0603, 0.0772) : float2(-0.0367, -0.0909));
+        float2 o = P.xz - at;
+        float tp = -dot(o, dir) / dd;
+        if (tp > 0.0) {
+            float Hp = P.y + tp * L.y;
+            float sp = 0.0012 + 0.035 * tp;
+            float dp = length(o + tp * dir);
+            if (Hp > CAP - sp && Hp < G1 + sp && dp < 0.0065 + sp) {
+                float tall = smoothstep(CAP - sp, CAP + sp, Hp) * (1.0 - smoothstep(G1 - sp, G1 + sp, Hp));
+                through *= 1.0 - 0.95 * tall * (1.0 - smoothstep(-sp, sp, dp - 0.0058));
+            }
+        }
+    }
+    return through;
+}
+
+// Sand with the normal n, at a place whose two coordinates along the surface are at: grains of a few shades,
+// a bright one now and then, and the light on it.
+float3 sandLit(float3 n, float2 at, float3 L, float3 amb, float3 lamp, float lit) {
+    float3 sandA = sandColor();
+    float2 g2 = at * 1500.0;
+    float g = hash2(floor(g2));
+    float tone = 0.86 + 0.22 * g + 0.10 * (noise1(g2.x * 0.08 + g2.y * 0.057) - 0.5);
+    float diffuse = clamp((dot(n, L) + 0.45) / 1.45, 0.0, 1.0);
+    float3 c = sandA * tone * (amb * (0.45 + 0.75 * max(dot(n, FILL), 0.0)) + lamp * diffuse * lit);
+    return c + lamp * lit * step(0.985, g) * 0.25 * diffuse;
+}
+
+// Turned wood at P with the normal n. along runs with the grain and across it; worn is how much the varnish is
+// rubbed off here.
+float3 woodLit(float3 n, float3 P, float2 grain, float3 L, float3 amb, float3 lamp, float lit, float worn) {
+    float figure = noise1(grain.x * 14.0 + grain.y * 90.0 + 7.0 * sin(grain.x * 31.0));
+    float lines = 0.5 + 0.5 * sin(grain.y * 1400.0 + 9.0 * figure);
+    float tone = 0.80 + 0.22 * figure + 0.10 * lines * lines + 0.05 * hash2(floor(grain * 2400.0));
+    float3 albedo = woodColor() * tone * (1.0 + 0.45 * worn);
+    float diffuse = max(dot(n, L), 0.0);
+    float3 half1 = normalize(L + float3(0.0, 0.2, 1.0));
+    float spec = pow(max(dot(n, half1), 0.0), 26.0) * (0.22 - 0.16 * worn);
+    return albedo * (amb * (0.40 + 0.85 * max(dot(n, FILL), 0.0)) + lamp * diffuse * lit) + lamp * spec * lit;
+}
+
+// A cap, seen at (x, y): its side, turned with moldings, and its flat face. base is the height of its lower
+// face; upper is 1 for the top cap, whose profile is turned over. The line of sight is followed down from the
+// highest place it could meet the side, and the first place inside the profile is the one seen. Returns the
+// color and how much of the pixel the cap covers.
+float4 capColor(float x, float y, float base, float upper, float px, float3 L, float3 amb, float3 lamp) {
+    if (abs(x) > 0.128) return float4(0.0);
+    float H0 = YB - y;
+    float hi = min(H0 + slant(H0) * 0.127, base + CAP - 0.0002);
+    float lo = max(H0, base);
+    float hitH = -1.0;
+    float hitR = 0.0;
+    if (hi > lo && abs(x) < 0.10) {
+        // Away from the outline the side is found by a few steps of its own equation.
+        float H = hi;
+        for (int i = 0; i < 2; i++) {
+            float R = capR(clamp(upper > 0.5 ? base + CAP - H : H - base, 0.0, CAP));
+            H = min(H0 + slant(H) * sqrt(R * R - x * x), base + CAP - 0.0002);
+        }
+        hitH = H;
+        hitR = capR(clamp(upper > 0.5 ? base + CAP - H : H - base, 0.0, CAP));
+    } else if (hi > lo && abs(x) < 0.127) {
+        float prevH = hi;
+        float prevG = -1.0;
+        for (int i = 0; i < 11; i++) {
+            float H = mix(hi, lo, float(i) / 10.0);
+            float R = capR(upper > 0.5 ? base + CAP - H : H - base);
+            float g = slant(H) * sqrt(max(R * R - x * x, 0.0)) - (H - H0);
+            if (g >= 0.0 && R > abs(x)) {
+                hitH = i == 0 ? H : mix(prevH, H, prevG / (prevG - g));
+                hitR = R;
+                break;
+            }
+            prevH = H;
+            prevG = g;
+        }
+    }
+    float Hs = hitH > 0.0 ? hitH : clamp(H0, base, base + CAP);
+    float hc = upper > 0.5 ? base + CAP - Hs : Hs - base;
+    float R = capR(hc);
+    float R0 = R;
+    if (abs(x) > 0.10) R0 = capR(upper > 0.5 ? base + CAP - clamp(H0, base, base + CAP) : clamp(H0, base, base + CAP) - base);
+    float Rb = upper > 0.5 ? 0.112 : 0.115;
+    float bottomEdge = slant(base) * sqrt(max(Rb * Rb - x * x, 0.0)) + H0 - base;
+    float side = hi > lo ? min(clamp((max(max(hitR, R0), R) - abs(x)) / px + 0.5, 0.0, 1.0), clamp(bottomEdge / px + 0.5, 0.0, 1.0)) : 0.0;
+    // The flat face: the one the glass stands in at the bottom, the top of the stand above.
+    float Hf = upper > 0.5 ? TOP : CAP;
+    float Rf = capR(upper > 0.5 ? 0.0 : CAP);
+    float e = slant(Hf);
+    float faceZ = (y - YB + Hf) / e;
+    float rho = length(float2(x, faceZ));
+    float toEdge = (Rf - rho) / max(length(float2(x / max(rho, 0.0001), faceZ / max(rho, 0.0001) / e)), 0.001);
+    float onFace = clamp(toEdge / px + 0.5, 0.0, 1.0);
+    float cover = max(side, onFace);
+    if (cover <= 0.0) return float4(0.0);
+
+    // The side's place and normal, and the face's; at the face's edge the two are blended.
+    float z = sqrt(max(R * R - x * x, 0.0));
+    float slope = (capR(min(hc + 0.0004, CAP)) - R) / 0.0004;
+    if (upper > 0.5) slope = -slope;
+    float3 n = normalize(mix(float3(x / R, -slope, z / R), float3(0.0, 1.0, 0.0), onFace));
+    float3 P = mix(float3(x, Hs, z), float3(x, Hf, faceZ), onFace);
+    float2 grain = mix(float2(x, Hs), float2(faceZ * 3.0, x * 0.3), onFace);
+    float bead = (hc - 0.015) / 0.004;
+    float worn = exp(-bead * bead) * smoothstep(0.35, 0.9, noise1(x * 70.0 + upper * 9.0 + Hs * 300.0)) * 0.7 * (1.0 - onFace);
+    float3 c = woodLit(n, P, grain, L, amb, lamp, 1.0, worn);
+    // The foot of the bottom cap is darker where it meets the table.
+    float mark = upper < 0.5 ? 1.0 - 0.45 * exp(-hc / 0.0025) : 1.0;
+    // Fine rings turned in the face; the bottom one has the seat the glass stands in.
+    float rings = 1.0 - 0.30 * (1.0 - smoothstep(0.5, 1.5, abs(rho - 0.100) * e / px));
+    if (upper > 0.5) {
+        rings *= 1.0 - 0.20 * (1.0 - smoothstep(0.5, 1.5, abs(rho - 0.040) * e / px));
+        rings *= 1.0 + 0.10 * (1.0 - smoothstep(0.036, 0.040, rho));
+    } else {
+        rings *= 1.0 - 0.45 * (1.0 - smoothstep(0.052, 0.062, rho));
+    }
+    return float4(c * mix(mark, rings, onFace), cover);
+}
+
+// The room: the wall and the table, the stand's shadow on both, and the sand spilled near its foot.
+float3 room(float x, float y, float px, float3 L, float3 amb, float3 lamp,
+    float4 sand, float spill) {
+    float yh = YB - EYE;
+    float wallY = yh + DEPTH * EYE / (DEPTH - WALLZ);
+    float3 color;
+    if (y < wallY) {
+        float k = (DEPTH - WALLZ) / DEPTH;
+        float3 P = float3(x * k, EYE - (y - yh) * k, WALLZ);
+        float pool = exp(-((P.x - 0.24) * (P.x - 0.24) / 0.20 + (P.y - 0.30) * (P.y - 0.30) / 0.16));
+        float lit = 1.0;
+        color = wallColor() * (amb * (0.55 + 0.45 * pool) + lamp * 0.55 * (0.25 + 0.95 * pool) * lit);
+        // Where the wall meets the table it is darker.
+        if (P.y < 0.05) color *= 1.0 - 0.30 * exp(-P.y / 0.010);
+    } else {
+        float Z = DEPTH - DEPTH * EYE / (y - yh);
+        float X = x * (DEPTH - Z) / DEPTH;
+        float3 P = float3(X, 0.0, Z);
+        // The light comes from the right, so the stand's shadow falls only to its left.
+        float lit = X < 0.14 ? shade(P, L, sand) : 1.0;
+        if (spill > 0.0) {
+            // The heap's own shadow, away from the light.
+            float tall = 0.047 * pow(spill, 0.4);
+            float2 o = P.xz - float2(0.150, 0.105) + L.xz * (0.5 * tall / L.y);
+            lit *= 1.0 - 0.8 * (1.0 - smoothstep(0.2 * tall / KH, 1.05 * tall / KH, length(o)));
+        }
+        float pool = exp(-((X - 0.12) * (X - 0.12) / 0.30 + (Z - 0.05) * (Z - 0.05) / 0.45));
+        // Boards that run towards the viewer, with their grain and a fine seam between them.
+        float scale = (DEPTH - Z) / DEPTH;
+        float board = X / 0.17 + 0.37;
+        float id = floor(board);
+        float own = hash(id * 5.3);
+        float figure = noise1(X * 60.0 + id * 7.0 + Z * 1.3);
+        float rings = sin((X + 0.006 * sin(Z * 9.0 + id)) * (180.0 + 90.0 * own) + id * 5.0 + 3.0 * figure);
+        float tone = 0.93 + 0.07 * own + 0.03 * rings * rings * (figure - 0.2) + 0.05 * (figure - 0.5);
+        float seam = 1.0 - 0.30 * (1.0 - smoothstep(0.3, 1.2, (0.5 - abs(fract(board) - 0.5)) * 0.17 / (px * scale)));
+        // The table's varnish gives back the light as a soft sheen.
+        float2 s1 = float2(X - 0.16, Z + 0.12);
+        float sheen = dot(s1, s1) < 0.03 ? exp(-(s1.x * s1.x / 0.03 + s1.y * s1.y / 0.02)) : 0.0;
+        color = tableColor() * tone * seam * (amb * (0.55 + 0.45 * pool) + lamp * 1.3 * L.y * (0.20 + 0.80 * pool) * lit) + lamp * sheen * lit * mix(0.06, 0.10, dark);
+        // The table is darker close under the stand and along the wall.
+        float rho = length(P.xz);
+        if (rho < 0.17) color *= 1.0 - 0.55 * exp(-max(rho - 0.116, 0.0) / 0.010);
+        if (Z < WALLZ + 0.12) color *= 1.0 - 0.30 * exp(-(Z - WALLZ) / 0.025);
+        // Grains thrown about around the heap.
+        if (spill > 0.0) {
+            float2 o = P.xz - float2(0.150, 0.105);
+            float reach = 0.10 + 0.08 * spill;
+            float close = 1.0 - smoothstep(0.02, reach, length(o * float2(0.9, 1.3)));
+            if (close > 0.0) {
+            float g = hash2(floor(P.xz * 1300.0));
+            float3 dust = sandLit(float3(0.0, 1.0, 0.0), P.xz, L, amb, lamp, lit);
+            color = mix(color, dust, close * close * min(spill * 3.0, 1.0) * (0.35 + 0.65 * step(1.0 - 0.6 * close, g)));
+            }
+        }
+    }
+    return color;
+}
+
+half4 main(float2 xy) {
+    float yRaw = xy.y / resolution.y;
+    float4 here = float4(content.eval(xy));
+    if (yRaw > 0.86 && wallpaper < 0.5) return half4(here);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(yRaw) * (1.0 - wallpaper));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
+    // The scene is measured in heights from the middle of the screen, so a wider screen shows more of the room.
+    float px = 1.0 / resolution.y;
+    float x = (xy.x - 0.5 * resolution.x) * px;
+    float y = yRaw - 0.05 * wallpaper;
+
+    // The hour's light. It comes from the right: a window by day, a lamp at night. A dark theme's room is
+    // dim at every hour; a light one's is a pale room in daylight, and at night a pale moonlit one.
+    float4 w = hours(date.w / 3600.0);
+    float3 amb, lamp;
+    if (dark > 0.5) {
+        amb = pick(w, float3(0.150, 0.160, 0.200), float3(0.165, 0.165, 0.175), float3(0.170, 0.140, 0.140), float3(0.105, 0.092, 0.088));
+        lamp = pick(w, float3(0.560, 0.590, 0.680), float3(0.660, 0.640, 0.590), float3(0.860, 0.580, 0.360), float3(0.800, 0.600, 0.400));
+    } else {
+        amb = pick(w, float3(0.660, 0.660, 0.700), float3(0.680, 0.680, 0.680), float3(0.670, 0.610, 0.590), float3(0.660, 0.680, 0.740));
+        lamp = pick(w, float3(0.470, 0.440, 0.380), float3(0.460, 0.450, 0.410), float3(0.580, 0.420, 0.250), float3(0.300, 0.320, 0.380));
+    }
+    float rise = dot(w, float4(0.62, 0.80, 0.48, 0.72));
+    float3 L = normalize(float3(0.40, rise, -0.62));
+    // The room's light on the stand and the sand: more of it in a dark theme, where the room is dim.
+    float3 fill = mix(amb, amb * 1.6 + lamp * 0.22, dark);
+
+    // In the wallpaper the table ends in a front edge, with the dark under it below.
+    if (y > EDGE) {
+        float3 under;
+        float side = 0.85 + 0.15 * clamp(x * 2.0 + 0.5, 0.0, 1.0);
+        if (y < EDGE + 0.022) {
+            // The edge's own face, with a line of light along its top.
+            under = tableColor() * (amb * 0.75 + lamp * 0.30) * (0.95 - 0.35 * (y - EDGE) / 0.022) * side;
+            under += lamp * 0.22 * exp(-(y - EDGE) / (1.5 * px)) * side;
+        } else {
+            float deep = clamp((y - EDGE) / 0.15, 0.0, 1.0);
+            under = tableColor() * amb * mix(mix(0.66, 0.52, deep), mix(0.34, 0.22, deep), dark) * side;
+        }
+        under = mix(under, float3(bg.rgb), ground(yRaw) * (1.0 - wallpaper)) + (hash2(xy) - 0.5) / 255.0;
+        return half4(float4(mix(letters, under, amount), mix(here.a, 1.0, amount)));
+    }
+
+    // Low on home the page is nearly the theme's own: there the table is drawn plain, without its grain or
+    // shadows, which would not show.
+    float fade = ground(yRaw) * (1.0 - wallpaper);
+    if (fade > 0.79) {
+        float Z = DEPTH - DEPTH * EYE / (y - YB + EYE);
+        float X = x * (DEPTH - Z) / DEPTH;
+        float pool = exp(-((X - 0.12) * (X - 0.12) / 0.30 + (Z - 0.05) * (Z - 0.05) / 0.45));
+        float3 plain = tableColor() * 0.95 * (amb * (0.55 + 0.45 * pool) + lamp * 1.3 * L.y * (0.20 + 0.80 * pool));
+        plain = mix(plain, float3(bg.rgb), fade) + (hash2(xy) - 0.5) / 255.0;
+        return half4(float4(mix(letters, plain, amount), mix(here.a, 1.0, amount)));
+    }
+
+    // The sand. What is spent of a usual day is in the bottom: a cone whose top rises with it, standing at the
+    // mark on the glass at a usual day. What is left is in the top, around a hollow whose middle sinks to the
+    // neck as it runs out. Past a usual day the rest is a heap on the table.
+    float spent = clamp(level, 0.0, 1.0);
+    float left = 1.0 - spent;
+    float spill = clamp(level - 1.0, 0.0, 1.0);
+    // The two follow the shapes of the bulbs, so that the sand above and below adds up to the same at any level.
+    float peak = CAP + (FULL - CAP) * pow(spent, 0.58);
+    float hollow = GM - 0.012 + 0.141 * min(0.26 + 0.74 * left, 1.0) * sqrt(min(left * 10.0, 1.0));
+    float4 sand = float4(hollow, peak, left, spent);
+
+    bool stand = abs(x) < 0.135 && y > YB - TOP - 0.03 && y < YB + 0.03;
+    float3 color;
+    float glassOn = 0.0;
+    float hf = YB - y;
+    float rf = 0.0;
+    float bent = x;
+    if (stand && abs(x) < RB + 0.002 && y > YB - G1 - 0.02 && y < YB - CAP + 0.02) {
+        // The glass's front at this pixel: the height where the line of sight meets it.
+        for (int i = 0; i < 2; i++) {
+            float rr = glassR(hf);
+            hf = YB - y + slant(hf) * sqrt(max(rr * rr - x * x, 0.0));
+        }
+        rf = glassR(hf);
+        if (hf > CAP - 0.004 && hf < G1 + 0.004) glassOn = clamp((rf - abs(x)) / px + 0.5, 0.0, 1.0);
+        // What is behind the glass is bent towards its edges.
+        if (glassOn > 0.0) {
+            float nx = x / rf;
+            bent = x + sign(x) * rf * 0.24 * nx * nx;
+        }
+    }
+
+    // What of the sand the glass shows here: its normal, its place, how much of the pixel it covers and its shade.
+    // It is lit once, later.
+    float nx = 0.0;
+    float nz = 1.0;
+    float3 sn = float3(0.0, 1.0, 0.0);
+    float2 sat = float2(x, 0.0);
+    float sandOn = 0.0;
+    float tone = 1.0;
+    if (glassOn > 0.0) {
+        float e = slant(hf);
+        float zf = sqrt(max(rf * rf - x * x, 0.0));
+        nx = clamp(x / rf, -1.0, 1.0);
+        nz = zf / rf;
+        float h0 = YB - y;
+        bool top = hf > GM;
+        // Sand against the front of the glass.
+        float wall = top ? (left > 0.0 ? hollow + KT * rf : -1.0) : (spent > 0.0 ? peak - KB * rf : -1.0);
+        if (hf < wall + px) {
+            sn = normalize(float3(nx, 0.0, nz));
+            sat = float2(x * (1.0 + 0.3 * nx * nx), hf);
+            sandOn = clamp((wall - hf) / px + 1.0, 0.0, 1.0);
+            // The bottom's sand lies in thin layers, as it fell.
+            if (!top) tone = 0.98 + 0.025 * sin((hf + KB * rf) * 900.0 + 5.0 * noise1(x * 120.0));
+        }
+        if (sandOn < 1.0 && top && left > 0.0) {
+            // The hollow's surface, seen from a little above.
+            float B = h0 - hollow;
+            float D = B * B - (KT * KT - e * e) * x * x;
+            if (D > 0.0) {
+                float Z = (B * e + KT * sqrt(D)) / (KT * KT - e * e);
+                float H = h0 + e * Z;
+                float rho = length(float2(x, Z));
+                if (B + e * Z >= 0.0 && Z < zf && rho < glassR(H) && H > GM - 0.01) {
+                    float2 u = float2(x, Z) / max(rho, 0.0001);
+                    sn = normalize(float3(-KT * u.x, 1.0, -KT * u.y));
+                    sat = float2(x, Z);
+                    sandOn = max(sandOn, clamp(sqrt(D) / px * 0.5, 0.0, 1.0));
+                    // Streaks where the sand slides down to the neck, and a dark hole there.
+                    tone = (0.93 + 0.10 * noise1(u.x * 7.0 + rho * 30.0)) * (1.0 - 0.6 * exp(-rho / 0.006));
+                }
+            }
+        } else if (sandOn < 1.0 && !top && spent > 0.0) {
+            // The cone's surface, with a dimple where the stream lands.
+            float A = peak - h0;
+            float D = A * A - (KB * KB - e * e) * x * x;
+            if (A > 0.0 && D > 0.0) {
+                float Z = (KB * sqrt(D) - A * e) / (KB * KB - e * e);
+                float H = h0 + e * Z;
+                float rho = length(float2(x, Z));
+                if (Z < zf && H > CAP && rho < glassR(H)) {
+                    float2 u = float2(x, Z) / max(rho, 0.0001);
+                    float slope = -KB + (left > 0.0 ? 133.0 * rho * exp(-rho * rho / 0.00006) : 0.0);
+                    sn = normalize(float3(-slope * u.x, 1.0, -slope * u.y));
+                    sat = float2(x, Z);
+                    sandOn = max(sandOn, clamp(sqrt(D) / px * 0.5, 0.0, 1.0));
+                    tone = 1.0;
+                }
+            }
+        }
+        // The thin stream from the neck to the top of the cone, while there is sand left to run. It shimmers as
+        // the grains fall.
+        if (left > 0.0 && abs(x) < 0.0016 && h0 < GM && h0 > peak - 0.006 && hf >= wall) {
+            float A = peak - h0;
+            float D = A * A - (KB * KB - e * e) * x * x;
+            bool hidden = spent > 0.0 && A > 0.0 && D > 0.0 && KB * sqrt(max(D, 0.0)) - A * e > 0.0;
+            if (!hidden) {
+                sn = normalize(float3(x / 0.0016, 0.0, sqrt(max(1.0 - x * x / 2.56e-6, 0.0))));
+                sat = float2(x, h0);
+                sandOn = clamp((0.0016 - abs(x)) / px + 0.3, 0.0, 1.0) * (1.0 - smoothstep(GM - 0.004, GM, h0));
+                tone = 0.72 + 0.28 * noise1(h0 * 900.0) + 0.15 * noise1(h0 * 2600.0);
+            }
+        }
+    }
+
+    // The caps and the posts. A pixel is near at most one cap and one post, so each is worked out once: the
+    // ones behind the glass are drawn now and the ones in front of it after it.
+    float4 capTop = float4(0.0);
+    float4 capLow = float4(0.0);
+    float4 postFront = float4(0.0);
+    if (stand && (y > YB - CAP - 0.023 || y < YB - G1 + 0.017)) {
+        float upper = y < 0.3 ? 1.0 : 0.0;
+        float4 c = capColor(upper > 0.5 ? x : bent, y, upper > 0.5 ? G1 : 0.0, upper, px, L, fill, lamp);
+        if (upper > 0.5) capTop = c; else capLow = c;
+    }
+    // The room, unless a cap or the sand covers this pixel.
+    color = float3(0.0);
+    if (capLow.a < 1.0 && capTop.a < 1.0 && (glassOn < 1.0 || sandOn < 1.0)) color = room(bent, y, px, L, fill, lamp, sand, spill);
+    color = mix(color, capLow.rgb, capLow.a);
+    if (stand) {
+        // The posts: one at the back, behind the glass, and two in front.
+        float3 at = float3(-0.0367, -0.0909, 1.0);
+        if (abs(x - 0.0970) < 0.0095) at = float3(0.0970, 0.0136, 0.0);
+        if (abs(x + 0.0603) < 0.0095) at = float3(-0.0603, 0.0772, 0.0);
+        float px1 = at.z > 0.5 ? bent : x;
+        float H = YB - y + slant(YB - y) * at.y;
+        if (H > CAP && H < G1 && abs(px1 - at.x) < 0.0095) {
+            float rp = postR(H);
+            float dx = px1 - at.x;
+            float on = clamp((rp - abs(dx)) / px + 0.5, 0.0, 1.0);
+            if (on > 0.0) {
+                float slope = (postR(H + 0.0005) - postR(H - 0.0005)) / 0.001;
+                float3 n = normalize(float3(dx / rp, -slope, sqrt(max(1.0 - dx * dx / (rp * rp), 0.0))));
+                float3 P = float3(at.x + dx, H, at.y);
+                float v = min(H - CAP, G1 - H);
+                float worn = 0.5 * exp(-(v - 0.013) * (v - 0.013) / 0.00002) * max(n.x, 0.0) * (1.0 - at.z);
+                float3 c = woodLit(n, P, float2(dx, H * 0.2), L, fill, lamp, shade(P, L, sand) * (1.0 - 0.3 * at.z), worn);
+                if (at.z > 0.5) color = mix(color, c, on); else postFront = float4(c, on);
+            }
+        }
+    }
+
+    if (glassOn > 0.0) {
+        float3 inner = color;
+        if (sandOn > 0.0) inner = mix(inner, sandLit(sn, sat, L, fill, lamp, 0.75) * tone, sandOn);
+
+        // The glass itself: a faint tint, the room reflected more towards its edges, a thin bright edge with a
+        // darker line inside it, a long reflection of the window down the right side and a fainter one of the
+        // room on the left.
+        float slopeG = (glassR(hf + 0.0005) - rf) / 0.0005;
+        float3 n = normalize(float3(nx, -slopeG * nz, nz));
+        float fres = 0.04 + 0.96 * pow(1.0 - clamp(n.z, 0.0, 1.0), 5.0);
+        float3 env = mix(wallColor() * amb * 1.4, lamp * 0.9 + amb * 0.3, 0.25 + 0.5 * max(n.x, 0.0));
+        float3 g = inner * mix(float3(0.96, 0.985, 0.975), float3(1.0), 0.3);
+        g = mix(g, env, clamp(fres, 0.0, 0.75));
+        float edgePx = (rf - abs(x)) / px;
+        float rim = exp(-edgePx / 1.1);
+        float inside = exp(-(edgePx - 3.5) * (edgePx - 3.5) / 2.0);
+        g = mix(g, g * mix(0.55, 0.75, dark), inside * 0.6);
+        g += (lamp + amb) * rim * mix(0.40, 0.55, dark);
+        float band = clamp(1.6 - abs(nx - 0.39) * 22.0, 0.0, 1.0);
+        float along = smoothstep(0.012, 0.03, abs(hf - GM)) * (1.0 - smoothstep(0.80, 0.98, abs(hf - GM) / GH));
+        float frame = 1.0 - 0.85 * (1.0 - smoothstep(0.002, 0.004, abs(abs(hf - GM) - 0.105)));
+        g += (lamp * 0.6 + 0.25) * band * along * frame * mix(0.55, 0.75, dark);
+        float faint = max(1.0 - abs(nx + 0.75) * 12.0, 0.0) * along;
+        g += (amb + lamp * 0.2) * faint * mix(0.18, 0.25, dark);
+        float3 half1 = normalize(L + float3(0.0, 0.15, 1.0));
+        g += lamp * pow(max(dot(n, half1), 0.0), 90.0) * 0.9;
+
+        // The mark: a short stroke of paint on the front of the bottom bulb.
+        float markD = abs(hf - HM) / px;
+        if (markD < 3.0 && nx > -0.74 && nx < -0.28) {
+            float ends = smoothstep(-0.74, -0.70, nx) * (1.0 - smoothstep(-0.32, -0.28, nx));
+            float3 paint = float3(accent.rgb) * (0.55 + 0.45 * max(dot(n, L), 0.0) + 0.25 * dark);
+            g = mix(g, paint, ends * clamp(1.6 - markD * 0.7, 0.0, 1.0));
+        }
+        // The glass is darker where it goes down into each cap.
+        g *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.010, min(hf - CAP, G1 - hf)));
+        color = mix(color, g, glassOn);
+    }
+    color = mix(color, postFront.rgb, postFront.a);
+
+    // The heap of spilled sand at the foot of the stand: two cones with round tops, the second only once it is
+    // well past. Each is met by the line of sight as the cone below is, with a round top of radius ROUND.
+    if (spill > 0.0 && x > 0.03 && x < 0.245 && y > YB - 0.035 && y < YB + 0.06) {
+        float best = -1.0;
+        float3 hit = float3(0.0);
+        float cover = 0.0;
+        float edge = 0.0;
+        for (int i = 0; i < 2; i++) {
+            float2 at = i == 0 ? float2(0.150, 0.105) : float2(0.085, 0.215);
+            float tall = i == 0 ? 0.047 * pow(spill, 0.4) : 0.026 * pow(clamp((spill - 0.30) / 0.70, 0.0, 1.0), 0.4);
+            if (tall > 0.0) {
+                float e = slant(0.0);
+                float lx = x - at.x;
+                float h0 = YB + e * at.y - y;
+                float A = tall + ROUND - h0;
+                float D = A * A - (KH * KH - e * e) * (lx * lx + ROUND * ROUND / (KH * KH));
+                if (A > 0.0 && D > 0.0) {
+                    float Z = (KH * sqrt(D) - A * e) / (KH * KH - e * e);
+                    float H = h0 + e * Z;
+                    if (H > -px && at.y + Z > best) {
+                        best = at.y + Z;
+                        hit = float3(lx, H, Z);
+                        cover = clamp(sqrt(D) / px * 0.4, 0.0, 1.0) * clamp(H / px + 1.0, 0.0, 1.0);
+                        edge = sqrt(D) / px;
+                    }
+                }
+            }
+        }
+        // Not where the cap is nearer.
+        if (cover > 0.0 && length(float2(x, best)) > 0.105) {
+            float rho = length(hit.xz);
+            float2 u = hit.xz / max(rho, 0.0001);
+            float k = KH * KH * rho / sqrt(KH * KH * rho * rho + ROUND * ROUND);
+            float lump = noise1(hit.x * 700.0 + hit.z * 430.0) - 0.5;
+            float3 n = normalize(float3(k * u.x + 0.3 * lump, 1.0, k * u.y - 0.2 * lump));
+            float3 P = float3(x, hit.y, best);
+            float lit = 1.0;
+            float3 c = sandLit(n, float2(x, best), L, fill, lamp, lit);
+            // Its side towards the light is brighter and the side away darker than the wrapped light alone gives,
+            // and the light catches its outline.
+            c *= 0.72 + 0.55 * max(dot(n, L), 0.0) * lit;
+            c += lamp * sandColor() * 0.35 * lit * (1.0 - clamp(edge * 0.08, 0.0, 1.0));
+            color = mix(color, c * (0.7 + 0.3 * smoothstep(0.0, 0.006, hit.y)), cover);
+        }
+    }
+
+    color = mix(color, capTop.rgb, capTop.a);
+
+    // Over the log in a light theme what is dark goes pale, so the theme's dark text reads on the wood.
+    if (dark < 0.5 && wallpaper < 0.5) {
+        float dim = 1.0 - smoothstep(0.25, 0.75, dot(color, float3(0.299, 0.587, 0.114)));
+        color = mix(color, float3(bg.rgb), 0.8 * dim);
+    }
+    color = mix(color, float3(bg.rgb), fade);
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

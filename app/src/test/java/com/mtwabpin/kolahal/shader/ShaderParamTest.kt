@@ -107,8 +107,9 @@ class ShaderParamTest {
             assertEquals(name, emptyList<String>(), ShaderMeta.problems(source))
             val params = ShaderMeta.parse(source).params
             for (p in params) {
-                val uses = Regex("\\b${p.name}\\b").findAll(source.substringAfter("half4 main(")).count()
-                assertTrue("$name doesn't use ${p.name}", uses > 0)
+                // Its uniform line and at least one use, in main or in a function before it.
+                val uses = Regex("\\b${p.name}\\b").findAll(source.replace(Regex("//[^\n]*"), "")).count()
+                assertTrue("$name doesn't use ${p.name}", uses > 1)
                 assertNotNull(p.title)
             }
             params.isNotEmpty()

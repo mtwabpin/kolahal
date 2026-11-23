@@ -1,0 +1,518 @@
+// @name Lanterns
+// @description Paper lanterns let go into a festival night over dark water: seven for the week's unlocks, each as high as its day, today's in the accent color and still rising
+// @suits dark good, light good, wallpaper poor
+// @param d1 0.0..1.0 = 0.35 Six days ago @follow unlocks.d1
+// @param d2 0.0..1.0 = 0.6 Five days ago @follow unlocks.d2
+// @param d3 0.0..1.0 = 0.2 Four days ago @follow unlocks.d3
+// @param d4 0.0..1.0 = 0.75 Three days ago @follow unlocks.d4
+// @param d5 0.0..1.0 = 0.45 Two days ago @follow unlocks.d5
+// @param d6 0.0..1.0 = 0.9 Yesterday @follow unlocks.d6
+// @param d7 0.0..1.0 = 0.4 Today @follow unlocks.d7
+// @animated
+// @fps 10
+//
+// Seven sky lanterns, the oldest day on the left and today on the right, each as high as that day's
+// unlocks: the week's busiest day is near the top, a day without any is low over the water. Each is a
+// bag of paper lit from inside by a flame at its open foot, so it is brightest there and deeper in color
+// at its top and sides, with the frame's seams showing through. Each throws its light on the air and a
+// long broken streak of it on the water. Far lanterns, smaller, dimmer and softer the farther they are,
+// rise slowly from the far shore, most of them along the stream that leaves the bank on the left, where
+// a few people stand and watch. In a light theme the night is a pale dusk.
+//
+// What it costs: a pixel works out at most two of the seven, the ones on either side of it, and in the
+// sky only those whose light reaches it; paper and frame only inside a lantern's own small box. The far
+// lanterns are one cell of a grid, each at its own depth, the water a row of ripples. The hour's colors are
+// picked at once for the plain hours. The lower part of the page is the theme's own, where the newest
+// lines are. About 0.8 of pond's time.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float time;
+uniform float4 date;
+uniform float dark;
+uniform float wallpaper;
+uniform float d1;
+uniform float d2;
+uniform float d3;
+uniform float d4;
+uniform float d5;
+uniform float d6;
+uniform float d7;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+layout(color) uniform half4 accent;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise over the plane, 0 to 1.
+float noise2(float2 p) {
+    float2 at = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(at), hash2(at + float2(1.0, 0.0)), f.x),
+        mix(hash2(at + float2(0.0, 1.0)), hash2(at + float2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much of morning, day, evening and night there is at hour h. For most of the day one of the four counts
+// alone, and it is returned at once.
+float4 hours(float h) {
+    if (h >= 10.7 && h <= 16.2) return float4(0.0, 1.0, 0.0, 0.0);
+    if (h >= 20.0 || h <= 5.0) return float4(0.0, 0.0, 0.0, 1.0);
+    if (h >= 6.3 && h <= 9.3) return float4(1.0, 0.0, 0.0, 0.0);
+    if (h >= 17.3 && h <= 18.9) return float4(0.0, 0.0, 1.0, 0.0);
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's color, from those of morning, day, evening and night.
+float3 pick(float4 w, float3 a, float3 b, float3 c, float3 d) {
+    if (w.w >= 1.0) return d;
+    if (w.y >= 1.0) return b;
+    if (w.x >= 1.0) return a;
+    if (w.z >= 1.0) return c;
+    return a * w.x + b * w.y + c * w.z + d * w.w;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends.
+float ground(float y) {
+    return y < 0.64 ? 0.80 * clamp((y - 0.42) / 0.22, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.64) / 0.20, 0.0, 1.0);
+}
+
+// The unlocks of days i and i + 1 (i from 0, the oldest, to 5).
+float2 unlocks(float i) {
+    if (i < 2.5) return i < 0.5 ? float2(d1, d2) : (i < 1.5 ? float2(d2, d3) : float2(d3, d4));
+    return i < 3.5 ? float2(d4, d5) : (i < 4.5 ? float2(d5, d6) : float2(d6, d7));
+}
+
+// Lit paper: deep where little light comes through, the lantern's own color, and nearly white by the flame.
+float3 paperColor(float l, float3 hue) {
+    float3 deep = hue * hue * 0.48;
+    float3 pale = mix(hue, float3(1.0, 0.97, 0.87), 0.74);
+    return l < 0.55 ? mix(deep, hue, l / 0.55) : mix(hue, pale, clamp((l - 0.55) / 0.55, 0.0, 1.0));
+}
+
+// How near p is to the line from a to b.
+float stroke(float2 p, float2 a, float2 b) {
+    float2 ab = b - a;
+    return length(p - a - ab * clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0));
+}
+
+// A sky lantern seen from a little below, at p in units of its size (y down, 0 at its middle): a bag of
+// paper, with a round top, narrower at its open foot. Through the opening the inside shows,
+// with the burning cell on its two crossed wires. px is a pixel in those units, turn how far the lantern
+// has spun, heat how strong its flame is now. Returns the color and how much of the pixel it covers.
+float4 lantern(float2 p, float px, float turn, float heat, float3 hue, float seed) {
+    const float SHOULDER = -0.38;
+    const float RIM = 0.84;
+    const float WIDE = 0.64;
+    const float NARROW = 0.45;
+    const float LIP = 0.11;
+    float ax = abs(p.x);
+    float t = clamp((p.y - SHOULDER) / (RIM - SHOULDER), 0.0, 1.0);
+    float side = WIDE - (WIDE - NARROW) * t * (0.55 + 0.45 * t);
+    float cover = clamp((side - ax) / px + 0.5, 0.0, 1.0);
+    if (p.y < SHOULDER) {
+        // The top: a round dome.
+        float2 k = float2(ax / WIDE, (SHOULDER - p.y) / (SHOULDER + 1.0));
+        float g = pow(k.x, 2.3) + pow(k.y, 2.3);
+        cover = clamp((1.0 - pow(g, 0.4348)) * 0.62 / px + 0.5, 0.0, 1.0);
+    }
+    float arc = sqrt(max(0.0, 1.0 - (p.x / NARROW) * (p.x / NARROW)));
+    float nearRim = RIM - LIP * arc;
+    float farRim = RIM + LIP * arc;
+    cover *= clamp((farRim - p.y) / px + 0.5, 0.0, 1.0);
+    if (cover <= 0.0) return float4(0.0);
+
+    float across = clamp(p.x / side, -1.0, 1.0);
+    float3 color;
+    if (p.y < nearRim) {
+        // The paper, lit by the flame just above the opening, and seen at a slant at its sides.
+        float2 fd = (p - float2(0.0, RIM - 0.20)) * float2(1.15, 0.72);
+        float l = 0.26 + 0.98 * heat * exp(-dot(fd, fd) * 1.5) + 0.10 * t;
+        l *= 1.0 - 0.32 * across * across;
+        l *= 0.95 + 0.09 * noise2(p * float2(7.0, 11.0) + seed * 13.0);
+        // Six seams of the frame around it, spinning slowly: the near ones darker, the far ones faint
+        // through the paper.
+        float seams = 0.0;
+        for (int k = 0; k < 6; k++) {
+            float a = turn + float(k) * 1.0472;
+            float d = abs(across - sin(a)) * side;
+            float line = 1.0 - smoothstep(0.016, 0.04 + px, d);
+            seams = max(seams, line * (cos(a) > 0.0 ? 0.24 : 0.10));
+        }
+        // The paper is glued over a ring at its foot: a darker band just above the opening.
+        float band = 1.0 - smoothstep(0.0, 0.06 + px, nearRim - p.y);
+        l *= 1.0 - seams;
+        color = paperColor(l, hue) * (1.0 - 0.28 * band);
+    } else {
+        // The inside, seen through the opening: the far wall, lit strongly, and the burning cell on its
+        // wires.
+        float2 c = (p - float2(0.0, RIM)) / float2(NARROW, LIP);
+        color = paperColor(1.05 + 0.15 * heat - 0.35 * length(c), hue);
+        float wires = min(abs(p.y - RIM), abs(p.x) * 2.0);
+        color *= 1.0 - 0.55 * (1.0 - smoothstep(0.008, 0.02 + px, wires));
+        float2 e = (p - float2(0.0, RIM)) / float2(0.11, 0.06);
+        float cellGlow = exp(-dot(e, e) * 1.4);
+        color = mix(color, float3(1.0, 0.98, 0.92), clamp(cellGlow * (0.7 + 0.3 * heat), 0.0, 1.0));
+    }
+    return float4(color, cover);
+}
+
+// The light of the far lanterns at q: their bodies and the glow around them. Each cell of a grid has at
+// most one, well inside it, as far off as its number says: k from 0 (the farthest, small, dim and soft) to
+// 1 (the nearest of them). They rise slowly from the far shore and drift with the wind; there are more
+// along the stream that leaves the bank on the left, and the farthest go no higher than the near ones.
+float2 farLanterns(float2 q, float water, float left) {
+    const float cell = 0.040;
+    float rise = time * 0.0005;
+    float drift = time * 0.00015;
+    float2 at = float2(q.x - drift, q.y + rise) / cell;
+    float2 id = floor(at);
+    // Whether this cell has one, by where the cell is: first its height, then how near the stream.
+    float2 middle = float2((id.x + 0.5) * cell + drift, (id.y + 0.5) * cell - rise);
+    if (middle.y < 0.06 || middle.y > water + 0.02) return float2(0.0);
+    float stream = left + 0.10 + (water - middle.y) * 0.85;
+    float lean = (middle.x - stream) / 0.24;
+    float n = hash2(id);
+    if (n > 0.09 + 0.62 / (1.0 + lean * lean * 1.6)) return float2(0.0);
+    float2 f = at - id;
+    // The one number n gives the rest: how far off, where in its cell, how big and how bright.
+    float k = fract(n * 5.31);
+    k *= k;
+    float top = 0.30 - 0.24 * k;
+    float2 off = 0.3 + 0.4 * fract(n * float2(13.7, 71.3));
+    float r = (0.0020 + 0.0034 * k) * (0.75 + 0.5 * fract(n * 31.1));
+    float2 e = (f - off) * cell / (r * float2(0.78, 1.1));
+    float l = length(e);
+    if (l > 4.0) return float2(0.0);
+    float cy = (id.y + off.y) * cell - rise;
+    float band = clamp((water - 0.004 - cy) * 38.0, 0.0, 1.0) * clamp((cy - top) * 7.0, 0.0, 1.0);
+    float soft = 0.55 - 0.25 * k;
+    float body = (1.0 - smoothstep(1.0 - soft, 1.0 + soft, l)) * (0.78 + 0.30 * clamp(e.y, -1.0, 1.0));
+    float2 edge = abs(f - 0.5);
+    float glow = 1.0 / (1.0 + l * l * 0.5);
+    glow *= glow * clamp((0.5 - max(edge.x, edge.y)) * 6.0, 0.0, 1.0);
+    float bright = (0.40 + 0.45 * k) * (0.65 + 0.35 * fract(n * 7.7)) * band;
+    return float2(body, glow) * bright;
+}
+
+// A person on the bank, at p in units of their height (y up, 0 at their feet), looking up. arm raises one
+// arm to point. Returns how far p is from them, less than 0 inside.
+float person(float2 p, float arm, float lean) {
+    float d = stroke(p, float2(-0.05, 0.03), float2(-0.045, 0.44)) - 0.058;
+    d = min(d, stroke(p, float2(0.05, 0.03), float2(0.045, 0.44)) - 0.058);
+    // A coat, wider at the shoulders.
+    float coat = stroke(p, float2(0.0, 0.42), float2(0.0, 0.70)) - mix(0.105, 0.135, clamp((p.y - 0.42) / 0.28, 0.0, 1.0));
+    d = min(d, coat);
+    d = min(d, stroke(p, float2(-0.13, 0.70), float2(-0.15, 0.45)) - 0.045);
+    d = min(d, stroke(p, float2(0.13, 0.70), mix(float2(0.15, 0.45), float2(0.26, 1.06), arm)) - 0.045);
+    d = min(d, stroke(p, float2(0.0, 0.72), float2(-0.02 * lean, 0.84)) - 0.05);
+    // The head, tipped back to look up.
+    d = min(d, length((p - float2(-0.03 * lean, 0.90)) / float2(1.0, 1.1)) - 0.088);
+    return d;
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float y = xy.y / resolution.y;
+    if (y > 0.84 && wallpaper < 0.5) return half4(here);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y) * (1.0 - wallpaper));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
+    float4 w = hours(date.w / 3600.0);
+    float px = 1.0 / resolution.y;
+    // The scene is measured in heights from the middle of the screen, so a wider screen shows more of it.
+    float halfWide = 0.5 * resolution.x / resolution.y;
+    float2 q = float2(xy.x / resolution.y - halfWide, y);
+    float left = -halfWide;
+    // The wallpaper has room for more water and the bank; on the page the water is low, under the log.
+    float water = mix(0.565, 0.75, wallpaper);
+    bool night = dark > 0.5;
+
+    // The hour's colors: a dark theme's are all night, deepest at the top; a light theme's are a pale dusk.
+    float3 top, mid, low, haze;
+    if (night) {
+        top = pick(w, float3(0.031, 0.039, 0.098), float3(0.020, 0.047, 0.090), float3(0.039, 0.031, 0.090), float3(0.012, 0.020, 0.059));
+        mid = pick(w, float3(0.078, 0.078, 0.161), float3(0.047, 0.090, 0.149), float3(0.098, 0.059, 0.141), float3(0.035, 0.051, 0.122));
+        low = pick(w, float3(0.208, 0.137, 0.169), float3(0.110, 0.153, 0.204), float3(0.251, 0.122, 0.129), float3(0.098, 0.090, 0.157));
+        haze = float3(0.24, 0.12, 0.09);
+    } else {
+        top = pick(w, float3(0.663, 0.722, 0.831), float3(0.588, 0.718, 0.820), float3(0.533, 0.529, 0.706), float3(0.608, 0.643, 0.753));
+        mid = pick(w, float3(0.886, 0.812, 0.843), float3(0.773, 0.851, 0.878), float3(0.847, 0.643, 0.667), float3(0.773, 0.765, 0.835));
+        low = pick(w, float3(0.976, 0.855, 0.769), float3(0.937, 0.918, 0.843), float3(0.976, 0.765, 0.592), float3(0.906, 0.851, 0.835));
+        haze = float3(1.0, 0.80, 0.62);
+    }
+    float3 warm = float3(1.0, 0.56, 0.22);
+
+    // The water's ripples: rows of short lines, packed by the far shore and wider apart nearby. ripple is
+    // how much of a line a pixel is on (an even 0.45 where the rows are too fine to draw), row its row.
+    float depth = y - water;
+    float ripple = 0.0;
+    float wobble = 0.0;
+    float row = 0.0;
+    float lineShape = 0.0;
+    float rowOwn = 0.0;
+    if (depth > 0.0) {
+        float v = sqrt(depth / 0.25);
+        float rows = v * 60.0;
+        row = floor(rows);
+        float inRow = rows - row;
+        float tall = 0.25 * 2.0 * max(v, 0.01) / 60.0 / px;
+        lineShape = smoothstep(0.0, 0.4, inRow) * (1.0 - smoothstep(0.5, 1.0, inRow));
+        rowOwn = hash(row);
+        float fine = q.x * mix(110.0, 30.0, min(v, 1.0)) + rowOwn * 50.0 + time * 0.12 * (rowOwn - 0.5);
+        float along = 0.5 + 0.3 * sin(fine * 2.1) + 0.2 * sin(fine * 0.77 + row);
+        ripple = mix(0.45, lineShape * smoothstep(0.30, 0.70, along) * 1.6, clamp((tall - 1.5) / 3.0, 0.0, 1.0));
+        wobble = 0.004 * v * sin(row * 2.3 + time * 0.5);
+    }
+
+    float3 color;
+    if (y < water) {
+        // The sky: deep at the top, a little haze low down, warm from the festival's light.
+        float s = y / water;
+        float t = s < 0.5 ? s * 2.0 : s * 2.0 - 1.0;
+        t = t * t * (3.0 - 2.0 * t);
+        color = s < 0.5 ? mix(top, mid, t) : mix(mid, low, t);
+        float rise = clamp(s * 2.22 - 1.22, 0.0, 1.0);
+        color = mix(color, haze, (night ? 0.32 : 0.22) * rise * rise);
+        // The air where the lanterns fly is warm with their light, most halfway up their heights.
+        float around = (s - 0.55) * 3.3;
+        float air = 1.0 / (1.0 + around * around);
+        air *= air * clamp(1.4 - abs(q.x) / (min(0.80 * halfWide, 0.36) + 0.12), 0.0, 1.0);
+        color = night ? color + float3(0.10, 0.045, 0.018) * air : mix(color, float3(1.0, 0.86, 0.70), 0.22 * air);
+        if (night && y < 0.40) {
+            // A few stars, more at night, none low down.
+            float2 cellAt = q / 0.045;
+            float2 id = floor(cellAt);
+            float b = hash2(id + 3.0);
+            if (b > 0.80) {
+                float2 star = fract(cellAt) - (0.2 + 0.6 * float2(hash2(id + 7.1), hash2(id + 3.7)));
+                float dot1 = 1.0 - smoothstep(0.010, 0.030 + 0.03 * (b - 0.8), length(star));
+                color += float3(0.85, 0.88, 0.95) * dot1 * (0.25 + 0.30 * w.w) * (1.0 - smoothstep(0.15, 0.40, y))
+                    * (0.8 + 0.2 * sin(time * 0.9 + b * 60.0));
+            }
+        }
+        // The far lanterns, from the farthest.
+        float3 farBody = night ? float3(1.0, 0.70, 0.40) : float3(0.93, 0.52, 0.22);
+        {
+            float2 l = farLanterns(q, water, left);
+            if (l.x + l.y > 0.0) {
+                float3 body = mix(farBody, mix(haze, low, 0.5), 0.25);
+                if (night) {
+                    color += body * l.x + warm * l.y * 0.20;
+                } else {
+                    color = mix(color, body, clamp(l.x * 1.2, 0.0, 1.0));
+                    color = mix(color, float3(1.0, 0.72, 0.46), clamp(l.y * 0.35, 0.0, 1.0));
+                }
+            }
+        }
+        // The far shore, a low line at most 0.014 tall, and the festival's lights along it.
+        if (y > water - 0.0145) {
+            float shore = water - 0.004 - 0.006 * noise2(float2(q.x * 30.0, 1.0)) - 0.004 * noise2(float2(q.x * 90.0, 4.0));
+            float land = clamp((y - shore) / px + 0.5, 0.0, 1.0);
+            float3 bank = night ? mix(low, float3(0.0), 0.62) : mix(low, top, 0.55) * 0.86;
+            float2 lamp = float2(q.x / 0.006, 0.0);
+            float lampId = floor(lamp.x);
+            float on = step(0.72, hash(lampId + 40.0)) * (1.0 - smoothstep(0.0, 0.5, abs(fract(lamp.x) - 0.5) * 2.0 - 0.3));
+            on *= 1.0 - smoothstep(0.0, 0.0025, abs(y - water + 0.0025));
+            color = mix(color, bank, land);
+            color = mix(color, night ? float3(1.0, 0.72, 0.40) : float3(0.95, 0.55, 0.25), on * land * 0.8);
+        }
+    } else {
+        // The water: the low sky in it near the far shore, and deep towards the viewer.
+        float3 close = night ? float3(0.026, 0.030, 0.058) : top * 0.88;
+        float3 far1 = night ? low * 0.50 : mix(low, mid, 0.45) * 0.95;
+        color = mix(far1, close, smoothstep(0.0, 0.20, depth));
+        if (depth < 0.16) {
+            // The festival far off, in the water by the far shore: most where the stream of lanterns begins.
+            float foot = (q.x - left - 0.10) / 0.35;
+            float farLight = exp(-depth / 0.03) * (0.30 + 0.70 / (1.0 + foot * foot)) * (0.45 + 0.55 * ripple);
+            color = mix(color, night ? float3(0.60, 0.32, 0.14) : float3(1.0, 0.76, 0.56), farLight * (night ? 0.30 : 0.35));
+            // Glints of the far lanterns: short dashes on the ripples, sparse.
+            float dashW = 0.010 + 0.035 * sqrt(depth / 0.25);
+            float dashAt = q.x / dashW + rowOwn * 7.0;
+            float dashF = fract(dashAt);
+            float glint = step(0.90, hash2(float2(floor(dashAt), row + 11.0))) * lineShape * exp(-depth / 0.07)
+                * smoothstep(0.0, 0.35, dashF) * (1.0 - smoothstep(0.65, 1.0, dashF));
+            color = mix(color, night ? float3(1.0, 0.62, 0.30) : float3(0.95, 0.60, 0.32), glint * (night ? 0.45 : 0.35));
+            // The hairline of light along the far shore.
+            color = mix(color, haze, (1.0 - smoothstep(0.0, 2.5, depth / px)) * 0.5);
+        }
+    }
+
+    // The seven lanterns: their light on the air, their reflections, and themselves. A lantern's light
+    // reaches no farther across than the next lantern's place, so a pixel works out only the two whose
+    // places are on either side of it. In the sky, one far above or below the pixel is passed over.
+    float span = min(0.80 * halfWide, 0.36);
+    float spacing = span / 3.0;
+    float lowest = water - 0.075;
+    float highest = 0.125;
+    float3 glow = float3(0.0);
+    // The lantern whose box the pixel is in, if any: they stand apart, so there is at most one, and it is
+    // drawn once, after the loop. Its place in its box, its number, its flame and its size.
+    float4 inBox = float4(0.0, 0.0, -1.0, 0.0);
+    float boxSize = 1.0;
+    float3 boxHue = warm;
+    float3 streak = float3(0.0);
+    float column = clamp(floor((q.x + span) / spacing), 0.0, 5.0);
+    float2 days = clamp(unlocks(column), 0.0, 1.0);
+    for (int k = 0; k < 2; k++) {
+        float n = column + float(k);
+        float place = mix(-span, span, n / 6.0);
+        // On the water a lantern shows only as its streak, at most 0.0086 + 0.04 * depth wide either side
+        // of it: a pixel of the water farther across is done with it.
+        if (depth > 0.0 && abs(q.x - place) > 0.026 + 0.12 * depth + 0.2 * spacing) continue;
+        float v = k == 0 ? days.x : days.y;
+        // Its own small differences: of height, place and size, from a golden-ratio sequence.
+        float own = fract(n * 0.618 + 0.31);
+        float high = mix(lowest, highest, v) + 0.012 * (own - 0.5);
+        // In the sky its light is round about its place, and ends one place away: a pixel of the sky
+        // farther off is done with it.
+        float2 off = float2(q.x - place, y - high) / spacing;
+        float far2 = dot(off, off);
+        bool inReach = depth < 0.0 && far2 < 1.0;
+        if (depth < 0.0 && !inReach) continue;
+        bool today = n > 5.5;
+        float sway = sin(time * 0.29 + n * 1.9);
+        float bob = sin(time * 0.21 + n * 1.3);
+        // Today's is still rising: it is a little higher, bobs more and sways more.
+        float2 c = float2(place + span * 0.10 * (fract(own * 7.0) - 0.5) + (today ? 0.0055 : 0.0035) * sway,
+            high + (today ? 0.007 * bob - 0.005 : 0.0025 * bob));
+        float size = 0.024 * (0.94 + 0.12 * fract(own * 3.0)) * (today ? 1.12 : 1.0);
+        float heat = 0.88 + 0.12 * sin(time * 1.1 + n * 2.3);
+        // Today's is in the theme's accent color, at its brightest.
+        float3 hue = warm;
+        if (today) {
+            hue = float3(accent.rgb);
+            hue /= max(max(hue.r, hue.g), max(hue.b, 0.01));
+        }
+        float2 d = q - c;
+        if (inReach) {
+            float reach = clamp(1.4 - 1.4 * far2, 0.0, 1.0);
+            float fall = 1.0 / (1.0 + dot(d, d) / (size * size * 6.5));
+            glow += hue * (heat * reach * reach * 0.31 * fall * fall);
+            // It leans as it sways. The angle is small: its sine is about itself, its cosine about 1.
+            float tilt = 0.06 * sway;
+            float2 p = float2(d.x - d.y * tilt, d.x * tilt + d.y) / size;
+            if (abs(p.x) < 0.72 && p.y > -1.06 && p.y < 1.0) {
+                inBox = float4(p, n, heat);
+                boxSize = size;
+                boxHue = hue;
+            }
+        }
+        if (depth > 0.0) {
+            // A long streak on the water, broken by the ripples, widest near the viewer and brightest
+            // where the lantern would be seen in still water.
+            float width = size * 0.30 + 0.04 * depth;
+            float dx = (q.x - c.x - wobble) / width;
+            if (abs(dx) < 3.0) {
+                float mirror = water + (water - c.y) * 0.30;
+                float m = (y - mirror) / 0.05;
+                float along = 0.35 / (1.0 + depth * 12.0) + 0.65 / (1.0 + m * m);
+                float across = 1.0 / (1.0 + dx * dx);
+                streak += hue * (heat * across * across * along * ripple);
+            }
+        }
+    }
+    if (depth < 0.0 && glow.r > 0.015) glow *= 0.80 + 0.30 * sin(q.x * 23.0 + q.y * 9.0 + time * 0.02) * sin(q.y * 41.0 - q.x * 13.0 - time * 0.015);
+    if (night) {
+        color += glow * 0.85 + streak * 0.60;
+    } else {
+        // On a pale sky light shows as warmth: the glow tints the sky towards the lantern's color and
+        // lightens it, and the streaks tint the water.
+        float g = dot(glow, float3(0.333));
+        if (g > 0.0) {
+            float3 tone = glow / max(max(glow.r, glow.g), glow.b);
+            color = mix(color, color * tone, clamp(g * 0.6, 0.0, 0.18));
+            color = mix(color, mix(float3(1.0), tone, 0.30), clamp(g * 2.2, 0.0, 0.5));
+        }
+        float sg = dot(streak, float3(0.333));
+        if (sg > 0.0) color = mix(color, color * streak / max(max(streak.r, streak.g), streak.b), clamp(sg * 1.2, 0.0, 0.6));
+    }
+    if (inBox.z >= 0.0) {
+        float4 lit = lantern(inBox.xy, px / boxSize, time * 0.12 + inBox.z * 1.7, inBox.w, boxHue, inBox.z);
+        color = mix(color, lit.rgb, lit.a);
+    }
+
+    // The bank on the left, low in the wallpaper, and people on it looking up.
+    float s = (q.x - left) / 0.32;
+    if (wallpaper > 0.0 && s < 1.0 && y > 0.92) {
+        float bankY = 0.950 + 0.050 * smoothstep(0.40, 1.0, s) + 0.0018 * noise2(float2(q.x * 140.0, 2.0));
+        // Grass along its edge.
+        float blades = noise2(float2(q.x * 900.0, 5.0));
+        bankY -= 0.0035 * blades * blades * blades * (1.0 - smoothstep(0.6, 1.0, s));
+        // Each person is worked out twice: here and a pixel and a half higher, so the edges that face up
+        // catch the lanterns' light.
+        float figures = 1e5;
+        float above = 1e5;
+        for (int i = 0; i < 6; i++) {
+            float n = float(i);
+            float at = i == 0 ? 0.028 : i == 1 ? 0.039 : i == 2 ? 0.058 : i == 3 ? 0.110 : i == 4 ? 0.121 : 0.170;
+            float tall = i == 0 ? 0.032 : i == 1 ? 0.029 : i == 2 ? 0.019 : i == 3 ? 0.031 : i == 4 ? 0.028 : 0.030;
+            float fx = left + at;
+            if (abs(q.x - fx) < tall * 0.5 && y > 0.950 - tall * 1.5) {
+                float2 p = float2(q.x - fx, 0.951 - y) / tall;
+                float arm = i == 2 ? 1.0 : 0.0;
+                float lean = 0.6 + 0.8 * hash(n * 5.0 + 1.0);
+                figures = min(figures, person(p, arm, lean) * tall);
+                above = min(above, person(p + float2(0.0, 1.5 * px / tall), arm, lean) * tall);
+            }
+        }
+        float3 dim1 = night ? float3(0.004, 0.004, 0.010) : mix(top, float3(0.30, 0.28, 0.38), 0.55);
+        float onBank = clamp((y - bankY) / px + 0.5, 0.0, 1.0);
+        float body = clamp(-figures / px + 0.5, 0.0, 1.0);
+        float cover = max(onBank, body);
+        color = mix(color, dim1, cover);
+        float rim = body * (1.0 - clamp(-above / px + 0.5, 0.0, 1.0)) * (1.0 - onBank);
+        color += (night ? float3(0.20, 0.11, 0.05) : float3(0.08, 0.04, 0.0)) * rim;
+        // The lanterns' light along the top of the bank.
+        color += (night ? float3(0.16, 0.08, 0.03) : float3(0.0)) * onBank * (1.0 - smoothstep(0.0, 3.0, (y - bankY) / px));
+    }
+
+    // Over the log the scene stays something the theme's text reads on. In a dark theme what is brighter than
+    // a dim glow rises a third as fast, under what light text can stand, so a lantern is still the brightest
+    // thing, only not white: what is pressed down takes the flame's warm color, so the paper by the flame
+    // turns golden, not gray. In a light theme what is dark, as the dusk sky at the top, goes toward the page.
+    if (wallpaper < 0.5) {
+        float lum = dot(color, float3(0.299, 0.587, 0.114));
+        if (dark > 0.5 && lum > 0.30) {
+            float held = (0.30 + (lum - 0.30) * 0.314) / lum;
+            float3 golden = float3(1.0, 0.55, 0.20);
+            color = mix(color * held, golden * (lum * held / dot(golden, float3(0.299, 0.587, 0.114))), 1.0 - held);
+        }
+        if (dark < 0.5 && lum < 0.68) {
+            float want = 0.58 + 0.10 * exp(-(0.68 - lum) / 0.10);
+            float lumPage = dot(float3(bg.rgb), float3(0.299, 0.587, 0.114));
+            color = mix(color, float3(bg.rgb), clamp((want - lum) / max(lumPage - lum, 0.01), 0.0, 1.0));
+        }
+    }
+    color = mix(color, float3(bg.rgb), ground(y) * (1.0 - wallpaper));
+    // Dither, so the long gradients have no bands: a fine even pattern (interleaved gradient noise).
+    color += (fract(52.9829 * fract(dot(xy, float2(0.06711, 0.00584)))) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

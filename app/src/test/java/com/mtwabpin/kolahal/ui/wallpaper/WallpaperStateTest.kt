@@ -29,6 +29,13 @@ class WallpaperStateTest {
         assertEquals(bare, WallpaperState.decode(bare.encode()))
     }
 
+    /** Kolahal's values from the phone's use go over with the scripts' ones, as home works them out. */
+    @Test
+    fun thePhonesUseGoesOver() {
+        val use = state.copy(given = state.given + mapOf("unlocks" to "37", "screen.usual" to "1.25", "screen.h3" to "0.33", "away" to "412.5"))
+        assertEquals(use, WallpaperState.decode(use.encode()))
+    }
+
     /**
      * A cell is a character wide and a line tall. `log.line-height` is a line's height (22 at the default text
      * size of 14), not a part of the text's size: taken as one, a cell was 14 times too tall, and a shader
@@ -73,6 +80,9 @@ class WallpaperStateTest {
         assertNotNull(WallpaperChoice.problem("crt", metas.getValue("crt")))
         if (!Shaders.supported) assertEquals(Shaders.NEEDS, WallpaperChoice.problem("pond", metas.getValue("pond")))
         // The scenes know that they are one.
-        assertEquals(setOf("mountains", "pond", "dunes"), metas.filterValues { it.uses(ShaderMeta.WALLPAPER) }.keys)
+        assertEquals(
+            setOf("mountains", "pond", "dunes", "lanterns", "kintsugi", "record", "candle", "hourglass", "windows", "seismograph"),
+            metas.filterValues { it.uses(ShaderMeta.WALLPAPER) }.keys,
+        )
     }
 }

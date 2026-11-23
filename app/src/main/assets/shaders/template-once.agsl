@@ -1,0 +1,41 @@
+// @name Burst
+// @description A one-off: three rings of the accent color spread from the middle of the screen
+// @suits dark good, light good, wallpaper good
+// @once 3
+//
+// @once 3 makes it a one-off: it plays for 3 seconds over the shader that is on, and goes. The
+// Shaders screen lists it under One-off, and 'shader play <name>' plays it. progress goes from 0 to
+// 1 meanwhile: start and end with nothing, so it comes and goes without a jump.
+// It can play when a notification comes: in its details, under Plays on a notification, type words
+// with commas between, such as a name. 'shader words <name> Alex, picnic' does the same.
+// Change the number of rings and when each starts first.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float progress;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 accent;
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    // Before it starts and after it ends: nothing.
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float far = length(xy - resolution * 0.5);
+    float size = max(resolution.x, resolution.y);
+    float amount = 0.0;
+    for (int i = 0; i < 3; i++) {
+        // Each ring starts a little after the one before, and is gone by the end.
+        float t = clamp((progress - 0.15 * float(i)) / 0.7, 0.0, 1.0);
+        float off = (far - size * 0.6 * t) / (size * 0.012);
+        amount = max(amount, exp(-off * off) * sin(3.14159265 * t) * 0.45);
+    }
+    if (amount <= 0.002) return half4(here);
+
+    // Behind the text only, as in the template Hills, and less on a light theme.
+    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    amount *= (1.0 - clamp(d * 5.0, 0.0, 1.0)) * mix(0.75, 1.0, dark);
+    return half4(here * (1.0 - amount) + float4(float3(accent.rgb) * amount, amount));
+}

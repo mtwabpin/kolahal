@@ -44,9 +44,15 @@ object ShaderWords {
         Shaders.settingsRead()
         val all = _words.value
         if (all.isEmpty()) return
-        val said = "$title\n$text"
-        all.entries.firstOrNull { (_, words) -> has(said, words) }?.let { ShaderPlay.play(it.key, null) }
+        pick(all, "$title\n$text", Shaders::exists)?.let { ShaderPlay.play(it, null) }
     }
+
+    /**
+     * The shader of [all] that plays when a notification says [said]: the first with a word of it, of those that
+     * [exist]. A shader that was removed keeps its words, and they don't keep another from playing.
+     */
+    internal fun pick(all: Map<String, String>, said: String, exist: (String) -> Boolean): String? =
+        all.entries.firstOrNull { (name, words) -> exist(name) && has(said, words) }?.key
 
     /** Whether [text] has one of [words], whole and in any case. */
     fun has(text: String, words: String): Boolean =

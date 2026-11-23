@@ -1,0 +1,225 @@
+// @name Day ring
+// @description The day as a dial around the edge of the screen, glowing where the phone was used
+// @suits dark good, light good, wallpaper good
+// @param h1 0.0..1.0 = 0.0 0:00 to 3:00 @follow screen.h1
+// @param h2 0.0..1.0 = 0.0 3:00 to 6:00 @follow screen.h2
+// @param h3 0.0..1.0 = 0.0 6:00 to 9:00 @follow screen.h3
+// @param h4 0.0..1.0 = 0.0 9:00 to 12:00 @follow screen.h4
+// @param h5 0.0..1.0 = 0.0 12:00 to 15:00 @follow screen.h5
+// @param h6 0.0..1.0 = 0.0 15:00 to 18:00 @follow screen.h6
+// @param h7 0.0..1.0 = 0.0 18:00 to 21:00 @follow screen.h7
+// @param h8 0.0..1.0 = 0.0 21:00 to 24:00 @follow screen.h8
+//
+// The screen's edge is a 24 hour dial: midnight at the top in the middle, and the day running
+// clockwise, by the length of the edge rather than by angle, so every hour has the same share of it.
+// A thin line goes all the way round, a point of light shows the time, and the part of the day
+// that is over glows as much as the screen was on in each three hours. Each parameter follows
+// Kolahal's screen time for its three hours; without usage access they stay at 0, and the ring is a
+// quiet line with the point for now.
+//
+// Where a camera cuts into the top of the screen, the dial dips under it in a smooth curve and comes
+// back up, so the line and the light go round the camera; midnight's mark sits under it.
+//
+// It isn't animated: it reads the time, so it is drawn again once a minute, and costs nothing in
+// between. Pixels away from the edge return at once.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float corner;
+uniform float4 cutout;
+uniform float4 date;
+uniform float dark;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 surface;
+layout(color) uniform half4 dim;
+uniform float h1;
+uniform float h2;
+uniform float h3;
+uniform float h4;
+uniform float h5;
+uniform float h6;
+uniform float h7;
+uniform float h8;
+
+// How far p is inside a box of half size b with corners of radius r, centered at 0 (negative outside).
+float inside(float2 p, float2 b, float r) {
+    float2 q = abs(p) - b + r;
+    return r - length(max(q, float2(0.0))) - min(max(q.x, q.y), 0.0);
+}
+
+// Where p is along the outline of that box, from 0 to 1: 0 at the top middle, growing clockwise.
+// It is the length of the outline up to the point nearest p, not an angle, so the sides of a tall
+// screen get their share. r must be more than the light is wide, or two sides meet in a seam.
+float along(float2 p, float2 b, float r) {
+    float top = b.x - r;
+    float side = b.y - r;
+    float arc = 1.5707963 * r;
+    float quarter = top + arc + side;
+    float2 q = abs(p) - float2(top, side);
+    float s;
+    if (q.x > 0.0 && q.y > 0.0) {
+        s = top + r * atan(q.x, q.y);
+    } else if (q.y > q.x) {
+        s = abs(p.x);
+    } else {
+        s = quarter - abs(p.y);
+    }
+    // s is measured in the top right quarter; the others are its mirror images.
+    if (p.x >= 0.0) {
+        s = p.y < 0.0 ? s : 2.0 * quarter - s;
+    } else {
+        s = p.y > 0.0 ? 2.0 * quarter + s : 4.0 * quarter - s;
+    }
+    return s / (4.0 * quarter);
+}
+
+// How far the top of the dial is lowered at x, to pass deep under the camera, and how steep it is
+// there. The dip is level for span either side of its middle, with smooth shoulders s wide.
+float2 dip(float x, float deep, float s, float middle, float span) {
+    float a = clamp((span + s - abs(x - middle)) / s, 0.0, 1.0);
+    return deep * float2(a * a * (3.0 - 2.0 * a), 6.0 * a * (1.0 - a) / s);
+}
+
+// The use of the three hours numbered i, from 0 (midnight to three) to 7.
+float used(float i) {
+    return i < 0.5 ? h1 : i < 1.5 ? h2 : i < 2.5 ? h3 : i < 3.5 ? h4 : i < 4.5 ? h5 : i < 5.5 ? h6 : i < 6.5 ? h7 : h8;
+}
+
+// The color of an hour: a deep blue night, a rose dawn, a golden morning, a pale midday (a clear
+// blue on a light page, where a pale one wouldn't show), a red evening and a violet dusk.
+float3 tone(float hour) {
+    float3 col = float3(0.30, 0.36, 1.00);
+    col = mix(col, float3(1.00, 0.45, 0.55), smoothstep(4.0, 6.0, hour));
+    col = mix(col, float3(1.00, 0.70, 0.30), smoothstep(6.0, 8.0, hour));
+    col = mix(col, mix(float3(0.24, 0.62, 1.00), float3(0.55, 0.84, 1.00), dark), smoothstep(9.5, 12.0, hour));
+    col = mix(col, float3(1.00, 0.34, 0.30), smoothstep(15.0, 18.5, hour));
+    col = mix(col, float3(0.62, 0.38, 1.00), smoothstep(19.5, 21.5, hour));
+    return mix(col, float3(0.30, 0.36, 1.00), smoothstep(21.5, 23.5, hour));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+
+    float2 mid = 0.5 * resolution;
+    float2 p = xy - mid;
+    float small = min(resolution.x, resolution.y);
+    float r = clamp(corner, 0.0, small * 0.5);
+    // The glow of a full three hours reaches a ninth of the shorter side in. Farther in, the page
+    // is as it is.
+    float limit = small * 0.11;
+    float inset = small * 0.012;
+    // Under a camera's cutout the top of the dial dips (q is p measured from it). Across its shoulders
+    // a distance measured straight down is longer than the distance to the curve, and one measured
+    // across is shorter than the way along it: slant and stretch make up for them, so the line keeps
+    // its width and the point for now its shape (with tilt, the slope there). Above the dip nothing
+    // is drawn, and where the dial is lowered (lowered, 0 to 1) the glow fades in over a short way
+    // (fade) rather than starting sharp.
+    float2 q = p;
+    float slant = 1.0;
+    float stretch = 1.0;
+    float tilt = 0.0;
+    float lowered = 0.0;
+    float fade = 0.0;
+    // The hours are measured along an outline whose corners (bend) are at least as round as the glow
+    // is wide, and rounder by as much as a corner is taken down.
+    float bend = max(r, limit);
+    if (cutout.w > 0.0) {
+        float deep = max(cutout.w + small * 0.015 - inset, 0.0);
+        float s = deep * 1.6 + 1.0;
+        // A shoulder that would run into a rounded corner of the screen takes the corner down instead.
+        float left = cutout.x - s < r ? -s : cutout.x;
+        float right = cutout.z + s > resolution.x - r ? resolution.x + s : cutout.z;
+        if (left < 0.0 || right > resolution.x) bend += deep;
+        // Below the dip, a corner it takes down and the glow's reach, nothing changes.
+        if (xy.y < min(deep + max(r, limit * 1.5), mid.y)) {
+            float middle = 0.5 * (left + right);
+            float2 d = dip(xy.x, deep, s, middle, 0.5 * (right - left));
+            q.y -= d.x;
+            tilt = xy.x < middle ? d.y : -d.y;
+            stretch = sqrt(1.0 + d.y * d.y);
+            slant = 1.0 / stretch;
+            // The side below a corner taken down is the screen's edge, not lowered: round that corner
+            // the glow goes from fading in to starting at the edge.
+            float side = min(xy.x, resolution.x - xy.x) - xy.y + d.x;
+            lowered = clamp(d.x / inset, 0.0, 1.0) * clamp(0.5 + side / (2.0 * max(r, inset)), 0.0, 1.0);
+            fade = 1.0 / (inset * 1.5);
+        }
+    }
+    float edge = inside(q, mid, r) * slant;
+    float depth = max(edge, 0.0);
+    if (depth > limit) return half4(here);
+
+    // Not over text: a pixel that differs from the page is text or a line.
+    float differs = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
+    float open = 1.0 - clamp(differs * 5.0, 0.0, 1.0);
+    if (cutout.w > 0.0) open *= clamp(edge + 0.5, 0.0, 1.0);
+    if (open <= 0.0) return half4(here);
+
+    // The hour at this pixel, measured along the outline without the dip (bend, above), and the hour
+    // now. Without a date (an older Kolahal) it is a quarter past six in the evening.
+    float u = along(p, mid, bend);
+    float hour = 24.0 * u;
+    float now = date.x < 1.0 ? 18.25 : date.w / 3600.0;
+    float outline = 2.0 * (resolution.x + resolution.y);
+
+    // The use here: each three hours has its value in its middle and blends into the next, so the
+    // glow rises and falls like a range of hills. Midnight doesn't blend: the day starts there.
+    float y = hour / 3.0 - 0.5;
+    float i = floor(y);
+    float v = mix(used(max(i, 0.0)), used(min(i + 1.0, 7.0)), smoothstep(0.15, 0.85, y - i));
+
+    // Only the part of the day that is over glows. It ends softly at the point for now, and starts
+    // softly at midnight.
+    float past = smoothstep(0.0, 0.12, hour) * (1.0 - smoothstep(now - 0.25, now, hour));
+
+    // The line: thin, a little in from the edge, brighter where the day is over. A dot on it marks
+    // every three hours, and a short stroke inward every six, as on a dial.
+    float thin = small * 0.0012;
+    float line = 1.0 - smoothstep(thin * 0.5, thin * 1.5, abs(depth - inset));
+    float mark = abs(fract(hour / 3.0 + 0.5) - 0.5) * 3.0 * outline / 24.0;
+    float six = abs(fract(hour / 6.0 + 0.5) - 0.5) * 6.0 * outline / 24.0;
+    float dot3 = 1.0 - smoothstep(thin * 1.6, thin * 2.8, length(float2(mark, depth - inset)));
+    float stroke = (1.0 - smoothstep(thin * 0.5, thin * 1.5, six)) * step(inset, depth) * (1.0 - smoothstep(inset * 2.2, inset * 2.4, depth));
+    line = max(line, max(dot3, stroke));
+    line *= 0.30 + 0.25 * past;
+
+    // The glow: as wide and as bright as the use, from the edge inward. It is measured from an
+    // outline with corners as round as the glow is wide, so on a screen with square corners the
+    // glows of two sides meet in a curve rather than in a sharp diagonal.
+    float wide = small * (0.012 + 0.088 * v);
+    float soft = max(inside(q, mid, max(r, wide)) * slant, 0.0);
+    float close = soft / (wide * 0.45);
+    float spread = soft / (wide * 0.7);
+    float glow = (0.55 * exp(-close * close) + 0.45 * exp(-spread * spread)) * (0.25 + 0.75 * v) * past;
+    glow *= 1.0 - smoothstep(0.7, 1.0, depth / limit);
+    glow *= clamp(1.0 - lowered + soft * fade, 0.0, 1.0);
+
+    // The point for now: a small bright point on the line and a soft halo around it.
+    float ahead = abs(u - now / 24.0);
+    float apart = min(ahead, 1.0 - ahead) * outline;
+    if (tilt != 0.0) {
+        // On a shoulder of the dip: the way along the line to the point under this pixel.
+        float after = (u > now / 24.0) == (ahead < 0.5) ? 1.0 : -1.0;
+        apart = abs(apart * stretch * after + tilt * (depth - inset));
+    }
+    float2 off = float2(apart, depth - inset) / (small * 0.008);
+    float2 wider = off / 4.0;
+    float spot = exp(-dot(off, off)) + 0.35 * exp(-dot(wider, wider));
+
+    float3 col = tone(hour);
+    // The point is nearly white on a dark page, and the hour's own color on a light one.
+    float3 light = col * glow + mix(tone(now), float3(1.0), 0.65 * dark) * spot;
+    float3 lineColor = mix(float3(dim.rgb), col, 0.5 * past);
+
+    // The light is laid over the page as a layer of its own color, as much as it is bright: on a
+    // dark page that adds light, on a light page it tints, so the edge looks lit rather than
+    // shaded, and over a wallpaper that shows through the page it is light on its own. Where it is
+    // brightest, at the very edge of a dark page, it goes toward white.
+    float amount = max(max(light.r, light.g), light.b);
+    float cover = clamp(amount * mix(0.65, 1.0, dark), 0.0, mix(0.7, 1.0, dark));
+    float3 color = mix(light / max(amount, 0.001), float3(1.0), clamp(amount - 1.0, 0.0, 0.5) * dark);
+    float4 lit = here * (1.0 - cover * open) + float4(color * cover, cover) * open;
+    // The line is drawn over it.
+    float drawn = clamp(line, 0.0, 1.0) * open;
+    return half4(lit * (1.0 - drawn) + float4(lineColor * drawn, drawn));
+}

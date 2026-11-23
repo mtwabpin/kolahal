@@ -27,6 +27,8 @@ import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.SharedShader
+import com.mtwabpin.kolahal.shader.UsageValues
+import com.mtwabpin.kolahal.shader.UsageWatch
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.terminal.commands.ShaderCommands
@@ -62,7 +64,13 @@ data class ShaderRow(
 }
 
 /**
- * What the Shaders screen and Get more shaders do: turn a shader on or off, import, check, copy and
+ * A shader open in the editor: its [name] and its [code] as it was read or last saved. [bundled]: it comes with
+ * Kolahal and the user has no file of it yet ([ShaderCatalog.Edit.COPY]); the first save makes one.
+ */
+data class ShaderEdit(val name: String, val code: String, val bundled: Boolean)
+
+/**
+ * What the Shaders screen and Get more shaders do: turn a shader on or off, import, check, edit, copy and
  * remove the user's own, and install shared ones.
  *
  * The shared lists are those of Get more scripts ([ScriptActions.sharedScripts]): one download has
@@ -170,8 +178,11 @@ class ShaderActions(
     /** Whether Kolahal may see notifications. */
     fun seesNotifications(): Boolean = NotificationActions.isEnabled(context)
 
-    /** The values there are to follow: Kolahal's, and those of the scripts that are on. */
-    suspend fun sources(): List<ShaderValues.Source> = withContext(Dispatchers.IO) { sources(context) }
+    /**
+     * The values there are to follow, for the Follow menu: Kolahal's, and those of the scripts that are on. The rows
+     * of days and blocks ([UsageValues.series]) aren't there: `shader follow` and a header's `@follow` take them.
+     */
+    suspend fun sources(): List<ShaderValues.Source> = withContext(Dispatchers.IO) { sources(context, series = false, fresh = true) }
 
     /** Which shaders' parameters follow the values of [script], by the value's name: "rain (amount)". */
     suspend fun followers(script: String): Map<String, List<String>> = withContext(Dispatchers.IO) {
@@ -192,6 +203,58 @@ class ShaderActions(
     /** Compiles [name] and reads its uniforms. Null when it can't be read. */
     suspend fun check(name: String): Shaders.Check? =
         withContext(Dispatchers.IO) { Shaders.check(context, name) }
+
+    // ---- the editor ------------------------------------------------------------------------
+
+    private val _editing = MutableStateFlow<ShaderEdit?>(null)
+
+    /** The shader open in the editor, or null. Home's window shows the editor while there is one. */
+    val editing: StateFlow<ShaderEdit?> = _editing.asStateFlow()
+
+    /**
+     * Opens shader [name] in the editor: the user's file, or the code of the one that comes with Kolahal
+     * ([ShaderCatalog.edit]). Reads a file, on the view model's thread.
+     */
+    fun edit(name: String) = host.io {
+        val how = ShaderCatalog.edit(name, Shaders.userNames)
+            ?: return@io host.notice("No shader '$name'", error = true)
+        val code = Shaders.source(context, name)
+            ?: return@io host.notice("Shader $name can't be read", error = true)
+        _editing.value = ShaderEdit(name, code, bundled = how == ShaderCatalog.Edit.COPY)
+    }
+
+    /**
+     * Saves [code] as the user's shader [name] ([Shaders.save]), so home, the live wallpaper and the Shaders screen
+     * read it again, and checks it as `shader check` does. When the script folder has a file of it, that file gets
+     * the same code ([ShaderCommands.saveInFolder]); when it can't, the first of the check's warnings says so.
+     * What the check found; null when the file can't be read. Throws when it can't be saved.
+     */
+    suspend fun save(name: String, code: String): Shaders.Check? = withContext(Dispatchers.IO) {
+        Shaders.save(context, name, code)
+        forgetProblems(listOf(name))
+        // The editor's copy is the saved one now, and the user's own.
+        _editing.update { e -> if (e?.name == name) e.copy(code = code, bundled = false) else e }
+        val inFolder = ShaderCommands.saveInFolder(folder, name, code)
+        val check = Shaders.check(context, name)
+        if (check == null || inFolder == null) check
+        else with(check) { Shaders.Check(problem, sets, unset, animated, params, pace, listOf(inFolder) + warnings, line) }
+    }
+
+    /**
+     * Closes the editor. [saved]: the editor saved its changes on the way out ([save]), and the page you return to
+     * says so, and what the check found ([check]).
+     */
+    fun closeEditor(saved: Boolean = false, check: Shaders.Check? = null) {
+        val edit = _editing.value ?: return
+        _editing.value = null
+        if (saved) {
+            val problem = check?.problem ?: check?.warnings?.firstOrNull()
+            host.notice(
+                listOfNotNull("Saved ${edit.name}.${ShaderCatalog.EXT}", problem).joinToString(" · "),
+                error = problem != null,
+            )
+        }
+    }
 
     // ---- files -----------------------------------------------------------------------------
 
@@ -231,6 +294,24 @@ class ShaderActions(
                 ?: throw IllegalStateException("$name can't be read")
             if (folder.uri == null) return@fileOp pickFolder("Pick a script folder, then copy $name again")
             host.notice("Copied $name to ${folder.exportShader(name, code)} in the script folder")
+        }
+    }
+
+    /** The templates to start a shader from ([ShaderCatalog.TEMPLATES]), each with what its header says. Reads files: not on the main thread. */
+    fun templates(): List<Pair<String, ShaderMeta>> =
+        ShaderCatalog.TEMPLATES.map { it to ShaderMeta.parse(Shaders.bundled(context, it)) }
+
+    /**
+     * Add shader → Start from a template: a shader of the user's from [template], to edit as a file
+     * ([ShaderCommands.fromTemplate]). Without a script folder it is added all the same, and the page
+     * asks for a folder, as Copy does.
+     */
+    fun startFrom(template: String) {
+        host.fileOp("copy") {
+            val (name, path) = ShaderCommands.fromTemplate(context, folder, template)
+            forgetProblems(listOf(name))
+            if (path == null) pickFolder("Added $name · pick a script folder, then Copy in its details writes its file there")
+            else host.notice("Added $name as $path in the script folder · for a file you changed elsewhere, 'shader reload' reads it again")
         }
     }
 
@@ -323,13 +404,21 @@ class ShaderActions(
             return ShaderValues.Phone((status.batteryPct ?: 100) / 100f, status.charging, LocalTime.now())
         }
 
-        /** [ShaderActions.sources]. Reads scripts: not on the main thread. */
-        fun sources(context: Context): List<ShaderValues.Source> {
+        /**
+         * The values there are to follow: Kolahal's, the rows of days and blocks of the phone's use with [series], and
+         * those of the scripts that are on. [fresh]: the phone's use is read now where no shader follows it, for a list
+         * that shows the values ([UsageWatch] reads it only for what is followed). Reads scripts: not on the main thread.
+         */
+        fun sources(context: Context, series: Boolean = true, fresh: Boolean = false): List<ShaderValues.Source> {
             val phone = phone(context)
-            val given = ShaderValues.given.value
-            val scripts = ScriptRepository.get(context).all().filter { it.enabled }
+            val followed = ShaderValues.given.value
+            val given = if (fresh && UsageValues.IDS.any { it !in followed }) {
+                runCatching { UsageWatch.values(context, UsageValues.IDS) }.getOrDefault(emptyMap()) + followed
+            } else followed
+            val scripts = ScriptRepository.get(context).all().filter { it.enabled && it.name !in UsageValues.GROUPS }
                 .flatMap { s -> ScriptMeta.parse(s.code).gives.map { ShaderValues.id(s.name, it) } }.sorted()
-            return (ShaderValues.BUILT_IN.keys + scripts).map { id ->
+            val use = if (series) UsageValues.IDS else UsageValues.LISTED.keys
+            return (ShaderValues.BUILT_IN.keys + use + scripts).map { id ->
                 ShaderValues.Source(id, ShaderValues.label(id), ShaderValues.of(id, given, phone))
             }
         }

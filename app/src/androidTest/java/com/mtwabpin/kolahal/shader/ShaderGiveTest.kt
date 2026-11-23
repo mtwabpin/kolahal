@@ -80,6 +80,20 @@ class ShaderGiveTest {
         assertFalse(ShaderValues.give(context, "giver", "rain", "0.5"))
     }
 
+    /** A name in capitals, on the `@gives` line or in the call, is the same name in small letters. */
+    @Test
+    fun aNameInCapitalsIsTheSameName() {
+        val s = script("-- @gives rainAmount")
+        assertEquals(listOf("rainamount"), ScriptMeta.gives(s.code))
+        host(s).shaderGive("rainAmount", 0.5)
+        assertEquals("0.5", given()["giver.rainamount"])
+        host(s).shaderGive(" RAINAMOUNT ", 0.25)
+        assertEquals("0.25", given()["giver.rainamount"])
+        // Not on the line: the error names it as the line would.
+        val e = assertThrows(IllegalStateException::class.java) { host(s).shaderGive("snowAmount", 1) }
+        assertEquals("shader.give: add `@gives snowamount` at the top of the script", e.message)
+    }
+
     @Test
     fun itGoesWithTheScript() {
         val s = script("-- @gives rain, snow")

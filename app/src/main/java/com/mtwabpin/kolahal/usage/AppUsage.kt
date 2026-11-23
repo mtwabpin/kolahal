@@ -26,8 +26,11 @@ class AppUsage(private val context: Context) {
 
     fun startOf(day: LocalDate): Long = day.atStartOfDay(zone).toInstant().toEpochMilli()
 
-    /** The sessions of a range ([read]): cut to it, with the app still in front at its end. */
-    class Read(val sessions: List<Session>, val inFront: String?) {
+    /**
+     * The sessions of a range ([read]): cut to it, with the app still in front at its end. [locks]: when the phone
+     * locked and unlocked ([AppSessions.LOCKED], [AppSessions.UNLOCKED]) in time order, when they were asked for.
+     */
+    class Read(val sessions: List<Session>, val inFront: String?, val locks: List<AppSessions.Companion.Event> = emptyList()) {
         /** The sessions in [from, until), cut to it. */
         fun between(from: Long, until: Long): List<Session> =
             AppSessions.clip(sessions, from, until)
@@ -36,12 +39,17 @@ class AppUsage(private val context: Context) {
     /**
      * The sessions of [from, until), from one read of the events. The read starts
      * [AppSessions.LOOK_BEFORE_MS] earlier: an app in front at [from] (at midnight) has its time from
-     * there, not lost because its screen came to the front the day before.
+     * there, not lost because its screen came to the front the day before. With [locks], the same read has
+     * the unlocks too ([Read.locks]), which the sessions don't use.
      */
-    fun read(from: Long, until: Long = System.currentTimeMillis()): Read {
+    fun read(from: Long, until: Long = System.currentTimeMillis(), locks: Boolean = false): Read {
         val readFrom = from - AppSessions.LOOK_BEFORE_MS
-        val (all, inFront) = AppSessions.sessions(events(readFrom, until), readFrom, until)
-        return Read(AppSessions.clip(all, from, until), inFront)
+        val events = events(readFrom, until, locks)
+        val (all, inFront) = AppSessions.sessions(
+            if (locks) events.filter { it.type != AppSessions.UNLOCKED } else events, readFrom, until,
+        )
+        val locked = if (locks) events.filter { it.type == AppSessions.LOCKED || it.type == AppSessions.UNLOCKED } else emptyList()
+        return Read(AppSessions.clip(all, from, until), inFront, locked)
     }
 
     /** One app's time: its package, the name it shows as, and its milliseconds in front. */
@@ -83,10 +91,10 @@ class AppUsage(private val context: Context) {
         return days.map { d -> total(read.between(startOf(d), startOf(d.plusDays(1)))) }
     }
 
-    /** Android's usage events in [from, until), only of the kinds [AppSessions] reads. */
+    /** Android's usage events in [from, until), only of the kinds [AppSessions] reads, and the unlocks with [unlocks]. */
     @SuppressLint("WrongConstant")
-    private fun events(from: Long, until: Long): List<AppSessions.Companion.Event> {
-        val kinds = intArrayOf(
+    private fun events(from: Long, until: Long, unlocks: Boolean = false): List<AppSessions.Companion.Event> {
+        val sessionKinds = intArrayOf(
             AppSessions.RESUMED,
             AppSessions.PAUSED,
             AppSessions.SCREEN_OFF,
@@ -94,6 +102,7 @@ class AppUsage(private val context: Context) {
             AppSessions.SHUTDOWN,
             AppSessions.STARTUP
         )
+        val kinds = if (unlocks) sessionKinds + AppSessions.UNLOCKED else sessionKinds
         val read = runCatching {
             if (Build.VERSION.SDK_INT >= 35) usage.queryEvents(
                 UsageEventsQuery.Builder(from, until).setEventTypes(*kinds).build()

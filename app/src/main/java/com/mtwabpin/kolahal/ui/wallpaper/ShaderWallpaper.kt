@@ -28,6 +28,7 @@ import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.view.Choreographer
 import android.view.MotionEvent
+import android.view.RoundedCorner
 import android.view.SurfaceHolder
 import androidx.annotation.RequiresApi
 import com.mtwabpin.kolahal.shader.ShaderClock
@@ -56,8 +57,8 @@ import kotlin.math.exp
  *   still, when something it shows changes.
  * - A touch draws it again only when it reads the touch, at most once a frame; while it moves, its next
  *   frame shows the touch, at once when it waited longer than a touch wants ([WallpaperDraws]).
- * - A shader that crashed it [MAX_TRIES] times in a row isn't tried again until its code changes: then
- *   the page shows alone.
+ * - A shader that crashed it [WallpaperGuard.MAX_TRIES] times in a row isn't tried again until its code
+ *   changes: then the page shows alone.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class ShaderWallpaper : WallpaperService() {
@@ -67,11 +68,14 @@ class ShaderWallpaper : WallpaperService() {
     /** Home wrote another state. */
     private var watch: FileObserver? = null
 
+    /** Shaders that crash the process, counted in a file of its own. */
+    private val guard by lazy { WallpaperGuard(File(WallpaperState.dir(this), "trying")) }
+
     override fun onCreate() {
         super.onCreate()
         val dir = WallpaperState.dir(this).apply { mkdirs() }
         // Home writes the state under another name and renames it when it is whole. Only the rename counts:
-        // reading while the other file is there would delete it, and that state would be lost.
+        // until then the file holds the state before.
         watch = object : FileObserver(dir, MOVED_TO) {
             override fun onEvent(event: Int, path: String?) {
                 if (path == WallpaperState.FILE) main.post { engines.forEach { it.load() } }
@@ -213,12 +217,12 @@ class ShaderWallpaper : WallpaperService() {
             uniforms = null
             pace = ShaderClock.Pace.DEFAULT
             frame.seconds = 0f
-            if (!Guard.mayTry(this@ShaderWallpaper, next.code) || ShaderMeta.problems(next.code).isNotEmpty()) return
-            Guard.trying(this@ShaderWallpaper, next.code)
+            if (!guard.mayTry(next.code) || ShaderMeta.problems(next.code).isNotEmpty()) return
+            guard.trying(next.code)
             runtime = try {
                 RuntimeShader(next.code)
             } catch (_: RuntimeException) {
-                Guard.proven(this@ShaderWallpaper)
+                guard.proven()
                 return
             }
             meta = ShaderMeta.parse(next.code).also { pace = ShaderClock.Pace.of(it) }
@@ -226,7 +230,7 @@ class ShaderWallpaper : WallpaperService() {
             main.postDelayed(proven, PROVEN_MS)
         }
 
-        private val proven = Runnable { Guard.proven(this@ShaderWallpaper) }
+        private val proven = Runnable { guard.proven() }
 
         private fun prepare(next: WallpaperState) {
             val shader = runtime ?: return
@@ -243,7 +247,33 @@ class ShaderWallpaper : WallpaperService() {
             ready = true
             frame.width = width.toFloat()
             frame.height = height.toFloat()
+            frame.corner = corner()
+            cutout(frame.cutout)
             draw()
+        }
+
+        /**
+         * The radius of the screen's rounded corners in px, the largest of the four, for `corner`: the surface is the
+         * screen. 0 when they are square or the display isn't known.
+         */
+        private fun corner(): Float = runCatching {
+            val display = displayContext?.display ?: return@runCatching 0f
+            CORNERS.maxOf { display.getRoundedCorner(it)?.radius ?: 0 }.toFloat()
+        }.getOrDefault(0f)
+
+        /**
+         * The camera's cutout at the top of the screen in px, into [out], for `cutout`: left, top, right, bottom
+         * ([android.view.DisplayCutout.getBoundingRectTop]). All 0 when there is none, as in landscape, where the
+         * camera is at a side. Read with the surface's size, so a rotation reads it again.
+         */
+        private fun cutout(out: FloatArray) {
+            out.fill(0f)
+            val top = runCatching { displayContext?.display?.cutout?.boundingRectTop }.getOrNull() ?: return
+            if (top.isEmpty) return
+            out[0] = top.left.toFloat()
+            out[1] = top.top.toFloat()
+            out[2] = top.right.toFloat()
+            out[3] = top.bottom.toFloat()
         }
 
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
@@ -522,26 +552,6 @@ class ShaderWallpaper : WallpaperService() {
         }
     }
 
-    /** Counts how often a shader was started and not proven, so one that crashes the process is left alone. */
-    private object Guard {
-        private fun file(context: Context) = File(WallpaperState.dir(context), "trying")
-
-        private fun tries(context: Context, code: String): Int {
-            val words = runCatching { file(context).readText().split(' ') }.getOrNull() ?: return 0
-            return if (words.size == 2 && words[0] == code.hashCode().toString()) words[1].toIntOrNull() ?: 0 else 0
-        }
-
-        fun mayTry(context: Context, code: String) = tries(context, code) < MAX_TRIES
-
-        fun trying(context: Context, code: String) {
-            runCatching { file(context).writeText("${code.hashCode()} ${tries(context, code) + 1}") }
-        }
-
-        fun proven(context: Context) {
-            file(context).delete()
-        }
-    }
-
     private companion object {
         const val FRAME_MS = WallpaperDraws.FRAME_MS
         const val CHECK_MS = WallpaperDraws.CHECK_MS
@@ -551,10 +561,51 @@ class ShaderWallpaper : WallpaperService() {
 
         /** A shader that ran this long is proven. */
         const val PROVEN_MS = 10_000L
-        const val MAX_TRIES = 3
 
         const val PICTURE_PX = 160f
         const val PICTURE_TRIES = 30
+
+        val CORNERS = intArrayOf(
+            RoundedCorner.POSITION_TOP_LEFT, RoundedCorner.POSITION_TOP_RIGHT,
+            RoundedCorner.POSITION_BOTTOM_RIGHT, RoundedCorner.POSITION_BOTTOM_LEFT,
+        )
+    }
+}
+
+/**
+ * Counts in [file] how often a shader was started and not proven, so one that crashes the live wallpaper's
+ * process is left alone after [MAX_TRIES]. One for each [ShaderWallpaper], which a process has one of.
+ * - A process counts a shader once, however many engines Android makes for it within a moment (the preview,
+ *   the picker's pictures, the wallpaper itself): only a crash ends the process, and starts the next try.
+ * - A shader that ran long enough is [proven], and its count goes.
+ */
+internal class WallpaperGuard(private val file: File) {
+    /** The code that this process counted a try of, by its hash; null when none since the last [proven]. */
+    private var counted: Int? = null
+
+    private fun tries(code: String): Int {
+        val words = runCatching { file.readText().split(' ') }.getOrNull() ?: return 0
+        return if (words.size == 2 && words[0] == code.hashCode().toString()) words[1].toIntOrNull() ?: 0 else 0
+    }
+
+    /** Whether [code] may be tried: this process tries it already, or it crashed fewer than [MAX_TRIES] times in a row. */
+    fun mayTry(code: String): Boolean = counted == code.hashCode() || tries(code) < MAX_TRIES
+
+    /** [code] is about to be compiled and drawn: one more try, unless this process counted it already. */
+    fun trying(code: String) {
+        val hash = code.hashCode()
+        if (counted == hash) return
+        counted = hash
+        runCatching { file.writeText("$hash ${tries(code) + 1}") }
+    }
+
+    fun proven() {
+        counted = null
+        file.delete()
+    }
+
+    companion object {
+        const val MAX_TRIES = 3
     }
 }
 

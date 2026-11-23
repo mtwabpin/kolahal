@@ -39,6 +39,11 @@
         <!-- The text editor: unsaved text of your files, and the names of the files you opened. -->
         <exclude domain="file" path="editor-drafts/" />
         <exclude domain="sharedpref" path="editor.xml" />
+        <!-- Whether home is scrambled now: how this phone shows home, not a setting. -->
+        <exclude domain="sharedpref" path="scramble.xml" />
+        <!-- What the live wallpaper is handed (its shader, colors, and the values it follows, your screen
+             time and unlocks among them): this phone's, and home writes it again at start. -->
+        <exclude domain="file" path="wallpaper/" />
     </cloud-backup>
     <device-transfer>
         <!-- The scripts' work queue: a waiting @on notification run holds that notification's text. -->
@@ -54,5 +59,10 @@
         <!-- The text editor's recent files: their storage permissions don't move. Its drafts do:
              unsaved text comes along, and can be saved as a new file there. -->
         <exclude domain="sharedpref" path="editor.xml" />
+        <!-- Whether home is scrambled now: how this phone shows home, not a setting. -->
+        <exclude domain="sharedpref" path="scramble.xml" />
+        <!-- What the live wallpaper is handed (its shader, colors, and the values it follows, your screen
+             time and unlocks among them): this phone's, and home writes it again at start. -->
+        <exclude domain="file" path="wallpaper/" />
     </device-transfer>
 </data-extraction-rules>

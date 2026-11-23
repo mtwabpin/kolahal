@@ -2,8 +2,10 @@ package com.mtwabpin.kolahal.shader
 
 import com.mtwabpin.kolahal.script.ScriptCheck
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -145,6 +147,106 @@ class ShaderValuesTest {
         assertNull(ShaderParams.follow(mapOf("amount" to ""), p))
         assertEquals("Amount", ShaderParam.read("amount 0.0..2.0 = 1.0 @follow battery")!!.title)
         assertNull(ShaderParam.read("amount 0.0..2.0 = 1.0 Amount")!!.follow)
+    }
+
+    /** The phone's use ([UsageValues]) is Kolahal's own, kept with what scripts give, so it reaches the live wallpaper the same way. */
+    @Test
+    fun thePhonesUse() {
+        assertEquals("37", now("unlocks", given = mapOf("unlocks" to "37")))
+        // Not worked out (nothing follows it, or no usage access): no value, so the slider counts.
+        assertNull(now("screen"))
+        assertTrue(ShaderValues.own("unlocks.usual"))
+        assertTrue(ShaderValues.own("screen.h8"))
+        assertTrue(ShaderValues.own("battery"))
+        assertTrue(!ShaderValues.own("weather.rain"))
+        assertEquals("Screen time against a usual day", ShaderValues.label("screen.usual"))
+        assertEquals("Unlocks, day 3 of the last 7", ShaderValues.label("unlocks.d3"))
+        try {
+            ShaderValues.setUse(mapOf("unlocks" to "12"))
+            assertEquals("12", ShaderValues.given.value["unlocks"])
+            // The same again changes nothing, so the wallpaper's state isn't written again.
+            assertTrue(!ShaderValues.setUse(mapOf("unlocks" to "12")))
+            assertTrue(ShaderValues.setUse(mapOf("unlocks" to "13")))
+        } finally {
+            ShaderValues.setUse(emptyMap())
+        }
+        assertNull(ShaderValues.given.value["unlocks"])
+    }
+
+    /**
+     * The phone's use, as it was last worked out, is kept with what scripts gave, so a parameter that follows it
+     * starts there at the next start: under a name no script has, and it is no script's value.
+     */
+    @Test
+    fun thePhonesUseIsKeptApartFromTheScripts() {
+        assertFalse(ScriptNames.NAME.matches(ShaderValues.USE))
+        val kept = mapOf(
+            "weather" to """{"rain":"0.25"}""",
+            ShaderValues.USE to """{"unlocks":"12","screen.usual":"1.25"}""",
+            "unlocks" to """{"today":"3"}""",
+        )
+        assertEquals(mapOf("weather.rain" to "0.25"), ShaderValues.scripts(kept))
+    }
+
+    @Test
+    fun thePhonesUseAsPeopleReadIt() {
+        assertEquals("37", ShaderValues.shown("unlocks", "37"))
+        assertEquals("95 min", ShaderValues.shown("screen", "94.6"))
+        assertEquals("240 min", ShaderValues.shown("away", "240"))
+        assertEquals("1.25", ShaderValues.shown("unlocks.usual", "1.25"))
+        assertEquals("0.33", ShaderValues.shown("screen.h3", "0.333"))
+    }
+
+    /** Without a formula: unlocks over 100, screen time over 8 hours, time away over 4, a usual day at the middle. */
+    @Test
+    fun thePhonesUseSpreadOverARange() {
+        assertEquals("0.37", ShaderValues.unit("unlocks", "37"))
+        assertEquals("0.5", ShaderValues.unit("screen", "240"))
+        assertEquals("0.25", ShaderValues.unit("away", "60"))
+        assertEquals("0.5", ShaderValues.unit("unlocks.usual", "1"))
+        assertEquals("1.0", ShaderValues.unit("screen.usual", "2"))
+        assertEquals("0.4", ShaderValues.unit("screen.d3", "0.4"))
+        val level = ShaderParam.read("level 0.0..2.0 = 0.5 Level")!!
+        val given = mapOf("unlocks" to "150", "screen.usual" to "1")
+        fun followed(id: String, formula: String? = null): Float? {
+            try {
+                ShaderValues.setUse(given)
+                return ShaderParams.followed(level, id, formula, phone())
+            } finally {
+                ShaderValues.setUse(emptyMap())
+            }
+        }
+        // Past the most, the parameter's most.
+        assertEquals(2f, followed("unlocks"))
+        assertEquals(1f, followed("screen.usual"))
+        assertEquals(1.5f, followed("unlocks", "unlocks / 100"))
+        assertNull(followed("away"))
+    }
+
+    /** A one-word id that is also the first word of others: each formula has its own. */
+    @Test
+    fun formulasWithThePhonesUse() {
+        assertEquals(3.7f, ShaderValues.work("unlocks / 10", "unlocks", "37"))
+        assertEquals(3f, ShaderValues.work("unlocks.usual * 2", "unlocks.usual", "1.5"))
+        assertEquals(3f, ShaderValues.work("usual * 2", "unlocks.usual", "1.5"))
+        assertEquals(0.5f, ShaderValues.work("h1 / 2", "screen.h1", "1"))
+        assertEquals(2f, ShaderValues.work("min(2, screen / 60)", "screen", "300"))
+        // `unlocks` is no part of `unlocks.usual`, and the other way round.
+        assertNull(ShaderValues.work("unlocks.usual * 2", "unlocks", "37"))
+        assertNull(ShaderValues.work("unlocks * 2", "unlocks.usual", "1.5"))
+        // What follows `shader follow` or `@follow`, with and without the ids there are.
+        val known = ShaderValues.BUILT_IN.keys + UsageValues.IDS
+        for (k in listOf(known, null)) {
+            assertEquals("unlocks" to null, ShaderValues.parse("unlocks", k))
+            assertEquals("unlocks" to "unlocks / 10", ShaderValues.parse("unlocks / 10", k))
+            assertEquals("unlocks.usual" to null, ShaderValues.parse("unlocks.usual", k))
+            assertEquals("unlocks.usual" to "unlocks.usual / 2", ShaderValues.parse("unlocks.usual / 2", k))
+            assertEquals("screen.h8" to "min(1, screen.h8 * 2)", ShaderValues.parse("min(1, screen.h8 * 2)", k))
+            assertEquals("away" to "away / 60", ShaderValues.parse("away / 60", k))
+        }
+        val p = ShaderParam.read("level 0.0..2.0 = 0.5 Level @follow screen.usual")!!
+        assertEquals("screen.usual", p.follow)
+        assertEquals("unlocks", ShaderParam.read("count 0..9 = 3 Count @follow unlocks / 10")!!.follow)
     }
 
     @Test

@@ -80,6 +80,27 @@ class ShaderFolderTest {
         assertEquals(code, written.single().readText())
     }
 
+    /** A copy of a template takes a name that neither the user's shaders nor the folder's files have. */
+    @Test
+    fun aTemplatesCopyLeavesTheFoldersFilesAlone() {
+        File(File(dir, "shaders"), "my-tint.agsl").writeText(code)
+        File(dir, "My Tint 2.agsl").writeText(code)
+        File(dir, "notes.txt").writeText("x")
+        val there = ScriptFolder(context).shaderNames(DocumentFile.fromFile(dir))
+        assertEquals(setOf("my-tint", "my-tint-2"), there)
+        val before = Shaders.userNames.toSet()
+        val (name, made) = Shaders.fromTemplate(context, "template-tint") { it in there }
+        try {
+            assertTrue(name, name.startsWith("my-tint-") && name !in there && name !in before)
+            assertEquals(Shaders.bundled(context, "template-tint"), made)
+            assertEquals(made, Shaders.own(context, name))
+            // The folder's files are as they were.
+            assertEquals(code, File(File(dir, "shaders"), "my-tint.agsl").readText())
+        } finally {
+            Shaders.remove(context, name)
+        }
+    }
+
     /** A picked `.agsl` file becomes a shader; a name that can't be one is said. */
     @Test
     fun aPickedFileIsAShader() {

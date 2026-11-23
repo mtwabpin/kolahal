@@ -1,0 +1,524 @@
+// @name Kintsugi
+// @description A dark tea bowl on a table, mended with gold: a seam for each day of the week's unlocks, today's the brightest
+// @suits dark good, light good, wallpaper poor
+// @param d1 0.0..1.0 = 0.35 Six days ago @follow unlocks.d1
+// @param d2 0.0..1.0 = 0.6 Five days ago @follow unlocks.d2
+// @param d3 0.0..1.0 = 0.2 Four days ago @follow unlocks.d3
+// @param d4 0.0..1.0 = 0.75 Three days ago @follow unlocks.d4
+// @param d5 0.0..1.0 = 0.45 Two days ago @follow unlocks.d5
+// @param d6 0.0..1.0 = 0.9 Yesterday @follow unlocks.d6
+// @param d7 0.0..1.0 = 0.4 Today @follow unlocks.d7
+//
+// The seams run down from the rim, the oldest day on the left and today on the right, each as long as its day's
+// unlocks: a day with none is a hairline at the rim, the week's highest reaches nearly to the foot. A seam is
+// the same crack at every value, drawn further along its path, and grows its branches as it passes them.
+// Today's gold is fresh and bright, the older seams duller.
+//
+// The bowl is a shape turned on a wheel, seen a little from above: for each pixel the shader finds the place
+// on its outside or inside that the pixel shows, a few steps of a guess, and lights it as a glaze, with the
+// window's reflection on one side and the room's on the other. The gold is drawn on the bowl's own surface, so
+// it bends with it, and only the two seams nearest a pixel are looked at. The light follows the hour: a
+// window's light on the wall by day, a lamp at night in a dark theme. Nothing moves, so it is drawn only when
+// a value or the minute changes; a frame costs about as much as pond's.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float4 date;
+uniform float dark;
+uniform float wallpaper;
+uniform float d1;
+uniform float d2;
+uniform float d3;
+uniform float d4;
+uniform float d5;
+uniform float d6;
+uniform float d7;
+layout(color) uniform half4 bg;
+layout(color) uniform half4 fg;
+
+// The bowl, in parts of the screen's height. C0 is where the middle of its foot is on the screen, H its
+// height, R the rim's radius. K is how flat the rim looks (the sine of the angle it is seen from) and CE
+// the cosine of that angle.
+const float C0 = 0.392;
+const float H = 0.135;
+const float R = 0.168;
+const float K = 0.24;
+const float CE = 0.9708;
+const float FOOTH = 0.012;
+const float FOOTR = 0.054;
+const float THICK = 0.0065;
+// Where the table meets the wall.
+const float WALL = 0.332;
+// Across the bowl's surface, an angle times RM is a length.
+const float RM = 0.15;
+
+// A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
+float hash(float n) {
+    float p = fract(n * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
+float hash2(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// Smooth noise along a line, 0 to 1.
+float noise1(float x) {
+    float at = floor(x);
+    float f = fract(x);
+    return mix(hash(at), hash(at + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+// How much of morning, day, evening and night there is at hour h.
+float4 hours(float h) {
+    float morning = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(9.3, 10.7, h));
+    float day = smoothstep(9.3, 10.7, h) * (1.0 - smoothstep(16.2, 17.3, h));
+    float evening = smoothstep(16.2, 17.3, h) * (1.0 - smoothstep(18.9, 20.0, h));
+    float4 w = float4(morning, day, evening, 0.0);
+    w.w = 1.0 - w.x - w.y - w.z;
+    return w;
+}
+
+// The hour's color, from those of morning, day, evening and night.
+float3 pick(float4 w, float3 a, float3 b, float3 c, float3 d) {
+    return a * w.x + b * w.y + c * w.z + d * w.w;
+}
+
+// The page is this shader's where it is the background, and the theme's own lower down, where the log ends. As a
+// live wallpaper, with no log over it, it is this shader's all the way down.
+float ground(float y) {
+    return y < 0.64 ? 0.80 * clamp((y - 0.42) / 0.22, 0.0, 1.0) : 0.80 + 0.20 * clamp((y - 0.64) / 0.20, 0.0, 1.0);
+}
+
+// The outside's radius at height Y above the table: a foot ring, then a round body that rises to a straight rim.
+float radiusAt(float Y) {
+    if (Y < FOOTH) return FOOTR + 0.003 * Y / FOOTH;
+    float u = 1.0 - clamp((Y - FOOTH) / (H - FOOTH), 0.0, 1.0);
+    return R * (0.34 + 0.66 * (1.0 - u * u * sqrt(u)));
+}
+
+// How fast that radius grows with the height.
+float slopeAt(float Y) {
+    if (Y < FOOTH) return 0.25;
+    float u = 1.0 - clamp((Y - FOOTH) / (H - FOOTH), 0.0, 1.0);
+    return R * 0.66 * 2.5 * u * sqrt(u) / (H - FOOTH);
+}
+
+// The rim's height at angle a: a hand-made rim is a little uneven.
+float rimAt(float a) {
+    return H + 0.0018 * sin(2.0 * a + 0.8) + 0.0010 * sin(5.0 * a + 2.3) + 0.0005 * sin(9.0 * a + 1.0);
+}
+
+// Where seam n starts on the rim, as a length across the surface.
+float seamStart(float n) {
+    return (-0.96 + 0.32 * n) * RM + 0.006 * (hash(n * 3.1 + 1.0) - 0.5);
+}
+
+// The value of day n (0 to 6), the oldest first.
+float dayValue(float n) {
+    float v = n < 0.5 ? d1 : n < 1.5 ? d2 : n < 2.5 ? d3 : n < 3.5 ? d4 : n < 4.5 ? d5 : n < 5.5 ? d6 : d7;
+    return clamp(v, 0.0, 1.0);
+}
+
+// A seam's joints, down from the rim: joint k of seam n is k steps of STEP down, give or take, and wanders a
+// little to either side of where the seam starts (u0).
+const float STEP = 0.019;
+
+float2 jointAt(float n, float k, float u0) {
+    if (k < 0.5) return float2(u0, 0.0);
+    return float2(u0 + 0.011 * (2.0 * hash(n * 13.0 + k * 3.7 + 5.0) - 1.0), k * STEP + 0.005 * (hash(n * 5.3 + k * 1.9 + 2.0) - 0.5));
+}
+
+// How near p is to the line from a to b, with sx turning lengths across into lengths on the screen: the way from
+// the line to p, and how far along the line its nearest place is (0 to 1).
+float3 toLine(float2 p, float2 a, float2 b, float sx) {
+    float2 pa = float2((p.x - a.x) * sx, p.y - a.y);
+    float2 ba = float2((b.x - a.x) * sx, b.y - a.y);
+    float t = clamp(dot(pa, ba) / max(dot(ba, ba), 0.00000001), 0.0, 1.0);
+    return float3(pa - ba * t, t);
+}
+
+// The gold nearest to a place on the bowl's outside, u across it and v down from the rim, with sx turning a
+// length across into one on the screen. Returns the way from the line to the place (on the screen), the
+// line's half width there, and the seam's number (-1 for none).
+//
+// A seam is a crack from the rim down through its joints, drawn as far as its day's value reaches, with a branch
+// at its first, third and fifth joints once it has passed them. So a place needs only the two seams nearest
+// across, and of each only the pieces near its own height.
+float4 seams(float u, float v, float sx) {
+    float best = 1.0;
+    float4 found = float4(1.0, 1.0, 0.001, -1.0);
+    float at = (u / RM + 0.96) / 0.32;
+    float n0 = clamp(floor(at + 0.5), 0.0, 6.0);
+    float2 p = float2(u, v);
+    for (int m = 0; m < 2; m++) {
+        float n = m == 0 ? n0 : (at > n0 ? n0 + 1.0 : n0 - 1.0);
+        if (n < 0.0 || n > 6.0) continue;
+        float u0 = seamStart(n);
+        if (abs(u - u0) > 0.038) continue;
+        // A day with nothing is a hairline at the rim; the week's highest runs nearly to the foot.
+        float reach = 0.012 + 0.096 * dayValue(n);
+        if (v > reach + 0.006) continue;
+        float wide = n > 5.5 ? 0.0021 : 0.0016;
+        // The crack: the piece at this height and the ones above and below it.
+        float k0 = floor(v / STEP);
+        for (int j = 0; j < 3; j++) {
+            float k = k0 - 1.0 + float(j);
+            if (k < 0.0 || k > 5.0) continue;
+            float2 a = jointAt(n, k, u0);
+            if (a.y >= reach) continue;
+            float2 b = jointAt(n, k + 1.0, u0);
+            b = mix(a, b, min(1.0, (reach - a.y) / (b.y - a.y)));
+            float3 l = toLine(p, a, b, sx);
+            float lo = length(l.xy);
+            if (lo < 0.0026 + best) {
+                float down = mix(a.y, b.y, l.z);
+                float wd = wide * mix(0.35, 1.0, clamp((reach - down) / 0.025, 0.0, 1.0)) * (0.8 + 0.4 * noise1(down * 180.0 + n * 31.0));
+                if (lo - wd < best) {
+                    best = lo - wd;
+                    found = float4(l.xy, wd, n);
+                }
+            }
+        }
+        // The branches: of the joints 1, 3 and 5, the two that can reach this height. A branch goes to the
+        // right at joints 1 and 5 and to the left at 3, so it never meets a neighbor's coming the other way.
+        float f = floor((v + 0.013) / STEP);
+        float kb = f - 1.0 + mod(f, 2.0);
+        for (int j = 0; j < 2; j++) {
+            float k = kb - 2.0 * float(j);
+            if (k < 0.5 || k > 5.5) continue;
+            float2 a = jointAt(n, k, u0);
+            float grown = (reach - a.y) * 0.8;
+            if (grown <= 0.0) continue;
+            float2 ja = float2((u - a.x) * sx, v - a.y);
+            if (dot(ja, ja) > 0.0009) continue;
+            float side = k > 2.5 && k < 3.5 ? -1.0 : 1.0;
+            float turn = side * (0.9 + 0.5 * hash(n * 9.1 + k));
+            float l1 = 0.009 + 0.005 * hash(n * 4.7 + k * 1.3);
+            float l2 = 0.006 + 0.004 * hash(n * 2.9 + k * 3.3);
+            float2 b = a + float2(sin(turn), cos(turn)) * min(l1, grown);
+            float bend = turn - side * (0.2 + 0.5 * hash(n * 6.1 + k * 2.7));
+            float2 c = b + float2(sin(bend), cos(bend)) * clamp(grown - l1, 0.0, l2);
+            float3 l = toLine(p, a, b, sx);
+            float along = l.z * min(l1, grown);
+            if (grown > l1) {
+                float3 l3 = toLine(p, b, c, sx);
+                if (dot(l3.xy, l3.xy) < dot(l.xy, l.xy)) {
+                    l = l3;
+                    along = l1 + l3.z * (grown - l1);
+                }
+            }
+            float bwd = wide * 0.65 * mix(0.35, 1.0, clamp((grown - along) / 0.012, 0.0, 1.0));
+            float lo = length(l.xy);
+            if (lo - bwd < best) {
+                best = lo - bwd;
+                found = float4(l.xy, bwd, n);
+            }
+        }
+    }
+    return found;
+}
+
+// The direction d takes after it bounces off a surface facing n.
+float3 mirror(float3 d, float3 n) {
+    return d - 2.0 * dot(n, d) * n;
+}
+
+// How much of the window a reflection sees, looking in direction d: a tall window on the left.
+float windowAt(float3 d) {
+    float band = (1.0 - smoothstep(-0.66, -0.50, d.x)) * smoothstep(-0.97, -0.86, d.x);
+    return band * smoothstep(-1.0, -0.7, d.y) * (1.0 - smoothstep(0.3, 0.7, d.y));
+}
+
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    float2 res = resolution;
+    float sy = xy.y / res.y;
+    if (sy > 0.84 && wallpaper < 0.5) return half4(here);
+
+    // Not over text: a pixel that differs from the background is text or a line. Faint text over the
+    // scene gets more of its own contrast, up to the full text's, as the page behind it is busier now.
+    float3 page = float3(bg.rgb) * here.a;
+    float ink = length(here.rgb - page);
+    float full = length(float3(fg.rgb) - float3(bg.rgb));
+    float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(sy) * (1.0 - wallpaper));
+    float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
+    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    if (amount <= 0.0) return half4(float4(letters, here.a));
+
+    float4 w = hours(date.w / 3600.0);
+    // Measured in heights from the middle of the screen, so a wider screen shows more of the room, and its
+    // bowl is a little larger. As a wallpaper, with no text, the bowl sits nearer the middle.
+    float zoom = mix(1.0, 1.2, smoothstep(0.6, 1.6, res.x / res.y));
+    float y = (sy - 0.16 * wallpaper - 0.31) / zoom + 0.31;
+    float2 q = float2((xy.x - 0.5 * res.x) / (res.y * zoom), y);
+    float px = 1.0 / (res.y * zoom);
+
+    // The light: key from a window on the left (a lamp at night in a dark theme), amb from the room. Every
+    // surface is its own color times these. A dark theme's room is dim, a light theme's is bright.
+    float3 key, amb;
+    float lamp;
+    if (dark > 0.5) {
+        key = pick(w, float3(0.40, 0.34, 0.30), float3(0.36, 0.36, 0.34), float3(0.44, 0.31, 0.22), float3(0.44, 0.28, 0.15));
+        amb = pick(w, float3(0.110, 0.105, 0.120), float3(0.105, 0.110, 0.115), float3(0.115, 0.090, 0.100), float3(0.075, 0.075, 0.100));
+        lamp = w.w;
+    } else {
+        key = pick(w, float3(0.30, 0.26, 0.22), float3(0.28, 0.28, 0.26), float3(0.34, 0.24, 0.15), float3(0.10, 0.11, 0.14));
+        amb = pick(w, float3(0.80, 0.78, 0.78), float3(0.80, 0.80, 0.79), float3(0.80, 0.75, 0.73), float3(0.77, 0.78, 0.83));
+        lamp = 0.0;
+    }
+    // Where the light comes from, from the bowl: left, above and a little in front. V is towards the viewer.
+    float3 L = normalize(float3(-0.65, 0.60, 0.45));
+    float3 V = float3(0.0, K, CE);
+
+    // ---- The bowl ----
+    float3 color = float3(0.0);
+    float bowl = 0.0;
+    bool onBowl = abs(q.x) < R + 0.004 && y > C0 - H * CE - R * K - 0.008 && y < C0 + FOOTR * K + 0.004;
+    // Below the rim the bowl is no wider than its radius at the highest place a pixel there can show.
+    if (onBowl && y > C0 - H * CE) onBowl = abs(q.x) < radiusAt((C0 + R * K - y) / CE) + 2.0 * px;
+    if (onBowl) {
+        // The rim: an ellipse at the rim's height. Inside it the bowl's inside shows.
+        float ex = q.x / R;
+        float sr = clamp(ex, -1.0, 1.0);
+        float cr = sqrt(1.0 - sr * sr);
+        float front = atan(sr, cr);
+        bool lower = y > C0 - H * CE;
+        float rimH = rimAt(lower ? front : (sr < 0.0 ? -3.1416 : 3.1416) - front);
+        float ey = (y - (C0 - rimH * CE)) / (R * K);
+        float f = ex * ex + ey * ey - 1.0;
+        float edge = f / (2.0 * sqrt(ex * ex / (R * R) + ey * ey / (R * R * K * K)) + 0.0001) / px;
+        float inRim = clamp(0.5 - edge, 0.0, 1.0);
+
+        // The outside: the height on the bowl this pixel shows, found by a few steps.
+        float Y = (C0 + R * K - y) / CE;
+        float r = R;
+        float s = 0.0;
+        float c = 1.0;
+        for (int k = 0; k < 6; k++) {
+            r = radiusAt(clamp(Y, 0.0, H + 0.01));
+            s = clamp(q.x / r, -1.0, 1.0);
+            c = sqrt(1.0 - s * s);
+            Y = (C0 + r * c * K - y) / CE;
+        }
+        float a = atan(s, c);
+        float topH = rimAt(a);
+        float outside = clamp((r - abs(q.x)) / px + 0.5, 0.0, 1.0) * clamp(Y * CE / px + 0.5, 0.0, 1.0)
+            * clamp((topH - Y) * CE / px + 0.5, 0.0, 1.0);
+        bowl = max(outside, inRim);
+
+        if (bowl > 0.0) {
+            float3 glazeDeep = float3(0.028, 0.040, 0.056);
+            float3 broken = float3(0.30, 0.17, 0.09);
+            float3 clay = float3(0.44, 0.32, 0.23);
+            float3 room = amb * 0.9 + key * 0.25;
+            float3 window = key * 4.0 + amb * 0.6;
+            // The light the table and the wall on the right give back.
+            float3 bounce = key * 0.9 + amb * 0.5;
+
+            // The outside.
+            float3 outer = float3(0.0);
+            if (outside > 0.0 && inRim < 1.0) {
+                float rings = 0.045 * sin(Y * 480.0 + 1.3 * sin(a * 3.0)) * smoothstep(FOOTH, 0.03, Y);
+                float3 N = normalize(float3(s, -(slopeAt(Y) + rings), c));
+                float diff = max(dot(N, L), 0.0);
+                float view = max(dot(N, V), 0.0);
+                float3 Rf = mirror(-V, N);
+                // Where the glaze ends above the foot, with a few drips running lower.
+                float drip = sqrt(clamp((sin(a * 7.0 + 2.0 + 2.0 * sin(a * 3.0)) - 0.8) / 0.2, 0.0, 1.0));
+                float glazeLine = 0.031 + 0.004 * sin(3.0 * a + 1.0) - 0.011 * drip;
+                float glazed = clamp((Y - glazeLine) * CE / px + 0.5, 0.0, 1.0);
+                // The glaze pools darker low down, beads at its edge, and breaks to the clay's brown over the rim.
+                float fromRim = topH - Y;
+                float3 glaze = glazeDeep * mix(0.7, 1.15, smoothstep(glazeLine, topH, Y));
+                glaze *= 1.0 - 0.45 * (1.0 - smoothstep(0.0, 0.006, Y - glazeLine));
+                float streak = noise1(a * 55.0);
+                glaze = mix(glaze, float3(0.10, 0.065, 0.045), 0.35 * smoothstep(0.55, 0.9, streak) * smoothstep(glazeLine, topH, Y));
+                glaze = mix(glaze, broken, 0.85 * pow(1.0 - clamp(fromRim / 0.012, 0.0, 1.0), 1.6));
+                // Glossy: the room and the window in it, more at a slant.
+                float fres = 0.05 + 0.55 * pow(1.0 - view, 3.0);
+                float3 env = mix(room, amb * 0.5, smoothstep(0.0, 0.8, Rf.y)) * 0.9 + bounce * smoothstep(0.1, 0.8, Rf.x) + window * windowAt(Rf);
+                float3 lit = amb + key * diff;
+                float3 shiny = glaze * lit + fres * env;
+                outer = shiny;
+                if (glazed < 1.0) {
+                    float3 bare = clay * (1.0 - 0.25 * hash2(floor(xy * 0.7))) * (amb * 0.8 + key * diff * 1.1 + bounce * 0.5 * max(-N.y, 0.0));
+                    outer = mix(bare, shiny, glazed);
+                }
+
+                // The gold, a raised line with its own light and shadow.
+                if (glazed > 0.0 && Y > glazeLine) {
+                    float4 g = seams(a * RM, fromRim * CE, (r / RM) * max(c, 0.12));
+                    if (g.w >= 0.0) {
+                        float dist = length(g.xy);
+                        float wd = g.z;
+                        float2 toLight = normalize(float2(-0.7, -0.7));
+                        float side = dot(g.xy, toLight) / max(wd, 0.0001);
+                        // Its shadow on the glaze, away from the light.
+                        float shade = (1.0 - smoothstep(wd, wd * 2.6, dist)) * clamp(-side * 0.6, 0.0, 1.0);
+                        outer *= 1.0 - 0.6 * shade;
+                        bool today = g.w > 5.5;
+                        float age = today ? 1.0 : 0.55 + 0.05 * g.w;
+                        float3 gold = today ? float3(1.0, 0.82, 0.45) : mix(float3(0.62, 0.45, 0.22), float3(0.85, 0.64, 0.30), g.w / 5.0);
+                        float cross1 = clamp(side, -1.0, 1.0);
+                        float shine = exp(-(cross1 - 0.35) * (cross1 - 0.35) / 0.06);
+                        float lightOn = today ? mix(diff, 1.0, 0.6) : diff;
+                        float3 metal = gold * (amb * 0.9 + key * (0.5 + 1.2 * lightOn) + window * 0.08 * (0.6 + 0.4 * cross1))
+                            * (0.75 + 0.35 * cross1) + (key * 2.0 + amb * 0.3) * shine * (today ? 0.9 : 0.45);
+                        if (dark > 0.5) metal *= mix(1.6, 2.2, age - 0.55);
+                        float cover = clamp((wd - dist) / px + 0.5, 0.0, 1.0);
+                        if (today) outer += gold * (key * 0.5 + amb * 0.08) * exp(-dist / (wd * 3.0)) * (1.0 - cover);
+                        outer = mix(outer, metal, cover);
+                    }
+                }
+            }
+
+            // The rim and the inside.
+            float3 inner = float3(0.0);
+            if (inRim > 0.0) {
+                float ri = R - THICK;
+                float rx = q.x / ri;
+                float fi = rx * rx + (ey * R / ri) * (ey * R / ri) - 1.0;
+                float edgeIn = fi / (2.0 * sqrt(rx * rx / (ri * ri) + ey * ey / (ri * ri * K * K)) + 0.0001) / px;
+                float opening = clamp(0.5 - edgeIn, 0.0, 1.0);
+                // The lip: glaze thin over it, its top in the light.
+                float across = clamp((sqrt(max(ex * ex + ey * ey, 0.0)) - ri / R) / (1.0 - ri / R), 0.0, 1.0);
+                float3 radial = float3(sr, 0.0, ey > 0.0 ? cr : -cr);
+                float3 Nl = normalize(radial * (2.0 * across - 1.0) * 1.1 + float3(0.0, 1.0, 0.0));
+                float3 lip = broken * 1.25 * (amb + key * max(dot(Nl, L), 0.0) * 1.3) + key * 0.5 * pow(max(dot(mirror(-V, Nl), L), 0.0), 12.0);
+
+                float3 wallIn = float3(0.0);
+                if (opening > 0.0) {
+                    // The far side of the inside, seen over the near rim.
+                    float Yi = (C0 - ri * K - y) / CE;
+                    float rr = ri;
+                    float si = 0.0;
+                    float ci = 1.0;
+                    for (int k = 0; k < 2; k++) {
+                        rr = radiusAt(clamp(Yi, 0.0, H)) - THICK;
+                        si = clamp(q.x / rr, -1.0, 1.0);
+                        ci = sqrt(1.0 - si * si);
+                        Yi = (C0 - rr * ci * K - y) / CE;
+                    }
+                    float3 Ni = normalize(float3(-si, slopeAt(Yi), ci));
+                    float diffI = max(dot(Ni, L), 0.0);
+                    float viewI = max(dot(Ni, V), 0.0);
+                    float3 RfI = mirror(-V, Ni);
+                    float deep = smoothstep(0.02, H, Yi);
+                    float3 glazeI = glazeDeep * mix(0.6, 1.1, deep);
+                    glazeI = mix(glazeI, broken, 0.8 * pow(1.0 - clamp((rimH - Yi) / 0.010, 0.0, 1.0), 1.6));
+                    float3 envI = room * 0.8 + window * windowAt(RfI);
+                    float fresI = 0.05 + 0.55 * pow(1.0 - viewI, 3.0);
+                    wallIn = (glazeI * (amb * 0.8 + key * diffI) + fresI * envI) * mix(0.45, 1.0, deep);
+                }
+                // Where a seam starts, its gold runs over the lip.
+                if (ey > 0.0) {
+                    float sn = clamp(floor((front + 0.96) / 0.32 + 0.5), 0.0, 6.0);
+                    float dx = abs(front * RM - seamStart(sn)) / RM * R * cr;
+                    float wl = sn > 5.5 ? 0.0021 : 0.0016;
+                    float onLip = clamp((wl - dx) / px + 0.5, 0.0, 1.0);
+                    float3 goldL = sn > 5.5 ? float3(1.0, 0.82, 0.45) : mix(float3(0.62, 0.45, 0.22), float3(0.85, 0.64, 0.30), sn / 5.0);
+                    lip = mix(lip, goldL * (amb + key * (0.8 + 1.4 * max(dot(Nl, L), 0.0))) * mix(1.0, 1.8, dark), onLip);
+                }
+                inner = mix(lip, wallIn, opening);
+            }
+            color = mix(outer, inner, inRim);
+        }
+    }
+
+    // ---- The room ----
+    if (bowl < 1.0) {
+        float3 room;
+        if (y < WALL) {
+            // The wall: the window's light falls on it at the upper left, and it falls into shade upwards and
+            // to the right.
+            float3 plaster = dark > 0.5 ? float3(0.75, 0.68, 0.62) : float3(0.96, 0.94, 0.90);
+            plaster *= 0.975 + 0.025 * hash2(floor(xy * 0.5));
+            // The window's light: a slanted patch with the shadow of its lattice, sharper near the table.
+            float glow = 0.0;
+            if (lamp < 1.0) {
+                float2 pw = float2(q.x + 0.32 * (q.y - 0.15), q.y);
+                if (pw.x > -0.50 && pw.x < -0.05 && pw.y > 0.0 && pw.y < 0.29) {
+                    float soft = 0.012 + 0.03 * clamp(0.30 - pw.y, 0.0, 0.3);
+                    float patch = smoothstep(-0.46, -0.46 + soft, pw.x) * (1.0 - smoothstep(-0.09 - soft, -0.09, pw.x))
+                        * smoothstep(0.02, 0.02 + soft, pw.y) * (1.0 - smoothstep(0.27 - soft, 0.27, pw.y));
+                    float lattice = max(1.0 - smoothstep(0.0012, 0.0035, abs(fract((pw.x + 0.46) / 0.0617 + 0.5) - 0.5) * 0.0617),
+                        1.0 - smoothstep(0.0012, 0.0035, abs(fract((pw.y - 0.02) / 0.05 + 0.5) - 0.5) * 0.05));
+                    glow = patch * (1.0 - 0.75 * lattice) * 1.4;
+                }
+                float2 sp = q - float2(-0.25, 0.14);
+                glow = (glow + exp(-dot(sp, sp) / 0.05) * mix(0.35, 0.5, dark)) * mix(1.0, 0.8, dark) * (1.0 - lamp);
+            }
+            // At night a lamp on the left, out of the picture.
+            if (lamp > 0.0) {
+                float2 lp = q - float2(-0.68, 0.26);
+                glow += exp(-dot(lp, lp) / 0.30) * 1.4 * lamp;
+            }
+            float fall = mix(mix(0.93, 0.7, dark), 1.0, smoothstep(-0.05, 0.30, q.y)) * mix(1.0, mix(0.96, 0.8, dark), smoothstep(-0.1, 0.6, q.x));
+            room = plaster * (amb * fall + key * glow);
+            // The table's back edge darkens the foot of the wall.
+            room *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 0.03, WALL - y));
+        } else {
+            // The table, seen from above: across is x, depth is towards the viewer.
+            float z = (y - WALL) / K;
+            float3 top;
+            if (dark > 0.5) {
+                // Boards running across, each with its own shade, grain that waves along them, and fine fibres.
+                float board = floor(z / 0.16);
+                float v = z * 34.0 + 1.6 * sin(q.x * 1.7 + board * 7.0 + z * 2.0) + 0.9 * sin(q.x * 4.1 - board * 3.0) + 0.5 * sin(q.x * 9.0 + board);
+                float grain = 1.0 - smoothstep(0.0, 0.18, abs(fract(v) - 0.5));
+                float fibre = hash(floor(z * 420.0)) * (0.6 + 0.4 * sin(q.x * 23.0 + z * 300.0));
+                top = float3(0.30, 0.19, 0.12) * (0.88 + 0.12 * hash(board + 3.0)) * (0.92 - 0.16 * grain + 0.10 * fibre);
+                top *= 1.0 - 0.6 * (1.0 - smoothstep(0.0, 0.0035, abs(fract(z / 0.16 + 0.5) - 0.5) * 0.16));
+            } else {
+                float weave = 0.5 + 0.25 * sin(xy.x * 1.9) * sin(xy.y * 1.9) + 0.25 * hash(floor(z * 900.0));
+                top = float3(0.93, 0.90, 0.84) * (0.965 + 0.05 * weave);
+            }
+            // The window's light on the table, and the bowl's shadow in it: the bowl's rings at a few heights,
+            // each moved away from the light, softer the higher it is.
+            float2 tp = float2(q.x, (y - C0) / K);
+            float2 pl = tp - float2(-0.30, 0.02);
+            float pool = exp(-dot(pl, pl) / 0.12);
+            float shadow = 0.0;
+            float contact = 0.0;
+            if (tp.x > -0.14 && tp.x < 0.36 && tp.y > -0.32 && tp.y < 0.12) {
+                // Each height of the bowl throws a disc as wide as the bowl there, moved away from the light by
+                // 1.08 and 0.75 of its height. Together they make one long shape, measured along that line.
+                float t = clamp(dot(tp - float2(0.016, -0.011), float2(0.130, -0.089)) / 0.02482, 0.0, 1.0);
+                float hy = mix(0.015, 0.135, t);
+                float rr = 0.0638 + 0.1042 * sqrt(t);
+                float dd = length(tp - float2(1.08 * hy, -0.75 * hy)) - rr;
+                shadow = 1.0 - smoothstep(-0.01 - 0.15 * hy, 0.01 + 0.25 * hy, dd);
+                // Under the foot, where hardly any light gets in.
+                contact = 1.0 - smoothstep(0.0, 0.05, length(tp) - FOOTR);
+            }
+
+            float fall = dark > 0.5 ? mix(1.0, 0.7, smoothstep(0.0, 0.6, z)) : 1.0;
+            room = top * (amb * fall * (1.0 - 0.45 * contact) + key * (0.5 + 0.9 * pool) * (1.0 - 0.85 * shadow) * (1.0 - contact));
+            // Polished wood gives back the window as a soft gleam, in front of the bowl and to its left.
+            if (dark > 0.5) {
+                float2 gl = tp - float2(-0.20, 0.30);
+                if (abs(gl.x) < 0.33 && abs(gl.y) < 1.3) room += key * top * 1.2 * exp(-(gl.x * gl.x / 0.02 + gl.y * gl.y / 0.30)) * (1.0 - 0.85 * shadow);
+            }
+            // Where the table meets the wall.
+            room *= 1.0 - 0.3 * (1.0 - smoothstep(0.0, 0.004, y - WALL));
+        }
+        color = mix(room, color, bowl);
+    }
+
+    // Over the log in a light theme what is dark goes pale, so the theme's dark text reads on the bowl.
+    if (dark < 0.5 && wallpaper < 0.5) {
+        float deep = 1.0 - smoothstep(0.25, 0.75, dot(color, float3(0.299, 0.587, 0.114)));
+        color = mix(color, float3(bg.rgb), 0.8 * deep);
+    }
+    color = mix(color, float3(bg.rgb), ground(sy) * (1.0 - wallpaper));
+    // Dither, so the long gradients have no bands.
+    color += (hash2(xy) - 0.5) / 255.0;
+
+    return half4(float4(mix(letters, color, amount), mix(here.a, 1.0, amount)));
+}

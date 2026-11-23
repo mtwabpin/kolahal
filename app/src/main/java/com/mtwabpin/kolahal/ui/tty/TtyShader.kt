@@ -4,10 +4,13 @@
 package com.mtwabpin.kolahal.ui.tty
 
 import android.content.Context
+import android.graphics.Rect
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
 import android.os.Build
 import android.os.SystemClock
+import android.view.RoundedCorner
+import android.view.View
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
@@ -36,6 +39,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -115,6 +119,9 @@ internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
  *   ([FollowTilt]). Nothing listens to the motion sensor for any other.
  * - One with parameters is also drawn when one changes, by hand or with the value it follows ([rememberLiveParams]).
  * - One that declares `battery` or `charging` is also drawn when they change ([FollowBattery]).
+ * - One that declares `corner` gets the window's rounded corners when the surface is the whole window
+ *   ([WindowCorner]); it is drawn no more often for it. One that declares `cutout` gets the camera's
+ *   cutout at the top of the window the same way.
  * - [ShaderSafety] turns one off that Kolahal crashed with. A slow one is the user's to turn off.
  * - Two fingers held still for a second turn the shader off, whatever it does to the screen.
  * - A shader loaded before is kept ([ShaderCache]): composed again, the surface doesn't read and compile
@@ -124,6 +131,9 @@ internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
  * shader stands still and isn't drawn again with the lean or the minute: the screen draws its own. Its
  * hold on the lean stays ([FollowTilt]), so the listener that it shares with the screen goes on when
  * the screen closes. The screen's host passes false.
+ *
+ * [over]: home's app selector, drawn over the shader's picture while one that isn't for text is drawn
+ * ([OverShader]).
  */
 @Composable
 internal fun rememberTtyShader(
@@ -133,10 +143,11 @@ internal fun rememberTtyShader(
     left: Int = 0,
     on: Boolean = true,
     home: Boolean = true,
+    over: OverShader? = null,
 ): Modifier {
     if (!on || name == ShaderCatalog.OFF) return Modifier
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return Modifier
-    return shaderLayer(name, grid, cols, left, home)
+    return shaderLayer(name, grid, cols, left, home, over)
 }
 
 /** The shaders loaded last, for [rememberTtyShader]. */
@@ -147,7 +158,7 @@ private var lastProven: String? = null
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int, home: Boolean): Modifier {
+private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int, home: Boolean, over: OverShader?): Modifier {
     // A person listening to the screen isn't looking at it: nothing is drawn over it, and nothing costs power.
     if (rememberScreenReader()) return Modifier
     val context = LocalContext.current.applicationContext
@@ -190,12 +201,14 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int, home:
     if (shader.meta.tilt) FollowTilt(shader, touch)
     val battery = rememberShaderBattery(shader)
     val params = rememberLiveParams(shader)
+    val corner = rememberWindowCorner()
 
     val inputs = remember(shader, grid, cols, left) {
         ShaderInputs(shader, grid, cols, left, params, shader.meta.once) { Shaders.report(context, shader.name, shader.id, it) }
     }
-    return Modifier
-        .shaderEffect(inputs, clock, touch, battery, day, hidden)
+    if (over != null) DrawOverShader(over, shader.meta)
+    return (over?.surface ?: Modifier)
+        .shaderEffect(inputs, clock, touch, battery, corner, day, hidden)
         .pointerInput(shader) {
             watchTouches(
                 onTouch = { touch.at(it, clock.seconds) },
@@ -208,11 +221,12 @@ private fun shaderLayer(name: String, grid: TtyGrid, cols: Int, left: Int, home:
 /** The effect of [inputs] over what this modifier is on. [hidden]: as [ShaderInputs.effect]. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private fun Modifier.shaderEffect(
-    inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null, hidden: Boolean = false,
+    inputs: ShaderInputs, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, corner: WindowCorner,
+    day: ShaderDay? = null, hidden: Boolean = false,
 ): Modifier =
     graphicsLayer {
         renderEffect = if (size.width > 0f && size.height > 0f) {
-            inputs.effect(size.width, size.height, clock, touch, battery, day, hidden)
+            inputs.effect(size.width, size.height, clock, touch, battery, corner, day, hidden)
         } else null
         clip = true
     }
@@ -227,22 +241,27 @@ private fun Modifier.shaderEffect(
  * It leans with the phone, as on home, until it goes or a minute has passed. With [moves] off it stands still.
  */
 @Composable
-internal fun rememberShaderPreview(name: String, code: String, grid: TtyGrid, cols: Int = 0, left: Int = 0, moves: Boolean = true): Modifier? {
+internal fun rememberShaderPreview(
+    name: String, code: String, grid: TtyGrid, cols: Int = 0, left: Int = 0, moves: Boolean = true, over: OverShader? = null,
+): Modifier? {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
-    return previewLayer(name, code, grid, cols, left, moves)
+    return previewLayer(name, code, grid, cols, left, moves, over)
 }
 
-/** Home as a preview shows it with the shader [name] over it ([rememberShaderPreview]): nothing until it is read and compiled. */
+/**
+ * Home as a preview shows it with the shader [name] over it ([rememberShaderPreview]): nothing until it is
+ * read and compiled. [over]: as on home ([rememberTtyShader]).
+ */
 @Composable
-internal fun rememberPeekShader(name: String, grid: TtyGrid, cols: Int = 0, left: Int = 0): Modifier {
+internal fun rememberPeekShader(name: String, grid: TtyGrid, cols: Int = 0, left: Int = 0, over: OverShader? = null): Modifier {
     val context = LocalContext.current.applicationContext
     val code by produceState<String?>(null, name) { value = withContext(Dispatchers.IO) { Shaders.source(context, name) } }
-    return code?.let { rememberShaderPreview(name, it, grid, cols, left) } ?: Modifier
+    return code?.let { rememberShaderPreview(name, it, grid, cols, left, over = over) } ?: Modifier
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, left: Int, moves: Boolean): Modifier? {
+private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, left: Int, moves: Boolean, over: OverShader?): Modifier? {
     if (rememberScreenReader()) return null
     val loaded by produceState<LoadedShader?>(null, name, code) {
         value = withContext(Dispatchers.IO) { LoadedShader.compile(name, code) }
@@ -255,8 +274,11 @@ private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, l
     if (shader.meta.tilt && moves) FollowTilt(shader, touch)
     val battery = rememberShaderBattery(shader)
     val params = rememberLiveParams(shader)
+    // The sample in a shader's details is smaller than the window: its corner is 0. Settings' preview of home is the whole window.
+    val corner = rememberWindowCorner()
     val inputs = remember(shader, grid, cols, left) { ShaderInputs(shader, grid, cols, left, params, shader.meta.once) { } }
-    return Modifier.shaderEffect(inputs, clock, touch, battery)
+    if (over != null) DrawOverShader(over, shader.meta)
+    return (over?.surface ?: Modifier).shaderEffect(inputs, clock, touch, battery, corner)
 }
 
 /**
@@ -264,8 +286,9 @@ private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, l
  * that one. Nothing while none plays, when [on] is false, with a screen reader on, in battery saver, with
  * animations off, when the phone is hot or nearly out of battery, and on an Android older than 13.
  *
- * It isn't marked in [ShaderSafety]: what asked for it is forgotten before it is drawn, so one that
- * crashes Kolahal doesn't come back.
+ * It is marked in [ShaderSafety] while it plays, as the shader on home is: one that was playing when Kolahal
+ * crashed or hung is turned off, and doesn't play again at the next word or request until its file changes
+ * or a shader is turned on ([ShaderSafety.turnedOn]).
  */
 @Composable
 internal fun rememberPlayedShader(cols: Int = 0, left: Int = 0, on: Boolean = true): Modifier {
@@ -289,9 +312,18 @@ private fun playedLayer(playing: ShaderPlay.Playing, grid: TtyGrid, cols: Int, l
         return Modifier
     }
     val context = LocalContext.current.applicationContext
+    val safety = remember { ShaderSafety.get(context) }
     val loaded by produceState<LoadedShader?>(null, playing) {
-        val found = withContext(Dispatchers.IO) { Shaders.source(context, playing.name)?.let { LoadedShader.compile(playing.name, it) } }
-        if (found?.meta?.once == null) ShaderPlay.done(playing) else value = found
+        var ready: LoadedShader? = null
+        try {
+            // It finishes even when it is done meanwhile, so its mark in the store is known ([ShaderSafety.begin]).
+            withContext(NonCancellable + Dispatchers.IO) { ready = LoadedShader.play(context, playing.name) }
+            if (ready == null) ShaderPlay.done(playing) else value = ready
+            awaitCancellation()
+        } finally {
+            // Never drawn: its mark goes. While it is drawn, [ArmWhileShown] keeps it.
+            ready?.let { safety.cancel(it.id) }
+        }
     }
     val shader = loaded?.takeIf { it.name == playing.name } ?: return Modifier
     val seconds = playing.seconds ?: shader.meta.once ?: return Modifier
@@ -302,6 +334,7 @@ private fun playedLayer(playing: ShaderPlay.Playing, grid: TtyGrid, cols: Int, l
     val focused = LocalWindowInfo.current.isWindowFocused
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     ActiveMark(shader.name)
+    ArmWhileShown(shader.id, safety, lifecycle)
     LaunchedEffect(playing, shader, shown, focused) {
         if (!shown || !focused) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -320,8 +353,9 @@ private fun playedLayer(playing: ShaderPlay.Playing, grid: TtyGrid, cols: Int, l
     }
     val battery = rememberShaderBattery(shader)
     val params = rememberLiveParams(shader)
+    val corner = rememberWindowCorner()
     val inputs = remember(shader, grid, cols, left, seconds) { ShaderInputs(shader, grid, cols, left, params, seconds) { ShaderPlay.done(playing) } }
-    return Modifier.shaderEffect(inputs, clock, touch, battery)
+    return Modifier.shaderEffect(inputs, clock, touch, battery, corner)
 }
 
 /** Says in [ActiveShaders] that [name] is drawn. */
@@ -595,6 +629,71 @@ private const val GLIDE_MS = 2_000
 private fun valuesPhone(status: Status): ShaderValues.Phone =
     ShaderValues.Phone((status.batteryPct ?: 100) / 100f, status.charging, LocalTime.now())
 
+/** The window's corner and camera cutout for a shader on this surface ([WindowCorner]). */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun rememberWindowCorner(): WindowCorner {
+    val view = LocalView.current
+    return remember(view) { WindowCorner(view) }
+}
+
+/**
+ * The radius of the window's rounded corners, in px, for the `corner` uniform: the largest of the four that
+ * Android reports for the window ([android.view.WindowInsets.getRoundedCorner], Android 12 and newer, so always
+ * here), when the surface is as large as the window. A smaller surface, as the sample in a shader's details, gets 0.
+ * Read once the window has its insets: the radius doesn't change while a window lives.
+ *
+ * It also has the camera's cutout at the top of the window, for the `cutout` uniform ([cutout]).
+ */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private class WindowCorner(private val view: View) {
+    private var radius: Float? = null
+
+    /** The top cutout as last read, and the window's size it was read at: a rotation moves the camera to a side. */
+    private var top: Rect? = null
+    private var topW = -1
+    private var topH = -1
+
+    /** The radius for a surface [w] × [h] px. Not a state: reading it draws nothing again. */
+    fun of(w: Float, h: Float): Float {
+        val root = view.rootView
+        if (root.width <= 0 || w < root.width - 1f || h < root.height - 1f) return 0f
+        radius?.let { return it }
+        val insets = view.rootWindowInsets ?: return 0f
+        return CORNERS.maxOf { insets.getRoundedCorner(it)?.radius ?: 0 }.toFloat().also { radius = it }
+    }
+
+    /**
+     * The camera's cutout at the top of the window for a surface [w] × [h] px, into [out]: left, top, right,
+     * bottom, in px ([android.view.DisplayCutout.getBoundingRectTop]). All 0 when there is none, as in landscape
+     * where the camera is at a side, and when the surface is smaller than the window. Not a state either.
+     */
+    fun cutout(w: Float, h: Float, out: FloatArray) {
+        out.fill(0f)
+        val root = view.rootView
+        if (root.width <= 0 || w < root.width - 1f || h < root.height - 1f) return
+        if (top == null || topW != root.width || topH != root.height) {
+            val insets = view.rootWindowInsets ?: return
+            top = insets.displayCutout?.boundingRectTop ?: Rect()
+            topW = root.width
+            topH = root.height
+        }
+        val r = top ?: return
+        if (r.isEmpty) return
+        out[0] = r.left.toFloat()
+        out[1] = r.top.toFloat()
+        out[2] = r.right.toFloat()
+        out[3] = r.bottom.toFloat()
+    }
+
+    private companion object {
+        val CORNERS = intArrayOf(
+            RoundedCorner.POSITION_TOP_LEFT, RoundedCorner.POSITION_TOP_RIGHT,
+            RoundedCorner.POSITION_BOTTOM_RIGHT, RoundedCorner.POSITION_BOTTOM_LEFT,
+        )
+    }
+}
+
 /** The shader's own clock, in seconds: it moves only while the shader is animated and home is in front. */
 private class ShaderTime {
     var seconds by mutableFloatStateOf(0f)
@@ -684,6 +783,29 @@ private class LoadedShader(val id: String, val name: String, val meta: ShaderMet
             return LoadedShader(id, name, ShaderMeta.parse(source), runtime)
         }
 
+        /**
+         * The one-off shader [name] to play ([ShaderPlay]), marked as [load] marks one, and nothing logged. Null
+         * when it isn't one, can't be drawn, or was turned off ([ShaderSafety.isTripped]). Not on the main thread.
+         */
+        fun play(context: Context, name: String): LoadedShader? {
+            Shaders.recover(context)
+            val source = Shaders.source(context, name) ?: return null
+            val id = ShaderSafety.id(name, source)
+            val safety = ShaderSafety.get(context)
+            if (safety.isTripped(id) || ShaderMeta.problems(source).isNotEmpty()) return null
+            val meta = ShaderMeta.parse(source)
+            if (meta.once == null) return null
+            // Marked before it compiles: a crash in the compiler turns it off at the next start, too.
+            safety.begin(id)
+            val runtime = try {
+                RuntimeShader(source)
+            } catch (_: RuntimeException) {
+                safety.cancel(id)
+                return null
+            }
+            return LoadedShader(id, name, meta, runtime)
+        }
+
         /** The shader [name] with [code], for a preview: nothing is marked or logged. Null when it can't be drawn. Not on the main thread. */
         fun compile(name: String, code: String): LoadedShader? {
             if (ShaderMeta.problems(code).isNotEmpty()) return null
@@ -733,8 +855,8 @@ private class ShaderInputs(
      * A [hidden] surface (home under a full-screen screen) takes the lean as it is, and isn't drawn again when it changes.
      */
     fun effect(
-        w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, day: ShaderDay? = null,
-        hidden: Boolean = false,
+        w: Float, h: Float, clock: ShaderTime, touch: ShaderTouch, battery: ShaderBattery, corner: WindowCorner,
+        day: ShaderDay? = null, hidden: Boolean = false,
     ): androidx.compose.ui.graphics.RenderEffect? {
         if (failed) return null
         val seconds = if (uniforms.usesClock) clock.seconds else 0f
@@ -750,6 +872,8 @@ private class ShaderInputs(
             if (uniforms.usesPressed) frame.pressed = touch.pressed
             if (uniforms.usesBattery) frame.battery = battery.level
             if (uniforms.usesCharging) frame.charging = battery.charging
+            if (uniforms.usesCorner) frame.corner = corner.of(w, h)
+            if (uniforms.usesCutout) corner.cutout(w, h, frame.cutout)
             if (uniforms.usesTilt) {
                 // A shader that moves is drawn anyway, and takes the lean as it is. One that stands still
                 // is drawn again when the lean changes.
