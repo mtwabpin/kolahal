@@ -53,8 +53,9 @@ sealed interface LogRow {
         override val key: Any get() = entry.id
     }
 
+    /** A new day. [scramble]: the log is scrambled ([ScrambledLog]), and so is the date it shows. */
     @Immutable
-    data class Day(val day: LocalDate) : LogRow {
+    data class Day(val day: LocalDate, val scramble: Scramble? = null) : LogRow {
         override val key: Any get() = "day:$day"
     }
 

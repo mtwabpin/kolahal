@@ -287,9 +287,11 @@ class LogOnlyTest {
     fun atNarrowsASearchToOneSource() {
         val vm = viewModel()
         waitUntil("the lines load") { vm.entries.value.any { it.text == "lo second comic" } }
-        assertTrue(
+        // The sources are read after the lines are shown: the name is offered a moment later.
+        waitUntil("the source is offered") {
             vm.suggestions("/@loxk")
-                .any { it is Suggestion.Completion && it.replacement == "/@loxkcd " })
+                .any { it is Suggestion.Completion && it.replacement == "/@loxkcd " }
+        }
         type(vm, "/@loxkcd second")
         waitUntil("one comic") { vm.search.value?.total == 1 }
         assertEquals(listOf(LogFilter.Named("loxkcd")), vm.search.value!!.sources)

@@ -65,7 +65,7 @@ class FmtTest {
 
     @Test
     fun whatIsNotAListOfRowsIsAnError() {
-        val bad = "fmt.stats expects a list of rows, each { value, label }"
+        val bad = "fmt.stats expects a list of rows, each a list in this order: value, label"
         assertEquals(bad, refused { fmt.stats(listOf(mapOf("a" to 1))) })
         assertEquals(bad, refused { fmt.stats(listOf("text")) })
         assertEquals(bad, refused { fmt.stats(emptyList()) })

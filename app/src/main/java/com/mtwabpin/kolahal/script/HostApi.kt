@@ -629,7 +629,8 @@ class HostApi(
 
     /**
      * `shader.give(name, value)`: a value that shaders' parameters can follow ([ShaderValues]). [name] is one
-     * of its `@gives` line. The same value again changes nothing, and a run can change [MAX_GIVES_PER_RUN].
+     * of its `@gives` line, in any case: names are kept in small letters, as that line reads them.
+     * The same value again changes nothing, and a run can change [MAX_GIVES_PER_RUN].
      */
     fun shaderGive(name: String, value: Any?) {
         live()
@@ -638,12 +639,13 @@ class HostApi(
             log("shader.give() only works in saved scripts (it is keyed by script name)")
             return
         }
-        check(name in gives) { "shader.give: add `@gives $name` at the top of the script" }
+        val key = name.trim().lowercase()
+        check(key in gives) { "shader.give: add `@gives $key` at the top of the script" }
         val text = ShaderValues.clean(value)
         // Home shows it in a shader's details, so it must never hold a secret.
         require(text == null || redact(text) == text) { "shader.give: the value contains one of this script's secrets" }
         if (gaveValues >= MAX_GIVES_PER_RUN) return
-        if (ShaderValues.give(context, scriptName, name, text)) gaveValues++
+        if (ShaderValues.give(context, scriptName, key, text)) gaveValues++
     }
 
     /** The values this run changed. */

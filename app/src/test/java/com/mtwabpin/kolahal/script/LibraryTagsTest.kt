@@ -116,13 +116,13 @@ class LibraryTagsTest {
     fun theChipsOfTheLibrary() {
         assertEquals(
             mapOf(
-                TEMPLATE to 16,
+                TEMPLATE to 23,
                 WIDGET to 27,
-                COMMAND to 24,
+                COMMAND to 31,
                 TIMER to 26,
                 EVENT to 4,
                 INTERNET to 31,
-                OFFLINE to 17
+                OFFLINE to 24
             ),
             LibraryTags.counts(library, emptyList()),
         )
@@ -157,7 +157,7 @@ class LibraryTagsTest {
             library.filter { it.title.startsWith("Template") }.map { it.name },
             named(TEMPLATE)
         )
-        assertEquals(16, named(TEMPLATE).size)
+        assertEquals(23, named(TEMPLATE).size)
     }
 
     @Test
@@ -191,6 +191,13 @@ class LibraryTagsTest {
             "screen-time",
             "template-event-js",
             "template-event",
+            "template-screen-boot",
+            "template-screen-clock",
+            "template-screen-decode",
+            "template-screen-matrix",
+            "template-screen-pipes",
+            "template-screen-sl",
+            "template-screen-top",
             "template-widget-list-js",
             "template-widget-list",
             "unlock-chart",

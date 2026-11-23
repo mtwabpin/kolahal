@@ -96,7 +96,8 @@ object InstantRun {
             )
         ) Target.Command(q.trim()) else null
         if (q.length < minLength) return null
-        val names = commands.keys + aliases.keys + scriptCommands
+        // A command offered to nobody (CommandCatalog.HIDDEN) waits for Enter, so no prefix of its name runs it.
+        val names = commands.keys - CommandCatalog.HIDDEN + aliases.keys + scriptCommands
         val nameMatches = names.filter { it.startsWith(q) }.distinct()
         // The same app in several profiles counts once: the copy ranked first (frecency), which Enter
         // would launch. But if copies are in two profiles that are on (personal and a running work

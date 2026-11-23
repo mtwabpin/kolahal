@@ -503,10 +503,13 @@ class LogLineActions(
     private fun sensitive(entry: LogEntry) =
         entry.ctx.values.containsKey(NOTIF) || entry.source == com.mtwabpin.kolahal.calls.CallEvents.SOURCE
 
-    /** Copies [text]. [sensitive] text is marked, so the keyboard's clipboard preview and history hide it. */
+    /**
+     * Copies [text]. [sensitive] text is marked, so the keyboard's clipboard preview and history hide it.
+     * While home is scrambled (`scramble`) every copy is, so Android's preview of it shows nothing real.
+     */
     private fun copy(text: String, sensitive: Boolean = false) {
         val clip = ClipData.newPlainText("kolahal", text)
-        if (sensitive) clip.description.extras = android.os.PersistableBundle().apply {
+        if (sensitive || com.mtwabpin.kolahal.data.HomeScramble.get(context).on) clip.description.extras = android.os.PersistableBundle().apply {
             putBoolean("android.content.extra.IS_SENSITIVE", true)
         }
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)

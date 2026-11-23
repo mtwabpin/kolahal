@@ -27,7 +27,7 @@ import java.util.Date
 
 /**
  * Commands about the phone and home: `date` and `cal`, `widgets`, `notifications`, `wallpaper`,
- * `screen`, `fetch`, `backup`, `restart` and `setup text`.
+ * `screen`, `scramble`, `fetch`, `backup`, `restart` and `setup text`.
  */
 class SystemCommands(
     context: Context,
@@ -199,6 +199,15 @@ class SystemCommands(
      * `screen <name>`: one of the full-screen screens over home
      * ([com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens]). Without a known name it lists them.
      */
+    /**
+     * `scramble [on|off]`: home shows its log scrambled, for a screen recording, or as it is again
+     * ([com.mtwabpin.kolahal.data.HomeScramble]). Its line in the log is scrambled like the others.
+     */
+    fun scramble(args: List<String>) {
+        val line = com.mtwabpin.kolahal.data.HomeScramble.get(context).run(args) ?: return usage("scramble")
+        if (line == com.mtwabpin.kolahal.data.HomeScramble.NOT_KEPT) error(line) else info(line)
+    }
+
     fun screen(args: List<String>) {
         val names = com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens.names
         val name = args.firstOrNull()?.lowercase() ?: return usage("screen")

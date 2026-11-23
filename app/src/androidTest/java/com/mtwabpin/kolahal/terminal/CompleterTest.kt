@@ -14,6 +14,7 @@ import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.productivity.Todo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -29,6 +30,7 @@ class CompleterTest {
 
     private var history = emptyList<String>()
     private var todos = emptyList<Todo>()
+    private var sources = emptyList<String>()
     private val completer = Completer(context, object : Completer.Data {
         override val history get() = this@CompleterTest.history
         override val scripts = emptyList<Script>()
@@ -39,7 +41,31 @@ class CompleterTest {
         override val todos get() = this@CompleterTest.todos
         override val notes = emptyList<com.mtwabpin.kolahal.productivity.Note>()
         override val reminders = emptyList<com.mtwabpin.kolahal.productivity.Reminder>()
+        override val logSources get() = this@CompleterTest.sources
     })
+
+    /**
+     * The rows that hold the user's own words say where they start, for `scramble`: an earlier line
+     * after its command, a sum after its `=`, a source of the log from its start. A kind holds none.
+     */
+    @Test
+    fun ownWordsAreMarked() {
+        history = listOf("note buy ring for Anna", "= 12*7")
+        val earlier = completer.suggestions("note b").filterIsInstance<Suggestion.Completion>()
+            .single { it.replacement == "note buy ring for Anna" }
+        assertEquals(5, earlier.ownFrom)
+        val sum = completer.suggestions("= 12").filterIsInstance<Suggestion.Completion>()
+            .single { it.replacement == "= 12*7" }
+        assertEquals(1, sum.ownFrom)
+        sources = listOf("Quokka Chat")
+        val source = completer.suggestions("log only quo").filterIsInstance<Suggestion.Completion>()
+            .single { it.replacement == "log only quokkachat" }
+        assertEquals(0, source.ownFrom)
+        val kind = completer.suggestions("log only fe").filterIsInstance<Suggestion.Completion>()
+            .single { it.replacement == "log only feeds" }
+        assertNull(kind.ownFrom)
+        assertNull(completer.suggestions("torc").filterIsInstance<Suggestion.Completion>().first().ownFrom)
+    }
 
     /** `log only …` suggests the kinds (and the log's sources, when there are any). */
     @Test
@@ -323,6 +349,21 @@ class CompleterTest {
             assertTrue(idle.toString(), idle.any { (it as Suggestion.App).app.key == app.key })
         } finally {
             usage.edit().putString("launch:${app.key}", launchesBefore).commit()
+        }
+    }
+
+    /**
+     * A command offered to nobody (`skill.md`) is suggested for no prefix of its name, not for the
+     * whole name, not after `help`, and not by the words of its description.
+     */
+    @Test
+    fun aHiddenCommandIsNeverSuggested() {
+        val name = com.mtwabpin.kolahal.commands.SkillText.NAME
+        val typed = (1..name.length).map { name.take(it) } + listOf("$name ", "help ", "help sk", "assistant", "shaders")
+        for (text in typed) {
+            val offered = completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
+                .filter { name in it.label || name in it.replacement }
+            assertTrue("$text: $offered", offered.isEmpty())
         }
     }
 }

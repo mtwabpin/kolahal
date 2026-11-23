@@ -14,7 +14,7 @@ class LibraryFilesTest {
 
     @Test
     fun theyAreAllThere() {
-        assertEquals(48, files.size)
+        assertEquals(55, files.size)
     }
 
     /**
@@ -97,6 +97,7 @@ class LibraryFilesTest {
                 "lobsters",
                 "night-dnd",
                 "reddit",
+                "template-screen-clock",
                 "template-timer-js",
                 "template-timer",
                 "template-widget-js",

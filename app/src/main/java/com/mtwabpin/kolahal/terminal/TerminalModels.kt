@@ -72,6 +72,9 @@ sealed interface Suggestion {
      * - Otherwise, the terminal glyph.
      *
      * [help] is shown beside the row when the command and config descriptions don't apply.
+     *
+     * [ownFrom]: where the user's own words start in [label] (an earlier note's text, an app named in
+     * the log), which `scramble` hides from there on. Null when the label holds none.
      */
     @androidx.compose.runtime.Immutable
     data class Completion(
@@ -83,6 +86,7 @@ sealed interface Suggestion {
         override val enter: Boolean = false,
         /** The calculator's answer while you type: (the value, what goes under it), drawn large as in the log. */
         val big: Pair<String, String>? = null,
+        val ownFrom: Int? = null,
     ) : Suggestion {
         override val key get() = "c:" + replacement.trimEnd()
     }

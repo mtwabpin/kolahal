@@ -7,7 +7,8 @@ package com.mtwabpin.kolahal.commands
  * Every built-in command, with:
  * - its usage, its help, and what the `help` list and `help <command>` show ([COMMANDS], [CommandSpec]);
  * - its place in `help` ([HELP_SECTIONS]);
- * - which build has it ([FEATURE_COMMANDS]).
+ * - which build has it ([FEATURE_COMMANDS]);
+ * - whether it is offered at all ([HIDDEN]).
  *
  * `CommandProcessor` (in terminal) runs the commands. Each one's other names and whether it is sensitive are in its entry ([CommandSpec]).
  * Each list has one entry per line, so that two new commands added at once don't conflict.
@@ -21,6 +22,14 @@ object CommandCatalog {
             short = "This list",
             args = "<command>",
             aka = listOf("?")
+        ),
+        // Offered to nobody ([HIDDEN]): it runs only when typed in full.
+        CommandSpec(
+            "skill.md",
+            "skill.md",
+            "Copy a guide for an AI assistant on how to write scripts and shaders for Kolahal: paste it into the assistant, then say what to build",
+            short = "Copy the guide for an AI assistant",
+            sensitive = true,
         ),
         *ControlSpecs.SPECS.toTypedArray(),
         CommandSpec(
@@ -461,6 +470,18 @@ object CommandCatalog {
             short = "A clean screen"
         ),
         CommandSpec(
+            "scramble",
+            "scramble [on|off]",
+            "Scramble home for a screen recording: every line, its pictures, the pinned line and the sheets show no real text until scramble off; nothing stored changes",
+            short = "Hide the log for a recording",
+            args = "on · off",
+            uses = listOf(
+                "scramble" to "scramble home: lines keep their shape and colors, not their text",
+                "scramble off" to "show the real text again",
+            ),
+            sensitive = true,
+        ),
+        CommandSpec(
             "restart",
             "restart [scripts]",
             "Restart the launcher, or stop running scripts",
@@ -511,7 +532,7 @@ object CommandCatalog {
         CommandSpec(
             "usage-access",
             "usage-access",
-            "Grant usage access (unlock count)",
+            "Grant usage access (unlock count and screen time)",
             short = "Allow usage access",
             sensitive = true
         ),
@@ -683,10 +704,10 @@ object CommandCatalog {
         ),
         CommandSpec(
             "shader",
-            "shader [<name>|list|use|on|off|set|reset|follow|values|play|words|wallpaper|get|update|check|reload|copy|remove] [<name>]",
+            "shader [<name>|list|use|on|off|set|reset|follow|values|play|words|wallpaper|get|update|check|reload|edit|copy|remove] [<name>]",
             "A shader over home and the full-screen screens: crt, paper, aurora and others, or your own .agsl file (screen.shader). Needs Android 13 or newer",
             short = "A shader over home and the screens",
-            args = "<name> · list · use · on · off · set · reset · follow · values · play · words · wallpaper · get · update · check · reload · copy · remove",
+            args = "<name> · list · use · on · off · set · reset · follow · values · play · words · wallpaper · get · update · check · reload · edit · copy · remove",
             uses = listOf(
                 "shader" to "the shaders: tap one to use it",
                 "shader <name>" to "use a shader",
@@ -704,7 +725,9 @@ object CommandCatalog {
                 "shader update" to "update the shaders you installed with shader get",
                 "shader check <name>" to "whether it compiles, and what Kolahal sets for it",
                 "shader reload" to "read the .agsl files in the script folder again",
+                "shader edit <name>" to "open the editor; one that comes with Kolahal becomes yours when you save it",
                 "shader copy <name>" to "copy a shader to the script folder's shaders folder, to edit it there",
+                "shader copy template-tint" to "a shader of your own to edit, from a template: template-tint, -scene, -moving, -touch, -value or -once",
                 "shader remove <name>" to "remove your own shader",
             ),
             sensitive = true,
@@ -906,8 +929,17 @@ object CommandCatalog {
     val UNAVAILABLE: Set<String> =
         FEATURE_COMMANDS.filterNot { it.first }.flatMap { it.second }.toSet()
 
+    /**
+     * Commands offered to nobody, in any build: not suggested, not listed in `help` or Settings →
+     * Commands, and not run by instant launch. Typed in full, they run.
+     * - `skill.md` copies a guide for an AI assistant ([SkillText]).
+     */
+    val HIDDEN: Set<String> = setOf(
+        "skill.md",
+    )
+
     /** The commands this build offers. Help lists them and completion suggests them. */
-    val OFFERED: List<CommandSpec> = COMMANDS.filter { it.name !in UNAVAILABLE }
+    val OFFERED: List<CommandSpec> = COMMANDS.filter { it.name !in UNAVAILABLE && it.name !in HIDDEN }
     val OFFERED_NAMES: Set<String> = OFFERED.mapTo(LinkedHashSet()) { it.name }
 
     /** The usage line for each command name, for option completion and instant runs. */
@@ -999,6 +1031,7 @@ object CommandCatalog {
             "clear",
             "fresh",
             "log",
+            "scramble",
             "restart",
             "update",
             "alias",

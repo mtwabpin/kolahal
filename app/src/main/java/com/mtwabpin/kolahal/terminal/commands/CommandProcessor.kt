@@ -55,7 +55,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val usageSummary by lazy { UsageSummaryCommands(context) }
     private val feedCommands = FeedCommands(context, appCommands, ui)
     private val editCommands = EditCommands(context, ui)
-    private val shaderCommands by lazy { ShaderCommands(context, ::background) }
+    private val shaderCommands by lazy { ShaderCommands(context, ui, ::background) }
     private val aliasCommands = AliasCommands(context)
     private val helpCommands = HelpCommands(context, ::off)
     private val calcCommands = CalcCommands(context, ::background)
@@ -151,6 +151,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 // `data` alone opens the mobile data panel; `data today` and `data month` show the data each app used.
                 "data" if args.isNotEmpty() -> usageCommands.run(name, args)
                 "help", "?" -> if (args.isEmpty()) helpCommands.help() else helpCommands.commandHelp(args.first())
+                // Offered to nobody (CommandCatalog.HIDDEN): it runs only when typed in full.
+                "skill.md" -> helpCommands.skill()
                 "fetch", "neofetch", "fastfetch" -> systemCommands.fetch()
                 // Full-screen screens over home, until a key or a tap (terminal/tty/screens).
                 "matrix", "pipes", "sl" -> ui.showTtyScreen(name)
@@ -160,6 +162,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "backup" -> systemCommands.backup(args)
                 "log" -> logCommands.logFilter(args)
                 "fresh" -> ui.freshScreen()
+                "scramble" -> systemCommands.scramble(args)
                 "restart", "reboot" -> systemCommands.restart(args)
                 "history" -> logCommands.history()
                 "scripts" -> if (args.isEmpty()) ui.openScreen(Screen.SCRIPTS) else scriptCommands.script(

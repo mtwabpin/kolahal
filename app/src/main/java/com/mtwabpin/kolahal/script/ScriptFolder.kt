@@ -119,6 +119,18 @@ class ScriptFolder(private val context: Context) {
         return "${Shaders.DIR}/$fileName"
     }
 
+    /**
+     * The names of the shaders whose files are in the folder, at the top and in its `shaders` folder:
+     * those [importShaders] would read.
+     */
+    fun shaderNames(): Set<String> = shaderNames(folder())
+
+    internal fun shaderNames(dir: DocumentFile): Set<String> {
+        val places = listOfNotNull(dir, dir.findFile(Shaders.DIR)?.takeIf { it.isDirectory })
+        return places.flatMap { it.listFiles().toList() }
+            .mapNotNullTo(HashSet()) { file -> file.name?.takeIf { !file.isDirectory }?.let(ShaderCatalog::nameOf) }
+    }
+
     /** Shader files read from the folder: the names kept, and those that were not (with why). */
     data class ShaderImport(val names: List<String>, val skipped: List<String>)
 

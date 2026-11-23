@@ -34,11 +34,11 @@ internal class Fmt(private val text: (Any?) -> String) {
         return StyledText.bar(value, max, opts["color"]?.let { role("fmt.bar", it) })
     }
 
-    /** `fmt.bars(rows, { max, color, unit })`: each row `{ label, value, text? }`. */
+    /** `fmt.bars(rows, { max, color, unit })`: each row is a list, label, value and text? in this order. */
     fun bars(args: List<Any?>): String {
         val call = "fmt.bars"
         val opts = options(call, args.getOrNull(1), setOf("max", "color", "unit"))
-        val rows = rows(call, args.getOrNull(0), "{ label, value, text? }").map { r ->
+        val rows = rows(call, args.getOrNull(0), "label, value, text?").map { r ->
             StyledText.BarRow(
                 text(r.getOrNull(0)),
                 number(call, r.getOrNull(1), "each row's value"),
@@ -53,11 +53,11 @@ internal class Fmt(private val text: (Any?) -> String) {
         )
     }
 
-    /** `fmt.ranges(rows, { min, max, color, unit })`: each row `{ label, low, high, lowText?, highText? }`. */
+    /** `fmt.ranges(rows, { min, max, color, unit })`: each row is a list, label, low, high, lowText? and highText? in this order. */
     fun ranges(args: List<Any?>): String {
         val call = "fmt.ranges"
         val opts = options(call, args.getOrNull(1), setOf("min", "max", "color", "unit"))
-        val rows = rows(call, args.getOrNull(0), "{ label, low, high }").map { r ->
+        val rows = rows(call, args.getOrNull(0), "label, low, high").map { r ->
             StyledText.RangeRow(
                 text(r.getOrNull(0)),
                 number(call, r.getOrNull(1), "each row's low"),
@@ -75,13 +75,13 @@ internal class Fmt(private val text: (Any?) -> String) {
         )
     }
 
-    /** `fmt.stats(items)`: each item `{ value, label }`; the first is big. */
+    /** `fmt.stats(items)`: each item is a list, value and label in this order; the first is big. */
     fun stats(args: List<Any?>): String =
         StyledText.stats(
             rows(
                 "fmt.stats",
                 args.getOrNull(0),
-                "{ value, label }"
+                "value, label"
             ).map { r -> text(r.getOrNull(0)) to (r.getOrNull(1)?.let(text) ?: "") })
 
     private fun role(call: String, value: Any?): StyledText.ColorRole =
@@ -115,7 +115,7 @@ internal class Fmt(private val text: (Any?) -> String) {
 
     /** A list of rows, each a list. An empty table (Lua can't tell it from an empty map) is no rows. */
     private fun rows(call: String, value: Any?, row: String): List<List<Any?>> {
-        val bad = "$call expects a list of rows, each $row"
+        val bad = "$call expects a list of rows, each a list in this order: $row"
         val list = Json.listOrNull(value) ?: throw IllegalArgumentException(bad)
         return list.map { r -> Json.listOrNull(r) ?: throw IllegalArgumentException(bad) }
     }

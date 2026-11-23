@@ -26,6 +26,9 @@ interface TerminalUi {
     fun requestFontImport()
     fun openEditor(script: Script)
 
+    /** For `shader edit <name>`: opens the shader in the editor ([ShaderActions.edit]). */
+    fun openShaderEditor(name: String)
+
     /** For `script secret <name> <NAME>`: shows a masked box for that secret's value. */
     fun askSecret(script: Script, name: String)
     fun requestNotificationPermission()

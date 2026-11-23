@@ -168,17 +168,17 @@ object ApiDocs {
         ApiDoc(
             "fmt.bars",
             "fmt.bars(rows, {max?, color?, unit?}) -> string",
-            "A bar for each row { label, value, text? }, all on one scale, for a body"
+            "A bar for each row, all on one scale, for a body. A row is a list in this order: label, value, text?, as { \"Mon\", 42 }"
         ),
         ApiDoc(
             "fmt.ranges",
             "fmt.ranges(rows, {min?, max?, color?, unit?}) -> string",
-            "A bar from low to high for each row { label, low, high, lowText?, highText? }, all on one scale, for a body: a forecast's days"
+            "A bar from low to high for each row, all on one scale, for a body: a forecast's days. A row is a list in this order: label, low, high, lowText?, highText?"
         ),
         ApiDoc(
             "fmt.stats",
             "fmt.stats(items) -> string",
-            "A line of big numbers for a body, each item { value, label }: the first big, the rest smaller, each label under its number. Up to 5"
+            "A line of big numbers for a body: the first big, the rest smaller, each label under its number. An item is a list in this order: value, label. Up to 5"
         ),
         ApiDoc(
             "fmt.plain",

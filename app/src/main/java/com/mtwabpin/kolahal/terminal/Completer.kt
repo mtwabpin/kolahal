@@ -207,10 +207,11 @@ class Completer(private val context: Context, private val data: Data) {
             val ranked = appsRepo.searchRanked(head).take(cap)
             // Enter may launch an app, as the prompt's fallback does: on its whole name, on the only
             // match, or with launch.top on a prefix match. Then that app is the first, highlighted row,
-            // so Enter, TAB and the highlight agree.
+            // so Enter, TAB and the highlight agree. A command offered to nobody (`skill.md`) runs on
+            // Enter, so then no app is that row.
             val top = ranked.firstOrNull()
             val enterLaunches =
-                top != null && head !in names && (head !in CommandCatalog.SYNONYMS || cmd in off) &&
+                top != null && head !in names && head !in CommandCatalog.HIDDEN && (head !in CommandCatalog.SYNONYMS || cmd in off) &&
                         (top.first.label.equals(
                             head,
                             ignoreCase = true
@@ -243,8 +244,9 @@ class Completer(private val context: Context, private val data: Data) {
                 apps.first().copy(enter = true)
             ) + cmds.take(3) + apps.drop(1) + about else whole + options + cmds.take(3) + apps + about).distinctBy { it.key }
         }
-        // Commands that this build leaves out (Play build: the call log, the screen lock, `update`) get no suggestions.
-        if (cmd in CommandCatalog.UNAVAILABLE || cmd in off) return emptyList()
+        // Commands that this build leaves out (Play build: the call log, the screen lock, `update`) and
+        // those offered to nobody (`skill.md`) get no suggestions.
+        if (cmd in CommandCatalog.UNAVAILABLE || cmd in CommandCatalog.HIDDEN || cmd in off) return emptyList()
         val specific = argSuggestions(cmd, head, parts, scriptList)
         // Commands without their own completer still get the options that their usage line lists.
         val options = if (specific.isEmpty()) usageOptions(cmd, parts) else emptyList()
@@ -316,7 +318,7 @@ class Completer(private val context: Context, private val data: Data) {
         if (word.length < (if (word.all(Char::isDigit)) 2 else 3)) return emptyList()
         fun says(text: String) = words(text).any { it.startsWith(word, ignoreCase = true) }
         val builtIn = CommandCatalog.COMMANDS.asSequence()
-            .filter { it.name !in CommandCatalog.UNAVAILABLE && it.name !in shown && it.name != word }
+            .filter { it.name !in CommandCatalog.UNAVAILABLE && it.name !in CommandCatalog.HIDDEN && it.name !in shown && it.name != word }
             // The options in its usage line count too (`ring … silent`), but not short ones such as `on`.
             .filter { spec ->
                 says(spec.help) || says(KEYWORDS[spec.name].orEmpty()) || words(spec.usage).asSequence()
@@ -366,9 +368,13 @@ class Completer(private val context: Context, private val data: Data) {
                 ) && !STALE_NUMBERED.matches(it)
             }
             .take(4)
-            .map { Suggestion.Completion(it, it) }
+            .map { Suggestion.Completion(it, it, ownFrom = afterCommand(it)) }
             .toList()
     }
+
+    /** Where the words after an earlier line's command start: after its first word, or after `=`. */
+    private fun afterCommand(line: String): Int =
+        if (line.startsWith('=')) 1 else line.indexOf(' ').let { if (it < 0) line.length else it + 1 }
 
     /** Returns the literal options at this argument position in the command's usage line (`apps [work|personal|…]`). */
     private fun usageOptions(cmd: String, parts: List<String>): List<Suggestion.Completion> {
@@ -815,7 +821,9 @@ class Completer(private val context: Context, private val data: Data) {
                         Suggestion.Completion(
                             it.label,
                             "$head only ${it.word}",
-                            icon = R.drawable.ic_visibility
+                            icon = R.drawable.ic_visibility,
+                            // A source is an app that notified, a script or a feed; a kind is the app's own word.
+                            ownFrom = if (it is LogFilter.Named) 0 else null,
                         )
                     }
             } else emptyList()

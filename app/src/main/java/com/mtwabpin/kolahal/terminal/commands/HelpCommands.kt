@@ -3,6 +3,8 @@
  */
 package com.mtwabpin.kolahal.terminal.commands
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.commands.CommandCatalog
@@ -12,13 +14,14 @@ import com.mtwabpin.kolahal.commands.CommandSpec
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.Pipes
+import com.mtwabpin.kolahal.commands.SkillText
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ScriptMeta
 
-/** The `help` command: every command, in sections, or one command in full. */
+/** The `help` command: every command, in sections, or one command in full. And `skill.md`, the guide for an AI assistant. */
 class HelpCommands(
     context: Context,
     /** The built-in commands turned off (commands.off). */
@@ -171,6 +174,17 @@ class HelpCommands(
                 )
             }
         }
+    }
+
+    /**
+     * `skill.md`: copies the guide for an AI assistant ([SkillText]) to the clipboard, whole, and
+     * says in the log what was copied, how long it is, and what to do with it.
+     */
+    fun skill() {
+        val text = context.assets.open(SkillText.NAME).use { it.readBytes().toString(Charsets.UTF_8) }
+        context.getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText(SkillText.NAME, text))
+        info(SkillText.copied(text.length))
     }
 }
 

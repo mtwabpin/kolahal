@@ -7,13 +7,14 @@ import org.junit.Test
 
 /** What `help` shows, as the command catalog holds it. HelpTest checks the lines on a phone. */
 class HelpCatalogTest {
-    /** No command is left without a section in `help`. */
+    /** No command is left without a section in `help`, except those offered to nobody, which have none. */
     @Test
     fun everyCommandHasASection() {
         val sectioned = CommandCatalog.HELP_SECTIONS.values.flatten().toSet()
         assertEquals(
             emptyList<String>(),
-            CommandCatalog.COMMANDS.map { it.name }.filter { it !in sectioned })
+            CommandCatalog.COMMANDS.map { it.name }.filter { it !in sectioned && it !in CommandCatalog.HIDDEN })
+        assertEquals(emptyList<String>(), CommandCatalog.HIDDEN.filter { it in sectioned })
     }
 
     /** Every command with several subcommands lists its uses, and each use starts with the command's name. */

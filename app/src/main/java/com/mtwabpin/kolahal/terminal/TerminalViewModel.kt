@@ -837,7 +837,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun onWindowFocused() {
         if (!focusOnWindowFocus) return
         focusOnWindowFocus = false
-        if (config[Keys.FOCUS_ON_HOME] && (logShown || !widgetsFirst()) && screen.value == Screen.TERMINAL && _editing.value == null) _events.tryEmit(
+        if (config[Keys.FOCUS_ON_HOME] && (logShown || !widgetsFirst()) && screen.value == Screen.TERMINAL && _editing.value == null && shaderActions.editing.value == null) _events.tryEmit(
             UiEvent.FocusPrompt
         )
     }
@@ -926,7 +926,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         if (!token.startsWith("@")) return emptyList()
         val before = text.dropLast(token.length)
         return LogFilter.suggestions(token, logSources).take(12)
-            .map { Suggestion.Completion("@${it.word}", "$before@${it.word} ") }
+            .map { Suggestion.Completion("@${it.word}", "$before@${it.word} ", ownFrom = if (it is LogFilter.Named) 0 else null) }
     }
 
     // ---- log line interaction -------------------------------------------------------------
@@ -1558,6 +1558,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     override fun openEditor(script: Script) = openEditorAt(script, null)
 
+    /** Opens shader [name] in the editor. The notice is cleared, as for a script ([openEditorAt]). */
+    override fun openShaderEditor(name: String) {
+        _notice.value = null
+        shaderActions.edit(name)
+    }
+
     /** Permissions and pickers: what Kolahal asks for, and what it does with the answer. */
     private val requests = RequestActions(context, object : RequestActions.Host {
         override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
@@ -1726,7 +1732,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     fun onHomePageShown(log: Boolean, opened: Boolean = true) {
         logShown = log
-        if (!opened || screen.value != Screen.TERMINAL || _editing.value != null) return
+        if (!opened || screen.value != Screen.TERMINAL || _editing.value != null || shaderActions.editing.value != null) return
         if (!log) _events.tryEmit(UiEvent.HideKeyboard)
         else if (config[Keys.FOCUS_ON_HOME]) _events.tryEmit(UiEvent.FocusPrompt)
     }
@@ -1741,6 +1747,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _screenSaverOn.value = false
         _homePresses.value++
         _editing.value?.let { return }
+        shaderActions.editing.value?.let { return }
         val fromOtherScreen = screen.value != Screen.TERMINAL
         openScreen(Screen.TERMINAL) // Home always lands on the terminal and forgets the page stack
         escape()
