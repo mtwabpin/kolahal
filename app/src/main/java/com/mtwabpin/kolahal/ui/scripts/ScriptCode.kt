@@ -12,7 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
@@ -24,11 +25,14 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.ui.editor.Syntax
 import com.mtwabpin.kolahal.ui.editor.SyntaxHighlighter
 import com.mtwabpin.kolahal.ui.theme.Term
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * A script's code to read before installing it, not to edit: in the terminal font on the log's
  * background, colored as the script editor colors it, each line whole. The text can be
- * selected, to copy a part.
+ * selected, to copy a part. The colors are worked out off the main thread: until then the code
+ * shows without them.
  */
 @Composable
 internal fun ReadOnlyCode(code: String, lang: ScriptLang, modifier: Modifier = Modifier) =
@@ -38,10 +42,9 @@ internal fun ReadOnlyCode(code: String, lang: ScriptLang, modifier: Modifier = M
 @Composable
 internal fun ReadOnlyCode(code: String, syntax: Syntax, modifier: Modifier = Modifier) {
     val palette = Term.palette
-    val styled = remember(code, syntax, palette) {
-        SyntaxHighlighter(syntax).filter(
-            AnnotatedString(code)
-        ).text
+    val styled by produceState(AnnotatedString(code), code, syntax, palette) {
+        if (value.text != code) value = AnnotatedString(code)
+        value = withContext(Dispatchers.Default) { SyntaxHighlighter(syntax).filter(AnnotatedString(code)).text }
     }
     Surface(
         shape = MaterialTheme.shapes.medium,

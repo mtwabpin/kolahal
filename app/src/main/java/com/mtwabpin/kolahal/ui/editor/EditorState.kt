@@ -142,9 +142,9 @@ internal class EditorState(
          * ([keptText]), the saved copy ([keptSaved]) and the find bar. [stored] is the text as it
          * is stored now. It comes back when the text was too long to keep.
          *
-         * What comes back starts a new undo history from [stored], and flashes [flashLine] again.
+         * What comes back starts a new undo history from [stored], flashes [flashLine] again, and has [limit].
          */
-        fun saver(stored: String, flashLine: Int?) = Saver<EditorState, Any>(
+        fun saver(stored: String, flashLine: Int?, limit: EditorLimit? = null) = Saver<EditorState, Any>(
             save = { state ->
                 arrayListOf(
                     with(keptText(stored)) { save(state.value) },
@@ -165,6 +165,7 @@ internal class EditorState(
                     value = kept[0]?.let { keptText(stored).restore(it) } ?: TextFieldValue(stored),
                     saved = kept[1]?.let { keptSaved(stored).restore(it) } ?: stored,
                     flashLine = flashLine,
+                    limit = limit,
                 ).apply {
                     findOpen = kept[2] as Boolean
                     replaceOpen = kept[3] as Boolean

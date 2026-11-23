@@ -143,7 +143,7 @@ private const val MAX_FIELD_PX = 250_000f
 private const val LONG_LINE = 10_000
 
 /**
- * The editor that the script editor and the text editor share: a monospace text field with line
+ * The editor that the script editor, the shader editor and the text editor share: a monospace text field with line
  * numbers, light syntax coloring, undo/redo, find/replace, Go to line and a symbol bar. It draws
  * [state] and changes it.
  *
@@ -482,6 +482,8 @@ internal fun CodeEditor(
     }
     // Where lines wrap there are no line numbers: a number would stand beside the wrong line.
     val numbered = !wraps
+    // The field shows its cursor after typing, not after a change of colors ([CursorScrollRule]).
+    val cursorScroll = remember { CursorScrollRule() }
 
     Column(
         Modifier
@@ -613,7 +615,10 @@ internal fun CodeEditor(
                         // the whole text. [EditorCaret] draws it over the text instead.
                         cursorBrush = SolidColor(Color.Unspecified),
                         visualTransformation = highlighter,
-                        onTextLayout = { layout = it },
+                        onTextLayout = {
+                            layout = it
+                            cursorScroll.laidOut(it.layoutInput.text.text)
+                        },
                         decorationBox = { field ->
                             // The field keeps its minimum width, as it would without a box around it.
                             Box(propagateMinConstraints = true) {
@@ -631,7 +636,11 @@ internal fun CodeEditor(
                         modifier = (if (wrap) Modifier.fillMaxWidth() else Modifier.width(fieldWidth))
                             .padding(end = 12.dp)
                             .focusRequester(state.focus)
-                            .onFocusChanged { state.focused = it.isFocused }
+                            .onFocusChanged {
+                                state.focused = it.isFocused
+                                cursorScroll.focusChanged(it.isFocused)
+                            }
+                            .cursorScroll(cursorScroll)
                             .testTag("editor")
                             .onPreviewKeyEvent { e ->
                                 if (e.type == KeyEventType.KeyDown && e.key == Key.Tab) {

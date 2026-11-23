@@ -3,6 +3,12 @@ package com.mtwabpin.kolahal.ui.editor
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -12,8 +18,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
@@ -241,5 +249,90 @@ class ScriptEditorTest {
         compose.waitUntil(5_000) { 1_499 in coloredLines(code) }
         val below = coloredLines(code)
         assertTrue("after scrolling: ${below.min()}..${below.max()}", 0 !in below)
+    }
+
+    /** A script of 1,500 lines, colored around the view. */
+    private val bigCode = List(1_500) { "local x$it = $it -- line" }.joinToString("\n")
+
+    /** The code's own vertical scroll. */
+    private fun codeScroll() = compose.onNode(
+        SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange) and
+                hasAnyDescendant(hasTestTag("editor"))
+    )
+
+    /** Where the code is scrolled to, and the farthest it goes, in pixels. */
+    private fun scrolled(): Pair<Float, Float> =
+        codeScroll().fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
+            .let { it.value() to it.maxValue() }
+
+    private fun scrollCodeBy(y: Float) {
+        codeScroll().performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, y) }
+    }
+
+    /**
+     * Opens [code] with the focus in it and the cursor at its start, scrolled to the top: there
+     * the colors are around the first lines, and none at the end.
+     */
+    private fun showAtTopWithTheCursor(code: String) {
+        show(code)
+        compose.waitForIdle()
+        compose.onNodeWithTag("editor").performTextInputSelection(TextRange(0))
+        compose.waitUntil(3_000) {
+            compose.onAllNodes(hasTestTag("editor") and isFocused()).fetchSemanticsNodes().isNotEmpty() &&
+                    compose.onNodeWithTag("editor").fetchSemanticsNode()
+                        .config[SemanticsProperties.TextSelectionRange] == TextRange(0)
+        }
+        scrollCodeBy(-codeLayout().size.height.toFloat())
+        compose.waitUntil(5_000) { 0 in coloredLines(code) }
+        assertTrue("the end has no colors yet", 1_499 !in coloredLines(code))
+    }
+
+    /**
+     * Scrolled far from the cursor, the view stays where the scroll ended: when the colors move to
+     * the lines in view, and when the theme changes. The field asks to show its cursor after each
+     * new layout of other text, and colors count as text there.
+     */
+    @Test
+    fun aChangeOfColorsLeavesTheViewWhereItWasScrolled() {
+        val before = Term.palette
+        try {
+            Term.palette = Palettes.green
+            showAtTopWithTheCursor(bigCode)
+            scrollCodeBy(codeLayout().size.height.toFloat())
+            compose.waitForIdle()
+            val (end, max) = scrolled()
+            assertTrue("scrolled to the end: $end of $max", max > 0f)
+            assertEquals("the view stays at the end, away from the cursor", max, end)
+            // The colors follow the view.
+            compose.waitUntil(5_000) { 1_499 in coloredLines(bigCode) }
+            compose.waitForIdle()
+            assertEquals("after the colors moved", max, scrolled().first)
+            compose.runOnIdle { Term.palette = Palettes.dracula }
+            compose.waitForIdle()
+            // Comments take the theme's dim color.
+            assertTrue(Palettes.dracula.dim in codeColors())
+            assertEquals("after the theme changed", max, scrolled().first)
+        } finally {
+            Term.palette = before
+        }
+    }
+
+    /** Typing at a cursor scrolled out of view brings it back into view, also after the colors moved. */
+    @Test
+    fun typingShowsTheCursorAgain() {
+        showAtTopWithTheCursor(bigCode)
+        scrollCodeBy(codeLayout().size.height.toFloat())
+        compose.waitUntil(5_000) { 1_499 in coloredLines(bigCode) }
+        compose.waitForIdle()
+        val (away, max) = scrolled()
+        assertTrue("scrolled away from the cursor: $away of $max", away > max / 2)
+        compose.onNodeWithTag("editor").performTextInput("x")
+        compose.waitForIdle()
+        assertEquals(
+            "x$bigCode",
+            compose.onNodeWithTag("editor").fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+        )
+        val back = scrolled().first
+        assertTrue("the cursor is in view again: $back of $max", back < max / 2)
     }
 }

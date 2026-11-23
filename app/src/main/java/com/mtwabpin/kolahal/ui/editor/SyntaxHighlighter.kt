@@ -13,12 +13,13 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDocs
+import com.mtwabpin.kolahal.shader.ShaderMeta
 import com.mtwabpin.kolahal.ui.theme.Palette
 import com.mtwabpin.kolahal.ui.theme.Term
 
 /**
- * The colors a text gets in the editor: a script language's, or JSON's. AGSL's are for reading a
- * shader's code ([com.mtwabpin.kolahal.ui.scripts.ReadOnlyCode]).
+ * The colors a text gets in the editor: a script language's, JSON's, or AGSL's for a shader's code
+ * (in the editor and in [com.mtwabpin.kolahal.ui.scripts.ReadOnlyCode]).
  * - [script]: the script language whose keywords it uses. JSON and AGSL have none.
  */
 enum class Syntax(val script: ScriptLang?) {
@@ -45,6 +46,9 @@ enum class Syntax(val script: ScriptLang?) {
 internal class LineTokens(val syntax: Syntax) {
     val keywords = if (syntax == Syntax.AGSL) AGSL_WORDS
     else syntax.script?.let { ApiDocs.keywords(it).toSet() } ?: emptySet()
+
+    /** The names Kolahal sets in a shader: its input and the uniforms it knows ([ShaderMeta.KNOWN]). Only AGSL has them. */
+    private val host = if (syntax == Syntax.AGSL) ShaderMeta.KNOWN.keys + ShaderMeta.INPUT else emptySet()
 
     // Every token here is on one line. JS template strings (`…`) can span lines, so they are found separately.
     private val token = Regex(
@@ -132,11 +136,26 @@ internal class LineTokens(val syntax: Syntax) {
         val out = ArrayList<Int>()
         for (m in token.findAll(line)) {
             val t = m.value
+            if (syntax == Syntax.AGSL && t.startsWith("//") && line.substring(0, m.range.first).isBlank()) {
+                // A header line of a shader, `// @name Glow`: its word after the @ stands out in the comment.
+                val word = DIRECTIVE.find(t)?.groups?.get(1)
+                if (word != null) {
+                    val at = m.range.first + word.range.first
+                    val end = m.range.first + word.range.last + 1
+                    out += m.range.first; out += at; out += COMMENT
+                    out += at; out += end; out += KEYWORD
+                    if (end <= m.range.last) {
+                        out += end; out += m.range.last + 1; out += COMMENT
+                    }
+                    continue
+                }
+            }
             val kind = when {
                 t.startsWith("--") || t.startsWith("//") -> COMMENT
                 t.startsWith("\"") || t.startsWith("'") -> STRING
                 t[0].isDigit() -> NUMBER
                 t in keywords -> KEYWORD
+                t in host -> HOST
                 else -> continue
             }
             out += m.range.first; out += m.range.last + 1; out += kind
@@ -158,20 +177,29 @@ internal class LineTokens(val syntax: Syntax) {
         private val AGSL_WORDS = setOf(
             "uniform", "shader", "layout", "const", "in", "out", "inout", "struct", "void", "bool", "int",
             "float", "float2", "float3", "float4", "half", "half2", "half3", "half4", "int2", "int3", "int4",
+            "bool2", "bool3", "bool4", "short", "short2", "short3", "short4",
             "float2x2", "float3x3", "float4x4", "half2x2", "half3x3", "half4x4", "vec2", "vec3", "vec4",
+            "ivec2", "ivec3", "ivec4", "bvec2", "bvec3", "bvec4",
             "mat2", "mat3", "mat4", "if", "else", "for", "while", "do", "return", "break", "continue",
-            "true", "false",
+            "switch", "case", "default", "true", "false",
         )
+
+        /** A shader's header line, as [ShaderMeta] reads it: `//`, then `@` and its word (group 1). */
+        private val DIRECTIVE = Regex("^//\\s*(@[A-Za-z]+)\\b")
 
         const val COMMENT = 0
         const val STRING = 1
         const val NUMBER = 2
         const val KEYWORD = 3
+
+        /** A name Kolahal sets in a shader, such as `time` or `content`. */
+        const val HOST = 4
     }
 }
 
 /**
- * Colors code in the editor: comments, strings, numbers and keywords.
+ * Colors code in the editor: comments, strings, numbers and keywords, and in a shader the names
+ * Kolahal sets.
  * - Find matches and a flashed line are not colors: the editor draws them behind the text
  *   (EditorMarks), so a jump to the next match does not lay the whole text out again.
  * - A line longer than [MAX_COLORED_LINE] (minified JSON or code) is not colored. It would be
@@ -217,6 +245,7 @@ internal class SyntaxHighlighter(
             SpanStyle(color = Term.script),
             SpanStyle(color = Term.palette.work),
             SpanStyle(color = Term.prompt, fontWeight = if (plain) null else FontWeight.Bold),
+            SpanStyle(color = Term.info),
         )
         val styled = buildAnnotatedString {
             append(src)

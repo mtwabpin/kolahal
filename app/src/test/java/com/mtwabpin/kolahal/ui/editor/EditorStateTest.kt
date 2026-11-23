@@ -107,6 +107,19 @@ class EditorStateTest {
         assertFalse(back.history.canUndo)
     }
 
+    /** The limit comes back with the text: what was typed in the background is held to it still. */
+    @Test
+    fun theLimitComesBack() {
+        val s = state("abc")
+        val saver = EditorState.saver("abc", flashLine = null, limit = EditorLimit(maxChars = 4, maxLines = 3))
+        val back = saver.restore(with(saver) { scope.save(s) }!!)!!
+        back.insert("d")
+        assertEquals("abcd", back.value.text)
+        back.insert("e")
+        assertEquals("abcd", back.value.text)
+        assertEquals("The editor takes up to 4 characters", back.message?.text)
+    }
+
     /** A very big text isn't kept: the stored one comes back, with the cursor where it was. */
     @Test
     fun aVeryBigTextComesBackAsStored() {

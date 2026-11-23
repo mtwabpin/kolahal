@@ -101,6 +101,7 @@ open class TerminalUiStub : TerminalUi {
     override fun pickScriptFolder() = Unit
     override fun requestFontImport() = Unit
     override fun openEditor(script: Script) = Unit
+    override fun openShaderEditor(name: String) = Unit
     override fun askSecret(script: Script, name: String) = Unit
     override fun requestNotificationPermission() = Unit
     override fun clearScreen() = Unit

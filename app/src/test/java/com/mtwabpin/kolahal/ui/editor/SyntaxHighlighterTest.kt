@@ -36,16 +36,55 @@ class SyntaxHighlighterTest {
         }
     }
 
-    /** A shader's code, to read: its types, its numbers and its comments each have their color. */
+    /** A shader's code: its types, the names Kolahal sets, its numbers and its comments each have their color. */
     @Test
     fun aShadersCodeIsColored() {
         val code = "uniform float time; // seconds\nhalf4 main(float2 p) { return half4(0.5); }"
         val colored = SyntaxHighlighter(Syntax.AGSL).filter(AnnotatedString(code)).text
         val parts = colored.spanStyles.map { code.substring(it.start, it.end) }
         assertEquals(
-            listOf("uniform", "float", "// seconds", "half4", "float2", "return", "half4", "0.5"),
+            listOf("uniform", "float", "time", "// seconds", "half4", "float2", "return", "half4", "0.5"),
             parts
         )
+    }
+
+    /**
+     * A shader's header line has its word after the @ in the keyword color, inside the comment; a comment after code
+     * is a comment only. The names Kolahal sets have a color of their own, and other names none.
+     */
+    @Test
+    fun aShadersHeaderAndKolahalsNames() {
+        fun tokens(line: String): List<Pair<String, Int>> {
+            val t = LineTokens(Syntax.AGSL).of(line)
+            return (t.indices step 3).map { line.substring(t[it], t[it + 1]) to t[it + 2] }
+        }
+        assertEquals(
+            listOf("// " to LineTokens.COMMENT, "@name" to LineTokens.KEYWORD, " Glow" to LineTokens.COMMENT),
+            tokens("// @name Glow"),
+        )
+        assertEquals(
+            listOf("//" to LineTokens.COMMENT, "@animated" to LineTokens.KEYWORD),
+            tokens("  //@animated"),
+        )
+        assertEquals(
+            listOf("float" to LineTokens.KEYWORD, "1" to LineTokens.NUMBER, "// @name not a header" to LineTokens.COMMENT),
+            tokens("float x = 1; // @name not a header"),
+        )
+        assertEquals(
+            listOf(
+                "uniform" to LineTokens.KEYWORD, "shader" to LineTokens.KEYWORD, "content" to LineTokens.HOST,
+                "uniform" to LineTokens.KEYWORD, "float2" to LineTokens.KEYWORD, "resolution" to LineTokens.HOST,
+                "half4" to LineTokens.KEYWORD, "accent" to LineTokens.HOST,
+            ),
+            tokens("uniform shader content; uniform float2 resolution; half4 mine = accent;"),
+        )
+        // Scripts have no such names: `time` in Lua is a plain name.
+        assertTrue(LineTokens(Syntax.LUA).of("local time = 1").let { t -> (t.indices step 3).none { t[it + 2] == LineTokens.HOST } })
+        // The names Kolahal sets have the info color.
+        val code = "uniform float time;"
+        val time = SyntaxHighlighter(Syntax.AGSL).filter(AnnotatedString(code)).text.spanStyles
+            .single { code.substring(it.start, it.end) == "time" }.item
+        assertEquals(Term.info, time.color)
     }
 
     @Test
