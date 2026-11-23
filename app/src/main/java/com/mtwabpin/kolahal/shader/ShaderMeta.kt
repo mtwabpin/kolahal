@@ -12,6 +12,8 @@ package com.mtwabpin.kolahal.shader
  * - `// @once 6`: a one-off shader, which runs for so many seconds and goes ([ShaderPlay]);
  * - `// @suits`: what it works well over ([ShaderSuits]);
  * - `// @text`: it works on text, and shows nothing without any;
+ * - `// @fps 10`: how many frames a second it needs while nothing touches it, and `// @settles 4`: how many
+ *   seconds a touch changes it ([ShaderClock.Pace]). A line that can't be read is left out ([warnings]);
  * - the uniforms it declares. The host sets the ones it knows ([KNOWN]); it skips the rest.
  *
  * Pure: the compiler runs in [Shaders.compile], on Android 13 and newer.
@@ -37,6 +39,10 @@ class ShaderMeta private constructor(
     val text: Boolean,
     /** Words that find it. */
     val tags: List<String>,
+    /** How many frames a second it needs while nothing touches it; null without a line that can be read: [ShaderClock.FPS]. */
+    val fps: Int?,
+    /** How many seconds after a touch the touch still changes it; null without a line that can be read: [ShaderClock.IDLE_MS]. */
+    val settles: Float?,
 ) {
     /** One declared uniform. [color]: declared with `layout(color)`. */
     data class Uniform(val name: String, val type: String, val color: Boolean, val array: Boolean) {
@@ -78,6 +84,14 @@ class ShaderMeta private constructor(
         /** The uniform that goes from 0 to 1 as a one-off shader runs. */
         const val PROGRESS = "progress"
 
+        /** The header's words for the frames a second ([fps]) and the seconds a touch lasts ([settles]). */
+        const val FPS = "fps"
+        const val SETTLES = "settles"
+
+        /** The fewest seconds `@settles` can say; the most is the time without a touch after which a shader stops ([ShaderClock.IDLE_MS]). */
+        const val MIN_SETTLES = 0.5f
+        const val MAX_SETTLES = ShaderClock.IDLE_MS / 1000f
+
         /** The most a file may have, in bytes: far more than any shader needs. */
         const val MAX_BYTES = 64 * 1024
 
@@ -117,11 +131,7 @@ class ShaderMeta private constructor(
         private val ERROR = Regex("""error:\s*(\d+):\s*([^\n]*)""")
 
         fun parse(source: String): ShaderMeta {
-            val tags = LinkedHashMap<String, String>()
-            for (line in source.lineSequence()) {
-                val m = DIRECTIVE.find(line) ?: continue
-                tags.putIfAbsent(m.groupValues[1].lowercase(), m.groupValues[2].trim())
-            }
+            val tags = directives(source)
             fun said(vararg names: String) =
                 names.firstNotNullOfOrNull { tags[it] }?.takeIf { it.isNotEmpty() }
             val once = said("once")?.toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(ShaderPlay.MIN_SECONDS, ShaderPlay.MAX_SECONDS)
@@ -141,8 +151,42 @@ class ShaderMeta private constructor(
                 suits = said(ShaderSuits.DIRECTIVE)?.let(ShaderSuits::read).orEmpty(),
                 text = "text" in tags,
                 tags = said("tags")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
+                fps = tags[FPS]?.let(::fps),
+                settles = tags[SETTLES]?.let(::settles),
             )
         }
+
+        /** Each directive in [source] and what follows it, by its name in lower case: the first of two wins. */
+        private fun directives(source: String): Map<String, String> {
+            val tags = LinkedHashMap<String, String>()
+            for (line in source.lineSequence()) {
+                val m = DIRECTIVE.find(line) ?: continue
+                tags.putIfAbsent(m.groupValues[1].lowercase(), m.groupValues[2].trim())
+            }
+            return tags
+        }
+
+        private fun fps(said: String): Int? = said.toIntOrNull()?.takeIf { it in 1..ShaderClock.FPS }
+
+        private fun settles(said: String): Float? = said.toFloatOrNull()?.takeIf { it in MIN_SETTLES..MAX_SETTLES }
+
+        /**
+         * The header's lines that can't be read, each with what to write instead. They are left out, and the
+         * shader works without them: unlike [problems], they keep nothing from being used.
+         */
+        fun warnings(source: String): List<String> {
+            val tags = directives(source)
+            fun quoted(name: String, said: String) = if (said.isEmpty()) "'@$name'" else "'@$name $said'"
+            return listOfNotNull(
+                tags[FPS]?.takeIf { fps(it) == null }
+                    ?.let { "${quoted(FPS, it)}: write a whole number from 1 to ${ShaderClock.FPS}" },
+                tags[SETTLES]?.takeIf { settles(it) == null }
+                    ?.let { "${quoted(SETTLES, it)}: write the seconds, from ${number(MIN_SETTLES)} to ${number(MAX_SETTLES)}" },
+            )
+        }
+
+        /** [x] as people write it: 60, not 60.0. */
+        private fun number(x: Float): String = if (x == x.toInt().toFloat()) x.toInt().toString() else x.toString()
 
         /** What follows each `@param` in the header. */
         private fun paramLines(source: String): List<String> = source.lineSequence()

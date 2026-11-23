@@ -77,6 +77,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** The shaders drawn now, by name. A test asks for it; a surface can't be asked what its layer does. */
 internal object ActiveShaders {
@@ -107,7 +108,8 @@ internal val LocalShaderSources = staticCompositionLocalOf { ShaderSources() }
  *
  * - The shader gets only the uniforms it declares ([ShaderMeta.KNOWN]).
  * - A still shader is drawn only when what it shows or a touch changes; one that is `@animated` at
- *   most [ShaderClock.FPS] times a second, while home is in front ([ShaderClock.moves]).
+ *   most [ShaderClock.FPS] times a second, or as often as its `@fps` and `@settles` say ([ShaderClock.frameMs]),
+ *   while home is in front ([ShaderClock.moves]).
  * - A still shader that declares `date` is also drawn once a minute, while home is in front ([FollowDate]).
  * - One that declares `tilt` follows the phone's lean, under the same conditions as one that moves
  *   ([FollowTilt]). Nothing listens to the motion sensor for any other.
@@ -374,7 +376,8 @@ private fun ProveWhenShown(id: String, safety: ShaderSafety, lifecycle: Lifecycl
 
 /**
  * Moves the shader's [clock] while home is in front, when the phone's state allows it ([ShaderClock.moves]).
- * Not while the surface is [hidden] under a full-screen screen.
+ * Not while the surface is [hidden] under a full-screen screen. As often as its header asks ([ShaderClock.frameMs]):
+ * a touch on one that reads it brings the next frame at once, and one whose only clock is the touch waits for one.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
@@ -386,25 +389,34 @@ private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: Shader
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(shader, shown, focused, hidden) {
         if (!shown || !focused || hidden) return@LaunchedEffect
+        val pace = ShaderClock.Pace.of(shader.meta)
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            val frameMs = 1_000L / ShaderClock.FPS
             var last = -1L
             var checkedAt = -1L
+            var allowed = false
             try {
                 while (true) {
                     val now = withFrameNanos { it } / 1_000_000L
                     if (checkedAt < 0 || now - checkedAt >= CHECK_MS) {
-                        clock.moving = ShaderClock.moves(sources.phone(context), SystemClock.uptimeMillis() - touch.uptime)
+                        allowed = ShaderClock.moves(sources.phone(context), SystemClock.uptimeMillis() - touch.uptime)
                         checkedAt = now
                     }
-                    if (clock.moving) {
+                    val frameMs = if (allowed) ShaderClock.frameMs(pace, touch.sinceMs()) else null
+                    clock.moving = frameMs != null
+                    if (frameMs != null) {
                         // A long gap (a pause) counts as one frame, so nothing jumps.
-                        val delta = if (last < 0) frameMs else (now - last).coerceIn(0L, 250L)
+                        val delta = if (last < 0) frameMs else ShaderClock.step(now - last, frameMs)
                         clock.seconds += delta / 1000f
                         last = now
                         val spent = (System.nanoTime() / 1_000_000L - now).coerceAtLeast(0L)
-                        // Wakes just before the next frame it wants.
-                        delay((frameMs - spent - 4).coerceIn(0L, frameMs))
+                        // Wakes just before the next frame it wants, or at a touch that wants one sooner.
+                        val wait = (frameMs - spent - 4).coerceIn(0L, frameMs)
+                        if (ShaderClock.touchHurries(pace, frameMs)) untilTouch(touch, wait) else delay(wait)
+                    } else if (allowed) {
+                        // The touch has settled, or there was none: nothing changes until the next one.
+                        last = -1L
+                        untilTouch(touch, null)
+                        checkedAt = -1L
                     } else {
                         // Still: it costs nothing. A touch, or the phone charging, starts it again.
                         last = -1L
@@ -417,6 +429,13 @@ private fun AnimateShader(shader: LoadedShader, clock: ShaderTime, touch: Shader
             }
         }
     }
+}
+
+/** Waits for the next touch on the surface, or [ms] at most (null: as long as it takes). */
+private suspend fun untilTouch(touch: ShaderTouch, ms: Long?) {
+    val at = touch.uptime
+    val next = suspend { snapshotFlow { touch.uptime }.first { it != at } }
+    if (ms == null) next() else withTimeoutOrNull(ms) { next() }
 }
 
 /**
@@ -626,6 +645,9 @@ private class ShaderTouch {
 
     /** A finger is down on the surface. */
     var pressed by mutableStateOf(false)
+
+    /** How long since the last touch, in ms; null before the first. Turning the shader on isn't one. */
+    fun sinceMs(): Long? = if (atSeconds < 0f) null else SystemClock.uptimeMillis() - uptime
 
     fun at(position: Offset, seconds: Float) {
         x = position.x

@@ -51,10 +51,11 @@ import kotlin.math.exp
  * its own (`:wallpaper`) and draws what home handed over ([WallpaperState]), over a page of the theme's color.
  *
  * - It draws only while it can be seen: an app in front or the screen off stops it.
- * - A shader that moves is drawn [ShaderClock.FPS] times a second, under the same conditions as on home
- *   ([ShaderClock.moves]); one that stands still, when something it shows changes.
+ * - A shader that moves is drawn [ShaderClock.FPS] times a second, or as often as its `@fps` and `@settles`
+ *   say ([ShaderClock.frameMs]), under the same conditions as on home ([ShaderClock.moves]); one that stands
+ *   still, when something it shows changes.
  * - A touch draws it again only when it reads the touch, at most once a frame; while it moves, its next
- *   frame shows the touch ([WallpaperDraws]).
+ *   frame shows the touch, at once when it waited longer than a touch wants ([WallpaperDraws]).
  * - A shader that crashed it [MAX_TRIES] times in a row isn't tried again until its code changes: then
  *   the page shows alone.
  */
@@ -108,6 +109,18 @@ class ShaderWallpaper : WallpaperService() {
         private var lastFrame = 0L
         private var checkedAt = 0L
         private var touchedAt = SystemClock.uptimeMillis()
+
+        /** How often it is drawn while it moves, from its header ([ShaderClock.Pace]). */
+        private var pace = ShaderClock.Pace.DEFAULT
+
+        /** The time from the frame loop's last frame to its next. */
+        private var frameEvery = FRAME_MS
+
+        /** When the last touch came, by the phone's uptime; below 0 when there was none. Being seen isn't one. */
+        private var lastTouch = -1L
+
+        /** It stopped moving because the touch it moves with settled, though the phone allowed it ([ShaderClock.frameMs]): a touch starts it again. */
+        private var settled = false
 
         /** When a touch last asked the phone whether it may move or lean ([allowed]). */
         private var askedAt = 0L
@@ -198,6 +211,7 @@ class ShaderWallpaper : WallpaperService() {
             runtime = null
             meta = null
             uniforms = null
+            pace = ShaderClock.Pace.DEFAULT
             frame.seconds = 0f
             if (!Guard.mayTry(this@ShaderWallpaper, next.code) || ShaderMeta.problems(next.code).isNotEmpty()) return
             Guard.trying(this@ShaderWallpaper, next.code)
@@ -207,7 +221,7 @@ class ShaderWallpaper : WallpaperService() {
                 Guard.proven(this@ShaderWallpaper)
                 return
             }
-            meta = ShaderMeta.parse(next.code)
+            meta = ShaderMeta.parse(next.code).also { pace = ShaderClock.Pace.of(it) }
             main.removeCallbacks(proven)
             main.postDelayed(proven, PROVEN_MS)
         }
@@ -258,6 +272,7 @@ class ShaderWallpaper : WallpaperService() {
 
         private fun stop() {
             moving = false
+            settled = false
             Choreographer.getInstance().removeFrameCallback(this)
             Choreographer.getInstance().removeFrameCallback(drawNext)
             drawPending = false
@@ -269,6 +284,8 @@ class ShaderWallpaper : WallpaperService() {
         }
 
         private fun allowed() = ShaderClock.moves(ShaderPhone.of(this@ShaderWallpaper), SystemClock.uptimeMillis() - touchedAt)
+
+        private fun sinceTouch(): Long? = if (lastTouch < 0) null else SystemClock.uptimeMillis() - lastTouch
 
         private fun startTilt() {
             if (gravity != null) return
@@ -301,7 +318,10 @@ class ShaderWallpaper : WallpaperService() {
             val set = uniforms ?: return
             if (!seen) return
             val ok = (set.usesClock || set.usesTilt) && allowed()
-            if ((set.usesClock && ok || gliding) && !moving) loop(drawn = true)
+            // One that moves only with the touch waits for one.
+            val paced = set.usesClock && ok && ShaderClock.frameMs(pace, sinceTouch()) != null
+            settled = set.usesClock && ok && !paced
+            if ((paced || gliding) && !moving) loop(drawn = true)
             if (set.usesTilt && ok) startTilt()
         }
 
@@ -315,20 +335,19 @@ class ShaderWallpaper : WallpaperService() {
         /** Starts the frame loop: its first frame is the screen's next, or a frame later when it was just [drawn]. */
         private fun loop(drawn: Boolean) {
             moving = true
+            settled = false
             lastFrame = 0L
             checkedAt = SystemClock.uptimeMillis()
+            frameEvery = ShaderClock.frameMs(pace, sinceTouch()) ?: FRAME_MS
             val choreographer = Choreographer.getInstance()
             choreographer.removeFrameCallback(this)
-            if (drawn) choreographer.postFrameCallbackDelayed(this, WallpaperDraws.untilNextFrame(0L))
+            if (drawn) choreographer.postFrameCallbackDelayed(this, WallpaperDraws.untilNextFrame(0L, frameEvery))
             else choreographer.postFrameCallback(this)
         }
 
         override fun doFrame(frameTimeNanos: Long) {
             if (!seen || !moving) return
             val now = frameTimeNanos / 1_000_000L
-            // A long gap (a pause) counts as one frame, so nothing jumps.
-            val step = if (lastFrame == 0L) FRAME_MS else (now - lastFrame).coerceIn(0L, 250L)
-            lastFrame = now
             val uptime = SystemClock.uptimeMillis()
             var going = true
             if (uptime - checkedAt >= CHECK_MS) {
@@ -339,16 +358,24 @@ class ShaderWallpaper : WallpaperService() {
                     gravity = null
                 }
             }
-            if (uniforms?.usesClock == true && going) frame.seconds += step / 1000f
+            // As often as the header asks; null when the touch it moves with has settled.
+            val next = if (uniforms?.usesClock == true && going) ShaderClock.frameMs(pace, sinceTouch()) else null
+            val every = next ?: FRAME_MS
+            // A long gap (a pause) counts as one frame, so nothing jumps.
+            val step = if (lastFrame == 0L) every else ShaderClock.step(now - lastFrame, every)
+            lastFrame = now
+            if (next != null) frame.seconds += step / 1000f
             glide(step / 1000f)
             draw()
-            if (!gliding && (uniforms?.usesClock != true || !going)) {
+            if (!gliding && next == null) {
                 moving = false
+                settled = going && uniforms?.usesClock == true
                 return
             }
+            frameEvery = every
             // It sleeps until just before the frame it wants, rather than waking at each refresh of the screen.
             val spent = System.nanoTime() / 1_000_000L - now
-            Choreographer.getInstance().postFrameCallbackDelayed(this, WallpaperDraws.untilNextFrame(spent))
+            Choreographer.getInstance().postFrameCallbackDelayed(this, WallpaperDraws.untilNextFrame(spent, every))
         }
 
         /** One draw at the screen's next frame, however many touches come before it. */
@@ -360,6 +387,7 @@ class ShaderWallpaper : WallpaperService() {
         override fun onTouchEvent(event: MotionEvent) {
             val uptime = SystemClock.uptimeMillis()
             touchedAt = uptime
+            lastTouch = uptime
             frame.touchX = event.x
             frame.touchY = event.y
             frame.pressed = event.actionMasked != MotionEvent.ACTION_UP && event.actionMasked != MotionEvent.ACTION_CANCEL
@@ -367,12 +395,20 @@ class ShaderWallpaper : WallpaperService() {
             val set = uniforms ?: return
             if (!seen) return
             // A shader that stopped moving, or a sensor that stopped, starts again at a touch, if the phone allows it.
-            if (WallpaperDraws.touchAsks(set.usesClock, set.usesTilt, gravity != null, moving, uptime - askedAt)) {
+            if (WallpaperDraws.touchAsks(set.usesClock, set.usesTilt, gravity != null, moving, uptime - askedAt, settled)) {
                 askedAt = uptime
+                settled = false
                 if (allowed()) {
                     if (set.usesClock && !moving) loop(drawn = false)
                     if (set.usesTilt) startTilt()
                 }
+            }
+            // A loop that sleeps longer than a touch wants draws its next frame at the screen's next one.
+            if (WallpaperDraws.touchHurries(pace, moving, frameEvery)) {
+                frameEvery = ShaderClock.frameMs(pace, 0L) ?: FRAME_MS
+                val choreographer = Choreographer.getInstance()
+                choreographer.removeFrameCallback(this)
+                choreographer.postFrameCallback(this)
             }
             if (WallpaperDraws.touchDraws(set.usesTouch, set.usesPressed, moving) && !drawPending) {
                 drawPending = true
@@ -524,7 +560,7 @@ class ShaderWallpaper : WallpaperService() {
 
 /** When the live wallpaper draws, and when it asks the phone: what [ShaderWallpaper] decides, without Android. */
 internal object WallpaperDraws {
-    /** The time between two frames of a shader that moves. */
+    /** The time between two frames of a shader that moves, at [ShaderClock.FPS]: without `@fps`, and while a touch on one that reads it settles. */
     const val FRAME_MS = 1_000L / ShaderClock.FPS
 
     /** How much before the frame it wants the frame loop wakes, so it doesn't wait for the screen's next one. */
@@ -536,8 +572,11 @@ internal object WallpaperDraws {
     /** Kolahal's own values ([ShaderValues.BUILT_IN]) that move with the time of day. */
     val TIME = setOf("day", "night")
 
-    /** How long the frame loop sleeps when it drew [spentMs] after its frame's time: until just before the next frame it wants. */
-    fun untilNextFrame(spentMs: Long): Long = (FRAME_MS - spentMs - EARLY_MS).coerceIn(0L, FRAME_MS)
+    /**
+     * How long the frame loop sleeps when it drew [spentMs] after its frame's time: until just before the next
+     * frame it wants, [frameMs] after it ([ShaderClock.frameMs]).
+     */
+    fun untilNextFrame(spentMs: Long, frameMs: Long = FRAME_MS): Long = (frameMs - spentMs - EARLY_MS).coerceIn(0L, frameMs)
 
     /**
      * A touch draws it again when it reads the touch ([readsTouch]: `touch` or `touchAge`) or the finger
@@ -548,10 +587,20 @@ internal object WallpaperDraws {
     /**
      * A touch asks the phone whether it may move ([ShaderClock.moves]) when a shader that moves with the clock
      * ([movesWithClock]) stands still, or one that [leans] has no sensor on ([leaning]); and not again within
-     * [CHECK_MS] of the last time one asked ([sinceAskedMs]).
+     * [CHECK_MS] of the last time one asked ([sinceAskedMs]). One that stopped because the touch it moves with
+     * [settled] asks at once: the touch starts it again.
      */
-    fun touchAsks(movesWithClock: Boolean, leans: Boolean, leaning: Boolean, moving: Boolean, sinceAskedMs: Long): Boolean =
-        sinceAskedMs >= CHECK_MS && ((movesWithClock && !moving) || (leans && !leaning))
+    fun touchAsks(
+        movesWithClock: Boolean, leans: Boolean, leaning: Boolean, moving: Boolean, sinceAskedMs: Long, settled: Boolean = false,
+    ): Boolean = (settled && movesWithClock && !moving) ||
+        (sinceAskedMs >= CHECK_MS && ((movesWithClock && !moving) || (leans && !leaning)))
+
+    /**
+     * A touch draws the next frame at the screen's next one when the frame loop is [moving] and sleeps [frameMs]
+     * between frames, longer than a touch on this shader wants ([ShaderClock.touchHurries]): a finger isn't
+     * followed at `@fps`.
+     */
+    fun touchHurries(pace: ShaderClock.Pace, moving: Boolean, frameMs: Long): Boolean = moving && ShaderClock.touchHurries(pace, frameMs)
 
     /** A change of the battery's level or of the charger changes the picture when the shader reads that one. */
     fun batteryShows(readsBattery: Boolean, readsCharging: Boolean, levelChanged: Boolean, chargingChanged: Boolean): Boolean =

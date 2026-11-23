@@ -246,6 +246,45 @@ class ShaderMetaTest {
         assertEquals(listOf("hearts"), ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).once != null })
     }
 
+    /** How often it needs to be drawn: a whole number of frames a second, and the seconds a touch lasts, each within its range. */
+    @Test
+    fun howOftenItIsDrawn() {
+        fun meta(vararg lines: String) = ShaderMeta.parse(lines.joinToString("\n") + "\nuniform shader content;")
+        fun warnings(vararg lines: String) = ShaderMeta.warnings(lines.joinToString("\n") + "\nuniform shader content;")
+        val both = meta("// @animated", "// @fps 10", "// @settles 4")
+        assertEquals(10, both.fps)
+        assertEquals(4f, both.settles)
+        // The ends of the ranges.
+        assertEquals(1, meta("// @fps 1").fps)
+        assertEquals(ShaderClock.FPS, meta("// @fps 30").fps)
+        assertEquals(0.5f, meta("// @settles 0.5").settles)
+        assertEquals(60f, meta("// @settles 60").settles)
+        assertEquals(emptyList<String>(), warnings("// @fps 1", "// @settles 0.5"))
+        assertEquals(emptyList<String>(), warnings("// @FPS 30", "// @settles 60"))
+        // Without the lines: null, and nothing to say.
+        val bare = meta("// @animated")
+        assertNull(bare.fps)
+        assertNull(bare.settles)
+        assertEquals(emptyList<String>(), warnings("// @animated"))
+        assertEquals(emptyList<String>(), ShaderMeta.warnings(valid))
+        // A line that can't be read is left out, with what to write.
+        for (bad in listOf("0", "31", "10.5", "ten", "-3")) {
+            assertNull(bad, meta("// @fps $bad").fps)
+            assertEquals(listOf("'@fps $bad': write a whole number from 1 to 30"), warnings("// @fps $bad"))
+        }
+        assertEquals(listOf("'@fps': write a whole number from 1 to 30"), warnings("// @fps"))
+        for (bad in listOf("0.4", "0", "61", "soon", "NaN", "-1")) {
+            assertNull(bad, meta("// @settles $bad").settles)
+            assertEquals(listOf("'@settles $bad': write the seconds, from 0.5 to 60"), warnings("// @settles $bad"))
+        }
+        assertEquals(listOf("'@settles': write the seconds, from 0.5 to 60"), warnings("// @settles"))
+        assertEquals(2, warnings("// @fps 0", "// @settles 90").size)
+        // They keep nothing from being used.
+        assertEquals(emptyList<String>(), ShaderMeta.problems("// @fps 0\n// @settles\nuniform shader content;"))
+        // The first of two wins, as for the other lines.
+        assertEquals(12, meta("// @fps 12", "// @fps 5").fps)
+    }
+
     /** What it works well over. What can't be read isn't rated; every bundled shader is, for all three. */
     @Test
     fun whatItSuits() {

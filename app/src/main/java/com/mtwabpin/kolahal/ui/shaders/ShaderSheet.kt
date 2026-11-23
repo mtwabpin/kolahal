@@ -330,7 +330,7 @@ private fun SheetError(text: String) = Text(
     modifier = Modifier.padding(top = 4.dp)
 )
 
-/** What Check found: the problem, or that it compiles and its uniforms. */
+/** What Check found: the problem, or that it compiles and its uniforms; and the header's lines that can't be read. */
 @Composable
 private fun CheckResult(check: Shaders.Check) {
     Column(
@@ -347,6 +347,8 @@ private fun CheckResult(check: Shaders.Check) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        // Header lines that are left out: the shader works without them.
+        check.warnings.forEach { SheetError(it) }
     }
 }
 

@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui.wallpaper
 
 import com.mtwabpin.kolahal.shader.ShaderClock
+import com.mtwabpin.kolahal.shader.ShaderMeta
 import com.mtwabpin.kolahal.shader.ShaderValues
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,6 +33,43 @@ class WallpaperDrawsTest {
             val first = Math.ceil(WallpaperDraws.untilNextFrame(0L) / refresh) * refresh
             assertTrue("$hz Hz: $first", first <= 1_000.0 / 30 + refresh / 2)
         }
+    }
+
+    /** A shader with `@fps 10` sleeps a tenth of a second between frames, waking a little before. */
+    @Test
+    fun theLoopSleepsAsLongAsTheHeaderSays() {
+        assertEquals(96L, WallpaperDraws.untilNextFrame(0L, 100L))
+        assertEquals(86L, WallpaperDraws.untilNextFrame(10L, 100L))
+        assertEquals(0L, WallpaperDraws.untilNextFrame(150L, 100L))
+        assertEquals(100L, WallpaperDraws.untilNextFrame(-100L, 100L))
+        // Without the header's line, as before.
+        assertEquals(WallpaperDraws.untilNextFrame(5L), WallpaperDraws.untilNextFrame(5L, WallpaperDraws.FRAME_MS))
+    }
+
+    private fun pace(vararg lines: String, uniforms: String) =
+        ShaderClock.Pace.of(ShaderMeta.parse(lines.joinToString("\n") + "\nuniform shader content; $uniforms"))
+
+    /** A touch on a slow shader that reads it wakes the loop at once; nothing else does. */
+    @Test
+    fun aTouchHurriesASlowLoop() {
+        val sand = pace("// @animated", "// @fps 10", "// @settles 5", uniforms = "uniform float time; uniform float2 touch;")
+        assertTrue(WallpaperDraws.touchHurries(sand, moving = true, frameMs = 100L))
+        // Already at 30 a second, or not moving: the touch's own frame, or [touchAsks], see to it.
+        assertFalse(WallpaperDraws.touchHurries(sand, moving = true, frameMs = WallpaperDraws.FRAME_MS))
+        assertFalse(WallpaperDraws.touchHurries(sand, moving = false, frameMs = 100L))
+        // One that doesn't read the touch stays at its pace.
+        val mist = pace("// @animated", "// @fps 10", uniforms = "uniform float time;")
+        assertFalse(WallpaperDraws.touchHurries(mist, moving = true, frameMs = 100L))
+        // Without the lines, never.
+        assertFalse(WallpaperDraws.touchHurries(ShaderClock.Pace.DEFAULT, moving = true, frameMs = WallpaperDraws.FRAME_MS))
+    }
+
+    /** One that stopped because its touch settled starts again at the next touch, however soon it comes. */
+    @Test
+    fun aTouchStartsASettledShaderAtOnce() {
+        assertTrue(WallpaperDraws.touchAsks(movesWithClock = true, leans = false, leaning = false, moving = false, sinceAskedMs = 0L, settled = true))
+        assertFalse(WallpaperDraws.touchAsks(movesWithClock = true, leans = false, leaning = false, moving = false, sinceAskedMs = 0L, settled = false))
+        assertFalse(WallpaperDraws.touchAsks(movesWithClock = true, leans = false, leaning = false, moving = true, sinceAskedMs = 0L, settled = true))
     }
 
     @Test

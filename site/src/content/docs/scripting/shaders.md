@@ -237,6 +237,8 @@ Good to know:
 - `uniform shader content;` is required, and it is the only shader input. A shader has no other
   images, files or network.
 - Look at a few pixels around each one, not hundreds. A shader that does too much work makes home slow.
+- An `@animated` shader runs over every pixel of the screen at each frame. A scene that moves slowly costs a
+  third with `// @fps 10`, and one that moves only after a touch costs nothing once it fades with `// @settles`.
 - If the screen shows your wallpaper ([`log.wallpaper`](/reference/config/#log)), the pixels behind the
   text can be transparent: check `c.a`.
 - Moving pixels far from where they are makes a tap miss what it shows. Keep it under half a cell,
@@ -255,6 +257,8 @@ Comments at the top say what the shader is. All are optional:
 | `// @text` | it works on text, so it can't be a [live wallpaper](#as-a-live-wallpaper) |
 | `// @once 6` | it is a [one-off](#one-off-shaders), and runs for this many seconds |
 | `// @animated` | it changes on its own, so it is drawn up to 30 times a second. Without it a shader is only drawn when the screen changes, so it uses no power while the screen is still |
+| `// @fps 10` | an `@animated` shader is drawn this many times a second, from 1 to 30 (30 without it). Use it for a scene that moves slowly, such as drifting mist, which looks the same at 10 |
+| `// @settles 4` | a touch changes the picture for this many seconds, from 0.5 to 60 (60 without it). Use it for ripples or ink that fade: a shader that reads the touch is drawn 30 times a second for that long, and one whose only clock is `touchAge` stops then until the next touch |
 | `// @author …` | who made it. A shared shader needs it, as it does `@version` and `@license` |
 | `// @version 1.0` | its version |
 | `// @license MIT` | its license |

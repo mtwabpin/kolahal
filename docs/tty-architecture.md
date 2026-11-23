@@ -1261,8 +1261,10 @@ types.
 **As built.** Files as above, with the bundled set and commands of the **As built** note at the top
 of §7, and Settings → Shaders instead of Settings → TTY → Shader. The header comments read by
 `ShaderMeta.parse`: `@name` (or `@title`), `@description` (or `@desc`), `@animated`, `@param`
-(§7.6), `@once` (§7.7), `@suits` and `@text` (§7.8), and for shared shaders `@author`,
-`@version`, `@license`, `@requires` (the oldest Kolahal) and `@tags`. Not built: `@warp` and
+(§7.6), `@once` (§7.7), `@suits` and `@text` (§7.8), `@fps` and `@settles` (§7.4 As built), and
+for shared shaders `@author`, `@version`, `@license`, `@requires` (the oldest Kolahal) and `@tags`.
+A `@fps` or `@settles` line that can't be read is left out with a message (`ShaderMeta.warnings`,
+shown by `shader check` and the sheet's Check), and the shader still runs. Not built: `@warp` and
 `@bloom`. A compile error is a log line with the compiler's line number whose tap runs
 `shader check <name>` (not an editor at that line); a shader that fails to turn on keeps the one
 that was on.
@@ -1286,8 +1288,9 @@ that was on.
 | Crash / hang at start | As designed, with the mark written before compiling and a shader proven after 10 s in front (*Safe mode* at the top of §7; `shader/ShaderSafety.kt`). |
 | Always-available off | (1) Settings → Shaders → None; (2) `shader off`; (3) two fingers held still for a second. Not built: the app shortcut "Safe mode". |
 | Battery | `ShaderClock.moves`: an `@animated` shader's time stands still in battery saver, with Remove animations on, at thermal status MODERATE or more, below 15 % (`LOW_BATTERY`) unless charging, and after 60 s without a touch (`IDLE_MS`) unless charging. It never turns off for these; there is no `screen.shader-battery`. |
-| Idle | The frame loop (30 frames a second, `ShaderClock.FPS`) runs only while home is in front, and home's own loop stops under a full-screen screen, which has its own. The phone's state is checked every 2 s while a shader moves and every second while it stands still. A shader that was in front for 10 s is kept compiled (`ShaderCache`), so home shows it at once when it is composed again. |
+| Idle | The frame loop (30 frames a second, `ShaderClock.FPS`, or as the header asks, below) runs only while home is in front, and home's own loop stops under a full-screen screen, which has its own. The phone's state is checked every 2 s while a shader moves and every second while it stands still, and not while its touch has settled (it waits for the next touch). A shader that was in front for 10 s is kept compiled (`ShaderCache`), so home shows it at once when it is composed again. |
 | Accessibility | Shaders and one-off shaders are off while a screen reader is on, with no opt-in. With Remove animations on, a moving shader stands still. |
+| Pace | `ShaderClock.frameMs` (`Pace.of(meta)`), on home, the screens and the live wallpaper: while it may move, a shader is drawn `// @fps N` times a second (1 to 30, 30 without it). For `// @settles S` seconds after a touch (0.5 to 60, 60 without it), one that reads the touch (`touch`, `touchAge` or `pressed`) is drawn 30 times a second, and a touch wakes a slower loop at once. One whose only clock is `touchAge` (no `time` or `progress`) and has `@settles` is drawn only for those seconds after a touch, not before the first: it then waits for a touch, charger or not. Without the lines nothing differs; a one-off shader (`@once`) ignores them. |
 
 ### 7.5 Android 9–12
 
@@ -1362,8 +1365,8 @@ first time. Not a one-off and not an `@text` shader; Android 13 and newer.
   scripts gave, the theme's colors dark and light, `theme.always-dark`, the cell size) to a file,
   whenever one of them changes (`WallpaperWriter`, started from `MainActivity`).
 - It draws over a page of the theme's color (`wallpaper` is 1), only while it is visible; a moving
-  shader follows `ShaderClock.moves` at 30 frames a second, a still one is drawn when something it
-  shows changes. A followed parameter glides with a 0.6 s time constant (`GLIDE_S`), not home's 2 s.
+  shader follows `ShaderClock.moves` at 30 frames a second or its header's pace (`ShaderClock.frameMs`,
+  §7.4 As built), a still one is drawn when something it shows changes. A followed parameter glides with a 0.6 s time constant (`GLIDE_S`), not home's 2 s.
 - Its own guard: a shader that was started and not proven (10 s) three times in a row
   (`MAX_TRIES`) is not tried again until its code changes; the page shows alone.
 

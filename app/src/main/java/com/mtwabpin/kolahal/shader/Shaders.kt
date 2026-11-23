@@ -200,24 +200,32 @@ object Shaders {
     fun once(context: Context, name: String): Boolean =
         source(context, name)?.let { ShaderMeta.parse(it).once } != null
 
-    /** What checking a shader found: its [problem] (null: none), the uniforms Kolahal [sets], those left [unset], and its [params]. */
+    /**
+     * What checking a shader found: its [problem] (null: none), the uniforms Kolahal [sets], those left [unset],
+     * its [params], how often it is drawn while it moves ([pace]), and the header's lines that were left out ([warnings]).
+     */
     class Check(
         val problem: String?,
         val sets: List<String>,
         val unset: List<String>,
         val animated: Boolean,
         val params: List<ShaderParam> = emptyList(),
+        val pace: ShaderClock.Pace = ShaderClock.Pace.DEFAULT,
+        val warnings: List<String> = emptyList(),
     )
 
     /** Compiles shader [name] and reads its uniforms. Null when it can't be read. Not on the main thread. */
     fun check(context: Context, name: String): Check? {
-        val meta = ShaderMeta.parse(source(context, name) ?: return null)
+        val source = source(context, name) ?: return null
+        val meta = ShaderMeta.parse(source)
         return Check(
             problem(context, name),
             meta.uniforms.map { it.name }.filter { it in ShaderMeta.KNOWN },
             meta.unset(),
             meta.animated,
             meta.params,
+            ShaderClock.Pace.of(meta),
+            ShaderMeta.warnings(source),
         )
     }
 

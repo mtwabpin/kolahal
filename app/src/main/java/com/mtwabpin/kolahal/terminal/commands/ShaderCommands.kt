@@ -251,10 +251,15 @@ class ShaderCommands(
     private fun check(name: String) {
         if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
         val check = Shaders.check(context, name) ?: return error("Shader $name can't be read")
-        check.problem?.let { return error("Shader $name: $it") }
-        val (first, rest) = checkLines(check).let { it.first() to it.drop(1) }
-        info("Shader $name $first")
-        rest.forEach { out(it) }
+        val problem = check.problem
+        if (problem != null) error("Shader $name: $problem")
+        else {
+            val (first, rest) = checkLines(check).let { it.first() to it.drop(1) }
+            info("Shader $name $first")
+            rest.forEach { out(it) }
+        }
+        // Header lines that are left out: the shader works without them.
+        check.warnings.forEach { error(it) }
     }
 
     /** Reads the shader files again: the script folder's, when one is picked, and Kolahal's own. */
@@ -448,8 +453,19 @@ class ShaderCommands(
             check.unset.takeIf { it.isNotEmpty() }?.let { "Not set by Kolahal, so 0: ${it.joinToString()}" },
             check.params.takeIf { it.isNotEmpty() }
                 ?.let { all -> "Parameters: ${all.joinToString { "${it.name} ${it.range}" }}" },
-            if (check.animated) "Animated: redrawn ${ShaderClock.FPS} times a second" else null,
+            if (check.animated) "Animated: ${redrawn(check.pace)}" else null,
         )
+
+        /** How often a shader that moves is drawn, as [checkLines] says it. */
+        internal fun redrawn(pace: ShaderClock.Pace): String {
+            val seconds = (pace.settlesMs / 1000f).let { if (it == it.toInt().toFloat()) it.toInt().toString() else it.toString() }
+            return when {
+                pace.onlyAfterTouch -> "redrawn ${ShaderClock.FPS} times a second for $seconds s after a touch"
+                pace.readsTouch && pace.fps < ShaderClock.FPS ->
+                    "redrawn ${pace.fps} times a second, ${ShaderClock.FPS} for $seconds s after a touch"
+                else -> "redrawn ${pace.fps} times a second"
+            }
+        }
 
         /**
          * Reads the shader files again: Kolahal's own and, when one is picked, the script [folder]'s.
