@@ -30,6 +30,7 @@ import com.mtwabpin.kolahal.feeds.FeedScheduler
 import com.mtwabpin.kolahal.notifications.NotifIcons
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.productivity.ReminderScheduler
+import com.mtwabpin.kolahal.productivity.StartScheduling
 import com.mtwabpin.kolahal.productivity.TodoStore
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
@@ -57,9 +58,10 @@ class LauncherApp : Application(), Configuration.Provider {
             .build()
 
     /**
-     * When Android is short of memory, we drop the log pictures (also those on disk) and the app
-     * icons kept for scrolling back. The less memory home uses, the less likely Android closes it.
-     * If it is closed, the return to home is a cold start.
+     * When Android is short of memory, we drop the log pictures and the app icons kept in memory for
+     * scrolling back. The pictures on disk stay: that cache is trimmed by its size as pictures are
+     * saved. The less memory home uses, the less likely Android closes it. If it is closed, the
+     * return to home is a cold start.
      *
      * We don't drop them as soon as another app covers home, because pictures would then load again
      * after every visit. We drop them after [AWAY_TRIM_MS] away. From Android 14, the home app never
@@ -174,7 +176,9 @@ class LauncherApp : Application(), Configuration.Provider {
                 this,
                 "Updating library scripts"
             ) { ScriptLibrary(this).updateUnedited() }
-            quietly.run(this, "Scheduling scripts") { ScriptScheduler.syncAll(this) }
+            // Reminders and the scripts' timers. At boot and after an update, ReminderBootReceiver
+            // asks for them too, in this process: they are set once, and it waits for that.
+            StartScheduling.once(this)
             // Once: secret values from before 0.4.0 have no sites, and must be set again. Each script with one says so.
             quietly.run(
                 this,
@@ -188,10 +192,6 @@ class LauncherApp : Application(), Configuration.Provider {
                     this
                 )
             }
-            quietly.run(
-                this,
-                "Setting reminders again"
-            ) { ReminderScheduler.rescheduleAll(this) }
             quietly.run(this, "Trimming the old log") {
                 LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS])
             }

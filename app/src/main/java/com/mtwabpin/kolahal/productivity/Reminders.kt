@@ -13,6 +13,8 @@ import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Quietly
+import com.mtwabpin.kolahal.data.RunOnce
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.notify.Notifier
 import java.time.Instant
@@ -242,20 +244,52 @@ class ReminderBootReceiver : BroadcastReceiver() {
                 val result = goAsync()
                 Thread {
                     try {
-                        com.mtwabpin.kolahal.data.Quietly.run(
-                            context,
-                            "Setting reminders again"
-                        ) { ReminderScheduler.rescheduleAll(context) }
-                        // Scripts' daily times are alarms too. They are exact once that is allowed.
-                        com.mtwabpin.kolahal.data.Quietly.run(
-                            context,
-                            "Scheduling scripts"
-                        ) { com.mtwabpin.kolahal.script.ScriptScheduler.syncAll(context) }
+                        // A boot or an update starts the process, and its start asks for the same:
+                        // it runs once, and this waits for it. A change of the permission comes
+                        // later, and makes the alarms exact or inexact: it always runs.
+                        if (intent.action == AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) {
+                            StartScheduling.again(context)
+                        } else {
+                            StartScheduling.once(context)
+                        }
                     } finally {
                         result.finish()
                     }
                 }.start()
             }
         }
+    }
+}
+
+/**
+ * Sets the reminders and the scripts' timers again, as a process starts. At boot and after an
+ * update, home's start ([com.mtwabpin.kolahal.LauncherApp]) and [ReminderBootReceiver] both ask
+ * for it in the same process: it runs once, and the second waits until it has ended ([RunOnce]).
+ * Alarms and WorkManager jobs outlive a process that Android stops. A force-stop cancels the
+ * alarms, and the next start sets them.
+ *
+ * Other changes (a reminder added, a script changed, a new time zone) call [ReminderScheduler]
+ * and [com.mtwabpin.kolahal.script.ScriptScheduler] themselves, as often as they happen.
+ */
+internal object StartScheduling {
+    private val gate = RunOnce()
+
+    /** Once in this process. If it is running, waits until it has ended. */
+    fun once(context: Context) = gate.once { schedule(context) }
+
+    /** Again, whatever ran before. */
+    fun again(context: Context) = gate.again { schedule(context) }
+
+    /**
+     * One failure doesn't stop the other, and each is logged once a day ([Quietly]). Returns false
+     * when one failed, so the next caller tries again.
+     */
+    private fun schedule(context: Context): Boolean {
+        val reminders = runCatching { ReminderScheduler.rescheduleAll(context) }
+            .onFailure { Quietly.report(context, "Setting reminders again", it) }
+        // Scripts' daily times are alarms too. They are exact once that is allowed.
+        val scripts = runCatching { com.mtwabpin.kolahal.script.ScriptScheduler.syncAll(context) }
+            .onFailure { Quietly.report(context, "Scheduling scripts", it) }
+        return reminders.isSuccess && scripts.isSuccess
     }
 }
