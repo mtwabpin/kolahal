@@ -108,6 +108,12 @@ object Stores {
     /** The app that played last, for the Now playing card: which app you listen with is not for the cloud. */
     val MEDIA = Prefs("media", inBackup = false, toCloud = false)
 
+    /**
+     * Whether `scramble` is on, and its seed ([HomeScramble]): how this phone shows home now, not a
+     * setting. Never in a backup, the cloud or a new phone.
+     */
+    val SCRAMBLE = Prefs("scramble", inBackup = false, toCloud = false, toNewPhone = false)
+
     val PREFS = listOf(
         CONFIG,
         ALIASES,
@@ -138,6 +144,7 @@ object Stores {
         REMINDERS,
         EDITOR,
         MEDIA,
+        SCRAMBLE,
     )
 
     // Key-value scopes ([KvStore]), all in kolahal.db. The database stays out of the cloud and goes to a new phone.
