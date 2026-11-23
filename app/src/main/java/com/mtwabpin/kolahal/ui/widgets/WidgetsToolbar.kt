@@ -78,6 +78,7 @@ internal fun WidgetToolbar(
     size: WidgetSize?,
     kind: WidgetKind?,
     minHeight: Int,
+    minSpan: Int,
     onLook: (WidgetLook) -> Unit,
     onSize: (WidgetSize) -> Unit,
     onHeight: (Int) -> Unit,
@@ -183,7 +184,7 @@ internal fun WidgetToolbar(
                     Stepper(
                         "Width",
                         WidgetLayout.spanLabel(w.span),
-                        w.span > WidgetLayout.minSpan(false),
+                        w.span > minSpan,
                         w.span < WidgetLayout.COLUMNS,
                         onWidth
                     )

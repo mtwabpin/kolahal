@@ -217,7 +217,9 @@ object WidgetLayout {
     /**
      * The narrowest a placed widget may be, in columns. A widget Kolahal draws itself ([sourced]: it
      * has a [PlacedWidget.source]) is at least one cell wide ([WidgetSizes.MIN_SPAN]); an app's
-     * widget at least [MIN_SPAN]. Every place that sets or reads a width uses this one rule.
+     * widget at least [MIN_SPAN]. Every place that sets or reads a width uses this one rule. An app's
+     * widget whose details are known also has its own minimum ([minSpan] of its least width,
+     * [WidgetHost.minSpanOf]).
      */
     fun minSpan(sourced: Boolean): Int = if (sourced) WidgetSizes.MIN_SPAN else MIN_SPAN
 
@@ -275,6 +277,35 @@ object WidgetLayout {
     fun defaultHeight(minHeightDp: Int, targetCellHeight: Int = 0): Int {
         val fromCells = if (targetCellHeight > 0) targetCellHeight * 90 else 0
         return maxOf(minHeightDp, fromCells, 72).coerceIn(MIN_DP, MAX_DP)
+    }
+
+    /**
+     * The fewest columns of a page [pageDp] wide that make a widget at least [widthDp] wide
+     * ([widthDp] of a span), from [MIN_SPAN] to [COLUMNS].
+     */
+    fun spanFor(widthDp: Int, pageDp: Int): Int {
+        if (widthDp <= 0 || pageDp <= 0) return MIN_SPAN
+        val cell = pageDp + GAP_DP
+        return (((widthDp + GAP_DP) * COLUMNS + cell - 1) / cell).coerceIn(MIN_SPAN, COLUMNS)
+    }
+
+    /**
+     * The narrowest an app's widget may be on a page [pageDp] wide, in columns: its resize minimum if
+     * it can resize sideways, else its least width ([spanFor]).
+     */
+    fun minSpan(minWidthDp: Int, minResizeWidthDp: Int, resizableHorizontally: Boolean, pageDp: Int): Int {
+        val m = if (resizableHorizontally && minResizeWidthDp > 0) minResizeWidthDp else minWidthDp
+        return spanFor(m, pageDp)
+    }
+
+    /**
+     * The width a newly added app's widget starts at, in columns: its target cells where the provider
+     * gives them ([targetCellWidth]), else the cells of its least width ([cells]), a cell being three
+     * columns ([WidgetSizes.MIN_SPAN]). At least [minSpan], at most the page.
+     */
+    fun defaultSpan(minWidthDp: Int, targetCellWidth: Int = 0, minSpan: Int = MIN_SPAN): Int {
+        val wide = if (targetCellWidth > 0) targetCellWidth else cells(minWidthDp)
+        return maxOf(wide * WidgetSizes.MIN_SPAN, minSpan).coerceIn(MIN_SPAN, COLUMNS)
     }
 
     /** [heightDp] kept within [min]..[MAX_DP]. A [min] over [MAX_DP] counts as [MAX_DP]. */
@@ -508,15 +539,29 @@ object WidgetCodec {
     }
 
     /**
-     * Adds imported entries. It skips a pending entry that duplicates an existing pending one, and a
-     * source that is already placed: a widget with a source is placed once.
+     * Adds imported entries. It skips:
+     * - a pending entry that duplicates an existing pending one;
+     * - a source that is already placed: a widget with a source is placed once;
+     * - an app's widget that is placed already (a backup imported on the phone it came from), by
+     *   count: for each provider and profile, as many imported entries as are placed. So a second
+     *   widget of the same app still comes back.
      */
     fun mergePending(
         existing: List<PlacedWidget>,
         imported: List<PlacedWidget>
     ): List<PlacedWidget> {
         val seen = existing.filter { it.pending || it.source != null }.map { it.key }.toMutableSet()
-        return existing + imported.filter { seen.add(it.key) }
+        // App widgets placed now, counted by provider and profile.
+        val placed = existing.filter { it.id != null && it.source == null }
+            .groupingBy { it.provider to it.profileSerial }.eachCount().toMutableMap()
+        return existing + imported.filter { w ->
+            val app = w.provider to w.profileSerial
+            val left = if (w.source == null) placed[app] ?: 0 else 0
+            if (left > 0) {
+                placed[app] = left - 1
+                false
+            } else seen.add(w.key)
+        }
     }
 
     /**

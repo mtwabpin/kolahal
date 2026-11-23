@@ -57,6 +57,22 @@ class WidgetDragTest {
         assertEquals(96, WidgetDrag(344, 8, density = 2.5f).dropTopDp(240f))
     }
 
+    /**
+     * Within 16 dp of another widget's top, or of its bottom and the gap, a drop goes onto that line,
+     * off the 8 dp steps too; the nearest line wins. Further away, it goes to the nearest step.
+     */
+    @Test
+    fun aDropNearANeighbourLandsOnItsLine() {
+        val lines = setOf(93, 117)
+        assertEquals(93, page.dropTopDp(82f, lines))
+        assertEquals(93, page.dropTopDp(104f, lines))
+        assertEquals(117, page.dropTopDp(106f, lines))
+        assertEquals(117, page.dropTopDp(133f, lines))
+        assertEquals(56, page.dropTopDp(58f, lines))
+        assertEquals(144, page.dropTopDp(141f, lines))
+        assertEquals(93, WidgetDrag(344, 8, density = 2.5f).dropTopDp(240f, lines))
+    }
+
     /** Dragging the end edge changes the width by whole columns, at least the smallest, never past the end. */
     @Test
     fun anEdgeDragResizesByColumns() {

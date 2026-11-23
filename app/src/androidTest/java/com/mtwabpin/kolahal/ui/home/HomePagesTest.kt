@@ -7,6 +7,9 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -23,8 +26,12 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.widgets.TestWidgets
+import com.mtwabpin.kolahal.widgets.WidgetSize
+import com.mtwabpin.kolahal.widgets.WidgetSource
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -184,6 +191,47 @@ class HomePagesTest {
             compose.waitForIdle()
             instrumentation.runOnMainSync { vm.onHomePressed() }
             waitFor(shown = true)
+        }
+    }
+
+    /** The widgets page keeps where it was scrolled to: Back from Arrange widgets returns there, not to the top. */
+    @Test
+    fun theWidgetsPageKeepsItsScrollAcrossArrangeWidgets() {
+        instrumentation.targetContext.getSharedPreferences(
+            "launcher",
+            android.content.Context.MODE_PRIVATE
+        )
+            .edit().putBoolean("intro_shown", true).commit()
+        config.set(Keys.WIDGETS_PAGE, "left")
+        val t = TestWidgets()
+        try {
+            // Tall widgets: a page longer than the screen.
+            listOf(WidgetSource.BATTERY, WidgetSource.SHORTCUTS, WidgetSource.MEDIA)
+                .forEach { t.host.placeBuiltin(it, WidgetSize.S4X4) }
+            t.host.chosen()
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                lateinit var vm: TerminalViewModel
+                scenario.onActivity {
+                    vm = ViewModelProvider(it)[TerminalViewModel::class.java]
+                    vm.onHomePressed()
+                }
+                waitFor(shown = false)
+                instrumentation.runOnMainSync { vm.runCommand("widgets page") }
+                waitFor(shown = true)
+                compose.onAllNodes(hasScrollAction() and hasAnyAncestor(hasTestTag("widgets-page")))[0]
+                    .performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 300f) }
+                compose.waitForIdle()
+                val scrolled = vm.widgetsScroll
+                assertTrue("the page scrolled: $scrolled", scrolled > 0)
+                instrumentation.runOnMainSync { vm.openScreen(Screen.WIDGETS) }
+                compose.waitForIdle()
+                instrumentation.runOnMainSync { vm.closeScreen() }
+                waitFor(shown = true)
+                compose.waitForIdle()
+                assertEquals(scrolled, vm.widgetsScroll)
+            }
+        } finally {
+            t.close()
         }
     }
 }

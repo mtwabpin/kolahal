@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -228,7 +229,12 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
         }.toMap()
     }
 
-    fun labelOf(w: PlacedWidget): String? = titles[w.key] ?: labels[w.key]
+    // A locked private space hides its apps: its widget is named by what the page says of it, not by its app.
+    fun lockedPrivate(w: PlacedWidget): Boolean =
+        w.source == null && profiles.pausedKind(w.profileSerial) == ProfileKind.PRIVATE
+
+    fun labelOf(w: PlacedWidget): String? =
+        if (lockedPrivate(w)) "Private space locked" else titles[w.key] ?: labels[w.key]
 
     // The widget held after a long-press, and the one whose handle is held. Neither outlives the screen.
     var dragged by remember { mutableStateOf<Dragged?>(null) }
@@ -294,6 +300,9 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                             widgets.minHeightOf(
                                 chosen
                             )
+                        },
+                        minSpan = remember(chosen.key, providersVersion) {
+                            widgets.minSpanOf(chosen)
                         },
                         onLook = { widgets.setLook(chosen.key, it) },
                         onSize = { widgets.setSize(chosen.key, it) },
@@ -451,7 +460,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
 
         confirmRemove?.let { w ->
             ConfirmDialog(
-                "Remove ${labelOf(w) ?: "widget"}?",
+                "Remove ${(if (lockedPrivate(w)) null else labelOf(w)) ?: "widget"}?",
                 "The widget is deleted; add it again from the picker any time.",
                 "Remove",
                 icon = R.drawable.ic_delete,

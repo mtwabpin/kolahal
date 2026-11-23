@@ -264,6 +264,7 @@ class WidgetPickerScriptsTest {
     /**
      * The Widgets screen draws the script's card as the widgets page does, with what the script
      * showed. The card takes no taps of its own there: a tap selects it, to resize, move or remove it.
+     * What it shows is drawn, not read out: a screen reader stops on it once, by its name.
      */
     @Test
     fun theWidgetsScreenDrawsTheCardAndATapSelectsIt() {
@@ -290,7 +291,10 @@ class WidgetPickerScriptsTest {
                 )
             )
         }
-        compose.onNode(inCard and hasContentDescription("Weather: 24, Sunny")).assertExists()
+        // What it shows is drawn, not read out: a screen reader stops on it once, by its name.
+        compose.onAllNodes(hasContentDescription("Weather: 24, Sunny")).assertCountEquals(0)
+        compose.onAllNodes(hasTestTag("widget:${s.name}")).assertCountEquals(0)
+        compose.onAllNodes(hasClickLabel("change $title")).assertCountEquals(1)
         compose.onAllNodes(inCard and hasClickAction()).assertCountEquals(0)
         compose.onAllNodes(isSelected()).assertCountEquals(0)
 
@@ -324,7 +328,7 @@ class WidgetPickerScriptsTest {
         t.host.settle()
         assertFalse(t.scripts.byId(s.id)!!.grants.allows(ScriptAccess.WIDGET))
         assertEquals(WidgetState(null, false), t.stored(s.name))
-        compose.onAllNodes(hasTestTag("widget:${s.name}")).assertCountEquals(0)
+        compose.onAllNodes(hasClickLabel("change $title")).assertCountEquals(0)
         compose.onAllNodes(isSelected()).assertCountEquals(0)
     }
 }

@@ -95,6 +95,28 @@ class WidgetModelTest {
         assertEquals(1, twice.size)
     }
 
+    /**
+     * A backup imported on the phone it came from: an app's widget that is placed already is not
+     * offered again. One more of the same app than is placed still comes back, and so does one of
+     * another profile.
+     */
+    @Test
+    fun importSkipsAnAppWidgetAlreadyPlaced() {
+        val existing = listOf(w(5, 0, provider = "com.a/.Clock"), w(6, 1, provider = "com.b/.Notes"))
+        val list = listOf(
+            mapOf<String, Any?>("provider" to "com.a/.Clock", "profile" to 0, "order" to 0),
+            mapOf("provider" to "com.a/.Clock", "profile" to 0, "order" to 2),
+            mapOf("provider" to "com.b/.Notes", "profile" to 0, "order" to 1),
+            mapOf("provider" to "com.b/.Notes", "profile" to 10, "order" to 3),
+        )
+        val merged = WidgetCodec.mergePending(existing, WidgetCodec.fromExport(list))
+        assertEquals(
+            listOf("w5", "w6", "p:com.a/.Clock:0:panel:2", "p:com.b/.Notes:10:panel:3"),
+            merged.map { it.key })
+        // Imported again, nothing more comes.
+        assertEquals(merged, WidgetCodec.mergePending(merged, WidgetCodec.fromExport(list)))
+    }
+
     @Test
     fun moveStaysWithinLocation() {
         val all = listOf(w(1, 0), w(2, 1), w(3, 2), w(4, 0, WidgetLocation.OLD_HOME))
@@ -146,6 +168,40 @@ class WidgetModelTest {
         assertEquals(110, WidgetLayout.defaultHeight(110))
         assertEquals(180, WidgetLayout.defaultHeight(40, targetCellHeight = 2))
         assertEquals(72, WidgetLayout.defaultHeight(20))
+    }
+
+    /** The fewest columns that make a widget at least so wide: on a page 376 dp wide, a column and its gap are 32 dp. */
+    @Test
+    fun columnsForAWidth() {
+        assertEquals(4, WidgetLayout.spanFor(110, 376))
+        assertEquals(4, WidgetLayout.spanFor(120, 376))
+        assertTrue(WidgetLayout.widthDp(376, 4) >= 110 && WidgetLayout.widthDp(376, 3) < 110)
+        assertEquals(9, WidgetLayout.spanFor(250, 376))
+        // Never under the narrowest an app's widget may be, never over the page.
+        assertEquals(WidgetLayout.MIN_SPAN, WidgetLayout.spanFor(40, 376))
+        assertEquals(WidgetLayout.MIN_SPAN, WidgetLayout.spanFor(0, 376))
+        assertEquals(WidgetLayout.COLUMNS, WidgetLayout.spanFor(2000, 376))
+    }
+
+    /** An app's widget is at least its resize width when it resizes sideways, else at least its least width. */
+    @Test
+    fun anAppWidgetsLeastWidth() {
+        assertEquals(2, WidgetLayout.minSpan(110, 40, resizableHorizontally = true, pageDp = 376))
+        assertEquals(4, WidgetLayout.minSpan(110, 40, resizableHorizontally = false, pageDp = 376))
+        assertEquals(4, WidgetLayout.minSpan(110, 0, resizableHorizontally = true, pageDp = 376))
+    }
+
+    /** A new app's widget starts at its own cells, three columns each: a 2×2 clock is half the page, not all of it. */
+    @Test
+    fun aNewAppWidgetStartsAtItsOwnWidth() {
+        assertEquals(6, WidgetLayout.defaultSpan(110))
+        assertEquals(12, WidgetLayout.defaultSpan(250))
+        assertEquals(3, WidgetLayout.defaultSpan(40))
+        // Target cells, where the provider gives them, come first.
+        assertEquals(12, WidgetLayout.defaultSpan(40, targetCellWidth = 4))
+        assertEquals(12, WidgetLayout.defaultSpan(40, targetCellWidth = 5))
+        // Never under its least width.
+        assertEquals(9, WidgetLayout.defaultSpan(110, minSpan = 9))
     }
 
     @Test

@@ -57,7 +57,7 @@ class WidgetBinderTest {
         putString("widget_binder_replacing", replacing)
     }
 
-    /** Picking a clock with no setup screen places it at once, at its usual size, and says so. */
+    /** Picking a clock with no setup screen places it at once, at its own size, and says so. */
     @Test
     fun aWidgetIsPlacedWithNoDialogAndSaysAdded() {
         val clock = t.clocks(unconfigured = true).first()
@@ -67,7 +67,8 @@ class WidgetBinderTest {
             val w = added.single()
             assertEquals(clock.flat, w.provider)
             assertEquals(widgets.defaultHeightDp(clock.info), w.heightDp)
-            assertEquals(WidgetLayout.COLUMNS, w.span)
+            assertEquals(widgets.defaultSpan(clock.info), w.span)
+            assertTrue(w.span >= widgets.minSpan(clock.info))
             assertEquals(clock.info.provider, widgets.manager!!.getAppWidgetInfo(w.id!!).provider)
             assertEquals(w, widgets.widgets.value.single { it.id == w.id })
             assertEquals(listOf("Added ${t.label(clock)}"), widgets.messages.value)

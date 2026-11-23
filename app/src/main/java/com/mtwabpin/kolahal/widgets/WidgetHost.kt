@@ -22,6 +22,8 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -329,7 +331,8 @@ class WidgetHost private constructor(context: Context) {
 
     /**
      * Records a bound (and configured) widget. [replacing] is the key of a pending entry that it
-     * restores. That entry's size and order carry over.
+     * restores. That entry's size and order carry over. A new one starts at the size its provider
+     * asks for ([defaultHeightDp], [defaultSpan]).
      */
     fun place(id: Int, info: AppWidgetProviderInfo, replacing: String? = null) {
         forget(id)
@@ -346,7 +349,7 @@ class WidgetHost private constructor(context: Context) {
                         info
                     ),
                     order = old?.order ?: WidgetOrder.nextOrder(all),
-                    span = old?.span ?: WidgetLayout.COLUMNS,
+                    span = old?.span ?: defaultSpan(info),
                     column = old?.column ?: WidgetPlacement.UNPLACED,
                     topDp = old?.topDp ?: WidgetPlacement.UNPLACED,
                 )
@@ -600,7 +603,7 @@ class WidgetHost private constructor(context: Context) {
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */
     fun setSize(key: String, size: WidgetSize) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
-        val span = size.span.coerceAtLeast(WidgetLayout.minSpan(w.source != null))
+        val span = size.span.coerceAtLeast(minSpanOf(w))
         val height =
             WidgetLayout.clampHeight(WidgetSizes.heightDp(size, pageWidthDp()), minHeightOf(w))
         update { WidgetPlacement.resize(it, key, span, height) }
@@ -631,9 +634,8 @@ class WidgetHost private constructor(context: Context) {
     /** Makes the widget wider or narrower by [delta] columns of the page. */
     fun resizeWidth(key: String, delta: Int) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
-        // A widget Kolahal draws itself is at least one cell wide.
-        val span = WidgetLayout.resizeSpan(w.span, delta)
-            .coerceAtLeast(WidgetLayout.minSpan(w.source != null))
+        // A widget Kolahal draws itself is at least one cell wide; an app's widget, its least width.
+        val span = WidgetLayout.resizeSpan(w.span, delta).coerceAtLeast(minSpanOf(w))
         if (span != w.span) update { WidgetPlacement.resize(it, key, span, w.heightDp) }
     }
 
@@ -645,7 +647,7 @@ class WidgetHost private constructor(context: Context) {
         synchronized(this) {
             val base = resizing ?: _widgets.value
             val w = base.firstOrNull { it.key == key } ?: return
-            val s = span.coerceIn(WidgetLayout.minSpan(w.source != null), WidgetLayout.COLUMNS)
+            val s = span.coerceIn(minSpanOf(w), WidgetLayout.COLUMNS)
             val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
             when {
                 // A handle drag works each step out from the list as it was when the handle went down. So
@@ -684,6 +686,14 @@ class WidgetHost private constructor(context: Context) {
     fun minHeightOf(w: PlacedWidget): Int =
         w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) }
             ?: WidgetLayout.minDp(w.source != null)
+
+    /**
+     * The narrowest [w] may be, in columns. An app's widget has its own minimum when its details are
+     * known: its least width on this page ([minSpan]). Otherwise [WidgetLayout.minSpan].
+     */
+    fun minSpanOf(w: PlacedWidget): Int =
+        w.id?.let { cachedInfo(it) }?.let { minSpan(it) }
+            ?: WidgetLayout.minSpan(w.source != null)
 
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
         val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
@@ -755,6 +765,17 @@ class WidgetHost private constructor(context: Context) {
         }.getOrDefault(false)
     }
 
+    /**
+     * True when [serial]'s profile is a private space and it is locked ([isPaused]). Its widgets then
+     * name no app: a locked private space hides its apps.
+     */
+    fun isLockedPrivate(serial: Long): Boolean {
+        val user = userFor(serial) ?: return false
+        return isPaused(serial) && runCatching {
+            AppRepository.kindOf(app, launcherApps, user, Process.myUserHandle()) == ProfileKind.PRIVATE
+        }.getOrDefault(false)
+    }
+
     /** Home-screen providers in every profile the launcher can see. */
     fun providers(): List<ProviderEntry> = launcherApps.profiles.flatMap { user ->
         val manager = manager ?: return emptyList()
@@ -777,6 +798,21 @@ class WidgetHost private constructor(context: Context) {
         minHeightDp = (info.minHeight / density).roundToInt(),
         minResizeHeightDp = (info.minResizeHeight / density).roundToInt(),
         resizableVertically = info.resizeMode and AppWidgetProviderInfo.RESIZE_VERTICAL != 0,
+    )
+
+    /** The narrowest the provider [info]'s widget may be, in columns of the page ([WidgetLayout.minSpan]). */
+    fun minSpan(info: AppWidgetProviderInfo): Int = WidgetLayout.minSpan(
+        minWidthDp = (info.minWidth / density).roundToInt(),
+        minResizeWidthDp = (info.minResizeWidth / density).roundToInt(),
+        resizableHorizontally = info.resizeMode and AppWidgetProviderInfo.RESIZE_HORIZONTAL != 0,
+        pageDp = pageWidthDp(),
+    )
+
+    /** The width a new widget of the provider [info] starts at, in columns ([WidgetLayout.defaultSpan]). */
+    fun defaultSpan(info: AppWidgetProviderInfo): Int = WidgetLayout.defaultSpan(
+        (info.minWidth / density).roundToInt(),
+        if (Build.VERSION.SDK_INT >= 31) info.targetCellWidth else 0,
+        minSpan(info),
     )
 
     fun defaultHeightDp(info: AppWidgetProviderInfo): Int = WidgetLayout.defaultHeight(
@@ -935,7 +971,11 @@ class WidgetHost private constructor(context: Context) {
     }
 }
 
-/** `widgets ls`: one (text, detail) pair per widget, in page order, with pending re-adds last. */
+/**
+ * `widgets ls`: one (text, detail) pair per widget, in page order, with pending re-adds last. A
+ * widget of a locked private space names no app: "Private space locked" stands for its name, and its
+ * package is left out.
+ */
 fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
     val all = widgets.value
     val ordered = WidgetOrder.inLocation(
@@ -946,7 +986,9 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
         val source = w.source
         // A widget Kolahal draws itself: its name ("weather", "Battery and network"), and what it is ("script") where an app's widget has its package.
         // A script's further widget has its id after the name: "weather 2".
-        val label = source?.let(WidgetSource::label) ?: label(w.id, w.provider)
+        val hidden = source == null && isLockedPrivate(w.profileSerial)
+        val label = source?.let(WidgetSource::label)
+            ?: if (hidden) "Private space locked" else label(w.id, w.provider)
         val state = when {
             w.pending -> "Pending re-add"
             source == null && isPaused(w.profileSerial) -> "Paused"
@@ -955,7 +997,7 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
         "${i + 1}. $label" to listOfNotNull(
             state,
             "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp",
-            source?.substringBefore(':') ?: w.packageName
+            source?.substringBefore(':') ?: w.packageName.takeUnless { hidden }
         ).joinToString(" · ")
     }
 }

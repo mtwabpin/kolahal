@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.selected
@@ -159,10 +160,12 @@ internal fun ArrangedPage(
         panel,
         dragged?.key
     ) { WidgetPlacement.pageHeightDp(panel.filter { it.key != dragged?.key }) + WidgetLayout.GAP_DP }
+    // Dropped near another widget's top or bottom, the held widget's top goes onto that line.
+    val lines = remember(panel, dragged?.key) { WidgetPlacement.lines(panel, dragged?.key) }
 
     fun dropAt(d: Dragged, w: PlacedWidget, g: WidgetDrag): Drop {
         val at = d.from + d.moved(page.value)
-        return Drop(w, g.dropColumn(at.x, w.span), g.dropTopDp(at.y).coerceAtMost(lowest))
+        return Drop(w, g.dropColumn(at.x, w.span), g.dropTopDp(at.y, lines).coerceAtMost(lowest))
     }
 
     val drop by remember(panel, grid, dragged, lowest) {
@@ -251,7 +254,7 @@ internal fun ArrangedPage(
                         onResize(chosenNow.key)
                         widgets.startResize()
                         try {
-                            val minSpan = WidgetLayout.minSpan(chosenNow.source != null)
+                            val minSpan = widgets.minSpanOf(chosenNow)
                             var last = chosenNow.span to chosenNow.heightDp
                             while (true) {
                                 val change =
@@ -384,6 +387,7 @@ internal fun ArrangedPage(
                         )
                     }
                     val minHeight = remember(w.key, providersVersion) { widgets.minHeightOf(w) }
+                    val minSpan = remember(w.key, providersVersion) { widgets.minSpanOf(w) }
                     ArrangedCard(
                         modifier = Modifier
                             .gridPlace(w.column, w.span, top)
@@ -402,7 +406,7 @@ internal fun ArrangedPage(
                         lifted = lifted,
                         pausedKind = profiles(w),
                         feed = feed,
-                        actions = screenReaderActions(w, widgets, rtl, minHeight) { onRemove(w) },
+                        actions = screenReaderActions(w, widgets, rtl, minHeight, minSpan) { onRemove(w) },
                         onSelect = { onSelect(w.key) },
                     )
                 }
@@ -469,14 +473,15 @@ internal fun Modifier.dashedBorder(color: Color, width: Dp, radius: Dp): Modifie
 
 /**
  * What a screen reader can do with [w]: move it a row up or down, a column left or right, make it a
- * column wider or narrower, a step (8 dp) taller or shorter, and remove it ([onRemove], which asks
- * first). Only what can happen is offered.
+ * column wider or narrower (not under [minSpan]), a step (8 dp) taller or shorter (not under
+ * [minHeight]), and remove it ([onRemove], which asks first). Only what can happen is offered.
  */
 private fun screenReaderActions(
     w: PlacedWidget,
     widgets: WidgetHost,
     rtl: Boolean,
     minHeight: Int,
+    minSpan: Int,
     onRemove: () -> Unit
 ): List<CustomAccessibilityAction> {
     fun act(label: String, run: () -> Unit) = CustomAccessibilityAction(label) { run(); true }
@@ -489,7 +494,7 @@ private fun screenReaderActions(
         if (w.column + left in columns) add(act("Move left") { widgets.nudge(w.key, left, 0) })
         if (w.column - left in columns) add(act("Move right") { widgets.nudge(w.key, -left, 0) })
         if (w.span < WidgetLayout.COLUMNS) add(act("Wider") { widgets.resizeWidth(w.key, 1) })
-        if (w.span > WidgetLayout.minSpan(w.source != null)) add(act("Narrower") {
+        if (w.span > minSpan) add(act("Narrower") {
             widgets.resizeWidth(
                 w.key,
                 -1
@@ -556,6 +561,9 @@ private fun SelectionMarks(w: PlacedWidget, grid: WidgetDrag, modifier: Modifier
  * One widget as it shows on the widgets page. A tap anywhere on it chooses it ([onSelect]): no tap
  * reaches the widget itself. A card Kolahal draws reads its script from [feed], as it does on the
  * widgets page. [actions] are a screen reader's.
+ *
+ * A screen reader stops once on it, on the part over it that has its name and [actions]: what the
+ * widget shows is hidden from it, and so are an app widget's own buttons ([HostedWidget]'s arranged).
  */
 @Composable
 private fun ArrangedCard(
@@ -581,34 +589,42 @@ private fun ArrangedCard(
                 ) else Modifier
             )
     ) {
-        if (w.source != null) {
-            SourceWidget(w, w.heightDp.dp, actions = null, feed = feed)
-        } else {
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                HostedWidget(w, w.heightDp.dp, pausedKind, onLongPress = {}) { why ->
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(w.heightDp.dp)
-                            .alpha(0.6f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                label,
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                why,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
+        // Only the part over it speaks to a screen reader: what the widget shows is hidden from it.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clearAndSetSemantics {}
+        ) {
+            if (w.source != null) {
+                SourceWidget(w, w.heightDp.dp, actions = null, feed = feed)
+            } else {
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    HostedWidget(w, w.heightDp.dp, pausedKind, onLongPress = {}, arranged = true) { why ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(w.heightDp.dp)
+                                .alpha(0.6f),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                // A locked private space's widget: its label is the same words as [why].
+                                if (pausedKind != ProfileKind.PRIVATE) Text(
+                                    label,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    why,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
                         }
                     }
                 }

@@ -119,6 +119,31 @@ class WidgetPlacementTest {
             WidgetPlacement.readingOrder(moved).map { it.source!!.removePrefix("script:") })
     }
 
+    /**
+     * A widget moved onto another's line stays on it, off the 8 dp steps too: under it with the gap,
+     * or beside it at its top. As a drop near the line puts it there.
+     */
+    @Test
+    fun aMoveOntoANeighboursLineStaysOnIt() {
+        val all = listOf(
+            script("a", span = 6, column = 0, top = 5, height = 80),
+            script("b", span = 6, column = 6, top = 300),
+        )
+        assertEquals(setOf(5, 93, 300, 396), WidgetPlacement.lines(all, null))
+        assertEquals(setOf(5, 93), WidgetPlacement.lines(all, all[1].key))
+        assertEquals(0 to 93, places(WidgetPlacement.moveTo(all, all[1].key, 0, 93))["b"])
+        assertEquals(6 to 5, places(WidgetPlacement.moveTo(all, all[1].key, 6, 5))["b"])
+        // Off every line, it goes to the nearest step.
+        assertEquals(6 to 48, places(WidgetPlacement.moveTo(all, all[1].key, 6, 47))["b"])
+        // Let go a little under a's bottom: onto the line under it.
+        val drag = WidgetDrag(pagePx = 344, gapPx = 8, density = 1f)
+        val top = drag.dropTopDp(100f, WidgetPlacement.lines(all, all[1].key))
+        assertEquals(93, top)
+        val moved = WidgetPlacement.moveTo(all, all[1].key, 0, top)
+        assertEquals(0 to 93, places(moved)["b"])
+        assertEquals(0 to 5, places(moved)["a"])
+    }
+
     @Test
     fun moveToKeepsTheWidgetOnThePage() {
         val all = listOf(script("a", span = 6, column = 0, top = 0))

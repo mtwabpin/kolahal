@@ -80,7 +80,7 @@ class WidgetBinder(
         val id = widgets.allocate()
         val req = Request(id, entry.info, replacing)
         pending = req
-        val options = widgets.options(widgets.defaultHeightDp(entry.info))
+        val options = widgets.options(widgets.defaultHeightDp(entry.info), widgets.defaultSpan(entry.info))
         val bound = runCatching {
             widgets.manager?.bindAppWidgetIdIfAllowed(
                 id,

@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.widgets
 
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -45,8 +46,16 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
         return (fromStart / cellPx).roundToInt().coerceIn(0, (columns - span).coerceAtLeast(0))
     }
 
-    /** The top a widget lands at when its top edge is at [topPx]: the nearest 8 dp step, not above the page. */
-    fun dropTopDp(topPx: Float): Int = snapDp(dp(topPx)).coerceAtLeast(0)
+    /**
+     * The top a widget lands at when its top edge is at [topPx], not above the page: the nearest of
+     * [lines] (in dp: other widgets' tops and bottoms, [WidgetPlacement.lines]) within [PULL_DP],
+     * else the nearest 8 dp step.
+     */
+    fun dropTopDp(topPx: Float, lines: Collection<Int> = emptyList()): Int {
+        val at = dp(topPx)
+        val line = lines.filter { abs(it - at) <= PULL_DP }.minByOrNull { abs(it - at) }
+        return (line ?: snapDp(at)).coerceAtLeast(0)
+    }
 
     /**
      * The width in columns after the end edge of a widget at [column], [span] wide, was dragged by
@@ -98,6 +107,9 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
     }
 
     companion object {
+        /** How near another widget's line a dropped widget's top must be to go onto it ([dropTopDp]). */
+        const val PULL_DP = 16
+
         /** [dp] to the nearest 8 dp step ([WidgetLayout.STEP_DP]). */
         fun snapDp(dp: Float): Int = (dp / WidgetLayout.STEP_DP).roundToInt() * WidgetLayout.STEP_DP
 

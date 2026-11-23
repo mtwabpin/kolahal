@@ -123,13 +123,18 @@ class WidgetsScreenTest {
         compose.waitForIdle()
     }
 
-    /** A clock on the page, Kolahal allowed to bind it; and what the screen calls it. */
+    /**
+     * A clock on the page, Kolahal allowed to bind it, made full width (a new one starts at its own
+     * width); and what the screen calls it.
+     */
     private fun placeClock(index: Int = 0): Pair<PlacedWidget, String> {
         val clocks = t.clocks()
         assumeTrue("only ${clocks.size} clock widgets on this device", clocks.size > index)
         val clock = clocks[index]
         t.allowBinding(clock)
-        return t.place(clock) to t.label(clock)
+        val placed = t.place(clock)
+        widgets.resizeTo(placed.key, WidgetLayout.COLUMNS, placed.heightDp)
+        return t.get(placed.key)!! to t.label(clock)
     }
 
     /** One of Kolahal's own widgets on the page, at [size]; and what the screen calls it. */
@@ -517,7 +522,10 @@ class WidgetsScreenTest {
         compose.runOnIdle { assertEquals(Screen.TERMINAL, vm.screen.value) }
     }
 
-    /** A widget whose id Android no longer has says it's unavailable, and a tap still reaches its controls. */
+    /**
+     * A widget whose id Android no longer has says it's unavailable, and a tap still reaches its
+     * controls. What the card shows is drawn, not read out: a screen reader hears its name once.
+     */
     @Test
     fun anUnavailableWidgetSaysSoAndCanStillBeChanged() {
         val clock = t.clocks().first()
@@ -526,13 +534,39 @@ class WidgetsScreenTest {
         widgets.place(id, clock.info)
         val fallback = clock.flat.substringAfterLast('.')
         show()
-        compose.onNodeWithText("Widget unavailable").assertExists()
+        compose.onNodeWithText("Widget unavailable").assertDoesNotExist()
         // Named by its provider's class, with no app to ask for a name.
-        compose.onNodeWithText(fallback).assertExists()
+        card(fallback).assertExists()
+        compose.onNodeWithText(fallback).assertDoesNotExist()
         card(fallback).performClick()
-        compose.onNodeWithText("Full width · ${t.get("w$id")!!.heightDp} dp tall").assertExists()
-        // On the widget and in the toolbar.
-        compose.onAllNodesWithText(fallback).assertCountEquals(2)
+        val placed = t.get("w$id")!!
+        compose.onNodeWithText(WidgetLayout.sizeLine(placed.span, placed.heightDp)).assertExists()
+        // In the toolbar.
+        compose.onAllNodesWithText(fallback).assertCountEquals(1)
+    }
+
+    /**
+     * A screen reader stops once on each card, on its name: an app widget's own view, and its
+     * buttons, are hidden from it here.
+     */
+    @Test
+    fun anAppWidgetsButtonsAreHiddenFromAScreenReader() {
+        val (w, label) = placeClock()
+        show()
+        compose.waitForIdle()
+        card(label).assertExists()
+        fun hosted(): android.view.View? = compose.runOnUiThread {
+            fun find(v: android.view.View): android.view.View? = when {
+                v is android.appwidget.AppWidgetHostView && v.appWidgetId == w.id -> v
+                v is android.view.ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { find(v.getChildAt(it)) }
+                else -> null
+            }
+            find(compose.activity.window.decorView)
+        }
+        assertEquals(
+            android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS,
+            checkNotNull(hosted()) { "the clock's view isn't shown" }.importantForAccessibility
+        )
     }
 
     /** A widget restored from a backup waits under "Restored from backup"; Add again hands it to the add flow. */

@@ -156,12 +156,25 @@ object WidgetPlacement {
     }
 
     /**
+     * The lines a widget moved near them lines up with: each other page widget's top, and its
+     * bottom and the gap under it. [key]'s own are left out.
+     */
+    fun lines(all: List<PlacedWidget>, key: String?): Set<Int> =
+        all.filter { onPage(it) && it.positioned && it.key != key }
+            .flatMapTo(HashSet<Int>()) { listOf(it.topDp, bottomDp(it) + GAP) }
+
+    /**
      * The widget [key] moved to [column] and [topDp]: the column brought inside the page, the top
-     * to the nearest [STEP_DP] step. Widgets in the way move down ([settle]).
+     * to the nearest [STEP_DP] step, unless it is on another widget's line ([lines]): then it stays
+     * there. Widgets in the way move down ([settle]).
      */
     fun moveTo(all: List<PlacedWidget>, key: String, column: Int, topDp: Int): List<PlacedWidget> {
         val w = all.firstOrNull { it.key == key } ?: return all
-        val to = w.copy(column = fitColumn(column, w.span), topDp = snap(topDp))
+        val top = topDp.coerceIn(0, MAX_TOP_DP)
+        val to = w.copy(
+            column = fitColumn(column, w.span),
+            topDp = if (top in lines(all, key)) top else snap(top)
+        )
         if (to == w) return all
         return settle(all.map { if (it.key == key) to else it }, key)
     }

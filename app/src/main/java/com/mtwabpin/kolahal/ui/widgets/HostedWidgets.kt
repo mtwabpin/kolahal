@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -89,6 +91,9 @@ private class ArrangeOnLongPress(actions: WidgetCardActions, private val arrange
  * on it calls [onLongPress]. When its profile is paused, [placeholder] is shown instead. Its view is
  * visible only while some of it is in the window, so a widget nobody sees doesn't tick.
  *
+ * [arranged]: it shows in Arrange widgets, where the card over it speaks for it. Its own buttons are
+ * hidden from a screen reader there. The same view comes back to the widgets page, where they are not.
+ *
  * A widget Kolahal draws itself ([PlacedWidget.source]) has no app widget id, and is not drawn here.
  * The widgets page and the Widgets screen draw its card themselves ([SourceWidget]).
  */
@@ -98,6 +103,7 @@ internal fun HostedWidget(
     height: Dp,
     pausedKind: ProfileKind?,
     onLongPress: () -> Unit,
+    arranged: Boolean = false,
     placeholder: @Composable (String) -> Unit,
 ) {
     val id = w.id ?: return
@@ -132,6 +138,9 @@ internal fun HostedWidget(
                     (this as? KolahalWidgetView)?.onLongPress = { longPress() }
                     // Hidden until its first layout says it is in the window.
                     visibility = View.INVISIBLE
+                    importantForAccessibility =
+                        if (arranged) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                        else View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
                     hosted[0] = this
                 }
             },
@@ -296,6 +305,9 @@ private fun WidgetPanelContent(
     density: Density,
     titleRow: Boolean,
 ) {
+    // Home is laid out again when a screen closes: the page opens scrolled where it was (vm.widgetsScroll).
+    val scroll = rememberScrollState(vm.widgetsScroll)
+    LaunchedEffect(scroll) { snapshotFlow { scroll.value }.collect { vm.widgetsScroll = it } }
     Column(
         Modifier
             .fillMaxSize()
@@ -330,7 +342,7 @@ private fun WidgetPanelContent(
             WidgetLayout.GAP_DP.dp,
             Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scroll)
                 .padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp)
                 // The page width in dp. Square and the sizes reported to widgets are based on it.
                 .onSizeChanged {
@@ -358,20 +370,24 @@ private fun WidgetPanelContent(
                                 actions,
                                 vm.widgetFeed
                             )
-                            else HostedWidget(
-                                w = w,
-                                height = w.heightDp.dp,
-                                pausedKind = profiles.pausedKind(w.profileSerial),
-                                onLongPress = arrange,
-                            ) { why ->
-                                Text(
-                                    "[$why] ${w.packageName}",
-                                    style = Term.text.copy(color = Term.dim),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .alpha(0.7f)
-                                        .padding(vertical = 6.dp, horizontal = 4.dp),
-                                )
+                            else {
+                                val paused = profiles.pausedKind(w.profileSerial)
+                                HostedWidget(
+                                    w = w,
+                                    height = w.heightDp.dp,
+                                    pausedKind = paused,
+                                    onLongPress = arrange,
+                                ) { why ->
+                                    // A locked private space hides its apps: its widget doesn't name one.
+                                    Text(
+                                        if (paused == ProfileKind.PRIVATE) "[$why]" else "[$why] ${w.packageName}",
+                                        style = Term.text.copy(color = Term.dim),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .alpha(0.7f)
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                    )
+                                }
                             }
                         }
                     }

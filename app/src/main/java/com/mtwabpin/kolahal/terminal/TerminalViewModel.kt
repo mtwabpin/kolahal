@@ -1656,6 +1656,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     @Volatile
     var homeOnWidgets: Boolean? = null
 
+    /**
+     * How far the widgets page was scrolled, in pixels, when it was last on screen. Home is laid out
+     * again when a screen closes, so the page opens scrolled where it was: after Arrange widgets too.
+     * A Home press from another screen forgets it, as it forgets [homeOnWidgets].
+     */
+    @Volatile
+    var widgetsScroll: Int = 0
+
     private val _homePresses = MutableStateFlow(0)
 
     /** Goes up by one on every Home press while already home. Then the widgets pager returns to the terminal. */
@@ -1727,6 +1735,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun onHomePressed() {
         settingsCategory.value = null
         homeOnWidgets = null
+        // Home is laid out again only when it comes from another screen; then its widgets page starts at the top.
+        if (screen.value != Screen.TERMINAL) widgetsScroll = 0
         _ttyScreen.value = null
         _screenSaverOn.value = false
         _homePresses.value++
