@@ -49,6 +49,20 @@ data class WallpaperState(
             )
         }.getOrNull()
 
+        /** A character's width as a part of the text's size, in the terminal's fonts. */
+        private const val WIDE = 0.6f
+
+        /** A line of text's own height as a part of its size, about: a cell is never shorter than its text. */
+        private const val TALL = 1.2f
+
+        /**
+         * The text cell's size in pixels, near to what home's grid measures with the font
+         * ([com.mtwabpin.kolahal.ui.tty.GridMetrics]): a character wide and a line tall. [textPx] is the text's
+         * size (`font.size`) and [linePx] a line's height (`log.line-height`), which is a height of its own and
+         * not a part of the text's size.
+         */
+        fun cell(textPx: Float, linePx: Float): Pair<Float, Float> = textPx * WIDE to maxOf(linePx, textPx * TALL)
+
         /** The folder it is in, which the wallpaper watches. */
         fun dir(context: Context) = File(context.filesDir, "wallpaper")
 

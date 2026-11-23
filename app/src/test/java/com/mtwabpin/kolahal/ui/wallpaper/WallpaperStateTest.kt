@@ -29,6 +29,26 @@ class WallpaperStateTest {
         assertEquals(bare, WallpaperState.decode(bare.encode()))
     }
 
+    /**
+     * A cell is a character wide and a line tall. `log.line-height` is a line's height (22 at the default text
+     * size of 14), not a part of the text's size: taken as one, a cell was 14 times too tall, and a shader
+     * that sizes its picture by the cell drew it 14 times too large as a wallpaper.
+     */
+    @Test
+    fun aCellIsALineTall() {
+        // The default sizes on a screen with 2.8125 pixels to one.
+        val (wide, tall) = WallpaperState.cell(textPx = 14f * 2.8125f, linePx = 22f * 2.8125f)
+        assertEquals(23.6f, wide, 0.1f)
+        assertEquals(61.9f, tall, 0.1f)
+        // Large text on a low line: a cell is never shorter than its text.
+        assertEquals(57.6f, WallpaperState.cell(textPx = 48f, linePx = 20f).second, 0.1f)
+        // At every size the settings allow, it is less than ten characters tall.
+        for (text in 10..24) for (line in 10..56) {
+            val (w, h) = WallpaperState.cell(text * 3f, line * 3f)
+            assertTrue("$text, $line", h > w && h < w * 10f)
+        }
+    }
+
     /** What home writes reads back the same, so a new process sees that the file holds it already. */
     @Test
     fun theFileHoldsWhatWasWritten() {

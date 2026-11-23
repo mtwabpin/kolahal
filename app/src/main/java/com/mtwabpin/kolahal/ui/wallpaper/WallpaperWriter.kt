@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.ui.wallpaper
 
 import android.content.Context
+import android.util.TypedValue
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Quietly
@@ -50,7 +51,9 @@ object WallpaperWriter {
         val theme = config[Keys.THEME]
         val follows = ShaderParams.follows.value[name].orEmpty()
         val metrics = context.resources.displayMetrics
-        val cellH = config[Keys.FONT_SIZE] * config[Keys.LOG_LINE_HEIGHT] * metrics.scaledDensity
+        // Both are sizes of text, as home's grid takes them.
+        fun px(size: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, size.toFloat(), metrics)
+        val (cellW, cellH) = WallpaperState.cell(px(config[Keys.FONT_SIZE]), px(config[Keys.LOG_LINE_HEIGHT]))
         val state = WallpaperState(
             name = name,
             code = code,
@@ -61,7 +64,7 @@ object WallpaperWriter {
             dark = colors(Palettes.named(theme, dark = true)),
             light = colors(Palettes.named(theme, dark = false)),
             alwaysDark = config[Keys.THEME_ALWAYS_DARK],
-            cellW = config[Keys.FONT_SIZE] * 0.6f * metrics.scaledDensity,
+            cellW = cellW,
             cellH = cellH,
         )
         if (state == last) return

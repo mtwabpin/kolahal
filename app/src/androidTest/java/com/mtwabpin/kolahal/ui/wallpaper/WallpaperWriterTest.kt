@@ -50,7 +50,8 @@ class WallpaperWriterTest {
         waitFor("not followed") { it.follows["camels"] == "battery" && it.formulas["camels"] == "battery / 20" }
         val state = WallpaperState.read(context)!!
         assertTrue(state.dark.getValue("bg") != state.light.getValue("bg"))
-        assertTrue(state.cellW > 1f && state.cellH > state.cellW)
+        // A cell is a character wide and a line tall: `log.line-height` is a height, not a part of the text's size.
+        assertTrue("${state.cellW} by ${state.cellH}", state.cellW > 1f && state.cellH > state.cellW && state.cellH < state.cellW * 10f)
         // One that is gone: the default.
         WallpaperChoice.set(context, "no-such-shader")
         waitFor("not the default") { it.name == WallpaperChoice.DEFAULT }
