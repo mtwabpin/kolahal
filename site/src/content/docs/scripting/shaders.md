@@ -63,7 +63,7 @@ nothing while the screen is still.
 | `frost` | ice grows in from the edges and corners, and melts under your finger |
 | `mountains` | flat mountain ridges in mist, after woodblock prints. They breathe slowly, follow the hour, and shift a little as the phone leans. It moves |
 | `pond` | a still pond under far hills, after woodblock prints, with rings of rain and a path of light. It follows the hour. It moves |
-| `dunes` | sand dunes under a wide sky, after woodblock prints, with sand blowing off their crests and a caravan far off. It follows the hour. The wind and the number of camels can be changed. It moves |
+| `dunes` | a long dune after woodblock prints, with ranges of dunes and far mesas behind it, sand blowing off its top and a caravan on its way up. It follows the hour, and a wider screen shows more of the desert. The wind and the number of camels can be changed. It moves |
 | `rain` | a storm you stand in: mist far off, rain in between and big soft drops close by; it slants as the phone leans, and a touch holds it off. It moves |
 | `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. Its amount and size can be changed. It moves |
 | `grove-snow` | small, crisp flakes fall and wander slowly behind the text, and dim with the hour. It moves |
