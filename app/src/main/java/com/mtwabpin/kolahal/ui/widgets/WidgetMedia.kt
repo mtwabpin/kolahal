@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.ViewConfiguration
@@ -63,6 +64,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -109,6 +111,12 @@ private val SEEK_SLIM = 20.dp
 private val SEEK_SLIM_HANDLE = DpSize(4.dp, 14.dp)
 
 /**
+ * How far under its band the slim slider takes touches: into the card's padding, or over the times, where
+ * nothing else takes one. With [SEEK_SLIM] that is 32 dp for a finger.
+ */
+private val SEEK_SLIM_REACH = 12.dp
+
+/**
  * The room a slider needs where it is drawn: its height, less the pixel or two that rounding can
  * take from a box. A 4×2 card without a cover fits it exactly.
  */
@@ -137,7 +145,8 @@ private const val SEEK_HOLD_MS = 3_000L
  *   Play alone, which hands `resume` over. A large card has Play with its word, at the start.
  * - The three buttons hand `prev`, `toggle` and `next` to [onTap]. A tap elsewhere is the card's.
  * - The position moves every second only while something plays, its length is known and the page
- *   is in view. The bar stands still between ticks: it is no wave, because a wave is drawn on every frame.
+ *   is in view. While something plays, the bar is a wave that moves on every frame while the card is
+ *   seen ([LevelBar]); paused, it is flat.
  * - Tonal: play or pause in the card's color, the other two on the look's tile.
  * - Split and Shape have layouts of their own ([SplitMedia], [ShapeMedia]).
  */
@@ -584,7 +593,8 @@ private fun rememberSeek(spec: WidgetSpec.Media, onTap: ((WidgetTap) -> Unit)?):
  * - A screen reader hears a slider at "1:12 of 3:05", the place the times show, which it can move.
  * - [under] is drawn along its foot, under the bar: the times.
  * - [slim]: [SEEK_SLIM] tall with a shorter handle, in the bar's place on a card with no room for
- *   48 dp ([MediaBar]). Only its band takes touches, so the texts over it stay the card's.
+ *   48 dp ([MediaBar]). Upwards its touches end exactly at its band, so the texts over it stay the
+ *   card's; downwards they reach [SEEK_SLIM_REACH] further.
  */
 @Composable
 private fun SeekBar(
@@ -608,13 +618,19 @@ private fun SeekBar(
     val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
     val colors = SliderDefaults.colors(thumbColor = role)
     val duration = spec.duration
-    // Compose widens the touches of a band under 48 dp to 48: over the texts above a slim one, which are the card's.
+    // The slider itself is only as tall as its handle, and Compose widens its touches to 48 dp around
+    // it: over the texts above a slim one, which are the card's. So a slim one sits in a clip that
+    // starts at its band's top and ends its reach under the band. A clip under 48 dp is widened too,
+    // unless its own target is exact ([ExactTouches]); the slider in it keeps Compose's 48 dp.
     val config = LocalViewConfiguration.current
     val touches = remember(config, slim) { if (slim) ExactTouches(config) else config }
-    // The slider is 48 dp tall whatever its band (Material's minimum), centered on it. A slim band's
-    // clip cuts its touches to the band.
+    // A slim band keeps its height in the card: only the clip is taller, downwards.
     val band = if (slim) Modifier
-        .height(SEEK_SLIM)
+        .layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+            layout(placeable.width, SEEK_SLIM.roundToPx()) { placeable.place(0, 0) }
+        }
+        .height(SEEK_SLIM + SEEK_SLIM_REACH)
         .clipToBounds() else Modifier.height(SEEK_HEIGHT)
     CompositionLocalProvider(LocalViewConfiguration provides touches) {
         Box(
@@ -622,8 +638,8 @@ private fun SeekBar(
                 .fillMaxWidth()
                 .then(band)
         ) {
-            Box(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalViewConfiguration provides config) {
+                Box(Modifier.fillMaxWidth().height(if (slim) SEEK_SLIM else SEEK_HEIGHT)) {
                     Slider(
                         state = slider,
                         onValueChange = { if (!press.held) slider.value = it },
@@ -679,7 +695,7 @@ private fun SeekBar(
     }
 }
 
-/** [config], with no touch target larger than a node's own bounds: for the slim slider's band ([SeekBar]). */
+/** [config], with no touch target larger than a node's own bounds: for the clip around the slim slider ([SeekBar]). */
 private class ExactTouches(config: ViewConfiguration) : ViewConfiguration by config {
     override val minimumTouchTargetSize: DpSize get() = DpSize.Zero
 }
@@ -1035,8 +1051,8 @@ private fun SplitMedia(
 
 /**
  * Shape's media card: play or pause is a big button in a cookie ([PlayShape]), with the song beside
- * it. A wavy bar shows the position while something plays (a wave that stands still: nothing is
- * drawn per frame), a flat one while paused.
+ * it. A wavy bar shows the position while something plays (its wave moves on every frame while the
+ * card is seen, [LevelBar]), a flat one while paused.
  * - Large: the cookie at the start; the card's title, the song, the artist, the bar, and previous
  *   and next with the position beside them. A narrow box has the cookie and the song on top.
  * - Wide: the cookie, the song, and previous and next at the end where they fit.

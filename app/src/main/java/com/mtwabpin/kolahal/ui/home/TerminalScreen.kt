@@ -80,7 +80,8 @@ internal fun HomeAppSelector(
     AppSelector(
         apps = apps,
         pinned = pinnedKeys,
-        // While the keyboard is up, the selector is only hidden, not removed, so its list stays built for when the keyboard goes down.
+        // While the keyboard is up, the selector closes and its strip and list leave composition. Its state, its sorted
+        // apps and its measured letters are kept for when the keyboard goes down.
         active = !WindowInsets.isImeVisible,
         onLaunch = vm::launchApp,
         onLongPress = onLongPress,

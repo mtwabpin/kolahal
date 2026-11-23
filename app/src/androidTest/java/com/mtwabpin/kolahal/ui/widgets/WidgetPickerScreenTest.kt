@@ -201,4 +201,20 @@ class WidgetPickerScreenTest {
         compose.onNodeWithContentDescription("Back").performClick()
         compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
     }
+
+    /** Back empties the search first. The next Back returns to the Widgets screen. */
+    @Test
+    fun backEmptiesTheSearchFirst() {
+        val clock = t.clocks().first()
+        val vm = show()
+        scrollTo(card(clock))
+        search("zzqx kolahal")
+        compose.onNodeWithText("Nothing matches “zzqx kolahal”.").assertExists()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Nothing matches “zzqx kolahal”.").assertDoesNotExist()
+        scrollTo(card(clock))
+        compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+    }
 }

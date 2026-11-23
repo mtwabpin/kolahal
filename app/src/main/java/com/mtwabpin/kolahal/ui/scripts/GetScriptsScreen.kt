@@ -76,7 +76,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var open by rememberSaveable { mutableStateOf<String?>(null) }
-    BackHandler { vm.closeScreen() }
+    BackHandler { if (query.isNotEmpty()) query = "" else vm.closeScreen() }
 
     // The state of each script: installed, edited, has an update, and so on. The name checks read
     // the app list, so this runs off the main thread.
@@ -122,7 +122,8 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
                     "Search by name, author or tag",
                     Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(bottom = 8.dp),
+                    clear = "Clear the search"
                 )
             }
             if (shared.loading) item(key = "loading") {

@@ -280,6 +280,41 @@ class NowPlayingCardTest {
     }
 
     /**
+     * On a card one row tall the slim bar takes a finger from its band's top to 12 dp under the band, where
+     * the card has only its padding: 32 dp in all. A drag that starts there moves the track. Over the band
+     * it takes nothing: the texts there are the card's.
+     */
+    @Test
+    fun theSlimBarTakesAFingerALittleUnderIt() {
+        val asked = Asked()
+        playing.value = track(canSeek = true)
+        size = 395.dp to 92.dp
+        show(asked)
+        compose.waitForNode(seekBar)
+        val card = inCard and hasClickLabel("open Music")
+        // What of the slider can be touched: from its band's top down.
+        val bar = compose.onNode(seekBar).fetchSemanticsNode().boundsInRoot
+        val top = bar.top - compose.onNode(card).fetchSemanticsNode().boundsInRoot.top
+        val dp = compose.density.density
+        assertEquals(32f, (bar.bottom - bar.top) / dp, 0.6f)
+        fun dragAt(y: Float) = compose.onNode(card).performTouchInput {
+            swipe(Offset(width * 0.15f, y), Offset(width * 0.45f, y), durationMillis = 300)
+        }
+        // The band is 20 dp tall: 8 dp under it.
+        dragAt(top + 28 * dp)
+        compose.runOnIdle {
+            assertEquals(asked.all.toString(), 1, asked.all.size)
+            assertTrue(asked.all.toString(), asked.all.single().startsWith("media seek "))
+        }
+        // 4 dp over the band the drag is the card's, which takes it as a tap.
+        dragAt(top - 4 * dp)
+        compose.runOnIdle { assertEquals(asked.all.toString(), "media open", asked.all.last()) }
+        // And under the bar's reach too.
+        dragAt(top + 35 * dp)
+        compose.runOnIdle { assertEquals(asked.all.toString(), 1, asked.all.count { it.startsWith("media seek ") }) }
+    }
+
+    /**
      * The player's art is the face of play or pause, under its icon. Without art the button keeps its
      * color. The card has no title line: the track says what it is.
      */

@@ -116,7 +116,7 @@ internal class ReferenceState {
  * - Icons: a grid by group; a tap gives the name to [onIcon].
  * - The search looks in every tab at once ([ReferenceSearch.find]) and lists what it finds by tab.
  *   A tap does what it does in the tab. Back from an example opened there returns to the results.
- * Back closes an example's view, then the page ([onBack]).
+ * Back closes an example's view, then clears the search, then closes the page ([onBack]).
  *
  * The search, tab, group and scroll positions are in [ref], which outlives the page, so it reopens
  * where it was.
@@ -137,7 +137,13 @@ internal fun ReferencePage(
     var opened by remember { mutableStateOf<Opened?>(null) }
     val lists = ref.lists
     val resultsList = ref.resultsList
-    BackHandler { if (opened != null) opened = null else onBack() }
+    BackHandler {
+        when {
+            opened != null -> opened = null
+            query.isNotEmpty() -> ref.search("")
+            else -> onBack()
+        }
+    }
 
     Box(
         Modifier

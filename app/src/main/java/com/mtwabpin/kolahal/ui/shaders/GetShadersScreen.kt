@@ -90,7 +90,7 @@ fun GetShadersScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var details by rememberSaveable { mutableStateOf<String?>(null) }
     val inUse = remember(settings, files) { actions.inUse() }
-    BackHandler { onBack() }
+    BackHandler { if (query.isNotEmpty()) query = "" else onBack() }
 
     // Where each stands: installed, edited, has an update, and so on. It reads the user's files.
     val states by produceIo(
@@ -137,7 +137,8 @@ fun GetShadersScreen(
                     "Search by name, author or tag",
                     Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(bottom = 8.dp),
+                    clear = "Clear the search"
                 )
             }
             if (shared.loading) item(key = "loading") {

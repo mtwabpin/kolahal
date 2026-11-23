@@ -281,7 +281,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     }
     var query by rememberSaveable { mutableStateOf("") }
     val snackbar = rememberWidgetMessages(widgets)
-    BackHandler { vm.closeScreen() }
+    BackHandler { if (query.isNotEmpty()) query = "" else vm.closeScreen() }
     // Free the pictures when the picker closes, and also when Android asks (the app is hidden or
     // memory is low). The more memory Kolahal holds, the more likely Android is to close it.
     // Cards decode their pictures again when the user returns.
@@ -366,7 +366,13 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item(key = "search") {
-                SearchField(query, { query = it }, "Search widgets", Modifier.fillMaxWidth())
+                SearchField(
+                    query,
+                    { query = it },
+                    "Search widgets",
+                    Modifier.fillMaxWidth(),
+                    clear = "Clear the search"
+                )
             }
             if (anyOwn) {
                 item(key = "g:kolahal") { AppHeader(kolahalGroup) }

@@ -310,7 +310,7 @@ fun AppSelector(
     filter: Boolean = false,
     /** selector.system-font: use the phone's font for the list, the letters and the bubble, not the terminal's. */
     systemFont: Boolean = false,
-    /** When true, the selector is drawn and takes touches. When false (keyboard up), nothing shows, but the list stays built. */
+    /** When true, the selector is drawn and takes touches. When false (keyboard up), it closes and nothing is composed but its state, its sorted apps and its measured letters. */
     active: Boolean = true,
     /** Settings' preview of selector.row-height: the list stays open, as after lifting on the edge. */
     showList: Boolean = false,

@@ -141,7 +141,7 @@ fun ShadersScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
             actions.importFiles(it)
         }
-    BackHandler { onBack() }
+    BackHandler { if (query.isNotEmpty()) query = "" else onBack() }
     // While home shows through (an eye is held), the page and an open sheet clear.
     val peeking by peek.collectAsStateWithLifecycle()
     val shown = animateFloatAsState(if (peeking == null) 1f else 0f, tween(PEEK_FADE_MS), label = "peek")
