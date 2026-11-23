@@ -539,6 +539,15 @@ class ScriptActionsTest {
             newLines().map { it.text }.filter { it.startsWith("sa-one: ") })
     }
 
+    /** `script set` writes an option itself, then says so here: open sheets read the value again. */
+    @Test
+    fun anOptionSetByCommandMovesTheVersion() {
+        create("sa-one", "-- @option city London The city\nlog(options.city)")
+        val version = actions.optionsVersion.value
+        ScriptActions.optionSet(context, "sa-one", "city")
+        assertTrue(actions.optionsVersion.value > version)
+    }
+
     /** Get more scripts lists the copy of the list kept for the hour, without going online. */
     @Test
     fun getMoreScriptsListsTheCopyKept() {

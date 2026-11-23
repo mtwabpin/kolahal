@@ -23,11 +23,13 @@ sealed interface RunStop {
  * - [line]: the error line in the log;
  * - [extra]: what goes into that line's context, besides the script's own;
  * - [status]: the result the script's card keeps.
+ * - [switchOff]: a switch that is off for the script stopped the run ([RunStop.Denied]).
  */
 internal data class RunOutcome(
     val line: String,
     val status: String,
-    val extra: Map<String, String> = emptyMap()
+    val extra: Map<String, String> = emptyMap(),
+    val switchOff: Boolean = false,
 )
 
 /**
@@ -38,6 +40,8 @@ internal data class RunOutcome(
  *   then fail for another reason.
  * - [redact] masks what the message may quote (a URL, a header). [errorLine] finds the script's
  *   line in [error]. A REPL run has no line to edit.
+ * - A Lua error starts with where it happened (`hn:12: bad value`). That start is left out: the
+ *   line says the name once, and the line number at its end (`hn: bad value (tap to edit line 12)`).
  */
 internal fun runOutcome(
     name: String,
@@ -56,15 +60,16 @@ internal fun runOutcome(
             "$name: $off is off for this script — tap to allow",
             "stopped: $off off",
             mapOf(LogContext.RUN to "script allow $name ${stop.item}"),
+            switchOff = true,
         )
     }
     // An error can quote a URL or a header, so mask it like everything else a run shows.
     val message = error.message?.let(redact)
-    // The first line as the script made it. It can be any length, so cut it for the line and the status.
-    val msg =
-        (message?.lines()?.firstOrNull { it.isNotBlank() } ?: error.javaClass.simpleName).take(
-            ScriptRepository.STATUS_MAX
-        )
+    // The first line as the script made it, without Lua's `hn:12: ` before it. It can be any
+    // length, so cut it for the line and the status.
+    val first = message?.lines()?.firstOrNull { it.isNotBlank() }
+    val msg = (first?.let { it.replace(position(name), "").ifBlank { it } }
+        ?: error.javaClass.simpleName).take(ScriptRepository.STATUS_MAX)
     val line = if (repl) null else errorLine(error)
     val extra = buildMap {
         put(LogContext.COPY, message ?: msg)
@@ -76,3 +81,9 @@ internal fun runOutcome(
         extra,
     )
 }
+
+/**
+ * Where a Lua error of the script [name] happened, at the start of its message: `hn:12: `. A
+ * script that throws an error again can have it twice (`hn:40: hn:12: `), so each is matched.
+ */
+private fun position(name: String) = Regex("""^\s*(?:${Regex.escape(name)}:\d+:\s*)+""")

@@ -23,19 +23,21 @@ import kotlinx.coroutines.flow.update
  * - [hasContent]: something is stored. With a null [spec], the stored text can't be read ("widget unavailable").
  * - [setAt]: when `widget.show` last set it. [triedAt]: when a run last ended. Both in milliseconds; 0 for never.
  * - [error]: the last failed run's error, already masked. Null after a run that worked.
+ * - [switchOff]: a switch that is off for the script stopped that failed run. Only with an [error].
  */
 data class WidgetState(
     val spec: WidgetSpec?,
     val hasContent: Boolean,
     val setAt: Long = 0,
     val triedAt: Long = 0,
-    val error: String? = null
+    val error: String? = null,
+    val switchOff: Boolean = false,
 )
 
 /**
  * The store of what script widgets show, in two key-value scopes:
  * - [Stores.WIDGET]: the description as JSON ([WidgetJson]).
- * - [Stores.WIDGET_META]: `{"set":ms,"tried":ms,"error":"…"}`. Kolahal writes it, never the script.
+ * - [Stores.WIDGET_META]: `{"set":ms,"tried":ms,"error":"…","off":true}`. Kolahal writes it, never the script.
  *
  * Each widget is kept by its key ([WidgetRef.key]). That is the `name` every function here takes:
  * the script's name for its first widget (`weather`), and the name with an id for a further one
@@ -61,6 +63,7 @@ object WidgetStates {
     private const val SET = "set"
     private const val TRIED = "tried"
     private const val ERROR = "error"
+    private const val OFF = "off"
 
     /** The name of the widget that changed, in [ACTION_CHANGED]. Absent: any of them may have changed. */
     const val EXTRA_NAME = "name"
@@ -111,7 +114,7 @@ object WidgetStates {
             writeMeta(
                 context,
                 name,
-                meta(context, name).copy(set = System.currentTimeMillis(), error = null)
+                meta(context, name).copy(set = System.currentTimeMillis(), error = null, off = false)
             )
         }
     }
@@ -123,16 +126,19 @@ object WidgetStates {
 
     /**
      * Notes that a run of [name] just ended: with [error] when it failed, with null when it worked.
+     * [switchOff]: a switch that is off for the script stopped the failed run.
      * The cards are not told, as with [putEncoded].
      */
-    fun ran(context: Context, name: String, error: String?) {
+    fun ran(context: Context, name: String, error: String?, switchOff: Boolean = false) {
         runCatching {
+            val kept = error?.take(MAX_ERROR)?.ifBlank { null }
             writeMeta(
                 context,
                 name,
                 meta(context, name).copy(
                     tried = System.currentTimeMillis(),
-                    error = error?.take(MAX_ERROR)?.ifBlank { null })
+                    error = kept,
+                    off = switchOff && kept != null)
             )
         }
     }
@@ -182,33 +188,46 @@ object WidgetStates {
     fun read(context: Context, name: String): WidgetState = runCatching {
         val raw = KvStore(context, Stores.WIDGET).get(name)
         val meta = meta(context, name)
-        WidgetState(WidgetJson.decode(raw), raw != null, meta.set, meta.tried, meta.error)
+        WidgetState(WidgetJson.decode(raw), raw != null, meta.set, meta.tried, meta.error, meta.off)
     }.getOrDefault(WidgetState(null, false)).also { lastRead[name] = it }
 
-    private data class Meta(val set: Long = 0, val tried: Long = 0, val error: String? = null)
+    /** What [Stores.WIDGET_META] keeps for a widget: its times, its last error, and [off] for [WidgetState.switchOff]. */
+    internal data class Meta(
+        val set: Long = 0,
+        val tried: Long = 0,
+        val error: String? = null,
+        val off: Boolean = false
+    )
 
     private fun meta(context: Context, name: String): Meta =
         parseMeta(runCatching { KvStore(context, Stores.WIDGET_META).get(name) }.getOrNull())
 
     private fun writeMeta(context: Context, name: String, meta: Meta) =
-        KvStore(context, Stores.WIDGET_META).set(name, encodeMeta(meta.set, meta.tried, meta.error))
+        KvStore(context, Stores.WIDGET_META).set(
+            name,
+            encodeMeta(meta.set, meta.tried, meta.error, meta.off)
+        )
 
-    /** The meta text for these values. Internal for tests. */
-    internal fun encodeMeta(set: Long, tried: Long, error: String?): String =
+    /** The meta text for these values. [off] is kept only with an [error]. Internal for tests. */
+    internal fun encodeMeta(set: Long, tried: Long, error: String?, off: Boolean = false): String =
         Json.stringify(
             listOfNotNull(
                 SET to set,
                 TRIED to tried,
-                error?.let { ERROR to it }).toMap()
+                error?.let { ERROR to it },
+                (OFF to true).takeIf { off && error != null }).toMap()
         )
 
-    private fun parseMeta(text: String?): Meta {
+    /** The values of a meta text ([encodeMeta]). Internal for tests. */
+    internal fun parseMeta(text: String?): Meta {
         val map =
             text?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() } ?: return Meta()
+        val error = (map[ERROR] as? String)?.take(MAX_ERROR)?.ifBlank { null }
         return Meta(
             set = (map[SET] as? Number)?.toLong()?.coerceAtLeast(0) ?: 0,
             tried = (map[TRIED] as? Number)?.toLong()?.coerceAtLeast(0) ?: 0,
-            error = (map[ERROR] as? String)?.take(MAX_ERROR)?.ifBlank { null },
+            error = error,
+            off = map[OFF] == true && error != null,
         )
     }
 

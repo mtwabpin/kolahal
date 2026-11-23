@@ -38,6 +38,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -47,6 +48,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,7 +74,7 @@ private const val MORE_DP = 20
  *   between rows, and [ROW_GAP_DP] between two ([segmentShape]).
  * - A row is 44 dp tall when it can be tapped or has a second line, and 32 dp otherwise. A tap row
  *   is a little under the 48 dp of a button: a list is read more than it is tapped, and a 4x2 card
- *   then shows three rows.
+ *   then shows three rows. With a larger font a row is as tall as its lines ([WidgetWords.textRowDp]).
  * - When every row fits, the rows grow to share the height evenly, up to 56 dp
  *   ([WidgetWords.rowHeight]). Three days of a forecast then fill a 2x2 card. Rows under a lead
  *   keep their height, as the mockup's Reminders card has them.
@@ -201,12 +203,15 @@ private fun RowList(
     role: Color,
     fill: Boolean = true
 ) {
+    val type = MaterialTheme.typography
+    val titleDp = linesDp(type.bodyMedium)
+    val twoLinesDp = linesDp(type.bodyMedium, type.bodySmall)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val details = maxWidth >= 200.dp && items.any { it.detail != null }
         val rowDp = when {
-            items.any { it.tap != null } -> TAP_ROW_DP
-            details -> TAP_ROW_DP
-            else -> 32
+            details -> WidgetWords.textRowDp(TAP_ROW_DP, twoLinesDp)
+            items.any { it.tap != null } -> WidgetWords.textRowDp(TAP_ROW_DP, titleDp)
+            else -> WidgetWords.textRowDp(32, titleDp)
         }
         val heightDp = maxHeight.value.toInt()
         val shown = WidgetWords.rowsShown(items.size, heightDp, rowDp, MORE_DP, ROW_GAP_DP)
@@ -259,7 +264,10 @@ private fun RowList(
     }
 }
 
-/** The height of a list's or an agenda's row that can be tapped, or that has two lines, in dp. */
+/**
+ * The height of a list's or an agenda's row that can be tapped, or that has two lines, in dp. With
+ * a larger font such a row is as tall as its lines, when they are taller ([WidgetWords.textRowDp]).
+ */
 internal const val TAP_ROW_DP = 44
 
 /** The room between two rows of a list or of a clock, in dp. */
@@ -391,11 +399,31 @@ private fun ListRow(
                     style = type.labelLarge,
                     color = muted,
                     maxLines = 1,
-                    modifier = Modifier.padding(start = 8.dp)
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .trailingShare(titleWidth(cardText(row.title), type.bodyMedium))
+                        .padding(start = 8.dp)
                 )
             }
         }
     }
+}
+
+/**
+ * A row's trailing text, after its title. One that fits in the room the row leaves the two is as wide
+ * as it is, as a forecast's "22–31°" on a narrow card. One that doesn't fit is cut anyway, so it is
+ * cut further, to leave the title what it needs, up to half the room: it ends in "…" and the title
+ * shows. [title] is how wide the title is on one line, in pixels ([titleWidth]).
+ */
+internal fun Modifier.trailingShare(title: Int): Modifier = layout { measurable, constraints ->
+    val room = constraints.maxWidth
+    val max = if (constraints.hasBoundedWidth && measurable.maxIntrinsicWidth(constraints.maxHeight) > room) {
+        maxOf(constraints.minWidth, room - minOf(title, room / 2))
+    } else {
+        room
+    }
+    val placeable = measurable.measure(constraints.copy(maxWidth = max))
+    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }
 
 /** The room at the ends of a row of a Plain or Tonal list. */
@@ -676,4 +704,11 @@ internal fun RowCheck(done: Boolean, color: Color, modifier: Modifier = Modifier
             modifier = Modifier.size(14.dp)
         )
     }
+}
+
+/** How wide [text] is on one line in [style], in pixels: what a row's title needs beside its trailing text ([trailingShare]). */
+@Composable
+internal fun titleWidth(text: AnnotatedString, style: TextStyle): Int {
+    val measurer = rememberTextMeasurer()
+    return remember(measurer, text, style) { measurer.measure(text, style, softWrap = false, maxLines = 1).size.width }
 }

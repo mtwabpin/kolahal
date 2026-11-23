@@ -155,6 +155,8 @@ internal object ScriptRun {
         val refreshKey = errorKey(script?.id, widgetId)
         val lastError = if (refresh) refreshes.get(refreshKey) else null
         var failed: String? = null
+        // A switch that is off for the script stopped the run ([RunOutcome.switchOff]).
+        var switchOff = false
         fun fail(text: String, context: LogContext) {
             failed = text
             if (text != lastError) logs.add(LogKind.ERROR, text, name, context)
@@ -194,6 +196,7 @@ internal object ScriptRun {
             widget = script?.let { ScriptMeta.widget(it.code) },
             widgetId = widgetId,
             gives = script?.let { ScriptMeta.gives(it.code) }.orEmpty(),
+            widgetIssue = script?.let { ScriptCheck.widgetKindIssue(it.code) },
         )
         host.handover = handover
         host.screens = handover != null
@@ -264,6 +267,7 @@ internal object ScriptRun {
                 host::redact,
                 errorLine = { errorLine(it, lang, name) })
             fail(outcome.line, if (outcome.extra.isEmpty()) errorCtx else errorCtx + outcome.extra)
+            switchOff = outcome.switchOff
             outcome.status
         } finally {
             host.finish()
@@ -272,7 +276,8 @@ internal object ScriptRun {
                 ctx,
                 host,
                 noteEnd = forWidget != null && !stopped,
-                failed
+                failed,
+                switchOff
             )
         }
         // A run you started asked for things nobody has allowed yet, and got empty answers. Offer to allow them.
@@ -303,19 +308,26 @@ internal object ScriptRun {
      * - [noteEnd], after a run for the widget that ended by itself: one the widgets page asked for,
      *   or one a tap on the widget started. The card says when its last such run failed ("Failed
      *   10:42"), and forgets it after one that works. So the time and [failed] are noted, but only
-     *   while the widget is still placed: one removed during the run keeps nothing. A switch that
-     *   waits for its script stops waiting then too, whether or not the run showed anything.
+     *   while the widget is still placed: one removed during the run keeps nothing. With
+     *   [switchOff], a switch that is off for the script stopped the run, and that is noted too.
+     *   A switch that waits for its script stops waiting then too, whether or not the run showed anything.
      * - Then one message goes to that widget's card, if the run stored something: this note, or what
      *   `widget.show` and `widget.clear` stored ([HostApi.widgetChanged]). Those calls send none
      *   themselves, so a run that calls them twenty times and notes its end still sends one.
      * - A run on its timer or for an event that calls `widget.show` is announced in the same way.
      * Nothing here throws: it runs while the run's own result or error is on its way out.
      */
-    private fun widgetEnd(ctx: Context, host: HostApi, noteEnd: Boolean, failed: String?) {
+    private fun widgetEnd(
+        ctx: Context,
+        host: HostApi,
+        noteEnd: Boolean,
+        failed: String?,
+        switchOff: Boolean
+    ) {
         val states = com.mtwabpin.kolahal.widgets.WidgetStates
         val noted = noteEnd && runCatching {
             val placed = host.widgetPlacedNow()
-            if (placed) states.ran(ctx, host.widgetKey, failed)
+            if (placed) states.ran(ctx, host.widgetKey, failed, switchOff)
             placed
         }.getOrDefault(false)
         if (noted || host.widgetChanged) states.announce(ctx, host.widgetKey)

@@ -271,7 +271,10 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                                 style = endStyle,
                                 color = c.muted,
                                 maxLines = 1,
-                                modifier = Modifier.padding(start = 8.dp)
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .trailingShare(titleWidth(cardText(row.title), lineStyle))
+                                    .padding(start = 8.dp)
                             )
                         }
                     }
@@ -419,7 +422,10 @@ private fun RowWords(
                 style = end,
                 color = muted,
                 maxLines = 1,
-                modifier = Modifier.padding(start = 8.dp)
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .trailingShare(titleWidth(cardText(row.title), style))
+                    .padding(start = 8.dp)
             )
         }
     }

@@ -49,6 +49,18 @@ object ScriptCheck {
         }
     }
 
+    /**
+     * What the editor says about [code]'s `@widget` line when its kind isn't one Kolahal draws, so
+     * the script has no widget ([ScriptMeta.widget]): `@widget stats isn't a kind: …`. A run's
+     * `widget.show` says the same. Null when there is no such line, or its kind is one.
+     */
+    fun widgetKindIssue(code: String): String? {
+        val rest = code.lineSequence().mapNotNull { directive.find(it) }
+            .firstOrNull { it.groupValues[2] == "widget" }?.groupValues?.get(3) ?: return null
+        val kind = rest.trim().split(Regex("\\s+"))[0]
+        return if (WidgetKind.named(kind) == null) widgetIssue(rest) else null
+    }
+
     /** What each `@uses` name allows a script to call. Every name of [ScriptMeta.USES] has its calls here (ScriptUsesTest). */
     internal val NEEDS = linkedMapOf(
         "notifications" to Regex("""(?<![.\w])notifications\s*\.\s*recent\b"""),

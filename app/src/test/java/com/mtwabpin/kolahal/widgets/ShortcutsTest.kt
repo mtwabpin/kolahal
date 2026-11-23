@@ -74,8 +74,11 @@ class ShortcutsTest {
     /** A cut never leaves half an emoji. */
     @Test
     fun aCutKeepsEmojiWhole() {
-        val icon = Shortcuts.clean(listOf(Shortcut("x", "x", "a🔦🔦🔦"))).single().icon
-        assertEquals("a🔦", icon)
+        val icon = Shortcuts.clean(listOf(Shortcut("x", "x", "a🔦🔦🔦🔦"))).single().icon
+        assertEquals("a🔦🔦🔦", icon)
+        // An emoji of several characters counts as one, and stays whole: 👩‍💻 is 5 units.
+        val coder = "\uD83D\uDC69\u200D\uD83D\uDCBB"
+        assertEquals(coder, Shortcuts.clean(listOf(Shortcut("x", "x", coder))).single().icon)
         val label = Shortcuts.clean(listOf(Shortcut("L".repeat(22) + "🔦🔦", "x"))).single().label
         assertEquals("L".repeat(22) + "…", label)
     }

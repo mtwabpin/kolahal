@@ -427,9 +427,11 @@ class ScriptActions(
 
     // ---- script options ------------------------------------------------------------------
 
-    /** Goes up by one when an option changes, so sheets that show its value refresh. */
-    private val _optionsVersion = MutableStateFlow(0)
-    val optionsVersion: StateFlow<Int> = _optionsVersion.asStateFlow()
+    /**
+     * Goes up by one when an option changes, so sheets that show its value refresh. `script set`
+     * moves it too ([optionSet]).
+     */
+    val optionsVersion: StateFlow<Int> = optionChanges.asStateFlow()
 
     /**
      * Returns the `@option` values of [s] (yours or the defaults), and the names of the ones you set.
@@ -442,9 +444,13 @@ class ScriptActions(
         return store.values(s.name, declared, widget) to store.changed(s.name, declared, widget)
     }
 
-    /** Sets [option] for [script]. A null value resets it to its default. */
+    /**
+     * Sets [option] for [script], from its Scripts sheet. A null value resets it to its default.
+     * It is the option of the script's first widget, so it goes as [setWidgetOption] goes for it:
+     * the placed widgets that read the value run again.
+     */
     fun setOption(script: String, option: String, value: String?) =
-        io { writeOption(WidgetRef(script), option, value) }
+        setWidgetOption(WidgetRef(script), option, value)
 
     /**
      * Sets [option] for the widget [ref], from its options sheet on the Widgets screen. Then it asks
@@ -452,34 +458,20 @@ class ScriptActions(
      * value gives ([ScriptOptions.readers]).
      * - A further widget's value is for that widget only, and only that widget runs. A null value
      *   makes it follow the script again.
-     * - The first widget's options are the script's own, as [setOption] sets them. Its further
-     *   widgets that have no value of their own follow the script, so they run too.
+     * - The first widget's options are the script's own, as [setOption] and `script set` set them.
+     *   Its further widgets that have no value of their own follow the script, so they run too.
      * - Each run goes after a run of that widget that is already there, and is not dropped for it:
      *   that one may have read the old value.
      */
     fun setWidgetOption(ref: WidgetRef, option: String, value: String?) = io {
         writeOption(ref, option, value)
-        // Without its `@widget` line, or switched off, a run stores nothing for a card.
-        val script =
-            scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }
-                ?: return@io
-        val options = ScriptOptions(context)
-        val declared = ScriptMeta.options(script.code)
-        val placed = WidgetHost.get(context).placedOf(ref.script)
-        ScriptOptions.readers(ref, placed) {
-            option in options.changed(
-                script.name,
-                declared,
-                it.id
-            )
-        }
-            .forEach { ScriptScheduler.refreshWidget(context, script, it.id, again = true) }
+        runReaders(context, ref, option)
     }
 
     /** Stores [value] for [option] of the script itself ([ref] is its first widget) or of one further widget, and says so in the log. */
     private fun writeOption(ref: WidgetRef, option: String, value: String?) {
         ScriptOptions(context).set(ref.script, option, value, ref.id)
-        _optionsVersion.value++
+        optionChanges.update { it + 1 }
         val reset = if (ref.first) "reset to default" else "follows the script again"
         logs.add(
             LogKind.INFO,
@@ -598,4 +590,55 @@ class ScriptActions(
 
     /** Refreshes the scripts list and the command names after edits or imports, not only when the log changes. */
     suspend fun refreshScriptCaches() = listReads.read()
+
+    companion object {
+        /** [optionsVersion]: one for the process, because `script set` changes options too. */
+        private val optionChanges = MutableStateFlow(0)
+
+        /**
+         * `script set` (or `--reset`) just wrote [option] of [script], and said so in the log. As
+         * after [setOption]: sheets that show the value read it again, and the placed widgets that
+         * read it run again. Call it off the main thread.
+         */
+        fun optionSet(context: Context, script: String, option: String) {
+            optionChanges.update { it + 1 }
+            runReaders(context, WidgetRef(script), option)
+        }
+
+        /**
+         * An access switch of [script] was just turned on. A card whose run a switch stopped says so
+         * and its tap leads to Scripts, until a run ends another way: so each placed widget of the
+         * script runs again, and the card is filled at once. A script with no widget placed asks for
+         * nothing. Call it off the main thread.
+         */
+        fun accessAllowed(context: Context, script: String) {
+            val placed = WidgetHost.get(context).placedOf(script)
+            if (placed.isEmpty()) return
+            val known = ScriptRepository.get(context).byName(script)
+                ?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null } ?: return
+            placed.forEach { ScriptScheduler.refreshWidget(context, known, it.id, again = true) }
+        }
+
+        /**
+         * Asks for one quiet run of each placed widget that reads [option] as just set for [ref]
+         * ([ScriptOptions.readers]). A script with no widget placed asks for nothing.
+         */
+        private fun runReaders(context: Context, ref: WidgetRef, option: String) {
+            val placed = WidgetHost.get(context).placedOf(ref.script)
+            if (placed.isEmpty()) return
+            // Without its `@widget` line, or switched off, a run stores nothing for a card.
+            val script = ScriptRepository.get(context).byName(ref.script)
+                ?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null } ?: return
+            val options = ScriptOptions(context)
+            val declared = ScriptMeta.options(script.code)
+            ScriptOptions.readers(ref, placed) {
+                option in options.changed(
+                    script.name,
+                    declared,
+                    it.id
+                )
+            }
+                .forEach { ScriptScheduler.refreshWidget(context, script, it.id, again = true) }
+        }
+    }
 }

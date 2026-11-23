@@ -32,7 +32,7 @@ local forWidget = event ~= nil and event.name == "widget"
 -- A failure. In a run for the widget it is an error: the card keeps its last content and says
 -- "Failed 10:42" under it. Run by hand, it is a line in the log.
 local function fail(why)
-  if forWidget then error(why) end
+  if forWidget then error(why, 0) end
   return log(fmt.color("bad", "No numbers"), why)
 end
 

@@ -38,9 +38,9 @@ class WidgetIconsTest {
     fun anIconIsANameOrAShortText() {
         assertEquals("sun", parse(mapOf("value" to "1", "icon" to "sun")).base.icon)
         assertEquals("calendar", parse(mapOf("value" to "1", "icon" to "calendar")).base.icon)
-        // An emoji or a letter is drawn as it is, cut to 4 characters with "…" as before.
+        // An emoji or a letter is drawn as it is, cut to 4 characters with no "…".
         assertEquals("☀️", parse(mapOf("value" to "1", "icon" to "☀️")).base.icon)
-        assertEquals("Abc…", parse(mapOf("value" to "1", "icon" to "Abcdef")).base.icon)
+        assertEquals("Abcd", parse(mapOf("value" to "1", "icon" to "Abcdef")).base.icon)
         // A short lower-case word that is no name is text: "ok" is drawn as "ok".
         assertEquals("ok", parse(mapOf("value" to "1", "icon" to "ok")).base.icon)
     }

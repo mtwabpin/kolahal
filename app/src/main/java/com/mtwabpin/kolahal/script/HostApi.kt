@@ -75,6 +75,11 @@ class HostApi(
     private val widgetId: String = "",
     /** The names on its `@gives` line ([ScriptMeta.gives]): what `shader.give` takes. */
     private val gives: List<String> = emptyList(),
+    /**
+     * What the editor says about its `@widget` line when the line is there and its kind isn't one
+     * ([ScriptCheck.widgetKindIssue]). [widget] is null then, and `widget.show` says this.
+     */
+    private val widgetIssue: String? = null,
 ) {
     class Secrets(val declared: List<ScriptMeta.Secret>, val values: Map<String, String>)
 
@@ -757,6 +762,7 @@ class HostApi(
      * The script's `@widget` line, for [call].
      * - Code typed at the prompt has no script to key a widget by: it gets a line that says so, and null.
      * - A saved script without the line gets an error that says to add it, as a call without its `@uses` line does.
+     * - A saved script whose line has a kind Kolahal doesn't draw gets the editor's words for it ([widgetIssue]).
      */
     private fun widgetLine(call: String): ScriptMeta.Widget? {
         if (scriptId == null) {
@@ -764,7 +770,9 @@ class HostApi(
             return null
         }
         return widget
-            ?: throw IllegalStateException("$call needs `@widget <kind>` at the top of the script")
+            ?: throw IllegalStateException(
+                widgetIssue ?: "$call needs `@widget <kind>` at the top of the script"
+            )
     }
 
     /** Counts a widget call. False past the run's limit; the first call past it says so. */

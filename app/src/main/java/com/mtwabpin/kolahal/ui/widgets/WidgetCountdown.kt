@@ -93,7 +93,7 @@ internal fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     // Bold, Split and Shape write the moment in any box, also without a start: then it is the day
     // ("27 Dec"), or the time on the day itself.
     val from = spec.from
-    val day by remember { derivedStateOf { now.longValue / 86_400 } }
+    val day by remember(zone) { derivedStateOf { WidgetWords.localDay(now.longValue, zone) } }
     val ends = if ((large && from != null) || look.untitled()) {
         remember(from, spec.to, zone, clock24, day) {
             val at = Snapshot.withoutReadObservation { now.longValue }

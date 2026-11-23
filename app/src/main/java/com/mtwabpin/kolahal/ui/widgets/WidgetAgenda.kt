@@ -71,11 +71,14 @@ internal fun rememberClock24(): Boolean {
     return remember(config, version) { config[Keys.CLOCK_24H] }
 }
 
-/** Height of a day's heading and of the "+3 more" line, in dp. */
+/** Height of a day's heading and of the "+3 more" line, in dp. A larger font makes the heading taller ([WidgetWords.textRowDp]). */
 private const val AGENDA_HEAD_DP = 16
 private const val AGENDA_MORE_DP = 20
 
-/** The least height of an event's own line under a heading, in dp: one line of text, or two in a narrow box. */
+/**
+ * The least height of an event's own line under a heading, in dp: one line of text, or two in a
+ * narrow box. A larger font makes it as tall as its text, when that is taller.
+ */
 private const val AGENDA_LINE_DP = 28
 private const val AGENDA_NARROW_LINE_DP = 32
 
@@ -92,6 +95,7 @@ private val AGENDA_PLACES = 200.dp
  *   its own.
  * - An event is one line: its time, a dot in its color if it has one, its title, and its place at its end in a
  *   box that has room. An event that can be tapped is 44 dp tall ([TAP_ROW_DP]), others 32 dp.
+ *   With a larger font, rows and headings are as tall as their text ([WidgetWords.textRowDp]).
  * - A day's heading ("TODAY") is at the top of its first event's row, in the card's color. That
  *   row is as tall as a tap row needs, or as the heading and the event's line need, whichever is
  *   more: 44 dp. So a 4x2 card has two events of today and one of tomorrow, as the mockup has
@@ -126,14 +130,27 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     // Tonal puts each event on a tile of its own, 2 dp from the next, as a list's rows are.
     val tile = if (look == WidgetLook.TONAL) lookColors().tile else null
     val gapDp = if (tile != null) ROW_GAP_DP else 0
+    val type = MaterialTheme.typography
+    // An event's text at the phone's font size: its title over its time when narrow, else one line.
+    val narrowLinesDp = linesDp(type.bodySmall, type.labelSmall)
+    val lineDp = maxOf(linesDp(type.labelLarge), linesDp(type.bodyMedium))
+    val headDp = WidgetWords.textRowDp(AGENDA_HEAD_DP, linesDp(type.labelMedium))
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val narrow = maxWidth < AGENDA_NARROW
         val places = maxWidth >= AGENDA_PLACES
-        val rowDp =
-            if (days.any { day -> day.lines.any { it.event.tap != null } }) TAP_ROW_DP else 32
+        val textDp = if (narrow) narrowLinesDp else lineDp
+        val rowDp = WidgetWords.textRowDp(
+            if (days.any { day -> day.lines.any { it.event.tap != null } }) TAP_ROW_DP else 32,
+            textDp
+        )
         // A day's first row has its heading at its top.
-        val headedDp =
-            maxOf(rowDp, AGENDA_HEAD_DP + if (narrow) AGENDA_NARROW_LINE_DP else AGENDA_LINE_DP)
+        val headedDp = maxOf(
+            rowDp,
+            headDp + WidgetWords.textRowDp(
+                if (narrow) AGENDA_NARROW_LINE_DP else AGENDA_LINE_DP,
+                textDp
+            )
+        )
         val heightDp = maxHeight.value.toInt()
         val total = days.sumOf { it.lines.size }
         val moreDp = AGENDA_MORE_DP
@@ -169,7 +186,7 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
                                 timeWidth,
                                 onTap,
                                 back
-                            ) { DayHeading(day.label, color) }
+                            ) { DayHeading(day.label, color, headDp) }
                             else AgendaRow(line, rowDp.dp, places, narrow, timeWidth, onTap, back)
                         }
                     }
@@ -190,9 +207,9 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     }
 }
 
-/** A day's heading in an agenda: "TODAY", "TOMORROW", "TUE 20 OCT", in bold capitals in the card's [color]. */
+/** A day's heading in an agenda: "TODAY", "TOMORROW", "TUE 20 OCT", in bold capitals in the card's [color], [heightDp] tall. */
 @Composable
-private fun DayHeading(label: String, color: Color) {
+private fun DayHeading(label: String, color: Color, heightDp: Int) {
     Text(
         label.uppercase(),
         style = MaterialTheme.typography.labelMedium.copy(
@@ -202,7 +219,7 @@ private fun DayHeading(label: String, color: Color) {
         color = color,
         maxLines = 1,
         modifier = Modifier
-            .height(AGENDA_HEAD_DP.dp)
+            .height(heightDp.dp)
             .wrapContentHeight(),
     )
 }

@@ -28,6 +28,7 @@ import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.SecretStore
+import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.ScriptChanges
 import com.mtwabpin.kolahal.terminal.TerminalUi
 import com.mtwabpin.kolahal.terminal.runNowWithText
@@ -605,7 +606,10 @@ class ScriptCommands(
         }
     }
 
-    /** `script set <name> [<option> [<value…>|--reset]]`: lists the script's `@option`s and their values, or changes one. */
+    /**
+     * `script set <name> [<option> [<value…>|--reset]]`: lists the script's `@option`s and their
+     * values, or changes one. A change goes as one in the Scripts sheet does ([ScriptActions.optionSet]).
+     */
     private fun option(s: Script, args: List<String>) {
         val declared = ScriptMeta.options(s.code)
         val store = ScriptOptions(context)
@@ -651,6 +655,7 @@ class ScriptCommands(
             rest == listOf("--reset") -> {
                 store.set(s.name, o.name, null)
                 info("${s.name}: ${o.name} reset to default, ${shown(o.default)}", scriptCtx(s))
+                ScriptActions.optionSet(context, s.name, o.name)
             }
 
             else -> {
@@ -664,6 +669,7 @@ class ScriptCommands(
                 )
                 store.set(s.name, o.name, value)
                 info("${s.name}: ${o.name} = $value", scriptCtx(s))
+                ScriptActions.optionSet(context, s.name, o.name)
             }
         }
     }
@@ -744,6 +750,8 @@ class ScriptCommands(
         }
         // After pinning or unpinning, update the top of home now.
         if (ScriptAccess.HEADER in items) logs.onStatusChanged()
+        // A card that a switch stopped is filled again at once.
+        if (on) ScriptActions.accessAllowed(context, s.name)
         info(
             "${s.name}: " + items.joinToString(", ") { "$it ${if (on) "on" else "off"}" },
             scriptCtx(s)

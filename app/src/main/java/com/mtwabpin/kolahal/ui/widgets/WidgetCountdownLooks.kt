@@ -254,7 +254,7 @@ private fun SplitCountdown(
     when (box) {
         WidgetSizes.Box.LARGE -> {
             // With days left: the hours and the minutes after them. They change with the minute.
-            val parts by remember(spec.to, count) {
+            val parts by remember(spec.to, count, moment, spec.label) {
                 derivedStateOf {
                     if (count.value.unit?.startsWith("day") == true) {
                         val left = kotlin.math.abs(spec.to - now.longValue)

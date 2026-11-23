@@ -277,11 +277,18 @@ internal fun ClockBody(
  * Media has its own, `linesHeight` in WidgetMedia.kt, which counts 20 sp for a style with no line height.
  */
 @Composable
-private fun linesDp(vararg styles: TextStyle): Int {
+internal fun linesDp(vararg styles: TextStyle): Int {
     val density = LocalDensity.current
     val dp = styles.sumOf { style ->
-        val line = if (style.lineHeight.isSp) style.lineHeight else style.fontSize * 1.25f
-        with(density) { line.toDp().value.toDouble() }
+        // Android scales large text by less than the font size setting, and a line's height with its
+        // text: the line keeps its proportion to the font size, as the text's own layout has it.
+        with(density) {
+            if (style.lineHeight.isSp && style.fontSize.isSp && style.fontSize.value > 0f) {
+                style.fontSize.toDp().value.toDouble() * style.lineHeight.value / style.fontSize.value
+            } else {
+                (if (style.lineHeight.isSp) style.lineHeight else style.fontSize * 1.25f).toDp().value.toDouble()
+            }
+        }
     }
     return kotlin.math.ceil(dp).toInt()
 }

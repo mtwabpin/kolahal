@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.script.runOutcome
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -299,6 +300,24 @@ class WidgetWordsTest {
     }
 
     /** The bar of a countdown that ticks gets a new value only when it has moved a step: not every second. */
+    /** The moment under a countdown is written again at midnight where the phone is, not at midnight in UTC. */
+    @Test
+    fun aCountdownsDayChangesAtMidnightHere() {
+        fun at(text: String) = ZonedDateTime.parse(text).toEpochSecond()
+        val kolkata = ZoneId.of("Asia/Kolkata")
+        val newYork = ZoneId.of("America/New_York")
+        val nov14 = java.time.LocalDate.of(2026, 11, 14).toEpochDay()
+        // East of UTC: midnight in Kolkata is 18:30 in UTC the day before.
+        assertEquals(nov14, WidgetWords.localDay(at("2026-11-14T18:29:59Z"), kolkata))
+        assertEquals(nov14 + 1, WidgetWords.localDay(at("2026-11-14T18:30:00Z"), kolkata))
+        assertEquals(nov14 + 1, WidgetWords.localDay(at("2026-11-15T05:00:00Z"), kolkata))
+        // West of UTC: at 02:00 in UTC on the 15th it is still the 14th in New York, until 05:00.
+        assertEquals(nov14, WidgetWords.localDay(at("2026-11-15T02:00:00Z"), newYork))
+        assertEquals(nov14, WidgetWords.localDay(at("2026-11-15T04:59:59Z"), newYork))
+        assertEquals(nov14 + 1, WidgetWords.localDay(at("2026-11-15T05:00:00Z"), newYork))
+        assertEquals(nov14, WidgetWords.localDay(at("2026-11-14T23:59:59Z"), utc))
+    }
+
     @Test
     fun aCountdownsBarMovesInSteps() {
         assertEquals(0.25f, WidgetWords.barStep(0.25f), 0f)
@@ -1803,7 +1822,27 @@ class WidgetWordsTest {
         assertNull(WidgetWords.firstLine(null))
     }
 
-    /** The stored error is the log line's text (ScriptWorker). A tap on the card only refreshes, so the card leaves the log line's taps out. */
+    /**
+     * A Lua error's log line, as a run makes it ([runOutcome]), on a card: the script's name once,
+     * what went wrong, and the line. Lua's `weather:12:` is not repeated.
+     */
+    @Test
+    fun aFailedCardSaysTheNameOnce() {
+        val outcome = runOutcome(
+            "weather",
+            RuntimeException("weather:12: attempt to index a nil value\nstack traceback: …"),
+            stop = null,
+            repl = false,
+            redact = { it },
+            errorLine = { 12 },
+        )
+        assertEquals(
+            "weather: attempt to index a nil value (line 12)",
+            WidgetWords.cardError(outcome.line)
+        )
+    }
+
+    /** The stored error is the log line's text (ScriptWorker). A tap on the card refreshes or opens Scripts, so the card leaves the log line's taps out. */
     @Test
     fun aCardsErrorPromisesNoTapItDoesNotHave() {
         // A failed run: the log line opens the editor at the line. The card keeps the line's number.
@@ -1868,6 +1907,38 @@ class WidgetWordsTest {
         // Large clock rows, 28 dp each, with gaps of 2: four take 118.
         assertEquals(4, WidgetWords.clockRows(4, 118, gapDp = 2))
         assertEquals(3, WidgetWords.clockRows(4, 117, gapDp = 2))
+    }
+
+    /** A row of text keeps its height at the usual font size, and grows to its lines with a larger one: fewer rows fit. */
+    @Test
+    fun rowsGrowWithTheFontSize() {
+        // Lines one under the other, in whole dp at a font scale, as a card measures them ([linesDp]).
+        fun lines(scale: Float, vararg sp: Int) =
+            kotlin.math.ceil(sp.sumOf { (it * scale).toDouble() }).toInt()
+        // At the usual size, the heights are those of today: a list's row with a title (20 sp) and a
+        // second line (16 sp), one without, an agenda's heading, and a narrow agenda's two lines.
+        assertEquals(44, WidgetWords.textRowDp(TAP_ROW_DP, lines(1f, 20, 16)))
+        assertEquals(44, WidgetWords.textRowDp(TAP_ROW_DP, lines(1f, 20)))
+        assertEquals(32, WidgetWords.textRowDp(32, lines(1f, 20)))
+        assertEquals(16, WidgetWords.textRowDp(16, lines(1f, 16)))
+        assertEquals(32, WidgetWords.textRowDp(32, lines(1f, 16, 16)))
+        // At 1.3 times, 26 and 20.8 dp of lines don't fit in 44: the rows grow, and one-line rows keep their height.
+        val two = WidgetWords.textRowDp(TAP_ROW_DP, lines(1.3f, 20, 16))
+        assertEquals(47, two)
+        assertEquals(44, WidgetWords.textRowDp(TAP_ROW_DP, lines(1.3f, 20)))
+        assertEquals(32, WidgetWords.textRowDp(32, lines(1.3f, 20)))
+        assertEquals(21, WidgetWords.textRowDp(16, lines(1.3f, 16)))
+        assertEquals(42, WidgetWords.textRowDp(32, lines(1.3f, 16, 16)))
+        // A 2x2 card's 136 dp: three rows at the usual size, two at 1.3 times.
+        assertEquals(3, WidgetWords.rowsShown(5, 136, 44, 0, gapDp = 2))
+        assertEquals(2, WidgetWords.rowsShown(5, 136, two, 0, gapDp = 2))
+        // A narrow agenda: rows of 32 dp and a heading of 16 (48 dp for a day's first) fit three events;
+        // at 1.3 times rows of 42 and a heading of 21 (63) fit two.
+        assertEquals(3, WidgetWords.agendaShown(listOf(2, 1), 136, 16, 32, 20))
+        val row = WidgetWords.textRowDp(32, lines(1.3f, 16, 16))
+        val headed = maxOf(row, WidgetWords.textRowDp(16, lines(1.3f, 16)) + WidgetWords.textRowDp(32, lines(1.3f, 16, 16)))
+        assertEquals(63, headed)
+        assertEquals(2, WidgetWords.agendaShown(listOf(2, 1), 136, headed - row, row, 20))
     }
 
     /** A short list fills its card: its rows share the height, up to 56 dp. A list with rows left out keeps its rows' height. */

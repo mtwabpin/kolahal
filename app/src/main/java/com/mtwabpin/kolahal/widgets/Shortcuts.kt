@@ -6,6 +6,7 @@ package com.mtwabpin.kolahal.widgets
 import android.content.Context
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.Stores
+import com.mtwabpin.kolahal.data.takeSeen
 import com.mtwabpin.kolahal.data.takeWhole
 import com.mtwabpin.kolahal.script.Json
 
@@ -35,6 +36,7 @@ object Shortcuts {
 
     /** A command is as long as the arguments of a widget's tap may be. */
     const val MAX_COMMAND = 200
+    /** An icon that is no name: at most this many characters as they are seen, within [WidgetParser.MAX_ICON_UNITS], as a widget's. */
     const val MAX_ICON = 4
 
     /** What the editor lets you type for an icon: room for a name ([WidgetIcons]). */
@@ -54,8 +56,8 @@ object Shortcuts {
      * - A command is one line, at most [MAX_COMMAND] characters. The cut adds no "…": that would be
      *   part of what runs.
      * - A label is one line, cut at [MAX_LABEL] with "…". Without a label, the command is the label.
-     * - An icon is a name ([WidgetIcons]), or else at most [MAX_ICON] characters, never ending in half
-     *   an emoji. An empty one is null.
+     * - An icon is a name ([WidgetIcons]), or else at most [MAX_ICON] characters as they are seen.
+     *   An emoji made of several is kept whole or left out, with no "…". An empty one is null.
      */
     fun clean(list: List<Shortcut>): List<Shortcut> = list.mapNotNull { s ->
         val command = oneLine(s.command).takeWhole(MAX_COMMAND).trim()
@@ -63,7 +65,7 @@ object Shortcuts {
         val label = oneLine(s.label).ifEmpty { command }
             .let { if (it.length <= MAX_LABEL) it else it.takeWhole(MAX_LABEL - 1).trimEnd() + "…" }
         val icon = s.icon?.let(::oneLine)
-            ?.let { if (WidgetIcons.isName(it)) it else it.takeWhole(MAX_ICON) }
+            ?.let { if (WidgetIcons.isName(it)) it else it.takeSeen(MAX_ICON, WidgetParser.MAX_ICON_UNITS) }
             ?.takeIf { it.isNotEmpty() }
         Shortcut(label, command, icon)
     }.take(MAX)

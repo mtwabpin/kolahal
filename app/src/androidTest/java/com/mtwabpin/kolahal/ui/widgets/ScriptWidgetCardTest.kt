@@ -37,10 +37,12 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
@@ -353,6 +355,87 @@ class ScriptWidgetCardTest {
         says(empty, "Inbox: All read")
         draws(bare, "Inbox", "Nothing to show")
         says(bare, "Inbox: Nothing to show")
+    }
+
+    /**
+     * A row's long end text ends in "…" and leaves the title its room: a short title keeps all its
+     * letters, and beside a long one the end text has at most half the row.
+     */
+    @Test
+    fun aLongEndTextLeavesTheTitleItsRoom() {
+        val end = "v0.5.17-release-candidate-with-a-long-name"
+        val title = "A repository with quite a long name"
+        val short = kept(
+            "list-end",
+            WidgetSpec.Rows(WidgetBase(title = "Releases"), listOf(WidgetSpec.Row("Kolahal", trailing = end)))
+        )
+        val long = kept(
+            "list-end-long",
+            WidgetSpec.Rows(WidgetBase(title = "Releases"), listOf(WidgetSpec.Row(title, trailing = end)))
+        )
+        show(short, long, width = 170.dp, height = 170.dp)
+        draws(short, "Kolahal", end)
+        draws(long, title, end)
+        fun node(name: String, text: String) =
+            compose.onNode(inCard(name) and hasText(text), useUnmergedTree = true).fetchSemanticsNode()
+        fun cut(name: String, text: String): Boolean {
+            val results = mutableListOf<TextLayoutResult>()
+            node(name, text).config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+            return results.single().let { it.hasVisualOverflow || it.isLineEllipsized(0) }
+        }
+        assertFalse("the short title is cut", cut(short, "Kolahal"))
+        assertTrue("the long end text is not cut", cut(short, end))
+        val card = with(compose.density) { 170.dp.toPx() }
+        assertTrue("the long title has no room", node(long, title).size.width > card / 4)
+        assertTrue("the end text takes more than half the row", node(long, end).size.width <= card / 2)
+    }
+
+    /**
+     * At 1.5 times the font size a row's second line isn't cut: the rows grow to hold both lines, and fewer
+     * fit. Android scales large text by less than the factor, so the lines' heights are asked of it.
+     */
+    @Test
+    fun largeTextGrowsAListsRows() {
+        val name = kept(
+            "list-large",
+            WidgetSpec.Rows(
+                WidgetBase(title = "Todo"),
+                (1..8).map { WidgetSpec.Row("Item $it", detail = "Today", tap = WidgetTap(args = "$it")) }
+            )
+        )
+        val source = WidgetSource.script(name)
+        val known = scriptsOf(source)
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(
+                    LocalDensity provides Density(
+                        LocalDensity.current.density,
+                        fontScale = 1.5f
+                    )
+                ) {
+                    Box(Modifier.width(320.dp)) {
+                        SourceWidget(
+                            PlacedWidget(
+                                null,
+                                source,
+                                0L,
+                                200,
+                                0
+                            ), 200.dp, null, known
+                        )
+                    }
+                }
+            }
+        }
+        // A second line is 12 sp text in a line of 16 sp, which keeps that proportion at any font size:
+        // less a pixel for rounding. In a row of 44 dp it had 18 dp.
+        val line = with(Density(compose.density.density, fontScale = 1.5f)) { 12.sp.toPx() } * 16f / 12f - 1f
+        assertTrue("the second line is no taller than its old room", line > with(compose.density) { 18.dp.toPx() })
+        fun heights() = compose.onAllNodes(inCard(name) and hasText("Today"), useUnmergedTree = true)
+            .fetchSemanticsNodes().map { it.size.height }
+        compose.waitFor("no row with a second line is drawn") { heights().isNotEmpty() }
+        compose.waitForIdle()
+        assertTrue("a second line is cut at 1.5 times the font size: ${heights()} px, a line is $line", heights().all { it >= line })
     }
 
     /** `progress`: a ring with its text in it, bars with their names, or its own text over one bar. */
@@ -866,6 +949,103 @@ class ScriptWidgetCardTest {
         assertEquals(listOf("refresh $top"), asked.all.toList())
         compose.onNode(hasTestTag("widget:$below")).performScrollTo()
         compose.waitFor("the card scrolled into view asked for no run") { "refresh $below" in asked.all }
+    }
+
+    /**
+     * The page scrolls: a card below the fold asks for no run, also when its content is old or it
+     * was never filled. Scrolled into view, it asks at once.
+     */
+    @Test
+    fun aCardBelowTheFoldWaitsToBeFilled() {
+        val asked = Asked()
+        val top = kept("fold-top", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
+        val old = kept("fold-old", WidgetSpec.Stat(WidgetBase(title = "Weather"), "25"))
+        setAgo(top, 125)
+        setAgo(old, 125)
+        // Nothing kept: never filled.
+        val new = name("fold-new")
+        val cards = listOf(top, old, new)
+        val feed = scriptsOf(*cards.map(WidgetSource::script).toTypedArray())
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalWidgetsShown provides true) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        cards.forEachIndexed { i, name ->
+                            // Far more than a screen above each card but the first.
+                            if (i > 0) Spacer(Modifier.height(4000.dp))
+                            OnScreenCard {
+                                Box(Modifier.width(320.dp)) {
+                                    SourceWidget(
+                                        PlacedWidget(
+                                            null,
+                                            WidgetSource.script(name),
+                                            0L,
+                                            200,
+                                            i
+                                        ), 200.dp, asked, feed
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitFor("the card on screen asked for no run") { asked.all.isNotEmpty() }
+        compose.waitForIdle()
+        assertEquals(listOf("refresh $top"), asked.all.toList())
+        compose.onNode(hasTestTag("widget:$old")).performScrollTo()
+        compose.waitFor("the old card scrolled into view asked for no run") { "refresh $old" in asked.all }
+        compose.waitForIdle()
+        assertFalse(asked.all.toString(), "refresh $new" in asked.all)
+        compose.onNode(hasTestTag("widget:$new")).performScrollTo()
+        compose.waitFor("the empty card scrolled into view asked for no run") { "refresh $new" in asked.all }
+    }
+
+    /**
+     * A switch that is off for the script stopped the last run. A tap that would run the script
+     * again opens the Scripts screen, where the switch is. A link of the card's own still opens.
+     */
+    @Test
+    fun aRunStoppedByASwitchLeadsToScripts() {
+        val asked = Asked()
+        val off = "internet is off for this script — tap to allow"
+        val plain = kept("switch", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
+        val linked = kept(
+            "switch-link",
+            WidgetSpec.Stat(
+                WidgetBase(
+                    title = "Stars",
+                    tap = WidgetTap(url = "https://example.com", label = "open the project")
+                ),
+                "9"
+            )
+        )
+        val empty = name("switch-empty")
+        for (n in listOf(plain, linked, empty)) {
+            WidgetStates.ran(context, n, "$n: $off", switchOff = true)
+            WidgetStates.announce(context, n)
+        }
+        // Another failure keeps the tap that refreshes.
+        val failed = kept("switch-other", WidgetSpec.Stat(WidgetBase(title = "Weather"), "25"))
+        WidgetStates.ran(context, failed, "$failed: no network")
+        WidgetStates.announce(context, failed)
+        show(plain, linked, empty, failed, actions = asked)
+        draws(plain, "24")
+        draws(linked, "9")
+        draws(failed, "25")
+        // The card still says what is off.
+        draws(empty, "$empty: internet is off for this script")
+        compose.onNode(inCard(plain) and hasClickLabel("open scripts")).performClick()
+        compose.onNode(inCard(empty) and hasClickLabel("open scripts")).performClick()
+        compose.onNode(inCard(linked) and hasClickLabel("open the project")).performClick()
+        compose.onNode(inCard(failed) and hasClickLabel("refresh")).performClick()
+        compose.runOnIdle {
+            assertEquals(
+                listOf("scripts", "scripts", "tap $linked https://example.com", "tap $failed null"),
+                asked.all.toList()
+            )
+        }
     }
 
     /**

@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.widgets
 
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.takeSeen
 import com.mtwabpin.kolahal.script.Json
 
 /**
@@ -13,7 +14,7 @@ import com.mtwabpin.kolahal.script.Json
  *   is an error that names the field and says what to pass.
  * - Closed. An unknown field is an error that lists the known ones, so a typo (`colour`) doesn't
  *   pass unseen.
- * - Bounded. Text is cut with "…" at its limit. A list keeps its first items. Buttons and switches
+ * - Bounded. Text is cut with "…" at its limit, an icon without one. A list keeps its first items. Buttons and switches
  *   are the exception: more than their limit is an error, because one that is cut is a tap the
  *   user can't make.
  * - A field with no value (`nil`, `null`, `undefined`) counts as left out.
@@ -30,7 +31,11 @@ object WidgetParser {
 
     /** A note on a large card's last line ([WidgetBase.note]): a few words, such as "Done today". */
     const val MAX_NOTE = 16
+    /** An icon that is no name: at most this many characters as they are seen, an emoji of several counting as one. */
     const val MAX_ICON = 4
+
+    /** And at most this many UTF-16 units: room for the longest emoji, such as a kiss with two skin tones (15). */
+    const val MAX_ICON_UNITS = 16
 
     /** The longest text read for an icon: room for a name ([WidgetIcons]). */
     private const val MAX_ICON_NAME = 24
@@ -518,14 +523,15 @@ object WidgetParser {
 
         /**
          * The `icon` field: a name from [WidgetIcons] ("sun"), or a text cut to [MAX_ICON]
-         * characters (an emoji or a letter). A lower-case word over 4 letters that is no name is an
-         * error: most likely a typo, such as "sunn".
+         * characters as they are seen (an emoji or a letter), within [MAX_ICON_UNITS]. An emoji made
+         * of several is kept whole or left out, and the cut adds no "…". A lower-case word over 4
+         * letters that is no name is an error: most likely a typo, such as "sunn".
          */
         fun icon(): String? {
             val given = text("icon", MAX_ICON_NAME) ?: return null
             if (WidgetIcons.isName(given)) return given
             if (WidgetIcons.looksLikeName(given)) fail("icon \"$given\" is no icon name: the scripting guide lists them, or give an emoji")
-            return StyledText.take(given, MAX_ICON).ifEmpty { null }
+            return given.takeSeen(MAX_ICON, MAX_ICON_UNITS).ifEmpty { null }
         }
 
         /** A text field that must be there. [what] says what it is for, in the error. It may be empty. */

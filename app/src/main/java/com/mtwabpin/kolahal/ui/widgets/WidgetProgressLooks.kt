@@ -28,9 +28,12 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -317,10 +320,39 @@ private fun SplitBars(spec: WidgetSpec.Progress, color: Color) {
     }
 }
 
-/** On a fill that reaches past [fraction] of the way up, text goes in the color that reads on the fill. */
+/**
+ * [text] over Shape's level, in the box it shares with a fill that reaches [fraction] of the way up:
+ * drawn twice, each clipped at the fill's line. Over the fill it is in the color that reads on the
+ * fill, over the empty part in the content color, so a number across the line reads on both sides.
+ * A screen reader hears it once.
+ */
 @Composable
-private fun onLevel(fraction: Float, colors: LookColors): Color =
-    if (fraction >= 0.5f) colors.onAccent else colors.content
+private fun BoxScope.OnLevel(
+    fraction: Float,
+    colors: LookColors,
+    text: @Composable BoxScope.(Color) -> Unit
+) {
+    Box(
+        Modifier
+            .matchParentSize()
+            .levelClip(fraction, overFill = false)
+    ) { text(colors.content) }
+    Box(
+        Modifier
+            .matchParentSize()
+            .levelClip(fraction, overFill = true)
+            .clearAndSetSemantics {}
+    ) { text(colors.onAccent) }
+}
+
+/** Draws only the part over a fill that reaches [fraction] of the way up ([overFill]), or only the part above it. */
+private fun Modifier.levelClip(fraction: Float, overFill: Boolean): Modifier = drawWithContent {
+    val line = size.height * (1f - fraction.coerceIn(0f, 1f))
+    clipRect(
+        top = if (overFill) line else 0f,
+        bottom = if (overFill) size.height else line
+    ) { this@drawWithContent.drawContent() }
+}
 
 /** Shape's progress in a card that is a clover: the clover fills from the bottom to the level, with the label above and the value on the fill. */
 @Composable
@@ -354,14 +386,16 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
             )
         }
         // A little under the middle, where the fill reaches at half.
-        BigText(
-            text,
-            if (small) type.titleMedium else type.displaySmall,
-            Modifier
-                .align(Alignment.Center)
-                .padding(top = side * 0.12f, start = side * 0.18f, end = side * 0.18f),
-            color = onLevel(fraction, c)
-        )
+        OnLevel(fraction, c) { ink ->
+            BigText(
+                text,
+                if (small) type.titleMedium else type.displaySmall,
+                Modifier
+                    .align(Alignment.Center)
+                    .padding(top = side * 0.12f, start = side * 0.18f, end = side * 0.18f),
+                color = ink
+            )
+        }
     }
 }
 
@@ -378,14 +412,16 @@ private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
         val side = minOf(maxHeight, 140.dp, maxWidth / 2)
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             ShapedLevel(MaterialShapes.Clover4Leaf, fraction, color, side) {
-                BigText(
-                    text,
-                    shapeValueStyle(side, 0.25f),
-                    Modifier
-                        .align(Alignment.Center)
-                        .padding(top = side * 0.18f, start = side / 6, end = side / 6),
-                    color = onLevel(fraction, c)
-                )
+                OnLevel(fraction, c) { ink ->
+                    BigText(
+                        text,
+                        shapeValueStyle(side, 0.25f),
+                        Modifier
+                            .align(Alignment.Center)
+                            .padding(top = side * 0.18f, start = side / 6, end = side / 6),
+                        color = ink
+                    )
+                }
             }
             Column(
                 Modifier

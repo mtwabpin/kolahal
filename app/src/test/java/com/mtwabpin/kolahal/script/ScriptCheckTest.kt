@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -112,6 +113,32 @@ class ScriptCheckTest {
             "@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
             ScriptCheck.check("// @widget", ScriptLang.JS).single().text
         )
+    }
+
+    /**
+     * A `@widget` line whose kind isn't one leaves the script without a widget. A run's
+     * `widget.show` then says what the editor says about that line, not that the line is missing.
+     */
+    @Test
+    fun aRunSaysWhatTheEditorSaysAboutTheKind() {
+        val code = "-- @title Stats\n-- @widget stats 2x1\nwidget.show{ value = 1 }"
+        assertNull(ScriptMeta.widget(code))
+        assertEquals(lua(code).single().text, ScriptCheck.widgetKindIssue(code))
+        assertEquals(
+            "@widget stats isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            ScriptCheck.widgetKindIssue(code)
+        )
+        assertEquals(
+            "@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            ScriptCheck.widgetKindIssue("// @widget\nwidget.show({ value: 1 });")
+        )
+        // A kind that is one, even with a size that isn't, gives a widget: nothing to say at run time.
+        assertNull(ScriptCheck.widgetKindIssue("-- @widget stat"))
+        assertNull(ScriptCheck.widgetKindIssue("-- @widget stat 3x3"))
+        // No line: the run says to add one.
+        assertNull(ScriptCheck.widgetKindIssue("widget.show{ value = 1 }"))
+        // The first line counts, as for the widget itself.
+        assertNull(ScriptCheck.widgetKindIssue("-- @widget list\n-- @widget lists"))
     }
 
     @Test

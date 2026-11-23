@@ -102,7 +102,8 @@ val LocalCardOnScreen = compositionLocalOf { true }
 /**
  * True while this card can be seen: the widgets page is in view ([LocalWidgetsShown]) and the card
  * is on screen ([LocalCardOnScreen]). Things that move (the loading shape, a wave, the seconds of a
- * countdown, a clock or a song) and `refresh` runs go on only while this is true.
+ * countdown, a clock or a song) and a card's runs (its first, one for old content, `refresh`) go on
+ * only while this is true.
  */
 @Composable
 internal fun cardSeen(): Boolean = LocalWidgetsShown.current && LocalCardOnScreen.current
@@ -774,9 +775,12 @@ private fun knownScript(feed: WidgetFeed, name: String): Known {
  * - It draws what the script stored for this widget with `widget.show`, and reads that again only
  *   when it changes. Everything it keeps and asks for is by the widget's key ([WidgetRef.key]), so
  *   two widgets of one script each have their own content, runs and taps.
- * - While in view, it asks for a quiet run when its content is old, or as often as its `refresh` says.
+ * - While it can be seen ([cardSeen]), it asks for a quiet run when its content is old, or as often
+ *   as its `refresh` says.
  * - A card whose script is gone, off or without its `@widget` line says so ([scriptNote]). It asks
  *   for no runs. A tap on it opens the Scripts screen, or the Widgets screen when the script is gone.
+ * - After a run that a switch stopped ([com.mtwabpin.kolahal.widgets.WidgetState.switchOff]), a
+ *   tap that would run the script opens the Scripts screen.
  * - A description without a title has the script's title. A further widget's then has its id too:
  *   "Weather 2".
  */
@@ -816,11 +820,14 @@ private fun ScriptWidget(
     // A run is asked for only once the scripts are read and the script can run.
     val runnable = known.read && missing == null
     val shown = LocalWidgetsShown.current
+    // The card can be seen: the page is in view and the card is on screen ([cardSeen]).
+    val visible = cardSeen()
     if (actions != null && shown && runnable) {
-        // The page came into view, or home came back with the page in view: run the script once if
-        // it never filled the widget, or if its content is old. A script that is switched on again
-        // starts this again, so its card is filled at once.
-        LaunchedEffect(key, actions, lifecycle) {
+        // The card came into view (the page did, home came back with the page in view, or the page
+        // was scrolled to it): run the script once if it never filled the widget, or if its content
+        // is old. A card below the fold waits until it is scrolled into view. A script that is
+        // switched on again starts this again, so its card is filled at once.
+        if (visible) LaunchedEffect(key, actions, lifecycle) {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 var asked = -1L
                 snapshotFlow { state }.collectLatest { s ->
@@ -839,7 +846,7 @@ private fun ScriptWidget(
                             asked = last
                             actions.refresh(key)
                         } else {
-                            // Content can grow old while the page shows.
+                            // Content can grow old while the card shows.
                             delay(LOOK_AGAIN_MS)
                         }
                     }
@@ -851,7 +858,7 @@ private fun ScriptWidget(
         val every = state?.spec?.base?.refresh
         val lastRun =
             rememberUpdatedState(state?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L)
-        if (every != null && cardSeen()) LaunchedEffect(key, actions, lifecycle, every) {
+        if (every != null && visible) LaunchedEffect(key, actions, lifecycle, every) {
             val period = every.coerceAtLeast(MIN_REFRESH_S) * 1000L
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
@@ -878,17 +885,23 @@ private fun ScriptWidget(
     // Nothing stored and no run ended yet: the widget was just placed, and its first run is on its way.
     val fresh = s != null && !s.hasContent && s.setAt == 0L && s.triedAt == 0L
     var gaveUp by remember(key) { mutableStateOf(false) }
-    LaunchedEffect(key, fresh, shown) {
+    // The wait starts when the card can be seen, as its first run does.
+    LaunchedEffect(key, fresh, visible) {
         if (!fresh) {
             // The next first run gets its own wait: a script that was off and is on again.
             gaveUp = false
-        } else if (shown && !gaveUp) {
+        } else if (visible && !gaveUp) {
             delay(LOADING_MS)
             gaveUp = true
         }
     }
-    // The failed run's own words, for a card with nothing else to show. Without "tap to edit": a tap here refreshes.
+    // The failed run's own words, for a card with nothing else to show. Without "tap to edit": a tap
+    // here refreshes, or opens Scripts.
     val failure = remember(s?.error) { WidgetWords.cardError(s?.error) }
+    // A switch that is off for the script stopped the last run, so a run asked for by a tap would
+    // stop the same way. A tap that would run the script opens the Scripts screen, where the switch
+    // is. A tap never turns the switch on itself. A link of the card's own still opens.
+    val toScripts = s?.switchOff == true && spec?.base?.tap?.url == null
     val note = when {
         missing != null -> missing
         s == null -> CardNote.WAITING
@@ -941,10 +954,17 @@ private fun ScriptWidget(
         if (footer == null) content else "$content. ${footer.said}"
     }
     val tap = spec?.base?.tap
-    val onClick: (() -> Unit)? = remember(actions, key, tap, missing) {
+    val onClick: (() -> Unit)? = remember(actions, key, tap, missing, toScripts) {
         actions?.let { a ->
-            if (missing != null) noteTap(missing, a) else {
-                { a.tap(key, tap ?: NO_TAP) }
+            when {
+                missing != null -> noteTap(missing, a)
+                toScripts -> {
+                    { a.openScripts() }
+                }
+
+                else -> {
+                    { a.tap(key, tap ?: NO_TAP) }
+                }
             }
         }
     }
@@ -965,6 +985,7 @@ private fun ScriptWidget(
             // With no action of its own, a tap on the card refreshes it.
             onClickLabel = when {
                 missing != null -> noteTapLabel(missing)
+                toScripts -> "open scripts"
                 tap == null -> "refresh"
                 else -> tap.label
             },

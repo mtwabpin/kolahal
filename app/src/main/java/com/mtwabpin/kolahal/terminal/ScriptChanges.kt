@@ -63,6 +63,8 @@ internal class ScriptChanges(private val context: Context) {
     fun access(s: Script, item: String, on: Boolean) {
         scripts.setAccess(s.id, item, on)
         if (item == ScriptAccess.HEADER) logs.onStatusChanged()
+        // A card that a switch stopped is filled again at once.
+        if (on) ScriptActions.accessAllowed(context, s.name)
     }
 
     /** Renames [s] to [to]. If [to] is not a valid name, returns the reason instead. */

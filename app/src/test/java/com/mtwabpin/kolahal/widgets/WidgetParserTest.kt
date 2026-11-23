@@ -1390,7 +1390,8 @@ class WidgetParserTest {
             "tap" to mapOf("args" to long, "label" to long)
         )
         assertEquals("x".repeat(39) + "…", spec.base.title)
-        assertEquals("Abc…", spec.base.icon)
+        // An icon is cut with no "…".
+        assertEquals("Abcd", spec.base.icon)
         assertEquals("x".repeat(23) + "…", spec.base.tap!!.label)
         assertEquals("x".repeat(199) + "…", spec.base.tap!!.args)
         val text =
@@ -1405,7 +1406,30 @@ class WidgetParserTest {
     /** A cut never ends in half an emoji. */
     @Test
     fun aCutKeepsAnEmojiWhole() {
-        assertEquals("ab…", stat("icon" to "ab🌧🌧").base.icon)
+        assertEquals("ab🌧🌧", stat("icon" to "ab🌧🌧🌧").base.icon)
+    }
+
+    /** An icon counts the characters as they are seen: an emoji made of several is one, and stays whole. */
+    @Test
+    fun anIconsEmojiOfSeveralCharactersIsKeptWhole() {
+        fun icon(text: String) = stat("icon" to text).base.icon
+        val coder = "\uD83D\uDC69\u200D\uD83D\uDCBB" // 👩‍💻: two joined by a zero-width joiner, 5 units
+        assertEquals(coder, icon(coder))
+        assertEquals("\uD83C\uDDEE\uD83C\uDDF3", icon("\uD83C\uDDEE\uD83C\uDDF3")) // 🇮🇳
+        // Scotland's flag: a black flag and six tags, 14 units.
+        val scotland = "\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC73\uDB40\uDC63\uDB40\uDC74\uDB40\uDC7F"
+        assertEquals(scotland, icon(scotland))
+        val technologist = "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83D\uDCBB" // 🧑🏽‍💻: a skin tone and a joiner, 7 units
+        assertEquals(technologist, icon(technologist))
+        // A kiss with two skin tones, 15 units: the longest there is fits.
+        val kiss = "\uD83E\uDDD1\uD83C\uDFFB\u200D\u2764\uFE0F\u200D\uD83D\uDC8B\u200D\uD83E\uDDD1\uD83C\uDFFC"
+        assertEquals(15, kiss.length)
+        assertEquals(kiss, icon(kiss))
+        assertEquals("Y", icon("Y"))
+        // A long text keeps its first 4 characters, and no more than 16 units: a fourth coder would end at 20.
+        assertEquals("Long", icon("Long text that is no icon"))
+        assertEquals(coder + coder + coder, icon(coder.repeat(4)))
+        assertEquals(kiss, icon(kiss + coder))
     }
 
     @Test

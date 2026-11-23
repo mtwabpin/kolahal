@@ -246,6 +246,7 @@ template-widget-list-js.js 5600a7e957a235f8
 template-widget-list-js.js 985575481309d264
 template-widget-list.lua 2f1e101f92df9e48
 template-widget-list.lua 45f0ca9a351f119b
+template-widget.lua 57cf21fc091a0322
 template-widget.lua 4be2b8ad14d5fb1f
 template-widget.lua 8f823571156e01e0
 template-widget.lua d647691c3b07e52b

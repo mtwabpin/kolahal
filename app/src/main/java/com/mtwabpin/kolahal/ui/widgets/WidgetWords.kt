@@ -204,6 +204,13 @@ internal object WidgetWords {
     }
 
     /**
+     * The day of [seconds] in [zone], as a number of days since 1 January 1970. It changes at
+     * midnight there: the moment under a countdown ([countdownEnds]) is written again then.
+     */
+    fun localDay(seconds: Long, zone: ZoneId): Long =
+        Instant.ofEpochSecond(seconds).atZone(zone).toLocalDate().toEpochDay()
+
+    /**
      * [fraction] in steps of a thousandth: about one pixel of a bar. A countdown's fraction changes
      * a little every second. Its bar gets the same value until it has moved a step, so it is not
      * drawn again, and does not start its spring again, every second.
@@ -1064,8 +1071,10 @@ internal object WidgetWords {
 
     /**
      * A failed run's error as a card shows it: its first line ([firstLine]) without what only the
-     * log line can do. The stored error is the log line's text. A tap on that line edits the script
-     * or allows an item. A tap on the card only runs the script again, so the card promises no more.
+     * log line can do. The stored error is the log line's text, such as "weather: attempt to index
+     * a nil value (tap to edit line 7)". A tap on that line edits the script or allows an item. A
+     * tap on the card runs the script again, or opens the Scripts screen after a switch stopped
+     * the run, so the card promises no more.
      * - "(tap to edit line 7)" at the end becomes "(line 7)".
      * - "— tap to allow" at the end is left out.
      */
@@ -1105,6 +1114,13 @@ internal object WidgetWords {
         val share = (heightDp + gapDp) / shown - gapDp
         return share.coerceIn(rowDp.toFloat(), maxOf(rowDp, ROW_MAX_DP).toFloat())
     }
+
+    /**
+     * The height of a row of text, in dp: [leastDp], or the lines it holds ([linesDp], their line
+     * heights at the phone's font size in whole dp) when they are taller. At the usual font size a
+     * row keeps [leastDp]. With a larger font it grows, and [rowsShown] counts fewer rows.
+     */
+    fun textRowDp(leastDp: Int, linesDp: Int): Int = maxOf(leastDp, linesDp)
 
     /** Whether the "+3 more" line fits under [shown] rows ([rowsShown]). */
     fun showsMore(
