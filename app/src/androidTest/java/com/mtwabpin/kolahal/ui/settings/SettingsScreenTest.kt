@@ -22,6 +22,7 @@ import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -33,6 +34,7 @@ import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
@@ -47,6 +49,7 @@ import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
@@ -656,6 +659,42 @@ class SettingsScreenTest {
         compose.onNode(hasSetTextAction() and hasText("alex k"))
             .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
         compose.runOnIdle { assertEquals(Keys.USER_NAME.default, config[Keys.USER_NAME]) }
+    }
+
+    /**
+     * A hold on a number setting's title opens a box with its value, selected, and its range under it. A
+     * value outside the range is marked and not set; one in it is set with Done, and the slider follows. A
+     * hold on the slider itself still only moves the slider.
+     */
+    @Test
+    fun holdingANumbersTitleTypesItsValue() {
+        val key = Keys.LOG_SPACING
+        show("log")
+        scrollTo(key)
+        compose.onNodeWithText(SettingTitles[key.key] ?: key.key, useUnmergedTree = true)
+            .performTouchInput { longClick() }
+        val box = compose.onNodeWithTag("type-value")
+        box.assert(hasText("${key.default}"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(0, "${key.default}".length)))
+        compose.onNodeWithText("${key.range.first} to ${key.range.last}").assertExists()
+
+        box.performTextReplacement("${key.range.last + 1}")
+        box.performImeAction()
+        box.assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
+        compose.runOnIdle { assertTrue(config.isDefault(key)) }
+
+        box.performTextReplacement("12")
+        box.performImeAction()
+        compose.waitUntil(5_000) { config[key] == 12 }
+        box.assertDoesNotExist()
+        val slider = compose.onNodeWithTag("slider ${key.key}")
+        slider.assert(SemanticsMatcher("at 12") {
+            it.config[SemanticsProperties.ProgressBarRangeInfo].current == 12f
+        })
+
+        slider.performTouchInput { down(center); advanceEventTime(1_000); up() }
+        compose.waitForIdle()
+        box.assertDoesNotExist()
     }
 
     /**

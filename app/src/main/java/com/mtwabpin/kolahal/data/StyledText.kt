@@ -92,34 +92,34 @@ object StyledText {
         val end: List<Span>
     )
 
-    private const val BASE = 0x10FB00
+    internal const val BASE = 0x10FB00
     private const val ITEM = BASE + 0x10
 
     // A table: a marker at the start of a line makes it a row (or the header row), and one before
     // each cell starts it, lined up on the left or the right.
     private const val ROW = BASE + 0x12
     private const val HEAD = BASE + 0x13
-    private const val CELL = BASE + 0x14
+    internal const val CELL = BASE + 0x14
     private const val CELL_RIGHT = BASE + 0x15
 
     // A link: LINK, the address, LINK_TEXT, the text it shows, LINK_END.
-    private const val LINK = BASE + 0x16
-    private const val LINK_TEXT = BASE + 0x17
+    internal const val LINK = BASE + 0x16
+    internal const val LINK_TEXT = BASE + 0x17
     private const val LINK_END = BASE + 0x18
 
     // A bar: a marker at the start of a line, then its numbers, then three parts before each of which
     // a CELL marker goes: the label, the text before the track and the text after it.
-    private const val METER = BASE + 0x19
+    internal const val METER = BASE + 0x19
 
     // Big numbers: a marker at the start of a line, then a CELL marker before each value and each label.
     private const val STATS = BASE + 0x1A
 
     // A column chart: a marker at the start of a line, then its heights, then a CELL marker before
     // its words for a screen reader and before each label.
-    private const val COLUMNS = BASE + 0x1B
+    internal const val COLUMNS = BASE + 0x1B
     private const val COLOR = BASE + 0x20
     private const val COLOR_END = BASE + 0x2F
-    private const val LAST = COLOR_END
+    internal const val LAST = COLOR_END
 
     /** Opens [style]. [close] ends it. */
     fun open(style: Style): String = char(BASE + style.ordinal * 2)

@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.ui.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -50,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -65,11 +67,16 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.ConnectedChoices
+import com.mtwabpin.kolahal.ui.HOLD_TO_TYPE
 import com.mtwabpin.kolahal.ui.LabeledIconButton
+import com.mtwabpin.kolahal.ui.TypeValueDialog
+import com.mtwabpin.kolahal.ui.TypedNumber
 import com.mtwabpin.kolahal.ui.fieldColors
+import com.mtwabpin.kolahal.ui.rememberHoldToType
 import com.mtwabpin.kolahal.ui.theme.Palettes
 import com.mtwabpin.kolahal.ui.theme.segColors
 import com.mtwabpin.kolahal.ui.theme.segShapes
+import com.mtwabpin.kolahal.ui.typeValueAction
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -102,6 +109,8 @@ internal fun undoMessage(
  * - A text setting applies its typed value when the field loses focus or the row leaves the screen
  *   (Settings closed, the row scrolled off), as Done and the check mark do. A value that isn't valid
  *   stays marked red and is not applied.
+ * - A number setting's title or value, held, opens a box to type the number ([TypeValueDialog]); a tap on
+ *   them says so through [onHint] (a toast without one). A screen reader has the row's "Type a value".
  */
 @Composable
 internal fun SettingItem(
@@ -111,6 +120,7 @@ internal fun SettingItem(
     index: Int,
     count: Int,
     onUndoMessage: UndoMessage? = null,
+    onHint: ((String) -> Unit)? = null,
 ) {
     val config = vm.config
     // Only this row recomposes when its own value changes.
@@ -208,14 +218,42 @@ internal fun SettingItem(
                     SliderState(current, steps, key.range.first.toFloat()..key.range.last.toFloat())
                 }
                 slider.value = current
+                // A hold on the title or the value opens a box to type the number. The slider keeps its
+                // own hold: it moves to the finger.
+                var typing by remember(key) { mutableStateOf(false) }
+                val context = LocalContext.current
+                val hold = rememberHoldToType(
+                    onHold = { typing = true },
+                    onTap = {
+                        if (onHint != null) onHint(HOLD_TO_TYPE)
+                        else Toast.makeText(context, HOLD_TO_TYPE, Toast.LENGTH_SHORT).show()
+                    },
+                )
+                if (typing) TypeValueDialog(
+                    title = title,
+                    value = current.roundToInt().toString(),
+                    range = TypedNumber.range(key.range),
+                    decimals = false,
+                    read = { TypedNumber.whole(it, key.range) },
+                    onDismiss = { typing = false },
+                    onApply = { n ->
+                        typing = false
+                        current = n.toFloat()
+                        // As when the slider is let go.
+                        vm.setConfig(key, n.toString())
+                        config.preview(key, null)
+                    },
+                )
                 SegmentedListItem(
                     colors = segColors(),
                     shapes = shapes,
+                    modifier = Modifier.typeValueAction { typing = true },
                     trailingContent = {
                         Text(
-                            current.roundToInt().toString(),
+                            ChoiceLabels.of(key, current.roundToInt()),
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = hold,
                         )
                     },
                     supportingContent = {
@@ -251,7 +289,15 @@ internal fun SettingItem(
                             )
                         }
                     },
-                ) { Text(title) }
+                ) {
+                    // The whole width beside the value, so the hold is easy to find.
+                    Text(
+                        title,
+                        Modifier
+                            .fillMaxWidth()
+                            .then(hold),
+                    )
+                }
             }
 
             is ConfigKey.Text -> {

@@ -222,8 +222,8 @@ object Keys {
     val SCREEN_SAVER_AFTER = ConfigKey.Num(
         "screen.saver-after",
         5,
-        1..60,
-        "Minutes without a touch on home before the screensaver (screen.saver) starts"
+        0..60,
+        "Minutes without a touch on home before the screensaver (screen.saver) starts; 0 is 30 seconds"
     )
     val FONT = ConfigKey.Choice(
         "font.family", "jetbrains-mono",
@@ -498,6 +498,7 @@ object Keys {
             "frost" to "Ice grows in from the edges and melts under your finger",
             "mountains" to "Misty ridges that breathe, under the hour's sun or moon",
             "pond" to "A still pond under far hills, with rings of rain",
+            "dunes" to "One long dune in a desert, under the hour's sky",
             "rain" to "A storm with depth: far mist, rain, and big soft drops close by",
             "snowfall" to "Snow falls behind the text and drifts as the phone leans",
             "grove-snow" to "A few crisp flakes that fall and wander slowly",
@@ -507,6 +508,17 @@ object Keys {
             "fireflies" to "Small lights wander behind the text; on a light theme, soft motes",
             "contour" to "A map's contour lines, slowly changing; a touch raises a hill",
             "ink" to "A touch drops a faint cloud of ink that spreads and fades",
+            "aura" to "Soft light around the edges of the screen",
+            "day-ring" to "Today as a dial around the screen, glowing where the phone was used",
+            "lanterns" to "Paper lanterns over water, as high as each day's unlocks",
+            "kintsugi" to "A bowl mended with gold, a seam for each day's unlocks",
+            "record" to "A record on a turntable, a band of grooves for each day's screen time",
+            "candle" to "A candle that burns down as today's screen time is spent",
+            "hourglass" to "An hourglass that runs down as today's screen time is spent",
+            "windows" to "An apartment block, a floor of lit windows for each day's screen time",
+            "seismograph" to "A pen draws today's screen time on a strip of paper",
+            "hearts" to "A one-off: hearts rise over home once",
+            "pulse" to "A one-off: light runs in around the screen's edges once",
         ),
     )
     val LOG_SPACING = ConfigKey.Num(

@@ -167,9 +167,9 @@ data class Action(
     val onClick: () -> Unit
 )
 
-/** A segmented group of clickable rows. */
+/** A segmented group of clickable rows. [leading], when given, takes the place of each row's icon: a picture, by the row's index. */
 @Composable
-fun ActionGroup(actions: List<Action>) {
+fun ActionGroup(actions: List<Action>, leading: (@Composable (Int) -> Unit)? = null) {
     Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
         actions.forEachIndexed { i, a ->
             SegmentedListItem(
@@ -177,7 +177,8 @@ fun ActionGroup(actions: List<Action>) {
                 onClick = a.onClick,
                 shapes = segShapes(i, actions.size),
                 leadingContent = {
-                    Icon(
+                    if (leading != null) leading(i)
+                    else Icon(
                         painterResource(a.icon),
                         null,
                         tint = MaterialTheme.colorScheme.primary

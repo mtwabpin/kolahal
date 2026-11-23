@@ -79,7 +79,7 @@ fun SettingsOverHome(vm: TerminalViewModel) {
 fun ShadersOverHome(vm: TerminalViewModel) {
     Box(Modifier.fillMaxSize()) {
         HomeUnder(vm)
-        ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, vm.peek, vm::peek, vm::askNotificationAccess)
+        ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, vm.peek, vm::peek, vm::askNotificationAccess, vm::openShaderEditor)
     }
 }
 
@@ -200,6 +200,13 @@ fun SettingsScreen(vm: TerminalViewModel) {
             val say: (String) -> Unit = { text -> tapScope.launch { snackbar.showSnackbar(text) } }
             // "Reset …" with Undo, after a setting is reset to its default.
             val undo = undoMessage(tapScope, snackbar)
+            // A tap on a number setting's title or value says to hold it to type the number.
+            val hint: (String) -> Unit = { text ->
+                tapScope.launch {
+                    snackbar.currentSnackbarData?.dismiss()
+                    snackbar.showSnackbar(text)
+                }
+            }
 
             GuiListPage(
                 title = {
@@ -275,7 +282,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                                     keep = peek?.key == key.key,
                                     modifier = Modifier.animateItem()
                                 ) {
-                                    SettingItem(vm, key, version, index, keys.size, undo)
+                                    SettingItem(vm, key, version, index, keys.size, undo, hint)
                                 }
                             }
                         }
@@ -423,7 +430,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                                 PeekFade(
                                     peek,
                                     keep = peek?.key == key.key
-                                ) { SettingItem(vm, key, version, index, keys.size, undo) }
+                                ) { SettingItem(vm, key, version, index, keys.size, undo, hint) }
                             }
                         }
                     }
