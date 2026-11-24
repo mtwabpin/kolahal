@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -361,6 +362,62 @@ private fun TtyList(
                     block, grid, originX, Modifier
                         .clickable(onClickLabel = "show earlier output") { onShowHidden() }
                         .semantics { this.text = AnnotatedString(text) })
+            }
+        }
+    }
+}
+
+/**
+ * [rows] as the log draws them on the grid, only to show: the script editor's reference has them.
+ * Each is laid out as the log lays it out ([layoutLine]), in as many whole columns as fit the
+ * width this has, with the log's gaps but none above the first line. No time and nothing dimmed,
+ * as in the reference's GUI lines; a tall line is folded. The lines take no touch and read
+ * nothing: [modifier] gives them what they read, and their background.
+ */
+@Composable
+internal fun TtyLinesShown(
+    rows: List<LogRow.Entry>,
+    config: Config,
+    timeFormat: SimpleDateFormat,
+    modifier: Modifier = Modifier,
+) {
+    val grid = rememberTtyGrid()
+    val m = grid.metrics
+    val density = LocalDensity.current
+    val gutter = remember { config[Keys.LOG_GUTTER] }
+    val groupGap = remember { config[Keys.LOG_SPACING] }
+    val options = LineOptions(TimeMode.OFF, Term.foldLines)
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        // The log's frame: whole cells inside its margin, the pixels left over on both sides.
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else m.cellW * 40
+        val margin = with(density) { GRID_MARGIN.roundToPx() }
+        val cols = m.cols((width - 2 * margin).coerceAtLeast(m.cellW))
+        val originX = ((width - cols * m.cellW) / 2).coerceAtLeast(0)
+        // The log's gaps: one row above a group unless log.spacing is 0, none between a list's items.
+        val groupGapPx = HomeStyles.ttyGroupGapRows(groupGap) * m.cellH
+        val itemGapPx = with(density) { HomeStyles.TTY_ITEM_GAP_DP.dp.roundToPx() }
+        val look = LogLook(
+            cols = cols,
+            gutter = gutter,
+            dim = false,
+            boxedTables = Term.boxedTables,
+            foldLines = Term.foldLines,
+            itemGapRows = 0,
+            rtl = rtl,
+        )
+        Column(Modifier.fillMaxWidth()) {
+            rows.forEachIndexed { i, row ->
+                val line = remember(row, look, options, timeFormat) {
+                    layoutLine(row, options, look, false, emptyList(), timeFormat, { emptyList() }, false)
+                }
+                val gapPx = if (i == 0) 0 else when (line.model.gapAbove) {
+                    LineModel.Gap.GROUP -> groupGapPx
+                    LineModel.Gap.ITEM -> itemGapPx
+                    else -> 0
+                }
+                if (gapPx > 0) Spacer(Modifier.fillMaxWidth().cellHeight(gapPx))
+                TtyText(line.block, grid, originX)
             }
         }
     }

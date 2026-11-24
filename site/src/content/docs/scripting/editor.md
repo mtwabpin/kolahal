@@ -127,6 +127,10 @@ them, then its code in the script's language: the same examples as the scripting
 - **Size** picks one of the sizes the kind is made for.
 - **Look** draws the card in one of the [looks](/guides/widgets/#looks) that the person who places
   the widget can choose. Only the looks that change this kind of card are offered.
+- **Home style**, on a log example, draws the lines as home draws them in the GUI style or in the
+  [TTY style](/reference/config/#tty-home-style), on the character grid. It starts on the style
+  your home has. Changing it here doesn't change `home.style`; the other log examples, and the
+  small previews in the list, follow it until the reference closes.
 - **Copy** puts the code on the clipboard. **Insert** puts it in at the cursor, on lines of its
   own, and returns to the script. Both take the code of what you chose.
 

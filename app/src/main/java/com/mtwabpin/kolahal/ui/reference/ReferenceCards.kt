@@ -85,6 +85,7 @@ import com.mtwabpin.kolahal.ui.BackButton
 import com.mtwabpin.kolahal.ui.home.LogLine
 import com.mtwabpin.kolahal.ui.home.rememberLineIndents
 import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.tty.TtyLinesShown
 import com.mtwabpin.kolahal.ui.widgets.LocalWidgetLook
 import com.mtwabpin.kolahal.ui.widgets.LocalWidgetsShown
 import com.mtwabpin.kolahal.ui.widgets.WidgetCard
@@ -279,13 +280,15 @@ internal fun WidgetExampleRow(
 
 /**
  * A row of the Log lines tab, or of the search's results: [ex]'s [name], and under it its first
- * lines as the log draws them, or [line] when there is one. A tap opens its view ([onOpen]).
+ * lines as the log draws them, or [line] when there is one. [tty]: the lines as the TTY style's
+ * log draws them, on the grid. A tap opens its view ([onOpen]).
  */
 @Composable
 internal fun LogExampleRow(
     ex: ReferenceExamples.Log,
     name: AnnotatedString,
     line: AnnotatedString?,
+    tty: Boolean,
     onOpen: () -> Unit
 ) {
     Row(
@@ -320,7 +323,8 @@ internal fun LogExampleRow(
                         ex,
                         Modifier.wrapContentHeight(Alignment.Top, unbounded = true),
                         source = false,
-                        first = 1
+                        first = 1,
+                        tty = tty
                     )
                 }
             }
@@ -399,11 +403,18 @@ internal fun WidgetExampleView(
     }
 }
 
-/** A log example's own view: its lines as the log draws them, then its code, with Copy and Insert at the bottom. */
+/**
+ * A log example's own view: its lines as the log draws them, then its code, with Copy and Insert at
+ * the bottom.
+ * - Home style: the lines as the GUI style's log draws them, or as the TTY style's does, on the
+ *   grid ([tty]). A tap picks one ([onTty]); the setting stays as it is.
+ */
 @Composable
 internal fun LogExampleView(
     ex: ReferenceExamples.Log,
     lang: ScriptLang,
+    tty: Boolean,
+    onTty: (Boolean) -> Unit,
     onBack: () -> Unit,
     onInsert: (String) -> Unit
 ) {
@@ -421,7 +432,9 @@ internal fun LogExampleView(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            PreviewFrame { LinesPreview(ex, Modifier.clip(RoundedCornerShape(16.dp))) }
+            PreviewFrame { LinesPreview(ex, Modifier.clip(RoundedCornerShape(16.dp)), tty = tty) }
+            ChoiceLabel("Home style")
+            ExampleChoices(STYLES, STYLES[if (tty) 1 else 0], "style ${ex.name} ") { onTty(it == 1) }
             ChoiceLabel("Code")
             CodeBlock(code)
             Spacer(Modifier.height(16.dp))
@@ -579,14 +592,16 @@ private object NoLinks : UriHandler {
  * ([Untouchable]), their links open nothing, and TalkBack reads them as one text. So a line's link
  * doesn't open, a swipe doesn't copy or delete it, and its buttons run nothing. A tap on them still
  * reaches what is around them. [source]: the first line ends with its script's name, as in the log.
- * [first]: only that many lines.
+ * [first]: only that many lines. [tty]: as the TTY style's log draws them, on the grid
+ * ([TtyLinesShown]).
  */
 @Composable
 internal fun LinesPreview(
     ex: ReferenceExamples.Log,
     modifier: Modifier = Modifier,
     source: Boolean = true,
-    first: Int = Int.MAX_VALUE
+    first: Int = Int.MAX_VALUE,
+    tty: Boolean = false
 ) {
     val context = LocalContext.current
     val config = remember { Config.get(context) }
@@ -611,7 +626,17 @@ internal fun LinesPreview(
     // A link in a line opens through LocalUriHandler: here it opens nothing.
     CompositionLocalProvider(LocalUriHandler provides NoLinks) {
         Untouchable(modifier.fillMaxWidth()) {
-            Column(
+            if (tty) TtyLinesShown(
+                rows,
+                config,
+                times,
+                Modifier
+                    .fillMaxWidth()
+                    .background(Term.bg)
+                    .padding(vertical = 6.dp)
+                    .testTag("tty-lines")
+                    .clearAndSetSemantics { contentDescription = spoken },
+            ) else Column(
                 Modifier
                     .fillMaxWidth()
                     .background(Term.bg)
@@ -642,3 +667,6 @@ internal fun LinesPreview(
 
 /** The choice of a guide's example among its variants: the example as the scripting guide has it. */
 private const val GUIDE = "As in the guide"
+
+/** The choices of a log example's home style: `home.style gui` and `home.style tty`. */
+private val STYLES = listOf("GUI", "TTY")

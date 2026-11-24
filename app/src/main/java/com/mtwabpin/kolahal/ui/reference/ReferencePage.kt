@@ -36,10 +36,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
@@ -54,6 +56,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.script.ApiDoc
@@ -117,6 +121,9 @@ internal class ReferenceState {
  * - Icons: a grid by group; a tap gives the name to [onIcon].
  * - The search looks in every tab at once ([ReferenceSearch.find]) and lists what it finds by tab.
  *   A tap does what it does in the tab. Back from an example opened there returns to the results.
+ * - The log examples show their lines as the GUI style's log draws them, or the TTY style's: home's
+ *   style when the page opens. A log example's view changes it for every example, until the page
+ *   closes; the setting stays as it is.
  * Back closes an example's view, then clears the search, then closes the page ([onBack]).
  *
  * The search, tab, group and scroll positions are in [ref], which outlives the page, so it reopens
@@ -136,6 +143,9 @@ internal fun ReferencePage(
     val tab = ref.tab
     val namespace = ref.namespace
     var opened by remember { mutableStateOf<Opened?>(null) }
+    val context = LocalContext.current
+    // The log examples' style: home's, until a log example's view picks the other.
+    var tty by rememberSaveable { mutableStateOf(HomeStyles.ttyNow(Config.get(context))) }
     val lists = ref.lists
     val resultsList = ref.resultsList
     BackHandler {
@@ -163,6 +173,8 @@ internal fun ReferencePage(
             is Opened.Log -> LogExampleView(
                 o.ex,
                 lang,
+                tty,
+                onTty = { tty = it },
                 onBack = { opened = null },
                 onInsert = onExample
             )
@@ -255,7 +267,7 @@ internal fun ReferencePage(
 
                             RefTab.LOGS -> RefList(state, bottom) {
                                 items(ReferenceExamples.logs, key = { it.name }) { ex ->
-                                    LogExampleRow(ex, AnnotatedString(ex.heading), null) {
+                                    LogExampleRow(ex, AnnotatedString(ex.heading), null, tty) {
                                         opened = Opened.Log(ex)
                                     }
                                 }
@@ -285,7 +297,8 @@ internal fun ReferencePage(
                             onPick,
                             onDirective,
                             onIcon,
-                            openWidget
+                            openWidget,
+                            tty
                         ) { opened = Opened.Log(it) }
                     }
                 }
@@ -558,7 +571,7 @@ private fun ResultsHead(tab: RefTab, count: Int) {
 /**
  * What the search found ([found]), by tab, each group under its name and count, with [words] marked.
  * A tap does what it does in the tab: it puts an entry, a directive or an icon in, or opens an
- * example ([onWidget], [onLog]).
+ * example ([onWidget], [onLog]). [tty]: the log examples' lines are on the grid.
  */
 @Composable
 private fun Results(
@@ -571,6 +584,7 @@ private fun Results(
     onDirective: (String) -> Unit,
     onIcon: (String) -> Unit,
     onWidget: (ReferenceExamples.Widget) -> Unit,
+    tty: Boolean,
     onLog: (ReferenceExamples.Log) -> Unit,
 ) {
     LazyColumn(
@@ -604,7 +618,9 @@ private fun Results(
                 LogExampleRow(
                     ex,
                     marked(ex.heading, words),
-                    line?.let { marked(it, words) }) { onLog(ex) }
+                    line?.let { marked(it, words) },
+                    tty
+                ) { onLog(ex) }
             }
         }
         if (found.icons.isNotEmpty()) {
