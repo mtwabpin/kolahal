@@ -152,5 +152,5 @@ export const PICTURES: Picture[] = [
 
 	// Work profile and private space
 	{ section: 'profiles', file: 'shots/profiles/resume.png', caption: 'Opening an app of a paused profile', alt: 'A faded work app tapped while the work profile is paused, and Kolahal asking Resume work apps?', href: '/guides/profiles/#pausing-and-resuming' },
-	{ section: 'profiles', file: 'app-grid.png', caption: 'Personal and work apps', alt: 'The apps grid: personal apps, then work apps marked W', href: '/guides/apps/#listing' },
+	{ section: 'profiles', file: 'app-grid.png', caption: 'Personal and work apps', alt: 'The apps grid in three columns: personal apps, then work apps with a small badge on their icons, each under a heading with its count', href: '/guides/apps/#listing' },
 ];
