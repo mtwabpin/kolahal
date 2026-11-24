@@ -695,6 +695,43 @@ than one good answer. Paths under =terminal/commands/=.
   as they are.
 - Remark:
 
+** TODO [#C] What still describes the app selector as a panel over a dimmed home  :home:docs:
+Since the selector's list took the log's place (the log fades out, the header and the prompt stay,
+no card and no scrim), the guide's text and its three pictures were corrected on 24 November 2026.
+Left over:
+- =ui/home/AppSelector.kt=: several comments still say "panel"; the one above the open list says
+  "home dims behind it", and the =fade= parameter's comment and the one on the rows ("the rows stand
+  on the dimmed home (the scrim)") are true only where nothing is passed to fade (the Settings
+  preview). The code is right; the comments mislead a reader. The fix: reword them to what the
+  code does on home.
+- The guide's Parts page: its picture of home (=site/src/assets/parts/home.png=, from 4 November
+  2026) shows the slim handle, and mark 12 names it "App selector handle". With today's defaults
+  the edge shows small letters (=selector.letters= is on) and no handle. The fix: retake that
+  picture on the emulator with the defaults, as the three selector pictures were, and reword the
+  mark. The other pictures in that folder are as old; look at each against the app when retaking.
+
+** WAITING [#B] The places outside the repository that still say "terminal launcher"  :project:
+On 24 November 2026 Kolahal's description changed from "a keyboard-first terminal launcher" to "a
+touch and type optimized launcher", with touch as much a part of it as typing. The README, the
+website, the app's first line on a new install ("Kolahal, a touch and type launcher") and the
+READMEs of the two script repositories say so now. Three places can only be changed by the
+maintainer, or need a choice first:
+- The store listing ([[file:release/google-play.org][release/google-play.org]], "Store listing text"). The app's name on Google
+  Play is "Kolahal: Terminal Launcher", the short description is "A keyboard-driven home screen
+  that opens apps and runs commands as you type", and the full description opens with "Kolahal
+  turns your home screen into a terminal". Drafts to choose from: the name "Kolahal: Touch & Type
+  Launcher" (30 characters, the most Play allows) or plain "Kolahal Launcher"; the short
+  description "A home screen for touch and typing that opens apps and runs commands" (68 of 80
+  characters, one sentence, none of the words Play flagged). Once chosen, that file's texts are
+  rewritten and pasted into Play Console.
+- The repository's description on GitHub (About, at the top of the repository's page).
+- The maintainer's own site: the plate for Kolahal on its home page says "A keyboard-first terminal
+  launcher for Android".
+- One more thing to decide with the wording: the app selector is what "touch" promises first, and it
+  is off until turned on (=selector.rail=). To decide: on from the start, offered in the first-run
+  setup, or as it is.
+- Remark:
+
 ** WAITING [#C] Rich responses from scripts with A2UI  :scripts:project:
 - A2UI is Google's open protocol with which an AI agent describes a UI as data, and the app draws it with its
   own components. Watched, not planned (the maintainer, 22 November 2026).

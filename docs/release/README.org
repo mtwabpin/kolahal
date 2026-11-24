@@ -16,6 +16,12 @@ details are in the files beside this one. (This folder is for the maintainer; th
   Console, and each Play release.
 - [[file:graphics/][graphics/]]: the store icon, feature graphic and screenshots, with the sources they are
   rendered from (=tools/play-graphics.sh=; google-play.org → Graphics).
+  =graphics/icon-rounded.svg= is the launcher icon with round corners, shown at the top of the
+  repository's README. =graphics/icon-ideas/= keeps four drawings for a later launcher icon, chosen
+  by the maintainer on 24 November 2026 from two sets of ideas: A (today's icon with fewer, bolder
+  parts), B (the log over a dusk scene), F (the log's lines rising into ridges) and G (today's icon
+  in the website's colors). B is the website's icon since that day (=site/public/favicon.svg=,
+  =site/src/assets/logo.svg=); the app's icon has not changed.
 - [[file:notes/][notes/]]: the release notes, two files per version: =notes/0.3.1.md= for GitHub and
   =notes/0.3.1-play.txt=, the short notes for Google Play. The Release workflow publishes the first
   as the GitHub release's notes and sends the second to Play and to Discord.
@@ -103,6 +109,16 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
    By hand, when the upload isn't set up or failed: download the bundle (=gh run download <run
    id> -n kolahal-X.Y.Z-play=), upload it in Play Console, and paste the notes.
 7. Check the website deployed (the Website workflow) and its install button works.
+8. The shared scripts (the =kolahal-scripts= repository): merge its =X.Y.Z= branch into =main= and push
+   =main=. Kolahal X.Y.Z reads the site's =X.Y.Z/= folder, built from that branch; =main= is the root,
+   which every Kolahal up to 0.5.16 reads, and which a newer one reads when a source has no folder
+   for its version. The branch stays, for fixes to that version's scripts.
+
+Between releases the library, the script header and the shader rules change with the app. The same
+piece of work brings =kolahal-scripts= in line, on its branch named after the next Kolahal (made from
+the last version's branch when the work starts), and =kolahal-scripts-template= where its check
+changes. Both are pushed then, not at the release: the site publishes each version branch in a
+folder of its own, so nothing reaches an older Kolahal.
 
 * History
 
