@@ -438,7 +438,7 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
             }
         }
         Text(
-            "Show HN: a terminal launcher · Hacker News",
+            "Show HN: a touch and type launcher · Hacker News",
             style = line.copy(color = p.link),
             maxLines = 1
         )

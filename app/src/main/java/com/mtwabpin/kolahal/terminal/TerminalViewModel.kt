@@ -1828,7 +1828,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             if (firstRun) {
                 logs.add(
                     LogKind.INFO,
-                    "Kolahal, a terminal launcher\nType 'help' or start typing an app name",
+                    "Kolahal, a touch and type launcher\nType 'help' or start typing an app name",
                     ctx = LogContext.of(LogContext.COPY to "help"),
                 )
                 logs.add(

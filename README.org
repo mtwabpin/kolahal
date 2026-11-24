@@ -1,13 +1,15 @@
 #+TITLE: Kolahal 
 #+CAPTION: Kolahal logo
-[[file:site/public/favicon.svg]]
+[[file:docs/release/graphics/icon-rounded.svg]]
 #+END_EXPORT
-#+SUBTITLE: A keyboard-first terminal launcher for Android
+#+SUBTITLE: A touch and type optimized launcher for Android
 
-Kolahal (=com.mtwabpin.kolahal=) is a terminal-style home screen for Android 9 and newer. Type a few
-letters and press Enter to open an app or run a command; every command and its output is kept in a log. It reads RSS and Atom feeds, keeps todos, notes and reminders, controls media and the device,
-runs your own scripts in *Lua 5.4* or *JavaScript (QuickJS)*, and works with the work profile and
-private space.
+Kolahal (=com.mtwabpin.kolahal=) is a home screen for Android 9 and newer, made for touch and typing.
+Type a few letters and press Enter to open an app or run a command, or slide a thumb along the edge of
+the screen to any app; every command and its output is kept in a log you can tap, swipe and
+long-press. It reads RSS and Atom feeds, keeps todos, notes and reminders, shows widgets, draws
+shaders behind the log or as the wallpaper, controls media and the device, runs your own scripts in
+*Lua 5.4* or *JavaScript (QuickJS)*, and works with the work profile and private space.
 
 #+begin_quote
 Kolahal is developed with AI assistance. The developers review every change except the tests.
@@ -80,7 +82,7 @@ On-device tests (=app/src/androidTest=) cover the script engines and sandbox, co
 backup, and the home and settings screens. The on-device ones install the debug build (package
 suffix =.debug=) and change its settings; run them on an emulator.
 
-*Coverage: 91.3%* of the app's code lines (0.5.16), counting a line when either kind of test runs it.
+*Coverage: 91.3%* of the app's code lines (0.5.17), counting a line when either kind of test runs it.
 It is measured at each release with JaCoCo, on an Android 16 emulator:
 
 #+begin_src sh
