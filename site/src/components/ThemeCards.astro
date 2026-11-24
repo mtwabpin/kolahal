@@ -4,11 +4,18 @@
  * app (ui/theme/Theme.kt, Palettes), as src/data/themes.json has them (tools/export-themes.mjs makes it
  * from the app's sources).
  *
- * Each half is a piece of home in that palette: a few commands and their answers as the log draws
+ * Each half is a piece of home in that palette: three commands and their answers as the log draws
  * them (ui/home/LogView.kt: the bar beside each line in the accent at 45 %, the script color beside a
  * script's lines and the error color beside an error; the time in the muted color; a profile's tag
- * bold in its color). Under each half, a strip of that version's colors in the theme builder's order
- * (ui/settings/ThemeBuilder.kt), the same on every card so they compare down the page.
+ * bold in its color). The three show the colors a theme is judged by: the accent, the work tag,
+ * script output with a link and good, and an error. Under each half, a strip of that version's
+ * colors in the theme builder's order (ui/settings/ThemeBuilder.kt), the same on every card so they
+ * compare down the page.
+ *
+ * - Three cards to a row where they fit, then two, then one. With three to a row, the tenth card
+ *   (material-you) is centered under the others.
+ * - No sample line is cut: the longest, "No app matches 'mps'", is 20 characters, and the type is
+ *   11 px on a card under 25rem (a card is never under 21.5rem) and 12 px from there.
  *
  * - A color in the strip says its name and value to a screen reader, and on hover. A strip takes
  *   focus (and a tap): it then lists every color with its value over the sample.
@@ -65,9 +72,7 @@ const vars = (c: Palette) =>
 		['script', c.script],
 		['error', c.error],
 		['good', c.good],
-		['warn', c.warn],
 		['work', c.work],
-		['private', c.private],
 	]
 		.map(([k, v]) => `--t-${k}:${v}`)
 		.join(';');
@@ -86,7 +91,8 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 	The strip under each half is that version's colors, from the left: background, text, accent, links, script output,
 	errors, good, warning, work apps and private space.
 </p>
-<ul class="themes not-content">
+<div class="frame not-content">
+<ul class="themes">
 	{
 		THEMES.map((t) => (
 			<li class="card">
@@ -109,15 +115,6 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 								</div>
 								<div class="g">
 									<div class="ln">
-										<span><b class="p">$</b> <b>bank</b></span>
-										<span class="tm">9:42</span>
-									</div>
-									<div class="ln i">
-										<span>Launched Bank <b class="tag s">[S]</b></span>
-									</div>
-								</div>
-								<div class="g">
-									<div class="ln">
 										<span><b class="p">$</b> <b>crypto</b></span>
 										<span class="tm">9:44</span>
 									</div>
@@ -127,20 +124,11 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 								</div>
 								<div class="g">
 									<div class="ln">
-										<span><b class="p">$</b> <b>aqi lisbon</b></span>
-										<span class="tm">9:45</span>
-									</div>
-									<div class="ln sc">
-										<span>PM2.5 61 <span class="wn">Moderate</span></span>
-									</div>
-								</div>
-								<div class="g">
-									<div class="ln">
-										<span><b class="p">$</b> <b>open mpas</b></span>
+										<span><b class="p">$</b> <b>open mps</b></span>
 										<span class="tm">9:46</span>
 									</div>
 									<div class="ln er">
-										<span>No app matches 'mpas'</span>
+										<span>No app matches 'mps'</span>
 									</div>
 								</div>
 							</div>
@@ -178,6 +166,7 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		))
 	}
 </ul>
+</div>
 
 <style>
 	.legend {
@@ -186,17 +175,36 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		font-size: 1rem;
 		color: var(--s-ink-soft);
 	}
+	/* One card to a row, two from 44.5rem, three from 67.25rem: a card is never under 21.75rem but on a phone. */
+	.frame {
+		container: themes / inline-size;
+	}
 	.themes {
 		list-style: none;
 		padding: 0;
 		margin: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 28rem), 1fr));
-		gap: 1.25rem;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1rem;
+	}
+	@container themes (min-width: 44.5rem) {
+		.themes {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+	@container themes (min-width: 67.25rem) {
+		.themes {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+		/* The tenth card alone on its row: in the middle. */
+		.card:last-child:nth-child(3n + 1) {
+			grid-column: 2;
+		}
 	}
 	.card {
+		container: card / inline-size;
 		margin: 0;
-		padding: 1rem 1rem 0.5rem;
+		padding: 1rem 0.75rem 0.5rem;
 		border-radius: var(--s-radius-l);
 		background: var(--s-sheet);
 		box-shadow: 0 0 0 1px var(--s-rule);
@@ -220,8 +228,13 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 	.note {
 		color: var(--s-muted);
 	}
+	/* The sample and its two lists of colors (below) in one cell. */
 	.view {
-		position: relative;
+		display: grid;
+	}
+	.view > * {
+		grid-area: 1 / 1;
+		min-width: 0;
 	}
 	.pair {
 		display: grid;
@@ -235,10 +248,16 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		min-width: 0;
 		background: var(--t-bg);
 		color: var(--t-fg);
-		font: 0.75rem/1.55 var(--s-font-mono);
+		font: 0.6875rem/1.55 var(--s-font-mono);
 		font-variant-ligatures: none;
-		padding: 0.5rem 0.75rem 0.625rem;
+		padding: 0.5rem 0.5rem 0.625rem;
 		white-space: nowrap;
+	}
+	@container card (min-width: 25rem) {
+		.half {
+			font-size: 0.75rem;
+			padding-inline: 0.75rem;
+		}
 	}
 	.g {
 		margin-top: 0.3rem;
@@ -271,9 +290,6 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 	.w {
 		color: var(--t-work);
 	}
-	.s {
-		color: var(--t-private);
-	}
 	.sc {
 		color: var(--t-script);
 		border-inline-start-color: color-mix(in srgb, var(--t-script) 45%, transparent);
@@ -285,9 +301,6 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 	}
 	.ok {
 		color: var(--t-good);
-	}
-	.wn {
-		color: var(--t-warn);
 	}
 	.er {
 		color: var(--t-error);
@@ -301,7 +314,7 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 	}
 	/* Ten colors side by side with small gaps, the ends rounded. */
 	.strip {
-		--inset: 0.75rem;
+		--inset: 0.5rem;
 		list-style: none;
 		margin: 0;
 		padding: 0 var(--inset);
@@ -311,6 +324,11 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		gap: 2px;
 		border-radius: var(--s-radius-s);
 		min-width: 0;
+	}
+	@container card (min-width: 25rem) {
+		.strip {
+			--inset: 0.75rem;
+		}
 	}
 	.strip li {
 		position: relative;
@@ -371,30 +389,28 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		display: none;
 	}
 
-	/* With a row focused (or tapped), its colors listed over the sample. */
+	/*
+	 * With a row focused (or tapped), its colors listed over the sample. The list shares the sample's
+	 * cell: it fits in it at every card width, and were it ever the taller, the card would grow to it
+	 * rather than cut it.
+	 */
 	.panel {
 		display: none;
-		position: absolute;
-		inset: 0;
 		z-index: 1;
-		padding: 0.625rem 0.875rem;
+		padding: 0.5rem 0.625rem;
 		border-radius: var(--s-radius-m);
 		background: var(--s-sheet);
 		box-shadow: 0 0 0 1px var(--s-rule-strong);
 		color: var(--s-ink);
-		font: 0.8125rem/1.4 var(--s-font-mono);
-		overflow: hidden;
+		font: 0.75rem/1.35 var(--s-font-text);
 	}
 	.card:has(.strip.dark:focus) .panel.dark,
 	.card:has(.strip.light:focus) .panel.light {
 		display: block;
 	}
 	.panel p {
-		margin: 0 0 0.375rem;
-		font-family: var(--s-font-text);
-		font-size: 0.8125rem;
+		margin: 0 0 0.25rem;
 		font-weight: 700;
-		color: var(--s-ink);
 	}
 	.panel ul {
 		list-style: none;
@@ -404,12 +420,12 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		grid-template-rows: repeat(5, auto);
 		grid-auto-flow: column;
-		gap: 0.375rem 1.25rem;
+		gap: 0.25rem 0.875rem;
 	}
 	.panel li {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.375rem;
 		margin: 0;
 		min-width: 0;
 		white-space: nowrap;
@@ -420,39 +436,46 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 	}
 	.panel .hex {
 		margin-left: auto;
+		padding-left: 0.25rem;
+		font: 0.6875rem var(--s-font-mono);
 		color: var(--s-muted);
 	}
 	.panel i {
 		flex: none;
-		width: 0.75rem;
-		height: 0.75rem;
+		width: 0.625rem;
+		height: 0.625rem;
 		border-radius: 50%;
 		background: var(--swatch);
+	}
+	@container card (min-width: 25rem) {
+		.panel {
+			padding: 0.625rem 0.875rem;
+			font-size: 0.8125rem;
+		}
+		.panel p {
+			margin-bottom: 0.375rem;
+		}
+		.panel ul {
+			gap: 0.3125rem 1.25rem;
+		}
+		.panel li {
+			gap: 0.5rem;
+		}
+		.panel .hex {
+			font-size: 0.75rem;
+		}
+		.panel i {
+			width: 0.75rem;
+			height: 0.75rem;
+		}
 	}
 
 	@media (max-width: 30rem) {
 		.card {
 			padding: 0.75rem 0.625rem 0.25rem;
 		}
-		.half {
-			font-size: 0.6875rem;
-			padding-inline: 0.5rem;
-		}
 		.tm {
 			display: none;
-		}
-		.strip {
-			--inset: 0.5rem;
-		}
-		.panel {
-			padding: 0.5rem 0.625rem;
-			font-size: 0.75rem;
-		}
-		.panel ul {
-			grid-template-columns: 1fr;
-			grid-template-rows: none;
-			grid-auto-flow: row;
-			gap: 0;
 		}
 	}
 </style>
