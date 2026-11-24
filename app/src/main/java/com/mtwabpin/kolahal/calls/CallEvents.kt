@@ -27,6 +27,8 @@ import java.util.concurrent.Executors
  * - Each call gets one line when Android adds it to the call log: `Call from Sarah ↙`,
  *   `Call to Sarah ↗`, `Missed call from Sarah ✕`. Dimmed lines below show the number, then the
  *   time and length.
+ * - One line for a call, however many rows the phone writes for it: a later row for a call that
+ *   has its line changes that line ([CallLines]).
  * - A tap on the line dials back.
  * - The newest call seen is saved. So calls made while the launcher wasn't running show up on the
  *   next start, and calls from before the permission was granted are never logged.
@@ -98,15 +100,29 @@ class CallEvents private constructor(private val context: Context) {
         if (calls.isEmpty()) return
         val config = Config.get(context)
         val now = System.currentTimeMillis()
-        LogRepository.get(context).addAll(calls.reversed().map { c ->
+        val logs = LogRepository.get(context)
+        // The calls that have a line, and what these rows are: new calls, or calls written again.
+        val lines = CallLines.decode(store.get(LINES))
+        val plan = CallLines.plan(calls, lines.keys)
+        // A call the phone wrote again keeps its one line, with what the newest row says. A line the
+        // user deleted stays deleted.
+        plan.again.forEach { c -> lines[CallLines.key(c)]?.let { logs.update(it, line(c, config), ctx(c)) } }
+        val ids = logs.addAll(plan.fresh.map { c ->
             LogRepository.Pending(LogKind.INFO, line(c, config), SOURCE, ctx(c), now)
         })
-        store.set(LAST, calls.first().id.toString())
+        ids?.let { plan.fresh.zip(it).forEach { (c, id) -> lines[CallLines.key(c)] = id } }
+        store.set(LINES, CallLines.encode(lines))
+        // The highest id read, not the first row's: a phone that hands the rows over in another
+        // order would otherwise leave a row above the mark, to be read again at every change.
+        store.set(LAST, plan.last.toString())
     }
 
     companion object : Singleton<CallEvents>(::CallEvents) {
         const val SOURCE = "calls"
         private const val LAST = "last"
+
+        /** The newest calls that have a line, each with its line's id ([CallLines.encode]). */
+        private const val LINES = "lines"
         private const val SETTLE_MS = 1_500L
 
         /** After a long time away, only this many of the newest calls get a line. */
