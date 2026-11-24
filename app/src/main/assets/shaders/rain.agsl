@@ -10,9 +10,8 @@
 // little in size and speed. At a speed of 1 they cross the screen in eleven to twelve seconds,
 // nearly straight down with a slight lean. Amount sets how many drops there are and speed how fast
 // they fall; neither changes the other. Slow waves of heavier and lighter rain dim and brighten it,
-// and in a heavy rain light swells far off now and then. Leaning the phone leans the rain a little.
-// It only shows where the page does, so text stays as it is. Three steps a pixel at most, most of
-// them ending early.
+// and in a heavy rain light swells far off now and then. It only shows where the page does, so
+// text stays as it is. Three steps a pixel at most, most of them ending early.
 
 uniform shader content;
 uniform float2 resolution;
@@ -21,7 +20,6 @@ uniform float time;
 uniform float2 touch;
 uniform float touchAge;
 uniform float pressed;
-uniform float2 tilt;
 uniform float dark;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 surface;
@@ -65,8 +63,9 @@ half4 main(float2 xy) {
     // it comes in gentle waves: one passes down the screen in about half a minute.
     float sheet = noise(float2(xy.x / size.x * 1.1 + t * 0.015, xy.y / size.y * 0.75 - t * 0.025));
 
-    // The wind's slant and the phone's lean: how far the rain goes sideways for each pixel it falls.
-    float slant = 0.05 + 0.15 * tilt.x;
+    // The wind's slant: how far the rain goes sideways for each pixel it falls. A fixed one, so the
+    // whole field never shifts at once.
+    float slant = 0.05;
 
     // What grows a little from one depth to the next: the width of a streak, the room each streak
     // has across, the room between two drops down a streak, and the speed. All three depths are far
@@ -91,9 +90,8 @@ half4 main(float2 xy) {
         // How near this depth is, from 0 (farthest) to 1 (still far).
         float near = float(i) / 2.0;
 
-        // The point this depth's streaks spread from, far above the screen. Leaning forward or back
-        // brings it nearer or takes it away.
-        float above = size.y * mix(10.0, 8.0, near) * (1.0 + 0.3 * tilt.y);
+        // The point this depth's streaks spread from, far above the screen.
+        float above = size.y * mix(10.0, 8.0, near);
         float2 from = xy - float2(size.x * 0.5 - slant * (above + size.y * 0.5), -above);
         // Across: which streak, counted by angle, so the streaks widen a little as they come down.
         // Along: how far down its streak.

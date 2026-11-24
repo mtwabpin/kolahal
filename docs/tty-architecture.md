@@ -1447,7 +1447,7 @@ first time. Not a one-off and not an `@text` shader; Android 13 and newer.
 
 See *Tilt* in the **As built** note at the top of §7: `shader/ShaderTilt.kt` (pure) and
 `ui/tty/LiveTilt.kt` (the one sensor listener). Shaders that declare `tilt`: `foil`,
-`mountains`, `night`, `rain`, `snowfall`. "Uses tilt" shows on the Shaders screen and in Get more
+`mountains`, `night`, `snowfall`. "Uses tilt" shows on the Shaders screen and in Get more
 shaders (an optional `tilt` in the sources' index).
 
 ## 8. Testing

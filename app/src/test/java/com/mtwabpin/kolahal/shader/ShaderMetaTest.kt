@@ -253,7 +253,7 @@ class ShaderMetaTest {
         val metas = ShaderCatalog.BUNDLED.associateWith {
             ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText())
         }
-        assertEquals(listOf("foil", "mountains", "rain", "snowfall", "night"), metas.filterValues { it.tilt }.keys.toList())
+        assertEquals(listOf("foil", "mountains", "snowfall", "night"), metas.filterValues { it.tilt }.keys.toList())
         assertEquals(setOf("frost", "rain"), metas.filterValues { it.uses(ShaderMeta.PRESSED) }.keys)
         assertEquals(
             emptySet<String>(),

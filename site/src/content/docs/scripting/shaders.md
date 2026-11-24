@@ -69,7 +69,7 @@ nothing while the screen is still.
 | `mountains` | flat mountain ridges in mist, after woodblock prints. They breathe slowly, follow the hour, and shift a little as the phone leans. The number of birds can be changed. It moves |
 | `pond` | a still pond under far hills, after woodblock prints, with rings of rain and a path of light. It follows the hour. The number of birds can be changed. It moves |
 | `dunes` | a long dune after woodblock prints, with ranges of dunes and far mesas behind it, and a caravan that climbs it once an hour. It follows the hour, and a wider screen shows more of the desert. The number of camels can be changed. It stands still, drawn again once a minute |
-| `rain` | a calm rain seen out of a window, all of it some way off: short, faint streaks that fall slowly, nearly straight down, and mist; it leans a little as the phone leans, and a touch holds it off. Its amount and speed can be changed. It moves |
+| `rain` | a calm rain seen out of a window, all of it some way off: short, faint streaks that fall slowly, nearly straight down, and mist; a touch holds it off. Its amount and speed can be changed. It moves |
 | `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. Its amount and size can be changed. It moves |
 | `grove-snow` | small, crisp flakes fall and wander slowly behind the text, and dim with the hour. It moves |
 | `grove-autumn` | a few orange, gold and rust leaves turn as they drift down, and dim with the hour. It moves |
