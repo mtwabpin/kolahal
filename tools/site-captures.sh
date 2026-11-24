@@ -96,12 +96,26 @@ site_card() {
 
 # ---- widgets: Add widget and Arrange widgets --------------------------------------------------
 
-LOOKX_plain=140; LOOKX_tonal=340; LOOKX_bold=540; LOOKX_split=740; LOOKX_shape=940
+# tap_ui <words> [last]: a tap on the middle of what shows <words>, as its text or its description
+# for TalkBack (uiautomator reads the screen): the first such on the screen, or with `last` the
+# lowest. For buttons whose place changes with the card: the Look row offers only the looks that
+# change the card, so their places differ from card to card.
+tap_ui() {
+  local what=$1 pick=head b
+  [ "${2:-}" = last ] && pick=tail
+  sh_ uiautomator dump /sdcard/ui.xml > /dev/null
+  b=$(sh_ cat /sdcard/ui.xml | tr '>' '\n' | grep -E "(text|content-desc)=\"$what\"" | $pick -1 \
+    | grep -o 'bounds="[^"]*"' | grep -o '[0-9][0-9]*' | tr '\n' ' ' || true)
+  set -- $b
+  [ $# -eq 4 ] || { echo "Nothing shows \"$what\" on the screen" >&2; return 1; }
+  tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
+}
+
 # w_search <name>: on Arrange widgets, + and a search for name (the picker keeps the last search:
 # ✕ clears it first).
-w_search() { tap 1006 212; sleep 2; tap 975 621; sleep 0.5; tap 540 621; sleep 0.8; ty "$1"; sleep 1.5; kbdown; }
-# w_look <look>: the selected card's look, then ✓.
-w_look() { local v=LOOKX_$1; sleep 2.5; tap "${!v}" 1968; sleep 1; tap 975 1764; sleep 1.5; }
+w_search() { tap_ui "Add widget"; sleep 2; tap 975 621; sleep 0.5; tap 540 621; sleep 0.8; ty "$1"; sleep 1.5; kbdown; }
+# w_look <look>: the chosen card's look in the toolbar's Look row, then ✓ (Done).
+w_look() { sleep 2.5; tap_ui "${1^}" last; sleep 1; tap_ui Done; sleep 1.5; }
 # w_add <name> <look>: the first row the search finds, placed, in that look.
 w_add() { w_search "$1"; tap 540 953; sleep 1.5; w_look "$2"; }
 
@@ -187,7 +201,7 @@ setup() {
   w_add Unlocks bold
   w_add Todos split
   w_add Water bold
-  tap 75 212; sleep 2   # back home
+  tap_ui Back; sleep 2   # back home
   # Five glasses on the Water card (its row is the last on the page).
   kbup; t "widget page" 3; sh_ input swipe 540 1800 540 600 300; sleep 1.5
   local i; for i in 1 2 3 4 5; do tap 300 2205; sleep 2; done
@@ -235,25 +249,26 @@ widgets_add() {
 }
 
 # shots/home/water.png, world-clocks.png, unlock-chart.png, habit.png, forecast.png: five cards of
-# the widgets page, cut at full size for the home page's "Scripts and widgets" (Water Bold at 5 / 8,
-# Unlocks Bold, Habit streak Shape, 3-day forecast Split, and World clocks Split for this picture
-# only: in a row with the other three it differs from both of its neighbours' shapes, and Shape
-# shows Tokyo alone, as an analog clock). The zone is set again first: the clocks show each city's
-# difference from it. World clocks goes back to Bold after, as the later pictures want it.
+# the widgets page, cut at full size for the home page's "Scripts and widgets": Water Bold at 5 / 8,
+# Unlocks Bold, Habit streak's week as a flower in Shape, 3-day forecast Split, and the World clocks
+# card in Split that widget_looks placed (so after it: the page then ends with Water, that card and
+# the one in Shape). The flower's leaves are near the page's ground, so it is cut as a square, not
+# trimmed. The zone is set again first: the clocks show each city's difference from it.
 home_cards() {
   zone
   home; kbup; t "widget page" 3
-  tap 985 190; sleep 2.5; tap 350 1000; sleep 3; w_look split   # the pencil, World clocks, Split
-  tap 75 212; sleep 2.5
-  home; kbup; t "widget page" 3
-  sh_ input swipe 540 1800 540 600 300; sleep 2   # to the end of the page: the Water card whole
+  sh_ input swipe 540 600 540 1800 300; sleep 2   # to the top: the forecast whole
+  cap widgets-page-cards-top
+  sh_ input swipe 540 1800 540 600 300; sleep 2   # to the end
   cap widgets-page-clocks-split
-  site_card widgets-page-clocks-split 545x272+0+2068 shots/home/water.png
-  site_card widgets-page-clocks-split 540x530+0+495 shots/home/world-clocks.png
-  site_card widgets-page-clocks-split 512x530+545+1022 shots/home/unlock-chart.png
-  site_card widgets-page-clocks-split 540x530+0+1022 shots/home/habit.png
-  site_card widgets-page-clocks-split 518x530+545+495 shots/home/forecast.png
-  tap 985 190; sleep 2.5; tap 350 1000; sleep 3; w_look bold; tap 75 212; sleep 2.5
+  site_card widgets-page-clocks-split 545x270+0+1545 shots/home/water.png
+  site_card widgets-page-clocks-split 515x520+545+1550 shots/home/world-clocks.png
+  site_card widgets-page-clocks-split 520x520+545+500 shots/home/unlock-chart.png
+  site_card widgets-page-cards-top 510x520+545+780 shots/home/forecast.png
+  local bg out=$ASSETS/shots/home/habit.png
+  bg=$(magick "$RAW/widgets-page-clocks-split.png" -format '%[pixel:p{540,2100}]' info:)
+  magick "$RAW/widgets-page-clocks-split.png" -crop 500x500+25+240 +repage -bordercolor "$bg" -border 18 -strip "$out"
+  pngquant --quality 85-98 --force --output "$out" "$out"
   home
 }
 
@@ -357,13 +372,13 @@ widgets_pages() {
 arrange_widgets() {
   home; kbup; t "widget page" 3
   sh_ input swipe 540 600 540 1800 300; sleep 2   # the page at its top
-  tap 985 190; sleep 3   # the pencil: Arrange widgets, fresh
+  tap_ui "Edit widgets"; sleep 3   # the pencil: Arrange widgets, fresh
   cap arrange-widgets; site_shot arrange-widgets shots/widget-options/arrange-all.png
   key KEYCODE_BACK; sleep 2
   sh_ input swipe 540 600 540 1800 300; sleep 2   # the page at its top again
   sh_ input swipe 275 1280 275 1280 900; sleep 3   # long-press Habit streak
   cap arrange-widgets-look; site_shot arrange-widgets-look shots/widget-options/arrange.png
-  tap 975 1764; sleep 1.5; key KEYCODE_BACK; sleep 1.5   # ✓, back to the page
+  tap_ui Done; sleep 1.5; key KEYCODE_BACK; sleep 1.5   # ✓, back to the page
   home
 }
 
@@ -371,12 +386,12 @@ arrange_widgets() {
 # page and set in a grid on its ground (they aren't side by side on the page). After
 # widget_options (Paris's card on the page). The look sheet can come up late: check each card's look.
 widget_looks() {
-  home; kbup; t "widget page" 3; tap 985 190; sleep 2.5   # the pencil: Arrange widgets
+  home; kbup; t "widget page" 3; tap_ui "Edit widgets"; sleep 2.5   # the pencil: Arrange widgets
   # A placed World clocks card opens its Options sheet: Back closes it. The new cards go at the
   # end of the page, Split beside Water and Shape under it.
   w_search "World clocks"; tap 540 953; sleep 4; key KEYCODE_BACK; sleep 1.5; w_look split
   w_search "World clocks"; tap 540 953; sleep 4; key KEYCODE_BACK; sleep 1.5; w_look shape
-  tap 75 212; sleep 2.5
+  tap_ui Back; sleep 2.5
   sh_ input swipe 540 600 540 1800 300; sleep 2; cap widget-looks-top
   sh_ input swipe 540 1800 540 400 300; sleep 2; cap widget-looks-bottom
   local bg='srgb(25,23,36)' f
@@ -392,27 +407,94 @@ widget_looks() {
 }
 
 # shots/widget-options/options.png: a second Weather card, its city option Paris, in Split,
-# dragged up beside Tokyo's. Run it before widget_looks, on setup's page: a removed card leaves a
-# hole on the page that the others don't close.
+# dragged up beside Tokyo's; shots/widget-options/settings-city.png: that card's own page, which
+# opens when it is placed, with Paris under This card. Run it before widget_looks, on setup's page:
+# a removed card leaves a hole on the page that the others don't close.
 widget_options() {
   home; kbup; t "widget page" 3
-  tap 858 190; sleep 2.5   # + on the widgets page
+  tap_ui "Add a widget"; sleep 2.5   # + on the widgets page
   tap 975 621; sleep 0.5; tap 540 621; sleep 0.8; ty Weather; sleep 1.5; kbdown
-  tap 540 953; sleep 4   # placed; its Options sheet opens
-  tap 960 2210; sleep 2   # city
-  tap 540 1230; sleep 1; sh_ input keycombination 113 29; sleep 0.5; ty Paris; sleep 1
-  tap 812 1083; sleep 2   # Save
-  key KEYCODE_BACK; sleep 1.5
-  tap 740 1968; sleep 1.5   # Split
-  # Drag it up: the page scrolls to the top and drops it beside Tokyo's card (the Remove target is
-  # above, at y 160–260: don't let go there).
-  sh_ input motionevent DOWN 800 1530; sleep 0.6   # the new card, beside Water
-  local y; for y in 1450 1380 1300 1200 1100 1000 900 800 700 600 500 420 380; do sh_ input motionevent MOVE 800 $y; sleep 0.15; done
+  tap 540 953; sleep 4   # placed; its own page opens
+  tap_ui city; sleep 2
+  tap 540 1232; sleep 1; sh_ input keycombination 113 29; sleep 0.5; ty Paris; sleep 1
+  tap_ui Save; sleep 4   # the card at the top runs again for Paris
+  cap widget-settings-city; site_shot widget-settings-city shots/widget-options/settings-city.png
+  key KEYCODE_BACK; sleep 2   # Arrange widgets, the card chosen
+  tap_ui Split last; sleep 1.5
+  # Drag it up from beside Water: the page scrolls to the top and drops it beside Tokyo's card
+  # (the Remove target is above, at y 160–260: don't let go there).
+  sh_ input motionevent DOWN 800 1406; sleep 0.6
+  local y; for y in 1350 1300 1200 1100 1000 900 800 700 600 500 420 380; do sh_ input motionevent MOVE 800 $y; sleep 0.15; done
   sleep 3; sh_ input motionevent MOVE 800 400; sleep 0.3; sh_ input motionevent UP 800 400; sleep 2
-  tap 975 1764; sleep 1.5; tap 75 212; sleep 2.5
+  tap_ui Done; sleep 1.5; tap_ui Back; sleep 2.5
   sh_ input swipe 540 600 540 1800 300; sleep 2
   cap widget-options-cities; site_shot widget-options-cities shots/widget-options/options.png
   home
+}
+
+# shots/widget-options/settings.png, settings-shape.png: the Weather card's own page (Settings in
+# its toolbar), the card in Shape with Link and the 4-leaf clover chosen: the top, with the card live
+# and Color; then scrolled to Shape and What shows. Reset puts its color and shape back, and it goes
+# back to Split.
+widget_settings() {
+  home; kbup; t "widget page" 3
+  sh_ input swipe 540 600 540 1800 300; sleep 1.5
+  tap_ui "Edit widgets"; sleep 3; tap_ui Weather; sleep 2
+  tap_ui Shape last; sleep 1.5; tap_ui Settings; sleep 3
+  tap_ui Link; sleep 1.5; tap_ui "4-leaf clover"; sleep 2.5
+  sh_ input swipe 540 900 540 2000 400; sleep 2   # to the top
+  cap widget-settings; site_shot widget-settings shots/widget-options/settings.png
+  sh_ input swipe 540 1900 540 900 600; sleep 2
+  cap widget-settings-shape; site_shot widget-settings-shape shots/widget-options/settings-shape.png
+  tap_ui "Reset to the card's own"; sleep 2; key KEYCODE_BACK; sleep 2
+  tap_ui Split last; sleep 1.5; tap_ui Done; sleep 1; tap_ui Back; sleep 2; home
+}
+
+# shots/widgets/pages-1.png, pages-2.png, shots/widget-options/arrange-pages.png: three widgets
+# pages. In Arrange widgets, + after the tabs adds a page; a long-press on its tab names it (Travel,
+# Health); a card's Page row moves it: Paris's weather and the two World clocks cards that
+# widget_looks placed to Travel, Habit streak and Water to Health. Close gaps, then Battery chosen,
+# its toolbar with the Page row. Home on page 1, its title row "Page 1" with three dots, and on
+# Travel (`widget page 2`). After widget_settings and home_cards: they want the cards on page 1.
+widget_pages() {
+  local c
+  home; kbup; t "widget page" 3; tap_ui "Edit widgets"; sleep 3
+  tap_ui "Add a page"; sleep 2.5
+  tap_ui "Page 1"; sleep 2
+  for c in "Weather 2" "World clocks 2" "World clocks 3"; do
+    tap_ui "Page 1"; sleep 2; sh_ input swipe 540 1800 540 400 300; sleep 1.5
+    tap_ui "$c"; sleep 2; tap_ui "Page 2" last; sleep 2.5; tap_ui Done; sleep 1
+  done
+  sh_ input swipe 690 369 690 369 900; sleep 2   # long-press the tab of page 2
+  tap 480 1100; sleep 1; sh_ input keycombination 113 29; ty Travel; sleep 1; tap_ui Save; sleep 2
+  tap_ui "Add a page"; sleep 2.5
+  sh_ input swipe 763 370 763 370 900; sleep 2   # long-press the tab of page 3
+  tap 480 1100; sleep 1; sh_ input keycombination 113 29; ty Health; sleep 1; tap_ui Save; sleep 2
+  for c in "Habit streak" "Water"; do
+    tap_ui "Page 1"; sleep 2; sh_ input swipe 540 1800 540 400 300; sleep 1.5
+    tap_ui "$c"; sleep 2; tap_ui Health last; sleep 2.5; tap_ui Done; sleep 1
+  done
+  tap_ui "Page 1"; sleep 2; sh_ input swipe 540 600 540 1800 300; sleep 1.5
+  tap_ui "Close gaps"; sleep 2.5; tap_ui "Battery and network"; sleep 2.5
+  cap arrange-pages; site_shot arrange-pages shots/widget-options/arrange-pages.png
+  tap_ui Done; sleep 1; tap_ui Back; sleep 2.5
+  sh_ input swipe 540 600 540 1800 300; sleep 2
+  cap widgets-pages-1; site_shot widgets-pages-1 shots/widgets/pages-1.png
+  home; kbup; t "widget page 2" 3; sh_ input swipe 540 600 540 1800 300; sleep 2
+  cap widgets-pages-2; site_shot widgets-pages-2 shots/widgets/pages-2.png
+  home
+}
+
+# shots/usage/limits.png: a daily limit for unlocks under today's count: the header's unlocks part
+# and `unlocks 7` in the warning color, with "3 over your limit of 10". The limit is set below
+# today's count (13 here; check `unlocks` first and pick one so the count is past it but under one
+# and a half times it). The header is redrawn when the screen comes on again. Settings back after.
+limits() {
+  home; kbup; t "config set header.right unlocks,todo,battery" 2; t "config set usage.unlock-limit 10" 2
+  kbdown; key KEYCODE_POWER; sleep 2; key KEYCODE_WAKEUP; sleep 1; sh_ wm dismiss-keyguard; sleep 3; home
+  kbup; t clear 1; t "unlocks 7" 3; kbdown; wait_cleared
+  cap limits-unlocks; site_shot limits-unlocks shots/usage/limits.png
+  kbup; t "config set header.right alarm,todo,battery" 2; t "config set usage.unlock-limit 0" 2; kbdown
 }
 
 # shots/wallpaper/preview.png, lock.png, log.png: `wallpaper shader pond` in Android's preview,
@@ -754,10 +836,10 @@ reference_tty() {
 # ---- running it -------------------------------------------------------------------------------
 
 # The pictures in an order that works from `setup`'s state: each leaves home in front.
-PICTURES=(widgets_add home_cards hero_dunes_dark hero_mountains_dark hero_pond_light
+PICTURES=(widgets_add hero_dunes_dark hero_mountains_dark hero_pond_light
   play_home play_answers play_typing play_selector play_scenes play_log play_scramble play_sheets
   typing_home suggestions forecast fresh pinning schedule_times schedule_charger widgets_pages
-  widget_options widget_looks wallpaper selector parts_home parts_action_sheet parts_quick_actions
+  widget_options widget_looks home_cards widget_settings widget_pages limits wallpaper selector parts_home parts_action_sheet parts_quick_actions
   parts_typing parts_settings parts_scripts parts_editor setup_checklist terminal_feeds profiles
   tty tty_top scramble_pair typing_styles reference_tty)
 

@@ -36,7 +36,12 @@ Taken on 24 November 2026 with the debug build of 0.5.17 (the full build) on the
 `sdk_gphone64_x86_64`, Android 16. The TTY pictures are from that build with the fix to the TTY
 header's signs and the `clock` screen's centering. Taken again that evening with
 `header.below-bar` off and `maps` off: the scenes at dusk in `ZONE=Asia/Riyadh` (UTC+3), the widget
-pictures in `Asia/Dhaka` (the world clocks' −3:00 and −6:00).
+pictures in `Asia/Dhaka` (the world clocks' −3:00 and −6:00). The widgets' screens (the picker,
+the widgets page, Arrange widgets, a card's own page, the pages, the home page's cards) and Settings
+were taken again on 25 November 2026, after the widgets' settings pages, pages and daily limits
+came in, with `ZONE=America/Argentina/Buenos_Aires` and the clocks in `Asia/Dhaka` (Lisbon then on
+the day before: "−1"). In Arrange widgets the script finds a button by what it says (`tap_ui`,
+through uiautomator): the Look row offers only the looks that change the card, so its buttons move.
 
 ## The hero's phone (home page)
 
@@ -54,8 +59,8 @@ pictures in `Asia/Dhaka` (the world clocks' −3:00 and −6:00).
 | File | What it shows | Function | Raw |
 | --- | --- | --- | --- |
 | `shots/home/water.png` | the API reference's Water card, 5 / 8, **Bold** | `home_cards` | `widgets-page-clocks-split` |
-| `shots/home/habit.png`, `forecast.png` | Habit streak **Shape**, 3-day forecast for Lisbon **Split** | `home_cards` | `widgets-page-clocks-split` |
-| `shots/home/world-clocks.png` | World clocks, Tokyo with Nairobi −3:00 and Lisbon −6:00, **Split** (Bold on the other pages) | `home_cards` | `widgets-page-clocks-split` |
+| `shots/home/habit.png`, `forecast.png` | Habit streak's week as a flower, **Shape**; 3-day forecast for Lisbon **Split** | `home_cards` | `widgets-page-clocks-split`, `widgets-page-cards-top` |
+| `shots/home/world-clocks.png` | World clocks in **Split**, the card that `widget_looks` placed (setup's is Bold) | `home_cards` | `widgets-page-clocks-split` |
 | `shots/home/unlock-chart.png` | Unlocks, **Bold** | `home_cards` | `widgets-page-clocks-split` |
 | `shots/home/selector.png`, `quick-actions.png` | the selector at G; quick actions | `play_selector`, `play_log` | `selector-thumb-g`, `quick-actions-full-build` |
 
@@ -90,6 +95,11 @@ pictures in `Asia/Dhaka` (the world clocks' −3:00 and −6:00).
 | `shots/widget-options/arrange-all.png` | Arrange widgets, nothing chosen, opened fresh | `arrange_widgets` | `arrange-widgets` |
 | `shots/widget-options/looks.png` | World clocks in Bold, Split and Shape, set in a grid | `widget_looks` | `widget-looks` |
 | `shots/widget-options/options.png` | two weather cards side by side, Tokyo and Paris, Split | `widget_options` | `widget-options-cities` |
+| `shots/widget-options/settings-city.png` | the second weather card's own page as it opens when placed, its city Paris | `widget_options` | `widget-settings-city` |
+| `shots/widget-options/settings.png`, `settings-shape.png` | the Weather card's own page in Shape, Link and the 4-leaf clover chosen: the top with the card live and Color; Shape and What shows | `widget_settings` | `widget-settings`, `widget-settings-shape` |
+| `shots/widgets/pages-1.png`, `pages-2.png` | three widgets pages: page 1 with its name and dots, and Travel | `widget_pages` | `widgets-pages-1`, `widgets-pages-2` |
+| `shots/widget-options/arrange-pages.png` | Arrange widgets with three tabs (Page 1, Travel, Health), Battery chosen with its Page row | `widget_pages` | `arrange-pages` |
+| `shots/usage/limits.png` | a daily limit of 10 unlocks: the header's unlocks and `unlocks 7` in the warning color | `limits` | `limits-unlocks` |
 | `shots/shaders/candle.png`, `lanterns.png`, `hourglass.png` | three scenes behind home | `play_scenes` | `scene-*` |
 | `shots/shader-parameters/follow.png`, `sliders.png` | Candle's and Mountains' details | `play_sheets` | `shader-details-follows`, `-slider` |
 | `shots/shaders/list.png`, `shots/themes/*` | the list of shaders, Settings | (Play captures) | `shaders-list`, `settings`, `theme-picker` |
@@ -125,13 +135,21 @@ the `parts/` pictures: after taking one again, check each mark still sits on wha
 
 Drawn by `tools/site-pictures.sh`: the device tests draw them from the guide's examples and the
 ready-made cards, each card in its look (`WidgetGalleryTest.siteLook`: by kind, Bold for numbers,
-clocks, countdowns and charts, Split for lists, text, agendas, switches and media, Shape for progress
-and buttons, with a few cards set by name), and the script copies them to the same names.
+clocks, countdowns, charts and scores, Split for lists, text, agendas, switches and media, Shape for
+progress, buttons and the sky, with a few cards set by name), and the script copies them to the same
+names. The kinds and styles that the guide's code has no example for (a gauge, rings, stages, a
+number's line and scene, the dots and page countdowns, the looks Poster, Shape and Now) are the
+test's own cards in one look: a site file named `widgets/<look>-<card>-<size>.png`
+(`bold-kind-gauge-2x2.png`) makes the script draw that card in that look
+(`WidgetGalleryTest#everyLookIsDrawnAndSaved`, `looks` and `names`) and copy it over. Drawn with
+`ZONE=Pacific/Pitcairn` on 25 November 2026, in the afternoon there, so the sky and the clocks read
+as by day; the places on the cards keep their own time.
 
 | Files | What they show | Test |
 | --- | --- | --- |
-| `widgets/example-*.png` (13) | the API reference's widget examples | `WidgetGalleryTest#theGuidesExamplesAreDrawnAndSaved` (`docs-*`) |
-| `widgets/*.png` (23 others) | the library's cards and Kolahal's own | the same test (`real-*`) |
+| `widgets/example-*.png` (15) | the API reference's widget examples | `WidgetGalleryTest#theGuidesExamplesAreDrawnAndSaved` (`docs-*`) |
+| `widgets/*.png` (27 others) | the library's cards and Kolahal's own, with Next and Stack | the same test (`real-*`) |
+| `widgets/<look>-*.png` (14) | the test's own cards in one look: new kinds, styles and looks | `WidgetGalleryTest#everyLookIsDrawnAndSaved` |
 | `log/*.png` (10) | the scripting guide's log examples | `LogGalleryTest#theGuidesLogExamplesAreDrawnAndSaved` |
 | `fmt/*.png` (11) | the fmt samples, one line each | `LogGalleryTest#theFmtSamplesAreDrawnAndSaved` |
 
