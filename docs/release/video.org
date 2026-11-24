@@ -1,0 +1,655 @@
+#+TITLE: The preview video for Google Play
+#+STARTUP: showall
+
+A plan for Kolahal's preview video on its Google Play listing: what it shows, in which order, with
+what on the phone, and how to record and put it together. Nothing is recorded yet. Written on 24
+November 2026 against branch 0.5.17; every command, script and setting in it was checked against
+the guide (=site/src/content/docs/=) and the code of that day. Where a step could not be checked
+without a device, [[*What is uncertain][What is uncertain]] says so.
+
+It runs 281 seconds (4 min 41 s) in 16 chapters, and a short cut of 109 seconds keeps 10 of them.
+
+* What it is for and what it must obey
+
+The video goes in Play Console → Grow users → Store presence → Main store listing → Graphics →
+Preview video, as a YouTube address. Play shows it behind the play button on the feature graphic
+(=graphics/feature-graphic.png=), which a listing with a video must have. Play's rules, from
+[[https://support.google.com/googleplay/android-developer/answer/9866151][Preview assets]] and
+[[https://support.google.com/googleplay/android-developer/answer/1078870][Add preview assets]]
+(both opened on 24 November 2026):
+
+| Rule                                                                        | What it means here                                                                                            |
+|-----------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------|
+| One YouTube video's address: no playlist or channel, no timecode in it      | paste the plain ~https://www.youtube.com/watch?v=…~ address                                                   |
+| Public or unlisted, never private; embedding allowed                        | Unlisted is enough                                                                                            |
+| Ads off: monetization off, and no copyrighted content that brings ads back  | no music under Content ID: no music, or a track from YouTube's Audio Library                                  |
+| Not age-restricted                                                          | nothing in it could be; on YouTube answer "No, it's not made for kids" and leave the age restriction off      |
+| Landscape or portrait; a portrait video without black bars at its sides     | landscape, 16:9 ([[*The shape of the picture][below]])                                                       |
+| No length limit, but only the first 30 seconds play by themselves, muted    | the first 30 seconds show the app at once and need no sound; captions carry everything                        |
+| The real app early, within the first 10 seconds                             | the phone is on screen from the first frame                                                                   |
+| At least 80% of it the app as people use it; few title screens and logos    | a 4-second opening and a 5-second closing; the phone shows the app in every other second                     |
+| No people holding or touching the device                                    | no hands: touches show as Android's own dots ("Show taps")                                                    |
+| No claims ("best", "#1", "top", "new", "free", "sale") and no calls to action ("download now", "install now", "try now") | the captions describe; the closing names the app and where it is, nothing more                     |
+| Captions, for people who can't hear it and for places where it can't be heard | captions in the picture, and the same words as a caption track on YouTube                                   |
+
+Play asks to avoid device imagery in screenshots and the feature graphic, because a device dates
+quickly. The video shows the screen in a plain rounded frame, as the website does, with no buttons,
+no camera and no make of phone.
+
+*The Play build.* The listing is for the Play build, so the video shows only what it has: no screen
+lock (no =lock=, no double-tap to lock), no calls in the log (no =calls=), no =update=, and no
+contacts read by name. Record with the Play build installed (google-play.org → Taking the captures
+again, step 1).
+
+*No personal data.* The phone is an emulator with no Google account and only the invented data of
+[[*The data to prepare before recording][The data to prepare]]: well-known cities, an invented
+first name (Maya), public feeds, no people, no notifications, no messages. =scramble= isn't needed
+and would hide the text the video is about. The log is cleared before each take, so no line from
+an earlier take or from setting up shows.
+
+* The shape of the picture
+
+*Frame.* 16:9, mastered at 3840 × 2160 and published by YouTube at every size under it. A phone's
+screen is tall and Play's player is wide, so the phone stands at the left and the captions sit at
+the right, on a ground in the website's Scenes look. A portrait video would show the phone larger,
+but the captions would have to cover the screen, and Play forbids black bars beside it.
+
+- *The phone*: the recording at the frame's full height less a margin (about 1840 of 2160 pixels at
+  4K), in a frame as the website draws one (=.w-phone= in =site/src/components/Ways.astro=): round
+  corners, a thin edge in =--s-phone-edge=, the frame in =--s-phone=, and the one shadow the website
+  allows, under the phone. Its left edge about a ninth of the way in.
+- *Close-ups*: in chapters 1, 2 and 4 the prompt and the suggestions are what matters, and they are
+  small at full height. There the phone grows to 1.5 times and slides up, so its lower 60% fills
+  the frame's height and its top runs off the frame. It goes back to full size between chapters.
+- *Captions*, in the right half: a section label (Instrument Sans, bold, upper case, letter-spaced,
+  in =--s-muted=), a heading of a few words (Bricolage Grotesque, bold, tight, in =--s-ink=), and at
+  most two lines of text under it (Instrument Sans, in =--s-ink-soft=). A command shows in
+  JetBrains Mono on a code chip (=--s-code= with =--s-on-code=, dark in both themes, 14 px round at
+  the website's scale). Each caption fades in over 0.3 s and stays at least 3 seconds, and longer
+  for longer ones: about 15 characters a second.
+- *No voice.* Play plays the first 30 seconds muted, and most people meet it so. The captions tell
+  the whole story.
+- *Sound*: none, or one quiet track from YouTube's Audio Library (one that needs no attribution),
+  so YouTube puts no ads on it. No sound effects for taps.
+
+*The ground and the chapters.* The ground is a scene from the app's own shaders, at the top of the
+frame and fading into the ground's color, as at the top of the website's home page. It changes with
+the parts of the video, with a one-second crossfade, and the tokens of the captions change with it
+(=site/src/styles/tokens.css=: the light theme's for a light ground, the dark theme's for a dark one):
+
+| Chapters                                        | Ground                                                | Tokens        |
+|-------------------------------------------------+-------------------------------------------------------+---------------|
+| Opening, 1 to 4: touch and typing               | =mountains= (=site/src/assets/scenes/mountains-wide.jpg=) | light         |
+| 5 to 10: scripts and widgets                    | =pond= (=pond-wide.jpg=)                              | dark          |
+| 11 and 12: shaders and their parameters         | =dunes= (=dunes-wide.jpg=)                            | light         |
+| 13: the live wallpaper                          | =pond=                                                | dark          |
+| 14: the TTY style                               | no scene: the plain =--s-code= color                  | dark          |
+| Closing                                         | =mountains=                                           | light         |
+
+The website pairs =mountains= with its light theme and =pond= with its dark one, and the video
+keeps the pairs. A drift of the picture (a slow pan of a few percent over a chapter) is enough
+movement: a moving ground beside a moving phone pulls the eye from the app.
+
+The phone shows the app in the =rose-pine= theme, dark (the colors of Rosé Pine), as the store's
+screenshots do, so the listing looks the same in its pictures and its video, and the phone sits well
+on the website's colors. It keeps the app's own colors and font in every part. The widgets page is in
+the app's Material 3 Expressive looks (Tonal, Bold, Split, Shape) from its first frame, never the
+Plain one ([[*The data to prepare before recording][the data to prepare]]).
+
+* The shot list
+
+Read "17:40" and the like as whatever the phone's clock says. Typed text appears at about 2.5
+letters a second. "Enter" is the keyboard's Enter key. Each chapter starts from home with the
+keyboard down and a cleared log unless it says otherwise. The captions are the exact words.
+
+** Opening (4 s)
+
+The opening and closing cards carry the name as the store has it, "Kolahal: Terminal Launcher", with
+the website's line under it.
+
+| s   | On the phone                                                                  | The viewer sees                                    | Caption                                                    |
+|-----+-------------------------------------------------------------------------------+----------------------------------------------------+------------------------------------------------------------|
+| 0–4 | home, still: the header (time, date, alarm 7:00, 3 todos, battery), a few lines, the selector's letters on the edge | Kolahal's home beside its name | *Kolahal: Terminal Launcher* / A home screen for touch and typing. |
+
+** 1. Opening apps by typing (18 s)
+
+| s     | On the phone                                                 | The viewer sees                                                                 | Caption                                                                 |
+|-------+--------------------------------------------------------------+---------------------------------------------------------------------------------+-------------------------------------------------------------------------|
+| 0–3   | tap empty space in the log                                   | the keyboard opens, with the key bar above it                                   | BY TYPING / *A few letters* / Type any part of an app's name.           |
+| 3–9   | type =ma=, one letter at a time                              | the suggestions fill in above the prompt; Maps at the bottom, highlighted, with ⏎ | The best match sits at the bottom, nearest your thumb.                  |
+| 9–12  | Enter; 1.5 s later the Home button                           | Maps opens, and home comes back                                                 | Enter opens it.                                                         |
+| 12–18 | tap the log; type =clo=                                      | at the last letter only Clock matches, and it opens without Enter               | When the letters fit only one app, it opens without Enter.              |
+
+After Clock opens, Home again; the next chapter starts from home.
+
+** 2. Suggestions (16 s)
+
+| s     | On the phone                                                                 | The viewer sees                                                                                   | Caption                                                                          |
+|-------+------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------|
+| 0–5   | tap the log; type nothing                                                    | with an empty prompt: the favorites (★) and the most-used apps                                    | SUGGESTIONS / *What you need next* / An empty prompt offers your favorites and the apps you use most. |
+| 5–10  | type =flash=                                                                 | =$ torch= and its description among the rows: a command found by another word                     | Commands come up under other words too: =flash= finds =torch=.                    |
+| 10–16 | tap ✕ to clear; type =theme= and a space                                     | the theme names, one row each, as what can come next                                              | After a command, what can come next.                                             |
+
+Clear the prompt with ✕ and close the keyboard (Back) at the end. Don't run =torch=: the emulator
+has no flashlight and says so.
+
+** 3. The app selector (20 s)
+
+The guide calls the "app slider" the *app selector*. It is off by default; Settings → App
+selector → Show the app selector turns it on (=selector.rail=). This chapter is done by hand
+([[*Recording][Recording]]), with Android's "Show taps" on, so the thumb's path is a dot the viewer
+follows.
+
+| s     | On the phone                                                                                   | The viewer sees                                                                                             | Caption                                                                       |
+|-------+------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------|
+| 0–3   | keyboard down; nothing touched                                                                  | the small letters along the right edge of the log                                                           | BY TOUCH / *One thumb* / Slide a thumb along the edge of the screen.          |
+| 3–9   | touch the letters in the middle of the strip and slide slowly up, then down                      | the log fades; the list of apps slides in; the app level with the dot is magnified, its letter in a bubble  | The list moves with your thumb. The app level with it is the one you get.     |
+| 9–13  | slide left off the edge onto the list, move to Calendar, lift                                   | Calendar's row highlighted, then Calendar opens; Home button                                                | Slide onto the list and lift to open it.                                      |
+| 13–20 | slide along the edge again, onto the list, to Files, and hold still                             | Files' row fills with color for about a second, then Files opens without a lift; Home button                | Or hold still until its row fills.                                            |
+
+A small line under the last caption: "Turn it on in Settings → App selector."
+
+** 4. A few commands, the log, and =fresh= (26 s)
+
+The words "fresh command and longs" are read as: the =fresh= command (a clean screen, with nothing
+deleted) and the log ("logs"), with what a long-press, a tap and a swipe do to a line. Commands
+answer in the log, so the chapter shows a few, then works on their lines.
+
+| s     | On the phone                                                                                   | The viewer sees                                                                                         | Caption                                                                       |
+|-------+------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------|
+| 0–4   | tap the log; type ~= 5 km in mi~; Enter                                                         | the answer in big type: 3.11 mi, with a label under it                                                  | THE LOG / *Answers in the log* / Sums and units start with ~=~.               |
+| 4–8   | type =date tokyo london=; Enter                                                                 | the time in Tokyo and in London, each with how far ahead or behind                                      | Other commands answer in the same place.                                      |
+| 8–11  | type =todo add water the plants=; Enter                                                         | the todo saved; the header's todo count goes from 3 to 4                                                | (same caption)                                                                |
+| 11–14 | Back to close the keyboard; tap the line ~= 5 km in mi~ (the command, not its answer)           | the command is back in the prompt, ready to change                                                      | Tap a line for its main action.                                               |
+| 14–17 | clear the prompt; swipe the London answer to the right                                          | "Copied" above the prompt                                                                               | Swipe a line right to copy it…                                                |
+| 17–20 | swipe the todo line to the left; tap Undo                                                       | the line goes, Undo shows for a few seconds, the line comes back                                        | …or left to delete it.                                                        |
+| 20–23 | long-press the 3.11 mi answer; then Back                                                        | its action sheet: the line, when it arrived, run again, edit, copy, Star line, delete in red            | Long-press it for all of its actions.                                         |
+| 23–26 | tap the log; type =fresh= (it may run before the last letter); then tap "▴ N earlier lines · tap to show" | a clean screen with one line at the top; the tap brings every line back                        | =fresh= gives a clean screen. Nothing is deleted.                             |
+
+Before another take of this chapter: =todo= and =todo rm= the "water the plants" it added, so the
+count starts at 3 again.
+
+** 5. Scripts as commands (18 s)
+
+| s     | On the phone                                                                 | The viewer sees                                                                                          | Caption                                                                         |
+|-------+------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------|
+| 0–6   | tap the log; type =weather tokyo=; Enter                                     | "Tokyo" over big numbers: the temperature with the sky, humidity, wind and UV                            | SCRIPTS / *Commands of your own* / A script in Lua or JavaScript can be a command. |
+| 6–11  | type =forecast paris=; Enter                                                 | three days in Paris, each with its low and its high                                                     | Ready-made scripts come with it, such as =weather= and =forecast=.             |
+| 11–18 | type =script edit weather=; Enter; scroll a little; tap Close                | the editor: line numbers, colored Lua, the =-- @command= and =-- @usage= lines at the top                 | Read and change any script in the editor on the phone.                          |
+
+Both scripts are from the library (=weather.lua=: wttr.in; =forecast.js=: Open-Meteo; neither needs
+an account or a key). Their answers are the real weather of the day of the take.
+
+** 6. What a script may use (18 s)
+
+| s     | On the phone                                                                                           | The viewer sees                                                                                                       | Caption                                                                           |
+|-------+--------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------|
+| 0–4   | type =scripts=; Enter; tap Add script → From the library                                                | the script manager's cards, then the library with its search and chips                                                | PERMISSIONS / *A switch for each thing* / You see what a script uses before you install it. |
+| 4–9   | type =night= in the search; tap =<>= on Night Do Not Disturb                                            | its page: what it is, that it runs daily at 23:00 and 07:00, that it uses Do Not Disturb, its code                    | (same caption)                                                                    |
+| 9–11  | tap Install; Back to the script manager; tap its card                                                   | the script's sheet opens                                                                                              | Each thing a script uses has a switch of its own.                                 |
+| 11–15 | in the sheet's Access group, switch Do Not Disturb off, then on                                         | "Do Not Disturb · Reads and turns Do Not Disturb on and off; when off, it can't"                                      | (same caption)                                                                    |
+| 15–18 | close the sheet; on the weather card, open its details                                                  | its pills: internet filled, pinned faded                                                                              | A script that never goes online gets no internet.                                 |
+
+** 7. Timers, times of day and events (20 s)
+
+| s     | On the phone                                                                                                   | The viewer sees                                                                                         | Caption                                                                       |
+|-------+----------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------|
+| 0–5   | open Night Do Not Disturb's sheet again; scroll to the bottom; tap the clock beside Daily at, then Cancel        | Runs every, Daily at "23:00, 07:00", and the time picker                                               | SCHEDULING / *When it runs* / At times of day…                                |
+| 5–9   | go home; type =script every weather 30m=; Enter                                                                  | "weather: runs every 30m"                                                                              | …on a timer…                                                                  |
+| 9–12  | (the charger) plug in: =adb emu power ac on=                                                                     | the header's battery turns green with a bolt                                                           | …or when something happens, such as plugging in the charger.                  |
+| 12–20 | a minute later (cut), raise the level to 62%, then unplug: =adb emu power ac off=                                | a line from charge-reminder: "Unplugged at 62%" over big numbers (62% battery, +12% added, 1m charging) and a bar | (same caption)                                                                |
+
+=charge-reminder= runs on its =@on charger, unplug= lines; it is installed before the take. The cut
+between 12 and 20 hides the minute of waiting.
+
+** 8. Pinning a script's line (18 s)
+
+A script sets one line of status with =status(…)=; pinning shows that line at the top of home, in
+the pinned header. A script never pins itself: you do, with *Pin <name> to the top* on any line it
+logged, the card's *pinned* pill or *Pinned at the top* switch, or =script pin <name>=. The real
+example is =weather= (its runs without a city set "Tokyo: ☀️ 12°C"); the demo script =focus=
+([[*The demo script][below]]) adds a bar, which no library script shows at a time you can choose.
+
+| s     | On the phone                                                                                  | The viewer sees                                                                                         | Caption                                                                          |
+|-------+-----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------|
+| 0–5   | tap the log; type =weather=; Enter; Back; long-press its line; tap *Pin weather to the top*   | the action sheet with the pin action, then "weather: pinned to the top"                                 | PINNING / *A line at the top* / A script can keep one line of status. Pin it to the top of home. |
+| 5–8   | nothing                                                                                        | the line "Tokyo: ☀️ 12°C" under the header                                                              | A script never pins itself. You do.                                              |
+| 8–14  | tap the log; type =focus 2=; Enter; Back; long-press its line; tap *Pin focus to the top*      | "Focus until 17:44", then the pinned header takes turns: weather, then "Focus: 2 min left" with a bar   | A line can carry a bar that shows how far along it is.                           |
+| 14–18 | tap the dots at the end of the pinned header                                                    | the next item slides up; the focus bar has grown a step (it updates every 10 seconds)                   | Pinned lines take turns. Tap the dots for the next.                              |
+
+After the take: =focus stop=, =script unpin focus= (the weather line stays pinned for the rest).
+
+** 9. Widgets that scripts fill (18 s)
+
+| s     | On the phone                                                                                         | The viewer sees                                                                                                    | Caption                                                                            |
+|-------+------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------|
+| 0–4   | swipe sideways on empty space in the log                                                              | the widgets page in expressive looks: weather (Tokyo, Bold), Water counter (Shape), forecast (Paris, Split), world clocks (Tonal), Todos (Split)                          | WIDGETS / *Widgets from scripts* / Scripts fill cards on a page beside home.       |
+| 4–8   | tap the Water card's count twice                                                                      | "0 of 8" becomes "1 of 8", then "2 of 8"                                                                          | A tap runs the script again: one more glass.                                       |
+| 8–15  | tap + at the top; in the Kolahal group, tap Countdowns                                                | the picker with each widget's kind and size; the countdown card lands on the page: the days to New Year            | You place a script's widget. It never places itself.                               |
+| 15–18 | (cut: Countdowns set to Bold off camera)                                                                                               | the page with its cards, the countdown in Bold                                                                                            | (same caption)                                                                     |
+
+** 10. A widget's options, size and look (22 s)
+
+| s     | On the phone                                                                                                     | The viewer sees                                                                                         | Caption                                                                               |
+|-------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------|
+| 0–3   | long-press the World clocks card                                                                                  | Arrange widgets, the card chosen, the toolbar at the bottom                                             | OPTIONS / *Each card its own way* / Long-press a card to arrange it.                  |
+| 3–9   | in the toolbar's Look row tap Plain, Tonal, Bold, Split, Shape, about a second each, and leave it on Shape                               | the same clocks drawn five ways, ending as a shape                                                                         | Five looks: Plain, Tonal, Bold, Split and Shape.                                      |
+| 9–12  | in the Size row tap 4×2                                                                                           | the card doubles in width and shows a strip of hours under each clock                                   | Sizes from 1×1 to 4×4.                                                                |
+| 12–20 | Done; tap +; tap the Weather row ("Added · tap to add another"); in the Options sheet set city to =Paris=, save; (cut: its look set to Bold off camera) | a second weather card, for Paris, in Bold beside Tokyo's                                                      | A script's options set what it shows: a second card for another city.                |
+| 20–22 | nothing                                                                                                           | the two weather cards side by side                                                                      | (same caption)                                                                        |
+
+** 11. Shaders (20 s)
+
+| s     | On the phone                                                                                     | The viewer sees                                                                                          | Caption                                                                             |
+|-------+--------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------|
+| 0–6   | swipe back to the log; type =settings=; Enter; tap Shaders; scroll slowly                         | the list of shaders, each with a small picture, and the chips under the search                           | SHADERS / *A scene behind it* / A shader draws a scene behind home.                 |
+| 6–10  | tap =mountains=; Back to home                                                                     | home's log over ridges in mist, with birds                                                               | (same caption)                                                                      |
+| 10–14 | tap the log; type =shader aurora=; Enter; Back                                                    | curtains of northern lights at the top, behind the text                                                  | Some move, some stand still.                                                        |
+| 14–17 | type =shader rain=; Enter; Back; touch and hold empty space                                       | rain at three depths; around the finger the rain holds off                                               | Some answer your touch.                                                             |
+| 17–20 | type =shader crt=; Enter; Back                                                                    | the text on the curved glass of an old monitor, with scanlines                                           | Others change how the text looks. Android 13 or newer.                              |
+
+** 12. Shader parameters (22 s)
+
+| s     | On the phone                                                                                                 | The viewer sees                                                                                              | Caption                                                                                 |
+|-------+--------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------|
+| 0–4   | Settings → Shaders; tap ⓘ on =snowfall=                                                                       | its details: the preview at the top, two sliders under it                                                    | PARAMETERS / *Change it as you watch* / Some shaders have parameters.                   |
+| 4–10  | drag *Amount of snow* from 1.0 to 2.0, then *Size of the flakes* from 1.0 to 1.5                              | the preview follows each slider as it moves                                                                  | Drag a slider and the preview follows.                                                  |
+| 10–15 | Back; ⓘ on =dunes=; under *Camels in the caravan* tap Follow → Battery; tap the row to turn =dunes= on; home  | the parameter becomes one line: Battery 100% with a thin bar; home over the dunes and a caravan of 7 camels | A parameter can follow a value: the battery, the time, your unlocks, or a script's.     |
+| 15–22 | (the battery) =adb emu power capacity 30=                                                                     | the caravan shortens to 2 camels over two seconds                                                           | Here the battery sets the number of camels.                                             |
+
+=dunes= has ~@param camels 0..7 = 5~, whole numbers, so 100% is 7 camels and 30% is 2. The guide's
+example =shader follow dunes camels battery / 20= (a formula: 5 camels at 100%) works too, typed
+at the prompt; the menu is shown because it needs no typing.
+
+** 13. A shader as the live wallpaper (16 s)
+
+| s     | On the phone                                                                                                  | The viewer sees                                                                                  | Caption                                                                         |
+|-------+---------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------|
+| 0–4   | =shader off= first (off screen); tap the log; type =wallpaper shader pond=; Enter                              | Android's own wallpaper preview with the pond: far hills, the moon, rings of rain                | WALLPAPER / *Behind everything* / A shader can be your phone's wallpaper.       |
+| 4–7   | tap Set wallpaper → Home and lock screens                                                                     | Android's choice of screens                                                                      | (same caption)                                                                  |
+| 7–12  | power button; power button again                                                                             | the screen goes dark, then the lock screen with the pond moving behind the clock                 | On the lock screen too.                                                         |
+| 12–16 | swipe up to unlock; tap the log; type =config set log.wallpaper 60=; Enter; Back                              | home's log with the pond showing through it                                                      | And behind the log, as much as you like.                                        |
+
+** 14. Bonus: the TTY style (20 s)
+
+=home.style= isn't in Settings; it is a =config= setting only. The parts' own keys (=tty.suggestions=
+and the others) are set before the take, so this one command changes everything.
+
+| s     | On the phone                                                                                 | The viewer sees                                                                                              | Caption                                                                       |
+|-------+----------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------|
+| 0–5   | tap the log; type =config set home.style tty=; Enter                                          | home redrawn on a character grid: one font size, whole lines, the suggestions and the key bar on the grid too | BONUS / *Home on a grid* / One setting draws home like a terminal.            |
+| 5–10  | type =top=; Enter                                                                             | a full screen: the time, bars for the battery, memory and today's screen time, a table of the scripts        | Some commands take the whole screen: =top=…                                   |
+| 10–14 | tap to close; type =matrix=; Enter                                                            | characters falling down the screen in the theme's colors                                                     | …=matrix=…                                                                    |
+| 14–20 | tap to close; type =sl=; Enter                                                                | a steam locomotive crosses the screen, and home comes back by itself                                         | …and =sl=.                                                                    |
+
+After the take: =config set home.style gui=.
+
+** Closing (5 s)
+
+| s   | On the phone                    | The viewer sees                     | Caption                                                                          |
+|-----+---------------------------------+-------------------------------------+----------------------------------------------------------------------------------|
+| 0–5 | home, still, in the GUI style    | the phone beside the name           | *Kolahal: Terminal Launcher* / A home screen for touch and typing. / On Google Play · mtwabpin.github.io/kolahal |
+
+** The running total
+
+| Chapter                             | Seconds | Ends at |
+|-------------------------------------+---------+---------|
+| Opening                             |       4 |    0:04 |
+| 1. Opening apps by typing           |      18 |    0:22 |
+| 2. Suggestions                      |      16 |    0:38 |
+| 3. The app selector                 |      20 |    0:58 |
+| 4. Commands, the log and =fresh=    |      26 |    1:24 |
+| 5. Scripts as commands              |      18 |    1:42 |
+| 6. What a script may use            |      18 |    2:00 |
+| 7. Timers, times and events         |      20 |    2:20 |
+| 8. Pinning                          |      18 |    2:38 |
+| 9. Widgets from scripts             |      18 |    2:56 |
+| 10. Options, size and look          |      22 |    3:18 |
+| 11. Shaders                         |      20 |    3:38 |
+| 12. Shader parameters               |      22 |    4:00 |
+| 13. The live wallpaper              |      16 |    4:16 |
+| 14. Bonus: the TTY style            |      20 |    4:36 |
+| Closing                             |       5 |    4:41 |
+|-------------------------------------+---------+---------|
+| Total                               |     281 |    4:41 |
+
+The crossfades between grounds overlap the chapters, so they add nothing. The 19 seconds left under
+300 are for a chapter that needs more time once recorded (a slow network answer, a long caption).
+The first 30 seconds, the part Play plays by itself, hold the opening, typing and the start of the
+suggestions.
+
+** The short cut (90 to 120 s)
+
+Cut in this order: 14 (the bonus), 2 (one suggestion row stays in chapter 1), 10, 6, 7 (one caption
+in chapter 5 says scripts run on timers and events), 12 (one slider stays in chapter 11), then the
+rest shorter. What stays:
+
+| Chapter                                   | Seconds | What is kept                                                                |
+|-------------------------------------------+---------+-----------------------------------------------------------------------------|
+| Opening                                   |       3 |                                                                             |
+| 1. Opening apps by typing                 |      14 | =ma= and Enter; =clo= opening Clock; the =flash= row from chapter 2         |
+| 3. The app selector                       |      16 | the slide, and a lift on the list                                           |
+| 4. Commands and the log                   |      14 | ~= 5 km in mi~, =date tokyo london=, a swipe, a long-press                  |
+| 5. Scripts as commands                    |      10 | =weather tokyo=; caption "They also run on a timer or when something happens." |
+| 8. Pinning                                |      10 | weather pinned; =focus 2= with its bar                                      |
+| 9. Widgets from scripts                   |      14 | the page, the Water count, a Look change from chapter 10                    |
+| 11. Shaders                               |      16 | =mountains=, =rain=, and the snowfall slider from chapter 12                |
+| 13. The live wallpaper                    |       8 | the preview and the lock screen                                             |
+| Closing                                   |       4 |                                                                             |
+|-------------------------------------------+---------+-----------------------------------------------------------------------------|
+| Total                                     |     109 |                                                                             |
+
+* The data to prepare before recording
+
+On the emulator, with the Play build installed and set as the home app, before the first take.
+Everything is typed at Kolahal's prompt unless it says otherwise.
+
+*Android.*
+
+| What                          | How                                                                                                       |
+|-------------------------------+-----------------------------------------------------------------------------------------------------------|
+| Dark mode                     | =adb shell cmd uimode night yes= (the theme's dark version follows it)                                                                        |
+| Show taps                     | =adb shell settings put system show_touches 1= (Developer options → Show taps)                            |
+| Animations on                 | leave Android's animation scales at 1× and Remove animations off: without them shaders and screens stand still |
+| The clock                     | Settings → System → Date & time: automatic off, then the same time (say 17:30) at the start of each take, so the header's time runs on from chapter to chapter. Pick the hour after a look at =mountains=, =pond= and =dunes= in Settings → Shaders, which follow it |
+| Battery                       | extended controls → Battery, or =adb emu power capacity 80= and =adb emu power ac off=: 80%, not charging, battery saver off |
+| Status bar                    | hidden by Kolahal: =config set screen.hide-bars status=, so the header is the only clock                    |
+| Wallpaper                     | =wallpaper theme= until chapter 13 (no flash of another wallpaper when going home)                         |
+| Permissions                   | =allow usage= (screen time for =top=), =allow send-notifications= (so no prompt comes up mid-take); the first widget placed asks whether Kolahal may create widgets: allow it, with "always" |
+| Apps                          | the emulator's own, nothing signed in. Check with =apps= that Maps, Calendar, Clock and Files are there and that no other app's name contains =clo= or =ma= in a way that changes chapter 1 |
+
+*Kolahal's settings.*
+
+#+begin_src sh
+theme rose-pine
+config set theme.always-dark on
+config set header.show on
+config set selector.rail on
+config set suggestions.idle on
+config set log.tips off
+config set log.fresh 0
+config set tty.suggestions tty
+config set tty.selector tty
+config set tty.keybar tty
+config set tty.quick-actions tty
+config set tty.menu tty
+#+end_src
+
+=theme rose-pine= is the same as =config set theme.name rose-pine=. Kolahal uses a theme's dark
+version while the phone's dark mode is on and its light version (Rosé Pine Dawn) while it is off;
+=theme.always-dark on= keeps the dark one whatever the dark mode, so a take never turns light.
+
+=log.fresh 0= keeps a take from starting on a clean screen by itself after a pause; =fresh= still
+works. The =tty.…= keys matter only in the TTY style, so they change nothing until chapter 14.
+
+*Favorites and history.* =pin maps=, =pin camera=, =pin clock=. Open Calendar, Files and Clock a
+few times each from the prompt, so the empty prompt offers them in chapter 2.
+
+*Lists.*
+
+#+begin_src sh
+todo add buy lentils
+todo add call the bank
+todo add book a table for Friday
+note pick up the tickets at 5
+remind tomorrow 9:00 call Maya
+alarm 7am
+feed add https://www.nasa.gov/feeds/iotd-feed/
+#+end_src
+
+The alarm is set in the clock app; the header shows "7:00". The feed is the one the store's
+screenshots use; it doesn't appear in the video, but home has an unread count for it.
+
+*Scripts.*
+
+#+begin_src sh
+script install weather
+script set weather city Tokyo
+script install forecast
+script set forecast city Paris
+script install world-clocks
+script set world-clocks zones "Asia/Tokyo Europe/Paris America/New_York"
+script install counter
+script install countdown
+countdown add yearly 01-01 New Year
+script install charge-reminder
+#+end_src
+
+- =weather= keeps its hourly timer; =script pin weather= is done in chapter 8, not before.
+- =counter=: Water, glasses, a target of 8 (its defaults). Reset it to 0 before chapter 9:
+  =counter undo= until it says 0.
+- =countdown= is installed but its widget is placed in chapter 9.
+- =night-dnd= is installed during chapter 6, not before. Delete it after each take of chapter 6
+  (=script rm night-dnd=), so the next take can install it again.
+- =focus=: =script new focus=, paste the demo script below, Save.
+- =charge-reminder=: run it once by hand (=script run charge-reminder=) so its first line isn't a
+  surprise in chapter 7.
+
+*Widgets.* On the widgets page, in this order: weather (2×1), Water counter (2×1), forecast (2×2),
+World clocks (2×2), Todos (2×2). In Arrange widgets, each card in one of the expressive looks, never
+Plain, and then Close gaps:
+
+| Widget                | Kind              | Look  |
+|-----------------------+-------------------+-------|
+| weather (Tokyo)       | stat 2×1          | Bold  |
+| Water counter         | buttons 2×1       | Shape |
+| forecast (Paris)      | list 2×2          | Split |
+| World clocks          | clock 2×2         | Tonal |
+| Todos (Kolahal's own) | 2×2               | Split |
+
+A new widget lands in Plain. The two placed during the video (Countdowns in chapter 9, the second
+weather card in chapter 10) get theirs off camera, at a cut: Countdowns Bold, the Paris weather
+Bold. Buttons have no Bold (the counter offers Plain, Tonal, Split and Shape), and a card that is
+loading or failed draws Plain whatever its look, so wait for every card to fill before a take.
+
+*Shaders.* None on (=shader off=). Parameters at their defaults: =shader reset snowfall=,
+=shader reset dunes= (also after each take of chapter 12).
+
+*Before each take.* Set the clock; =clear=, then wait for Undo to go; Back to close the keyboard.
+After chapter 13, the wallpaper stays the pond: for a take of an earlier chapter, =wallpaper theme=
+again and =config set log.wallpaper 0=.
+
+** The demo script
+
+Chapter 8 shows a pinned line with a bar. The library's lines with a bar (=aqi=, =cricket=,
+=football=) depend on the air, or on a match being played at the time of the take, so the video uses
+this short script instead. It is a working focus timer, not made-up data: =focus 2= starts a
+two-minute session, and its line at the top says how much is left, with a bar that grows every 10
+seconds. Checked against the API reference (=status(text, opts)=, =store=, =args=, =options=,
+=event=):
+
+#+begin_src lua
+-- @title Focus
+-- @desc A focus session as a line at the top of home: focus [<minutes>|stop]
+-- @command
+-- @usage [<minutes>|stop]
+-- @option minutes 25 How long a session lasts, in minutes
+
+local now = os.time()
+local word = (args[1] or ""):lower()
+local ends = tonumber(store.get("ends"))
+local length = tonumber(store.get("length")) or 1500
+local refresh = event and event.name == "refresh"
+
+if word == "stop" then
+  store.set("ends", nil)
+  status(nil)
+  return "Focus stopped"
+end
+if word ~= "" and not tonumber(word) then
+  return "Usage: focus [<minutes>|stop]"
+end
+
+-- Typed with minutes, or with none while no session runs: a new session.
+if not refresh and (word ~= "" or not ends or ends <= now) then
+  local mins = tonumber(word) or tonumber(options.minutes) or 25
+  if mins < 1 or mins > 240 then return "Minutes from 1 to 240" end
+  length, ends = mins * 60, now + mins * 60
+  store.set("ends", tostring(ends))
+  store.set("length", tostring(length))
+end
+
+if not ends then
+  status(nil)
+  return
+end
+local left = ends - now
+if left <= 0 then
+  store.set("ends", nil)
+  status("Focus done at " .. os.date("%H:%M", ends))
+  return
+end
+status("Focus: " .. math.ceil(left / 60) .. " min left",
+  { progress = 1 - left / length, refresh = 10 })
+if not refresh then return "Focus until " .. os.date("%H:%M", ends) end
+#+end_src
+
+What it shows:
+
+- Typed: one log line, "Focus until 17:44". Its long-press menu has *Pin focus to the top*,
+  because the script calls =status=.
+- Pinned: "Focus: 2 min left" in the pinned header, with a bar in the accent color under it. Home
+  runs it again every 10 seconds while the line shows (=event.name= is ="refresh"=, which logs
+  nothing), so the bar grows a twelfth at a time and the minutes count down.
+- At the end: "Focus done at 17:44", without a bar, and the runs every 10 seconds stop.
+- =focus stop= clears the line. A tap on the pinned line runs the script: during a session it logs
+  the end time again; after one, it starts a new one.
+
+It needs no access beyond *Pinned at the top*, which pinning turns on. It is written for the video
+and isn't added to the library.
+
+* How to record
+
+** The device
+
+An Android emulator with Android 15 or 16 (shaders need 13 or newer), a Google APIs image (no Play
+Store, so no account is needed), 1080 × 2400 pixels at 420 dpi (a Pixel 8's size, as the store's
+screenshots), no device frame ("skin"), the host's GPU for graphics (shaders are slow on the
+software renderer), and its window shown. Gesture navigation, as most phones have now; the app
+selector starts only in the middle of its strip, so it never takes the back gesture.
+
+Every =adb= command goes to the emulator only: set =ANDROID_SERIAL= to its name (=emulator-5554=)
+in the shell that records, so a phone on the same computer is never touched.
+
+** Recording the screen
+
+Two ways, either is fine:
+
+- On the device: =adb shell screenrecord --bit-rate 20000000 /sdcard/k-07.mp4=, then =adb pull=.
+  A recording stops after 3 minutes (the default, and the most on older Android); one chapter per
+  file stays well under it. If the encoder refuses 1080 × 2400, add =--size 720x1600= and check the
+  text is still sharp, or use the other way.
+- From the emulator: =adb emu screenrecord start --time-limit 180 <file>.webm= and
+  =adb emu screenrecord stop=, or Extended controls → Record and playback. It records on the
+  computer, so it needs nothing from the device's encoder.
+
+Record each chapter as a file of its own (=k-00.mp4= to =k-15.mp4=), and each take again until it
+is clean; keep 2 seconds of still screen at both ends for the cuts. "Show taps" draws each touch as
+a dot in the recording itself.
+
+** Typing by hand or by script
+
+- *Typed text*: by script, for takes that come out the same each time. The on-screen keyboard stays
+  open (tap the log first), and the text goes in one character at a time, so the suggestions change
+  as they would:
+  #+begin_src sh
+  type() { s=$1; for ((i=0; i<${#s}; i++)); do c=${s:i:1}; [ "$c" = " " ] && c=%s; adb shell input text "'$c'"; sleep 0.25; done; }
+  type "date tokyo london"; sleep 1; adb shell input keyevent KEYCODE_ENTER
+  #+end_src
+  The keyboard's keys don't light up this way; only the prompt shows the letters. That reads as
+  typing in the video. Each =adb shell input= call takes a moment itself, so check the pace in the
+  first take and change the =sleep=.
+- *Taps, long-presses and straight swipes*: by script, with coordinates read once with Developer
+  options → Pointer location: =input tap x y=, =input swipe x y x y 900= (a long-press: a swipe
+  that stays put for 900 ms), =input swipe x1 y x2 y 250= (a swipe of a line).
+- *The app selector (chapter 3)*: by hand, with the mouse in the emulator's window. Its path bends
+  (along the edge, then off it, then along the list) and the speed matters (below about 100 dp a
+  second it moves one app at a time); =adb shell input= starts a new process for each step, too slow
+  for a smooth slide. Do several takes and keep the smoothest.
+- *Sliders and dragging (chapters 10 and 12)*: by hand, or =input swipe= with a long duration
+  (=input swipe x1 y x2 y 3000= drags a slider over 3 seconds).
+- *The charger and the battery (chapters 7 and 12)*: the emulator's console, which needs no touch:
+  =adb emu power ac on=, =adb emu power ac off=, =adb emu power capacity 62=.
+- *What can't be scripted*: the network's answers (=weather=, =forecast= and the
+  wallpaper preview's first frame take their own time; cut the wait), the real weather they show,
+  the lock screen (it shows the system's clock), and Android's own screens, whose buttons move
+  between Android versions (read their places before the take).
+
+** What to check in each take
+
+- Nothing personal: no account, no notification, no name but Maya.
+- The Play build: no =lock=, no double-tap to lock, no =calls=, no =update=.
+- No line left from an earlier take or from setting up; no "N new since you left"; no daily tip.
+- The header's time runs on from the chapter before (set the clock again if not).
+- Every network answer arrived, and no line is red unless the chapter means it.
+- The keyboard is up or down as the shot says; the pinned header isn't hiding what the shot shows.
+- Show taps is on, and each touch is where the caption says.
+- A moving shader stands still after a minute without a touch unless the phone is charging: in
+  chapters 11 to 13, touch the screen within the minute.
+- The pace: a caption's words can be read in the time its shot takes.
+
+* Putting it together
+
+What each step needs; any tools that do it will serve. All of these exist for Linux: =ffmpeg= for
+every video step, a headless Chrome for the caption cards (the website's own build tools already
+use it), and, for anyone who prefers a timeline, Kdenlive, Shotcut or Blender's video editor.
+
+1. *Trim.* Cut each chapter's file to its shots, frame-accurately (=ffmpeg -ss … -to …= with a
+   re-encode), and remove waits (the network, the minute of chapter 7) with hard cuts.
+2. *Caption cards.* One transparent PNG per caption, 3840 × 2160, made from an HTML page that uses
+   the website's tokens and fonts (=site/src/styles/tokens.css=; Bricolage Grotesque, Instrument Sans
+   and JetBrains Mono, all under the SIL Open Font License, from their =@fontsource= packages in
+   =site/=), shot with headless Chrome (=--screenshot= with a transparent background). This keeps
+   the type exactly as on the website. To draw text with =ffmpeg= instead, its =drawtext= needs the
+   fonts as TTF or OTF files.
+3. *Ground.* The scene pictures the website already has (=site/src/assets/scenes/mountains-wide.jpg=,
+   =pond-wide.jpg=, =dunes-wide.jpg=), cut to 16:9, fading into the ground color (=--s-ground= of the
+   theme the table above names), with a slow pan (=ffmpeg=: =zoompan= or a moving =crop=).
+4. *Phone frame.* A PNG with the frame, its edge and its shadow, and a mask for the screen's round
+   corners, made with the same HTML page. The recording is scaled into it and masked (=alphamerge=),
+   then laid over the ground (=overlay=); for the close-ups of chapters 1, 2 and 4 it is scaled to
+   1.5 times and moved up.
+5. *Layers in time.* Each caption card over the frame for its seconds (=overlay= with
+   ~enable='between(t,a,b)'~), faded in and out (=fade= with ~alpha=1~).
+6. *Chapters.* Joined in order; a one-second crossfade (=xfade=) where the ground changes, a plain
+   cut elsewhere.
+7. *Caption track.* The same words as an SRT file, one entry per caption with its times, for YouTube.
+8. *Export.* H.264 (High), =yuv420p=, 30 frames a second (shaders draw at most 30), CRF about 18,
+   =+faststart=, 3840 × 2160; an AAC track with the music or silence.
+9. *Publish.* YouTube: unlisted, not made for kids, no age restriction, monetization off, embedding
+   allowed, the SRT as English captions. Then its address in Play Console → Main store listing →
+   Graphics → Preview video, and Save. Watch it on the listing with the sound off: it must make
+   sense so.
+
+The short cut is made from the same pieces: the same files, the same cards, the chapters of
+its table.
+
+* What is uncertain
+
+- *"Fresh command and longs"* is read as the =fresh= command and the log ("logs"), with long-press
+  in it too. If it meant something else, chapter 4 is the one to change.
+- *"App slider"* is the app selector. It is off by default, so a viewer needs Settings → App
+  selector; the chapter's last caption says so.
+- *Pinning* works as the words suggest, with two differences: a script never pins itself (the user
+  pins it), and a pinned line takes turns with what's playing and the other pinned lines. Real
+  scripts have lines to pin (=weather=, =countdown=, =charge-reminder=), so the demo script is there
+  only for the bar.
+- *Permissions*: a library script installs with everything it declares allowed; the choice comes
+  after, in its sheet. (Get more scripts, which asks first, depends on the shared list of the day
+  and isn't shown.) Internet and "Pinned at the top" have no =@uses= line: Kolahal reads them from
+  the code.
+- *Shaders need Android 13.* The emulator must have it; a viewer with Android 9 to 12 gets none of
+  chapters 11 to 13, so the caption says "Android 13 or newer". The live wallpaper can't be a shader
+  that changes text (=crt= and the like), which is why chapter 13 uses =pond=.
+- *Not tried on a device* (no emulator was used for this plan): that =adb shell input text= drives
+  the prompt as the keyboard does (suggestions, instant launch); that =clo= opens Clock on its third
+  letter with the emulator's apps and no command in the way; which rows =ma= shows besides Maps;
+  how soon the camels follow =adb emu power capacity= (the value comes from the battery's state; if
+  nothing changes within a few seconds, go to the widgets page and back); the format of the place
+  in =weather='s status line (wttr.in names it); whether the device's =screenrecord= takes
+  1080 × 2400 on the emulator; and the exact names of Android's own wallpaper buttons.
+- *=habit=* is left out of the widgets: its chart of dots needs some days of history, which a fresh
+  emulator doesn't have. To show it, run =habit done= on the emulator each day for a week first.
+- *The guide and the code differ on one small thing*: the guide writes the clean screen's line as
+  "▴ N earlier lines"; the app shows "▴ N earlier lines · tap to show". The shot list uses the app's
+  words.

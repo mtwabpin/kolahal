@@ -1,115 +1,224 @@
 <!doctype html>
-<!-- A Play Store screenshot: one capture from raw/ in a phone frame, under its caption, 1080 × 1920.
-     Pick the capture with ?shot=<name> (raw/<name>.png); tools/play-graphics.sh renders them all. -->
+<!-- A Play Store screenshot draft, 1080 × 1920: one capture from raw/ in a phone, under its caption,
+     over a scene from the app's own shaders that fades into the website's light ground (the
+     website's "Scenes" look). Pick the draft with ?shot=<name>, a key of SHOTS below;
+     tools/play-graphics.sh renders every draft into drafts/screenshots/ and copies the chosen ones
+     into screenshots/.
+
+     The fonts are the website's own, read from the site's packages inside this repository
+     (site/node_modules, after `pnpm install` in site/), never from a font host. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Kolahal screenshot</title>
 <style>
-	@font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('../../../app/src/main/res/font/jetbrains_mono_regular.ttf'); }
-	@font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('../../../app/src/main/res/font/jetbrains_mono_bold.ttf'); }
+	@font-face {
+		font-family: 'Bricolage Grotesque';
+		font-weight: 200 800;
+		src: url('../../../site/node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2') format('woff2-variations');
+	}
+	@font-face {
+		font-family: 'Instrument Sans';
+		font-weight: 400 700;
+		src: url('../../../site/node_modules/@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2') format('woff2-variations');
+	}
+	@font-face {
+		font-family: 'JetBrains Mono';
+		font-weight: 400;
+		src: url('../../../site/node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+	}
 	:root {
-		/* Gruvbox dark, as the app on the phone. --a and --b (r g b) are each shot's two colours. */
-		--fg: #ebdbb2;
-		--dim: #bdae93;
-		--screen: #282828;
-		--bezel: #3c3836;
-		--edge: #665c54;
-		--a: 250 189 47;
-		--b: 142 192 124;
+		/* The website's light theme (site/src/styles/tokens.css, --s-*). */
+		--ground: #eddcd2;
+		--ink: #241c2b;
+		--ink-soft: #33293d;
+		--wash: #e7d3c8;
+		--phone: #17151c;
+		--phone-shadow: rgb(36 28 43 / 0.55);
+		--scene: none;
+		--scene-x: 70%;
 	}
 	* { margin: 0; box-sizing: border-box; }
 	html, body { width: 1080px; height: 1920px; overflow: hidden; }
 	body {
-		font-family: 'JetBrains Mono', monospace;
-		color: var(--fg);
-		background:
-			radial-gradient(ellipse 75% 40% at 12% 4%, rgb(var(--a) / 0.34), transparent 70%),
-			radial-gradient(ellipse 80% 45% at 95% 78%, rgb(var(--b) / 0.26), transparent 70%),
-			radial-gradient(rgb(235 219 178 / 0.06) 1.6px, transparent 1.8px) 0 0 / 30px 30px,
-			linear-gradient(165deg, #32302f, #1d2021 55%, #141617);
 		position: relative;
+		background: var(--ground);
+		color: var(--ink);
+		font-family: 'Instrument Sans', system-ui, sans-serif;
+	}
+	/* The scene: the top of the picture, fading into the ground behind the phone. */
+	.scene {
+		position: absolute;
+		inset: 0 0 auto;
+		height: 1240px;
+		background:
+			linear-gradient(to bottom, transparent 50%, var(--ground) 96%),
+			var(--scene) var(--scene-x) 100% / cover no-repeat;
 	}
 	.caption {
 		position: absolute;
-		inset: 92px 60px auto;
+		inset: 92px 72px auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 22px;
 		text-align: center;
 	}
+	.kicker {
+		font-size: 27px;
+		font-weight: 650;
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
+		color: var(--ink-soft);
+	}
 	h1 {
-		font-size: 62px;
+		font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+		font-size: 78px;
 		font-weight: 700;
-		line-height: 1.18;
-		letter-spacing: -0.01em;
+		line-height: 1.02;
+		letter-spacing: -0.025em;
+		text-wrap: balance;
 	}
-	h1 em { font-style: normal; color: rgb(var(--a)); }
 	p {
-		margin-top: 24px;
-		font-size: 31px;
+		max-width: 880px;
+		font-size: 33px;
 		line-height: 1.4;
-		color: var(--dim);
+		color: var(--ink-soft);
+		text-wrap: balance;
 	}
+	code {
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.86em;
+		padding: 0.08em 0.36em;
+		border-radius: 10px;
+		background: var(--wash);
+	}
+	/* The phone: the website's frame (--s-phone), a 1080 × 2400 capture at 600 × 1333. */
 	.phone {
 		position: absolute;
 		left: 50%;
-		bottom: 64px;
+		bottom: 52px;
 		transform: translateX(-50%);
-		/* The screen is 1080 × 2400 scaled to 630 × 1400, in an 18 px bezel. */
-		width: 666px;
-		height: 1436px;
-		padding: 18px;
-		border-radius: 76px;
-		background: linear-gradient(160deg, #504945, var(--bezel) 30%, #282828);
-		box-shadow:
-			inset 0 0 0 2px var(--edge),
-			0 50px 100px -30px rgb(0 0 0 / 0.75),
-			0 0 140px -10px rgb(var(--b) / 0.30);
+		width: 626px;
+		padding: 13px;
+		border-radius: 72px;
+		background: var(--phone);
+		box-shadow: 0 60px 110px -50px var(--phone-shadow);
 	}
-	.screen {
-		position: relative;
-		width: 630px;
-		height: 1400px;
-		border-radius: 58px;
-		overflow: hidden;
-		background: var(--screen);
-	}
-	.screen img { display: block; width: 100%; height: 100%; }
-	/* The front camera, over the status bar Kolahal hides. */
-	.screen::after {
-		content: '';
-		position: absolute;
-		top: 22px;
-		left: 50%;
-		width: 22px;
-		height: 22px;
-		margin-left: -11px;
-		border-radius: 50%;
-		background: #0e0f0f;
-		box-shadow: inset 0 0 0 3px #1d2021;
+	.phone img {
+		display: block;
+		width: 600px;
+		height: 1333px;
+		border-radius: 60px;
 	}
 </style>
 </head>
 <body>
-	<div class="caption"><h1 id="title"></h1><p id="text"></p></div>
-	<div class="phone"><div class="screen"><img id="shot" alt=""></div></div>
+	<div class="scene"></div>
+	<div class="caption">
+		<div class="kicker" id="kicker"></div>
+		<h1 id="title"></h1>
+		<p id="text"></p>
+	</div>
+	<div class="phone"><img id="shot" alt=""></div>
 	<script>
-		// Per capture: the title (an <em> part takes the first colour), one line under it, and the
-		// two gruvbox colours of the background glows.
-		const YELLOW = '250 189 47', GREEN = '184 187 38', AQUA = '142 192 124', BLUE = '131 165 152',
-			PURPLE = '211 134 155', ORANGE = '254 128 25';
+		// The scenes: renders of the app's shaders (the website's, and one of its own here).
+		const MOUNTAINS = '../../../site/src/assets/scenes/mountains-wide.jpg';
+		const DUNES = '../../../site/src/assets/scenes/dunes-wide.jpg';
+		const POND = 'scenes/pond-light-wide.jpg';
+		// Each draft: the capture in raw/, the scene and where it sits (its sun clear of the
+		// caption), and the words, which say what the website and the guide say.
 		const SHOTS = {
-			'1-home': ['Your home screen<br>is <em>a terminal</em>', 'Clock, weather and to-dos at the top,<br>every command and its answer below', YELLOW, AQUA],
-			'2-type': ['Type a few letters,<br>press <em>Enter</em>', 'The closest match sits right above your thumb', GREEN, BLUE],
-			'3-feeds': ['Your <em>feeds</em>,<br>in the log', 'A built-in RSS and Atom reader<br>with unread counts', ORANGE, YELLOW],
-			'4-scripts': ['Scripts in <em>Lua</em><br>or <em>JavaScript</em>', 'On a timer, on an event,<br>or as commands of your own', AQUA, PURPLE],
-			'5-themes': ['Make it <em>yours</em>', 'Seven themes, and a theme builder<br>with a live preview', PURPLE, ORANGE],
+			'01-home-pond': ['home-pond-dark', POND, '78%', 'Touch and type',
+				'A home screen for touch and typing.',
+				'What you run stays in a log you can tap and swipe, with a scene behind it if you like.'],
+			'02-home-mountains-light': ['home-mountains-light', MOUNTAINS, '70%', 'Touch and type',
+				'A home screen for touch and typing.',
+				'What you run stays in a log you can tap and swipe, with a scene behind it if you like.'],
+			'03-typing': ['typing-suggestions', DUNES, '62%', 'By typing',
+				'A few letters and Enter',
+				"Type any part of an app's name. The apps that match are suggested, the best match nearest your thumb."],
+			'04-selector': ['selector-thumb-g', MOUNTAINS, '40%', 'By touch',
+				'One thumb opens any app',
+				'Slide along the edge of the screen through your apps, then onto the one you want, and lift.'],
+			'05-answers': ['answers-dark', POND, '30%', 'By typing',
+				'One prompt for the rest',
+				'Sums and unit conversions, todos, reminders and the time in other cities, all from the same line.'],
+			'06-answers-light': ['answers-dunes-light', DUNES, '30%', 'By typing',
+				'One prompt for the rest',
+				'Sums and unit conversions, todos, reminders and the time in other cities, all from the same line.'],
+			'07-log-actions': ['action-sheet-line', MOUNTAINS, '60%', 'By touch',
+				'A log you can touch',
+				'Tap a line for its main action. Swipe it right to copy it or left to delete it, and long-press it for all its actions.'],
+			'08-notifications-feeds': ['log-notification-feed', POND, '55%', 'In the log',
+				'Notifications and feeds',
+				'Your notifications and the feeds you follow come into the same log as everything else.'],
+			'09-widgets': ['widgets-page', DUNES, '62%', 'Scripts and widgets',
+				'A widgets page beside the log',
+				'Swipe sideways for your widgets: the ones Kolahal has, the ones scripts fill, and those of your other apps.'],
+			'10-widgets-light': ['widgets-page-light', MOUNTAINS, '70%', 'Scripts and widgets',
+				'A widgets page beside the log',
+				'Swipe sideways for your widgets: the ones Kolahal has, the ones scripts fill, and those of your other apps.'],
+			'11-widget-looks': ['arrange-widgets-look', POND, '70%', 'Widgets',
+				'A look for each card',
+				'Long-press a card to arrange it. Each card has its own size, from 1×1 to 4×4, and its own look.'],
+			'12-script-switches': ['script-sheet-switches', MOUNTAINS, '40%', 'Scripts',
+				'A switch for each thing it uses',
+				'A script is a short file in Lua 5.4 or JavaScript. The internet, your notifications or your calendar each have a switch of their own.'],
+			'13-library': ['library', DUNES, '30%', 'Scripts',
+				'Scripts from the library',
+				'Weather, news, a habit streak, world clocks and more come with Kolahal. One tap installs one.'],
+			'14-editor': ['editor-script', POND, '30%', 'Scripts',
+				'An editor on the phone',
+				'Line numbers, colored code, a symbol bar and Run. A script can fill a widget, run on a timer or be a command.'],
+			'15-shader-sliders': ['shader-details-slider', MOUNTAINS, '70%', 'A scene behind it',
+				'Scenes from shaders',
+				'Shaders draw behind home, or as your wallpaper. Some have settings you change with a slider.'],
+			'16-shader-follows': ['shader-details-follows', DUNES, '62%', 'A scene behind it',
+				'A scene that follows your day',
+				'A setting can follow a value, such as your screen time, your unlocks or a value a script gives.'],
+			'17-candle': ['scene-candle-screen-time', POND, '78%', 'A scene behind it',
+				'Drawn from your screen time',
+				"The candle burns down as today's screen time is spent. Your screen time never leaves the phone."],
+			'18-lanterns': ['scene-lanterns-unlocks', MOUNTAINS, '70%', 'A scene behind it',
+				'Drawn from your unlocks',
+				"Seven lanterns, each as high as that day's unlocks. Your unlocks never leave the phone."],
+			'19-hourglass': ['scene-hourglass-screen-time', DUNES, '62%', 'A scene behind it',
+				'Drawn from your screen time',
+				"The hourglass holds what is left of a usual day's screen time. Your screen time never leaves the phone."],
+			'20-themes': ['theme-picker', POND, '78%', 'Themes',
+				'A dark and a light version',
+				"Each theme has a dark and a light version. Kolahal uses the one that matches the phone's dark mode."],
+			'21-tty-home': ['tty-home', MOUNTAINS, '70%', 'TTY style',
+				'Or home on a character grid',
+				'With <code>home.style tty</code>, home is drawn on a grid of characters, like a terminal.'],
+			'22-tty-matrix': ['tty-matrix', DUNES, '62%', 'TTY style',
+				'The whole screen, like a terminal',
+				'<code>matrix</code>, <code>pipes</code>, <code>clock</code> and others take the whole screen, like a program in a terminal. A tap closes them.'],
+			'23-scramble': ['scramble', POND, '55%', 'Screen recordings',
+				'Scramble the text',
+				'With <code>scramble</code>, every line keeps its shape and colors but none of its text, for a screen recording.'],
+			'24-selector-pick': ['selector-pick-filling', MOUNTAINS, '40%', 'By touch',
+				'Slide onto the list and lift',
+				'The app level with your thumb is the one you get. Lift to open it, or hold still until its row fills.'],
+			'25-schedule': ['schedule-times', DUNES, '30%', 'Scripts',
+				'Timers, times and events',
+				'A script can run at times of day, on a timer, or when something happens on the phone, such as plugging in the charger.'],
+			'26-widget-options': ['widget-options-cities', MOUNTAINS, '70%', 'Widgets',
+				'A second card for another city',
+				"A script's options set what it shows, such as a second weather card for another city."],
+			'27-wallpaper': ['wallpaper-preview', POND, '78%', 'A scene behind it',
+				'A shader as the live wallpaper',
+				"A shader can be your phone's wallpaper, on the lock screen too, and behind the log as much as you like."],
 		};
-		const name = new URLSearchParams(location.search).get('shot') || '1-home';
-		const [title, text, a, b] = SHOTS[name] || [name, '', YELLOW, AQUA];
-		document.getElementById('title').innerHTML = title;
+		const name = new URLSearchParams(location.search).get('shot') || '01-home-pond';
+		const [raw, scene, x, kicker, title, text] = SHOTS[name];
+		document.documentElement.style.setProperty('--scene', `url('${scene}')`);
+		document.documentElement.style.setProperty('--scene-x', x);
+		document.getElementById('kicker').textContent = kicker;
+		document.getElementById('title').textContent = title;
 		document.getElementById('text').innerHTML = text;
-		document.documentElement.style.setProperty('--a', a);
-		document.documentElement.style.setProperty('--b', b);
-		document.getElementById('shot').src = 'raw/' + name + '.png';
+		document.getElementById('shot').src = 'raw/' + raw + '.png';
 	</script>
 </body>
 </html>

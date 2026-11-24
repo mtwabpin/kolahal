@@ -1,103 +1,130 @@
 <!doctype html>
-<!-- The Play Store feature graphic, 1024 × 500: the icon, the name and a line on the left, the top
-     of the home screen (raw/1-home.png) in a phone on the right. tools/play-graphics.sh renders it. -->
+<!-- The Play Store feature graphic, 1024 × 500, in the website's "Scenes" look: a scene from the
+     app's own shaders, the name and a line on the left, a phone with a capture from raw/ on the
+     right. Pick the variant with ?v=<name>, a key of VARIANTS below; tools/play-graphics.sh renders
+     every variant into drafts/ and copies the chosen one to feature-graphic.png.
+
+     Play puts a play button over the middle when the listing has a video, and some places crop
+     the edges: the words stay in x 64–430, the phone in x 676–920, so x 430–676 (the middle 246
+     pixels) and a 56-pixel margin all round hold nothing that must be seen.
+
+     The fonts are the website's own, read from the site's packages inside this repository
+     (site/node_modules, after `pnpm install` in site/), never from a font host. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Kolahal feature graphic</title>
 <style>
-	@font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('../../../app/src/main/res/font/jetbrains_mono_regular.ttf'); }
-	@font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('../../../app/src/main/res/font/jetbrains_mono_bold.ttf'); }
+	@font-face {
+		font-family: 'Bricolage Grotesque';
+		font-weight: 200 800;
+		src: url('../../../site/node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2') format('woff2-variations');
+	}
+	@font-face {
+		font-family: 'Instrument Sans';
+		font-weight: 400 700;
+		src: url('../../../site/node_modules/@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2') format('woff2-variations');
+	}
 	:root {
-		/* As screenshot.html: gruvbox dark, with an orange and an aqua glow. */
-		--fg: #ebdbb2;
-		--dim: #bdae93;
-		--accent: #fabd2f;
-		--screen: #282828;
-		--bezel: #3c3836;
-		--edge: #665c54;
+		/* The website's light theme (site/src/styles/tokens.css); the dark one below. */
+		--ground: #eddcd2;
+		--ink: #241c2b;
+		--ink-soft: #33293d;
+		--phone: #17151c;
+		--phone-shadow: rgb(36 28 43 / 0.6);
+		--scene: none;
+		--scene-x: 70%;
+		--scene-y: 100%;
+	}
+	:root.dark {
+		--ground: #141a28;
+		--ink: #ece9f2;
+		--ink-soft: #d7d4e3;
+		--phone: #0a0c13;
+		--phone-shadow: rgb(0 0 0 / 0.8);
 	}
 	* { margin: 0; box-sizing: border-box; }
 	html, body { width: 1024px; height: 500px; overflow: hidden; }
 	body {
-		font-family: 'JetBrains Mono', monospace;
-		color: var(--fg);
-		background:
-			radial-gradient(ellipse 55% 80% at 8% 10%, rgb(254 128 25 / 0.30), transparent 70%),
-			radial-gradient(ellipse 45% 85% at 80% 85%, rgb(142 192 124 / 0.26), transparent 70%),
-			radial-gradient(rgb(235 219 178 / 0.06) 1.4px, transparent 1.6px) 0 0 / 24px 24px,
-			linear-gradient(160deg, #32302f, #1d2021 55%, #141617);
 		position: relative;
+		background: var(--ground) var(--scene) var(--scene-x) var(--scene-y) / cover no-repeat;
+		color: var(--ink);
+		font-family: 'Instrument Sans', system-ui, sans-serif;
 	}
-	.text {
+	.words {
 		position: absolute;
-		left: 76px;
+		left: 64px;
 		top: 50%;
+		width: 366px;
 		transform: translateY(-50%);
-	}
-	.text img {
-		display: block;
-		width: 104px;
-		height: 104px;
-		border-radius: 26px;
-		box-shadow: inset 0 0 0 1px var(--edge), 0 0 0 1px #504945, 0 14px 30px -10px rgb(0 0 0 / 0.8);
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
 	}
 	h1 {
-		margin-top: 30px;
-		font-size: 84px;
+		font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+		font-size: 88px;
 		font-weight: 700;
+		line-height: 0.95;
+		letter-spacing: -0.03em;
+	}
+	/* The rest of the store name, under the name. */
+	.name-rest {
+		font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+		font-size: 34px;
+		font-weight: 650;
 		line-height: 1;
-		letter-spacing: -0.02em;
+		letter-spacing: -0.015em;
+		margin-top: -6px;
 	}
 	p {
-		margin-top: 20px;
-		font-size: 27px;
-		line-height: 1.4;
-		color: var(--dim);
+		font-size: 26px;
+		line-height: 1.3;
+		color: var(--ink-soft);
+		text-wrap: balance;
 	}
-	p span { color: var(--fg); }
-	p em { font-style: normal; color: var(--accent); }
+	/* The phone: the website's frame, the top of a 1080 × 2400 capture at 232 pixels wide. */
 	.phone {
 		position: absolute;
-		left: 640px;
-		top: 52px;
-		width: 318px;
-		height: 640px;
-		padding: 10px;
-		border-radius: 42px;
-		background: linear-gradient(160deg, #504945, var(--bezel) 30%, #282828);
-		box-shadow: inset 0 0 0 2px var(--edge), 0 30px 70px -20px rgb(0 0 0 / 0.8), 0 0 90px -10px rgb(142 192 124 / 0.3);
+		left: 676px;
+		top: 56px;
+		width: 244px;
+		padding: 6px;
+		border-radius: 34px;
+		background: var(--phone);
+		box-shadow: 0 30px 60px -24px var(--phone-shadow);
 	}
-	.screen {
-		position: relative;
-		width: 298px;
-		height: 620px;
-		border-radius: 32px;
-		overflow: hidden;
-		background: var(--screen);
-	}
-	/* The capture is 1080 × 2400; its top part, at 298 px wide. */
-	.screen img { display: block; width: 298px; }
-	.screen::after {
-		content: '';
-		position: absolute;
-		top: 11px;
-		left: 50%;
-		width: 12px;
-		height: 12px;
-		margin-left: -6px;
-		border-radius: 50%;
-		background: #0e0f0f;
-		box-shadow: inset 0 0 0 2px #1d2021;
+	.phone img {
+		display: block;
+		width: 232px;
+		border-radius: 28px;
 	}
 </style>
 </head>
 <body>
-	<div class="text">
-		<img src="icon.svg" alt="">
+	<div class="words">
 		<h1>Kolahal</h1>
-		<p><span>Your home screen, as a terminal.</span><br><em>$</em> type a few letters, press Enter</p>
+		<div class="name-rest" id="rest" hidden>Terminal Launcher</div>
+		<p>A home screen for touch and typing.</p>
 	</div>
-	<div class="phone"><div class="screen"><img src="raw/1-home.png" alt=""></div></div>
+	<div class="phone"><img id="shot" alt=""></div>
+	<script>
+		// Each variant: the scene and where it sits, the capture in the phone, the theme, and
+		// whether the rest of the store name ("Terminal Launcher") stands under the name.
+		const VARIANTS = {
+			'a-mountains': { scene: '../../../site/src/assets/scenes/mountains-wide.jpg', x: '86%', y: '0%', shot: 'home-mountains-light', dark: false, rest: false },
+			'b-pond-dark': { scene: '../../../site/src/assets/scenes/pond-wide.jpg', x: '90%', y: '20%', shot: 'home-pond-dark', dark: true, rest: false },
+			'c-dunes-name': { scene: '../../../site/src/assets/scenes/dunes-wide.jpg', x: '76%', y: '10%', shot: 'selector-thumb-g', dark: false, rest: true },
+		};
+		const name = new URLSearchParams(location.search).get('v') || 'a-mountains';
+		const v = VARIANTS[name];
+		const root = document.documentElement;
+		root.classList.toggle('dark', v.dark);
+		root.style.setProperty('--scene', `url('${v.scene}')`);
+		root.style.setProperty('--scene-x', v.x);
+		root.style.setProperty('--scene-y', v.y);
+		document.getElementById('rest').hidden = !v.rest;
+		document.getElementById('shot').src = 'raw/' + v.shot + '.png';
+	</script>
 </body>
 </html>

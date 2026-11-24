@@ -102,7 +102,11 @@ Policy pages (opened 22 October 2026):
 
 Ready to paste into Play Console → Grow users → Store presence → Main store listing. It describes
 the Play build: no screen lock and no calls in the log, so neither is mentioned. Play allows 4000 characters;
-this is 3184. Keep it in step with the app when features change.
+this is 3969. Keep it in step with the app when features change.
+
+Since 24 November 2026 the descriptions present Kolahal as a home screen for touch and typing, with
+touch as much a part of it as typing. The name is unchanged. Until the texts are pasted into Play
+Console, the listing there still has the older short description and text.
 
 App name (30 characters at most; this is 26):
 
@@ -110,10 +114,13 @@ App name (30 characters at most; this is 26):
 Kolahal: Terminal Launcher
 #+end_example
 
-Short description (80 at most; this is 75):
+The name keeps "Terminal Launcher" by the maintainer's choice (24 November 2026): it tells the
+audience the style of the app. The descriptions say what it is made for, touch and typing.
+
+Short description (80 at most; this is 68):
 
 #+begin_example
-A keyboard-driven home screen that opens apps and runs commands as you type
+A home screen for touch and typing that opens apps and runs commands
 #+end_example
 
 Google flagged "A keyboard-first home screen: type part of an app's name and press Enter."
@@ -126,19 +133,22 @@ standard punctuation; no capitals for emphasis; no claims ("best", "new", "#1"),
 Full description:
 
 #+begin_example
-Kolahal turns your home screen into a terminal. Type part of an app's name and press Enter, or let the app open by itself once your letters can only mean one app. Everything else is a short command away.
+Kolahal is a home screen made for touch and typing. Slide a thumb along the edge of the screen to any app, or type part of its name and press Enter. What you run stays in a log you can tap, swipe and long-press, and everything else is a short command away.
 
-TYPE, ENTER, DONE
+BY TOUCH
+• An app selector on the screen's edge: slide your thumb through all your apps and lift to open one.
+• Tap a line of the log for its main action; long-press for copy, share, open, run again and more.
+• Swipe a line right to copy it, left to delete it.
+• Gestures that run any command: a double-tap, a swipe down on the header, a swipe up on the prompt.
+• A widgets page one swipe away, and a touch key bar while you type.
+
+BY TYPING
 • Type any part of an app's name: the closest match sits right above your thumb.
 • Instant launch opens an app as soon as the letters match only that app.
 • With an empty prompt, your most-used apps are one tap away; pin favourites to keep them at the front.
 • Aliases for anything you type often, app shortcuts, and every past command one ↑ away.
-• An app selector on an edge of the screen: slide your thumb along it to glide through all your apps, no keyboard needed.
 
-A LOG YOU CAN ACT ON
-• Every command and its output is a block with a coloured line beside it.
-• Tap a line for its main action; long-press for copy, share, open, run again and more.
-• Swipe a line right to copy it, left to delete it.
+ALSO IN THE LOG
 • App installs, updates and uninstalls show up as they happen.
 • If you allow it, your notifications show up too, with media controls for what's playing.
 
@@ -146,33 +156,43 @@ LITTLE TOOLS BUILT IN
 • A calculator with units and currencies: = 2^10, = 5 km in mi, = 100 usd in eur
 • Web search with the engine you choose
 • Call and text people by name: pick them once from your contacts
-• To-dos, notes, reminders that survive a restart, timers and alarms through your clock app, and your calendar's agenda
+• To-dos, notes, reminders, timers and alarms, and your calendar's agenda
 • Screen time per app and an unlock counter
-• Torch, volume, ring mode, Do Not Disturb, brightness, rotation and screen timeout from the prompt
+• Torch, volume, ring mode, Do Not Disturb, brightness and rotation from the prompt
+• An RSS and Atom reader with unread counts, notifications, and OPML import and export
 
-FEEDS
-• A built-in RSS and Atom reader with unread counts, refresh intervals, optional notifications, and OPML import and export.
+WIDGETS
+• Kolahal's own widgets for to-dos, shortcuts, your agenda, reminders, notes and what's playing, and other apps' widgets.
+• Scripts fill widgets too: weather, a countdown, a habit streak and more.
+• Each widget has its size and its look: Plain, Tonal, Bold, Split or Shape.
 
 SCRIPTS IN LUA OR JAVASCRIPT
 • Run a script on a timer, at set times, or when something happens, such as unlocking the phone or plugging it in.
-• Make a script into a command of your own that takes arguments.
+• Make a script into a command of your own that takes arguments, or let it fill a widget.
 • Keep a status line you can pin at the top, post a notification, fetch from the web.
-• Start from 55 ready-made scripts (weather, live cricket and football, Hacker News and more, and templates for your own) in an editor with completion.
-• Scripts run sandboxed, in a separate process.
+• Start from 57 ready-made scripts, such as weather, live scores and Hacker News, in an editor with completion, and get more that people share.
+• Each script has a switch for each thing it uses, and runs sandboxed in a separate process.
+
+A SCENE BEHIND IT
+• On Android 13 and newer, 33 shaders draw behind the log: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
+• Some are drawn from your screen time and unlocks, such as a candle that burns down through the day. Those numbers stay on the phone.
+• Sliders change a shader, and a slider can follow the battery, the time of day or a value from a script.
+• A scene can also be your phone's live wallpaper, and you can write shaders of your own.
 
 MAKE IT YOURS
-• Thirteen colour themes, four of them in your wallpaper's colours, and a theme builder for your own, with a live preview
-• Terminal fonts (JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, Iosevka, or one you import), or your phone's own font
-• A touch key bar, gestures that run any command, full screen, and a widgets page beside the terminal
-• Settings that show your home screen underneath while you drag a slider, so you see the change as you make it
+• Thirteen colour themes, four in your wallpaper's colours, and a theme builder with a live preview
+• Five monospace fonts, one you import, or your phone's own font
+• Home on a character grid, like a terminal, with full-screen screens and a screensaver
+• Settings that show your home screen underneath as you change them
 
 PRIVATE BY DESIGN
 • No account, no ads, no analytics: Kolahal sends nothing to its developer.
 • Everything stays on your phone, and backs up to one file that you keep.
 • Crash reports stay on your phone until you choose to email one.
+• Before you record or share the screen, one command replaces the text on home with random letters.
 
 WORK PROFILE AND PRIVATE SPACE
-• If you have them, their apps sit in the same list as yours, marked [W] and [S], and you can pause or resume the work profile from the quick actions or with a command.
+• Their apps sit in the same list as yours, marked [W] and [S], and you can pause or resume the work profile with a tap or a command.
 
 The guide: mtwabpin.github.io/kolahal
 The source code: github.com/mtwabpin/kolahal
@@ -181,44 +201,195 @@ The source code: github.com/mtwabpin/kolahal
 * Graphics
 
 Ready to upload in Play Console → Grow users → Store presence → Main store listing → Graphics.
-Each is rendered from a source beside it by =tools/play-graphics.sh=, so they can be made again
-when the app changes.
+Each is rendered from a source beside it in =graphics/= by =tools/play-graphics.sh=, so they can be
+made again when the app changes. The pages use the website's fonts from the site's packages in this
+repository: run =pnpm install --frozen-lockfile= in =site/= first (the script says so if they are
+missing). It needs Google Chrome or Chromium and ImageMagick (=nix shell nixpkgs#imagemagick -c
+tools/play-graphics.sh=).
 
-| Play asks for                                          | Upload                                                             | Made from                                                                         |
-|--------------------------------------------------------+--------------------------------------------------------------------+-----------------------------------------------------------------------------------|
-| App icon: 512 × 512, 32-bit PNG, at most 1 MB          | =graphics/icon.png=                                                | =icon.svg=: the launcher icon's two layers, full square (Play rounds the corners) |
-| Feature graphic: 1024 × 500, JPEG or PNG, no alpha     | =graphics/feature-graphic.png=                                     | =feature-graphic.html=, with the top of =raw/1-home.png= in the phone             |
-| Phone screenshots: 2 to 8, long side at most 2 × short | =graphics/screenshots/1-home.png= to =5-themes.png=, in that order | =screenshot.html=: each capture in =raw/= in a phone frame, under its caption     |
+| Play asks for                                          | Upload                                       | Made from                                                                                  |
+|--------------------------------------------------------+----------------------------------------------+--------------------------------------------------------------------------------------------|
+| App icon: 512 × 512, 32-bit PNG, at most 1 MB          | =graphics/icon.png=                          | =icon.svg=: the launcher icon's two layers, full square (Play rounds the corners)          |
+| Feature graphic: 1024 × 500, JPEG or PNG, no alpha     | =graphics/feature-graphic.png=               | =feature-graphic.html=, one of its variants (=VARIANTS=), with a capture from =raw/=       |
+| Phone screenshots: 2 to 8, long side at most 2 × short | =graphics/screenshots/=, in their file order | =screenshot.html=: one capture from =raw/= in a phone under its caption, per draft (=SHOTS=) |
 
-The screenshots are 1080 × 1920 (9:16, what Play recommends): a 1080 × 2400 phone capture fits
-only inside a frame. The phones show the app in the vivid gruvbox theme, and the frames are gruvbox
-dark with a gradient: each screenshot has its own two gruvbox colours for the glows and the
-highlighted words of its caption, over a faint dot grid. The captions and colours are in
-=screenshot.html= (=SHOTS=); the font is the app's own JetBrains Mono.
+*The final set is chosen from drafts.* The script renders every variant of the feature graphic to
+=graphics/drafts/feature-<variant>.png= and every screenshot draft to
+=graphics/drafts/screenshots/<draft>.png=, then copies the chosen ones: =FEATURE= at the top of the
+script names the feature graphic's variant, and =PLAY= lists the drafts for Play, in their order on
+the listing (2 to 8; they become =screenshots/1-<name>.png= …). Edit those two lines and run the
+script again. =PLAY= holds a proposal until the maintainer chooses: the story in eight (home over a
+scene, typing, the app selector, answers, the widgets page, a script's switches, the candle, the TTY
+home). Upload what is in =screenshots/= and =feature-graphic.png=, nothing from =drafts/=.
+
+Git keeps the sources (=raw/=, the two pages, the scenes), every draft (=drafts/=) and what Play gets
+(=screenshots/=, =feature-graphic.png=, =icon.png=). The script renders the drafts again in under a
+minute.
+
+The look is the website's "Scenes": a scene from the app's own shaders at the top, fading into the
+website's light ground (=#eddcd2=), the caption in its type (a small upper-case label in Instrument
+Sans, the title in Bricolage Grotesque, a sentence under it), and the phone in the website's frame
+(=#17151c=). The scenes are the website's (=site/src/assets/scenes/mountains-wide.jpg=, =dunes-wide.jpg=,
+=pond-wide.jpg=) and a light =pond= of our own (=graphics/scenes/pond-light-wide.jpg=), all drawn by
+=tools/site-scenes.sh= ([[file:../pictures.org][docs/pictures.org]]). The
+phones show the app in its =rose-pine= theme, dark, and its light version (Rosé Pine Dawn) in the
+drafts named =-light=; every widget is in one of the looks Bold, Split or Shape, never Plain or
+Tonal (as on the website, =site/CAPTURES.md=). The words say what the
+website and the guide say: no claims, no "new", no calls to action. The store name stays "Kolahal:
+Terminal Launcher"; the feature graphic shows "Kolahal", and its =c-dunes-name= variant adds
+"Terminal Launcher" under it.
+
+The feature graphic keeps clear of what Play covers: the words stay in x 64–430 and the phone in
+x 676–920, so the middle (where Play puts a play button when there is a video) and a margin of 56
+pixels all round hold nothing that must be seen.
+
+| Variant          | Scene                 | In the phone                                 |
+|------------------+-----------------------+----------------------------------------------|
+| =a-mountains=    | mountains, light      | =home-mountains-light=: the log over mountains |
+| =b-pond-dark=    | pond, dark            | =home-pond-dark=: the log over the pond       |
+| =c-dunes-name=   | dunes, light; the name with "Terminal Launcher" | =selector-thumb-g=: the app selector |
+
+| Draft                       | Capture (=raw/=)              | What it shows                                                            |
+|-----------------------------+-------------------------------+--------------------------------------------------------------------------|
+| =01-home-pond=              | =home-pond-dark=              | home: the header, the log (weather, a conversion, a reminder) over =pond= |
+| =02-home-mountains-light=   | =home-mountains-light=        | the same over =mountains=, in the light version                          |
+| =03-typing=                 | =typing-suggestions=          | =ma= typed: Maps nearest the thumb, Messages, Camera, Gmail, =maps=       |
+| =04-selector=               | =selector-thumb-g=            | the app selector open under a held thumb, at G                           |
+| =05-answers=                | =answers-dark=                | a sum, a conversion, the todos, a reminder, =date tokyo lisbon=           |
+| =06-answers-light=          | =answers-dunes-light=         | the same over =dunes=, light                                             |
+| =07-log-actions=            | =action-sheet-line=           | a long-press on a line: its actions                                      |
+| =08-notifications-feeds=    | =log-notification-feed=       | a notification (an invented "Maya") and the feeds in the log             |
+| =09-widgets=                | =widgets-page=                | the widgets page: weather, forecast and todos in Split, battery, world clocks, unlocks and Water in Bold, the habit streak in Shape |
+| =10-widgets-light=          | =widgets-page-light=          | the same, light                                                          |
+| =11-widget-looks=           | =arrange-widgets-look=        | Arrange widgets, Habit streak chosen: its Look and Size rows             |
+| =12-script-switches=        | =script-sheet-switches=       | =weather.lua='s sheet: Enabled, Internet, Pinned, its =city= option       |
+| =13-library=                | =library=                     | Add script → From the library                                            |
+| =14-editor=                 | =editor-script=               | =unlock-chart.lua= in the editor, at its =widget.show=                    |
+| =15-shader-sliders=         | =shader-details-slider=       | =mountains='s details: preview, the Birds slider                          |
+| =16-shader-follows=         | =shader-details-follows=      | =candle='s details: a parameter that follows screen time                  |
+| =17-candle=                 | =scene-candle-screen-time=    | =candle= behind home, =usage 1= in the log                               |
+| =18-lanterns=               | =scene-lanterns-unlocks=      | =lanterns= behind home, =unlocks week= in the log                        |
+| =19-hourglass=              | =scene-hourglass-screen-time= | =hourglass= behind home                                                  |
+| =20-themes=                 | =theme-picker=                | Settings → Look & feel, Rosé Pine chosen                                 |
+| =21-tty-home=               | =tty-home=                    | =home.style tty=: weather, =cal=, =todo= on the grid                     |
+| =22-tty-matrix=             | =tty-matrix=                  | the =matrix= screen                                                      |
+| =23-scramble=               | =scramble=                    | =scramble on= over the log                                               |
+| =24-selector-pick=          | =selector-pick-filling=       | the app selector: Google's row picked and filling under a held thumb     |
+| =25-schedule=               | =schedule-times=              | =night-dnd.lua='s sheet: Do Not Disturb, Runs every, Daily at 07:00, 23:00 |
+| =26-widget-options=         | =widget-options-cities=       | the widgets page with a second weather card, Paris beside Tokyo          |
+| =27-wallpaper=              | =wallpaper-preview=           | Android's wallpaper preview with =pond=                                  |
+
+=raw/= keeps every capture at full size (1080 × 2400), the website uses them too: =site/CAPTURES.md=
+says what each of the others shows. Of those, =quick-actions-full-build= and =quick-actions= must
+not go to Play: their last row is Lock screen, which the Play build doesn't have.
+=widgets-page-looks= is the first widgets page, with Tonal cards: no draft uses it, and it stays
+only while the website's =shots/home/habit.png= and =forecast.png= are cut from it.
 
 ** Taking the captures again
 
-They must show the Play build: nothing about the screen lock or the call log.
+On the emulator only, never a phone, with =adb -s emulator-5554= for every command (a phone may be
+attached too). They were taken on 24 November 2026 with the debug build of 0.5.17 (the full build,
+package =com.mtwabpin.kolahal.debug=); what the Play build lacks (the screen lock, calls in the log,
+=update=) is kept out of them. With the Play build (=./gradlew -PplayApk :app:assemblePlay=) the
+steps are the same with its package name.
 
-1. On the emulator (never a phone you use), install the Play build:
-   =./gradlew -PplayApk :app:assemblePlay= and =adb install -r app/build/outputs/apk/play/app-play.apk=.
-   Locally it is signed with the release key, so an install with another key must be removed first
-   (or re-sign a copy with the debug key to keep the emulator's data).
-2. Settings as a new install has them, plus =config set theme.name gruvbox=; a 1080 × 2400 screen
-   (=adb shell wm size= shows it); the emulator in dark mode, so the keyboard is dark too (=adb shell cmd uimode night yes=).
-   Three feeds (Hacker News, LWN, and NASA's Image of the Day:
-   https://www.nasa.gov/feeds/iotd-feed/), three to-dos, an alarm for 7:00, and the =weather= script
-   from the library on a 30-minute timer, with =script set weather city Pune=, pinned
-   (=script pin weather=) so its line shows in the pinned header.
-3. Each capture: =adb exec-out screencap -p > docs/release/graphics/raw/<name>.png=.
-   | Capture     | What is on screen                                                                                          |
-   |-------------+------------------------------------------------------------------------------------------------------------|
-   | =1-home=    | after =clear=: =weather=, ~= 30 c in f~, ~= 5 km in mi~, ~= 100 usd in eur~, =todo=, =feed=; keyboard down |
-   | =2-type=    | =ca= typed in the prompt, keyboard up; app icons on (the default)                                          |
-   | =3-feeds=   | =feed read 3=, NASA; news can carry names a store page shouldn't (then =clear=, read the next batch)        |
-   | =4-scripts= | =script edit weather=, keyboard hidden, scrolled to the top                                                |
-   | =5-themes=  | Settings → Look & feel → Your themes → Create a theme, named =olive= (not saved)                            |
-4. =tools/play-graphics.sh=, then look at the results before uploading.
+The emulator: =sdk_gphone64_x86_64= (Android 16, API 36, Google Play image), 1080 × 2400 at 420 dpi
+(=wm size=), gesture navigation, the host's GPU (shaders draw), animations off (the device tests
+want them off). The stock apps give the suggestions and the selector's list.
+
+The captures were taken in two goes. The first ones were taken by hand with the steps below. The
+widgets pages, Arrange widgets, the TTY style and the captures of drafts 24 to 27 were taken again
+with =tools/site-captures.sh=, which holds the exact taps of every capture the website uses: its
+=setup= does steps 1 to 3 (and a little more: favorites, the Water card, a few scripts), its
+=restore= does step 6, and each capture is a function named in the table below. It sets the zone
+=Asia/Dhaka= (UTC+6): a zone of whole hours keeps the world clocks' differences round.
+
+1. Note what you change, to put it back afterwards (step 6). Then:
+   - =cmd package set-home-activity com.mtwabpin.kolahal.debug/com.mtwabpin.kolahal.MainActivity=
+     (no "isn't your home app" line), =cmd uimode night yes= (the dark version, and a dark keyboard).
+   - The time zone: =cmd time_zone_detector set_auto_detection_enabled false= and
+     =service call alarm 3 s16 Asia/Bangkok=, so that the scenes are at dusk (the captures were
+     taken between 18:03 and 18:36 there) and no clock or offset tells where the machine is.
+   - Access, as the Setup page would give it: =appops set com.mtwabpin.kolahal.debug
+     GET_USAGE_STATS allow= (=allow usage=: screen time for the scenes and =usage=),
+     =appops set … SCHEDULE_EXACT_ALARM allow= (reminders without the "Exact alarms are off" line),
+     =cmd notification allow_listener com.mtwabpin.kolahal.debug/com.mtwabpin.kolahal.notifications.KolahalNotificationListener=
+     (=notifs=), =pm grant … android.permission.POST_NOTIFICATIONS=.
+2. Type the setup into the prompt: =input text= with =%s= for each space, then =input keyevent 66=,
+   about two seconds apart. In this order:
+   - =config set launch.instant off= (instant launch would cut a typed command short; =pm clear=
+     puts it back), =config set header.show on=, =config set screen.hide-bars status=,
+     =hide kolahal= (the debug build's own entry), =theme rose-pine=, =config set selector.rail on=.
+   - =todo Buy coffee beans=, =todo Book the dentist=, =todo Renew the passport=,
+     =todo Water the plants=.
+   - =script install weather=, =script install world-clocks=, =script install habit=,
+     =script install forecast=, =script install unlock-chart=, then at once
+     =script set weather city Tokyo=, =script set forecast city Lisbon=,
+     =script set world-clocks zones Asia/Tokyo Africa/Nairobi Europe/Lisbon=, =status clear all=,
+     =clear=: the weather script's first run uses the IP address's location, which must not be in
+     a picture. =habit done= (a streak of one).
+   - =feed add https://www.nasa.gov/feeds/iotd-feed/= and
+     =feed add https://feeds.bbci.co.uk/news/science_and_environment/rss.xml=. Show them with =feed=
+     (the list with counts), not =feed read=: news items carry real people's names.
+   - =alarm 7:00= (the Clock app sets it, for the header's alarm; delete it in Clock afterwards).
+   - =rename kolahal debug = Kolahal= (the name in =usage=).
+   - A notification from an invented first name, posted by the shell:
+     =adb -s emulator-5554 shell "cmd notification post -S bigtext -t Maya maya 'Are we still on for Saturday? I can bring the tent.'"=
+     (quote the whole command, or only its first word arrives).
+   - A tap on the first todo in a =todo= list ticks it (the header then says 3).
+3. The widgets: =widget add=, tap the search box, type the name, tap the row; Arrange widgets opens
+   with the card selected: tap the look in the Look row, then ✓. Then + at the top for the next.
+   Every card is in Bold, Split or Shape, never Plain or Tonal, and cards side by side differ. In
+   order: Weather (Split), Battery and network (Bold), World clocks (Bold), 3-day forecast (Split),
+   Habit streak (Shape), Unlocks (Bold), Todos (Split), Water (Bold). Clear the search box (✕)
+   before typing the next name: the picker keeps it. Water is the API reference's example (its
+   Taps section), made first with =script new water= and typed into the editor; on the widgets
+   page, five taps on its card make it 5 / 8.
+4. Each capture: =exec-out screencap -p > docs/release/graphics/raw/<name>.png=. Before a capture
+   with the keyboard down, close it with the keyboard's ˅ (x 163, y 2337; Back doesn't always), and
+   wait seven seconds for the "Screen cleared" bar to go. Theme rose-pine, dark, unless it says light.
+   | Capture                       | On the screen, and how                                                                                                                                   |
+   |-------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------|
+   | =home-pond-dark=              | =shader pond=, =clear=, =weather=, ~= 5 km in mi~, =remind 8pm pick up the bike=; keyboard down                                                          |
+   | =home-mountains-light=        | =cmd uimode night no=; =shader mountains=, =clear= and the same three; keyboard down                                                                    |
+   | =answers-dunes-light=         | still light: =shader dunes=, =clear=, ~= 12 * 4.5 + 18~, ~= 72 f in c~, =todo=, =remind fri 9am renew the passport=, =date tokyo lisbon=           |
+   | =answers-dark=                | =cmd uimode night yes=; =shader off=, =clear= and the same five                                                                                         |
+   | =typing-suggestions=          | =shader pond=, =clear=, =todo=, ~= 100 usd in eur~, then =ma= typed (no Enter), keyboard up; check that no clipboard chip shows in the keyboard's strip |
+   | =selector-thumb-g=, =-p=      | the home log of =home-pond-dark=; =input motionevent DOWN 1068 1550=, MOVE up to =1068 1412= in steps (G), capture; MOVE down to =1068 1600= (P), capture; MOVE =1068 2350=, UP there (nothing opens) |
+   | =widgets-page=                | =site-captures.sh widgets_pages=: =widget page=, scrolled to the top                                                                                     |
+   | =widgets-page-light=          | the same in =night no=                                                                                                                                   |
+   | =arrange-widgets-look=        | then =night yes= and a long-press on the Habit streak card (x 275, y 1280): Arrange widgets with its Look and Size rows                                 |
+   | =arrange-widgets=             | ✓: Arrange widgets with nothing selected                                                                                                                |
+   | =widget-options-cities=       | =site-captures.sh widget_options=: a second Weather card, its =city= option Paris, in Split, dragged up beside Tokyo's                                  |
+   | =selector-pick-filling=       | =site-captures.sh selector=: at G on the edge, then a quick slide onto Google's row, captured on the device at once (the row fills from 300 ms)          |
+   | =schedule-times=              | =site-captures.sh schedule_times=: =script install night-dnd=, =scripts=, Night Do Not Disturb's sheet scrolled to its end                               |
+   | =wallpaper-preview=           | =site-captures.sh wallpaper=: =wallpaper shader pond=, Android's preview                                                                                 |
+   | =scripts-list=, =library=     | =scripts=; then Add script → From the library                                                                                                            |
+   | =script-sheet-switches=       | =scripts=, a tap on Weather                                                                                                                              |
+   | =editor-script=               | =scripts=, Unlocks, the pencil; keyboard down. Not =world-clocks= or =weather=: their comments name places                                               |
+   | =settings=, =shaders-list=    | =settings=; Shaders, "screen time" typed in its search                                                                                                   |
+   | =shader-details-follows=      | in that list, ⓘ on Candle                                                                                                                                |
+   | =shader-details-slider=       | "mountains" in the search, ⓘ on Mountains                                                                                                                |
+   | =scene-candle-screen-time=    | =shader candle=, =clear=, =usage 1=                                                                                                                      |
+   | =scene-lanterns-unlocks=      | =shader lanterns=, =clear=, =unlocks week=                                                                                                               |
+   | =scene-hourglass-screen-time= | =shader hourglass=, =clear=, =weather=, =remind 8pm pick up the bike=                                                                                    |
+   | =theme-picker=                | =settings=, Look & feel                                                                                                                                  |
+   | =tty-home=                    | =site-captures.sh tty=: =shader off=, =config set home.style tty=, Home, =clear=, =weather=, =cal=, =todo=                                               |
+   | =tty-matrix=, =tty-clock=     | =settings put global animator_duration_scale 1= (with animations off they show a still frame and a note), =matrix=, capture after 5 s, Back; =clock=; then the scale back to =0.0= |
+   | =log-notification-feed=       | =config set home.style gui=, =shader pond=, the notification posted, =clear=, =notifs=, =feed=, =remind 8pm pick up the bike=                           |
+   | =action-sheet-line=           | a long-press (=input swipe 300 1715 300 1715 900=) on the =#1 NASA Image of the Day= row                                                                 |
+   | =quick-actions-full-build=    | a tap on =$=                                                                                                                                             |
+   | =scramble=                    | =clear=, =weather=, ~= 5 km in mi~, =todo=, =scramble on=; =scramble off= afterwards                                                                    |
+5. Make the PNGs smaller without changing a pixel: =nix shell nixpkgs#oxipng -c oxipng -o 4 --strip
+   safe docs/release/graphics/raw/*.png=. Then =tools/play-graphics.sh=, and look at every draft
+   before uploading.
+6. Put the emulator back: =notifs clear= (the shell's notification), delete the 7:00 alarm in Clock,
+   =cmd package set-home-activity com.google.android.apps.nexuslauncher/.NexusLauncherActivity=,
+   =cmd uimode night no=, =service call alarm 3 s16 <the zone it had>= and
+   =cmd time_zone_detector set_auto_detection_enabled true=, =appops set … GET_USAGE_STATS default=
+   and =SCHEDULE_EXACT_ALARM default=, =cmd notification disallow_listener …=,
+   =pm revoke … android.permission.POST_NOTIFICATIONS=, the three animation scales at =0.0=, and last
+   =pm clear com.mtwabpin.kolahal.debug=: the device tests fail on what the captures leave behind.
 
 * Each release on Play
 
