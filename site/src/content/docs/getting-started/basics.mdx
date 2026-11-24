@@ -109,7 +109,8 @@ In both styles, each app's icon appears before its name. Commands show a termina
 ### App selector
 
 The **app selector** lets you open apps with one thumb, without typing. To turn it on, turn on **Show the app selector**
-(Settings → App selector, or `config set selector.rail on`). While the keyboard is closed, a slim handle then appears on one edge of the log.
+(Settings → App selector, or `config set selector.rail on`). While the keyboard is closed, small letters then appear along one edge of the log,
+one for each letter that has apps. With **Show letters on the edge** (`selector.letters`) off, a slim A–Z handle shows there instead.
 
 Settings:
 
@@ -118,22 +119,22 @@ Settings:
 - **Length on the edge** (`selector.height`): how much of the edge it uses.
 
 Keep the selector away from the back gesture. With gesture navigation, Android lets an app block the back gesture on only
-200 dp of an edge. So the selector starts only from the middle 200 dp of its length, where the handle is. At the ends,
+200 dp of an edge. So the selector starts only from the middle 200 dp of its length, where the handle is or the letters are brighter. At the ends,
 the back gesture works as usual. After your thumb is down, you can slide over the whole length.
 
 <ShotRow
 	items={[
-		{ src: selectorSlide, alt: 'Sliding along the right edge at G: the G bubble beside the thumb, Gmail and Google bright in the list', caption: '<strong>1.</strong> Slide along the edge to a letter. Its apps line up with your thumb.' },
-		{ src: selectorPick, alt: 'Picking Gmail in the list: its row magnified and filling', caption: '<strong>2.</strong> Slide onto the list, move to an app and lift to open it. Or hold still until its row fills.' },
-		{ src: selectorOpen, alt: 'The app list left open, almost as wide as the screen', caption: '<strong>Or</strong> lift on the edge to keep the list open, then tap an app.' },
+		{ src: selectorSlide, alt: 'Sliding along the right edge at G: the G bubble beside the thumb, the letters fanning out from the edge, Gmail and Google magnified in the list, the header and the prompt still showing', caption: '<strong>1.</strong> Slide along the edge to a letter. Its apps line up with your thumb.' },
+		{ src: selectorPick, alt: 'Picking Google in the list: its row highlighted and magnified', caption: '<strong>2.</strong> Slide onto the list, move to an app and lift to open it. Or hold still until its row fills.' },
+		{ src: selectorOpen, alt: 'The app list left open between the header and the prompt, with the letters back on the edge', caption: '<strong>Or</strong> lift on the edge to keep the list open, then tap an app.' },
 	]}
 />
 
 [Parts of the app](/getting-started/parts/#app-selector) names every part of these screens.
 
-- **Touch the edge at the handle.** The home screen dims. A full-height panel slides in on the other side of the screen.
-  It lists *all* your apps in one list:
-  - Your favorites (★), then all other apps in alphabetical order.
+- **Touch the edge at the letters** (or the handle). The log fades out, and a list slides in on the other side of the screen.
+  It fills the log's space, from the header down to the prompt, which both stay. It lists *all* your apps in one list:
+  - All your apps in alphabetical order, with your favorites (★) also in a section of their own.
   - Small section letters in the margin. `#` holds apps that start with a digit, a symbol or a non-Latin letter.
   - Each app's icon (the selector's **Show app icons**, `selector.icons`, on by default).
   - **Row height** (`selector.row-height`, 50 dp) sets the space between apps.
@@ -149,28 +150,29 @@ the back gesture works as usual. After your thumb is down, you can slide over th
     your thumb, so you can see which way to go. The list is narrower while your thumb is down.
   - The list scrolls to that letter's apps and stops. The first app is at the same height as your thumb, and the rest are below it.
     The list moves up only as much as needed to stay on the screen.
-  - Other letters' apps fade while you slide. Near the ends of the list, the panel moves to keep the apps in place.
+  - Other letters' apps fade while your thumb is down. Near the ends of the list, the list moves to keep the apps in place.
   - **Show letters on the edge** (`selector.letters`, on by default) shows each letter along the edge when you aren't sliding,
     in place of the handle. Then you can see where to touch.
 - **Only that letter's apps** (`selector.filter`, off by default): the list shows only that letter's apps, next to the bubble,
-  not the whole list scrolled to that letter.
+  not the whole list scrolled to that letter. They aren't magnified when you pick from them.
 - **Slide through** (`selector.browse`) is `apps` by default. You move through the whole list one app at a time instead of one letter at a time.
   - Your thumb's position on the edge maps smoothly to the list: the top is the first app and the bottom is the last. Small moves
     give fine control, and a long slide covers the whole alphabet.
   - Each letter gets room on the edge by the square root of its number of apps. A letter with four times as many apps gets twice the length.
   - The current app is at the same height as your thumb and magnified. The apps next to it are a little less magnified. The bubble shows its letter.
+    No apps fade.
   - Slide slowly to move one app at a time. Below about 100 dp per second, the list moves one app for every 10 dp you slide,
     with a light vibration for each app. If you slide faster, the list catches up with your thumb.
     (Set these with `config set`: `selector.aim` and `selector.aim-speed`.)
-- **Slide far off the edge, toward the panel.** The list stops moving.
-  - Move up or down to pick an app. Near the top or bottom of the panel, the list keeps scrolling.
+- **Slide far off the edge, toward the list.** The list stops moving.
+  - Move up or down to pick an app. The app at your thumb is highlighted and magnified. Near the top or bottom of the list, it keeps scrolling.
   - **Lift your finger to open** the app.
   - A short vibration tells you that you left or returned to the edge. A lighter one marks each app you pass.
   - Or hold still on an app. Its row fills, and after just under a second the app opens without you lifting your thumb. If you move, the fill starts again.
   - To see an app's actions (the same menu as long-pressing it), leave the list open and long-press the app. Or turn on
     [actions while picking](#app-actions-while-picking) to reach them while you pick.
   - To cancel without opening an app, slide back onto the edge before you lift your finger.
-- **Lift your finger on the edge.** The panel stays open as a normal list (with **Only that letter's apps**, only those apps).
+- **Lift your finger on the edge.** The list stays open (with **Only that letter's apps**, only those apps).
   The apps of the letter you tapped stay next to it. The list widens almost to the edge, so your thumb can reach every row.
   - Scroll it, tap an app to open it, long-press an app to see its actions, or slide along the edge again.
   - To close it, tap somewhere else, press Back or wait 4 seconds.

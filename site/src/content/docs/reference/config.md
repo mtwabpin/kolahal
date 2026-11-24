@@ -156,14 +156,14 @@ three settings of the log differ here:
 | `suggestions.auto` | bool | `on` | show suggestions only while you type (keyboard open or text in the prompt) |
 | `suggestions.style` | choice: `list` `chips` | `list` | how suggestions look while you type. `list`: a list above the prompt, with the best match at the bottom, nearest your thumb, and command descriptions. `chips`: a strip of chips |
 | `suggestions.rows` | number 1–2 | `2` | rows of suggestion chips while you type (with `suggestions.style chips`) |
-| `selector.rail` | bool | `off` | show the app selector on an edge of the log while the keyboard is closed. Slide along it to a letter, then onto the list to pick an app. Lift your finger on an app to open it |
+| `selector.rail` | bool | `off` | show the app selector on an edge of the log while the keyboard is closed. Slide along it to a letter, then onto the list to pick an app. Lift your finger on an app to open it. While its list is open, the log fades out behind it |
 | `selector.browse` | choice: `letters` `apps` | `apps` | what sliding along the edge does. `letters`: moves one letter at a time. The letter's apps appear next to your thumb, with the letter large beside it. `apps`: moves through the whole list, one app at a time when you slide slowly |
 | `selector.filter` | bool | `off` | with `letters`, the list shows only the letter's apps, not the whole list scrolled to that letter |
 | `selector.side` | choice: `right` `left` | `right` | the edge you slide on. The list of apps opens on the other side |
 | `selector.position` | choice: `bottom` `middle` `top` | `bottom` | where the slide area is on the edge. Keep it away from the back gesture |
-| `selector.handle` | bool | `on` | show the slim A–Z handle on the edge. When off, the handle is hidden but the selector still works |
+| `selector.handle` | bool | `on` | show the slim A–Z handle on the edge when `selector.letters` is off. When off, the handle is hidden but the selector still works |
 | `selector.letters` | bool | `on` | show the letters along the edge when you aren't sliding, so you can see where to touch. Only letters that have apps are shown |
-| `selector.height` | number 200–900 | `400` | length (dp) of the part of the edge you slide on. Shorter means your thumb moves less. The list uses the whole height. With gesture navigation, a touch starts the selector only in the middle 200 dp, where the handle is |
+| `selector.height` | number 200–900 | `400` | length (dp) of the part of the edge you slide on. Shorter means your thumb moves less. The list uses the whole height. With gesture navigation, a touch starts the selector only in the middle 200 dp, where the handle is or the letters are brighter |
 | `selector.actions` | choice: `far-side` `off` | `off` | app actions while picking. `far-side`: the actions open when you lift your finger on the far side of the list. `off`: you get them only by long-pressing in the open list. Not in Settings ([what it does](/getting-started/basics/#app-actions-while-picking)) |
 | `selector.row-height` | number 32–64 | `50` | height (dp) of each app in the app selector's list. Taller rows space the names out. It grows with a large text size |
 | `selector.icons` | bool | `on` | show each app's icon in the app selector's list |

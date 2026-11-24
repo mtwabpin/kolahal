@@ -359,7 +359,7 @@ object Keys {
     val SELECTOR_HANDLE = ConfigKey.Bool(
         "selector.handle",
         true,
-        "Show the slim A–Z handle on the edge.\nOff hides it, and the selector keeps working"
+        "Show the slim A–Z handle on the edge.\nIt shows only while the letters along the edge are off.\nOff hides it, and the selector keeps working"
     )
     val SELECTOR_LETTERS = ConfigKey.Bool(
         "selector.letters",
