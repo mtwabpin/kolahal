@@ -535,7 +535,7 @@ in the shell that records, so a phone on the same computer is never touched.
 
 Two ways, either is fine:
 
-- On the device: =adb shell screenrecord --bit-rate 20000000 /sdcard/k-07.mp4=, then =adb pull=.
+- On the device: =adb shell screenrecord --bit-rate 20000000 /sdcard/07-scheduling.mp4=, then =adb pull=.
   A recording stops after 3 minutes (the default, and the most on older Android); one chapter per
   file stays well under it. If the encoder refuses 1080 × 2400, add =--size 720x1600= and check the
   text is still sharp, or use the other way.
@@ -543,9 +543,9 @@ Two ways, either is fine:
   =adb emu screenrecord stop=, or Extended controls → Record and playback. It records on the
   computer, so it needs nothing from the device's encoder.
 
-Record each chapter as a file of its own (=k-00.mp4= to =k-15.mp4=), and each take again until it
-is clean; keep 2 seconds of still screen at both ends for the cuts. "Show taps" draws each touch as
-a dot in the recording itself.
+Record each chapter as a file of its own, named by its id (=00-opening.mp4= to =15-closing.mp4=,
+[[*Making it][Making it]]), and each take again until it is clean; keep 2 seconds of still screen at
+both ends for the cuts. "Show taps" draws each touch as a dot in the recording itself.
 
 ** Typing by hand or by script
 
@@ -623,6 +623,137 @@ use it), and, for anyone who prefers a timeline, Kdenlive, Shotcut or Blender's 
 
 The short cut is made from the same pieces: the same files, the same cards, the chapters of
 its table.
+
+* Making it
+
+=tools/video/= does steps 1 to 8 with one command; only the upload (step 9) is done by hand.
+
+| File            | What it is                                                                                                                                 |
+|-----------------+--------------------------------------------------------------------------------------------------------------------------------------------|
+| =video.json=    | the video as data: every chapter's id, recording, cuts, captions, ground, close-ups and seconds in both cuts. Everything else is made from it |
+| =compose.sh=    | the command: checks for its tools, then runs =compose.mjs=                                                                                 |
+| =compose.mjs=   | cuts the recordings, builds the picture, joins the chapters, writes the video and the captions (its head says how, step by step)            |
+| =cards.html=    | the still layers, shot with headless Chrome: the ground, the wash behind the words, the phone's frame and its mask, every caption, the cards |
+| =stand-ins.sh=  | stand-in recordings from the store's captures (=graphics/raw/=), to put the whole video together before anything is recorded               |
+
+** The commands
+
+From the repository's root, with ffmpeg, Node.js and Chrome on the path and the website's packages
+installed (=pnpm install --frozen-lockfile= in =site/=, for the fonts):
+
+#+begin_src sh
+tools/video/compose.sh full                 # build/video/kolahal-full.mp4 and kolahal-full.srt
+tools/video/compose.sh short                # build/video/kolahal-short.mp4 and kolahal-short.srt
+tools/video/compose.sh full --4k            # build/video/kolahal-full-2160p.mp4, for YouTube
+tools/video/compose.sh full --only phone    # build/video/kolahal-full-phone.mp4
+tools/video/compose.sh full --only framed   # build/video/kolahal-full-framed.webm
+tools/video/compose.sh full --chapter 04-log   # one chapter's pieces in build/video/work/, to look at a recording
+tools/video/compose.sh short --check        # checks video.json and writes the SRT only
+#+end_src
+
+Each writes the SRT beside the video, the same for every form. The forms:
+
+- *The whole picture* (the default): the ground, the phone in its frame and the captions, at
+  1920 × 1080, or 3840 × 2160 with =--4k=. This is the one for YouTube and Play: =--4k= for the
+  upload, the default size to look at a change quickly.
+- *=--only phone=*: the recordings alone, cut and joined, upright at their own 1080 × 2400, with no
+  ground, frame or captions. For places that want a portrait video (a post, a short), or as the
+  source of another edit.
+- *=--only framed=*: the phone in its frame, with its round corners and shadow, on a transparent
+  ground (VP9 with alpha in a WebM, which Kdenlive, Shotcut, Blender and browsers read). For laying
+  the phone over another ground in an editor.
+
+Every form joins the chapters in the same places, with a one-second crossfade where the ground
+changes, so they stay in step and the SRT's times hold for all of them; the captions can travel
+beside a form that has none in the picture.
+
+*How it is built, and its memory.* Each chapter is made by itself, into files under
+=build/video/work/=: its phone clip, then its picture, cut where its crossfades begin and end. A
+crossfade is a job of its own on the two chapters' adjoining second, and the video is written by
+reading those files one after the other. No job holds more than one chapter, ffmpeg runs one job at
+a time with 4 threads (=VIDEO_THREADS=), still pictures are looped only for the seconds they show,
+and where =systemd-run= is there each job runs under a memory cap (=VIDEO_MEMORY_MAX=, 6G), so a job
+that grows is stopped alone. Each run prints the most memory a job used. A second run redoes only
+what changed. (One filter graph over every chapter at once, the first way it was built, held the
+decoded frames of the chapters still waiting their turn and grew past 15 GiB on the framed form:
+keep each job to one chapter.)
+
+Measured on this machine (12 threads, 4 per job), with the stand-ins:
+
+| Run                                          | Time     | Most memory of a job |
+|----------------------------------------------+----------+----------------------|
+| =full=, 1920 × 1080                          | 8.4 min  | 1.0 GiB              |
+| =short=, 1920 × 1080                         | 3.1 min  | 1.1 GiB              |
+| =full --only phone= (phone clips made)       | 2.4 min  | 0.7 GiB              |
+| =short --only phone= (phone clips made)      | 1.0 min  | 0.7 GiB              |
+| =short --only framed= (phone clips made)     | 8.3 min  | 1.3 GiB              |
+| =full --4k --chapter 04-log= (26 s)          | 1.1 min  | 2.1 GiB              |
+| =full --4k= (phone clips made)               | 16 min   | 2.9 GiB              |
+
+VP9 with transparency is slow to write: =full --only framed= would take about 20 minutes (not run).
+
+A theme other than =rose-pine= (=tools/video/compose.sh full nord=) reads its recordings from
+=build/video/recordings/nord/= and writes into =build/video/nord/=; the frame and the captions stay
+the website's.
+
+** The recordings
+
+One file per chapter in =build/video/recordings/= (git ignores =build/=), named by the chapter's id:
+
+| Chapter                          | File                   |
+|----------------------------------+------------------------|
+| Opening                          | =00-opening.mp4=        |
+| 1. Opening apps by typing        | =01-typing.mp4=         |
+| 2. Suggestions                   | =02-suggestions.mp4=    |
+| 3. The app selector              | =03-selector.mp4=       |
+| 4. Commands, the log and =fresh= | =04-log.mp4=            |
+| 5. Scripts as commands           | =05-scripts.mp4=        |
+| 6. What a script may use         | =06-permissions.mp4=    |
+| 7. Timers, times and events      | =07-scheduling.mp4=     |
+| 8. Pinning                       | =08-pinning.mp4=        |
+| 9. Widgets from scripts          | =09-widgets.mp4=        |
+| 10. Options, size and look       | =10-widget-options.mp4= |
+| 11. Shaders                      | =11-shaders.mp4=        |
+| 12. Shader parameters            | =12-parameters.mp4=     |
+| 13. The live wallpaper           | =13-wallpaper.mp4=      |
+| 14. Bonus: the TTY style         | =14-tty.mp4=            |
+| Closing                          | =15-closing.mp4=        |
+
+A =.webm= of the same name (the emulator's own recorder) works too. Each is 1080 × 2400 upright (a
+smaller one of the same shape, such as 720 × 1600, is scaled up), at any frame rate: =screenrecord=
+writes frames only when the screen changes, and the script makes 30 a second of it. A chapter
+whose file is missing becomes a plain screen with its name, and the run lists them, so the video
+can be put together at any stage. To look at it before anything is recorded:
+
+#+begin_src sh
+tools/video/stand-ins.sh                                    # build/video/stand-ins/
+RECORDINGS=build/video/stand-ins tools/video/compose.sh full
+#+end_src
+
+** Changing it: =tools/video/video.json=
+
+- *The cuts.* Each recording starts with 2 seconds of still screen (=recording.lead=). With no cuts
+  (=full.cuts= empty), a chapter is its seconds from there on. To take out a wait, or to start
+  elsewhere, write the pieces to keep in the recording's own seconds, read in any player:
+  ~"cuts": [{ "in": 2.4, "out": 14.4 }, { "in": 75, "out": 83 }]~. Their lengths add up to the
+  chapter's =seconds=; the run says when they don't (it cuts the last piece short, or holds its
+  last frame).
+- *The short cut* follows by itself: its =short.segments= are in the full cut's seconds of a
+  chapter (the shot list's "s" column), with ="chapter"= where a piece comes from another chapter.
+- *A caption*: its words and its time from the chapter's start, under =captions= (=full= or =short=);
+  it shows until the next one. =`word`= shows as code. The label and heading are the chapter's
+  =head=; the opening's and closing's words its =card=. =--check= says which captions are on screen
+  for less than 3 seconds or 15 characters a second.
+- *A chapter's length*: its =seconds= (in =full= or =short=), then the times of its captions.
+- *The close-ups*: =close= holds the seconds in which the phone is 1.5 times larger.
+- *The ground*: the chapter's =ground=, one of =grounds= (the scene's file and the tokens it takes).
+
+** By hand
+
+Step 9 of [[*Putting it together][Putting it together]]: upload the 3840 × 2160 video to YouTube
+with its SRT as English captions, and its address in Play Console. Optionally, a track from
+YouTube's Audio Library in place of the silent one (=ffmpeg -i kolahal-full-2160p.mp4 -i track.mp3
+-map 0:v -map 1:a -c:v copy -c:a aac -shortest …=).
 
 * What is uncertain
 

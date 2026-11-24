@@ -1,0 +1,397 @@
+{
+	"fps": 30,
+	"recording": { "width": 1080, "height": 2400, "lead": 2 },
+	"crossfade": 1,
+	"closeScale": 1.5,
+	"grounds": {
+		"mountains": { "scene": "mountains-wide.jpg", "tokens": "light" },
+		"pond": { "scene": "pond-wide.jpg", "tokens": "dark" },
+		"dunes": { "scene": "dunes-wide.jpg", "tokens": "light" },
+		"code": { "scene": null, "tokens": "dark" }
+	},
+	"chapters": [
+		{
+			"id": "00-opening",
+			"title": "Opening",
+			"recording": "00-opening.mp4",
+			"ground": "mountains",
+			"card": {
+				"heading": "Kolahal: Terminal Launcher",
+				"text": "A home screen for touch and typing."
+			},
+			"full": { "seconds": 4, "cuts": [] },
+			"short": { "seconds": 3, "segments": [{ "from": 0, "to": 3 }] },
+			"stills": ["typing-home", "home-pond-dark"]
+		},
+		{
+			"id": "01-typing",
+			"title": "1. Opening apps by typing",
+			"recording": "01-typing.mp4",
+			"ground": "mountains",
+			"head": { "label": "BY TYPING", "heading": "A few letters" },
+			"full": {
+				"seconds": 18,
+				"cuts": [],
+				"close": [[0.5, 17.8]],
+				"captions": [
+					{ "at": 0, "text": "Type any part of an app's name." },
+					{ "at": 3, "text": "The best match sits at the bottom, nearest your thumb." },
+					{ "at": 9, "text": "Enter opens it." },
+					{ "at": 12, "text": "When the letters fit only one app, it opens without Enter." }
+				]
+			},
+			"short": {
+				"seconds": 14,
+				"segments": [
+					{ "from": 3, "to": 9.8 },
+					{ "from": 12.3, "to": 16 },
+					{ "chapter": "02-suggestions", "from": 5, "to": 8.5 }
+				],
+				"close": [[0.5, 13.8]],
+				"captions": [
+					{ "at": 0, "text": "Type any part of an app's name." },
+					{ "at": 3, "text": "The best match sits at the bottom, nearest your thumb." },
+					{ "at": 6.8, "text": "When the letters fit only one app, it opens without Enter." },
+					{ "at": 10.5, "text": "Commands come up under other words too: `flash` finds `torch`." }
+				]
+			},
+			"stills": ["typing-home", "typing-suggestions", "parts-typing"]
+		},
+		{
+			"id": "02-suggestions",
+			"title": "2. Suggestions",
+			"recording": "02-suggestions.mp4",
+			"ground": "mountains",
+			"head": { "label": "SUGGESTIONS", "heading": "What you need next" },
+			"full": {
+				"seconds": 16,
+				"cuts": [],
+				"close": [[0.5, 15.8]],
+				"captions": [
+					{ "at": 0, "text": "An empty prompt offers your favorites and the apps you use most." },
+					{ "at": 5, "text": "Commands come up under other words too: `flash` finds `torch`." },
+					{ "at": 10, "text": "After a command, what can come next." }
+				]
+			},
+			"short": null,
+			"stills": ["suggestions-empty", "suggestions-flash", "suggestions-theme"]
+		},
+		{
+			"id": "03-selector",
+			"title": "3. The app selector",
+			"recording": "03-selector.mp4",
+			"ground": "mountains",
+			"head": { "label": "BY TOUCH", "heading": "One thumb" },
+			"full": {
+				"seconds": 20,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "Slide a thumb along the edge of the screen." },
+					{ "at": 3, "text": "The list moves with your thumb. The app level with it is the one you get." },
+					{ "at": 9, "text": "Slide onto the list and lift to open it." },
+					{ "at": 13, "text": "Or hold still until its row fills.", "note": "Turn it on in Settings → App selector." }
+				]
+			},
+			"short": {
+				"seconds": 16,
+				"segments": [{ "from": 0, "to": 16 }],
+				"captions": [
+					{ "at": 0, "text": "Slide a thumb along the edge of the screen." },
+					{ "at": 3, "text": "The list moves with your thumb. The app level with it is the one you get." },
+					{ "at": 9, "text": "Slide onto the list and lift to open it.", "note": "Turn it on in Settings → App selector." }
+				]
+			},
+			"stills": ["selector-open", "selector-slide", "selector-thumb-g", "selector-pick-filling"]
+		},
+		{
+			"id": "04-log",
+			"title": "4. Commands, the log and fresh",
+			"recording": "04-log.mp4",
+			"ground": "mountains",
+			"head": { "label": "THE LOG", "heading": "Answers in the log" },
+			"full": {
+				"seconds": 26,
+				"cuts": [],
+				"close": [[0.5, 22.6]],
+				"captions": [
+					{ "at": 0, "text": "Sums and units start with `=`." },
+					{ "at": 4, "text": "Other commands answer in the same place." },
+					{ "at": 11, "text": "Tap a line for its main action." },
+					{ "at": 14, "text": "Swipe a line right to copy it…" },
+					{ "at": 17, "text": "…or left to delete it." },
+					{ "at": 20, "text": "Long-press it for all of its actions." },
+					{ "at": 23, "text": "`fresh` gives a clean screen. Nothing is deleted." }
+				]
+			},
+			"short": {
+				"seconds": 14,
+				"segments": [
+					{ "from": 0, "to": 8 },
+					{ "from": 14, "to": 17 },
+					{ "from": 20, "to": 23 }
+				],
+				"close": [[0.5, 13.8]],
+				"captions": [
+					{ "at": 0, "text": "Sums and units start with `=`." },
+					{ "at": 4, "text": "Other commands answer in the same place." },
+					{ "at": 8, "text": "Swipe a line right to copy it…" },
+					{ "at": 11, "text": "Long-press it for all of its actions." }
+				]
+			},
+			"stills": ["answers-dark", "action-sheet-line", "log-fresh"]
+		},
+		{
+			"id": "05-scripts",
+			"title": "5. Scripts as commands",
+			"recording": "05-scripts.mp4",
+			"ground": "pond",
+			"head": { "label": "SCRIPTS", "heading": "Commands of your own" },
+			"full": {
+				"seconds": 18,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "A script in Lua or JavaScript can be a command." },
+					{ "at": 6, "text": "Ready-made scripts come with it, such as `weather` and `forecast`." },
+					{ "at": 11, "text": "Read and change any script in the editor on the phone." }
+				]
+			},
+			"short": {
+				"seconds": 10,
+				"segments": [
+					{ "from": 0, "to": 6 },
+					{ "chapter": "07-scheduling", "from": 5, "to": 9 }
+				],
+				"captions": [
+					{ "at": 0, "text": "A script in Lua or JavaScript can be a command." },
+					{ "at": 6, "text": "They also run on a timer or when something happens." }
+				]
+			},
+			"stills": ["parts-scripts", "scripts-forecast", "editor-script"]
+		},
+		{
+			"id": "06-permissions",
+			"title": "6. What a script may use",
+			"recording": "06-permissions.mp4",
+			"ground": "pond",
+			"head": { "label": "PERMISSIONS", "heading": "A switch for each thing" },
+			"full": {
+				"seconds": 18,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "You see what a script uses before you install it." },
+					{ "at": 9, "text": "Each thing a script uses has a switch of its own." },
+					{ "at": 15, "text": "A script that never goes online gets no internet." }
+				]
+			},
+			"short": null,
+			"stills": ["library", "script-sheet-switches", "scripts-list"]
+		},
+		{
+			"id": "07-scheduling",
+			"title": "7. Timers, times and events",
+			"recording": "07-scheduling.mp4",
+			"ground": "pond",
+			"head": { "label": "SCHEDULING", "heading": "When it runs" },
+			"full": {
+				"seconds": 20,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "At times of day…" },
+					{ "at": 5, "text": "…on a timer…" },
+					{ "at": 9, "text": "…or when something happens, such as plugging in the charger." }
+				]
+			},
+			"short": null,
+			"stills": ["schedule-times", "schedule-charger"]
+		},
+		{
+			"id": "08-pinning",
+			"title": "8. Pinning",
+			"recording": "08-pinning.mp4",
+			"ground": "pond",
+			"head": { "label": "PINNING", "heading": "A line at the top" },
+			"full": {
+				"seconds": 18,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "A script can keep one line of status. Pin it to the top of home." },
+					{ "at": 5, "text": "A script never pins itself. You do." },
+					{ "at": 8, "text": "A line can carry a bar that shows how far along it is." },
+					{ "at": 14, "text": "Pinned lines take turns. Tap the dots for the next." }
+				]
+			},
+			"short": {
+				"seconds": 10,
+				"segments": [
+					{ "from": 2, "to": 6 },
+					{ "from": 8, "to": 14 }
+				],
+				"captions": [
+					{ "at": 0, "text": "A script can keep one line of status. Pin it to the top of home." },
+					{ "at": 4.5, "text": "A line can carry a bar that shows how far along it is." }
+				]
+			},
+			"stills": ["pinning-pin", "pinning-pinned", "pinning-bar"]
+		},
+		{
+			"id": "09-widgets",
+			"title": "9. Widgets from scripts",
+			"recording": "09-widgets.mp4",
+			"ground": "pond",
+			"head": { "label": "WIDGETS", "heading": "Widgets from scripts" },
+			"full": {
+				"seconds": 18,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "Scripts fill cards on a page beside home." },
+					{ "at": 4, "text": "A tap runs the script again: one more glass." },
+					{ "at": 8, "text": "You place a script's widget. It never places itself." }
+				]
+			},
+			"short": {
+				"seconds": 14,
+				"segments": [
+					{ "from": 0, "to": 8 },
+					{ "chapter": "10-widget-options", "from": 3, "to": 9 }
+				],
+				"captions": [
+					{ "at": 0, "text": "Scripts fill cards on a page beside home." },
+					{ "at": 4, "text": "A tap runs the script again: one more glass." },
+					{ "at": 8, "text": "Five looks: Plain, Tonal, Bold, Split and Shape." }
+				]
+			},
+			"stills": ["widgets-page-looks", "widgets-page-water", "widgets-add-picker"]
+		},
+		{
+			"id": "10-widget-options",
+			"title": "10. Options, size and look",
+			"recording": "10-widget-options.mp4",
+			"ground": "pond",
+			"head": { "label": "OPTIONS", "heading": "Each card its own way" },
+			"full": {
+				"seconds": 22,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "Long-press a card to arrange it." },
+					{ "at": 3, "text": "Five looks: Plain, Tonal, Bold, Split and Shape." },
+					{ "at": 9, "text": "Sizes from 1×1 to 4×4." },
+					{ "at": 12, "text": "A script's options set what it shows: a second card for another city." }
+				]
+			},
+			"short": null,
+			"stills": ["arrange-widgets", "arrange-widgets-look", "widget-options-cities"]
+		},
+		{
+			"id": "11-shaders",
+			"title": "11. Shaders",
+			"recording": "11-shaders.mp4",
+			"ground": "dunes",
+			"head": { "label": "SHADERS", "heading": "A scene behind it" },
+			"full": {
+				"seconds": 20,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "A shader draws a scene behind home." },
+					{ "at": 10, "text": "Some move, some stand still." },
+					{ "at": 14, "text": "Some answer your touch." },
+					{ "at": 17, "text": "Others change how the text looks. Android 13 or newer." }
+				]
+			},
+			"short": {
+				"seconds": 16,
+				"segments": [
+					{ "from": 6, "to": 10 },
+					{ "from": 14, "to": 17 },
+					{ "chapter": "12-parameters", "from": 1, "to": 10 }
+				],
+				"captions": [
+					{ "at": 0, "text": "A shader draws a scene behind home." },
+					{ "at": 4, "text": "Some answer your touch." },
+					{ "at": 7, "text": "Some shaders have parameters." },
+					{ "at": 10, "text": "Drag a slider and the preview follows." }
+				]
+			},
+			"stills": ["shaders-list", "home-mountains-dark", "home-dunes-dark"]
+		},
+		{
+			"id": "12-parameters",
+			"title": "12. Shader parameters",
+			"recording": "12-parameters.mp4",
+			"ground": "dunes",
+			"head": { "label": "PARAMETERS", "heading": "Change it as you watch" },
+			"full": {
+				"seconds": 22,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "Some shaders have parameters." },
+					{ "at": 4, "text": "Drag a slider and the preview follows." },
+					{ "at": 10, "text": "A parameter can follow a value: the battery, the time, your unlocks, or a script's." },
+					{ "at": 15, "text": "Here the battery sets the number of camels." }
+				]
+			},
+			"short": null,
+			"stills": ["shader-details-slider", "shader-details-follows", "home-dunes-dark"]
+		},
+		{
+			"id": "13-wallpaper",
+			"title": "13. The live wallpaper",
+			"recording": "13-wallpaper.mp4",
+			"ground": "pond",
+			"head": { "label": "WALLPAPER", "heading": "Behind everything" },
+			"full": {
+				"seconds": 16,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "A shader can be your phone's wallpaper." },
+					{ "at": 7, "text": "On the lock screen too." },
+					{ "at": 12, "text": "And behind the log, as much as you like." }
+				]
+			},
+			"short": {
+				"seconds": 8,
+				"segments": [
+					{ "from": 0, "to": 4 },
+					{ "from": 7, "to": 11 }
+				],
+				"captions": [
+					{ "at": 0, "text": "A shader can be your phone's wallpaper." },
+					{ "at": 4, "text": "On the lock screen too." }
+				]
+			},
+			"stills": ["wallpaper-preview", "wallpaper-lock", "wallpaper-log"]
+		},
+		{
+			"id": "14-tty",
+			"title": "14. Bonus: the TTY style",
+			"recording": "14-tty.mp4",
+			"ground": "code",
+			"head": { "label": "BONUS", "heading": "Home on a grid" },
+			"full": {
+				"seconds": 20,
+				"cuts": [],
+				"captions": [
+					{ "at": 0, "text": "One setting draws home like a terminal." },
+					{ "at": 5, "text": "Some commands take the whole screen: `top`…" },
+					{ "at": 10, "text": "…`matrix`…" },
+					{ "at": 14, "text": "…and `sl`." }
+				]
+			},
+			"short": null,
+			"stills": ["tty-home", "tty-clock", "tty-matrix"]
+		},
+		{
+			"id": "15-closing",
+			"title": "Closing",
+			"recording": "15-closing.mp4",
+			"ground": "mountains",
+			"card": {
+				"heading": "Kolahal: Terminal Launcher",
+				"text": "A home screen for touch and typing.",
+				"line": "On Google Play · mtwabpin.github.io/kolahal"
+			},
+			"full": { "seconds": 5, "cuts": [] },
+			"short": { "seconds": 4, "segments": [{ "from": 0, "to": 4 }] },
+			"stills": ["typing-home"]
+		}
+	]
+}
