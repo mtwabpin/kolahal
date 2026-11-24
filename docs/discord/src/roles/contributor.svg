@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 128 128">
+  <!-- Role icon, contributor: a wrench, on foam. -->
+  <circle cx="64" cy="64" r="58" fill="{{dark.info}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <defs><mask id="cut"><rect width="128" height="128" fill="#fff"/><rect x="57" y="10" width="14" height="32" rx="3" fill="#000"/></mask></defs>
+  <g transform="rotate(45 64 64)" mask="url(#cut)" fill="{{dark.background}}">
+    <circle cx="64" cy="40" r="20"/>
+    <rect x="55" y="50" width="18" height="56" rx="9"/>
+  </g>
+</svg>

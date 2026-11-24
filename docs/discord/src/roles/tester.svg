@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 128 128">
+  <!-- Role icon, tester: a bug, on iris. -->
+  <circle cx="64" cy="64" r="58" fill="{{dark.private}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <g fill="none" stroke="{{dark.background}}" stroke-width="8" stroke-linecap="round">
+    <path d="M42 58 L28 50 M40 74 L26 74 M44 88 L30 98 M86 58 L100 50 M88 74 L102 74 M84 88 L98 98 M58 36 L50 24 M70 36 L78 24"/>
+  </g>
+  <circle cx="64" cy="44" r="12" fill="{{dark.background}}"/>
+  <ellipse cx="64" cy="76" rx="23" ry="28" fill="{{dark.background}}"/>
+  <path d="M64 52 V102" stroke="{{dark.private}}" stroke-width="5"/>
+</svg>

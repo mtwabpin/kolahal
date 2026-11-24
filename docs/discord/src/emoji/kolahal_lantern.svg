@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_lantern: a sky lantern, from the lanterns scene. -->
+  <path d="M34 18 H94 L82 98 H46 Z" fill="{{dark.warn}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M46 26 L54 90" fill="none" stroke="{{light.background}}" stroke-width="7" stroke-linecap="round" stroke-opacity="0.85"/>
+  <path d="M64 98 C56 106 58 114 64 118 C70 114 72 106 64 98 Z" fill="{{dark.error}}" stroke="{{dark.background}}" stroke-width="6" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_bug: a bug, for a report. -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M30 56 L12 46 M28 76 L10 76 M32 94 L14 106 M98 56 L116 46 M100 76 L118 76 M96 94 L114 106 M56 30 L44 12 M72 30 L84 12" stroke="{{dark.background}}" stroke-width="16"/>
+    <path d="M30 56 L12 46 M28 76 L10 76 M32 94 L14 106 M98 56 L116 46 M100 76 L118 76 M96 94 L114 106 M56 30 L44 12 M72 30 L84 12" stroke="{{dark.muted}}" stroke-width="6"/>
+  </g>
+  <circle cx="64" cy="38" r="17" fill="{{dark.surface}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <ellipse cx="64" cy="78" rx="36" ry="40" fill="{{dark.error}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <path d="M64 42 V114" stroke="{{dark.background}}" stroke-width="7"/>
+  <circle cx="48" cy="72" r="7" fill="{{dark.background}}"/>
+  <circle cx="80" cy="72" r="7" fill="{{dark.background}}"/>
+  <circle cx="50" cy="96" r="5.5" fill="{{dark.background}}"/>
+  <circle cx="78" cy="96" r="5.5" fill="{{dark.background}}"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 128 128">
+  <!-- Role icon, shader sharer: a sun over ridges, on love. -->
+  <circle cx="64" cy="64" r="58" fill="{{dark.error}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <circle cx="64" cy="50" r="16" fill="{{dark.background}}"/>
+  <path d="M20 82 L42 66 L60 78 L82 62 L108 82" fill="none" stroke="{{dark.background}}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 100 H98" fill="none" stroke="{{dark.background}}" stroke-width="11" stroke-linecap="round"/>
+</svg>

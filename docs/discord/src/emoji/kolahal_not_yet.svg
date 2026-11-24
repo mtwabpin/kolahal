@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_not_yet: an hourglass, for planned but not yet done. -->
+  <path d="M34 18 H94 C94 46 72 56 72 64 C72 72 94 82 94 110 H34 C34 82 56 72 56 64 C56 56 34 46 34 18 Z" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M46 36 H82 C78 46 66 52 64 58 C62 52 50 46 46 36 Z" fill="{{dark.warn}}"/>
+  <path d="M64 70 V82 M42 104 C46 92 56 86 64 84 C72 86 82 92 86 104 Z" fill="{{dark.warn}}" stroke="{{dark.warn}}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <rect x="22" y="8" width="84" height="16" rx="8" fill="{{dark.private}}" stroke="{{dark.background}}" stroke-width="7"/>
+  <rect x="22" y="104" width="84" height="16" rx="8" fill="{{dark.private}}" stroke="{{dark.background}}" stroke-width="7"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_touch: a tap, with its ripple. -->
+  <circle cx="64" cy="64" r="44" fill="none" stroke="{{dark.background}}" stroke-width="22"/>
+  <circle cx="64" cy="64" r="44" fill="none" stroke="{{dark.info}}" stroke-width="10"/>
+  <circle cx="64" cy="64" r="22" fill="{{dark.accent}}" stroke="{{dark.background}}" stroke-width="8"/>
+</svg>

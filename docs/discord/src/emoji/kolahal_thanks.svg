@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_thanks: a heart, for thanks. -->
+  <path d="M64 112 C22 84 8 62 12 42 C16 22 34 12 50 16 C57 18 61 22 64 28 C67 22 71 18 78 16 C94 12 112 22 116 42 C120 62 106 84 64 112 Z" fill="{{dark.error}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M28 40 C30 32 36 28 44 28" fill="none" stroke="{{light.background}}" stroke-width="8" stroke-linecap="round" stroke-opacity="0.8"/>
+</svg>

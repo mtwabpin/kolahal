@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_script: a script's braces, in the color the log gives scripts. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M50 18 C36 18 34 26 34 38 V50 C34 58 30 64 18 64 C30 64 34 70 34 78 V90 C34 102 36 110 50 110" stroke="{{dark.background}}" stroke-width="28"/>
+    <path d="M50 18 C36 18 34 26 34 38 V50 C34 58 30 64 18 64 C30 64 34 70 34 78 V90 C34 102 36 110 50 110" stroke="{{dark.warn}}" stroke-width="15"/>
+    <g transform="translate(128 0) scale(-1 1)">
+      <path d="M50 18 C36 18 34 26 34 38 V50 C34 58 30 64 18 64 C30 64 34 70 34 78 V90 C34 102 36 110 50 110" stroke="{{dark.background}}" stroke-width="28"/>
+      <path d="M50 18 C36 18 34 26 34 38 V50 C34 58 30 64 18 64 C30 64 34 70 34 78 V90 C34 102 36 110 50 110" stroke="{{dark.warn}}" stroke-width="15"/>
+    </g>
+  </g>
+  <circle cx="64" cy="64" r="11" fill="{{dark.accent}}" stroke="{{dark.background}}" stroke-width="6"/>
+</svg>

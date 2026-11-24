@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_shader: a scene, as the app's shaders draw them: a sun over the mountains at dusk. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="{{dark.private}}"/><stop offset="0.55" stop-color="{{dark.accent}}"/><stop offset="1" stop-color="{{dark.warn}}"/>
+    </linearGradient>
+    <clipPath id="frame"><rect x="8" y="8" width="112" height="112" rx="28"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect x="0" y="0" width="128" height="128" fill="url(#sky)"/>
+    <circle cx="84" cy="56" r="17" fill="{{light.background}}"/>
+    <path d="M0 78 L30 56 L50 70 L74 50 L104 72 L128 62 V128 H0 Z" fill="{{dark.muted}}"/>
+    <path d="M0 96 L26 80 L52 94 L84 76 L128 96 V128 H0 Z" fill="{{dark.good}}"/>
+    <path d="M0 112 L40 100 L80 110 L128 102 V128 H0 Z" fill="{{dark.background}}"/>
+  </g>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="none" stroke="{{dark.background}}" stroke-width="8"/>
+</svg>

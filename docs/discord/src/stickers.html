@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- The stickers, 320 × 320 with a clear background, one at a time: ?sticker=<name>. Each has a pale
+     cut edge so it reads on Discord's dark and light themes. Rendered by tools/discord-graphics.sh,
+     which fills in the theme's colors ({{…}}). The type is the app's own JetBrains Mono, as on the phone. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+	@font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('../../../app/src/main/res/font/jetbrains_mono_bold.ttf'); }
+	html, body { margin: 0; background: transparent; overflow: hidden; }
+	.sticker { position: relative; width: 320px; height: 320px; }
+	/* A piece of the app's home: the theme's background, the log and the prompt. */
+	.screen { position: absolute; left: 14px; right: 14px; top: 58px; bottom: 58px; box-sizing: border-box;
+		padding: 26px 26px; border-radius: 40px; background: {{dark.background}}; border: 9px solid {{light.background}};
+		box-shadow: 0 0 0 4px {{dark.background}}; font: 700 44px/1 'JetBrains Mono', monospace; color: {{dark.text}};
+		display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+	.row { display: flex; align-items: center; gap: 18px; white-space: nowrap; }
+	.bar { width: 9px; align-self: stretch; border-radius: 5px; }
+	.chev { width: 26px; height: 40px; flex: none; }
+	.caret { width: 22px; height: 42px; background: {{dark.accent}}; border-radius: 4px; flex: none; }
+	.dim { height: 14px; border-radius: 7px; background: {{dark.muted}}; }
+	/* A scene in a circle, with something over it. */
+	.disc { position: absolute; left: 22px; top: 22px; width: 276px; height: 276px; border-radius: 50%;
+		background-size: cover; border: 10px solid {{light.background}}; box-shadow: 0 0 0 4px {{dark.background}}; box-sizing: border-box; }
+	.over { position: absolute; }
+</style>
+</head>
+<body>
+
+<!-- thanks: "thanks" typed at the prompt. -->
+<div id="thanks" class="sticker" hidden>
+	<div class="screen">
+		<div class="row"><svg class="chev" viewBox="0 0 26 40"><path d="M5 6 L20 20 L5 34" fill="none" stroke="{{dark.accent}}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>thanks</span><span class="caret"></span></div>
+	</div>
+</div>
+
+<!-- it-works: an answer in the log that says it works, and the prompt waiting. -->
+<div id="it-works" class="sticker" hidden>
+	<div class="screen">
+		<div class="row"><span class="bar" style="background:{{dark.info}}"></span><span style="color:{{dark.info}}; font-size:38px">it works</span></div>
+		<div class="row"><svg class="chev" viewBox="0 0 26 40"><path d="M5 6 L20 20 L5 34" fill="none" stroke="{{dark.accent}}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="caret"></span></div>
+	</div>
+</div>
+
+<!-- released: the rocket rising out of the mountains at dusk. -->
+<div id="released" class="sticker" hidden>
+	<div class="disc" style="background-image:url('scenes/mountains-light.jpg'); background-position: 62% 40%; background-size: auto 150%"></div>
+	<img class="over" src="emoji/kolahal_release.svg" alt="" style="left:96px; top:44px; width:170px; height:170px">
+</div>
+
+<!-- pond-at-night: the pond under the moon, with sky lanterns rising. -->
+<div id="pond-at-night" class="sticker" hidden>
+	<div class="disc" style="background-image:url('scenes/pond-dark.jpg'); background-position: 84% 30%; background-size: auto 190%"></div>
+	<img class="over" src="emoji/kolahal_lantern.svg" alt="" style="left:62px; top:96px; width:88px; height:88px">
+	<img class="over" src="emoji/kolahal_lantern.svg" alt="" style="left:150px; top:150px; width:48px; height:48px">
+</div>
+
+<script>
+	const name = new URLSearchParams(location.search).get('sticker') || 'thanks';
+	document.getElementById(name).hidden = false;
+</script>
+</body>
+</html>

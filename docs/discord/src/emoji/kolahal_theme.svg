@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_theme: a theme's colors: its accent, warning, info and private colors (Rosé Pine's rose, gold, foam and iris). -->
+  <path d="M64 64 L64 10 A54 54 0 0 1 118 64 Z" fill="{{dark.warn}}"/>
+  <path d="M64 64 L118 64 A54 54 0 0 1 64 118 Z" fill="{{dark.info}}"/>
+  <path d="M64 64 L64 118 A54 54 0 0 1 10 64 Z" fill="{{dark.private}}"/>
+  <path d="M64 64 L10 64 A54 54 0 0 1 64 10 Z" fill="{{dark.error}}"/>
+  <path d="M64 10 V118 M10 64 H118" stroke="{{dark.background}}" stroke-width="7"/>
+  <circle cx="64" cy="64" r="54" fill="none" stroke="{{dark.background}}" stroke-width="8"/>
+  <circle cx="64" cy="64" r="15" fill="{{dark.accent}}" stroke="{{dark.background}}" stroke-width="7"/>
+</svg>

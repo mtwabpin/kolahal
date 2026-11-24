@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- The server banner (?kind=server-banner, 960 × 540) and a release's event cover
+     (?kind=event-cover&version=X.Y.Z, 800 × 320), over scenes from the app's shaders (scenes/).
+     Rendered by tools/discord-graphics.sh, which fills in the theme's colors ({{…}}). The type is the
+     website's, from site/node_modules (run pnpm install in site/ first). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+	@font-face { font-family: 'Bricolage Grotesque'; font-weight: 200 800; src: url('../../../site/node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2'); }
+	@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; src: url('../../../site/node_modules/@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2'); }
+	html, body { margin: 0; overflow: hidden; }
+	.page { position: relative; overflow: hidden; background-size: cover; background-position: center; }
+	.server-banner { width: 960px; height: 540px; background-image: url('scenes/mountains-dark.jpg'); }
+	/* The log over the scene, as in the server's icon: the bar, two lines and the prompt. Low on the
+	   left, where Discord's header over the banner leaves it showing. */
+	.server-banner svg { position: absolute; left: 104px; top: 216px; width: 150px; }
+	.event-cover { width: 800px; height: 320px; background-image: url('scenes/mountains-light.jpg'); }
+	.event-cover::before { content: ''; position: absolute; inset: 0;
+		background: linear-gradient(90deg, rgb({{light.background:rgb}} / 0.72) 0%, rgb({{light.background:rgb}} / 0.4) 48%, rgb({{light.background:rgb}} / 0) 72%); }
+	.words { position: absolute; left: 56px; top: 64px; }
+	.label { font: 700 17px/1 'Instrument Sans', sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: {{light.accent}}; }
+	h1 { margin: 14px 0 0; font: 800 82px/0.95 'Bricolage Grotesque', sans-serif; letter-spacing: -0.035em; color: {{dark.surface}}; }
+	p { margin: 18px 0 0; font: 500 25px/1.2 'Instrument Sans', sans-serif; color: {{light.text}}; }
+</style>
+</head>
+<body>
+<div id="server-banner" class="page server-banner" hidden>
+	<svg viewBox="28 29 32 49" aria-hidden="true">
+		<path d="M33 32 V46" fill="none" stroke="{{dark.warn}}" stroke-width="4.5" stroke-linecap="round"/>
+		<rect x="41" y="31.5" width="16" height="6.5" rx="3.25" fill="{{dark.text}}"/>
+		<rect x="41" y="41.5" width="10" height="4.5" rx="2.25" fill="{{dark.text}}" fill-opacity="0.6"/>
+		<path d="M32 63 L39 69 L32 75" fill="none" stroke="{{dark.accent}}" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+		<rect x="46" y="63" width="8.5" height="12" rx="2" fill="{{dark.accent}}"/>
+	</svg>
+</div>
+<div id="event-cover" class="page event-cover" hidden>
+	<div class="words">
+		<div class="label">Release</div>
+		<h1>Kolahal <span id="version">0.0.0</span></h1>
+		<p>A home screen for touch and typing.</p>
+	</div>
+</div>
+<script>
+	const q = new URLSearchParams(location.search);
+	document.getElementById(q.get('kind') || 'server-banner').hidden = false;
+	if (q.get('version')) document.getElementById('version').textContent = q.get('version');
+</script>
+</body>
+</html>

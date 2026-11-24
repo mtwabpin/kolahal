@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_screenshot: a phone in a viewfinder, for asking for a screenshot. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 34 V18 C10 13 13 10 18 10 H34 M94 10 H110 C115 10 118 13 118 18 V34 M118 94 V110 C118 115 115 118 110 118 H94 M34 118 H18 C13 118 10 115 10 110 V94" stroke="{{dark.background}}" stroke-width="20"/>
+    <path d="M10 34 V18 C10 13 13 10 18 10 H34 M94 10 H110 C115 10 118 13 118 18 V34 M118 94 V110 C118 115 115 118 110 118 H94 M34 118 H18 C13 118 10 115 10 110 V94" stroke="{{dark.accent}}" stroke-width="9"/>
+  </g>
+  <rect x="38" y="22" width="52" height="84" rx="12" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <rect x="45" y="30" width="38" height="66" rx="6" fill="{{dark.surface}}"/>
+  <path d="M51 70 L58 76 L51 82" fill="none" stroke="{{dark.accent}}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="63" y="70" width="7" height="12" rx="1.5" fill="{{dark.accent}}"/>
+  <rect x="51" y="40" width="20" height="6" rx="3" fill="{{dark.muted}}"/>
+  <rect x="51" y="52" width="26" height="6" rx="3" fill="{{dark.muted}}"/>
+</svg>

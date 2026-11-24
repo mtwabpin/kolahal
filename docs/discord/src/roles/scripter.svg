@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 128 128">
+  <!-- Role icon, script sharer: a script's braces, on gold. -->
+  <circle cx="64" cy="64" r="58" fill="{{dark.warn}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <g fill="none" stroke="{{dark.background}}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M54 28 C44 28 42 34 42 42 V54 C42 59 39 64 30 64 C39 64 42 69 42 74 V86 C42 94 44 100 54 100"/>
+    <path d="M74 28 C84 28 86 34 86 42 V54 C86 59 89 64 98 64 C89 64 86 69 86 74 V86 C86 94 84 100 74 100"/>
+  </g>
+</svg>

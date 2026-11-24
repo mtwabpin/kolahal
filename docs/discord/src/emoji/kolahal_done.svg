@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_done: a check mark, for done, fixed or yes. -->
+  <circle cx="64" cy="64" r="54" fill="{{dark.info}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <path d="M36 66 L56 86 L94 44" fill="none" stroke="{{dark.background}}" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

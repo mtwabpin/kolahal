@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 128 128">
+  <!-- Role icon, maintainer: the prompt's chevron and caret, on rose. -->
+  <circle cx="64" cy="64" r="58" fill="{{dark.accent}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <path d="M30 38 L56 64 L30 90" fill="none" stroke="{{dark.background}}" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="68" y="38" width="26" height="52" rx="5" fill="{{dark.background}}"/>
+</svg>

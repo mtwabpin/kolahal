@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_log: a log group: its colored bar and two lines of an answer. -->
+  <path d="M24 26 V102" fill="none" stroke="{{dark.background}}" stroke-width="28" stroke-linecap="round"/>
+  <path d="M24 26 V102" fill="none" stroke="{{dark.warn}}" stroke-width="16" stroke-linecap="round"/>
+  <rect x="46" y="22" width="68" height="34" rx="17" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8"/>
+  <rect x="46" y="72" width="44" height="30" rx="15" fill="{{dark.muted}}" stroke="{{dark.background}}" stroke-width="8"/>
+</svg>

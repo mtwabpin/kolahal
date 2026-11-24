@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_guide: an open book, for an answer in the user's guide. -->
+  <path d="M6 32 V108 C30 104 50 108 64 118 C78 108 98 104 122 108 V32 Z" fill="{{dark.private}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M64 30 C52 20 32 16 12 20 V98 C32 94 52 98 64 108 Z" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M64 30 C76 20 96 16 116 20 V98 C96 94 76 98 64 108 Z" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M24 42 C34 40 44 42 52 46 M24 60 C34 58 44 60 52 64 M24 78 C34 76 44 78 52 82 M104 42 C94 40 84 42 76 46 M104 60 C94 58 84 60 76 64 M104 78 C94 76 84 78 76 82" fill="none" stroke="{{dark.muted}}" stroke-width="6" stroke-linecap="round"/>
+</svg>

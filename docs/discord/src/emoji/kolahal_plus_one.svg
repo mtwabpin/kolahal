@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_plus_one: +1, for me too. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 66 H56 M34 44 V88 M74 38 L92 26 V102 M76 102 H108" stroke="{{dark.background}}" stroke-width="30"/>
+    <path d="M12 66 H56 M34 44 V88 M74 38 L92 26 V102 M76 102 H108" stroke="{{dark.warn}}" stroke-width="16"/>
+  </g>
+</svg>

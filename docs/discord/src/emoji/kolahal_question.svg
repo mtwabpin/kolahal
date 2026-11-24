@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- kolahal_question: a question, in a speech bubble. -->
+  <path d="M38 12 H90 C106 12 118 24 118 40 V68 C118 84 106 96 90 96 H50 L26 116 L30 94 C18 90 10 80 10 68 V40 C10 24 22 12 38 12 Z" fill="{{dark.info}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M48 40 C48 26 80 24 80 42 C80 54 64 54 64 66" fill="none" stroke="{{dark.background}}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="64" cy="82" r="7.5" fill="{{dark.background}}"/>
+</svg>
