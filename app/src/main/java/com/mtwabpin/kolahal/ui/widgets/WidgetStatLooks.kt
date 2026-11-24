@@ -97,17 +97,17 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                spec.label?.let {
-                    Text(
-                        cardText(it),
-                        style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = c.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                }
-                Spacer(Modifier.weight(1f))
+                // The label takes all the room the change leaves: a spacer beside it would take half of it.
+                val label = spec.label
+                if (label != null) Text(
+                    cardText(label),
+                    style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = c.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                else Spacer(Modifier.weight(1f))
                 Box(Modifier.padding(start = 8.dp)) { end() }
             }
             spec.progress?.let { LevelBar(it, spec.moving, role, Modifier.padding(top = 8.dp)) }
@@ -490,7 +490,7 @@ private fun ShapeBesideStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SHAPE, role)
     val head = labelAndTitle(spec.label, LocalUntitled.current)
-    val more = spec.more.joinToString(" · ") { WidgetWords.joined(it.value, it.label) }
+    val more = spec.more.joinToString(" · ") { smallLine(it) }
     val large = box == WidgetSizes.Box.LARGE
     BesideShape(cardShape(MaterialShapes.Cookie12Sided), c.shapeFill, inShape = { side ->
         RollingBigText(

@@ -73,14 +73,16 @@ internal object CountdownDays {
     /**
      * The number and its unit, as a dots card writes them: "26" "days left", "1" "day left", on
      * the day [reached] or "Today" with no unit, then "3" "days ago". After the moment on its day it
-     * is [reached] once the moment has passed; before it, "Today".
+     * is [reached] once the moment has passed; before it, "Today". Without [left] the unit is "days"
+     * and "day", as Poster's note has it.
      */
-    fun count(to: Long, now: Long, zone: ZoneId, reached: String?): WidgetWords.Count {
-        val left = daysLeft(to, now, zone)
+    fun count(to: Long, now: Long, zone: ZoneId, reached: String?, left: Boolean = true): WidgetWords.Count {
+        val days = daysLeft(to, now, zone)
+        val unit = if (days == 1L) "day" else "days"
         return when {
-            left > 0 -> WidgetWords.Count("$left", if (left == 1L) "day left" else "days left", ticks = false)
-            left == 0L -> WidgetWords.Count(onTheDay(to, now, reached), null, ticks = false)
-            else -> WidgetWords.Count("${-left}", if (left == -1L) "day ago" else "days ago", ticks = false)
+            days > 0 -> WidgetWords.Count("$days", if (left) "$unit left" else unit, ticks = false)
+            days == 0L -> WidgetWords.Count(onTheDay(to, now, reached), null, ticks = false)
+            else -> WidgetWords.Count("${-days}", if (days == -1L) "day ago" else "days ago", ticks = false)
         }
     }
 

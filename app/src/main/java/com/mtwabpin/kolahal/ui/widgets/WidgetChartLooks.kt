@@ -65,14 +65,17 @@ internal val CHART_SIDE_FROM = 260.dp
 
 /**
  * Bold's chart: the title small, the value as big as it fits in the role's color with its label,
- * and the points as round pills, the latest in the role's color. A wide large card has the pills
- * beside the value, with the first and the last label under them. A chart of dots has its dots
+ * and the points as round pills, the latest in the role's color. A role too dark or too light to
+ * read on the card (a habit's dark green on a dark theme) gives the value the text color instead.
+ * A wide large card has the pills beside the value, with the first and the last label under them. A chart of dots has its dots
  * where the pills go ([Dots]): a calendar in a large card, the last seven days in the others.
  */
 @Composable
 private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.BOLD, color)
+    // The value in the role's color where it reads on the card at 3:1, else in the card's text color.
+    val ink = if (inkContrast(color, c.card) >= INK_MIN) color else c.content
     val title = LocalUntitled.current
     val bars = spec.style == "bars"
     val rest = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -113,7 +116,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                             .weight(1f)
                             .fillMaxWidth(),
                         contentAlignment = Alignment.BottomStart
-                    ) { spec.value?.let { BoldText(it, 92.sp, color) } }
+                    ) { spec.value?.let { BoldText(it, 92.sp, ink) } }
                     spec.label?.let {
                         Text(
                             it,
@@ -138,7 +141,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
 
             box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
                 SmallTitle(title, c.content)
-                spec.value?.let { BoldText(it, 48.sp, color, Modifier.padding(top = 6.dp)) }
+                spec.value?.let { BoldText(it, 48.sp, ink, Modifier.padding(top = 6.dp)) }
                 spec.label?.let {
                     Text(
                         it,
@@ -175,7 +178,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                             .weight(1f)
                             .fillMaxWidth(),
                         contentAlignment = Alignment.BottomStart
-                    ) { spec.value?.let { BoldText(it, 56.sp, color) } }
+                    ) { spec.value?.let { BoldText(it, 56.sp, ink) } }
                 }
                 plot(
                     emptyList(),
@@ -192,7 +195,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                spec.value?.let { BoldText(it, 32.sp, color) }
+                spec.value?.let { BoldText(it, 32.sp, ink) }
                 plot(
                     emptyList(),
                     8.dp,

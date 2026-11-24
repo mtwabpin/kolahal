@@ -2,6 +2,8 @@ package com.mtwabpin.kolahal.ui.widgets
 
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -78,5 +80,50 @@ class VersusWordsTest {
             "League: 67', Lisbon 2–1 Paris, 64' Goal",
             WidgetWords.description("League", football, 0, ZoneId.of("UTC"))
         )
+    }
+
+    /**
+     * A 4×1 card, 68 dp inside: the bar with its figures (18 dp) always has its room. The score
+     * takes the largest size that fits over it with the last line (18 dp); else alone, and the line
+     * gives way; at a large font size, the smallest.
+     */
+    @Test
+    fun aOneRowCardKeepsItsBarAndLetsTheLineGo() {
+        val plain = listOf(36, 32, 28)
+        assertEquals(VersusWords.RowPlan(1, line = true), VersusWords.rowPlan(68, plain, 18, 18))
+        // At a larger font size the line goes first, then the score gets smaller.
+        assertEquals(VersusWords.RowPlan(1, line = false), VersusWords.rowPlan(68, listOf(46, 41, 36), 23, 23))
+        assertEquals(VersusWords.RowPlan(1, line = false), VersusWords.rowPlan(72, listOf(52, 45, 40), 26, 26))
+        assertEquals(VersusWords.RowPlan(2, line = false), VersusWords.rowPlan(60, listOf(52, 45, 40), 26, 26))
+        // With no bar and no line, the largest score.
+        assertEquals(VersusWords.RowPlan(0, line = false), VersusWords.rowPlan(68, plain, 0, 0))
+        assertEquals(VersusWords.RowPlan(0, line = true), VersusWords.rowPlan(68, plain, 18, 0))
+    }
+
+    /**
+     * The names of a 4×1 card get the room they need, and the score what is left: a live score's
+     * "New Zealand" fits whole beside "237/4 · 299/8", which gets narrower. A name is cut only
+     * past the score's least width.
+     */
+    @Test
+    fun theNamesFitBeforeTheScoreKeepsItsWidth() {
+        // Everything fits: the score has its own width, the sides share the rest.
+        assertEquals(111f, VersusWords.middleDp(363f, 111f, 104f, 125f))
+        // The live score: sides of 131 dp leave the score 101 dp, under its least 125 dp.
+        assertEquals(125f, VersusWords.middleDp(363f, 266f, 131f, 125f))
+        // Sides that leave more than the least: the score gets that.
+        assertEquals(163f, VersusWords.middleDp(363f, 266f, 100f, 125f))
+        // Never more than the middle wants, never more than the row.
+        assertEquals(90f, VersusWords.middleDp(363f, 90f, 200f, 125f))
+        assertEquals(100f, VersusWords.middleDp(100f, 300f, 200f, 125f))
+    }
+
+    /** Versus has no Shape and no Poster: a card with either stored draws as Plain. */
+    @Test
+    fun aLookVersusLacksDrawsPlain() {
+        assertEquals(WidgetLook.PLAIN, WidgetLook.SHAPE.drawnFor(WidgetKind.VERSUS))
+        assertEquals(WidgetLook.PLAIN, WidgetLook.POSTER.drawnFor(WidgetKind.VERSUS))
+        assertEquals(WidgetLook.BOLD, WidgetLook.BOLD.drawnFor(WidgetKind.VERSUS))
+        assertEquals(WidgetLook.SPLIT, WidgetLook.SPLIT.drawnFor(WidgetKind.VERSUS))
     }
 }

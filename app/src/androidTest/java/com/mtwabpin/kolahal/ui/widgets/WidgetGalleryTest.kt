@@ -380,6 +380,7 @@ class WidgetGalleryTest {
             // A wave grows to its full height in about half a second.
             compose.mainClock.advanceTimeBy(if (shot.inView) 1_200 else 200)
             if (shot.spec is WidgetSpec.Image) waitForPicture(shot)
+            if (hasScene(shot)) waitForScene(shot)
             compose.waitForIdle()
             val picture = compose.onNodeWithTag(SHOT).captureToImage().asAndroidBitmap()
             val file = File(out, shot.file)
@@ -416,6 +417,32 @@ class WidgetGalleryTest {
             Thread.sleep(20)
             compose.mainClock.advanceTimeByFrame()
         }
+    }
+
+    /** Whether [shot] draws a scene behind its stat ([StatScene]): Plain, Tonal and Bold, from Android 13. */
+    private fun hasScene(shot: Shot): Boolean =
+        (shot.spec as? WidgetSpec.Stat)?.scene != null &&
+                shot.look in listOf(WidgetLook.PLAIN, WidgetLook.TONAL, WidgetLook.BOLD) &&
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
+
+    /**
+     * Waits until the card in view draws its scene. The shader is read and compiled off the main
+     * thread, and the card draws it at the next frame after that: this test moves the clock itself.
+     */
+    private fun waitForScene(shot: Shot) {
+        val deadline = SystemClock.uptimeMillis() + 10_000
+        while (compose.onAllNodes(hasTestTag(STAT_SCENE_TAG), useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        ) {
+            assertTrue(
+                "${shot.file}: the scene wasn't drawn",
+                SystemClock.uptimeMillis() < deadline
+            )
+            Thread.sleep(20)
+            compose.mainClock.advanceTimeByFrame()
+        }
+        // One more frame, so the layer has its effect.
+        compose.mainClock.advanceTimeByFrame()
     }
 
     // ---- what the cards hold ------------------------------------------------------------------

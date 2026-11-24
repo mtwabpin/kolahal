@@ -6,7 +6,6 @@ package com.mtwabpin.kolahal.ui.widgets
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,13 +16,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -71,10 +71,11 @@ internal fun progressTint(spec: WidgetSpec.Progress): Color =
  * - Plain and Tonal: a 2×2 has the title, the dial with the value and its unit inside, and the
  *   word under it. A 1-row card has half a dial with the value, and beside it the title, the word
  *   and the unit. A 1×1 is the dial and the value. A 4×2 has the dial at the start and the words beside it.
- * - Bold: the card fills to the value in its zone's container (the frame draws that), with the
- *   value large, as Bold's ring has it.
+ * - Bold: the layouts of Plain, with the value in Bold's narrow type, larger. The card doesn't
+ *   fill as Bold's ring does: the arc says the level ([ProgressStyles.level]).
  * - Split: a tile with the dial, and a tile with the title and the word.
  * - Shape: the dial in the clover. A 1×1 or 2×2 card is the clover; a wider card has it at the start.
+ * The word wraps to a second line, and gets smaller before it is cut ([GaugeWord]).
  */
 @Composable
 internal fun GaugeBody(
@@ -84,7 +85,7 @@ internal fun GaugeBody(
     color: Color
 ) {
     when {
-        look == WidgetLook.BOLD -> BoldGauge(spec, box)
+        look == WidgetLook.BOLD -> PlainGauge(spec, box, color, bold = true)
         look == WidgetLook.SPLIT -> SplitGauge(spec, box, color)
         look == WidgetLook.SHAPE && LocalCardShaped.current -> ShapedGauge(spec, box, color)
         look == WidgetLook.SHAPE -> ShapeBesideGauge(spec, color)
@@ -92,8 +93,14 @@ internal fun GaugeBody(
     }
 }
 
+/** Plain's and Tonal's gauge, and Bold's with [bold]: its value in Bold's type. */
 @Composable
-private fun PlainGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
+private fun PlainGauge(
+    spec: WidgetSpec.Progress,
+    box: WidgetSizes.Box,
+    color: Color,
+    bold: Boolean = false
+) {
     val c = lookColors()
     // On Tonal's card the word is in the text color, as a ring's label is: the card is tinted already.
     val word = if (LocalWidgetLook.current == WidgetLook.TONAL) c.content else progressTint(spec)
@@ -110,7 +117,8 @@ private fun PlainGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
                     spec, color, c.card, HALF_SWEEP,
                     Modifier
                         .width(minOf(boxWidth * 0.48f, boxHeight * 2f))
-                        .fillMaxHeight()
+                        .fillMaxHeight(),
+                    bold = bold
                 )
                 GaugeWords(
                     title, spec, word, c,
@@ -125,7 +133,7 @@ private fun PlainGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
                 Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                GaugeDial(spec, color, c.card, ROUND_SWEEP, Modifier.size(boxHeight), unit = true)
+                GaugeDial(spec, color, c.card, ROUND_SWEEP, Modifier.size(boxHeight), unit = true, bold = bold)
                 GaugeWords(
                     title, spec, word, c,
                     Modifier
@@ -145,26 +153,43 @@ private fun PlainGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
                     Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    unit = true
+                    unit = true,
+                    bold = bold
                 )
                 spec.label?.let { GaugeWord(it, word, MaterialTheme.typography.titleSmall) }
             }
 
-            else -> GaugeDial(spec, color, c.card, ROUND_SWEEP, Modifier.fillMaxSize())
+            else -> GaugeDial(spec, color, c.card, ROUND_SWEEP, Modifier.fillMaxSize(), bold = bold)
         }
     }
 }
 
-/** The word for a gauge's value (its `label`) in [color]: bold, on one line, centered. */
+/**
+ * The word for a gauge's value (its `label`) in [color], bold, [centered] or at the start. A long
+ * one ("Unhealthy for sensitive groups") wraps to a second line, and gets smaller, down to 11 sp,
+ * before it is cut with "…": in the height it is given too.
+ */
 @Composable
-private fun GaugeWord(text: String, color: Color, style: TextStyle) {
+private fun GaugeWord(
+    text: String,
+    color: Color,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    centered: Boolean = true
+) {
+    val largest = style.fontSize.value.let { if (it.isNaN()) 14f else maxOf(it, 11f) }
+    val auto = remember(largest) {
+        TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = largest.sp, stepSize = 1.sp)
+    }
     Text(
         text,
+        modifier = modifier,
         style = style.copy(fontWeight = FontWeight.Bold),
         color = color,
-        maxLines = 1,
+        autoSize = auto,
+        maxLines = 2,
         overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.Center
+        textAlign = if (centered) TextAlign.Center else TextAlign.Start
     )
 }
 
@@ -189,13 +214,14 @@ private fun GaugeWords(
                 overflow = TextOverflow.Ellipsis
             )
         }
+        // The word takes the height the title and the unit leave, and fits itself in it.
         spec.label?.let {
-            Text(
+            GaugeWord(
                 it,
-                style = (if (large) type.headlineSmall else type.titleMedium).copy(fontWeight = FontWeight.Bold),
-                color = word,
-                maxLines = if (large) 2 else 1,
-                overflow = TextOverflow.Ellipsis
+                word,
+                if (large) type.headlineSmall else type.titleMedium,
+                Modifier.weight(1f, fill = false),
+                centered = false
             )
         }
         spec.unit?.let {
@@ -213,8 +239,9 @@ private fun GaugeWords(
 /**
  * The dial: the arc as large as it fits in its box, with the value inside, and the unit under the
  * value with [unit]. [color] is the arc's where it has no zone; the knob stands out from [behind],
- * the color around it. The value moves to a new one on the theme's spring. The drawing is no item
- * for a screen reader: the card's description says the value.
+ * the color around it. With [bold] the value is in Bold's narrow type, as large as it fits. The
+ * value moves to a new one on the theme's spring. The drawing is no item for a screen reader: the
+ * card's description says the value.
  */
 @Composable
 private fun GaugeDial(
@@ -225,6 +252,7 @@ private fun GaugeDial(
     modifier: Modifier = Modifier,
     unit: Boolean = false,
     ink: Color = MaterialTheme.colorScheme.onSurface,
+    bold: Boolean = false,
 ) {
     val shown by animateFloatAsState(
         spec.value,
@@ -291,7 +319,11 @@ private fun GaugeDial(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = if (round) Arrangement.Center else Arrangement.Bottom
         ) {
-            BigText(
+            if (bold) BoldText(
+                ProgressStyles.gaugeValue(spec),
+                (inner * if (round) 0.95f else 1.25f).sp,
+                ink
+            ) else BigText(
                 ProgressStyles.gaugeValue(spec),
                 MaterialTheme.typography.displaySmall.copy(
                     fontSize = (inner * if (round) 0.7f else 1f).sp,
@@ -304,84 +336,6 @@ private fun GaugeDial(
                     it,
                     style = MaterialTheme.typography.labelMedium,
                     color = muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-/** Bold's gauge: as Bold's ring, the value as large as it fits with its unit smaller, the title small, and the word. */
-@Composable
-private fun BoldGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
-    val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.BOLD, roleColor(spec.base))
-    val title = LocalUntitled.current
-    val value = ProgressStyles.gaugeValue(spec)
-    when (box) {
-        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-            SmallTitle(title, c.content)
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.BottomStart
-            ) { BoldValue(value, spec.unit, 92.sp, c.content) }
-            spec.label?.let {
-                Text(
-                    it,
-                    style = type.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = c.content,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-        }
-
-        WidgetSizes.Box.WIDE -> Row(
-            Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.CenterStart
-            ) { BoldValue(value, spec.unit, 64.sp, c.content) }
-            Column(
-                Modifier
-                    .padding(start = 12.dp)
-                    .widthIn(max = 120.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                SmallTitle(title, c.content)
-                spec.label?.let {
-                    Text(
-                        it,
-                        style = type.labelMedium,
-                        color = c.content,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.End
-                    )
-                }
-            }
-        }
-
-        WidgetSizes.Box.SMALL -> Column(
-            Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                BoldValue(value, null, 48.sp, c.content)
-            }
-            spec.label?.let {
-                Text(
-                    it,
-                    style = type.labelSmall,
-                    color = c.content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -449,7 +403,7 @@ private fun SplitGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
             Tile(SplitCorners.inColumn(1, 2), c.tile, Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     SmallTitle(title, c.content)
-                    spec.label?.let { GaugeWord(it, word, MaterialTheme.typography.titleSmall) }
+                    spec.label?.let { GaugeWord(it, word, MaterialTheme.typography.titleSmall, centered = false) }
                 }
             }
         }

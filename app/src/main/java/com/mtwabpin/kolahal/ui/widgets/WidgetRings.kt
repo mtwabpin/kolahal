@@ -33,10 +33,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -98,7 +102,7 @@ private fun PlainRings(
                 Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                rings(boxHeight)
+                rings(ProgressStyles.ringsSide(boxWidth.value, boxHeight.value).dp)
                 RingRows(
                     spec, color, c, how,
                     Modifier
@@ -168,6 +172,7 @@ private fun SplitRings(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        val boxWidth = maxWidth
         val boxHeight = maxHeight
         when {
             box == WidgetSizes.Box.SMALL -> rings(Modifier.fillMaxSize(), SplitCorners.inRow(0, 1))
@@ -200,13 +205,16 @@ private fun SplitRings(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
                 Modifier.fillMaxSize(),
                 horizontalArrangement = Arrangement.spacedBy(gap)
             ) {
+                // The rings' tile leaves the rows' tiles room for "6,240 of 8,000".
                 rings(
                     Modifier
                         .fillMaxHeight()
-                        .aspectRatio(1f), SplitCorners.tile(true, false, false, true)
+                        .width(ProgressStyles.ringsSide(boxWidth.value, boxHeight.value).dp),
+                    SplitCorners.tile(true, false, false, true)
                 )
-                // A tile for each ring, as many as fit: each needs a row of the large type.
-                val tall = with(LocalDensity.current) { 34.sp.toDp() }
+                // A tile for each ring, as many as fit: each needs a row of the large type, with
+                // room for its scale to go under its value.
+                val tall = with(LocalDensity.current) { 40.sp.toDp() }
                 val count = ((boxHeight + gap) / (tall + gap)).toInt().coerceIn(1, spec.items.size)
                 Column(
                     Modifier
@@ -224,7 +232,7 @@ private fun SplitRings(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
                                     .fillMaxWidth()
                             ) {
                                 RingRow(
-                                    i, bar, color, c, how, 0.3f,
+                                    i, bar, color, c, how, NAME_SHARE,
                                     Modifier
                                         .align(Alignment.CenterStart)
                                         .padding(horizontal = 14.dp)
@@ -422,9 +430,9 @@ private fun RingList(
 }
 
 /**
- * Beside the rings of a 4×2: a row for each ring, as many as fit: a mark, its name, its value
- * large in its color, and its scale ("of 8,000"). The names take a third of the width, so the
- * values line up.
+ * Beside the rings of a 4×2: a row for each ring, as many as fit ([FitColumn]): a mark, its name,
+ * its value large in its color, and its scale ("of 8,000"), under the value when the line is full.
+ * The names take a quarter of the width, so the values line up.
  */
 @Composable
 private fun RingRows(
@@ -434,18 +442,76 @@ private fun RingRows(
     how: RingType,
     modifier: Modifier = Modifier
 ) {
-    BoxWithConstraints(modifier) {
-        val tall = with(LocalDensity.current) { 34.sp.toDp() }
-        val count = (maxHeight / tall).toInt().coerceIn(1, spec.items.size)
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
-            spec.items.take(count).forEachIndexed { i, bar ->
-                key(i) { RingRow(i, bar, color, c, how, 0.3f, Modifier.fillMaxWidth()) }
+    FitColumn(modifier) {
+        spec.items.forEachIndexed { i, bar ->
+            key(i) { RingRow(i, bar, color, c, how, NAME_SHARE, Modifier.fillMaxWidth()) }
+        }
+    }
+}
+
+/** A ring's name takes this share of its row, so the values of the rows line up. */
+private const val NAME_SHARE = 0.26f
+
+/**
+ * Rows one under the other, as many as fit in the height, from the first ([ProgressStyles.rowsThatFit]),
+ * with even room around them. Each row is as tall as it is: one whose scale went under its value
+ * takes two lines. The rows that don't fit are not drawn.
+ */
+@Composable
+private fun FitColumn(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { measurables, constraints ->
+        val loose = constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)
+        val placeables = measurables.map { it.measure(loose) }
+        val room = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
+        val rows = placeables.take(ProgressStyles.rowsThatFit(placeables.map { it.height }, room))
+        val used = rows.sumOf { it.height }
+        val height = if (constraints.hasBoundedHeight) constraints.maxHeight else used
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else rows.maxOfOrNull { it.width } ?: 0
+        val space = (height - used).coerceAtLeast(0) / (rows.size + 1)
+        layout(width, height) {
+            var y = space
+            rows.forEach {
+                it.placeRelative(0, y)
+                y += it.height + space
             }
         }
     }
 }
 
-/** One ring's row: a mark, its name in [nameShare] of the width, its value large in its color, and its scale. */
+/**
+ * A ring's [value] with its [scale] after it on one line, on one baseline, when both fit the width
+ * ([ProgressStyles.fitsInLine]); else the scale goes under the value, so neither is cut.
+ */
+@Composable
+private fun ValueThenScale(
+    value: @Composable () -> Unit,
+    scale: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Layout(listOf(value, scale), modifier) { (valueParts, scaleParts), constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val v = valueParts.first().measure(loose)
+        val s = scaleParts.first().measure(loose)
+        val gap = 5.dp.roundToPx()
+        if (ProgressStyles.fitsInLine(v.width, gap, s.width, constraints.maxWidth)) {
+            val vb = v[FirstBaseline].takeIf { it != AlignmentLine.Unspecified } ?: v.height
+            val sb = s[FirstBaseline].takeIf { it != AlignmentLine.Unspecified } ?: s.height
+            val line = maxOf(vb, sb)
+            val height = maxOf(line - vb + v.height, line - sb + s.height)
+            layout(v.width + gap + s.width, height) {
+                v.placeRelative(0, line - vb)
+                s.placeRelative(v.width + gap, line - sb)
+            }
+        } else {
+            layout(maxOf(v.width, s.width), v.height + s.height) {
+                v.placeRelative(0, 0)
+                s.placeRelative(0, v.height)
+            }
+        }
+    }
+}
+
+/** One ring's row: a mark, its name in [nameShare] of the width, its value large in its color, and its scale after it or under it ([ValueThenScale]). */
 @Composable
 private fun RingRow(
     index: Int,
@@ -473,22 +539,27 @@ private fun RingRow(
                     .width(nameWidth)
             )
             val value = ProgressStyles.ringValue(bar)
-            if (how.bold) BoldText(value, 28.sp, tint, Modifier.padding(start = 6.dp))
-            else Text(
-                value,
-                style = type.titleLarge.asValue(),
-                color = tint,
-                maxLines = 1,
-                softWrap = false,
+            ValueThenScale(
+                value = {
+                    if (how.bold) BoldText(value, 28.sp, tint)
+                    else Text(
+                        value,
+                        style = type.titleLarge.asValue(),
+                        color = tint,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                },
+                scale = {
+                    Text(
+                        ProgressStyles.ringOf(bar),
+                        style = type.bodySmall,
+                        color = c.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 modifier = Modifier.padding(start = 6.dp)
-            )
-            Text(
-                ProgressStyles.ringOf(bar),
-                style = type.bodySmall,
-                color = c.muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 5.dp)
             )
         }
     }

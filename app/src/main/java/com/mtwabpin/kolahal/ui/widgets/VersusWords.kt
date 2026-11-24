@@ -34,6 +34,40 @@ internal object VersusWords {
     /** What the bar's end says for a side: its `text`, or its value as a number ("58"). Null without either. */
     fun figure(side: WidgetSpec.Side): String? = side.text ?: side.value?.let(WidgetWords::num)
 
+    /**
+     * What a one-row card (4×1) holds, [heightDp] high: [score] is the place in [scoreDp] (the
+     * heights of the score's sizes, the largest first) of the size it takes, and [line] whether the
+     * last line and the badge fit under it.
+     */
+    data class RowPlan(val score: Int, val line: Boolean)
+
+    /**
+     * The plan of a one-row card [heightDp] high ([RowPlan]). The bar and its figures ([barDp], 0
+     * without a bar) always have their room. Over it, the largest score that fits with the last line
+     * ([lineDp], 0 without one); else the largest that fits alone, and the line gives way; else the
+     * smallest.
+     */
+    fun rowPlan(heightDp: Int, scoreDp: List<Int>, lineDp: Int, barDp: Int): RowPlan {
+        if (scoreDp.isEmpty()) return RowPlan(0, false)
+        val room = heightDp - barDp
+        if (lineDp > 0) scoreDp.indexOfFirst { it + lineDp <= room }.takeIf { it >= 0 }?.let { return RowPlan(it, true) }
+        val alone = scoreDp.indexOfFirst { it <= room }
+        return RowPlan(if (alone >= 0) alone else scoreDp.lastIndex, line = false)
+    }
+
+    /**
+     * The width of the middle of a one-row card [widthDp] wide, between two sides that each need
+     * [sideDp] for a mark and a whole name. [wantDp] is what the middle wants: the score, and the
+     * last line under it when that shows.
+     * - All of it when everything fits, and the sides share what is left.
+     * - Else what the sides leave, so the score gets smaller, but never less than [leastDp]: a name
+     *   is cut only then. Never more than it wants.
+     */
+    fun middleDp(widthDp: Float, wantDp: Float, sideDp: Float, leastDp: Float): Float {
+        if (wantDp + 2 * sideDp <= widthDp) return wantDp
+        return maxOf(leastDp, widthDp - 2 * sideDp).coerceAtMost(wantDp).coerceIn(0f, widthDp)
+    }
+
     /** The side whose turn it is (`turn` 1 or 2), by its place in the list: 0 or 1. Null for none. */
     fun turnIndex(spec: WidgetSpec.Versus): Int? = spec.turn?.let { it - 1 }?.takeIf { it in spec.sides.indices }
 

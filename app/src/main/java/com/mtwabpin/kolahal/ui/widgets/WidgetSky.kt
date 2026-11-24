@@ -159,7 +159,8 @@ private fun SkyMain(text: String, style: TextStyle, bold: Boolean, role: Color, 
  * Plain and Tonal, and Bold with [bold]: the sky on the card itself.
  * - Small: the sky over the big text.
  * - Wide: the place, the big text and what comes next at the start, the sky at the end. The night
- *   band reaches under the words to the card's edge.
+ *   band reaches under the words to the card's edge. In Bold the sky keeps to its own part, with
+ *   no band: the horizon would cross the big value.
  * - Large: the place and what comes next (the moon's phase) over the sky, then the times at the
  *   arc's ends and their names, or the moon's next phases. Bold has the big text under the place.
  */
@@ -187,15 +188,25 @@ private fun PlainSky(
 
         WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
             val skyWidth = maxWidth * SKY_SHARE
-            // The band is drawn first: the words are over it.
-            SkyDrawing(sky, spec, role, behind, Modifier.fillMaxSize(), textRoom = maxWidth - skyWidth)
+            // Plain and Tonal: the band is drawn first, and the words are over it. Bold's big
+            // value is as tall as its line, so the horizon would cross it: its sky keeps to its
+            // own part of the card, with no band under the words.
+            if (!bold) SkyDrawing(sky, spec, role, behind, Modifier.fillMaxSize(), textRoom = maxWidth - skyWidth)
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
+                // The title and what comes next are measured first, so neither is cut: the big
+                // value takes the height they leave. Bold's gets smaller to fit it.
+                Column(Modifier.weight(1f).fillMaxHeight()) {
                     SkyTitle(title, c.content)
-                    SkyMain(sky.main, valueStyle(box), bold, role, 36f)
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                        SkyMain(sky.main, valueStyle(box), bold, role, 36f)
+                    }
                     FirstThatFits(sky.lines, type.bodySmall, c.muted)
                 }
-                Spacer(Modifier.width(skyWidth))
+                if (bold) SkyDrawing(
+                    sky, spec, role, behind,
+                    Modifier.width(skyWidth).fillMaxHeight().padding(start = 8.dp),
+                    band = false
+                ) else Spacer(Modifier.width(skyWidth))
             }
         }
 

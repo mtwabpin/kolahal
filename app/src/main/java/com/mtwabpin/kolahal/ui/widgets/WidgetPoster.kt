@@ -3,6 +3,9 @@
  */
 package com.mtwabpin.kolahal.ui.widgets
 
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.Typeface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -19,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -47,7 +51,7 @@ import kotlin.math.roundToInt
 /** The size the value is measured at, before it is scaled to its room. */
 private val REF_SIZE = 100.sp
 
-/** How tall a digit is, as a share of the type's size: Roboto's cap height. */
+/** How tall a digit is, as a share of the type's size, when the type can't be measured: Roboto's cap height ([rememberDigitInk]). */
 private const val INK = 0.72f
 
 /** The space between a clock's hours and its minutes, as a share of the type's size. */
@@ -59,13 +63,15 @@ private const val LINE_GAP = 0.1f
  * - Only the end edge and the bottom edge crop. The value starts inside the card, under or beside
  *   the label, so its start and its top are whole.
  * - At the end, at most [CROP_END] of the last character's width goes past the edge.
- * - At the bottom, at most [CROP_BOTTOM] of the last line's digits go past the edge.
+ * - At the bottom, at most [CROP_BOTTOM] of the last line's digits go past the edge: a tenth, so the
+ *   foot of a 2 or the bowl of a 3 stays.
  * - The value is as large as both allow: one of the two edges crops it by its whole share, unless
- *   the value has no room at all.
+ *   the value has no room at all. A value whose width sets its size stands lower ([drop]), so the
+ *   bottom edge crops it by its share too: it never floats with empty room under it.
  */
 object PosterFit {
     const val CROP_END = 0.2f
-    const val CROP_BOTTOM = 0.15f
+    const val CROP_BOTTOM = 0.1f
 
     /** [text] with each digit as 0: what a value is measured as, so it keeps its size while its digits change. */
     fun template(text: String): String = String(CharArray(text.length) { if (text[it].isDigit()) '0' else text[it] })
@@ -86,6 +92,10 @@ object PosterFit {
         return minOf(byWidth, byHeight)
     }
 
+    /** How far under its room's top a value at [scale] goes, so the bottom edge crops its last line by [CROP_BOTTOM]. 0 when its height set its size. */
+    fun drop(scale: Float, roomH: Float, lines: Int, ink: Float, step: Float): Float =
+        (roomH - ((lines - 1) * step + ink * (1f - CROP_BOTTOM)) * scale).coerceAtLeast(0f)
+
     /** What the edges crop at [scale]: the share of a last character past the end, and of the last line's digits past the bottom. */
     data class Crop(val end: Float, val bottom: Float)
 
@@ -97,6 +107,28 @@ object PosterFit {
         }
         val over = ((widths.size - 1) * step + ink) * scale - roomH
         return Crop(end, (over / (ink * scale)).coerceAtLeast(0f))
+    }
+}
+
+/**
+ * How tall [style]'s digits stand over their baseline, as a share of its size: measured on the type
+ * itself, so the crop is true for any font. [INK] when it can't be measured.
+ */
+@Composable
+private fun rememberDigitInk(style: TextStyle): Float {
+    val resolver = LocalFontFamilyResolver.current
+    return remember(style, resolver) {
+        runCatching {
+            val face = resolver.resolve(style.fontFamily, style.fontWeight ?: FontWeight.Normal).value as? Typeface
+                ?: return@runCatching INK
+            val paint = Paint().apply {
+                typeface = face
+                textSize = 1000f
+            }
+            val bounds = Rect()
+            paint.getTextBounds("0123456789", 0, 10, bounds)
+            (-bounds.top / 1000f).takeIf { it in 0.5f..1f } ?: INK
+        }.getOrDefault(INK)
     }
 }
 
@@ -139,6 +171,7 @@ internal fun PosterCard(
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val style = posterStyle()
+    val digitInk = rememberDigitInk(style)
     val titleStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
     val noteStyle = type.labelMedium
     val templates = lines.map(PosterFit::template)
@@ -163,8 +196,8 @@ internal fun PosterCard(
             val n = r.layoutInput.text.length
             if (n == 0) 0f else r.getBoundingBox(n - 1).width
         }
-        val ink = INK * refPx
-        val step = (INK + LINE_GAP) * refPx
+        val ink = digitInk * refPx
+        val step = (digitInk + LINE_GAP) * refPx
         val headed = title != null || note != null || change != null
         // Under the title's line, from the start edge.
         val underTop = if (headed) top + headPx + 4 * px else top
@@ -177,7 +210,8 @@ internal fun PosterCard(
         val besideIt = beside > under
         val scale = if (besideIt) beside else under
         val valueX = if (besideIt) column else side
-        val valueTop = if (besideIt) top else underTop
+        val roomTop = if (besideIt) top else underTop
+        val valueTop = roomTop + PosterFit.drop(scale, h - roomTop, lines.size, ink, step)
         if (scale > 0f) {
             val big = style.copy(fontSize = REF_SIZE * scale)
             // From a line's top to its digits' top.
@@ -199,9 +233,16 @@ internal fun PosterCard(
                 )
             }
         }
-        val noteText: @Composable () -> Unit = {
+        // In the narrow column beside the value, the note's parts go one under the other ("days" over "20 Dec").
+        val noteText: @Composable (Boolean) -> Unit = { stacked ->
             note?.let {
-                Text(it, style = noteStyle, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    if (stacked) it.replace(" · ", "\n") else it,
+                    style = noteStyle,
+                    color = c.muted,
+                    maxLines = if (stacked) 2 else 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             change?.invoke()
         }
@@ -215,7 +256,7 @@ internal fun PosterCard(
             ) {
                 titleText(2)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    noteText()
+                    noteText(true)
                 }
             }
         } else if (headed) {
@@ -228,7 +269,7 @@ internal fun PosterCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(Modifier.weight(1f)) { titleText(1) }
-                noteText()
+                noteText(false)
             }
         }
     }
@@ -291,6 +332,7 @@ internal fun PosterStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
 @Composable
 internal fun PosterCountdown(spec: WidgetSpec.Countdown, box: WidgetSizes.Box, count: State<WidgetWords.Count>, moment: String?) {
     val left = count.value
+    // "days · 20 Dec": beside a wide card's value, the two go one under the other ([PosterCard]).
     val note = listOfNotNull(left.unit, moment).joinToString(" · ").ifEmpty { null }
     PosterCard(
         listOf(StyledText.capitalized(left.value)),

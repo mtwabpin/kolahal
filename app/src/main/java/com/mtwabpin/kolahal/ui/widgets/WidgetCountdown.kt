@@ -63,7 +63,9 @@ internal fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     LaunchedEffect(minute) { now.longValue = System.currentTimeMillis() / 1000 }
     val count = remember(spec.to, spec.style, spec.reached, zone) {
         derivedStateOf {
-            WidgetWords.countdown(
+            // Poster on a dot a day or a page counts days on the calendar, as the style's other looks do.
+            if (CountdownDays.counts(spec.style)) CountdownDays.count(spec.to, now.longValue, zone, spec.reached, left = false)
+            else WidgetWords.countdown(
                 spec.to,
                 now.longValue,
                 spec.style,

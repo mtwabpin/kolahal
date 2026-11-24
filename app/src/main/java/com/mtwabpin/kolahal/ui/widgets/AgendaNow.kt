@@ -276,14 +276,15 @@ private fun NowDay(
     val type = MaterialTheme.typography
     val lines = remember(spec, now, zone, clock24, locale) { AgendaFree.day(spec, now, zone, clock24, locale) }
     val freeToday = remember(lines) { AgendaFree.freeToday(lines) }
-    // Rows grow with the font size ([WidgetWords.textRowDp]).
-    val firstHeadDp = WidgetWords.textRowDp(28, linesDp(type.titleSmall))
+    // Rows grow with the font size ([WidgetWords.textRowDp]). The card's heading is as tall as its
+    // line needs, no more: at 28 dp a 4x2 card, about 163 dp inside, missed the day's third event by 1 dp.
+    val firstHeadDp = WidgetWords.textRowDp(NOW_HEAD_DP, linesDp(type.titleSmall))
     val headDp = WidgetWords.textRowDp(NOW_HEAD_DP, linesDp(type.labelMedium))
     val taps = spec.events.any { it.tap != null }
     val eventDp = WidgetWords.textRowDp(if (taps) NOW_TAP_DP else NOW_EVENT_DP, linesDp(type.bodyLarge))
     val freeDp = WidgetWords.textRowDp(NOW_FREE_DP, linesDp(type.labelMedium))
     val moreDp = WidgetWords.textRowDp(NOW_MORE_DP, linesDp(type.labelMedium))
-    // The first heading is taller: it counts as a heading and the room it has over the others.
+    // With a larger font the first heading can be taller: it counts as a heading and the room it has over the others.
     val shown = AgendaFree.shown(lines, heightDp - (firstHeadDp - headDp), headDp, eventDp, freeDp, moreDp)
     val left = lines.count { it is AgendaFree.Line.Event } - lines.take(shown).count { it is AgendaFree.Line.Event }
     // The time chips are as wide as the longest time in this form, so the titles line up.

@@ -66,6 +66,28 @@ class StatMotionAndPosterTest {
         check(80f * 3, 60f * 3, listOf(3 * digit), listOf(digit))
     }
 
+    /**
+     * A value whose width sets its size ("1.0824" in a 2×2) stands lower, so it stands on the card's
+     * bottom with its share cropped there, not floating over empty room; a value whose height set its
+     * size doesn't move.
+     */
+    @Test
+    fun aValueSizedByItsWidthStandsOnTheBottom() {
+        val roomW = 170f * 3
+        val roomH = 160f * 3
+        val wide = listOf(6.2f * digit)
+        val scale = PosterFit.scale(roomW, roomH, wide, listOf(digit), ink, step)
+        val drop = PosterFit.drop(scale, roomH, 1, ink, step)
+        assertTrue("it moves down: $drop", drop > 0f)
+        val crop = PosterFit.crop(scale, roomW, roomH - drop, wide, listOf(digit), ink, step)
+        assertEquals(PosterFit.CROP_BOTTOM, crop.bottom, 1e-3f)
+        assertEquals(PosterFit.CROP_END, crop.end, 1e-3f)
+
+        val tall = listOf(digit)
+        val big = PosterFit.scale(roomW, roomH, tall, listOf(digit), ink, step)
+        assertEquals(0f, PosterFit.drop(big, roomH, 1, ink, step), 1e-3f)
+    }
+
     @Test
     fun noRoomOrNoValueDrawsNothing() {
         assertEquals(0f, PosterFit.scale(0f, 100f, listOf(digit), listOf(digit), ink, step))

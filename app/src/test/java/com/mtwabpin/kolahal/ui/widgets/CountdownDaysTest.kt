@@ -88,6 +88,18 @@ class CountdownDaysTest {
         assertEquals(WidgetWords.Count("3", "days ago", false), CountdownDays.count(trip, at(12, 23), utc, null))
     }
 
+    /**
+     * Poster on a dot a day or a page says the same number as the style's other looks, with "days"
+     * for its note. At noon, 20 December at midnight is 25 whole days of 24 hours away but 26 days
+     * on the calendar: the drawn Poster said 25 (25 Nov).
+     */
+    @Test
+    fun posterCountsTheSameDays() {
+        assertEquals(WidgetWords.Count("26", "days", false), CountdownDays.count(trip, now, utc, null, left = false))
+        assertEquals(WidgetWords.Count("1", "day", false), CountdownDays.count(trip, at(12, 19, 23), utc, null, left = false))
+        assertEquals("25", WidgetWords.countdown(trip, now, "days", null, utc).value)
+    }
+
     @Test
     fun aPageSaysWhenInWords() {
         assertEquals("In 26 days", CountdownDays.inWords(trip, now, utc, null))

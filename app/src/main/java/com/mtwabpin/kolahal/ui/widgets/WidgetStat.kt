@@ -252,7 +252,7 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                         }
                         first?.let {
                             Text(
-                                WidgetWords.joined(it.value, it.label),
+                                smallLine(it),
                                 style = type.bodySmall,
                                 color = muted,
                                 maxLines = 1,
@@ -345,6 +345,14 @@ internal fun ChangeText(
         }
     }
 }
+
+/**
+ * A smaller value and its label on one line, a space between them: "62% humidity", "31° 15:00".
+ * A label is never a unit ([WidgetWords.joined]): a label that starts with a digit (an hour) still
+ * gets its space.
+ */
+internal fun smallLine(small: WidgetSpec.Small): String =
+    listOfNotNull(small.value, small.label).joinToString(" ")
 
 /**
  * One of a stat's smaller values, over its label in [muted]. With [centered], both are centered.

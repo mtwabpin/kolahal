@@ -49,12 +49,28 @@ class ShapeStepsTest {
         assertEquals(0, ShapeSteps.rays(now - day, now - 10 * day, now))
     }
 
-    /** The rays go one by one from the end, clockwise: the first ones from the top stay. */
+    /**
+     * The rays that are left are spread round the whole sun, the first at the top. Their largest gap
+     * is as small as it can be: k rays in 12 places can't all be closer than 12 / k places apart
+     * (rounded up), and they are never further.
+     */
     @Test
-    fun theRaysLeftAreTheFirstOnes() {
-        assertEquals(List(7) { true } + List(5) { false }, ShapeSteps.sunRays(7))
+    fun theRaysLeftAreSpreadRoundTheSun() {
+        val places = (12 downTo 1).associateWith { k ->
+            ShapeSteps.sunRays(k).withIndex().filter { it.value }.map { it.index }
+        }
+        assertEquals(List(12) { it }, places[12])
+        assertEquals(listOf(0, 2, 3, 5, 7, 9, 10), places[7])
+        assertEquals(listOf(0, 4, 8), places[3])
+        assertEquals(listOf(0, 6), places[2])
+        assertEquals(listOf(0), places[1])
+        for ((k, kept) in places) {
+            assertEquals("$k rays", k, kept.size)
+            assertEquals("$k rays: one at the top", 0, kept.first())
+            val gaps = kept.zipWithNext { a, b -> b - a } + (12 - kept.last() + kept.first())
+            assertEquals("$k rays: the largest gap $gaps", (12 + k - 1) / k, gaps.max())
+        }
         assertEquals(List(12) { false }, ShapeSteps.sunRays(0))
-        assertEquals(12, ShapeSteps.sunRays(12).count { it })
     }
 
     /**
@@ -65,18 +81,18 @@ class ShapeStepsTest {
     fun aRayRisesFromTheBodyOrLiesOnIt() {
         val body = ShapeSteps.SUN_BODY
         val steps = ShapeSteps.SUN_STEPS
-        val corners =
-            ShapeSteps.lobeCorners(ShapeSteps.sunRays(2), body, ShapeSteps.SUN_SHARPNESS, steps)
+        val out = ShapeSteps.sunRays(2)
+        val corners = ShapeSteps.lobeCorners(out, body, ShapeSteps.SUN_SHARPNESS, steps)
         assertEquals(12 * steps * 2, corners.size)
         fun radius(i: Int) = hypot(corners[2 * i] - 0.5f, corners[2 * i + 1] - 0.5f)
         val top = steps / 2
         assertEquals(0.5f, corners[2 * top], 1e-4f)
         assertEquals(0f, corners[2 * top + 1], 1e-4f)
-        assertTrue("the second ray is right of the middle", corners[2 * (steps + top)] > 0.5f)
+        assertTrue("the second place is right of the middle", corners[2 * (steps + top)] > 0.5f)
         for (ray in 0 until 12) {
             val first = ray * steps
             assertEquals("ray $ray meets the one before", body, radius(first), 1e-4f)
-            val expected = if (ray < 2) ShapeSteps.OUTER else body
+            val expected = if (out[ray]) ShapeSteps.OUTER else body
             assertEquals("the top of ray $ray", expected, radius(first + top), 1e-4f)
             for (s in 0 until steps) {
                 assertTrue("ray $ray stays in its box", radius(first + s) in body - 1e-4f..ShapeSteps.OUTER + 1e-4f)
@@ -183,11 +199,41 @@ class ShapeStepsTest {
                 )
             }
         }
-        // The light Rosé Pine's gold: the number is in the light color on the fill, and in the text
-        // color over the empty part above the line.
+        // The light Rosé Pine: over the empty part above the line (the highest container, a light
+        // gray there) the number is in the dark text color, not the light one.
         val dawn = Palettes.named("rose-pine", dark = false)
         val scheme = schemeFrom(dawn)
-        assertEquals(scheme.surface, inkOn(dawn.warn, scheme.surface, scheme.onSurface))
         assertEquals(scheme.onSurface, inkOn(scheme.surfaceContainerHighest, scheme.onSurface, scheme.surface))
+    }
+
+    /**
+     * Both parts of a level's number read, at 3:1 at the least, in every built-in theme, dark and
+     * light, and every color a card can have. The two inks are what [OnLevel] gives a number that
+     * the fill's line crosses (48%): over the empty part (the frame fills a progress card with the
+     * highest container) and over the fill (the card's color).
+     */
+    @Test
+    fun bothPartsOfACrossedNumberReachThreeToOne() {
+        for (name in Keys.BUILT_IN_THEMES) for (dark in listOf(true, false)) {
+            val p = Palettes.named(name, dark)
+            val scheme = schemeFrom(p)
+            val empty = scheme.surfaceContainerHighest
+            for ((role, fill) in accents(p) + ("muted" to p.dim) + ("text" to p.fg)) {
+                val what = "$name, ${if (dark) "dark" else "light"}, $role"
+                val above = inkOn(empty, scheme.onSurface, scheme.surface)
+                val over = inkOn(fill, scheme.surface, scheme.onSurface)
+                assertTrue("$what: above the line ${contrast(above, empty)}", contrast(above, empty) >= INK_MIN)
+                assertTrue("$what: on the fill ${contrast(over, fill)}", contrast(over, fill) >= INK_MIN)
+            }
+        }
+    }
+
+    /** The words in the flower's middle fit it: "this week" in a large card, "of 7" in a small one. */
+    @Test
+    fun theFlowersWordsFitItsMiddle() {
+        assertEquals("this week", ShapeSteps.weekWords(5, room = true))
+        assertEquals("all week", ShapeSteps.weekWords(7, room = true))
+        assertEquals("of 7", ShapeSteps.weekWords(5, room = false))
+        assertEquals("of 7", ShapeSteps.weekWords(7, room = false))
     }
 }

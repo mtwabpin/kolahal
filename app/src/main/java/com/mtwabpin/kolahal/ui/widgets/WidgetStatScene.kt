@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.shader.ShaderMeta
@@ -36,6 +37,8 @@ import kotlinx.coroutines.withContext
  * - The shader draws over the page's color, as over home's empty page, so the picture is all its
  *   own. It is one frame at a fixed time: it never moves, and it is drawn again only when the card
  *   is (its time of day, its parameters and the phone's lean follow as on home's preview of it).
+ * - The shader's file is read and then compiled off the main thread. Until both are done the card
+ *   is the plain stat; each result is state, so the card draws again with its scene once it is ready.
  * - In Plain, Tonal and Bold, whose card has a fill for it to replace. Split's tiles and Shape's
  *   shape keep their own.
  * - Nothing (the plain stat) under Android 13, with a screen reader on, and for a shader that is
@@ -78,6 +81,8 @@ internal fun StatScene(spec: WidgetSpec.Stat, look: WidgetLook, card: Color) {
     Box(
         Modifier
             .fillMaxSize()
+            // Only once the shader is compiled: a test waits for it before it takes a picture.
+            .testTag(STAT_SCENE_TAG)
             .then(ground)
             // The scene reads this page: marked, so it shows over all of it ([ShaderMeta.PAGE_ALPHA]).
             .page(marked = true)
@@ -88,6 +93,9 @@ internal fun StatScene(spec: WidgetSpec.Stat, look: WidgetLook, card: Color) {
             .background(scrim)
     )
 }
+
+/** The tag of a scene that is drawn: the card has its picture. */
+internal const val STAT_SCENE_TAG = "stat-scene"
 
 /** The scrim's strength over the start of the card, up to [SCRIM_HOLD] of its width, where the figures are. */
 internal const val SCRIM_START = 0.75f

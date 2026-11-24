@@ -17,13 +17,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,11 +32,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.ui.home.colorOf
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
@@ -86,7 +88,7 @@ internal fun VersusBody(spec: WidgetSpec.Versus, box: WidgetSizes.Box) {
         }
 
         WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (maxWidth >= VERSUS_ROW_FROM) VersusRow(spec, roles, bold, c, maxWidth)
+            if (maxWidth >= VERSUS_ROW_FROM) VersusRow(spec, roles, bold, c, maxWidth, maxHeight)
             else VersusNarrow(spec, roles, bold)
         }
 
@@ -112,26 +114,92 @@ internal fun VersusBody(spec: WidgetSpec.Versus, box: WidgetSizes.Box) {
     }
 }
 
+/** The score's sizes a one-row card tries, the largest first ([VersusWords.rowPlan]): as a value, or in Bold's type (sp). */
+private val ROW_BOLD_SIZES = listOf(40, 36, 32, 28)
+
+/** A one-row card's mark, and the room between it and the name, in dp. */
+private val ROW_MARK = 28.dp
+private val ROW_GAP = 8.dp
+
+/** Room for the turn's dot after a name, with its gap, in dp. */
+private const val DOT_ROOM = 13f
+
+/** Room on each side of the score in a one-row card, in dp. */
+private const val MIDDLE_PAD = 8f
+
+/** The score keeps at least this share of a one-row card's width, however long the names are. */
+private const val MIDDLE_LEAST = 0.3f
+
+/** The score gets no narrower than this share of its own width to make room for the names. */
+private const val MIDDLE_SHRINK = 0.6f
+
+/** The room over the bar in a one-row card, in dp. */
+private const val BAR_GAP = 2
+
 /**
  * A wide card (4×1): each side's mark and name at its end, the score and the last line in the
  * middle, the bar under them. The badge is in front of the last line.
+ * - One row is little height, so the bar with its figures comes first: it is measured before the
+ *   rest, and never cut. The score takes the largest size that fits over it with the last line,
+ *   then without it ([VersusWords.rowPlan]): the last line and the badge are what give way. A
+ *   screen reader still says them.
+ * - The names get the width they need, and the score the rest, but never less than a share of the
+ *   row ([VersusWords.middleDp]). A name is cut with "…" only when it can't fit beside that: its
+ *   mark still says the side.
  */
 @Composable
-private fun VersusRow(spec: WidgetSpec.Versus, roles: List<Color>, bold: Boolean, c: LookColors, width: Dp) {
+private fun VersusRow(
+    spec: WidgetSpec.Versus,
+    roles: List<Color>,
+    bold: Boolean,
+    c: LookColors,
+    width: Dp,
+    height: Dp
+) {
     val type = MaterialTheme.typography
     val turn = VersusWords.turnIndex(spec)
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val styles = if (bold) ROW_BOLD_SIZES.map { boldValueStyle(it.sp) }
+    else listOf(type.headlineMedium, type.headlineSmall, type.titleLarge).map { it.asValue() }
+    // Bold's line is as tall as its type: one em.
+    val scoreHeights = if (bold) ROW_BOLD_SIZES.map { linesDp(TextStyle(fontSize = it.sp, lineHeight = it.sp)) }
+    else styles.map { linesDp(it) }
+    val hasLine = spec.line != null || spec.badge != null
+    // The badge has 1 dp above and under its text.
+    val lineDp = if (hasLine) linesDp(type.labelMedium) + 2 else 0
+    val barDp = if (VersusWords.shares(spec) != null) maxOf(linesDp(rowFigureStyle()), BAR_LINE_DP) + BAR_GAP else 0
+    val plan = VersusWords.rowPlan(height.value.toInt(), scoreHeights, lineDp, barDp)
+    val scoreStyle = styles[plan.score]
+    val nameStyle = type.titleSmall.copy(fontWeight = FontWeight.Bold)
+    val lineStyle = type.labelMedium
+    val badgeStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val showLine = plan.line && hasLine
+    val middle = remember(spec, width, scoreStyle, nameStyle, lineStyle, showLine, density, measurer) {
+        fun dp(text: String, style: TextStyle): Float = with(density) {
+            measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp().value
+        }
+        val names = spec.sides.maxOfOrNull { dp(it.name, nameStyle) } ?: 0f
+        val side = ROW_MARK.value + ROW_GAP.value + names + if (turn != null) DOT_ROOM else 0f
+        val score = dp(spec.score, scoreStyle)
+        // The badge has 8 dp on each side of its text, and 6 dp after it.
+        val line = if (!showLine) 0f else
+            (spec.badge?.let { dp(it, badgeStyle) + 22f } ?: 0f) + (spec.line?.let { dp(StyledText.plain(it), lineStyle) } ?: 0f)
+        val least = maxOf(width.value * MIDDLE_LEAST, score * MIDDLE_SHRINK) + 2 * MIDDLE_PAD
+        VersusWords.middleDp(width.value, maxOf(score, line) + 2 * MIDDLE_PAD, side, least)
+    }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Mark(spec, 0, roles, 28.dp)
-                SideName(spec, 0, roles, turn == 0, type.titleSmall, Modifier.padding(start = 8.dp).weight(1f, fill = false))
+                Mark(spec, 0, roles, ROW_MARK)
+                SideName(spec, 0, roles, turn == 0, type.titleSmall, Modifier.padding(start = ROW_GAP).weight(1f, fill = false))
             }
             Column(
-                Modifier.padding(horizontal = 8.dp).widthIn(max = width * 0.44f),
+                Modifier.width(middle.dp).padding(horizontal = MIDDLE_PAD.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Score(spec, type.headlineMedium, bold, 40f)
-                if (spec.line != null || spec.badge != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                Score(spec, scoreStyle, bold, ROW_BOLD_SIZES[plan.score].toFloat())
+                if (showLine) Row(verticalAlignment = Alignment.CenterVertically) {
                     spec.badge?.let { Badge(it, roleColor(spec.base), Modifier.padding(end = 6.dp)) }
                     spec.line?.let { LastLine(it, c.muted, Modifier.weight(1f, fill = false), center = true) }
                 }
@@ -141,11 +209,11 @@ private fun VersusRow(spec: WidgetSpec.Versus, roles: List<Color>, bold: Boolean
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SideName(spec, 1, roles, turn == 1, type.titleSmall, Modifier.padding(end = 8.dp).weight(1f, fill = false), end = true)
-                Mark(spec, 1, roles, 28.dp)
+                SideName(spec, 1, roles, turn == 1, type.titleSmall, Modifier.padding(end = ROW_GAP).weight(1f, fill = false), end = true)
+                Mark(spec, 1, roles, ROW_MARK)
             }
         }
-        VersusBar(spec, roles, figures = true, Modifier.padding(top = 4.dp))
+        VersusBar(spec, roles, figures = true, Modifier.padding(top = BAR_GAP.dp), small = true)
     }
 }
 
@@ -195,8 +263,9 @@ private fun Faces(
 }
 
 /**
- * Split: each side and the score on tiles of their own. Wide: three tiles in a row, the sides'
- * figures under their names and the bar under the score (or the last line, with no bar). Large:
+ * Split: each side and the score on tiles of their own. Wide (4×1): three tiles in a row, the
+ * sides' figures under their names and the bar under the score (or the last line, with no bar).
+ * Narrower (2×1): the score between the marks over the two names ([SplitNarrow]). Large:
  * the title, the badge, the marks and the score on the top tile; the bar and the last line on the
  * bottom one. Small: one tile.
  */
@@ -219,29 +288,35 @@ private fun SplitVersus(spec: WidgetSpec.Versus, roles: List<Color>, box: Widget
             }
         }
 
-        WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            for (i in 0..1) {
-                if (i == 1) Tile(SplitCorners.inRow(1, 3), c.tile, Modifier.weight(1.3f).fillMaxHeight()) {
-                    Column(
-                        Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Score(spec, type.headlineSmall, false, 0f)
-                        if (bar) VersusBar(spec, roles, figures = false, Modifier.padding(top = 4.dp))
-                        else spec.line?.let { LastLine(it, c.muted, center = true) }
+        WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
+            if (maxWidth < VERSUS_ROW_FROM) {
+                SplitNarrow(spec, roles, c)
+                return@BoxWithConstraints
+            }
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                for (i in 0..1) {
+                    if (i == 1) Tile(SplitCorners.inRow(1, 3), c.tile, Modifier.weight(1.3f).fillMaxHeight()) {
+                        Column(
+                            Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Score(spec, type.headlineSmall, false, 0f)
+                            if (bar) VersusBar(spec, roles, figures = false, Modifier.padding(top = 4.dp))
+                            else spec.line?.let { LastLine(it, c.muted, center = true) }
+                        }
                     }
-                }
-                Tile(SplitCorners.inRow(if (i == 0) 0 else 2, 3), c.tile, Modifier.weight(1f).fillMaxHeight()) {
-                    Column(
-                        Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Mark(spec, i, roles, 26.dp)
-                        SideName(spec, i, roles, turn == i, type.labelLarge, Modifier.padding(top = 2.dp), center = true)
-                        if (bar) VersusWords.figure(spec.sides[i])?.let {
-                            Text(it, style = figureStyle(), color = roles[i], maxLines = 1)
+                    Tile(SplitCorners.inRow(if (i == 0) 0 else 2, 3), c.tile, Modifier.weight(1f).fillMaxHeight()) {
+                        Column(
+                            Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Mark(spec, i, roles, 26.dp)
+                            SideName(spec, i, roles, turn == i, type.labelLarge, Modifier.padding(top = 2.dp), center = true)
+                            if (bar) VersusWords.figure(spec.sides[i])?.let {
+                                Text(it, style = figureStyle(), color = roles[i], maxLines = 1)
+                            }
                         }
                     }
                 }
@@ -266,6 +341,51 @@ private fun SplitVersus(spec: WidgetSpec.Versus, roles: List<Color>, box: Widget
                         VersusBar(spec, roles, figures = true)
                         spec.line?.let { LastLine(it, c.muted, Modifier.padding(top = if (bar) 6.dp else 0.dp)) }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Split in a narrow wide card (2×1): the score between the marks on a tile across the card, and
+ * each side's name on a tile of its own under it, as Plain has them there. Each name gets half the
+ * card, so a usual name fits whole. No bar, as in Plain.
+ */
+@Composable
+private fun SplitNarrow(spec: WidgetSpec.Versus, roles: List<Color>, c: LookColors) {
+    val type = MaterialTheme.typography
+    val gap = SplitCorners.GAP
+    val turn = VersusWords.turnIndex(spec)
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
+        Tile(
+            SplitCorners.tile(topStart = true, topEnd = true, bottomEnd = false, bottomStart = false),
+            c.tile,
+            Modifier.weight(1f).fillMaxWidth()
+        ) {
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Mark(spec, 0, roles, 26.dp)
+                Box(Modifier.weight(1f).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                    Score(spec, type.headlineSmall, false, 0f)
+                }
+                Mark(spec, 1, roles, 26.dp)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            for (i in 0..1) {
+                Tile(
+                    SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = i == 1, bottomStart = i == 0),
+                    c.tile,
+                    Modifier.weight(1f)
+                ) {
+                    SideName(
+                        spec, i, roles, turn == i, type.labelLarge,
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                        center = true
+                    )
                 }
             }
         }
@@ -386,6 +506,14 @@ private fun LastLine(text: String, muted: Color, modifier: Modifier = Modifier, 
 private fun figureStyle(): TextStyle =
     MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
 
+/** A side's figure in a one-row card, a size smaller: the row has little height. */
+@Composable
+private fun rowFigureStyle(): TextStyle =
+    MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+
+/** The height of the bar's line without its figures, in dp: a wave's container. */
+private const val BAR_LINE_DP = 10
+
 /** A part of the bar is never thinner than this share, so a side with almost nothing still shows. */
 private const val LEAST_SHARE = 0.04f
 
@@ -395,7 +523,14 @@ private const val LEAST_SHARE = 0.04f
  * side whose turn it is is a wave that moves ([LevelBar]). Nothing without a bar.
  */
 @Composable
-private fun VersusBar(spec: WidgetSpec.Versus, roles: List<Color>, figures: Boolean, modifier: Modifier = Modifier) {
+private fun VersusBar(
+    spec: WidgetSpec.Versus,
+    roles: List<Color>,
+    figures: Boolean,
+    modifier: Modifier = Modifier,
+    small: Boolean = false
+) {
+    val style = if (small) rowFigureStyle() else figureStyle()
     val shares = VersusWords.shares(spec) ?: return
     val turn = VersusWords.turnIndex(spec)
     val first by animateFloatAsState(
@@ -405,7 +540,7 @@ private fun VersusBar(spec: WidgetSpec.Versus, roles: List<Color>, figures: Bool
     )
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         if (figures) VersusWords.figure(spec.sides[0])?.let {
-            Text(it, style = figureStyle(), color = roles[0], maxLines = 1, modifier = Modifier.padding(end = 8.dp))
+            Text(it, style = style, color = roles[0], maxLines = 1, modifier = Modifier.padding(end = 8.dp))
         }
         Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(first)) { LevelBar(1f, spec.moving && turn == 0, roles[0]) }
@@ -413,7 +548,7 @@ private fun VersusBar(spec: WidgetSpec.Versus, roles: List<Color>, figures: Bool
             Box(Modifier.weight(1f - first)) { LevelBar(1f, spec.moving && turn == 1, roles[1]) }
         }
         if (figures) VersusWords.figure(spec.sides[1])?.let {
-            Text(it, style = figureStyle(), color = roles[1], maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+            Text(it, style = style, color = roles[1], maxLines = 1, modifier = Modifier.padding(start = 8.dp))
         }
     }
 }

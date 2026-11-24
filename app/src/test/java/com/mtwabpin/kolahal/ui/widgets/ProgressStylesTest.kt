@@ -129,6 +129,34 @@ class ProgressStylesTest {
         assertEquals(emptyList<Pair<Float, Float>>(), ProgressStyles.ringSides(140f, 0))
     }
 
+    /** A 4×2's rings leave their rows the room for "6,240 of 8,000" (the picture of 25 Nov had "of 8,…"). */
+    @Test
+    fun ringsBesideRowsLeaveThemRoom() {
+        // A 4×2 on a 395 dp page: 363 by 164 dp inside its padding.
+        val side = ProgressStyles.ringsSide(363f, 164f)
+        near(137.94f, side)
+        // The rows' width after the 20 dp between: a mark, a name, "6,240" and "of 8,000" need about 195.
+        assertTrue(363f - side - 20f >= 200f)
+        // A low card keeps its rings as tall as it is.
+        near(80f, ProgressStyles.ringsSide(363f, 80f))
+    }
+
+    @Test
+    fun asManyRowsAsFit() {
+        assertEquals(4, ProgressStyles.rowsThatFit(listOf(34, 34, 34, 34), 164))
+        // At a larger font, a row whose scale went under its value is taller: three fit.
+        assertEquals(3, ProgressStyles.rowsThatFit(listOf(57, 44, 44, 44), 164))
+        assertEquals(1, ProgressStyles.rowsThatFit(listOf(200, 34), 164))
+        assertEquals(0, ProgressStyles.rowsThatFit(emptyList(), 164))
+        assertEquals(2, ProgressStyles.rowsThatFit(listOf(40, 40), Int.MAX_VALUE))
+    }
+
+    @Test
+    fun theScaleGoesUnderTheValueWhenTheLineIsFull() {
+        assertTrue(ProgressStyles.fitsInLine(65, 5, 48, 120))
+        assertFalse(ProgressStyles.fitsInLine(85, 5, 62, 120))
+    }
+
     @Test
     fun aRingsScaleIsWrittenWithItsUnit() {
         assertEquals("of 8,000", ProgressStyles.ringOf(rings.items[0], Locale.US))
@@ -147,7 +175,8 @@ class ProgressStylesTest {
         // At the last stage there is no way further.
         near(1f, ProgressStyles.stagesFraction(4, 4, 0.5f))
         near(2.4f / 3, ProgressStyles.level(parcel))
-        near(118f / 300, ProgressStyles.level(gauge.copy(min = 0f)))
+        // A gauge draws its arc in Bold: the card doesn't fill.
+        near(0f, ProgressStyles.level(gauge))
         near(0.5f, ProgressStyles.level(WidgetSpec.Progress(base, value = 5f, max = 10f)))
         assertEquals("3 of 4", ProgressStyles.stageCount(parcel))
     }

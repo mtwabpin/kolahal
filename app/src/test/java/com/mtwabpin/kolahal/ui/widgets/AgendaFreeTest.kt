@@ -176,5 +176,12 @@ class AgendaFreeTest {
         assertEquals("the first event however low", 2, AgendaFree.shown(lines, 30, 24, 42, 20, 20))
         // Room for lunch's free time but not for the dentist: the lines end at lunch.
         assertEquals(4, AgendaFree.shown(lines, 175, 24, 42, 20, 20))
+        // The drawn 4×2 card (25 Nov): 163 dp inside, events with no tap (32 dp). Today's three
+        // events and the free time between them take 160 dp: all of them, no "+1 more".
+        val today = AgendaFree.day(agenda.copy(days = 1), at(10, 54), utc, clock24 = true, locale = Locale.UK)
+        assertEquals(6, today.size)
+        assertEquals(6, AgendaFree.shown(today, 163, 24, 32, 20, 20))
+        // A heading of 28 dp, as the card had it, left 159 dp for the rest: the dentist was left out.
+        assertEquals(4, AgendaFree.shown(today, 163 - 4, 24, 32, 20, 20))
     }
 }

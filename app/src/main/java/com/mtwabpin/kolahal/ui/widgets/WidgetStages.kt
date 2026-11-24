@@ -243,7 +243,10 @@ private fun BoldStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
             verticalArrangement = Arrangement.Center
         ) {
             SmallTitle(title, c.content)
-            BoldText(name, 36.sp, c.content)
+            // The name takes the height the title and the label leave, and gets smaller to fit it.
+            Box(Modifier.weight(1f, fill = false), contentAlignment = Alignment.CenterStart) {
+                BoldText(name, 36.sp, c.content)
+            }
             spec.label?.let {
                 Text(
                     it,
@@ -292,7 +295,8 @@ private fun SplitStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.Center
             ) {
-                SmallTitle(title, c.content)
+                // The title wraps to a second line in the room the stage and the label leave.
+                SmallTitle(title, c.content, Modifier.weight(1f, fill = false), lines = 2)
                 Text(
                     name,
                     style = type.titleSmall.copy(fontWeight = FontWeight.Bold),

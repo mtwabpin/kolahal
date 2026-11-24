@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -74,10 +75,10 @@ private val SMOOTH = CornerRounding(0.02f)
 private val SUNS = arrayOfNulls<RoundedPolygon>(ShapeSteps.MAX_RAYS + 1)
 
 /**
- * The countdown's sun with [rays] rays, in a box of 1 by 1, its middle at the middle: 12 rays, the
- * first [rays] of them out, clockwise from the top. A ray is a thick round wave, as the mockup draws
- * it. Without rays it is a plain circle, the sun's body, with the same corners, so the last ray
- * morphs away smoothly. Made once for each count.
+ * The countdown's sun with [rays] rays, in a box of 1 by 1, its middle at the middle: 12 places,
+ * [rays] of them with a ray, spread round the whole sun ([ShapeSteps.sunRays]). A ray is a thick
+ * round wave, as the mockup draws it. Without rays it is a plain circle, the sun's body, with the
+ * same corners, so the last ray morphs away smoothly. Made once for each count.
  */
 internal fun sunPolygon(rays: Int): RoundedPolygon {
     val n = rays.coerceIn(0, ShapeSteps.MAX_RAYS)
@@ -156,12 +157,26 @@ internal fun inkContrast(a: Color, b: Color): Float {
     return (hi + 0.05f) / (lo + 0.05f)
 }
 
+/** The least contrast of a big number with what is behind it: WCAG's for large text. */
+internal const val INK_MIN = 3f
+
 /**
  * The one of [first] and [second] that reads better on [background]: [first] unless [second] has
  * more contrast with it. A number drawn across a level's line is in this on each side of it.
+ * Where neither reaches [INK_MIN] (a fill of middle lightness), the better one is taken toward
+ * black or white, whichever is further from [background], just far enough to reach it.
  */
-internal fun inkOn(background: Color, first: Color, second: Color): Color =
-    if (inkContrast(second, background) > inkContrast(first, background)) second else first
+internal fun inkOn(background: Color, first: Color, second: Color): Color {
+    val best = if (inkContrast(second, background) > inkContrast(first, background)) second else first
+    if (inkContrast(best, background) >= INK_MIN) return best
+    val toward =
+        if (inkContrast(Color.Black, background) >= inkContrast(Color.White, background)) Color.Black else Color.White
+    for (step in 1..10) {
+        val ink = lerp(best, toward, step / 10f)
+        if (inkContrast(ink, background) >= INK_MIN) return ink
+    }
+    return toward
+}
 
 // ---- a countdown's sun -------------------------------------------------------------------------
 
@@ -190,8 +205,9 @@ private val FLOWER_WORDS = 120.dp
  * for each day of the week, from the first day where the phone is, clockwise from the top.
  * - A day done is a leaf in the role's container; a day missed or still to come is a faint ghost
  *   of one. The whole flower is the week done.
- * - In the middle, the days done this week, with "this week" under it ("all week" for all seven).
- *   A large card has the days' first letters on the leaves, bold for a day done.
+ * - In the middle, the days done this week, with the words under it ([ShapeSteps.weekWords]):
+ *   "this week" (on two lines where one is too narrow), "all week" for all seven, and "of 7" in
+ *   a small card. A large card has the days' first letters on the leaves, bold for a day done.
  * - The last point is the day the content was set, as in [Dots]: a card that hasn't run since
  *   midnight keeps its days under their own weekdays.
  * - When a day is done, the flower morphs and settles ([rememberSettle]).
@@ -255,18 +271,20 @@ internal fun HabitFlower(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Co
         Column(
             Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = side * 0.24f),
+                .padding(horizontal = side * 0.2f),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             BigText(
                 done.toString(),
                 if (words) type.displayMedium.copy(fontSize = (side.value * 0.24f).sp) else type.titleLarge
             )
-            if (words) Text(
-                if (done == DotCalendar.DAYS) "all week" else "this week",
-                style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+            // "this week" may take two lines; a small flower has room for "of 7" only.
+            Text(
+                ShapeSteps.weekWords(done, room = words),
+                style = (if (words) type.labelMedium else type.labelSmall).copy(fontWeight = FontWeight.Bold),
                 color = c.content,
-                maxLines = 1,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }

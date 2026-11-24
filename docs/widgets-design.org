@@ -1146,7 +1146,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Gauge :: =style= =gauge=: a thick arc from =min= (0) to =max=, filled to the value with a knob,
   the value large inside, =unit= with it, and =label= as the word for the value in its zone's
   color. =zones=: up to 5 of ~{ from, color }~, rising; without them the arc is in the card's
-  color. Bold fills the card in the value's zone; Shape puts the arc in the clover.
+  color. Bold draws the arc with the value in its narrow type; Shape puts the arc in the clover.
 - Rings :: =style= =rings=: =items= as up to 4 rings inside each other, each in its color with a
   dim track; an item's =moving= makes that ring a wave. 4×2: each ring named beside them, its
   value large and "of 8,000" (its =max= and =unit=). 2×2: the first 3 values under the rings.

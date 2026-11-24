@@ -68,12 +68,12 @@ internal object ProgressStyles {
     fun along(spec: WidgetSpec.Progress): Float = WidgetWords.fraction(spec.value, spec.max)
 
     /**
-     * The level a card of [spec] fills to in Bold, from 0 to 1: how far along its stages, where its
-     * gauge's value sits, or else its value of its max.
+     * The level a card of [spec] fills to in Bold, from 0 to 1: how far along its stages, or else its
+     * value of its max. A gauge draws its own arc in Bold, so its card doesn't fill: 0.
      */
     fun level(spec: WidgetSpec.Progress): Float = when {
         isStages(spec) -> stagesFraction(spec.stage, spec.stages.size, along(spec))
-        isGauge(spec) -> gaugeFraction(spec.value, spec.min, spec.max)
+        isGauge(spec) -> 0f
         else -> WidgetWords.fraction(spec.value, spec.max)
     }
 
@@ -149,6 +149,31 @@ internal object ProgressStyles {
         val cy = (height - radius * (1 + below)) / 2 + radius
         return Fit(width / 2, cy, radius)
     }
+
+    /**
+     * How far across the rings are beside their rows, in a box [width] by [height] (a 4×2): as tall
+     * as the box, but at most 38% of its width, so a row has room for "6,240 of 8,000".
+     */
+    fun ringsSide(width: Float, height: Float): Float = minOf(height, width * 0.38f).coerceAtLeast(0f)
+
+    /**
+     * How many rows of [heights], from the first, fit in [room] one under the other: at least 1 when
+     * there is one. A [room] of [Int.MAX_VALUE] has no end.
+     */
+    fun rowsThatFit(heights: List<Int>, room: Int): Int {
+        var used = 0L
+        var count = 0
+        for (h in heights) {
+            if (used + h > room && count > 0) break
+            used += h
+            count++
+        }
+        return count
+    }
+
+    /** Whether a value [valueWidth] wide, a [gap], and its scale [scaleWidth] wide fit on one line of [room]. */
+    fun fitsInLine(valueWidth: Int, gap: Int, scaleWidth: Int, room: Int): Boolean =
+        valueWidth.toLong() + gap + scaleWidth <= room
 
     /**
      * The sides and line widths of nested rings, from the outside in: [count] rings in a square

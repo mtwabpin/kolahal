@@ -238,8 +238,21 @@ private fun SplitDots(
                     .align(Alignment.CenterStart)
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                DaysCount(count, if (box == WidgetSizes.Box.LARGE) type.headlineLarge else type.headlineSmall, c.content)
-                under?.let { Text(it, style = type.bodySmall, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                if (box == WidgetSizes.Box.LARGE) {
+                    DaysCount(count, type.headlineLarge, c.content)
+                    under?.let { Text(it, style = type.bodySmall, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                } else {
+                    // A narrow tile has no room for "days left" beside the number: it goes under it, with the label.
+                    BigText(StyledText.capitalized(count.value), type.headlineMedium, color = c.content)
+                    val words = listOfNotNull(count.unit, under).joinToString(" · ")
+                    if (words.isNotEmpty()) Text(
+                        words,
+                        style = type.bodySmall,
+                        color = c.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -562,11 +575,18 @@ private fun CalendarPage(
     ) {
         val width = maxWidth
         val height = maxHeight
-        val band = height * if (foot != null) 0.3f else 0.27f
-        val monthSize = with(density) { min(band.value * 0.5f, 16f).dp.toSp() }
+        // Cut by a shape around it (Shape's wide card, no [shape] of its own): the shape's top edge dips
+        // in the middle, so the band is deeper and the month smaller and low in it, clear of the dip.
+        val cut = shape == null
+        val band = height * when {
+            cut -> 0.38f
+            foot != null -> 0.3f
+            else -> 0.27f
+        }
+        val monthSize = with(density) { min(band.value * (if (cut) 0.4f else 0.5f), 16f).dp.toSp() }
         val daySize = min(height.value * (if (foot != null) 0.36f else 0.5f), width.value * 0.5f)
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            // In a shape the band starts a little lower, where the shape is wide enough for the month.
+            // In a shape the month sits at the band's bottom, where the shape is wide enough for it.
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -583,7 +603,13 @@ private fun CalendarPage(
                     ),
                     color = c.onAccent,
                     maxLines = 1,
-                    modifier = Modifier.padding(bottom = if (shape == null || foot != null) band * 0.12f else 0.dp)
+                    modifier = Modifier.padding(
+                        bottom = when {
+                            cut -> band * 0.14f
+                            foot != null -> band * 0.12f
+                            else -> 0.dp
+                        }
+                    )
                 )
             }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {

@@ -48,8 +48,12 @@ internal object ShapeSteps {
     /** The outside of a shape that has a point out, in a box 1 wide: its edge. */
     const val OUTER = 0.5f
 
-    /** The sun's body, from its middle, in a box 1 wide: where a ray that has gone was. */
-    const val SUN_BODY = 0.425f
+    /**
+     * The sun's body, from its middle, in a box 1 wide: where a ray that has gone was. A ray is a
+     * fifth of the radius, so it shows on a 1×1 card, and a wait's thin ring (0.38 out) stays inside
+     * the body.
+     */
+    const val SUN_BODY = 0.40f
 
     /** How pointed a ray is: a little more than a wave, as the mockup draws it. */
     const val SUN_SHARPNESS = 1.25
@@ -90,8 +94,18 @@ internal object ShapeSteps {
         return corners
     }
 
-    /** Which of the sun's [MAX_RAYS] points are out for [rays] rays: the first ones, clockwise from the top. */
-    fun sunRays(rays: Int): List<Boolean> = List(MAX_RAYS) { it < rays }
+    /**
+     * Which of the sun's [MAX_RAYS] places have a ray for [rays] rays: spread as evenly as they can
+     * be round the whole sun, so it still reads as a sun. The first is at the top, and ray j is at
+     * the place nearest to j / [rays] of the way round. So the largest gap between two rays is as
+     * small as it can be (12 / [rays] places, rounded up): 2 rays are opposite, 3 a third apart, 7
+     * at most two places apart. As the count falls, the rays move to their new places in the morph.
+     */
+    fun sunRays(rays: Int): List<Boolean> {
+        val n = rays.coerceIn(0, MAX_RAYS)
+        val places = (0 until n).map { (2 * MAX_RAYS * it + n) / (2 * n) }.toSet()
+        return List(MAX_RAYS) { it in places }
+    }
 
     // ---- a habit's week as a flower ----------------------------------------------------------
 
@@ -114,6 +128,17 @@ internal object ShapeSteps {
             val index = points.size - 1 - (last - day)
             day <= last && index >= 0 && points[index] == 1f
         }
+
+    /**
+     * The words under the days [done] in the middle of the week's flower: "this week", or "all week"
+     * when all seven are done. Without [room] (a 1×1 card), "of 7": short enough for the small
+     * flower's middle, and it still says out of what.
+     */
+    fun weekWords(done: Int, room: Boolean): String = when {
+        !room -> "of ${DotCalendar.DAYS}"
+        done >= DotCalendar.DAYS -> "all week"
+        else -> "this week"
+    }
 
     // ---- the battery's shape -----------------------------------------------------------------
 
