@@ -5,6 +5,7 @@ package com.mtwabpin.kolahal.ui.tty
 
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import com.mtwabpin.kolahal.terminal.tty.BoxShapes
 import com.mtwabpin.kolahal.terminal.tty.BoxShapes.DOUBLE
@@ -16,7 +17,8 @@ import kotlin.math.roundToInt
 /**
  * Draws box-drawing and block characters (U+2500–259F) as lines and rectangles that fill their
  * cell to its edges, so neighbouring cells join without gaps at any font, size and line height,
- * as kitty, Alacritty and WezTerm do. The shapes come from [BoxShapes].
+ * as kitty, Alacritty and WezTerm do. The shapes come from [BoxShapes]. It also
+ * draws the header's battery, which no font has ([battery]).
  *
  * A light line is [GridMetrics.line] wide, a heavy one twice that; a double line is two light
  * lines with a light line's gap between them. Lines sit on whole pixels, so they stay sharp.
@@ -29,6 +31,10 @@ internal class BoxGlyphs(private val m: GridMetrics) {
         strokeWidth = m.line.toFloat()
     }
     private val oval = RectF()
+
+    /** The battery's bolt. */
+    private val shape = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val path = Path()
 
     private val light = m.line
 
@@ -44,6 +50,7 @@ internal class BoxGlyphs(private val m: GridMetrics) {
         val w = m.cellW
         val h = m.cellH
         when {
+            BoxShapes.batteryCell(cp) >= 0 -> battery(canvas, cp, x, y, w, h, color, behind)
             cp >= 0x2580 -> block(canvas, cp, x, y, w, h, color, behind)
             BoxShapes.isArc(cp) -> arc(canvas, BoxShapes.arms(cp), x, y, w, h, color)
             BoxShapes.diagonal(cp) != 0 -> diagonal(canvas, BoxShapes.diagonal(cp), x, y, w, h, color)
@@ -241,6 +248,58 @@ internal class BoxGlyphs(private val m: GridMetrics) {
         stroke.color = color
         if (which and 1 != 0) canvas.drawLine(x + w, y, x, y + h, stroke)
         if (which and 2 != 0) canvas.drawLine(x, y, x + w, y + h, stroke)
+    }
+
+    /**
+     * A cell of the header's battery ([BoxShapes.battery]), as the GUI's header draws it: an
+     * outline as tall as a digit, a terminal on its right, the fill a line in from the outline,
+     * and while charging a bolt in the middle: in [behind], cut out of the fill, once the fill
+     * passes the middle, else in [color]. The whole battery is laid out from the cell's place in
+     * it and drawn clipped to the cell, so its cells join.
+     */
+    private fun battery(canvas: Canvas, cp: Int, x: Float, y: Float, w: Int, h: Int, color: Int, behind: Int) {
+        val t = light.toFloat()
+        // The battery's first cell starts here. It keeps a line clear at each end, so it doesn't
+        // touch what is beside it.
+        val start = x - BoxShapes.batteryCell(cp) * w
+        val left = start + t
+        val end = start + BoxShapes.BATTERY_CELLS * w - t
+        val right = end - 2 * t
+        val top = (y + m.digitTop).roundToInt().toFloat()
+        val bottom = maxOf((y + m.digitBottom).roundToInt().toFloat(), top + 4 * t + 2)
+        canvas.save()
+        canvas.clipRect(x, y, x + w, y + h)
+        canvas.drawRect(left, top, right, top + t, fill)
+        canvas.drawRect(left, bottom - t, right, bottom, fill)
+        canvas.drawRect(left, top, left + t, bottom, fill)
+        canvas.drawRect(right - t, top, right, bottom, fill)
+        // The terminal: the middle two fifths of the body's height.
+        val nub = ((bottom - top) * 0.3f).roundToInt()
+        canvas.drawRect(right, top + nub, end, bottom - nub, fill)
+        val inLeft = left + 2 * t
+        val inRight = right - 2 * t
+        val inTop = top + 2 * t
+        val inBottom = bottom - 2 * t
+        if (inRight > inLeft) {
+            val full = inRight - inLeft
+            val filled = (full * BoxShapes.batteryPercent(cp) / 100f).roundToInt()
+            if (filled > 0) canvas.drawRect(inLeft, inTop, inLeft + filled, inBottom, fill)
+            if (BoxShapes.batteryCharging(cp)) {
+                val cx = inLeft + full / 2f
+                val bh = inBottom - inTop
+                path.reset()
+                path.moveTo(cx + bh * 0.15f, inTop)
+                path.lineTo(cx - bh * 0.35f, inTop + bh * 0.58f)
+                path.lineTo(cx, inTop + bh * 0.58f)
+                path.lineTo(cx - bh * 0.15f, inBottom)
+                path.lineTo(cx + bh * 0.35f, inTop + bh * 0.42f)
+                path.lineTo(cx, inTop + bh * 0.42f)
+                path.close()
+                shape.color = if (filled > full / 2f) behind else color
+                canvas.drawPath(path, shape)
+            }
+        }
+        canvas.restore()
     }
 
     /** Blocks: eighths, quadrants and shades. */

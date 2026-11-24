@@ -14,6 +14,7 @@ import java.time.format.DateTimeFormatter
  * `clock`: the time in big digits made of block cells, as tty-clock shows it, with the date under
  * it. The digits are as big as the grid allows; the seconds show when they fit, else the clock
  * changes once a minute. Without `clock.24h`, the hours run 1 to 12 with AM or PM beside them.
+ * The digits are centered as they are drawn, so a one-digit hour is in the middle too.
  *
  * The time comes from [ScreenEnv.clock], so a test can set it. A frame that falls in the same
  * second (or minute) as the last one changes no cell, and the host then repaints nothing.
@@ -78,11 +79,15 @@ class ClockScreen : TtyScreen {
         grid.clear()
         val bigWidth = width(seconds, pixelW)
         val height = DIGIT_ROWS * pixelH + 2
-        val left = ((cols - bigWidth) / 2).coerceAtLeast(0)
         val top = ((rows - height) / 2).coerceAtLeast(0)
-        var x = left
-        // In 12-hour time, 9:05 keeps the place of its first digit, so the clock doesn't move at 10.
-        x = digit(grid, if (env.clock24 || hour >= 10) hour / 10 else -1, x, top)
+        // The time is centered as it is drawn: in 12-hour time a one-digit hour leaves out the
+        // tens' place, and a 1 has two empty columns on its left.
+        val tens = if (env.clock24 || hour >= 10) hour / 10 else -1
+        val skip = (if (tens >= 0) blankColumns(tens) else 4 + blankColumns(hour % 10)) * pixelW
+        val drawn = bigWidth - skip
+        val left = ((cols - drawn) / 2).coerceAtLeast(0)
+        var x = left - skip
+        x = digit(grid, tens, x, top)
         x = digit(grid, hour % 10, x, top)
         x = colon(grid, x, top)
         x = digit(grid, time.minute / 10, x, top)
@@ -92,9 +97,11 @@ class ClockScreen : TtyScreen {
             x = digit(grid, time.second / 10, x, top)
             digit(grid, time.second % 10, x, top)
         }
+        // AM or PM hangs beside the digits, outside their centering, when it would fit beside the
+        // widest time too: so it doesn't move to the date line and back as the hour changes.
         val half = if (pm) "PM" else "AM"
-        val beside = !env.clock24 && left + bigWidth + 1 + half.length <= cols
-        if (beside) grid.put(left + bigWidth + 1, top, half, DATE)
+        val beside = !env.clock24 && (cols - bigWidth) / 2 + bigWidth + 1 + half.length <= cols
+        if (beside) grid.put(left + drawn + 1, top, half, DATE)
         var date = time.format(longDate)
         if (CellWidth.total(date) > cols) date = time.format(shortDate)
         if (!env.clock24 && !beside) date = "$half · $date"
@@ -113,6 +120,12 @@ class ClockScreen : TtyScreen {
             }
         }
         return x + (3 + 1) * pixelW
+    }
+
+    /** How many columns on the left of digit [d] have no pixel: two for a 1, none for the others. */
+    private fun blankColumns(d: Int): Int {
+        val font = FONT[d]
+        return (0 until 3).firstOrNull { c -> (0 until DIGIT_ROWS).any { r -> font[r * 3 + c] == '#' } } ?: 3
     }
 
     private fun colon(grid: CellBuffer, x: Int, top: Int): Int {

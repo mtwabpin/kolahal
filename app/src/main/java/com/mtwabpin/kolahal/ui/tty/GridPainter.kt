@@ -19,7 +19,8 @@ import com.mtwabpin.kolahal.terminal.tty.ShapedRun
  * color shows through), then the glyphs, then underlines and strike-throughs.
  * - A run of ASCII characters in one style is one drawText call: their advances are exactly a
  *   cell, by [GridMetrics]. In a monospace font the spaces between them stay in the run.
- * - Box drawing and blocks are drawn as geometry ([BoxGlyphs]), so they join.
+ * - Box drawing and blocks are drawn as geometry ([BoxGlyphs]), so they join; so is the header's
+ *   battery, which no font has.
  * - Any other character is drawn alone and made to fit its cells: squeezed when the font Android
  *   picks for it (an emoji or CJK font) is wider, centered when it is narrower. So no glyph can
  *   push its neighbours.

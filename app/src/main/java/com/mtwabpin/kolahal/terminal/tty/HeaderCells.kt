@@ -11,11 +11,13 @@ import kotlin.math.floor
 
 /**
  * The header on the grid: one row of its parts ([HeaderParts]), the left side from the left, the
- * right side ending at the right. No icons: each part is text and a few glyphs of the font.
+ * right side ending at the right. No icons: each part is text, a few signs of the font, and a
+ * battery the painter draws itself.
  * - time `14:02` bold, date `Tue 17 Nov` muted;
- * - alarm `◷ 07:00`, todos `☐ 3`, unlocks `unl 41`;
+ * - alarm `◷ 07:00`, todos `✓ 3`, unlocks `unl 41`;
  * - network as its name (`wifi`, `cell`, red `offline`);
- * - battery `▕██▌▏82%`, with `↯` while charging;
+ * - battery as a battery the painter draws ([BoxShapes.battery]), filled to its level, with a bolt
+ *   in it while charging, then `82%`: it reads as a battery at any level, 100 % too;
  * - a profile as its tag, inverse in the profile's color (` W `), muted while it is off;
  * - settings `⚙`.
  * - while home is scrambled, `scrambled` in the warning color, first on the left.
@@ -30,9 +32,6 @@ object HeaderCells {
     /** Cells between two parts. */
     const val GAP = 2
 
-    /** The inner cells of the battery's bar. */
-    private const val BATTERY_CELLS = 3
-
     private val BOLD = CellStyle.BOLD
 
     /** What [part] shows, piece by piece. */
@@ -43,7 +42,7 @@ object HeaderCells {
             HeaderPart.Kind.TIME -> listOf(Seg(part.text, ink))
             HeaderPart.Kind.DATE -> listOf(Seg(part.text, CellStyle.of(part.ink)))
             HeaderPart.Kind.ALARM -> listOf(Seg("◷ ", muted), Seg(part.text, ink))
-            HeaderPart.Kind.TODO -> listOf(Seg("☐ ", muted), Seg(part.text, ink))
+            HeaderPart.Kind.TODO -> listOf(Seg(TODO_SIGN, muted), Seg(part.text, ink))
             HeaderPart.Kind.NETWORK -> listOf(Seg(part.text, ink))
             HeaderPart.Kind.UNLOCKS -> listOf(Seg("unl ", muted), Seg(part.text, ink))
             HeaderPart.Kind.PROFILE -> {
@@ -60,12 +59,15 @@ object HeaderCells {
     /** ⚙ as text, never as a color emoji. */
     const val SETTINGS = "⚙\uFE0E"
 
+    /** The todos' sign: a check mark, as the GUI shows. Every bundled font has it. */
+    const val TODO_SIGN = "✓ "
+
     /** The cells [part] takes. */
     fun width(part: HeaderPart): Int =
-        segs(part).sumOf { CellWidth.total(it.text) } + if (part.kind == HeaderPart.Kind.BATTERY) battery(part) else 0
+        segs(part).sumOf { CellWidth.total(it.text) } + if (part.kind == HeaderPart.Kind.BATTERY) BATTERY_WIDTH else 0
 
-    /** The battery's bar before its percentage: `▕` three cells `▏`, and `↯` while charging. */
-    private fun battery(part: HeaderPart) = BATTERY_CELLS + 2 + if (part.charging) 1 else 0
+    /** The battery before its percentage, and a cell of room after it. */
+    private const val BATTERY_WIDTH = BoxShapes.BATTERY_CELLS + 1
 
     /**
      * The header's row: [parts] in [cols] columns. [zones] are the column ranges free of a camera
@@ -88,13 +90,11 @@ object HeaderCells {
         return w.build()
     }
 
+    /** The battery's cells ([BoxShapes.battery]) from [from], in the part's ink; returns the column after the room that follows. */
     private fun batteryBar(w: HomeWriter, part: HeaderPart, from: Int): Int {
-        val muted = CellStyle.of(Ink.DIM)
-        var col = w.put(from, 0, "▕", muted)
-        w.eighths(col, 0, BATTERY_CELLS, (part.battery ?: 0) / 100f, CellStyle.of(part.ink))
-        col = w.put(col + BATTERY_CELLS, 0, "▏", muted)
-        if (part.charging) col = w.put(col, 0, "↯", CellStyle.of(part.ink, flags = BOLD))
-        return col
+        val cells = StringBuilder()
+        for (i in 0 until BoxShapes.BATTERY_CELLS) cells.append(BoxShapes.battery(i, part.battery ?: 0, part.charging).toChar())
+        return w.put(from, 0, cells.toString(), CellStyle.of(part.ink)) + 1
     }
 
     /**

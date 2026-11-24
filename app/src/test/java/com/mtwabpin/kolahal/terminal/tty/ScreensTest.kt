@@ -225,14 +225,15 @@ class ScreensTest {
     fun clockShowsTheTimeInBigDigitsAndTheDateUnder() {
         val (grid, _) = runFor(ClockScreen(), env(40, 12), 100)
         val rows = grid.dump().lines().map { it.trimEnd() }
-        // 12:34 (no room for the seconds at 40 columns), each pixel two cells wide.
+        // 12:34 (no room for the seconds at 40 columns), each pixel two cells wide, centered as drawn:
+        // the 1 draws only its last column, so 5 cells are free on each side.
         assertEquals("", rows[0])
         assertEquals("", rows[1])
-        assertEquals("       ██  ██████      ██████  ██  ██", rows[2])
-        assertEquals("       ██      ██  ██      ██  ██  ██", rows[3])
-        assertEquals("       ██  ██████      ██████  ██████", rows[4])
-        assertEquals("       ██  ██      ██      ██      ██", rows[5])
-        assertEquals("       ██  ██████      ██████      ██", rows[6])
+        assertEquals("     ██  ██████      ██████  ██  ██", rows[2])
+        assertEquals("     ██      ██  ██      ██  ██  ██", rows[3])
+        assertEquals("     ██  ██████      ██████  ██████", rows[4])
+        assertEquals("     ██  ██      ██      ██      ██", rows[5])
+        assertEquals("     ██  ██████      ██████      ██", rows[6])
         assertEquals("", rows[7])
         assertEquals("Saturday 21 November 2026", rows[8].trim())
     }
@@ -240,10 +241,10 @@ class ScreensTest {
     @Test
     fun clockShowsSecondsWhenTheyFit() {
         val (grid, _) = runFor(ClockScreen(), env(60, 12), 100)
-        // 12:34:56 is 27 pixels across, 54 cells from column 3: the 6's top bar ends in column 56.
-        // Without seconds, the clock would end in column 46.
+        // 12:34:56 is 27 pixels across, 54 cells, of which the 1 leaves the first 4 empty: 50 cells
+        // from column 5, so the 6's top bar ends in column 54. Without seconds, it would end in column 44.
         val top = grid.dump().lines().first { it.isNotBlank() }
-        assertEquals(57, top.trimEnd().length)
+        assertEquals(55, top.trimEnd().length)
     }
 
     @Test
@@ -252,9 +253,35 @@ class ScreensTest {
         val (grid, _) = runFor(ClockScreen(), env(40, 12, now = { oneFive }, clock24 = false), 100)
         val rows = grid.dump().lines().map { it.trimEnd() }
         assertTrue(rows[2], rows[2].endsWith("PM"))
-        // 1:05 keeps the place of a first digit: nothing is drawn there.
-        assertTrue(rows[2], rows[2].substring(0, 7).isBlank())
+        // 1:05 is centered as drawn, 9 cells free on each side, and PM hangs a cell after it.
+        assertEquals(rows[2], 9, rows[2].indexOf('█'))
+        assertEquals(rows[2], 30, rows[2].lastIndexOf('█'))
+        assertEquals(rows[2], 32, rows[2].indexOf("PM"))
         assertEquals("Saturday 21 November 2026", rows[8].trim())
+    }
+
+    /** The digits have as many free cells on their left as on their right (one more on one side when the rest is odd), whatever the hour's width. */
+    @Test
+    fun clockIsCenteredAsDrawnForOneAndTwoDigitHours() {
+        fun at(hour: Int, minute: Int) = ZonedDateTime.of(2026, 11, 21, hour, minute, 0, 0, ZoneOffset.UTC).toInstant().toEpochMilli()
+        // 6:25 PM, 10:47 PM, 12:05 AM and 1:05 PM in 12-hour time; 09:41, 12:34 and 21:00 in 24-hour time.
+        val times = listOf(at(18, 25) to false, at(22, 47) to false, at(0, 5) to false, at(13, 5) to false) +
+                listOf(at(9, 41) to true, at(12, 34) to true, at(21, 0) to true)
+        // 40 columns has no room for the seconds; 60 has.
+        for (cols in listOf(40, 60)) for ((time, clock24) in times) {
+            val (grid, _) = runFor(ClockScreen(), env(cols, 12, now = { time }, clock24 = clock24), 100)
+            val rows = grid.dump().lines()
+            val blocks = rows.flatMap { row -> row.indices.filter { row[it] == '█' } }
+            val left = blocks.min()
+            val right = cols - 1 - blocks.max()
+            assertTrue("$cols columns, ${rows.first { '█' in it }}: $left free on the left, $right on the right", left - right in -1..1)
+        }
+        // 6:25 PM, as in the picture of the bug: the 6 starts 7 cells in, and PM hangs a cell after the 5.
+        val (grid, _) = runFor(ClockScreen(), env(40, 12, now = { at(18, 25) }, clock24 = false), 100)
+        val top = grid.dump().lines()[2]
+        assertEquals(top, 7, top.indexOf('█'))
+        assertEquals(top, 32, top.lastIndexOf('█'))
+        assertEquals(top, 34, top.indexOf("PM"))
     }
 
     @Test

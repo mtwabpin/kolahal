@@ -555,7 +555,8 @@ lines of a part's first and last rows on through the room above and below them (
 sheet rows and key bar keys). Per row: backgrounds, glyphs, then underlines and strikes. A run of
 ASCII in one style is one `drawText`; box drawing and blocks are drawn by `BoxGlyphs` from the
 shapes in `terminal/tty/BoxShapes.kt` (light, heavy, double, dashed, rounded and diagonal lines;
-eighths, quadrants, shades); any other character is squeezed or centered in its cells. Widths are
+eighths, quadrants, shades) and the header's battery, kept in the Private Use Area; any other
+character is squeezed or centered in its cells. Widths are
 kept per character, so a frame allocates nothing (checked by `LayoutPerformanceTest`).
 
 The painter takes no selection, marks or pressed target: search marks are cells' styles, and a
@@ -822,8 +823,10 @@ the GUI's list, chips and selector in their place.
 **As built.**
 
 - Header: `TtyHeader` (`ui/tty/TtyHeader.kt`, cells from `HeaderCells`): time bold, date muted,
-  alarm `◷ 07:00`, todos `☐ 3`, unlocks `unl 41`, network as its name (`wifi`, `cell`, `offline`
-  in red), battery `▕██▌▏82%` with `↯` while charging, a profile as its tag inverse in its color,
+  alarm `◷ 07:00`, todos `✓ 3` (a check mark every bundled font has), unlocks `unl 41`, network as
+  its name (`wifi`, `cell`, `offline` in red), battery as a battery the painter draws over three
+  cells (`BoxShapes.battery`: outline, terminal, fill to the level, a bolt in it while charging,
+  as the GUI's) then `82%`, a profile as its tag inverse in its color,
   settings `⚙`. Parts that don't fit are dropped from the middle outward, and a camera cutout
   splits the row into zones the parts flow around. Each part is a node `header-<part>`; a swipe
   down runs `gesture.swipe-down`.
@@ -1013,7 +1016,8 @@ when the phone is hot). `PlacedRows` lets a screen put each grid row at its own 
   GUI style, where `decode` scrambles home's own log; a stored `matrix`, `clock` or `pipes` is off
   in the GUI style (`ScreenSaver.inEffect`) and runs again with the TTY style.
 - `matrix` draws half-width katakana, digits and a few signs in every other column; `clock` big
-  block digits with the date, AM/PM without `clock.24h`; `pipes` heavy box lines; `sl` crosses once.
+  block digits centered as drawn (a one-digit hour too) with the date, AM/PM beside them without
+  `clock.24h`; `pipes` heavy box lines; `sl` crosses once.
 - `boot` types its lines through `Decode` (each character passes through a few others), 0.9 s to
   type and 0.3 s held. It runs only as `boot` or `screen boot`: there is no `tty.boot` and no cold-start run.
 

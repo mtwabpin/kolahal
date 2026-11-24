@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal.tty
 
+import com.mtwabpin.kolahal.sourceFile
 import com.mtwabpin.kolahal.terminal.HeaderPart
 import com.mtwabpin.kolahal.terminal.HeaderParts
 import com.mtwabpin.kolahal.terminal.HeaderTarget
@@ -12,6 +13,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.awt.Font
 
 /** Home's parts on the grid: the header, the pinned line, the prompt, the suggestions, the keys, the bands, the sheets. */
 class HomeCellsTest {
@@ -23,6 +25,10 @@ class HomeCellsTest {
     private val alarm = part(HeaderPart.Kind.ALARM, "07:00", "alarm")
     private val todo = part(HeaderPart.Kind.TODO, "3", "todo")
     private val battery = part(HeaderPart.Kind.BATTERY, "82%", "battery", battery = 82)
+
+    /** The battery's cells as text, as [HeaderCells] writes them: one per cell, drawn by the painter. */
+    private fun batteryCells(percent: Int, charging: Boolean = false) =
+        (0 until BoxShapes.BATTERY_CELLS).joinToString("") { BoxShapes.battery(it, percent, charging).toChar().toString() }
 
     /** Every spot of [cells] is on it. */
     private fun HomeCells.assertSpotsInside() {
@@ -39,7 +45,7 @@ class HomeCellsTest {
         val cells = HeaderCells.row(HeaderParts(listOf(time, date), listOf(alarm, todo, battery)), 48)
         val row = cells.text()
         assertTrue(row, row.startsWith("14:02  Tue 17 Nov"))
-        assertTrue(row, row.endsWith("◷ 07:00  ☐ 3  ▕██▌▏82%"))
+        assertTrue(row, row.endsWith("◷ 07:00  ✓ 3  " + batteryCells(82) + " 82%"))
         assertEquals(48, cells.cols)
         // Time is bold; the date muted.
         assertTrue(cells.style(0).has(CellStyle.BOLD))
@@ -94,14 +100,48 @@ class HomeCellsTest {
         for (c in listOf(0, 1, 38, 39)) assertEquals(CellBuffer.EMPTY, cells.grid.glyphAt(c, 0))
     }
 
+    /**
+     * The battery is cells the painter draws as one battery (outline, terminal, fill, bolt), never
+     * font glyphs or blocks: at 100 % it is a full battery, not a solid block.
+     */
     @Test
     fun theBatteryShowsItsLevelAndCharging() {
-        val charging = part(HeaderPart.Kind.BATTERY, "100%", "battery", Ink.PROMPT, battery = 100, charging = true)
-        assertEquals("▕███▏↯100%", HeaderCells.row(HeaderParts(listOf(charging), emptyList()), 20).text())
+        for ((percent, charging) in listOf(0 to false, 50 to false, 100 to false, 0 to true, 50 to true, 100 to true)) {
+            val ink = if (charging) Ink.PROMPT else Ink.FG
+            val part = part(HeaderPart.Kind.BATTERY, "$percent%", "battery", ink, battery = percent, charging = charging)
+            val cells = HeaderCells.row(HeaderParts(listOf(part), emptyList()), 20)
+            val name = "$percent%${if (charging) ", charging" else ""}"
+            // Its cells, a cell of room, and the level.
+            assertEquals(name, batteryCells(percent, charging) + " $percent%", cells.text())
+            for (i in 0 until BoxShapes.BATTERY_CELLS) {
+                val g = cells.grid.glyphAt(i, 0)
+                assertTrue(name, BoxShapes.isDrawn(g))
+                assertEquals(name, i, BoxShapes.batteryCell(g))
+                assertEquals(name, percent, BoxShapes.batteryPercent(g))
+                assertEquals(name, charging, BoxShapes.batteryCharging(g))
+                assertFalse(name, g in 0x2500..0x259F)
+                assertEquals(name, ink, cells.style(i).fg)
+            }
+            assertEquals(name, CellBuffer.EMPTY, cells.grid.glyphAt(BoxShapes.BATTERY_CELLS, 0))
+            assertEquals(name, HeaderCells.width(part), CellWidth.total(cells.text()))
+        }
         val low = part(HeaderPart.Kind.BATTERY, "9%", "battery", Ink.ERROR, battery = 9)
         val cells = HeaderCells.row(HeaderParts(listOf(low), emptyList()), 20)
-        assertEquals("▕▎  ▏9%", cells.text())
+        assertEquals(batteryCells(9) + " 9%", cells.text())
         assertEquals(Ink.ERROR, cells.style(1).fg)
+    }
+
+    /** The todos' sign is a check mark that every font the app ships has, so no other font stands in for it. */
+    @Test
+    fun theTodoSignIsInEveryBundledFont() {
+        assertEquals("✓ 3", HeaderCells.row(HeaderParts(listOf(todo), emptyList()), 20).text())
+        val sign = HeaderCells.TODO_SIGN.trim().codePointAt(0)
+        val fonts = sourceFile("src/main/res/font").listFiles().orEmpty().filter { it.extension == "ttf" }
+        assertEquals(10, fonts.size)
+        for (file in fonts) {
+            val font = Font.createFont(Font.TRUETYPE_FONT, file)
+            assertTrue("${file.name} has no ${HeaderCells.TODO_SIGN.trim()}", font.canDisplay(sign))
+        }
     }
 
     @Test

@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.ui.tty
 
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.text.TextPaint
 import kotlin.math.abs
@@ -32,6 +33,10 @@ class GridMetrics(regular: Typeface, bold: Typeface, textSizePx: Float, lineHeig
     /** Where a strike-through goes, from the top of the cell. */
     val strikeY: Float
 
+    /** The top and the bottom of a digit, from the top of the cell: a sign drawn as tall as the numbers beside it. */
+    val digitTop: Float
+    val digitBottom: Float
+
     /** The width of a light box-drawing line: an eighth of a cell, at least a pixel. */
     val line: Int
 
@@ -50,6 +55,11 @@ class GridMetrics(regular: Typeface, bold: Typeface, textSizePx: Float, lineHeig
         cellH = maxOf(ceil(textHeight).toInt(), lineHeightPx, 1)
         baseline = (cellH - textHeight) / 2f - fm.ascent
         strikeY = baseline + fm.ascent * 0.3f
+        val digit = Rect()
+        this.bold.getTextBounds("0", 0, 1, digit)
+        // A font that draws no 0: the middle half of the cell.
+        digitTop = if (digit.height() > 0) baseline + digit.top else cellH / 4f
+        digitBottom = if (digit.height() > 0) baseline + digit.bottom else cellH * 3 / 4f
         line = (cellW / 8).coerceAtLeast(1)
     }
 

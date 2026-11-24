@@ -75,4 +75,37 @@ class BoxShapesTest {
         assertTrue(BoxShapes.isDrawn('█'.code))
         assertFalse(BoxShapes.isDrawn('a'.code))
     }
+
+    /**
+     * Each cell of the battery at each level, charging or not, is a sign of its own that the
+     * painter draws, and says which cell it is, how full and whether charging. None is a box or
+     * block character, and none is a character of the fonts.
+     */
+    @Test
+    fun theBatterysCellsAreDrawnSigns() {
+        val all = HashSet<Int>()
+        for (charging in listOf(false, true)) for (i in 0 until BoxShapes.BATTERY_CELLS) for (percent in 0..100) {
+            val cp = BoxShapes.battery(i, percent, charging)
+            assertTrue(all.add(cp))
+            assertTrue(BoxShapes.isDrawn(cp))
+            assertEquals(Character.PRIVATE_USE.toInt(), Character.getType(cp))
+            assertEquals(i, BoxShapes.batteryCell(cp))
+            assertEquals(percent, BoxShapes.batteryPercent(cp))
+            assertEquals(charging, BoxShapes.batteryCharging(cp))
+            assertEquals(1, CellWidth.ofCodePoint(cp))
+            // Turned around in a right-to-left frame by the painter, so it fills from the right.
+            assertEquals(0, BoxShapes.mirror(cp))
+            // Not a box or block shape.
+            assertEquals(0, BoxShapes.arms(cp))
+            assertEquals(-1, BoxShapes.eighths(cp))
+        }
+        // Out of range, a level stays within 0 and 100.
+        assertEquals(BoxShapes.battery(0, 100, false), BoxShapes.battery(0, 120, false))
+        assertEquals(BoxShapes.battery(0, 0, false), BoxShapes.battery(0, -5, false))
+        // The characters around them are not battery cells.
+        assertEquals(-1, BoxShapes.batteryCell(all.min() - 1))
+        assertEquals(-1, BoxShapes.batteryCell(all.max() + 1))
+        assertFalse(BoxShapes.isDrawn(all.max() + 1))
+        assertEquals(-1, BoxShapes.batteryCell('█'.code))
+    }
 }

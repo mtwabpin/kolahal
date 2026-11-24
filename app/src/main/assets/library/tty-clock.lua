@@ -13,7 +13,8 @@
 -- tap, a key or Back closes it.
 --
 -- The digits are made of block cells, as big as the grid allows, with the date under them. The
--- seconds show when they fit; without them the clock changes once a minute.
+-- seconds show when they fit; without them the clock changes once a minute. The digits are
+-- centered as they are drawn, so a one-digit hour is in the middle too.
 --
 -- A frame comes 4 times a second, but the clock draws only when the second (or the minute) it
 -- shows has changed. A frame that draws nothing costs next to nothing.
@@ -82,6 +83,18 @@ local function digit(g, d, x, top)
   return x + 4 * w
 end
 
+-- How many columns on the left of digit d have no pixel: two for a 1, none for the others.
+local function blank(d)
+  local f = FONT[d]
+  for c = 0, 2 do
+    for r = 0, 4 do
+      local i = r * 3 + c + 1
+      if f:sub(i, i) == "#" then return c end
+    end
+  end
+  return 3
+end
+
 local function colon(g, x, top)
   g.fill(x, top + h, w, h, "█", "accent")
   g.fill(x, top + 3 * h, w, h, "█", "accent")
@@ -98,11 +111,15 @@ local function draw(g, now)
   end
   g.clear()
   local big = width(seconds, w)
-  local left = math.max(0, (g.cols - big) // 2)
   local top = math.max(0, (g.rows - 5 * h - 2) // 2)
-  local x = left
-  -- In 12-hour time, 9:05 keeps the place of a first digit, so the clock doesn't move at 10.
-  x = digit(g, (H24 or hour >= 10) and hour // 10 or nil, x, top)
+  -- The time is centered as it is drawn: in 12-hour time a one-digit hour leaves out the tens'
+  -- place, and a 1 has two empty columns on its left.
+  local tens = (H24 or hour >= 10) and hour // 10 or nil
+  local skip = (tens and blank(tens) or 4 + blank(hour % 10)) * w
+  local drawn = big - skip
+  local left = math.max(0, (g.cols - drawn) // 2)
+  local x = left - skip
+  x = digit(g, tens, x, top)
   x = digit(g, hour % 10, x, top)
   x = colon(g, x, top)
   x = digit(g, t.min // 10, x, top)
@@ -112,9 +129,11 @@ local function draw(g, now)
     x = digit(g, t.sec // 10, x, top)
     digit(g, t.sec % 10, x, top)
   end
-  -- AM or PM beside the digits when there is room, else before the date.
-  local beside = not H24 and left + big + 3 <= g.cols
-  if beside then g.put(left + big + 1, top, half, "muted") end
+  -- AM or PM hangs beside the digits, outside their centering, when it would fit beside the
+  -- widest time too: so it doesn't move to the date line and back as the hour changes. Else it
+  -- goes before the date.
+  local beside = not H24 and (g.cols - big) // 2 + big + 3 <= g.cols
+  if beside then g.put(left + drawn + 1, top, half, "muted") end
   local date = os.date("%A ", now) .. t.day .. os.date(" %B %Y", now)
   if #date > g.cols then date = os.date("%a ", now) .. t.day .. os.date(" %b %Y", now) end
   if not H24 and not beside then date = half .. " · " .. date end

@@ -12,6 +12,9 @@ package com.mtwabpin.kolahal.terminal.tty
  * [LIGHT], [HEAVY] or [DOUBLE] ([arms]). Some are dashed ([dashes]), rounded ([isArc]) or
  * diagonal ([diagonal]). A block is a rectangle in eighths of the cell ([eighths]), quadrants
  * ([quadrants]) or a shade ([shade]).
+ *
+ * The painter also draws one sign that fonts lack, kept in the Private Use Area: the header's
+ * battery ([battery]).
  */
 object BoxShapes {
     const val NONE = 0
@@ -19,8 +22,39 @@ object BoxShapes {
     const val HEAVY = 2
     const val DOUBLE = 3
 
+    /** The cells a battery takes: its body, with the terminal at the end of the last. */
+    const val BATTERY_CELLS = 3
+
+    /** The first of the battery's cells ([battery]). */
+    private const val BATTERY = 0xF600
+
+    /** Levels a battery shows: 0 to 100. */
+    private const val LEVELS = 101
+
+    /** After the last of the battery's cells: each cell at each level, charging or not. */
+    private const val BATTERY_END = BATTERY + 2 * BATTERY_CELLS * LEVELS
+
     /** True when the painter draws [cp] itself. */
-    fun isDrawn(cp: Int) = cp in 0x2500..0x259F
+    fun isDrawn(cp: Int) = cp in 0x2500..0x259F || cp in BATTERY until BATTERY_END
+
+    /**
+     * Cell [index] (0 to [BATTERY_CELLS] - 1) of a battery filled to [percent] (0 to 100), as the
+     * GUI's header draws it: an outline as tall as a digit with a terminal on its right, filled
+     * from the left, and while [charging] a bolt in its middle. Each cell draws its share of the
+     * whole battery, so the cells join into one shape at any level.
+     */
+    fun battery(index: Int, percent: Int, charging: Boolean): Int =
+        BATTERY + ((if (charging) BATTERY_CELLS else 0) + index.coerceIn(0, BATTERY_CELLS - 1)) * LEVELS +
+                percent.coerceIn(0, 100)
+
+    /** Which cell of a battery [cp] is, or -1 when it is not one. */
+    fun batteryCell(cp: Int): Int = if (cp in BATTERY until BATTERY_END) (cp - BATTERY) / LEVELS % BATTERY_CELLS else -1
+
+    /** How full the battery that [cp] is a cell of is, from 0 to 100. */
+    fun batteryPercent(cp: Int): Int = (cp - BATTERY) % LEVELS
+
+    /** True when the battery that [cp] is a cell of is charging. */
+    fun batteryCharging(cp: Int): Boolean = (cp - BATTERY) / LEVELS >= BATTERY_CELLS
 
     /** The arms of a line character, packed: up, right shl 2, down shl 4, left shl 6. 0 for others. */
     fun arms(cp: Int): Int = if (cp in 0x2500..0x257F) ARMS[cp - 0x2500] else 0
@@ -79,11 +113,13 @@ object BoxShapes {
     /**
      * [cp] as seen in a mirror, for a frame laid out right to left: `┐` for `┌`, `▐` for `▌`,
      * `▏` for `▕`. [cp] itself when it looks the same both ways, and 0 for a block with no mirror
-     * character (`▎`, `▋`…): the painter flips that one ([CellStyle.MIRROR]).
+     * character (`▎`, `▋`…): the painter flips that one ([CellStyle.MIRROR]). A battery's cells
+     * are flipped too, so it fills from the right as a bar does.
      */
     fun mirror(cp: Int): Int {
         if (!isDrawn(cp)) return cp
         if (cp <= 0x257F) return LINE_MIRRORS[cp - 0x2500]
+        if (batteryCell(cp) >= 0) return 0
         return when (cp) {
             0x258C -> 0x2590
             0x2590 -> 0x258C
