@@ -10,6 +10,8 @@ website and user guide are in =site/= (https://mtwabpin.github.io/kolahal/).
 - [[file:widgets-design.org][widgets-design.org]]: the design proposal the programmable widgets were built from.
 - [[file:tty-architecture.md][tty-architecture.md]]: the design of the TTY home style, with the maintainer's decisions first;
   [[file:tty.org][tty.org]] tracks its work, step by step.
+- [[file:pictures.org][pictures.org]]: how every picture outside the app is made (scenes, captures, the store's and the
+  Discord server's), the command for each, and how to draw them all again in another theme.
 - [[file:release/README.org][release/]]: how Kolahal is built, signed and published, on GitHub and Google Play.
   - [[file:release/signing.org][signing.org]]: the keys, and why there is more than one.
   - [[file:release/play-signing.org][play-signing.org]]: giving Play the release key, step by step, once.
@@ -28,4 +30,6 @@ Reports from users:
   Discord server, whose invite is in =Links.kt= (=Links.DISCORD=, which Settings → About
   opens), =site/astro.config.mjs=, the website's =components/NextSteps.astro= (on the home page) and
   =getting-started/play-testing.mdx=, =README.org=, and =.github/ISSUE_TEMPLATE/config.yml= and
-  =feature_request.yml=: change all seven together.
+  =feature_request.yml=: change all seven together. The server's icon, banners, emojis, role icons
+  and stickers are in [[file:discord/README.org][discord/]], with what each is for, where it is
+  uploaded and how to render them again.

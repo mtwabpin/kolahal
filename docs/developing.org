@@ -214,6 +214,12 @@ kolahal/
 ├── tools/play-graphics.sh      renders the Play store icon, feature graphic and screenshots (docs/release/graphics/)
 ├── tools/play-upload.sh        uploads the Play bundle to a testing track (the release workflow runs it)
 ├── tools/widget-sheets.sh      pictures of the widgets to share, from the website's card renders
+├── tools/discord-graphics.sh   the Discord server's pictures, in a theme (docs/discord/)
+├── tools/export-themes.mjs     writes site/src/data/themes.json: the app's themes, for every picture
+├── tools/fill-theme.mjs        fills a theme's colors into picture sources (discord-graphics.sh)
+├── tools/scenes/               the scene renderer: a shader drawn off-screen, as the app draws it
+├── tools/site-palette.mjs      the website's copy of the app's palette (--k-* in site.css)
+├── tools/site-scenes.sh        every still of the app's scenes the project uses (docs/pictures.org)
 ├── .github/workflows/          build.yml (pushes that change the app, pull requests), release.yml (version tags), site.yml (the website)
 ├── .github/ISSUE_TEMPLATE/     the bug report and feature request forms, and links to security, Discord and the guide
 └── README.org                  the front page: links, status, help, the AI policy and the test coverage
@@ -362,8 +368,13 @@ this phone.
   completion and help, and the theme builder read that list. =ThemeVersionsTest= checks that both
   versions exist and that the light one is easy to read. A saved theme with the same name is renamed
   at start (=CustomThemes.load=). Settings shows the name with capitals (=ChoiceLabels.theme=); a
-  name that needs more, like =rose-pine= ("Rosé Pine"), gets a label there. Show the theme in =site/src/components/ThemeCards.astro= and in
-  the themes guide, and list its name in =reference/config.md= and =reference/commands.md=.
+  name that needs more, like =rose-pine= ("Rosé Pine"), gets a label there. Run
+  =node tools/export-themes.mjs=: the website's theme cards and the pictures drawn off the phone read
+  =site/src/data/themes.json=, and =ThemeExportTest= fails until it matches (=docs/pictures.org=). Show
+  the theme in the themes guide, and list its name in =reference/config.md= and =reference/commands.md=.
+  The default theme (=Keys.THEME=) comes first in the list. Its page colors are also in
+  =res/values/start_window.xml= and =res/values-night/start_window.xml=, for the window before the
+  theme is read; =ThemeVersionsTest= checks that they match.
   =material-you= is the one theme without fixed palettes: =ui/theme/MaterialYouPalettes.kt= makes them
   from the phone's wallpaper colors.
 - New bundled shader :: an AGSL file =assets/shaders/<name>.agsl= with =// @name=, =// @description=,

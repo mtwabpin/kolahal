@@ -1,6 +1,6 @@
 #+TITLE: Kolahal 
 #+CAPTION: Kolahal logo
-[[file:docs/release/graphics/icon-rounded.svg]]
+[[file:site/public/favicon.svg]]
 #+END_EXPORT
 #+SUBTITLE: A touch and type optimized launcher for Android
 

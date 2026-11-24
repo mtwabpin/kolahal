@@ -716,20 +716,18 @@ touch and type optimized launcher", with touch as much a part of it as typing. T
 website, the app's first line on a new install ("Kolahal, a touch and type launcher") and the
 READMEs of the two script repositories say so now. Three places can only be changed by the
 maintainer, or need a choice first:
-- The store listing ([[file:release/google-play.org][release/google-play.org]], "Store listing text"). The app's name on Google
-  Play is "Kolahal: Terminal Launcher", the short description is "A keyboard-driven home screen
-  that opens apps and runs commands as you type", and the full description opens with "Kolahal
-  turns your home screen into a terminal". Drafts to choose from: the name "Kolahal: Touch & Type
-  Launcher" (30 characters, the most Play allows) or plain "Kolahal Launcher"; the short
-  description "A home screen for touch and typing that opens apps and runs commands" (68 of 80
-  characters, one sentence, none of the words Play flagged). Once chosen, that file's texts are
-  rewritten and pasted into Play Console.
+- The store listing. Its descriptions in [[file:release/google-play.org][release/google-play.org]] ("Store listing text") were
+  rewritten that day: the short description "A home screen for touch and typing that opens apps and
+  runs commands", and a full description with By touch and By typing first, then widgets, scripts
+  and shaders. The name stays "Kolahal: Terminal Launcher": the maintainer keeps it, as it tells the
+  audience the style. Play Console still has the older descriptions: they change when the
+  maintainer pastes the new texts and uploads the new graphics.
 - The repository's description on GitHub (About, at the top of the repository's page).
 - The maintainer's own site: the plate for Kolahal on its home page says "A keyboard-first terminal
   launcher for Android".
-- One more thing to decide with the wording: the app selector is what "touch" promises first, and it
-  is off until turned on (=selector.rail=). To decide: on from the start, offered in the first-run
-  setup, or as it is.
+- Decided on 24 November 2026: the app selector stays off until turned on. The first-run tour's
+  page on the selector turns it on when it is opened, and a person who skips the tour finds it in
+  Settings.
 - Remark:
 
 ** WAITING [#C] Rich responses from scripts with A2UI  :scripts:project:
