@@ -74,47 +74,23 @@ private val SMOOTH = CornerRounding(0.02f)
 
 private val SUNS = arrayOfNulls<RoundedPolygon>(ShapeSteps.MAX_RAYS + 1)
 
-/** A ray's tip and the valleys of rays that meet, rounded as Material's Sunny's corners are. */
-private val SUNNY_ROUND = CornerRounding(0.075f)
-
-/** A lone ray's tip, a little sharper, so it reads as a ray on a small card. */
-private val TIP_ROUND = CornerRounding(0.0375f)
-
-/** Where a lone ray meets the round body: a short bend. */
-private val FOOT_ROUND = CornerRounding(0.03f)
-
-/** The body between rays: its corners rounded to the body's circle. */
-private val BODY_ROUND = CornerRounding(ShapeSteps.SUN_BODY)
+/** A very little rounding at each of the sun's many corners: its waves are smooth, and a ray's tip stays pointed. */
+private val RAY_SMOOTH = CornerRounding(0.005f)
 
 /**
- * The countdown's sun with [rays] rays, in a box of 1 by 1, its middle at the middle: a regular
- * sun with its rays evenly spaced, the first at the top ([ShapeSteps.sunCorners]). 8 rays is
- * Material's Sunny; 12 a finer sun; fewer stand on a round body; none is a plain circle. Made once
+ * The countdown's sun with [rays] rays, in a box of 1 by 1, its middle at the middle: twelve places
+ * round a round body, the first [rays] clockwise from the top with a ray ([ShapeSteps.sunCorners]).
+ * Every count has the same corners, so a morph sinks one ray and moves nothing else. Made once
  * for each count.
  */
 internal fun sunPolygon(rays: Int): RoundedPolygon {
     val n = rays.coerceIn(0, ShapeSteps.MAX_RAYS)
-    return SUNS[n] ?: run {
-        val corners = ShapeSteps.sunCorners(n)
-        val meet = n >= 8
-        val vertices = FloatArray(corners.size * 2)
-        corners.forEachIndexed { i, p ->
-            vertices[2 * i] = p.x
-            vertices[2 * i + 1] = p.y
-        }
-        RoundedPolygon(
-            vertices,
-            perVertexRounding = corners.map {
-                when (it.kind) {
-                    ShapeSteps.SunCorner.TIP -> if (n >= 5) SUNNY_ROUND else TIP_ROUND
-                    ShapeSteps.SunCorner.VALLEY -> if (meet) SUNNY_ROUND else FOOT_ROUND
-                    ShapeSteps.SunCorner.ARC -> BODY_ROUND
-                }
-            },
-            centerX = 0.5f,
-            centerY = 0.5f
-        )
-    }.also { SUNS[n] = it }
+    return SUNS[n] ?: RoundedPolygon(
+        ShapeSteps.sunCorners(n),
+        rounding = RAY_SMOOTH,
+        centerX = 0.5f,
+        centerY = 0.5f
+    ).also { SUNS[n] = it }
 }
 
 private val FLOWERS = HashMap<List<Boolean>, RoundedPolygon>()

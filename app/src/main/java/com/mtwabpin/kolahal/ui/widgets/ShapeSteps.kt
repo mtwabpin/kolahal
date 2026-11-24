@@ -4,7 +4,6 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import kotlin.math.PI
-import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
@@ -50,15 +49,18 @@ internal object ShapeSteps {
     const val OUTER = 0.5f
 
     /**
-     * The sun's body, from its middle, in a box 1 wide. A ray rises from it to the edge: a fifth of
-     * the radius, as deep as the rays of Material's Sunny shape (its inner radius is 0.8). The body
-     * is the same at every count, so the number and its words keep their room, and a wait's thin
-     * ring (0.38 out) stays inside it.
+     * The sun's body, from its middle, in a box 1 wide. A ray rises from it to the edge: a tenth of
+     * the shape's width (the mockup's are three quarters of that), so two rays side by side read as
+     * two on a 1×1 card. The body is the same at every count, so the number and its words keep
+     * their room, and a wait's thin ring (0.38 out) stays inside it.
      */
     const val SUN_BODY = 0.40f
 
-    /** The most of the circle one corner of the sun's round body spans: a twelfth. */
-    private const val SUN_ARC = PI / 6
+    /** How pointed a ray is: the mockup's wave, soft with a pointed tip. */
+    const val SUN_SHARPNESS = 1.25
+
+    /** Corners for each of the sun's twelve places: enough for a smooth ray at any card's size. */
+    const val SUN_STEPS = 16
 
     /** The flower's middle, from its middle, in a box 1 wide: where its leaves meet. */
     const val FLOWER_BODY = 0.35f
@@ -93,85 +95,26 @@ internal object ShapeSteps {
         return corners
     }
 
-    /** What a corner of the countdown's sun is ([sunCorners]). */
-    enum class SunCorner {
-        /** The tip of a ray, at the edge. */
-        TIP,
-
-        /** Where a ray meets the body, or meets the next ray. */
-        VALLEY,
-
-        /** A corner of the round body between two rays, rounded to the body's circle. */
-        ARC,
-    }
-
-    /** One corner of the sun, in a box 1 wide around (0.5, 0.5). */
-    data class SunPoint(val x: Float, val y: Float, val kind: SunCorner)
-
     /**
-     * Half the width of each ray of a sun with [rays] rays, as an angle (radians), where it meets
-     * the body:
-     * - 8 and more: the whole of its share of the circle, so rays meet in a valley, as in
-     *   Material's Sunny (8 rays is Sunny's shape; 12 a finer sun).
-     * - 5 to 7: Sunny's own ray (a sixteenth of the circle), with the body round between rays.
-     * - 1 to 4: a narrower ray (a twentieth), so a lone ray reads as a ray on a 1×1 card and not
-     *   as a bump.
+     * Which of the sun's [MAX_RAYS] places have a ray for [rays] rays: the first ones clockwise from
+     * the top, as a dial running down. At 7 the rays go from the top down the right side, and the
+     * left side, where the days have gone, is the round body.
      */
-    fun rayHalfWidth(rays: Int): Double = when {
-        rays >= 8 -> PI / rays
-        rays >= 5 -> PI / 8
-        else -> PI / 10
-    }
-
-    /**
-     * The corners of a regular sun with [rays] rays (0 to [MAX_RAYS]), in a box 1 wide around
-     * (0.5, 0.5), clockwise, the first a ray's tip at the top. The rays are evenly spaced; each
-     * rises from the body ([SUN_BODY]) to the edge ([OUTER]) between two valleys
-     * ([rayHalfWidth] to each side). Where rays don't meet, the body between them is round: corners
-     * on the lines that touch the body's circle, at most [SUN_ARC] apart, rounded to that circle.
-     * No rays is a plain circle. As every count starts with a ray at the top, a morph from one
-     * count to the next pairs the rays in order and the sun tightens round.
-     */
-    fun sunCorners(rays: Int): List<SunPoint> {
+    fun sunRays(rays: Int): List<Boolean> {
         val n = rays.coerceIn(0, MAX_RAYS)
-        val points = ArrayList<SunPoint>()
-        fun put(radius: Double, angle: Double, kind: SunCorner) {
-            points += SunPoint(
-                (0.5 + radius * sin(angle)).toFloat(),
-                (0.5 - radius * cos(angle)).toFloat(),
-                kind
-            )
-        }
-
-        // The body's circle from one angle to the next: each corner on the line that touches the
-        // circle at both its neighbours' sides, so the rounding is the circle itself.
-        fun arc(from: Double, to: Double) {
-            val gap = to - from
-            if (gap <= 1e-6) return
-            val count = ceil(gap / SUN_ARC - 1e-6).toInt()
-            val step = gap / count
-            for (j in 0 until count) {
-                put(SUN_BODY / cos(step / 2), from + step / 2 + j * step, SunCorner.ARC)
-            }
-        }
-        if (n == 0) {
-            arc(0.0, 2 * PI)
-            return points
-        }
-        val share = 2 * PI / n
-        val half = rayHalfWidth(n)
-        for (i in 0 until n) {
-            val tip = i * share
-            put(OUTER.toDouble(), tip, SunCorner.TIP)
-            put(SUN_BODY.toDouble(), tip + half, SunCorner.VALLEY)
-            // Rays that don't meet: the body round to the next ray, and its valley.
-            if (share - 2 * half > 1e-6) {
-                arc(tip + half, tip + share - half)
-                put(SUN_BODY.toDouble(), tip + share - half, SunCorner.VALLEY)
-            }
-        }
-        return points
+        return List(MAX_RAYS) { it < n }
     }
+
+    /**
+     * The corners of the countdown's sun with [rays] rays ([sunRays]), in a box 1 wide, as x and y
+     * one after the other ([lobeCorners]). Every count has the same corners at the same angles,
+     * [SUN_STEPS] for each of the twelve places: a place with a ray rises on them as a wave from the
+     * body to the edge and back, a place without one lies on the body. So a ray's last corner meets
+     * the next place on the body with no notch, and a morph from one count to the next pairs each
+     * corner with itself: one ray sinks into the body and nothing else moves.
+     */
+    fun sunCorners(rays: Int): FloatArray =
+        lobeCorners(sunRays(rays), SUN_BODY, SUN_SHARPNESS, SUN_STEPS)
 
     // ---- a habit's week as a flower ----------------------------------------------------------
 
