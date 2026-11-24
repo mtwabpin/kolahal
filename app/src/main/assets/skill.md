@@ -239,7 +239,7 @@ Write them on one line: `-- @uses notifications, effects`. Posting notifications
 
 ### Widgets
 
-A script fills a card on the widgets page: it gives a kind and its fields, and Kolahal draws it in the theme. The user places it.
+A script fills a card on the widgets page with a kind and its fields; Kolahal draws it in the theme.
 
 `@widget <kind> [<size>]`. Sizes: `1x1`, `2x1`, `2x2`, `4x1`, `4x2`, `4x4` (columns × rows of a 4-column grid). A card draws for the space it has: put what matters first.
 
@@ -248,7 +248,7 @@ A script fills a card on the widgets page: it gives a kind and its fields, and K
 | `stat` | one big value, up to 3 smaller ones | `2x1` |
 | `text` | a few lines and a caption | `2x2` |
 | `list` | rows | `4x2` |
-| `progress` | a ring, a bar, or up to 4 bars | `2x1` |
+| `progress` | a ring, bars, rings, a gauge or stages | `2x1` |
 | `chart` | numbers over time | `2x2` |
 | `countdown` | the time to a moment; Kolahal counts | `2x1` |
 | `buttons` | 1 to 8 buttons | `4x1` |
@@ -256,15 +256,17 @@ A script fills a card on the widgets page: it gives a kind and its fields, and K
 | `clock` | the time in up to 4 places; Kolahal moves it | `2x1` |
 | `agenda` | events by day | `4x2` |
 | `image` | a picture from the web | `2x2` |
+| `versus` | two sides and a score | `4x1` |
+| `sky` | the sun's or moon's path | `2x2` |
 
 Fields every kind takes, all optional: `kind` (else the `@widget` line's), `title` (40 characters), `icon` (an icon name below, or up to 4 characters such as an emoji), `color` (a role), `tap` (an action), `staleAfter` (seconds, 60 to 604800; default 1 hour, 1 minute for toggles), `refresh` (seconds, 10 to 3600, while on screen), `note` (16 characters on a large card's last line).
 
 Fields of each kind (lengths are characters; text over a length is cut):
 
-- `stat`: `value` (needed, 40), `label` (60), `unit` (12), `delta` (16), `trend` (`up`, `down`, `flat`), `more` (up to 3 `{ value, label }`, 24 each), `progress` (0 to 1), `moving` (bool: a wave).
+- `stat`: `value` (needed, 40), `label` (60), `unit` (12), `delta` (16), `trend` (`up`, `down`, `flat`), `more` (up to 3 `{ value, label }`, 24 each), `progress` (0 to 1), `moving` (bool: a wave), `points` (numbers: a line behind), `scene` (a shader as ground: `pond`, `rain`, `snowfall`, `dunes`, `mountains`).
 - `text`: `text` (needed, 500, keeps line breaks), `caption` (60).
 - `list`: `items` (needed, may be empty, 12 kept), `empty` (60), `lead` (`{ value, unit, label }`: a big line over the rows). A row: `title` (needed, 80), `detail` (120), `trailing` (24), `icon`, `color`, `tap`, `done` (bool: a checkbox), `range` (`{ low, high, value }`: a bar; give the numbers in `trailing` too).
-- `progress`: `value` and `max` (1), `text` (24, the ring's middle), `label` (60), `style` (`ring`, `bar`), `moving`; or `items`, up to 4 bars `{ label, value, max, text, color }`.
+- `progress`: `value` and `max` (1), `text` (24, the ring's middle), `label` (60), `style` (`ring`, `bar`, `gauge`, `rings`), `moving`; or `items`, up to 4 bars `{ label, value, max, text, color, unit, moving }`; or `stages` (2 to 6 names) with `stage` (from 1; `value` is the way to the next). Gauge: `min`, `unit`, `zones` (up to 5 `{ from, color }`).
 - `chart`: `points` (needed, the oldest first, last 60 kept), `style` (`line`, `bars`, `dots`: a dot a day, the last point today), `min`, `max`, `value` (40), `label` (60), `labels` (two texts of 16, under the first and last point), `summary` (200, for a screen reader).
 - `countdown`: `to` (needed, seconds), `from` (seconds, adds a bar), `label` (60), `style` (`days`, `clock`), `reached` (60). Milliseconds are an error.
 - `buttons`: `items`, 1 to 8 `{ label, icon, color, tap }`; `label` (24) and `tap` needed.
@@ -272,10 +274,12 @@ Fields of each kind (lengths are characters; text over a length is cut):
 - `clock`: `zones` (needed, 1 to 4 `{ zone, label }`, zone like `Asia/Kolkata`, `UTC`), `seconds` (bool). Give `staleAfter = 604800`.
 - `agenda`: `events` (needed, 20 kept, may be empty) `{ title, starts, ends, allDay, where, color, tap }` with `title` and `starts` needed; `days` (1 to 14, 3), `empty` (60). An all-day event starts at local midnight.
 - `image`: `image` (needed, an `https://` link), `alt` (needed, 200: what it shows), `caption` (60), `fit` (`crop`, `fit`).
+- `versus`: `sides` (needed, 2 `{ name, mark, color, value, text }`), `score` (needed), `turn` (1, 2), `moving`, `line`, `badge`.
+- `sky`: `rises`, `sets` (needed, seconds), `phase` (0 to 1: the moon), `waxing`, `phases` (4 `{ phase, waxing, at }`).
 
-A tap is a table / object with one of: `{ args = "add 1" }` runs this script again with those words (`event.name` is `"action"`); `{ url = "https://…" }` opens a web link. It may add `label` (24, for a screen reader) and, with `args`, `page = "log"` to turn home to the log. A card without `tap` refreshes on a tap. Nothing can run a terminal command from a tap.
+A tap is a table / object with one of: `{ args = "add 1" }` runs this script again with those words (`event.name` is `"action"`); `{ url = "https://…" }` opens a web link. It may add `label` (24, for a screen reader) and, with `args`, `page = "log"` to turn home to the log. A card without `tap` refreshes on a tap.
 
-Rules: an unknown field, a wrong type or too many buttons is an error that names it; labels start with a capital by themselves; a text keeps only `fmt.bold`, `fmt.italic`, `fmt.underline`, `fmt.strike` and `fmt.color` (in `text`, `caption`, a row's `title`, `detail` and `trailing`, a stat's `label`); Markdown isn't read. A description is at most 32 KB, and a run calls `widget.show` and `widget.clear` at most 20 times. In Lua, a list must have no gaps (no `nil` in the middle).
+Rules: an unknown field, a wrong type or too many buttons is an error that names it; labels start with a capital by themselves; a text keeps only `fmt.bold`, `.italic`, `.underline`, `.strike` and `.color` (in `text`, `caption`, a row's `title`, `detail` and `trailing`, a stat's `label`); Markdown isn't read. A description is at most 32 KB, and a run calls `widget.show` and `widget.clear` at most 20 times. In Lua, a list has no `nil` in the middle.
 
 Icon names: sun, moon, cloud, rain, snow, storm, wind, fog, temp, drop, alarm, timer, clock, calendar, bell, home, work, lock, unlock, wifi, battery, bolt, torch, phone, dnd, person, people, mail, chat, quote, music, play, pause, news, book, feed, heart, star, check, flag, fire, leaf, trophy, ball, cricket, money, cart, chart, up, down, parcel, gift, car, bus, train, plane, walk, pin, globe, coffee, code, bug, link. Any other lowercase word over 4 letters is an error.
 

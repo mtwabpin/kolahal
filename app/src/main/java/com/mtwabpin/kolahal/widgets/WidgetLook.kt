@@ -15,6 +15,8 @@ package com.mtwabpin.kolahal.widgets
  * - [SHAPE]: the main thing takes a Material shape. In a square box (1×1, 2×2) that is the whole
  *   card; in a wide one the main value sits in a shape with the rest beside it. Buttons, switches
  *   and media controls each take a shape.
+ * - [POSTER]: the main value so large that the card's edge crops it, with the label small in a
+ *   corner. Only for a kind with one value to make large: stat, countdown and clock.
  * A look may leave out minor fields; a screen reader still reads them.
  */
 enum class WidgetLook(val id: String, val label: String) {
@@ -22,7 +24,8 @@ enum class WidgetLook(val id: String, val label: String) {
     TONAL("tonal", "Tonal"),
     BOLD("bold", "Bold"),
     SPLIT("split", "Split"),
-    SHAPE("shape", "Shape");
+    SHAPE("shape", "Shape"),
+    POSTER("poster", "Poster");
 
     /**
      * The look a card of [kind] draws when this one is chosen: this one when the kind has it
@@ -39,18 +42,26 @@ enum class WidgetLook(val id: String, val label: String) {
         }
 
         private val withoutBold = entries - BOLD
-        private val plainAndTonal = listOf(PLAIN, TONAL)
+        private val forPictures = listOf(PLAIN, TONAL, SHAPE)
+        private val withoutShape = entries - SHAPE
 
         /**
          * The looks that change how a card of [kind] looks, so the only ones offered for it. All of
          * them when the kind isn't known yet (a widget that has shown nothing).
-         * - A picture covers its card, so only the card's color can change: Plain and Tonal.
+         * - A picture covers its card, so only the card's color can change it, and Shape, which
+         *   cuts the picture to a shape: Plain, Tonal and Shape.
          * - Buttons, switches and media controls have no main value to make large: no Bold.
+         * - A versus card draws each side's mark on a Material shape in every look: no Shape.
+         * - Only a stat, a countdown and a clock have Poster ([withPoster]).
          */
         fun offeredFor(kind: WidgetKind?): List<WidgetLook> = when (kind) {
-            WidgetKind.IMAGE -> plainAndTonal
+            WidgetKind.IMAGE -> forPictures
             WidgetKind.BUTTONS, WidgetKind.TOGGLES, WidgetKind.MEDIA -> withoutBold
+            WidgetKind.VERSUS -> withoutShape
             else -> entries
-        }
+        }.let { if (kind == null || kind in withPoster) it else it - POSTER }
+
+        /** The kinds with one value to make as large as a poster's. */
+        private val withPoster = listOf(WidgetKind.STAT, WidgetKind.COUNTDOWN, WidgetKind.CLOCK)
     }
 }

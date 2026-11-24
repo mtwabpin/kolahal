@@ -11,7 +11,8 @@ package com.mtwabpin.kolahal.ui.widgets
  *
  * Where they are: WidgetControls.kt (buttons and toggles, with the grids and controls they share),
  * WidgetClock.kt, WidgetAgenda.kt, WidgetMedia.kt, and WidgetTime.kt (the time the clock, media and
- * countdown read).
+ * countdown read). The sky (WidgetSky.kt) reads that time too, and the versus card has
+ * WidgetVersus.kt.
  *
  * Rules for every body here:
  * - With a null `onTap`, nothing is clickable (the Widgets screen).

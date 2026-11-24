@@ -51,12 +51,16 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
  * - With `items`, it is several bars, each with its label and its text while there is room. A large
  *   card has its name over them ([CardName]).
  * - With `moving`, the ring and the bars are waves while the page is in view.
+ * - Stages, a gauge and rings draw in every look themselves: [StagesBody], [GaugeBody], [RingsBody].
  */
 @Composable
 internal fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
     val color = roleColor(spec.base)
     val look = LocalWidgetLook.current
     when {
+        ProgressStyles.isStages(spec) -> StagesBody(spec, box, look, color)
+        ProgressStyles.isGauge(spec) -> GaugeBody(spec, box, look, color)
+        ProgressStyles.isRings(spec) -> RingsBody(spec, box, look, color)
         look.untitled() -> ProgressLook(spec, box, look, color)
         spec.items.isNotEmpty() && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             // Each bar says what it is: a large card says what they are together over them, as a list does ("Disk").

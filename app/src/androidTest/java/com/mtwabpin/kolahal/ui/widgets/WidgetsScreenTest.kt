@@ -235,7 +235,9 @@ class WidgetsScreenTest {
         val (_, clock) = placeClock()
         show()
         choose(own)
-        WidgetLook.entries.forEach { compose.onNodeWithTag("look ${it.label}").assertExists() }
+        // Battery is a progress card: every look but Poster, which is for a stat, a countdown and a clock.
+        (WidgetLook.entries - WidgetLook.POSTER).forEach { compose.onNodeWithTag("look ${it.label}").assertExists() }
+        compose.onNodeWithTag("look Poster").assertDoesNotExist()
         compose.onNodeWithTag("look Plain").assertIsOn()
         listOf("1×1", "2×1", "2×2", "4×1", "4×2", "4×4").forEach {
             compose.onNodeWithTag("size $it").assertExists()

@@ -26,6 +26,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -167,6 +168,7 @@ internal fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
  * - The scale is [min] to [max], or what the data gives ([WidgetWords.scale]). A value outside the
  *   scale is drawn at its edge.
  * - [surface] is the color under the plot, for the dot's ring.
+ * - With [soft], a line's wash fades out toward the bottom: a stat's sparkline ([Sparkline]).
  */
 @Composable
 internal fun Plot(
@@ -176,7 +178,8 @@ internal fun Plot(
     max: Float?,
     color: Color,
     modifier: Modifier = Modifier,
-    surface: Color = MaterialTheme.colorScheme.surfaceContainerHigh
+    surface: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    soft: Boolean = false
 ) {
     val hairline = MaterialTheme.colorScheme.outlineVariant
     val scale = remember(points, bars, min, max) { WidgetWords.scale(points, min, max, bars) }
@@ -240,7 +243,15 @@ internal fun Plot(
                 }
                 wash.lineTo(right, size.height)
                 wash.close()
-                drawPath(wash, color.copy(alpha = 0.2f))
+                if (soft) drawPath(
+                    wash,
+                    Brush.verticalGradient(
+                        listOf(color.copy(alpha = 0.3f), color.copy(alpha = 0f)),
+                        startY = pad,
+                        endY = size.height
+                    )
+                )
+                else drawPath(wash, color.copy(alpha = 0.2f))
                 drawPath(
                     path,
                     color,

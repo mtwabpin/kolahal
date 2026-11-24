@@ -396,6 +396,8 @@ class ScriptMetaTest {
                 "clock",
                 "agenda",
                 "image",
+                "versus",
+                "sky",
                 "media"
             ), WidgetKind.entries.map { it.id })
         assertEquals(WidgetSize.S4X1, WidgetSize.named(" 4X1 "))
@@ -424,7 +426,9 @@ class ScriptMetaTest {
                 "toggles",
                 "clock",
                 "agenda",
-                "image"
+                "image",
+                "versus",
+                "sky"
             ), WidgetKind.forScripts.map { it.id })
         assertEquals(listOf(WidgetKind.MEDIA), WidgetKind.entries.filterNot { it.script })
         assertNull(WidgetKind.named("media"))
@@ -440,7 +444,7 @@ class ScriptMetaTest {
         val line = ApiDocs.directives.single { it.name == "widget" }.doc
         assertTrue(
             line,
-            line.contains("Kinds: stat text list progress chart countdown buttons toggles clock agenda image.")
+            line.contains("Kinds: stat text list progress chart countdown buttons toggles clock agenda image versus sky.")
         )
         assertFalse(line, line.contains("media"))
         val show = ApiDocs.all.first { it.name == "widget.show" }.doc

@@ -68,6 +68,27 @@ object WidgetParser {
     /** A picture's `alt`, the words a screen reader says for it. The card shows them when it has no picture. */
     const val MAX_ALT = 200
 
+    /** A versus card has exactly this many sides. */
+    const val SIDES = 2
+
+    /** A side's mark: a letter or two, as they are seen. */
+    const val MAX_MARK = 2
+
+    /** A versus card's badge at the top: "67'", "LIVE". */
+    const val MAX_BADGE = 8
+
+    /** A sky card keeps the moon's next [MAX_PHASES] phases. */
+    const val MAX_PHASES = 4
+
+    /** One day of the sun, in seconds: from one sunrise to the next. */
+    const val SUN_DAY = 86_400L
+
+    /** One day of the moon, in seconds: it rises about 50 minutes later each day (24 h 50 min 28 s). */
+    const val MOON_DAY = 89_428L
+
+    /** The day of the sun or of the [moon]: a sky's `sets` is less than this after its `rises`. */
+    fun dayOf(moon: Boolean): Long = if (moon) MOON_DAY else SUN_DAY
+
     /** A list keeps its first [MAX_ITEMS] items, and a stat its first [MAX_MORE] smaller values. */
     const val MAX_ITEMS = 12
     const val MAX_MORE = 3
@@ -75,6 +96,10 @@ object WidgetParser {
     /** A progress widget keeps its first [MAX_BARS] bars. A chart keeps its last [MAX_POINTS] points: the newest. */
     const val MAX_BARS = 4
     const val MAX_POINTS = 60
+
+    /** A gauge keeps its first [MAX_GAUGE_ZONES] zones. Stages keep their first [MAX_STAGES] names, and need 2 at least. */
+    const val MAX_GAUGE_ZONES = 5
+    const val MAX_STAGES = 6
 
     /** A buttons widget has 1 to [MAX_BUTTONS] buttons, and a toggles widget 1 to [MAX_TOGGLES] switches. More is an error: nothing is cut. */
     const val MAX_BUTTONS = 8
@@ -108,15 +133,19 @@ object WidgetParser {
         listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "note")
     private val TAP = listOf("args", "url", "label", "page")
     private val STAT =
-        listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving")
+        listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving", "points", "scene")
     private val SMALL = listOf("value", "label")
     private val TEXT = listOf("text", "caption")
     private val LIST = listOf("items", "empty", "lead")
     private val LEAD = listOf("value", "unit", "label")
     private val ROW = listOf("title", "detail", "trailing", "icon", "color", "tap", "done", "range")
     private val RANGE = listOf("low", "high", "value")
-    private val PROGRESS = listOf("value", "max", "text", "label", "style", "items", "moving")
-    private val BAR = listOf("label", "value", "max", "text", "color")
+    private val PROGRESS = listOf(
+        "value", "max", "text", "label", "style", "items", "moving", "min", "unit", "zones", "stages", "stage"
+    )
+    private val BAR = listOf("label", "value", "max", "text", "color", "unit", "moving")
+    private val GAUGE_ZONE = listOf("from", "color")
+    private val PROGRESS_STYLES = listOf("ring", "bar", "gauge", "rings")
     private val CHART =
         listOf("points", "style", "min", "max", "value", "label", "labels", "summary")
     private val COUNTDOWN = listOf("to", "from", "label", "style", "reached")
@@ -134,6 +163,10 @@ object WidgetParser {
      */
     private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap", "id")
     private val IMAGE = listOf("image", "alt", "caption", "fit")
+    private val VERSUS = listOf("sides", "score", "turn", "moving", "line", "badge")
+    private val SIDE = listOf("name", "mark", "color", "value", "text")
+    private val SKY = listOf("rises", "sets", "phase", "waxing", "phases")
+    private val PHASE = listOf("phase", "waxing", "at")
 
     private val TRENDS = listOf("up", "down", "flat")
 
@@ -144,7 +177,8 @@ object WidgetParser {
      */
     val FIELDS: Set<String> = (
             COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + RANGE + PROGRESS + BAR + CHART + COUNTDOWN +
-                    BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE
+                    BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE +
+                    VERSUS + SIDE + SKY + PHASE
             ).toSet()
 
     /**
@@ -162,7 +196,8 @@ object WidgetParser {
         "list.items.detail",
         "list.items.trailing",
         "stat.label",
-        "image.caption"
+        "image.caption",
+        "versus.line"
     )
 
     /** The fields of a [kind] widget, after the common ones. */
@@ -178,6 +213,8 @@ object WidgetParser {
         WidgetKind.CLOCK -> CLOCK
         WidgetKind.AGENDA -> AGENDA
         WidgetKind.IMAGE -> IMAGE
+        WidgetKind.VERSUS -> VERSUS
+        WidgetKind.SKY -> SKY
         WidgetKind.MEDIA -> notForScripts(kind)
     }
 
@@ -232,8 +269,84 @@ object WidgetParser {
             WidgetKind.CLOCK -> clock(t, base)
             WidgetKind.AGENDA -> agenda(t, base)
             WidgetKind.IMAGE -> image(t, base)
+            WidgetKind.VERSUS -> versus(t, base)
+            WidgetKind.SKY -> sky(t, base)
             WidgetKind.MEDIA -> notForScripts(kind)
         }
+    }
+
+    /**
+     * Two sides and the score between them. `sides` has exactly [SIDES]: one more or one fewer is
+     * an error, as a card with one side is no match. Each side needs its `name`.
+     * - A side's `value` is its part of the bar between the sides. It is 0 or more.
+     * - `turn` is 1 or 2: the side to move, or with the ball.
+     */
+    private fun versus(t: Table, base: WidgetBase): WidgetSpec.Versus {
+        val shape = "{ ${SIDE.joinToString()} }"
+        val all = t.list("sides", shape) ?: t.fail("sides is needed: the two sides, each $shape")
+        if (all.size != SIDES) t.fail("sides has ${all.size} ${if (all.size == 1) "side" else "sides"}: give $SIDES")
+        val sides = t.items("sides", SIDES, shape, SIDE).map { s ->
+            WidgetSpec.Side(
+                name = s.need("name", MAX_SHORT, "the side's name, such as a player or a team"),
+                mark = s.text("mark", MAX_ICON_NAME)?.takeSeen(MAX_MARK, MAX_ICON_UNITS)?.ifEmpty { null },
+                color = s.color(),
+                value = s.number("value", "a number, 0 or more")?.also {
+                    if (it < 0) s.fail("value must be 0 or more, not ${shown(it)}")
+                }?.let(::float),
+                text = s.text("text", MAX_UNIT),
+            )
+        }
+        val turn = t.number("turn", "1 or 2, the side to move")?.also {
+            if (it != 1.0 && it != 2.0) t.fail("turn must be 1 or 2, the side to move, not ${shown(it)}")
+        }?.toInt()
+        return WidgetSpec.Versus(
+            base,
+            sides = sides,
+            score = t.need("score", MAX_SHORT, "the score between the sides, as text, such as \"2–1\""),
+            turn = turn,
+            moving = t.flag("moving"),
+            line = t.label("line", MAX_LABEL, styled = true),
+            badge = t.text("badge", MAX_BADGE),
+        )
+    }
+
+    /**
+     * The sun's path, or with `phase` the moon's. The script gives the times once, and Kolahal moves
+     * the sun or the moon as time passes.
+     * - `rises` and `sets` are needed: `sets` after `rises`, less than a day later ([dayOf]).
+     * - `phase` is the lit part of the moon, held between 0 and 1. `phases` go with it: up to
+     *   [MAX_PHASES] of the next phases, each with its time.
+     */
+    private fun sky(t: Table, base: WidgetBase): WidgetSpec.Sky {
+        val rises = t.time("rises")
+            ?: t.fail("rises is needed: when the sun or the moon rises, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)")
+        val sets = t.time("sets")
+            ?: t.fail("sets is needed: when it sets, as a time in seconds")
+        if (sets <= rises) t.fail("sets must be after rises")
+        val phase = t.number("phase", "a number from 0 to 1, the lit part of the moon")
+            ?.coerceIn(0.0, 1.0)?.let(::float)
+        if (sets - rises >= dayOf(moon = phase != null)) t.fail("sets must be less than a day after rises")
+        val shape = "{ ${PHASE.joinToString()} }"
+        val phases = t.items("phases", MAX_PHASES, shape, PHASE).map { p ->
+            WidgetSpec.Phase(
+                phase = float(
+                    (p.number("phase", "a number from 0 to 1")
+                        ?: p.fail("phase is needed: the lit part of the moon, from 0 to 1")).coerceIn(0.0, 1.0)
+                ),
+                waxing = p.flag("waxing"),
+                at = p.time("at")
+                    ?: p.fail("at is needed: when the phase comes, as a time in seconds"),
+            )
+        }
+        if (phases.isNotEmpty() && phase == null) t.fail("phases go with phase: give the moon's phase now too")
+        return WidgetSpec.Sky(
+            base,
+            rises = rises,
+            sets = sets,
+            phase = phase,
+            waxing = t.flag("waxing"),
+            phases = phases,
+        )
     }
 
     private const val ALT_IS = "what the picture shows, in words, for a screen reader"
@@ -266,7 +379,23 @@ object WidgetParser {
         },
         progress = t.number("progress", "a number from 0 to 1")?.coerceIn(0.0, 1.0)?.toFloat(),
         moving = t.flag("moving"),
+        points = statPoints(t),
+        scene = t.text("scene", StatScenes.MAX_NAME)?.lowercase()?.also { name ->
+            StatScenes.problem(name)?.let { t.fail("scene $it") }
+        },
     )
+
+    /**
+     * A stat's `points`: its recent numbers, the oldest first, as a chart's. The last [MAX_POINTS]
+     * are kept. Empty when it is left out.
+     */
+    private fun statPoints(t: Table): List<Float> {
+        val all = t.list("points", "numbers") ?: return emptyList()
+        return all.takeLast(MAX_POINTS).map { p ->
+            (p as? Number)?.toDouble()?.takeIf { it.isFinite() }?.let(::float)
+                ?: t.fail("points must be a list of numbers; one of them is ${shown(p)}")
+        }
+    }
 
     private fun rows(t: Table, base: WidgetBase): WidgetSpec.Rows {
         if (!t.has("items")) t.fail("items is needed: a list of rows, each { ${ROW.joinToString()} }")
@@ -399,8 +528,14 @@ object WidgetParser {
     }
 
     /**
-     * A ring or one bar (`value` out of `max`), or up to [MAX_BARS] bars (`items`). One of the two
-     * is needed. A value is held between 0 and its max.
+     * A ring or one bar (`value` out of `max`), up to [MAX_BARS] bars or rings (`items`), or
+     * `stages`. One of the three is needed. A value is held between 0 and its max.
+     * - `style = "gauge"`: an arc from `min` to `max`, with up to [MAX_GAUGE_ZONES] `zones`, each
+     *   `{ from, color }`. Zones go up: each starts above the one before. The value is held between
+     *   `min` and `max`. Only a gauge takes `min` and `zones`.
+     * - `style = "rings"`: the bars of `items` as rings, so it needs them.
+     * - `stages`: 2 to [MAX_STAGES] names, and `stage`, the one it is at (1 to their number). `value`
+     *   of `max` is then how far along the way to the next one. They take no `items` and no `style`.
      */
     private fun progress(t: Table, base: WidgetBase): WidgetSpec.Progress {
         val max = t.above0("max")
@@ -412,17 +547,31 @@ object WidgetParser {
                 b.above0("max")
             )
         }
-        if (!t.has("value") && bars.isEmpty()) t.fail("value is needed: how far along it is, from 0 to max. Or give items, for bars")
+        val stages = t.texts("stages", MAX_STAGES, MAX_SHORT).map(StyledText::capitalized)
+        val style = t.choice("style", PROGRESS_STYLES)
+        val gauge = style == "gauge"
+        if (t.has("stages")) {
+            if (stages.size < 2) t.fail("stages needs 2 names at least, the first stage first")
+            if (bars.isNotEmpty()) t.fail("give items or stages, not both")
+            if (style != null) t.fail("style goes with value or items, not with stages")
+        }
+        if (!t.has("value") && bars.isEmpty() && stages.isEmpty()) t.fail("value is needed: how far along it is, from 0 to max. Or give items, for bars")
+        if (style == "rings" && bars.isEmpty()) t.fail("style 'rings' needs items: up to $MAX_BARS rings, each { ${BAR.joinToString()} }")
+        if (gauge && bars.isNotEmpty()) t.fail("style 'gauge' goes with value, not with items")
         // Bars are on one scale: the widget's max, or else the largest value among them.
         val scale = max ?: bars.maxOfOrNull { it.second }?.takeIf { it > 0 } ?: 1.0
         val top = max ?: 1.0
+        val low = t.number("min", "a number")?.also {
+            if (!gauge) t.fail("min goes with style 'gauge'")
+            if (it >= top) t.fail("min must be below max")
+        } ?: 0.0
         return WidgetSpec.Progress(
             base,
-            value = float((t.number("value", "a number") ?: 0.0).coerceIn(0.0, top)),
+            value = float((t.number("value", "a number") ?: 0.0).coerceIn(low, top)),
             max = float(top),
             text = t.text("text", MAX_SHORT),
             label = t.label("label", MAX_LABEL),
-            style = t.choice("style", listOf("ring", "bar")),
+            style = style,
             items = bars.map { (b, value, own) ->
                 val barTop = own ?: scale
                 WidgetSpec.Bar(
@@ -430,11 +579,49 @@ object WidgetParser {
                     float(value.coerceIn(0.0, barTop)),
                     float(barTop),
                     b.text("text", MAX_SHORT),
-                    b.color()
+                    b.color(),
+                    b.text("unit", MAX_UNIT),
+                    b.flag("moving"),
                 )
             },
             moving = t.flag("moving"),
+            min = float(low),
+            unit = t.text("unit", MAX_UNIT),
+            zones = zones(t, gauge, low, top),
+            stages = stages,
+            stage = stage(t, stages.size),
         )
+    }
+
+    /**
+     * A gauge's zones, each `{ from, color }`, both needed. Each starts above the one before; a
+     * start outside the scale is held at its nearer end. Only a gauge takes them.
+     */
+    private fun zones(t: Table, gauge: Boolean, low: Double, top: Double): List<WidgetSpec.GaugeZone> {
+        if (!t.has("zones")) return emptyList()
+        if (!gauge) t.fail("zones go with style 'gauge'")
+        var before: Double? = null
+        return t.items("zones", MAX_GAUGE_ZONES, "{ ${GAUGE_ZONE.joinToString()} }", GAUGE_ZONE).map { z ->
+            val from = z.number("from", "a number")
+                ?: z.fail("from is needed: the number where this zone starts")
+            before?.let { if (from <= it) z.fail("from must be above ${shown(it)}, where the zone before starts") }
+            before = from
+            val color = z.color()
+                ?: z.fail("color is needed: the zone's role, such as good, warn or bad")
+            WidgetSpec.GaugeZone(float(from.coerceIn(low, top)), color)
+        }
+    }
+
+    /** The stage it is at, from 1 to [count]: needed with stages, and refused without them. */
+    private fun stage(t: Table, count: Int): Int {
+        val given = t.number("stage", "a whole number")
+        if (count == 0) {
+            if (given != null) t.fail("stage goes with stages: the names of the stages")
+            return 0
+        }
+        val at = given ?: t.fail("stage is needed: the one it is at, from 1 to $count")
+        if (at != kotlin.math.floor(at) || at < 1 || at > count) t.fail("stage must be a whole number from 1 to $count, not ${shown(at)}")
+        return at.toInt()
     }
 
     /** Numbers over time. The last [MAX_POINTS] points are kept: the newest. */

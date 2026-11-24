@@ -54,12 +54,13 @@ object ApiDocs {
 
     /** The fields of a [kind] widget, as the reference lists them. Only the kinds a script can use are asked for. */
     private fun widgetFields(kind: WidgetKind): String = when (kind) {
-        WidgetKind.STAT -> "value, label, unit, delta, trend (up, down or flat), more, progress, moving"
+        WidgetKind.STAT -> "value, label, unit, delta, trend (up, down or flat), more, progress, moving, points (numbers, a line behind the value), scene (a shader for the ground, such as pond)"
         WidgetKind.TEXT -> "text, caption"
         WidgetKind.LIST -> "items (each { title, detail, trailing, icon, color, tap, done, range }; a range is { low, high, value }, drawn as a bar), empty, " +
                 "lead ({ value, unit, label }, a big line over the rows)"
 
-        WidgetKind.PROGRESS -> "value, max, text, label, style (ring or bar), moving, or items for bars (each { label, value, max, text, color })"
+        WidgetKind.PROGRESS -> "value, max, text, label, style (ring, bar, gauge or rings), moving, or items for bars or rings (each { label, value, max, text, color, unit, moving }); " +
+                "a gauge also takes min, unit, zones (each { from, color }); or stages (2 to 6 names) and stage (the one it is at, from 1)"
         WidgetKind.CHART -> "points, style (line, bars or dots), min, max, value, label, labels, summary"
         WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style (days or clock), reached"
         WidgetKind.BUTTONS -> "items (1 to 8, each { label, icon, color, tap })"
@@ -67,6 +68,8 @@ object ApiDocs {
         WidgetKind.CLOCK -> "zones (each { zone, label }; a zone is a name such as Asia/Kolkata), seconds"
         WidgetKind.AGENDA -> "events (each { title, starts, ends (times in seconds), allDay, where, color, tap }), days, empty"
         WidgetKind.IMAGE -> "image (an https link to a picture), alt (what it shows, in words), caption, fit (crop or fit)"
+        WidgetKind.VERSUS -> "sides (two, each { name, mark, color, value, text }; the values make a bar between the sides), score, turn (1 or 2), moving, line, badge"
+        WidgetKind.SKY -> "rises, sets (times in seconds), phase (0 to 1: the moon, lit this much), waxing, phases (up to 4, each { phase, waxing, at })"
         WidgetKind.MEDIA -> ""
     }
 

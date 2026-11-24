@@ -90,14 +90,14 @@ class ScriptCheckTest {
         assertTrue(lua("-- @widget buttons\n-- @widget toggles 2x2\n-- @widget clock 4x1\n-- @widget agenda").isEmpty())
         // `media` is a kind only Kolahal fills, so for a script it is no kind.
         assertEquals(
-            "@widget media isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "@widget media isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             lua("-- @widget media").single().text
         )
         assertEquals(
             listOf(
                 ScriptCheck.Issue(
                     1,
-                    "@widget graph isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image"
+                    "@widget graph isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky"
                 )
             ), lua("-- @widget graph")
         )
@@ -110,7 +110,7 @@ class ScriptCheckTest {
             ), lua("-- @widget stat 3x3")
         )
         assertEquals(
-            "@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             ScriptCheck.check("// @widget", ScriptLang.JS).single().text
         )
     }
@@ -125,11 +125,11 @@ class ScriptCheckTest {
         assertNull(ScriptMeta.widget(code))
         assertEquals(lua(code).single().text, ScriptCheck.widgetKindIssue(code))
         assertEquals(
-            "@widget stats isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "@widget stats isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             ScriptCheck.widgetKindIssue(code)
         )
         assertEquals(
-            "@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             ScriptCheck.widgetKindIssue("// @widget\nwidget.show({ value: 1 });")
         )
         // A kind that is one, even with a size that isn't, gives a widget: nothing to say at run time.

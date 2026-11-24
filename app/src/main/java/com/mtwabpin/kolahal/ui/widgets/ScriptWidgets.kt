@@ -263,6 +263,8 @@ internal fun WidgetCard(
                     .fillMaxSize()
                     .then(press)
                     .semantics { contentDescription = description }) {
+                // A stat's scene is the card's ground, under its body ([StatScene]).
+                if (spec is WidgetSpec.Stat && note == null && polygon == null) StatScene(spec, look, colors.card)
                 // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
                 CompositionLocalProvider(
                     LocalCardLongPress provides onLongClick,
@@ -315,6 +317,10 @@ private fun drawnLook(
  * is filled with the role's container; a single progress has an empty clover, which its body fills
  * up to the level. The body draws a few short lines in it ([LocalCardShaped]), with the title from
  * [LocalUntitled]. The shape clips the body, so a fill keeps to it.
+ * - A new shape morphs from the one before and settles ([rememberSettle]): the battery's, which
+ *   changes with its level ([batteryPolygon]), or another kind's.
+ * - A countdown and a habit's week draw their own shape, which changes with what they show
+ *   ([carriesShape]). The frame then draws none and cuts nothing.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -327,19 +333,19 @@ private fun ShapedCard(
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long
 ) {
-    val shape = polygon.toShape()
     val fill =
         if (spec is WidgetSpec.Progress) MaterialTheme.colorScheme.surfaceContainerHighest else lookColors(
             WidgetLook.SHAPE,
             roleColor(spec.base)
         ).shapeFill
+    val own = carriesShape(spec)
+    val settle = rememberSettle(batteryPolygon(spec) ?: polygon)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // A little smaller than the box: the shape's points stay clear of the next card.
         Box(
             Modifier
                 .size(side - 8.dp)
-                .clip(shape)
-                .background(fill)
+                .then(if (own) Modifier else Modifier.settledShape(settle, fill))
         ) {
             CompositionLocalProvider(LocalCardShaped provides true, LocalUntitled provides title) {
                 KindBody(spec, box, onTap, stamp)
@@ -370,8 +376,8 @@ private fun CardLayout(
     look: WidgetLook,
     colors: LookColors,
 ) {
-    // A cropped picture covers the card. With a note (loading, failed) the card has its usual frame.
-    if (spec is WidgetSpec.Image && spec.fit != "fit" && note == null && box != WidgetSizes.Box.SMALL) {
+    // A cropped picture covers the card. With a note (loading, failed) the card has its usual frame. Shape cuts it to a shape.
+    if (spec is WidgetSpec.Image && spec.fit != "fit" && note == null && box != WidgetSizes.Box.SMALL && look != WidgetLook.SHAPE) {
         BleedImageCard(title, spec, footer, box)
         return
     }
@@ -490,6 +496,8 @@ private fun UntitledLayout(
 ) {
     val room = when {
         look == WidgetLook.SPLIT -> PaddingValues(0.dp)
+        // Poster's value reaches the card's edges, which crop it ([PosterCard]).
+        look == WidgetLook.POSTER -> PaddingValues(0.dp)
         box == WidgetSizes.Box.SMALL -> PaddingValues(8.dp)
         look == WidgetLook.SHAPE && box == WidgetSizes.Box.WIDE -> PaddingValues(
             start = 8.dp,
@@ -503,14 +511,15 @@ private fun UntitledLayout(
     }
     Box(Modifier.fillMaxSize()) {
         // Bold's progress: the card fills from the bottom up to the level, in the role's container.
+        // A gauge fills in its value's zone, and stages to how far along the path they are.
         if (look == WidgetLook.BOLD && spec is WidgetSpec.Progress && spec.items.isEmpty()) {
-            val level = WidgetWords.fraction(spec.value, spec.max)
+            val level = ProgressStyles.level(spec)
             Box(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .fillMaxHeight(level)
-                    .background(roleContainer(roleColor(spec.base)))
+                    .background(roleContainer(progressTint(spec)))
             )
         }
         Box(
@@ -1098,17 +1107,20 @@ private fun BatteryWidget(height: Dp, actions: WidgetCardActions?) {
     val description = remember(shown) { BatteryCards.said(shown) }
     val onClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.openBattery() } } }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
-    WidgetCard(
-        title = BatteryCards.title(shown),
-        height = height,
-        spec = spec,
-        note = null,
-        description = description,
-        modifier = Modifier.testTag("widget:${WidgetSource.builtin(WidgetSource.BATTERY)}"),
-        onClick = onClick,
-        onClickLabel = "battery settings",
-        onLongClick = onLongClick,
-    )
+    // The Shape look gives the battery a shape by its level (batteryPolygon).
+    CompositionLocalProvider(LocalBattery provides shown) {
+        WidgetCard(
+            title = BatteryCards.title(shown),
+            height = height,
+            spec = spec,
+            note = null,
+            description = description,
+            modifier = Modifier.testTag("widget:${WidgetSource.builtin(WidgetSource.BATTERY)}"),
+            onClick = onClick,
+            onClickLabel = "battery settings",
+            onLongClick = onLongClick,
+        )
+    }
 }
 
 /**

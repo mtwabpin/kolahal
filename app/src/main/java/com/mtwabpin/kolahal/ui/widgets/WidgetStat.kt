@@ -40,11 +40,16 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
 /**
  * `stat`: one big value with its label.
  * - Small: the value and the label, centered.
- * - Wide: the value with its change at the start, and a column at the end: the label over the
- *   first smaller value. The others go between them, as many as fit. A box under 150 dp has no
- *   room for that column: the label goes under the value, and a bar takes the label's place.
+ * - Wide: the value with its change at the start, and a column at the end with the label. The
+ *   smaller values go between them in their order, as many as fit, and the next one under the label
+ *   ([StatWide]). A box under 150 dp has no room for that column: the label goes under the value,
+ *   and a bar takes the label's place.
  * - Large: the value and its label at the top. The smaller values and the bar are at the bottom.
  * - With no label, the card's name ([LocalUntitled]) is its label: there is no title line.
+ * - With `points`, a wide or large card has them as a soft line under the value, from edge to edge
+ *   ([Sparkline]): a wide card's value goes to the top, a large card's line takes the room between
+ *   the label and the smaller values. A small card leaves it out.
+ * - The value's digits roll to a new value ([RollingText]).
  */
 @Composable
 internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
@@ -63,7 +68,7 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            BigText(WidgetWords.joined(spec.value, spec.unit), valueStyle(box))
+            RollingBigText(WidgetWords.joined(spec.value, spec.unit), valueStyle(box))
             label?.let {
                 Text(
                     cardText(it),
@@ -79,9 +84,11 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val color = roleColor(spec.base)
     val large = box == WidgetSizes.Box.LARGE
     val hasChange = spec.trend != null || spec.delta != null
+    // The recent numbers run behind the card's lower part, under the value ([Sparkline]).
+    val spark = spec.points.size >= 2
     val value: @Composable (Modifier) -> Unit = { modifier ->
         Row(modifier) {
-            BigText(
+            RollingBigText(
                 spec.value,
                 valueStyle(box),
                 Modifier
@@ -133,7 +140,17 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     Modifier.padding(start = if (label != null) 8.dp else 0.dp)
                 )
             }
-            Spacer(Modifier.weight(1f))
+            if (spark) Sparkline(
+                spec.points,
+                color,
+                lookColors(look).card,
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                side = SPARK_SIDE
+            )
+            else Spacer(Modifier.weight(1f))
             if (spec.more.isNotEmpty()) {
                 if (look == WidgetLook.TONAL) {
                     // Tonal has the smaller values in chips of a lighter tint, as the mockup has them.
@@ -176,14 +193,16 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = maxWidth >= STAT_SIDE_FROM
-        val first = spec.more.firstOrNull()
-        // A smaller value between the big one and the end column needs about 64 dp, after 112 dp
-        // for the big one and 96 dp for the column.
-        val column = if (side && (label != null || first != null)) 96.dp else 0.dp
-        val between = if (side) spec.more.drop(1) else spec.more
+        // The smaller values in the order given: as many as fit beside the value, then the next under the label.
+        val split = StatWide.split(maxWidth.value, spec.more.size, label != null)
+        val between = spec.more.take(split.between)
+        val first = if (split.inColumn) spec.more[split.between] else null
         val half = maxWidth / 2
-        val beside = ((maxWidth - 112.dp - column) / 64.dp).toInt().coerceIn(0, between.size)
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+        // With a sparkline, the value is at the top and the line takes the room under it.
+        Column(
+            Modifier.fillMaxSize(),
+            verticalArrangement = if (spark) Arrangement.Top else Arrangement.Center
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     value(Modifier)
@@ -197,7 +216,7 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                         )
                     }
                 }
-                between.take(beside).forEach {
+                between.forEach {
                     SmallValue(
                         it,
                         muted,
@@ -206,7 +225,7 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                             .widthIn(max = 72.dp)
                     )
                 }
-                if (column > 0.dp) {
+                if (split.column) {
                     Column(
                         Modifier
                             .padding(start = 12.dp)
@@ -244,12 +263,51 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 }
             }
             spec.progress?.let { LevelBar(it, spec.moving, color, Modifier.padding(top = 4.dp)) }
+            if (spark) Sparkline(
+                spec.points,
+                color,
+                lookColors(look).card,
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                side = SPARK_SIDE,
+                down = SPARK_DOWN_WIDE
+            )
         }
     }
 }
 
-/** From this width, a wide stat has a column at its end for its label and its first smaller value. */
-private val STAT_SIDE_FROM = 150.dp
+/** From this width, a wide stat has a column at its end for its label and a smaller value. */
+private val STAT_SIDE_FROM = StatWide.SIDE_FROM_DP.dp
+
+/**
+ * Where a wide stat puts its smaller values, always in the order given. Pure: widths are in dp.
+ * - A smaller value beside the big one needs about [SMALL_DP], after [VALUE_DP] for the big one.
+ * - From [SIDE_FROM_DP] wide, the card has a column at its end ([COLUMN_DP]) for the label. As many
+ *   smaller values as fit go between the big one and that column; the next one goes under the label,
+ *   and any after it are left out (a screen reader still says them).
+ * - When there is no label and every smaller value fits beside the big one, there is no column.
+ * - Narrower: no column; as many as fit beside the big one, and the label goes under it.
+ */
+internal object StatWide {
+    const val SIDE_FROM_DP = 150f
+    const val VALUE_DP = 112f
+    const val SMALL_DP = 64f
+    const val COLUMN_DP = 96f
+
+    /** [between] values beside the big one; [column]: the end column is there; [inColumn]: the next value is under the label in it. */
+    data class Split(val column: Boolean, val between: Int, val inColumn: Boolean)
+
+    /** The split for a card [widthDp] wide with [count] smaller values, with a [label] or not. */
+    fun split(widthDp: Float, count: Int, label: Boolean): Split {
+        fun fit(room: Float) = (room / SMALL_DP).toInt().coerceIn(0, count)
+        if (widthDp < SIDE_FROM_DP) return Split(column = false, between = fit(widthDp - VALUE_DP), inColumn = false)
+        if (!label && fit(widthDp - VALUE_DP) == count) return Split(column = false, between = count, inColumn = false)
+        val between = fit(widthDp - VALUE_DP - COLUMN_DP)
+        return Split(column = true, between = between, inColumn = between < count)
+    }
+}
 
 /**
  * A stat's change in [color]: a drawn arrow for up or down (a text arrow for flat), then the

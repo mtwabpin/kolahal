@@ -877,11 +877,11 @@ class WidgetParserTest {
     @Test
     fun aScriptCantFillAMediaWidget() {
         assertEquals(
-            "widget: no kind 'media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "widget: no kind 'media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             refused(mapOf("kind" to "media", "title" to "Song"))
         )
         assertEquals(
-            "widget: no kind 'Media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "widget: no kind 'Media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             refused(mapOf("kind" to "Media"))
         )
         assertEquals(
@@ -905,11 +905,11 @@ class WidgetParserTest {
             parse(mapOf("kind" to null, "value" to 1), WidgetKind.STAT)
         )
         assertEquals(
-            "widget: no kind 'graph'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "widget: no kind 'graph'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             refused(mapOf("kind" to "graph"))
         )
         assertEquals(
-            "widget: no kind 3; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image",
+            "widget: no kind 3; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image, versus, sky",
             refused(mapOf("kind" to 3))
         )
     }
@@ -972,7 +972,7 @@ class WidgetParserTest {
             no("value" to 1, "max" to "ten")
         )
         assertEquals(
-            "widget: style must be ring or bar, not 'wave'",
+            "widget: style must be ring, bar, gauge or rings, not 'wave'",
             no("value" to 1, "style" to "wave")
         )
         assertEquals(
@@ -984,7 +984,7 @@ class WidgetParserTest {
             no("items" to listOf(mapOf("value" to 1, "max" to -1)))
         )
         assertEquals(
-            "widget: item 1 of items: no field 'title'; use label, value, max, text, color",
+            "widget: item 1 of items: no field 'title'; use label, value, max, text, color, unit, moving",
             no("items" to listOf(mapOf("title" to "a", "value" to 1)))
         )
     }
@@ -1323,7 +1323,7 @@ class WidgetParserTest {
     @Test
     fun anUnknownFieldListsTheKnownOnes() {
         assertEquals(
-            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, tap, staleAfter, refresh, note, value, label, unit, delta, trend, more, progress, moving",
+            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, tap, staleAfter, refresh, note, value, label, unit, delta, trend, more, progress, moving, points, scene",
             refused(mapOf("value" to 1, "colour" to "good")),
         )
         // Another kind's field is unknown too.
@@ -1877,7 +1877,8 @@ class WidgetParserTest {
                 "list.items.detail",
                 "list.items.trailing",
                 "stat.label",
-                "image.caption"
+                "image.caption",
+                "versus.line"
             ),
             WidgetParser.STYLED,
         )
@@ -2246,6 +2247,10 @@ class WidgetParserTest {
             refused(mapOf("nope" to 1), WidgetKind.CHART),
             refused(mapOf("nope" to 1), WidgetKind.COUNTDOWN),
             refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.PROGRESS),
+            refused(
+                mapOf("value" to 1, "style" to "gauge", "zones" to listOf(mapOf("nope" to 1))),
+                WidgetKind.PROGRESS
+            ),
             refused(mapOf("nope" to 1), WidgetKind.BUTTONS),
             refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.BUTTONS),
             refused(mapOf("nope" to 1), WidgetKind.TOGGLES),
@@ -2255,6 +2260,13 @@ class WidgetParserTest {
             refused(mapOf("nope" to 1), WidgetKind.AGENDA),
             refused(mapOf("events" to listOf(mapOf("nope" to 1))), WidgetKind.AGENDA),
             refused(mapOf("nope" to 1), WidgetKind.IMAGE),
+            refused(mapOf("nope" to 1), WidgetKind.VERSUS),
+            refused(mapOf("sides" to listOf(mapOf("nope" to 1), mapOf("name" to "b"))), WidgetKind.VERSUS),
+            refused(mapOf("nope" to 1), WidgetKind.SKY),
+            refused(
+                mapOf("rises" to 1000, "sets" to 2000, "phase" to 0.5, "phases" to listOf(mapOf("nope" to 1))),
+                WidgetKind.SKY
+            ),
         )
         val known = errors.flatMap { listed.find(it!!)!!.groupValues[1].split(", ") }.toSet()
         assertEquals(WidgetParser.FIELDS, known)

@@ -11,30 +11,32 @@ class WidgetLookTest {
         val all = WidgetLook.entries
         assertEquals(all, WidgetLook.offeredFor(null))
         assertEquals(
-            listOf(WidgetLook.PLAIN, WidgetLook.TONAL),
+            listOf(WidgetLook.PLAIN, WidgetLook.TONAL, WidgetLook.SHAPE),
             WidgetLook.offeredFor(WidgetKind.IMAGE)
         )
         listOf(WidgetKind.BUTTONS, WidgetKind.TOGGLES, WidgetKind.MEDIA).forEach {
-            assertEquals(it.id, all - WidgetLook.BOLD, WidgetLook.offeredFor(it))
+            assertEquals(it.id, all - WidgetLook.BOLD - WidgetLook.POSTER, WidgetLook.offeredFor(it))
         }
+        assertEquals(all - WidgetLook.SHAPE - WidgetLook.POSTER, WidgetLook.offeredFor(WidgetKind.VERSUS))
+        listOf(WidgetKind.STAT, WidgetKind.COUNTDOWN, WidgetKind.CLOCK)
+            .forEach { assertEquals(it.id, all, WidgetLook.offeredFor(it)) }
         listOf(
-            WidgetKind.STAT,
             WidgetKind.TEXT,
             WidgetKind.LIST,
             WidgetKind.PROGRESS,
             WidgetKind.CHART,
-            WidgetKind.COUNTDOWN,
-            WidgetKind.CLOCK,
-            WidgetKind.AGENDA
+            WidgetKind.AGENDA,
+            WidgetKind.SKY
         )
-            .forEach { assertEquals(it.id, all, WidgetLook.offeredFor(it)) }
+            .forEach { assertEquals(it.id, all - WidgetLook.POSTER, WidgetLook.offeredFor(it)) }
     }
 
     /** A look the kind doesn't offer draws Plain; the others draw as chosen. */
     @Test
     fun aLookNotOfferedDrawsPlain() {
         assertEquals(WidgetLook.PLAIN, WidgetLook.BOLD.drawnFor(WidgetKind.BUTTONS))
-        assertEquals(WidgetLook.PLAIN, WidgetLook.SHAPE.drawnFor(WidgetKind.IMAGE))
+        assertEquals(WidgetLook.PLAIN, WidgetLook.BOLD.drawnFor(WidgetKind.IMAGE))
+        assertEquals(WidgetLook.SHAPE, WidgetLook.SHAPE.drawnFor(WidgetKind.IMAGE))
         assertEquals(WidgetLook.TONAL, WidgetLook.TONAL.drawnFor(WidgetKind.IMAGE))
         assertEquals(WidgetLook.SPLIT, WidgetLook.SPLIT.drawnFor(WidgetKind.TOGGLES))
         assertEquals(WidgetLook.BOLD, WidgetLook.BOLD.drawnFor(WidgetKind.STAT))

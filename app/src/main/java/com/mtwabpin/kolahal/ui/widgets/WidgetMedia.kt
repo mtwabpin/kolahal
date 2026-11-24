@@ -1269,8 +1269,8 @@ private fun ShapeMedia(
 
 /**
  * Shape's play or pause: a filled button [side] across in the card's [role] color. Playing, it is
- * a cookie; paused, a rounded square. A change morphs one into the other, as Material's expressive
- * player does, and only the drawing runs again while it does. Its icon is two fifths of its size.
+ * a cookie; paused, a rounded square. A change morphs one into the other and settles ([settleSpec]),
+ * as Material's expressive player does, and only the drawing runs again while it does. Its icon is two fifths of its size.
  * It hands [tap] over: `toggle`, or `resume` with nothing playing. The track's cover, [art], fills
  * the shape, darkened under a white icon, as on the other looks' play or pause ([ArtFace]).
  */
@@ -1286,11 +1286,7 @@ private fun PlayShape(
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val looks = lookColors(WidgetLook.SHAPE, role)
-    val paused = animateFloatAsState(
-        if (playing) 0f else 1f,
-        MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "play"
-    )
+    val paused = animateFloatAsState(if (playing) 0f else 1f, settleSpec(), label = "play")
     val side48 = side.coerceAtLeast(CONTROL_MIN)
     val image = remember(art) { art?.asImageBitmap() }
     val content = if (image != null) Color.White else looks.onAccent
@@ -1305,7 +1301,7 @@ private fun PlayShape(
         shapes = IconButtonDefaults.shapes(shape = CircleShape),
         modifier = Modifier
             .size(side48)
-            .morphFill(PLAY_MORPH, looks.accent, image = image) { paused.value }
+            .morphFill(PLAY_MORPH, looks.accent, image = image, settles = true) { paused.value }
             .then(if (image != null) Modifier.testTag("media-cover") else Modifier),
         enabled = onTap != null,
         colors = colors,

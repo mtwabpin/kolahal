@@ -322,9 +322,10 @@ private fun SplitBars(spec: WidgetSpec.Progress, color: Color) {
 
 /**
  * [text] over Shape's level, in the box it shares with a fill that reaches [fraction] of the way up:
- * drawn twice, each clipped at the fill's line. Over the fill it is in the color that reads on the
- * fill, over the empty part in the content color, so a number across the line reads on both sides.
- * A screen reader hears it once.
+ * drawn twice, each clipped at the fill's line. On each side of the line it is in the content color
+ * or the fill's "on" color, whichever reads better there ([inkOn]): over the fill (the accent) and
+ * over the empty part (the highest container). So a number across the line reads on both sides, in
+ * every theme. A screen reader hears it once.
  */
 @Composable
 private fun BoxScope.OnLevel(
@@ -332,17 +333,18 @@ private fun BoxScope.OnLevel(
     colors: LookColors,
     text: @Composable BoxScope.(Color) -> Unit
 ) {
+    val empty = MaterialTheme.colorScheme.surfaceContainerHighest
     Box(
         Modifier
             .matchParentSize()
             .levelClip(fraction, overFill = false)
-    ) { text(colors.content) }
+    ) { text(inkOn(empty, colors.content, colors.onAccent)) }
     Box(
         Modifier
             .matchParentSize()
             .levelClip(fraction, overFill = true)
             .clearAndSetSemantics {}
-    ) { text(colors.onAccent) }
+    ) { text(inkOn(colors.accent, colors.onAccent, colors.content)) }
 }
 
 /** Draws only the part over a fill that reaches [fraction] of the way up ([overFill]), or only the part above it. */
@@ -411,7 +413,7 @@ private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = minOf(maxHeight, 140.dp, maxWidth / 2)
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            ShapedLevel(MaterialShapes.Clover4Leaf, fraction, color, side) {
+            ShapedLevel(batteryPolygon(spec) ?: MaterialShapes.Clover4Leaf, fraction, color, side) {
                 OnLevel(fraction, c) { ink ->
                     BigText(
                         text,
@@ -486,9 +488,9 @@ private fun ShapeBars(spec: WidgetSpec.Progress, color: Color) {
 
 /**
  * A Material shape [side] across, empty in the theme's highest surface and filled from the bottom
- * up to [fraction] in [color]: Shape's level. [content] is drawn over the fill.
+ * up to [fraction] in [color]: Shape's level. [content] is drawn over the fill. A new [polygon]
+ * (the battery's, as its level changes) morphs from the one before and settles.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapedLevel(
     polygon: RoundedPolygon,
@@ -500,8 +502,7 @@ private fun ShapedLevel(
     Box(
         Modifier
             .size(side)
-            .clip(polygon.toShape())
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .settledShape(rememberSettle(polygon), MaterialTheme.colorScheme.surfaceContainerHighest)
     ) {
         Box(
             Modifier

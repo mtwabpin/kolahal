@@ -32,6 +32,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.productivity.Note
@@ -136,6 +137,7 @@ class WidgetGalleryTest {
      * One picture: [spec]'s card at [size], under [title], saved as `real-<name>-<size>.png`.
      * With [inView] the card is drawn as on the page in view: a wave moves and a picture loads.
      * With [taps] the card takes taps, as on the page: a media card's bar is then a slider.
+     * With [battery] the card is the Battery and network card of that status ([LocalBattery]).
      */
     private data class Shot(
         val name: String,
@@ -145,7 +147,8 @@ class WidgetGalleryTest {
         val inView: Boolean = false,
         val prefix: String = "real",
         val look: WidgetLook = WidgetLook.PLAIN,
-        val taps: Boolean = false
+        val taps: Boolean = false,
+        val battery: Status? = null
     ) {
         val file get() = "$prefix-$name-${size.id}.png"
     }
@@ -322,7 +325,8 @@ class WidgetGalleryTest {
                     if (shot != null) key(shot) {
                         CompositionLocalProvider(
                             LocalWidgetsShown provides shot.inView,
-                            LocalWidgetLook provides shot.look
+                            LocalWidgetLook provides shot.look,
+                            LocalBattery provides shot.battery
                         ) {
                             // The page's color shows around the card's round corners.
                             Box(
@@ -457,6 +461,15 @@ class WidgetGalleryTest {
         43f, 62f, 35f, 31f, 47f, 39f, 53f, 48f, 57f, 29f, 27f, 45f, 40f, 51f, 44f, 42f,
     )
 
+    /** Seven days of a habit, the oldest first: one missed, the others done. */
+    private val habitWeek = WidgetSpec.Chart(
+        base("Exercise", "check", ColorRole.GOOD),
+        listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f),
+        style = "dots",
+        value = "5",
+        label = "Days in a row"
+    )
+
     /** The habit card as habit.lua fills it, done today: five days in a row. */
     private val habit = WidgetSpec.Chart(
         base("Exercise", "check", ColorRole.GOOD).copy(note = "Done today"),
@@ -517,6 +530,61 @@ class WidgetGalleryTest {
             "Weather",
             WidgetSpec.Stat(base("Weather"), value = "27°", label = "Sunny")
         ),
+        // A number over its recent ones (sheet 2): the week's steps, and a rate.
+        Shot(
+            "kind-stat-points", WidgetSize.S2X1, "Steps",
+            WidgetSpec.Stat(
+                base("Steps"), value = "6,240", label = "7 days",
+                points = listOf(5120f, 7400f, 4310f, 8020f, 6650f, 3980f, 6240f),
+            ),
+        ),
+        Shot(
+            "kind-stat-points", WidgetSize.S2X2, "1 EUR in USD",
+            WidgetSpec.Stat(
+                base("1 EUR in USD", color = ColorRole.INFO), value = "1.0824", label = "this week",
+                delta = "+0.4%", trend = "up",
+                points = listOf(1.0781f, 1.0802f, 1.0769f, 1.0795f, 1.0811f, 1.0818f, 1.0824f),
+            ),
+        ),
+        // On a scene (sheet 5). The shader is compiled off the main thread: a picture taken too early has the plain card.
+        Shot(
+            "kind-stat-scene", WidgetSize.S2X1, "Lisbon",
+            WidgetSpec.Stat(base("Lisbon"), value = "14°", label = "Clear night", scene = "pond"),
+            inView = true,
+        ),
+        Shot(
+            "kind-stat-scene", WidgetSize.S4X2, "Nairobi",
+            WidgetSpec.Stat(
+                base("Nairobi", "sun"), value = "31°", label = "Sunny", scene = "dunes",
+                more = listOf(
+                    WidgetSpec.Small("31°", "15:00"),
+                    WidgetSpec.Small("27°", "18:00"),
+                    WidgetSpec.Small("22°", "21:00")
+                ),
+            ),
+            inView = true,
+        ),
+        // Poster (sheet 3): a stat, a countdown and a clock.
+        Shot(
+            "kind-poster-stat", WidgetSize.S1X1, "Lisbon",
+            WidgetSpec.Stat(base("Lisbon"), value = "27°"),
+            look = WidgetLook.POSTER,
+        ),
+        Shot(
+            "kind-poster-stat", WidgetSize.S2X1, "Air",
+            WidgetSpec.Stat(base("Air", color = ColorRole.WARN), value = "118", label = "AQI"),
+            look = WidgetLook.POSTER,
+        ),
+        Shot(
+            "kind-poster-countdown", WidgetSize.S2X1, "Paris",
+            WidgetSpec.Countdown(base("Paris", color = ColorRole.INFO), to = now + 36 * 86_400 + 3_600, style = "days"),
+            look = WidgetLook.POSTER,
+        ),
+        Shot(
+            "kind-poster-clock", WidgetSize.S2X2, "Tokyo",
+            WidgetSpec.Clock(base("Tokyo"), listOf(WidgetSpec.Zone("Asia/Tokyo", "Tokyo"))),
+            look = WidgetLook.POSTER,
+        ),
         Shot(
             "kind-text", WidgetSize.S4X1, "Weather note",
             WidgetSpec.Text(
@@ -553,6 +621,72 @@ class WidgetGalleryTest {
                     WidgetSpec.Bar("Storage", 41f, 64f, "41 / 64 GB", null),
                     WidgetSpec.Bar("Mobile data", 4.1f, 5f, "4.1 / 5 GB", ColorRole.WARN)
                 ),
+            ),
+        ),
+        // A gauge: the arc in good, warn and bad, filled to the value, and the word in its zone's color.
+        Shot(
+            "kind-gauge", WidgetSize.S2X2, "Air · Nairobi",
+            WidgetSpec.Progress(
+                base("Air · Nairobi"), value = 118f, max = 300f, label = "Unhealthy for some",
+                style = "gauge", unit = "US AQI",
+                zones = listOf(
+                    WidgetSpec.GaugeZone(0f, ColorRole.GOOD),
+                    WidgetSpec.GaugeZone(51f, ColorRole.WARN),
+                    WidgetSpec.GaugeZone(151f, ColorRole.BAD),
+                ),
+            ),
+        ),
+        Shot(
+            "kind-gauge", WidgetSize.S2X1, "Wind · Paris",
+            WidgetSpec.Progress(
+                base("Wind · Paris"), value = 34f, max = 80f, label = "Strong", style = "gauge",
+                unit = "km/h",
+                zones = listOf(
+                    WidgetSpec.GaugeZone(0f, ColorRole.GOOD),
+                    WidgetSpec.GaugeZone(20f, ColorRole.WARN),
+                    WidgetSpec.GaugeZone(50f, ColorRole.BAD),
+                ),
+            ),
+        ),
+        // Nested rings: steps still under way is a wave.
+        Shot(
+            "kind-rings", WidgetSize.S4X2, "Today",
+            WidgetSpec.Progress(
+                base("Today"), value = 0f, style = "rings",
+                items = listOf(
+                    WidgetSpec.Bar("Steps", 6240f, 8000f, "6,240", ColorRole.ACCENT, moving = true),
+                    WidgetSpec.Bar("Water", 5f, 8f, null, ColorRole.LINK, unit = "glasses"),
+                    WidgetSpec.Bar("Sleep", 7.2f, 8f, "7:10", ColorRole.WARN, unit = "h"),
+                    WidgetSpec.Bar("Stand", 4f, 12f, null, ColorRole.GOOD, unit = "h"),
+                ),
+            ),
+            inView = true,
+        ),
+        Shot(
+            "kind-rings", WidgetSize.S2X2, "Today",
+            WidgetSpec.Progress(
+                base("Today"), value = 0f, style = "rings",
+                items = listOf(
+                    WidgetSpec.Bar("Steps", 6240f, 8000f, "6,240", ColorRole.ACCENT, moving = true),
+                    WidgetSpec.Bar("Water", 5f, 8f, "5/8", ColorRole.LINK),
+                    WidgetSpec.Bar("Sleep", 7.2f, 8f, "7h 10", ColorRole.WARN),
+                ),
+            ),
+            inView = true,
+        ),
+        // Stages: a parcel with each stage named, and a flight with the marks alone.
+        Shot(
+            "kind-stages", WidgetSize.S4X1, "Parcel",
+            WidgetSpec.Progress(
+                base("Parcel"), value = 0.4f, label = "By 18:00",
+                stages = listOf("Ordered", "Shipped", "On its way", "Delivered"), stage = 3,
+            ),
+        ),
+        Shot(
+            "kind-stages", WidgetSize.S2X1, "Flight to Paris",
+            WidgetSpec.Progress(
+                base("Flight to Paris", color = ColorRole.LINK), value = 0f, label = "Gate 23",
+                stages = listOf("Check-in", "Security", "Boarding", "Departed"), stage = 3,
             ),
         ),
         Shot(
@@ -600,6 +734,9 @@ class WidgetGalleryTest {
                 style = "dots"
             )
         ),
+        // A week of a habit: in Shape, a flower with a leaf for each day done.
+        Shot("kind-dots-week", WidgetSize.S2X2, "Exercise", habitWeek),
+        Shot("kind-dots-week", WidgetSize.S1X1, "Exercise", habitWeek),
         Shot(
             "kind-countdown", WidgetSize.S2X1, "Match starts",
             // 3:25:10 to go, and 72% of the wait is over.
@@ -616,6 +753,25 @@ class WidgetGalleryTest {
                 base("Exam", color = ColorRole.WARN),
                 to = now + 12 * 86_400 + 3_600,
                 label = "exam",
+                style = "days"
+            ),
+        ),
+        // In Shape, a sun that loses a ray as each day goes: 7 days left has 7 of its 12 rays, 2 days 2.
+        Shot(
+            "kind-countdown-sun", WidgetSize.S2X2, "Paris",
+            WidgetSpec.Countdown(
+                base("Paris", color = ColorRole.INFO),
+                to = now + 7 * 86_400 + 3_600,
+                label = "to Paris",
+                style = "days"
+            ),
+        ),
+        Shot(
+            "kind-countdown-sun", WidgetSize.S1X1, "Paris",
+            WidgetSpec.Countdown(
+                base("Paris", color = ColorRole.INFO),
+                to = now + 2 * 86_400 + 3_600,
+                label = "to Paris",
                 style = "days"
             ),
         ),
@@ -689,6 +845,72 @@ class WidgetGalleryTest {
             ),
             inView = true,
         ),
+        // In Shape, the picture in a clover with the caption beside it.
+        Shot(
+            "kind-image", WidgetSize.S2X1, "Today",
+            WidgetSpec.Image(
+                base("Today"),
+                image = HILLS,
+                alt = "Hills at sunrise",
+                caption = "Sunrise over the hills"
+            ),
+            inView = true,
+        ),
+        // A game of chess whose running clock is a wave, a match with possession as its bar, and the narrow card.
+        Shot("kind-versus", WidgetSize.S4X1, "Berlin", chess, inView = true),
+        Shot("kind-versus", WidgetSize.S2X2, "League", match),
+        Shot("kind-versus", WidgetSize.S2X1, "League", match),
+        // The sun by day, the sun at night under the horizon, and the moon with its next phases.
+        Shot("kind-sky", WidgetSize.S2X2, "Lisbon", sunByDay),
+        Shot("kind-sky", WidgetSize.S2X1, "Nairobi", sunByDay.copy(base = base("Nairobi", color = ColorRole.WARN))),
+        Shot("kind-sky-night", WidgetSize.S2X2, "Lisbon", sunAtNight),
+        Shot("kind-sky-moon", WidgetSize.S2X2, "Moon", moon),
+        Shot("kind-sky-moon", WidgetSize.S2X1, "Moon", moon),
+    )
+
+    /** A game of chess: Carlsen to move, his clock running. */
+    private val chess = WidgetSpec.Versus(
+        base("Berlin"),
+        listOf(
+            WidgetSpec.Side("Carlsen", mark = "NO", value = 72f, text = "1:12"),
+            WidgetSpec.Side("Caruana", mark = "US", value = 3490f, text = "58:10"),
+        ),
+        score = "1½–½",
+        turn = 1,
+        moving = true,
+        line = "17. b3 · Berlin",
+    )
+
+    /** A match in its 67th minute, with possession as the bar. */
+    private val match = WidgetSpec.Versus(
+        base("League"),
+        listOf(
+            WidgetSpec.Side("Lisbon", value = 58f),
+            WidgetSpec.Side("Paris", value = 42f),
+        ),
+        score = "2–1",
+        line = StyledText.color(ColorRole.ACCENT, "64' Goal") + " · Possession",
+        badge = "67'",
+    )
+
+    /** The sun up four hours ago and down in five: by day whenever the test runs. */
+    private val sunByDay = WidgetSpec.Sky(base("Lisbon", color = ColorRole.WARN), rises = now - 4 * 3600, sets = now + 5 * 3600)
+
+    /** The sun down eight hours ago and up again in six: at night whenever the test runs. */
+    private val sunAtNight = WidgetSpec.Sky(base("Lisbon", color = ColorRole.WARN), rises = now + 6 * 3600, sets = now + 16 * 3600)
+
+    /** The moon, 78% lit and waxing, up two hours ago, with its next three phases. */
+    private val moon = WidgetSpec.Sky(
+        base("Moon", color = ColorRole.LINK),
+        rises = now - 2 * 3600,
+        sets = now + 11 * 3600,
+        phase = 0.78f,
+        waxing = true,
+        phases = listOf(
+            WidgetSpec.Phase(1f, waxing = true, at = at(3, 4, 0)),
+            WidgetSpec.Phase(0.5f, waxing = false, at = at(10, 9, 0)),
+            WidgetSpec.Phase(0f, waxing = false, at = at(17, 22, 0)),
+        ),
     )
 
     /** The ready-made widgets of the mockup: the library scripts' cards, and Kolahal's own. */
@@ -741,6 +963,8 @@ class WidgetGalleryTest {
             "Old phones"
         )
         val battery = Status(batteryPct = 68, charging = true, network = "wifi")
+        val halfFull = Status(batteryPct = 48, network = "wifi")
+        val low = Status(batteryPct = 11, network = "cell")
         val week = listOf(41f, 58f, 37f, 64f, 52f, 71f, 46f)
         val ago = listOf("6 days ago", "today")
         val todos = listOf(
@@ -847,6 +1071,21 @@ class WidgetGalleryTest {
                 WidgetSize.S1X1,
                 BatteryCards.title(battery),
                 BatteryCards.spec(battery)
+            ),
+            // On battery, Shape gives the card a shape by its level: scalloped at 48%, spiky at 11%.
+            Shot(
+                "battery-level",
+                WidgetSize.S2X2,
+                BatteryCards.title(halfFull),
+                BatteryCards.spec(halfFull),
+                battery = halfFull
+            ),
+            Shot(
+                "battery-low",
+                WidgetSize.S1X1,
+                BatteryCards.title(low),
+                BatteryCards.spec(low),
+                battery = low
             ),
             Shot(
                 "unlocks", WidgetSize.S2X2, "Unlocks",
@@ -1125,13 +1364,15 @@ class WidgetGalleryTest {
 
         /**
          * A card's look on the website: one of the expressive looks, Bold, Split or Shape, by its
-         * [name] or else its [kind]. A picture offers only Plain and Tonal, so it is Tonal.
+         * [name] or else its [kind]. A picture is Tonal.
          */
         fun siteLook(name: String, kind: WidgetKind): WidgetLook = LOOK_BY_NAME[name] ?: when (kind) {
             WidgetKind.STAT, WidgetKind.CHART, WidgetKind.COUNTDOWN, WidgetKind.CLOCK -> WidgetLook.BOLD
             WidgetKind.PROGRESS, WidgetKind.BUTTONS -> WidgetLook.SHAPE
             WidgetKind.TEXT, WidgetKind.LIST, WidgetKind.AGENDA, WidgetKind.TOGGLES, WidgetKind.MEDIA -> WidgetLook.SPLIT
             WidgetKind.IMAGE -> WidgetLook.TONAL
+            WidgetKind.VERSUS -> WidgetLook.BOLD
+            WidgetKind.SKY -> WidgetLook.SHAPE
         }
     }
 }

@@ -85,6 +85,31 @@ internal object ReferenceExamplesVariants {
             of = "steps", variant = "Value only",
         ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240") },
         Widget(
+            "steps-week", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
+            lua = """
+            widget.show{
+              kind = "stat",
+              value = "6,240",
+              label = "Steps today",
+              points = { 5120, 7400, 4310, 8020, 6650, 3980, 6240 },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "stat",
+              value: "6,240",
+              label: "Steps today",
+              points: [5120, 7400, 4310, 8020, 6650, 3980, 6240],
+            });
+            """,
+            of = "steps", variant = "With the week",
+        ) { _, _ ->
+            WidgetSpec.Stat(
+                WidgetBase(), value = "6,240", label = "Steps today",
+                points = listOf(5120f, 7400f, 4310f, 8020f, 6650f, 3980f, 6240f),
+            )
+        },
+        Widget(
             "text-long", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
             lua = """
             widget.show{
@@ -390,6 +415,171 @@ internal object ReferenceExamplesVariants {
                     WidgetSpec.Bar("Storage", 96f, 128f, "96 / 128 GB", ColorRole.WARN),
                     WidgetSpec.Bar("Data", 1.4f, 2f, "1.4 / 2 GB", null),
                 ),
+            )
+        },
+        Widget(
+            "progress-gauge", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
+            lua = """
+            widget.show{
+              kind = "progress",
+              title = "UV · Lisbon",
+              style = "gauge",
+              value = 7,
+              max = 11,
+              label = "High",
+              zones = {
+                { from = 0, color = "good" },
+                { from = 3, color = "warn" },
+                { from = 8, color = "bad" },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "progress",
+              title: "UV · Lisbon",
+              style: "gauge",
+              value: 7,
+              max: 11,
+              label: "High",
+              zones: [
+                { from: 0, color: "good" },
+                { from: 3, color: "warn" },
+                { from: 8, color: "bad" },
+              ],
+            });
+            """,
+            of = "progress", variant = "Gauge",
+        ) { _, _ ->
+            WidgetSpec.Progress(
+                WidgetBase(title = "UV · Lisbon"), value = 7f, max = 11f, label = "High",
+                style = "gauge",
+                zones = listOf(
+                    WidgetSpec.GaugeZone(0f, ColorRole.GOOD),
+                    WidgetSpec.GaugeZone(3f, ColorRole.WARN),
+                    WidgetSpec.GaugeZone(8f, ColorRole.BAD),
+                ),
+            )
+        },
+        Widget(
+            "progress-rings", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
+            lua = """
+            widget.show{
+              kind = "progress",
+              title = "Today",
+              style = "rings",
+              items = {
+                {
+                  label = "Steps",
+                  value = 6240,
+                  max = 8000,
+                  text = "6,240",
+                  color = "accent",
+                  moving = true,
+                },
+                {
+                  label = "Water",
+                  value = 5,
+                  max = 8,
+                  text = "5/8",
+                  unit = "glasses",
+                  color = "link",
+                },
+                {
+                  label = "Sleep",
+                  value = 7.2,
+                  max = 8,
+                  text = "7:10",
+                  unit = "h",
+                  color = "warn",
+                },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "progress",
+              title: "Today",
+              style: "rings",
+              items: [
+                {
+                  label: "Steps",
+                  value: 6240,
+                  max: 8000,
+                  text: "6,240",
+                  color: "accent",
+                  moving: true,
+                },
+                {
+                  label: "Water",
+                  value: 5,
+                  max: 8,
+                  text: "5/8",
+                  unit: "glasses",
+                  color: "link",
+                },
+                {
+                  label: "Sleep",
+                  value: 7.2,
+                  max: 8,
+                  text: "7:10",
+                  unit: "h",
+                  color: "warn",
+                },
+              ],
+            });
+            """,
+            of = "progress", variant = "Rings",
+        ) { _, _ ->
+            // With rings and no value, the value is 0 of 1: the card draws the rings.
+            WidgetSpec.Progress(
+                WidgetBase(title = "Today"), value = 0f, max = 1f, style = "rings",
+                items = listOf(
+                    WidgetSpec.Bar("Steps", 6240f, 8000f, "6,240", ColorRole.ACCENT, moving = true),
+                    WidgetSpec.Bar("Water", 5f, 8f, "5/8", ColorRole.LINK, unit = "glasses"),
+                    WidgetSpec.Bar("Sleep", 7.2f, 8f, "7:10", ColorRole.WARN, unit = "h"),
+                ),
+            )
+        },
+        Widget(
+            "progress-stages", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
+            lua = """
+            widget.show{
+              kind = "progress",
+              title = "Flight to Paris",
+              stages = {
+                "Check-in",
+                "Security",
+                "Boarding",
+                "Departed",
+              },
+              stage = 3,
+              label = "Gate 23",
+              color = "link",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "progress",
+              title: "Flight to Paris",
+              stages: [
+                "Check-in",
+                "Security",
+                "Boarding",
+                "Departed",
+              ],
+              stage: 3,
+              label: "Gate 23",
+              color: "link",
+            });
+            """,
+            of = "progress", variant = "Stages",
+        ) { _, _ ->
+            WidgetSpec.Progress(
+                WidgetBase(title = "Flight to Paris", color = ColorRole.LINK), value = 0f,
+                label = "Gate 23",
+                stages = listOf("Check-in", "Security", "Boarding", "Departed"),
+                stage = 3,
             )
         },
         Widget(
@@ -989,6 +1179,162 @@ internal object ReferenceExamplesVariants {
                     ),
                 ),
                 days = 4,
+            )
+        },
+        Widget(
+            "versus-chess", WidgetKind.VERSUS, WidgetSize.S2X2, "Match",
+            lua = """
+            widget.show{
+              kind = "versus",
+              title = "Berlin",
+              score = "1½–½",
+              turn = 1,
+              moving = true,
+              sides = {
+                {
+                  name = "Carlsen",
+                  mark = "NO",
+                  value = 72,
+                  text = "1:12",
+                },
+                {
+                  name = "Caruana",
+                  mark = "US",
+                  value = 3490,
+                  text = "58:10",
+                },
+              },
+              line = "17. b3",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "versus",
+              title: "Berlin",
+              score: "1½–½",
+              turn: 1,
+              moving: true,
+              sides: [
+                {
+                  name: "Carlsen",
+                  mark: "NO",
+                  value: 72,
+                  text: "1:12",
+                },
+                {
+                  name: "Caruana",
+                  mark: "US",
+                  value: 3490,
+                  text: "58:10",
+                },
+              ],
+              line: "17. b3",
+            });
+            """,
+            of = "versus", variant = "A game of chess",
+        ) { _, _ ->
+            WidgetSpec.Versus(
+                WidgetBase(title = "Berlin"),
+                listOf(
+                    WidgetSpec.Side("Carlsen", mark = "NO", value = 72f, text = "1:12"),
+                    WidgetSpec.Side("Caruana", mark = "US", value = 3490f, text = "58:10"),
+                ),
+                score = "1½–½",
+                turn = 1,
+                moving = true,
+                line = "17. b3",
+            )
+        },
+        Widget(
+            "sky-moon", WidgetKind.SKY, WidgetSize.S2X2, "Sky",
+            lua = """
+            local t = os.date("*t")
+            local function on(day, hour, min)
+              return os.time({
+                year = t.year,
+                month = t.month,
+                day = t.day + day,
+                hour = hour,
+                min = min,
+              })
+            end
+
+            widget.show{
+              kind = "sky",
+              title = "Lisbon",
+              color = "link",
+              rises = on(0, 13, 50),
+              sets = on(1, 3, 12),
+              phase = 0.78,
+              waxing = true,
+              phases = {
+                {
+                  phase = 1,
+                  waxing = true,
+                  at = on(3, 4, 0),
+                },
+                {
+                  phase = 0.5,
+                  at = on(10, 9, 0),
+                },
+                {
+                  phase = 0,
+                  at = on(17, 22, 0),
+                },
+              },
+            }
+            """,
+            js = """
+            const t = new Date();
+            const on = (day, hour, min) => new Date(
+              t.getFullYear(),
+              t.getMonth(),
+              t.getDate() + day,
+              hour,
+              min,
+            ).getTime() / 1000;
+
+            widget.show({
+              kind: "sky",
+              title: "Lisbon",
+              color: "link",
+              rises: on(0, 13, 50),
+              sets: on(1, 3, 12),
+              phase: 0.78,
+              waxing: true,
+              phases: [
+                {
+                  phase: 1,
+                  waxing: true,
+                  at: on(3, 4, 0),
+                },
+                {
+                  phase: 0.5,
+                  at: on(10, 9, 0),
+                },
+                {
+                  phase: 0,
+                  at: on(17, 22, 0),
+                },
+              ],
+            });
+            """,
+            of = "sky", variant = "The moon",
+        ) { now, zone ->
+            val today = java.time.Instant.ofEpochSecond(now).atZone(zone).toLocalDate()
+            fun on(day: Long, hour: Int, min: Int) =
+                today.plusDays(day).atTime(hour, min).atZone(zone).toEpochSecond()
+            WidgetSpec.Sky(
+                WidgetBase(title = "Lisbon", color = ColorRole.LINK),
+                rises = on(0, 13, 50),
+                sets = on(1, 3, 12),
+                phase = 0.78f,
+                waxing = true,
+                phases = listOf(
+                    WidgetSpec.Phase(1f, waxing = true, at = on(3, 4, 0)),
+                    WidgetSpec.Phase(0.5f, waxing = false, at = on(10, 9, 0)),
+                    WidgetSpec.Phase(0f, waxing = false, at = on(17, 22, 0)),
+                ),
             )
         },
     )

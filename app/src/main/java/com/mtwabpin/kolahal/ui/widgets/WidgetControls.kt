@@ -164,6 +164,7 @@ private fun Modifier.tapLabel(label: String?): Modifier =
  * - A box lower than one row (a large font makes the card's title line taller) does not press the
  *   row under 48 dp. The row keeps its height and reaches down into the card's padding.
  * - With nothing to lay out it says "Nothing to show": a built-in card can have no buttons yet.
+ * - A button held down widens, and the ones beside it in its row narrow ([giveWayWeight]).
  */
 @Composable
 private fun ControlGrid(
@@ -187,6 +188,7 @@ private fun ControlGrid(
             MAX_CONTROL
         )
         val all = height * grid.rows + gap * (grid.rows - 1)
+        val giveWay = remember { GiveWay() }
         // Measured with no limit on its height, and kept at the top when it is taller than the box.
         Column(
             Modifier
@@ -196,6 +198,8 @@ private fun ControlGrid(
             verticalArrangement = Arrangement.spacedBy(gap)
         ) {
             for (row in 0 until grid.rows) {
+                val first = row * grid.columns
+                val inRow = (grid.shown - first).coerceIn(0, grid.columns)
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -203,13 +207,13 @@ private fun ControlGrid(
                     horizontalArrangement = Arrangement.spacedBy(gap)
                 ) {
                     for (column in 0 until grid.columns) {
-                        val index = row * grid.columns + column
-                        // An empty cell keeps the last row's buttons as wide as the others.
+                        val index = first + column
+                        // An empty cell keeps the last row's buttons as wide as the others. A held button widens.
                         Box(
                             Modifier
-                                .weight(1f)
+                                .weight(giveWayWeight(giveWay, first, inRow, column))
                                 .fillMaxHeight()
-                        ) { if (index < grid.shown) key(index) { cell(index, width, height) } }
+                        ) { if (index < grid.shown) key(index) { GiveWayCell(giveWay, index) { cell(index, width, height) } } }
                     }
                 }
             }
@@ -421,6 +425,8 @@ internal val PLAY_MORPH: Morph by lazy { Morph(MaterialShapes.Cookie9Sided, Mate
  * with it. The progress is read while drawing: a morph that runs draws again and composes nothing,
  * and the path is made again only when the progress or the size has changed. With an [image], the
  * shape is the square picture stretched to the size and darkened ([ART_SCRIM]), not the color.
+ * With [settles], a progress on [settleSpec] past either end makes the shape a little larger, not
+ * more of a morph: the shape settles, as a card's shape does ([settledShape]).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal fun Modifier.morphFill(
@@ -428,17 +434,28 @@ internal fun Modifier.morphFill(
     from: Color,
     to: Color = from,
     image: ImageBitmap? = null,
+    settles: Boolean = false,
     progress: () -> Float
 ): Modifier = drawWithCache {
     val path = Path()
     val stretch = Matrix().apply { scale(size.width, size.height) }
+    val grow = Matrix()
     var made = Float.NaN
     onDrawBehind {
         val p = progress()
         if (p != made) {
-            morph.toPath(p, path)
+            morph.toPath(if (settles) ShapeSteps.settleMorph(p) else p, path)
             path.transform(stretch)
             path.translate(size.center - path.getBounds().center)
+            if (settles) {
+                // Larger about the middle while the spring swings past its end.
+                val scale = ShapeSteps.settleScale(p)
+                path.translate(-size.center)
+                grow.reset()
+                grow.scale(scale, scale)
+                path.transform(grow)
+                path.translate(size.center)
+            }
             made = p
         }
         if (image == null) {
@@ -473,7 +490,8 @@ private fun lookGrid(count: Int, widthDp: Int, heightDp: Int, maxColumns: Int): 
  * Split's grid of buttons or switches:[count] tiles that fill the box, 4 dp apart, with 28 dp
  * corners where they touch the card's edge and 8 dp inside ([SplitCorners.inGrid]). The rows are
  * as [WidgetWords.grid] lays them out; a short last row has wider tiles, so the grid stays a
- * rectangle. [cell] draws item `index` in its `tile` shape, `width` by `height`.
+ * rectangle. [cell] draws item `index` in its `tile` shape, `width` by `height`. A tile held down
+ * widens, and the ones beside it narrow ([giveWayWeight]).
  */
 @Composable
 private fun SplitGrid(
@@ -490,6 +508,7 @@ private fun SplitGrid(
         val gap = SplitCorners.GAP
         val boxWidth = maxWidth
         val height = ((maxHeight - gap * (grid.rows - 1)) / grid.rows).coerceAtLeast(CONTROL_MIN)
+        val giveWay = remember { GiveWay() }
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
             for (row in 0 until grid.rows) {
                 val first = row * grid.columns
@@ -503,18 +522,21 @@ private fun SplitGrid(
                 ) {
                     for (column in 0 until inRow) {
                         val index = first + column
+                        // A held tile widens, and the ones beside it narrow.
                         Box(
                             Modifier
-                                .weight(1f)
+                                .weight(giveWayWeight(giveWay, first, inRow, column))
                                 .fillMaxHeight()
                         ) {
                             key(index) {
-                                cell(
-                                    index,
-                                    SplitCorners.inGrid(index, grid.shown, grid.columns),
-                                    width,
-                                    height
-                                )
+                                GiveWayCell(giveWay, index) {
+                                    cell(
+                                        index,
+                                        SplitCorners.inGrid(index, grid.shown, grid.columns),
+                                        width,
+                                        height
+                                    )
+                                }
                             }
                         }
                     }
@@ -637,6 +659,7 @@ private fun CardButton(
 ) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
+    ReportPress(source)
     val tonal = ButtonDefaults.filledTonalButtonColors()
     val look = LocalWidgetLook.current
     val looks = lookColors(look)
@@ -881,6 +904,7 @@ private fun CardToggle(
 ) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
+    ReportPress(source)
     val look = LocalWidgetLook.current
     val looks = lookColors(look, cardRole)
     val plain = tile == null && look != WidgetLook.TONAL
@@ -990,7 +1014,8 @@ private val SPLIT_TOGGLE_TALL = 76.dp
  * One switch of the Shape look: a 48 dp shape with the icon, its label and "On" or "Off" beside it
  * where the cell is wide enough, or its label under it where the cell is tall enough.
  * - On, the shape is a cookie in the card's [cardRole] color; off, a circle a little lighter than the
- *   card. A change of state morphs one into the other. Only the drawing runs again while it does.
+ *   card. A change of state morphs one into the other and settles ([settleSpec]). Only the drawing
+ *   runs again while it does.
  * - The whole of it is one Material toggle button, so a tap on the label is a tap on the switch.
  * - Without an icon, the shape has the label's first letter.
  */
@@ -1007,11 +1032,7 @@ private fun ShapeToggle(
     val press = cardPress(source)
     val scheme = MaterialTheme.colorScheme
     val looks = lookColors(WidgetLook.SHAPE, cardRole)
-    val on = animateFloatAsState(
-        if (toggle.on) 1f else 0f,
-        MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "toggle"
-    )
+    val on = animateFloatAsState(if (toggle.on) 1f else 0f, settleSpec(), label = "toggle")
     val content = scheme.onSurface
     val clear = ToggleButtonDefaults.colors().copy(
         containerColor = Color.Transparent,
@@ -1050,7 +1071,8 @@ private fun ShapeToggle(
                     .morphFill(
                         TOGGLE_MORPH,
                         scheme.surfaceContainerHighest,
-                        looks.accent
+                        looks.accent,
+                        settles = true
                     ) { on.value },
                 contentAlignment = Alignment.Center
             ) {

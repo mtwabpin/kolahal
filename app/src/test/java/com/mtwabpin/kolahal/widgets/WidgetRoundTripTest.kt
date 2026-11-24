@@ -173,6 +173,37 @@ class WidgetRoundTripTest {
     )
 
     @Test
+    fun versus() = roundTrip(
+        WidgetKind.VERSUS,
+        base + mapOf(
+            "sides" to listOf(
+                mapOf("name" to "Carlsen", "mark" to "N", "color" to "accent", "value" to 72, "text" to "1:12"),
+                mapOf("name" to "Caruana", "mark" to "U", "color" to "link", "value" to 3490, "text" to "58:10"),
+            ),
+            "score" to "1½–½",
+            "turn" to 1,
+            "moving" to true,
+            "line" to "17. b3 · Berlin",
+            "badge" to "LIVE",
+        ),
+    )
+
+    @Test
+    fun sky() = roundTrip(
+        WidgetKind.SKY,
+        base + mapOf(
+            "rises" to 1_800_000_000L,
+            "sets" to 1_800_040_000L,
+            "phase" to 0.78,
+            "waxing" to true,
+            "phases" to listOf(
+                mapOf("phase" to 1, "waxing" to true, "at" to 1_800_300_000L),
+                mapOf("phase" to 0.5, "at" to 1_800_900_000L),
+            ),
+        ),
+    )
+
+    @Test
     fun progress() = roundTrip(
         WidgetKind.PROGRESS,
         base + mapOf(
@@ -269,6 +300,11 @@ class WidgetRoundTripTest {
             WidgetKind.IMAGE,
             mapOf("image" to "https://example.com/a.png", "alt" to "A picture")
         )
+        roundTrip(
+            WidgetKind.VERSUS,
+            mapOf("sides" to listOf(mapOf("name" to "Lisbon"), mapOf("name" to "Paris")), "score" to "0–0")
+        )
+        roundTrip(WidgetKind.SKY, mapOf("rises" to 1_800_000_000L, "sets" to 1_800_036_000L))
     }
 
     /** Every kind a script can use is in the tests above: a new kind needs its round trip. */
@@ -285,7 +321,9 @@ class WidgetRoundTripTest {
             "toggles",
             "clock",
             "agenda",
-            "image"
+            "image",
+            "versus",
+            "sky"
         )
         assertEquals(tested, WidgetKind.forScripts.map { it.id }.toSet())
     }

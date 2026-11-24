@@ -165,21 +165,22 @@ internal fun BesideShape(
     }
 }
 
-/** A value in Bold's type, [size] at most, in [color], with its [unit] smaller after it. */
+/** A value in Bold's type, [size] at most, in [color], with its [unit] smaller after it. With [rolls], its digits roll ([RollingText]). */
 @Composable
 internal fun BoldValue(
     value: String,
     unit: String?,
     size: TextUnit,
     color: Color,
-    unitColor: Color = MaterialTheme.colorScheme.onSurface
+    unitColor: Color = MaterialTheme.colorScheme.onSurface,
+    rolls: Boolean = false
 ) {
     Row {
-        BoldText(
-            value, size, color, Modifier
-                .weight(1f, fill = false)
-                .alignByBaseline()
-        )
+        val place = Modifier
+            .weight(1f, fill = false)
+            .alignByBaseline()
+        if (rolls) RollingText(value) { roll, laid -> BoldText(value, size, color, place.then(roll), laid) }
+        else BoldText(value, size, color, place)
         unit?.let {
             val unitSize = maxOf(size.value * 0.22f, 12f).sp
             Text(

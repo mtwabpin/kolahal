@@ -68,12 +68,15 @@ Built, and not in the design:
 
 - *Looks* (0.5.15). Each placed widget that Kolahal draws has a look
   ([[src:widgets/WidgetLook.kt::enum class WidgetLook][WidgetLook]]): Plain, Tonal, Bold, Split or
-  Shape. A kind offers only the looks that change it: =image= has Plain and Tonal, and =buttons=,
-  =toggles= and =media= have no Bold.
+  Shape. A kind offers only the looks that change it: =image= has Plain, Tonal and Shape, and
+  =buttons=, =toggles= and =media= have no Bold.
 - *Places anywhere* (0.5.15). Every widget has a column (of 12) and a top in dp
   ([[src:widgets/WidgetPlacement.kt::object WidgetPlacement][WidgetPlacement]]). Widgets never
   overlap, keep 8 dp between them, and push down what is in their way. The page is laid out by
   [[src:ui/widgets/HostedWidgets.kt::internal fun WidgetGrid][WidgetGrid]].
+- *Poster* (0.5.17), a sixth look for =stat=, =countdown= and =clock= only: the value so large that
+  the card's end and bottom edges crop it, never more than a fifth of the last character's width
+  and 15% of a digit's height ([[src:ui/widgets/WidgetPoster.kt::object PosterFit][PosterFit]]), with the label small in a corner.
 - *Arrange widgets* (the Widgets screen). A tap chooses a widget, a long-press drags it over column
   guides, handles on its end and bottom edges resize it, and dropping it on the Remove target
   removes it (after a question). Close gaps packs the page. The toolbar has a Look row and a Size
@@ -241,7 +244,7 @@ Phase 4 was dropped.
 | description     | The table (Lua) or object (JavaScript) a script hands to =widget.show=.                  |
 | state           | The last checked description of a widget, plus when it was set and the last error.       |
 | placed          | The user added the widget to the widgets page.                                           |
-| look            | How Kolahal draws a placed widget: Plain, Tonal, Bold, Split or Shape.                   |
+| look            | How Kolahal draws a placed widget: Plain, Tonal, Bold, Split, Shape or Poster.          |
 | role            | A color by meaning, not by value: =accent=, =good=, =warn=, =bad=, =info=, =link=, =muted=, =text=. |
 
 * What existed before widgets, and what it meant for the design
@@ -840,10 +843,10 @@ a script can't run it.
 |--------------------------+--------------------------------------------------------------------------------------------------------|
 | The card                 | A =Surface= with large round corners (28 dp; 24 dp for a small box). Split's tiles have 28 dp outside and 8 dp inside, 4 dp apart. |
 | The icon                 | Drawn only by some looks: a cookie with the icon beside a Bold stat's value, the icon by the title in a Split stat or countdown, and a shape with the icon (or the title's first letter) in a Shape stat or text. A Plain or Tonal card has no badge since the title line went (21 November 2026). The design had a badge on every large card. |
-| Shape                    | In a square box (1×1, 2×2) the whole card is one =MaterialShapes= shape; in a wide one the main value sits in a shape. Buttons and switches each take a shape, and change shape when pressed or switched. |
+| Shape                    | In a square box (1×1, 2×2) the whole card is one =MaterialShapes= shape; in a wide one the main value sits in a shape. Buttons and switches each take a shape, and change shape when pressed or switched. Some shapes carry the value ([[src:ui/widgets/WidgetShapeValues.kt::internal fun carriesShape][WidgetShapeValues]]): a countdown is a sun of 12 rays that loses one as each step goes (a day, an hour or five minutes, by the wait), a week of a habit is a flower of 7 leaves, and the battery goes from a circle through cookies to a burst as it runs low. |
 | The large card's frame  | 16 dp at the sides and 14 dp at the top and bottom. No card has a title line since 21 November 2026: the content names the card small where it needs to, and the note and the age are the last line. |
 | List rows                | Each row in a lightly tinted container: 16 dp corners at the ends of the list, 4 dp between rows, 2 dp apart. A plain =Row=, so a row can be as low as 32 dp. A clock's rows in a large card too. |
-| Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. Rows of them in a =ButtonGroup=. |
+| Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. A held button widens by 15% and its neighbours in the row narrow, as in a =ButtonGroup=, on the fast spatial spring; the grid does it with its rows' weights, since a =ButtonGroup= is one row with an overflow menu. |
 | Toggles                  | =ToggleButton=: round when off, squarer and filled when on. Off is a light tint of the text color. A tall one says "On" or "Off" under its label. |
 | Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match. A wave has Material's 4 dp line and waves of 20 dp. |
 | A countdown's bar        | A wave that stands still: wave speed 0, so it costs nothing per frame. Its height changes once, at 10% and at 95%. |
@@ -851,6 +854,7 @@ a script can't run it.
 | Loading                  | =LoadingIndicator=.                                                                                    |
 | A value that changes     | The new value slides up over the old one (=AnimatedContent=), as the pinned header's lines do.         |
 | A bar or ring that changes | It moves to the new value on a spring from =MaterialTheme.motionScheme=.                             |
+| A shape that changes     | It morphs to the new shape on the fast spatial spring and grows about 5% past its size once on the way, then comes to rest ([[src:ui/widgets/WidgetShapeMotion.kt::internal fun rememberSettle][rememberSettle]]). The same for a Shape switch and the play or pause button. |
 | Charts                   | Drawn on a Compose =Canvas=. No chart library.                                                         |
 
 =ExpressiveOnlyTest= checks these files like any other, so an older component can't slip in.
@@ -1030,7 +1034,7 @@ library script, or a built-in widget, on top of a kind.
 
 ** Widget kinds
 
-Twelve kinds, all built ([[src:widgets/WidgetSpec.kt::enum class WidgetKind][WidgetKind]]). Six
+Fourteen kinds, all built ([[src:widgets/WidgetSpec.kt::enum class WidgetKind][WidgetKind]]). Six
 were in the first build. "Sizes" are the sizes a kind is made for; "Default" is the size it gets
 when its =@widget= line names none.
 
@@ -1039,7 +1043,7 @@ when its =@widget= line names none.
 | 1  | =stat=      | one big value, its label, up to 3 smaller ones | 1×1, 2×1, 2×2, 4×1      | 2×1     | First   | yes   |
 | 2  | =text=      | a few lines of text and a caption              | 2×1, 2×2, 4×1, 4×2      | 2×2     | First   | yes   |
 | 3  | =list=      | rows, each with a title and more               | 2×2, 4×2, 4×4           | 4×2     | First   | yes   |
-| 4  | =progress=  | a ring or bars                                 | 1×1, 2×1, 2×2           | 2×1     | First   | yes   |
+| 4  | =progress=  | a ring, bars, rings, a gauge or stages         | 1×1, 2×1, 2×2, 4×1, 4×2 | 2×1     | First   | yes   |
 | 5  | =chart=     | a line, bars or dots over time                 | 2×1, 2×2, 4×2           | 2×2     | First   | yes   |
 | 6  | =countdown= | time to or since a moment; Kolahal ticks       | 1×1, 2×1, 2×2           | 2×1     | First   | yes   |
 | 7  | =buttons=   | a grid of buttons                              | 2×1, 2×2, 4×1, 4×2      | 4×1     | Phase 2 | yes   |
@@ -1048,6 +1052,8 @@ when its =@widget= line names none.
 | 10 | =agenda=    | events by day                                  | 2×2, 4×2, 4×4           | 4×2     | Phase 2 | yes   |
 | 11 | =media=     | what is playing, with its controls             | 2×1, 4×1, 4×2           | 4×1     | Phase 2 | yes   |
 | 12 | =image=     | one picture with a caption                     | 2×2, 4×2, 4×4           | 2×2     | Phase 3 | yes   |
+| 13 | =versus=    | two sides and the score between them           | 2×1, 2×2, 4×1, 4×2      | 4×1     | 0.5.17  | yes   |
+| 14 | =sky=       | the sun's or the moon's path; Kolahal moves it | 2×1, 2×2                | 2×2     | 0.5.17  | yes   |
 
 The limits of every field are in [[src:widgets/WidgetParser.kt::object WidgetParser][WidgetParser]]
 and in the reference's Limits table (=api.mdx=).
@@ -1062,7 +1068,10 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Fields :: =value= (text or number, needed, up to 40). =label= (up to 60, may have styles).
   =unit= (up to 12). =delta= (text such as "+2.4%", up to 16) with =trend= (=up=, =down= or
   =flat=). =more=: up to 3 of ~{ value, label }~, each up to 24. =progress= (0 to 1), with
-  =moving= (true) to draw it as a wave, for something in progress.
+  =moving= (true) to draw it as a wave, for something in progress. =points= (numbers, the last
+  60): a soft line under the value, from edge to edge. =scene=: a shader whose still is the card's
+  ground, under a scrim (=StatScenes=: no shader on text or played once). The value's digits roll
+  to a new value (=RollingText=).
 - When small :: 1×1 shows the value and the label. The smaller values and the title are left out.
 - Data :: Any script.
 - Refresh :: The usual. =refresh= suits a live score.
@@ -1098,7 +1107,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Data :: Any script. Built-in: Todos, Reminders (phase 2).
 - Taps :: Each row, and the card.
 
-*** 4. =progress=: a ring or bars                                :first:built:
+*** 4. =progress=: a ring, bars, rings, a gauge or stages        :first:built:
 
 - Shows :: How far along something is. A ring with a text in its middle, or up to four bars on
   one scale.
@@ -1106,6 +1115,19 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   "68%"). =label=. =style=: =ring= or =bar=; without it the box decides. Or =items=: up to 4 of ~{
   label, value, max, text, color }~ for bars, on one scale: the widget's =max=, or the largest
   value. =value= or =items= is needed. =moving= (true) draws the wave, for something in progress.
+- Gauge :: =style= =gauge=: a thick arc from =min= (0) to =max=, filled to the value with a knob,
+  the value large inside, =unit= with it, and =label= as the word for the value in its zone's
+  color. =zones=: up to 5 of ~{ from, color }~, rising; without them the arc is in the card's
+  color. Bold fills the card in the value's zone; Shape puts the arc in the clover.
+- Rings :: =style= =rings=: =items= as up to 4 rings inside each other, each in its color with a
+  dim track; an item's =moving= makes that ring a wave. 4×2: each ring named beside them, its
+  value large and "of 8,000" (its =max= and =unit=). 2×2: the first 3 values under the rings.
+  1-row: a short row each beside them. Split gives the rings and the values tiles; Shape sets the
+  rings in a cookie.
+- Stages :: =stages= (2 to 6 names) and =stage= (from 1): done stages are ticked dots, the current
+  one a cookie, the way to the next a wave (=value= of =max= along it), later ones rings. The
+  current name is the main text, =label= under it. 4×1: names under the marks; 2×1: the marks
+  alone. Bold fills the card to how far along the path.
 - When large :: The ring, with its label under it in bold and in the card's color.
 - When small :: 1×1 is the ring with its text.
 - Data :: Any script. Built-in: Battery and network.
@@ -1219,10 +1241,56 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - When large or wide :: A cropped picture covers the whole card, and a chip over it holds the
   caption (large only), the title and the footer.
 - When small :: The picture alone. Without a picture, the card shows the =alt= text.
-- Looks :: Plain and Tonal only.
+- Looks :: Plain, Tonal and Shape. Shape cuts the picture to a cookie with the caption under it,
+  or to a clover with the caption beside it in a 1-row card
+  ([[src:ui/widgets/WidgetImageShape.kt::internal fun ShapedImage][ShapedImage]]). Until the
+  picture is there, the shape is in the card's color with its icon.
 - Data :: Any script with the internet switch on. Home fetches the picture only while the widgets
   page is in view, over https only, with the log's picture cache
   ([[src:ui/widgets/WidgetImage.kt::internal fun ImageBody][ImageBody]]).
+- Taps :: The card.
+
+*** 13. =versus=: two sides and a score                                       :built:
+
+- Shows :: Two sides, each with its name and its mark (a letter or two on a Material shape, in the
+  side's color), and the score large between them. A bar of two parts, one for each side, with
+  each side's figure at its end: the clocks' time left, the possession. A dot marks the side to
+  move. A last line and a small badge at the top.
+- Fields :: =sides= (exactly 2, each =name= (needed, 24), =mark= (2 characters as seen),
+  =color=, =value= (0 or more: its part of the bar), =text= (12: its figure)). =score= (needed,
+  24). =turn= (1 or 2). =moving= (the turn's part of the bar is a wave). =line= (60, may have
+  styles). =badge= (8).
+- When wide :: A 4×1 card: each name beside its mark, the score with the badge and the last line
+  between them, the bar under them. Narrower (2×1): the score between the marks and the names
+  under them, no bar.
+- When large :: The title and the badge, the marks either side of the score with the names under
+  them, the bar and the last line.
+- When small :: The score over the two marks.
+- Looks :: All but Shape: the marks are shapes in every look. Bold has the score in Bold's type
+  in the card's color, Split each side and the score on tiles.
+- Data :: Made for the library's football, cricket and chess scripts, which show a stat today
+  ([[src:ui/widgets/WidgetVersus.kt::internal fun VersusBody][VersusBody]]).
+- Taps :: The card.
+
+*** 14. =sky=: the sun's path, or the moon's                                   :built:
+
+- Shows :: An arc from the rise to the set, the sun (Material's sunny shape) at its place for the
+  time now, the travelled part stronger than the part to come, and a dim band under the horizon.
+  At night the sun is under the horizon on a dotted arc that keeps inside the sky's own room. With
+  a =phase= it is the moon, drawn in its phase, with its phase's name and its next phases.
+- Fields :: =rises= and =sets= (needed, times in seconds; =sets= after =rises=, less than a day
+  of the body later). =phase= (0 to 1, the lit part). =waxing=. =phases= (up to 4 =phase=,
+  =waxing=, =at=; they go with =phase=).
+- Moves :: Kolahal moves the body by the minute, as it ticks the clock and the countdown: the
+  script gives times, never a place. Times of an earlier day move by whole days (a day of the
+  moon is 24 h 50 min) ([[src:ui/widgets/SkyWords.kt::internal object SkyWords][SkyWords]]).
+- When wide :: The place, the next time large and what comes next ("Sunset in 2 h 10 min"), the
+  sky at the end.
+- When large :: The place and what comes next over the sky, the times at the arc's ends, their
+  names or the moon's next phases with their days.
+- When small :: The sky over the next time.
+- Looks :: All five. Shape puts the sky in the sun's shape (a circle for the moon); in a square
+  box that shape is the card.
 - Taps :: The card.
 
 ** Ready-made widgets
@@ -1748,8 +1816,8 @@ became =terminal/OwnWidgets.kt= and =WidgetAge= in =terminal/WidgetActions.kt=.
 | =ScriptWidgets.kt=           | The card's frame (=WidgetCard=), its states (=CardNote=) and footer, a script's card (=ScriptWidget=), the choice of card for a source (=SourceWidget=), and the Battery and network card. |
 | =OwnWidgets.kt=              | The built-in cards: what each draws (=OwnCards=, pure) and the cards of Shortcuts, Now playing, Agenda, Todos, Reminders and Notes. |
 | =WidgetKinds.kt=             | =KindBody=, which draws a kind's content, and what the kinds share.                                    |
-| One file for each kind       | =WidgetStat.kt=, =WidgetText.kt=, =WidgetList.kt=, =WidgetProgress.kt=, =WidgetChart.kt= (with =WidgetDots.kt= for dots), =WidgetCountdown.kt=, =WidgetImage.kt=, =WidgetControls.kt= (buttons and toggles), =WidgetClock.kt=, =WidgetAgenda.kt=, =WidgetMedia.kt=, and =WidgetTime.kt= (the time they read). =WidgetBodies.kt= is a note on where they are. |
-| The looks                    | =WidgetLooks.kt= (the look in use, and its colors), =WidgetKindLooks.kt= (what the looks share), and one file for each kind's looks: =WidgetStatLooks.kt=, =WidgetTextLooks.kt=, =WidgetListLooks.kt=, =WidgetProgressLooks.kt=, =WidgetChartLooks.kt=, =WidgetCountdownLooks.kt=. |
+| One file for each kind       | =WidgetStat.kt=, =WidgetText.kt=, =WidgetList.kt=, =WidgetProgress.kt= (with =WidgetGauge.kt=, =WidgetRings.kt= and =WidgetStages.kt= for its styles, which draw in every look, and =ProgressStyles.kt= for their numbers and words), =WidgetChart.kt= (with =WidgetDots.kt= for dots), =WidgetCountdown.kt=, =WidgetImage.kt=, =WidgetVersus.kt= and =WidgetSky.kt= (with =VersusWords.kt= and =SkyWords.kt=), =WidgetControls.kt= (buttons and toggles), =WidgetClock.kt=, =WidgetAgenda.kt=, =WidgetMedia.kt=, and =WidgetTime.kt= (the time they read). =WidgetBodies.kt= is a note on where they are. |
+| The looks                    | =WidgetLooks.kt= (the look in use, and its colors), =WidgetKindLooks.kt= (what the looks share), and one file for each kind's looks: =WidgetStatLooks.kt=, =WidgetTextLooks.kt=, =WidgetListLooks.kt=, =WidgetProgressLooks.kt=, =WidgetChartLooks.kt=, =WidgetCountdownLooks.kt=. Shape's picture is in =WidgetImageShape.kt=, its shapes that change with the value in =WidgetShapeValues.kt=, the motion of shapes and buttons in =WidgetShapeMotion.kt=, and their numbers in =ShapeSteps.kt=. |
 | =WidgetWords.kt=             | What a card says and what a screen reader hears. Pure.                                                 |
 | =WidgetIconDrawables.kt=     | The drawable for each icon name.                                                                       |
 | =WidgetsScreen.kt=, =WidgetsArrangedPage.kt=, =WidgetsToolbar.kt= | Arrange widgets: the screen, the page to arrange, and the chosen widget's toolbar. |

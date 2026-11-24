@@ -51,7 +51,7 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
 // ---- countdown -------------------------------------------------------------------------------
 
 /**
- * `countdown` in Bold, Split or Shape ([CountdownBody] draws Plain and Tonal, and does the ticking).
+ * `countdown` in Bold, Split, Shape or Poster ([CountdownBody] draws Plain and Tonal, and does the ticking).
  * - [count] is the time left, read only where it is drawn, so a tick draws the number again and no more.
  * - [bar] is how much of the wait is over, in steps, or null without a start.
  * - [moment] is the moment in words ("20 Dec", or "17:25" on the day), [ends] the start and the
@@ -70,6 +70,7 @@ internal fun CountdownLook(
     now: LongState
 ) {
     when {
+        look == WidgetLook.POSTER -> PosterCountdown(spec, box, count, moment)
         look == WidgetLook.BOLD -> BoldCountdown(spec, box, count, bar, moment)
         look == WidgetLook.SPLIT -> SplitCountdown(spec, box, count, bar, moment, now)
         LocalCardShaped.current -> ShapedCountdown(spec, box, count, bar)
@@ -428,7 +429,7 @@ private fun SplitCountdown(
     }
 }
 
-/** Shape's countdown in a card that is a sun: the number, its unit, the label, and a thin ring for the wait. A small card has the number and its unit. */
+/** Shape's countdown in a card that is a sun ([CountdownSun], with a ray for each step left): the number, its unit, the label, and a thin ring for the wait. A small card has the number and its unit. */
 @Composable
 private fun ShapedCountdown(
     spec: WidgetSpec.Countdown,
@@ -443,6 +444,8 @@ private fun ShapedCountdown(
     val line = (spec.label ?: LocalUntitled.current).takeIf { !small }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = maxWidth
+        // The card's shape: a sun with a ray for each step of the wait that is left.
+        CountdownSun(spec, c.shapeFill, Modifier.fillMaxSize())
         bar?.let {
             ThinRing(
                 it,

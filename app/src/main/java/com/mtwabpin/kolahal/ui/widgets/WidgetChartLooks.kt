@@ -390,10 +390,11 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Colo
 
 /**
  * Shape's chart in a card that is a cookie: the value and its label. A chart without a value has
- * its plot in the cookie, or its dots ([Dots]).
+ * its plot in the cookie, or its dots ([Dots]). A habit's week is a flower instead ([HabitFlower]).
  */
 @Composable
 private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
+    if (ShapeSteps.weekFlower(spec.style, spec.points)) return HabitFlower(spec, box, color)
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
     val small = box == WidgetSizes.Box.SMALL

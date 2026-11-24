@@ -38,10 +38,11 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
 
 // ---- stat ------------------------------------------------------------------------------------
 
-/** `stat` in Bold, Split or Shape ([StatBody] draws Plain and Tonal). */
+/** `stat` in Bold, Split, Shape or Poster ([StatBody] draws Plain and Tonal). */
 @Composable
 internal fun StatLook(spec: WidgetSpec.Stat, box: WidgetSizes.Box, look: WidgetLook) {
     when {
+        look == WidgetLook.POSTER -> PosterStat(spec, box)
         look == WidgetLook.BOLD -> BoldStat(spec, box)
         look == WidgetLook.SPLIT -> SplitStat(spec, box)
         LocalCardShaped.current -> ShapedStat(spec, box)
@@ -52,7 +53,8 @@ internal fun StatLook(spec: WidgetSpec.Stat, box: WidgetSizes.Box, look: WidgetL
 /**
  * Bold's stat: the title small at the top with the icon on a cookie at its end, the value as big as
  * it fits in the role's color, and the label in bold under it, with the change or the smaller
- * values ("28° · 19°") at the end of that line.
+ * values ("28° · 19°") at the end of that line. With `points`, a wide or large card has them as a
+ * line under all of that, in the card's text color, so it stays apart from the value ([Sparkline]).
  */
 @Composable
 private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
@@ -61,6 +63,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val c = lookColors(WidgetLook.BOLD, role)
     val title = LocalUntitled.current
     val hasChange = spec.trend != null || spec.delta != null
+    val spark = spec.points.size >= 2
     val rest = spec.more.joinToString(" · ") { it.value }
     val end: @Composable () -> Unit = {
         if (hasChange) ChangeText(spec.trend, spec.delta, role, type.labelLarge)
@@ -87,7 +90,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.BottomStart
-            ) { BoldValue(spec.value, spec.unit, 88.sp, role) }
+            ) { BoldValue(spec.value, spec.unit, 88.sp, role, rolls = true) }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -108,6 +111,17 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 Box(Modifier.padding(start = 8.dp)) { end() }
             }
             spec.progress?.let { LevelBar(it, spec.moving, role, Modifier.padding(top = 8.dp)) }
+            if (spark) Sparkline(
+                spec.points,
+                c.content,
+                c.card,
+                Modifier
+                    .weight(0.7f)
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                side = SPARK_SIDE,
+                down = SPARK_DOWN_LARGE
+            )
         }
 
         WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize()) {
@@ -128,7 +142,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                             .weight(1f)
                             .fillMaxWidth(),
                         contentAlignment = Alignment.BottomStart
-                    ) { BoldValue(spec.value, spec.unit, 64.sp, role) }
+                    ) { BoldValue(spec.value, spec.unit, 64.sp, role, rolls = true) }
                 }
                 // The label's column takes at most about two fifths of the width: the value is the main thing.
                 Column(
@@ -151,6 +165,18 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 }
             }
             spec.progress?.let { LevelBar(it, spec.moving, role, Modifier.padding(top = 4.dp)) }
+            // The line takes about a third of a 1-row card, under the value.
+            if (spark) Sparkline(
+                spec.points,
+                c.content,
+                c.card,
+                Modifier
+                    .weight(0.45f)
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                side = SPARK_SIDE,
+                down = SPARK_DOWN_WIDE
+            )
         }
 
         WidgetSizes.Box.SMALL -> Column(
@@ -160,7 +186,10 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
             Box(
                 Modifier.weight(1f),
                 contentAlignment = Alignment.Center
-            ) { BoldText(WidgetWords.joined(spec.value, spec.unit), 48.sp, role) }
+            ) {
+                val shown = WidgetWords.joined(spec.value, spec.unit)
+                RollingText(shown) { roll, laid -> BoldText(shown, 48.sp, role, roll, laid) }
+            }
             spec.label?.let {
                 Text(
                     cardText(it),
@@ -178,6 +207,8 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
  * Split's stat: a big tile with the title, the icon, the value and the label, over a row of small
  * tiles, one for each smaller value (three at most). A 1-row card has the smaller values beside
  * the value, as many as fit; a small one has the label in a tile under the value.
+ * With `points`, the big tile has them as a line under the value, from edge to edge of the tile
+ * ([Sparkline]). In a 1-row card the line takes the label's place, as a bar does.
  */
 @Composable
 private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
@@ -187,9 +218,10 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val title = LocalUntitled.current
     val gap = SplitCorners.GAP
     val hasChange = spec.trend != null || spec.delta != null
+    val spark = spec.points.size >= 2
     val value: @Composable (TextStyle) -> Unit = { style ->
         Row {
-            BigText(
+            RollingBigText(
                 spec.value, style, Modifier
                     .weight(1f, fill = false)
                     .alignByBaseline()
@@ -233,7 +265,8 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         TitleAndIcon(title, spec.base.icon, c.content, role)
-                        Spacer(Modifier.weight(1f))
+                        // With a line, the value goes up under the title and the line takes the room under it.
+                        if (!spark) Spacer(Modifier.weight(1f))
                         value(type.displaySmall.copy(fontSize = 44.sp))
                         spec.label?.let {
                             Text(
@@ -253,6 +286,18 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                                 Modifier.padding(top = 6.dp)
                             )
                         }
+                        // The tile's room around its content is 16 dp at the sides and 12 dp under it.
+                        if (spark) Sparkline(
+                            spec.points,
+                            role,
+                            c.tile,
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(top = 6.dp),
+                            side = 16.dp,
+                            down = 12.dp
+                        )
                     }
                 }
                 if (more.isNotEmpty()) Row(
@@ -302,15 +347,29 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                             .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         TitleAndIcon(title, spec.base.icon, c.content, role)
-                        Box(
+                        val progress = spec.progress
+                        // Without a bar, the line takes the label's place, under the value. The tile's room is 14 dp at the sides, 8 dp under.
+                        if (spark && progress == null) {
+                            value(type.headlineSmall)
+                            Sparkline(
+                                spec.points,
+                                role,
+                                c.tile,
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp),
+                                side = 14.dp,
+                                down = 8.dp
+                            )
+                        } else Box(
                             Modifier
                                 .weight(1f)
                                 .fillMaxWidth(),
                             contentAlignment = Alignment.CenterStart
                         ) { value(type.headlineSmall) }
-                        val progress = spec.progress
                         if (progress != null) LevelBar(progress, spec.moving, role)
-                        else spec.label?.let {
+                        else if (!spark) spec.label?.let {
                             Text(
                                 cardText(it),
                                 style = type.bodySmall,
@@ -356,7 +415,7 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     .fillMaxWidth()
                     .weight(1.6f)
             ) {
-                BigText(
+                RollingBigText(
                     WidgetWords.joined(spec.value, spec.unit),
                     type.titleLarge,
                     Modifier
@@ -406,7 +465,7 @@ private fun ShapedStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val line = labelAndTitle(spec.label, LocalUntitled.current.takeIf { !small })
     ShapeLines {
         if (!small) spec.base.icon?.let { WidgetIconText(it, type.titleMedium, role, size = 22.dp) }
-        BigText(
+        RollingBigText(
             WidgetWords.joined(spec.value, spec.unit),
             if (small) type.titleLarge else type.displayMedium.copy(fontSize = 46.sp)
         )
@@ -434,7 +493,7 @@ private fun ShapeBesideStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val more = spec.more.joinToString(" · ") { WidgetWords.joined(it.value, it.label) }
     val large = box == WidgetSizes.Box.LARGE
     BesideShape(MaterialShapes.Cookie12Sided, c.shapeFill, inShape = { side ->
-        BigText(
+        RollingBigText(
             WidgetWords.joined(spec.value, spec.unit),
             shapeValueStyle(side),
             Modifier.padding(horizontal = side / 7)

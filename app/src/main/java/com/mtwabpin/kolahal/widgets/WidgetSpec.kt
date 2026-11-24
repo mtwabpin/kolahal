@@ -56,6 +56,12 @@ enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean 
     /** A picture from the web. Home fetches it, not the script. */
     IMAGE("image", WidgetSize.S2X2),
 
+    /** Two sides and the score between them: a match, a game of chess. */
+    VERSUS("versus", WidgetSize.S4X1),
+
+    /** The sun's path across the sky from its rise to its set, or the moon's. Kolahal moves it as time passes. */
+    SKY("sky", WidgetSize.S2X2),
+
     /** What is playing. A script can't see that and may not send media commands, so only Kolahal fills it. */
     MEDIA("media", WidgetSize.S4X1, script = false);
 
@@ -68,11 +74,16 @@ enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean 
             STAT -> listOf(WidgetSize.S1X1, WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1)
             TEXT -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1, WidgetSize.S4X2)
             LIST -> listOf(WidgetSize.S2X2, WidgetSize.S4X2, WidgetSize.S4X4)
-            PROGRESS, COUNTDOWN -> listOf(WidgetSize.S1X1, WidgetSize.S2X1, WidgetSize.S2X2)
+            // A 4×1 is for stages with their names, a 4×2 for rings with theirs.
+            PROGRESS -> listOf(WidgetSize.S1X1, WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1, WidgetSize.S4X2)
+            COUNTDOWN -> listOf(WidgetSize.S1X1, WidgetSize.S2X1, WidgetSize.S2X2)
             CHART -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X2)
             BUTTONS -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1, WidgetSize.S4X2)
             TOGGLES, CLOCK -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1)
-            AGENDA, IMAGE -> listOf(WidgetSize.S2X2, WidgetSize.S4X2, WidgetSize.S4X4)
+            AGENDA -> listOf(WidgetSize.S2X2, WidgetSize.S4X2, WidgetSize.S4X4)
+            IMAGE -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X2, WidgetSize.S4X4)
+            VERSUS -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1, WidgetSize.S4X2)
+            SKY -> listOf(WidgetSize.S2X1, WidgetSize.S2X2)
             MEDIA -> listOf(WidgetSize.S2X1, WidgetSize.S4X1, WidgetSize.S4X2)
         }
 
@@ -131,7 +142,11 @@ sealed interface WidgetSpec {
     /** One of a [Stat]'s smaller values. */
     data class Small(val value: String, val label: String?)
 
-    /** Kind `stat`: one big value. [trend] is `up`, `down` or `flat`. [progress] is 0 to 1. */
+    /**
+     * Kind `stat`: one big value. [trend] is `up`, `down` or `flat`. [progress] is 0 to 1.
+     * [points] are the value's recent numbers, the oldest first, drawn as a soft line behind it.
+     * [scene] names a shader whose still picture is the card's ground ([StatScenes]).
+     */
     data class Stat(
         override val base: WidgetBase,
         val value: String,
@@ -142,6 +157,8 @@ sealed interface WidgetSpec {
         val more: List<Small> = emptyList(),
         val progress: Float? = null,
         val moving: Boolean = false,
+        val points: List<Float> = emptyList(),
+        val scene: String? = null,
     ) : WidgetSpec
 
     /** Kind `text`: a few lines and a caption. */
@@ -185,17 +202,32 @@ sealed interface WidgetSpec {
         val lead: Lead? = null
     ) : WidgetSpec
 
-    /** One bar of a [Progress] with several. */
+    /**
+     * One bar of a [Progress] with several, or one of its rings. [unit] follows a ring's scale
+     * ("of 8 glasses"). A [moving] bar or ring is a wave on its own, for the one still in progress.
+     */
     data class Bar(
         val label: String?,
         val value: Float,
         val max: Float,
         val text: String?,
-        val color: StyledText.ColorRole?
+        val color: StyledText.ColorRole?,
+        val unit: String? = null,
+        val moving: Boolean = false,
     )
 
+    /** One zone of a gauge: it starts at [from] and runs to the next zone, or to the gauge's max, in [color]. */
+    data class GaugeZone(val from: Float, val color: StyledText.ColorRole)
+
     /**
-     * Kind `progress`: a ring or bars. [style] is `ring` or `bar`; without it the box decides.
+     * Kind `progress`: a ring, bars, a gauge, rings or stages.
+     * - [style] is `ring`, `bar`, `gauge` or `rings`; without it the box decides between a ring
+     *   and a bar. With [items], `rings` draws them as rings inside each other, and any other
+     *   style as bars.
+     * - A gauge is an arc from [min] to [max], in its [zones]' colors, filled to [value]. Its
+     *   [unit] is written with the value. Only a gauge has a [min] other than 0, and [zones].
+     * - With [stages], it is a path of named steps: [stage] (1 to their number) is the one it is
+     *   at, and [value] of [max] is how far along the way to the next one.
      * [labelIcon] is a drawable before the ring's label: the Battery card's network. Only Kolahal's
      * own cards set it. A script can't, and it is never stored ([WidgetJson]).
      */
@@ -209,6 +241,11 @@ sealed interface WidgetSpec {
         val items: List<Bar> = emptyList(),
         val moving: Boolean = false,
         val labelIcon: Int? = null,
+        val min: Float = 0f,
+        val unit: String? = null,
+        val zones: List<GaugeZone> = emptyList(),
+        val stages: List<String> = emptyList(),
+        val stage: Int = 0,
     ) : WidgetSpec
 
     /**
@@ -315,6 +352,61 @@ sealed interface WidgetSpec {
     ) : WidgetSpec
 
     /**
+     * One side of a [Versus]: a player or a team.
+     * - [mark] is a letter or two that the card draws on a Material shape, in the side's [color].
+     *   Without it, the first letter of [name].
+     * - [value] is the side's part of the bar between the two sides: its clock's time left, its
+     *   share of the ball. [text] is what the bar's end says for it ("58:10"); without it, the value.
+     */
+    data class Side(
+        val name: String,
+        val mark: String? = null,
+        val color: StyledText.ColorRole? = null,
+        val value: Float? = null,
+        val text: String? = null,
+    )
+
+    /**
+     * Kind `versus`: two [sides] and the [score] between them, for a match or a game.
+     * - [turn] is 1 or 2: the side to move, or the side with the ball. A dot marks it.
+     * - With [moving], the turn's part of the bar is a wave that moves: its clock runs.
+     * - [line] is a last line, such as the last move ("17. b3 · Berlin"), and [badge] a small text
+     *   at the top ("67'", "LIVE").
+     * - The bar shows only when both sides have a [Side.value], and they are not both 0.
+     */
+    data class Versus(
+        override val base: WidgetBase,
+        val sides: List<Side>,
+        val score: String,
+        val turn: Int? = null,
+        val moving: Boolean = false,
+        val line: String? = null,
+        val badge: String? = null,
+    ) : WidgetSpec
+
+    /**
+     * One of the moon's next phases on a [Sky]: its [phase] (the lit part, 0 to 1), whether it is
+     * [waxing], and when it comes, [at], in seconds since 1970.
+     */
+    data class Phase(val phase: Float, val waxing: Boolean, val at: Long)
+
+    /**
+     * Kind `sky`: the sun on its path from [rises] to [sets], in seconds since 1970. Kolahal moves it
+     * as time passes, with no run: the script gives the times, never a place on the path.
+     * - With a [phase] (the lit part, 0 to 1) the card is the moon's, and [rises] and [sets] are
+     *   the moon's. [waxing] says whether the lit part grows. [phases] are its next phases, up to 4.
+     * - [sets] is after [rises], less than a day later.
+     */
+    data class Sky(
+        override val base: WidgetBase,
+        val rises: Long,
+        val sets: Long,
+        val phase: Float? = null,
+        val waxing: Boolean = false,
+        val phases: List<Phase> = emptyList(),
+    ) : WidgetSpec
+
+    /**
      * Kind `media`: what is playing, with its controls. Made by Kolahal only; never parsed, never stored.
      * Times are in milliseconds. [position] was right at the moment [positionAt] (on the phone's clock,
      * `System.currentTimeMillis`), and moves at [speed] while [playing]. A [duration] of 0 or less
@@ -383,6 +475,8 @@ object WidgetJson {
     const val MAX_ROWS = WidgetParser.MAX_ITEMS
     const val MAX_MORE = WidgetParser.MAX_MORE
     const val MAX_BARS = WidgetParser.MAX_BARS
+    const val MAX_GAUGE_ZONES = WidgetParser.MAX_GAUGE_ZONES
+    const val MAX_STAGES = WidgetParser.MAX_STAGES
     const val MAX_POINTS = WidgetParser.MAX_POINTS
     const val MAX_LABELS = 2
     const val MAX_BUTTONS = WidgetParser.MAX_BUTTONS
@@ -444,6 +538,8 @@ object WidgetJson {
         is WidgetSpec.Clock -> WidgetKind.CLOCK
         is WidgetSpec.Agenda -> WidgetKind.AGENDA
         is WidgetSpec.Image -> WidgetKind.IMAGE
+        is WidgetSpec.Versus -> WidgetKind.VERSUS
+        is WidgetSpec.Sky -> WidgetKind.SKY
         is WidgetSpec.Media -> WidgetKind.MEDIA
     }
 
@@ -490,6 +586,8 @@ object WidgetJson {
                     ?.map { fields("value" to it.value, "label" to it.label) },
                 "progress" to number(spec.progress),
                 "moving" to flag(spec.moving),
+                "points" to spec.points.takeIf { it.isNotEmpty() }?.map { number(it) },
+                "scene" to spec.scene,
             )
 
             is WidgetSpec.Text -> fields("text" to spec.text, "caption" to spec.caption)
@@ -534,10 +632,18 @@ object WidgetJson {
                         "value" to number(it.value),
                         "max" to number(it.max),
                         "text" to it.text,
-                        "color" to it.color?.role
+                        "color" to it.color?.role,
+                        "unit" to it.unit,
+                        "moving" to flag(it.moving),
                     )
                 },
                 "moving" to flag(spec.moving),
+                "min" to number(spec.min.takeIf { it != 0f }),
+                "unit" to spec.unit,
+                "zones" to spec.zones.takeIf { it.isNotEmpty() }
+                    ?.map { fields("from" to number(it.from), "color" to it.color.role) },
+                "stages" to spec.stages.takeIf { it.isNotEmpty() },
+                "stage" to spec.stage.takeIf { spec.stages.isNotEmpty() },
             )
 
             is WidgetSpec.Chart -> fields(
@@ -608,6 +714,33 @@ object WidgetJson {
                 "alt" to spec.alt,
                 "caption" to spec.caption,
                 "fit" to spec.fit
+            )
+
+            is WidgetSpec.Versus -> fields(
+                "sides" to spec.sides.map {
+                    fields(
+                        "name" to it.name,
+                        "mark" to it.mark,
+                        "color" to it.color?.role,
+                        "value" to number(it.value),
+                        "text" to it.text,
+                    )
+                },
+                "score" to spec.score,
+                "turn" to spec.turn,
+                "moving" to flag(spec.moving),
+                "line" to spec.line,
+                "badge" to spec.badge,
+            )
+
+            is WidgetSpec.Sky -> fields(
+                "rises" to spec.rises,
+                "sets" to spec.sets,
+                "phase" to number(spec.phase),
+                "waxing" to flag(spec.waxing),
+                "phases" to spec.phases.takeIf { it.isNotEmpty() }?.map {
+                    fields("phase" to number(it.phase), "waxing" to flag(it.waxing), "at" to it.at)
+                },
             )
             // Not reached: [encode] stops before it.
             is WidgetSpec.Media -> emptyMap()
@@ -747,6 +880,8 @@ object WidgetJson {
                 },
                 progress = m.number("progress")?.coerceIn(0f, 1f),
                 moving = m.flag("moving"),
+                points = m.list("points").orEmpty().takeLast(MAX_POINTS).map(::finite),
+                scene = m.text("scene")?.also { if (StatScenes.problem(it) != null) odd() },
             )
 
             WidgetKind.TEXT -> WidgetSpec.Text(
@@ -780,25 +915,45 @@ object WidgetJson {
                 },
             )
 
-            WidgetKind.PROGRESS -> WidgetSpec.Progress(
-                base,
-                value = m.number("value") ?: odd(),
-                max = scale(m.number("max") ?: 1f),
-                text = m.text("text"),
-                label = m.text("label")?.let(StyledText::capitalized),
-                style = m.oneOf("style", "ring", "bar"),
-                items = m.list("items").orEmpty().take(MAX_BARS).map {
-                    val b = obj(it)
-                    WidgetSpec.Bar(
-                        b.text("label")?.let(StyledText::capitalized),
-                        b.number("value") ?: odd(),
-                        scale(b.number("max") ?: 1f),
-                        b.text("text"),
-                        b.color("color")
-                    )
-                },
-                moving = m.flag("moving"),
-            )
+            WidgetKind.PROGRESS -> {
+                val max = scale(m.number("max") ?: 1f)
+                val min = (m.number("min") ?: 0f).also { if (it >= max) odd() }
+                val stages = m.list("stages").orEmpty().take(MAX_STAGES).map {
+                    (it as? String)?.takeIf { s -> s.length <= MAX_TEXT && !StyledText.hasMarker(s) }
+                        ?: odd()
+                }.also { if (it.size == 1) odd() }
+                WidgetSpec.Progress(
+                    base,
+                    value = m.number("value") ?: odd(),
+                    max = max,
+                    text = m.text("text"),
+                    label = m.text("label")?.let(StyledText::capitalized),
+                    style = m.oneOf("style", "ring", "bar", "gauge", "rings"),
+                    items = m.list("items").orEmpty().take(MAX_BARS).map {
+                        val b = obj(it)
+                        WidgetSpec.Bar(
+                            b.text("label")?.let(StyledText::capitalized),
+                            b.number("value") ?: odd(),
+                            scale(b.number("max") ?: 1f),
+                            b.text("text"),
+                            b.color("color"),
+                            b.text("unit"),
+                            b.flag("moving"),
+                        )
+                    },
+                    moving = m.flag("moving"),
+                    min = min,
+                    unit = m.text("unit"),
+                    zones = m.list("zones").orEmpty().take(MAX_GAUGE_ZONES).map {
+                        val z = obj(it)
+                        WidgetSpec.GaugeZone(z.number("from") ?: odd(), z.color("color") ?: odd())
+                    },
+                    stages = stages.map(StyledText::capitalized),
+                    // The stage it is at must be one of them.
+                    stage = if (stages.isEmpty()) 0 else
+                        m.number("stage")?.toInt()?.takeIf { it in 1..stages.size } ?: odd(),
+                )
+            }
 
             WidgetKind.CHART -> WidgetSpec.Chart(
                 base,
@@ -887,6 +1042,48 @@ object WidgetJson {
                 caption = m.styled("caption")?.let(StyledText::capitalized),
                 fit = m.oneOf("fit", "crop", "fit"),
             )
+
+            WidgetKind.VERSUS -> WidgetSpec.Versus(
+                base,
+                // `widget.show` refuses any other number of sides, so none is cut here.
+                sides = (m.list("sides") ?: odd()).takeIf { it.size == WidgetParser.SIDES }?.map {
+                    val s = obj(it)
+                    WidgetSpec.Side(
+                        name = s.needText("name"),
+                        mark = s.text("mark"),
+                        color = s.color("color"),
+                        value = s.number("value")?.coerceAtLeast(0f),
+                        text = s.text("text"),
+                    )
+                } ?: odd(),
+                score = m.needText("score"),
+                turn = m.number("turn")?.toInt()?.also { if (it !in 1..WidgetParser.SIDES) odd() },
+                moving = m.flag("moving"),
+                line = m.styled("line")?.let(StyledText::capitalized),
+                badge = m.text("badge"),
+            )
+
+            WidgetKind.SKY -> {
+                val rises = m.seconds("rises") ?: odd()
+                val sets = m.seconds("sets") ?: odd()
+                val phase = m.number("phase")?.coerceIn(0f, 1f)
+                if (sets <= rises || sets - rises >= WidgetParser.dayOf(moon = phase != null)) odd()
+                WidgetSpec.Sky(
+                    base,
+                    rises = rises,
+                    sets = sets,
+                    phase = phase,
+                    waxing = m.flag("waxing"),
+                    phases = m.list("phases").orEmpty().take(WidgetParser.MAX_PHASES).map {
+                        val p = obj(it)
+                        WidgetSpec.Phase(
+                            (p.number("phase") ?: odd()).coerceIn(0f, 1f),
+                            p.flag("waxing"),
+                            p.seconds("at") ?: odd()
+                        )
+                    },
+                )
+            }
             // Not reached: `media` is not among the kinds looked up above.
             WidgetKind.MEDIA -> null
         }

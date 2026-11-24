@@ -483,6 +483,110 @@ internal object ReferenceExamplesWidgets {
             )
         },
         Widget(
+            "versus", WidgetKind.VERSUS, WidgetSize.S2X2, "Match",
+            lua = """
+            widget.show{
+              kind = "versus",
+              title = "League",
+              badge = "67'",
+              score = "2–1",
+              sides = {
+                {
+                  name = "Lisbon",
+                  value = 58,
+                  text = "58%",
+                },
+                {
+                  name = "Paris",
+                  value = 42,
+                  text = "42%",
+                },
+              },
+              line = "64' Goal",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "versus",
+              title: "League",
+              badge: "67'",
+              score: "2–1",
+              sides: [
+                {
+                  name: "Lisbon",
+                  value: 58,
+                  text: "58%",
+                },
+                {
+                  name: "Paris",
+                  value: 42,
+                  text: "42%",
+                },
+              ],
+              line: "64' Goal",
+            });
+            """,
+        ) { _, _ ->
+            WidgetSpec.Versus(
+                WidgetBase(title = "League"),
+                listOf(
+                    WidgetSpec.Side("Lisbon", value = 58f, text = "58%"),
+                    WidgetSpec.Side("Paris", value = 42f, text = "42%"),
+                ),
+                score = "2–1",
+                line = "64' Goal",
+                badge = "67'",
+            )
+        },
+        Widget(
+            "sky", WidgetKind.SKY, WidgetSize.S2X2, "Sky",
+            lua = """
+            local t = os.date("*t")
+            local function today(hour, min)
+              return os.time({
+                year = t.year,
+                month = t.month,
+                day = t.day,
+                hour = hour,
+                min = min,
+              })
+            end
+
+            widget.show{
+              kind = "sky",
+              title = "Lisbon",
+              color = "warn",
+              rises = today(7, 38),
+              sets = today(17, 20),
+            }
+            """,
+            js = """
+            const t = new Date();
+            const today = (hour, min) => new Date(
+              t.getFullYear(),
+              t.getMonth(),
+              t.getDate(),
+              hour,
+              min,
+            ).getTime() / 1000;
+
+            widget.show({
+              kind: "sky",
+              title: "Lisbon",
+              color: "warn",
+              rises: today(7, 38),
+              sets: today(17, 20),
+            });
+            """,
+        ) { now, zone ->
+            val today = java.time.Instant.ofEpochSecond(now).atZone(zone).toLocalDate()
+            WidgetSpec.Sky(
+                WidgetBase(title = "Lisbon", color = ColorRole.WARN),
+                rises = today.atTime(7, 38).atZone(zone).toEpochSecond(),
+                sets = today.atTime(17, 20).atZone(zone).toEpochSecond(),
+            )
+        },
+        Widget(
             "styles", WidgetKind.LIST, WidgetSize.S4X1, "Styles",
             lua = """
             widget.show{

@@ -1091,7 +1091,7 @@ widget.show({
 | `stat` | one big value with its label, and up to 3 smaller values | `2x1` |
 | `text` | a few lines of text, and a caption | `2x2` |
 | `list` | rows | `4x2` |
-| `progress` | a ring or a bar, or up to 4 bars | `2x1` |
+| `progress` | a ring or a bar, up to 4 bars or rings, a gauge, or stages | `2x1` |
 | `chart` | numbers over time, as a line, as bars or as a dot for each day | `2x2` |
 | `countdown` | the time to a moment. Kolahal counts it down, with no run | `2x1` |
 | `buttons` | 1 to 8 buttons | `4x1` |
@@ -1099,6 +1099,8 @@ widget.show({
 | `clock` | the time in up to 4 places. Kolahal moves the clocks, with no run | `2x1` |
 | `agenda` | events by day | `4x2` |
 | `image` | a picture from the web, with a caption | `2x2` |
+| `versus` | two sides and the score between them, for a match or a game | `4x1` |
+| `sky` | the sun's path from its rise to its set, or the moon's. Kolahal moves it, with no run | `2x2` |
 
 Kolahal has one more kind, `media`, for its own
 [Now playing widget](/guides/widgets/#kolahals-own-widgets). A script can't use it: it is an error
@@ -1188,6 +1190,55 @@ A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's
 | `more` | a list of `{ value, label }` | Up to 3 smaller values. Each text is up to 24 characters, and `value` is needed. |
 | `progress` | a number, 0 to 1 | A bar under the value. |
 | `moving` | true or false | Draws the bar as a wave, for something in progress. |
+| `points` | a list of numbers | The value's recent numbers, the oldest first: a soft line from edge to edge under the value, as a chart's line. The last 60 are kept. A `1x1` card leaves it out. Needs Kolahal 0.5.17. |
+| `scene` | a shader's name | A still of that shader as the card's ground, under a scrim that keeps the figures readable ([scenes](#a-stats-scene)). Needs Kolahal 0.5.17. |
+
+#### A stat's scene
+
+With `scene`, a stat's card has a still of one of Kolahal's [shaders](/scripting/shaders/) as its
+ground, such as the pond on a clear night or rain when it rains. The figures sit over it on a scrim
+of the card's color, strongest where they are, so they read on a light and a dark theme.
+
+- Name a shader that draws a picture behind the text: one that can be a wallpaper. The ones that
+  suit weather are `pond`, `rain`, `snowfall`, `dunes` and `mountains`; `night`, `aurora`, `dusk`,
+  `frost` and the others work too, and so does a shader of your own.
+- `crt`, `lcd`, `eink`, `riso` and `foil` work on the text, and `hearts` and `pulse` play once: they
+  are an error here. A shader of your own that does either is left out when the card draws.
+- It is one frame, drawn again only when the card is: it never moves, and costs nothing while the
+  card sits there. Its time of day follows the phone's.
+- It shows in the **Plain**, **Tonal** and **Bold** looks, in place of the card's color. **Split**,
+  **Shape** and **Poster** keep their own.
+- Without it the card is the plain stat: under Android 13, with TalkBack on, and when the shader is
+  missing or doesn't compile.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- weather on the matching scene, with the last hours behind the number
+widget.show{
+  kind = "stat",
+  title = "Lisbon",
+  value = "14°",
+  label = "Clear night",
+  scene = "pond",
+  points = { 17, 16, 16, 15, 14 },
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// weather on the matching scene, with the last hours behind the number
+widget.show({
+  kind: "stat",
+  title: "Lisbon",
+  value: "14°",
+  label: "Clear night",
+  scene: "pond",
+  points: [17, 16, 16, 15, 14],
+});
+```
+</TabItem>
+</Tabs>
 
 **`text`**: a few lines.
 
@@ -1265,21 +1316,146 @@ widget.show({
 </TabItem>
 </Tabs>
 
-**`progress`**: how far along something is, as a ring, a bar, or several bars. It needs `value` or
-`items`.
+**`progress`**: how far along something is, as a ring, a bar, several bars, a gauge, rings inside
+each other, or stages. It needs `value`, `items` or `stages`.
 
 | Field | Value | What it is |
 | --- | --- | --- |
 | `value` | a number | How far along it is, from 0 to `max`. |
 | `max` | a number above 0 | The top of the scale. Without it: 1. |
-| `text` | text, up to 24 | What the ring's middle says: `68%`. Without it: the percent. |
-| `label` | text, up to 60 | What it is. |
-| `style` | `ring` or `bar` | Without it, the card picks one for the space it has. |
-| `items` | a list of bars | Up to 4 bars, each `{ label, value, max, text, color }`: a `label` up to 40 characters, a `text` up to 24. `value` is needed. |
+| `text` | text, up to 24 | What the ring's middle says: `68%`. Without it: the percent. A gauge's value. |
+| `label` | text, up to 60 | What it is. A gauge's word for its value: `High`. |
+| `style` | `ring`, `bar`, `gauge` or `rings` | Without it, the card picks a ring or a bar for the space it has. `gauge` and `rings` are below. |
+| `items` | a list of bars | Up to 4 bars, each `{ label, value, max, text, color, unit, moving }`: a `label` up to 40 characters, a `text` up to 24, a `unit` up to 12. `value` is needed. |
 | `moving` | true or false | Draws the ring and the bars as waves, for something in progress. |
+| `min` | a number below `max` | A gauge's lowest value. Without it: 0. |
+| `unit` | text, up to 12 | A gauge's unit: `US AQI`, `km/h`. |
+| `zones` | a list of zones | A gauge's zones, up to 5, each `{ from, color }`. |
+| `stages` | a list of 2 to 6 texts, up to 24 each | The stages, the first one first: `Ordered`, `Shipped`, `Delivered`. |
+| `stage` | a whole number | The stage it is at: 1 for the first. Needed with `stages`. |
 
 A value is held between 0 and its `max`. Bars are on one scale: the widget's `max`, or else the
 largest value among them. A bar with its own `max` uses that.
+
+A **gauge** (`style = "gauge"`) is a thick arc from `min` to `max`, filled to the value, with the
+value large in it: air quality, UV, wind. Needs Kolahal 0.5.17.
+
+- `zones` color the arc: each zone is `{ from, color }`, both needed, and runs from its `from` to
+  the next zone's, the last one to `max`. Each zone starts above the one before. A `from` outside
+  the scale is held at its nearer end.
+- The arc is filled in each zone's color up to the value, and dim past it. Without zones, it is
+  in the card's color.
+- `label` is the word for the value, in the color of the zone the value is in: `Unhealthy for
+  some`. `unit` is written with the value.
+- The value is held between `min` and `max`. Only a gauge takes `min` and `zones`: on any other
+  style they are an error.
+- A 2×2 has the arc around the value, and the word under it. A 1-row card has half the arc, with
+  the title, the word and the unit beside it.
+
+**Rings** (`style = "rings"`) draw `items` as rings inside each other, the first outside: steps,
+water, sleep. Needs Kolahal 0.5.17.
+
+- Each ring is in its `color`, or the card's, with a dim track. A ring with `moving` is a wave: the
+  one still in progress.
+- A 4×2 names each ring beside them, with its value large and its scale after it: "6,240 of 8,000".
+  `unit` goes after the scale: "5 of 8 glasses". The value is the ring's `text`, or its number.
+- A 2×2 has the values of the first 3 under the rings; a 1-row card has them beside the rings, as
+  many as fit. A value there is the ring's `text`, or its percent.
+- `rings` needs `items`.
+
+**Stages** (`stages`) are a path of fixed steps: a parcel, a flight, a build. Needs Kolahal 0.5.17.
+
+- Stages done are ticked dots, the one it is at (`stage`) is a cookie, and later ones are rings.
+- The way from the current stage to the next is a wave. `value` of `max` says how far along that
+  way it is, from 0 to 1 without a `max`. Without `value` the wave is short: it is on its way.
+  With `moving`, the wave moves.
+- The current stage's name is the card's main text, and `label` is a line under it: `Arrives
+  Thursday`. A 4×1 has each stage's name under its dot.
+- `stages` keeps its first 6 names and needs 2. `stage` must be one of them. Stages take no `items`
+  and no `style`.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- a gauge: the arc in good, warn and bad from where each zone starts
+widget.show{
+  kind = "progress",
+  title = "Air · Nairobi",
+  style = "gauge",
+  value = 118,
+  max = 300,
+  unit = "US AQI",
+  label = "Unhealthy for some",
+  zones = {
+    { from = 0, color = "good" },
+    { from = 51, color = "warn" },
+    { from = 151, color = "bad" },
+  },
+}
+
+-- rings: steps still moving, water and sleep
+widget.show{
+  kind = "progress",
+  style = "rings",
+  items = {
+    { label = "Steps", value = 6240, max = 8000, text = "6,240", color = "accent", moving = true },
+    { label = "Water", value = 5, max = 8, unit = "glasses", color = "link" },
+    { label = "Sleep", value = 7.2, max = 8, text = "7:10", unit = "h", color = "warn" },
+  },
+}
+
+-- stages: at the third, 40% of the way to the fourth
+widget.show{
+  kind = "progress",
+  title = "Parcel",
+  stages = { "Ordered", "Shipped", "On its way", "Delivered" },
+  stage = 3,
+  value = 0.4,
+  label = "Arrives Thursday",
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// a gauge: the arc in good, warn and bad from where each zone starts
+widget.show({
+  kind: "progress",
+  title: "Air · Nairobi",
+  style: "gauge",
+  value: 118,
+  max: 300,
+  unit: "US AQI",
+  label: "Unhealthy for some",
+  zones: [
+    { from: 0, color: "good" },
+    { from: 51, color: "warn" },
+    { from: 151, color: "bad" },
+  ],
+});
+
+// rings: steps still moving, water and sleep
+widget.show({
+  kind: "progress",
+  style: "rings",
+  items: [
+    { label: "Steps", value: 6240, max: 8000, text: "6,240", color: "accent", moving: true },
+    { label: "Water", value: 5, max: 8, unit: "glasses", color: "link" },
+    { label: "Sleep", value: 7.2, max: 8, text: "7:10", unit: "h", color: "warn" },
+  ],
+});
+
+// stages: at the third, 40% of the way to the fourth
+widget.show({
+  kind: "progress",
+  title: "Parcel",
+  stages: ["Ordered", "Shipped", "On its way", "Delivered"],
+  stage: 3,
+  value: 0.4,
+  label: "Arrives Thursday",
+});
+```
+</TabItem>
+</Tabs>
 
 **`chart`**: numbers over time.
 
@@ -1304,6 +1480,10 @@ With `style = "dots"`, each point is a day, and the last point is today. Needs K
 - Today's dot is larger. When it turns from 0 to 1, it grows into a filled shape. The days still to
   come this week are small dots.
 - `labels` are not shown: the days of the week are over the calendar.
+- In the **Shape** look, a `1x1` or `2x2` card with a week of days or fewer, all 0 or 1, is a
+  flower with a leaf for each day of the week: a leaf for each day done, a faint one for the days
+  missed or still to come, and the days done this week in the middle. A longer run keeps its
+  calendar.
 - Without a `summary`, a screen reader says "Done on 23 of the last 35 days", or for other points
   "35 days, from 26 to 62, today 42".
 
@@ -1319,6 +1499,11 @@ run is needed as time passes.
 | `reached` | text, up to 60 | What the card says on the day, once the moment has passed. Without it: "Today". |
 
 - After that day, the card says how long ago the moment was.
+- In the **Shape** look, a `1x1` or `2x2` card is a sun with a ray for each step of the wait that
+  is left, 12 at most, and it loses a ray as each step goes. A step is a day for a wait of a day
+  or more, an hour for a shorter one, and five minutes for one under an hour. The wait runs from
+  `from` when the card has one, else it is the time left. With less than a step left, the sun is
+  a plain circle.
 - A time in milliseconds is an error that says to divide it by 1000.
 
 <Tabs syncKey="lang">
@@ -1818,6 +2003,9 @@ picture.
 - A picture file can be 10 MB at most. A larger one is not shown, and the card keeps its `alt`.
 - A see-through picture whose lines barely show on the card gets a light or a dark backdrop, as on
   a log line.
+- In the **Shape** look, the picture is cut to a shape, a cookie with the caption under it, or in
+  a `2x1` card a clover with the caption beside it. It always covers its shape, also with
+  `fit = "fit"`.
 - **Arrange widgets** shows the picture only when home has it already. It fetches nothing.
 - The script itself needs no request for the picture. It makes one only to learn the link.
 
@@ -1858,6 +2046,178 @@ widget.show({
 
 <Cards items={[{ src: wImage, alt: 'A 4×2 picture card: hills at sunrise, with the caption Sunrise over the ghats and the title Picture of the day on a chip', size: '4x2' }]} />
 
+**`versus`**: two sides and the score between them, for a match or a game of chess. Needs Kolahal
+0.5.17.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `sides` | a list of two sides | Needed: exactly 2, the first at the start. One or three is an error. |
+| `score` | text or a number, up to 24 | Needed. The score, large between the sides: `2–1`, `1½–½`. |
+| `turn` | 1 or 2 | The side to move, or the side with the ball: a dot by its name. |
+| `moving` | true or false | Draws the part of the bar of the side in `turn` as a wave that moves: its clock runs. |
+| `line` | text, up to 60 | A last line: the last move, the last goal. |
+| `badge` | text, up to 8 | A small text at the top, in the card's color: `67'`, `LIVE`. |
+
+Each side is `{ name, mark, color, value, text }`. Only `name` is needed.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `name` | text, up to 24 | The player or the team. |
+| `mark` | text, up to 2 characters | A letter or two on a shape, in the side's color: `L`, `NO`. Without it: the first letter of the name. A mark is never a picture. |
+| `color` | a role | The side's color: its mark, its part of the bar and its figure. Without it: `accent` for the first side, `link` for the second. |
+| `value` | a number, 0 or more | The side's part of the bar between the sides: its clock's time left in seconds, its share of the ball. |
+| `text` | text, up to 12 | What the bar's end says for the side: `58:10`, `58%`. Without it: the value. |
+
+- The bar shows when both sides have a `value` and they aren't both 0. Each side's part is its
+  value over the two, and moves to a new value smoothly.
+- Kolahal doesn't run a clock. A script that shows clocks gives the time left at each run, with
+  `refresh` while the game is on.
+- A small card shows the score over the two marks. A `2x1` card has the score between the marks
+  and the names under them, with no bar. A `4x1` card has each name beside its mark, the score with
+  the badge and the last line in the middle, and the bar under them. A large card has the title and
+  the badge at the top, the marks either side of the score with the names under them, then the bar
+  and the last line.
+- The marks are shapes in every look, so a versus card has no **Shape** look.
+- A screen reader says the badge, the sides with the score ("Lisbon 2–1 Paris"), each side's figure
+  where there is a bar, whose turn it is, and the last line.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- versus: a match, with possession as the bar between the sides
+widget.show{
+  kind = "versus",
+  title = "League",
+  badge = "67'",
+  score = "2–1",
+  sides = {
+    {
+      name = "Lisbon",
+      value = 58,
+      text = "58%",
+    },
+    {
+      name = "Paris",
+      value = 42,
+      text = "42%",
+    },
+  },
+  line = "64' Goal",
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// versus: a match, with possession as the bar between the sides
+widget.show({
+  kind: "versus",
+  title: "League",
+  badge: "67'",
+  score: "2–1",
+  sides: [
+    {
+      name: "Lisbon",
+      value: 58,
+      text: "58%",
+    },
+    {
+      name: "Paris",
+      value: 42,
+      text: "42%",
+    },
+  ],
+  line: "64' Goal",
+});
+```
+</TabItem>
+</Tabs>
+
+**`sky`**: the sun on its path across the sky, or the moon in its phase on its own path. The script
+gives the times once, and Kolahal moves the sun or the moon. No run is needed as time passes. Needs
+Kolahal 0.5.17.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `rises` | a time in seconds | Needed. When the sun rises, or with `phase` the moon. |
+| `sets` | a time in seconds, after `rises` | Needed. When it sets: less than a day after `rises`. |
+| `phase` | a number, 0 to 1 | The part of the moon that is lit. With it, the card is the moon's. |
+| `waxing` | true or false | The moon's lit part grows. It is drawn on the right. |
+| `phases` | a list of phases | Up to 4 of the moon's next phases, each `{ phase, waxing, at }`. They go with `phase`. |
+
+Each phase is `{ phase, waxing, at }`. `phase` and `at` are needed.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `phase` | a number, 0 to 1 | The part of the moon that is lit then: 1 for a full moon, 0.5 for a quarter, 0 for a new moon. |
+| `waxing` | true or false | Whether it grows then. |
+| `at` | a time in seconds | When the phase comes. The card writes its day under it. |
+
+- By day, the sun is on the arc over the horizon, at its place for the time now. The part of the
+  arc it has travelled is stronger than the part to come. At night it is under the horizon, on a
+  dotted arc, and the part under the horizon is darker.
+- The big text is the time of the next sunrise or sunset ("17:20"), or for the moon the part that
+  is lit ("78%"). Beside it is what comes next, "Sunset in 2 h 10 min", or for the moon its phase's
+  name, "Waxing gibbous", from `phase` and `waxing`.
+- A large card writes the times of the rise and the set at the arc's ends. A large moon card has its
+  next phases under them, each with its day. A phase whose time has passed is left out, with no run.
+- Times of an earlier day still work: Kolahal moves them by whole days to the day now, so the card
+  stays close for a few days with no run. A day of the moon is 24 h 50 min.
+- The times change little from day to day. Give it a `staleAfter` of a day (86400), so the widgets
+  page runs the script once a day, not each hour.
+- `color` is the color of the sun or the moon and of its path: `warn` suits the sun, `link` the moon.
+- Kolahal writes each time in 12-hour or 24-hour form, as the header does
+  ([`clock.24h`](/reference/config/)).
+- A small card has the sky over the big text. A screen reader says what comes next and the times,
+  and for the moon its phase, how much of it is lit and its next phases.
+- A time in milliseconds is an error that says to divide it by 1000.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- sky: the sun of today, from 07:38 to 17:20
+local t = os.date("*t")
+local function today(hour, min)
+  return os.time({
+    year = t.year,
+    month = t.month,
+    day = t.day,
+    hour = hour,
+    min = min,
+  })
+end
+
+widget.show{
+  kind = "sky",
+  title = "Lisbon",
+  color = "warn",
+  rises = today(7, 38),
+  sets = today(17, 20),
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// sky: the sun of today, from 07:38 to 17:20
+const t = new Date();
+const today = (hour, min) => new Date(
+  t.getFullYear(),
+  t.getMonth(),
+  t.getDate(),
+  hour,
+  min,
+).getTime() / 1000;
+
+widget.show({
+  kind: "sky",
+  title: "Lisbon",
+  color: "warn",
+  rises: today(7, 38),
+  sets: today(17, 20),
+});
+```
+</TabItem>
+</Tabs>
+
 ### Limits
 
 What a description keeps, and what it refuses.
@@ -1870,7 +2230,10 @@ What a description keeps, and what it refuses.
 | `list`: `items` | 12 rows | the first 12 are kept |
 | `list`: a row's `range` | `value` from `low` to `high` | held at the nearer end; `low` above `high` is an error |
 | `stat`: `more` | 3 smaller values | the first 3 are kept |
+| `stat`: `points` | 60 numbers | the last 60 are kept: the newest |
 | `progress`: `items` | 4 bars | the first 4 are kept |
+| `progress`: `zones` | 5 zones | the first 5 are kept |
+| `progress`: `stages` | 2 to 6 names | the first 6 are kept; fewer than 2 is an error |
 | `chart`: `points` | 60 numbers | the last 60 are kept: the newest |
 | `chart`: `labels` | 2 texts | the first 2 are kept |
 | `buttons`: `items` | 1 to 8 buttons | an error, as for none |
@@ -1880,6 +2243,9 @@ What a description keeps, and what it refuses.
 | `agenda`: `days` | 1 to 14 | held between 1 and 14 |
 | `image`: `image` | 2000 characters | an error: a link is never cut |
 | `image`: the picture's file | 10 MB | not shown; the card keeps its `alt` |
+| `versus`: `sides` | 2 sides | an error, as for one or three |
+| `sky`: `sets` | less than a day after `rises` | an error |
+| `sky`: `phases` | 4 phases | the first 4 are kept |
 | `staleAfter` | 60 to 604800 seconds | held between them |
 | `refresh` | 10 to 3600 seconds | held between them |
 | A tap's `args` | 200 characters | cut |
@@ -1893,10 +2259,11 @@ What a description keeps, and what it refuses.
 
 A card's labels start with a capital, as the rest of Kolahal's text does, whatever the script
 writes: `label = "unlocks today"` shows "Unlocks today". This goes for the `label` of a card, of a
-`lead`, of a `progress` bar, of a button and of a switch, each `caption`, a row's `detail`,
-`empty`, `reached` and a chart's `labels`, and for the labels of [`fmt.stats`](#big-numbers) in
-the log. Every other text stays as written, such as titles, `note`, `text`, `trailing`, `where`,
-values and units, a clock's place names and a tap's `label`.
+`lead`, of a `progress` bar, of a button and of a switch, the names of `stages`, each `caption`,
+a row's `detail`, `empty`, `reached`, a chart's `labels` and a versus card's `line`, and for the
+labels of [`fmt.stats`](#big-numbers) in the log. Every other text stays as written, such as
+titles, `note`, `text`, `trailing`, `where`, values and units, a clock's place names and a tap's
+`label`.
 
 A label also stays as written when:
 
@@ -1922,6 +2289,7 @@ color.
 | `list` | a row's `title`, `detail` and `trailing` |
 | `stat` | `label` |
 | `image` | `caption` |
+| `versus` | `line` |
 
 - These work there: `fmt.bold`, `fmt.italic`, `fmt.underline`, `fmt.strike` and
   `fmt.color(role, text)`. You join them with other text, as in the log.

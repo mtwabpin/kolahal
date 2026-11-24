@@ -229,8 +229,9 @@ that a script logged also has **Pin to the top** (or **Unpin**) in its long-pres
 ## Widgets
 
 A script can fill a card on the [widgets page](/guides/widgets/): a big number, a few lines of
-text, a list, a ring, a chart, a countdown, buttons, switches, clocks, an agenda or a picture. The
-script says what to show. Kolahal draws it, in the theme's colors.
+text, a list, a ring, a chart, a countdown, buttons, switches, clocks, an agenda, a picture, a
+match's score or the sun's path. The script says what to show. Kolahal draws it, in the theme's
+colors.
 
 ```lua
 -- @title Battery
@@ -249,7 +250,7 @@ widget.show{
 - The `@widget` line says that the script has a widget, which kind of card it is, and how large it
   starts: `@widget <kind> [<size>]`.
   - The kinds are `stat`, `text`, `list`, `progress`, `chart`, `countdown`, `buttons`, `toggles`,
-    `clock`, `agenda` and `image`.
+    `clock`, `agenda`, `image`, `versus` and `sky`.
   - The sizes are `1x1`, `2x1`, `2x2`, `4x1`, `4x2` and `4x4`, in cells of a 4-column grid.
 - `widget.show{…}` fills the card. Each kind has its own fields:
   [the API reference](/scripting/api/#widgets) lists them.

@@ -160,6 +160,7 @@ internal fun ClockBody(
     val chars = WidgetWords.clockChars(clock24, spec.seconds)
     val zone = places.firstOrNull()?.second ?: here
     when (LocalWidgetLook.current) {
+        WidgetLook.POSTER -> return PosterClock(times, ::time, zone, now, box, roleColor(spec.base))
         WidgetLook.BOLD -> return BoldClock(
             times,
             ::time,

@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -94,6 +95,8 @@ internal fun KindBody(
         is WidgetSpec.Clock -> ClockBody(spec, box, onTap)
         is WidgetSpec.Agenda -> AgendaBody(spec, onTap)
         is WidgetSpec.Image -> ImageBody(spec, box)
+        is WidgetSpec.Versus -> VersusBody(spec, box)
+        is WidgetSpec.Sky -> SkyBody(spec, box)
         is WidgetSpec.Media -> MediaBody(spec, box, onTap)
     }
 }
@@ -250,14 +253,15 @@ internal fun TextStyle.asValue(): TextStyle = copy(
 /**
  * A kind's big text, on one line, as a value ([asValue]). A text too long for its room gets
  * smaller, down to 12 sp, before it is cut with "…". A text whose digits alone changed (a countdown
- * that ticks) keeps its size ([SteadyAutoSize]).
+ * that ticks) keeps its size ([SteadyAutoSize]). [onTextLayout] gets its layout ([RollingText]).
  */
 @Composable
 internal fun BigText(
     text: String,
     style: TextStyle,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.onSurface
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    onTextLayout: (TextLayoutResult) -> Unit = {}
 ) {
     val size = remember(style) {
         val largest = style.fontSize.value.let { if (it.isNaN()) 22f else maxOf(it, 12f) }
@@ -278,17 +282,24 @@ internal fun BigText(
         style = value,
         maxLines = 1,
         softWrap = false,
-        overflow = TextOverflow.Ellipsis
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = onTextLayout
     )
 }
 
 /**
  * Bold's big value, [size] at most, on one line in Bold's narrow black type ([boldValueStyle]). As
  * [BigText], it gets smaller to fit its room, down to 12 sp, and keeps its size while only its
- * digits change.
+ * digits change. [onTextLayout] gets its layout ([RollingText]).
  */
 @Composable
-internal fun BoldText(text: String, size: TextUnit, color: Color, modifier: Modifier = Modifier) {
+internal fun BoldText(
+    text: String,
+    size: TextUnit,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onTextLayout: (TextLayoutResult) -> Unit = {}
+) {
     val auto = remember(size) {
         SteadyAutoSize(
             TextAutoSize.StepBased(
@@ -308,7 +319,8 @@ internal fun BoldText(text: String, size: TextUnit, color: Color, modifier: Modi
         style = style,
         maxLines = 1,
         softWrap = false,
-        overflow = TextOverflow.Visible
+        overflow = TextOverflow.Visible,
+        onTextLayout = onTextLayout
     )
 }
 

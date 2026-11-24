@@ -328,6 +328,8 @@ internal object WidgetWords {
                     add(words(trendWord(spec.trend), spec.delta))
                     spec.more.forEach { add(words(it.value, it.label)) }
                     add(spec.progress?.let { percent(it, 1f) })
+                    // The sparkline's numbers, as a chart says them. The scene is a picture: nothing to say.
+                    if (spec.points.isNotEmpty()) add(chartSummary(spec.points))
                 }
 
                 is WidgetSpec.Text -> {
@@ -358,18 +360,8 @@ internal object WidgetWords {
                     }
                 }
 
-                is WidgetSpec.Progress -> {
-                    if (spec.items.isEmpty()) add(spec.text ?: percent(spec.value, spec.max))
-                    spec.items.forEach { b ->
-                        add(
-                            words(
-                                b.label,
-                                b.text ?: percent(b.value, b.max)
-                            )
-                        )
-                    }
-                    add(spec.label)
-                }
+                // A ring, bars, a gauge, rings or stages ([ProgressStyles.said]).
+                is WidgetSpec.Progress -> addAll(ProgressStyles.said(spec, locale))
 
                 is WidgetSpec.Chart -> {
                     add(spec.value)
@@ -430,6 +422,10 @@ internal object WidgetWords {
                     add(spec.caption)
                 }
 
+                is WidgetSpec.Versus -> addAll(VersusWords.said(spec))
+                // Where the sun or the moon is at this moment, and what comes next.
+                is WidgetSpec.Sky -> addAll(SkyWords.said(spec, now, zone, clock24, locale))
+
                 is WidgetSpec.Media -> {
                     add(spec.title)
                     add(spec.artist)
@@ -457,7 +453,8 @@ internal object WidgetWords {
      * is then made again every minute, with the moment. For any other kind the moment is not read.
      */
     fun timed(spec: WidgetSpec?): Boolean =
-        spec is WidgetSpec.Countdown || spec is WidgetSpec.Clock || spec is WidgetSpec.Agenda
+        spec is WidgetSpec.Countdown || spec is WidgetSpec.Clock || spec is WidgetSpec.Agenda ||
+                spec is WidgetSpec.Sky
 
     /** What an image card says while its picture is on its way. */
     const val PICTURE_LOADING = "Loading picture…"

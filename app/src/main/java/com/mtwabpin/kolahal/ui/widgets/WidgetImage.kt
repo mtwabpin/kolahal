@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.ui.home.LogImages
 import com.mtwabpin.kolahal.ui.home.pictureBackdrop
 import com.mtwabpin.kolahal.ui.home.rememberWebImage
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 
@@ -38,6 +39,7 @@ private val PICTURE_SHAPE = RoundedCornerShape(12.dp)
  *   A screen reader still hears it.
  * - With [bleed], the picture covers the whole card, to its edges, and the card puts the caption on
  *   a chip over it ([BleedImageCard]). This body then draws neither the caption nor corners.
+ * - The Shape look cuts the picture to a Material shape ([ShapedImage]).
  *
  * Home fetches the picture, not the script ([rememberWebImage], [LogImages]):
  * - Only while the widgets page is in view ([LocalWidgetsShown]). The page is composed beside the
@@ -52,6 +54,8 @@ private val PICTURE_SHAPE = RoundedCornerShape(12.dp)
  */
 @Composable
 internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box, bleed: Boolean = false) {
+    // Shape cuts the picture to a Material shape: WidgetImageShape.kt.
+    if (LocalWidgetLook.current == WidgetLook.SHAPE) return ShapedImage(spec, box)
     val inView = LocalWidgetsShown.current
     val caption = spec.caption.takeIf { box == WidgetSizes.Box.LARGE && !bleed }
     Column(Modifier.fillMaxSize()) {

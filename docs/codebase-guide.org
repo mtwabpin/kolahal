@@ -763,7 +763,7 @@ Cards read through [[src:terminal/WidgetActions.kt::class WidgetFeed][WidgetFeed
 =vm.widgetActions=: a tap runs the same script again with arguments, or opens a web link; a card
 that is old and on screen asks for one quiet run. In =ui/=, [[src:ui/widgets/ScriptWidgets.kt::internal fun WidgetCard(][WidgetCard]] draws a card; each kind
 has a file (=WidgetStat.kt=, =WidgetList.kt=, ...) and its looks beside it (=WidgetStatLooks.kt=,
-...), chosen per card ([[src:widgets/WidgetLook.kt::enum class WidgetLook][WidgetLook]]: Plain, Tonal, Bold, Split, Shape). The Widgets screen arranges
+...), chosen per card ([[src:widgets/WidgetLook.kt::enum class WidgetLook][WidgetLook]]: Plain, Tonal, Bold, Split, Shape, Poster). The Widgets screen arranges
 the page and the picker adds to it. The design record is [[file:widgets-design.org][docs/widgets-design.org]].
 
 ** Navigation without a navigation library

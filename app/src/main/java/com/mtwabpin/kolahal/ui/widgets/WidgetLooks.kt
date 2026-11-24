@@ -76,11 +76,12 @@ fun squareBox(widthDp: Int, heightDp: Int): Boolean =
     heightDp > 0 && widthDp.toFloat() / heightDp in 0.75f..1.34f
 
 /**
- * Whether the card frame leaves the title to the body: Bold, Split and Shape have no title line.
- * The frame then gives the title through [LocalUntitled], for the body to place where it fits.
+ * Whether the card frame leaves the title to the body: Bold, Split, Shape and Poster have no title
+ * line. The frame then gives the title through [LocalUntitled], for the body to place where it fits.
  */
 fun WidgetLook.untitled(): Boolean =
-    this == WidgetLook.BOLD || this == WidgetLook.SPLIT || this == WidgetLook.SHAPE
+    this == WidgetLook.BOLD || this == WidgetLook.SPLIT || this == WidgetLook.SHAPE ||
+            this == WidgetLook.POSTER
 
 /**
  * The colors a card draws with, for its look and its color `role` ([roleColor]).
@@ -255,6 +256,7 @@ fun cardPolygon(spec: WidgetSpec?): RoundedPolygon? = when (spec) {
     is WidgetSpec.Progress -> if (spec.items.isEmpty()) MaterialShapes.Clover4Leaf else null
     is WidgetSpec.Clock -> MaterialShapes.Cookie9Sided
     is WidgetSpec.Chart -> MaterialShapes.Cookie12Sided
+    is WidgetSpec.Sky -> if (spec.phase == null) MaterialShapes.Sunny else MaterialShapes.Circle
     else -> null
 }
 

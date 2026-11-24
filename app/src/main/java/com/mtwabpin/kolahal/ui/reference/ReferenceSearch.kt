@@ -118,7 +118,7 @@ internal object ReferenceSearch {
         WidgetKind.STAT -> "One big value with its label, and smaller ones"
         WidgetKind.TEXT -> "A few lines of text, and a caption"
         WidgetKind.LIST -> "Rows, each with a title and more"
-        WidgetKind.PROGRESS -> "A ring or a bar, or up to 4 bars"
+        WidgetKind.PROGRESS -> "A ring or a bar, up to 4 bars or rings, a gauge, or stages"
         WidgetKind.CHART -> "Numbers over time, as a line, bars or dots"
         WidgetKind.COUNTDOWN -> "The time to a moment"
         WidgetKind.BUTTONS -> "1 to 8 buttons"
@@ -126,6 +126,8 @@ internal object ReferenceSearch {
         WidgetKind.CLOCK -> "The time in up to 4 places"
         WidgetKind.AGENDA -> "Events by day"
         WidgetKind.IMAGE -> "A picture from the web, with a caption"
+        WidgetKind.VERSUS -> "Two sides and the score between them"
+        WidgetKind.SKY -> "The sun's path from its rise to its set, or the moon's"
         WidgetKind.MEDIA -> "What is playing"
     }
 }
