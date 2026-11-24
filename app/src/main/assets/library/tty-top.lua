@@ -1,16 +1,15 @@
--- @title Template: top screen
--- @desc A starting point for a full-screen screen of live facts: the battery, the network and today's screen time, as screen top shows them
+-- @title Top
+-- @desc Live facts over the whole screen: the battery, the network and today's screen time, as top shows them, written as a script
 -- @author Kolahal
 -- @version 1.0
 -- @command
 -- @usage
 -- @uses screen, usage
--- @tags template, screen, top, battery, usage
+-- @tags screen, top, battery, usage
 -- @requires 0.5.17
 --
--- Kolahal's `screen top`, written as a script, to start a screen of your own from. Run
--- `template-screen-top`; a tap, a key or Back closes it. To make it yours, rename it first:
--- `script mv template-screen-top mytop`.
+-- Kolahal's `top`, written as a script, to read as an example of a screen. Run `tty-top`; a tap,
+-- a key or Back closes it.
 --
 -- In the style of the Unix top, it shows facts about the phone and draws them again each second:
 -- a first line with the time and today's unlocks, meters with bars, and a table under an inverse

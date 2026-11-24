@@ -1,16 +1,15 @@
--- @title Template: pipes screen
--- @desc A starting point for a full-screen screen: pipes grow across it and turn at random, as pipes draws them
+-- @title Pipes
+-- @desc Pipes grow across the whole screen and turn at random, as pipes draws them, written as a script
 -- @author Kolahal
 -- @version 1.0
 -- @command
 -- @usage
 -- @uses screen
--- @tags template, screen, pipes
+-- @tags screen, pipes
 -- @requires 0.5.17
 --
--- Kolahal's `pipes`, written as a script, to start a screen of your own from. Run
--- `template-screen-pipes`; a tap, a key or Back closes it. To make it yours, rename it first:
--- `script mv template-screen-pipes mypipes`.
+-- Kolahal's `pipes`, written as a script, to read as an example of a screen. Run `tty-pipes`; a
+-- tap, a key or Back closes it.
 --
 -- Two pipes grow a cell at a time. After a few cells straight on, a pipe may turn left or right,
 -- never back. One that leaves the screen at an edge comes back at the other, in another color.

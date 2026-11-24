@@ -116,13 +116,13 @@ class LibraryTagsTest {
     fun theChipsOfTheLibrary() {
         assertEquals(
             mapOf(
-                TEMPLATE to 23,
+                TEMPLATE to 18,
                 WIDGET to 27,
-                COMMAND to 31,
+                COMMAND to 33,
                 TIMER to 26,
                 EVENT to 4,
                 INTERNET to 31,
-                OFFLINE to 24
+                OFFLINE to 26
             ),
             LibraryTags.counts(library, emptyList()),
         )
@@ -157,7 +157,7 @@ class LibraryTagsTest {
             library.filter { it.title.startsWith("Template") }.map { it.name },
             named(TEMPLATE)
         )
-        assertEquals(23, named(TEMPLATE).size)
+        assertEquals(18, named(TEMPLATE).size)
     }
 
     @Test
@@ -191,15 +191,17 @@ class LibraryTagsTest {
             "screen-time",
             "template-event-js",
             "template-event",
-            "template-screen-boot",
-            "template-screen-clock",
-            "template-screen-decode",
-            "template-screen-matrix",
-            "template-screen-pipes",
-            "template-screen-sl",
-            "template-screen-top",
+            "template-screen-js",
+            "template-screen",
             "template-widget-list-js",
             "template-widget-list",
+            "tty-boot",
+            "tty-clock",
+            "tty-decode",
+            "tty-matrix",
+            "tty-pipes",
+            "tty-sl",
+            "tty-top",
             "unlock-chart",
             "unused-apps",
             "world-clocks",

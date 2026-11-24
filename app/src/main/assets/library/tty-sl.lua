@@ -1,17 +1,16 @@
--- @title Template: sl screen
--- @desc A starting point for a full-screen screen that ends by itself: a steam locomotive crosses it, as sl draws it
+-- @title Steam locomotive
+-- @desc A steam locomotive crosses the whole screen, and it closes by itself, as sl draws it, written as a script
 -- @author Kolahal
 -- @version 1.0
 -- @command
 -- @usage
 -- @uses screen
--- @tags template, screen, sl, train
+-- @tags screen, sl, train
 -- @requires 0.5.17
 --
--- Kolahal's `sl`, written as a script, to start a screen of your own from. Run
--- `template-screen-sl`: a steam locomotive crosses the screen once, right to left, with smoke from
--- its funnel, and the screen closes by itself. A tap, a key or Back closes it sooner. To make it
--- yours, rename it first: `script mv template-screen-sl train`.
+-- Kolahal's `sl`, written as a script, to read as an example of a screen. Run `tty-sl`: a steam
+-- locomotive crosses the screen once, right to left, with smoke from its funnel, and the screen
+-- closes by itself. A tap, a key or Back closes it sooner.
 --
 -- It draws the whole picture again at each step: it clears the grid, then writes the smoke and the
 -- train. The train is one text with line breaks: g.put writes each line under the one before, from

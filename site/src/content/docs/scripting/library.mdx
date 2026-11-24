@@ -1,6 +1,6 @@
 ---
 title: Script library
-description: The 55 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 57 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
 import Cards from "../../../components/Cards.astro";
@@ -22,7 +22,7 @@ import clocks from "../../../assets/widgets/worldclocks-2x2.png";
 import toggles from "../../../assets/widgets/quicktoggles-4x1.png";
 import webnumber from "../../../assets/widgets/webnumber-2x1.png";
 
-Kolahal includes 55 ready-made scripts, 23 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 57 ready-made scripts, 18 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -46,6 +46,8 @@ Install is there too. **Get more scripts** shows a shared script the same way.
 **Finding a script**
 
 **Add script → From the library** has a search field at the top, and a row of chips under it.
+The scripts that do something come first; the [templates](#templates) come after them, under
+"Templates". **Get more scripts** lists its templates last too.
 
 - **Search**: type a few letters. The list keeps the scripts that have every word you type, in
   their name, their title or their description. `clock` finds World clocks; `live score` finds
@@ -162,6 +164,13 @@ None of the network scripts need an API key.
 | [quick-toggles](#quick-toggles) | Lua | | | |
 | [night-dnd](#night-dnd) | Lua | | daily 23:00 and 07:00 | |
 | [night-work](#night-work) | Lua | | daily 23:00 and 07:00 | |
+| [tty-matrix](#screens) | Lua | yes | | |
+| [tty-pipes](#screens) | Lua | yes | | |
+| [tty-sl](#screens) | Lua | yes | | |
+| [tty-clock](#screens) | Lua | yes | | |
+| [tty-top](#screens) | Lua | yes | | |
+| [tty-decode](#screens) | Lua | yes | | |
+| [tty-boot](#screens) | Lua | yes | | |
 | [template-command](#templates) | Lua | yes | | |
 | [template-command-js](#templates) | JS | yes | | |
 | [template-timer](#templates) | Lua | | every 6h | yes |
@@ -178,13 +187,8 @@ None of the network scripts need an API key.
 | [template-widget-js](#templates) | JS | | | |
 | [template-widget-list](#templates) | Lua | | daily 00:01 | |
 | [template-widget-list-js](#templates) | JS | | daily 00:01 | |
-| [template-screen-matrix](#templates) | Lua | yes | | |
-| [template-screen-pipes](#templates) | Lua | yes | | |
-| [template-screen-sl](#templates) | Lua | yes | | |
-| [template-screen-clock](#templates) | Lua | yes | | |
-| [template-screen-top](#templates) | Lua | yes | | |
-| [template-screen-decode](#templates) | Lua | yes | | |
-| [template-screen-boot](#templates) | Lua | yes | | |
+| [template-screen](#templates) | Lua | yes | | |
+| [template-screen-js](#templates) | JS | yes | | |
 
 ## Widgets
 
@@ -736,10 +740,32 @@ profile when the phone has one. It doesn't use the network.
 - Change the times in the same way as for night-dnd.
 - It has `@uses work`. It doesn't use the network.
 
+## Screens
+
+Seven scripts draw Kolahal's own full-screen screens as a script does, with
+[`tty.screen`](/scripting/api/#screens): to run, and to read as longer examples. Each is a
+command: type its name. A tap, a key or Back closes it; tty-sl and tty-boot also close by
+themselves. Where the script API can't read what the built-in shows, the script shows the nearest
+thing it can read, and says so in its comments. To start a screen of your own, use
+[template-screen](#templates).
+
+They belong to the [TTY home style](/reference/config/#tty-home-style). With the other style,
+the library marks each **TTY style only**, and home doesn't suggest them.
+
+| Script | Draws | Not as the built-in |
+| --- | --- | --- |
+| tty-matrix | `matrix`: streams of characters fall, each with a bright head that fades toward its tail | |
+| tty-pipes | `pipes`: pipes grow and turn at random, in a new color at each edge | 7 colors, the ones a script can name |
+| tty-sl | `sl`: a steam locomotive crosses once, with smoke, and the screen closes | |
+| tty-clock | `clock`: the time in big digits, the date under them | 12- or 24-hour time from its `hours` option; the date in English |
+| tty-top | `top`: the time, today's unlocks, the battery and today's screen time, each second | the network instead of memory, and the apps used most today instead of your scripts. It has `@uses usage` |
+| tty-decode | `decode`: lines scramble and settle in waves of five kinds | its own lines, or the words you give it, instead of home's log. Only plain letters, digits and signs scramble |
+| tty-boot | `boot`: a boot log typed out with an OK before each line, then the screen closes | the apps, the battery, the network and the unlocks; not the versions, theme, font or scripts. It has `@uses apps` |
+
 ## Templates
 
 Short, commented scripts to start your own from. Each shows one way of working. Most come in Lua
-and in JavaScript: the JavaScript one has `-js` at the end of its name. The screens are in Lua only.
+and in JavaScript: the JavaScript one has `-js` at the end of its name.
 
 - **template-command** / **template-command-js**: a command you type. It reads its words and logs
   lines that do something when tapped.
@@ -764,21 +790,11 @@ and in JavaScript: the JavaScript one has `-js` at the end of its name. The scre
   day, with a checkbox on each row (its `items` option lists the things). A tap on a row runs the
   script again, which ticks the row and fills the card again. Each new day starts with no ticks,
   and each placed widget keeps its own.
-- The screen templates: a [screen of its own](/scripting/api/#screens), drawn with `tty.screen` on
-  the character grid. Each draws one of Kolahal's screens as a script does, with comments on how
-  time passes, how the grid is addressed, the frame rate, the keys, and the limits a screen has.
-  Where the script API can't read what the built-in shows, the script shows the nearest thing it
-  can read, and says so in its comments.
-
-  | Script | Draws | Not as the built-in |
-  | --- | --- | --- |
-  | template-screen-matrix | `matrix`: streams of characters fall, each with a bright head that fades toward its tail | |
-  | template-screen-pipes | `pipes`: pipes grow and turn at random, in a new color at each edge | 7 colors, the ones a script can name |
-  | template-screen-sl | `sl`: a steam locomotive crosses once, with smoke, and the screen closes | |
-  | template-screen-clock | `screen clock`: the time in big digits, the date under them | 12- or 24-hour time from its `hours` option; the date in English |
-  | template-screen-top | `screen top`: the time, today's unlocks, the battery and today's screen time, each second | the network instead of memory, and the apps used most today instead of your scripts. It has `@uses usage` |
-  | template-screen-decode | `screen decode`: lines scramble and settle in waves of five kinds | its own lines, or the words you give it, instead of home's log. Only plain letters, digits and signs scramble |
-  | template-screen-boot | `screen boot`: a boot log typed out with an OK before each line, then the screen closes | the apps, the battery, the network and the unlocks; not the versions, theme, font or scripts. It has `@uses apps` |
+- **template-screen** / **template-screen-js**: a [screen of its own](/scripting/api/#screens),
+  drawn with `tty.screen` on the character grid: a line of text, and a block that goes back and
+  forth under it. A tap or Space changes the block's color, and Q closes the screen. Its comments
+  say what each part of a screen is for, how time passes and how the grid is addressed, and the
+  limits a screen has. The [tty- scripts](#screens) are longer screens to read.
 
 Install one, then copy it under a new name to make it yours, so library updates don't replace your
 changes: `script mv template-command mycommand`.

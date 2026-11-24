@@ -1,17 +1,16 @@
--- @title Template: clock screen
--- @desc A starting point for a full-screen screen that shows information: the time in big digits, as screen clock shows it
+-- @title Clock
+-- @desc The time in big digits over the whole screen, as clock shows it, written as a script
 -- @author Kolahal
 -- @version 1.0
 -- @command
 -- @usage
 -- @uses screen
--- @tags template, screen, clock, time
+-- @tags screen, clock, time
 -- @requires 0.5.17
 -- @option hours 12|24 12-hour time with AM and PM, or 24-hour time
 --
--- Kolahal's `screen clock`, written as a script, to start a screen of your own from. Run
--- `template-screen-clock`; a tap, a key or Back closes it. To make it yours, rename it first:
--- `script mv template-screen-clock bigclock`.
+-- Kolahal's `clock`, written as a script, to read as an example of a screen. Run `tty-clock`; a
+-- tap, a key or Back closes it.
 --
 -- The digits are made of block cells, as big as the grid allows, with the date under them. The
 -- seconds show when they fit; without them the clock changes once a minute.
@@ -20,8 +19,8 @@
 -- shows has changed. A frame that draws nothing costs next to nothing.
 --
 -- What differs from the built-in:
--- - It reads 12- or 24-hour time from its hours option (`script set template-screen-clock hours
---   24`): a script can't read Kolahal's clock.24h setting.
+-- - It reads 12- or 24-hour time from its hours option (`script set tty-clock hours 24`): a script
+--   can't read Kolahal's clock.24h setting.
 -- - The date is in English: os.date doesn't know the phone's language.
 
 -- Each digit is 3 × 5 pixels, row by row: # is a pixel. FONT[0] is the digit 0.

@@ -2212,10 +2212,12 @@ the `@widget` line and works only in saved scripts.
 A script can open a full-screen screen of its own over home, and draw on the character grid, as
 `matrix` and `clock` do. It is the same in both home styles, in your theme's colors and font.
 
-To start from a screen that works, install one of the library's
-[screen templates](/scripting/library/#templates): `template-screen-matrix`, `template-screen-pipes`,
-`template-screen-sl`, `template-screen-clock`, `template-screen-top`, `template-screen-decode` and
-`template-screen-boot` each draw one of Kolahal's screens, in Lua, with comments on how it works.
+To start from a screen that works, install the library's
+[`template-screen`](/scripting/library/#templates), or `template-screen-js` in JavaScript: a short
+screen with a comment on each part. For longer examples, the library's
+[screens](/scripting/library/#screens) `tty-matrix`, `tty-pipes`, `tty-sl`, `tty-clock`,
+`tty-top`, `tty-decode` and `tty-boot` each draw one of Kolahal's screens, in Lua, with comments on
+how it works.
 
 ### tty.screen(spec)
 

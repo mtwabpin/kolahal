@@ -1,18 +1,17 @@
--- @title Template: boot screen
--- @desc A starting point for a short full-screen screen: a startup sequence typed out with facts from your phone, as screen boot shows it
+-- @title Startup sequence
+-- @desc A startup sequence typed out over the whole screen with facts from your phone, as boot shows it, written as a script
 -- @author Kolahal
 -- @version 1.0
 -- @command
 -- @usage
 -- @uses screen, apps
--- @tags template, screen, boot
+-- @tags screen, boot
 -- @requires 0.5.17
 --
--- Kolahal's `screen boot`, written as a script, to start a screen of your own from. Run
--- `template-screen-boot`: a startup sequence in the style of a Linux boot log is typed out line by
--- line, each character passing through a few others before it settles, with an OK before each line.
--- It takes 1.2 seconds, and the screen closes by itself. To make it yours, rename it first:
--- `script mv template-screen-boot myboot`.
+-- Kolahal's `boot`, written as a script, to read as an example of a screen. Run `tty-boot`: a
+-- startup sequence in the style of a Linux boot log is typed out line by line, each character
+-- passing through a few others before it settles, with an OK before each line. It takes 1.2
+-- seconds, and the screen closes by itself.
 --
 -- The lines are made before tty.screen: the code before it has the 60 s of any run, and each call of
 -- a screen's functions only 1 s, so what a screen needs is read first. Then each character gets the moment it appears and the moment it settles, and

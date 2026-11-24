@@ -1,16 +1,15 @@
--- @title Template: decode screen
--- @desc A starting point for a full-screen screen of text that scrambles and settles in waves, as screen decode does
+-- @title Decode
+-- @desc Text that scrambles and settles in waves over the whole screen, as decode does, written as a script
 -- @author Kolahal
 -- @version 1.0
 -- @command
 -- @usage [<text>]
 -- @uses screen
--- @tags template, screen, decode, text
+-- @tags screen, decode, text
 -- @requires 0.5.17
 --
--- Kolahal's `screen decode`, written as a script, to start a screen of your own from. Run
--- `template-screen-decode`, or `template-screen-decode` and some words of your own; a tap, a key or
--- Back closes it. To make it yours, rename it first: `script mv template-screen-decode mydecode`.
+-- Kolahal's `decode`, written as a script, to read as an example of a screen. Run `tty-decode`, or
+-- `tty-decode` and some words of your own; a tap, a key or Back closes it.
 --
 -- Its lines scramble and settle again: each character passes through random ones and settles on
 -- the real one, from the left. First all the lines, from the top down; then, after a short rest, a
@@ -39,7 +38,7 @@ local TEXT = {
   "all of them from the top down, a band that sweeps down,",
   "from the bottom up, a few lines here and there,",
   "or column by column, from the left or from the right.",
-  "Type template-screen-decode and some words to decode your own.",
+  "Type tty-decode and some words to decode your own.",
 }
 
 -- What a character passes through: letters, digits, signs and half-width katakana, one cell each.

@@ -1,16 +1,15 @@
--- @title Template: matrix screen
--- @desc A starting point for a full-screen screen: streams of characters fall down it, as matrix draws them
+-- @title Matrix rain
+-- @desc Streams of characters fall down the whole screen, as matrix draws them, written as a script
 -- @author Kolahal
 -- @version 1.0
 -- @command
 -- @usage
 -- @uses screen
--- @tags template, screen, matrix
+-- @tags screen, matrix
 -- @requires 0.5.17
 --
--- Kolahal's `matrix`, written as a script, to start a screen of your own from. Run
--- `template-screen-matrix`; a tap, a key or Back closes it. To make it yours, rename it first, so a
--- library update doesn't replace your changes: `script mv template-screen-matrix rain`.
+-- Kolahal's `matrix`, written as a script, to read as an example of a screen. Run `tty-matrix`; a
+-- tap, a key or Back closes it. template-screen is a short screen to start your own from.
 --
 -- How a screen works: the code runs to its end, and its last call, tty.screen{…}, opens the screen.
 -- Kolahal then calls the functions it was given: start once, frame for each frame, resize when the

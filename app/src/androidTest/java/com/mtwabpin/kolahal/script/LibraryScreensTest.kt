@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.script
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.screens.FramePlayer
 import kotlinx.coroutines.runBlocking
@@ -16,10 +17,11 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * The library's screens (`template-screen-*`), each run as Kolahal runs a script's screen, on a home
- * that is made up: it opens the screen at a size, sends ticks 33 ms apart, then closes it, and keeps
- * what the script drew. At a phone's 60 × 40 cells and a tablet's 200 × 60, each one draws something,
- * draws only on the grid, and keeps up: 30 slow frames in a row would end its run with an error.
+ * The library's screens (`template-screen`, its JavaScript twin and the `tty-*` scripts), each run as
+ * Kolahal runs a script's screen, on a home that is made up: it opens the screen at a size, sends
+ * ticks 33 ms apart, then closes it, and keeps what the script drew. At a phone's 60 × 40 cells and a
+ * tablet's 200 × 60, each one draws something, draws only on the grid, and keeps up: 30 slow frames
+ * in a row would end its run with an error.
  */
 @RunWith(AndroidJUnit4::class)
 class LibraryScreensTest {
@@ -101,19 +103,72 @@ class LibraryScreensTest {
         end
     """.trimIndent() + "\n"
 
+    /**
+     * The same as [watched], in JavaScript, for a script in JavaScript. tty.screen is a binding: it
+     * is defined over with its own flags, as the engine's screen.js does.
+     */
+    private fun watchedJs(sideways: Boolean) = """
+        {
+          const sideways = $sideways;
+          const inside = (what, c, r, w, h, g) => {
+            if (c < 0 || r < 0 || c + w > g.cols || r + h > g.rows) {
+              throw new Error(what + " at " + c + "," + r + " (" + w + "x" + h + ") is off the " + g.cols + "x" + g.rows + " grid");
+            }
+          };
+          let seen, of;
+          const watch = (g) => {
+            if (of !== g) {
+              of = g;
+              seen = {
+                get cols() { return g.cols; },
+                get rows() { return g.rows; },
+                put: (c, r, text, style) => {
+                  inside("g.put", sideways ? 0 : c, r, 1, String(text).split("\n").length, g);
+                  return g.put(c, r, text, style);
+                },
+                fill: (c, r, w, h, char, style) => {
+                  inside("g.fill", c, r, w, h, g);
+                  return g.fill(c, r, w, h, char, style);
+                },
+                bar: (c, r, w, value, style) => {
+                  inside("g.bar", c, r, w, 1, g);
+                  return g.bar(c, r, w, value, style);
+                },
+                clear: (style) => g.clear(style),
+                box: (c, r, w, h, style) => g.box(c, r, w, h, style),
+              };
+            }
+            return seen;
+          };
+          const d = Object.getOwnPropertyDescriptor(tty, "screen");
+          const open = d.value;
+          Object.defineProperty(tty, "screen", {
+            value: (spec) => {
+              for (const name of ["start", "frame", "resize"]) {
+                const f = spec[name];
+                if (typeof f === "function") spec[name] = function (g, ...rest) { return f.apply(this, [watch(g), ...rest]); };
+              }
+              return open(spec);
+            },
+            writable: d.writable, enumerable: d.enumerable, configurable: d.configurable,
+          });
+        }
+    """.trimIndent() + "\n"
+
     /** Runs the library's [file] on a [cols] × [rows] grid for [ticks] frames; the run's error, or null. */
     private fun run(file: String, cols: Int, rows: Int, ticks: Int, sideways: Boolean = false): Throwable? {
         frames.clear()
         ended.set(0)
         val entry = library.entries.single { it.file == file }
         val code = library.code(entry)
+        val before = if (entry.lang == ScriptLang.JS) watchedJs(sideways) else watched(sideways)
         val events = List(ticks) { ScreenSession.Event.Tick((it + 1) * 33L, 33L) } + ScreenSession.Event.Close
         val host = HostApi(
             context, "screentest", scriptId = null, notifyEnabled = false, interactive = true,
             options = ScriptMeta.options(code).associate { it.name to it.default },
         ).apply { screenHome = Home(cols, rows, events) }
         return try {
-            runCatching { runBlocking { ScriptEngine.forLang(entry.lang).run(watched(sideways) + code, "screentest", host, 10_000, repl = false) } }
+            runCatching { runBlocking { ScriptEngine.forLang(entry.lang).run(before + code, "screentest", host, 10_000, repl = false) } }
                 .exceptionOrNull()
         } finally {
             host.flush()
@@ -138,32 +193,39 @@ class LibraryScreensTest {
     }
 
     @Test
-    fun matrix() = drawsOnTheGrid("template-screen-matrix.lua")
+    fun template() = drawsOnTheGrid("template-screen.lua")
 
     @Test
-    fun pipes() = drawsOnTheGrid("template-screen-pipes.lua")
+    fun templateJs() = drawsOnTheGrid("template-screen-js.js")
 
     @Test
-    fun sl() = drawsOnTheGrid("template-screen-sl.lua", sideways = true)
+    fun matrix() = drawsOnTheGrid("tty-matrix.lua")
 
     @Test
-    fun clock() = drawsOnTheGrid("template-screen-clock.lua")
+    fun pipes() = drawsOnTheGrid("tty-pipes.lua")
 
     @Test
-    fun top() = drawsOnTheGrid("template-screen-top.lua")
+    fun sl() = drawsOnTheGrid("tty-sl.lua", sideways = true)
 
     @Test
-    fun decode() = drawsOnTheGrid("template-screen-decode.lua")
+    fun clock() = drawsOnTheGrid("tty-clock.lua")
 
     @Test
-    fun boot() = drawsOnTheGrid("template-screen-boot.lua")
+    fun top() = drawsOnTheGrid("tty-top.lua")
 
-    /** Every screen in the library is tested here. */
+    @Test
+    fun decode() = drawsOnTheGrid("tty-decode.lua")
+
+    @Test
+    fun boot() = drawsOnTheGrid("tty-boot.lua")
+
+    /** Every screen in the library is tested here: each script with `@uses screen`. */
     @Test
     fun theyAreAllHere() {
         assertEquals(
-            listOf("boot", "clock", "decode", "matrix", "pipes", "sl", "top").map { "template-screen-$it.lua" },
-            library.entries.map { it.file }.filter { it.startsWith("template-screen-") }.sorted(),
+            listOf("template-screen-js.js", "template-screen.lua") +
+                listOf("boot", "clock", "decode", "matrix", "pipes", "sl", "top").map { "tty-$it.lua" },
+            library.entries.filter { ScriptMeta.isScreen(library.code(it)) }.map { it.file }.sorted(),
         )
     }
 
@@ -173,9 +235,9 @@ class LibraryScreensTest {
      */
     @Test
     fun bootAndSlEndByThemselves() {
-        assertNull(run("template-screen-boot.lua", 60, 40, ticks = 60))
+        assertNull(run("tty-boot.lua", 60, 40, ticks = 60))
         assertTrue("boot: ${frames.count { it.tick }} frames", frames.count { it.tick } in 30 until 60)
-        assertNull(run("template-screen-sl.lua", 60, 40, ticks = 200, sideways = true))
+        assertNull(run("tty-sl.lua", 60, 40, ticks = 200, sideways = true))
         assertTrue("sl: ${frames.count { it.tick }} frames", frames.count { it.tick } in 100 until 200)
     }
 }
