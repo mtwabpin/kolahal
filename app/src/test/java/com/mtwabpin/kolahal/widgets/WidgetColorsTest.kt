@@ -116,26 +116,30 @@ class WidgetColorsTest {
         assertEquals(sides, (WidgetColors.recolored(versus, ColorRole.TEXT) as WidgetSpec.Versus).sides)
     }
 
-    /** Seven roles, the card's own first; info only when it is the card's own. */
+    /**
+     * The page offers the roles in their order, each whose color is not the twin of one before it;
+     * a chosen twin stays, so the page shows what the card has.
+     */
     @Test
-    fun theOwnColorIsOfferedFirst() {
+    fun eachRoleWhoseColorIsNotATwin() {
         assertEquals(
-            listOf("accent", "link", "good", "warn", "bad", "muted", "text"),
-            WidgetColors.choices(null).map { it.role }
+            listOf("Accent", "Link", "Info", "Good", "Warning", "Bad", "Muted", "Text"),
+            WidgetColors.ORDER.map(WidgetColors::label)
         )
+        // Every role its own color: all eight.
+        assertEquals(WidgetColors.ORDER, WidgetColors.offered({ it.role }))
+        // Info the link's color, as in Rosé Pine: info is left out, unless it is the card's.
+        val twins: (ColorRole) -> String = { if (it == ColorRole.INFO) "link" else it.role }
+        assertEquals(WidgetColors.ORDER - ColorRole.INFO, WidgetColors.offered(twins))
+        assertEquals(WidgetColors.ORDER, WidgetColors.offered(twins, chosen = ColorRole.INFO))
+        // The first of twins is kept: muted the text's color leaves text out.
         assertEquals(
-            listOf("warn", "accent", "link", "good", "bad", "muted", "text"),
-            WidgetColors.choices(ColorRole.WARN).map { it.role }
-        )
-        assertEquals(ColorRole.INFO, WidgetColors.choices(ColorRole.INFO).first())
-        assertEquals(8, WidgetColors.choices(ColorRole.INFO).size)
-        assertEquals(
-            listOf("Accent", "Link", "Good", "Warning", "Bad", "Muted", "Text"),
-            WidgetColors.OFFERED.map(WidgetColors::label)
+            WidgetColors.ORDER - ColorRole.TEXT,
+            WidgetColors.offered({ if (it == ColorRole.TEXT) "muted" else it.role })
         )
     }
 
-    /** Every card Kolahal draws has the row; an app's widget, which draws itself, has none. */
+    /** Every card Kolahal draws has a color to choose; an app's widget, which draws itself, has none. */
     @Test
     fun everyCardKolahalDrawsHasTheRow() {
         assertTrue(WidgetColors.offeredFor(WidgetSource.script("weather")))

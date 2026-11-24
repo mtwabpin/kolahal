@@ -636,7 +636,23 @@ class WidgetGalleryTest {
             WidgetSpec.Progress(base("Lisbon").copy(shape = WidgetShape.SUN), value = 72f, max = 100f, label = "Trip saved"),
             look = WidgetLook.SHAPE,
         ),
-        // One card in three colors chosen in Arrange widgets (sheet 14): its script gives warn.
+        // Three of the shapes the settings page adds (sheet 18): a gem, an arch and a pill.
+        Shot(
+            "kind-shape-gem", WidgetSize.S1X1, "Paris",
+            WidgetSpec.Stat(base("Paris", color = ColorRole.INFO).copy(shape = WidgetShape.GEM), value = "118", label = "AQI"),
+            look = WidgetLook.SHAPE,
+        ),
+        Shot(
+            "kind-shape-arch", WidgetSize.S2X2, "Nairobi",
+            WidgetSpec.Stat(base("Nairobi", "sun").copy(shape = WidgetShape.ARCH), value = "31°", label = "Sunny"),
+            look = WidgetLook.SHAPE,
+        ),
+        Shot(
+            "kind-shape-pill", WidgetSize.S2X1, "Tokyo",
+            WidgetSpec.Stat(base("Tokyo").copy(shape = WidgetShape.PILL), value = "6,240", label = "Steps today"),
+            look = WidgetLook.SHAPE,
+        ),
+        // One card in three colors chosen on its settings page (sheet 14): its script gives warn.
         Shot(
             "kind-color-link", WidgetSize.S2X1, "Air",
             WidgetSpec.Stat(base("Air", color = ColorRole.WARN), value = "118", label = "AQI"),

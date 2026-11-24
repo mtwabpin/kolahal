@@ -409,7 +409,7 @@ screen. (The text editor is a window of its own, with its own small ViewModel: s
 | =widgetScripts=, =widgetFeed=, =widgetActions=    | flows and a helper                              | what the widget cards read, and what their taps do     |
 | =apps=, =profiles=, =status=, =nowPlaying=, ...   | =StateFlow= (passed through from repositories)  | header and suggestions                                 |
 | =events=                                          | =SharedFlow<UiEvent>=                           | one-off requests (scroll, focus, permissions, pickers) |
-| =logTurns=, =widgetsTurns=                        | =SharedFlow<Unit>=                              | turn home's pager to the log or the widgets page       |
+| =logTurns=, =widgetsTurns=                        | =SharedFlow<Unit>=, =SharedFlow<Int>=           | turn home's pager to the log or a widgets page (by place) |
 | =notice=                                          | =StateFlow<Notice?>=                            | a short message on the GUI pages                       |
 | =scriptActions=, =shaderActions=, =backupActions= | helpers                                         | what the Scripts, Shaders and Backup pages call        |
 | =config=                                          | =Config=                                        | settings, read directly                                |
@@ -743,8 +743,11 @@ own (see [[*Three processes][Three processes]]); =WallpaperChoice= is the shader
 
 ** Widgets
 
-The widgets page sits beside the log (=widgets.page=; =HomePager= at the bottom of =MainActivity.kt=)
-and holds three kinds of card in one layout:
+The widgets pages sit beside the log (=widgets.page=; =HomePager= at the bottom of =MainActivity.kt=),
+up to five, page 1 nearest it. A placed widget's =location= says its page: =panel= for page 1,
+=panel:<id>= for a later one; the pages' order and names are kept apart from the widgets
+([[src:widgets/WidgetPages.kt::object WidgetPages][WidgetPages]]), and =WidgetPlacement= lays out each page on its own. Arrange widgets has a tab
+for each page. A page holds three kinds of card in one layout:
 
 - *Other apps' widgets.* [[src:widgets/WidgetHost.kt::class WidgetHost private constructor][WidgetHost]] owns the one =AppWidgetHost= and the list of placed widgets
   (where each sits, its size, its look); the pure parts (=WidgetModel=, =WidgetPlacement=,
@@ -779,7 +782,7 @@ the page and the picker adds to it. The design record is [[file:widgets-design.o
   shader editor (=ui/editor/ShaderEditor.kt=) is shown the same way while =vm.shaderActions.editing= is.
 - The text editor isn't a page of home at all: it is another activity, in a task of its own
   (see [[*The text editor: a second window][The text editor]]).
-- =HomePager= (bottom of =MainActivity.kt=) puts the optional widgets page beside the terminal.
+- =HomePager= (bottom of =MainActivity.kt=) puts the optional widgets pages beside the terminal.
 - A full-screen screen isn't a =Screen= either: it runs over the log page (=vm.ttyScreen=).
 
 ** Three processes
@@ -1024,7 +1027,7 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =documents/=                  | text files for the text editor: reading, saving, drafts, the recent list                                                                                                                 | [[src:documents/TextDocument.kt::class TextDocument][TextDocument.kt]] (pure, tested)  |
 | =status/=                     | battery, network and alarm state for the header                                                                                                                                          | [[src:status/DeviceStatus.kt::class DeviceStatus][DeviceStatus.kt]]                 |
 | =unlock/=                     | the unlock counter                                                                                                                                                                       | [[src:unlock/UnlockCounter.kt::class UnlockCounter][UnlockCounter.kt]]                |
-| =usage/=                      | screen time, data and storage from Android's usage data: which days have data, one app's sessions                                                                                        | [[src:usage/UsageHistory.kt::object UsageHistory][UsageHistory.kt]], [[src:usage/AppSessions.kt::class AppSessions][AppSessions.kt]] |
+| =usage/=                      | screen time, data and storage from Android's usage data: which days have data, one app's sessions; the daily limits' colors | [[src:usage/UsageHistory.kt::object UsageHistory][UsageHistory.kt]], [[src:usage/AppSessions.kt::class AppSessions][AppSessions.kt]], [[src:usage/UsageLimits.kt::object UsageLimits][UsageLimits.kt]] |
 | =contacts/=, =calls/=         | contacts for =call= / =sms= (and the picker the Play build uses), calls in the log                                                                                                       |                                 |
 | =gesture/=                    | the lock-only accessibility service, the notification-shade helper                                                                                                                       |                                 |
 | =notify/=                     | notification channels and posting                                                                                                                                                        |                                 |

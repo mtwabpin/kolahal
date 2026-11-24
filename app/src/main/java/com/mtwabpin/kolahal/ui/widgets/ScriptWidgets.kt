@@ -72,6 +72,7 @@ import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetColors
 import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetParts
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -192,7 +193,8 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
  * - [body] draws the content in place of [spec]'s kind, on a Plain card: one of Kolahal's own cards
  *   in a look of its own ([OwnBody]). [spec] is still what it says, and a [note] comes first.
  * - A color chosen for the placed card ([LocalChosenColor]) takes the place of [spec]'s own
- *   ([WidgetColors.drawn]); a [body] reads it from [LocalCardColor].
+ *   ([WidgetColors.drawn]); a [body] reads it from [LocalCardColor]. The parts it hides
+ *   ([LocalHiddenParts]) are left out: the name is given to no body, the icon leaves [spec].
  */
 @Composable
 internal fun WidgetCard(
@@ -245,19 +247,27 @@ internal fun WidgetCard(
         } else {
             Modifier.semantics(mergeDescendants = true) {}
         }
-        // The card's color: the one chosen for it in Arrange widgets, else its own ([WidgetColors.drawn]).
+        // The card's color: the one chosen for it on its settings page, else its own ([WidgetColors.drawn]).
+        // The parts hidden there ([WidgetParts]): the icon leaves the description, the name the body.
         val chosenColor = LocalChosenColor.current
+        val hidden = LocalHiddenParts.current
         val battery = LocalBattery.current != null
-        val shown = remember(spec, chosenColor, battery) {
-            spec?.let { WidgetColors.recolored(it, WidgetColors.drawn(it.base.color, chosenColor, battery)) }
+        val shown = remember(spec, chosenColor, battery, hidden) {
+            spec?.let {
+                WidgetParts.applied(
+                    WidgetColors.recolored(it, WidgetColors.drawn(it.base.color, chosenColor, battery)),
+                    hidden
+                )
+            }
         }
+        val named = title.takeUnless { WidgetParts.NAME in hidden }
         // A built-in card's look of its own ([body]) is drawn on a Plain card.
         val look = if (body != null) WidgetLook.PLAIN else drawnLook(LocalWidgetLook.current, shown, note, footer)
         val colors = lookColors(look, roleColor(shown?.base))
         // In the Shape look, a card with a choice of shape takes the one chosen for it, else the one its script names.
         val chosenShape = LocalChosenShape.current
         val taken = remember(look, shown, chosenShape, battery) {
-            if (look == WidgetLook.SHAPE && hasShapeChoice(null, shown, battery)) chosenShape ?: shown?.base?.shape else null
+            if (look == WidgetLook.SHAPE) takenShape(shown, chosenShape, battery) else null
         }
         // The Shape look in a square box: the card is one Material shape, and the body sits in it.
         val polygon = if (look == WidgetLook.SHAPE && squareBox(
@@ -293,11 +303,11 @@ internal fun WidgetCard(
                     if (body != null && note == null && shown != null) {
                         body(box, onTap)
                     } else if (polygon != null && shown != null) {
-                        ShapedCard(title, shown, polygon, side, box, onTap, stamp)
+                        ShapedCard(named, shown, polygon, side, box, onTap, stamp)
                     } else {
                         // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
                         CardLayout(
-                            title,
+                            named,
                             shown,
                             note,
                             failure,
@@ -347,7 +357,7 @@ private fun drawnLook(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapedCard(
-    title: String,
+    title: String?,
     spec: WidgetSpec,
     polygon: RoundedPolygon,
     side: Dp,
@@ -387,7 +397,7 @@ private fun ShapedCard(
  */
 @Composable
 private fun CardLayout(
-    title: String,
+    title: String?,
     spec: WidgetSpec?,
     note: CardNote?,
     failure: String?,
@@ -507,7 +517,7 @@ private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Colo
  */
 @Composable
 private fun UntitledLayout(
-    title: String,
+    title: String?,
     spec: WidgetSpec?,
     note: CardNote?,
     failure: String?,
@@ -571,7 +581,7 @@ private fun UntitledLayout(
  */
 @Composable
 private fun BleedImageCard(
-    title: String,
+    title: String?,
     spec: WidgetSpec.Image,
     footer: WidgetWords.Footer?,
     box: WidgetSizes.Box
@@ -599,7 +609,7 @@ private fun BleedImageCard(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
+                if (title != null) Text(
                     title,
                     style = type.labelSmall,
                     color = scheme.onSurfaceVariant,
@@ -755,7 +765,8 @@ internal fun SourceWidget(
         CompositionLocalProvider(
             LocalWidgetLook provides look,
             LocalChosenShape provides w.shape,
-            LocalChosenColor provides w.color
+            LocalChosenColor provides w.color,
+            LocalHiddenParts provides w.hidden
         ) {
             if (ref != null) {
                 ScriptWidget(ref, height, actions, feed)

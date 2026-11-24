@@ -1,7 +1,7 @@
 -- @title Top
 -- @desc Live facts over the whole screen: the battery, the network and today's screen time, as top shows them, written as a script
 -- @author Kolahal
--- @version 1.0
+-- @version 1.1
 -- @command
 -- @usage
 -- @uses screen, usage
@@ -115,7 +115,8 @@ local function screenTime(g, row)
   end
   local t = os.date("*t")
   local sinceMidnight = t.hour * 60 + t.min + 1
-  meter(g, row, "Today", math.min(1, today.total / sinceMidnight), duration(today.total) .. " on screen", "info")
+  -- From your daily limit, the bar is in the warning or error color, as the built-in's.
+  meter(g, row, "Today", math.min(1, today.total / sinceMidnight), duration(today.total) .. " on screen", today.color or "info")
 end
 
 -- `text` cut to `n` characters, with "…" at the end when it was longer. By characters, not by bytes

@@ -93,9 +93,13 @@ class SystemCommands(
     /**
      * `widget` and `widgets`, [name] as typed ([WidgetWords]):
      * - `widgets` alone opens Arrange widgets.
-     * - `widget page` turns home to the widgets page beside the log.
-     * - `widget ls`, or `widget` alone, prints the placed widgets. A tap opens Arrange widgets.
-     * - `widget add` opens the picker.
+     * - `widget page` turns home to page 1 of the widgets pages beside the log; `widget page 2` and
+     *   `widget page work` to the page in that place, or with that name or the start of it
+     *   ([WidgetWords.page]).
+     * - `widget ls`, or `widget` alone, prints the placed widgets, under each page's name when there
+     *   is more than one page. A tap on a widget opens Arrange widgets, one on a page's name turns
+     *   home to that page.
+     * - `widget add` opens the picker. The widget goes on the page home showed last.
      * `widgets page`, `widgets ls` and `widgets add` work the same.
      */
     fun widgets(name: String, args: List<String>) {
@@ -105,7 +109,17 @@ class SystemCommands(
             WidgetWords.Action.PAGE -> if (conf[Keys.WIDGETS_PAGE] == "off") fix(
                 "The widgets page is off\nTap to turn it on",
                 "config set widgets.page left"
-            ) else ui.showWidgetsPage()
+            ) else {
+                val words = args.drop(1).joinToString(" ")
+                if (words.isBlank()) return ui.showWidgetsPage()
+                when (val to = WidgetWords.page(host.pages.value, words)) {
+                    is WidgetWords.PageTarget.Found -> ui.showWidgetsPage(to.page)
+                    is WidgetWords.PageTarget.Missing -> error(
+                        to.message,
+                        LogContext.of(LogContext.COPY to to.copy)
+                    )
+                }
+            }
 
             WidgetWords.Action.LIST -> {
                 val lines = host.listing(context)
@@ -113,10 +127,18 @@ class SystemCommands(
                     "No widgets yet\nTap to open the widget picker",
                     LogContext.of(LogContext.RUN to "widget add")
                 )
-                lines.forEach { (text, desc) ->
-                    out(
-                        text,
-                        LogContext.of(LogContext.RUN to "widgets", LogContext.DESC to desc)
+                lines.forEachIndexed { i, line ->
+                    val page = line.page
+                    if (page != null) {
+                        // A page's name over its widgets: a tap turns home to it. A gap sets the pages apart.
+                        val run = if (page > 0) "widget page $page" else "widgets"
+                        out(
+                            line.text,
+                            LogContext(mapOf(LogContext.RUN to run) + if (i > 0) LogContext.ITEM else emptyMap())
+                        )
+                    } else out(
+                        line.text,
+                        LogContext.of(LogContext.RUN to "widgets", LogContext.DESC to line.desc)
                     )
                 }
             }

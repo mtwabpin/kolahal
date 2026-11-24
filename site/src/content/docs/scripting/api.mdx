@@ -95,7 +95,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`reminders.list()`](#reminderslist) | `[{ id, text, at, repeats }]` |
 | [`calendar.events(days?)`](#calendareventsdays) | `[{ id, title, starts, ends, allDay }]` |
 | [`feeds.unread(n?)`](#feedsunreadn) | `[{ id, feed, title, link, date, summary }]` |
-| [`usage.today(n?)`](#usagetodayn) | `{ total, apps = [{ app, pkg, minutes }] }` |
+| [`usage.today(n?)`](#usagetodayn) | `{ total, limit, color, apps = [{ app, pkg, minutes }] }` |
 | [`usage.days(n?)`](#usagedaysn) | `[minutes]` |
 | [`usage.data(since?)`](#usagedatasince) | `{ mobile, wifi }` |
 | [`usage.unused(days?)`](#usageunuseddays) | `[{ app, pkg, days, bytes }]` |
@@ -1150,8 +1150,8 @@ Every kind takes these fields. All are optional.
 | `kind` | a kind's name | The card to draw. Without it: the kind on the `@widget` line. |
 | `title` | text, up to 40 characters | The card's name. A card has no title line: the name shows small where the content doesn't say what it is, over a large list or text, or as the label of a number, a bar, a ring, a chart or a countdown that has none. A screen reader always says it. Without it: the script's `@title`, or its name. |
 | `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's color by the Bold, Split and Shape looks; or an emoji or a letter. |
-| `color` | a role | The color of the bar, the ring, the chart or the note: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. The user can choose another for a placed card in its Color row in Arrange widgets; that one then wins, also over a color the script changes with what it shows. |
-| `shape` | `cookie9`, `cookie12`, `clover4`, `clover8`, `sun` or `burst` | The card's shape in the **Shape** look, until the user chooses one in its Shape row: a 9-sided or 12-sided cookie, a 4-leaf or 8-leaf clover, a sun or a burst. Only for a card that is one shape, or whose main value sits in one: a `stat`, `text`, `progress` (not its bars), `chart` (not a habit's week), `clock` or `image`. Without it: the kind's own, such as a cookie for a `stat` and a clover for a `progress`. Needs Kolahal 0.5.17. |
+| `color` | a role | The color of the bar, the ring, the chart or the note: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. The user can choose another for a placed card on its settings page in Arrange widgets; that one then wins, also over a color the script changes with what it shows. |
+| `shape` | `cookie4`, `cookie6`, `cookie9`, `cookie12`, `clover4`, `clover8`, `sun`, `burst`, `circle`, `pixel`, `gem`, `slanted`, `arch`, `ghost` or `pill` | The card's shape in the **Shape** look, until the user chooses one on its settings page: a 4-, 6-, 9- or 12-sided cookie, a 4-leaf or 8-leaf clover, a sun, a burst, a circle, a pixel circle, a gem, a slanted square, an arch, a ghost or a pill. Only for a card that is one shape, or whose main value sits in one: a `stat`, `text`, `progress` (not its bars), `chart` (not a habit's week), `clock` or `image`. A `clock`, a gauge and rings draw a round dial in it, so they take neither `slanted`, `arch`, `ghost` nor `pill`. Without it, or with one the card can't take: the kind's own, such as a cookie for a `stat` and a clover for a `progress`. Needs Kolahal 0.5.17. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is on screen. A widget scrolled out of sight waits, and runs as soon as it is back if its time has passed. |
@@ -2520,7 +2520,7 @@ Which widget a run fills:
   an event, a run you type, a pinned line's refresh.
 - So a further widget is not filled by the script's timer. It gets a quiet run of its own when
   you place it, when it is in view with old content, on its `refresh`, on a tap, and after you
-  change one of its options in its **Options** sheet. Nothing more runs in the background.
+  change one of its options on its settings page. Nothing more runs in the background.
 - One script's runs go one after another, also for two of its widgets.
 
 How a script tells its widgets apart:
@@ -3500,7 +3500,7 @@ Android keeps. They work in Kolahal 0.5.12 and later; `usage.summary` in 0.5.15 
 
 | Call | Gives |
 | --- | --- |
-| [`usage.today(n?)`](#usagetodayn) | `{ total, apps = [{ app, pkg, minutes }] }` |
+| [`usage.today(n?)`](#usagetodayn) | `{ total, limit, color, apps = [{ app, pkg, minutes }] }` |
 | [`usage.days(n?)`](#usagedaysn) | `[minutes]`, the oldest day first |
 | [`usage.data(since?)`](#usagedatasince) | `{ mobile, wifi }` in bytes; with `"month"`, your plan's month too |
 | [`usage.unused(days?)`](#usageunuseddays) | `[{ app, pkg, days, bytes }]` |
@@ -3512,6 +3512,11 @@ Today's screen time since midnight, in minutes (`total`), and the `n` apps you u
 (`apps`), biggest first: 10 without `n`, 30 at most. Each is `{ app, pkg, minutes }`. Only apps of
 your personal profile, used for a minute or more, are in the list. `total` counts every app,
 Kolahal too, as `usage` does, so it can be more than the list adds up to.
+
+`limit` is your daily limit for screen time in minutes (`usage.screen-time-limit`), nil when you set
+none. `color` is the role Kolahal gives `total` against it, as `usage` colors it: `"warn"` from the
+limit, `"bad"` from one and a half times it, nil under it or without a limit. A card can take it as
+its `color`: the library's **screen-time** card does. Kolahal before 0.5.17 gives neither.
 
 ### usage.days(n?)
 

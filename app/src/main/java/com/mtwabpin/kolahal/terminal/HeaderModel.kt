@@ -11,6 +11,7 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.headerSide
 import com.mtwabpin.kolahal.status.Status
+import com.mtwabpin.kolahal.usage.UsageLimits
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,13 +80,16 @@ fun headerParts(
     status,
     unlocks,
     profiles,
-    todoCount
+    todoCount,
+    config[Keys.USAGE_UNLOCK_LIMIT],
 )
 
 /**
  * The parts named in [left] and [right] (`time`, `battery`, …), in their order. A part with
  * nothing to show (no alarm set, no todos, no battery level) is left out, and a part listed on
- * both sides shows only on the left (only `config` can list it on both).
+ * both sides shows only on the left (only `config` can list it on both). [unlockLimit] is the
+ * daily unlock limit (`usage.unlock-limit`, 0 for none): the unlocks are in the warning or error
+ * ink from it ([UsageLimits]).
  */
 fun headerParts(
     left: List<String>,
@@ -96,11 +100,12 @@ fun headerParts(
     unlocks: Int,
     profiles: List<Profile>,
     todoCount: Int,
+    unlockLimit: Int = 0,
     locale: Locale = Locale.getDefault(),
 ): HeaderParts {
     val formats = HeaderFormats(clock24, locale)
     fun side(kinds: List<String>) =
-        kinds.flatMap { partsOf(it, formats, now, status, unlocks, profiles, todoCount) }
+        kinds.flatMap { partsOf(it, formats, now, status, unlocks, unlockLimit, profiles, todoCount) }
     return HeaderParts(side(left), side(right.filter { it !in left }))
 }
 
@@ -120,6 +125,7 @@ private fun partsOf(
     now: Long,
     status: Status,
     unlocks: Int,
+    unlockLimit: Int,
     profiles: List<Profile>,
     todoCount: Int,
 ): List<HeaderPart> = when (kind) {
@@ -175,13 +181,17 @@ private fun partsOf(
         )
     )
 
+    // At or over the daily limit, in the warning or error ink, and a screen reader hears it too.
     "unlocks" -> listOf(
         HeaderPart(
             HeaderPart.Kind.UNLOCKS,
             "$unlocks",
-            Ink.FG,
+            UsageLimits.role(UsageLimits.unlocks(unlocks, unlockLimit))?.let { Ink.of(it) } ?: Ink.FG,
             "unlocks",
             "unlocks",
+            description = UsageLimits.unlockWords(unlocks, unlockLimit)?.let {
+                "$unlocks ${if (unlocks == 1) "unlock" else "unlocks"} today, $it"
+            },
             target = HeaderTarget.UNLOCKS
         )
     )

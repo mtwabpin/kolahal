@@ -142,6 +142,17 @@ three settings of the log differ here:
 | `data.plan` | number 0–2000 | `0` | your mobile data plan for a month, in GB. `data month` then shows how much of it is used, the pace, and the days left. 0: no plan |
 | `data.start-day` | number 1–28 | `1` | the day of the month your plan starts again. `data month` counts from there |
 
+## Daily limits
+
+A figure of today at or over its limit shows in the theme's warning color, and at one and a half times
+the limit or more in its error color. Only how the figures look changes: nothing is blocked, and nothing notifies
+you. Both are in **Settings → Header → Daily limits**.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `usage.screen-time-limit` | number 0–1440 | `0` | a daily limit for screen time, in minutes: `180` is 3 hours. It colors today's screen time in `usage` (with a line that says how far over it is) and in `top`, and scripts read it with `usage.today`. 0: no limit |
+| `usage.unlock-limit` | number 0–500 | `0` | a daily limit for unlocks. It colors today's count in the header's `unlocks` part, in `unlocks` (with a line that says how far over it is, and each day's line by its own count), in `top` and in `fetch`. 0: no limit |
+
 ## Launching and suggestions
 
 | Key | Type | Default | Description |
@@ -191,8 +202,8 @@ See [Widgets](/guides/widgets/).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `widgets.page` | choice: `left` `right` `off` | `left` | a widgets page next to the terminal. Swipe sideways on the home screen to reach it |
-| `widgets.start` | bool | `off` | start on the widgets page. Home opens on it, and Home and Back return to it. Swipe sideways to see the log. Needs the app selector (`selector.rail`) |
+| `widgets.page` | choice: `left` `right` `off` | `left` | the widgets pages next to the terminal, page 1 nearest it. Swipe sideways on the home screen to reach them, a page at a time |
+| `widgets.start` | bool | `off` | start on widgets page 1. Home opens on it, and Home and Back return to it. Swipe sideways to see the log. Needs the app selector (`selector.rail`) |
 | `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent. `0` is none. A higher number shows less of the theme's color |
 | `widgets.agenda-days` | choice: `auto` `1` `3` `7` `14` | `auto` | the days the Agenda widget shows from today. `auto` looks up to 14 days ahead and shows as many events as the card fits |
 

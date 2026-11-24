@@ -459,6 +459,63 @@ class BuiltInCommandsTest {
     }
 
     /**
+     * `unlocks` against the daily limit (`usage.unlock-limit`): under it, the count as always; at it
+     * and over it, the count in the warning color with a line that says so; from one and a half times
+     * it, in the error color. Without usage access, today's count is the one Kolahal counted, set here
+     * to 12.
+     */
+    @Test
+    fun unlocksAgainstTheDailyLimit() {
+        val op =
+            Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(
+                1
+            ) ?: "default"
+        val kept =
+            com.mtwabpin.kolahal.data.KvStore(context, com.mtwabpin.kolahal.data.Stores.UNLOCKS)
+        val key = "d:${LocalDate.now()}"
+        val was = kept.get(key)
+        // The count's color, in the line of big numbers after the two notes about usage access.
+        fun color(lines: List<String>) =
+            com.mtwabpin.kolahal.data.StyledText.lines(lines[2]).single().stats!!.first().value.single().color
+        try {
+            shell("appops set ${context.packageName} GET_USAGE_STATS ignore")
+            kept.set(key, "12")
+            config.set(Keys.USAGE_UNLOCK_LIMIT, "13")
+            val under = run("unlocks")
+            assertEquals(under.toString(), 3, under.size)
+            assertEquals(null, color(under))
+            assertEquals(
+                "12 Unlocks today",
+                com.mtwabpin.kolahal.data.StyledText.plain(under[2])
+            )
+
+            config.set(Keys.USAGE_UNLOCK_LIMIT, "12")
+            val at = run("unlocks")
+            assertEquals(com.mtwabpin.kolahal.data.StyledText.ColorRole.WARN, color(at))
+            assertEquals("At your limit of 12", at[3])
+
+            config.set(Keys.USAGE_UNLOCK_LIMIT, "10")
+            val over = run("unlocks")
+            assertEquals(com.mtwabpin.kolahal.data.StyledText.ColorRole.WARN, color(over))
+            assertEquals("2 over your limit of 10", over[3])
+
+            config.set(Keys.USAGE_UNLOCK_LIMIT, "8")
+            val farOver = run("unlocks")
+            assertEquals(com.mtwabpin.kolahal.data.StyledText.ColorRole.BAD, color(farOver))
+            assertEquals("4 over your limit of 8", farOver[3])
+
+            // No limit: as it always is.
+            config.set(Keys.USAGE_UNLOCK_LIMIT, "0")
+            val none = run("unlocks")
+            assertEquals(3, none.size)
+            assertEquals(null, color(none))
+        } finally {
+            shell("appops set ${context.packageName} GET_USAGE_STATS $op")
+            kept.set(key, was)
+        }
+    }
+
+    /**
      * A day before Android's usage history begins is left out: not a row, not in the average. Here the
      * history begins yesterday, so `unlocks 7` has two days.
      */
@@ -585,8 +642,8 @@ class BuiltInCommandsTest {
         )
         assertEquals(listOf("Usage: restart [scripts]"), run("restart bogus"))
         assertEquals(listOf("Usage: clear [history|all]"), run("clear bogus"))
-        assertEquals(listOf("Usage: widget [add|ls|page]"), run("widget bogus"))
-        assertEquals(listOf("Usage: widget [add|ls|page]"), run("widgets bogus"))
+        assertEquals(listOf("Usage: widget [add|ls|page [<page>]]"), run("widget bogus"))
+        assertEquals(listOf("Usage: widget [add|ls|page [<page>]]"), run("widgets bogus"))
         if (BuildConfig.SELF_UPDATE) assertEquals(
             listOf("Usage: update [install]"),
             run("update bogus")

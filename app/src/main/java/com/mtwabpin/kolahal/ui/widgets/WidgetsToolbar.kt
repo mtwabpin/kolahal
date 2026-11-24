@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import android.os.SystemClock
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -12,24 +13,30 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +62,7 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.ui.LabeledIconButton
+import com.mtwabpin.kolahal.ui.home.colorOf
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetLayout
@@ -62,21 +70,22 @@ import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetShape
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
-import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.delay
 
 /** A button of the toolbar for what the selected widget itself holds: its [label] and [icon], and what a tap does. */
 internal class ToolbarEdit(val label: String, val icon: Int, val onClick: () -> Unit)
 
 /**
  * The controls for the chosen widget, docked at the bottom: its name and size, and Remove and Done.
- * - One of Kolahal's own widgets: its look and its size, one tap each. With [edit], a button for
- *   what the widget itself holds: the Shortcuts widget's list, or the options of a script's widget.
- *   Its color ([colors]) under the look, and in the Shape look, a card with a choice of shape
- *   ([shapes]) has a row of shapes. Look and Color have their name over them, as their buttons take
- *   the whole width; Shape, Size and Days have it at their start, which keeps the toolbar low.
+ * - One of Kolahal's own widgets: its look and its size, one tap each, and for the agenda its days.
+ *   Look has its name over it, as its buttons take the whole width; Size and Days have it at their
+ *   start, which keeps the toolbar low. [edit] is Settings: a button that opens the card's settings
+ *   page, with a dot in the card's color ([settingsColor]) and, in the Shape look, a small copy of
+ *   its shape ([settingsShape]) in front of the word.
  * - An app's widget: width and height in steps, and Square. It draws itself, so it has no look.
  *   With [edit], Widget settings: its setup screen, opened again.
+ * - With more than one widgets page, either kind has a Page row: a tap moves it to that page.
  */
 @Composable
 internal fun WidgetToolbar(
@@ -87,10 +96,8 @@ internal fun WidgetToolbar(
     minHeight: Int,
     minSpan: Int,
     onLook: (WidgetLook) -> Unit,
-    shapes: ShapeChoices? = null,
-    onShape: (WidgetShape?) -> Unit = {},
-    colors: ColorChoices? = null,
-    onColor: (ColorRole?) -> Unit = {},
+    settingsColor: ColorRole? = null,
+    settingsShape: WidgetShape? = null,
     onSize: (WidgetSize) -> Unit,
     onHeight: (Int) -> Unit,
     onWidth: (Int) -> Unit,
@@ -100,6 +107,9 @@ internal fun WidgetToolbar(
     onDone: () -> Unit,
     agendaDays: String? = null,
     onAgendaDays: (String) -> Unit = {},
+    pageNames: List<String> = emptyList(),
+    page: Int = 0,
+    onPage: (Int) -> Unit = {},
 ) {
     val own = w.source != null
     // Only the looks that change this kind of card ([WidgetLook.offeredFor]); one it doesn't offer draws Plain.
@@ -137,7 +147,9 @@ internal fun WidgetToolbar(
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
-                if (edit != null) {
+                if (edit != null && own) {
+                    SettingsButton(edit, settingsColor, settingsShape)
+                } else if (edit != null) {
                     Labeled(edit.label) {
                         FilledTonalIconButton(
                             shapes = IconButtonDefaults.shapes(),
@@ -163,15 +175,6 @@ internal fun WidgetToolbar(
             if (own) {
                 ToolbarLabel("Look")
                 ChoiceRow(looks.map { it.label }, drawn.label, "look ") { onLook(looks[it]) }
-                // The card's color: the one it draws with wherever it uses its own.
-                if (colors != null) {
-                    ToolbarLabel("Color")
-                    ColorChoiceRow(colors, onColor)
-                }
-                // In the Shape look, a card with one shape: which of Material's shapes it is.
-                if (shapes != null && drawn == WidgetLook.SHAPE) {
-                    NamedRow("Shape") { ShapeChoiceRow(shapes, onShape) }
-                }
                 NamedRow("Size") {
                     ChoiceRow(WidgetSize.entries.map { it.label }, size?.label, "size ") {
                         onSize(
@@ -237,6 +240,12 @@ internal fun WidgetToolbar(
                     ) { Text("Square") }
                 }
             }
+            // With more than one widgets page ([pageNames]): the one it is on ([page]), one tap to move it.
+            if (pageNames.size > 1) {
+                NamedRow("Page") {
+                    ChoiceRow(pageNames, pageNames.getOrNull(page), "page ") { onPage(it) }
+                }
+            }
         }
     }
 }
@@ -267,7 +276,38 @@ private fun NamedRow(name: String, content: @Composable () -> Unit) {
     }
 }
 
-/** The name of a row of the toolbar over its buttons: "Look", "Color". */
+/**
+ * The button of one of Kolahal's own cards that opens its settings page ([edit]): "Settings",
+ * after a dot in the card's [color] (null: the accent) and, when the card is in the Shape look with
+ * a choice of shape, a small copy of its [shape]. So it shows what it holds.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SettingsButton(edit: ToolbarEdit, color: ColorRole?, shape: WidgetShape?) {
+    FilledTonalButton(
+        shapes = ButtonDefaults.shapes(),
+        onClick = edit.onClick,
+        contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
+        modifier = Modifier
+            .heightIn(min = 48.dp)
+            .testTag("widget-settings"),
+    ) {
+        ColorDot(colorOf(color ?: ColorRole.ACCENT), MaterialTheme.colorScheme.secondaryContainer, 18.dp)
+        if (shape != null) {
+            val drawn = polygonOf(shape).toShape()
+            Box(
+                Modifier
+                    .padding(start = 2.dp)
+                    .size(16.dp)
+                    .background(LocalContentColor.current, drawn)
+            )
+        }
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        Text(edit.label, maxLines = 1)
+    }
+}
+
+/** The name of a row of the toolbar over its buttons: "Look". */
 @Composable
 private fun ToolbarLabel(text: String) {
     Text(

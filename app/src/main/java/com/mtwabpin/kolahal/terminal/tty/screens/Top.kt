@@ -8,6 +8,7 @@ import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
 import com.mtwabpin.kolahal.terminal.tty.CellWidth
 import com.mtwabpin.kolahal.terminal.tty.cut
+import com.mtwabpin.kolahal.usage.UsageLimits
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -24,6 +25,8 @@ import kotlin.math.roundToInt
  * - [ownResident]: Kolahal's own memory in RAM; [heapUsed] of [heapMax]: its Java heap.
  * - [usageAccess]: whether Kolahal may read usage data. Without it, [screenTimeMs] is -1.
  * - [screenTimeMs]: today's screen time since midnight; [unlocks]: today's unlocks.
+ * - [screenTimeLimitMin], [unlockLimit]: the daily limits (`usage.screen-time-limit`,
+ *   `usage.unlock-limit`), 0 for none. From one, its figure is in the warning or error color ([UsageLimits]).
  * - [scripts]: every script, with its last run and its timers.
  */
 data class TopData(
@@ -39,6 +42,8 @@ data class TopData(
     val usageAccess: Boolean = false,
     val screenTimeMs: Long = -1,
     val unlocks: Int = -1,
+    val screenTimeLimitMin: Int = 0,
+    val unlockLimit: Int = 0,
     val scripts: List<TopScript> = emptyList(),
 )
 
@@ -122,16 +127,21 @@ class TopScreen : TtyScreen {
     private fun draw(grid: CellBuffer, d: TopData, now: Long) {
         grid.clear()
         var row = 0
-        grid.put(0, row++, header(d, now), PLAIN)
+        header(grid, row++, d, now)
         // The meters: a label, a bar, then the numbers. Narrow, the bar goes and the numbers stay.
         val bar = (cols - LABEL - METER_TEXT).coerceAtMost(MAX_BAR).let { if (it < MIN_BAR) 0 else it }
         row = meter(grid, row, "Battery", battery(d), d.batteryPercent / 100f, batteryInk(d), bar)
         row = meter(grid, row, "Memory", memory(d), used(d.memAvailable, d.memTotal), memoryInk(d), bar)
         row = meter(grid, row, "Kolahal", own(d), fraction(d.heapUsed, d.heapMax), Ink.INFO, bar)
         row = if (d.usageAccess) {
-            // The bar: the part of the day so far spent on the screen.
+            // The bar: the part of the day so far spent on the screen. From the daily limit, the bar
+            // and the time are in the warning or error color, and the limit is said after the time.
             val sinceMidnight = now - startOfDay(now)
-            meter(grid, row, "Today", today(d), fraction(d.screenTimeMs, sinceMidnight), Ink.SCRIPT, bar)
+            val level = if (d.screenTimeMs < 0) UsageLimits.Level.NONE else UsageLimits.screenTime(d.screenTimeMs, d.screenTimeLimitMin)
+            val ink = inkOf(level) ?: Ink.SCRIPT
+            val text = if (level == UsageLimits.Level.NONE) today(d)
+            else "${duration(d.screenTimeMs)}, limit ${UsageLimits.minutes(d.screenTimeLimitMin.toLong())}"
+            meter(grid, row, "Today", text, fraction(d.screenTimeMs, sinceMidnight), ink, bar, inkOf(level)?.let { CellStyle.of(it) } ?: PLAIN)
         } else {
             grid.put(0, row, "Today", LABEL_STYLE)
             grid.put(LABEL, row, "no usage access (type allow usage)", DIM)
@@ -140,15 +150,35 @@ class TopScreen : TtyScreen {
         if (row + 1 < rows) table(grid, row + 1, d.scripts, now)
     }
 
-    /** `top - 14:03:12 up 2:10, 41 unlocks`: Unix top's first line, with Kolahal's time up. */
-    private fun header(d: TopData, now: Long): String = buildString {
-        append("top - ").append(clock(time(now), env.clock24))
-        if (d.uptimeMs >= 0) append(" up ").append(uptime(d.uptimeMs))
-        if (d.unlocks >= 0) append(", ").append(count(d.unlocks, "unlock"))
+    /**
+     * `top - 14:03:12 up 2:10, 41 unlocks`: Unix top's first line, with Kolahal's time up, on [row].
+     * From the daily limit, the unlocks are in the warning or error color, with the limit after
+     * them: `41 unlocks, limit 30`.
+     */
+    private fun header(grid: CellBuffer, row: Int, d: TopData, now: Long) {
+        val start = buildString {
+            append("top - ").append(clock(time(now), env.clock24))
+            if (d.uptimeMs >= 0) append(" up ").append(uptime(d.uptimeMs))
+            if (d.unlocks >= 0) append(", ")
+        }
+        var col = grid.put(0, row, start, PLAIN)
+        if (d.unlocks < 0) return
+        val ink = inkOf(UsageLimits.unlocks(d.unlocks, d.unlockLimit))
+        col = grid.put(col, row, count(d.unlocks, "unlock"), ink?.let { CellStyle.of(it) } ?: PLAIN)
+        if (ink != null) grid.put(col, row, ", limit ${d.unlockLimit}", PLAIN)
     }
 
-    /** One meter row: [label], a bar [bar] cells wide filled to [fill] (none if negative), then [text]. */
-    private fun meter(grid: CellBuffer, row: Int, label: String, text: String, fill: Float, ink: Ink, bar: Int): Int {
+    /** One meter row: [label], a bar [bar] cells wide filled to [fill] (none if negative), then [text] in [textStyle]. */
+    private fun meter(
+        grid: CellBuffer,
+        row: Int,
+        label: String,
+        text: String,
+        fill: Float,
+        ink: Ink,
+        bar: Int,
+        textStyle: CellStyle = PLAIN,
+    ): Int {
         if (row >= rows) return row
         grid.put(0, row, label, LABEL_STYLE)
         var col = LABEL
@@ -156,9 +186,12 @@ class TopScreen : TtyScreen {
             track(grid, col, row, bar, fill, CellStyle.of(ink))
             col += bar + 1
         }
-        grid.put(col, row, text, PLAIN)
+        grid.put(col, row, text, textStyle)
         return row + 1
     }
+
+    /** The warning or error ink for a figure at or over its daily limit; null under it. */
+    private fun inkOf(level: UsageLimits.Level): Ink? = UsageLimits.role(level)?.let { Ink.of(it) }
 
     /**
      * A bar's track `▕████▌   ▏` from [col], [width] cells with its ends, filled to [fraction] in

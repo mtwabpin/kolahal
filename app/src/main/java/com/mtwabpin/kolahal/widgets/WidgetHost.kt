@@ -244,6 +244,39 @@ class WidgetHost private constructor(context: Context) {
     /** Every placed widget, including pending re-adds. */
     val widgets: StateFlow<List<PlacedWidget>> = _widgets.asStateFlow()
 
+    private val _pages = MutableStateFlow(
+        WidgetPages.of(WidgetPages.decode(prefs.getString(KEY_PAGES, null)), _widgets.value)
+    )
+
+    /** The widgets pages, page 1 first ([WidgetPages]). There is always one. */
+    val pages: StateFlow<List<WidgetPage>> = _pages.asStateFlow()
+
+    init {
+        // A widget on a page that isn't there (more pages than may be, from a list written by hand)
+        // goes to page 1. It is written at once, as [WidgetCodec.start]'s changes are.
+        val fixed = WidgetPages.homeless(_widgets.value, _pages.value)
+        if (fixed != _widgets.value) {
+            _widgets.value = fixed
+            prefs.edit { putString(KEY, WidgetCodec.encode(fixed)) }
+        }
+    }
+
+    /**
+     * The page a new widget goes on: the page Arrange widgets arranges while it is open, else the
+     * widgets page home showed last. Page 1 when that page is gone ([target]).
+     */
+    @Volatile
+    var addTo: String = WidgetLocation.PANEL
+
+    /** [addTo] when it is still a page, else page 1. */
+    private fun target(): String =
+        addTo.takeIf { WidgetPages.indexOf(_pages.value, it) >= 0 } ?: WidgetLocation.PANEL
+
+    private fun savePages(list: List<WidgetPage>) {
+        _pages.value = list
+        prefs.edit { putString(KEY_PAGES, WidgetPages.encode(list)) }
+    }
+
     private val _providersVersion = MutableStateFlow(0)
 
     /** Increases when installed providers change, so the picker reloads. */
@@ -372,6 +405,8 @@ class WidgetHost private constructor(context: Context) {
                         info
                     ),
                     order = old?.order ?: WidgetOrder.nextOrder(all),
+                    // A restored entry goes back to its page; a new one to the page being arranged.
+                    location = old?.location ?: target(),
                     span = old?.span ?: defaultSpan(info),
                     column = old?.column ?: WidgetPlacement.UNPLACED,
                     topDp = old?.topDp ?: WidgetPlacement.UNPLACED,
@@ -509,6 +544,7 @@ class WidgetHost private constructor(context: Context) {
                     heightDp = WidgetSizes.heightDp(size, pageWidthDp())
                         .coerceIn(WidgetLayout.minDp(sourced = true), WidgetLayout.MAX_DP),
                     order = WidgetOrder.nextOrder(all),
+                    location = target(),
                     span = size.span,
                 ),
             )
@@ -615,8 +651,61 @@ class WidgetHost private constructor(context: Context) {
     fun nudge(key: String, columns: Int, rows: Int) =
         update { WidgetPlacement.nudge(it, key, columns, rows, rowDp()) }
 
-    /** Moves every widget up as far as it goes: no space left between widgets ([WidgetPlacement.closeGaps]). */
-    fun closeGaps() = update { WidgetPlacement.closeGaps(it) }
+    /**
+     * Moves every widget of the page [location] up as far as it goes: no space left between widgets
+     * ([WidgetPlacement.closeGaps]).
+     */
+    fun closeGaps(location: String = WidgetLocation.PANEL) =
+        update { WidgetPlacement.closeGaps(it, location) }
+
+    // ---- pages ----------------------------------------------------------------------------
+
+    /**
+     * Adds a page after the others ([WidgetPages.added]) and returns its location. Null, and no
+     * change, when there are [WidgetPages.MAX] pages already.
+     */
+    fun addPage(): String? {
+        synchronized(this) {
+            val list = WidgetPages.added(_pages.value) ?: return null
+            savePages(list)
+            return list.last().location
+        }
+    }
+
+    /** Calls the page at [index] [name] ([WidgetPages.renamed]); an empty name gives it its number again. */
+    fun renamePage(index: Int, name: String) {
+        synchronized(this) {
+            if (index in _pages.value.indices) savePages(WidgetPages.renamed(_pages.value, index, name))
+        }
+    }
+
+    /**
+     * Removes the page at [location], but never page 1. Its widgets move to page 1, under what is
+     * there ([WidgetPlacement.mergeInto]); the pages after it move up one place.
+     */
+    fun removePage(location: String) {
+        synchronized(this) {
+            val index = WidgetPages.indexOf(_pages.value, location)
+            if (index <= 0) return
+            save(WidgetPlacement.mergeInto(_widgets.value, location))
+            savePages(WidgetPages.removed(_pages.value, index))
+        }
+    }
+
+    /** Removes every page but page 1 that has no widget, not even one waiting to be added again: when Arrange widgets closes. */
+    fun removeEmptyPages() {
+        synchronized(this) {
+            val used = _widgets.value.map { it.location }.toSet()
+            val kept = _pages.value.filterIndexed { i, p -> i == 0 || p.location in used }
+            if (kept.size != _pages.value.size) savePages(kept)
+        }
+    }
+
+    /** Moves the widget [key] to the page [location], into the first free place from its top ([WidgetPlacement.moveToPage]). */
+    fun moveToPage(key: String, location: String) {
+        if (WidgetPages.indexOf(_pages.value, location) < 0) return
+        update { WidgetPlacement.moveToPage(it, key, location) }
+    }
 
     /** Sets how Kolahal draws the widget [key]. An app's widget draws itself, so it keeps [WidgetLook.PLAIN]. */
     fun setLook(key: String, look: WidgetLook) = update { all ->
@@ -631,6 +720,19 @@ class WidgetHost private constructor(context: Context) {
     /** Sets the color role the widget [key] draws with ([WidgetColors]); null gives it its own again. Only a widget Kolahal draws has one. */
     fun setColor(key: String, color: StyledText.ColorRole?) = update { all ->
         all.map { if (it.key == key && it.source != null && it.color != color) it.copy(color = color) else it }
+    }
+
+    /** Hides the part [part] ([WidgetParts]) of the widget [key], or shows it again ([shown]). Only a widget Kolahal draws has parts. */
+    fun setShown(key: String, part: String, shown: Boolean) = update { all ->
+        all.map {
+            if (it.key != key || it.source == null) it
+            else it.copy(hidden = if (shown) it.hidden - part else it.hidden + part)
+        }
+    }
+
+    /** Gives the widget [key] its own color, shape and parts again: what its settings page's Reset does. Its look and size stay. */
+    fun resetOwn(key: String) = update { all ->
+        all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet()) else it }
     }
 
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */
@@ -986,21 +1088,31 @@ class WidgetHost private constructor(context: Context) {
 
     // ---- backup ---------------------------------------------------------------------------
 
-    /** For Backup: the provider, profile serial, size and order of every placed widget. */
+    /** For Backup: the provider, profile serial, size, page and order of every placed widget. */
     fun exportWidgets(): List<Map<String, Any?>> = WidgetCodec.export(_widgets.value)
+
+    /** For Backup: the pages, in order, each with its location and its name ([WidgetPages.export]). */
+    fun exportPages(): List<Map<String, Any?>> = WidgetPages.export(_pages.value)
 
     /**
      * For Backup: widget ids can't be restored. So imported entries become "pending re-add" rows on
      * the Widgets page, each with a one-tap "Add again". A widget Kolahal draws itself needs no id:
      * it is placed as it comes, and the scripts' `widget` access follows ([syncAccess]).
+     *
+     * [pages] are the backup's pages ([exportPages]); a backup from before pages has none, and all
+     * its widgets are on page 1. Each of its pages joins the page in the same place here, which takes
+     * its name if it has none ([WidgetPages.merge]).
      */
-    fun importWidgets(list: List<Map<String, Any?>>) {
-        // Imported widgets without a place, or whose place is taken, go into the first free space.
-        update { all ->
-            WidgetPlacement.placeImported(
-                all,
-                WidgetCodec.mergePending(all, WidgetOrder.onePage(WidgetCodec.fromExport(list)))
-            )
+    fun importWidgets(list: List<Map<String, Any?>>, pages: List<Map<String, Any?>> = emptyList()) {
+        synchronized(this) {
+            val (merged, into) = WidgetPages.merge(_pages.value, WidgetPages.fromExport(pages))
+            savePages(merged)
+            val imported = WidgetOrder.onePage(WidgetCodec.fromExport(list))
+                .map { it.copy(location = into[it.location] ?: WidgetLocation.PANEL) }
+            // Imported widgets without a place, or whose place is taken, go into the first free space.
+            update { all ->
+                WidgetPlacement.placeImported(all, WidgetCodec.mergePending(all, imported))
+            }
         }
         syncAccess()
     }
@@ -1010,23 +1122,32 @@ class WidgetHost private constructor(context: Context) {
         const val HOST_ID = 0x4B4F
         private const val KEY = "placed"
 
+        /** The pages ([WidgetPages.encode]). Without it, there is page 1 only. */
+        private const val KEY_PAGES = "pages"
+
         /** The install ([ThisInstall.id]) that wrote [KEY]. */
         private const val KEY_INSTALL = "install"
     }
 }
 
 /**
- * `widgets ls`: one (text, detail) pair per widget, in page order, with pending re-adds last. A
- * widget of a locked private space names no app: "Private space locked" stands for its name, and its
- * package is left out.
+ * One line of `widget ls`: a widget, its [text] and its details ([desc]); or, with [page], a heading
+ * over widgets: a page's name (its place, from 1), or 0 over the widgets waiting to be added again.
  */
-fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
+data class ListedLine(val text: String, val desc: String?, val page: Int? = null)
+
+/**
+ * `widget ls`: a line per widget, in page order, with pending re-adds last. With more than one page,
+ * each page's widgets come under its name ([WidgetPages.byPage]), numbered from 1 on each, and the
+ * pending re-adds under "To add again". A widget of a locked private space names no app: "Private
+ * space locked" stands for its name, and its package is left out.
+ */
+fun WidgetHost.listing(context: Context): List<ListedLine> {
     val all = widgets.value
-    val ordered = WidgetOrder.inLocation(
-        all,
-        WidgetLocation.PANEL
-    ) + WidgetOrder.sorted(all.filter { it.pending })
-    return ordered.mapIndexed { i, w ->
+    val list = pages.value
+    val pending = WidgetOrder.sorted(all.filter { it.pending })
+    val several = list.size > 1
+    fun line(i: Int, w: PlacedWidget): ListedLine {
         val source = w.source
         // A widget Kolahal draws itself: its name ("weather", "Battery and network"), and what it is ("script") where an app's widget has its package.
         // A script's further widget has its id after the name: "weather 2".
@@ -1038,12 +1159,28 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
             source == null && isPaused(w.profileSerial) -> "Paused"
             else -> null
         }
-        "${i + 1}. $label" to listOfNotNull(
-            state,
-            "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp",
-            source?.substringBefore(':') ?: w.packageName.takeUnless { hidden }
-        ).joinToString(" · ")
+        return ListedLine(
+            "${i + 1}. $label",
+            listOfNotNull(
+                state,
+                "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp",
+                source?.substringBefore(':') ?: w.packageName.takeUnless { hidden }
+            ).joinToString(" · ")
+        )
     }
+    if (!several) {
+        return (WidgetOrder.inLocation(all, WidgetLocation.PANEL) + pending).mapIndexed(::line)
+    }
+    val out = ArrayList<ListedLine>()
+    WidgetPages.byPage(list, all).forEach { (index, widgets) ->
+        out += ListedLine(WidgetPages.title(list, index), null, page = index + 1)
+        widgets.forEachIndexed { i, w -> out += line(i, w) }
+    }
+    if (pending.isNotEmpty()) {
+        out += ListedLine("To add again", null, page = 0)
+        pending.forEachIndexed { i, w -> out += line(i, w) }
+    }
+    return out
 }
 
 /**

@@ -82,6 +82,7 @@ import com.mtwabpin.kolahal.widgets.WidgetDrag
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
 /**
@@ -116,7 +117,10 @@ private data class Drop(val w: PlacedWidget, val column: Int, val topDp: Int)
  *   Narrower, Taller, Shorter, what the widget itself holds ([editOf]: Options, Edit shortcuts or
  *   Widget settings, as in its toolbar) and Remove.
  * - The chosen widget is scrolled into view, clear of the bars ([topRoom], [bottomRoom]), when it is
- *   chosen and each time it moves, changes size or changes look.
+ *   chosen, when the screen comes back to it, and each time it moves or changes size.
+ * - With [onEdge] (more than one page), a widget held at the screen's start or end edge asks for the
+ *   page before or after, one each [EDGE_HOLD_MS] while it stays there. [onEdge] moves it there and
+ *   shows that page; the drag goes on, and the widget lands where it is let go.
  */
 @Composable
 internal fun ArrangedPage(
@@ -140,6 +144,7 @@ internal fun ArrangedPage(
     bottomRoom: Dp,
     onRemove: (PlacedWidget) -> Unit,
     editOf: (PlacedWidget) -> ToolbarEdit?,
+    onEdge: ((key: String, step: Int) -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -220,6 +225,32 @@ internal fun ArrangedPage(
             .collectLatest { by ->
                 while (by != 0f && page.scrollBy(by) != 0f) withFrameNanos { }
             }
+    }
+
+    // Held at the screen's start or end edge: the page before or after, one at a time while it stays.
+    // -1 is the page before, as the tabs run from the start edge. Not while it is over Remove.
+    val sides = with(density) { 32.dp.toPx() }
+    val screenWidth = LocalWindowInfo.current.containerSize.width.toFloat()
+    val latestEdge by rememberUpdatedState(onEdge)
+    LaunchedEffect(dragged) {
+        val d = dragged ?: return@LaunchedEffect
+        snapshotFlow {
+            val x = d.window.x
+            val toStart = if (rtl) 1 else -1
+            when {
+                latestEdge == null || latestOverRemove() -> 0
+                x < sides -> toStart
+                x > screenWidth - sides -> -toStart
+                else -> 0
+            }
+        }.collectLatest { step ->
+            if (step == 0) return@collectLatest
+            while (true) {
+                delay(EDGE_HOLD_MS)
+                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                latestEdge?.invoke(d.key, step)
+            }
+        }
     }
 
     val latestPanel by rememberUpdatedState(panel)
@@ -371,15 +402,15 @@ internal fun ArrangedPage(
                     var size by remember { mutableStateOf(IntSize.Zero) }
                     // The chosen widget is scrolled into view when it is chosen (the toolbar coming up
                     // could hide it) and again each time it moves or changes size: in a long page it
-                    // would go off the screen. Its look too: the Shape row makes the toolbar taller.
-                    // After a frame, so its new place and the toolbar are laid out first. Not while a
-                    // handle is held: the page would move under the finger.
+                    // would go off the screen. Also when the screen comes back from the card's settings
+                    // page, as the chosen card is composed again. After a frame, so its new place and
+                    // the toolbar are laid out first. Not while a handle is held: the page would move
+                    // under the finger.
                     if (selected == w.key && dragged == null && resizing == null) LaunchedEffect(
                         w.column,
                         w.topDp,
                         w.span,
-                        w.heightDp,
-                        w.look
+                        w.heightDp
                     ) {
                         withFrameNanos { }
                         bring.bringIntoView(
@@ -661,3 +692,6 @@ private fun ArrangedCard(
         )
     }
 }
+
+/** How long a held widget stays at the screen's edge before the next page shows ([ArrangedPage]'s onEdge). */
+internal const val EDGE_HOLD_MS = 700L

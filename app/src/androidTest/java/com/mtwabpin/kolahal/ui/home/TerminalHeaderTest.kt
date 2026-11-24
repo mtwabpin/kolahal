@@ -176,6 +176,25 @@ class TerminalHeaderTest {
         compose.onNodeWithTag("header-time").assertExists()
     }
 
+    /**
+     * Over the daily unlock limit, a screen reader hears it with the count; under it, or with no
+     * limit, the part says only its count. (Its warning or error ink: HeaderModelTest.)
+     */
+    @Test
+    fun theUnlocksSayTheyAreOverTheLimit() {
+        config.set(Keys.HEADER_RIGHT, "unlocks,battery")
+        show()
+        compose.onNodeWithText("7").assertExists()
+        compose.onNodeWithContentDescription("7 unlocks today", substring = true).assertDoesNotExist()
+        set(Keys.USAGE_UNLOCK_LIMIT to "5")
+        compose.onNodeWithContentDescription("7 unlocks today, 2 over your limit of 5").assertExists()
+        set(Keys.USAGE_UNLOCK_LIMIT to "7")
+        compose.onNodeWithContentDescription("7 unlocks today, at your limit of 7").assertExists()
+        set(Keys.USAGE_UNLOCK_LIMIT to "8")
+        compose.onNodeWithContentDescription("7 unlocks today", substring = true).assertDoesNotExist()
+        compose.onNodeWithTag("header-unlocks").assertExists()
+    }
+
     /** Each part does what it says, and a swipe down pulls the shade. */
     @Test
     fun aTapGoesWhereItSays() {

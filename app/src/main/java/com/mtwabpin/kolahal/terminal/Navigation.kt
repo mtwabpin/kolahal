@@ -79,4 +79,13 @@ class Navigation(private val scripts: ScriptActions, private val host: Host) {
         themeBuilderName.value = name
         openScreen(Screen.THEME_BUILDER)
     }
+
+    /** The placed widget, by its key, whose settings page is open ([Screen.WIDGET_SETTINGS]). */
+    val widgetSettingsKey = mutableStateOf<String?>(null)
+
+    /** Opens the settings page of the placed widget [key]. Back returns to the page it was opened from. */
+    fun openWidgetSettings(key: String) {
+        widgetSettingsKey.value = key
+        openScreen(Screen.WIDGET_SETTINGS)
+    }
 }

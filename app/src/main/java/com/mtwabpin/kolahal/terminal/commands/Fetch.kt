@@ -32,8 +32,8 @@ import kotlin.math.roundToInt
  * On a narrow screen the icon goes above the facts.
  */
 object Fetch {
-    /** One fact: its label (`OS`) and its value (`Android 16 · API 36`). */
-    data class Row(val label: String, val value: String)
+    /** One fact: its label (`OS`) and its value (`Android 16 · API 36`), in [color] when it has one. */
+    data class Row(val label: String, val value: String, val color: ColorRole? = null)
 
     /**
      * The icon: two answers with their colored bars (a big number and a smaller one, then a range
@@ -124,12 +124,13 @@ object Fetch {
                 ) else accent(title)
             )
             add(StyledText.color(ColorRole.MUTED, "─".repeat(title.length)))
-            for ((label, value) in rows) {
+            for ((label, value, color) in rows) {
+                val shown = ellipsize(value, width - LABEL_WIDTH)
                 add(
                     StyledText.wrap(
                         Style.BOLD,
                         StyledText.color(ColorRole.ACCENT, label.padEnd(LABEL_WIDTH))
-                    ) + ellipsize(value, width - LABEL_WIDTH)
+                    ) + (color?.let { StyledText.color(it, shown) } ?: shown)
                 )
             }
             add("")
@@ -247,10 +248,15 @@ object Fetch {
                 )
             }
             add(Row("Network", status.network))
+            // From the daily limit, in the warning or error color, with the limit after it.
+            val unlocks = com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).today.value
+            val limit = config[Keys.USAGE_UNLOCK_LIMIT]
+            val level = com.mtwabpin.kolahal.usage.UsageLimits.unlocks(unlocks, limit)
             add(
                 Row(
                     "Unlocks",
-                    "${com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).today.value} today"
+                    "$unlocks today" + if (level == com.mtwabpin.kolahal.usage.UsageLimits.Level.NONE) "" else ", limit $limit",
+                    com.mtwabpin.kolahal.usage.UsageLimits.role(level),
                 )
             )
         }

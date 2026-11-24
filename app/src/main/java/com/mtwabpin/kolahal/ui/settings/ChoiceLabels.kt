@@ -21,9 +21,14 @@ internal object ChoiceLabels {
         Keys.SEARCH_ENGINE.key to mapOf("duckduckgo" to "DuckDuckGo"),
     )
 
-    /** A number that a setting shows as something else: the screensaver's 0 minutes is half a minute. */
+    /**
+     * A number that a setting shows as something else: the screensaver's 0 minutes is half a minute,
+     * and a daily limit of 0 is none.
+     */
     private val NUMBERS: Map<String, Map<Int, String>> = mapOf(
         Keys.SCREEN_SAVER_AFTER.key to mapOf(0 to "30 s"),
+        Keys.USAGE_SCREEN_TIME_LIMIT.key to mapOf(0 to "Off"),
+        Keys.USAGE_UNLOCK_LIMIT.key to mapOf(0 to "Off"),
     )
 
     /** What a number setting's slider shows for [value]: the number, or its words where it has some. */

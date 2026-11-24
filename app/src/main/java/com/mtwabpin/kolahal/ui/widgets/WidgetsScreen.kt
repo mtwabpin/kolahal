@@ -36,6 +36,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -44,6 +45,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -88,12 +90,14 @@ import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetOrder
+import com.mtwabpin.kolahal.widgets.WidgetPages
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
-import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetStates
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -149,10 +153,17 @@ internal fun offersWidgetSettings(w: PlacedWidget, running: Boolean, setUpAgain:
  *   bar's place; dropping it there asks first.
  * - The toolbar of one of Kolahal's own widgets sets its look and its size, one tap each. An app's
  *   widget has steps for width and height (they repeat while held) and Square.
- * - The toolbar also has what the widget itself holds, if anything: Options, Edit shortcuts, or
- *   Widget settings for an app's widget whose setup can run again ([onSettings]).
+ * - The toolbar of one of Kolahal's own widgets has Settings, which opens its settings page
+ *   ([WidgetSettingsScreen]): its options, color, shape and what shows. An app's widget's toolbar
+ *   has Widget settings when its setup can run again ([onSettings]).
  * - The top bar has Close gaps and Add widget. A screen reader has actions on each widget: move it,
- *   resize it, the toolbar's Options, Edit shortcuts or Widget settings, remove it.
+ *   resize it, the toolbar's Settings or Widget settings, remove it.
+ * - Under the title, a tab for each widgets page and + for another ([PageTabs]). The screen arranges
+ *   the tab's page, and opens on the page the person came from ([WidgetHost.addTo]) or on the page
+ *   of the widget it is asked to choose. A long-press on a tab names or removes its page
+ *   ([PageDialog]). With more than one page, a widget moves to another one by the toolbar's Page row,
+ *   or held at the screen's edge ([ArrangedPage]'s onEdge). An empty page other than page 1 says so
+ *   ([EmptyPage]), and goes by itself when the screen is left.
  * Entries restored from a backup show an "Add again" row.
  */
 @Composable
@@ -172,14 +183,31 @@ fun WidgetsScreen(
     val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
     val agendaDays = remember(version) { vm.config[Keys.AGENDA_WIDGET_DAYS] }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
-    // A widget just placed, or long-pressed on the widgets page, is chosen as the screen shows.
+    // The page being arranged, by its location: at first the page the person came from.
+    val pages by widgets.pages.collectAsStateWithLifecycle()
+    var arranging by rememberSaveable { mutableStateOf(widgets.addTo) }
+    val pageIndex = WidgetPages.indexOf(pages, arranging).coerceAtLeast(0)
+    val location = pages[pageIndex].location
+    // A widget added now goes on this page.
+    LaunchedEffect(location) { widgets.addTo = location }
+    // An empty page other than page 1 goes when the screen is left. Not for the picker, which comes back here.
+    DisposableEffect(Unit) {
+        onDispose {
+            val next = vm.screen.value
+            if (next != Screen.WIDGETS && next != Screen.WIDGET_PICKER) widgets.removeEmptyPages()
+        }
+    }
+    // A widget just placed, or long-pressed on the widgets page, is chosen as the screen shows, on its page.
     val toChoose by widgets.toChoose.collectAsStateWithLifecycle()
     LaunchedEffect(toChoose) {
-        toChoose?.let {
-            selected = it
+        toChoose?.let { key ->
+            widgets.widgets.value.firstOrNull { it.key == key }?.let { arranging = it.location }
+            selected = key
             widgets.chosen()
         }
     }
+    // The page whose name and removal are open, from a long-press on its tab.
+    var pageDialog by rememberSaveable { mutableStateOf<Int?>(null) }
     var confirmRemove by remember { mutableStateOf<PlacedWidget?>(null) }
     // The Shortcuts widget's editor is open: from the toolbar of that widget, or because a tap on its card asked for it.
     var shortcutsEditor by rememberSaveable { mutableStateOf(false) }
@@ -190,27 +218,30 @@ fun WidgetsScreen(
             vm.shortcutsEditorOpened()
         }
     }
-    // The options sheet of one script widget is open, by the widget's key: from that widget's toolbar,
-    // or because the picker just placed a further widget of a script and asked for it.
-    var optionsFor by rememberSaveable { mutableStateOf<String?>(null) }
+    // The picker just placed a further widget of a script and asked for its options: its settings
+    // page opens, with the widget chosen here for when Back comes to this screen.
     val optionsAsked by vm.widgetOptionsAsked.collectAsStateWithLifecycle()
     LaunchedEffect(optionsAsked) {
-        optionsAsked?.let {
-            optionsFor = it.key
+        optionsAsked?.let { ref ->
             vm.widgetOptionsOpened()
+            val key = PlacedWidget(null, WidgetSource.script(ref), 0L, 0, 0).key
+            selected = key
+            vm.openWidgetSettings(key)
         }
     }
     val snackbar = rememberWidgetMessages(widgets)
     BackHandler { if (selected != null) selected = null else vm.closeScreen() }
 
-    val panel = remember(all) {
+    val panel = remember(all, location) {
         WidgetPlacement.readingOrder(
             WidgetOrder.inLocation(
                 all,
-                WidgetLocation.PANEL
+                location
             )
         )
     }
+    // Every page's widgets, for the title: "9 on 3 pages".
+    val onPages = remember(all) { all.count(WidgetPlacement::onPage) }
     val pending = remember(all) { WidgetOrder.sorted(all.filter { it.pending }) }
     // Each label needs a binder call and a load from the other app, so they load off the main thread
     // ([WidgetHost.label]), again only when widgets are added or removed, not on every resize step.
@@ -256,24 +287,16 @@ fun WidgetsScreen(
     fun lockedPrivate(w: PlacedWidget): Boolean =
         w.source == null && profiles.pausedKind(w.profileSerial) == ProfileKind.PRIVATE
 
-    // What the widget itself holds, if anything, for the toolbar and a screen reader:
-    // - the Shortcuts widget: its list of commands;
-    // - a widget of a script that declares options: its options. The first widget's
-    //   are the script's own, and a further widget can have values of its own;
+    // What opens what the widget itself holds, for the toolbar and a screen reader:
+    // - one of Kolahal's own widgets: its settings page, with its options (a script's), its list of
+    //   commands (Shortcuts), its color, shape and what shows;
     // - an app's widget whose setup can run again: its setup screen. Not while its profile is
     //   paused or its private space locked: then it opens no app.
     fun editOf(w: PlacedWidget): ToolbarEdit? {
-        val ref = WidgetSource.scriptRef(w.source)
         return when {
-            w.source == WidgetSource.builtin(WidgetSource.SHORTCUTS) -> ToolbarEdit(
-                "Edit shortcuts",
-                R.drawable.ic_edit
-            ) { shortcutsEditor = true }
-
-            ref != null && scripts?.get(ref.script)?.hasOptions == true -> ToolbarEdit(
-                "Options",
-                R.drawable.ic_tune
-            ) { optionsFor = ref.key }
+            w.source != null -> ToolbarEdit("Settings", R.drawable.ic_tune) {
+                vm.openWidgetSettings(w.key)
+            }
 
             offersWidgetSettings(
                 w,
@@ -293,6 +316,24 @@ fun WidgetsScreen(
     var resizing by remember { mutableStateOf<String?>(null) }
     val chosen = panel.firstOrNull { it.key == selected }
     val page = rememberScrollState()
+    val scope = rememberCoroutineScope()
+
+    // A widget held at the screen's edge ([ArrangedPage]): it moves to the page [step] from this one,
+    // and the screen shows that page while the drag goes on.
+    fun toEdge(key: String, step: Int) {
+        val to = pages.getOrNull(WidgetPages.indexOf(pages, arranging).coerceAtLeast(0) + step)?.location ?: return
+        widgets.moveToPage(key, to)
+        arranging = to
+    }
+
+    // Arranges the page at [i]: from the top, with nothing chosen.
+    fun pick(i: Int) {
+        val to = pages.getOrNull(i)?.location ?: return
+        if (to == location) return
+        arranging = to
+        selected = null
+        scope.launch { page.scrollTo(0) }
+    }
 
     GuiTheme {
         val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -306,6 +347,7 @@ fun WidgetsScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
+                Column(Modifier.background(MaterialTheme.colorScheme.surface)) {
                 Box {
                     MediumFlexibleTopAppBar(
                         title = { Text("Widgets") },
@@ -313,6 +355,7 @@ fun WidgetsScreen(
                             Text(
                                 when {
                                     pageOff -> "The widgets page is off"
+                                    pages.size > 1 -> "$onPages on ${pages.size} pages"
                                     panel.isEmpty() -> "On the widgets page beside the terminal"
                                     else -> "${panel.size} on the widgets page"
                                 }
@@ -323,7 +366,7 @@ fun WidgetsScreen(
                             if (panel.isNotEmpty()) LabeledIconButton(
                                 R.drawable.ic_vertical_align_top,
                                 "Close gaps",
-                                onClick = { widgets.closeGaps() })
+                                onClick = { widgets.closeGaps(location) })
                             LabeledIconButton(
                                 R.drawable.ic_add,
                                 "Add widget",
@@ -336,6 +379,24 @@ fun WidgetsScreen(
                         overRemove,
                         Modifier.matchParentSize()
                     ) { removeAt = it }
+                }
+                // A tab for each widgets page, and + for another.
+                PageTabs(
+                    pages,
+                    current = pageIndex,
+                    onPick = ::pick,
+                    onAdd = {
+                        widgets.addPage()?.let { added ->
+                            arranging = added
+                            selected = null
+                            scope.launch { page.scrollTo(0) }
+                        }
+                    },
+                    onLongPress = { pageDialog = it },
+                    modifier = Modifier
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
                 }
             },
             bottomBar = {
@@ -360,10 +421,12 @@ fun WidgetsScreen(
                             widgets.minSpanOf(chosen)
                         },
                         onLook = { widgets.setLook(chosen.key, it) },
-                        shapes = shapeChoicesFor(chosen, chosenKind, chosenSpec),
-                        onShape = { widgets.setShape(chosen.key, it) },
-                        colors = colorChoicesFor(chosen, chosenSpec),
-                        onColor = { widgets.setColor(chosen.key, it) },
+                        // What the Settings button shows: the card's color, and its shape in the Shape look.
+                        settingsColor = chosen.color ?: chosenSpec?.base?.color,
+                        settingsShape = shapeChoicesFor(chosen, chosenKind, chosenSpec)?.shown?.takeIf {
+                            val builtin = WidgetSource.builtinId(chosen.source)
+                            chosen.look.drawnFor(chosenKind, builtin) == WidgetLook.SHAPE
+                        },
                         onSize = { widgets.setSize(chosen.key, it) },
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
                         onWidth = { widgets.resizeWidth(chosen.key, it) },
@@ -374,6 +437,15 @@ fun WidgetsScreen(
                         // The Agenda card: how many days it shows (widgets.agenda-days).
                         agendaDays = if (chosen.source == WidgetSource.builtin(WidgetSource.AGENDA)) agendaDays else null,
                         onAgendaDays = { vm.setConfig(Keys.AGENDA_WIDGET_DAYS, it) },
+                        pageNames = pages.indices.map { WidgetPages.title(pages, it) },
+                        page = pageIndex,
+                        // The widget moves, and the screen goes with it to that page, still chosen.
+                        onPage = { i ->
+                            pages.getOrNull(i)?.location?.let { to ->
+                                widgets.moveToPage(chosen.key, to)
+                                arranging = to
+                            }
+                        },
                     )
                 }
             },
@@ -415,7 +487,17 @@ fun WidgetsScreen(
                         )
                     }
                 }
-                if (panel.isEmpty() && pending.isEmpty()) {
+                if (pageIndex > 0 && panel.isEmpty()) {
+                    EmptyPage(
+                        WidgetPages.title(pages, pageIndex),
+                        onAdd = { vm.openScreen(Screen.WIDGET_PICKER) },
+                        onRemove = {
+                            widgets.removePage(location)
+                            arranging = WidgetLocation.PANEL
+                        },
+                        modifier = inset,
+                    )
+                } else if (panel.isEmpty() && pending.isEmpty()) {
                     EmptyNote(
                         if (pageOff) "No widgets yet." else "No widgets yet. They appear on the widgets page beside the terminal: swipe sideways on the home screen to reach it.",
                         inset,
@@ -467,6 +549,8 @@ fun WidgetsScreen(
                         bottomRoom = liveBottom,
                         onRemove = { confirmRemove = it },
                         editOf = { editOf(it) },
+                        // With more than one page: held at the screen's edge, a widget goes to the next page.
+                        onEdge = if (pages.size > 1) ::toEdge else null,
                     )
                 }
                 if (pending.isNotEmpty()) {
@@ -499,6 +583,9 @@ fun WidgetsScreen(
                         inset
                     )
                 }
+                if (pages.size > 1 && panel.isNotEmpty()) {
+                    PageHint("Long-press a page's tab to rename or remove it. Hold a widget at the screen's edge for the next page.", inset)
+                }
             }
         }
 
@@ -514,8 +601,28 @@ fun WidgetsScreen(
 
         if (shortcutsEditor) ShortcutsEditor(vm) { shortcutsEditor = false }
 
-        optionsFor?.let(WidgetRef::parse)
-            ?.let { ref -> WidgetOptionsSheet(vm, ref) { optionsFor = null } }
+        pageDialog?.let { i ->
+            if (i !in pages.indices) {
+                pageDialog = null
+                return@let
+            }
+            val at = pages[i].location
+            PageDialog(
+                pages,
+                i,
+                count = all.count { it.location == at },
+                onDismiss = { pageDialog = null },
+                onRename = { name ->
+                    widgets.renamePage(i, name)
+                    pageDialog = null
+                },
+                onRemove = {
+                    widgets.removePage(at)
+                    if (arranging == at) arranging = WidgetLocation.PANEL
+                    pageDialog = null
+                },
+            )
+        }
     }
 }
 

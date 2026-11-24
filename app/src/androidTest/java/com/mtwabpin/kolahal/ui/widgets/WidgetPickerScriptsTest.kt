@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.ui.widgets
 import android.app.Application
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -187,9 +188,17 @@ class WidgetPickerScriptsTest {
         )
         val vm = model(Screen.WIDGET_PICKER, s)
         compose.setContent {
-            // As home does: the picker, and the Widgets screen once the picker has closed.
+            // As home does: the picker, the Widgets screen once the picker has closed, and the
+            // widget's settings page when it opens.
+            val saved = rememberSaveableStateHolder()
             val screen = vm.screen.collectAsState().value
-            if (screen == Screen.WIDGET_PICKER) WidgetPickerScreen(vm) { } else WidgetsScreen(vm) { _, _ -> }
+            saved.SaveableStateProvider(screen.name) {
+                when (screen) {
+                    Screen.WIDGET_PICKER -> WidgetPickerScreen(vm) { }
+                    Screen.WIDGET_SETTINGS -> WidgetSettingsScreen(vm)
+                    else -> WidgetsScreen(vm) { _, _ -> }
+                }
+            }
         }
         val row = hasText("Wpick City") and hasText("Stat") and hasClickAction()
         scrollTo(row)
@@ -197,7 +206,6 @@ class WidgetPickerScriptsTest {
         compose.onNode(row).performClick()
 
         val second = WidgetRef(s.name, "2")
-        compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
         t.placed(s)
         assertEquals(listOf(WidgetRef(s.name), second), t.host.placedOf(s.name))
         // It follows the script's options until one is set for it.
@@ -205,10 +213,17 @@ class WidgetPickerScriptsTest {
             "London",
             (t.stored(second).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value
         )
-        // The Widgets screen shows its options, and says that they are this widget's own.
-        compose.waitForText("Options for Wpick City 2")
-        compose.onNodeWithText(WidgetOptionWords.WIDGET).assertExists()
-        compose.runOnIdle { assertNull(vm.widgetOptionsAsked.value) }
+        // Its settings page opens with its options, and says that they are this widget's own.
+        compose.waitForText(WidgetOptionWords.WIDGET)
+        compose.onNodeWithTag("option city").assertExists()
+        compose.runOnIdle {
+            assertEquals(Screen.WIDGET_SETTINGS, vm.screen.value)
+            assertNull(vm.widgetOptionsAsked.value)
+        }
+        // Back is Arrange widgets, with the new widget chosen.
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+        compose.onNodeWithTag("widget-settings").assertExists()
     }
 
     /**

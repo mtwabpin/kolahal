@@ -179,6 +179,39 @@ class TopScreenTest {
         assertEquals(TopScreen.Columns(10, 11, 17, 25), TopScreen.Columns.of(29))
     }
 
+    /**
+     * The daily limits: under them, top is as it always is. From one, the unlocks or today's screen
+     * time (its bar and its time) are in the warning color, from one and a half times it in the error
+     * color, with the limit after them.
+     */
+    @Test
+    fun theDailyLimits() {
+        val under = start(45, 20, facts.copy(unlockLimit = 42, screenTimeLimitMin = 193))
+        assertEquals("top - 12:34:56 up 2:10, 41 unlocks", under.row(0).trimEnd())
+        assertEquals(Ink.FG, under.grid.styleAt(24, 0).fg)
+        assertEquals("3h 12m on screen", under.row(4).substring(24).trimEnd())
+        assertEquals(Ink.SCRIPT, under.grid.styleAt(9, 4).fg)
+        assertEquals(Ink.FG, under.grid.styleAt(24, 4).fg)
+
+        val over = start(45, 20, facts.copy(unlockLimit = 30, screenTimeLimitMin = 180))
+        assertEquals("top - 12:34:56 up 2:10, 41 unlocks, limit 30", over.row(0).trimEnd())
+        assertEquals(Ink.WARN, over.grid.styleAt(24, 0).fg)
+        assertEquals(Ink.WARN, over.grid.styleAt(33, 0).fg)
+        // The words after the count are plain.
+        assertEquals(Ink.FG, over.grid.styleAt(36, 0).fg)
+        assertEquals("3h 12m, limit 3h", over.row(4).substring(24).trimEnd())
+        assertEquals(Ink.WARN, over.grid.styleAt(9, 4).fg)
+        assertEquals(Ink.WARN, over.grid.styleAt(24, 4).fg)
+
+        val farOver = start(45, 20, facts.copy(unlockLimit = 20, screenTimeLimitMin = 120))
+        assertEquals("top - 12:34:56 up 2:10, 41 unlocks, limit 20", farOver.row(0).trimEnd())
+        assertEquals(Ink.ERROR, farOver.grid.styleAt(24, 0).fg)
+        assertEquals("3h 12m, limit 2h", farOver.row(4).substring(24).trimEnd())
+        assertEquals(Ink.ERROR, farOver.grid.styleAt(9, 4).fg)
+        assertEquals(Ink.ERROR, farOver.grid.styleAt(24, 4).fg)
+        assertWhole("over", farOver.grid)
+    }
+
     @Test
     fun withoutUsageAccessALineSaysSo() {
         val run = start(45, 20, facts.copy(usageAccess = false, screenTimeMs = -1))

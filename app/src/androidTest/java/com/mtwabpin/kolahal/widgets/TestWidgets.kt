@@ -16,6 +16,7 @@ class TestWidgets {
     val host: WidgetHost = WidgetHost.get(context)
     private val hadKeys = host.widgets.value.map { it.key }.toSet()
     private val hadIds = runCatching { host.host.appWidgetIds.toSet() }.getOrDefault(emptySet())
+    private val hadPages = host.pages.value
     private var granted = false
 
     /** This user's number, as `appwidget` takes it ("current" isn't looked up for a grant). */
@@ -142,11 +143,15 @@ class TestWidgets {
 
     fun get(key: String): PlacedWidget? = host.widgets.value.firstOrNull { it.key == key }
 
-    /** Takes away the widgets, ids, messages, choice and binding the test added. */
+    /** Takes away the widgets, ids, pages, messages, choice and binding the test added, and gives the pages their names back. */
     fun close() {
         while (host.takeMessage() != null) Unit
         host.chosen()
         host.widgets.value.filter { it.key !in hadKeys }.forEach { host.remove(it.key) }
+        val had = hadPages.map { it.location }.toSet()
+        host.pages.value.filter { it.location !in had }.forEach { host.removePage(it.location) }
+        hadPages.forEachIndexed { i, p -> if (host.pages.value.getOrNull(i)?.name != p.name) host.renamePage(i, p.name.orEmpty()) }
+        host.addTo = WidgetLocation.PANEL
         val used = host.widgets.value.mapNotNull { it.id }.toSet()
         runCatching { host.host.appWidgetIds }.getOrNull()?.filter { it !in hadIds && it !in used }
             ?.forEach { host.discard(it) }

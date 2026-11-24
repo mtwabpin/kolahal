@@ -10,13 +10,24 @@ import com.mtwabpin.kolahal.data.StyledText
  * unit tested. [WidgetHost] owns the Android side.
  */
 object WidgetLocation {
-    /** The widgets page, where every widget lives. */
+    /** The first widgets page, page 1. A later page has a location of its own ([WidgetPages.locationOf]). */
     const val PANEL = "panel"
 
-    /** Under the terminal header, used before 0.3.1. These entries move onto the page ([WidgetOrder.onePage]). */
+    /** Under the terminal header, used before 0.3.1. These entries move onto page 1 ([WidgetOrder.onePage]). */
     const val OLD_HOME = "home"
 
-    fun of(raw: Any?): String = if (raw?.toString()?.lowercase() == OLD_HOME) OLD_HOME else PANEL
+    /**
+     * The location [raw] stands for: a page's ([WidgetPages.isPage]) or [OLD_HOME] as it is, anything
+     * else page 1. An older Kolahal reads a later page's location as page 1.
+     */
+    fun of(raw: Any?): String {
+        val s = raw?.toString()?.lowercase()
+        return when {
+            s == OLD_HOME -> OLD_HOME
+            s != null && WidgetPages.isPage(s) -> s
+            else -> PANEL
+        }
+    }
 }
 
 /**
@@ -182,15 +193,20 @@ data class PlacedWidget(
     /** Its top edge, in dp from the top of the page. [WidgetPlacement.UNPLACED] until it has a place. */
     val topDp: Int = WidgetPlacement.UNPLACED,
     /**
-     * The shape the Shape look gives it ([WidgetShape]), chosen on the Widgets screen. Null: the
+     * The shape the Shape look gives it ([WidgetShape]), chosen on its settings page. Null: the
      * card's own. Only a widget Kolahal draws has one.
      */
     val shape: WidgetShape? = null,
     /**
-     * The color role it draws with in place of its own ([WidgetColors]), chosen on the Widgets
-     * screen. Null: the card's own, as its script gives it. Only a widget Kolahal draws has one.
+     * The color role it draws with in place of its own ([WidgetColors]), chosen on its settings
+     * page. Null: the card's own, as its script gives it. Only a widget Kolahal draws has one.
      */
     val color: StyledText.ColorRole? = null,
+    /**
+     * The parts of the card it hides ([WidgetParts]), chosen on its settings page under What shows.
+     * Empty: the card as it is drawn. Only a widget Kolahal draws has any.
+     */
+    val hidden: Set<String> = emptySet(),
 ) {
     /** Whether it has a place on the page: a [column] and a [topDp]. */
     val positioned: Boolean get() = column >= 0 && topDp >= 0
@@ -366,16 +382,17 @@ object WidgetOrder {
     }
 
     /**
-     * Moves everything onto the widgets page. Widgets placed on home before 0.3.1 come after the
-     * page's widgets, in their own order. Then the page is renumbered 0..n-1.
+     * Moves the widgets placed on home before 0.3.1 onto page 1, after its widgets, in their own
+     * order. Then page 1 is renumbered 0..n-1. The other pages' widgets stay where they are.
      */
     fun onePage(all: List<PlacedWidget>): List<PlacedWidget> {
-        if (all.all { it.location == WidgetLocation.PANEL }) return all
+        if (all.none { it.location == WidgetLocation.OLD_HOME }) return all
         val placed =
             inLocation(all, WidgetLocation.PANEL) + inLocation(all, WidgetLocation.OLD_HOME)
         val order = placed.mapIndexed { i, w -> w.key to i }.toMap()
         return all.map { w ->
-            w.copy(
+            if (w.location != WidgetLocation.PANEL && w.location != WidgetLocation.OLD_HOME) w
+            else w.copy(
                 location = WidgetLocation.PANEL,
                 order = order[w.key] ?: w.order
             )
@@ -385,15 +402,18 @@ object WidgetOrder {
 
 /**
  * Stores one record per line in SharedPreferences:
- * `id|provider|serial|height|order|location|span|look|column|top|shape|color`.
+ * `id|provider|serial|height|order|location|span|look|column|top|shape|color|hidden`.
  * - A pending entry has `-` as its id. So has a widget Kolahal draws itself: its provider field holds
  *   its source (`script:weather`, see [WidgetSource]).
+ * - The location is the widget's page: `panel` for page 1, `panel:<id>` for a later one
+ *   ([WidgetPages]). An older Kolahal reads a later page's widgets as page 1's.
  * - Lines saved before widths existed have no span. They are full width.
  * - Lines saved before looks and places (0.5.14 and older) have neither: the look is
  *   [WidgetLook.PLAIN], and [start] gives each widget the place it had ([WidgetPlacement.placeMissing]).
  *   An older Kolahal reads fields by position and ignores the last three.
- * - The shape and the color are written only when one was chosen ([PlacedWidget.shape],
- *   [PlacedWidget.color]): a color without a shape leaves the shape's field empty. A line without
+ * - The shape, the color and the hidden parts ([WidgetParts.write]) are written only when set
+ *   ([PlacedWidget.shape], [PlacedWidget.color], [PlacedWidget.hidden]): a later one leaves the
+ *   fields before it empty. A line without
  *   one, or with one this version doesn't know, has the card's own.
  * - [PlacedWidget.order] is still written, in reading order, so an older Kolahal shows the widgets
  *   in a sensible order.
@@ -419,9 +439,10 @@ object WidgetCodec {
         ) + choices(it)).joinToString("|")
     }
 
-    /** The fields after the place: the shape and the color, each empty when not chosen, none at all when neither is. */
+    /** The fields after the place: the shape, the color and the hidden parts, each empty when not set, none at all when none is. */
     private fun choices(w: PlacedWidget): List<String> =
-        listOf(w.shape?.id.orEmpty(), w.color?.role.orEmpty()).dropLastWhile { it.isEmpty() }
+        listOf(w.shape?.id.orEmpty(), w.color?.role.orEmpty(), WidgetParts.write(w.hidden))
+            .dropLastWhile { it.isEmpty() }
 
     /** The look stored for a widget: only one Kolahal draws ([sourced]) has one; an app's widget draws itself. */
     private fun lookOf(raw: Any?, sourced: Boolean): WidgetLook =
@@ -430,6 +451,10 @@ object WidgetCodec {
     /** The shape stored for a widget, as its look ([lookOf]): null for the card's own. */
     private fun shapeOf(raw: Any?, sourced: Boolean): WidgetShape? =
         if (sourced) WidgetShape.named(raw?.toString()) else null
+
+    /** The parts a widget hides ([WidgetParts.read]), as its look ([lookOf]): none for an app's widget. */
+    private fun hiddenOf(raw: Any?, sourced: Boolean): Set<String> =
+        if (sourced) WidgetParts.read(raw) else emptySet()
 
     /** The color stored for a widget, as its look ([lookOf]): null for the card's own. */
     private fun colorOf(raw: Any?, sourced: Boolean): StyledText.ColorRole? =
@@ -473,6 +498,7 @@ object WidgetCodec {
                 topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
                 shape = shapeOf(f.getOrNull(10), source),
                 color = colorOf(f.getOrNull(11), source),
+                hidden = hiddenOf(f.getOrNull(12), source),
             )
         }.toList()
 
@@ -509,7 +535,7 @@ object WidgetCodec {
             get() = if (statusCards > 0) "Status cards are gone: $statusCards removed from the widgets page. Status lines still show at the top of home." else null
     }
 
-    /** The backup form. Ids are device-specific, so they are left out. A shape or a color is there only once one was chosen. */
+    /** The backup form. Ids are device-specific, so they are left out. A shape, a color or hidden parts are there only once set. */
     fun export(all: List<PlacedWidget>): List<Map<String, Any?>> = WidgetOrder.sorted(all).map {
         mapOf(
             "provider" to it.provider,
@@ -524,6 +550,7 @@ object WidgetCodec {
         ) + listOfNotNull(
             it.shape?.let { shape -> "shape" to shape.id },
             it.color?.let { color -> "color" to color.role },
+            it.hidden.takeIf { h -> h.isNotEmpty() }?.let { h -> "hidden" to h.sorted() },
         )
     }
 
@@ -569,6 +596,7 @@ object WidgetCodec {
             topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
             shape = shapeOf(m["shape"], sourced),
             color = colorOf(m["color"], sourced),
+            hidden = hiddenOf(m["hidden"], sourced),
         )
     }
 

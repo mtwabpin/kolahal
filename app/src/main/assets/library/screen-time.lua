@@ -2,7 +2,7 @@
 -- @title Screen time
 -- @desc Today's screen time, over a bar for each of the last 7 days: a widget
 -- @author Kolahal
--- @version 1.0
+-- @version 1.1
 -- @widget chart 2x2
 -- @uses usage
 -- @tags screen time, usage, chart
@@ -12,6 +12,8 @@
 -- for each day, the oldest first. The days are those Android has usage data for, so on a phone
 -- that keeps less than a week there are fewer bars. A tap on it logs the apps you used most today.
 -- Run by hand (script run screen-time), it logs them too.
+-- With a daily limit for screen time (config set usage.screen-time-limit 180, in minutes), the card
+-- is in the warning color from the limit and in the error color from one and a half times it.
 -- It needs usage access for Kolahal (allow usage) and its own "Your app usage" switch.
 
 -- What started this run: the widgets page ("widget"), a tap ("action"), or you (nil).
@@ -60,6 +62,8 @@ if widget then
     min = 0,
     labels = { #days > 1 and weekday(#days - 1) or "Today", "Today" },
     summary = table.concat(said, ", "),
+    -- "warn" or "bad" against your daily limit, as Kolahal colors today's screen time; nil under it.
+    color = today.color,
     -- Usage moves all the time: a new look when the card shows after 15 minutes.
     staleAfter = 15 * 60,
     tap = { args = "today", page = "log", label = "Show today's apps" },

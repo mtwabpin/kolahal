@@ -1236,14 +1236,19 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Asks home to turn to the log page: a widget's tap whose run prints there. Home's pager collects it. */
     val logTurns: SharedFlow<Unit> = _logTurns
 
-    private val _widgetsTurns = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val _widgetsTurns = MutableSharedFlow<Int>(extraBufferCapacity = 1)
 
-    /** Asks home to turn to the widgets page: `widgets page` and its quick action. Home's pager collects it. */
-    val widgetsTurns: SharedFlow<Unit> = _widgetsTurns
+    /**
+     * Asks home to turn to a widgets page, by its place from 1: `widget page` and its quick action
+     * (page 1), `widget page 2`. Home's pager collects it.
+     */
+    val widgetsTurns: SharedFlow<Int> = _widgetsTurns
 
-    override fun showWidgetsPage() {
+    override fun showWidgetsPage() = showWidgetsPage(1)
+
+    override fun showWidgetsPage(page: Int) {
         _events.tryEmit(UiEvent.HideKeyboard)
-        _widgetsTurns.tryEmit(Unit)
+        _widgetsTurns.tryEmit(page)
     }
 
     // ---- full-screen screens (matrix, clock, pipes, decode, sl, top, boot) ------------------
@@ -1699,20 +1704,24 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
 
     /**
-     * Whether home showed the widgets page (true) or the log (false) when it was last on screen.
-     * Home is laid out again when a screen closes, so it opens on that page: Back from Arrange
-     * widgets returns to the widgets page. Null: home's own first page. A Home press forgets it.
+     * Whether home showed a widgets page (true) or the log (false) when it was last on screen, and
+     * which page ([widgetsPageShown]). Home is laid out again when a screen closes, so it opens on
+     * that page: Back from Arrange widgets returns to the widgets page. Null: home's own first page.
+     * A Home press forgets it.
      */
     @Volatile
     var homeOnWidgets: Boolean? = null
 
-    /**
-     * How far the widgets page was scrolled, in pixels, when it was last on screen. Home is laid out
-     * again when a screen closes, so the page opens scrolled where it was: after Arrange widgets too.
-     * A Home press from another screen forgets it, as it forgets [homeOnWidgets].
-     */
+    /** The widgets page home showed last, by its location ([com.mtwabpin.kolahal.widgets.WidgetPage.location]). */
     @Volatile
-    var widgetsScroll: Int = 0
+    var widgetsPageShown: String = com.mtwabpin.kolahal.widgets.WidgetLocation.PANEL
+
+    /**
+     * How far each widgets page was scrolled, in pixels, by its location, when it was last on screen.
+     * Home is laid out again when a screen closes, so a page opens scrolled where it was: after
+     * Arrange widgets too. A Home press from another screen forgets it, as it forgets [homeOnWidgets].
+     */
+    val widgetsScroll = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     private val _homePresses = MutableStateFlow(0)
 
@@ -1742,6 +1751,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val themeBuilderName: MutableState<String?> get() = navigation.themeBuilderName
 
     fun openThemeBuilder(name: String?) = navigation.openThemeBuilder(name)
+
+    /** The placed widget, by its key, whose settings page is open. */
+    val widgetSettingsKey: MutableState<String?> get() = navigation.widgetSettingsKey
+
+    /** Opens the settings page of the placed widget [key] ([Screen.WIDGET_SETTINGS]). */
+    fun openWidgetSettings(key: String) = navigation.openWidgetSettings(key)
 
     /**
      * The position of the log's app selector in the window: the log's area between the header and
@@ -1786,7 +1801,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         settingsCategory.value = null
         homeOnWidgets = null
         // Home is laid out again only when it comes from another screen; then its widgets page starts at the top.
-        if (screen.value != Screen.TERMINAL) widgetsScroll = 0
+        if (screen.value != Screen.TERMINAL) widgetsScroll.clear()
         _ttyScreen.value = null
         _screenSaverOn.value = false
         _homePresses.value++

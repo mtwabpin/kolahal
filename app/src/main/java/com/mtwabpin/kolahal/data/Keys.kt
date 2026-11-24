@@ -559,6 +559,21 @@ object Keys {
         1..28,
         "The day of the month your mobile data plan starts again, for `data month`"
     )
+
+    // Daily limits: a figure of today at or over one shows in the warning color, from one and a half
+    // times it in the error color (usage/UsageLimits). 0 is no limit. Settings → Header has them.
+    val USAGE_SCREEN_TIME_LIMIT = ConfigKey.Num(
+        "usage.screen-time-limit",
+        0,
+        0..1440,
+        "Daily limit for screen time, in minutes: 180 is 3 hours. From the limit, today's screen time shows in the warning color, and from one and a half times it in the error color.\n0 turns it off"
+    )
+    val USAGE_UNLOCK_LIMIT = ConfigKey.Num(
+        "usage.unlock-limit",
+        0,
+        0..500,
+        "Daily limit for unlocks. From the limit, today's unlock count shows in the warning color, and from one and a half times it in the error color.\n0 turns it off"
+    )
     val LOG_LINE_HEIGHT = ConfigKey.Num(
         "log.line-height",
         22,
@@ -702,17 +717,17 @@ object Keys {
         "widgets.page",
         "left",
         listOf("left", "right", "off"),
-        "A widgets page beside the terminal: swipe sideways on the home screen to reach it",
+        "Widgets pages beside the terminal: swipe sideways on the home screen to reach them, a page at a time",
         notes = mapOf(
-            "left" to "A widgets page to the left of the log",
-            "right" to "A widgets page to the right of the log",
-            "off" to "No widgets page",
+            "left" to "The widgets pages to the left of the log",
+            "right" to "The widgets pages to the right of the log",
+            "off" to "No widgets pages",
         ),
     )
     val WIDGETS_START = ConfigKey.Bool(
         "widgets.start",
         false,
-        "Start on the widgets page: home opens on it, and Home and Back return to it. Swipe sideways for the log.\nNeeds the app selector (selector.rail)"
+        "Start on widgets page 1: home opens on it, and Home and Back return to it. Swipe sideways for the log.\nNeeds the app selector (selector.rail)"
     )
 
     /**
@@ -821,6 +836,8 @@ object Keys {
         LOG_LINE_HEIGHT,
         DATA_PLAN,
         DATA_START_DAY,
+        USAGE_SCREEN_TIME_LIMIT,
+        USAGE_UNLOCK_LIMIT,
         LOG_TALLER_TAPS,
         LOG_TABLES,
         LOG_FOLD,

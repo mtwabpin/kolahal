@@ -180,14 +180,24 @@ internal class HostData(
     /**
      * `usage.today(n?)`: `{ total, apps }`. `total` is today's screen time in minutes since midnight
      * (every app, Kolahal too); `apps` the [n] apps used a minute or more, most first (10 by default,
-     * up to [MAX_USAGE_APPS]), each `{ app, pkg, minutes }`: what `usage` shows. Nil: see above.
+     * up to [MAX_USAGE_APPS]), each `{ app, pkg, minutes }`: what `usage` shows. `limit` is the
+     * daily screen time limit in minutes (`usage.screen-time-limit`), nil with none; `color` the role
+     * `total` takes against it ([com.mtwabpin.kolahal.usage.UsageLimits]): `"warn"` at or over it,
+     * `"bad"` from one and a half times it, nil under it. Nil: see above.
      */
     fun usageToday(n: Any?): Map<String, Any?>? {
         val count = listCount("usage.today", "n", n, MAX_USAGE_APPS, DEFAULT_USAGE_APPS)
         if (!usageReady("usage.today")) return null
         val t = com.mtwabpin.kolahal.usage.AppUsage(context).today { appNames[it] }
+        val limit = com.mtwabpin.kolahal.data.SharedSettings.get(
+            context,
+            com.mtwabpin.kolahal.data.Keys.USAGE_SCREEN_TIME_LIMIT
+        )
+        val level = com.mtwabpin.kolahal.usage.UsageLimits.screenTime(t.total, limit)
         return mapOf(
             "total" to t.total / 60_000,
+            "limit" to limit.takeIf { it > 0 },
+            "color" to com.mtwabpin.kolahal.usage.UsageLimits.role(level)?.role,
             "apps" to t.apps.take(count).map {
                 mapOf(
                     "app" to StyledText.strip(it.label).take(MAX_TEXT),

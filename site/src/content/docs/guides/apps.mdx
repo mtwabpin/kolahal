@@ -184,6 +184,23 @@ about 10 days, and more as Kolahal saves each day.
 Every "a day" average counts the days before today only: today has only its hours so far, and
 would pull the average down every morning. The comparison of two weeks counts finished days too.
 
+### Daily limits
+
+You can set a limit for a day's screen time and one for a day's unlocks, in **Settings → Header →
+Daily limits** or with `config`:
+
+```sh
+config set usage.screen-time-limit 180   # 3 hours, in minutes
+config set usage.unlock-limit 60
+config set usage.unlock-limit 0          # no limit
+```
+
+From the limit on, today's figure is in the theme's warning color; from one and a half times the
+limit, in its error color. `usage` and `unlocks` say it in a line under the figure too: `30m over
+your limit of 3h`, `At your limit of 60`. `unlocks 7` colors each day's line by its own count. The
+header's `unlocks` part, `top` and `fetch` color today's count, and a screen reader hears the
+header's part say it. A limit changes nothing else: no notification, nothing blocked.
+
 ### The long view
 
 Besides its days, Android keeps coarser totals: about 4 weeks, 6 months and 2 years. `usage` reads

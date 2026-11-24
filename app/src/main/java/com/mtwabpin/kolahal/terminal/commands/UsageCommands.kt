@@ -17,6 +17,7 @@ import com.mtwabpin.kolahal.unlock.UnlockCounter
 import com.mtwabpin.kolahal.usage.DataUsage
 import com.mtwabpin.kolahal.usage.DayCounts
 import com.mtwabpin.kolahal.usage.StorageUsage
+import com.mtwabpin.kolahal.usage.UsageLimits
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -207,9 +208,13 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         val sum = times.total
         if (sum < 60_000) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
         // Big numbers: the screen time today; over several days, a day's average (over the finished
-        // days: today has only its hours so far) and the total.
+        // days: today has only its hours so far) and the total. Today's is in the warning or error
+        // color from the daily limit (usage.screen-time-limit), and a line under it says so.
         val finished = dataDays.filter { it != today }
-        val big = if (days == 1) listOf(duration(sum) to "screen time today")
+        val limit = config[Keys.USAGE_SCREEN_TIME_LIMIT]
+        val big = if (days == 1) listOf(
+            UsageLimits.colored(duration(sum), UsageLimits.screenTime(sum, limit)) to "screen time today"
+        )
         else listOf(
             duration(
                 reader.total(
@@ -222,6 +227,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
             duration(sum) to "in $days days",
         )
         out(StyledText.stats(big))
+        if (days == 1) UsageLimits.screenTimeWords(sum, limit)?.let { info(StyledText.capitalized(it)) }
         if (days < asked) info("$days of $asked days")
         val named = times.apps.map { Triple(it.label, byPkg[it.pkg], it.ms) }
         val shown = named.take(12)
@@ -365,17 +371,23 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
     /**
      * Big numbers for [history]: today's count, and over several days the average of the finished
-     * days ([DayCounts.finishedAverage]: today has only its hours so far) and the total.
+     * days ([DayCounts.finishedAverage]: today has only its hours so far) and the total. Today's
+     * count is in the warning or error color from the daily limit (usage.unlock-limit), and a line
+     * under it says so.
      */
     private fun unlockStats(history: List<Pair<LocalDate, Int>>, today: LocalDate) {
         val todayCount = history.lastOrNull { it.first == today }?.second ?: 0
-        val big =
-            mutableListOf(todayCount.toString() to if (todayCount == 1) "unlock today" else "unlocks today")
+        val limit = config[Keys.USAGE_UNLOCK_LIMIT]
+        val big = mutableListOf(
+            UsageLimits.colored(todayCount.toString(), UsageLimits.unlocks(todayCount, limit)) to
+                    if (todayCount == 1) "unlock today" else "unlocks today"
+        )
         if (history.size > 1) {
             DayCounts.finishedAverage(history, today)?.let { big += it.toString() to "a day" }
             big += "%,d".format(history.sumOf { it.second }) to "in ${history.size} days"
         }
         out(StyledText.stats(big))
+        UsageLimits.unlockWords(todayCount, limit)?.let { info(StyledText.capitalized(it)) }
     }
 
     /** With fewer days than [asked], a line says why. */
@@ -412,12 +424,21 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         // A bar after each count, on one scale: the busiest day fills its bar. "unlock" gets a no-break
         // space, which a line keeps at its end, so its bar starts where the others do.
         val most = rows.maxOf { it.second }.coerceAtLeast(1)
+        // Each day's count and bar against the daily limit, as today's: a past day over it was over it too.
+        val limit = config[Keys.USAGE_UNLOCK_LIMIT]
         rows.forEach { (label, count) ->
+            val level = UsageLimits.unlocks(count, limit)
+            val digits = count.toString()
             out(
-                "${label.padEnd(labelWidth)}  ${
-                    count.toString().padStart(countWidth)
+                "${label.padEnd(labelWidth)}  ${" ".repeat(countWidth - digits.length)}${
+                    UsageLimits.colored(digits, level)
                 } ${if (count == 1) "unlock " else "unlocks"}",
-                LogContext(LogContext.ALIGNED + LogContext.bar(count.toDouble() / most))
+                LogContext(
+                    LogContext.ALIGNED + LogContext.bar(
+                        count.toDouble() / most,
+                        UsageLimits.role(level)?.role
+                    )
+                )
             )
         }
         fewerDaysNote(history.size, days)

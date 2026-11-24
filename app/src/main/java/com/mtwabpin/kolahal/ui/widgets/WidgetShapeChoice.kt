@@ -3,29 +3,10 @@
  */
 package com.mtwabpin.kolahal.ui.widgets
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialShapes
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.RoundedPolygon
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetJson
@@ -36,9 +17,10 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
 
 /*
  * The Shape look's choice of shape ([WidgetShape]). A card that is one shape, or whose main value
- * sits in one, can take another of Material's shapes: chosen in the Shape row of the Arrange
- * widgets toolbar ([ShapeChoiceRow]), or named by its script (`shape`). One rule says which cards
- * have the choice ([hasShapeChoice]); the row and the drawing both follow it.
+ * sits in one, can take another of Material's shapes: chosen in the Shape group of its settings page
+ * ([WidgetSettingsScreen]), or named by its script (`shape`). One rule says which cards have the
+ * choice ([hasShapeChoice]) and another which shapes ([shapesFor]); the page and the drawing both
+ * follow them.
  */
 
 /** The shape chosen for the placed widget being drawn ([PlacedWidget.shape]); null for its own. [SourceWidget] provides it. */
@@ -52,8 +34,8 @@ val LocalChosenShape = staticCompositionLocalOf<WidgetShape?> { null }
 internal val LocalCardShape = staticCompositionLocalOf<WidgetShape?> { null }
 
 /**
- * True for the cards of the Widgets screen, drawn there to be arranged. A shape chosen there
- * settles as it does on the widgets page ([settleSpec]).
+ * True for the cards drawn to be changed: on the Widgets screen and at the top of a card's settings
+ * page. A shape chosen there settles as it does on the widgets page ([settleSpec]).
  */
 internal val LocalArranging = staticCompositionLocalOf { false }
 
@@ -88,12 +70,29 @@ internal fun hasShapeChoice(kind: WidgetKind?, spec: WidgetSpec?, battery: Boole
     }
 
 /**
+ * The shapes a card of [kind] showing [spec] may take, in their order. A round thing drawn in the
+ * shape, a clock's dial, a gauge's dial or rings, sits right only in a shape that is the same turned
+ * a half turn ([WidgetShape.symmetric]): those cards leave out the slanted square, the arch, the
+ * ghost and the pill. A number, a level, stages, a chart, a text's mark and a picture take all.
+ */
+internal fun shapesFor(kind: WidgetKind?, spec: WidgetSpec?): List<WidgetShape> {
+    val dial = when (spec) {
+        null -> kind == WidgetKind.CLOCK
+        is WidgetSpec.Clock -> true
+        is WidgetSpec.Progress -> ProgressStyles.isGauge(spec) || ProgressStyles.isRings(spec)
+        else -> false
+    }
+    return if (dial) WidgetShape.entries.filter { it.symmetric } else WidgetShape.entries
+}
+
+/**
  * The shape a card has of its own, as a square card draws it ([cardPolygon]): the one its script
  * names, else its kind's. A 12-sided cookie for a number, a chart, a picture and rings; a 4-leaf
- * clover for a level and a text's mark; a 9-sided cookie for a clock's dial.
+ * clover for a level and a text's mark; a 9-sided cookie for a clock's dial. A script's shape the
+ * card may not take ([shapesFor]) counts as none.
  */
 internal fun ownShape(kind: WidgetKind?, spec: WidgetSpec?): WidgetShape {
-    spec?.base?.shape?.let { return it }
+    spec?.base?.shape?.takeIf { it in shapesFor(kind, spec) }?.let { return it }
     if (spec is WidgetSpec.Progress && ProgressStyles.isRings(spec)) return WidgetShape.COOKIE12
     return when (spec?.let(WidgetJson::kindOf) ?: kind) {
         WidgetKind.PROGRESS, WidgetKind.TEXT -> WidgetShape.CLOVER4
@@ -103,37 +102,53 @@ internal fun ownShape(kind: WidgetKind?, spec: WidgetSpec?): WidgetShape {
 }
 
 /**
- * The Shape row of a card: its [own] shape and the one [chosen] for it (null: its own). The row
- * offers [own] first, then the others ([WidgetShape.choices]).
+ * The shape the card showing [spec] takes in place of its own: the one [chosen] for it, else the one
+ * its script names, where it has a choice ([hasShapeChoice]) and may take that shape ([shapesFor]).
+ * Null: it keeps its own.
  */
-internal data class ShapeChoices(val own: WidgetShape, val chosen: WidgetShape?) {
-    val shapes: List<WidgetShape> get() = WidgetShape.choices(own)
+internal fun takenShape(spec: WidgetSpec?, chosen: WidgetShape?, battery: Boolean): WidgetShape? {
+    if (!hasShapeChoice(null, spec, battery)) return null
+    return (chosen ?: spec?.base?.shape)?.takeIf { it in shapesFor(null, spec) }
+}
+
+/**
+ * The Shape group of a card: its [own] shape, the one [chosen] for it (null: its own), and the
+ * shapes it may take ([offered]). The group offers its own first, then the others
+ * ([WidgetShape.choices]).
+ */
+internal data class ShapeChoices(
+    val own: WidgetShape,
+    val chosen: WidgetShape?,
+    val offered: List<WidgetShape> = WidgetShape.entries
+) {
+    val shapes: List<WidgetShape> get() = WidgetShape.choices(own, offered)
 
     /** The shape the card has now. */
-    val shown: WidgetShape get() = chosen ?: own
+    val shown: WidgetShape get() = chosen?.takeIf { it in offered } ?: own
 
     /** What a tap on [shape] keeps for the card: null for its own, so it follows its own if that changes. */
     fun pick(shape: WidgetShape): WidgetShape? = shape.takeIf { it != own }
 }
 
 /**
- * The Shape row of the placed widget [w], of [kind], showing [spec] (null when not known yet). Null
- * when it has no choice ([hasShapeChoice]), and for an app's widget, which draws itself.
+ * The Shape group of the placed widget [w], of [kind], showing [spec] (null when not known yet).
+ * Null when it has no choice ([hasShapeChoice]), and for an app's widget, which draws itself.
  */
 internal fun shapeChoicesFor(w: PlacedWidget, kind: WidgetKind?, spec: WidgetSpec?): ShapeChoices? {
     val source = w.source ?: return null
     val battery = WidgetSource.builtinId(source) == WidgetSource.BATTERY
     if (!hasShapeChoice(kind, spec, battery)) return null
-    return ShapeChoices(ownShape(kind, spec), w.shape)
+    return ShapeChoices(ownShape(kind, spec), w.shape, shapesFor(kind, spec))
 }
 
 /**
  * How much more room the words in [shape] keep from its edge than in the other shapes, as a share
- * of its side: a burst's points cut deeper, so a long number would touch its edge.
+ * of its side: a burst's points and a pill's narrow ends come closest to a long number.
  */
-internal fun extraInset(shape: WidgetShape?): Float = if (shape == WidgetShape.BURST) 0.04f else 0f
+internal fun extraInset(shape: WidgetShape?): Float =
+    if (shape == WidgetShape.BURST || shape == WidgetShape.PILL) 0.04f else 0f
 
-/** Material's shape for [shape]. The burst is Material's soft burst. */
+/** Material's shape for [shape]. The burst is Material's soft burst, the ghost its "ghostish". */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal fun polygonOf(shape: WidgetShape): RoundedPolygon = when (shape) {
     WidgetShape.COOKIE9 -> MaterialShapes.Cookie9Sided
@@ -142,6 +157,15 @@ internal fun polygonOf(shape: WidgetShape): RoundedPolygon = when (shape) {
     WidgetShape.CLOVER8 -> MaterialShapes.Clover8Leaf
     WidgetShape.SUN -> MaterialShapes.Sunny
     WidgetShape.BURST -> MaterialShapes.SoftBurst
+    WidgetShape.CIRCLE -> MaterialShapes.Circle
+    WidgetShape.COOKIE4 -> MaterialShapes.Cookie4Sided
+    WidgetShape.COOKIE6 -> MaterialShapes.Cookie6Sided
+    WidgetShape.GEM -> MaterialShapes.Gem
+    WidgetShape.PIXEL -> MaterialShapes.PixelCircle
+    WidgetShape.SLANTED -> MaterialShapes.Slanted
+    WidgetShape.ARCH -> MaterialShapes.Arch
+    WidgetShape.GHOST -> MaterialShapes.Ghostish
+    WidgetShape.PILL -> MaterialShapes.Pill
 }
 
 /** [own], or the shape the card being drawn takes in its place ([LocalCardShape]). */
@@ -152,48 +176,3 @@ internal fun cardShape(own: RoundedPolygon): RoundedPolygon =
 /** The [extraInset] of the shape the card being drawn takes: 0 for its own. */
 @Composable
 internal fun cardInset(): Float = extraInset(LocalCardShape.current)
-
-/**
- * The Shape row of the Arrange widgets toolbar: [choices] as one row of connected buttons, each a
- * small filled shape, the card's own first. A tap gives the card that shape at once ([onPick]: null
- * for its own). A screen reader names each shape, the first as the default.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-internal fun ShapeChoiceRow(choices: ShapeChoices, onPick: (WidgetShape?) -> Unit) {
-    val shapes = choices.shapes
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        shapes.forEachIndexed { i, shape ->
-            val name = if (i == 0) "${shape.label}, default" else shape.label
-            ToggleButton(
-                checked = shape == choices.shown,
-                onCheckedChange = { onPick(choices.pick(shape)) },
-                shapes = when (i) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    shapes.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .semantics {
-                        role = Role.RadioButton
-                        contentDescription = name
-                    }
-                    .testTag("shape " + shape.id),
-            ) {
-                // Material's toShape remembers the shape it makes.
-                val drawn = polygonOf(shape).toShape()
-                Box(
-                    Modifier
-                        .size(22.dp)
-                        .background(LocalContentColor.current, drawn)
-                )
-            }
-        }
-    }
-}

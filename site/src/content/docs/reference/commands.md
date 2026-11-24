@@ -233,9 +233,9 @@ See [Widgets](/guides/widgets/).
 | Usage | Aliases | Description |
 | --- | --- | --- |
 | `widgets` | | open Settings → Widgets → Arrange widgets: your placed widgets; add, resize and arrange them. `widgets <sub>` works like `widget <sub>` |
-| `widget add` | | open the widget picker; the widget goes on the widgets page |
-| `widget ls` | | list placed widgets as text lines (tap one to open Arrange widgets); plain `widget` does the same |
-| `widget page` | | turn home to the widgets page. If `widgets.page` is `off`, it says so; tap the line to turn the page on |
+| `widget add` | | open the widget picker; the widget goes on the widgets page shown last, page 1 at first |
+| `widget ls` | | list placed widgets as text lines (tap one to open Arrange widgets); with more than one page, under each page's name (tap a name to turn home to that page); plain `widget` does the same |
+| `widget page [<page>]` | | turn home to the widgets page: page 1, or the page in that place (`widget page 2`) or with that name, or the start of one (`widget page work`). If `widgets.page` is `off`, it says so; tap the line to turn the page on |
 
 ## Device
 
@@ -310,7 +310,9 @@ What the screens show:
   second. The first line has the time, how long Kolahal has been running and today's unlocks. Under
   it are bars for the battery, the phone's memory, Kolahal's own memory and today's screen time
   (with usage access: `allow usage`). Then comes a table of your scripts: when each one last ran,
-  how it ended, and when its timer runs it next. The latest run is at the top.
+  how it ended, and when its timer runs it next. The latest run is at the top. From a
+  [daily limit](/guides/apps/#daily-limits), today's unlocks and screen time are in the warning or
+  error color, with the limit after them.
 - `boot`: a short startup sequence with this phone's counts: apps, scripts, theme, font and today's
   unlocks.
 

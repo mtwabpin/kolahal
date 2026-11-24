@@ -48,7 +48,7 @@ object ApiDocs {
         "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
                 "kind is the card to draw; without it, the kind on the @widget line. " +
                 WidgetKind.forScripts.joinToString(" ") { "${it.id}: ${widgetFields(it)}." } + " " +
-                "Every kind: title, icon, color, shape (the Shape look's: cookie9, cookie12, clover4, clover8, sun or burst), tap ({ args } runs this script again, { url } opens a link; label is what a screen reader says, " +
+                "Every kind: title, icon, color, shape (the Shape look's: cookie4, cookie6, cookie9, cookie12, clover4, clover8, sun, burst, circle, pixel, gem, slanted, arch, ghost or pill), tap ({ args } runs this script again, { url } opens a link; label is what a screen reader says, " +
                 "page = \"log\" turns home to the log after the run), staleAfter, refresh (seconds), note (a few words on a large card's last line). " +
                 "An unknown field is an error"
 
@@ -437,8 +437,8 @@ object ApiDocs {
         ApiDoc("usage", "usage", "Your screen time, data use and unused apps", kind = NS),
         ApiDoc(
             "usage.today",
-            "usage.today(n?=10) -> { total, apps = [{ app, pkg, minutes }] }",
-            "Today's screen time in minutes since midnight, and the n apps used most, biggest first, up to 30 (needs @uses usage)"
+            "usage.today(n?=10) -> { total, limit, color, apps = [{ app, pkg, minutes }] }",
+            "Today's screen time in minutes since midnight, and the n apps used most, biggest first, up to 30. limit is your daily limit in minutes (nil: none), color \"warn\" from it and \"bad\" from one and a half times it (needs @uses usage)"
         ),
         ApiDoc(
             "usage.days",

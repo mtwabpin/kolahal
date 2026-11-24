@@ -138,7 +138,7 @@ private val CATEGORIES = listOf(
         ),
     ),
     Category(
-        HEADER_CATEGORY, "Header", "Its parts on each side, clock, your name", R.drawable.ic_home,
+        HEADER_CATEGORY, "Header", "Its parts on each side, clock, your name, daily limits", R.drawable.ic_home,
         listOf(
             null to listOf(
                 Keys.HEADER_SHOW,
@@ -147,6 +147,11 @@ private val CATEGORIES = listOf(
             "Clock and name" to listOf(
                 Keys.CLOCK_24H,
                 Keys.USER_NAME,
+            ),
+            // The header's unlocks show them first; usage, unlocks and top color their figures too.
+            "Daily limits" to listOf(
+                Keys.USAGE_SCREEN_TIME_LIMIT,
+                Keys.USAGE_UNLOCK_LIMIT,
             ),
         ),
         manage = Triple(

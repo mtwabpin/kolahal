@@ -39,6 +39,7 @@ import com.mtwabpin.kolahal.widgets.Shortcuts
  *   "data":    { ... },                                     // everything else: [FullBackup]
  *   "font":    { "name": "...", "base64": "..." },          // an imported terminal font
  *   "widgets": [ ... ],                                     // so the app can offer to add them again
+ *   "widgetPages": [ { "page": "panel:2", "name": "Work" } ],          // the widgets pages, in order
  *   "themes":  { "mine": { "background": "#0B0D0B", ... } },    // made in the theme builder
  *   "scriptSources": [ "https://owner.github.io/name/index.json" ],    // added to Get more scripts
  *   "shaders": [ { "name": "glow", "code": "..." } ] }                 // the user's own .agsl files
@@ -96,6 +97,10 @@ class Backup(private val context: Context) {
             },
             "widgets" to runCatching {
                 com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportWidgets()
+            }.getOrDefault(emptyList()),
+            // The widgets pages, in order, with their names. A widget's "location" says its page.
+            "widgetPages" to runCatching {
+                com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportPages()
             }.getOrDefault(emptyList()),
             // Themes made in the theme builder: the name, mapped to colors by role as "#RRGGBB".
             "themes" to CustomThemes.themes.value.mapValues { (_, colors) ->
@@ -280,8 +285,10 @@ class Backup(private val context: Context) {
         (root["widgets"] as? List<*>)?.let { list ->
             @Suppress("UNCHECKED_CAST")
             runCatching {
-                com.mtwabpin.kolahal.widgets.WidgetHost.get(context)
-                    .importWidgets(list.filterIsInstance<Map<String, Any?>>())
+                com.mtwabpin.kolahal.widgets.WidgetHost.get(context).importWidgets(
+                    list.filterIsInstance<Map<String, Any?>>(),
+                    (root["widgetPages"] as? List<*>).orEmpty().filterIsInstance<Map<String, Any?>>(),
+                )
             }
                 .onFailure { skipped += "widgets" }
         }

@@ -18,6 +18,7 @@ class HeaderModelTest {
         status: Status = Status(),
         unlocks: Int = 0,
         todos: Int = 0,
+        unlockLimit: Int = 0,
     ) = withDefaultZone("UTC") {
         headerParts(
             left.split(','),
@@ -28,6 +29,7 @@ class HeaderModelTest {
             unlocks = unlocks,
             profiles = emptyList(),
             todoCount = todos,
+            unlockLimit = unlockLimit,
             locale = Locale.UK,
         )
     }
@@ -76,6 +78,28 @@ class HeaderModelTest {
         assertEquals(Ink.ERROR, offline.ink)
         assertEquals("network offline", offline.description)
         assertEquals(Ink.FG, parts("network", "", Status(network = "wifi")).left.single().ink)
+    }
+
+    /**
+     * The unlocks against the daily limit: their usual ink under it or with none, the warning ink
+     * at it, the error ink from one and a half times it; and a screen reader hears how far over.
+     */
+    @Test
+    fun theUnlocksAgainstTheLimit() {
+        fun unlocks(count: Int, limit: Int) = parts("unlocks", "", unlocks = count, unlockLimit = limit).left.single()
+        assertEquals(Ink.FG, unlocks(41, 0).ink)
+        assertNull(unlocks(41, 0).description)
+        assertEquals(Ink.FG, unlocks(29, 30).ink)
+        assertNull(unlocks(29, 30).description)
+        assertEquals(Ink.WARN, unlocks(30, 30).ink)
+        assertEquals("30 unlocks today, at your limit of 30", unlocks(30, 30).description)
+        assertEquals(Ink.WARN, unlocks(41, 30).ink)
+        assertEquals("41 unlocks today, 11 over your limit of 30", unlocks(41, 30).description)
+        assertEquals(Ink.ERROR, unlocks(45, 30).ink)
+        assertEquals("1 unlock today, at your limit of 1", unlocks(1, 1).description)
+        // The text stays the count, and a tap still opens the unlocks.
+        assertEquals("45", unlocks(45, 30).text)
+        assertEquals(HeaderTarget.UNLOCKS, unlocks(45, 30).target)
     }
 
     /** A part listed on both sides shows on the left only. */

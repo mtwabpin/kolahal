@@ -18,7 +18,18 @@ class WidgetShapeTest {
 
     @Test
     fun aShapeIsNamedByItsIdInAnyCase() {
-        assertEquals(listOf("cookie9", "cookie12", "clover4", "clover8", "sun", "burst"), WidgetShape.ids)
+        assertEquals(
+            listOf(
+                "cookie9", "cookie12", "clover4", "clover8", "sun", "burst", "circle", "cookie4",
+                "cookie6", "gem", "pixel", "slanted", "arch", "ghost", "pill"
+            ),
+            WidgetShape.ids
+        )
+        // Every id is a short lowercase word, as a script writes it; every short name fits under a shape.
+        WidgetShape.entries.forEach {
+            assertTrue(it.id, Regex("[a-z][a-z0-9]*").matches(it.id))
+            assertTrue(it.short, it.short.length <= 9)
+        }
         WidgetShape.entries.forEach { assertEquals(it, WidgetShape.named(it.id)) }
         assertEquals(WidgetShape.CLOVER8, WidgetShape.named(" Clover8 "))
         assertNull(WidgetShape.named("star"))
@@ -26,26 +37,22 @@ class WidgetShapeTest {
         assertNull(WidgetShape.named(null))
     }
 
-    /** The card's own shape comes first, so one tap gives it back, then the other five in their order. */
+    /** The card's own shape comes first, so one tap gives it back, then the others it may take in their order. */
     @Test
     fun theOwnShapeIsOfferedFirst() {
         assertEquals(WidgetShape.entries, WidgetShape.choices(WidgetShape.COOKIE9))
         assertEquals(
-            listOf(
-                WidgetShape.CLOVER4,
-                WidgetShape.COOKIE9,
-                WidgetShape.COOKIE12,
-                WidgetShape.CLOVER8,
-                WidgetShape.SUN,
-                WidgetShape.BURST
-            ),
+            listOf(WidgetShape.CLOVER4) + (WidgetShape.entries - WidgetShape.CLOVER4),
             WidgetShape.choices(WidgetShape.CLOVER4)
         )
         WidgetShape.entries.forEach { own ->
             val offered = WidgetShape.choices(own)
-            assertEquals(6, offered.size)
+            assertEquals(15, offered.size)
             assertEquals(WidgetShape.entries.toSet(), offered.toSet())
         }
+        // Of fewer: its own first, then those.
+        val round = listOf(WidgetShape.CIRCLE, WidgetShape.GEM)
+        assertEquals(listOf(WidgetShape.COOKIE9) + round, WidgetShape.choices(WidgetShape.COOKIE9, round))
     }
 
     /** A chosen shape is the line's last field. Without one the line is as it was, so older lines and tests read the same. */
@@ -112,7 +119,7 @@ class WidgetShapeTest {
             parse(mapOf("text" to "Hi", "shape" to "burst"), WidgetKind.TEXT).base.shape
         )
         assertEquals(
-            "widget: shape must be cookie9, cookie12, clover4, clover8, sun or burst, not 'star'",
+            "widget: shape must be cookie9, cookie12, clover4, clover8, sun, burst, circle, cookie4, cookie6, gem, pixel, slanted, arch, ghost or pill, not 'star'",
             assertThrows(IllegalArgumentException::class.java) {
                 parse(mapOf("value" to "5", "shape" to "star"))
             }.message

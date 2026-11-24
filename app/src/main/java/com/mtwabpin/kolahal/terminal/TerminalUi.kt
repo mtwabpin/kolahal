@@ -7,7 +7,7 @@ import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.data.Script
 
 /** Full-screen GUI pages other than the terminal. The script editor is separate. */
-enum class Screen { TERMINAL, SETTINGS, SCRIPTS, SCRIPT_LIBRARY, GET_SCRIPTS, SCRIPT_SOURCES, SHADERS, GET_SHADERS, SETUP, ONBOARDING, FEEDS, WIDGETS, WIDGET_PICKER, THEME_BUILDER, HEADER_PARTS }
+enum class Screen { TERMINAL, SETTINGS, SCRIPTS, SCRIPT_LIBRARY, GET_SCRIPTS, SCRIPT_SOURCES, SHADERS, GET_SHADERS, SETUP, ONBOARDING, FEEDS, WIDGETS, WIDGET_PICKER, WIDGET_SETTINGS, THEME_BUILDER, HEADER_PARTS }
 
 /**
  * Operations that only the UI can do. The processor cannot do them from an application context.
@@ -76,8 +76,11 @@ interface TerminalUi {
      */
     fun askResume(app: com.mtwabpin.kolahal.apps.AppEntry)
 
-    /** For `widgets page`: turns home to the widgets page beside the log, and hides the keyboard. */
+    /** For `widgets page`: turns home to the widgets page beside the log (page 1), and hides the keyboard. */
     fun showWidgetsPage()
+
+    /** For `widget page 2`: turns home to the widgets page at [page], from 1, and hides the keyboard. */
+    fun showWidgetsPage(page: Int) = showWidgetsPage()
 
     /**
      * For `screen <name>` and the screens' own commands (`matrix`, `clock`…): shows that full-screen screen over home

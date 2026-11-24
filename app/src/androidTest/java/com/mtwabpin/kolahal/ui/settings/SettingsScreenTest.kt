@@ -392,6 +392,22 @@ class SettingsScreenTest {
         compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.HEADER_PARTS }
     }
 
+    /** The daily limits are on the Header page, with the header off too: a hold on one's title types it. */
+    @Test
+    fun aDailyLimitIsTypedOnTheHeaderPage() {
+        val key = Keys.USAGE_UNLOCK_LIMIT
+        show("header")
+        scrollTo(key)
+        compose.onNodeWithText(SettingTitles[key.key] ?: key.key, useUnmergedTree = true)
+            .performTouchInput { longClick() }
+        val box = compose.onNodeWithTag("type-value")
+        box.performTextReplacement("60")
+        box.performImeAction()
+        compose.waitUntil(5_000) { config[key] == 60 }
+        scrollTo(Keys.USAGE_SCREEN_TIME_LIMIT)
+        compose.onNodeWithText(Keys.USAGE_SCREEN_TIME_LIMIT.key, useUnmergedTree = true).assertExists()
+    }
+
     /** Your name, on the Header page: a name with a space turns the field red and isn't saved. */
     @Test
     fun yourNameIsSetInItsField() {

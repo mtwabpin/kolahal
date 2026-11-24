@@ -155,7 +155,7 @@ class WidgetInstancesTest {
         assertEquals(before, t.stored(second))
 
         // `widgets ls` tells them apart.
-        val listed = host.listing(context).map { it.first.substringAfter(". ") }
+        val listed = host.listing(context).map { it.text.substringAfter(". ") }
         assertTrue(listed.toString(), listed.containsAll(listOf(s.name, "${s.name} 2")))
     }
 

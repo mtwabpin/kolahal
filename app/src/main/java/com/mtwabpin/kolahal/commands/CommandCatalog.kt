@@ -253,14 +253,15 @@ object CommandCatalog {
         ),
         CommandSpec(
             "widget",
-            "widget [add|ls|page]",
-            "Add a widget, list the placed ones, or turn home to the widgets page (no args: text list)",
+            "widget [add|ls|page [<page>]]",
+            "Add a widget, list the placed ones, or turn home to a widgets page (no args: text list)",
             short = "Add or list widgets",
             args = "add · ls · page",
             uses = listOf(
-                "widget add" to "pick a widget to add to the widgets page",
-                "widget ls" to "the placed widgets, as text",
-                "widget page" to "turn home to the widgets page",
+                "widget add" to "pick a widget to add to the widgets page shown last",
+                "widget ls" to "the placed widgets, as text, by page",
+                "widget page" to "turn home to the widgets page, page 1",
+                "widget page 2" to "turn home to page 2, or to a page by its name: widget page work",
             ),
             sensitive = true
         ),

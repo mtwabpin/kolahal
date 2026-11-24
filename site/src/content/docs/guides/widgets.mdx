@@ -60,6 +60,25 @@ first: there it is your way to open apps. Turn it on in **Settings → App selec
 - If you type on a hardware keyboard, Kolahal switches to the log and puts the text in the prompt.
 - **Open the keyboard on Home** opens the keyboard when you reach the log.
 - The page has no add and edit buttons. Long-press a widget to arrange widgets, or use `widget add`.
+  With more than one page, each page has them, with its name.
+
+### More than one page
+
+You can have up to five widgets pages. They are all on the side `widgets.page` sets: page 1 next to
+the log, then page 2, and so on outward. Add a page in [Arrange widgets](#arrange-and-resize) with
+the **+** after the page tabs.
+
+- A swipe goes one page at a time. Back or Home goes from any page straight to the log, in one step.
+  With `widgets.start`, page 1 is the one home opens on, and Back and Home go there.
+- Each page scrolls up and down on its own.
+- With more than one page, the top of each page shows its name and a dot for each page, the one you
+  are on longer. The log shows nothing new.
+- A page is "Page 2" until you name it. Long-press its tab in Arrange widgets to rename it. A name is
+  up to 16 characters and not only digits, and two pages can't share one.
+- `widget page 2` turns home to page 2, and `widget page work` to the page called Work. The start of
+  a name is enough when only one page starts so.
+- A widget on a page you aren't looking at waits: it doesn't run or update until its page shows.
+- With TalkBack or Switch Access, the page actions on home are named after the page they turn to.
 
 ## Add a widget
 
@@ -153,8 +172,8 @@ To edit your shortcuts:
 1. Open the **Shortcuts** sheet in one of two ways:
    - While the card has no buttons, tap it anywhere. A tap beside its buttons does nothing.
    - Or open **Arrange widgets** (long-press the card, or **Settings → Widgets → Arrange
-     widgets**), select the Shortcuts widget, and tap **Edit shortcuts** in the toolbar at the
-     bottom.
+     widgets**), select the Shortcuts widget, tap **Settings** in the toolbar at the bottom, and
+     tap **Edit shortcuts** on its page.
 2. Tap **Add shortcut**, and fill in the boxes:
    - **Command**: what you would type in the terminal, such as `torch`. While you type its first
      word, the commands that start so are offered under the box. Tap one to take it.
@@ -262,7 +281,7 @@ two cities, a countdown to two days.
 
 1. Place the script's widget as usual. Its row in the picker then says
    **Added · tap to add another**.
-2. Tap that row. One more widget is added. If the script has options, its **Options** sheet opens.
+2. Tap that row. One more widget is added. If the script has options, its settings page opens.
 3. Set what this widget should show: its city, its day. These are the script's
    [options](/scripting/overview/#options).
 
@@ -270,19 +289,19 @@ To change a widget's options later:
 
 1. Open **Settings → Widgets → Arrange widgets**.
 2. Tap the script's card.
-3. Tap **Options** in the toolbar at the bottom. It shows only for a script with options.
+3. Tap **Settings** in the toolbar at the bottom. The options are under **This card**.
 
 What to know:
 
 - A script can have 6 widgets at most. Then its row in the picker says **Added · 6 of 6**.
 - A further widget follows the script's own options until you set one for that widget. After
   that it keeps its own value for that option.
-- The first widget has no options of its own. Its **Options** are the script's, the same as in the
-  script's sheet and `script set`. A change in the first widget's **Options** sheet also runs the
+- The first widget has no options of its own. Its options are the script's, the same as in the
+  script's sheet and `script set`. A change on the first widget's settings page also runs the
   further widgets that follow it.
 - The script's timer fills the first widget only. A further widget runs the script for itself:
   when you place it, when you look at it and its content is old, when you tap it, and when you
-  change an option it reads: in its **Options** sheet, in the script's sheet on the Scripts screen,
+  change an option it reads: on its settings page, in the script's sheet on the Scripts screen,
   or with `script set`. So more widgets don't run anything more in the background.
 - If you removed the first widget and a further one is still placed, a tap on the row brings the
   first widget back. The timer fills only the first.
@@ -298,7 +317,8 @@ can take a sixth, a quarter, a third, half, two thirds or more of the page's wid
 a time.
 
 Open **Settings → Widgets → Arrange widgets**, or long-press a widget on the widgets page. The
-screen shows the page as it is:
+screen shows the page as it is. Under the title is a tab for each page, and **+** to add a page
+(up to five). The screen opens on the page you came from; tap a tab to arrange another page.
 
 - **Tap** a widget to choose it. A toolbar comes up at the bottom, and the widget gets handles on
   its right and bottom edges.
@@ -308,21 +328,28 @@ screen shows the page as it is:
 - **Drag a handle** to make the widget wider, narrower, taller or shorter: a twelfth of the page or
   8dp at a time, never below the size the widget needs.
 - **Drop a widget on Remove**, at the top while you drag, to remove it. Kolahal asks first.
-- **Close gaps**, in the top bar, moves every widget up as far as it goes.
-- **+**, in the top bar, adds a widget.
+- **Close gaps**, in the top bar, moves every widget of the page up as far as it goes.
+- **+**, in the top bar, adds a widget to the page you are arranging.
+- **Long-press a tab** to rename its page, or to remove it. Its widgets move to page 1, under what is
+  there; Kolahal asks first. Page 1 stays.
+- **Hold a widget at the screen's edge** while you drag it to move it to the next page or the one
+  before. Let go where it should land.
+
+A page with no widgets says so, with **Add a widget** and **Remove page**. When you leave Arrange
+widgets, an empty page goes by itself, except page 1.
 
 For one of Kolahal's widgets or a script's widget, the toolbar has:
 
 | Row | Buttons |
 | --- | --- |
 | Look | Plain, Tonal, Bold, Split, Shape, Poster, and for some widgets a look of their own: Now, Next or Stack ([below](#looks)) |
-| Color | Accent, Link, Good, Warning, Bad, Muted, Text, the card's own first ([below](#looks)) |
-| Shape (in the Shape look) | six shapes, the card's own first ([below](#looks)) |
 | Size | 1×1, 2×1, 2×2, 4×1, 4×2, 4×4 |
 | Days (Agenda only) | Auto, 1, 3, 7, 14 |
+| Page (with more than one page) | one for each page: a tap moves the widget there |
 
-It also has **Options** (for a script with options) or **Edit shortcuts** (for Shortcuts),
-**Remove** and **Done**.
+It also has **Settings**, which opens the widget's own page ([below](#a-widgets-own-page)), and
+**Remove** and **Done**. The **Settings** button shows a dot in the widget's color and, in the
+Shape look, a small copy of its shape.
 
 For another app's widget, the toolbar has:
 
@@ -331,6 +358,7 @@ For another app's widget, the toolbar has:
 | Width − / + | narrower or wider, a twelfth of the page at a time |
 | Height − / + | shorter or taller, 8dp at a time (never below the size the widget needs) |
 | Square | as tall as it is wide, or as close as the widget allows |
+| Page (with more than one page) | one for each page: a tap moves the widget there |
 
 Hold − or + to repeat. Kolahal gives each widget its real width and height, so it fits the space.
 
@@ -338,8 +366,24 @@ It also has **Widget settings** when the widget's app lets you change its setup 
 **Remove** and **Done**.
 
 With TalkBack, each widget on this screen has actions to move it up, down, left or right, to make it
-wider, narrower, taller or shorter, to open its **Options**, **Edit shortcuts** or **Widget settings**
-(when it has them), and to remove it.
+wider, narrower, taller or shorter, to open its **Settings** or **Widget settings** (when it has
+them), and to remove it.
+
+### A widget's own page
+
+**Settings** in the toolbar of one of Kolahal's widgets or a script's widget opens a page for that
+widget. The widget itself is at the top, at its real size, and changes as you choose. It stays
+there while the page scrolls; a tall one, such as a 4×4, scrolls away with it, to leave room for
+the rest. Back returns to Arrange widgets, with the widget still chosen.
+
+- **This card**: a script's options, as in the script's sheet ([below](#the-same-widget-more-than-once)).
+  A change runs the widget again at once. For Shortcuts, **Edit shortcuts**.
+- **Color**: the theme's colors, the widget's own first ([below](#looks)).
+- **Shape**: in the Shape look, for a widget that is one shape, its shapes ([below](#looks)).
+- **What shows**: switches for the widget's **Name**, wherever its look writes it, and its **Icon**,
+  where its look draws one. Each shows only for a widget that has that part.
+- **Reset to the card's own**: its own color, shape, name and icon again. A script's options keep
+  their values; its look and size stay.
 
 ### Change a widget's settings
 
@@ -377,21 +421,24 @@ have no **Bold**, a picture has only **Plain**, **Tonal** and **Shape**, and a m
 draws its shapes. It has **Next** instead. If a script shows another kind of card later, a look you
 chose for it comes back when the kind has it.
 
-The **Color** row under **Look** gives the card one of the theme's colors: accent, link, good,
-warning, bad, muted or text. The first dot, a ring open in the middle, is the card's own color,
-the one its script gives, so one tap gives it back. Tap another and the card takes it at once,
+**Color**, on the widget's own page, gives the card one of the theme's colors: accent, link, info,
+good, warning, bad, muted or text. A color the theme draws the same as one before it is left out:
+info, where it is the link's color. **Its own**, first, a ring open in the middle, is the card's
+own color, the one its script gives, so one tap gives it back. Tap another and the card takes it at once,
 wherever it uses its own color: its ring, bar or chart, its big value in **Bold**, its shape in
 **Shape**, its tinted card in **Tonal**. A script that changes its color with what it shows, such as
 air quality turning bad, keeps doing so until you pick a color. Colors a script gives to a part,
 such as a gauge's zones or a row, stay as they are. The Battery and network card keeps its warning
 colors: bad when low, good while charging.
 
-In the **Shape** look, a card that is one shape, or whose main value sits in one, has a **Shape**
-row under **Color**: a 9-sided and a 12-sided cookie, a 4-leaf and an 8-leaf clover, a sun and a
-burst. The first is the card's own shape, so one tap gives it back. Tap another and the card takes
-it at once. A countdown, a habit's week, the battery and the sky have no **Shape** row, as their
-shape shows what they count. Nor do buttons, switches, lists, an agenda or several bars, where each
-part takes a shape of its own.
+In the **Shape** look, a card that is one shape, or whose main value sits in one, has **Shape** on
+its page: a 4-, 6-, 9- and 12-sided cookie, a 4-leaf and an 8-leaf clover, a sun, a burst, a
+circle, a pixel circle, a gem, a slanted square, an arch, a ghost and a pill. **Its own**, first,
+is the card's own shape, so one tap gives it back. Tap another and the card takes it at once. A
+clock, a gauge and rings draw a round dial in the shape, so they don't offer the slanted square,
+the arch, the ghost and the pill. A countdown, a habit's week, the battery and the sky have no
+**Shape**, as their shape shows what they count. Nor do buttons, switches, lists, an agenda or
+several bars, where each part takes a shape of its own.
 
 Some looks leave out small details, such as the weather card's high, low and rain in **Shape**.
 TalkBack still reads them. Another app's widget draws itself, so it has no looks.
@@ -403,14 +450,16 @@ from the page.
 
 ## Backups
 
-A [backup](/guides/backup/) records which widgets you placed, with their size, place, look, shape and color. But other apps'
+A [backup](/guides/backup/) records which widgets you placed, with their page, size, place, look, shape, color and what shows, and your pages with their names. But other apps'
 widgets themselves can't move between installs. So after an import:
 
 1. Open **Settings → Widgets → Arrange widgets**. The widgets that aren't on the page already are
    listed under **Restored from backup**.
 2. Tap **Add again** on each widget to add it back. Run its setup if it has one.
 
-Each widget keeps its size and position.
+Each widget keeps its size and position. A backup's pages join yours in order: its page 2 is your
+page 2, and gives it its name if yours has none. A backup made before there were pages puts every
+widget on page 1.
 
 Kolahal's own widgets and your scripts' widgets need no **Add again**. They are back on the page after
 the import.
@@ -430,8 +479,12 @@ how many widgets you need to add again. Tap it to open that page.
 widgets        # open Settings → Widgets → Arrange widgets
 widget add     # open the picker
 widget ls      # list placed widgets (tap a line to open them); plain widget does the same
-widget page    # turn home to the widgets page
+widget page    # turn home to the widgets page (page 1)
+widget page 2  # turn home to page 2; widget page work turns to the page called Work
 ```
+
+With more than one page, `widget ls` lists the widgets under each page's name. A new widget from
+`widget add` goes on the page that showed last.
 
 `widgets` alone opens the screen; with a word after it, it works like `widget`: `widgets ls` is
 `widget ls`.

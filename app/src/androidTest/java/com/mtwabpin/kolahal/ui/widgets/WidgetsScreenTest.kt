@@ -250,8 +250,12 @@ class WidgetsScreenTest {
         compose.onNodeWithText("Drag to move. Drag an edge to resize.").assertExists()
         compose.onNodeWithText("Square").assertDoesNotExist()
         compose.onNodeWithContentDescription("Increase height").assertDoesNotExist()
+        // Its Settings opens its page; color and shape are there, not in the toolbar.
+        compose.onNodeWithTag("widget-settings").assertExists()
+        compose.onNodeWithTag("color own").assertDoesNotExist()
 
         choose(clock)
+        compose.onNodeWithTag("widget-settings").assertDoesNotExist()
         compose.onNodeWithTag("look Plain").assertDoesNotExist()
         compose.onNodeWithTag("size 2×2").assertDoesNotExist()
         compose.onNodeWithContentDescription("Increase height").assertExists()
@@ -459,7 +463,8 @@ class WidgetsScreenTest {
             choose(label)
             compose.onNodeWithContentDescription("Widget settings").assertDoesNotExist()
         }
-        assertTrue("Edit shortcuts" in actionsOf(shortcuts))
+        // One of Kolahal's own cards has Settings, which opens its page (Edit shortcuts is there).
+        assertTrue("Settings" in actionsOf(shortcuts))
         assertFalse("Widget settings" in actionsOf(shortcuts))
     }
 
@@ -593,6 +598,28 @@ class WidgetsScreenTest {
         assertFalse(w.id in t.ids())
         card(label).assertDoesNotExist()
         compose.onNodeWithContentDescription("Remove").assertDoesNotExist()
+    }
+
+    /**
+     * With two pages: a tab for each, the chosen widget's Page row moves it to the other page in one
+     * tap, the screen goes with it, and the first tab no longer shows it.
+     */
+    @Test
+    fun thePageRowMovesAWidgetToAnotherPage() {
+        widgets.addTo = WidgetLocation.PANEL
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        assertEquals(WidgetLocation.PANEL, w.location)
+        val second = widgets.addPage()
+        assertNotNull(second)
+        show()
+        compose.onNodeWithTag("page-tab Page 1").assertIsOn()
+        choose(label)
+        compose.onNodeWithTag("page Page 2").performClick()
+        compose.waitUntil(5_000) { t.get(w.key)?.location == second }
+        compose.onNodeWithTag("page-tab Page 2").assertIsOn()
+        card(label).assertExists()
+        compose.onNodeWithTag("page-tab Page 1").performClick()
+        card(label).assertDoesNotExist()
     }
 
     /** Back puts the toolbar away before it leaves the screen. */

@@ -9,6 +9,8 @@ import android.os.Process
 import android.os.SystemClock
 import android.system.Os
 import android.system.OsConstants
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.tty.screens.TopData
@@ -28,7 +30,8 @@ import java.time.LocalDate
  * new permission is needed, and each read is quick:
  * - Kolahal's time up, its Java heap and its memory in RAM (/proc/self/statm, a few bytes);
  * - the phone's memory (ActivityManager.MemoryInfo) and the battery, as the header has it;
- * - today's unlocks, and every script with its last run and timers, which home already holds.
+ * - today's unlocks, and every script with its last run and timers, which home already holds;
+ * - the daily limits for screen time and unlocks, from the settings.
  *
  * Today's screen time takes a read of Android's usage events, so it is worked out in [scope] off
  * the main thread, at most once a minute, and only with usage access.
@@ -43,6 +46,9 @@ internal class TopFacts(
     private val activities = context.getSystemService(ActivityManager::class.java)
     private val memory = ActivityManager.MemoryInfo()
     private val pageSize = runCatching { Os.sysconf(OsConstants._SC_PAGESIZE) }.getOrDefault(4_096L)
+
+    // The daily limits, read with each frame: a change in Settings shows at once.
+    private val config = Config.get(context)
 
     // Today's screen time: the last result, and when it was asked for (uptime ms).
     @Volatile
@@ -73,6 +79,8 @@ internal class TopFacts(
             usageAccess = granted,
             screenTimeMs = if (granted) screenTime else -1,
             unlocks = unlocks(),
+            screenTimeLimitMin = config[Keys.USAGE_SCREEN_TIME_LIMIT],
+            unlockLimit = config[Keys.USAGE_UNLOCK_LIMIT],
             scripts = scripts().map { TopScript(it.name, it.enabled, it.lastRun, it.lastStatus, it.intervalMin, it.atTimes) },
         )
     }

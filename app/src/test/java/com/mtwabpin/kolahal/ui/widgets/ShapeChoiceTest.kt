@@ -15,7 +15,8 @@ import org.junit.Test
 
 /**
  * Which cards have a choice of shape in the Shape look ([hasShapeChoice]), the one they have of
- * their own ([ownShape]), and what the Shape row offers and keeps ([ShapeChoices]).
+ * their own ([ownShape]), which shapes they may take ([shapesFor], [takenShape]), and what the
+ * Shape group of the settings page offers and keeps ([ShapeChoices]).
  */
 class ShapeChoiceTest {
     private val base = WidgetBase()
@@ -124,12 +125,60 @@ class ShapeChoiceTest {
         assertNull(shapeChoicesFor(weather, WidgetKind.CHART, WidgetSpec.Chart(base, listOf(1f, 0f), style = "dots")))
     }
 
-    /** Only the burst's points cut deep enough for the words to need more room. */
+    /** Only the burst's points and the pill's ends come close enough to a long number to need more room. */
     @Test
-    fun onlyTheBurstNeedsMoreRoom() {
+    fun onlyTheBurstAndThePillNeedMoreRoom() {
         WidgetShape.entries.forEach {
-            assertEquals(it.id, if (it == WidgetShape.BURST) 0.04f else 0f, extraInset(it), 0f)
+            val more = it == WidgetShape.BURST || it == WidgetShape.PILL
+            assertEquals(it.id, if (more) 0.04f else 0f, extraInset(it), 0f)
         }
         assertEquals(0f, extraInset(null), 0f)
+    }
+
+    /**
+     * A clock, a gauge and rings draw a round dial in the shape: they leave out the four shapes that
+     * are not the same turned a half turn. Every other card takes all fifteen.
+     */
+    @Test
+    fun aDialTakesOnlyShapesThatAreTheSameTurned() {
+        val lopsided = setOf(WidgetShape.SLANTED, WidgetShape.ARCH, WidgetShape.GHOST, WidgetShape.PILL)
+        assertEquals(lopsided, WidgetShape.entries.filterNot { it.symmetric }.toSet())
+        assertEquals(15, WidgetShape.entries.size)
+        val round = WidgetShape.entries - lopsided
+        val clock = WidgetSpec.Clock(base, listOf(WidgetSpec.Zone("Asia/Tokyo", "Tokyo")))
+        val gauge = WidgetSpec.Progress(base, value = 40f, max = 100f, style = "gauge")
+        val rings = WidgetSpec.Progress(base, value = 0f, style = "rings", items = listOf(bar, bar))
+        listOf(clock, gauge, rings).forEach { assertEquals(it.toString(), round, shapesFor(null, it)) }
+        assertEquals(round, shapesFor(WidgetKind.CLOCK, null))
+        listOf(
+            WidgetSpec.Stat(base, value = "118"),
+            WidgetSpec.Text(base, "Carry an umbrella"),
+            WidgetSpec.Progress(base, value = 0.4f),
+            WidgetSpec.Progress(base, value = 0.5f, stages = listOf("Packed", "Sent", "Here"), stage = 2),
+            WidgetSpec.Chart(base, listOf(3f, 5f, 4f)),
+            WidgetSpec.Image(base, "https://example.com/a.png", "Hills"),
+        ).forEach { assertEquals(it.toString(), WidgetShape.entries, shapesFor(null, it)) }
+    }
+
+    /** The shape a card takes: the chosen one, else its script's, only where it has the choice and may take it. */
+    @Test
+    fun theShapeACardTakes() {
+        val stat = WidgetSpec.Stat(WidgetBase(shape = WidgetShape.SUN), value = "1")
+        assertEquals(WidgetShape.SUN, takenShape(stat, null, battery = false))
+        assertEquals(WidgetShape.PILL, takenShape(stat, WidgetShape.PILL, battery = false))
+        assertNull(takenShape(WidgetSpec.Stat(base, value = "1"), null, battery = false))
+        // A clock may not take a pill: it keeps its own, chosen or named by its script.
+        val clock = WidgetSpec.Clock(WidgetBase(shape = WidgetShape.PILL), listOf(WidgetSpec.Zone("UTC")))
+        assertNull(takenShape(clock, null, battery = false))
+        assertNull(takenShape(clock, WidgetShape.ARCH, battery = false))
+        assertEquals(WidgetShape.GEM, takenShape(clock, WidgetShape.GEM, battery = false))
+        assertEquals(WidgetShape.COOKIE9, ownShape(null, clock))
+        // The battery's shape shows its level.
+        assertNull(takenShape(WidgetSpec.Progress(base, value = 0.4f), WidgetShape.SUN, battery = true))
+        // The settings page offers a clock the round ones only, its own first.
+        val row = ShapeChoices(WidgetShape.COOKIE9, WidgetShape.ARCH, shapesFor(WidgetKind.CLOCK, null))
+        assertEquals(WidgetShape.COOKIE9, row.shown)
+        assertEquals(11, row.shapes.size)
+        assertFalse(WidgetShape.ARCH in row.shapes)
     }
 }

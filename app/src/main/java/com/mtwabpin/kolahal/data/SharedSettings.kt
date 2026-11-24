@@ -16,7 +16,12 @@ import com.mtwabpin.kolahal.BuildConfig
  */
 object SharedSettings {
     /** The settings the :script process reads. */
-    val KEYS: List<ConfigKey<*>> = listOf(Keys.LOG_KEEP_LINES, Keys.DATA_PLAN, Keys.DATA_START_DAY)
+    val KEYS: List<ConfigKey<*>> = listOf(
+        Keys.LOG_KEEP_LINES,
+        Keys.DATA_PLAN,
+        Keys.DATA_START_DAY,
+        Keys.USAGE_SCREEN_TIME_LIMIT
+    )
 
     fun <T> get(context: Context, key: ConfigKey<T>): T {
         if (BuildConfig.DEBUG) require(key in KEYS) { "${key.key} isn't shared with the :script process: add it to SharedSettings.KEYS" }

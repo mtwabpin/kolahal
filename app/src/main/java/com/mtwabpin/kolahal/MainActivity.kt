@@ -84,6 +84,7 @@ import com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter
 import com.mtwabpin.kolahal.ui.widgets.LocalWidgetsShown
 import com.mtwabpin.kolahal.ui.widgets.WidgetPanel
 import com.mtwabpin.kolahal.ui.widgets.WidgetPickerScreen
+import com.mtwabpin.kolahal.ui.widgets.WidgetSettingsScreen
 import com.mtwabpin.kolahal.ui.widgets.WidgetsScreen
 import com.mtwabpin.kolahal.widgets.WidgetBinder
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -462,6 +463,8 @@ class MainActivity : ComponentActivity(), HidesBars {
                                     vm,
                                     onPick = { widgetBinder.add(it) })
 
+                                Screen.WIDGET_SETTINGS -> WidgetSettingsScreen(vm)
+
                                 Screen.THEME_BUILDER -> ThemeBuilderScreen(
                                     vm
                                 )
@@ -619,16 +622,17 @@ class MainActivity : ComponentActivity(), HidesBars {
 }
 
 /**
- * `widgets.page`: the terminal with a widgets page beside it (left or right).
- * - Swipe sideways on home to reach it. Back or Home returns to the terminal.
+ * `widgets.page`: the terminal with the widgets pages beside it (left or right), page 1 nearest the
+ * log, then page 2 and so on outward ([com.mtwabpin.kolahal.widgets.WidgetPages]).
+ * - Swipe sideways on home to reach them, a page at a time. Back or Home returns to the terminal
+ *   from any page, in one step.
  * - A swipe that starts on a log line still belongs to the line (copy / delete). So the page swipe
- *   works from the header, empty space or the prompt. With the page on the right, the line's swipes
- *   are swapped: a swipe toward the page copies, never deletes ([com.mtwabpin.kolahal.ui.home.LogLine]'s
+ *   works from the header, empty space or the prompt. With the pages on the right, the line's swipes
+ *   are swapped: a swipe toward them copies, never deletes ([com.mtwabpin.kolahal.ui.home.LogLine]'s
  *   deleteRight).
- * - With `widgets.start`, the widgets page is home's first page instead. Home opens on it, and Back
- *   and Home return to it. A key typed there brings up the log and shows the key in it.
+ * - With `widgets.start`, page 1 is home's first page instead. Home opens on it, and Back and Home
+ *   return to it. A key typed on a page brings up the log and shows the key in it.
  */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // LocalBringIntoViewSpec
 @androidx.compose.runtime.Composable
 private fun HomePager(
     vm: TerminalViewModel,
@@ -640,24 +644,57 @@ private fun HomePager(
         terminal()
         return
     }
-    val terminalPage = if (side == "left") 1 else 0
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val widgets = androidx.compose.runtime.remember { WidgetHost.get(context) }
+    val pages by widgets.pages.collectAsStateWithLifecycle()
+    // A page added or removed (a backup's) lays home out again: each page's place on the pager moves.
+    androidx.compose.runtime.key(pages.size) { HomePages(vm, widgets, pages, side, terminal) }
+}
+
+/** [HomePager] for [pages] on the [side] of the log (`widgets.page` left or right). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // LocalBringIntoViewSpec
+@androidx.compose.runtime.Composable
+private fun HomePages(
+    vm: TerminalViewModel,
+    widgets: WidgetHost,
+    pages: List<com.mtwabpin.kolahal.widgets.WidgetPage>,
+    side: String,
+    terminal: @androidx.compose.runtime.Composable () -> Unit
+) {
+    val version by vm.config.version.collectAsStateWithLifecycle()
+    val count = pages.size + 1
+    val left = side == "left"
+    // The log sits at the end nearest home's side; page 1 is next to it, the others further out.
+    val terminalPage = if (left) pages.size else 0
+    // The pager's place of the widgets page at [index] (from 0), and the other way round (null: the log).
+    fun placeOf(index: Int): Int = if (left) pages.size - 1 - index else index + 1
+    fun pageAt(place: Int): Int? =
+        if (place == terminalPage) null else if (left) pages.size - 1 - place else place - 1
     val widgetsFirst = androidx.compose.runtime.remember(version) { Keys.widgetsFirst(vm.config) }
     // The page that home opens on, and that Home and Back return to.
-    val homePage = if (widgetsFirst) 1 - terminalPage else terminalPage
+    val homePage = if (widgetsFirst) placeOf(0) else terminalPage
     // Home is laid out again each time a screen closes. It opens on the page it showed before
-    // (vm.homeOnWidgets): Back from Arrange widgets returns to the widgets page.
+    // (vm.homeOnWidgets, vm.widgetsPageShown): Back from Arrange widgets returns to that widgets page.
+    val shown = com.mtwabpin.kolahal.widgets.WidgetPages.indexOf(pages, vm.widgetsPageShown).coerceAtLeast(0)
     val startPage = when (vm.homeOnWidgets) {
-        true -> 1 - terminalPage
+        true -> placeOf(shown)
         false -> terminalPage
         null -> homePage
     }
-    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = startPage) { 2 }
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = startPage) { count }
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
         androidx.compose.runtime.snapshotFlow { pager.settledPage }
-            .collect { vm.homeOnWidgets = it != terminalPage }
+            .collect { place ->
+                vm.homeOnWidgets = place != terminalPage
+                // The page shown last is where `widget add` puts a new widget.
+                pageAt(place)?.let { pages.getOrNull(it) }?.let {
+                    vm.widgetsPageShown = it.location
+                    widgets.addTo = it.location
+                }
+            }
     }
     val homePresses by vm.homePresses.collectAsStateWithLifecycle()
-    // A Home press, or a change of the page's side, returns to home's first page. Not the first run:
+    // A Home press, or a change of the pages' side, returns to home's first page. Not the first run:
     // that is home appearing again, on the page it had.
     val firstRun =
         androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicBoolean(true) }
@@ -666,6 +703,7 @@ private fun HomePager(
         if (pager.currentPage != homePage) pager.animateScrollToPage(homePage)
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // From any page, Back goes straight to home's first page, in one step.
     BackHandler(enabled = pager.currentPage != homePage) {
         scope.launch { pager.animateScrollToPage(homePage) }
     }
@@ -675,19 +713,27 @@ private fun HomePager(
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
         vm.logTurns.collect { this@LaunchedEffect.launch { pager.animateScrollToPage(terminalPage) } }
     }
-    // `widgets page` and the "Widgets page" quick action turn home to the widgets page.
+    // `widget page`, `widget page 2` and the "Widgets page" quick action turn home to a widgets page.
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
-        vm.widgetsTurns.collect { this@LaunchedEffect.launch { pager.animateScrollToPage(1 - terminalPage) } }
+        vm.widgetsTurns.collect { page ->
+            val to = placeOf((page - 1).coerceIn(0, pages.size - 1))
+            this@LaunchedEffect.launch { pager.animateScrollToPage(to) }
+        }
     }
     // The page actions a screen reader or Switch Access offers: the swipe is the only other way across.
+    // Each names the page it turns to: "Log", "Widgets" while there is one page, else the page's name.
     // Left is the page before, as on the pager's own actions; in a right-to-left layout, the page after.
     val rtl =
         androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
-    val onWidgets = pager.currentPage != terminalPage
-    val otherPage = if (onWidgets) "Log" else "Widgets"
-    val leftward = (pager.currentPage == 1) != rtl
-    val turn = {
-        scope.launch { pager.animateScrollToPage(1 - pager.currentPage) }
+    fun nameOf(place: Int): String = pageAt(place)?.let {
+        if (pages.size == 1) "Widgets" else com.mtwabpin.kolahal.widgets.WidgetPages.title(pages, it)
+    } ?: "Log"
+    val before = (pager.currentPage - 1).takeIf { it >= 0 }
+    val after = (pager.currentPage + 1).takeIf { it < count }
+    val leftOf = if (rtl) after else before
+    val rightOf = if (rtl) before else after
+    fun turnTo(place: Int): () -> Boolean = {
+        scope.launch { pager.animateScrollToPage(place) }
         true
     }
     if (widgetsFirst) {
@@ -695,7 +741,7 @@ private fun HomePager(
             androidx.compose.runtime.snapshotFlow { pager.settledPage }
                 .collect { page -> vm.onHomePageShown(log = page == terminalPage) }
         }
-        // The prompt keeps the focus on the widgets page, so a key typed there goes into the prompt.
+        // The prompt keeps the focus on a widgets page, so a key typed there goes into the prompt.
         // Then the log page comes in to show it. This turn has its own coroutine too, for the same reason.
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
             androidx.compose.runtime.snapshotFlow { vm.input.text.isNotEmpty() }.collect { typed ->
@@ -719,30 +765,41 @@ private fun HomePager(
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides StayOnPage) {
         androidx.compose.foundation.pager.HorizontalPager(
             state = pager,
-            beyondViewportPageCount = 1,
+            // Every page stays composed, the log too. A turn of more than one page (`widget page 3`)
+            // would otherwise drop the log while it is measured, prompt and keyboard with it, and
+            // Compose stops with "performMeasureAndLayout called during measure layout". At most six.
+            beyondViewportPageCount = count - 1,
             userScrollEnabled = false,
             key = { it },
             modifier = androidx.compose.ui.Modifier
                 .testTag("home-pager")
                 .semantics {
-                    customActions = listOf(CustomAccessibilityAction(otherPage, turn))
-                    if (leftward) pageLeft(otherPage, turn) else pageRight(otherPage, turn)
+                    customActions = listOfNotNull(before, after).map { CustomAccessibilityAction(nameOf(it), turnTo(it)) }
+                    leftOf?.let { pageLeft(nameOf(it), turnTo(it)) }
+                    rightOf?.let { pageRight(nameOf(it), turnTo(it)) }
                 }
                 .pointerInput(pager) {
                     val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+                    // The page the drag started on: a fling turns one page from there. The pager's own
+                    // current page has moved on already once the drag passed half a page, and a fling
+                    // from that would skip one.
+                    var from = pager.currentPage
                     detectHorizontalDragGestures(
-                        onDragStart = { tracker.resetTracking() },
+                        onDragStart = {
+                            tracker.resetTracking()
+                            from = pager.currentPage
+                        },
                         onDragEnd = {
                             val v = tracker.calculateVelocity().x
                             val target = when {
-                                v < -800f -> pager.currentPage + 1
-                                v > 800f -> pager.currentPage - 1
+                                v < -800f -> from + 1
+                                v > 800f -> from - 1
                                 else -> (pager.currentPage + pager.currentPageOffsetFraction).let {
                                     kotlin.math.round(
                                         it
                                     ).toInt()
                                 }
-                            }.coerceIn(0, 1)
+                            }.coerceIn(0, count - 1)
                             scope.launch { pager.animateScrollToPage(target) }
                         },
                         onDragCancel = { scope.launch { pager.animateScrollToPage(pager.currentPage) } },
@@ -754,7 +811,8 @@ private fun HomePager(
                 },
         ) { page ->
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
-                if (page == terminalPage) {
+                val index = pageAt(page)
+                if (index == null) {
                     // The prompt and the header measure the screen's corners from where they are on this page,
                     // which slides while home turns, not from where they are in the window.
                     val homePage = androidx.compose.runtime.remember { HomePage() }
@@ -769,10 +827,10 @@ private fun HomePager(
                         ) { terminal() }
                     }
                 } else {
-                    // The pager keeps this page composed beside the log. Its cards move and ask for runs only
-                    // while the pager has settled on it.
+                    // The pager keeps the pages next to the one shown composed. A page's cards move and ask
+                    // for runs only while the pager has settled on it.
                     androidx.compose.runtime.CompositionLocalProvider(LocalWidgetsShown provides (pager.settledPage == page)) {
-                        WidgetPanel(vm)
+                        WidgetPanel(vm, pages[index].location)
                     }
                 }
             }

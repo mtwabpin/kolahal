@@ -80,7 +80,7 @@ class WidgetPlacementTest {
         assertTrue(
             host.listing(context).toString(),
             host.listing(context)
-                .any { (text, detail) -> text.endsWith(". ${s.name}") && detail.endsWith(" · script") })
+                .any { (text, detail) -> text.endsWith(". ${s.name}") && detail?.endsWith(" · script") == true })
 
         assertTrue(on(placed))
         assertEquals(true, placed.access[ScriptAccess.WIDGET])

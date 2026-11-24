@@ -21,7 +21,7 @@ Commands are typed at Kolahal's prompt.
 **A script**, on the phone:
 
 1. `script new <name>` for Lua, `script new <name>.js` for JavaScript. The editor opens with a template. A name is lowercase letters, digits, `-` and `_`, at most 40, and not a built-in command's name.
-2. Replace all of the template with the code, then tap **Save**. Saving points out unknown API names, a call that lacks its `@uses` line, and header lines Kolahal can't read. A script you made and saved may use what its `@uses` line names. `@every` and `@at` lines set its timers on saving.
+2. Replace the template with the code, then tap **Save**. Saving points out unknown API names, a call that lacks its `@uses` line, and header lines Kolahal can't read. A script you made and saved may use what its `@uses` line names. `@every` and `@at` lines set its timers on saving.
 3. Run it: a command by its name (`<name> args…`), any script with `script run <name> [args…]`.
 4. As needed: `script notify <name> on` lets `notify` post; `script pin <name>` shows its status line at the top of home; for a widget, tap **+** on the widgets page (or type `widget add`) and pick it in the **Kolahal** group. A script can't do any of these itself.
 
@@ -30,7 +30,7 @@ Commands are typed at Kolahal's prompt.
 **A shader**, on the phone:
 
 1. `shader save template-tint` makes a shader of yours from a template, called `my-tint` (the log line says the name; `my-tint-2` when taken).
-2. `shader edit my-tint`, replace all of the code, tap **Save**: it says **Saved · compiles**, or the compiler's error with its line.
+2. `shader edit my-tint`, replace all the code, tap **Save**: it says **Saved · compiles**, or the compiler's error with its line.
 3. `shader my-tint` turns it on over home; `shader play my-tint` plays a one-off; `wallpaper shader my-tint` makes it the live wallpaper; `shader off` turns shaders off.
 
 **A shader as a file**: save it as `<name>.agsl` (its name is the file name in lowercase; letters, digits, `-` and `_`; not a `shader` subcommand such as `ls` or `edit`), then **Settings → Shaders → Add shader → Import a file**, or put it in the script folder's `shaders` folder and type `shader reload`. Then `shader <name>`. Shaders need Android 13 or newer.
@@ -80,7 +80,7 @@ Header lines are comments at the top: `-- @name value` in Lua, `// @name value` 
 
 ### Runs
 
-A script runs when it is typed as a command, by `script run`, on its timer or daily times, on an `@on` event, when its widget asks, on a tap on its widget or on a button under its line, and when a pinned status line refreshes. Each run starts fresh: keep what must last in `store`.
+A script runs when it is typed as a command, by `script run`, on its timer or daily times, on an `@on` event, when its widget asks, on a tap on its widget or a button under its line, and when a pinned status line refreshes. Each run starts fresh: keep what must last in `store`.
 
 `event` says what started the run; `nil` / `null` for a run typed at the prompt or by `script run`.
 
@@ -169,14 +169,14 @@ A network failure raises an error (JS: rejects); an HTTP error status doesn't, s
 | --- | --- |
 | `device.battery()` | → `{ level, charging }`; `level` 0 to 100, or nil when unknown. |
 | `device.network()` | → `"wifi"`, `"cell"`, `"eth"`, `"vpn"`, `"net"` or `"offline"`. |
-| `device.unlocks(days?)` | → today's unlock count; with `days` (1 to 30), a list of daily counts, the oldest first and today last. |
+| `device.unlocks(days?)` | → today's unlock count; with `days` (1 to 30), a list of daily counts, oldest first, today last. |
 | `device.dnd()` | → `"off"`, `"priority"`, `"alarms"` or `"none"`. `@uses dnd`. |
 | `device.setDnd(mode)` | `"off"`, `"on"` (priority), `"alarms"` or `"none"`; → false without Do Not Disturb access. `@uses dnd`. |
-| `clipboard.get()` | → text or nil; usually nil in timer runs (Android lets only the app in front read it). `@uses clipboard`. |
+| `clipboard.get()` | → text or nil; usually nil in timer runs (only the app in front may read it). `@uses clipboard`. |
 | `clipboard.set(text)` | Copies text, up to 100,000 characters. `@uses clipboard`. |
 | `apps.list()` | → `[{ label, pkg, profile }]`, the launchable apps; `profile` is `"personal"` or `"other"`. `@uses apps`. |
 | `notifications.recent(n?)` | → `[{ pkg, app, title, text, time }]`, newest first, 20 (up to 50); `time` in ms. `@uses notifications`. |
-| `launcher.run(command)` | → bool. Runs a terminal command or another script's command, as typed. Only in a run started from the prompt (a command, `script run`), at most 10 a run; commands that change things (`clear`, `uninstall`, `work`, `script`…) are refused. `@uses commands`. |
+| `launcher.run(command)` | → bool. Runs a built-in or another script's command, as typed. Only in a run started from the prompt (a command, `script run`), at most 10 a run; commands that change things (`clear`, `uninstall`, `work`, `script`…) are refused. `@uses commands`. |
 | `device.work()` | → `"on"`, `"paused"`, or nil without a work profile. `@uses work`. |
 | `device.setWork(on)` | Resumes (true) or pauses (false) the work profile; → false when Android refuses (only in the foreground). `@uses work`. |
 
@@ -190,10 +190,10 @@ Times are seconds since 1970 (`os.time()` in Lua, `Date.now() / 1000` in JS). No
 | `todos.setDone(id, done)` | Marks a todo done (true) or open (false); `id` may be text; → true when it changed. 20 a run. `@uses todos`. |
 | `notes.list(n?)` | → `[{ id, text, created }]`, newest first, 10 (up to 50). `@uses notes`. |
 | `reminders.list()` | → `[{ id, text, at, repeats }]`, soonest first; `repeats` is words, or nil. `@uses reminders`. |
-| `calendar.events(days?)` | → `[{ id, title, starts, ends, allDay }]` for 3 days (1 to 30), up to 100; usable as an agenda widget's `events`. `@uses calendar`. |
-| `feeds.unread(n?)` | → `[{ id, feed, title, link, date, summary }]`, the unread items of the user's feeds, 10 (up to 50); no request is made. `@uses feeds`. |
-| `usage.today(n?)` | → `{ total, apps = [{ app, pkg, minutes }] }`: today's screen time, and the `n` (10, up to 30) apps used most. `@uses usage`. |
-| `usage.days(n?)` | → `[minutes]` for the last `n` days (7, up to 30), the oldest first; only days Android has. `@uses usage`. |
+| `calendar.events(days?)` | → `[{ id, title, starts, ends, allDay }]` for 3 days (1 to 30), up to 100; fits an agenda widget's `events`. `@uses calendar`. |
+| `feeds.unread(n?)` | → `[{ id, feed, title, link, date, summary }]`, the user's unread feed items, 10 (up to 50); no request is made. `@uses feeds`. |
+| `usage.today(n?)` | → `{ total, limit, color, apps = [{ app, pkg, minutes }] }`: today's screen time, its daily limit and role (`warn`, `bad`) or nil, and the `n` (10, up to 30) apps used most. `@uses usage`. |
+| `usage.days(n?)` | → `[minutes]` for the last `n` days (7, up to 30), oldest first; only days Android has. `@uses usage`. |
 | `usage.data(since?)` | → `{ mobile, wifi }` bytes since a time (midnight); `"month"` gives the data plan's month, adding `since`, `plan`, `pace`, `daysLeft`. `@uses usage`. |
 | `usage.unused(days?)` | → `[{ app, pkg, days, bytes }]`, apps not opened for `days` (30; 7 to 365) or more, up to 50. `@uses usage`. |
 | `usage.summary(period, app?)` | `"week"`, `"month"` or `"year"` → `{ perDay, rows = [{ from, to, minutes, perDay, unlocks, current }], top }`. `@uses usage`. |
@@ -259,9 +259,9 @@ A script fills a card on the widgets page with a kind and its fields; Kolahal dr
 | `versus` | two sides and a score | `4x1` |
 | `sky` | the sun's or moon's path | `2x2` |
 
-Fields of every kind, all optional: `kind` (else the `@widget` line's), `title` (40 characters), `icon` (a name below, or up to 4 characters such as an emoji), `color` (a role), `shape` (the Shape look's: `cookie9`, `cookie12`, `clover4`, `clover8`, `sun`, `burst`), `tap` (an action), `staleAfter` (60 to 604800 s; default 1 h, 1 min for toggles), `refresh` (10 to 3600 s, while on screen), `note` (16 characters on a large card's last line).
+Fields of every kind, all optional (lengths in characters; longer text is cut): `kind` (else the `@widget` line's), `title` (40), `icon` (a name below, or up to 4 characters such as an emoji), `color` (a role), `shape` (Shape look: `cookie` + 4, 6, 9 or 12, `clover` + 4 or 8, `sun`, `burst`, `circle`, `pixel`, `gem`, `slanted`, `arch`, `ghost`, `pill`), `tap` (an action), `staleAfter` (60 to 604800 s; default 1 h, 1 min for toggles), `refresh` (10 to 3600 s, while on screen), `note` (16: a large card's last line).
 
-Fields of each kind (lengths in characters; longer text is cut):
+Fields of each kind:
 
 - `stat`: `value` (needed, 40), `label` (60), `unit` (12), `delta` (16), `trend` (`up`, `down`, `flat`), `more` (up to 3 `{ value, label }`, 24 each), `progress` (0 to 1), `moving` (bool: a wave), `points` (numbers: a line behind), `scene` (a shader as ground: `pond`, `rain`, `snowfall`, `dunes`, `mountains`).
 - `text`: `text` (needed, 500, keeps line breaks), `caption` (60).
@@ -281,9 +281,9 @@ A tap is a table / object with one of: `{ args = "add 1" }` runs this script aga
 
 Rules: an unknown field, a wrong type or too many buttons is an error naming it; Kolahal capitalizes labels; a text keeps only `fmt.bold`, `.italic`, `.underline`, `.strike` and `.color` (in `text`, `caption`, a row's `title`, `detail` and `trailing`, a stat's `label`); Markdown isn't read. A description is at most 32 KB; a run calls `widget.show` and `widget.clear` up to 20 times. In Lua, a list has no `nil` in the middle.
 
-Icon names: sun, moon, cloud, rain, snow, storm, wind, fog, temp, drop, alarm, timer, clock, calendar, bell, home, work, lock, unlock, wifi, battery, bolt, torch, phone, dnd, person, people, mail, chat, quote, music, play, pause, news, book, feed, heart, star, check, flag, fire, leaf, trophy, ball, cricket, money, cart, chart, up, down, parcel, gift, car, bus, train, plane, walk, pin, globe, coffee, code, bug, link. Any other lowercase word over 4 letters is an error.
+Icon names: sun, moon, cloud, rain, snow, storm, wind, fog, temp, drop, alarm, timer, clock, calendar, bell, home, work, lock, unlock, wifi, battery, bolt, torch, phone, dnd, person, people, mail, chat, quote, music, play, pause, news, book, feed, heart, star, check, flag, fire, leaf, trophy, ball, cricket, money, cart, chart, up, down, parcel, gift, car, bus, train, plane, walk, pin, globe, coffee, code, bug, link. Another lowercase word over 4 letters is an error.
 
-Runs for a widget: its own timers and events, and `"widget"` runs (see "Runs"). A `"widget"` run's return value isn't logged: skip `log` in it. A failed run leaves the content, with "Failed 10:42". A script with no timer is a good widget: it runs only when seen or tapped. A widget can be placed up to 6 times, each with its own options.
+Runs for a widget: its own timers and events, and `"widget"` runs (see "Runs"). A `"widget"` run's return value isn't logged: skip `log` in it. A failed run leaves the content, with "Failed 10:42". Best with no timer: it then runs only when seen or tapped. A widget can be placed up to 6 times, each with its own options.
 
 ### Screens
 

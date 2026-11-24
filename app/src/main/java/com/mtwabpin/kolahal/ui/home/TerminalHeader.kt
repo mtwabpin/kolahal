@@ -406,10 +406,11 @@ internal fun Header(
                 )
             }
 
+            // The count in the warning or error color from the daily limit (usage.unlock-limit).
             HeaderPart.Kind.UNLOCKS -> {
                 TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize); Text(
                     part.text,
-                    style = bold
+                    style = bold.copy(color = color)
                 )
             }
 

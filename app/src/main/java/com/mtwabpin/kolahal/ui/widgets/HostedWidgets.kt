@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,6 +50,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -76,6 +78,7 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetOrder
+import com.mtwabpin.kolahal.widgets.WidgetPages
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -233,29 +236,33 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
 }
 
 /**
- * The widgets page beside the terminal (`widgets.page`). It shows every widget placed on the
- * "Widgets page" where it was put, at its width and height ([WidgetGrid]), on a page that scrolls,
- * in the terminal's colors. Add and Edit open the GUI pages. A long-press on a widget opens the
- * Widgets screen with that widget chosen, and so does one on the line that stands for a widget of a
- * paused profile, a locked private space or a gone app.
+ * A widgets page beside the terminal (`widgets.page`): the page at [location], page 1 unless said.
+ * It shows every widget placed on that page where it was put, at its width and height
+ * ([WidgetGrid]), on a page that scrolls, in the terminal's colors. Add and Edit open the GUI pages,
+ * for this page. A long-press on a widget opens the Widgets screen with that widget chosen, and so
+ * does one on the line that stands for a widget of a paused profile, a locked private space or a
+ * gone app.
  */
 @Composable
-fun WidgetPanel(vm: TerminalViewModel) {
+fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) {
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
     val all by widgets.widgets.collectAsStateWithLifecycle()
-    val panel = remember(all) {
+    val pages by widgets.pages.collectAsStateWithLifecycle()
+    val index = WidgetPages.indexOf(pages, location).coerceAtLeast(0)
+    val panel = remember(all, location) {
         WidgetPlacement.readingOrder(
             WidgetOrder.inLocation(
                 all,
-                WidgetLocation.PANEL
+                location
             )
         )
     }
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // When home opens on this page (widgets.start), it has no title row.
+    // When home opens on this page (widgets.start), it has no title row; with more than one page, every
+    // page has one, for its name and the page dots.
     val first = remember(version) { Keys.widgetsFirst(vm.config) }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
     val menuScope = rememberCoroutineScope()
@@ -263,7 +270,7 @@ fun WidgetPanel(vm: TerminalViewModel) {
         Modifier
             .fillMaxSize()
             .page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] })
-            .testTag("widgets-page")
+            .testTag(if (index == 0) "widgets-page" else "widgets-page-${index + 1}")
     ) {
         // As home's first page, it has no title row. A long-press on a widget opens the screen to arrange widgets.
         // While the app selector is open, the widgets fade out, so only the page's background shows behind
@@ -272,7 +279,18 @@ fun WidgetPanel(vm: TerminalViewModel) {
             Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = 1f - vm.widgetsSelectorFade.floatValue }) {
-            WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
+            WidgetPanelContent(
+                vm,
+                widgets,
+                panel,
+                profiles,
+                density,
+                titleRow = !first || pages.size > 1,
+                location = location,
+                title = if (pages.size > 1) WidgetPages.title(pages, index) else "Widgets",
+                pageCount = pages.size,
+                current = index,
+            )
         }
         // The app selector is on this page too, whenever it is on (selector.rail): HomeAppSelector shows nothing otherwise.
         run {
@@ -309,7 +327,10 @@ fun WidgetPanel(vm: TerminalViewModel) {
     }
 }
 
-/** The widgets page content: its title row (if [titleRow]) and the widgets, or a hint when there are none. */
+/**
+ * A widgets page's content: its title row (if [titleRow]: [title], and the page dots when there is
+ * more than one page) and the widgets, or a hint when there are none. [location] is the page's.
+ */
 @Composable
 private fun WidgetPanelContent(
     vm: TerminalViewModel,
@@ -318,19 +339,28 @@ private fun WidgetPanelContent(
     profiles: List<Profile>,
     density: Density,
     titleRow: Boolean,
+    location: String,
+    title: String,
+    pageCount: Int,
+    current: Int,
 ) {
     // Home is laid out again when a screen closes: the page opens scrolled where it was (vm.widgetsScroll).
-    val scroll = rememberScrollState(vm.widgetsScroll)
-    LaunchedEffect(scroll) { snapshotFlow { scroll.value }.collect { vm.widgetsScroll = it } }
+    val scroll = rememberScrollState(vm.widgetsScroll[location] ?: 0)
+    LaunchedEffect(scroll, location) { snapshotFlow { scroll.value }.collect { vm.widgetsScroll[location] = it } }
     Column(
         Modifier
             .fillMaxSize()
             .cutoutSafePadding()
             .navigationBarsPadding(),
     ) {
+        // Add and Edit work on this page: a new widget goes on it, and Arrange widgets opens on it.
         if (titleRow) WidgetsTitleRow(
-            onAdd = { vm.openScreen(Screen.WIDGET_PICKER) },
-            onEdit = { vm.openScreen(Screen.WIDGETS) })
+            onAdd = { widgets.addTo = location; vm.openScreen(Screen.WIDGET_PICKER) },
+            onEdit = { widgets.addTo = location; vm.openScreen(Screen.WIDGETS) },
+            title = title,
+            pageCount = pageCount,
+            current = current,
+        )
         if (panel.isEmpty()) {
             if (titleRow) {
                 Text(
@@ -421,9 +451,19 @@ private fun WidgetPanelContent(
     }
 }
 
-/** The widgets page's title row: its name, then + ([onAdd]: the picker) and the pencil ([onEdit]: Arrange widgets). */
+/**
+ * A widgets page's title row: its [title], the page dots when there is more than one page
+ * ([pageCount], the [current] one from 0, [PageDots]), then + ([onAdd]: the picker) and the pencil
+ * ([onEdit]: Arrange widgets).
+ */
 @Composable
-internal fun WidgetsTitleRow(onAdd: () -> Unit, onEdit: () -> Unit) {
+internal fun WidgetsTitleRow(
+    onAdd: () -> Unit,
+    onEdit: () -> Unit,
+    title: String = "Widgets",
+    pageCount: Int = 1,
+    current: Int = 0,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -431,10 +471,14 @@ internal fun WidgetsTitleRow(onAdd: () -> Unit, onEdit: () -> Unit) {
             .padding(horizontal = 12.dp)
     ) {
         Text(
-            "Widgets",
+            title,
             style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-            modifier = Modifier.weight(1f)
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
         )
+        if (pageCount > 1) PageDots(pageCount, current, Modifier.padding(start = 8.dp))
+        Spacer(Modifier.weight(1f))
         LabeledIconButton(R.drawable.ic_add, "Add a widget", onClick = onAdd, tint = Term.prompt)
         LabeledIconButton(R.drawable.ic_edit, "Edit widgets", onClick = onEdit, tint = Term.fg)
     }

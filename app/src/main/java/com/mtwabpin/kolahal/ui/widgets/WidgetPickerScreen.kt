@@ -75,6 +75,7 @@ import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.WidgetPages
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -275,6 +276,11 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val version by vm.config.version.collectAsStateWithLifecycle()
     val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
+    // With more than one page, a new widget goes on the page being arranged, or the one home showed last.
+    val pages by widgets.pages.collectAsStateWithLifecycle()
+    val addingTo = if (pages.size > 1) {
+        WidgetPages.title(pages, WidgetPages.indexOf(pages, widgets.addTo).coerceAtLeast(0))
+    } else null
     val iconPx = with(LocalDensity.current) { 40.dp.roundToPx() }
     val groups by produceState<List<ProviderGroup>?>(null, providersVersion, profiles) {
         value = withContext(Dispatchers.IO) { loadGroups(context, widgets, profiles, iconPx) }
@@ -355,12 +361,20 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                 if (vm.screen.value == Screen.WIDGET_PICKER) vm.closeScreen()
                 if (vm.screen.value != Screen.WIDGETS) vm.openScreen(Screen.WIDGETS)
             } else {
-                widgets.message("$name is already on the widgets page")
+                widgets.message(if (addingTo == null) "$name is already on the widgets page" else "$name is already on a widgets page")
             }
         }
         GuiListPage(
             title = { Text("Add widget") },
-            subtitle = { Text(if (pageOff) "Added to the widgets page, which is off" else "Added to the widgets page") },
+            subtitle = {
+                Text(
+                    when {
+                        pageOff -> "Added to the widgets page, which is off"
+                        addingTo != null -> "Added to $addingTo"
+                        else -> "Added to the widgets page"
+                    }
+                )
+            },
             onBack = { vm.closeScreen() },
             snackbar = snackbar,
             verticalArrangement = Arrangement.spacedBy(8.dp),

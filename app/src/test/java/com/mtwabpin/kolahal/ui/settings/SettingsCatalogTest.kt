@@ -76,6 +76,23 @@ class SettingsCatalogTest {
         assertTrue(matches(Keys.SCREEN_SAVER, "pipes"))
     }
 
+    /** The daily limits are on the Header page, where the unlocks show; their 0 reads Off, and search finds them. */
+    @Test
+    fun theDailyLimitsAreOnTheHeaderPage() {
+        val header = allCategories().first { it.id == HEADER_CATEGORY }
+        assertEquals(
+            listOf(Keys.USAGE_SCREEN_TIME_LIMIT, Keys.USAGE_UNLOCK_LIMIT),
+            header.groups.toMap()["Daily limits"]
+        )
+        for (key in listOf(Keys.USAGE_SCREEN_TIME_LIMIT, Keys.USAGE_UNLOCK_LIMIT)) {
+            assertEquals("Off", ChoiceLabels.of(key, 0))
+            assertTrue(key.key, matches(key, "limit"))
+        }
+        assertEquals("180", ChoiceLabels.of(Keys.USAGE_SCREEN_TIME_LIMIT, 180))
+        assertTrue(matches(Keys.USAGE_SCREEN_TIME_LIMIT, "screen time"))
+        assertTrue(matches(Keys.USAGE_UNLOCK_LIMIT, "unlocks"))
+    }
+
     /** Shaders is a row on the main page, after a real category, and the search finds it by what it does. */
     @Test
     fun shadersHasARowTheSearchFinds() {

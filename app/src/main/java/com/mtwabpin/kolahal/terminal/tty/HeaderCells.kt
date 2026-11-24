@@ -14,7 +14,8 @@ import kotlin.math.floor
  * right side ending at the right. No icons: each part is text, a few signs of the font, and a
  * battery the painter draws itself.
  * - time `14:02` bold, date `Tue 17 Nov` muted;
- * - alarm `◷ 07:00`, todos `✓ 3`, unlocks `unl 41`;
+ * - alarm `◷ 07:00`, todos `✓ 3`, unlocks `unl 41` (the count in its part's ink: warning or error
+ *   from the daily limit);
  * - network as its name (`wifi`, `cell`, red `offline`);
  * - battery as a battery the painter draws ([BoxShapes.battery]), filled to its level, with a bolt
  *   in it while charging, then `82%`: it reads as a battery at any level, 100 % too;

@@ -67,6 +67,18 @@ class FetchTest {
         )
     }
 
+    /** A fact with a color (the unlocks over the daily limit) shows its value in it; the others keep the line's. */
+    @Test
+    fun aFactCanHaveAColor() {
+        val unlocks = Fetch.Row("Unlocks", "41 today, limit 30", StyledText.ColorRole.WARN)
+        val lines = Fetch.layout("Pixel 9", rows + unlocks, cols = 60)
+        val line = lines.single { "Unlocks" in StyledText.plain(it) }
+        val spans = StyledText.lines(line).single().spans
+        assertEquals(StyledText.ColorRole.WARN, spans.single { it.text == "41 today, limit 30" }.color)
+        val os = StyledText.lines(lines.single { "Android 16" in StyledText.plain(it) }).single().spans
+        assertEquals(null, os.single { "Android 16" in it.text }.color)
+    }
+
     @Test
     fun uptimeInDaysHoursAndMinutes() {
         assertEquals("12m", Fetch.uptime(12 * 60_000L))

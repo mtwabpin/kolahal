@@ -131,6 +131,18 @@ class HomeCellsTest {
         assertEquals(Ink.ERROR, cells.style(1).fg)
     }
 
+    /** The unlocks are `unl 41`: the count in its part's ink, the warning or the error ink once over the daily limit; the sign stays muted. */
+    @Test
+    fun theUnlocksCountIsInItsInk() {
+        for (ink in listOf(Ink.FG, Ink.WARN, Ink.ERROR)) {
+            val cells = HeaderCells.row(HeaderParts(listOf(part(HeaderPart.Kind.UNLOCKS, "41", "unlocks", ink)), emptyList()), 20)
+            assertEquals("unl 41", cells.text())
+            assertEquals(Ink.DIM, cells.style(0).fg)
+            assertEquals(ink, cells.style(4).fg)
+            assertEquals(ink, cells.style(5).fg)
+        }
+    }
+
     /** The todos' sign is a check mark that every font the app ships has, so no other font stands in for it. */
     @Test
     fun theTodoSignIsInEveryBundledFont() {

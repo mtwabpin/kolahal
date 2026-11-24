@@ -42,6 +42,8 @@ object SettingTitles {
         "home.style" to "Home style",
         "data.plan" to "Mobile data plan",
         "data.start-day" to "Plan starts on day",
+        "usage.screen-time-limit" to "Screen time limit (minutes)",
+        "usage.unlock-limit" to "Unlock limit",
         "log.taller-taps" to "Taller tappable lines",
         "log.tables" to "Tables",
         "log.fold" to "Fold long lines after (lines)",

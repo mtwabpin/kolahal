@@ -4,7 +4,8 @@
 package com.mtwabpin.kolahal.widgets
 
 /**
- * Where widgets sit on the widgets page. Pure, so it can be unit tested.
+ * Where widgets sit on the widgets pages. Pure, so it can be unit tested. Each page ([WidgetPages])
+ * is laid out on its own: widgets on two pages never meet, and each page has its own order.
  * - Each widget has a [PlacedWidget.column] (0 to [WidgetLayout.COLUMNS] − its span, from the start
  *   edge) and a [PlacedWidget.topDp] (dp from the top of the page). They can sit anywhere: gaps stay
  *   where the user leaves them.
@@ -13,8 +14,8 @@ package com.mtwabpin.kolahal.widgets
  *   them ([settle]).
  * - [PlacedWidget.order] follows the reading order (top, then the start edge), so an older Kolahal
  *   and a screen reader go through the widgets in the same order ([renumber]).
- * - Only the widgets page's placed widgets take part ([onPage]). A pending entry keeps its numbers
- *   for when it is added again.
+ * - Only the pages' placed widgets take part ([onPage]). A pending entry keeps its numbers for when
+ *   it is added again.
  */
 object WidgetPlacement {
     /** A column or a top that is not set yet. */
@@ -28,22 +29,25 @@ object WidgetPlacement {
     private const val GAP = WidgetLayout.GAP_DP
     private const val COLUMNS = WidgetLayout.COLUMNS
 
-    /** Whether [w] takes part in the layout: placed on the widgets page, and not waiting to be added again. */
-    fun onPage(w: PlacedWidget): Boolean = !w.pending && w.location == WidgetLocation.PANEL
+    /** Whether [w] takes part in the layout: placed on a widgets page, and not waiting to be added again. */
+    fun onPage(w: PlacedWidget): Boolean = !w.pending && WidgetPages.isPage(w.location)
 
     /** The bottom edge of [w], in dp from the top of the page. */
     fun bottomDp(w: PlacedWidget): Int = w.topDp + w.heightDp
 
-    /** How tall the page's content is: the lowest bottom edge. */
-    fun pageHeightDp(all: List<PlacedWidget>): Int =
-        all.filter(::onPage).maxOfOrNull(::bottomDp) ?: 0
+    /**
+     * How tall a page's content is: the lowest bottom edge of the widgets of the page [location] in
+     * [all]. Null for [location] counts every page widget in [all]: for a list of one page's widgets.
+     */
+    fun pageHeightDp(all: List<PlacedWidget>, location: String? = null): Int =
+        all.filter { onPage(it) && (location == null || it.location == location) }.maxOfOrNull(::bottomDp) ?: 0
 
     private fun columnsMeet(a: PlacedWidget, b: PlacedWidget): Boolean =
         a.column < b.column + b.span && b.column < a.column + a.span
 
-    /** Whether [a] and [b] overlap, or sit closer than the gap above or below each other. */
+    /** Whether [a] and [b], on one page, overlap, or sit closer than the gap above or below each other. */
     fun overlap(a: PlacedWidget, b: PlacedWidget): Boolean =
-        a.key != b.key && columnsMeet(
+        a.key != b.key && a.location == b.location && columnsMeet(
             a,
             b
         ) && a.topDp < bottomDp(b) + GAP && b.topDp < bottomDp(a) + GAP
@@ -52,9 +56,10 @@ object WidgetPlacement {
     fun readingOrder(list: List<PlacedWidget>): List<PlacedWidget> =
         list.sortedWith(compareBy({ it.topDp }, { it.column }, { it.order }))
 
-    /** [all] with the page's widgets numbered 0..n−1 in reading order. Other entries keep theirs. */
+    /** [all] with each page's widgets numbered 0..n−1 in reading order. Other entries keep theirs. */
     fun renumber(all: List<PlacedWidget>): List<PlacedWidget> {
-        val order = readingOrder(all.filter(::onPage)).mapIndexed { i, w -> w.key to i }.toMap()
+        val order = all.filter(::onPage).groupBy { it.location }.values
+            .flatMap { page -> readingOrder(page).mapIndexed { i, w -> w.key to i } }.toMap()
         return all.map { w ->
             order[w.key]?.takeIf { it != w.order }?.let { w.copy(order = it) } ?: w
         }
@@ -74,17 +79,20 @@ object WidgetPlacement {
      * - Otherwise each one without a place goes into the first free space ([firstFree]), in order.
      */
     fun placeMissing(all: List<PlacedWidget>): List<PlacedWidget> {
-        val page = all.filter(::onPage)
-        if (page.all { it.positioned }) return all
-        val placed: Map<String, PlacedWidget> = if (page.none { it.positioned }) {
-            fromFlow(WidgetOrder.sorted(page)).associateBy { it.key }
-        } else {
-            val done = page.filter { it.positioned }.toMutableList()
-            WidgetOrder.sorted(page.filter { !it.positioned }).forEach { w ->
-                val (column, top) = firstFree(done, w.span, w.heightDp)
-                done += w.copy(column = column, topDp = top)
+        if (all.filter(::onPage).all { it.positioned }) return all
+        val placed = HashMap<String, PlacedWidget>()
+        all.filter(::onPage).groupBy { it.location }.forEach { (location, page) ->
+            if (page.all { it.positioned }) return@forEach
+            if (page.none { it.positioned }) {
+                fromFlow(WidgetOrder.sorted(page)).forEach { placed[it.key] = it }
+            } else {
+                val done = page.filter { it.positioned }.toMutableList()
+                WidgetOrder.sorted(page.filter { !it.positioned }).forEach { w ->
+                    val (column, top) = firstFree(done, w.span, w.heightDp, location)
+                    done += w.copy(column = column, topDp = top)
+                }
+                done.forEach { placed[it.key] = it }
             }
-            done.associateBy { it.key }
         }
         return renumber(all.map { placed[it.key] ?: it })
     }
@@ -106,12 +114,17 @@ object WidgetPlacement {
     }
 
     /**
-     * The first free place for a widget [span] columns wide and [heightDp] tall among [placed]:
-     * the highest top, then the column nearest the start edge. Tops tried are the top of the page
-     * and the line under each widget; the last one always fits.
+     * The first free place for a widget [span] columns wide and [heightDp] tall among [placed] on the
+     * page [location]: the highest top, then the column nearest the start edge. Tops tried are the
+     * top of the page and the line under each widget; the last one always fits.
      */
-    fun firstFree(placed: List<PlacedWidget>, span: Int, heightDp: Int): Pair<Int, Int> {
-        val others = placed.filter { it.positioned }
+    fun firstFree(
+        placed: List<PlacedWidget>,
+        span: Int,
+        heightDp: Int,
+        location: String = WidgetLocation.PANEL,
+    ): Pair<Int, Int> {
+        val others = placed.filter { it.positioned && it.location == location }
         val s = span.coerceIn(1, COLUMNS)
         val tops = (listOf(0) + others.map { bottomDp(it) + GAP }).distinct().sorted()
         for (top in tops) {
@@ -122,6 +135,7 @@ object WidgetPlacement {
                     0L,
                     heightDp,
                     0,
+                    location = location,
                     span = s,
                     column = column,
                     topDp = top
@@ -156,12 +170,14 @@ object WidgetPlacement {
     }
 
     /**
-     * The lines a widget moved near them lines up with: each other page widget's top, and its
+     * The lines a widget moved near them lines up with: each other widget's top on its page, and its
      * bottom and the gap under it. [key]'s own are left out.
      */
-    fun lines(all: List<PlacedWidget>, key: String?): Set<Int> =
-        all.filter { onPage(it) && it.positioned && it.key != key }
+    fun lines(all: List<PlacedWidget>, key: String?): Set<Int> {
+        val location = all.firstOrNull { it.key == key }?.location
+        return all.filter { onPage(it) && it.positioned && it.key != key && (location == null || it.location == location) }
             .flatMapTo(HashSet<Int>()) { listOf(it.topDp, bottomDp(it) + GAP) }
+    }
 
     /**
      * The widget [key] moved to [column] and [topDp]: the column brought inside the page, the top
@@ -212,13 +228,13 @@ object WidgetPlacement {
     }
 
     /**
-     * Every page widget moved up as far as it goes in its own columns, in reading order: the page
-     * packed, with no space left between widgets.
+     * Every widget of the page [location] moved up as far as it goes in its own columns, in reading
+     * order: the page packed, with no space left between widgets. The other pages stay as they are.
      */
-    fun closeGaps(all: List<PlacedWidget>): List<PlacedWidget> {
+    fun closeGaps(all: List<PlacedWidget>, location: String = WidgetLocation.PANEL): List<PlacedWidget> {
         val done = ArrayList<PlacedWidget>()
         val moved = HashMap<String, PlacedWidget>()
-        readingOrder(all.filter { onPage(it) && it.positioned }).forEach { w ->
+        readingOrder(all.filter { onPage(it) && it.positioned && it.location == location }).forEach { w ->
             val top = done.filter { columnsMeet(w, it) }.maxOfOrNull { bottomDp(it) + GAP } ?: 0
             val cur = if (top != w.topDp) w.copy(topDp = top) else w
             if (cur !== w) moved[w.key] = cur
@@ -240,7 +256,8 @@ object WidgetPlacement {
             val cur = if (fits) w else firstFree(
                 done,
                 w.span,
-                w.heightDp
+                w.heightDp,
+                w.location
             ).let { (c, t) -> w.copy(column = c, topDp = t) }
             placed[w.key] = cur
             done += cur
@@ -248,9 +265,47 @@ object WidgetPlacement {
         return renumber(merged.map { placed[it.key] ?: it })
     }
 
-    /** [all] with [w] added in the first free space of the page ([firstFree]). */
+    /** [all] with [w] added in the first free space of its page ([firstFree]). */
     fun add(all: List<PlacedWidget>, w: PlacedWidget): List<PlacedWidget> {
-        val (column, top) = firstFree(all.filter(::onPage), w.span, w.heightDp)
+        val (column, top) = firstFree(all.filter(::onPage), w.span, w.heightDp, w.location)
         return renumber(all + w.copy(column = column, topDp = top))
+    }
+
+    /**
+     * The widget [key] moved to the page [location]: into the first free space from its top, as a
+     * new widget goes ([add]), at the size it has. Nothing changes when it is on that page already.
+     */
+    fun moveToPage(all: List<PlacedWidget>, key: String, location: String): List<PlacedWidget> {
+        val w = all.firstOrNull { it.key == key } ?: return all
+        if (w.location == location || !WidgetPages.isPage(location)) return all
+        val moved = w.copy(location = location, column = UNPLACED, topDp = UNPLACED)
+        val rest = all.filterNot { it.key == key }
+        return if (w.pending) renumber(rest + moved) else add(rest, moved)
+    }
+
+    /**
+     * Every widget of the page [from] moved onto the page [to], under what is there: they keep how
+     * they sit among themselves, and start one gap under its lowest widget. A widget waiting to be
+     * added again goes with them. For a page that is removed.
+     */
+    fun mergeInto(
+        all: List<PlacedWidget>,
+        from: String,
+        to: String = WidgetLocation.PANEL
+    ): List<PlacedWidget> {
+        if (from == to || all.none { it.location == from }) return all
+        val under = pageHeightDp(all, to).let { if (it > 0) it + GAP else 0 }
+        val moving = all.filter { it.location == from && onPage(it) && it.positioned }
+        val top = moving.minOfOrNull { it.topDp } ?: 0
+        val merged = all.map { w ->
+            when {
+                w.location != from -> w
+                w in moving -> w.copy(location = to, topDp = (w.topDp - top + under).coerceAtMost(MAX_TOP_DP))
+                // A widget waiting to be added again keeps its numbers, as on its page.
+                else -> w.copy(location = to)
+            }
+        }
+        // One that had no place yet gets one under the rest.
+        return placeMissing(renumber(merged))
     }
 }

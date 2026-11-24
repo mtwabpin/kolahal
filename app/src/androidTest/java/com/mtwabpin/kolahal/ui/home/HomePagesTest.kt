@@ -27,6 +27,7 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.widgets.TestWidgets
+import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import org.junit.After
@@ -51,6 +52,11 @@ class HomePagesTest {
         listOf(Keys.WIDGETS_PAGE, Keys.WIDGETS_START, Keys.SELECTOR_RAIL).forEach(config::reset)
 
     private fun widgetsPage() = compose.onNodeWithTag("widgets-page")
+
+    /** Waits until the node tagged [tag] shows: a widgets page beyond the first is tagged `widgets-page-2` and so on. */
+    private fun waitForTag(tag: String) = compose.waitUntil(10_000) {
+        runCatching { compose.onNodeWithTag(tag).assertIsDisplayed() }.isSuccess
+    }
 
     /** The first start after an install can take a while on an emulator. */
     private fun waitFor(shown: Boolean) = compose.waitUntil(10_000) {
@@ -221,14 +227,65 @@ class HomePagesTest {
                 compose.onAllNodes(hasScrollAction() and hasAnyAncestor(hasTestTag("widgets-page")))[0]
                     .performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 300f) }
                 compose.waitForIdle()
-                val scrolled = vm.widgetsScroll
+                val scrolled = vm.widgetsScroll[WidgetLocation.PANEL] ?: 0
                 assertTrue("the page scrolled: $scrolled", scrolled > 0)
                 instrumentation.runOnMainSync { vm.openScreen(Screen.WIDGETS) }
                 compose.waitForIdle()
                 instrumentation.runOnMainSync { vm.closeScreen() }
                 waitFor(shown = true)
                 compose.waitForIdle()
-                assertEquals(scrolled, vm.widgetsScroll)
+                assertEquals(scrolled, vm.widgetsScroll[WidgetLocation.PANEL] ?: 0)
+            }
+        } finally {
+            t.close()
+        }
+    }
+
+    /**
+     * Three pages, all on the widgets page's side: `widget page` takes a name, the pager's page actions
+     * go one page at a time and name the page they turn to, and Back goes from any page straight to
+     * the log.
+     */
+    @Test
+    fun severalPagesTurnOneAtATimeAndBackGoesHome() {
+        instrumentation.targetContext.getSharedPreferences(
+            "launcher",
+            android.content.Context.MODE_PRIVATE
+        )
+            .edit().putBoolean("intro_shown", true).commit()
+        config.set(Keys.WIDGETS_PAGE, "left")
+        val t = TestWidgets()
+        try {
+            assertEquals(1, t.host.pages.value.size)
+            t.host.addPage()
+            t.host.addPage()
+            t.host.renamePage(2, "Travel")
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                lateinit var vm: TerminalViewModel
+                scenario.onActivity {
+                    vm = ViewModelProvider(it)[TerminalViewModel::class.java]
+                    vm.onHomePressed()
+                }
+                waitFor(shown = false)
+                instrumentation.runOnMainSync { vm.runCommand("widget page trav") }
+                waitForTag("widgets-page-3")
+                val pager = compose.onNodeWithTag("home-pager")
+                // The outermost page has one page beside it, toward home.
+                pager.performCustomAccessibilityActionWithLabel("Page 2")
+                waitForTag("widgets-page-2")
+                pager.performCustomAccessibilityActionWithLabel("Page 1")
+                waitFor(shown = true)
+                pager.performCustomAccessibilityActionWithLabel("Log")
+                waitFor(shown = false)
+                // From page 2, Back goes to the log in one step.
+                instrumentation.runOnMainSync { vm.runCommand("widget page 2") }
+                waitForTag("widgets-page-2")
+                scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+                compose.waitUntil(10_000) {
+                    runCatching { compose.onNodeWithTag("widgets-page-2").assertIsNotDisplayed() }.isSuccess
+                }
+                waitFor(shown = false)
+                assertEquals(false, vm.homeOnWidgets)
             }
         } finally {
             t.close()

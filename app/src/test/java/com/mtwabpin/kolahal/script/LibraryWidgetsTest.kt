@@ -9,6 +9,7 @@ import com.mtwabpin.kolahal.widgets.WidgetParser
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -417,6 +418,28 @@ class LibraryWidgetsTest {
             WidgetTap(args = "today", label = "Show today's apps", toLog = true),
             spec.base.tap
         )
+        // Under the daily limit, or with none, usage.today's color is nil: the card keeps its own.
+        assertEquals(null, spec.base.color)
+        // Over it, the card takes the role usage.today gives.
+        val over = fromLua(
+            "screen-time.lua",
+            luaTable(
+                "title" to "Screen time",
+                "icon" to "timer",
+                "value" to "4h 12m",
+                "label" to "screen time today",
+                "points" to luaList(252.0),
+                "style" to "bars",
+                "min" to 0.0,
+                "labels" to luaList("Today", "Today"),
+                "summary" to "Today 4h 12m",
+                "color" to "warn",
+                "staleAfter" to 900.0,
+                "tap" to tap,
+            ),
+        ) as WidgetSpec.Chart
+        assertEquals(StyledText.ColorRole.WARN, over.base.color)
+        assertTrue(sourceFile("src/main/assets/library/screen-time.lua").readText().contains("color = today.color,"))
     }
 
     /** Screen time by month: the time a day large, a bar a month, the oldest first, the newest called "now". */
