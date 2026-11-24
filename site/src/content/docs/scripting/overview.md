@@ -107,6 +107,11 @@ shows:
 
 A card is tinted in the theme's color when its script is on, and faded when it is off.
 
+A script that draws a [full-screen screen](/scripting/api/#screens) belongs to the
+[TTY home style](/reference/config/#tty-home-style). With the other style, its card is faded,
+says **TTY style only** and has no **Run**, and home doesn't suggest its name. Typed in full, the
+name still runs it.
+
 The arrow on a card shows its details. The arrow at the top shows the details of all cards. The
 details are, from the top:
 
@@ -144,8 +149,13 @@ Above the cards:
 - The chips that are on show under the search, each with ×. **Clear** turns them all off. The
   badge on Filters counts them.
 - **Sort**: by name, last run, or recently changed (the latest change to a script's code or name
-  first).
-- A line says how many scripts show, for example "4 of 11 scripts", and the sort.
+  first). Name is the default: the name a card shows, its title or else its file name, with case
+  and accents ignored. Scripts that never ran or never changed come last. Another sort shows as a
+  chip under the search, such as "Sorted by last run"; tap it to sort by name again. **Clear**
+  leaves the sort as it is.
+- A line says how many scripts show, for example "4 of 11 scripts", and the sort while it is Name.
+- The search, the filters and the sort stay while you open a script, the editor or another page.
+  Going home resets them.
 
 When library or shared scripts differ from their source, a banner says how many: new versions and
 edited ones. **Review** shows only those. **Update all…** lists them: those with a new version are
@@ -597,9 +607,9 @@ To share one of your scripts, see the repository's
 The scripts named `template-…` are starting points. Their comments explain each part. There is a
 template for a command, a timer, an API key, an event and fetching from the web, each in Lua and in
 JavaScript (the JavaScript one ends in `-js`). `template-logs` shows every kind of line a script can
-log, next to the code that makes it. The `template-screen-…` scripts, in Lua, each draw one of
-Kolahal's full-screen screens, such as `matrix`, with `tty.screen`. Install one and
-[rename it](#renaming-a-script) to make it yours.
+log, next to the code that makes it. `template-screen` opens a full-screen screen of its own
+with `tty.screen`, and the library's `tty-…` scripts, such as `tty-matrix`, draw Kolahal's own
+screens as longer examples. Install one and [rename it](#renaming-a-script) to make it yours.
 See [Templates](/scripting/library/#templates).
 
 ### Your own scripts repository

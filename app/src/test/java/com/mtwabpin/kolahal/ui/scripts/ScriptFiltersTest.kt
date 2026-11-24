@@ -270,6 +270,59 @@ class ScriptFiltersTest {
         )
     }
 
+    /**
+     * Name sorts by the name a card shows: the title, or else the file name. Case and accents don't
+     * count, as in app search. Two equal titles go by file name.
+     */
+    @Test
+    fun nameSortsByTheShownNameWithoutCaseOrAccents() {
+        val list = listOf(
+            script("zz-feeds").copy(title = "Feeds"),
+            script("dice"),
+            script("emoji").copy(title = "Émoji"),
+            script("b-clock").copy(title = "clock"),
+            script("a-clock").copy(title = "Clock"),
+            script("apple"),
+        )
+        assertEquals(
+            listOf("apple", "a-clock", "b-clock", "dice", "emoji", "zz-feeds"),
+            names(ScriptFilters.sorted(list, ScriptSort.NAME))
+        )
+    }
+
+    /** Equal times, and scripts that never ran or never changed, go by the shown name too. */
+    @Test
+    fun tiesGoByTheShownName() {
+        val list = listOf(
+            script("x", lastRun = 100, changedAt = 7).copy(title = "Zebra"),
+            script("y", lastRun = 100, changedAt = 7).copy(title = "Ápple"),
+            script("never-b").copy(title = "banana"),
+            script("never-a").copy(title = "Cherry"),
+        )
+        assertEquals(
+            listOf("y", "x", "never-b", "never-a"),
+            names(ScriptFilters.sorted(list, ScriptSort.LAST_RUN))
+        )
+        assertEquals(
+            listOf("y", "x", "never-b", "never-a"),
+            names(ScriptFilters.sorted(list, ScriptSort.CHANGED))
+        )
+    }
+
+    /** The sort keeps what the search and the chips keep, and only orders it. */
+    @Test
+    fun theSortWorksWithTheSearchAndTheChips() {
+        val list = sample.mapIndexed { i, f -> f.copy(lastRun = i.toLong()) }
+        assertEquals(
+            listOf("units", "define", "my-notes", "quote", "countdown"),
+            names(shown(list, setOf("command"), "", ScriptSort.LAST_RUN))
+        )
+        assertEquals(
+            listOf("units", "my-notes"),
+            names(shown(list, setOf("command", "off"), "", ScriptSort.LAST_RUN))
+        )
+    }
+
     /** Review sets Library version to New version and Edited, and keeps the other groups. */
     @Test
     fun reviewShowsTheCopiesThatDiffer() {

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.commands.CommandParsing
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.script.LibraryTag
@@ -71,7 +72,8 @@ import kotlinx.coroutines.withContext
  *   - Both together: the scripts the search finds among those the chips keep.
  * - Your copies that differ (edited, or with a newer version) come first, under "Your copy differs",
  *   with Compare and Update or Reset.
- * - Then every other library script, with Install or its state.
+ * - Then every other library script, with Install or its state: first the scripts that do
+ *   something, then the templates under "Templates" ([libraryGroups]).
  */
 @Composable
 fun ScriptLibraryScreen(vm: TerminalViewModel) {
@@ -110,6 +112,12 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
     }
     val rest =
         remember(shown, differ) { differ.toSet().let { d -> shown.orEmpty().filter { it !in d } } }
+    // The home style now: in the gui style a script with a screen of its own says it is for the tty style.
+    val tty = HomeStyles.ttyNow(vm.config)
+    // The groups of the list, each under its heading: the templates come last.
+    val groups = remember(differ, rest) {
+        libraryGroups(differ, rest) { LibraryTag.TEMPLATE in it.entry.tags }
+    }
 
     // As on a card: an edited copy asks first; an unedited one updates at once, and the notice offers Undo.
     fun restore(r: LibRow) {
@@ -163,28 +171,32 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                     )
                 }
             }
-            if (differ.isNotEmpty()) {
-                item(key = "differs") { GroupHeader("Your copy differs · ${differ.size}") }
-                itemsIndexed(differ, key = { _, r -> "differs:" + r.entry.name }) { i, r ->
-                    DiffersRow(
-                        r,
-                        i,
-                        differ.size,
-                        onCompare = {
-                            copyDialog = r.entry.name to CopyDialog.COMPARE
-                        }) { restore(r) }
-                }
-                // The search or the chips can leave only copies that differ: then nothing comes under this title.
-                if (rest.isNotEmpty()) item(key = "all") { GroupHeader("All scripts") }
-            }
-            itemsIndexed(rest, key = { _, r -> "lib:" + r.entry.name }) { i, r ->
-                LibraryRow(
-                    r,
-                    i,
-                    rest.size,
-                    nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null,
-                    onRead = { reading = r.entry.name }) {
-                    vm.scriptActions.installFromLibrary(r.entry)
+            for (group in groups) {
+                group.heading?.let { h -> item(key = group.part.key) { GroupHeader(h) } }
+                val rows = group.rows
+                if (group.part == LibraryPart.DIFFERS) {
+                    itemsIndexed(rows, key = { _, r -> "differs:" + r.entry.name }) { i, r ->
+                        DiffersRow(
+                            r,
+                            i,
+                            rows.size,
+                            tty,
+                            onCompare = {
+                                copyDialog = r.entry.name to CopyDialog.COMPARE
+                            }) { restore(r) }
+                    }
+                } else {
+                    itemsIndexed(rows, key = { _, r -> "lib:" + r.entry.name }) { i, r ->
+                        LibraryRow(
+                            r,
+                            i,
+                            rows.size,
+                            tty,
+                            nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null,
+                            onRead = { reading = r.entry.name }) {
+                            vm.scriptActions.installFromLibrary(r.entry)
+                        }
+                    }
                 }
             }
             item(key = "more") {
@@ -231,6 +243,62 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
         }
     }
 }
+
+/** The groups of the library page's list, in their order. [key]: its heading's key in the list. */
+internal enum class LibraryPart(val key: String) {
+    /** Your copies that differ from the library. */
+    DIFFERS("differs"),
+
+    /** The other scripts, those that do something. */
+    SCRIPTS("all"),
+
+    /** The scripts to start your own from ([LibraryTag.TEMPLATE]). */
+    TEMPLATES("templates"),
+}
+
+/** One group of the library page's list: its rows, and the heading above them (null: none). */
+internal data class LibraryGroup<T>(val part: LibraryPart, val heading: String?, val rows: List<T>)
+
+/**
+ * The library page's list, in groups. A group with no rows is left out.
+ * - [differ]: your copies that differ, first, always under "Your copy differs · N".
+ * - [rest]: the other scripts the search and the chips keep, in their order. Those that do
+ *   something come next, then the templates ([isTemplate]).
+ * - Those two groups get a heading ("All scripts", "Templates") only below another group. Alone,
+ *   as with only the Template chip on, they need none.
+ */
+internal fun <T> libraryGroups(
+    differ: List<T>,
+    rest: List<T>,
+    isTemplate: (T) -> Boolean
+): List<LibraryGroup<T>> {
+    val (templates, scripts) = rest.partition(isTemplate)
+    val groups = mutableListOf<LibraryGroup<T>>()
+    if (differ.isNotEmpty()) groups += LibraryGroup(
+        LibraryPart.DIFFERS,
+        "Your copy differs · ${differ.size}",
+        differ
+    )
+    if (scripts.isNotEmpty()) groups += LibraryGroup(
+        LibraryPart.SCRIPTS,
+        "All scripts".takeIf { groups.isNotEmpty() },
+        scripts
+    )
+    if (templates.isNotEmpty()) groups += LibraryGroup(
+        LibraryPart.TEMPLATES,
+        "Templates".takeIf { groups.isNotEmpty() },
+        templates
+    )
+    return groups
+}
+
+/**
+ * [entries] with the templates last: those whose name starts with `template-`, as in the library
+ * ([LibraryTag.TEMPLATE]). Each part keeps its order. Get more scripts lists them this way.
+ */
+internal fun <T> templatesLast(entries: List<T>, name: (T) -> String): List<T> =
+    entries.partition { !name(it).startsWith(LibraryTags.TEMPLATE_PREFIX) }
+        .let { (scripts, templates) -> scripts + templates }
 
 /**
  * The chips under the search field, one for each tag that a library script has, in one row. The
@@ -289,12 +357,16 @@ private fun NoLibraryMatch(text: String, onShowAll: (() -> Unit)?) {
     }
 }
 
-/** The line above a library script's title: its file and how it runs. */
-private fun overline(r: LibRow): String {
+/**
+ * The line above a library script's title: its file and how it runs. [tty]: home is in the tty style;
+ * in the gui style a script with a screen of its own says that it is for the other one.
+ */
+internal fun overline(r: LibRow, tty: Boolean): String {
     val e = r.entry
     return "${e.name}.${e.lang.ext}" + (if (e.command) " · command" else
         if (e.suggestedEvery > 0) " · every ${CommandParsing.formatInterval(e.suggestedEvery)}" else "") +
-            e.events.let { if (it.isEmpty()) "" else " · on " + it.joinToString(", ") }
+            e.events.let { if (it.isEmpty()) "" else " · on " + it.joinToString(", ") } +
+            (if (e.screen && !tty) " · $TTY_ONLY" else "")
 }
 
 /**
@@ -309,6 +381,7 @@ private fun LibraryRow(
     r: LibRow,
     index: Int,
     count: Int,
+    tty: Boolean,
     nameTaken: Boolean,
     onRead: () -> Unit,
     onInstall: () -> Unit
@@ -321,7 +394,7 @@ private fun LibraryRow(
         colors = segColors(),
         overlineContent = {
             Text(
-                overline(r),
+                overline(r, tty),
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace)
             )
         },
@@ -352,6 +425,7 @@ private fun DiffersRow(
     r: LibRow,
     index: Int,
     count: Int,
+    tty: Boolean,
     onCompare: () -> Unit,
     onRestore: () -> Unit
 ) {
@@ -362,7 +436,7 @@ private fun DiffersRow(
         colors = segColors(),
         overlineContent = {
             Text(
-                overline(r),
+                overline(r, tty),
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace)
             )
         },

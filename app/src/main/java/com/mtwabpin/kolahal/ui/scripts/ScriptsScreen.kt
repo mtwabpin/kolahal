@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.commands.CommandParsing
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
@@ -221,7 +222,7 @@ internal class SecretNames(val missing: List<String>, val set: List<String>)
 /**
  * The script manager in the Scripts tab (Material 3 Expressive). It shows one card per script.
  * - Above the cards: a search field, Filters (a sheet of chips, with a count of those on) and Sort.
- *   The chips that are on show under the field, each with ×.
+ *   The chips that are on show under the field, each with ×, and so does a sort other than Name.
  * - A note when Kolahal updated library scripts by itself, and a banner when copies differ from
  *   the library or the shared version, with Review and Update all.
  * - A compact card shows the title, how it runs and its last run on one line, and a pill for what
@@ -247,7 +248,8 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     var updatingAll by remember { mutableStateOf(false) }
     // The script and the secret that Add key sets.
     var addingKey by remember { mutableStateOf<Pair<Long, String>?>(null) }
-    // The filter chips that are on (ScriptFilters ids), the sort and the search. They survive rotation.
+    // The filter chips that are on (ScriptFilters ids), the sort and the search. They survive rotation,
+    // and another screen in front (MainActivity's saveable state holder). Going home resets them.
     var filters by rememberSaveable { mutableStateOf(listOf<String>()) }
     var sortName by rememberSaveable { mutableStateOf(ScriptSort.NAME.name) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -400,11 +402,14 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                     ) { sortName = it.name }
                 }
             }
-            if (chosen.isNotEmpty()) {
+            // The chips that are on, and the sort when it isn't Name: a list in another order says so, and × puts it back.
+            if (chosen.isNotEmpty() || (scripts.isNotEmpty() && sort != ScriptSort.NAME)) {
                 item(key = "chosen") {
                     ChosenFilters(
                         chosen,
                         selfUpdate?.version,
+                        sort,
+                        onDefaultSort = { sortName = ScriptSort.NAME.name },
                         onRemove = { id -> filters = filters - id }) { filters = emptyList() }
                 }
             }
@@ -437,7 +442,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                 CountLine(
                     shown.size,
                     scripts.size,
-                    sort
+                    sort.takeIf { it == ScriptSort.NAME }
                 )
             }
             when {
@@ -484,6 +489,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                         expanded = expandAll != (s.id in flipped),
                         copy = copy,
                         selfUpdatedIn = selfUpdate?.version?.takeIf { s.name in selfUpdated },
+                        ttyOnly = info.isScreen && !HomeStyles.ttyNow(vm.config),
                         onExpand = {
                             flipped = if (s.id in flipped) flipped - s.id else flipped + s.id
                         },

@@ -7,7 +7,6 @@ import android.text.format.DateUtils
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -44,7 +42,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
@@ -89,6 +86,9 @@ private val LINE_ICON = 14.dp
  *   "Add key".
  * - Expanded: see [ScriptDetails]. Then a line of its own tells each problem with its button, so
  *   the summary leaves the problem out and the pill is hidden.
+ * - [ttyOnly]: it draws a full screen and home is in the gui style, which doesn't offer screens. The
+ *   card is faded as an off script's, says "TTY style only", and has no Run; its switch can't be
+ *   changed there. The script keeps its switch for the tty style, and its sheet still opens.
  */
 @Composable
 internal fun ScriptCard(
@@ -101,6 +101,7 @@ internal fun ScriptCard(
     copy: ScriptCopy?,
     /** The Kolahal version that updated it by itself, while the note about that shows. */
     selfUpdatedIn: String?,
+    ttyOnly: Boolean,
     onExpand: () -> Unit,
     onClick: () -> Unit,
     onEnabled: (Boolean) -> Unit,
@@ -116,6 +117,8 @@ internal fun ScriptCard(
     val s = info.script
     val colors = MaterialTheme.colorScheme
     val failed = s.failed()
+    // Whether the card looks like a script that is on.
+    val live = s.enabled && !ttyOnly
     // Each part starts with a capital: "Command · Daily 00:05 · Never run".
     val summary = buildAnnotatedString {
         fun part(text: String, color: Color? = null) {
@@ -128,6 +131,7 @@ internal fun ScriptCard(
             s,
             info.isCommand,
             info.events.filter { info.grants.allows(it) }).forEach { part(it) }
+        if (ttyOnly) part(TTY_ONLY)
         // Open, the card has a line for a failure and a missing key: say them only there.
         if (!(failed && expanded)) {
             part(s.lastRun?.let { (if (failed) "Failed " else "Ran ") + relative(it, short = true) }
@@ -161,7 +165,7 @@ internal fun ScriptCard(
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
-        color = if (s.enabled) colors.primaryContainer else colors.surfaceContainerLow,
+        color = if (live) colors.primaryContainer else colors.surfaceContainerLow,
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize()
@@ -174,14 +178,14 @@ internal fun ScriptCard(
                         Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(if (!s.enabled) colors.outlineVariant else if (failed) colors.error else colors.primary)
+                            .background(if (!live) colors.outlineVariant else if (failed) colors.error else colors.primary)
                     )
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
                         info.title ?: s.name,
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (s.enabled) colors.onPrimaryContainer else colors.outline,
+                        color = if (live) colors.onPrimaryContainer else colors.outline,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -190,7 +194,7 @@ internal fun ScriptCard(
                         Text(
                             "${s.name}.${s.lang.ext}",
                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                            color = if (s.enabled) scriptColor(s.name) else colors.outline,
+                            color = if (live) scriptColor(s.name) else colors.outline,
                             maxLines = 1,
                         )
                         val from = when (copy?.source) {
@@ -206,7 +210,7 @@ internal fun ScriptCard(
                         )
                     }
                 }
-                if (info.isCommand && s.enabled) TextButton(
+                if (info.isCommand && live) TextButton(
                     shapes = ButtonDefaults.shapes(),
                     onClick = onRun
                 ) { Text("Run") }
@@ -216,7 +220,7 @@ internal fun ScriptCard(
                     onClick = onExpand,
                     iconModifier = Modifier.rotate(if (expanded) 180f else 0f),
                 )
-                Switch(checked = s.enabled, onCheckedChange = onEnabled)
+                Switch(checked = s.enabled, onCheckedChange = onEnabled, enabled = !ttyOnly)
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -256,52 +260,45 @@ internal fun ScriptCard(
     }
 }
 
+/** What a card and a library row say of a script with a screen of its own while home is in the gui style. */
+internal const val TTY_ONLY = "TTY style only"
+
 /** A pill on a card: what it says ([label], muted, may be null) and what a tap does ([action], with [icon]). */
 private class Pill(val label: String?, val action: String, val icon: Int, val onClick: () -> Unit)
 
-/** A [Pill]: outlined, with its label and action split by a thin line. The whole pill is one button. */
+/**
+ * A [Pill]: an extra small outlined button, with its label and action split by a thin line. The
+ * whole pill is one button. Its 48 dp touch area sets the height of the line it sits in.
+ */
 @Composable
 private fun CardPill(pill: Pill) {
     val colors = MaterialTheme.colorScheme
-    Surface(
+    val size = ButtonDefaults.ExtraSmallContainerHeight
+    val text = ButtonDefaults.textStyleFor(size)
+    OutlinedButton(
         onClick = pill.onClick,
-        shape = CircleShape,
-        color = Color.Transparent,
+        shapes = ButtonDefaults.shapesFor(size),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.primary),
         border = BorderStroke(1.dp, colors.outline),
+        contentPadding = ButtonDefaults.contentPaddingFor(size, hasStartIcon = true),
         modifier = Modifier
             .padding(start = 8.dp)
+            .heightIn(min = size)
             .testTag("script-pill"),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .height(28.dp)
-                .padding(horizontal = 10.dp)
-        ) {
-            pill.label?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.onSurfaceVariant,
-                    maxLines = 1
-                )
-                Box(
-                    Modifier
-                        .padding(horizontal = 8.dp)
-                        .width(1.dp)
-                        .height(16.dp)
-                        .background(colors.outlineVariant)
-                )
-            }
-            Icon(painterResource(pill.icon), null, Modifier.size(14.dp), tint = colors.primary)
-            Spacer(Modifier.width(4.dp))
-            Text(
-                pill.action,
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.primary,
-                maxLines = 1
+        pill.label?.let {
+            Text(it, style = text, color = colors.onSurfaceVariant, maxLines = 1)
+            Box(
+                Modifier
+                    .padding(horizontal = 8.dp)
+                    .width(1.dp)
+                    .height(16.dp)
+                    .background(colors.outlineVariant)
             )
         }
+        Icon(painterResource(pill.icon), null, Modifier.size(ButtonDefaults.iconSizeFor(size)))
+        Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(size)))
+        Text(pill.action, style = text, maxLines = 1)
     }
 }
 
@@ -531,7 +528,7 @@ private fun IconLine(
 
 /**
  * A problem, or a copy that differs from its source: an [icon] in [iconColor], the [text] (with a
- * smaller [hint] under it), and small text buttons at the right end.
+ * smaller [hint] under it), and extra small text buttons at the right end ([TextAction]).
  */
 @Composable
 private fun ProblemLine(
@@ -555,47 +552,34 @@ private fun ProblemLine(
                     )
                 }
             }
-            Row(
-                Modifier.padding(start = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) { buttons() }
+            // Each button has its own padding: that is the room between them.
+            Row(Modifier.padding(start = 4.dp)) { buttons() }
         }
     }
 }
 
 /**
- * A small button that looks like text, in the theme color. Its text lines up with the text beside
- * it. Its touch area is larger (40 dp tall, 6 dp more on each side) and spills over the space
- * around it.
+ * An extra small text button, in the theme color. It takes the height of the line of text beside
+ * it, so a problem's line is no taller than its text: its 32 dp and its 48 dp touch area spill over
+ * the space around it.
  */
 @Composable
 private fun TextAction(label: String, onClick: () -> Unit) {
-    val style = MaterialTheme.typography.labelLarge.copy(
-        fontSize = 13.sp,
-        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
-    )
-    val line = style.lineHeightDp()
-    Box(
-        Modifier
+    val size = ButtonDefaults.ExtraSmallContainerHeight
+    val line = MaterialTheme.typography.bodyMedium.lineHeightDp()
+    TextButton(
+        onClick = onClick,
+        shapes = ButtonDefaults.shapesFor(size),
+        contentPadding = ButtonDefaults.contentPaddingFor(size),
+        modifier = Modifier
             .layout { measurable, constraints ->
-                val side = 6.dp.roundToPx()
-                val p = measurable.measure(
-                    constraints.copy(
-                        minWidth = 0,
-                        minHeight = 0,
-                        maxWidth = constraints.maxWidth + 2 * side
-                    )
-                )
+                val p = measurable.measure(constraints.copy(minHeight = 0))
                 val h = minOf(p.height, line.roundToPx())
-                layout(p.width - 2 * side, h) { p.place(-side, (h - p.height) / 2) }
+                layout(p.width, h) { p.place(0, (h - p.height) / 2) }
             }
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .heightIn(min = 40.dp)
-            .padding(horizontal = 6.dp),
-        contentAlignment = Alignment.Center,
+            .heightIn(min = size),
     ) {
-        Text(label, style = style, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+        Text(label, style = ButtonDefaults.textStyleFor(size), maxLines = 1)
     }
 }
 
@@ -679,6 +663,7 @@ private fun AccessPill(label: String, on: Boolean, icon: Int?, onToggle: () -> U
     FilterChip(
         selected = on,
         onClick = onToggle,
+        shapes = FilterChipDefaults.shapes(),
         // One line: a long label is cut, so a pill never grows to two lines and breaks the row.
         label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = icon?.let {

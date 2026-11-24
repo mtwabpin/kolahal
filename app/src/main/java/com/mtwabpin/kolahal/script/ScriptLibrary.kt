@@ -26,6 +26,8 @@ class ScriptLibrary(private val context: Context) {
         val tags: Set<LibraryTag> = emptySet(),
         /** Its `@on` events ([ScriptMeta.events]). */
         val events: List<String> = emptyList(),
+        /** It draws a full screen of its own ([ScriptMeta.isScreen]): the gui style doesn't offer it as a command. */
+        val screen: Boolean = false,
     ) {
         companion object {
             /** The entry of the library file [file], a [lang] script with [code]: what its name and its directives say. */
@@ -41,6 +43,7 @@ class ScriptLibrary(private val context: Context) {
                     suggestedEvery = ScriptMeta.every(code) ?: 0,
                     tags = LibraryTags.of(name, code),
                     events = ScriptMeta.events(code),
+                    screen = ScriptMeta.isScreen(code),
                 )
             }
         }

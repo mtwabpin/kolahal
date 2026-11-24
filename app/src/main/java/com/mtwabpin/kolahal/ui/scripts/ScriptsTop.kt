@@ -61,7 +61,8 @@ import com.mtwabpin.kolahal.ui.rememberExpandedSheetState
 
 /*
  * The controls above the script cards in the Scripts tab: search, Filters and Sort, the chips that
- * are on, the note about scripts Kolahal updated, the banner about copies that differ, and the count.
+ * are on (and the sort, when it isn't Name), the note about scripts Kolahal updated, the banner about
+ * copies that differ, and the count.
  */
 
 /**
@@ -132,11 +133,17 @@ private fun chosenLabel(chip: ScriptFilter, version: String?): String = when (ch
     else -> chip.label
 }
 
-/** The chips that are on, in the sheet's order. × on a chip turns it off; Clear turns all off. */
+/**
+ * The chips that are on, in the sheet's order. × on a chip turns it off; Clear turns all of them off.
+ * - A sort other than Name comes first, as "Sorted by last run" with ×: × puts the list back by
+ *   name ([onDefaultSort]). Clear leaves the sort as it is, and shows only with a filter on.
+ */
 @Composable
 internal fun ChosenFilters(
     ids: Set<String>,
     version: String?,
+    sort: ScriptSort,
+    onDefaultSort: () -> Unit,
     onRemove: (String) -> Unit,
     onClear: () -> Unit
 ) {
@@ -145,22 +152,44 @@ internal fun ChosenFilters(
         itemVerticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.testTag("chosen-filters"),
     ) {
-        for (chip in ScriptFilters.ALL.filter { it.id in ids }) {
-            InputChip(
-                selected = true,
-                onClick = { onRemove(chip.id) },
-                label = { Text(chosenLabel(chip, version)) },
-                trailingIcon = {
-                    Icon(
-                        painterResource(R.drawable.ic_close),
-                        contentDescription = "Remove",
-                        Modifier.size(InputChipDefaults.IconSize)
-                    )
-                },
+        if (sort != ScriptSort.NAME) {
+            ChosenChip(
+                sortedBy(sort),
+                onDefaultSort,
+                Modifier.testTag("chosen-sort")
             )
         }
-        TextButton(shapes = ButtonDefaults.shapes(), onClick = onClear) { Text("Clear") }
+        for (chip in ScriptFilters.ALL.filter { it.id in ids }) {
+            ChosenChip(chosenLabel(chip, version), { onRemove(chip.id) })
+        }
+        if (ids.isNotEmpty()) {
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = onClear) { Text("Clear") }
+        }
     }
+}
+
+/** "Sorted by last run": what the list is sorted by, in the count line or on its chip. */
+private fun sortedBy(sort: ScriptSort) = "Sorted by ${sort.label.lowercase()}"
+
+/** One chip under the search field, with ×. A tap anywhere on it calls [onRemove]. */
+@Composable
+private fun ChosenChip(label: String, onRemove: () -> Unit, modifier: Modifier = Modifier) {
+    InputChip(
+        selected = true,
+        onClick = onRemove,
+        label = { Text(label) },
+        // The Expressive shapes. These colors are the ones the chip had before it took shapes.
+        shapes = InputChipDefaults.shapes(),
+        modifier = modifier,
+        colors = InputChipDefaults.inputChipColors(),
+        trailingIcon = {
+            Icon(
+                painterResource(R.drawable.ic_close),
+                contentDescription = "Remove",
+                Modifier.size(InputChipDefaults.IconSize)
+            )
+        },
+    )
 }
 
 /**
@@ -260,9 +289,9 @@ internal fun CopiesBanner(
     }
 }
 
-/** "4 of 11 scripts" (or "11 scripts" when all show), and the sort. */
+/** "4 of 11 scripts" (or "11 scripts" when all show), and the sort. A null [sort] is left out: its chip shows it. */
 @Composable
-internal fun CountLine(shown: Int, total: Int, sort: ScriptSort) {
+internal fun CountLine(shown: Int, total: Int, sort: ScriptSort?) {
     val style = MaterialTheme.typography.labelMedium
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
@@ -276,7 +305,7 @@ internal fun CountLine(shown: Int, total: Int, sort: ScriptSort) {
             color = color,
             modifier = Modifier.weight(1f),
         )
-        Text("Sorted by ${sort.label.lowercase()}", style = style, color = color)
+        if (sort != null) Text(sortedBy(sort), style = style, color = color)
     }
 }
 

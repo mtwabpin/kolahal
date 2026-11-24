@@ -3,6 +3,9 @@ package com.mtwabpin.kolahal.ui.scripts
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
@@ -23,6 +26,8 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptLibrary
@@ -53,6 +58,8 @@ class ScriptCardsTest {
     val compose = createComposeRule()
     @get:Rule
     val logLines = com.mtwabpin.kolahal.LogLinesSince()
+    @get:Rule
+    val configReset = com.mtwabpin.kolahal.ConfigReset()
     private val app =
         InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val scripts = ScriptRepository.get(app)
@@ -406,6 +413,35 @@ class ScriptCardsTest {
         } finally {
             com.mtwabpin.kolahal.script.SecretStore(app).clear("scpills")
         }
+    }
+
+    /** A script with a screen of its own, and the Scripts tab with home in [style]. */
+    private fun showAScreenScript(style: String) {
+        scripts.create("scpills", ScriptLang.LUA, "-- @uses screen\ntty.screen{ frame = function() end }")
+        Config.get(app).set(Keys.HOME_STYLE, style)
+        show(details = false)
+        compose.waitForNode(scCard)
+    }
+
+    /**
+     * A script with a screen of its own is for the tty style. In the gui style its card says so, has no Run,
+     * and its switch can't be changed there.
+     */
+    @Test
+    fun aScreenScriptSaysItIsForTheTtyStyle() {
+        showAScreenScript("gui")
+        assertEquals("Command · TTY style only · Never run", summary())
+        compose.onNode(hasText("Run") and hasAnyAncestor(scCard)).assertDoesNotExist()
+        compose.onNode(isToggleable() and hasAnyAncestor(scCard)).assertIsNotEnabled()
+    }
+
+    /** In the tty style it is a command as any other: Run, and a switch that works. */
+    @Test
+    fun aScreenScriptIsACommandInTheTtyStyle() {
+        showAScreenScript("tty")
+        assertEquals("Command · Never run", summary())
+        compose.onNode(hasText("Run") and hasAnyAncestor(scCard)).assertExists()
+        compose.onNode(isToggleable() and hasAnyAncestor(scCard)).assertIsEnabled()
     }
 
     /** Each part of the summary starts with a capital, and so does each part of the line about when it runs. */

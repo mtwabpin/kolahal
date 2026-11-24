@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.ui.scripts
 
+import com.mtwabpin.kolahal.apps.Fuzzy
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.script.ScriptAccess
@@ -85,6 +86,8 @@ data class ScriptFacts(
     val changedAt: Long?,
     /** Kolahal updated it by itself, and the note about it is still shown. */
     val selfUpdated: Boolean = false,
+    /** Its `@title`. A card shows it in place of the name. */
+    val title: String? = null,
 )
 
 /** The groups of the filter sheet. In a group, any chip may match. Across groups, all must. */
@@ -110,6 +113,7 @@ class ScriptFilter(
 
 /** How the list is sorted. */
 enum class ScriptSort(val label: String) {
+    /** A to Z by the name a card shows: its title, or else its file name. The default. */
     NAME("Name"),
 
     /** The latest run first. Scripts that never ran come last. */
@@ -207,11 +211,19 @@ object ScriptFilters {
         ALL.filter { it.group != FilterGroup.SELF_UPDATED && (it.id in selected || all.any(it.keeps)) }
             .groupBy { it.group }.toList()
 
-    /** [list] in [sort] order. Ties go by name. */
+    /**
+     * A to Z by the name a card shows: its title, or else its file name. Case and accents don't
+     * count, as in app search ([Fuzzy.fold]): "émoji" comes between "Dice" and "Feeds". Two equal
+     * names go by file name.
+     */
+    private val byName: Comparator<ScriptFacts> =
+        compareBy<ScriptFacts> { Fuzzy.fold(it.title ?: it.name) }.thenBy { it.name }
+
+    /** [list] in [sort] order. Ties go by name ([byName]). */
     fun sorted(list: List<ScriptFacts>, sort: ScriptSort): List<ScriptFacts> = when (sort) {
-        ScriptSort.NAME -> list.sortedBy { it.name }
-        ScriptSort.LAST_RUN -> list.sortedWith(compareBy<ScriptFacts, Long?>(nullsLast(reverseOrder())) { it.lastRun }.thenBy { it.name })
-        ScriptSort.CHANGED -> list.sortedWith(compareBy<ScriptFacts, Long?>(nullsLast(reverseOrder())) { it.changedAt }.thenBy { it.name })
+        ScriptSort.NAME -> list.sortedWith(byName)
+        ScriptSort.LAST_RUN -> list.sortedWith(compareBy<ScriptFacts, Long?>(nullsLast(reverseOrder())) { it.lastRun }.then(byName))
+        ScriptSort.CHANGED -> list.sortedWith(compareBy<ScriptFacts, Long?>(nullsLast(reverseOrder())) { it.changedAt }.then(byName))
     }
 
     /** Sets the Library version group to New version and Edited, and keeps the other groups. Review in the banner does this. */
@@ -361,6 +373,7 @@ internal object ScriptPage {
             lastRun = s.lastRun,
             changedAt = s.changedAt,
             selfUpdated = selfUpdated,
+            title = info.title,
         )
     }
 

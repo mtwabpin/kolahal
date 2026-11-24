@@ -41,7 +41,7 @@ enum class LibraryTag(val label: String) {
 /** The tags of the library's scripts, and what the library page's search and chips keep. Plain functions, checked by LibraryTagsTest. */
 object LibraryTags {
     /** How the file name of a template starts. */
-    private const val TEMPLATE_PREFIX = "template-"
+    const val TEMPLATE_PREFIX = "template-"
 
     /**
      * The tags of the script named [name] (its file name without `.lua` or `.js`) with [code], in

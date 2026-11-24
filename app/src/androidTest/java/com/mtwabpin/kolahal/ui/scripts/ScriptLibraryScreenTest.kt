@@ -251,6 +251,35 @@ class ScriptLibraryScreenTest {
         compose.onNodeWithText("Search the library").assertExists()
     }
 
+    /**
+     * The scripts that do something come first. The templates come after the last of them, under
+     * "Templates". With only the Template chip on, the templates show without that heading.
+     */
+    @Test
+    fun theTemplatesComeAfterTheLastScript() {
+        show()
+        val lastScript = library.entries.last { LibraryTag.TEMPLATE !in it.tags }
+        val firstTemplate = library.entries.first { LibraryTag.TEMPLATE in it.tags }
+        val scriptRow = hasText(lastScript.file, substring = true)
+        val templateRow = hasText(firstTemplate.file, substring = true)
+        // The list scrolls the last script to its top, so the heading and the first template are under it.
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(scriptRow)
+        compose.waitForNode(templateRow)
+        val script = compose.onNode(scriptRow).getUnclippedBoundsInRoot()
+        val heading = compose.onNodeWithText("Templates").getUnclippedBoundsInRoot()
+        val template = compose.onNode(templateRow).getUnclippedBoundsInRoot()
+        assertTrue(
+            "the last script, then the heading, then the first template: $script, $heading, $template",
+            script.bottom <= heading.top && heading.bottom <= template.top
+        )
+
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag("tag:${LibraryTag.TEMPLATE.id}"))
+        chip(LibraryTag.TEMPLATE).performScrollTo().performClick()
+        compose.onNodeWithText("Template: API key").assertIsDisplayed()
+        compose.onNodeWithText("Air quality").assertDoesNotExist()
+        compose.onNodeWithText("Templates").assertDoesNotExist()
+    }
+
     /** Back empties the search first. The next Back closes the page. */
     @Test
     fun backEmptiesTheSearchFirst() {

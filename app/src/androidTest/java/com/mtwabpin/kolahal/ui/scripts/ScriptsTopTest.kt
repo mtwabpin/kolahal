@@ -49,7 +49,7 @@ import org.junit.runner.RunWith
 
 /**
  * The controls above the Scripts tab's cards: the filter sheet with its counts and Show N, the chips
- * that are on and the badge, Sort, and that both survive a rotation; the banner about copies that
+ * that are on and the badge, Sort and its chip, and that both survive a rotation; the banner about copies that
  * differ, with Review and Update all; and the note about the scripts Kolahal updated by itself.
  */
 @RunWith(AndroidJUnit4::class)
@@ -125,10 +125,34 @@ class ScriptsTopTest {
     /** The Scripts tab, its search set to [query] when given. With [restoration], it can be torn down and restored as after a rotation. */
     private fun show(query: String? = null, restoration: StateRestorationTester? = null) {
         val vm = vms.terminal(app)
-        if (restoration != null) restoration.setContent { ScriptsScreen(vm) }
-        else compose.setContent { ScriptsScreen(vm) }
+        val page: @androidx.compose.runtime.Composable () -> Unit = {
+            view = androidx.compose.ui.platform.LocalView.current
+            ScriptsScreen(vm)
+        }
+        if (restoration != null) restoration.setContent(page) else compose.setContent(page)
         compose.waitUntil(5_000) { vm.scriptList.value.isNotEmpty() }
-        query?.let { compose.onNodeWithTag("script-search").performTextInput(it) }
+        query?.let {
+            compose.onNodeWithTag("script-search").performTextInput(it)
+            keyboardDown()
+        }
+    }
+
+    /** The page's view, to put the keyboard away ([keyboardDown]). */
+    private var view: android.view.View? = null
+
+    /**
+     * Puts the keyboard away after the search was typed. With it up, and the row of chosen chips under the
+     * search, a phone has room for two cards, and the list draws no more: [cards] would miss the third.
+     */
+    private fun keyboardDown() {
+        compose.waitForIdle()
+        val v = view ?: return
+        val ime = androidx.core.view.WindowInsetsCompat.Type.ime()
+        compose.runOnUiThread {
+            val window = (v.context as? android.app.Activity)?.window ?: return@runOnUiThread
+            androidx.core.view.WindowCompat.getInsetsController(window, v).hide(ime)
+        }
+        compose.waitUntil(5_000) { androidx.core.view.ViewCompat.getRootWindowInsets(v)?.isVisible(ime) != true }
     }
 
     /**
@@ -215,6 +239,44 @@ class ScriptsTopTest {
         }
         compose.onNodeWithText("Sorted by last run").assertExists()
         compose.onNode(hasText("Lua") and chosen).assertExists()
+    }
+
+    /**
+     * A sort other than Name reorders the cards and shows as a chip under the search. Clear turns
+     * the filters off and keeps the sort. One tap on the chip puts the cards back by name.
+     */
+    @Test
+    fun aSortShowsAsAChipAndOneTapPutsItBack() {
+        scripts.create("sft-a", ScriptLang.LUA, "return 1")
+        scripts.create("sft-b", ScriptLang.JS, "return 1").also { scripts.recordRun(it.id, "ok") }
+        scripts.create("sft-c", ScriptLang.LUA, "return 1")
+        show("sft-")
+        compose.waitFor("by name") { cards() == listOf("sft-a.lua", "sft-b.js", "sft-c.lua") }
+        compose.onNodeWithTag("chosen-sort").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Sort").performClick()
+        compose.onNodeWithText("Last run").performClick()
+        compose.waitFor("the last run first") {
+            cards() == listOf("sft-b.js", "sft-a.lua", "sft-c.lua")
+        }
+        compose.onNode(hasTestTag("chosen-sort") and hasText("Sorted by last run")).assertExists()
+        compose.onNodeWithText("Sorted by name").assertDoesNotExist()
+        // No filter is on, so there is no Clear.
+        compose.onNode(hasText("Clear") and chosen).assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Filters").performClick()
+        compose.onNodeWithTag("filter:lua").performScrollTo().performClick()
+        compose.onNodeWithText("Show 2 scripts").performClick()
+        compose.waitFor("Lua only") { cards() == listOf("sft-a.lua", "sft-c.lua") }
+        compose.onNode(hasText("Clear") and chosen).performClick()
+        compose.waitFor("all three, still by last run") {
+            cards() == listOf("sft-b.js", "sft-a.lua", "sft-c.lua")
+        }
+        compose.onNodeWithTag("chosen-sort").assertExists()
+
+        compose.onNodeWithTag("chosen-sort").performClick()
+        compose.waitFor("by name again") { cards() == listOf("sft-a.lua", "sft-b.js", "sft-c.lua") }
+        compose.onNodeWithTag("chosen-filters").assertDoesNotExist()
+        compose.onNodeWithText("Sorted by name").assertExists()
     }
 
     /**
