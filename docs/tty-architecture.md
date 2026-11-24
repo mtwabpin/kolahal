@@ -63,8 +63,10 @@ TTY gets both (§3.4, §2.7); the thumb should then be added to the GUI too, or 
   style only; `screen <name>` opens any of them in both styles. In the GUI style the seven names are
   plain words (an alias, a script or an app), `screen` and scripts with `@uses screen` are offered
   nowhere but run when typed in full, and the screensaver offers only `decode` (§6.1, `TtyCommands`).
-- *Settings of one style*: `log.item-spacing` does nothing in the TTY style, which has no gap
-  between a list's items; Settings and `config` leave it out there (`HomeStyles.GUI_ONLY`).
+- *Settings of one style*: `log.item-spacing` and `log.taller-taps` do nothing in the TTY style,
+  which has no gap between a list's items and no line taller than a row; Settings and `config`
+  leave them out there (`HomeStyles.GUI_ONLY`). `log.spacing` is one empty row there for any value
+  but 0 (`HomeStyles.ttyGroupGapRows`, the maintainer's word of 24 November).
 - *Shaders*: on home in **both** styles, on the full-screen screens and as a live wallpaper; API
   33+ only. The CRT look drawn without AGSL (`tty.crt`) was built and removed; Android 9–12 get no
   effect (§5.2, §7.5).
@@ -497,10 +499,11 @@ wrapping in `Wrap.kt`. `LogLook` carries `cols`, `gutter`, `dim`, `boxedTables`,
 `itemGapRows` and `rtl`. A row is at least 16 columns wide (`MIN_COLS`). Where it differs from the
 table:
 
-- *Gaps*: `log.spacing` stays in dp, as in the GUI: the space goes between the lines' blocks, and
-  each block's cells stay on the grid (`TtyLog` passes `itemGapRows = 0`). A list's items have no
-  gap between them, whatever `log.item-spacing` says (`HomeStyles.TTY_ITEM_GAP_DP`, 0): a list
-  prints line under line, as in a terminal, and the setting is the GUI's alone.
+- *Gaps*: whole rows. Above a command and its output there is one empty row when `log.spacing`
+  is anything but 0, and none at 0 (`HomeStyles.ttyGroupGapRows`; its dp are the GUI's). The row
+  goes between the lines' blocks (`TtyLog` passes `itemGapRows = 0`). A list's items have no gap
+  between them, whatever `log.item-spacing` says (`HomeStyles.TTY_ITEM_GAP_DP`, 0): a list prints
+  line under line, as in a terminal, and the setting is the GUI's alone.
 - *Unread*: an unread script line starts with `•` (the GUI's bullet); the divider is
   `── 3 new since you left ──…` in bold accent, under a blank row. The day divider is
   `── Tue 17 Nov ──…`, muted, under a blank row.
@@ -662,8 +665,8 @@ item's node) → CellBlock.hitAt(col, row) → Target → the same callbacks the
   flashes, get SURFACE bg, as `highlighted` does now.
 - Haptics on long press as now.
 
-**As built.** As above, with `CellBlock.hit` and a 24 dp slop (32 dp with `log.taller-taps`) in
-`TtyLineRow`; the calls are the GUI's (`TtyLineCalls`: a long press on anything but an app opens
+**As built.** As above, with `CellBlock.hit` and a 24 dp slop in `TtyLineRow`, whatever
+`log.taller-taps` says: the setting is the GUI's alone (`HomeStyles.GUI_ONLY`); the calls are the GUI's (`TtyLineCalls`: a long press on anything but an app opens
 the line's menu). Press feedback differs: the pressed target, or the whole line, is painted on the
 SURFACE color (after 80 ms), not inverse. The line whose menu is open and the line a search result
 jumped to get SURFACE too.
@@ -1582,7 +1585,7 @@ state and what is left.
 | `TerminalScreen` and the view model grow | Step 0 splits first; new composables take narrow parameters only. |
 | Memory after hours | Block cache bounded and trim-aware; screens allocate once. |
 
-**As built.** Spacing stays in dp (no rows to explain), and the list does not snap, so neither
+**As built.** Spacing is one empty row or none (`log.spacing` 0), and the list does not snap, so neither
 `tty.smooth-scroll` nor a rows display in Settings exists. There is no safe-mode shortcut and no
 `@warp`; the half-cell contract is on the website's shader page. The prompt's field is laid out
 in the grid's font and cells, as the fourth row says.
@@ -1607,9 +1610,9 @@ in the grid's font and cells, as the fourth row says.
 | Shipping TTY in Settings before step 4 | A half-converted home under the name "TTY" is the compromise. Until then it is a config key for testing. |
 | Pinning the shader feature to a blur/bloom library or to OpenGL for Android 9–12 | A second rendering path to maintain for a decorative effect; the drawn CRT look covers those versions honestly. |
 
-**As built.** Two rows turned out otherwise: the gaps between log lines follow `log.spacing` and
-`log.item-spacing` in dp (each line's cells stay on the grid, the space between them does not),
-and TTY is never shipped in Settings (decision of 22 November). The drawn CRT look was removed, so
+**As built.** One row turned out otherwise: TTY is never shipped in Settings (decision of
+22 November). The gaps between log lines were in dp for a while and are whole rows again: one
+empty row above a group unless `log.spacing` is 0, none between a list's items. The drawn CRT look was removed, so
 Android 9–12 have no effect at all.
 
 ## 11. Step 0 in detail (the only step that touches existing code heavily)
@@ -1662,7 +1665,7 @@ form the decisions allow. *Not done*: not in the code.
 | person pictures | Plain | initials, inverse |
 | notification icons | Plain | the source's name |
 | profile tags, fold, dim, unread divider and marks, day dividers, time column (off, commands, groups), gutter | Done | |
-| group and item gaps | Done | in dp between lines, not whole rows (§2.5) |
+| group and item gaps | Done | one empty row above a group unless `log.spacing` is 0; none between items (§2.5) |
 | hidden earlier lines, empty-log tips, search results and marks, filter bar, jump-to-line flash, scroll follow | Done | |
 | jump to newest | Done | a chip over the log, not a row (§2.7) |
 | scroll thumb | Not done | |

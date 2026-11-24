@@ -75,8 +75,9 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         Keys.GESTURE_SWIPE_DOWN to on(Keys.HEADER_SHOW),
         // A screensaver that the gui style doesn't run (matrix, clock, pipes) is off there.
         Keys.SCREEN_SAVER_AFTER to { c: Config -> ScreenSaver.inEffect(c[Keys.SCREEN_SAVER], HomeStyles.ttyNow(c)) != ScreenSaver.OFF },
-        // The tty style has no gap between a list's items (HomeStyles.GUI_ONLY).
+        // The tty style has no gap between a list's items, and no taller lines (HomeStyles.GUI_ONLY).
         Keys.LOG_ITEM_SPACING to { c: Config -> HomeStyles.applies(Keys.LOG_ITEM_SPACING, HomeStyles.ttyNow(c)) },
+        Keys.LOG_TALLER_TAPS to { c: Config -> HomeStyles.applies(Keys.LOG_TALLER_TAPS, HomeStyles.ttyNow(c)) },
     )
 }
 

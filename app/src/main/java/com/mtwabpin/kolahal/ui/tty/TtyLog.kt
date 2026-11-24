@@ -100,9 +100,8 @@ import java.time.LocalDate
 import java.util.Date
 import kotlin.math.sign
 
-/** How near a target a tap must be to hit it (cells are small); further with `log.taller-taps`. */
+/** How near a target a tap must be to hit it (cells are small). `log.taller-taps` is the gui style's ([HomeStyles.GUI_ONLY]). */
 private val SLOP = 24.dp
-private val TALLER_SLOP = 32.dp
 
 /** Lines laid out and kept: the screen's worth many times over, so a scroll back lays out nothing. */
 private const val KEPT_LINES = 400
@@ -278,10 +277,11 @@ private fun TtyList(
         val margin = with(density) { GRID_MARGIN.roundToPx() }
         val cols = m.cols((width - 2 * margin).coerceAtLeast(m.cellW))
         val originX = ((width - cols * m.cellW) / 2).coerceAtLeast(0)
-        // log.spacing in dp, as the GUI has it: only the space between lines follows it; each line's
-        // cells stay on the grid. A list's items have no gap between them (HomeStyles.TTY_ITEM_GAP_DP),
-        // whatever log.item-spacing says. Search results have no gaps.
-        val groupGapPx = if (search != null) 0 else with(density) { groupGap.dp.roundToPx() }
+        // log.spacing is one empty line of the grid above a command and its output, whatever its dp
+        // (HomeStyles.ttyGroupGapRows), and none at 0: every line stays on the grid. A list's items have
+        // no gap between them (HomeStyles.TTY_ITEM_GAP_DP), whatever log.item-spacing says. Search
+        // results have no gaps.
+        val groupGapPx = if (search != null) 0 else HomeStyles.ttyGroupGapRows(groupGap) * m.cellH
         val itemGapPx = if (search != null) 0 else with(density) { HomeStyles.TTY_ITEM_GAP_DP.dp.roundToPx() }
         val look = LogLook(
             cols = cols,
@@ -533,7 +533,7 @@ private fun TtyLineRow(
     val swipe = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var pressed by remember { mutableStateOf<Target?>(null) }
-    val slop = with(density) { (if (Term.tallerTaps) TALLER_SLOP else SLOP).toPx() }
+    val slop = with(density) { SLOP.toPx() }
     val current by rememberUpdatedState(line)
     val currentCalls by rememberUpdatedState(calls)
     val copySide = if (deleteRight) -1f else 1f

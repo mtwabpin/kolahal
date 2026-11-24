@@ -34,6 +34,7 @@ import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.home.TerminalScreen
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -118,6 +119,33 @@ class TtyLogTest {
         compose.onNodeWithTag("line-$table").assert(hasWords("Coin BTC, Price 64,210"))
         // The grid draws the words itself: no text nodes inside the line.
         assertTrue(textsIn(output, mark).isEmpty())
+    }
+
+    /**
+     * On the grid `log.spacing` is a whole line or nothing: above a command there is one empty row at any
+     * value but 0, the same at 5 dp and at 40, and none at 0.
+     */
+    @Test
+    fun spacingIsOneEmptyLineOrNone() {
+        config.set(Keys.HOME_STYLE, "tty")
+        val mark = "gap ${System.nanoTime()}"
+        val before = logs.add(LogKind.OUTPUT, "$mark before")
+        val command = logs.add(LogKind.COMMAND, "echo $mark")
+        show()
+        waitForLine(command)
+        fun bottom(id: Long) = compose.onNodeWithTag("line-$id").fetchSemanticsNode().boundsInRoot.bottom
+        // From the end of the line before the command to the end of the command's one row: the row, and the gap above it.
+        fun step(spacing: Int): Int {
+            compose.runOnIdle { config.set(Keys.LOG_SPACING, spacing.toString()) }
+            compose.waitForIdle()
+            return kotlin.math.round(bottom(command) - bottom(before)).toInt()
+        }
+        val none = step(0)
+        assertTrue("a row has a height: $none", none > 0)
+        assertEquals("one empty row at the default", 2 * none, step(Keys.LOG_SPACING.default))
+        assertEquals("one empty row at the most", 2 * none, step(Keys.LOG_SPACING.range.last))
+        assertEquals("one empty row at 1 dp", 2 * none, step(1))
+        assertEquals("none again at 0", none, step(0))
     }
 
     /** `config set home.style` switches at once, both ways, and the lines stay. */

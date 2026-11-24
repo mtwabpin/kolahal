@@ -142,7 +142,7 @@ private class ShownLogReport(
         )
         val options = LineOptions(if (search != null) TimeMode.ALL else TimeMode.of(config[Keys.SHOW_TIMESTAMPS]), Term.foldLines)
         val items = info.visibleItemsInfo.mapNotNull { item ->
-            val (block, gap) = line(item, look, options) ?: return@mapNotNull null
+            val (block, gap) = line(item, look, options, cellH) ?: return@mapNotNull null
             // The list counts from its bottom, above its padding there.
             ShownItem(block, height - info.beforeContentPadding - item.offset - item.size, item.size, gap)
         }
@@ -154,8 +154,8 @@ private class ShownLogReport(
         )
     }
 
-    /** What [item] shows, and the gap above its line in px; null for an item that shows nothing. */
-    private fun line(item: LazyListItemInfo, look: LogLook, options: LineOptions): Pair<CellBlock, Int>? {
+    /** What [item] shows, and the gap above its line in px ([cellH]: a row of the grid); null for an item that shows nothing. */
+    private fun line(item: LazyListItemInfo, look: LogLook, options: LineOptions, cellH: Int): Pair<CellBlock, Int>? {
         if (item.key == EMPTY_HINT_KEY) return LineLayout.lines(look.cols, EMPTY_HINT, rtl) to 0
         if (item.key == HIDDEN_LINES_KEY) return hiddenLinesBlock(hiddenLines, look.cols, rtl) to 0
         val row = rows.getOrNull(item.index)?.takeIf { it.key == item.key }
@@ -170,14 +170,15 @@ private class ShownLogReport(
                 val appsGrid = LogContext.APPS in row.entry.ctx.values
                 val key = LineKey(row, look, options, open, marks, Same(timeFormat), if (appsGrid) Same(installed()) else null)
                 val line = lines.get(key) { layoutLine(row, options, look, open, marks, timeFormat, apps, search != null) }
-                line.block to gapOf(line.model.gapAbove)
+                line.block to gapOf(line.model.gapAbove, cellH)
             }
         }
     }
 
-    private fun gapOf(gap: LineModel.Gap): Int = when {
+    /** The gap above a line, as the log draws it: one row of the grid above a command and its output unless `log.spacing` is 0. */
+    private fun gapOf(gap: LineModel.Gap, cellH: Int): Int = when {
         search != null -> 0
-        gap == LineModel.Gap.GROUP -> with(density) { config[Keys.LOG_SPACING].dp.roundToPx() }
+        gap == LineModel.Gap.GROUP -> HomeStyles.ttyGroupGapRows(config[Keys.LOG_SPACING]) * cellH
         gap == LineModel.Gap.ITEM -> with(density) { HomeStyles.TTY_ITEM_GAP_DP.dp.roundToPx() }
         else -> 0
     }

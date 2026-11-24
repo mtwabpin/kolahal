@@ -92,8 +92,12 @@ no pictures (an image shows its text, a person their initials). The widgets page
 They only matter with `home.style tty`. Not in Settings.
 
 The full-screen [screens](/reference/commands/#screens) (`matrix`, `clock`, `top`…) are commands of this
-style only, and so are scripts that draw a screen of their own. `log.item-spacing` isn't one of its
-settings: the grid has no gap between a list's items, so Settings and `config` leave it out there.
+style only, and so are scripts that draw a screen of their own. The grid has whole lines only, so
+three settings of the log differ here:
+
+- `log.spacing`: any value but 0 is one empty line above each group, and 0 is none.
+- `log.item-spacing` and `log.taller-taps` aren't settings of this style: a list's items have no
+  gap between them and every line is one row, so Settings and `config` leave both out there.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -110,11 +114,11 @@ settings: the grid has no gap between a list's items, so Settings and `config` l
 | --- | --- | --- | --- |
 | `log.time` | choice: `off` `commands` `groups` | `groups` | times on the right of log lines. `groups`: on the first line of each group and when the minute changes. `commands`: on the lines you type |
 | `log.dim` | bool | `on` | dim output older than the latest command |
-| `log.spacing` | number 0–40 | `5` | gap (dp) above each output group. A group is a command and its output, or a background batch (feeds, scripts) |
+| `log.spacing` | number 0–40 | `5` | gap (dp) above each output group. A group is a command and its output, or a background batch (feeds, scripts). With `home.style tty` any value but 0 is one empty line |
 | `log.item-spacing` | number 0–40 | `5` | gap (dp) between the items of a list in one group, such as stories, contacts or feed items. The color bar runs through it. The default home style only: with `home.style tty` there is no gap |
 | `log.gutter` | bool | `on` | thin color bar at the left of each log line: green for commands, the script's color for background output, red for errors |
 | `log.line-height` | number 10–56 | `22` | minimum height of a log line, in sp. 22 is 22 dp at the default text size, and it scales with the phone's text size. With `log.taller-taps`, lines you can tap get +10, and two-column rows get +14. A line has up to 3 dp of padding above and below. The padding gets smaller as the height gets close to one line of text (19 at text size 14), and there is none at that height. A line is never shorter than its text. Script status lines in the header also use this height |
-| `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height |
+| `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height. The default home style only: with `home.style tty` every line is one row |
 | `log.tables` | choice: `boxed` `plain` | `boxed` | how tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only); wider tables scroll sideways |
 | `log.fold` | number 0–60 | `8` | fold a log line taller than this many lines of text, under "▾ N more lines"; a tap shows the rest. A line only a line or two longer shows whole. `0`: never fold |
 | `log.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the log, in percent. `0` is none. A higher number shows less of the theme's color |

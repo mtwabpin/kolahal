@@ -525,7 +525,7 @@ object Keys {
         "log.spacing",
         5,
         0..40,
-        "Gap (dp) above each output group: a command and its output, or a background batch (feeds, scripts)"
+        "Gap (dp) above each output group: a command and its output, or a background batch (feeds, scripts). In the tty home style any value but 0 is one empty line"
     )
     val LOG_ITEM_SPACING = ConfigKey.Num(
         "log.item-spacing",
@@ -565,7 +565,7 @@ object Keys {
     val LOG_TALLER_TAPS = ConfigKey.Bool(
         "log.taller-taps",
         false,
-        "Make tappable lines slightly taller, so they're easier to hit; off: every line is the same height"
+        "Make tappable lines slightly taller, so they're easier to hit; off: every line is the same height. The gui home style only: on the tty style's grid every line is one row"
     )
     val LOG_TABLES = ConfigKey.Choice(
         "log.tables",

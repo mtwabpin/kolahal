@@ -65,8 +65,9 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
 - =home.style= exists as a config key; the rest of home is still GUI.
 - Built: =LineLayout= and =Blocks= (=terminal/tty/=, JVM: =LineLayoutTest=), =TtyLog= and
   =TtySearchResults= (=ui/tty/TtyLog.kt=, device: =TtyLogTest=). An image shows as
-  =[image: <file name>]=: log images have no alt text, so the name comes from the address. Group and
-  item gaps follow =log.spacing= and =log.item-spacing= in dp between the lines, not in whole rows.
+  =[image: <file name>]=: log images have no alt text, so the name comes from the address. The gap
+  above a group is one empty row when =log.spacing= isn't 0 (=HomeStyles.ttyGroupGapRows=), and a
+  list's items have none; =log.item-spacing= and =log.taller-taps= are the GUI's alone.
 - Remark:
 
 ** DONE Step 3: the rest of home on the grid  :home:
