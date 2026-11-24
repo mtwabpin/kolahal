@@ -1,7 +1,7 @@
 // @title Live cricket
 // @desc Live cricket scores: the team option's live match as its status line, to pin at the top of home; cricket live lists them all
 // @author Kolahal
-// @version 1.7
+// @version 1.8
 // @command
 // @usage [live|<team>]
 // @widget versus 4x1
@@ -30,11 +30,16 @@
 // initials, both scores large between them, a dot by the side batting, and how the match stands
 // (the runs to win and the balls left in a chase). In a chase, the runs against the target are the
 // bar between them. While the page shows it, it is fetched again every refresh seconds. A tap lists
-// the live matches in the log.
+// the live matches in the log. A second widget can follow another team: its own options are for
+// that widget only.
 
 const PANEL = "https://site.web.api.espn.com/apis/site/v2/sports/cricket/scorepanel";
 const BOARD = (league) => `https://site.web.api.espn.com/apis/site/v2/sports/cricket/${league}/scoreboard`;
 const RESULT_HOURS = 2;
+// A second or later widget (event.instance is "2", "3"…) can have options of its own, so it follows
+// its own match, kept under a key of its own, and leaves the status line to the script's own options.
+const slot = event && event.instance ? `.${event.instance}` : "";
+const MATCH = "match" + slot;
 
 async function getJson(url) {
   const r = await http.get(url);
@@ -216,21 +221,21 @@ function showMatch(event) {
   const live = state(event) === "in";
   const p = live ? progress(event) : null;
   const every = Math.max(10, Number(options.refresh) || 30);
-  if (live) status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
-  else status(line(event));
+  if (!slot && live) status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
+  else if (!slot) status(line(event));
   if (hasWidget) widget.show(card(event, live, every));
 }
 
 // No match to follow: no status line, and its widget says so, as one big value.
 function showNone() {
-  status(null);
+  if (!slot) status(null);
   if (hasWidget) widget.show({ kind: "stat", icon: "cricket", value: "–", label: "No live match", tap: TAP, staleAfter: 900 });
 }
 
 // The followed match ({ league, id, ended }) and what it shows now.
 const kept = () => {
   try {
-    return JSON.parse(store.get("match") || "null");
+    return JSON.parse(store.get(MATCH) || "null");
   } catch (e) {
     return null;
   }
@@ -245,13 +250,13 @@ async function followed(match) {
 async function update(match) {
   const event = await followed(match);
   if (!event) {
-    store.set("match", null);
+    store.set(MATCH, null);
     return showNone();
   }
   if (state(event) === "post") {
-    if (!match.ended) store.set("match", JSON.stringify({ ...match, ended: Date.now() }));
+    if (!match.ended) store.set(MATCH, JSON.stringify({ ...match, ended: Date.now() }));
     else if (Date.now() - match.ended > RESULT_HOURS * 3600000) {
-      store.set("match", null);
+      store.set(MATCH, null);
       return showNone();
     }
   }
@@ -259,7 +264,7 @@ async function update(match) {
 }
 
 function follow(league, event) {
-  store.set("match", JSON.stringify({ league, id: event.id }));
+  store.set(MATCH, JSON.stringify({ league, id: event.id }));
   showMatch(event);
 }
 

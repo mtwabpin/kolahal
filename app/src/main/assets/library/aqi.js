@@ -1,7 +1,7 @@
 // @title Air quality
 // @desc Air quality: aqi [city], without one its city option (US, Indian or European index; the nearest station's with a WAQI token)
 // @author Kolahal
-// @version 1.7
+// @version 1.8
 // @command
 // @usage [<city>]
 // @widget progress 2x1
@@ -36,6 +36,9 @@
 
 // The widgets page asked for this run: it fills the widget and logs nothing.
 const quiet = !!event && event.name === "widget";
+// A run for a second or later widget (event.instance is "2", "3"…), which can have a city and a
+// scale of its own: it fills that widget, and leaves the status line to the script's own options.
+const further = !!event && !!event.instance;
 
 // A failure: what didn't work, in the theme's bad colour, and why under it. In a run for the
 // widget it is an error instead, so the run counts as failed.
@@ -275,7 +278,7 @@ if (!quiet && !token && scale === "us" && !store.get("tokenHint")) {
 const GOOD_TOP = BANDS[scale][0][0];
 const aqi = figures[0][1];
 const text = `${name} ${aqi} · ${place.name}`;
-if (!line) status(text, newer ? { progress: Math.min(1, aqi / GOOD_TOP), color: band(aqi)[1] } : undefined);
+if (!line && !further) status(text, newer ? { progress: Math.min(1, aqi / GOOD_TOP), color: band(aqi)[1] } : undefined);
 
 // Its widget, in the same runs: the figure on a gauge, with the band's name in its colour and the
 // scale as its unit. The arc runs to the top of the scale's second-worst band, as the bar in the log

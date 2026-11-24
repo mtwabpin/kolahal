@@ -7,6 +7,7 @@ aqi.js 66b7f6417048c19c
 aqi.js 7af2168a5db0d726
 aqi.js 8215182dc7638982
 aqi.js 8759acbd8847a122
+aqi.js c146c413cd42f4f8
 aqi.js d74923abbcc7d718
 charge-reminder.lua 16c8ee78fa2ffb95
 charge-reminder.lua 1db9b8545cf4a013
@@ -37,6 +38,7 @@ countdown.lua dcc0bc4fbcf0ff05
 countdown.lua ebe3745821ff306f
 countdown.lua f82a17cd65b4d3fd
 counter.lua 96d8f64d74a4de15
+cricket.js 100d180da86f5306
 cricket.js 211cd5b39c08819e
 cricket.js 419948ca930cee94
 cricket.js 7523d4c6acbb1abc
@@ -53,6 +55,7 @@ crypto.js 69b45d3d6ff64e84
 crypto.js 7245f09a7be27be0
 crypto.js 91b3c31f4beb14c3
 crypto.js b2a9bd4f8044e290
+crypto.js b5eb64f7f93679b7
 crypto.js b70332c429b5bc87
 crypto.js bb8187491c673c01
 crypto.js c1170d4f29e7056b
@@ -85,6 +88,7 @@ football.js 53a4b1afdb897b76
 football.js 562e927723957fb7
 football.js aea1ac82574e2d7c
 football.js d11b2bef9b04fc03
+football.js e90f064e60edcce3
 football.js f676f6de549205fd
 forecast.js 10da580a645d7176
 forecast.js 20cdebd801c76451
@@ -109,6 +113,7 @@ forecast.js f3abc8b522ad3687
 habit.lua 0939bb6f0ed6753f
 habit.lua 1549ab483d1a4d93
 habit.lua 27e6aa1d2312dbe7
+habit.lua 2820018e2bf11ca7
 habit.lua 5a6347b0129bac70
 habit.lua 68c427244de980fe
 habit.lua 75b597e86ca3ced4
@@ -291,6 +296,7 @@ weather.lua 6cfe91e4243fcbe7
 weather.lua 81cf1415d268b0dd
 weather.lua 918dcac7a5aa5faa
 weather.lua 9455c13ffb57463b
+weather.lua 9e28fefb93135221
 weather.lua a96c095e26d77d44
 weather.lua e10119b75310166b
 weather.lua ef720bfa0c80c47f

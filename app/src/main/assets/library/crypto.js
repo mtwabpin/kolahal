@@ -4,7 +4,7 @@
 // @usage [<ids…>] [--vs <currency>]
 // @title Crypto prices
 // @author Kolahal
-// @version 1.0
+// @version 1.1
 // @requires 0.5.9
 // @widget list 2x2
 // @every 30m
@@ -17,7 +17,9 @@
 //   crypto bitcoin --vs eur      in another currency
 //
 // On a timer (no arguments) its status line is a compact price line, e.g. "BTC 67.1k ▲ 1.2% · ETH 3.1k ▼ 0.4%".
-// Its widget, once you placed it on the widgets page, lists the same coins with their prices.
+// Its widget, once you placed it on the widgets page, lists the same coins with their prices. A
+// second or later widget can have coins of its own: its runs fill that widget only, and leave the
+// status line to the script's own coins.
 
 const list = (s) => (s || "").trim().split(/[\s,]+/).filter(Boolean).map((w) => w.toLowerCase());
 const DEFAULT_IDS = list(options.coins).length > 0 ? list(options.coins) : ["bitcoin", "ethereum"];
@@ -125,4 +127,5 @@ if (quiet) {
   log(name, fmt.stats(numbers), { url: `https://www.coingecko.com/en/coins/${r.id}` });
 }
 
-if (words.length === 0 && parts.length > 0) status(parts.join(" · "));
+// A run for a second or later widget (event.instance is "2", "3"…) is for that widget's own coins.
+if (words.length === 0 && parts.length > 0 && !(event && event.instance)) status(parts.join(" · "));

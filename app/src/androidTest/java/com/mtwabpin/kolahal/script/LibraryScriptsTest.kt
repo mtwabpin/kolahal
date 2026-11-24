@@ -441,6 +441,26 @@ class LibraryScriptsTest {
         assertEquals("No weather", only().first)
     }
 
+    /**
+     * A second weather widget with a city of its own fills its card only: the status line and the
+     * values for shaders stay the script's own city's.
+     */
+    @Test
+    fun weatherSecondWidgetKeepsToItsCard() {
+        run("weather.lua", options = mapOf("city" to "Tokyo"), before = luaStandIns("Tokyo|☀️ |Sunny|+12°C|40%|←9km/h|3"))
+        assertEquals("Tokyo: ☀️ 12°C", status.get(name))
+        val values = KvStore(context, Stores.SHADER_VALUES).get(name)
+        run(
+            "weather.lua",
+            event = forWidget + ("instance" to "2"),
+            options = mapOf("city" to "Paris"),
+            before = luaStandIns("Paris|🌦 |Light rain|+6°C|80%|↙12km/h|1") + luaKeepsShown
+        )
+        assertEquals("Paris", (shown() as Map<*, *>)["title"])
+        assertEquals("Tokyo: ☀️ 12°C", status.get(name))
+        assertEquals(values, KvStore(context, Stores.SHADER_VALUES).get(name))
+    }
+
     /** The big numbers of a line's body: each value with its label, as they read. */
     private fun bigNumbers(body: String) =
         StyledText.lines(body).first { it.stats != null }.stats!!.map { s ->
@@ -989,6 +1009,30 @@ class LibraryScriptsTest {
         val e = lines().single()
         assertEquals("LIVE Arsenal v Chelsea", StyledText.plain(e.text))
         assertEquals(listOf("2–1" to "ARS v CHE", "67'" to "Minute"), bigNumbers(e.ctx.body!!))
+    }
+
+    /**
+     * A second football widget with a team of its own follows that team's match, kept under a key
+     * of its own: the script's followed match and its status line stay as they were.
+     */
+    @Test
+    fun footballSecondWidgetFollowsItsOwnMatch() {
+        val board =
+            """{"events":[{"id":"9","name":"Chelsea at Arsenal","date":"2026-11-08T15:00Z","status":{"displayClock":"67'","type":{"state":"in","shortDetail":"67'"}},
+            "competitions":[{"competitors":[{"homeAway":"home","team":{"abbreviation":"ARS","displayName":"Arsenal"},"score":"2"},
+            {"homeAway":"away","team":{"abbreviation":"CHE","displayName":"Chelsea"},"score":"1"}]}]},
+            {"id":"10","name":"Brighton at Hull","date":"2026-11-08T15:00Z","status":{"displayClock":"80'","type":{"state":"in","shortDetail":"80'"}},
+            "competitions":[{"competitors":[{"homeAway":"home","team":{"abbreviation":"HUL","displayName":"Hull City"},"score":"0"},
+            {"homeAway":"away","team":{"abbreviation":"BHA","displayName":"Brighton"},"score":"0"}]}]}]}"""
+        val before = standIns(board.replace("\n", "")) + jsKeepsShown
+        run("football.js", options = mapOf("team" to "Arsenal"), before = before)
+        assertEquals("ARS 2–1 CHE · 67'", status.get(name))
+        run("football.js", event = forWidget + ("instance" to "2"), options = mapOf("team" to "Hull"), before = before)
+        val sides = (shown() as Map<*, *>)["sides"] as List<*>
+        assertEquals("Hull City", (sides[0] as Map<*, *>)["name"])
+        assertEquals("ARS 2–1 CHE · 67'", status.get(name))
+        assertEquals(true, store.get("match")?.contains("\"9\""))
+        assertEquals(true, store.get("match.2")?.contains("\"10\""))
     }
 
     /** Typed, the quote is on screen; the notification is for its daily time. */

@@ -335,6 +335,9 @@ weather Paris
 script set weather city Pune # the city when you type none
 ```
 
+- A second weather widget can show another city: set its `city` in its **Options**. The status line
+  and the values for shaders stay the script's own city's.
+
 ## forecast
 
 **3-day forecast** from Open-Meteo: a bar for each day from its lowest to its highest temperature,
@@ -639,6 +642,8 @@ habit undo                   # take today's mark away
   undo. The streak and the dots are then as they were before the mark. `habit undo` does the same.
 - While today is still open, the streak counts up to yesterday. A missed day starts it again at 0.
 - Its `name` option is the card's title: what you count (`script set habit name Read`).
+- To follow two habits, place the widget twice and give the second its own `name` in its
+  **Options**. Each widget keeps its own days.
 - It runs at 00:01, so the card starts the new day with an open dot.
 - A `2x1` card has the last 7 days in one row. A `4x2` card has the streak at the start and five
   weeks beside it.

@@ -4,7 +4,7 @@
 -- @usage [<city>]
 -- @title Weather
 -- @author Kolahal
--- @version 1.1
+-- @version 1.2
 -- @requires 0.5.17
 -- @widget stat 2x1
 -- @gives rain, snow
@@ -18,7 +18,9 @@
 -- On a timer (no arguments) it sets the result as its status line; pin it
 -- (script pin weather) to see it at the top of home. It also fills its widget, once you
 -- placed it on the widgets page: the temperature, the sky, humidity and wind. And it gives
--- shaders how hard it rains and snows: a shader's parameter can follow them.
+-- shaders how hard it rains and snows: a shader's parameter can follow them. A second or later
+-- widget can have a city of its own: its runs fill that widget only, and leave the status line and
+-- the values for shaders to the script's own city.
 
 local function urlencode(s)
   return (s:gsub("[^%w%-_%.~]", function(c)
@@ -100,13 +102,16 @@ local function force(words, kinds)
   return 0.5
 end
 
-if line == "" then
+-- A run for a second or later widget (event.instance is "2", "3"…) is for that widget's own city.
+local further = event and event.instance
+
+if line == "" and not further then
   shader.give("rain", force(sky, { "rain", "drizzle", "shower", "thunder" }))
   shader.give("snow", force(sky, { "snow", "sleet", "blizzard", "ice pellets" }))
 end
 
--- Only background runs (no arguments) update the status line: "Pune: ☀️ 25°C".
-if line == "" then status(place .. ": " .. icon .. " " .. temp) end
+-- Only background runs (no arguments) of the script's own city update the status line: "Pune: ☀️ 25°C".
+if line == "" and not further then status(place .. ": " .. icon .. " " .. temp) end
 -- Its widget, in the same runs: the temperature big, the sky under it, humidity and wind smaller.
 -- A tap runs weather again and turns home to the log, for the full report.
 if widget and line == "" then

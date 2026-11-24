@@ -4,7 +4,7 @@
 -- @usage [done|undo]
 -- @title Habit streak
 -- @author Kolahal
--- @version 1.3
+-- @version 1.4
 -- @widget chart 2x2
 -- @at 00:01
 -- @option name Exercise What you count
@@ -22,7 +22,8 @@
 -- takes the mark away again, so a tap by mistake is easy to undo. habit undo does the same.
 -- It runs a minute after midnight, so the widget starts the new day with an open dot.
 --
--- The days are kept in its own store. It needs no access.
+-- The days are kept in its own store. It needs no access. A second widget, with a name option of
+-- its own, counts another habit: each widget keeps its own days.
 
 -- What started this run: its daily time ("at"), the widgets page ("widget"), a tap ("action"), or you (nil).
 local started = event and event.name
@@ -45,24 +46,28 @@ local function noon(back)
 end
 local function day(back) return os.date("%Y-%m-%d", noon(back)) end
 
+-- Each widget keeps its own days: event.instance is "2", "3"… in a run for a second or later
+-- widget, and nil for the first one and for a run you start.
+local slot = (event and event.instance) or ""
+
 -- The days you did it, kept as one text: "2026-11-12 2026-11-13".
 local done = {}
-for d in (store.get("days") or ""):gmatch("%S+") do done[d] = true end
+for d in (store.get("days" .. slot) or ""):gmatch("%S+") do done[d] = true end
 
 -- The first day it counts. A day before it is no part of the habit, so the widget has no dot for
 -- it rather than a missed one. A copy from before this kept no first day: its oldest kept day, or
 -- today.
-local since = store.get("since")
+local since = store.get("since" .. slot)
 if not since then
   for d in pairs(done) do if not since or d < since then since = d end end
   since = since or day(0)
-  store.set("since", since)
+  store.set("since" .. slot, since)
 end
 -- A first day after today (the clock was ahead, or a flight crossed the date line) would hide every
 -- day: today is the first then.
 if since > day(0) then
   since = day(0)
-  store.set("since", since)
+  store.set("since" .. slot, since)
 end
 
 local changed = false
@@ -83,7 +88,7 @@ if changed then
   for back = math.max(first + streak, DAYS) - 1, 0, -1 do
     if done[day(back)] then keep[#keep + 1] = day(back) end
   end
-  store.set("days", table.concat(keep, " "))
+  store.set("days" .. slot, table.concat(keep, " "))
 end
 
 -- The last 7 days, the oldest first: the day's name, and whether you did it.
