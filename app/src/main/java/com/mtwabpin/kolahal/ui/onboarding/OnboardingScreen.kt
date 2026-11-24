@@ -45,6 +45,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -56,11 +57,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.ConnectedChoices
@@ -96,6 +99,19 @@ fun OnboardingScreen(vm: TerminalViewModel) {
     val last = pager.currentPage == pages.lastIndex
     fun go(page: Int) = scope.launch { pager.animateScrollToPage(page) }
     BackHandler { if (pager.currentPage > 0) go(pager.currentPage - 1) else vm.closeScreen() }
+
+    // The app selector's page turns the selector on as the page starts to slide in, the first time
+    // only (TourSelector).
+    val context = LocalContext.current
+    val target = pages[pager.targetPage]
+    LaunchedEffect(target) {
+        if (target != TourPage.SELECTOR) return@LaunchedEffect
+        val prefs = Stores.LAUNCHER.open(context)
+        if (TourSelector.turnsOn(prefs.getBoolean(TourSelector.SHOWN, false), vm.config[Keys.SELECTOR_RAIL])) {
+            vm.setConfig(Keys.SELECTOR_RAIL, "on")
+        }
+        prefs.edit { putBoolean(TourSelector.SHOWN, true) }
+    }
 
     GuiTheme {
         Scaffold(

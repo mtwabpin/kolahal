@@ -28,6 +28,9 @@ internal object Blocks {
     /** The least cells a bar's track gets. */
     private const val MIN_TRACK = 4
 
+    /** The least cells a big number's label is cut to, "…" included, so it still reads. */
+    private const val MIN_LABEL = 10
+
     private val FG = CellStyle.of(Ink.FG)
     private val BOLD = CellStyle.of(Ink.FG, flags = CellStyle.BOLD)
 
@@ -229,24 +232,39 @@ internal object Blocks {
 
     /**
      * Big numbers: each value bold on one row and its label muted under it, side by side, three
-     * cells apart. What doesn't fit goes on to a second pair of rows.
+     * cells apart.
+     * - When they don't fit on one row, the longest label is cut with "…" so they do, never below
+     *   its value's width or [MIN_LABEL]. Values are never cut.
+     * - When that isn't enough, what doesn't fit goes on to a second pair of rows.
      */
     private fun stats(w: BlockWriter, items: List<StyledText.Stat>, top: Int, left: Int, right: Int, link: () -> Target.Link?): Int {
         if (items.isEmpty()) return top
         val hasLabels = items.any { it.label.isNotEmpty() }
         val step = if (hasLabels) 2 else 1
+        // Links in reading order: each value, then its label.
+        val parts = items.map { s ->
+            s.value.map { spanSeg(it, BOLD, Ink.FG, link()) } to s.label.map { spanSeg(it, DIM, Ink.FG, link()) }
+        }
+        val values = parts.map { (value, _) -> value.sumOf { shownWidth(it.text) } }
+        val labels = parts.map { (_, label) -> label.sumOf { shownWidth(it.text) } }
+        val widths = IntArray(parts.size) { maxOf(values[it], labels[it]) }
+        val over = widths.sum() + 3 * (parts.size - 1) - (right - left)
+        if (over > 0) {
+            val longest = labels.indices.maxBy { labels[it] }
+            val cut = labels[longest] - over
+            if (cut >= maxOf(values[longest], MIN_LABEL)) widths[longest] = cut
+        }
         var row = top
         var x = left
-        for (s in items) {
-            val value = s.value.map { spanSeg(it, BOLD, Ink.FG, link()) }
-            val label = s.label.map { spanSeg(it, DIM, Ink.FG, link()) }
-            val width = maxOf(value.sumOf { shownWidth(it.text) }, label.sumOf { shownWidth(it.text) })
+        for ((i, part) in parts.withIndex()) {
+            val (value, label) = part
+            val width = widths[i]
             if (x > left && x + width > right) {
                 x = left
                 row += step
             }
             w.line(value, row, x, right)
-            if (label.isNotEmpty()) w.line(label, row + 1, x, right)
+            if (label.isNotEmpty()) w.line(label, row + 1, x, minOf(x + width, right))
             x += width + 3
         }
         w.reach(row + step - 1)

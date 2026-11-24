@@ -298,20 +298,27 @@ class LineLayoutTest {
         assertTrue(layout(LogCorpus.statsAlone, time = null).row(0).contains("41"))
     }
 
+    /** The weather script's big numbers: the sky's words are the long label. */
+    private val weather: LineModel
+        get() {
+            val items = listOf("17°C" to "🌦 Patchy light rain", "70%" to "humidity", "→ 54 km/h" to "wind", "0" to "UV")
+            val body = StyledText.stats(items)
+            val ctx = LogContext(mapOf(LogContext.TITLE to "1", LogContext.BODY to body))
+            val e = LogEntry(9002, LogCorpus.AT, LogKind.SCRIPT, "weather", "Tokyo", ctx)
+            return lineModel(LogCorpus.row(LogCorpus.Line("weather", e)), options)
+        }
+
     /**
-     * Big numbers that don't fit on a row break between items: each value stays over its label, in
-     * the same column, and an item that doesn't fit moves whole to the next pair of rows (the weather
-     * script's UV on a phone, as `0` over `UV` at the left).
+     * Big numbers that don't fit on a row, even with the longest label cut, break between items:
+     * each value stays over its label, in the same column, and an item that doesn't fit moves whole
+     * to the next pair of rows (the weather script's UV on a narrow grid).
      */
     @Test
     fun bigNumbersBreakBetweenItems() {
-        val items = listOf("17°C" to "🌦 Patchy light rain", "70%" to "humidity", "→ 54 km/h" to "wind", "0" to "UV")
-        val body = StyledText.stats(items)
-        val ctx = LogContext(mapOf(LogContext.TITLE to "1", LogContext.BODY to body))
-        val e = LogEntry(9002, LogCorpus.AT, LogKind.SCRIPT, "weather", "Tokyo", ctx)
-        val m = lineModel(LogCorpus.row(LogCorpus.Line("weather", e)), options)
-        val drawn = listOf("17°C" to "🌦 Patchy light rain", "70%" to "Humidity", "→ 54 km/h" to "Wind", "0" to "UV")
-        for (cols in listOf(32, 40, 47, 53, 80)) {
+        val m = weather
+        // The sky's words may be cut ("🌦 Patchy li…"): found by their start.
+        val drawn = listOf("17°C" to "🌦 Patchy", "70%" to "Humidity", "→ 54 km/h" to "Wind", "0" to "UV")
+        for (cols in listOf(32, 40, 43, 47, 53, 80)) {
             val block = LineLayout.layout(m, LogLook(cols), null)
             val rows = (0 until block.rows).map { block.row(it) }
             val name = "At $cols:\n" + rows.joinToString("\n")
@@ -333,9 +340,37 @@ class LineLayoutTest {
             val placed = drawn.map { (value, label) -> item(value, label) }
             // Each item that moves starts its pair of rows at the left, where the first one is.
             for ((row, col) in placed) if (col == placed[0].second) assertTrue(name, row == placed[0].first || row > placed[0].first + 1)
-            if (cols == 47) assertTrue(name, placed[3].first > placed[2].first && placed[3].second == placed[0].second)
-            if (cols == 80) assertEquals(name, setOf(placed[0].first), placed.map { it.first }.toSet())
+            if (cols == 32) assertTrue(name, placed[3].first > placed[0].first)
+            if (cols >= 43) assertEquals(name, setOf(placed[0].first), placed.map { it.first }.toSet())
         }
+    }
+
+    /**
+     * Big numbers that would fit on a row with the longest label shorter: that label is cut with
+     * "…" to just what fits, and the values stay whole (the weather script's sky on a phone, about
+     * 43 cells). Below 10 cells the label isn't cut, and the row breaks instead.
+     */
+    @Test
+    fun bigNumbersCutTheLongestLabelToFitARow() {
+        val m = weather
+        for (cols in listOf(40, 43, 47)) {
+            val block = LineLayout.layout(m, LogLook(cols), null)
+            val rows = (0 until block.rows).map { block.row(it) }
+            val name = "At $cols:\n" + rows.joinToString("\n")
+            val values = rows.indexOfFirst { "17°C" in it }
+            assertTrue(name, values >= 0)
+            for (v in listOf("17°C", "70%", "→ 54 km/h")) assertTrue(name, v in rows[values])
+            val labels = rows[values + 1]
+            assertTrue(name, "🌦 Patchy" in labels && "…" in labels && "Patchy light rain" !in labels)
+            // Just what fits: UV ends at the grid's right edge, on the row of the others.
+            assertEquals(name, cols, CellWidth.total(labels.substring(0, labels.indexOf("UV"))) + 2)
+        }
+        val wide = LineLayout.layout(m, LogLook(53), null)
+        assertTrue((0 until wide.rows).any { "🌦 Patchy light rain" in wide.row(it) })
+        // 9 cells for the label would be too few: whole, with UV on the next pair of rows.
+        val narrow = LineLayout.layout(m, LogLook(39), null)
+        val rows = (0 until narrow.rows).map { narrow.row(it) }
+        assertTrue(rows.joinToString("\n"), rows.any { "🌦 Patchy light rain" in it } && rows.none { "…" in it })
     }
 
     /** A column chart: two rows of eighths, the newest column in the accent color, slots to come as dots, labels under. */
