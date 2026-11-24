@@ -17,14 +17,10 @@ import HomeSection from '../../components/HomeSection.astro';
 import Ways from '../../components/Ways.astro';
 import Scripting from '../../components/Scripting.astro';
 import Scenes from '../../components/Scenes.astro';
-import Tour from '../../components/Tour.astro';
-import { TOUR_ON_HOME } from '../../home';
 
 <Ways />
 
 <Scripting />
-
-{TOUR_ON_HOME && <Tour end={false} />}
 
 <HomeSection id="themes" title="Themes">
 	<Fragment slot="lead">

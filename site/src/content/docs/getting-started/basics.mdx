@@ -11,7 +11,7 @@ import selectorSlide from '../../../assets/parts/selector-slide.png';
 import selectorPick from '../../../assets/parts/selector-pick.png';
 import selectorOpen from '../../../assets/parts/selector-open.png';
 
-<Image src={terminal} alt="The Kolahal home screen: the header with clock, date, alarm, todos and battery, a pinned script's line, feed lines and a unit conversion in the log, and the prompt" class="shot shot-single" width={320} />
+<Image src={terminal} alt="The Kolahal home screen: the header with clock, date, alarm, todos and battery, a pinned script's line, then a countdown, the feed list and a unit conversion in the log, and the prompt" class="shot shot-single" width={320} />
 
 The home screen has four parts, from top to bottom:
 
@@ -212,7 +212,7 @@ contacts, feed items. The colored bar runs through it, so the items still read a
 
 A thin colored bar next to each line shows where the line came from:
 
-- green for commands
+- the accent color for commands
 - the script's color for background output
 - red for errors
 
@@ -397,7 +397,7 @@ From the terminal, list each side's parts in order, separated by commas: `config
 | --- | --- | --- |
 | `time` | the time, 12- or 24-hour (`clock.24h`) | opens your alarms |
 | `date` | the day and date | opens your alarms |
-| `battery` | a battery drawn at its charge level, green with a bolt while charging, red when low | battery usage |
+| `battery` | a battery drawn at its charge level, in the accent color with a bolt while charging, red when low | battery usage |
 | `alarm` | the next alarm: its time (without AM or PM), and the day if it's a day or more away | opens your alarms |
 | `todo` | how many todos are open, when there are any | runs `todo` |
 | `network` | Wi-Fi, mobile or offline (in red) | network settings |
@@ -446,7 +446,7 @@ The key bar appears only while the on-screen keyboard is open for the prompt. So
 `keybar.auto off` keeps the bar visible all the time.
 
 - The bar sits below the prompt, right on top of the keyboard. So the best suggestion stays just above what you type.
-- The ⌨ button at the right end of the prompt line turns the bar on or off (`keybar.show`, off by default). The button is green while the bar is on.
+- The ⌨ button at the right end of the prompt line turns the bar on or off (`keybar.show`, off by default). The button is in the accent color while the bar is on.
 
 **Sizes.** These are also under Settings → Keyboard and Settings → Log:
 

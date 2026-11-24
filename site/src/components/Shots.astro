@@ -1,0 +1,81 @@
+---
+/**
+ * One to three captures of the app side by side, each with a short caption under it, taken by
+ * name from `src/assets/` (shots.ts). A picture whose file isn't there yet shows its stand-in, or
+ * nothing: the row is one picture shorter, and with none it isn't drawn at all.
+ *
+ * - `file`: the capture's path under `src/assets/` (`shots/typing/ma.png`). A `-light` twin beside
+ *   it (`ma-light.png`) is shown in the site's light theme instead.
+ * - `standIn`: an older picture shown until the capture is there.
+ * - `alt` says what the capture shows; `caption` is the line under it.
+ */
+import { Image } from 'astro:assets';
+import { hasShot, lightOf, shot } from '../shots';
+
+interface Item {
+	file: string;
+	standIn?: string;
+	alt: string;
+	caption?: string;
+}
+interface Props {
+	items: Item[];
+}
+
+const items = Astro.props.items
+	.map((it) => ({ ...it, src: shot(it.file, it.standIn), light: hasShot(it.file) ? lightOf(it.file) : undefined }))
+	.filter((it) => it.src);
+---
+
+{
+	items.length > 0 && (
+		<div class="shots-row not-content">
+			{items.map((it) => (
+				<figure>
+					<Image src={it.src!} alt={it.alt} width={280} densities={[1, 2]} class:list={{ 'for-dark': it.light }} />
+					{it.light && <Image src={it.light} alt={it.alt} width={280} densities={[1, 2]} class="for-light" />}
+					{it.caption && <figcaption set:html={it.caption} />}
+				</figure>
+			))}
+		</div>
+	)
+}
+
+<style>
+	.shots-row {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+		align-items: start;
+		gap: 1.5rem 1.25rem;
+		margin-block: 1.5rem;
+	}
+	figure {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+		max-width: 17.5rem;
+	}
+	figure :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		margin: 0;
+		border-radius: var(--s-radius-m);
+		border: 1px solid var(--s-phone-edge);
+	}
+	figure :global(.for-light) {
+		display: none;
+	}
+	:global(:root[data-theme='light']) figure :global(.for-light) {
+		display: block;
+	}
+	:global(:root[data-theme='light']) figure :global(.for-dark) {
+		display: none;
+	}
+	figcaption {
+		font-size: var(--sl-text-sm);
+		line-height: 1.5;
+		color: var(--s-ink-soft);
+	}
+</style>

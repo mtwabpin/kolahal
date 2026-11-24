@@ -21,14 +21,28 @@ function withBase(path) {
 	if (!path.startsWith('/') || path.startsWith('//') || path === base || path.startsWith(base + '/')) return path;
 	return base + path;
 }
-/** Sätteri (Astro's Markdown processor) hast plugin: runs on every Markdown / MDX link. */
+/** Whether a link leaves the site: an address on another host, or outside the base on this one. */
+function leavesSite(href) {
+	if (!/^https?:\/\//.test(href)) return false;
+	const here = SITE.replace(/\/$/, '') + BASE.replace(/\/$/, '');
+	return href !== here && !href.startsWith(here + '/') && !href.startsWith(here + '#');
+}
+/**
+ * Sätteri (Astro's Markdown processor) hast plugin: runs on every Markdown / MDX link. It adds the
+ * base to site-absolute links, and opens links that leave the site in a new tab (src/links.ts).
+ */
 const baseLinks = {
 	name: 'base-links',
 	element: {
 		filter: ['a'],
 		visit(node, ctx) {
 			const href = node.properties?.href;
-			if (typeof href === 'string' && withBase(href) !== href) ctx.setProperty(node, 'href', withBase(href));
+			if (typeof href !== 'string') return;
+			if (withBase(href) !== href) ctx.setProperty(node, 'href', withBase(href));
+			if (leavesSite(href)) {
+				ctx.setProperty(node, 'target', '_blank');
+				ctx.setProperty(node, 'rel', 'noopener');
+			}
 		},
 	},
 };
@@ -59,8 +73,10 @@ export default defineConfig({
 			],
 			components: {
 				Banner: './src/components/Banner.astro',
+				EditLink: './src/components/EditLink.astro',
 				Hero: './src/components/Hero.astro',
 				PageTitle: './src/components/PageTitle.astro',
+				SocialIcons: './src/components/SocialIcons.astro',
 			},
 			expressiveCode: {
 				// One dark theme in both site themes: code blocks are dark on --s-code either way.
@@ -122,6 +138,7 @@ export default defineConfig({
 						{ slug: 'getting-started/setup' },
 						{ slug: 'getting-started/parts' },
 						{ slug: 'getting-started/basics' },
+						{ slug: 'getting-started/gallery' },
 					],
 				},
 				{

@@ -803,44 +803,46 @@ footer .meta a:hover {
 /* ---- The app's palette (--k-*) ------------------------------------------------------------ */
 
 /*
- * Kolahal's default theme, "green", in its dark and light versions (ui/theme/Theme.kt). Only
- * pictures of the app read these: the simulated phone, the theme cards and the like. Nothing
- * in the site's own chrome uses them.
+ * Kolahal's rose-pine theme in its dark and light versions (ui/theme/Theme.kt, Palettes), from
+ * src/data/themes.json by tools/site-palette.mjs: the theme the site's captures of the app are in.
+ * Only pictures of the app read these: the drawn phone, the gesture map, the selector's drawings and
+ * the like. Nothing in the site's own chrome uses them, and the theme cards have each theme's own
+ * colors, from the same file.
  */
 :root {
-	--k-bg: #0b0d0b;
-	--k-surface: #151915;
-	--k-fg: #d7ded3;
-	--k-dim: #7f8a7b;
-	--k-prompt: #8fd18a;
-	--k-error: #f0907d;
-	--k-info: #9db8a0;
-	--k-link: #7fb8f0;
-	--k-script: #b5cea8;
-	--k-work: #f2b35b;
-	--k-private: #c792ea;
-	--k-good: #8fd18a;
-	--k-warn: #f2b35b;
+	--k-bg: #191724;
+	--k-surface: #26233a;
+	--k-fg: #e0def4;
+	--k-dim: #908caa;
+	--k-prompt: #ebbcba;
+	--k-error: #eb6f92;
+	--k-info: #9ccfd8;
+	--k-link: #9ccfd8;
+	--k-script: #f6c177;
+	--k-work: #f6c177;
+	--k-private: #c4a7e7;
+	--k-good: #31748f;
+	--k-warn: #f6c177;
 	/* How strong a tag's chip or a pill's shade is (RichText.drawChips: 24 % dark, 14 % light). */
 	--k-chip: 24%;
 	--k-rule: color-mix(in srgb, var(--k-dim) 25%, transparent);
 	--k-gutter: color-mix(in srgb, var(--k-prompt) 45%, transparent);
 }
 
-/* Palettes.greenLight: the same greens, darker, on a pale green-gray. */
+/* The light version. */
 :root[data-theme='light'] {
-	--k-bg: #f3f7f1;
-	--k-surface: #e3ebe0;
-	--k-fg: #1e2a1d;
-	--k-dim: #5b6957;
-	--k-prompt: #2f7d32;
-	--k-error: #b3261e;
-	--k-info: #4b6b4e;
-	--k-link: #1d63a8;
-	--k-script: #3f6b35;
-	--k-work: #9a5b00;
-	--k-private: #7a3fb0;
-	--k-good: #2f7d32;
-	--k-warn: #9a5b00;
+	--k-bg: #faf4ed;
+	--k-surface: #f2e9e1;
+	--k-fg: #464261;
+	--k-dim: #6f6b89;
+	--k-prompt: #9c5e5b;
+	--k-error: #ab526c;
+	--k-info: #45767f;
+	--k-link: #45767f;
+	--k-script: #9d6110;
+	--k-work: #9d6110;
+	--k-private: #7d649a;
+	--k-good: #286983;
+	--k-warn: #9d6110;
 	--k-chip: 14%;
 }

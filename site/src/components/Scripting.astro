@@ -5,19 +5,39 @@
  * render), a row of the library's widgets (renders from WidgetGalleryTest), and what comes with it.
  * Each line says what the guide says (scripting/overview, api, library, editor; guides/widgets).
  *
- * The widget pictures are renders in the app's green theme, dark, so they sit on that theme's
- * background in both of the site's themes, as on the phone's widgets page.
+ * The widget pictures are captures of the cards in the app's expressive looks, in the rose-pine
+ * theme, dark (shots/home/, CAPTURES.md), so they sit on that theme's background in both of the
+ * site's themes, as on the phone's widgets page. Where one isn't there, WidgetGalleryTest's render
+ * of the card stands in (widgets/), on green's background.
  */
 import { Image } from 'astro:assets';
 import { Code } from '@astrojs/starlight/components';
 import HomeSection from './HomeSection.astro';
-import water from '../assets/widgets/example-water-2x1.png';
-import habit from '../assets/widgets/habit-2x2.png';
-import forecast from '../assets/widgets/forecast-2x2.png';
-import clocks from '../assets/widgets/worldclocks-2x2.png';
-import unlocks from '../assets/widgets/unlocks-2x2.png';
+import { hasShot, shot } from '../shots';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+/** The cards' pictures: the capture in shots/home/, else the older render. */
+const PICTURES = {
+	water: ['shots/home/water.png', 'widgets/example-water-2x1.png'],
+	habit: ['shots/home/habit.png', 'widgets/habit-2x2.png'],
+	forecast: ['shots/home/forecast.png', 'widgets/forecast-2x2.png'],
+	clocks: ['shots/home/world-clocks.png', 'widgets/worldclocks-2x2.png'],
+	unlocks: ['shots/home/unlock-chart.png', 'widgets/unlocks-2x2.png'],
+} as const;
+const pic = (k: keyof typeof PICTURES) => shot(...PICTURES[k])!;
+const water = pic('water');
+const habit = pic('habit');
+const forecast = pic('forecast');
+const clocks = pic('clocks');
+const unlocks = pic('unlocks');
+/** The page under the cards: rose-pine's background and text once its captures are there, else green's. */
+const ground = (keys: (keyof typeof PICTURES)[]) =>
+	keys.every((k) => hasShot(PICTURES[k][0])) ? '--app-ground:#191724;--app-name:#e0def4' : '--app-ground:#0b0d0b;--app-name:#c3ccbf';
+const madePage = ground(['water']);
+/** A picture's alt text: of the capture if it is there, else of the older render. */
+const alt = (k: keyof typeof PICTURES, capture: string, render: string) => (hasShot(PICTURES[k][0]) ? capture : render);
+const gridPage = ground(['habit', 'forecast', 'clocks', 'unlocks']);
 
 /** The Lua version of the API reference's Water example, as it is there. */
 const WATER = `-- @title Water
@@ -50,10 +70,10 @@ widget.show{
 
 /** Library scripts with a widget, and their cards. */
 const MORE = [
-	{ src: habit, name: 'habit.lua', alt: 'habit: 5 days in a row over a dot for each day' },
-	{ src: forecast, name: 'forecast.js', alt: 'forecast: three days, each with its low and its high' },
-	{ src: clocks, name: 'world-clocks.lua', alt: 'world-clocks: the time in Kolkata, London and New York' },
-	{ src: unlocks, name: 'unlock-chart.lua', alt: 'unlock-chart: 46 unlocks today over a bar for each of the last 7 days' },
+	{ src: habit, name: 'habit.lua', alt: alt('habit', 'habit, in the Shape look: 1 day in a row in a scalloped shape', 'habit: 5 days in a row over a dot for each day') },
+	{ src: forecast, name: 'forecast.js', alt: alt('forecast', 'forecast for Lisbon, in the Split look: Tuesday, Wednesday and Thursday, each with its low and its high on a tile', 'forecast: three days, each with its low and its high') },
+	{ src: clocks, name: 'world-clocks.lua', alt: alt('clocks', 'world-clocks, in the Bold look: the time in Tokyo in large type, and in Nairobi and Lisbon under it', 'world-clocks: the time in Kolkata, London and New York') },
+	{ src: unlocks, name: 'unlock-chart.lua', alt: alt('unlocks', 'unlock-chart, in the Bold look: 12 unlocks today, large, over a bar for each day', 'unlock-chart: 46 unlocks today over a bar for each of the last 7 days') },
 ];
 
 const FACTS: { title: string; text: string }[] = [
@@ -88,10 +108,10 @@ const FACTS: { title: string; text: string }[] = [
 		<div class="sc-code">
 			<Code code={WATER} lang="lua" title="water.lua" />
 		</div>
-		<div class="sc-side">
+		<div class="sc-side" style={madePage}>
 			<figure class="sc-made">
 				<div class="sc-page">
-					<Image src={water} alt="The Water widget: 5 / 8 over a bar, five eighths full" width={300} densities={[1, 2]} />
+					<Image src={water} alt="The Water widget in the Bold look: 5 / 8 in large type, the card filled five eighths of the way up" width={300} densities={[1, 2]} />
 				</div>
 				<figcaption>The widget it fills. A tap adds a glass.</figcaption>
 			</figure>
@@ -108,7 +128,7 @@ const FACTS: { title: string; text: string }[] = [
 		</div>
 	</div>
 
-	<div class="sc-sec sc-more">
+	<div class="sc-sec sc-more" style={gridPage}>
 		<h3 class="sc-label">More widgets from the library</h3>
 		<ul class="sc-page sc-grid">
 			{
@@ -149,9 +169,8 @@ const FACTS: { title: string; text: string }[] = [
 		flex-direction: column;
 		gap: 2rem;
 	}
-	/* The phone's widgets page: the pictures' own background, the app's green theme, dark. */
+	/* The phone's widgets page: the pictures' own background (--app-ground, set above). */
 	.sc-page {
-		--app-ground: #0b0d0b;
 		background: var(--app-ground);
 		border-radius: var(--s-radius-l);
 		border: 1px solid var(--s-phone-edge);
@@ -250,7 +269,7 @@ const FACTS: { title: string; text: string }[] = [
 		font-family: var(--s-font-mono);
 		font-size: 0.8125rem;
 		font-weight: 600;
-		color: #c3ccbf;
+		color: var(--app-name);
 	}
 	@media (max-width: 40rem) {
 		.sc-grid {

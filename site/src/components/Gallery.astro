@@ -1,0 +1,142 @@
+---
+/**
+ * One section of the gallery (getting-started/gallery.mdx): its pictures from src/gallery.ts, each
+ * as wide as on a phone, with its caption and a link to the page of the guide it comes from.
+ *
+ * A picture is a link to the picture at full size, so it opens larger without JavaScript too;
+ * GalleryViewer.astro, once on the page, opens it in a dialog instead. A line of gallery.ts whose
+ * file isn't there is left out.
+ */
+import { getImage, Image } from 'astro:assets';
+import { getCollection } from 'astro:content';
+import { PICTURES, type Picture, type Section } from '../gallery';
+import { asset } from '../shots';
+
+interface Props {
+	section: Section;
+}
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const pages = new Map((await getCollection('docs')).map((e) => [`/${e.id}/`, e.data.title]));
+
+/**
+ * How wide a picture is shown: a widget as on a phone (Cards.astro), a log picture 360 px and a
+ * fmt line 300 px, as in the guide; anything else is a capture of the phone's screen, or a part of
+ * it, at the scale of a whole screen 220 px across.
+ */
+function widthOf(p: Picture, img: ImageMetadata) {
+	if (p.width) return p.width;
+	const cols = p.file.match(/-(\d)x\d\.png$/)?.[1];
+	if (p.file.startsWith('widgets/') && cols) return { '1': 100, '2': 201, '4': 403 }[cols] ?? 201;
+	if (p.file.startsWith('log/')) return 360;
+	if (p.file.startsWith('fmt/')) return 300;
+	// A capture 1080 px wide is the whole screen; the guide's older ones are 540.
+	const screen = img.width > 600 ? 1080 : 540;
+	return Math.round((220 * img.width) / screen);
+}
+
+const items = await Promise.all(
+	PICTURES.filter((p) => p.section === Astro.props.section).flatMap((p) => {
+		const img = asset(p.file);
+		if (!img) return [];
+		return [
+			(async () => {
+				const full = await getImage({ src: img, width: Math.min(img.width, 1600), format: 'webp' });
+				const [path, hash] = p.href.split('#');
+				const screen = !/^(widgets|log|fmt)\//.test(p.file);
+				return { ...p, img, full: full.src, width: widthOf(p, img), screen, href: base + p.href, page: pages.get(path) ?? 'the guide', hash };
+			})(),
+		];
+	})
+);
+---
+
+{
+	items.length > 0 && (
+		<ul class="g-grid not-content" data-gallery>
+			{items.map((it) => (
+				<li class:list={{ screen: it.screen }} style={`--w:${it.width}px`}>
+					<figure>
+						<a class="g-open" href={it.full} data-caption={it.caption} data-guide={it.href} data-page={it.page}>
+							<Image src={it.img} alt={it.alt} width={it.width} densities={[1, 2]} />
+						</a>
+						<figcaption>
+							<span class="g-cap">{it.caption}</span>
+							<a class="g-guide" href={it.href}>
+								{it.page}
+							</a>
+						</figcaption>
+					</figure>
+				</li>
+			))}
+		</ul>
+	)
+}
+
+<style>
+	.g-grid {
+		list-style: none;
+		margin: 1.5rem 0 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: 1.75rem 1.25rem;
+	}
+	.g-grid li {
+		margin: 0;
+		width: var(--w);
+		max-width: 100%;
+	}
+	/* On a phone, two captures of the screen side by side. */
+	@media (max-width: 30rem) {
+		.g-grid li.screen {
+			width: min(var(--w), calc(50% - 0.625rem));
+		}
+	}
+	figure {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.g-open {
+		display: block;
+		border-radius: var(--s-radius-m);
+		cursor: zoom-in;
+	}
+	.g-open:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: 3px;
+	}
+	.g-open :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: var(--s-radius-m);
+		border: 1px solid var(--s-phone-edge);
+	}
+	figcaption {
+		display: flex;
+		flex-direction: column;
+		font-size: var(--sl-text-sm);
+		line-height: 1.45;
+	}
+	.g-cap {
+		color: var(--s-ink);
+		font-weight: 600;
+	}
+	/* The link to the guide: as tall as a touch needs. */
+	.g-guide {
+		align-self: flex-start;
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.75rem;
+		margin-block: -0.5rem;
+		color: var(--s-link);
+		text-underline-offset: 0.2em;
+	}
+	.g-guide:hover {
+		color: var(--s-link-hover);
+	}
+</style>

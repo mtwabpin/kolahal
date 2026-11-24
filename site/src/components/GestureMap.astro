@@ -1,8 +1,8 @@
 ---
 /**
- * Every touch gesture on home, drawn on a phone in the app's default "green" palette and
- * numbered; the slot is an ordered list (MDX) naming them in the same order. The numbers are
- * amber in both site themes, on the screen and in the list, so the two match.
+ * Every touch gesture on home, drawn on a phone in the app's colors (--k-*, the rose-pine theme)
+ * and numbered; the slot is an ordered list (MDX) naming them in the same order. The numbers are
+ * in the theme's gold, on the screen and in the list, so the two match.
  */
 ---
 
@@ -92,13 +92,8 @@
 </figure>
 
 <style>
+	/* The app's colors: --k-* (site.css), the rose-pine theme in the site's theme. */
 	.gesture-map {
-		--k-bg: #0b0d0b;
-		--k-surface: #151915;
-		--k-fg: #d7ded3;
-		--k-dim: #7f8a7b;
-		--k-prompt: #8fd18a;
-		--k-work: #f2b35b;
 		display: flex;
 		flex-wrap: wrap;
 		gap: 1.5rem 2rem;
@@ -117,11 +112,11 @@
 	}
 	.body { fill: var(--s-phone); stroke: var(--s-phone-edge); stroke-width: 1.5; }
 	.screen { fill: var(--k-bg); }
-	.rule { stroke: rgba(215, 222, 211, 0.12); stroke-width: 1; }
+	.rule { stroke: color-mix(in srgb, var(--k-fg) 12%, transparent); stroke-width: 1; }
 	.clock { fill: var(--k-fg); font: 700 15px var(--sl-font-mono); }
 	.faint { fill: var(--k-dim); opacity: 0.55; }
 	.cmd { fill: var(--k-fg); opacity: 0.8; }
-	.picked { fill: rgba(143, 209, 138, 0.14); }
+	.picked { fill: color-mix(in srgb, var(--k-prompt) 14%, transparent); }
 	.gutter { stroke: var(--k-prompt); stroke-width: 2; opacity: 0.7; }
 	.prompt { fill: var(--k-prompt); font: 700 15px var(--sl-font-mono); }
 	.caret { fill: var(--k-prompt); }
@@ -157,8 +152,8 @@
 		border-radius: 50%;
 		display: grid;
 		place-items: center;
-		background: #f2b35b;
-		color: #0b0d0b;
+		background: var(--k-work);
+		color: var(--k-bg);
 		font: 700 0.72rem/1 var(--s-font-text);
 	}
 </style>

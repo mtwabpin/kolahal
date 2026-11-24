@@ -352,7 +352,7 @@ Nothing else in the line is read as a style.
 | `fmt.strike(text)` | struck through | <Image src={fStrike} alt="Price 520 480, with 520 struck through" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.code(text)` | on a shaded chip, in the terminal font | <Image src={fCode} alt="Run, then script lib on a shaded chip" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.color(role, text)` | in one of the theme's colors: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` | <Image src={fColor} alt="Each role's name in its color: accent, link, info, muted, text, good, warn and bad" width={240} densities={[1, 2]} class="fmt-shot" /> |
-| `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) | <Image src={fTag} alt="Three tags: a red LIVE, an accent NEW and a green v1.2" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) | <Image src={fTag} alt="Three tags: a red LIVE, an accent NEW and a teal v1.2" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.link(text, url)` | text that opens a link: see [Links](#links) | <Image src={fLink} alt="Read the guide, with the guide underlined in the link color" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.stats(items)` | a line of big numbers, for a body: see [Big numbers](#big-numbers) | <Image src={fStats} alt="Pune, then 25°C large with Sunny under it, and 36% humidity" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. | <Image src={fList} alt="Today, then 1. standup and 2. review" width={240} densities={[1, 2]} class="fmt-shot" /> |
@@ -445,7 +445,7 @@ log(
 </TabItem>
 </Tabs>
 
-<Cards items={[{ src: logStyles, alt: 'Styled lines in the log: a bold score, a numbered list with code, and a green change', width: 360 }]} />
+<Cards items={[{ src: logStyles, alt: 'Styled lines in the log: a bold score, a numbered list with code, and a teal change', width: 360 }]} />
 
 ### Tables
 
@@ -511,7 +511,7 @@ log(
 </TabItem>
 </Tabs>
 
-<Cards items={[{ src: logTable, alt: 'A table in the log: Coin, Price and 24h, with the changes in green and red', width: 360 }]} />
+<Cards items={[{ src: logTable, alt: 'A table in the log: Coin, Price and 24h, with the changes in teal and red', width: 360 }]} />
 
 ### Links
 
@@ -699,7 +699,7 @@ log(
 </TabItem>
 </Tabs>
 
-<Cards items={[{ src: logBars, alt: 'Bars in the log: one red bar for the air quality, green bars for unlocks on Monday and Tuesday, and amber ranges for three days of temperatures', width: 360 }]} />
+<Cards items={[{ src: logBars, alt: 'Bars in the log: one red bar for the air quality, teal bars for unlocks on Monday and Tuesday, and amber ranges for three days of temperatures', width: 360 }]} />
 
 ### Big numbers
 
@@ -1457,7 +1457,7 @@ widget.show({
   { src: wList, alt: 'A 4×2 list card called Reading list, with two rows: Kolahal’s guide, and No link here', size: '4x2', caption: 'list' },
   { src: wText, alt: 'A 2×2 text card called Word of the day: serendipity, its meaning, and From Wiktionary', size: '2x2', caption: 'text' },
   { src: wChart, alt: 'A 2×2 chart card called Unlocks: 8 unlocks today over seven bars from Sun to Today', size: '2x2', caption: 'chart' },
-  { src: wProgress, alt: 'A 2×1 progress card called Pune air: 168 Unhealthy over an amber bar', size: '2x1', caption: 'progress' },
+  { src: wProgress, alt: 'A 2×1 progress card called Pune air: 168 in a shape filled in amber, and Unhealthy', size: '2x1', caption: 'progress' },
   { src: wCountdown, alt: 'A 2×1 countdown card called Goa trip, with the days to go', size: '2x1', caption: 'countdown' },
 ]} />
 
@@ -2080,7 +2080,7 @@ widget.show({
 </TabItem>
 </Tabs>
 
-<Cards items={[{ src: wWater, alt: 'A 2×1 progress card called Water: 5 / 8 over a green bar', size: '2x1' }]} />
+<Cards items={[{ src: wWater, alt: 'A 2×1 progress card called Water: 5 / 8 large, the card filled five eighths of the way up', size: '2x1' }]} />
 
 This script has no timer. It runs when you place its widget, when you tap it, and when the widgets
 page shows it with old content.

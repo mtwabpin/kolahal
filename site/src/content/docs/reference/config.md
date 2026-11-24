@@ -67,7 +67,7 @@ The `theme` and `font` commands didn't change.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `theme.name` | choice: `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`, or [one you made](/guides/themes-and-settings/#your-own-themes) | `green` | color theme (also `theme <name>`). The phone's dark mode chooses its dark or [light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colors from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
+| `theme.name` | choice: `rose-pine` `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `material-you`, or [one you made](/guides/themes-and-settings/#your-own-themes) | `rose-pine` | color theme (also `theme <name>`). The phone's dark mode chooses its dark or [light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colors from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
 | `theme.always-dark` | bool | `off` | always use the theme's dark version, even in light mode |
 | `screen.hide-bars` | choice: `none` `status` `both` | `none` | which of Android's bars Kolahal hides: `status` hides the status bar at the top (time, battery, notifications), and `both` hides it and the navigation bar at the bottom. A swipe from its edge shows a hidden bar for a moment. In Settings it is **Hide system bars** |
 | `font.family` | choice: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom` | `jetbrains-mono` | terminal font (also `font <name>`). `custom` is a .ttf/.otf file you imported with `font import` |
@@ -116,7 +116,7 @@ three settings of the log differ here:
 | `log.dim` | bool | `on` | dim output older than the latest command |
 | `log.spacing` | number 0–40 | `5` | gap (dp) above each output group. A group is a command and its output, or a background batch (feeds, scripts). With `home.style tty` any value but 0 is one empty line |
 | `log.item-spacing` | number 0–40 | `5` | gap (dp) between the items of a list in one group, such as stories, contacts or feed items. The color bar runs through it. The default home style only: with `home.style tty` there is no gap |
-| `log.gutter` | bool | `on` | thin color bar at the left of each log line: green for commands, the script's color for background output, red for errors |
+| `log.gutter` | bool | `on` | thin color bar at the left of each log line: the accent color for commands, the script's color for background output, red for errors |
 | `log.line-height` | number 10–56 | `22` | minimum height of a log line, in sp. 22 is 22 dp at the default text size, and it scales with the phone's text size. With `log.taller-taps`, lines you can tap get +10, and two-column rows get +14. A line has up to 3 dp of padding above and below. The padding gets smaller as the height gets close to one line of text (19 at text size 14), and there is none at that height. A line is never shorter than its text. Script status lines in the header also use this height |
 | `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height. The default home style only: with `home.style tty` every line is one row |
 | `log.tables` | choice: `boxed` `plain` | `boxed` | how tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only); wider tables scroll sideways |

@@ -18,7 +18,7 @@ import editor from '../../../assets/parts/editor.png';
 
 The guide uses a name for each part of Kolahal, such as *the pinned header*, *the suggestions* and *the key bar*.
 This page shows each part, numbered on screenshots of the app. Then you know what each name means when you read about it.
-The screenshots use the default theme, green.
+The screenshots use the default theme, rose-pine.
 
 ## Home screen
 
@@ -28,7 +28,7 @@ From top to bottom, the home screen has the **header** (1–2), the **pinned hea
 <Annotated
 	src={home}
 	alt="Kolahal's home screen: the header with clock, date, alarm, open todos and battery, a pinned script's line under it, the log with four groups, and the prompt"
-	marks={[[17.0, 5.3], [79.0, 5.3], [69.0, 8.1], [50.0, 30.0], [62.0, 71.0], [3.1, 79.0], [86.7, 75.6], [38.9, 83.6], [42.8, 86.1], [9.5, 97.7], [88.9, 97.7], [94.5, 60.0]]}
+	marks={[[17.0, 6.9], [79.0, 6.9], [45.0, 10.1], [50.0, 30.0], [62.0, 71.0], [3.1, 79.0], [93.0, 76.9], [37.0, 86.3], [45.0, 88.7], [9.5, 95.1], [88.9, 95.1], [94.5, 60.0]]}
 >
 
 1. **Clock and date.** Tap to see your alarms.
@@ -36,7 +36,7 @@ From top to bottom, the home screen has the **header** (1–2), the **pinned hea
 3. **Pinned header**: the line of a script that you pinned (here, the *countdown* script). Tap it to run the script. Long-press it for more.
 4. **Empty log space.** Tap it to open the keyboard. Double-tap it to lock the screen (not in the Play build).
 5. **A group**: a command and its output, with a gap above it.
-6. **Colored bar**: green next to commands, the script's color next to a script's lines, and red next to errors.
+6. **Colored bar**: the accent color next to commands, the script's color next to a script's lines, and red next to errors.
 7. **Time**, on the first line of each group.
 8. **A command you typed.** Tap it to put it back in the prompt.
 9. **Output.** Long-press any line to see its actions.
@@ -54,7 +54,7 @@ keyboard.
 <Annotated
 	src={typing}
 	alt="Typing ma at the prompt: the header, the log, the suggestion list with Maps highlighted at the bottom, the prompt and the key bar"
-	marks={[[48.0, 4.1], [50.0, 32.8], [30.0, 59.6], [80.0, 75.0], [28.0, 82.6], [17.8, 89.9], [79.4, 89.9], [57.2, 96.9]]}
+	marks={[[48.0, 4.7], [50.0, 32.8], [30.0, 59.6], [80.0, 72.2], [28.0, 80.2], [17.8, 88.1], [79.4, 88.1], [57.2, 95.1]]}
 >
 
 1. **The header**. It doesn't change while you type.
@@ -84,7 +84,7 @@ Turn it on in **Settings → App selector**. To use it:
 <Annotated
 	src={selectorSlide}
 	alt="Sliding along the right edge at G: the list of apps on the left with Gmail and Google magnified, the G bubble beside the thumb, the letters fanning out from the edge, and the header and the prompt still showing"
-	marks={[[40.0, 33.6], [3.5, 55.8], [37.0, 56.6], [61.1, 58.1], [88.9, 63.3], [93.5, 76.3], [50.0, 7.0], [11.1, 95.1]]}
+	marks={[[40.0, 33.6], [3.5, 51.3], [37.0, 56.6], [73.1, 56.3], [84.0, 50.5], [93.5, 76.3], [50.0, 7.0], [11.1, 95.1]]}
 >
 
 1. **The list**: every app in one list, in the log's place. The log fades out behind it. Your favorites (★) have a section of their own, last when the selector is at the bottom of the edge and first otherwise.
@@ -103,7 +103,7 @@ Turn it on in **Settings → App selector**. To use it:
 <Annotated
 	src={selectorPick}
 	alt="Picking Google: its row highlighted in the theme color and magnified, the rows beside it slightly larger, nothing on the edge"
-	marks={[[72.2, 59.8], [37.0, 53.3], [95.5, 75.0]]}
+	marks={[[60.0, 57.6], [37.0, 51.3], [95.5, 75.0]]}
 >
 
 1. **The app at your thumb**, highlighted and magnified. Move up or down to pick another app. Lift your finger to open it. If you hold still, the row fills with color, and when it's full, the app opens.
@@ -132,7 +132,7 @@ Turn it on in **Settings → App selector**. To use it:
 <Annotated
 	src={actionSheet}
 	alt="The action sheet for a to-do line: the line, when it arrived, its actions and two delete actions in red"
-	marks={[[53.3, 5.9], [37.8, 10.7], [30.0, 38.1], [32.2, 79.1]]}
+	marks={[[52.0, 7.0], [37.8, 11.4], [30.0, 38.1], [32.2, 81.1]]}
 >
 
 1. **The line** you long-pressed.
@@ -144,8 +144,8 @@ Turn it on in **Settings → App selector**. To use it:
 
 <Annotated
 	src={quick}
-	alt="Quick actions: Settings, Notifications, Alarms and clock, Battery, Network, Unlocks this week, Apps, Widgets, Feeds, Scripts and Lock screen"
-	marks={[[34.4, 4.3], [33.3, 35.3]]}
+	alt="Quick actions: Settings, Notifications, Alarms and clock, Battery, Network, Unlocks this week, Apps, Widgets, Widgets page, Feeds, Scripts and Lock screen"
+	marks={[[34.4, 3.9], [33.3, 36.1]]}
 >
 
 1. **Quick actions**: Settings, alarms, battery, network and more, where your thumb can reach them.
@@ -178,8 +178,8 @@ you can also tap it in the header. See [Themes & settings](/guides/themes-and-se
 
 <Annotated
 	src={settings}
-	alt="The Settings screen: Settings, Scripts and Feeds tabs, a search box and the pages Look and feel, Header, Widgets, Log, Suggestions, Keyboard, App selector and Launching and search"
-	marks={[[19.9, 26.2], [49.9, 26.2], [80.0, 26.2], [77.8, 30.3], [44.4, 38.0]]}
+	alt="The Settings screen: Settings, Scripts and Feeds tabs, a search box and the pages Look and feel, Shaders, Header, Widgets, Log, Suggestions, Keyboard and App selector"
+	marks={[[19.9, 21.9], [49.9, 21.9], [80.0, 21.9], [77.8, 29.3], [44.4, 38.0]]}
 >
 
 1. **Settings** tab: every setting, page by page.
@@ -196,26 +196,27 @@ The script manager, with a card for each script. See [Scripting](/scripting/over
 
 <Annotated
 	src={scripts}
-	alt="The Scripts tab: filter chips, two tinted cards for scripts that are on, one with its details open, and a faded card for a script that is off"
-	marks={[[19.0, 35.6], [74.5, 8.8], [93.0, 11.5], [59.0, 41.0], [8.7, 48.1], [38.0, 51.5], [62.7, 48.1], [75.5, 48.1], [88.0, 47.9], [82.2, 53.9], [79.2, 57.3], [34.3, 75.2], [25.5, 78.2], [63.4, 78.2], [47.0, 88.7], [80.0, 91.6]]}
+	alt="The Scripts tab: a search box with the Filters and sort buttons, tinted cards for scripts that are on, one with its details open, and a faded card for a script that is off"
+	marks={[[60.0, 32.8], [78.7, 32.8], [90.1, 32.8], [92.9, 8.8], [50.0, 41.9], [9.6, 62.4], [38.0, 62.4], [61.7, 63.1], [74.4, 63.1], [86.7, 63.1], [72.0, 66.5], [58.0, 69.7], [93.0, 75.0], [38.0, 89.2], [30.0, 95.8], [79.0, 92.5]]}
 >
 
-1. **Filter chips**: commands, timers, events, pinned, failed, off, differs from the library and
-   more. Each chip shows a count.
-2. **Search** scripts by name.
-3. **All details**: opens or closes the details of every card.
-4. **A script that's on**: its card is tinted with the theme's color.
-5. **Dot**: on, failed (red) or off (gray).
-6. **Title and file name.**
-7. **Run**, for a command script.
-8. **Details arrow**: shows or hides the details of this card.
-9. **On/off switch.**
-10. **Summary**: how the script runs, when it last ran, and "edited" if you changed it.
-11. **Its status line**, as it is now.
-12. **Pills**: what the script may use. A pill is filled when on and faded when off. Tap a pill to turn it on or off.
-    *pinned* puts the script's status line in the pinned header.
-13. **Compare** your copy with the library version.
-14. **Reset to library version.**
+1. **Search** scripts by name.
+2. **Filters**: a sheet of chips by status, how a script runs (command, timer, event, pinned), source,
+   library version, what it uses and language. Each chip shows a count.
+3. **Sort**: by name, by last run, or recently changed first.
+4. **All details**: opens or closes the details of every card.
+5. **A script that's on**: its card is tinted with the theme's color.
+6. **Dot**: on, failed (red) or off (gray).
+7. **Title and file name.**
+8. **Run**, for a command script.
+9. **Details arrow**: shows or hides the details of this card.
+10. **On/off switch.**
+11. **Summary**: how the script runs and when it last ran.
+12. **Its status line**, as it is now.
+13. **Details**: what it does, how to call it, and when it runs next. For a library script you
+    changed, **Compare** and **Reset to library version** are here too.
+14. **Pills**: what the script may use. A pill is filled when on and faded when off. Tap a pill to turn it on or off.
+    *Pinned* puts the script's status line in the pinned header.
 15. **A script that's off**: its card is faded.
 16. **Add script**: write a new script, or add one from the library, from other people or from a file.
 
@@ -228,7 +229,7 @@ To open the editor, run `script edit <name>`, or tap **Edit** in a script's shee
 <Annotated
 	src={editor}
 	alt="The script editor: the file name and the find, help, save, run and close buttons at the top, numbered lines of code, and the symbol bar"
-	marks={[[11.1, 8.1], [47.4, 8.1], [59.1, 8.1], [70.7, 8.1], [82.6, 8.1], [94.3, 8.1], [3.4, 38.7], [11.7, 95.4], [70.0, 95.4]]}
+	marks={[[11.1, 7.8], [47.4, 7.8], [59.1, 7.8], [70.7, 7.8], [82.6, 7.8], [94.3, 7.8], [3.4, 38.7], [11.7, 95.3], [70.0, 95.3]]}
 >
 
 1. **File name**. It shows `*` while there are unsaved changes.

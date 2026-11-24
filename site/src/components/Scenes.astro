@@ -2,9 +2,8 @@
 /**
  * "A scene behind it" on the home page: four of the shaders that come with Kolahal, from renders of
  * them (assets/scenes/), each with its name and a sentence that the shaders page agrees with
- * (scripting/shaders.md and the shaders' headers). The second card is the scene the hero doesn't
- * show in the current theme: `pond` beside the light theme's mountains, `mountains` beside the dark
- * theme's pond.
+ * (scripting/shaders.md and the shaders' headers). The second card changes with the theme: `pond`
+ * in the light one and `mountains` in the dark one, each the scene the other theme's cover opens with.
  */
 import { Image } from 'astro:assets';
 import HomeSection from './HomeSection.astro';
@@ -69,7 +68,7 @@ const CARDS: Card[] = [
 	.sn-card.wide {
 		flex: 2 1 18.75rem;
 	}
-	/* The card of the scene the hero doesn't show in this theme. */
+	/* The card that changes with the theme. */
 	.for-light {
 		display: none;
 	}

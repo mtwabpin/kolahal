@@ -3,6 +3,7 @@
  * "Next steps" on the home page: one rounded row per place to go, its name and a line about it,
  * with an arrow at the end (↗ for another site). It reads on the page's ground and on a sheet.
  */
+import { external } from '../links';
 import { DIRECT_DOWNLOADS } from '../release';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -21,11 +22,11 @@ const ROWS: { name: string; text: string; href: string; external?: boolean }[] =
 	<ul>
 		{ROWS.map((r) => (
 			<li>
-				<a href={r.href}>
+				<a href={r.href} {...external(r.href)}>
 					<span class="name">{r.name}</span>
 					<span class="text">{r.text}</span>
 					<span class="go" aria-hidden="true">{r.external ? '↗' : '→'}</span>
-					{r.external && <span class="sr-only">(opens another site)</span>}
+					{r.external && <span class="sr-only">(opens in a new tab)</span>}
 				</a>
 			</li>
 		))}

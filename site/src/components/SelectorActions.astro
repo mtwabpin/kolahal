@@ -2,8 +2,8 @@
 /**
  * App actions while picking (`selector.actions`), drawn: the thumb slid off the edge onto
  * Chrome's row, with the setting off and with far-side. As in the app, the list has no card of its
- * own: it stands in the log's place, between the header and the prompt, with the log faded out. Always in the app's default "green"
- * palette, whatever the site theme, like the home screen demo; the phone's frame is the site's.
+ * own: it stands in the log's place, between the header and the prompt, with the log faded out. In
+ * the app's colors (--k-*, the rose-pine theme, dark or light with the site); the phone's frame is the site's.
  */
 ---
 
@@ -71,14 +71,8 @@
 </div>
 
 <style>
-	/* The app's default "green" palette (ui/theme/Theme.kt), whatever the site theme. */
+	/* The app's colors: --k-* (site.css), the rose-pine theme in the site's theme. */
 	.sa {
-		--k-bg: #0b0d0b;
-		--k-surface: #151915;
-		--k-fg: #d7ded3;
-		--k-dim: #7f8a7b;
-		--k-prompt: #8fd18a;
-		--k-work: #f2b35b;
 		display: flex;
 		flex-wrap: wrap;
 		gap: 1.5rem;
@@ -118,7 +112,7 @@
 	.faint { fill: var(--k-dim); opacity: 0.55; }
 	.prompt { fill: var(--k-prompt); font: 700 13px var(--s-font-mono); }
 	.row { fill: var(--k-dim); font-family: var(--s-font-mono); font-size: 12px; }
-	.focus { fill: rgba(143, 209, 138, 0.14); }
+	.focus { fill: color-mix(in srgb, var(--k-prompt) 14%, transparent); }
 	.focused { fill: var(--k-prompt); font-family: var(--s-font-mono); font-size: 12px; font-weight: 700; }
 	.actions { fill: var(--k-prompt); font-family: var(--s-font-mono); font-size: 10px; }
 	.strip { stroke: var(--k-dim); stroke-width: 4; stroke-linecap: round; }

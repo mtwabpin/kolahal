@@ -6,7 +6,10 @@
  */
 import { Image } from 'astro:assets';
 import HomeSection from './HomeSection.astro';
-import selectorPick from '../assets/parts/selector-pick.png';
+import { shot } from '../shots';
+
+/** The capture of the selector (CAPTURES.md), else the older one. */
+const selectorPick = shot('shots/home/selector.png', 'parts/selector-pick.png')!;
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 type Item = { title: string; text: string };
@@ -53,7 +56,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
 		<figure class="w-phone">
 			<Image
 				src={selectorPick}
-				alt="The app selector: the list of apps uses the screen between the header and the prompt, and the app at the thumb is magnified and filling"
+				alt="The app selector: the thumb on the edge at G, the list of apps over the log with the apps at G magnified, and the G bubble beside the thumb"
 				width={234}
 				densities={[1, 2]}
 			/>

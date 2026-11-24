@@ -1,9 +1,221 @@
 ---
 title: A tour of Kolahal
-description: "Seven parts of Kolahal on a phone, as the app draws them: typing, the app selector, answers, the log, widgets, scripts and themes."
-template: splash
+description: What Kolahal can do, part by part, in screenshots of the app, with a command to try for each part and the page of the guide that explains it.
 ---
 
-import Tour from '../../components/Tour.astro';
+import Shots from '../../components/Shots.astro';
 
-<Tour title={false} />
+Each part below is one thing Kolahal does, shown in screenshots of the app. Where there is a command
+to try, type it at the prompt. The link at the end of a part goes to the guide's page about it.
+
+## Opening apps by typing
+
+Type any part of an app's name. The best match sits at the bottom, nearest your thumb, and Enter
+opens it. When the letters fit only one app, it opens without Enter.
+
+<Shots
+	items={[
+		{ file: 'shots/typing/ma.png', alt: 'Typing ma at the prompt over the pond scene: the suggestions above it, with Maps highlighted at the bottom, and the keyboard', caption: '<code>ma</code>: Maps is the best match. Enter opens it.' },
+		{ file: 'shots/typing/home.png', alt: 'The home screen with the keyboard down: the header, the log and the prompt', caption: 'Tap empty space in the log to type.' },
+	]}
+/>
+
+Try `ma`, then Enter. More in [The prompt](/getting-started/basics/#the-prompt).
+
+## Suggestions
+
+An empty prompt offers your favorites and the apps you use most. Commands come up under other words
+too, and after a command come the words that can follow it.
+
+<Shots
+	items={[
+		{ file: 'shots/suggestions/empty.png', alt: 'An empty prompt with the keyboard up: the favorites Maps, Clock and Camera nearest it, and the most-used apps Files and Calendar above them', caption: 'Your favorites and the apps you use most.' },
+		{ file: 'shots/suggestions/flash.png', alt: 'Typing flash: the torch command among the suggestions, with its description', caption: '<code>flash</code> finds <code>torch</code>.' },
+		{ file: 'shots/suggestions/theme.png', alt: 'Typing theme and a space: the names of the themes, one row each', caption: 'After <code>theme</code>, the themes.' },
+	]}
+/>
+
+Try `flash`. More in [Suggestions](/getting-started/basics/#suggestions).
+
+## The app selector
+
+Slide a thumb along the edge of the screen. The list of apps moves with your thumb, and the app level
+with it is the one you get. Slide onto the list and lift to open it, or hold still until its row fills.
+Turn it on in **Settings → App selector**.
+
+<Shots
+	items={[
+		{ file: 'shots/selector/slide.png', alt: 'The thumb on the right edge at G: the list of apps over the log, the apps at G magnified, and the G bubble beside the thumb', caption: 'Slide along the edge to a letter.' },
+		{ file: 'shots/selector/slide-p.png', alt: 'The thumb further down the edge, at P: the list has moved with it, and Phone and Photos are magnified', caption: 'The list moves with your thumb.' },
+		{ file: 'shots/selector/pick.png', alt: 'Picking an app in the list: its row highlighted and magnified', caption: 'Slide onto the list and lift on an app.' },
+	]}
+/>
+
+More in [App selector](/getting-started/basics/#app-selector).
+
+## Commands and the log
+
+Sums and units start with `=`. Other commands answer in the same place, the log. Tap a line for its
+main action, swipe it right to copy it or left to delete it, and long-press it for all of its actions.
+`fresh` gives a clean screen. Nothing is deleted.
+
+<Shots
+	items={[
+		{ file: 'shots/log/answers.png', alt: 'The log with a sum and a conversion in large type, the todo list, a reminder that was set, and the time in Tokyo and Lisbon', caption: 'Answers in the log.' },
+		{ file: 'shots/log/actions.png', alt: 'The action sheet of a feed line: the line, when it arrived, run again, edit, show only commands, star, copy and delete', caption: 'Long-press a line for its actions.' },
+		{ file: 'shots/log/fresh.png', alt: 'A clean screen after fresh, with one line above the prompt: 12 earlier lines, tap to show', caption: '<code>fresh</code>: a clean screen.' },
+	]}
+/>
+
+Try `= 5 km in mi`, `date tokyo london` and `fresh`. More in [The log](/getting-started/basics/#the-log).
+
+## Scripts as commands
+
+A script in Lua or JavaScript can be a command. Ready-made scripts come with Kolahal, such as
+`weather` and `forecast`, and you can read and change any script in the editor on the phone.
+
+<Shots
+	items={[
+		{ file: 'shots/scripts/weather.png', alt: 'The weather script\'s answer in the log over the pond scene: Tokyo, 16 °C and moderate rain, humidity, wind and UV', caption: '<code>weather</code>' },
+		{ file: 'shots/scripts/forecast.png', alt: 'The forecast script\'s answer: three days, each with its low and its high', caption: '<code>forecast lisbon</code>' },
+		{ file: 'shots/scripts/editor.png', alt: 'The script editor on unlock-chart.lua: line numbers, colored Lua and the symbol bar', caption: 'The editor on the phone.' },
+	]}
+/>
+
+Try `weather tokyo`, or `forecast lisbon`. More in [Command scripts](/scripting/overview/#command-scripts) and [the library](/scripting/library/).
+
+## What a script may use
+
+You see what a script uses before you install it. Each thing a script uses, such as the internet or
+Do Not Disturb, has a switch of its own, and a script that never goes online gets no internet.
+
+<Shots
+	items={[
+		{ file: 'shots/access/library.png', alt: 'The library: a search box, chips for templates, widgets and commands, and each script with what it is, a code button and Install', caption: 'The library: read a script\'s code before you install it.' },
+		{ file: 'shots/access/switches.png', alt: 'The weather script\'s sheet: run, options, edit and share buttons, then Access with a switch for the internet and one for Pinned at the top', caption: 'A switch for each thing it uses.' },
+		{ file: 'shots/access/cards.png', alt: 'The script manager: a card for each script, with its file name, how it runs, a Run button and a switch', caption: 'The script manager.' },
+	]}
+/>
+
+Try `scripts`. More in [What a script may use](/scripting/overview/#what-a-script-may-use).
+
+## Timers, times and events
+
+A script can run at times of day, on a timer, or when something happens on the phone, such as
+plugging in the charger.
+
+<Shots
+	items={[
+		{ file: 'shots/schedule/times.png', alt: 'A script\'s sheet: Runs every, and Daily at 07:00 and 23:00', caption: 'At times of day, or every so often.' },
+		{ file: 'shots/schedule/charger.png', alt: 'A line from charge-reminder: unplugged at 62 %, with the charge added and the time it took, over a bar', caption: 'When the charger is unplugged.' },
+	]}
+/>
+
+Try `script every weather 30m`. More in [Running scripts](/scripting/overview/#running-scripts) and [Event triggers](/scripting/overview/#event-triggers).
+
+## A script's line at the top
+
+A script can keep one line of status. Pin it to the top of home: a script never pins itself. A line
+can carry a bar that shows how far along it is, and pinned lines take turns.
+
+<Shots
+	items={[
+		{ file: 'shots/pinning/pin.png', alt: 'The action sheet of the weather script\'s line, with Pin weather to the top', caption: 'Pin it from any line it wrote.' },
+		{ file: 'shots/pinning/pinned.png', standIn: 'terminal-feeds.png', alt: 'Home with a script\'s line pinned under the header', caption: 'The pinned line under the header.' },
+		{ file: 'shots/pinning/bar.png', alt: 'A pinned line with a bar under it: Focus, 2 min left', caption: 'A line with a bar.' },
+	]}
+/>
+
+Try `script pin weather`. More in [The pinned header](/getting-started/basics/#the-pinned-header) and [Status lines](/scripting/overview/#status-lines).
+
+## Widgets that scripts fill
+
+Scripts fill cards on a page beside home. A tap on a card runs its script again. You place a
+script's widget: it never places itself.
+
+<Shots
+	items={[
+		{ file: 'shots/widgets/page.png', alt: 'The widgets page: weather for Tokyo in Split, battery and world clocks in Bold, the forecast for Lisbon in Split, a habit streak in Shape, unlocks in Bold, todos in Split and a Water counter in Bold', caption: 'The widgets page, beside home.' },
+		{ file: 'shots/widgets/add.png', alt: 'The list of widgets to add, each with its kind and size', caption: 'Adding a widget with +.' },
+	]}
+/>
+
+Swipe sideways on home, or try `widget page`. More in [Widgets from scripts](/guides/widgets/#widgets-from-scripts).
+
+## A widget's options, size and look
+
+Long-press a card to arrange it. Each card has its own size, from 1×1 to 4×4, and its own look:
+Plain, Tonal, Bold, Split or Shape. A script's options set what it shows, such as a second weather
+card for another city.
+
+<Shots
+	items={[
+		{ file: 'shots/widget-options/arrange.png', alt: 'Arranging widgets: the Habit streak card chosen, and its toolbar with the Look row (Plain, Tonal, Bold, Split, Shape) and the Size row', caption: 'Long-press a card to arrange it.' },
+		{ file: 'shots/widget-options/looks.png', alt: 'The same world clocks card in three looks: Bold, with Tokyo’s time large; Split, in three tiles; and Shape, an analog clock in a scalloped shape', caption: 'One card, three looks.' },
+		{ file: 'shots/widget-options/options.png', alt: 'Two weather cards side by side, one for Tokyo and one for Paris', caption: 'A second card for another city.' },
+	]}
+/>
+
+More in [Arrange and resize](/guides/widgets/#arrange-and-resize) and [Looks](/guides/widgets/#looks).
+
+## Shaders
+
+A shader draws a scene behind home. Some move, some stand still, some answer your touch, and others
+change how the text looks. Some are drawn from your screen time and unlocks, which never leave the
+phone. Shaders need Android 13 or newer.
+
+<Shots
+	items={[
+		{ file: 'shots/shaders/list.png', alt: 'Settings, Shaders, searched for screen time: Record, Candle and Hourglass, each with what it draws, and chips for dark theme, light theme, wallpaper and still', caption: 'Settings → Shaders.' },
+		{ file: 'shots/shaders/lanterns.png', alt: 'Home over the lanterns scene, a lantern for each day\'s unlocks over dark water, with the week\'s unlocks in the log', caption: '<code>shader lanterns</code>: the week\'s unlocks.' },
+		{ file: 'shots/shaders/candle.png', alt: 'Home over the candle scene, a candle burning down with the day\'s screen time, with the day\'s screen time in the log', caption: '<code>shader candle</code>: today\'s screen time.' },
+	]}
+/>
+
+Try `shader mountains`, and `shader off` to turn it off. More in [Shaders](/scripting/shaders/).
+
+## A shader's parameters
+
+Some shaders have parameters, such as the number of birds over the mountains. Drag a slider and the
+preview follows. A parameter can also follow a value: the battery, the time, your screen time or
+unlocks, or a script's.
+
+<Shots
+	items={[
+		{ file: 'shots/shader-parameters/sliders.png', alt: 'The details of the mountains shader: its preview, what it draws, and a slider for the number of birds', caption: 'The birds of <code>mountains</code>.' },
+		{ file: 'shots/shader-parameters/follow.png', alt: 'The details of the candle shader: its preview, and its parameter following screen time, today against a usual day', caption: 'A parameter that follows your screen time.' },
+	]}
+/>
+
+Try `shader set snowfall amount 1.5`, or `shader follow dunes camels battery / 20`. More in [Turning a shader on](/scripting/shaders/#turning-a-shader-on) and [Values to follow](/scripting/shaders/#values-to-follow).
+
+## A shader as the live wallpaper
+
+A shader can be your phone's wallpaper, on the lock screen too, and behind the log as much as you
+like.
+
+<Shots
+	items={[
+		{ file: 'shots/wallpaper/preview.png', alt: 'Android\'s wallpaper preview with the pond scene: far hills with the glow of the sun behind them, and rings of rain on the water', caption: 'Android\'s preview.' },
+		{ file: 'shots/wallpaper/lock.png', standIn: 'scenes/pond.webp', alt: 'The lock screen with the pond scene behind the clock', caption: 'On the lock screen.' },
+		{ file: 'shots/wallpaper/log.png', alt: 'Home\'s log with the pond showing through it', caption: 'Behind the log.' },
+	]}
+/>
+
+Try `wallpaper shader pond`, then `config set log.wallpaper 60`. More in [As a live wallpaper](/scripting/shaders/#as-a-live-wallpaper).
+
+## And the TTY style
+
+One setting draws home on a character grid, like a terminal: one font size, whole lines, and the
+suggestions and the key bar on the grid too. Some commands then take the whole screen, such as `clock`,
+`matrix` and `top`.
+
+<Shots
+	items={[
+		{ file: 'shots/tty/home.png', alt: 'Home drawn on a character grid: the weather, a calendar for the month and the todo list', caption: 'Home on a grid.' },
+		{ file: 'shots/tty/clock.png', alt: 'The clock screen: the time in large block digits and the date under it', caption: '<code>clock</code>' },
+		{ file: 'shots/tty/matrix.png', alt: 'Characters falling down the screen in the theme\'s colors', caption: '<code>matrix</code>' },
+	]}
+/>
+
+Try `config set home.style tty`, and `config set home.style gui` to go back. More in [TTY home style](/reference/config/#tty-home-style).

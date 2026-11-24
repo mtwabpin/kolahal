@@ -1,26 +1,46 @@
 ---
 /**
  * Starlight Hero override: the top of the home page. A scene from the app's own shaders fills it,
- * behind the site's header, and fades into the page: `mountains` in the light theme, `pond` in the
- * dark one. Over it: the line about Kolahal, the title and tagline (the page's front matter), the
- * buttons, a note, and a still phone (ScenePhone). A spacer after the phone keeps the scene's sun
- * or moon in view beside it on a wide screen.
+ * behind the site's header, and fades into the page. Over it: the line about Kolahal, the title and
+ * tagline (the page's front matter), the buttons, a note, and a phone with Kolahal's home over the
+ * same scene.
+ *
+ * The cover: three scenes for each of the site's themes (COVERS), the same three shaders drawn in
+ * that theme. Every 7 seconds it fades to the next one, and the phone changes with it. Under the
+ * phone, the scene's name as the command that turns it on (`shader mountains`), each name a button
+ * that shows that scene; a pick by hand stops the changing.
+ * - Reduced motion: it doesn't change by itself, and a pick changes it at once.
+ * - Without JavaScript: the first scene of each theme, and no buttons.
+ * - The scenes after the first load once the page has loaded (`data-later`).
+ *
+ * The phone: the capture `shots/hero/<scene>-<light|dark>.png` (CAPTURES.md) in a phone's frame;
+ * until it is there, the drawn stand-in (ScenePhone).
  *
  * - The first button: the APK while the site offers it, else the test on Google Play (release.ts).
- *   Then the front matter's actions, then "Take the tour": down to the tour when the home page
- *   shows it, else its own page (home.ts).
+ *   Then the front matter's actions, then "Take the tour" (/tour/).
  * - Any other page with a hero (Starlight's 404) gets its title, tagline and actions only.
  * - On this page only, the header is see-through over the scene and fills in as the page scrolls
  *   (where the browser has scroll-driven animations; elsewhere it stays as it is). The rule is
  *   `:root:has(.s-hero) header.header`.
  */
-import { getImage } from 'astro:assets';
+import { getImage, Image } from 'astro:assets';
 import ScenePhone from './ScenePhone.astro';
 import SceneButton from './SceneButton.astro';
-import mountains from '../assets/scenes/mountains-wide.jpg';
-import pond from '../assets/scenes/pond-wide.jpg';
+import mountainsWide from '../assets/scenes/mountains-wide.jpg';
+import pondLightWide from '../assets/scenes/pond-light-wide.jpg';
+import dunesWide from '../assets/scenes/dunes-wide.jpg';
+import pondWide from '../assets/scenes/pond-wide.jpg';
+import mountainsDarkWide from '../assets/scenes/mountains-dark-wide.jpg';
+import dunesDarkWide from '../assets/scenes/dunes-dark-wide.jpg';
+import mountainsTall from '../assets/scenes/mountains.webp';
+import pondLightTall from '../assets/scenes/pond-light.webp';
+import dunesTall from '../assets/scenes/dunes.webp';
+import pondTall from '../assets/scenes/pond.webp';
+import mountainsDarkTall from '../assets/scenes/mountains-dark.webp';
+import dunesDarkTall from '../assets/scenes/dunes-dark.webp';
+import { asset } from '../shots';
 import { APK, DIRECT_DOWNLOADS, PLAY_APK, VERSION } from '../release';
-import { TOUR_ON_HOME } from '../home';
+import { external } from '../links';
 
 const { data, id } = Astro.locals.starlightRoute.entry;
 /** The home page (src/content/docs/index.mdx). */
@@ -31,20 +51,39 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? base + href : href);
 const VARIANT = { primary: 'filled', secondary: 'outline', minimal: 'plain' } as const;
 
-// The scene at two widths: the narrow one for phones.
-const scene = async (src: ImageMetadata, width: number) => (await getImage({ src, width, format: 'webp', quality: 80 })).src;
-const [lightWide, lightNarrow, darkWide, darkNarrow] = await Promise.all([
-	scene(mountains, 2560),
-	scene(mountains, 1280),
-	scene(pond, 2560),
-	scene(pond, 1280),
-]);
-const scenes = [
-	`--light-wide:url(${lightWide})`,
-	`--light-narrow:url(${lightNarrow})`,
-	`--dark-wide:url(${darkWide})`,
-	`--dark-narrow:url(${darkNarrow})`,
-].join(';');
+/**
+ * A cover scene: the shader's name, its wide render (the page's top) and tall one (the stand-in
+ * phone's screen), and where the wide one is anchored: `pos` keeps its sun or moon right of the
+ * headline and the phone on a wide screen, `narrow` past the right edge on a phone's, where the
+ * headline is as wide as the screen. Both themes have the same number of scenes: the buttons go
+ * by place.
+ */
+type Cover = { name: string; wide: ImageMetadata; tall: ImageMetadata; pos: string; narrow: string };
+const COVERS: Record<'light' | 'dark', Cover[]> = {
+	light: [
+		{ name: 'mountains', wide: mountainsWide, tall: mountainsTall, pos: '68% 100%', narrow: '66% 100%' },
+		{ name: 'pond', wide: pondLightWide, tall: pondLightTall, pos: '70% 100%', narrow: '66% 100%' },
+		{ name: 'dunes', wide: dunesWide, tall: dunesTall, pos: '40% 100%', narrow: '48% 100%' },
+	],
+	dark: [
+		{ name: 'pond', wide: pondWide, tall: pondTall, pos: '68% 100%', narrow: '66% 100%' },
+		{ name: 'mountains', wide: mountainsDarkWide, tall: mountainsDarkTall, pos: '68% 100%', narrow: '66% 100%' },
+		{ name: 'dunes', wide: dunesDarkWide, tall: dunesDarkTall, pos: '45% 100%', narrow: '54% 100%' },
+	],
+};
+const THEMES = ['light', 'dark'] as const;
+
+// Each scene at two widths: the narrow one for phones.
+const url = async (src: ImageMetadata, width: number) => (await getImage({ src, width, format: 'webp', quality: 80 })).src;
+const layers = await Promise.all(
+	THEMES.flatMap((theme) =>
+		COVERS[theme].map(async (c, i) => ({
+			theme,
+			i,
+			style: `--wide:url(${await url(c.wide, 2560)});--narrow:url(${await url(c.wide, 1280)});--pos:${c.pos};--npos:${c.narrow}`,
+		}))
+	)
+);
 ---
 
 {!home && (
@@ -60,8 +99,12 @@ const scenes = [
 		)}
 	</div>
 )}
-{home && <div class="s-hero">
-	<div class="s-scene" style={scenes} aria-hidden="true"></div>
+{home && <div class="s-hero" data-cover>
+	<div class="s-scene" aria-hidden="true">
+		{layers.map((l) => (
+			<div class:list={['s-layer', `for-${l.theme}`, { on: l.i === 0 }]} data-i={l.i} data-later={l.i > 0 ? '' : undefined} style={l.style} />
+		))}
+	</div>
 	<div class="s-row">
 		<div class="s-copy">
 			<p class="s-kicker">A touch and type optimized launcher for Android</p>
@@ -76,22 +119,94 @@ const scenes = [
 				{actions.map(({ link, text, variant }) => (
 					<SceneButton href={withBase(link)} variant={VARIANT[variant ?? 'secondary']}>{text}</SceneButton>
 				))}
-				<SceneButton href={TOUR_ON_HOME ? '#tour' : withBase('/tour/')} variant="plain">Take the tour</SceneButton>
+				<SceneButton href={withBase('/tour/')} variant="plain">Take the tour</SceneButton>
 			</div>
 			{DIRECT_DOWNLOADS ? (
 				<p class="s-note">
-					Kolahal {VERSION} · Android 9 or newer · the <a href={PLAY_APK}>Play build</a> if Play Protect blocks this one
+					Kolahal {VERSION} · Android 9 or newer · the <a href={PLAY_APK} {...external(PLAY_APK)}>Play build</a> if Play Protect blocks this one
 				</p>
 			) : (
 				<p class="s-note">Kolahal {VERSION} · Android 9 or newer · in alpha testing on Google Play</p>
 			)}
 		</div>
 		<div class="s-phone">
-			<ScenePhone />
+			<div class="s-slots">
+				{THEMES.flatMap((theme) =>
+					COVERS[theme].map((c, i) => {
+						const capture = asset(`shots/hero/${c.name}-${theme}.png`);
+						return (
+							<div class:list={['s-slot', `for-${theme}`, { on: i === 0 }]} data-i={i}>
+								{capture ? (
+									<figure class="s-frame">
+										<Image src={capture} alt={`Kolahal's home screen over the ${c.name} scene`} width={280} densities={[1, 2]} />
+									</figure>
+								) : (
+									<ScenePhone scene={c.tall} name={c.name} light={theme === 'light'} />
+								)}
+							</div>
+						);
+					})
+				)}
+			</div>
+			{THEMES.map((theme) => (
+				<div class:list={['s-pick', `for-${theme}`]} role="group" aria-label="Scene behind this page" hidden>
+					<span class="s-cmd" aria-hidden="true">shader</span>
+					{COVERS[theme].map((c, i) => (
+						<button type="button" data-pick={i} aria-pressed={i === 0 ? 'true' : 'false'}>{c.name}</button>
+					))}
+				</div>
+			))}
 		</div>
 		<div class="s-spacer" aria-hidden="true"></div>
 	</div>
 </div>}
+
+<script>
+	/*
+	 * The cover's scenes: every 7 seconds the next, unless the reader asked for reduced motion or
+	 * picked one. Both themes' scenes change together, by place, so a switch of theme keeps it.
+	 */
+	const hero = document.querySelector<HTMLElement>('[data-cover]');
+	if (hero) {
+		const parts = hero.querySelectorAll<HTMLElement>('.s-layer, .s-slot');
+		const buttons = hero.querySelectorAll<HTMLButtonElement>('[data-pick]');
+		const count = hero.querySelectorAll('.s-layer.for-dark').length;
+		const still = matchMedia('(prefers-reduced-motion: reduce)');
+		let current = 0;
+		let timer: number | undefined;
+
+		const loadAll = () => hero.querySelectorAll('[data-later]').forEach((el) => el.removeAttribute('data-later'));
+		const show = (k: number) => {
+			current = k;
+			loadAll();
+			parts.forEach((el) => el.classList.toggle('on', Number(el.dataset.i) === k));
+			buttons.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.pick) === k)));
+		};
+		const stop = () => {
+			clearInterval(timer);
+			timer = undefined;
+		};
+		const run = () => {
+			stop();
+			if (!still.matches && !document.hidden) timer = window.setInterval(() => show((current + 1) % count), 7000);
+		};
+		let picked = false;
+
+		hero.querySelectorAll<HTMLElement>('.s-pick').forEach((p) => (p.hidden = false));
+		buttons.forEach((b) =>
+			b.addEventListener('click', () => {
+				picked = true;
+				stop();
+				show(Number(b.dataset.pick));
+			})
+		);
+		document.addEventListener('visibilitychange', () => (picked || document.hidden ? stop() : run()));
+		still.addEventListener('change', () => (picked ? stop() : run()));
+		if (document.readyState === 'complete') loadAll();
+		else addEventListener('load', loadAll, { once: true });
+		run();
+	}
+</script>
 
 <style>
 	.s-plain {
@@ -111,41 +226,69 @@ const scenes = [
 		color: var(--s-ink);
 		font-family: var(--s-font-text);
 	}
+	/* What belongs to the other theme is not drawn (nor are its pictures loaded). */
+	:global(:root[data-theme='light']) .for-dark,
+	:global(:root:not([data-theme='light'])) .for-light {
+		display: none !important;
+	}
 	/*
-	 * The scene: from the top of the page (behind the header) to the hero's end, as wide as the
-	 * window, fading into the page's color at the bottom. It stays behind the content.
+	 * The scene: from above the top of the page (behind the header, a banner) to the hero's end, as
+	 * wide as the window, fading into the page's color at the bottom. It stays behind the content.
+	 * Its layers lie on each other; the current one is opaque.
 	 */
 	.s-scene {
-		--scene: var(--dark-wide);
 		position: absolute;
 		z-index: -1;
-		/*
-		 * From above the top of the page, whatever is over the hero (the header, a banner), to the
-		 * hero's end. The scene keeps to its bottom, and its sun or moon (at about 82 % across) to the
-		 * right of the phone.
-		 */
 		top: -12rem;
 		bottom: 0;
 		left: calc(50% - 50vw);
 		width: 100vw;
+		background: var(--s-ground);
+	}
+	/*
+	 * Over the layers: the fade into the page at the bottom, and a wash of the page's color behind
+	 * the words, so they keep 4.5:1 over the darkest (or, in the dark theme, the lightest) part of
+	 * every scene; the scene stays clear on the right, where the phone and the sun or moon are.
+	 */
+	.s-scene::after {
+		--wash: color-mix(in srgb, var(--s-ground) var(--wash-strength, 56%), transparent);
+		content: '';
+		position: absolute;
+		inset: 0;
 		background:
 			linear-gradient(to bottom, transparent 62%, var(--s-ground)),
-			var(--scene) 68% 100% / cover no-repeat,
-			var(--s-ground);
+			linear-gradient(to right, var(--wash) 0%, var(--wash) 46%, transparent 72%);
 	}
-	:global(:root[data-theme='light']) .s-scene {
-		--scene: var(--light-wide);
+	.s-layer {
+		--scene: var(--wide);
+		position: absolute;
+		inset: 0;
+		background: var(--scene) var(--pos) / cover no-repeat;
+		opacity: 0;
+		transition: opacity 1.6s ease-in-out;
+	}
+	.s-layer[data-later] {
+		background-image: none;
+	}
+	.s-layer.on {
+		opacity: 1;
 	}
 	/* On a phone the scene is behind the text, and the phone under it stands on the page. */
 	@media (max-width: 50rem) {
 		.s-scene {
-			--scene: var(--dark-narrow);
 			bottom: auto;
 			height: calc(12rem + 40rem);
-			background-position: 0 0, 80% 100%, 0 0;
 		}
-		:global(:root[data-theme='light']) .s-scene {
-			--scene: var(--light-narrow);
+		.s-layer {
+			--scene: var(--narrow);
+			background-position: var(--npos);
+		}
+		/* The words span the screen: the wash too, lighter, down to where the phone begins. */
+		.s-scene::after {
+			--wash-strength: 28%;
+			background:
+				linear-gradient(to bottom, transparent 62%, var(--s-ground)),
+				linear-gradient(var(--wash) 0%, var(--wash) 85%, transparent);
 		}
 	}
 	/* The scene is as wide as the window, and nothing scrolls sideways for it. */
@@ -226,13 +369,110 @@ const scenes = [
 		color: inherit;
 		text-underline-offset: 0.2em;
 	}
+
 	.s-phone {
 		flex: 0 1 17.5rem;
 		margin: 0 auto;
 		display: flex;
-		justify-content: center;
+		flex-direction: column;
+		align-items: center;
+		gap: 1.25rem;
 		max-width: 100%;
 	}
+	/* The phones lie on each other; the current one is shown. */
+	.s-slots {
+		display: grid;
+		width: 17.5rem;
+		max-width: 100%;
+	}
+	.s-slot {
+		grid-area: 1 / 1;
+		display: flex;
+		justify-content: center;
+		opacity: 0;
+		visibility: hidden;
+		transition:
+			opacity 1.6s ease-in-out,
+			visibility 0s linear 1.6s;
+	}
+	.s-slot.on {
+		opacity: 1;
+		visibility: visible;
+		transition: opacity 1.6s ease-in-out;
+	}
+	/* A capture in a phone's frame, as the home page's other pictures of the app. */
+	.s-frame {
+		width: 100%;
+		margin: 0;
+		box-sizing: border-box;
+		padding: 0.5rem;
+		border-radius: 2.25rem;
+		border: 1px solid var(--s-phone-edge);
+		background: var(--s-phone);
+		box-shadow: 0 36px 70px -28px var(--frame-shadow, rgb(0 0 0 / 0.8));
+	}
+	:global(:root[data-theme='light']) .s-frame {
+		--frame-shadow: color-mix(in srgb, var(--s-ink) 60%, transparent);
+	}
+	.s-frame :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: 1.75rem;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.s-layer,
+		.s-slot,
+		.s-slot.on {
+			transition: none;
+		}
+	}
+
+	/* The scene's command, each name a button: small, on a quiet plate so it reads over any scene. */
+	.s-pick {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		padding: 0 0.375rem;
+		border-radius: var(--s-radius-m);
+		background: color-mix(in srgb, var(--s-ground) 82%, transparent);
+		font-family: var(--s-font-mono);
+		font-size: 0.875rem;
+	}
+	.s-pick[hidden] {
+		display: none;
+	}
+	.s-cmd {
+		padding: 0 0.375rem;
+		color: var(--s-muted);
+	}
+	.s-pick button {
+		min-height: 2.75rem;
+		padding: 0 0.5rem;
+		border: 0;
+		background: none;
+		font: inherit;
+		color: var(--s-muted);
+		text-decoration: none;
+		cursor: pointer;
+	}
+	.s-pick button:hover {
+		color: var(--s-ink);
+	}
+	.s-pick button[aria-pressed='true'] {
+		color: var(--s-ink);
+		font-weight: 700;
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
+		text-underline-offset: 0.35em;
+	}
+	.s-pick button:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: -2px;
+		border-radius: var(--s-radius-s);
+	}
+
 	/* Room for the scene's sun or moon beside the phone. */
 	.s-spacer {
 		flex: 0 1 6.25rem;

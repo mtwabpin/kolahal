@@ -1,24 +1,25 @@
 ---
 /**
- * A still phone for the home page's hero: Kolahal's home with a shader behind the log, `pond` in
- * the site's light theme and `lanterns` in the dark one (renders of the app's shaders, in
- * assets/scenes/). It is drawn as Tour.astro draws its phone, so the two agree: the same
- * proportions, a screen 360 dp across, and the app's sizes in dp (14 sp text, 22 dp log lines with
- * the 2 dp bar, 5 dp between groups, the 40 dp prompt; ui/home/LogView.kt, Prompt.kt,
- * TerminalHeader.kt). The keyboard is down, as it is when you look at a scene, so the prompt has no caret.
+ * The stand-in for the hero's phone until its capture is there (CAPTURES.md, shots/hero/): Kolahal's
+ * home over a scene, drawn in HTML. Props: `scene`, a tall render of the shader (assets/scenes/);
+ * `name`, the shader's name, which the last command turned on; `light`, whether the app is in the
+ * light version of its theme.
  *
- * Both scenes are dark, so the phone is in the dark version of the default theme, green
- * (ui/theme/Theme.kt), in both of the site's themes. The last command is the shader on the screen.
+ * It is drawn from the app's code: a screen 360 dp across, and the app's sizes in dp (14 sp text,
+ * 22 dp log lines with the 2 dp bar, 5 dp between groups, the 40 dp prompt; ui/home/LogView.kt,
+ * Prompt.kt, TerminalHeader.kt). The keyboard is down, as it is when you look at a scene, so the
+ * prompt has no caret. The colors are the app's rose-pine theme (ui/theme/Theme.kt, Palettes.rosePine
+ * and rosePineLight).
  */
 import { getImage } from 'astro:assets';
-import pond from '../assets/scenes/pond.webp';
-import lanterns from '../assets/scenes/lanterns.webp';
 
-const [pondImg, lanternsImg] = await Promise.all([
-	getImage({ src: pond, width: 720, format: 'webp' }),
-	getImage({ src: lanterns, width: 720, format: 'webp' }),
-]);
-const scenes = `--scene-light:url(${pondImg.src});--scene-dark:url(${lanternsImg.src})`;
+interface Props {
+	scene: ImageMetadata;
+	name: string;
+	light?: boolean;
+}
+const { scene, name, light = false } = Astro.props;
+const sceneImg = await getImage({ src: scene, width: 720, format: 'webp' });
 
 /** A log group: the command, its time (on a group's first line), and its output. */
 type Group = { cmd: string; time: string; out: string[]; stat?: [string, string] };
@@ -26,12 +27,13 @@ const GROUPS: Group[] = [
 	{ cmd: 'ma', time: '4:07', out: ['<span class="i">Launched Maps</span>'] },
 	{ cmd: '= 5 km in mi', time: '4:07', out: [], stat: ['3.1069 mi', '5 km'] },
 	{ cmd: 'remind 6pm call home', time: '4:08', out: ['Reminder set: call home', '<span class="d">6:00 PM, in 1h 52m</span>'] },
+	{ cmd: `shader ${name}`, time: '4:08', out: [`Shader: ${name}`, `<span class="d">'shader off' turns it off</span>`] },
 ];
-const LAST = (name: string): Group => ({ cmd: `shader ${name}`, time: '4:08', out: [`Shader: ${name}`, `<span class="d">'shader off' turns it off</span>`] });
 ---
 
-<div class="sp-phone" style={scenes}>
-	<div class="sp-screen" role="img" aria-label="Kolahal's home screen over a scene: a few commands and their answers in the log, and the prompt">
+
+<div class:list={['sp-phone', { light }]} style={`--scene:url(${sceneImg.src})`}>
+	<div class="sp-screen" role="img" aria-label={`Kolahal's home screen over the ${name} scene: a few commands and their answers in the log, and the prompt`}>
 		<div class="sp-sbar" aria-hidden="true">
 			<span class="sp-side"><b>4:08 PM</b><span class="d">Wed 4 Nov</span></span>
 			<span class="sp-side">
@@ -44,8 +46,8 @@ const LAST = (name: string): Group => ({ cmd: `shader ${name}`, time: '4:08', ou
 		</div>
 		<div class="sp-log" aria-hidden="true">
 			{
-				[...GROUPS, LAST('pond'), LAST('lanterns')].map((g, i) => (
-					<div class:list={['sp-g', { dim: i < GROUPS.length, 'for-light': g.cmd === 'shader pond', 'for-dark': g.cmd === 'shader lanterns' }]}>
+				GROUPS.map((g, i) => (
+					<div class:list={['sp-g', { dim: i < GROUPS.length - 1 }]}>
 						<div class="sp-ln">
 							<span>
 								<b class="ps">$</b> <b>{g.cmd}</b>
@@ -73,7 +75,7 @@ const LAST = (name: string): Group => ({ cmd: `shader ${name}`, time: '4:08', ou
 </div>
 
 <style>
-	/* The frame, as the tour's phone: 0.465 as wide as tall, the screen inside a 2.6 % rim. */
+	/* The frame: 0.465 as wide as tall, the screen inside a 2.6 % rim. */
 	.sp-phone {
 		--pw: 17.5rem;
 		/* The shadow under a phone (no token yet). */
@@ -93,20 +95,20 @@ const LAST = (name: string): Group => ({ cmd: `shader ${name}`, time: '4:08', ou
 		--phone-shadow: color-mix(in srgb, var(--s-ink) 60%, transparent);
 	}
 	.sp-screen {
-		/* One dp: the screen is 360 dp across. The app's green theme, dark (Theme.kt Palettes.green). */
+		/* One dp: the screen is 360 dp across. The app's rose-pine theme, dark (Palettes.rosePine). */
 		--dp: calc(100cqw / 360);
-		--bg: #0b0d0b;
-		--fg: #d7ded3;
-		--dim: #7f8a7b;
-		--accent: #8fd18a;
-		--info: #9db8a0;
+		--bg: #191724;
+		--fg: #e0def4;
+		--dim: #908caa;
+		--accent: #ebbcba;
+		--info: #9ccfd8;
 		height: 100%;
 		box-sizing: border-box;
 		border-radius: calc(var(--pw) * 0.064);
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		background: var(--bg) var(--scene-dark) center / cover no-repeat;
+		background: var(--bg) var(--scene) center / cover no-repeat;
 		color: var(--fg);
 		font-family: var(--s-font-mono);
 		font-size: calc(14 * var(--dp));
@@ -115,8 +117,13 @@ const LAST = (name: string): Group => ({ cmd: `shader ${name}`, time: '4:08', ou
 		text-align: start;
 		user-select: none;
 	}
-	:global(:root[data-theme='light']) .sp-screen {
-		background-image: var(--scene-light);
+	/* Rosé Pine Dawn (Palettes.rosePineLight), over a scene drawn in the light theme. */
+	.light .sp-screen {
+		--bg: #faf4ed;
+		--fg: #464261;
+		--dim: #6f6b89;
+		--accent: #9c5e5b;
+		--info: #45767f;
 	}
 	.sp-screen svg {
 		flex: none;
@@ -193,15 +200,6 @@ const LAST = (name: string): Group => ({ cmd: `shader ${name}`, time: '4:08', ou
 	}
 	.sp-g.dim {
 		opacity: 0.62;
-	}
-	.for-light {
-		display: none;
-	}
-	:global(:root[data-theme='light']) .for-light {
-		display: block;
-	}
-	:global(:root[data-theme='light']) .for-dark {
-		display: none;
 	}
 	/* Lines are at least 22 dp, with the 2 dp bar in the accent at 45 % and 10 dp after it. */
 	.sp-ln,

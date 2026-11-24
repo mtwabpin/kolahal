@@ -1,0 +1,183 @@
+---
+/**
+ * The gallery's viewer: a picture of the page's galleries (Gallery.astro) opens larger in a dialog,
+ * with its caption, a link to its place in the guide, and buttons for the picture before and after.
+ * Once on a page, after its galleries. Without JavaScript a picture's link opens the picture itself.
+ *
+ * Keys: Escape closes it (the platform's own dialog), Left and Right go to the picture before and
+ * after. Focus goes to the dialog's close button and comes back to the picture when it closes. A
+ * click outside the picture closes it.
+ */
+---
+
+<dialog class="g-viewer not-content" aria-labelledby="g-viewer-cap">
+	<div class="g-body">
+		<img class="g-img" alt="" />
+		<div class="g-bar">
+			<p class="g-text">
+				<span id="g-viewer-cap" class="g-title"></span>
+				<a class="g-where" href="#"></a>
+			</p>
+			<div class="g-buttons">
+				<button type="button" class="g-prev" aria-label="Previous picture">
+					<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
+				</button>
+				<button type="button" class="g-next" aria-label="Next picture">
+					<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg>
+				</button>
+				<form method="dialog">
+					<button class="g-close" aria-label="Close" autofocus>
+						<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+</dialog>
+
+<script>
+	const dialog = document.querySelector<HTMLDialogElement>('dialog.g-viewer');
+	const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-gallery] a.g-open')];
+	if (dialog && links.length) {
+		const img = dialog.querySelector<HTMLImageElement>('.g-img')!;
+		const title = dialog.querySelector<HTMLElement>('.g-title')!;
+		const where = dialog.querySelector<HTMLAnchorElement>('.g-where')!;
+		let index = 0;
+		let opener: HTMLElement | null = null;
+
+		const show = (i: number) => {
+			index = (i + links.length) % links.length;
+			const a = links[index];
+			img.src = a.href;
+			img.alt = a.querySelector('img')?.alt ?? '';
+			title.textContent = a.dataset.caption ?? '';
+			where.href = a.dataset.guide ?? '#';
+			where.textContent = `In the guide: ${a.dataset.page ?? ''}`;
+		};
+		links.forEach((a, i) =>
+			a.addEventListener('click', (e) => {
+				if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+				e.preventDefault();
+				opener = a;
+				show(i);
+				dialog.showModal();
+			})
+		);
+		dialog.querySelector('.g-prev')!.addEventListener('click', () => show(index - 1));
+		dialog.querySelector('.g-next')!.addEventListener('click', () => show(index + 1));
+		dialog.addEventListener('keydown', (e) => {
+			if (e.key === 'ArrowLeft') show(index - 1);
+			else if (e.key === 'ArrowRight') show(index + 1);
+			else return;
+			e.preventDefault();
+		});
+		// A click on the backdrop (the dialog itself, outside its content) closes it.
+		dialog.addEventListener('click', (e) => {
+			if (e.target === dialog) dialog.close();
+		});
+		dialog.addEventListener('close', () => {
+			// Back to the picture last shown, so the page is where the reader left the dialog.
+			(links[index] ?? opener)?.focus();
+			img.removeAttribute('src');
+		});
+	}
+</script>
+
+<style>
+	.g-viewer {
+		margin: auto;
+		width: min(100vw - 2rem, 70rem);
+		max-width: none;
+		max-height: calc(100dvh - 2rem);
+		padding: 0;
+		border: 1px solid var(--s-rule);
+		border-radius: var(--s-radius-l);
+		background: var(--s-sheet);
+		color: var(--s-ink-soft);
+		overflow: hidden;
+	}
+	.g-viewer::backdrop {
+		background: color-mix(in srgb, var(--s-ground) 86%, transparent);
+	}
+	.g-body {
+		display: flex;
+		flex-direction: column;
+		max-height: calc(100dvh - 2rem);
+	}
+	.g-img {
+		display: block;
+		min-height: 0;
+		flex: 1 1 auto;
+		width: 100%;
+		max-height: calc(100dvh - 8rem);
+		object-fit: contain;
+		padding: 1rem 1rem 0;
+		box-sizing: border-box;
+	}
+	.g-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 1rem;
+		padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+	}
+	.g-text {
+		margin: 0;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0 1rem;
+		font-size: var(--sl-text-sm);
+	}
+	.g-title {
+		color: var(--s-ink);
+		font-weight: 600;
+	}
+	.g-where {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.75rem;
+		color: var(--s-link);
+		text-underline-offset: 0.2em;
+	}
+	.g-where:hover {
+		color: var(--s-link-hover);
+	}
+	.g-buttons {
+		display: flex;
+		flex: none;
+	}
+	.g-buttons form {
+		display: contents;
+	}
+	.g-viewer button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		padding: 0;
+		border: 0;
+		border-radius: var(--s-radius-m);
+		background: none;
+		color: var(--s-ink);
+		cursor: pointer;
+	}
+	.g-viewer button:hover {
+		background: var(--s-wash);
+	}
+	.g-viewer button:focus-visible,
+	.g-where:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: 2px;
+	}
+	.g-viewer svg {
+		width: 1.375rem;
+		height: 1.375rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+</style>

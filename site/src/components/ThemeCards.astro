@@ -1,106 +1,456 @@
 ---
 /**
- * The built-in themes, each in its dark and light version, with the colors from the app
- * (ui/theme/Theme.kt, Palettes). Each half draws a few log lines in that palette.
- * - `note` is a word or two after the theme's command.
+ * The built-in themes on the home page, each in its dark and light version, with the colors from the
+ * app (ui/theme/Theme.kt, Palettes), as src/data/themes.json has them (tools/export-themes.mjs makes it
+ * from the app's sources).
+ *
+ * Each half is a piece of home in that palette: a few commands and their answers as the log draws
+ * them (ui/home/LogView.kt: the bar beside each line in the accent at 45 %, the script color beside a
+ * script's lines and the error color beside an error; the time in the muted color; a profile's tag
+ * bold in its color). Under each half, a row of dots: that version's colors in the theme builder's
+ * order (ui/settings/ThemeBuilder.kt), the same on every card so they compare down the page.
+ *
+ * - A dot says its name and value to a screen reader, and on hover. A row of dots takes focus (and a
+ *   tap): it then lists every color with its value over the sample.
+ * - A dot gets a ring in the site's rule color where it is close to the card under it, in the site's
+ *   dark or light theme (under 1.8:1 against --s-sheet, read from tokens.css).
+ * - `NOTES` has a word or two after a theme's command.
  * - material-you takes its colors from the phone's wallpaper. It is drawn here in Material's
  *   standard colors, which Android 9 to 11 show (ui/theme/MaterialYouPalettes.kt).
  */
-type P = { bg: string; fg: string; dim: string; prompt: string; info: string; link: string };
-const p = (bg: string, fg: string, dim: string, prompt: string, info: string, link: string): P => ({ bg, fg, dim, prompt, info, link });
+import data from '../data/themes.json';
+import tokens from '../styles/tokens.css?raw';
 
-const THEMES: { name: string; dark: P; light: P; note?: string }[] = [
-	{ name: 'green', note: 'default', dark: p('#0B0D0B', '#D7DED3', '#7F8A7B', '#8FD18A', '#9DB8A0', '#7FB8F0'), light: p('#F3F7F1', '#1E2A1D', '#5B6957', '#2F7D32', '#4B6B4E', '#1D63A8') },
-	{ name: 'amber', dark: p('#0E0A05', '#FFCC80', '#A08256', '#FFB000', '#D9A25F', '#FFE0A3'), light: p('#FFF7E8', '#3D2A0C', '#7E6136', '#A05F00', '#8A5E22', '#7A4B00') },
-	{ name: 'mono', dark: p('#000000', '#E6E6E6', '#8C8C8C', '#FFFFFF', '#B0B0B0', '#CCCCCC'), light: p('#FFFFFF', '#141414', '#5E5E5E', '#000000', '#4A4A4A', '#2B2B2B') },
-	{ name: 'dracula', dark: p('#282A36', '#F8F8F2', '#8A93C2', '#50FA7B', '#8BE9FD', '#8BE9FD'), light: p('#FFFBEB', '#1F1F1F', '#635D97', '#14710A', '#036A96', '#036A96') },
-	{ name: 'solarized', dark: p('#002B36', '#93A1A1', '#7A9097', '#859900', '#2AA198', '#268BD2'), light: p('#FDF6E3', '#3D525A', '#657B83', '#6F8000', '#1A847C', '#1F76B5') },
-	{ name: 'gruvbox', dark: p('#282828', '#EBDBB2', '#A89984', '#B8BB26', '#8EC07C', '#83A598'), light: p('#FBF1C7', '#3C3836', '#7C6F64', '#79740E', '#427B58', '#076678') },
-	{ name: 'gruvbox-material', dark: p('#292828', '#D4BE98', '#A89984', '#A9B665', '#89B482', '#7DAEA3'), light: p('#FBF1C7', '#654735', '#7C6F64', '#6C782E', '#4C7A5D', '#45707A') },
-	{ name: 'nord', dark: p('#2E3440', '#D8DEE9', '#929AAA', '#88C0D0', '#8FBCBB', '#81A1C1'), light: p('#ECEFF4', '#2E3440', '#616E88', '#357587', '#467473', '#4A7095') },
-	{ name: 'rose-pine', dark: p('#191724', '#E0DEF4', '#908CAA', '#EBBCBA', '#9CCFD8', '#9CCFD8'), light: p('#FAF4ED', '#464261', '#6F6B89', '#9C5E5B', '#45767F', '#45767F') },
-	{ name: 'material-you', note: 'your wallpaper\'s colors', dark: p('#141218', '#E6E0E9', '#938F99', '#D0BCFF', '#CCC2DC', '#EFB8C8'), light: p('#FEF7FF', '#1D1B20', '#79747E', '#6750A4', '#625B71', '#7D5260') },
+type Palette = Record<string, string>;
+
+/** The dots: the theme builder's order, without surface, muted text, info and personal apps. */
+const DOTS: [role: string, name: string][] = [
+	['background', 'Background'],
+	['text', 'Text'],
+	['accent', 'Accent'],
+	['link', 'Links'],
+	['script', 'Script output'],
+	['error', 'Errors'],
+	['good', 'Good'],
+	['warn', 'Warning'],
+	['work', 'Work apps'],
+	['private', 'Private space'],
 ];
-const vars = (c: P) => `--t-bg:${c.bg};--t-fg:${c.fg};--t-dim:${c.dim};--t-prompt:${c.prompt};--t-info:${c.info};--t-link:${c.link}`;
+
+const NOTES: Record<string, string> = { [data.default]: 'default', 'material-you': "your wallpaper's colors" };
+
+/** The card's color in the site's dark theme (:root) and light theme, from tokens.css. */
+const sheets = [...tokens.matchAll(/--s-sheet:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]);
+const [sheetDark, sheetLight] = sheets;
+
+const lum = (hex: string) => {
+	const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+	return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrast = (a: string, b: string) => {
+	const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+	return (x + 0.05) / (y + 0.05);
+};
+const NEAR = 1.8;
+const ringClass = (hex: string) => ({ 'near-dark': contrast(hex, sheetDark) < NEAR, 'near-light': contrast(hex, sheetLight) < NEAR });
+
+const vars = (c: Palette) =>
+	[
+		['bg', c.background],
+		['fg', c.text],
+		['dim', c.muted],
+		['accent', c.accent],
+		['info', c.info],
+		['link', c.link],
+		['script', c.script],
+		['error', c.error],
+		['good', c.good],
+		['warn', c.warn],
+		['work', c.work],
+		['private', c.private],
+	]
+		.map(([k, v]) => `--t-${k}:${v}`)
+		.join(';');
+
+const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; light: Palette }>).map(([name, t]) => ({
+	name,
+	note: NOTES[name],
+	versions: [
+		{ key: 'dark', label: 'Dark', c: t.dark },
+		{ key: 'light', label: 'Light', c: t.light },
+	],
+}));
 ---
 
+<p class="legend not-content">
+	The dots under each half are that version's colors, from the left: background, text, accent, links, script output,
+	errors, good, warning, work apps and private space.
+</p>
 <ul class="themes not-content">
-	{THEMES.map((t) => (
-		<li>
-			<div class="pair" aria-hidden="true">
-				{[t.dark, t.light].map((c) => (
-					<div class="half" style={vars(c)}>
-						<div><b class="p">$ </b><b>open maps</b></div>
-						<div class="i">Launched Maps</div>
-						<div><span class="l">3 comments</span> <span class="tag">on</span></div>
+	{
+		THEMES.map((t) => (
+			<li class="card">
+				<p class="name">
+					<code>theme {t.name}</code>
+					{t.note && <span class="note">{t.note}</span>}
+				</p>
+				<div class="view">
+					<div class="pair" aria-hidden="true">
+						{t.versions.map((v) => (
+							<div class="half" style={vars(v.c)}>
+								<div class="g">
+									<div class="ln">
+										<span><b class="p">$</b> <b>slack</b></span>
+										<span class="tm">9:41</span>
+									</div>
+									<div class="ln i">
+										<span>Launched Slack <b class="tag w">[W]</b></span>
+									</div>
+								</div>
+								<div class="g">
+									<div class="ln">
+										<span><b class="p">$</b> <b>bank</b></span>
+										<span class="tm">9:42</span>
+									</div>
+									<div class="ln i">
+										<span>Launched Bank <b class="tag s">[S]</b></span>
+									</div>
+								</div>
+								<div class="g">
+									<div class="ln">
+										<span><b class="p">$</b> <b>crypto</b></span>
+										<span class="tm">9:44</span>
+									</div>
+									<div class="ln sc">
+										<span><span class="l">BTC</span> 64,210 <span class="ok">▲ 2.1%</span></span>
+									</div>
+								</div>
+								<div class="g">
+									<div class="ln">
+										<span><b class="p">$</b> <b>aqi lisbon</b></span>
+										<span class="tm">9:45</span>
+									</div>
+									<div class="ln sc">
+										<span>PM2.5 61 <span class="wn">Moderate</span></span>
+									</div>
+								</div>
+								<div class="g">
+									<div class="ln">
+										<span><b class="p">$</b> <b>open mpas</b></span>
+										<span class="tm">9:46</span>
+									</div>
+									<div class="ln er">
+										<span>No app matches 'mpas'</span>
+									</div>
+								</div>
+							</div>
+						))}
 					</div>
-				))}
-			</div>
-			<code>theme {t.name}</code>{t.note && <span class="default"> {t.note}</span>}
-		</li>
-	))}
+					{t.versions.map((v) => (
+						<div class:list={['panel', v.key]} aria-hidden="true">
+							<p>{v.label}</p>
+							<ul>
+								{DOTS.map(([role, name]) => (
+									<li>
+										<i class:list={ringClass(v.c[role])} style={`--dot:${v.c[role]}`} />
+										<span>{name}</span>
+										<span class="hex">{v.c[role]}</span>
+									</li>
+								))}
+							</ul>
+						</div>
+					))}
+				</div>
+				<div class="rows">
+					{t.versions.map((v) => (
+						<ul class:list={['dots', v.key]} tabindex="0" aria-label={`${t.name}, ${v.key}: its colors`}>
+							{DOTS.map(([role, name]) => (
+								<li class:list={ringClass(v.c[role])} style={`--dot:${v.c[role]}`} data-tip={`${name} ${v.c[role]}`}>
+									<span class="sr-only">
+										{name} {v.c[role]}
+									</span>
+								</li>
+							))}
+						</ul>
+					))}
+				</div>
+			</li>
+		))
+	}
 </ul>
 
 <style>
+	.legend {
+		max-width: 42em;
+		margin: -0.75rem 0 0;
+		font-size: 1rem;
+		color: var(--s-ink-soft);
+	}
 	.themes {
 		list-style: none;
 		padding: 0;
-		margin-block: 1.5rem;
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-		gap: 1.25rem 1rem;
-	}
-	.themes li {
 		margin: 0;
-		font-size: var(--sl-text-sm);
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 28rem), 1fr));
+		gap: 1.25rem;
+	}
+	.card {
+		margin: 0;
+		padding: 1rem 1rem 0.5rem;
+		border-radius: var(--s-radius-l);
+		background: var(--s-sheet);
+		box-shadow: 0 0 0 1px var(--s-rule);
 		color: var(--s-muted);
+		font-size: var(--sl-text-sm);
+		min-width: 0;
+	}
+	.name {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.25rem 0.625rem;
+		margin: 0 0 0.75rem 0.25rem;
+	}
+	.name code {
+		font-family: var(--s-font-mono);
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: var(--s-ink);
+	}
+	.note {
+		color: var(--s-muted);
+	}
+	.view {
+		position: relative;
 	}
 	.pair {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		border-radius: var(--s-radius-m);
 		overflow: hidden;
-		margin-bottom: 0.625rem;
 		box-shadow: 0 0 0 1px var(--s-rule);
 	}
+	/* The log (LogView.kt): lines of at least 22 dp with the 2 dp bar, 5 dp between groups. */
 	.half {
+		min-width: 0;
 		background: var(--t-bg);
 		color: var(--t-fg);
-		font: 0.7rem/1.6 var(--sl-font-mono);
-		padding: 0.625rem 0.75rem;
+		font: 0.75rem/1.55 var(--s-font-mono);
+		font-variant-ligatures: none;
+		padding: 0.5rem 0.75rem 0.625rem;
 		white-space: nowrap;
-		overflow: hidden;
 	}
-	.half > div {
-		border-inline-start: 2px solid color-mix(in srgb, var(--t-prompt) 45%, transparent);
-		padding-inline-start: 0.45rem;
+	.g {
+		margin-top: 0.3rem;
+	}
+	.ln {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		padding: 0.05rem 0 0.05rem 0.5rem;
+		border-inline-start: 2px solid color-mix(in srgb, var(--t-accent) 45%, transparent);
+	}
+	.ln > span:first-child {
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 	.p {
-		color: var(--t-prompt);
+		color: var(--t-accent);
+	}
+	.tm {
+		flex: none;
+		color: var(--t-dim);
+		font-size: 0.92em;
 	}
 	.i {
 		color: var(--t-info);
 	}
+	.tag {
+		font-size: 0.86em;
+	}
+	.w {
+		color: var(--t-work);
+	}
+	.s {
+		color: var(--t-private);
+	}
+	.sc {
+		color: var(--t-script);
+		border-inline-start-color: color-mix(in srgb, var(--t-script) 45%, transparent);
+	}
 	.l {
 		color: var(--t-link);
 		text-decoration: underline;
+		text-underline-offset: 0.15em;
 	}
-	.tag {
+	.ok {
+		color: var(--t-good);
+	}
+	.wn {
+		color: var(--t-warn);
+	}
+	.er {
+		color: var(--t-error);
+		border-inline-start-color: color-mix(in srgb, var(--t-error) 45%, transparent);
+	}
+
+	/* The dots: one row under each half, each row as wide as its half and inset as its log. */
+	.rows {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		container-type: inline-size;
+	}
+	/* As large as fits, up to 1.125rem: ten dots and nine half-dot gaps in a half, inside its inset. */
+	.dots {
+		--inset: 0.75rem;
+		--size: min(1.125rem, (50cqi - 2 * var(--inset)) / 14.5);
+		--gap: calc(var(--size) / 2);
+		list-style: none;
+		margin: 0;
+		padding: 0 var(--inset);
+		min-height: 2.75rem;
+		display: flex;
+		align-items: center;
+		gap: var(--gap);
+		border-radius: var(--s-radius-s);
+		min-width: 0;
+	}
+	.dots li {
+		position: relative;
+		flex: none;
+		margin: 0;
+		width: var(--size);
+		height: var(--size);
+		border-radius: 50%;
+		background: var(--dot);
+	}
+	.dots:focus {
+		outline: none;
+	}
+	.dots:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: -2px;
+	}
+	/* A ring where the color is close to the card: in the site's dark theme, then its light one. */
+	.near-dark {
+		box-shadow: 0 0 0 1px var(--s-rule);
+	}
+	:global(:root[data-theme='light']) .near-dark {
+		box-shadow: none;
+	}
+	:global(:root[data-theme='light']) .near-light {
+		box-shadow: 0 0 0 1px var(--s-rule);
+	}
+	/* A dot's name and value on hover: over the dot, toward the middle of the card. */
+	.dots li::after {
+		content: attr(data-tip);
+		display: none;
+		position: absolute;
+		bottom: calc(100% + 0.5rem);
+		z-index: 2;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.375rem;
+		background: var(--s-ink);
+		color: var(--s-sheet);
+		font: 600 0.75rem/1.3 var(--s-font-mono);
+		white-space: nowrap;
+		pointer-events: none;
+	}
+	.dots.dark li::after {
+		left: -0.25rem;
+	}
+	.dots.light li::after {
+		right: -0.25rem;
+	}
+	.dots li:hover::after {
+		display: block;
+	}
+	.dots:focus li::after {
+		display: none;
+	}
+
+	/* With a row focused (or tapped), its colors listed over the sample. */
+	.panel {
+		display: none;
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		padding: 0.625rem 0.875rem;
+		border-radius: var(--s-radius-m);
+		background: var(--s-sheet);
+		box-shadow: 0 0 0 1px var(--s-rule-strong);
+		color: var(--s-ink);
+		font: 0.8125rem/1.4 var(--s-font-mono);
+		overflow: hidden;
+	}
+	.card:has(.dots.dark:focus) .panel.dark,
+	.card:has(.dots.light:focus) .panel.light {
+		display: block;
+	}
+	.panel p {
+		margin: 0 0 0.375rem;
+		font-family: var(--s-font-text);
+		font-size: 0.8125rem;
 		font-weight: 700;
-		font-size: 0.82em;
-		color: var(--t-prompt);
-		background: color-mix(in srgb, var(--t-prompt) 20%, transparent);
-		border-radius: 3px;
-		padding: 0 3px;
-	}
-	code {
-		font-family: var(--s-font-mono);
-		font-weight: 600;
 		color: var(--s-ink);
 	}
-	.default {
+	.panel ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-rows: repeat(5, auto);
+		grid-auto-flow: column;
+		gap: 0.375rem 1.25rem;
+	}
+	.panel li {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		min-width: 0;
+		white-space: nowrap;
+	}
+	.panel li span:first-of-type {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.panel .hex {
+		margin-left: auto;
 		color: var(--s-muted);
+	}
+	.panel i {
+		flex: none;
+		width: 0.75rem;
+		height: 0.75rem;
+		border-radius: 50%;
+		background: var(--dot);
+	}
+
+	@media (max-width: 30rem) {
+		.card {
+			padding: 0.75rem 0.625rem 0.25rem;
+		}
+		.half {
+			font-size: 0.6875rem;
+			padding-inline: 0.5rem;
+		}
+		.tm {
+			display: none;
+		}
+		.dots {
+			--inset: 0.5rem;
+		}
+		.panel {
+			padding: 0.5rem 0.625rem;
+			font-size: 0.75rem;
+		}
+		.panel ul {
+			grid-template-columns: 1fr;
+			grid-template-rows: none;
+			grid-auto-flow: row;
+			gap: 0;
+		}
 	}
 </style>

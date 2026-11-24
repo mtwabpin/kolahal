@@ -66,5 +66,27 @@ for (const page of pages) {
 		}
 	}
 }
+// Links that leave the site open in a new tab (src/links.ts): every <a> to another site has
+// target="_blank" and rel="noopener"; links within the site have no target.
+const site = (process.env.DOCS_SITE ?? 'https://mtwabpin.github.io').replace(/\/$/, '') + base;
+let tabs = 0;
+for (const page of pages) {
+	const html = readFileSync(page, 'utf8');
+	const pageUrl = '/' + relative(root, page).replace(/index\.html$/, '').replace(/\\/g, '/');
+	for (const [tag] of html.matchAll(/<a\s[^>]*>/g)) {
+		const href = tag.match(/\shref="([^"]+)"/)?.[1];
+		if (!href) continue;
+		const leaves = /^https?:\/\//.test(href) && href !== site && !href.startsWith(site + '/') && !href.startsWith(site + '#');
+		const newTab = /\starget="?_blank/.test(tag);
+		if (leaves && !(newTab && /\srel="[^"]*noopener/.test(tag))) {
+			console.error(`leaves the site but not in a new tab with rel="noopener": ${pageUrl} -> ${href}`);
+			tabs++;
+		} else if (!leaves && newTab) {
+			console.error(`within the site but opens a new tab: ${pageUrl} -> ${href}`);
+			tabs++;
+		}
+	}
+}
+broken += tabs;
 console.log(`checked ${pages.length} pages: ${broken} broken link(s)`);
 process.exit(broken ? 1 : 0);
