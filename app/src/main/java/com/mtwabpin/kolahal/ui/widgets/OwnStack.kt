@@ -210,14 +210,15 @@ private fun Sheet(color: Color, modifier: Modifier) {
 }
 
 /**
- * The + that starts a new note: a sun in the accent's container with + in the accent, [side]
- * across. A tap puts `note ` in the prompt ([OwnDesigns.NEW_NOTE]); a long-press arranges the
- * widgets, as on the rest of the card. A screen reader hears "New note".
+ * The + that starts a new note: a sun in the card's color's container with + in that color (the
+ * accent unless one was chosen, [cardRoleColor]), [side] across. A tap puts `note ` in the prompt
+ * ([OwnDesigns.NEW_NOTE]); a long-press arranges the widgets, as on the rest of the card. A screen
+ * reader hears "New note".
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun NewNoteShape(side: Dp, onTap: ((WidgetTap) -> Unit)?, modifier: Modifier = Modifier) {
-    val role = roleColor(null)
+    val role = cardRoleColor()
     Box(
         modifier
             .size(side)

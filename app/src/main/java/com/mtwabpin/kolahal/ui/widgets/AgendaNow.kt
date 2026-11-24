@@ -93,7 +93,7 @@ internal fun NowAgenda(
     val locale = LocalLocale.current.platformLocale
     val moment = remember(spec, now, zone, clock24, locale) { AgendaFree.moment(spec, now, zone, clock24, locale) }
     val said = remember(moment) { AgendaFree.said(moment) }
-    val c = lookColors(WidgetLook.NOW, roleColor(spec.base))
+    val c = lookColors(WidgetLook.NOW, cardRoleColor(spec.base))
     BoxWithConstraints(
         Modifier
             .fillMaxSize()

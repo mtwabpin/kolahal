@@ -7,6 +7,7 @@ import android.os.SystemClock
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.widgets.PlacedWidget
@@ -70,7 +72,9 @@ internal class ToolbarEdit(val label: String, val icon: Int, val onClick: () -> 
  * The controls for the chosen widget, docked at the bottom: its name and size, and Remove and Done.
  * - One of Kolahal's own widgets: its look and its size, one tap each. With [edit], a button for
  *   what the widget itself holds: the Shortcuts widget's list, or the options of a script's widget.
- *   In the Shape look, a card with a choice of shape ([shapes]) has a row of shapes under the look.
+ *   Its color ([colors]) under the look, and in the Shape look, a card with a choice of shape
+ *   ([shapes]) has a row of shapes. Look and Color have their name over them, as their buttons take
+ *   the whole width; Shape, Size and Days have it at their start, which keeps the toolbar low.
  * - An app's widget: width and height in steps, and Square. It draws itself, so it has no look.
  *   With [edit], Widget settings: its setup screen, opened again.
  */
@@ -85,6 +89,8 @@ internal fun WidgetToolbar(
     onLook: (WidgetLook) -> Unit,
     shapes: ShapeChoices? = null,
     onShape: (WidgetShape?) -> Unit = {},
+    colors: ColorChoices? = null,
+    onColor: (ColorRole?) -> Unit = {},
     onSize: (WidgetSize) -> Unit,
     onHeight: (Int) -> Unit,
     onWidth: (Int) -> Unit,
@@ -157,32 +163,38 @@ internal fun WidgetToolbar(
             if (own) {
                 ToolbarLabel("Look")
                 ChoiceRow(looks.map { it.label }, drawn.label, "look ") { onLook(looks[it]) }
+                // The card's color: the one it draws with wherever it uses its own.
+                if (colors != null) {
+                    ToolbarLabel("Color")
+                    ColorChoiceRow(colors, onColor)
+                }
                 // In the Shape look, a card with one shape: which of Material's shapes it is.
                 if (shapes != null && drawn == WidgetLook.SHAPE) {
-                    ToolbarLabel("Shape")
-                    ShapeChoiceRow(shapes, onShape)
+                    NamedRow("Shape") { ShapeChoiceRow(shapes, onShape) }
                 }
-                ToolbarLabel("Size")
-                ChoiceRow(WidgetSize.entries.map { it.label }, size?.label, "size ") {
-                    onSize(
-                        WidgetSize.entries[it]
-                    )
+                NamedRow("Size") {
+                    ChoiceRow(WidgetSize.entries.map { it.label }, size?.label, "size ") {
+                        onSize(
+                            WidgetSize.entries[it]
+                        )
+                    }
                 }
                 if (agendaDays != null) {
-                    ToolbarLabel("Days")
                     val choices = Keys.AGENDA_WIDGET_DAYS.choices
                     val labels = choices.map { it.replaceFirstChar(Char::titlecase) }
-                    ChoiceRow(
-                        labels,
-                        labels.getOrNull(choices.indexOf(agendaDays)),
-                        "days "
-                    ) { onAgendaDays(choices[it]) }
+                    NamedRow("Days") {
+                        ChoiceRow(
+                            labels,
+                            labels.getOrNull(choices.indexOf(agendaDays)),
+                            "days "
+                        ) { onAgendaDays(choices[it]) }
+                    }
                 }
                 Text(
                     "Drag to move. Drag an edge to resize.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 10.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             } else {
                 // Side by side if they fit. On a narrow screen or with large text, one below the other.
@@ -229,7 +241,33 @@ internal fun WidgetToolbar(
     }
 }
 
-/** The name of a row of the toolbar: "Look", "Size". */
+/**
+ * A row of the toolbar with its [name] at its start and its buttons ([content]) in the rest of the
+ * width: one line where the name over the buttons would take a line of its own. The name is at
+ * least 48 dp wide, so the buttons of such rows line up.
+ */
+@Composable
+private fun NamedRow(name: String, content: @Composable () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp)
+    ) {
+        Text(
+            name,
+            style = MaterialTheme.typography.labelMediumEmphasized,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            modifier = Modifier
+                .widthIn(min = 48.dp)
+                .padding(end = 8.dp),
+        )
+        Box(Modifier.weight(1f)) { content() }
+    }
+}
+
+/** The name of a row of the toolbar over its buttons: "Look", "Color". */
 @Composable
 private fun ToolbarLabel(text: String) {
     Text(

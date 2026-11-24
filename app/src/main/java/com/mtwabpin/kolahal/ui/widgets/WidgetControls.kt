@@ -664,9 +664,10 @@ private fun CardButton(
     val look = LocalWidgetLook.current
     val looks = lookColors(look)
     val plain = tile == null && look != WidgetLook.TONAL
-    // With no color of its own, a button is tinted with the accent, and its text keeps the text color.
-    // Tonal and Split put it on the look's tile, with the icon in the button's color or the accent.
-    val container = if (plain) (color ?: roleColor(null)).copy(alpha = 0.2f) else looks.tile
+    // With no color of its own, a button is tinted with the card's color (the accent unless the card has one),
+    // and its text keeps the text color.
+    // Tonal and Split put it on the look's tile, with the icon in the button's color or the card's.
+    val container = if (plain) (color ?: cardRoleColor()).copy(alpha = 0.2f) else looks.tile
     val content = if (plain) color ?: MaterialTheme.colorScheme.onSurface else looks.content
     val shapes = when {
         tile != null -> ButtonDefaults.shapes(shape = tile, pressedShape = SPLIT_PRESSED)
@@ -694,7 +695,7 @@ private fun CardButton(
             button.label,
             width,
             height,
-            iconColor = if (plain) null else color ?: roleColor(null)
+            iconColor = if (plain) null else color ?: cardRoleColor()
         )
     }
 }

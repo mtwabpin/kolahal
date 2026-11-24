@@ -145,7 +145,7 @@ private fun TimelineLine(t: OwnDesigns.Timeline, height: Dp) {
     val type = MaterialTheme.typography
     val muted = lookColors().muted
     val content = MaterialTheme.colorScheme.onSurface
-    val role = roleColor(null)
+    val role = cardRoleColor()
     val head = linesDp(type.titleSmall) + 10
     val nextDp = 28 + 4 + linesDp(type.titleSmall) + linesDp(type.bodySmall) + 8
     val laterDp = WidgetWords.textRowDp(28, linesDp(type.bodyMedium) + 8)
@@ -266,7 +266,7 @@ private fun CountdownPill(
     modifier: Modifier = Modifier,
     short: Boolean = false
 ) {
-    val role = roleColor(null)
+    val role = cardRoleColor()
     val container = roleContainer(role)
     val strong = lerp(container, role, 0.3f)
     val left by animateFloatAsState(

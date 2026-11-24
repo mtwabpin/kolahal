@@ -71,7 +71,7 @@ internal fun nextTodosBody(t: OwnDesigns.NextTodos): OwnBody = { box, onTap -> N
  */
 @Composable
 private fun NextTodosBody(t: OwnDesigns.NextTodos, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
-    val role = roleColor(null)
+    val role = cardRoleColor()
     BoxWithConstraints(
         Modifier
             .fillMaxSize()

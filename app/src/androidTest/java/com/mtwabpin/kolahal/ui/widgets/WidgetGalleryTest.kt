@@ -141,6 +141,7 @@ class WidgetGalleryTest {
      * With [battery] the card is the Battery and network card of that status ([LocalBattery]).
      * With [body] the card is one of Kolahal's own in a look of its own (Next, Stack): [spec] is
      * then only what it says.
+     * With [color] the card has that color chosen for it in Arrange widgets ([LocalChosenColor]).
      */
     private data class Shot(
         val name: String,
@@ -153,6 +154,7 @@ class WidgetGalleryTest {
         val taps: Boolean = false,
         val battery: Status? = null,
         val body: OwnBody? = null,
+        val color: ColorRole? = null,
     ) {
         val file get() = "$prefix-$name-${size.id}.png"
     }
@@ -331,7 +333,8 @@ class WidgetGalleryTest {
                         CompositionLocalProvider(
                             LocalWidgetsShown provides shot.inView,
                             LocalWidgetLook provides shot.look,
-                            LocalBattery provides shot.battery
+                            LocalBattery provides shot.battery,
+                            LocalChosenColor provides shot.color
                         ) {
                             // The page's color shows around the card's round corners.
                             Box(
@@ -632,6 +635,25 @@ class WidgetGalleryTest {
             "kind-shape-progress", WidgetSize.S2X1, "Lisbon",
             WidgetSpec.Progress(base("Lisbon").copy(shape = WidgetShape.SUN), value = 72f, max = 100f, label = "Trip saved"),
             look = WidgetLook.SHAPE,
+        ),
+        // One card in three colors chosen in Arrange widgets (sheet 14): its script gives warn.
+        Shot(
+            "kind-color-link", WidgetSize.S2X1, "Air",
+            WidgetSpec.Stat(base("Air", color = ColorRole.WARN), value = "118", label = "AQI"),
+            look = WidgetLook.BOLD,
+            color = ColorRole.LINK,
+        ),
+        Shot(
+            "kind-color-good", WidgetSize.S2X1, "Air",
+            WidgetSpec.Stat(base("Air", color = ColorRole.WARN), value = "118", label = "AQI"),
+            look = WidgetLook.BOLD,
+            color = ColorRole.GOOD,
+        ),
+        Shot(
+            "kind-color-text", WidgetSize.S2X1, "Air",
+            WidgetSpec.Stat(base("Air", color = ColorRole.WARN), value = "118", label = "AQI"),
+            look = WidgetLook.BOLD,
+            color = ColorRole.TEXT,
         ),
         Shot(
             "kind-text", WidgetSize.S4X1, "Weather note",

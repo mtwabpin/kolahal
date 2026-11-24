@@ -316,6 +316,7 @@ For one of Kolahal's widgets or a script's widget, the toolbar has:
 | Row | Buttons |
 | --- | --- |
 | Look | Plain, Tonal, Bold, Split, Shape, Poster, and for some widgets a look of their own: Now, Next or Stack ([below](#looks)) |
+| Color | Accent, Link, Good, Warning, Bad, Muted, Text, the card's own first ([below](#looks)) |
 | Shape (in the Shape look) | six shapes, the card's own first ([below](#looks)) |
 | Size | 1×1, 2×1, 2×2, 4×1, 4×2, 4×4 |
 | Days (Agenda only) | Auto, 1, 3, 7, 14 |
@@ -376,8 +377,17 @@ have no **Bold**, a picture has only **Plain**, **Tonal** and **Shape**, and a m
 draws its shapes. It has **Next** instead. If a script shows another kind of card later, a look you
 chose for it comes back when the kind has it.
 
+The **Color** row under **Look** gives the card one of the theme's colors: accent, link, good,
+warning, bad, muted or text. The first dot, a ring open in the middle, is the card's own color,
+the one its script gives, so one tap gives it back. Tap another and the card takes it at once,
+wherever it uses its own color: its ring, bar or chart, its big value in **Bold**, its shape in
+**Shape**, its tinted card in **Tonal**. A script that changes its color with what it shows, such as
+air quality turning bad, keeps doing so until you pick a color. Colors a script gives to a part,
+such as a gauge's zones or a row, stay as they are. The Battery and network card keeps its warning
+colors: bad when low, good while charging.
+
 In the **Shape** look, a card that is one shape, or whose main value sits in one, has a **Shape**
-row under **Look**: a 9-sided and a 12-sided cookie, a 4-leaf and an 8-leaf clover, a sun and a
+row under **Color**: a 9-sided and a 12-sided cookie, a 4-leaf and an 8-leaf clover, a sun and a
 burst. The first is the card's own shape, so one tap gives it back. Tap another and the card takes
 it at once. A countdown, a habit's week, the battery and the sky have no **Shape** row, as their
 shape shows what they count. Nor do buttons, switches, lists, an agenda or several bars, where each
@@ -393,7 +403,7 @@ from the page.
 
 ## Backups
 
-A [backup](/guides/backup/) records which widgets you placed, with their size, place, look and shape. But other apps'
+A [backup](/guides/backup/) records which widgets you placed, with their size, place, look, shape and color. But other apps'
 widgets themselves can't move between installs. So after an import:
 
 1. Open **Settings → Widgets → Arrange widgets**. The widgets that aren't on the page already are

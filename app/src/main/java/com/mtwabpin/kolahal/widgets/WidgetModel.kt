@@ -3,6 +3,8 @@
  */
 package com.mtwabpin.kolahal.widgets
 
+import com.mtwabpin.kolahal.data.StyledText
+
 /**
  * Pure widget bookkeeping. It uses no Android types, so ordering, resizing and serialization can be
  * unit tested. [WidgetHost] owns the Android side.
@@ -184,6 +186,11 @@ data class PlacedWidget(
      * card's own. Only a widget Kolahal draws has one.
      */
     val shape: WidgetShape? = null,
+    /**
+     * The color role it draws with in place of its own ([WidgetColors]), chosen on the Widgets
+     * screen. Null: the card's own, as its script gives it. Only a widget Kolahal draws has one.
+     */
+    val color: StyledText.ColorRole? = null,
 ) {
     /** Whether it has a place on the page: a [column] and a [topDp]. */
     val positioned: Boolean get() = column >= 0 && topDp >= 0
@@ -378,15 +385,16 @@ object WidgetOrder {
 
 /**
  * Stores one record per line in SharedPreferences:
- * `id|provider|serial|height|order|location|span|look|column|top|shape`.
+ * `id|provider|serial|height|order|location|span|look|column|top|shape|color`.
  * - A pending entry has `-` as its id. So has a widget Kolahal draws itself: its provider field holds
  *   its source (`script:weather`, see [WidgetSource]).
  * - Lines saved before widths existed have no span. They are full width.
  * - Lines saved before looks and places (0.5.14 and older) have neither: the look is
  *   [WidgetLook.PLAIN], and [start] gives each widget the place it had ([WidgetPlacement.placeMissing]).
  *   An older Kolahal reads fields by position and ignores the last three.
- * - The shape is written only when one was chosen ([PlacedWidget.shape]). A line without one, or
- *   with a shape this version doesn't know, has the card's own.
+ * - The shape and the color are written only when one was chosen ([PlacedWidget.shape],
+ *   [PlacedWidget.color]): a color without a shape leaves the shape's field empty. A line without
+ *   one, or with one this version doesn't know, has the card's own.
  * - [PlacedWidget.order] is still written, in reading order, so an older Kolahal shows the widgets
  *   in a sensible order.
  * - A height or a width outside what the widget may have is brought inside it ([WidgetLayout.minDp],
@@ -408,8 +416,12 @@ object WidgetCodec {
             it.look.id,
             it.column,
             it.topDp
-        ) + listOfNotNull(it.shape?.id)).joinToString("|")
+        ) + choices(it)).joinToString("|")
     }
+
+    /** The fields after the place: the shape and the color, each empty when not chosen, none at all when neither is. */
+    private fun choices(w: PlacedWidget): List<String> =
+        listOf(w.shape?.id.orEmpty(), w.color?.role.orEmpty()).dropLastWhile { it.isEmpty() }
 
     /** The look stored for a widget: only one Kolahal draws ([sourced]) has one; an app's widget draws itself. */
     private fun lookOf(raw: Any?, sourced: Boolean): WidgetLook =
@@ -418,6 +430,10 @@ object WidgetCodec {
     /** The shape stored for a widget, as its look ([lookOf]): null for the card's own. */
     private fun shapeOf(raw: Any?, sourced: Boolean): WidgetShape? =
         if (sourced) WidgetShape.named(raw?.toString()) else null
+
+    /** The color stored for a widget, as its look ([lookOf]): null for the card's own. */
+    private fun colorOf(raw: Any?, sourced: Boolean): StyledText.ColorRole? =
+        if (sourced) (raw as? String)?.let(StyledText.ColorRole::named) else null
 
     /** A stored place: a whole number from 0, else [WidgetPlacement.UNPLACED]. Too large a column is brought inside the page. */
     private fun columnOf(raw: Long?, span: Int): Int =
@@ -456,6 +472,7 @@ object WidgetCodec {
                 column = if (top >= 0) column else WidgetPlacement.UNPLACED,
                 topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
                 shape = shapeOf(f.getOrNull(10), source),
+                color = colorOf(f.getOrNull(11), source),
             )
         }.toList()
 
@@ -492,7 +509,7 @@ object WidgetCodec {
             get() = if (statusCards > 0) "Status cards are gone: $statusCards removed from the widgets page. Status lines still show at the top of home." else null
     }
 
-    /** The backup form. Ids are device-specific, so they are left out. A shape is there only once one was chosen. */
+    /** The backup form. Ids are device-specific, so they are left out. A shape or a color is there only once one was chosen. */
     fun export(all: List<PlacedWidget>): List<Map<String, Any?>> = WidgetOrder.sorted(all).map {
         mapOf(
             "provider" to it.provider,
@@ -504,7 +521,10 @@ object WidgetCodec {
             "look" to it.look.id,
             "column" to it.column,
             "top" to it.topDp,
-        ) + listOfNotNull(it.shape?.let { shape -> "shape" to shape.id })
+        ) + listOfNotNull(
+            it.shape?.let { shape -> "shape" to shape.id },
+            it.color?.let { color -> "color" to color.role },
+        )
     }
 
     /**
@@ -548,6 +568,7 @@ object WidgetCodec {
             column = if (top >= 0) column else WidgetPlacement.UNPLACED,
             topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
             shape = shapeOf(m["shape"], sourced),
+            color = colorOf(m["color"], sourced),
         )
     }
 

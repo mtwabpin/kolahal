@@ -344,6 +344,8 @@ fun WidgetsScreen(
                     // A built-in widget's kind is fixed; a script's is the one its @widget line names.
                     val chosenKind = WidgetSource.builtinId(chosen.source)?.let(WidgetSource::builtinKind)
                         ?: chosenRef?.let { scripts?.get(it.script)?.widget?.kind }
+                    // A script's card is judged by what it shows, as the card on the page last read it.
+                    val chosenSpec = chosenRef?.let { WidgetStates.lastRead(it.key)?.spec }
                     WidgetToolbar(
                         w = chosen,
                         label = labelOf(chosen) ?: chosen.provider,
@@ -358,12 +360,10 @@ fun WidgetsScreen(
                             widgets.minSpanOf(chosen)
                         },
                         onLook = { widgets.setLook(chosen.key, it) },
-                        // A script's card is judged by what it shows, as the card on the page last read it.
-                        shapes = shapeChoicesFor(
-                            chosen,
-                            chosenKind,
-                            chosenRef?.let { WidgetStates.lastRead(it.key)?.spec }),
+                        shapes = shapeChoicesFor(chosen, chosenKind, chosenSpec),
                         onShape = { widgets.setShape(chosen.key, it) },
+                        colors = colorChoicesFor(chosen, chosenSpec),
+                        onColor = { widgets.setColor(chosen.key, it) },
                         onSize = { widgets.setSize(chosen.key, it) },
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
                         onWidth = { widgets.resizeWidth(chosen.key, it) },

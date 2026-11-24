@@ -33,6 +33,7 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.Stores
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.ThisInstall
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptRun
@@ -625,6 +626,11 @@ class WidgetHost private constructor(context: Context) {
     /** Sets the shape the Shape look gives the widget [key]; null gives it its own again. Only a widget Kolahal draws has one. */
     fun setShape(key: String, shape: WidgetShape?) = update { all ->
         all.map { if (it.key == key && it.source != null && it.shape != shape) it.copy(shape = shape) else it }
+    }
+
+    /** Sets the color role the widget [key] draws with ([WidgetColors]); null gives it its own again. Only a widget Kolahal draws has one. */
+    fun setColor(key: String, color: StyledText.ColorRole?) = update { all ->
+        all.map { if (it.key == key && it.source != null && it.color != color) it.copy(color = color) else it }
     }
 
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */

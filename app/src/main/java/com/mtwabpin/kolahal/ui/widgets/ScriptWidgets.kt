@@ -69,6 +69,7 @@ import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetColors
 import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetRef
@@ -190,6 +191,8 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
  *   watches it ([KindBody]).
  * - [body] draws the content in place of [spec]'s kind, on a Plain card: one of Kolahal's own cards
  *   in a look of its own ([OwnBody]). [spec] is still what it says, and a [note] comes first.
+ * - A color chosen for the placed card ([LocalChosenColor]) takes the place of [spec]'s own
+ *   ([WidgetColors.drawn]); a [body] reads it from [LocalCardColor].
  */
 @Composable
 internal fun WidgetCard(
@@ -242,21 +245,26 @@ internal fun WidgetCard(
         } else {
             Modifier.semantics(mergeDescendants = true) {}
         }
+        // The card's color: the one chosen for it in Arrange widgets, else its own ([WidgetColors.drawn]).
+        val chosenColor = LocalChosenColor.current
+        val battery = LocalBattery.current != null
+        val shown = remember(spec, chosenColor, battery) {
+            spec?.let { WidgetColors.recolored(it, WidgetColors.drawn(it.base.color, chosenColor, battery)) }
+        }
         // A built-in card's look of its own ([body]) is drawn on a Plain card.
-        val look = if (body != null) WidgetLook.PLAIN else drawnLook(LocalWidgetLook.current, spec, note, footer)
-        val colors = lookColors(look, roleColor(spec?.base))
+        val look = if (body != null) WidgetLook.PLAIN else drawnLook(LocalWidgetLook.current, shown, note, footer)
+        val colors = lookColors(look, roleColor(shown?.base))
         // In the Shape look, a card with a choice of shape takes the one chosen for it, else the one its script names.
         val chosenShape = LocalChosenShape.current
-        val battery = LocalBattery.current != null
-        val taken = remember(look, spec, chosenShape, battery) {
-            if (look == WidgetLook.SHAPE && hasShapeChoice(null, spec, battery)) chosenShape ?: spec?.base?.shape else null
+        val taken = remember(look, shown, chosenShape, battery) {
+            if (look == WidgetLook.SHAPE && hasShapeChoice(null, shown, battery)) chosenShape ?: shown?.base?.shape else null
         }
         // The Shape look in a square box: the card is one Material shape, and the body sits in it.
         val polygon = if (look == WidgetLook.SHAPE && squareBox(
                 widthDp,
                 heightDp
             )
-        ) cardPolygon(spec)?.let { own -> taken?.let(::polygonOf) ?: own } else null
+        ) cardPolygon(shown)?.let { own -> taken?.let(::polygonOf) ?: own } else null
         // Split's tiles and Shape's shape are the card: the frame itself draws nothing there.
         val bare = look == WidgetLook.SPLIT || polygon != null
         val side = min(maxWidth, maxHeight)
@@ -274,22 +282,23 @@ internal fun WidgetCard(
                     .then(press)
                     .semantics { contentDescription = description }) {
                 // A stat's scene is the card's ground, under its body ([StatScene]).
-                if (spec is WidgetSpec.Stat && note == null && polygon == null) StatScene(spec, look, colors.card)
+                if (shown is WidgetSpec.Stat && note == null && polygon == null) StatScene(shown, look, colors.card)
                 // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
                 CompositionLocalProvider(
                     LocalCardLongPress provides onLongClick,
                     LocalWidgetLook provides look,
-                    LocalCardShape provides taken
+                    LocalCardShape provides taken,
+                    LocalCardColor provides shown?.base?.color
                 ) {
-                    if (body != null && note == null && spec != null) {
+                    if (body != null && note == null && shown != null) {
                         body(box, onTap)
-                    } else if (polygon != null && spec != null) {
-                        ShapedCard(title, spec, polygon, side, box, onTap, stamp)
+                    } else if (polygon != null && shown != null) {
+                        ShapedCard(title, shown, polygon, side, box, onTap, stamp)
                     } else {
                         // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
                         CardLayout(
                             title,
-                            spec,
+                            shown,
                             note,
                             failure,
                             footer.takeUnless { look.untitled() },
@@ -743,7 +752,11 @@ internal fun SourceWidget(
     // one it doesn't offer as Plain, as its Look row shows: Shape stored on Todos is Plain there.
     val look = if (builtin != null) w.look.drawnFor(WidgetSource.builtinKind(builtin), builtin) else w.look
     GuiTheme {
-        CompositionLocalProvider(LocalWidgetLook provides look, LocalChosenShape provides w.shape) {
+        CompositionLocalProvider(
+            LocalWidgetLook provides look,
+            LocalChosenShape provides w.shape,
+            LocalChosenColor provides w.color
+        ) {
             if (ref != null) {
                 ScriptWidget(ref, height, actions, feed)
             } else if (builtin == WidgetSource.BATTERY) {
