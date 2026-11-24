@@ -443,6 +443,39 @@ class LineLayoutTest {
         assertTrue(none.dump().contains("(apps no longer installed)"))
     }
 
+    /**
+     * A capped apps grid shows its first apps, then "+N more" (the fold's target), with each chip
+     * still its own app's; open, or as a search's result, all of them and "▴ Show less".
+     */
+    @Test
+    fun aCappedAppsGridShowsItsFirstAppsThenHowManyMore() {
+        val m = model(LogCorpus.apps)
+        val apps = listOf(
+            GridApp("maps"),
+            GridApp("clock", shownFolded = false),
+            GridApp("mail", tag = "W", tagInk = Ink.WORK),
+            GridApp("notes", shownFolded = false),
+        )
+        val folded = LineLayout.layout(m, LogLook(40), apps = apps)
+        assertEquals("│ maps    W mail\n│ +2 more", folded.dump())
+        assertEquals(listOf(Target.App(0), Target.App(2), Target.Fold), folded.targets.map { it.target })
+        assertEquals(2, folded.foldedApps)
+        assertEquals(Target.Fold, folded.hitAt(3, 1))
+        assertTrue(LineLayout.actions(folded).contains(Target.Fold to "Show more"))
+
+        val open = LineLayout.layout(m, LogLook(40), foldOpen = true, apps = apps)
+        assertEquals("│ maps    clock   W mail  notes\n│ ▴ Show less", open.dump())
+        assertEquals((0..3).map { Target.App(it) } + Target.Fold, open.targets.map { it.target })
+        assertEquals(0, open.foldedApps)
+        assertTrue(LineLayout.actions(open).contains(Target.Fold to "Fold"))
+        assertEquals(open.dump(), LineLayout.layout(m, LogLook(40), marks = listOf("mail"), apps = apps).dump())
+
+        // Without a cap, no "+N more".
+        val all = LineLayout.layout(m, LogLook(40), apps = apps.map { it.copy(shownFolded = true) })
+        assertEquals("│ maps    clock   W mail  notes", all.dump())
+        assertEquals(0, all.foldedApps)
+    }
+
     /** A tall line folds after `log.fold` rows, with how many more; open, it shows all and "▴ Show less". */
     @Test
     fun aTallLineFolds() {

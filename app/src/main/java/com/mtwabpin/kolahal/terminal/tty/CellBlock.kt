@@ -20,9 +20,10 @@ class CellTarget(val target: Target, val rects: List<CellRect>) {
  *
  * It never changes once built, so the log keeps it and paints it as it is on every frame.
  * [foldedRows] is how many rows a folded line hides behind its "▾ N more lines" row; 0 when the
- * row is not folded.
+ * row is not folded. [foldedApps] is how many apps a capped apps grid hides behind its "+N more"
+ * row; 0 when it is open or has no cap.
  */
-class CellBlock(val grid: CellBuffer, val targets: List<CellTarget>, val foldedRows: Int = 0) {
+class CellBlock(val grid: CellBuffer, val targets: List<CellTarget>, val foldedRows: Int = 0, val foldedApps: Int = 0) {
     val cols: Int get() = grid.cols
     val rows: Int get() = grid.rows
 
@@ -190,7 +191,7 @@ internal class BlockWriter(val cols: Int) {
      * The block, with [flags] added to every cell's style (the faint of an old line). [mirrored]:
      * the frame runs right to left, so every column is counted from the right edge instead.
      */
-    fun build(flags: Int = 0, foldedRows: Int = 0, mirrored: Boolean = false): CellBlock {
+    fun build(flags: Int = 0, foldedRows: Int = 0, mirrored: Boolean = false, foldedApps: Int = 0): CellBlock {
         val grid = CellBuffer(cols, rows.coerceAtLeast(1))
         val shaped = ArrayList<ShapedRun>()
         val from = IntArray(units) { Int.MAX_VALUE }
@@ -224,7 +225,7 @@ internal class BlockWriter(val cols: Int) {
         val built = targets.map { (t, marks) ->
             CellTarget(t, marks.map { m -> m.rect.copy(col = place(m.rect.col, m.rect.cols, m.unit)) })
         }
-        return CellBlock(grid, built, foldedRows)
+        return CellBlock(grid, built, foldedRows, foldedApps)
     }
 
     private var builtMirrored = false

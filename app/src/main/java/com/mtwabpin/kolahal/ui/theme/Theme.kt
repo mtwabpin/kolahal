@@ -507,6 +507,9 @@ object Term {
     /** Minimum height (dp) of suggestion chips, suggestion list rows and app chips in the log (`chips.height`). */
     var chipHeight by mutableIntStateOf(44)
 
+    /** `suggestions.icons`: app icons on the suggestions and on the log's app chips (`apps`, `pins`). */
+    var appIcons by mutableStateOf(true)
+
     val bg get() = palette.bg
 
     val surface get() = palette.surface
@@ -624,6 +627,7 @@ fun applyTermSettings(
     Term.boxedTables = config[Keys.LOG_TABLES] == "boxed"
     Term.foldLines = config[Keys.LOG_FOLD]
     Term.chipHeight = config[Keys.CHIP_HEIGHT]
+    Term.appIcons = config[Keys.SUGGEST_ICONS]
     return family != null
 }
 

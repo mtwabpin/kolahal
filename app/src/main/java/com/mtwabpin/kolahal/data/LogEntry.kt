@@ -115,6 +115,12 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         /** A JSON list of {pkg, cls, user}. The line shows as a grid of app chips. */
         const val APPS = "apps"
 
+        /**
+         * With [APPS]: the places in that list (`0,3,5`) of the apps the grid shows until it is
+         * opened, followed by "+N more". Without it, the grid shows all of them.
+         */
+        const val APPS_FIRST = "apps-first"
+
         /** Productivity items by database id: a todo ("done" = 1 when finished), a note, a reminder. */
         const val TODO = "todo"
         const val TODO_DONE = "done"

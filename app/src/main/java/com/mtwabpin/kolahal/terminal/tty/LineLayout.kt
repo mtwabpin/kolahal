@@ -32,9 +32,16 @@ data class LogLook(
 /**
  * An app of an apps grid, as the renderer found it among the installed apps: its name, and its
  * profile's [tag] (W, S…, none for the personal profile) in [tagInk]. [quiet]: its profile is
- * paused, so it is faint.
+ * paused, so it is faint. [shownFolded]: it shows while a capped grid is folded
+ * ([LineModel.Body.AppGrid.showsFolded]).
  */
-data class GridApp(val label: String, val tag: String? = null, val tagInk: Ink = Ink.FG, val quiet: Boolean = false)
+data class GridApp(
+    val label: String,
+    val tag: String? = null,
+    val tagInk: Ink = Ink.FG,
+    val quiet: Boolean = false,
+    val shownFolded: Boolean = true,
+)
 
 /**
  * Lays out log rows on the grid: a [LineModel] becomes a [CellBlock] of [LogLook.cols] columns.
@@ -99,11 +106,14 @@ object LineLayout {
         // While folded, only the rows that show (and the few that decide whether it folds) are kept.
         val mayFold = model.mayFold && marks.isEmpty() && look.foldLines > 0
         if (mayFold && !foldOpen) w.keepRows = top + look.foldLines + FOLD_SLACK + 1
+        // A capped apps grid hides these many apps behind its "+N more" row; a search's result shows them all.
+        val appsOpen = foldOpen || marks.isNotEmpty()
+        val foldedApps = if (model.body is LineModel.Body.AppGrid && !appsOpen) apps.count { !it.shownFolded } else 0
         var row = when (val body = model.body) {
             is LineModel.Body.Words -> words(w, model, body, top, textLeft, marks)
             is LineModel.Body.TwoColumns -> twoColumns(w, model, body, top, textLeft, marks)
             is LineModel.Body.NameColumns -> nameColumns(w, body, top, textLeft, marks)
-            is LineModel.Body.AppGrid -> appGrid(w, apps, top, textLeft)
+            is LineModel.Body.AppGrid -> appGrid(w, apps, top, textLeft, appsOpen)
         }
         val blockLeft = textLeft + if (model.unread) 2 else 0
         for (block in model.blocks) row = Blocks.layout(w, block, row, blockLeft, cols, look.boxedTables, marks)
@@ -136,7 +146,7 @@ object LineLayout {
         if (showTime) w.put(cols - timeWidth, top, time!!, DIM)
         // The gutter runs down the whole row, through an item's gap above it.
         if (look.gutter) for (r in 0 until w.rows) w.put(0, r, "│", gutterStyle(model.gutter))
-        return w.build(if (look.dim && model.dimmed) CellStyle.FAINT else 0, folded, mirrored = look.rtl)
+        return w.build(if (look.dim && model.dimmed) CellStyle.FAINT else 0, folded, mirrored = look.rtl, foldedApps = foldedApps)
     }
 
     /**
@@ -149,7 +159,7 @@ object LineLayout {
         for (t in block.targets) when (val target = t.target) {
             is Target.Link -> add(target to "Open ${target.text}")
             is Target.Button -> add(target to target.label)
-            Target.Fold -> add(target to if (block.foldedRows > 0) "Show more" else "Fold")
+            Target.Fold -> add(target to if (block.foldedRows > 0 || block.foldedApps > 0) "Show more" else "Fold")
             is Target.App, Target.Line -> Unit
         }
         add(null to "Copy")
@@ -265,27 +275,43 @@ object LineLayout {
     /**
      * `apps` output as `ls` lists files: names in columns as wide as the longest name, down each
      * column first, as many columns as fit. A profile's tag goes before the name.
+     * A capped grid (some apps not [GridApp.shownFolded]) shows its first apps, then a row
+     * "+N more" that opens it in place; [open], it shows them all, then "▴ Show less".
      */
-    private fun appGrid(w: BlockWriter, apps: List<GridApp>, top: Int, textLeft: Int): Int {
+    private fun appGrid(w: BlockWriter, apps: List<GridApp>, top: Int, textLeft: Int, open: Boolean): Int {
         if (apps.isEmpty()) {
             w.put(textLeft, top, "(apps no longer installed)", DIM)
             return top + 1
         }
-        val width = w.cols - textLeft
-        fun cells(a: GridApp) = (a.tag?.let { CellWidth.total(it) + 1 } ?: 0) + CellWidth.total(a.label)
-        val column = (apps.maxOf(::cells) + 2).coerceAtMost(width)
-        val perRow = ((width + 2) / column).coerceIn(1, apps.size)
-        val rows = (apps.size + perRow - 1) / perRow
-        for ((i, app) in apps.withIndex()) {
-            val x = textLeft + (i / rows) * column
-            val row = top + i % rows
-            val faint = if (app.quiet) CellStyle.FAINT else 0
-            var col = x
-            app.tag?.let { col = w.put(col, row, it, CellStyle.of(app.tagInk, flags = CellStyle.BOLD or faint)) + 1 }
-            val end = w.line(listOf(Seg(app.label, CellStyle.of(Ink.FG, flags = faint))), row, col, minOf(x + column - 2, w.cols).coerceAtLeast(col + 1))
-            w.mark(Target.App(i), x, row, end - x)
+        val capped = apps.any { !it.shownFolded }
+        // Places in [apps], so each chip's target is its app's, folded or not.
+        val shown = if (capped && !open) apps.indices.filter { apps[it].shownFolded } else apps.indices.toList()
+        var end = top
+        if (shown.isNotEmpty()) {
+            val width = w.cols - textLeft
+            fun cells(a: GridApp) = (a.tag?.let { CellWidth.total(it) + 1 } ?: 0) + CellWidth.total(a.label)
+            val column = (shown.maxOf { cells(apps[it]) } + 2).coerceAtMost(width)
+            val perRow = ((width + 2) / column).coerceIn(1, shown.size)
+            val rows = (shown.size + perRow - 1) / perRow
+            for ((k, i) in shown.withIndex()) {
+                val app = apps[i]
+                val x = textLeft + (k / rows) * column
+                val row = top + k % rows
+                val faint = if (app.quiet) CellStyle.FAINT else 0
+                var col = x
+                app.tag?.let { col = w.put(col, row, it, CellStyle.of(app.tagInk, flags = CellStyle.BOLD or faint)) + 1 }
+                val last = w.line(listOf(Seg(app.label, CellStyle.of(Ink.FG, flags = faint))), row, col, minOf(x + column - 2, w.cols).coerceAtLeast(col + 1))
+                w.mark(Target.App(i), x, row, last - x)
+            }
+            end = top + rows
         }
-        return top + rows
+        if (capped) {
+            val label = if (open) "▴ Show less" else "+${apps.size - shown.size} more"
+            val last = w.line(listOf(Seg(label, CellStyle.of(Ink.LINK))), end, textLeft, w.cols)
+            w.mark(Target.Fold, textLeft, end, last - textLeft)
+            end++
+        }
+        return end
     }
 
     /** A script's buttons, `[ Snooze 30 min ]  [ Done ]`, as many on a row as fit. A tapped one shows `[✓ Done ]`, muted. */

@@ -277,6 +277,7 @@ data class Scramble(val seed: Long) {
         /** Context values the log reads to lay a line out, and never shows as text. */
         val KEPT: Set<String> = setOf(
             LogContext.APPS,
+            LogContext.APPS_FIRST,
             LogContext.BAR,
             LogContext.ACTION_DONE,
             LogContext.MONO,

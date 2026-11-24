@@ -286,7 +286,7 @@ object Keys {
     val SUGGEST_ICONS = ConfigKey.Bool(
         "suggestions.icons",
         true,
-        "Show app icons next to app suggestions, in the list and on chips"
+        "Show app icons next to app suggestions, in the list and on chips, and on the apps the log lists"
     )
     val SUGGESTIONS_WRAP = ConfigKey.Bool(
         "suggestions.wrap",

@@ -151,7 +151,7 @@ three settings of the log differ here:
 | `launch.instant` | choice: `off` `apps` `all` | `all` | run without Enter when only one match is left. `apps`: apps only. `all`: apps and commands, including whole lines like `torch on`. Sensitive commands always need Enter |
 | `launch.instant-letters` | number 1–6 | `2` | how many letters to type before an instant launch |
 | `suggestions.idle` | bool | `off` | show most-used apps when the prompt is empty |
-| `suggestions.icons` | bool | `on` | show app icons next to app suggestions, in the list and on chips |
+| `suggestions.icons` | bool | `on` | show app icons next to app suggestions, in the list and on chips, and on the apps the log lists |
 | `suggestions.wrap` | bool | `off` | show the whole description of a command or setting in the suggestion list, over several lines. When off, it is one line, cut short |
 | `suggestions.auto` | bool | `on` | show suggestions only while you type (keyboard open or text in the prompt) |
 | `suggestions.style` | choice: `list` `chips` | `list` | how suggestions look while you type. `list`: a list above the prompt, with the best match at the bottom, nearest your thumb, and command descriptions. `chips`: a strip of chips |

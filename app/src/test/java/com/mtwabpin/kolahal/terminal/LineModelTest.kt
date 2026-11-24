@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.LogContext
+import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.sourceFile
@@ -65,6 +67,36 @@ class LineModelTest {
         assertEquals("torch", help.name)
         assertEquals("notifications", help.nameWidthOf)
         assertEquals("on · off", help.args)
+    }
+
+    /**
+     * A capped apps grid keeps the apps it shows until it is opened ([LogContext.APPS_FIRST], by
+     * place); without them, or with no place that can be read, every app shows.
+     */
+    @Test
+    fun aCappedAppsGridKnowsItsFirstApps() {
+        val maps = LineModel.AppRef("a.maps", "a.maps.Main", 0)
+        val clock = LineModel.AppRef("a.clock", "a.clock.Main", 0)
+        val mail = LineModel.AppRef("a.mail", "a.mail.Main", 10)
+        val refs = listOf(maps, clock, mail).joinToString(",", "[", "]") {
+            "{\"pkg\":\"${it.pkg}\",\"cls\":\"${it.cls}\",\"user\":${it.user}}"
+        }
+        fun grid(first: String?): LineModel.Body.AppGrid {
+            val ctx = mapOf(LogContext.APPS to refs) + listOfNotNull(first?.let { LogContext.APPS_FIRST to it })
+            val e = LogEntry(900, LogCorpus.AT, LogKind.OUTPUT, null, "Maps, Clock, Mail", LogContext(ctx))
+            return lineModel(LogRow.Entry(e, false, Gutter.COMMAND), options).body as LineModel.Body.AppGrid
+        }
+        val capped = grid("0,2")
+        assertEquals(listOf(maps, clock, mail), capped.apps)
+        assertEquals(setOf(maps, mail), capped.first)
+        assertTrue(capped.showsFolded(maps))
+        assertFalse(capped.showsFolded(clock))
+        // The same app in another profile is another app.
+        assertFalse(capped.showsFolded(mail.copy(user = 0)))
+        for (open in listOf(grid(null), grid("x,9"), grid(""))) {
+            assertNull(open.first)
+            assertTrue(listOf(maps, clock, mail).all(open::showsFolded))
+        }
     }
 
     /** A command is its prompt, then the line in bold, in the text color. */

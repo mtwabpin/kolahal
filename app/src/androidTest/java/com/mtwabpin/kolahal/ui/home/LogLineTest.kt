@@ -429,26 +429,81 @@ class LogLineTest {
 
     private fun chip(label: String) = compose.onNode(hasText(label))
 
-    /** An apps line is a chip per app, another profile's tagged and a paused one's marked; a tap opens one, a long-press asks for its actions. */
+    /**
+     * An apps line is a chip per app. With icons (`suggestions.icons`), the icon's badge marks
+     * another profile's app and a screen reader hears its profile; without them, a letter marks it
+     * and a paused one's. A tap opens one, a long-press asks for its actions.
+     */
     @Test
     fun anAppsLineIsAChipPerApp() {
         val clock = app("Clock")
         val maps = app("Maps", ProfileKind.WORK)
         val mail = app("Mail", ProfileKind.WORK, quiet = true)
         val e = entry("apps", ctx = mapOf(LogContext.APPS to "[]"))
-        show { Line(row(e), apps = listOf(clock, maps, mail)) }
-        fun shown(label: String) =
-            chip(label).fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text }
-        assertEquals(listOf("Clock"), shown("Clock"))
-        assertEquals(listOf("W", "Maps"), shown("Maps"))
-        assertEquals(listOf("W⏸", "Mail"), shown("Mail"))
+        val icons = Term.appIcons
+        try {
+            compose.runOnIdle { Term.appIcons = true }
+            show { Line(row(e), apps = listOf(clock, maps, mail)) }
+            fun shown(label: String) =
+                chip(label).fetchSemanticsNode().config[SemanticsProperties.Text].map { it.text }
+            assertEquals(listOf("Clock"), shown("Clock"))
+            assertEquals(listOf("Maps"), shown("Maps"))
+            assertEquals(listOf("Mail"), shown("Mail"))
+            chip("Maps").assert(hasContentDescription("Maps, work"))
+            chip("Mail").assert(hasContentDescription("Mail, work, paused"))
 
-        chip("Clock").performClick()
-        chip("Maps").performTouchInput { longClick() }
+            compose.runOnIdle { Term.appIcons = false }
+            compose.waitForIdle()
+            assertEquals(listOf("Clock"), shown("Clock"))
+            assertEquals(listOf("W", "Maps"), shown("Maps"))
+            assertEquals(listOf("W⏸", "Mail"), shown("Mail"))
+
+            chip("Clock").performClick()
+            chip("Maps").performTouchInput { longClick() }
+            compose.runOnIdle {
+                assertEquals(listOf(clock), appTaps.toList())
+                assertEquals(listOf(maps), appLongPresses.toList())
+                assertTrue(tapped.isEmpty() && longPressed.isEmpty())
+            }
+        } finally {
+            Term.appIcons = icons
+        }
+    }
+
+    /**
+     * A capped apps line shows its first apps and "+N more"; a tap on it opens the line in place,
+     * with every app in its order and "▴ Show less", which folds it again.
+     */
+    @Test
+    fun aCappedAppsLineOpensInPlace() {
+        val list = listOf(app("Clock"), app("Mail"), app("Maps"), app("Notes"))
+        val refs = list.joinToString(",", "[", "]") {
+            "{\"pkg\":\"${it.pkg}\",\"cls\":\"${it.component.className}\",\"user\":${it.profile.serial}}"
+        }
+        val e = entry(
+            "Clock, Mail, Maps, Notes",
+            ctx = mapOf(LogContext.APPS to refs, LogContext.APPS_FIRST to "0,2"),
+        )
+        show { Line(row(e), apps = list) }
+        val more = compose.onNodeWithTag("apps-more")
+        chip("Clock").assertExists()
+        chip("Maps").assertExists()
+        chip("Mail").assertDoesNotExist()
+        chip("Notes").assertDoesNotExist()
+        more.assert(hasText("+2 more"))
+
+        more.performClick()
+        for (label in listOf("Clock", "Mail", "Maps", "Notes")) chip(label).assertExists()
+        more.assert(hasText("▴ Show less"))
+
+        more.performClick()
+        chip("Mail").assertDoesNotExist()
+        more.assert(hasText("+2 more"))
+        // A chip still opens its app, and the line's own tap is not used.
+        chip("Maps").performClick()
         compose.runOnIdle {
-            assertEquals(listOf(clock), appTaps.toList())
-            assertEquals(listOf(maps), appLongPresses.toList())
-            assertTrue(tapped.isEmpty() && longPressed.isEmpty())
+            assertEquals(listOf(list[2]), appTaps.toList())
+            assertTrue(tapped.isEmpty())
         }
     }
 

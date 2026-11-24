@@ -27,6 +27,19 @@ apps -a              # include hidden apps
 apps work            # one profile: work, personal, private
 ```
 
+`apps` shows each app as a chip with its icon, in three columns. A name that is too long ends in "…".
+A line above the apps says how many there are.
+
+- When there are more apps than a few rows hold, it shows your pinned and most-used apps first,
+  by name, then a chip such as **+26 more**. Tap it to show all the apps in place;
+  **▴ Show less** shows the first ones again.
+- `apps -l` lists every app, one per line.
+- **Show app icons** (`suggestions.icons`) also turns these icons off.
+- In the `tty` home style, the apps are in columns without icons, and **+26 more** is a line you tap.
+- With a work profile or a private space, each profile has its own heading with its number of apps
+  in place of that line: `── personal · 40 ──`, then `── work · 18 ──`. Work and private apps show
+  the system's badge on their icon, or a letter before the name (W, S) without icons.
+
 Tap a chip to open the app. Long-press a chip to see more actions:
 
 - launch
@@ -37,7 +50,7 @@ Tap a chip to open the app. Long-press a chip to see more actions:
 - uninstall
 - launch the copy in another profile
 
-<Image src={grid} alt="The apps grid: personal apps, then work apps marked W" class="shot shot-single" width={320} />
+<Image src={grid} alt="The apps grid: personal apps, then work apps, each profile under its heading" class="shot shot-single" width={320} />
 
 ## Favorites
 

@@ -139,7 +139,7 @@ enum class Ink { BG, SURFACE, FG, DIM, PROMPT, ERROR, INFO, LINK, SCRIPT, PERSON
         data class Words(val lines: List<Para>) : Body          // Para: level, prefix, pieces, title/body role
         data class TwoColumns(val name: List<Piece>, val desc: List<Piece>) : Body
         data class NameColumns(val name: List<Piece>, val desc: List<Piece>, val args: String?, val nameWidthOf: String) : Body
-        data class AppGrid(val apps: List<AppRef>) : Body       // pkg, cls, user; resolved by the renderer's `apps(entry)`
+        data class AppGrid(val apps: List<AppRef>, val first: Set<AppRef>?) : Body  // pkg, cls, user; resolved by the renderer's `apps(entry)`; first: a capped grid's apps until "+N more" opens it
     }
     sealed interface Block {
         data class Text(val lines: List<Para>) : Block
@@ -509,6 +509,8 @@ table:
   `── Tue 17 Nov ──…`, muted, under a blank row.
 - *Source*: always the name, muted, after the title (` · name`); no icons.
 - *AppGrid*: names in `ls`-style columns, a profile's tag before the name, no icons (`GridApp`).
+  A capped grid shows its first apps, then a `+N more` row (`Target.Fold`, kept open in the
+  log's `FoldState`); open, it shows them all and `▴ Show less`. A search's result shows them all.
 - *Image*: `[image: <file name>]`, muted, or underlined in the link color when the line opens a
   link. Log images have no alt text, so the name comes from the image's address.
 - *Person*: the initials, inverse and bold, in the color the GUI gives the avatar.

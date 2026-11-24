@@ -456,7 +456,8 @@ internal fun layoutLine(
     val scramble = Scramble.of(row.entry)
     val id = row.entry.id
     val time = model.time?.let { format.format(Date(it)) }?.let { t -> scramble?.line(t, id, Scramble.TIME) ?: t }
-    val shown = if (model.body is LineModel.Body.AppGrid) apps(model.entry) else emptyList()
+    val grid = model.body as? LineModel.Body.AppGrid
+    val shown = if (grid != null) apps(model.entry) else emptyList()
     val block = LineLayout.layout(
         model = model,
         look = look,
@@ -470,6 +471,7 @@ internal fun layoutLine(
                 tag = if (kind == ProfileKind.PERSONAL) null else (scramble?.line(kind.tag, id, Scramble.APP) ?: kind.tag) + if (app.profile.quiet) "⏸" else "",
                 tagInk = Ink.of(kind),
                 quiet = app.profile.quiet,
+                shownFolded = grid?.showsFolded(LineModel.AppRef(app.pkg, app.component.className, app.profile.serial)) != false,
             )
         },
         initials = model.person?.let { initials(it.name) },
@@ -745,12 +747,17 @@ private fun TtyLineRow(
  */
 internal fun nodeClickLabel(target: Target, block: CellBlock): String? = when (target) {
     is Target.Button -> target.label
-    Target.Fold -> if (block.foldedRows > 0) "show the whole line" else "fold the line"
+    Target.Fold -> when {
+        block.foldedApps > 0 -> "show all apps"
+        block.foldedRows > 0 -> "show the whole line"
+        else -> "fold the line"
+    }
     else -> null
 }
 
-/** What the fold's row says: how many rows are hidden, or that the line folds again. */
+/** What the fold's row says: how many rows (or a capped grid's apps) are hidden, or that the line folds again. */
 private fun foldLabel(block: CellBlock): String {
+    if (block.foldedApps > 0) return "+${block.foldedApps} more"
     val n = block.foldedRows
     return if (n > 0) "▾ $n more ${if (n == 1) "line" else "lines"}" else "▴ Show less"
 }

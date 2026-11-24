@@ -191,17 +191,19 @@ class AppCommands(
             return
         }
         val kinds = list.map { it.profile.kind }.distinct().sortedBy { it.ordinal }
-        when {
-            "-l" in args -> list.forEach { out(appLine(it), appContext(it)) }
-            // Show one grid per profile, so an app and its work copy are not mixed together.
-            kinds.size > 1 -> kinds.forEach { k ->
-                info("── ${k.label} ──", LogContext(LogContext.ITEM))
-                appGrid(list.filter { it.profile.kind == k })
-            }
-
-            else -> appGrid(list)
+        // One profile: a line counts its apps. Several: each has a divider with its count, so an
+        // app and its work copy are not mixed together.
+        if (kinds.size == 1) info(AppListing.count(list.size, kind, hidden = "hidden" in args))
+        // A grid shows the pinned and most-used apps first, then "+N more" ([AppListing.firstShown]).
+        val cells = AppListing.rows(kinds.size) * AppListing.COLUMNS
+        val pins = prefs.pinned().withIndex().associate { (i, key) -> key to i }
+        val now = System.currentTimeMillis()
+        for (k in kinds) {
+            val group = list.filter { it.profile.kind == k }
+            if (kinds.size > 1) info(AppListing.divider(k, group.size), LogContext(LogContext.ITEM))
+            if ("-l" in args) group.forEach { out(appLine(it), appContext(it)) }
+            else appGrid(group, AppListing.firstShown(group, cells, { pins[it.key] }, { prefs.frecency(it.key, now) }))
         }
-        info("${list.size} ${if (list.size == 1) "app" else "apps"} · " + kinds.joinToString("  ") { "${it.label} [${it.tag}]" })
     }
 
     private fun resolveApp(args: List<String>, includeHidden: Boolean = false): List<AppEntry> =
@@ -319,8 +321,11 @@ class AppCommands(
         }
     }
 
-    /** Prints one log line shown as tappable app chips. Long-press a chip for its actions. */
-    fun appGrid(list: List<AppEntry>) {
+    /**
+     * Prints one log line shown as tappable app chips. Long-press a chip for its actions. [first]:
+     * the places in [list] of the apps it shows until "+N more" opens it; null shows them all.
+     */
+    fun appGrid(list: List<AppEntry>, first: List<Int>? = null) {
         val refs = list.map {
             mapOf(
                 "pkg" to it.pkg,
@@ -332,7 +337,8 @@ class AppCommands(
             list.joinToString(", ") { it.label },
             LogContext.of(
                 LogContext.APPS to Json.stringify(refs),
-                LogContext.COPY to list.joinToString("\n") { appLine(it) }),
+                LogContext.COPY to list.joinToString("\n") { appLine(it) }) +
+                    (first?.let { mapOf(LogContext.APPS_FIRST to it.joinToString(",")) } ?: emptyMap()),
         )
     }
 

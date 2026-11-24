@@ -5,12 +5,13 @@ package com.mtwabpin.kolahal.ui.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,10 +55,14 @@ import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -76,6 +81,7 @@ import com.mtwabpin.kolahal.terminal.LineOptions
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.TimeMode
+import com.mtwabpin.kolahal.terminal.commands.AppListing
 import com.mtwabpin.kolahal.terminal.lineModel
 import com.mtwabpin.kolahal.terminal.plainOf
 import com.mtwabpin.kolahal.ui.theme.Term
@@ -449,7 +455,10 @@ fun LogLine(
                         is LineModel.Body.AppGrid -> {
                             val installed by com.mtwabpin.kolahal.apps.AppRepository.get(context).apps.collectAsStateWithLifecycle()
                             AppGrid(
+                                body,
                                 remember(entry.id, entry.ctx, installed) { apps(entry) },
+                                foldOpen,
+                                onToggleFold,
                                 onAppTap,
                                 onAppLongPress,
                                 Scramble.of(entry),
@@ -777,57 +786,148 @@ private object NameWidth {
     }
 }
 
-/** `apps` output: one line of chips instead of one line per app. With [scramble], their names are scrambled as line [id] is. */
+/**
+ * `apps` output: a chip for each app, in even columns (three on a phone, more on a wider screen).
+ * A chip starts with the app's icon (`suggestions.icons`), whose system badge marks a work or
+ * private app; without icons, the profile's letter does. A name too long for its column ends in
+ * "…". A capped grid ([LineModel.Body.AppGrid.first]) shows its first apps and "+N more" until
+ * [open]; [onToggle] opens it in place, and "▴ Show less" folds it again. With [scramble], the
+ * names are scrambled as line [id] is, and there are no icons.
+ */
 @Composable
 private fun AppGrid(
+    grid: LineModel.Body.AppGrid,
     apps: List<AppEntry>,
+    open: Boolean,
+    onToggle: () -> Unit,
     onTap: (AppEntry) -> Unit,
     onLongPress: (AppEntry) -> Unit,
     scramble: Scramble?,
     id: Long,
 ) {
-    val haptics = LocalHapticFeedback.current
     if (apps.isEmpty()) {
         LogText("(apps no longer installed)", style = Term.text.copy(color = Term.dim))
         return
     }
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(vertical = 4.dp),
-    ) {
-        apps.forEachIndexed { i, app ->
-            val color = Term.profileColor(app.profile.kind)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .heightIn(min = Term.chipHeight.dp)
-                    .alpha(if (app.profile.quiet) 0.45f else 1f)
-                    .background(color.copy(alpha = 0.10f), RoundedCornerShape(4.dp))
-                    .combinedClickable(
-                        onClick = { onTap(app) },
-                        onLongClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onLongPress(app)
-                        },
-                    )
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            ) {
-                if (app.profile.kind != ProfileKind.PERSONAL) {
-                    LogText(
-                        (scramble?.line(app.profile.kind.tag, id, Scramble.APP) ?: app.profile.kind.tag) + if (app.profile.quiet) "⏸" else "",
-                        style = Term.text.copy(
-                            color = color,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = (Term.fontSize - 2).sp
-                        ),
-                    )
-                    Spacer(Modifier.width(6.dp))
+    // Places in [apps], so a chip's tap is its app's, folded or not.
+    val folded = remember(grid, apps) {
+        apps.indices.filter { grid.showsFolded(LineModel.AppRef(apps[it].pkg, apps[it].component.className, apps[it].profile.serial)) }
+    }
+    val capped = folded.size < apps.size
+    val shown = if (capped && !open) folded else apps.indices.toList()
+    val icons = Term.appIcons && scramble == null
+    BoxWithConstraints(Modifier.padding(vertical = 4.dp)) {
+        val columns = (maxWidth / APP_CELL_MIN).toInt().coerceAtLeast(AppListing.COLUMNS)
+        // Each app's place, then null for "+N more" or "Show less".
+        val cells = buildList<Int?> {
+            addAll(shown)
+            if (capped) add(null)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (row in cells.chunked(columns)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (i in row) {
+                        if (i == null) MoreCell(
+                            if (open) "▴ Show less" else "+${apps.size - folded.size} more",
+                            open,
+                            onToggle,
+                            Modifier.weight(1f),
+                        ) else AppChip(
+                            apps[i],
+                            scramble?.line(apps[i].label, id, Scramble.APP * 100 + i) ?: apps[i].label,
+                            scramble?.line(apps[i].profile.kind.tag, id, Scramble.APP) ?: apps[i].profile.kind.tag,
+                            icons,
+                            onTap,
+                            onLongPress,
+                            Modifier.weight(1f),
+                        )
+                    }
+                    // The last row keeps the columns as wide as the others.
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
-                LogText(scramble?.line(app.label, id, Scramble.APP * 100 + i) ?: app.label, style = Term.text)
             }
         }
     }
+}
+
+/** How wide a column of an apps grid is at least, on a screen wide enough for more than [AppListing.COLUMNS]. */
+private val APP_CELL_MIN = 120.dp
+
+/**
+ * One app's chip: its icon, or without [icons] the profile's [tag] for an app not in the personal
+ * profile, then its [label] on one line. A paused profile's app is faint. A screen reader hears
+ * the profile and whether it is paused after the name ("Maps, work, paused").
+ */
+@Composable
+private fun AppChip(
+    app: AppEntry,
+    label: String,
+    tag: String,
+    icons: Boolean,
+    onTap: (AppEntry) -> Unit,
+    onLongPress: (AppEntry) -> Unit,
+    modifier: Modifier,
+) {
+    val haptics = LocalHapticFeedback.current
+    val kind = app.profile.kind
+    val quiet = app.profile.quiet
+    val color = Term.profileColor(kind)
+    val spoken = if (kind == ProfileKind.PERSONAL) null
+    else listOfNotNull(label, kind.label, "paused".takeIf { quiet }).joinToString(", ")
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .heightIn(min = Term.chipHeight.dp)
+            .alpha(if (quiet) 0.45f else 1f)
+            .background(color.copy(alpha = 0.10f), RoundedCornerShape(4.dp))
+            .combinedClickable(
+                onClick = { onTap(app) },
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongPress(app)
+                },
+            )
+            .then(if (spoken == null) Modifier else Modifier.semantics { contentDescription = spoken })
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    ) {
+        if (icons) {
+            // As on the suggestions' chips: the system's badge on the icon marks a work or private app.
+            AppIcon(app, minOf(Term.fontSize + 6, Term.chipHeight - 4).dp)
+            Spacer(Modifier.width(6.dp))
+        } else if (kind != ProfileKind.PERSONAL) {
+            LogText(
+                tag + if (quiet) "⏸" else "",
+                style = Term.text.copy(
+                    color = color,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (Term.fontSize - 2).sp
+                ),
+            )
+            Spacer(Modifier.width(6.dp))
+        }
+        LogText(label, style = Term.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A capped apps grid's last cell: "+N more" opens the grid in place, "▴ Show less" ([open]) folds it again. */
+@Composable
+private fun MoreCell(text: String, open: Boolean, onToggle: () -> Unit, modifier: Modifier) {
+    LogText(
+        text,
+        style = Term.text.copy(color = Term.link),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .heightIn(min = Term.chipHeight.dp)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = if (open) "fold the line" else "show all apps",
+                onClick = onToggle,
+            )
+            .wrapContentHeight()
+            .padding(horizontal = 6.dp)
+            .testTag("apps-more"),
+    )
 }
 
 @Composable

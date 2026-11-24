@@ -94,7 +94,11 @@ class AppCommandsTest {
     private fun gridPackages(e: LogEntry): List<String> =
         (Json.parse(e.ctx.values.getValue(LogContext.APPS)) as List<*>).map { (it as Map<*, *>)["pkg"].toString() }
 
-    /** `apps` is one grid of every visible app and a count; `-l` is a line per app, each one tappable. */
+    /** The packages of the chips of every grid line [line] prints, in order. */
+    private fun gridPackagesOf(line: String): List<String> =
+        lines(line).filter { LogContext.APPS in it.ctx.values }.flatMap(::gridPackages)
+
+    /** `apps` is a line that counts the apps, then one grid of every visible app; `-l` is a line per app, each one tappable. */
     @Test
     fun appsListsEveryVisibleApp() {
         val visible = apps.apps.value.filter { !it.hidden }
@@ -102,22 +106,50 @@ class AppCommandsTest {
             "one profile: with more, each has its own heading",
             visible.map { it.profile.kind }.distinct() == listOf(ProfileKind.PERSONAL)
         )
+        val count = if (visible.size == 1) "1 app" else "${visible.size} apps"
         val listed = lines("apps")
         assertEquals(2, listed.size)
-        assertEquals(visible.joinToString(", ") { it.label }, listed[0].text)
-        assertEquals(visible.map { it.pkg }, gridPackages(listed[0]))
-        assertEquals(visible.joinToString("\n") { it.label }, listed[0].ctx.copy)
-        assertEquals("${visible.size} apps · personal [P]", listed[1].text)
+        assertEquals(count, listed[0].text)
+        assertEquals(visible.joinToString(", ") { it.label }, listed[1].text)
+        assertEquals(visible.map { it.pkg }, gridPackages(listed[1]))
+        assertEquals(visible.joinToString("\n") { it.label }, listed[1].ctx.copy)
         assertEquals(run("apps"), run("ls"))
-        assertEquals(run("apps"), run("apps personal"))
-        assertEquals(run("apps"), run("apps -p"))
+        // Asked for by name, the profile is in the count.
+        val personal = if (visible.size == 1) "1 personal app" else "${visible.size} personal apps"
+        assertEquals(listOf(personal) + run("apps").drop(1), run("apps personal"))
+        assertEquals(run("apps personal"), run("apps -p"))
 
         val long = lines("apps -l")
-        assertEquals(visible.map { it.label } + "${visible.size} apps · personal [P]",
-            long.map { it.text })
+        assertEquals(listOf(count) + visible.map { it.label }, long.map { it.text })
         val s = long.single { it.ctx.pkg == SETTINGS }
         assertEquals(settings().component.className, s.ctx.cls)
         assertEquals(settings().profile.serial, s.ctx.userSerial)
+    }
+
+    /**
+     * A grid with more apps than six rows of three shows 17 of them until "+N more" opens it: a pinned
+     * app among them, in the grid's order. A grid that fits has no cap, so never "+1 more".
+     */
+    @Test
+    fun aLongGridShowsThePinnedAndMostUsedAppsFirst() {
+        val visible = apps.apps.value.filter { !it.hidden }
+        assumeTrue(
+            "one profile: with more, each has fewer rows",
+            visible.map { it.profile.kind }.distinct() == listOf(ProfileKind.PERSONAL)
+        )
+        val s = settings()
+        prefs.setPinned(s.key, true)
+        val grid = lines("apps")[1]
+        val first = grid.ctx.values[LogContext.APPS_FIRST]?.split(',')?.map { it.toInt() }
+        if (visible.size <= 18) {
+            assertEquals(null, first)
+            return
+        }
+        assertEquals(17, first!!.size)
+        assertEquals(first.sorted(), first)
+        assertTrue(visible.indexOfFirst { it.key == s.key } in first)
+        // `-l` lists them all.
+        assertEquals(visible.size + 1, run("apps -l").size)
     }
 
     /** A profile the phone doesn't have is named in what `apps`, `work` and `private` say. */
@@ -186,19 +218,17 @@ class AppCommandsTest {
         assertTrue(prefs.isHidden(s.key))
         waitUntil("the list without it") { apps.apps.value.single { it.key == s.key }.hidden }
 
-        assertFalse(gridPackages(lines("apps").first()).contains(SETTINGS))
+        assertFalse(gridPackagesOf("apps").contains(SETTINGS))
         val onlyHidden = apps.apps.value.filter { it.hidden }
-        val hiddenListed = run("apps hidden")
-        assertEquals(onlyHidden.joinToString(", ") { it.label }, hiddenListed.first())
-        val count = if (onlyHidden.size == 1) "1 app" else "${onlyHidden.size} apps"
-        assertEquals(listOf("$count · personal [P]"), hiddenListed.drop(1))
-        assertTrue(gridPackages(lines("apps -a").first()).contains(SETTINGS))
+        val count = if (onlyHidden.size == 1) "1 hidden app" else "${onlyHidden.size} hidden apps"
+        assertEquals(listOf(count, onlyHidden.joinToString(", ") { it.label }), run("apps hidden"))
+        assertTrue(gridPackagesOf("apps -a").contains(SETTINGS))
         assertEquals(listOf("No app matches 'Settings'"), run("open Settings"))
 
         assertEquals(listOf("Unhidden Settings"), run("unhide Settings"))
         assertFalse(prefs.isHidden(s.key))
         waitUntil("the list with it again") { !apps.apps.value.single { it.key == s.key }.hidden }
-        assertTrue(gridPackages(lines("apps").first()).contains(SETTINGS))
+        assertTrue(gridPackagesOf("apps").contains(SETTINGS))
     }
 
     /** `rename` gives an app the name you type, `rename <app> =` gives it its own name back, and a line without `=` says how. */

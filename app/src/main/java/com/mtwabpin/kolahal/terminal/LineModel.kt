@@ -149,8 +149,14 @@ data class LineModel(
             val nameWidthOf: String,
         ) : Body
 
-        /** `apps` output: a chip for each app. */
-        data class AppGrid(val apps: List<AppRef>) : Body
+        /**
+         * `apps` output: a chip for each app. [first]: the apps a capped grid shows until it is
+         * opened, with "+N more" for the rest ([LogContext.APPS_FIRST]); null when all of them show.
+         */
+        data class AppGrid(val apps: List<AppRef>, val first: Set<AppRef>? = null) : Body {
+            /** Whether [app] shows while the grid is folded: in a grid without a cap, every app does. */
+            fun showsFolded(app: AppRef): Boolean = first == null || app in first
+        }
     }
 
     /** What follows a row's words, in order. */
@@ -193,7 +199,7 @@ fun lineModel(row: LogRow.Entry, o: LineOptions, hasIcon: (String) -> Boolean = 
     val desc = ctx[LogContext.DESC]
     val apps = ctx[LogContext.APPS]
     val body = when {
-        apps != null -> LineModel.Body.AppGrid(appRefs(apps))
+        apps != null -> appRefs(apps).let { refs -> LineModel.Body.AppGrid(refs, firstApps(ctx[LogContext.APPS_FIRST], refs)) }
         desc != null && ctx[LogContext.NAME_COL] != null -> LineModel.Body.NameColumns(
             e.text,
             desc,
@@ -463,6 +469,16 @@ private fun appRefs(raw: String): List<LineModel.AppRef> =
             val pkg = m["pkg"]?.toString() ?: return@mapNotNull null
             LineModel.AppRef(pkg, m["cls"]?.toString(), m["user"]?.toString()?.toLongOrNull())
         }
+
+/**
+ * The apps a capped grid shows until it is opened: the places in [refs] that [raw] lists
+ * ([LogContext.APPS_FIRST], `0,3,5`). Null when there is no cap, or none of its places can be read.
+ */
+private fun firstApps(raw: String?, refs: List<LineModel.AppRef>): Set<LineModel.AppRef>? {
+    if (raw == null) return null
+    val first = raw.split(',').mapNotNull { it.trim().toIntOrNull()?.let(refs::getOrNull) }
+    return first.toSet().ifEmpty { null }
+}
 
 /**
  * Everything [this] row can do, in reading order: the line, its links, its apps, the links in its
