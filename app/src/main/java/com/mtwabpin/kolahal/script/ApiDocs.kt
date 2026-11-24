@@ -455,7 +455,7 @@ object ApiDocs {
         ApiDoc(
             "usage.summary",
             "usage.summary(period, app?) -> { perDay, rows = [{ from, to, minutes, perDay, unlocks, current }], top }",
-            "Screen time over Android's weeks, months or years (\"week\", \"month\", \"year\"), all apps or one package, oldest first, as usage-summary shows it (needs @uses usage)"
+            "Screen time over Android's weeks, months or years (\"week\", \"month\", \"year\"), all apps or one package, oldest first, as usage week, month and year show it (needs @uses usage)"
         ),
 
         ApiDoc("launcher", "launcher", "Drive the launcher: run", kind = NS),

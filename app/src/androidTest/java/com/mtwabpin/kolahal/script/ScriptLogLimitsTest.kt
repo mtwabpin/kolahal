@@ -43,7 +43,7 @@ class ScriptLogLimitsTest {
         val out = lines()
         assertEquals(501, out.size)
         assertEquals("line 499", out[499].text)
-        assertEquals("More than 500 lines in one run: the rest aren't logged", out.last().text)
+        assertEquals("More than 500 lines in one run\nThe rest aren't logged", out.last().text)
     }
 
     @Test
@@ -83,7 +83,7 @@ class ScriptLogLimitsTest {
         val out = lines()
         assertEquals(27, out.size)
         assertEquals(
-            "More than 256K characters in one run: the rest aren't logged",
+            "More than 256K characters in one run\nThe rest aren't logged",
             out.last().text
         )
     }
@@ -101,7 +101,7 @@ class ScriptLogLimitsTest {
         host.flush()
         val out = lines()
         assertEquals(
-            "More than 256K characters in one run: the rest aren't logged",
+            "More than 256K characters in one run\nThe rest aren't logged",
             out.last().text
         )
         // 6 lines of 40,000 fit in 256K with the rest; the 7th set is refused, and so is everything after.
@@ -119,7 +119,7 @@ class ScriptLogLimitsTest {
         assertEquals(27, out.size)
         assertEquals(link, out.first().ctx.url)
         assertEquals(
-            "More than 256K characters in one run: the rest aren't logged",
+            "More than 256K characters in one run\nThe rest aren't logged",
             out.last().text
         )
     }
@@ -131,7 +131,7 @@ class ScriptLogLimitsTest {
         host.flush()
         assertEquals(List(10) { true } + List(5) { false }, sent)
         assertEquals(
-            listOf("launcher.run: more than 10 commands in one run; the rest don't run"),
+            listOf("launcher.run: more than 10 commands in one run\nThe rest don't run"),
             lines().map { it.text })
     }
 
@@ -141,7 +141,7 @@ class ScriptLogLimitsTest {
         assertFalse(host.runCommand("date"))
         host.flush()
         assertEquals(
-            listOf("launcher.run isn't available to a script another script started"),
+            listOf("launcher.run didn't run the command\nIt doesn't work in a script another script started"),
             lines().map { it.text })
     }
 }

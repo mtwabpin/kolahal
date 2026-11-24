@@ -47,7 +47,7 @@ object ScriptNames {
         reserved: Set<String> = CommandCatalog.RESERVED_NAMES,
         taken: (String) -> Boolean,
     ): String? = when {
-        !NAME.matches(name) -> "Script names: lowercase letters, digits, - and _, up to 40"
+        !NAME.matches(name) -> "Invalid script name\nUse lowercase letters, digits, - and _, up to 40"
         name in reserved -> "'$name' is a built-in command"
         taken(name) -> "There is already a script named $name"
         else -> null

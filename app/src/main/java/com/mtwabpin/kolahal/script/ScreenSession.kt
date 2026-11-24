@@ -79,10 +79,10 @@ internal class ScreenSession(
                 val names = strings(raw?.get("names"))
                 val functions = strings(raw?.get("functions"))
                 val unknown = functions.filter { it !in FUNCTIONS }
-                require(unknown.isEmpty()) { "tty.screen: no function ${unknown.joinToString()}; there are ${FUNCTIONS.joinToString()}" }
+                require(unknown.isEmpty()) { "tty.screen: no function ${unknown.joinToString()}\nFunctions: ${FUNCTIONS.joinToString()}" }
                 val not = FUNCTIONS.filter { it in names && it !in functions }
                 require(not.isEmpty()) { "tty.screen: ${not.joinToString()} must be a function" }
-                require("start" in functions || "frame" in functions) { "tty.screen needs start or frame, or it has nothing to show" }
+                require("start" in functions || "frame" in functions) { "tty.screen needs start or frame\nWithout them it has nothing to show" }
                 val fps = raw?.get("fps")?.let {
                     (it as? Number)?.toDouble()?.takeIf { f -> f in 0.0..MAX_FPS.toDouble() }?.toInt()
                         ?: throw IllegalArgumentException("tty.screen: fps is a number from 0 to $MAX_FPS")
@@ -233,7 +233,7 @@ internal class ScreenSession(
                     val at = clock()
                     val kept = step(script, out, "frame", listOf(event.timeMs, event.deltaMs), tick = true)
                     slow = if (clock() - at > limits.frameMs) slow + 1 else 0
-                    check(slow < limits.slowFrames) { "tty.screen: its frames took over ${limits.frameMs} ms, ${limits.slowFrames} in a row, so it closed" }
+                    check(slow < limits.slowFrames) { "tty.screen closed\nIts frames took over ${limits.frameMs} ms, ${limits.slowFrames} in a row" }
                     kept
                 }
 
@@ -265,7 +265,7 @@ internal class ScreenSession(
         try {
             return script.call(callback, drawing.cols, drawing.rows, args, limits.callMs)
         } catch (_: TimedOut) {
-            throw IllegalStateException("tty.screen: $callback took over ${limits.callMs / 1_000} s, so it closed")
+            throw IllegalStateException("tty.screen closed\n$callback took over ${limits.callMs / 1_000} s")
         } finally {
             calling = false
         }

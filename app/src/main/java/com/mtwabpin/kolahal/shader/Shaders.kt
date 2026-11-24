@@ -202,7 +202,7 @@ object Shaders {
 
     /** The same as [problem], with the line the compiler names, when it names one. */
     private fun fault(context: Context, name: String): ShaderMeta.CompileError? {
-        val source = source(context, name) ?: return ShaderMeta.CompileError(null, "can't be read")
+        val source = source(context, name) ?: return ShaderMeta.CompileError(null, "its file can't be read")
         ShaderMeta.problems(source).firstOrNull()?.let { return ShaderMeta.CompileError(null, it) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             compileError(source)?.let { return it }
@@ -283,8 +283,15 @@ object Shaders {
      * redraw doesn't repeat it. A tap on the line checks the shader.
      */
     fun report(context: Context, name: String, id: String, problem: String) {
-        if (reported.add("$id: $problem")) log(context, LogKind.ERROR, "Shader $name: $problem", "shader check $name")
+        if (reported.add("$id: $problem")) log(context, LogKind.ERROR, problemLine(name, problem), "shader check $name")
     }
+
+    /**
+     * The log's words when shader [name] can't be used for [problem] (what [use] or [problem] returns, or a
+     * compiler's error): that it can't be used, then the problem on the line under it.
+     */
+    fun problemLine(name: String, problem: String): String =
+        "Shader $name can't be used\n${problem.replaceFirstChar { it.uppercase() }}"
 
     /**
      * Turns the shader of [id] off for [why] until its file changes or the user turns it on again
@@ -298,22 +305,31 @@ object Shaders {
         if (off) Config.get(app).set(Keys.SCREEN_SHADER, ShaderCatalog.OFF)
         val again =
             if (off) "screen.shader is off after $count times" else "'shader on' turns it on again"
-        log(app, LogKind.ERROR, "Shader ${ShaderSafety.nameOf(id)} turned off: $why · $again", "shader")
+        log(
+            app, LogKind.ERROR,
+            "Shader ${ShaderSafety.nameOf(id)} turned off\n${why.replaceFirstChar { it.uppercase() }}\n$again",
+            "shader", copy = if (off) null else "shader on",
+        )
     }
 
     /** Two fingers held on home: no shader, whatever it did to the screen. One line says how to get it back. */
     fun offByHand(context: Context) {
         val app = context.applicationContext
         val was = off(app) ?: return
-        log(app, LogKind.INFO, "Shader off: two fingers were held on the screen · 'shader on' turns $was on again", "shader")
+        log(
+            app, LogKind.INFO,
+            "Shader $was turned off\nTwo fingers were held on the screen\n'shader on' turns it on again",
+            "shader", copy = "shader on",
+        )
     }
 
-    private fun log(context: Context, kind: LogKind, text: String, command: String) {
+    /** Logs [text]: a tap runs [command], and Copy gives [copy] when there is one. */
+    private fun log(context: Context, kind: LogKind, text: String, command: String, copy: String? = null) {
         val app = context.applicationContext
         // Off the main thread: it writes to the database. A line that can't be written must not stop home.
         scope.launch {
             runCatching {
-                LogRepository.get(app).add(kind, text, ctx = LogContext.of(LogContext.RUN to command))
+                LogRepository.get(app).add(kind, text, ctx = LogContext.of(LogContext.RUN to command, LogContext.COPY to copy))
             }
         }
     }

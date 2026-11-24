@@ -147,14 +147,14 @@ class ShaderActions(
     /** Whether Kolahal's live wallpaper is the phone's. */
     suspend fun isWallpaper(): Boolean = withContext(Dispatchers.IO) { WallpaperChoice.isWallpaper(context) }
 
-    /** [name] is the live wallpaper's shader: at once when Kolahal's is the wallpaper, else in Android's preview, where people set it. */
+    /**
+     * [name] is the live wallpaper's shader, shown in Android's own preview, where people set it: always,
+     * also when Kolahal's wallpaper is the phone's already, as `wallpaper shader <name>` does. There the
+     * person sees it and says where it goes, the home screen, the lock screen or both.
+     */
     fun setWallpaper(name: String) = host.io {
-        val before = WallpaperChoice.name.value
         WallpaperChoice.set(context, name)
-        if (WallpaperChoice.isWallpaper(context)) {
-            val title = Shaders.source(context, name)?.let { ShaderMeta.parse(it).title } ?: name
-            host.notice("$title is your wallpaper", undo = { WallpaperChoice.set(context, before) })
-        } else if (runCatching { context.startActivity(WallpaperChoice.preview(context)) }.isFailure) {
+        if (runCatching { context.startActivity(WallpaperChoice.preview(context)) }.isFailure) {
             host.notice("This phone has no preview for live wallpapers", error = true)
         }
     }
@@ -310,8 +310,8 @@ class ShaderActions(
         host.fileOp("copy") {
             val (name, path) = ShaderCommands.fromTemplate(context, folder, template)
             forgetProblems(listOf(name))
-            if (path == null) pickFolder("Added $name · pick a script folder, then Copy in its details writes its file there")
-            else host.notice("Added $name as $path in the script folder · for a file you changed elsewhere, 'shader reload' reads it again")
+            if (path == null) pickFolder("Added $name\nPick a script folder, then Save to folder in its details writes its file")
+            else host.notice("Added $name to $path\n'shader reload' reads a file you changed elsewhere")
         }
     }
 
@@ -329,7 +329,7 @@ class ShaderActions(
             if (!Shaders.remove(context, name)) throw IllegalStateException("$name can't be removed")
             forgetProblems(listOf(name))
             host.notice(
-                "Removed $name" + if (name in ShaderCatalog.BUNDLED) " · the one that comes with Kolahal is used again" else "",
+                "Removed $name" + if (name in ShaderCatalog.BUNDLED) "\nThe one that comes with Kolahal is used again" else "",
                 undo = {
                     putBack(name, code, from)
                     if (was) host.io { config.set(Keys.SCREEN_SHADER, name) }
@@ -397,7 +397,7 @@ class ShaderActions(
         /** The same for a shader with [meta], while [shows] percent of the wallpaper does. */
         fun wallpaperWarning(meta: ShaderMeta, name: String, shows: Int): String? =
             if (shows <= ShaderSuits.WALLPAPER_SHOWS || meta.suits[ShaderSurface.WALLPAPER] != ShaderFit.POOR) null
-            else "${meta.title ?: name} doesn't work well with a wallpaper, and yours shows at $shows%"
+            else "${meta.title ?: name} doesn't work well with a wallpaper\nYours shows at $shows%"
 
         fun phone(context: Context): ShaderValues.Phone {
             val status = DeviceStatus.get(context).status.value

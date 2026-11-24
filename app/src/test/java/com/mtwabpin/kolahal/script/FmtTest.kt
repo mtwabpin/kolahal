@@ -26,13 +26,13 @@ class FmtTest {
     @Test
     fun anUnknownColorListsTheRoles() {
         assertEquals(
-            "fmt.color: no color 'pink'; use $roles",
+            "fmt.color: no color 'pink'\nColors: $roles",
             refused { Fmt.color("fmt.color", "pink") })
         assertEquals(
-            "fmt.tag: no color 'pink'; use $roles",
+            "fmt.tag: no color 'pink'\nColors: $roles",
             refused { fmt.tag(listOf("pink", "text")) })
         assertEquals(
-            "fmt.bar: no color 'pink'; use $roles",
+            "fmt.bar: no color 'pink'\nColors: $roles",
             refused { fmt.bar(listOf(0.5, mapOf("color" to "pink"))) })
     }
 
@@ -40,11 +40,11 @@ class FmtTest {
     @Test
     fun theErrorQuotesWhatWasPassed() {
         assertEquals(
-            "fmt.color: no color 'null'; use $roles",
+            "fmt.color: no color 'null'\nColors: $roles",
             refused { Fmt.color("fmt.color", null) })
-        assertEquals("fmt.tag: no color ''; use $roles", refused { fmt.tag(listOf(null, "text")) })
+        assertEquals("fmt.tag: no color ''\nColors: $roles", refused { fmt.tag(listOf(null, "text")) })
         assertEquals(
-            "fmt.bars: no color '7'; use $roles",
+            "fmt.bars: no color '7'\nColors: $roles",
             refused { fmt.bars(listOf(emptyList<Any?>(), mapOf("color" to 7))) })
     }
 

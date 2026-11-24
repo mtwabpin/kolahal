@@ -61,6 +61,7 @@ data-month.lua 06af475e35624383
 data-month.lua 27f18b29804ef784
 data-month.lua 81937717813f5256
 data-month.lua a6ea3a475c79010a
+data-month.lua c5aa884fdd88fb5a
 exchange.js 1acf4b149d2f1824
 exchange.js 1ecef54f1aac51f8
 exchange.js 1ff7df9f277fbc6b
@@ -149,9 +150,11 @@ night-dnd.lua 07f8b77f2288d40f
 night-dnd.lua 5f786052af428b7b
 night-dnd.lua b6040383e43eb9e7
 night-dnd.lua b730147ecba5e5c8
+night-dnd.lua cd008f8fd18fcc44
 night-work.lua 12d4a205dac0507b
 night-work.lua 4a5390218bb41547
 night-work.lua 639645bd4fc54757
+quick-toggles.lua 33ea2ceebf6d4d52
 quick-toggles.lua a07ca37d1523ffb4
 quick-toggles.lua f0a6c365ed8f7840
 quote.js 00781894f6456c1d
@@ -200,8 +203,10 @@ releases.lua e836b4f6ecc8f1ef
 releases.lua ec8d032d79acc000
 screen-time.lua a732d6e386f683ec
 screen-time.lua cb20fefba01d4a11
+screen-time.lua d37c7cce921f08a5
 screen-time.lua ff87da24de179f83
 screen-time-months.lua 32a8a4d52fe9b6d4
+screen-time-months.lua 3a90302a28cc7085
 screen-time-months.lua db29ff4f9c62738d
 sun.js 1263e8a14e78da70
 sun.js 22c69d371fab1098
@@ -261,11 +266,13 @@ tty-matrix.lua 590fb16f113271b8
 tty-pipes.lua 58df96735ce1d35e
 tty-sl.lua e0f4935e8e07bec0
 tty-top.lua 5271e3ffc85c8cdd
+tty-top.lua a317164cb7a53a50
 unlock-chart.lua 0b20ace19e4ceab2
 unlock-chart.lua 991d1ba6f4558f05
 unlock-chart.lua bebea0e4b919078c
 unlock-chart.lua c4ea94aa0567a548
 unused-apps.lua 2112bec10fbe4042
+unused-apps.lua 3e38d98ecba9a0cc
 unused-apps.lua c1c5618eff96f1d3
 weather.lua 0676f7f2b339aa96
 weather.lua 08fd82ab49c5424c

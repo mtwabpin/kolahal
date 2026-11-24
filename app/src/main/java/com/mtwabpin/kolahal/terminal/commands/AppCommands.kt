@@ -36,15 +36,21 @@ class AppCommands(
     private val activities by lazy { ActivityCommands(context) }
 
 
-    /** Describes where a pinned app shows, based on the current settings. */
-    private fun pinnedWhere(): String {
+    /** Lines that say where a pinned app shows, based on the current settings. Empty when it shows nowhere. */
+    private fun pinnedWhere(): List<String> {
         val conf = com.mtwabpin.kolahal.data.Config.get(context)
         return listOfNotNull(
-            "it comes first in suggestions on an empty prompt".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SUGGEST_IDLE] },
-            "it is a ★ favorite in the app selector".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SELECTOR_RAIL] },
-        ).joinToString(", and ")
-            .ifEmpty { "pinned apps come first on an empty prompt with config set suggestions.idle on" }
+            "It comes first in suggestions on an empty prompt".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SUGGEST_IDLE] },
+            "It is a ★ favorite in the app selector".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SELECTOR_RAIL] },
+        )
     }
+
+    /** How a command names [app], as the user would type it: `maps`, `maps -w`. The flag as [appLine] tags it. */
+    private fun appArg(app: AppEntry): String =
+        app.label.lowercase() + if (appLine(app) != app.label) " " + app.profile.kind.flag else ""
+
+    /** A line's context whose Copy gives [command]. */
+    private fun copying(command: String) = LogContext.of(LogContext.COPY to command)
 
     /** Runs one of [NAMES]. */
     fun run(name: String, args: List<String>) {
@@ -52,7 +58,10 @@ class AppCommands(
             // Each acts on the best match it can change: `unpin ma` unpins Maps, even when Mail matches better
             // but isn't pinned. When none can be changed, it says so. The suggestions offer the same apps.
             "hide" -> withAppItCanChange(args, can = { !it.hidden }) { app ->
-                if (app.hidden) info("${app.label} is hidden already · unhide ${app.label}") else setHidden(
+                if (app.hidden) info(
+                    "${app.label} is hidden already\n'unhide ${appArg(app)}' shows it again",
+                    copying("unhide ${appArg(app)}")
+                ) else setHidden(
                     app,
                     true
                 )
@@ -66,14 +75,22 @@ class AppCommands(
                             prefs.setPinned(
                                 app.key,
                                 true
-                            ); info("Pinned ${app.label} — ${pinnedWhere()}")
+                            )
+                            // Shown nowhere, the line names the setting's command too: then Copy keeps the line's words.
+                            val where = pinnedWhere()
+                            val unpin = "unpin ${appArg(app)}"
+                            info(
+                                (listOf("Pinned ${app.label}") + where.ifEmpty { listOf(PINNED_NOWHERE) } + "'$unpin' removes it")
+                                    .joinToString("\n"),
+                                if (where.isEmpty()) LogContext.EMPTY else copying(unpin)
+                            )
                         }
                     }
                 }
 
             "unpin", "unfav" -> prefs.pinned().toSet().let { pinned ->
                 withAppItCanChange(args, can = { it.key in pinned }) { app ->
-                    if (app.key !in pinned) info("${app.label} isn't pinned · pins lists them")
+                    if (app.key !in pinned) info("${app.label} isn't pinned\n'pins' lists the pinned apps", copying("pins"))
                     else {
                         prefs.setPinned(app.key, false); info("Unpinned ${app.label}")
                     }
@@ -82,7 +99,10 @@ class AppCommands(
 
             "pins", "favs" -> listPinned()
             "unhide" -> withAppItCanChange(args, can = { prefs.isHidden(it.key) }) { app ->
-                if (!prefs.isHidden(app.key)) info("${app.label} isn't hidden · apps hidden lists them") else setHidden(
+                if (!prefs.isHidden(app.key)) info(
+                    "${app.label} isn't hidden\n'apps hidden' lists the hidden apps",
+                    copying("apps hidden")
+                ) else setHidden(
                     app,
                     false
                 )
@@ -124,9 +144,9 @@ class AppCommands(
     private fun listPinned() {
         val byKey = apps.apps.value.associateBy { it.key }
         val pinned = prefs.pinned().mapNotNull { byKey[it] }
-        if (pinned.isEmpty()) return info("No pinned apps — pin <app>, or long-press an app → Pin")
+        if (pinned.isEmpty()) return info("No pinned apps\n'pin <app>' pins one\nOr long-press an app → Pin")
         appGrid(pinned)
-        info("${pinned.size} pinned · unpin <app> to remove")
+        info("${pinned.size} pinned\n'unpin <app>' removes one")
     }
 
     private fun setHidden(app: AppEntry, hidden: Boolean) {
@@ -233,7 +253,10 @@ class AppCommands(
                 (s.shortLabel ?: "").toString().lowercase().contains(wanted) || (s.longLabel
                     ?: "").toString().lowercase().contains(wanted)
             }
-                ?: return error("${app.label} has no shortcut matching '$wanted' — 'shortcuts ${app.label}'")
+                ?: return error(
+                    "${app.label} has no shortcut matching '$wanted'\n'shortcuts ${appArg(app)}' lists them",
+                    copying("shortcuts ${appArg(app)}")
+                )
             apps.startShortcut(app, shortcut.id)
             return info("${app.label} › ${shortcut.shortLabel}", appContext(app))
         }
@@ -252,7 +275,7 @@ class AppCommands(
             val flag = app.profile.kind.flag
             logs.add(
                 LogKind.INFO,
-                "${app.profile.kind.title} profile is paused — tap to resume it and open ${app.label}",
+                "${app.profile.kind.title} profile is paused\nTap to resume it and open ${app.label}",
                 ctx = LogContext.of(LogContext.RUN to "open ${app.label} $flag --resume"),
             )
             return
@@ -266,14 +289,14 @@ class AppCommands(
                     )
                 logs.addReplacing(LogKind.INFO, "Launched ${appLine(app)}", ctx)
             }
-            .onFailure { error("Can't launch ${app.label}: ${it.reason()}") }
+            .onFailure { error("Can't launch ${app.label}\n${it.reason()}") }
     }
 
     /** Turns the paused profile back on, waits until it is available, then opens [app]. */
     fun resumeAndLaunch(app: AppEntry) {
         val result = apps.setQuietMode(app.profile, false)
         if (result == com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED) {
-            error("Couldn't resume the ${app.profile.kind.label} profile (is Kolahal the default launcher? run 'home')")
+            error("Couldn't resume the ${app.profile.kind.label} profile\n$NOT_HOME", copying("home"))
             return
         }
         // With a PIN, Android asks for it first: there is more time to type it.
@@ -292,7 +315,7 @@ class AppCommands(
                     return@background
                 }
             }
-            error("${app.profile.kind.title} profile didn't resume in time — try again")
+            error("${app.profile.kind.title} profile didn't resume in time\nTry again")
         }
     }
 
@@ -338,7 +361,7 @@ class AppCommands(
                 } else when (apps.setQuietMode(profile, quiet)) {
                     com.mtwabpin.kolahal.apps.ProfileQuiet.Result.DONE -> info("${kind.title} profile turning ${args[0]}…")
                     com.mtwabpin.kolahal.apps.ProfileQuiet.Result.NEEDS_PIN -> info("Enter the ${kind.label} profile's PIN to turn it on")
-                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED -> error("Couldn't change ${kind.label} profile (is Kolahal the default launcher? run 'home')")
+                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED -> error("Couldn't change ${kind.label} profile\n$NOT_HOME", copying("home"))
                 }
             }
 
@@ -349,10 +372,8 @@ class AppCommands(
     private fun listShortcuts(app: AppEntry) {
         val list = apps.shortcuts(app)
         if (list.isEmpty()) {
-            return info(
-                if (SetupChecks.isDefaultLauncher(context)) "${app.label} has no shortcuts"
-                else "Shortcuts need Kolahal as the default launcher — run 'home'"
-            )
+            return if (SetupChecks.isDefaultLauncher(context)) info("${app.label} has no shortcuts")
+            else info("Shortcuts need Kolahal as the home app\n'home' chooses the default launcher", copying("home"))
         }
         list.forEach { s ->
             out(
@@ -369,6 +390,13 @@ class AppCommands(
     private val ProfileKind.title get() = label.replaceFirstChar { it.uppercase() }
 
     companion object {
+        /** Where pinned apps show when no setting shows them. */
+        private const val PINNED_NOWHERE =
+            "Pinned apps come first on an empty prompt with 'config set suggestions.idle on'"
+
+        /** Why Android may refuse to pause or resume a profile, and the command that fixes it. */
+        private const val NOT_HOME = "Is Kolahal the default launcher?\n'home' chooses the default launcher"
+
         /** Commands handled by [run]. */
         val NAMES = setOf(
             "hide",

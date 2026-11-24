@@ -172,7 +172,7 @@ class HostApi(
      */
     internal fun may(what: String, call: String): Boolean {
         val g = grants ?: return true
-        if (what !in g.declared) throw IllegalStateException("$call needs `@uses $what` at the top of the script")
+        if (what !in g.declared) throw IllegalStateException("$call needs `@uses $what`\nAdd it at the top of the script")
         if (!g.allows(what) && what in g.undecided) undecided += what
         return g.allows(what)
     }
@@ -404,7 +404,7 @@ class HostApi(
         if (!notifyEnabled) return false
         // Android keeps about 50 notifications per app. A loop must not crowd out Kolahal's own reminders.
         if (++notifications > MAX_NOTIFY_PER_RUN) {
-            if (notifications == MAX_NOTIFY_PER_RUN + 1) logError("notify: more than $MAX_NOTIFY_PER_RUN notifications in one run; the rest aren't posted")
+            if (notifications == MAX_NOTIFY_PER_RUN + 1) logError("notify: more than $MAX_NOTIFY_PER_RUN notifications in one run\nThe rest aren't posted")
             return false
         }
         // Opening the link sends what it holds to its site.
@@ -585,11 +585,11 @@ class HostApi(
         effects++
         flush()
         if (scriptId == null) {
-            log("status() only works in saved scripts (it is keyed by script name)")
+            log("status() only works in saved scripts", "It is keyed by the script's name")
             return
         }
         val unknown = opts?.keys?.map { it.toString() }?.filter { it !in STATUS_OPTIONS }.orEmpty()
-        require(unknown.isEmpty()) { "status: no option ${unknown.joinToString(", ")} (there are ${STATUS_OPTIONS.joinToString()})" }
+        require(unknown.isEmpty()) { "status: no option ${unknown.joinToString(", ")}\nOptions: ${STATUS_OPTIONS.joinToString()}" }
         val progress = opts?.get("progress")?.let {
             val p = (it as? Number)?.toDouble()?.takeIf(Double::isFinite)
                 ?: throw IllegalArgumentException("status: progress is a number from 0 to 1")
@@ -640,10 +640,10 @@ class HostApi(
             return
         }
         val key = name.trim().lowercase()
-        check(key in gives) { "shader.give: add `@gives $key` at the top of the script" }
+        check(key in gives) { "shader.give needs `@gives $key`\nAdd it at the top of the script" }
         val text = ShaderValues.clean(value)
         // Home shows it in a shader's details, so it must never hold a secret.
-        require(text == null || redact(text) == text) { "shader.give: the value contains one of this script's secrets" }
+        require(text == null || redact(text) == text) { "shader.give refused the value\nIt contains one of this script's secrets" }
         if (gaveValues >= MAX_GIVES_PER_RUN) return
         if (ShaderValues.give(context, scriptName, key, text)) gaveValues++
     }
@@ -698,7 +698,7 @@ class HostApi(
         val placed = widgetPlacedNow()
         if (!widgetCall("widget.show")) return placed
         val raw = desc
-            ?: throw IllegalArgumentException("widget.show expects a description: a table or object such as { value, label }")
+            ?: throw IllegalArgumentException("widget.show expects a description\nA table or object such as { value, label }")
         val spec = WidgetParser.parse(raw, line.kind, text = ::redact, link = ::widgetLink)
         // The texts have limits of their own. A link has none, so this is what stops a huge one.
         val json = WidgetJson.encode(spec)
@@ -768,19 +768,19 @@ class HostApi(
      */
     private fun widgetLine(call: String): ScriptMeta.Widget? {
         if (scriptId == null) {
-            log("$call() only works in saved scripts (it is keyed by script name)")
+            log("$call() only works in saved scripts", "It is keyed by the script's name")
             return null
         }
         return widget
             ?: throw IllegalStateException(
-                widgetIssue ?: "$call needs `@widget <kind>` at the top of the script"
+                widgetIssue ?: "$call needs `@widget <kind>`\nAdd it at the top of the script"
             )
     }
 
     /** Counts a widget call. False past the run's limit; the first call past it says so. */
     private fun widgetCall(call: String): Boolean {
         if (++widgetCalls <= MAX_WIDGET_PER_RUN) return true
-        if (widgetCalls == MAX_WIDGET_PER_RUN + 1) logError("$call: more than $MAX_WIDGET_PER_RUN widget calls in one run; the rest change nothing")
+        if (widgetCalls == MAX_WIDGET_PER_RUN + 1) logError("$call: more than $MAX_WIDGET_PER_RUN widget calls in one run\nThe rest change nothing")
         return false
     }
 
@@ -794,7 +794,7 @@ class HostApi(
      */
     private fun widgetLink(link: String): String {
         if (Net.webUrl(link) == null) throw IllegalArgumentException(
-            "widget: a link must be a web address (http or https), not '${
+            "widget: a link must be a web address\nUse http or https, not '${
                 redact(
                     link
                 ).take(80)
@@ -849,9 +849,9 @@ class HostApi(
             if (ScreenSession.USES in undecided) return
             deny(ScreenSession.USES, "tty.screen: full screen is off for this script")
         }
-        check(interactive) { "tty.screen only opens when you start the script, not on a timer or an event" }
-        check(!byScript) { "tty.screen only opens when you start the script, not when another script starts it" }
-        check(screens) { "tty.screen opens only in a script with `@uses screen`, or in typed code that says tty.screen" }
+        check(interactive) { "tty.screen only opens when you start the script\nNot on a timer or an event" }
+        check(!byScript) { "tty.screen only opens when you start the script\nNot when another script starts it" }
+        check(screens) { "tty.screen needs `@uses screen`\nTyped code that says tty.screen can open it too" }
         check(screen == null) { "tty.screen: a run opens one screen" }
         screen = ScreenSession(
             scriptName,
@@ -890,7 +890,7 @@ class HostApi(
         when (open.run(prompt) { handover?.shown?.complete(Unit) }) {
             ScreenSession.End.CLOSED -> Unit
             ScreenSession.End.ABSENT ->
-                runLog.add(LogKind.INFO, "$scriptName: its screen didn't open, because home wasn't shown", LogContext(baseCtx))
+                runLog.add(LogKind.INFO, "$scriptName: its screen didn't open\nHome wasn't shown", LogContext(baseCtx))
         }
     }
 
@@ -902,7 +902,7 @@ class HostApi(
         // A clip goes to Android in one transaction. A huge clip would make it fail, and the process with it.
         require(text.length <= MAX_CLIP) { "clipboard.set: text over ${MAX_CLIP / 1000}K characters" }
         // Keyboards keep clipboard history, and Android shows a preview, so never copy a secret.
-        require(redact(text) == text) { "clipboard.set: the text contains one of this script's secrets" }
+        require(redact(text) == text) { "clipboard.set refused the text\nIt contains one of this script's secrets" }
         val cm = context.getSystemService(android.content.ClipboardManager::class.java)
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             runCatching {
@@ -967,7 +967,7 @@ class HostApi(
 
     /**
      * Sets Do Not Disturb to [mode] (`off`, `on` or `priority`, `alarms`, `none`). Returns false when
-     * Kolahal has no Do Not Disturb access (`dnd access`), or when it's switched off for the script.
+     * Kolahal has no Do Not Disturb access (`allow dnd`), or when it's switched off for the script.
      */
     fun setDnd(mode: String): Boolean {
         // The same words and the same check as the `dnd` command: "off" is true only once it is off.
@@ -993,7 +993,7 @@ class HostApi(
         is Boolean -> value
         "on" -> true
         "off" -> false
-        else -> throw IllegalArgumentException("$call takes true or false (or \"on\" or \"off\")")
+        else -> throw IllegalArgumentException("$call takes true or false\nOr \"on\" or \"off\"")
     }
 
     /**
@@ -1080,20 +1080,20 @@ class HostApi(
         // Commands (and through them, other scripts) are only for scripts that declare them and are allowed them.
         if (!may("commands", "launcher.run")) return false
         if (!interactive) {
-            logError("launcher.run is only available when the script is run from the prompt")
+            logError("launcher.run didn't run the command\nIt works only when the script is run from the prompt")
             return false
         }
         if (byScript) {
-            logError("launcher.run isn't available to a script another script started")
+            logError("launcher.run didn't run the command\nIt doesn't work in a script another script started")
             return false
         }
         if (++commands > MAX_COMMANDS_PER_RUN) {
-            if (commands == MAX_COMMANDS_PER_RUN + 1) logError("launcher.run: more than $MAX_COMMANDS_PER_RUN commands in one run; the rest don't run")
+            if (commands == MAX_COMMANDS_PER_RUN + 1) logError("launcher.run: more than $MAX_COMMANDS_PER_RUN commands in one run\nThe rest don't run")
             return false
         }
         // A command goes to the terminal, its log and its history, and on to apps and sites. So it must never hold a secret.
         if (redact(command) != command) {
-            logError("launcher.run refused: the command contains one of this script's secrets")
+            logError("launcher.run refused a command\nIt contains one of this script's secrets")
             return false
         }
         // State-changing commands (clear, uninstall, notifs clear, config, …) stay with the user. Home checks
@@ -1101,7 +1101,7 @@ class HostApi(
         // `c = clear`). So a screen's name (`clock`) passes here, as in the gui style it is your app, alias or
         // script; in the tty style, where it opens the screen, home refuses it.
         if (com.mtwabpin.kolahal.commands.InstantRun.isSensitive(command, tty = false)) {
-            logError("launcher.run refused '${command.substringBefore(' ')}': sensitive commands must be typed")
+            logError("launcher.run refused '${command.substringBefore(' ')}'\nSensitive commands must be typed")
             return false
         }
         if (command.contains(' ') && grants != null && !grants.allows(ScriptAccess.INTERNET)) {
@@ -1109,13 +1109,13 @@ class HostApi(
                 com.mtwabpin.kolahal.commands.InstantRun.canonical(command.substringBefore(' '))
             // A search or a place sends its words to a site through another app, so it needs the internet.
             if (verb in WEB_COMMANDS) {
-                logError("launcher.run refused '$verb': it sends text to a website, and this script has no internet access")
+                logError("launcher.run refused '$verb'\nIt sends text to a website\nThis script has no internet access")
                 return false
             }
             // A `@command` script runs with its own switches, so it could pass them on itself.
             val other = ScriptRepository.get(context).byName(verb)
             if (other != null && ScriptMeta.isCommand(other.code) && ScriptMeta.goesOnline(other.code)) {
-                logError("launcher.run refused '$verb': it goes online, and this script has no internet access")
+                logError("launcher.run refused '$verb'\nIt goes online\nThis script has no internet access")
                 return false
             }
         }
@@ -1170,7 +1170,7 @@ class HostApi(
     fun storeSet(key: String, value: String?) {
         live()
         // A store goes into backups, so it must never hold a secret.
-        require(redact(key) == key && (value == null || redact(value) == value)) { "store.set: the key or value contains one of this script's secrets" }
+        require(redact(key) == key && (value == null || redact(value) == value)) { "store.set refused the key or value\nIt contains one of this script's secrets" }
         store.set(key, value)
     }
 

@@ -9,7 +9,7 @@ usually find in quick settings. Each command prints a status line, and you can t
 ## Media
 
 To control media, Kolahal reads the active media sessions. Android only allows this for apps with
-**notification access**. Grant it with `notifs enable` or **setup → Notification access**.
+**notification access**. Grant it with `allow read-notifications` or **setup → Notification access**.
 Without it, media commands print a line you can tap to open the permission page.
 
 | Command | Action |
@@ -65,8 +65,8 @@ the line opens the page where you can grant it.
 Both kinds of access are optional. The [setup checklist](/getting-started/setup/) has a
 row for each:
 
-- **Do Not Disturb access** (`dnd access`): used by `dnd`, `ring silent` and scripts with `@uses dnd`.
-- **Modify system settings** (`brightness access`): used by `brightness`, `rotate` and
+- **Do Not Disturb access** (`allow dnd`): used by `dnd`, `ring silent` and scripts with `@uses dnd`.
+- **Modify system settings** (`allow settings`): used by `brightness`, `rotate` and
   `screen-timeout`.
 
 If a command needs one of these and you haven't granted it, the command prints a line you can tap to

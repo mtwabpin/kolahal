@@ -487,7 +487,7 @@ fun WidgetsScreen(
                 }
                 if (panel.isNotEmpty()) {
                     PageHint(
-                        "Tap a widget to change it; long-press it to move it. Terminal: widgets ls · widget add",
+                        "Tap a widget to change it; long-press it to move it. Terminal: widget ls · widget add",
                         inset
                     )
                 }

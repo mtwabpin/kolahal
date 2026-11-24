@@ -152,7 +152,7 @@ class FeedCommandsTest {
         val before = logs.maxId()
         val said = lines("feed add ${BASE}feed").filterNot { it.kind == LogKind.ERROR }
         val feed = feeds.byUrl("${BASE}feed")!!
-        assertEquals(listOf("Subscribed #${feed.id} ${BASE}feed — fetching…"), said.map { it.text })
+        assertEquals(listOf("Subscribed to feed #${feed.id}, fetching…\n${BASE}feed"), said.map { it.text })
         assertEquals(feed.url, said.single().ctx.url)
         assertEquals(60, feed.intervalMin)
         val failed = failure("127.0.0.1", before)
@@ -163,7 +163,7 @@ class FeedCommandsTest {
         // Another spelling of the same address: the same feed, said so, and not fetched again. The
         // first fetch is done before the test ends.
         assertEquals(
-            "Already subscribed: #${feed.id} ${BASE}feed",
+            "Already subscribed as feed #${feed.id}\n${BASE}feed",
             run("feed add HTTP://127.0.0.1:9/feed#top").first()
         )
         assertEquals(1, feeds.feeds().count { it.url.startsWith(BASE) })
@@ -186,7 +186,7 @@ class FeedCommandsTest {
     @Test
     fun feedListShowsEachFeedWithItsCounts() {
         if (feeds.all().isEmpty()) assertEquals(
-            listOf("No feeds yet — feed add <url> (or 'feeds' for the manager and OPML import)"),
+            listOf("No feeds yet\n'feed add <url>' adds one\n'feeds' opens the manager and OPML import"),
             run("feed")
         )
         val news = feed("news", title = "Llat News")
@@ -213,7 +213,7 @@ class FeedCommandsTest {
             second.ctx.values[LogContext.DESC]!!.startsWith("0/0 unread · every 2h · notify")
         )
         assertEquals(
-            "Tap a feed to read it · feed read = all unread · feed fetch = refresh now",
+            "Tap a feed to read it\n'feed read' shows all unread\n'feed fetch' refreshes now",
             listed.last().text
         )
         assertEquals(listed.map { it.text }, run("feed list"))
@@ -253,10 +253,12 @@ class FeedCommandsTest {
     fun feedReadStopsAtFortyAndSaysHowManyAreLeft() {
         val many = feed("many")
         items(many, 45)
-        val first = run("feed read ${many.id}")
+        val shown = lines("feed read ${many.id}")
+        val first = shown.map { it.text }
         assertEquals(41, first.size)
         assertEquals("Llat item 1", first.first())
-        assertEquals("5 more unread — feed read ${many.id} again", first.last())
+        assertEquals("5 more unread\n'feed read ${many.id}' shows more", first.last())
+        assertEquals("feed read ${many.id}", shown.last().ctx.copy)
         assertEquals(5, feeds.unreadCount(many.id))
         assertEquals((41..45).map { "Llat item $it" }, run("feed read ${many.id}"))
         assertEquals(0, feeds.unreadCount(many.id))
@@ -310,10 +312,10 @@ class FeedCommandsTest {
         items(f, 7) { if (it == 7) null else "${BASE}item/$it" }
         val opened = mutableListOf<Intent>()
         catching(setOf(Intent.ACTION_VIEW), opened) {
-            assertEquals(listOf("Opened 5 items · 2 still unread"), run("feed open ${f.id}"))
+            assertEquals(listOf("Opened 5 items\n2 still unread"), run("feed open ${f.id}"))
             assertEquals((1..5).map { "${BASE}item/$it" }, opened.map { it.dataString })
             assertEquals(2, feeds.unreadCount(f.id))
-            assertEquals(listOf("Opened 1 item · 1 still unread"), run("feed open ${f.id}"))
+            assertEquals(listOf("Opened 1 item\n1 still unread"), run("feed open ${f.id}"))
             assertEquals("${BASE}item/6", opened.last().dataString)
             // The one left has no link.
             assertEquals(listOf("Nothing unread"), run("feed open ${f.id}"))
@@ -322,7 +324,7 @@ class FeedCommandsTest {
             val bad = feed("bad")
             items(bad, 1) { "kolahal-none:nowhere" }
             assertEquals(
-                listOf("Opened 0 items (1 couldn't be opened) · 1 still unread"),
+                listOf("Opened 0 items\n1 couldn't be opened\n1 still unread"),
                 run("feed open ${bad.id}")
             )
             assertEquals(1, feeds.unreadCount(bad.id))
@@ -358,7 +360,9 @@ class FeedCommandsTest {
 
         assertEquals(listOf("Usage: feed off <id>"), run("feed off"))
         assertEquals(listOf("Usage: feed notify <id> on|off"), run("feed notify"))
-        assertEquals(listOf("No feed #999999 — 'feeds' lists them"), run("feed on 999999"))
+        val none = lines("feed on 999999").single()
+        assertEquals("No feed #999999\n'feeds' lists them", none.text)
+        assertEquals("feeds", none.ctx.copy)
     }
 
     /** `feed rm` removes the feed and its items; then the id is unknown, and an unknown subcommand shows every one. */
@@ -369,7 +373,7 @@ class FeedCommandsTest {
         assertEquals(listOf("Removed feed #${f.id}"), run("feed rm ${f.id}"))
         assertNull(feeds.byId(f.id))
         assertEquals(0, feeds.itemCount(f.id))
-        assertEquals(listOf("No feed #${f.id} — 'feeds' lists them"), run("feed remove ${f.id}"))
+        assertEquals(listOf("No feed #${f.id}\n'feeds' lists them"), run("feed remove ${f.id}"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm first"))
         assertEquals(
@@ -390,7 +394,7 @@ class FeedCommandsTest {
         val other = feed("other")
         val fixed = "${BASE}fixed"
         assertEquals(
-            listOf("Feed #${f.id} is at $fixed — fetching…"),
+            listOf("Moved feed #${f.id}, fetching…\n$fixed"),
             run("feed url ${f.id} $fixed").take(1)
         )
         val moved = feeds.byId(f.id)!!
@@ -403,7 +407,9 @@ class FeedCommandsTest {
             run("feed url ${f.id} ${other.url}")
         )
         assertEquals(listOf("Not an http(s) URL: ftp://x"), run("feed url ${f.id} ftp://x"))
-        assertEquals(listOf("No feed #999999 — 'feeds' lists them"), run("feed url 999999 $fixed"))
+        val gone = lines("feed url 999999 $fixed").single()
+        assertEquals("No feed #999999\n'feeds' lists them", gone.text)
+        assertEquals("feeds", gone.ctx.copy)
         assertEquals(listOf("Usage: feed url <id> <address>"), run("feed url ${f.id}"))
     }
 
@@ -443,17 +449,17 @@ class FeedCommandsTest {
         assertEquals(0, feeds.feeds().count { it.url.startsWith(BASE) })
     }
 
-    /** With notification access off, `notifs` says to tap to allow it, and `notifs enable` asks first. */
+    /** With notification access off, `notifs` says to tap to allow it, and `allow read-notifications` asks first. */
     @Test
     fun notifsNeedNotificationAccess() {
         access.set(false)
-        for (typed in listOf("notifs", "notifs muted", "notifications-feed all")) {
+        for (typed in listOf("notifs", "notifs muted", "notifications all")) {
             val off = lines(typed).single()
-            assertEquals("Notification access is off — tap to allow it", off.text)
+            assertEquals("Notification access is off\nTap to allow it", off.text)
             assertEquals(LogKind.ERROR, off.kind)
-            assertEquals("notifs enable", off.ctx.values[LogContext.RUN])
+            assertEquals("allow read-notifications", off.ctx.values[LogContext.RUN])
         }
-        assertEquals(emptyList<String>(), run("notifs enable"))
+        assertEquals(emptyList<String>(), run("allow read-notifications"))
         assertEquals(1, asked)
     }
 
@@ -510,14 +516,14 @@ class FeedCommandsTest {
     fun notifsMuteAndLog() {
         allowNotifications()
         assertEquals(
-            listOf("Settings: notifications won't appear in the log"),
+            listOf("Muted Settings\nIts notifications won't appear in the log"),
             run("notifs mute Settings")
         )
         assertTrue(SETTINGS in notifPrefs.muted.value)
         val muted = lines("notifs muted").single { it.text == "Settings" }
         assertEquals("notifs unmute $SETTINGS", muted.ctx.command)
         assertEquals(
-            listOf("Settings: notifications will appear in the log"),
+            listOf("Unmuted Settings\nIts notifications will appear in the log"),
             run("notifs unmute Settings")
         )
         assertFalse(SETTINGS in notifPrefs.muted.value)
@@ -529,11 +535,11 @@ class FeedCommandsTest {
         assertEquals(listOf("Notifications appear in the log"), run("notifs log on"))
         assertTrue(notifPrefs.logToTerminal)
         assertEquals(
-            listOf("Usage: notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]"),
+            listOf("Usage: notifs [all|mute <app>|unmute <app>|muted|log [on|off]|clear]"),
             run("notifs bogus")
         )
 
-        // On already, `enable` opens Android's screen, to turn it off there.
+        // On already, `allow read-notifications` opens Android's screen, to turn it off there.
         val opened = mutableListOf<Intent>()
         catching(
             setOf(
@@ -541,7 +547,7 @@ class FeedCommandsTest {
                 Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
             ), opened
         ) {
-            assertEquals(emptyList<String>(), run("notifs enable"))
+            assertEquals(emptyList<String>(), run("allow read-notifications"))
         }
         assertEquals(1, opened.size)
         assertEquals(0, asked)

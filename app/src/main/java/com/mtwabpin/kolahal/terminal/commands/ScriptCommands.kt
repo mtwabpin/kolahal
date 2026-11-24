@@ -52,7 +52,7 @@ class ScriptCommands(
         val script = scripts.byName(name)?.takeIf { ScriptMeta.isCommand(it.code) } ?: return null
         // A script that is off (for example, an import not reviewed yet) doesn't run by its name.
         if (!script.enabled) {
-            fix("${script.name} is off — tap to turn it on", "script on ${script.name}")
+            fix("${script.name} is off\nTap to turn it on", "script on ${script.name}")
             return Unit
         }
         ScriptScheduler.runNow(context, script, args)
@@ -70,7 +70,7 @@ class ScriptCommands(
                 // Only lines of scripts that are on. The pinned ones show at the top of home.
                 val on = scripts.all().filter { it.enabled }.associateBy { it.name }
                 val lines = all.filter { it.name in on }
-                if (lines.isEmpty()) return info("No status lines — scripts set them with status(text)")
+                if (lines.isEmpty()) return info("No status lines\nScripts set them with status(text)")
                 lines.forEach { l ->
                     val pinned = on.getValue(l.name).grants.allows(ScriptAccess.HEADER)
                     // Pinned ones get a tag, and a line with a bar (status(text, { progress })) shows it, in its color.
@@ -83,7 +83,7 @@ class ScriptCommands(
                         ) else "", LogContext.of(LogContext.SCRIPT to l.name) + bar
                     )
                 }
-                if (lines.none { on.getValue(it.name).grants.allows(ScriptAccess.HEADER) }) info("None pinned — script pin <name>, or long-press one, shows it at the top")
+                if (lines.none { on.getValue(it.name).grants.allows(ScriptAccess.HEADER) }) info("None pinned\n'script pin <name>' shows one at the top\nOr long-press one")
             }
 
             "clear" -> {
@@ -116,7 +116,7 @@ class ScriptCommands(
             "lib", "library" -> {
                 val lib = ScriptLibrary(context)
                 val installed = scripts.all()
-                info("Script library — 'script install <name>', or browse it in 'scripts'")
+                info("Script library\n'script install <name>' installs one\nOr browse it in 'scripts'")
                 lib.entries.forEach { e ->
                     val state = when (lib.state(e, installed)) {
                         ScriptLibrary.State.NOT_INSTALLED -> ""
@@ -150,7 +150,10 @@ class ScriptCommands(
                 val lib = ScriptLibrary(context)
                 val entry =
                     lib.entries.firstOrNull { it.name == target?.lowercase()?.substringBefore('.') }
-                        ?: return error("No library script '${target.orEmpty()}' — 'script lib' lists them")
+                        ?: return error(
+                            "No library script '${target.orEmpty()}'\n'script lib' lists them",
+                            copy("script lib"),
+                        )
                 // Updating an unedited copy is safe. A copy with your changes (or your own script with
                 // that name) is replaced only when you ask for it.
                 if ("--replace" !in args && lib.state(
@@ -159,15 +162,17 @@ class ScriptCommands(
                     ) == ScriptLibrary.State.MODIFIED
                 ) {
                     return error(
-                        "Your ${entry.name}.${entry.lang.ext} differs from the library version: " +
-                                "'script install ${entry.name} --replace' replaces it (export it first to keep a copy)"
+                        "Your ${entry.name}.${entry.lang.ext} differs from the library\n" +
+                                "'script install ${entry.name} --replace' replaces it\n" +
+                                "Export it first to keep a copy",
+                        copy("script install ${entry.name} --replace"),
                     )
                 }
                 val s = changes.install(lib, entry)
                 info(
-                    "Installed ${s.name}.${s.lang.ext}" + (if (entry.command) " — run it as '${s.name}'" else "") +
-                            (if (s.intervalMin > 0) " · every ${CommandParsing.formatInterval(s.intervalMin)}" else ""),
-                    scriptCtx(s)
+                    "Installed ${s.name}.${s.lang.ext}" + (if (entry.command) "\nRun it as '${s.name}'" else "") +
+                            (if (s.intervalMin > 0) "\nRuns every ${CommandParsing.formatInterval(s.intervalMin)}" else ""),
+                    scriptCtx(s) + copy(s.name.takeIf { entry.command }).values,
                 )
             }
             // Folder sync can be slow on SAF providers, so run it outside the serial command queue.
@@ -179,21 +184,24 @@ class ScriptCommands(
                 val r = folder.import()
                 info(
                     "Imported: ${r.created} new, ${r.updated} updated" +
-                            (if (r.shaders.isNotEmpty()) ", shaders ${r.shaders.joinToString()}" else "") +
-                            if (r.skipped.isNotEmpty()) ", skipped ${r.skipped.joinToString()}" else ""
+                            (if (r.shaders.isNotEmpty()) "\nShaders: ${r.shaders.joinToString()}" else "") +
+                            if (r.skipped.isNotEmpty()) "\nSkipped: ${r.skipped.joinToString()}" else ""
                 )
             }
 
             "new" -> {
                 val (name, lang) = parseName(
-                    target ?: return error("Usage: script new <name>[.lua|.js] [lua|js] [--cmd]")
+                    target ?: return error("Usage: script new <name>[.lua|.js] [--cmd]\nOr give the language after the name: lua or js")
                 )
-                if (!ScriptNames.NAME.matches(name)) return error("Script names: lowercase letters, digits, - and _ only")
-                if (name in ScriptNames.builtIn(context)) return error("'$name' is a built-in command, pick another name")
+                if (!ScriptNames.NAME.matches(name)) return error("Invalid script name\nUse lowercase letters, digits, - and _, up to 40")
+                if (name in ScriptNames.builtIn(context)) return error("'$name' is a built-in command\nPick another name")
                 val asCommand = "--cmd" in args || "cmd" in args
                 val chosen =
                     args.drop(2).firstNotNullOfOrNull(ScriptLang::of) ?: lang ?: ScriptLang.LUA
-                if (scripts.byName(name) != null) return error("Script '$name' already exists — 'script edit $name'")
+                if (scripts.byName(name) != null) return error(
+                    "Script '$name' already exists\n'script edit $name' opens it",
+                    copy("script edit $name"),
+                )
                 val script = changes.create(name, chosen, asCommand)
                 info("Created ${script.name}.${script.lang.ext}", scriptCtx(script))
                 ui.openEditor(script)
@@ -210,7 +218,7 @@ class ScriptCommands(
 
             "every" -> withScript(target) { s ->
                 val minutes = CommandParsing.parseInterval(args.getOrNull(2))
-                    ?: return error("Usage: script every <name> <15m|30m|2h|1d|off>")
+                    ?: return error("Usage: script every <name> <interval|off>\nSuch as 15m, 30m, 2h or 1d")
                 if (minutes > 0 && ScriptMeta.isScreen(s.code)) return error("${s.name} ${ScriptMeta.SCREEN_ONLY}")
                 val effective = changes.interval(s, minutes)
                 info(
@@ -219,7 +227,7 @@ class ScriptCommands(
                             effective
                         )
                     }" +
-                            if (minutes in 1 until ScriptScheduler.MIN_INTERVAL_MIN) " (Android minimum is 15m)" else "",
+                            if (minutes in 1 until ScriptScheduler.MIN_INTERVAL_MIN) "\nThe Android minimum is 15m" else "",
                     scriptCtx(s),
                 )
             }
@@ -227,8 +235,8 @@ class ScriptCommands(
             "at" -> withScript(target) { s ->
                 val times = when (val read =
                     CommandParsing.dailyTimes(CommandParsing.clockWords(args.drop(2)))) {
-                    null -> return error("Usage: script at <name> <HH:mm[,HH:mm…]|off>")
-                    is CommandParsing.DailyTimes.Bad -> return error("Invalid time '${read.word}' — use HH:mm")
+                    null -> return error("Usage: script at <name> <HH:mm|off>\nSeveral times go with commas: 08:00,18:30")
+                    is CommandParsing.DailyTimes.Bad -> return error("Invalid time '${read.word}'\nUse HH:mm")
                     is CommandParsing.DailyTimes.Times -> read.times
                 }
                 if (times.isNotEmpty() && ScriptMeta.isScreen(s.code)) return error("${s.name} ${ScriptMeta.SCREEN_ONLY}")
@@ -263,7 +271,7 @@ class ScriptCommands(
                 val uses = grants?.declared.orEmpty().filter { grants?.allows(it) == true }
                 if (enabled && uses.isNotEmpty()) {
                     info(
-                        "${s.name} can use: ${uses.joinToString()} — 'script deny ${s.name} <what>' turns one off",
+                        "${s.name} can use: ${uses.joinToString()}\n'script deny ${s.name} <what>' turns one off",
                         scriptCtx(s)
                     )
                 }
@@ -277,7 +285,7 @@ class ScriptCommands(
             "set", "option", "options" -> withScript(target) { s -> option(s, args.drop(2)) }
             "access" -> withScript(target) { listAccess(it) }
             "pin", "unpin" -> withScript(target) { s ->
-                if (!ScriptMeta.setsStatus(s.code)) return error("${s.name} has no status line to pin: it never calls status()")
+                if (!ScriptMeta.setsStatus(s.code)) return error("${s.name} has no status line to pin\nIt never calls status()")
                 changes.access(s, ScriptAccess.HEADER, sub == "pin")
                 info(
                     if (sub == "pin") "${s.name}: pinned to the top" else "${s.name}: unpinned",
@@ -287,7 +295,10 @@ class ScriptCommands(
 
             "allow", "deny" -> withScript(target) { s ->
                 val items = args.drop(2).map { it.lowercase() }
-                if (items.isEmpty()) return error("Usage: script $sub <name> <what…> — 'script access ${s.name}' lists them")
+                if (items.isEmpty()) return error(
+                    "Usage: script $sub <name> <what…>\n'script access ${s.name}' lists them",
+                    copy("script access ${s.name}"),
+                )
                 setAccess(s, items, sub == "allow")
             }
 
@@ -303,10 +314,11 @@ class ScriptCommands(
                 if (to == s.name) return info("${s.name} already has that name", scriptCtx(s))
                 changes.rename(s, to)?.let { return error(it) }
                 val renamed = scripts.byId(s.id) ?: return
+                val command = ScriptMeta.isCommand(renamed.code)
                 info(
                     "Renamed ${s.name}.${s.lang.ext} to ${renamed.name}.${renamed.lang.ext}" +
-                            if (ScriptMeta.isCommand(renamed.code)) " — run it as '${renamed.name}'" else "",
-                    scriptCtx(renamed),
+                            if (command) "\nRun it as '${renamed.name}'" else "",
+                    scriptCtx(renamed) + copy(renamed.name.takeIf { command }).values,
                 )
             }
 
@@ -331,7 +343,7 @@ class ScriptCommands(
 
             "diff" -> withScript(target) { s -> diff(s) }
             // List every subcommand that completion offers, not the catalog's short `script <sub> <name>`.
-            else -> error("Usage: script [${SUBCOMMANDS.joinToString("|")}] <name>")
+            else -> error("Usage: script <subcommand> <name>\nSubcommands: ${SUBCOMMANDS.joinToString(" ")}")
         }
     }
 
@@ -359,8 +371,8 @@ class ScriptCommands(
             val listings = catalog.listings(refresh)
             val entries = listings.flatMap { it.entries }
             val installed = scripts.all()
-            info("Shared scripts from ${sources.joinToString(", ") { it.name }} — 'script get <name>' installs one")
-            listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}: $it") } }
+            info("Shared scripts from ${sources.joinToString(", ") { it.name }}\n'script get <name>' installs one")
+            listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}\n${sentence(it)}") } }
             if (entries.isEmpty() && listings.none { it.error != null }) info("None yet")
             entries.forEach { e ->
                 val state = when (catalog.state(e, installed)) {
@@ -410,7 +422,10 @@ class ScriptCommands(
             return
         }
         if ('/' in ref && ScriptSources.find(sources, ref.substringBeforeLast('/')) == null) {
-            return error("No source '${ref.substringBeforeLast('/')}' — 'script sources' lists them")
+            return error(
+                "No source '${ref.substringBeforeLast('/')}'\n'script sources' lists them",
+                copy("script sources"),
+            )
         }
         fun find(fresh: Boolean): ScriptCatalog.Entry? {
             val listings = catalog.listings(fresh)
@@ -418,7 +433,7 @@ class ScriptCommands(
         }
 
         val entry = find(refresh) ?: (if (refresh) null else find(true))
-        ?: return error("No shared script '$ref' — 'script get' lists them")
+        ?: return error("No shared script '$ref'\n'script get' lists them", copy("script get"))
         when (catalog.state(entry, scripts.all())) {
             ScriptCatalog.State.NEEDS_NEWER -> return error("${entry.name} needs Kolahal ${entry.requires} or newer")
             ScriptCatalog.State.NAME_TAKEN -> return error(
@@ -430,7 +445,10 @@ class ScriptCommands(
 
             ScriptCatalog.State.INSTALLED -> return info("${entry.name} is installed and up to date")
             ScriptCatalog.State.MODIFIED -> if (!replace) {
-                return error("You edited ${entry.name}: 'script get $ref --replace' replaces it (export it first to keep a copy)")
+                return error(
+                    "You edited ${entry.name}\n'script get $ref --replace' replaces it\nExport it first to keep a copy",
+                    copy("script get $ref --replace"),
+                )
             }
 
             else -> Unit
@@ -444,19 +462,23 @@ class ScriptCommands(
             return
         }
         val timer = listOfNotNull(
-            s.intervalMin.takeIf { it > 0 }?.let { "every ${CommandParsing.formatInterval(it)}" },
-            s.atTimes.takeIf { it.isNotEmpty() }?.let { "daily at ${it.joinToString(", ")}" },
+            s.intervalMin.takeIf { it > 0 }?.let { "Runs every ${CommandParsing.formatInterval(it)}" },
+            s.atTimes.takeIf { it.isNotEmpty() }?.let { "Runs daily at ${it.joinToString(", ")}" },
         )
         val installed =
-            "Installed ${s.name}.${s.lang.ext} from ${entry.source}" + timer.joinToString("") { " · $it" }
+            "Installed ${s.name}.${s.lang.ext} from ${entry.source}" + timer.joinToString("") { "\n$it" }
         if (s.enabled) {
             info(installed, scriptCtx(s))
             return
         }
-        info("$installed · off", scriptCtx(s))
+        info("$installed\nIt is off", scriptCtx(s))
         info(
-            "${s.name} asks to use: ${asks.joinToString()} — tap to switch it on and allow that, or 'script on ${s.name}'",
-            LogContext.of(LogContext.SCRIPT to s.name, LogContext.RUN to "script on ${s.name}"),
+            "${s.name} asks to use: ${asks.joinToString()}\nTap to switch it on and allow that\nOr run 'script on ${s.name}'",
+            LogContext.of(
+                LogContext.SCRIPT to s.name,
+                LogContext.RUN to "script on ${s.name}",
+                LogContext.COPY to "script on ${s.name}",
+            ),
         )
     }
 
@@ -465,7 +487,7 @@ class ScriptCommands(
      * scripts it had when it was last read, and the error of its last read. Nothing is downloaded.
      */
     private fun listSources() {
-        info("Sources of Get more scripts, in order — 'script source add <owner/name>' adds one")
+        info("Sources of Get more scripts, in order\n'script source add <owner/name>' adds one")
         ScriptCatalog(context).kept().forEach { l ->
             val facts = listOfNotNull(
                 l.source.index,
@@ -499,24 +521,27 @@ class ScriptCommands(
         val what = args.drop(1).joinToString(" ").trim()
         when (args.firstOrNull()) {
             "add" -> {
-                if (what.isEmpty()) return error("Usage: script source add <owner/name or https://…/index.json>")
+                if (what.isEmpty()) return error("Usage: script source add <owner/name>\nOr a link to an index.json: https://…/index.json")
                 val source = when (val p = ScriptSources.parse(what)) {
                     is ScriptSources.Parsed.Bad -> return error(p.why)
                     is ScriptSources.Parsed.Ok -> p.source
                 }
                 if (!catalog.add(source)) return info("${source.name} is a source already")
-                info("Added ${source.name} — reads ${source.index}")
+                info("Added ${source.name}\nIt reads ${source.index}")
                 info(
                     StyledText.tag(
                         StyledText.ColorRole.WARN,
                         "warning"
-                    ) + " Kolahal doesn't check scripts from ${source.name}. Only add repositories you trust."
+                    ) + " Kolahal doesn't check scripts from ${source.name}\nOnly add repositories you trust"
                 )
                 // Reading it uses the network, so it runs outside the serial command queue.
                 background("script source add") {
                     val read = catalog.listing(source)
-                    if (read.error != null) error("Can't read ${source.name}: ${read.error}")
-                    else info("${source.name} has ${ScriptSources.scriptCount(read.entries.size)} — 'script get' lists them")
+                    if (read.error != null) error("Can't read ${source.name}\n${sentence(read.error)}")
+                    else info(
+                        "${source.name} has ${ScriptSources.scriptCount(read.entries.size)}\n'script get' lists them",
+                        copy("script get"),
+                    )
                 }
             }
 
@@ -528,11 +553,11 @@ class ScriptCommands(
                     )?.builtIn == true
                 ) return error("${ScriptCatalog.SOURCE} can't be removed")
                 val removed = catalog.remove(what)
-                    ?: return error("No source '$what' — 'script sources' lists them")
-                info("Removed ${removed.name} — scripts you installed from it stay")
+                    ?: return error("No source '$what'\n'script sources' lists them", copy("script sources"))
+                info("Removed ${removed.name}\nThe scripts you installed from it stay")
             }
 
-            else -> error("Usage: script source add <owner/name or https://…/index.json> · script source rm <name>")
+            else -> error("Usage: script source add|rm <name>\n'add' takes owner/name or a link to an index.json")
         }
     }
 
@@ -550,7 +575,7 @@ class ScriptCommands(
         val name = args.firstOrNull()
         if (name == null) {
             if (declared.isEmpty()) return info("${s.name} declares no @secret", scriptCtx(s))
-            info("${s.name} — 'script secret ${s.name} <NAME>' sets one", scriptCtx(s))
+            info("Secrets of ${s.name}\n'script secret ${s.name} <NAME>' sets one", scriptCtx(s))
             declared.forEach { d ->
                 out(
                     d.name.padEnd(16) + when {
@@ -580,7 +605,7 @@ class ScriptCommands(
         }
         val d = declared.firstOrNull { it.name == name }
             ?: return error(
-                "${s.name} has no @secret $name" + if (declared.isEmpty()) "" else " — it has: ${
+                "${s.name} has no @secret $name" + if (declared.isEmpty()) "" else "\nIt has: ${
                     declared.joinToString(
                         " "
                     ) { it.name }
@@ -598,8 +623,9 @@ class ScriptCommands(
             else -> {
                 store.set(s.name, d.name, rest.joinToString(" "), d.hosts)
                 info(
-                    "${s.name}: ${d.name} set (that line isn't logged; next time 'script secret ${s.name} ${d.name}' opens a box the keyboard doesn't learn from)",
-                    scriptCtx(s)
+                    "${s.name}: ${d.name} set\nThat line isn't logged\n" +
+                            "Next time, 'script secret ${s.name} ${d.name}' opens a box the keyboard doesn't learn from",
+                    scriptCtx(s) + copy("script secret ${s.name} ${d.name}").values,
                 )
             }
         }
@@ -616,7 +642,7 @@ class ScriptCommands(
         val name = args.firstOrNull()
         if (name == null) {
             if (declared.isEmpty()) return info("${s.name} has no @option", scriptCtx(s))
-            info("${s.name} — 'script set ${s.name} <option> <value>' changes one", scriptCtx(s))
+            info("Options of ${s.name}\n'script set ${s.name} <option> <value>' changes one", scriptCtx(s))
             val values = store.values(s.name, declared)
             val changed = store.changed(s.name, declared)
             declared.forEach { o ->
@@ -635,7 +661,7 @@ class ScriptCommands(
         }
         val o = declared.firstOrNull { it.name == name }
             ?: return error(
-                "${s.name} has no @option $name" + if (declared.isEmpty()) "" else " — it has: ${
+                "${s.name} has no @option $name" + if (declared.isEmpty()) "" else "\nIt has: ${
                     declared.joinToString(
                         " "
                     ) { it.name }
@@ -679,11 +705,11 @@ class ScriptCommands(
         val items = ScriptAccess.switchable(s.code)
         if (items.isEmpty() && !ScriptMeta.postsNotifications(s.code)) {
             return info(
-                "${s.name}.${s.lang.ext} has no access switches: no internet, status line to pin, notifications, @uses or @on",
+                "${s.name}.${s.lang.ext} has no access switches\nNo internet, status line to pin, notifications, @uses or @on",
                 scriptCtx(s)
             )
         }
-        info("${s.name}.${s.lang.ext} — 'script allow|deny ${s.name} <what>'", scriptCtx(s))
+        info("Access switches of ${s.name}.${s.lang.ext}\n'script allow|deny ${s.name} <what>' changes one", scriptCtx(s))
         fun row(item: String) {
             val from = when (item) {
                 in ScriptMeta.USES -> " · @uses $item"
@@ -731,13 +757,13 @@ class ScriptCommands(
     private fun setAccess(s: Script, items: List<String>, on: Boolean) {
         val all = ScriptAccess.switchable(s.code)
         if (ScriptAccess.WIDGET in items && ScriptAccess.WIDGET in ScriptAccess.items(s.code)) {
-            return error("${s.name}'s widget is on while it is placed: add or remove it on the widgets page")
+            return error("${s.name}'s widget is on while it is placed\nAdd or remove it on the widgets page")
         }
         items.firstOrNull { it != "notify" && it !in all }?.let { item ->
             val has = all + listOfNotNull("notify".takeIf { ScriptMeta.postsNotifications(s.code) })
             return error(
                 if (item in ScriptMeta.USES) "${s.name} doesn't declare @uses $item"
-                else "No '$item' for ${s.name} — " + if (has.isEmpty()) "it has no access switches" else "it has: ${
+                else "No '$item' for ${s.name}\n" + if (has.isEmpty()) "It has no access switches" else "It has: ${
                     has.joinToString(
                         " "
                     )
@@ -761,7 +787,7 @@ class ScriptCommands(
     private fun listScripts() {
         val all = scripts.all()
         if (all.isEmpty()) {
-            info("No scripts yet — try 'script new hn' or 'script new news.js'")
+            info("No scripts yet\nTry 'script new hn' or 'script new news.js'")
             return
         }
         val config = com.mtwabpin.kolahal.data.Config.get(context)
@@ -798,7 +824,7 @@ class ScriptCommands(
             if (events.isEmpty() && unknown.isEmpty()) null else Triple(s, events, unknown)
         }
         if (subscribed.isEmpty()) {
-            info("No script has an @on line — add '-- @on unlock' (Lua) or '// @on charger' (JS)")
+            info("No script has an @on line\nIn Lua, add '-- @on unlock'\nIn JS, add '// @on charger'")
         }
         subscribed.forEach { (s, events, unknown) ->
             val parts = buildList {
@@ -817,10 +843,16 @@ class ScriptCommands(
     private inline fun withScript(name: String?, action: (Script) -> Unit) {
         if (name == null) return error("Script name required")
         val script = scripts.byName(parseName(name).first)
-        if (script == null) error("No script named '$name' — 'script ls'") else action(script)
+        if (script == null) error("No script named '$name'\n'script ls' lists them", copy("script ls")) else action(script)
     }
 
     private fun scriptCtx(s: Script) = LogContext.of(LogContext.SCRIPT to s.name)
+
+    /** [reason] as a line of its own, with a capital letter: "HTTP 404 from …". */
+    private fun sentence(reason: String) = reason.replaceFirstChar { it.uppercaseChar() }
+
+    /** A line whose "Copy text" gives [command], the one command it suggests. Null gives nothing. */
+    private fun copy(command: String?) = LogContext.of(LogContext.COPY to command)
 
     /**
      * `script diff <name>`: compares a library script with the library version, like Compare in the
@@ -836,7 +868,7 @@ class ScriptCommands(
         val file = "${s.name}.${s.lang.ext}"
         val entry = library.entries.firstOrNull { it.name == s.name && it.lang == s.lang }
             ?: return info(
-                "$file isn't from the library, so there is nothing to compare it with",
+                "$file isn't from the library\nThere is nothing to compare it with",
                 scriptCtx(s)
             )
         val hunks = LineDiff.hunks(LineDiff.lines(library.code(entry), s.code))
@@ -864,11 +896,11 @@ class ScriptCommands(
             out += LogRepository.Pending(LogKind.OUTPUT, text, null, ctx, at)
         }
         add(
-            "$file against the library version: " + StyledText.color(
+            "$file against the library version\n" + StyledText.color(
                 StyledText.ColorRole.BAD,
                 "- $removed only in the library"
             ) +
-                    ", " + StyledText.color(StyledText.ColorRole.ACCENT, "+ $added only in yours"),
+                    "\n" + StyledText.color(StyledText.ColorRole.ACCENT, "+ $added only in yours"),
             LogContext.of(LogContext.COPY to plain) + scriptCtx(s).values,
         )
         for ((skipped, hunkLines) in hunks) {
@@ -893,11 +925,14 @@ class ScriptCommands(
         // How to go back to the library version. An edited copy is replaced only when asked, like Reset in the script manager.
         if (library.state(entry, scripts.all()) == ScriptLibrary.State.MODIFIED) {
             info(
-                "'script install ${s.name} --replace' restores the library version (export yours first to keep it)",
-                scriptCtx(s)
+                "Restore the library version with\n'script install ${s.name} --replace'\nExport yours first to keep it",
+                scriptCtx(s) + copy("script install ${s.name} --replace").values,
             )
         } else {
-            info("'script install ${s.name}' updates it to the library version", scriptCtx(s))
+            info(
+                "Update to the library version with\n'script install ${s.name}'",
+                scriptCtx(s) + copy("script install ${s.name}").values,
+            )
         }
     }
 

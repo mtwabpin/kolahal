@@ -20,7 +20,7 @@
 --   read them, so this one has the network instead.
 -- - The built-in's table lists your scripts and when each ran. A script can't read that either, so
 --   this table lists the apps you used most today, with their time (`@uses usage`).
--- - Screen time needs usage access for Kolahal (type usage-access) and this script's own "Your app
+-- - Screen time needs usage access for Kolahal (type allow usage) and this script's own "Your app
 --   usage" switch. Without them the screen says so, and shows the rest.
 
 -- Cells for a meter's label ("Battery", "Network"…) and the space after it.
@@ -45,7 +45,7 @@ local HEAD = { bold = true, inverse = true }
 -- first, and in a frame only once a minute. usage.today is nil without usage access.
 local today, readAt = usage.today(30), os.time()
 if not today then
-  log("Screen time needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+  log("Screen time needs usage access", "Run allow usage, and turn on \"Your app usage\" on this script's sheet")
 end
 
 -- The second on the screen, so a frame in the same second draws nothing.
@@ -144,7 +144,7 @@ local function mostUsed(g, top)
   right(g, timeEnd, top, "TIME", HEAD)
   if share then right(g, cols - 1, top, "SHARE", HEAD) end
   if not today then
-    if top + 1 < g.rows then g.put(1, top + 1, cut("Run usage-access, and allow \"Your app usage\" for this script", cols - 1), "muted") end
+    if top + 1 < g.rows then g.put(1, top + 1, cut("Run allow usage, and turn on \"Your app usage\" for this script", cols - 1), "muted") end
     return
   end
   if #today.apps == 0 and top + 1 < g.rows then g.put(1, top + 1, "No app used a minute yet today", "muted") end

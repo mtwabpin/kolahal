@@ -38,13 +38,13 @@ class EditCommands(context: Context, private val ui: TerminalUi) : CommandGroup(
     private fun open(target: String) {
         if (target.startsWith("content://")) return ui.openTextFile(target)
         val file = find(Documents.listed(context), target)
-            ?: return fix("No recent file '$target' — tap to pick a file", "edit")
+            ?: return fix("No recent file '$target'\nTap to pick a file", "edit")
         ui.openTextFile(file.uri)
     }
 
     private fun recent() {
         val files = Documents.listed(context)
-        if (files.isEmpty()) return fix("No recent files — tap to pick a file", "edit")
+        if (files.isEmpty()) return fix("No recent files\nTap to pick a file", "edit")
         val clock = TimeFormats.clockFormat(Config.get(context)[Keys.CLOCK_24H])
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)

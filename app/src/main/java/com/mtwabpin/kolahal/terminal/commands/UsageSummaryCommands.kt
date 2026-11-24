@@ -20,16 +20,17 @@ import java.util.Locale
 import kotlin.math.roundToLong
 
 /**
- * `usage-summary [week | month | year | full] [<app>]`: the long view of screen time, from Android's
- * weeks, months and years ([UsageLevels]).
+ * `usage summary | week | month | year | full`, and `usage week | month | year <app>`: the long view
+ * of screen time, from Android's weeks, months and years ([UsageLevels]). `usage` sends these words
+ * here ([UsageWords]).
  * - With an app after `week`, `month` or `year`: that app alone ([forApp]).
- * - Alone: a line for each level, with how far back it goes and the time a day in it.
+ * - `summary`: a line for each level, with how far back it goes and the time a day in it.
  * - `week`, `month`, `year`: the time a day, unlocks a day and the total; a table with a row for
  *   each of Android's weeks, months or years, its total and its time a day; the change of the last
  *   one that is over; the top apps. `year` also has the apps used less or new.
  * - `full`: all of these, one after the other, parted by `── weeks ──` rules.
  * Few words: numbers lead, labels are short, `≈` marks Android's own (rough) totals, and the
- * explanations are in `help usage-summary`. Every date is the real start of one of Android's buckets.
+ * explanations are in `help usage`. Every date is the real start of one of Android's buckets.
  */
 class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     private val apps = AppRepository.get(context)
@@ -37,8 +38,8 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
 
     fun run(args: List<String>) {
         if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) return fix(
-            "Usage summary needs usage access — tap to allow it",
-            "usage-access"
+            "Usage summary needs usage access\nTap to allow it",
+            "allow usage"
         )
         // Each level is read once, even by `full`, a year filled from its months ([UsageLevels.Reading]).
         val reading = UsageLevels(context).Reading()
@@ -49,10 +50,10 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
             "year" -> Level.YEARS
             else -> null
         }
-        // `usage-summary month youtube`: one app over the months.
+        // `usage month youtube`: one app over the months.
         if (level != null && args.size > 1) return forApp(args.drop(1), level, buckets(level))
         when (args.firstOrNull()?.lowercase()) {
-            null -> overview(buckets)
+            "summary" -> overview(buckets)
             "week" -> period(buckets(Level.WEEKS), Level.WEEKS)
             "month" -> period(buckets(Level.MONTHS), Level.MONTHS)
             "year" -> years(buckets(Level.YEARS))
@@ -67,7 +68,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
                 }
             }
 
-            else -> usage("usage-summary")
+            else -> usage("usage")
         }
     }
 
@@ -139,7 +140,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     // ---- the overview ---------------------------------------------------------------------
 
     /**
-     * `usage-summary` alone: a line for each level, how many buckets it has, where it starts, and the
+     * `usage summary`: a line for each level, how many buckets it has, where it starts, and the
      * time a day in it, under a dim header. A tap on a line runs that level's
      * summary; the days run `usage`, which works each day out from events.
      */
@@ -149,9 +150,9 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
             val perDay = UsageLevels.perDay(UsageLevels.counted(all)) ?: return@mapNotNull null
             val run = when (level) {
                 Level.DAYS -> "usage ${all.size.coerceIn(1, 30)}"
-                Level.WEEKS -> "usage-summary week"
-                Level.MONTHS -> "usage-summary month"
-                Level.YEARS -> "usage-summary year"
+                Level.WEEKS -> "usage week"
+                Level.MONTHS -> "usage month"
+                Level.YEARS -> "usage year"
             }
             listOf(
                 "${all.size} ${unit(level, all.size)}",
@@ -221,7 +222,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     // ---- one app --------------------------------------------------------------------------
 
     /**
-     * `usage-summary week | month | year <app>`: one app over Android's weeks, months or years.
+     * `usage week | month | year <app>`: one app over Android's weeks, months or years.
      * - Big numbers: its time a day, its total, and its share of all screen time.
      * - A row for each, "0m" ones too: no time is a true answer, unlike a day Android has no data for.
      * - Its change, and when it was last used.
@@ -237,7 +238,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
                 ?: matches.firstOrNull()
                 ?: return error("No app matches '${CommandParsing.withoutFlags(words)}'")
         if (app.profile.kind != com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL) {
-            return info("Screen time of ${app.profile.kind.label} apps isn't available: Android gives Kolahal only the personal profile's")
+            return info("No screen time for ${app.profile.kind.label} apps\nAndroid gives Kolahal only the personal profile's")
         }
         if (buckets.isEmpty()) return info("No usage recorded yet")
         val pkg = app.pkg
@@ -281,7 +282,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     }
 
     /**
-     * `usage-summary week` and `month`: the big numbers; a row for each of Android's weeks or months
+     * `usage week` and `month`: the big numbers; a row for each of Android's weeks or months
      * with its total and its time a day; the last one that is over, its change against those before;
      * and the top apps over all of them.
      */
@@ -310,7 +311,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     }
 
     /**
-     * `usage-summary year`: the big numbers; a row for each of Android's years with its total and its
+     * `usage year`: the big numbers; a row for each of Android's years with its total and its
      * time a day; the newest one's change; the top 3 apps of each year; then the apps used less or new
      * since the year before, each with a chip.
      */
@@ -363,9 +364,6 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     }
 
     companion object {
-        /** Commands handled by [run]. */
-        val NAMES = setOf("usage-summary")
-
         /** The overview's header words. */
         private const val SINCE = "since"
         private const val A_DAY = "≈ a day"

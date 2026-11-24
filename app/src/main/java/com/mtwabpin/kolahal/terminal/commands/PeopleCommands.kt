@@ -6,7 +6,6 @@ package com.mtwabpin.kolahal.terminal.commands
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.Settings
 import com.mtwabpin.kolahal.calls.CallEvents
 import com.mtwabpin.kolahal.contacts.Contact
 import com.mtwabpin.kolahal.contacts.ContactsRepository
@@ -30,18 +29,9 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
 
     /** `calls [n]`: prints the newest calls from Android's call log, newest first, in the same form as the live call lines. */
     fun calls(args: List<String>) {
-        if (!com.mtwabpin.kolahal.BuildConfig.CALL_LOG) return error("This build can't read the call log, so calls isn't available")
-        when (args.firstOrNull()) {
-            "--allow" -> return if (CallEvents.hasPermission(context)) info("Call log is allowed") else ui.requestCallLogPermission()
-            "--settings" -> return startActivity(
-                Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", context.packageName, null)
-                )
-            )
-        }
+        if (!com.mtwabpin.kolahal.BuildConfig.CALL_LOG) return error("calls isn't available in this build\nThis build can't read the call log")
         if (!CallEvents.hasPermission(context)) {
-            fix("Calls need call log access — tap to allow", "calls --allow")
+            fix("Calls need call log access\nTap to allow it", "allow calls")
             return
         }
         val n = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 200) ?: 20
@@ -66,7 +56,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         if (contacts.picker) {
             if (query.isBlank() || contacts.search(query).isEmpty()) return ui.pickContact(then)
         } else if (!contacts.hasPermission()) {
-            fix("Contacts permission needed — tap to allow", "contacts --allow")
+            fix("Contacts permission needed\nTap to allow it", "allow contacts")
             ui.requestContactsPermission()
             return
         }
@@ -74,7 +64,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         if (matches.isEmpty()) return error("No contact matches '$query'")
         if (matches.size > 1 && !matches[0].name.equals(query, ignoreCase = true)) {
             matches.take(8).forEach(::contactLine)
-            info("${matches.size} contacts match — tap one to call, long-press for more")
+            info("${matches.size} contacts match\nTap one to call, long-press for more")
             return
         }
         then(matches[0])
@@ -114,8 +104,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
 
     fun listContacts(query: String) {
         if (contacts.picker) return pickedContacts(query)
-        if (query == "--allow" || !contacts.hasPermission()) {
-            if (contacts.hasPermission()) return info("Contacts are allowed")
+        if (!contacts.hasPermission()) {
             ui.requestContactsPermission()
             return
         }
@@ -131,7 +120,6 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
     /** `contacts` in the Play build: picks a contact, finds one picked before, or forgets one (`--forget`). */
     private fun pickedContacts(query: String) {
         when {
-            query == "--allow" -> info("This build doesn't read your contacts: call, sms and contacts open Android's contact picker, and remember who you pick")
             query == "--forget" || query.startsWith("--forget ") -> forget(
                 query.removePrefix("--forget").trim()
             )
@@ -148,11 +136,11 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         val target =
             names.firstOrNull { it.equals(name, ignoreCase = true) } ?: names.singleOrNull()
             ?: return error(
-                if (names.isEmpty()) "No picked contact matches '$name'" else "'$name' matches ${
+                if (names.isEmpty()) "No picked contact matches '$name'" else "'$name' matches ${names.size} contacts\n${
                     names.joinToString(
                         ", "
                     )
-                }: give the whole name"
+                }\nGive the whole name"
             )
         contacts.forget(target)
         info("Forgot $target")

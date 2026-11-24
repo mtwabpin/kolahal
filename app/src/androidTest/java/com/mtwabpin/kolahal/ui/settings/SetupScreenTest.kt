@@ -68,8 +68,8 @@ class SetupScreenTest {
     /** The system page each of these fixes opens. */
     private val pages = mapOf(
         "home" to Settings.ACTION_HOME_SETTINGS,
-        "battery" to Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
-        "usage-access" to Settings.ACTION_USAGE_ACCESS_SETTINGS,
+        "allow battery" to Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
+        "allow usage" to Settings.ACTION_USAGE_ACCESS_SETTINGS,
     )
 
     /** Where home notes that its first run's tour was shown. */

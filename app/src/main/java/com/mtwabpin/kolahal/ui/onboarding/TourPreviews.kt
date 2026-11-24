@@ -741,13 +741,13 @@ internal fun PermissionExample(fix: String) {
     val accent = SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)
     val lines = when (fix) {
         "home" -> listOf(buildAnnotatedString { withStyle(dim) { append("Home, from any app, brings you back here") } })
-        "notifications" -> listOf(buildAnnotatedString {
+        "allow send-notifications" -> listOf(buildAnnotatedString {
             withStyle(accent) { append("Kolahal") }; withStyle(
             dim
         ) { append(" · ") }; append("hn: 3 new stories")
         })
 
-        "notifs enable" -> listOf(buildAnnotatedString {
+        "allow read-notifications" -> listOf(buildAnnotatedString {
             append("Mom: Dinner at 8?"); withStyle(dim) {
             append(
                 " · Messages"
@@ -755,8 +755,8 @@ internal fun PermissionExample(fix: String) {
         }
         })
 
-        "accessibility" -> listOf(buildAnnotatedString { withStyle(dim) { append("Double-tap empty space: the screen locks") } })
-        "contacts --allow" -> listOf(
+        "allow lock" -> listOf(buildAnnotatedString { withStyle(dim) { append("Double-tap empty space: the screen locks") } })
+        "allow contacts" -> listOf(
             buildAnnotatedString { withStyle(accent) { append("  Mom") } },
             buildAnnotatedString { withStyle(accent) { append("$ ") }; append("call mo") },
         )

@@ -56,8 +56,8 @@ object ControlSpecs {
             args = "normal · vibrate · silent"
         ),
         CommandSpec(
-            "dnd", "dnd [on|off|alarms|none|status|access]", "Do Not Disturb (no args toggles)",
-            short = "Do Not Disturb", args = "on · off · alarms · none · status · access",
+            "dnd", "dnd [on|off|alarms|none|status]", "Do Not Disturb (no args toggles; needs allow dnd)",
+            short = "Do Not Disturb", args = "on · off · alarms · none · status",
             uses = listOf(
                 "dnd" to "turn it on or off",
                 "dnd on" to "priority only",
@@ -65,22 +65,20 @@ object ControlSpecs {
                 "dnd none" to "total silence",
                 "dnd off" to "turn it off",
                 "dnd status" to "whether it is on",
-                "dnd access" to "allow Do Not Disturb access",
             ),
         ),
         CommandSpec(
             "brightness",
-            "brightness [0-100|up|down|auto|access]",
-            "Screen brightness (needs modify system settings)",
+            "brightness [0-100|up|down|auto]",
+            "Screen brightness (needs modify system settings: allow settings)",
             short = "Screen brightness",
-            args = "0–100 · up · down · auto · access",
+            args = "0–100 · up · down · auto",
             uses = listOf(
                 "brightness" to "the brightness now",
                 "brightness <0-100>" to "set it, in percent",
                 "brightness up" to "about 10% brighter",
                 "brightness down" to "about 10% darker",
                 "brightness auto" to "adaptive brightness",
-                "brightness access" to "allow changing system settings",
             ),
         ),
         CommandSpec(
@@ -148,10 +146,10 @@ object ControlSpecs {
         "media" to listOf("play", "pause", "toggle", "next", "prev", "stop"),
         "torch" to listOf("on", "off"),
         "rotate" to listOf("on", "off", "status"),
-        "dnd" to listOf("on", "off", "alarms", "none", "status", "access"),
+        "dnd" to listOf("on", "off", "alarms", "none", "status"),
         "ring" to listOf("normal", "vibrate", "silent"),
         "volume" to listOf("up", "down", "mute", "unmute", "0", "25", "50", "75", "100"),
-        "brightness" to listOf("auto", "up", "down", "25", "50", "75", "100", "access"),
+        "brightness" to listOf("auto", "up", "down", "25", "50", "75", "100"),
         "screen-timeout" to listOf("15s", "30s", "1m", "2m", "5m", "10m", "30m"),
     )
 

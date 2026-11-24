@@ -103,8 +103,9 @@ class HelpCommands(
         val key = { text: String -> StyledText.tag(StyledText.ColorRole.TEXT, text) }
         info(muted("Anything else opens the app it matches"), LogContext(LogContext.ITEM))
         if (off.isNotEmpty()) info(muted("Turned off: ") + CommandsOff.CHOICES.filter { it in off }
-            .joinToString(", ") + muted(" · Settings → Commands"), LogContext(LogContext.ITEM))
-        info(key("tap") + muted(" a line to use it · ") + key("long-press") + muted(" for more"))
+            .joinToString(", ") + "\nSettings → Commands turns them on", LogContext(LogContext.ITEM))
+        info(key("tap") + muted(" a line to use it"))
+        info(key("long-press") + muted(" for more"))
         // No-break spaces keep the example on one line. A line may still break after "|" there; the word joiner stops it.
         info(muted("Pipes: ") + Pipes.SHOWN.joinToString(" ") { key(it) } + muted(" · help\u00A0|\u2060\u00A0grep\u00A0feed"))
     }
@@ -120,7 +121,7 @@ class HelpCommands(
                 typed,
                 off
             )
-        ) return info("${InstantRun.canonical(typed)} is turned off: its name opens the app it matches · Settings → Commands turns it on")
+        ) return info("${InstantRun.canonical(typed)} is turned off\nIts name opens the app it matches\nSettings → Commands turns it on")
         val offered = TtyCommands.offered(HomeStyles.ttyNow(conf)).filter { it.name !in off }
         offered.firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
             out(
@@ -169,7 +170,7 @@ class HelpCommands(
         // Not a command. Show the commands it may be the start of, or a typo of.
         val near =
             offered.filter { it.name.startsWith(typed) || CommandParsing.isNear(typed, it.name) }
-        if (near.isEmpty()) return error("No command called '$word' · help lists them all")
+        if (near.isEmpty()) return error("No command called '$word'\n'help' lists them all", LogContext.of(LogContext.COPY to "help"))
         info("No command called '$word'; nearest:")
         near.take(8).let { shown ->
             shown.forEach {

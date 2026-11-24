@@ -146,8 +146,8 @@ class ScriptActions(
                 io {
                     logs.add(
                         LogKind.INFO,
-                        "$name: unpinned — 'script pin $name' pins it again",
-                        ctx = LogContext.of(LogContext.SCRIPT to name)
+                        "$name: unpinned\n'script pin $name' pins it again",
+                        ctx = LogContext.of(LogContext.SCRIPT to name, LogContext.COPY to "script pin $name")
                     )
                 }
             },
@@ -227,13 +227,13 @@ class ScriptActions(
             refreshScriptCaches()
             notice(
                 buildList {
-                    if (r.created.isNotEmpty()) add("added ${r.created.joinToString()}")
-                    if (r.updated.isNotEmpty()) add("updated ${r.updated.joinToString()}")
-                    if (r.created.isNotEmpty() || r.updated.isNotEmpty()) add("off until you turn them on (script on <name>)")
-                    if (r.shaders.isNotEmpty()) add("shaders ${r.shaders.joinToString()}, under Settings → Shaders")
-                    if (r.skipped.isNotEmpty()) add("skipped ${r.skipped.joinToString()}")
-                }.joinToString(" · ").ifEmpty { "nothing imported" }
-                    .replaceFirstChar { it.uppercase() },
+                    // One fact to a line: what came in, that it is off, then what was left out.
+                    if (r.created.isNotEmpty()) add("Added ${r.created.joinToString()}")
+                    if (r.updated.isNotEmpty()) add("Updated ${r.updated.joinToString()}")
+                    if (r.created.isNotEmpty() || r.updated.isNotEmpty()) add("Off until you turn them on with 'script on <name>'")
+                    if (r.shaders.isNotEmpty()) add("Shaders ${r.shaders.joinToString()}, under Settings → Shaders")
+                    if (r.skipped.isNotEmpty()) add("Skipped ${r.skipped.joinToString()}")
+                }.joinToString("\n").ifEmpty { "Nothing imported" },
                 error = r.created.isEmpty() && r.updated.isEmpty() && r.shaders.isEmpty(),
             )
         }
@@ -264,7 +264,7 @@ class ScriptActions(
                 ?.let { return@fileOp restoreNow(listOf(Restore(it, library = entry))) }
             val s = changes.install(library, entry)
             refreshScriptCaches()
-            notice("Installed ${s.name}.${s.lang.ext}" + if (entry.command) " — run it as '${s.name}'" else "")
+            notice("Installed ${s.name}.${s.lang.ext}" + if (entry.command) "\nRun it as '${s.name}'" else "")
         }
     }
 
@@ -545,8 +545,8 @@ class ScriptActions(
             _shared.value =
                 SharedScripts(scriptCatalog.kept().map { if (it.source == source) read else it })
             notice(
-                if (read.error != null) "Added ${source.name} · can't read it: ${read.error}"
-                else "Added ${source.name} · ${ScriptSources.scriptCount(read.entries.size)}",
+                if (read.error != null) "Added ${source.name}\nCan't read it: ${read.error}"
+                else "Added ${source.name}\n${ScriptSources.scriptCount(read.entries.size).replaceFirstChar { it.uppercase() }}",
                 error = read.error != null,
             )
         }
@@ -583,7 +583,7 @@ class ScriptActions(
             val update = scripts.byName(e.name) != null
             val s = scriptCatalog.install(e, code, allow, replace)
             refreshScriptCaches()
-            notice(if (update) "Updated ${s.name}.${s.lang.ext} to ${e.version}" else "Installed ${s.name}.${s.lang.ext}" + if (e.command) " — run it as '${s.name}'" else "")
+            notice(if (update) "Updated ${s.name}.${s.lang.ext} to ${e.version}" else "Installed ${s.name}.${s.lang.ext}" + if (e.command) "\nRun it as '${s.name}'" else "")
         }
     }
 

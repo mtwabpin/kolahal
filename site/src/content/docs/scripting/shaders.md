@@ -42,7 +42,6 @@ Or type:
 | `shader` | lists the shaders; a tap on one turns it on |
 | `shader <name>` | turns it on |
 | `shader off` | turns shaders off |
-| `shader wallpaper <name>` | makes it your [live wallpaper](#as-a-live-wallpaper). Without a name, it says which one is |
 | `shader play <name>` | plays a [one-off shader](#one-off-shaders) once |
 | `shader words <name> <words>` | plays it when a notification has one of the words. `off` ends it |
 | `shader on` | turns the last one on again |
@@ -109,8 +108,10 @@ the same. The author rates a shader in its [header](#the-header), and one withou
 ## As a live wallpaper
 
 A shader can be your phone's wallpaper, behind any launcher and on the lock screen. Open its details and tap **Set as
-wallpaper**, or type `shader wallpaper pond`. The first time, Android shows its own preview, where you set it. After that
-another shader takes its place at once.
+wallpaper**, or type `wallpaper shader pond`. Android's own preview opens with it each time: there you see it and choose
+the home screen, the lock screen or both. Kolahal has one live wallpaper, so where it is your wallpaper already the new
+shader takes the old one's place. `wallpaper` says what your wallpaper is, and `wallpaper live` opens Android's own
+list of live wallpapers, for a phone whose wallpaper settings don't link to it.
 
 - It is apart from the shader over home: both can be on, or one of them.
 - Its parameters, and what they follow, are the same as on home. The theme's colors are Kolahal's.
@@ -189,11 +190,11 @@ Your shaders are listed under **Settings → Shaders → Your shaders**, and are
 [backup file](/guides/backup/).
 
 `script export` also writes your shaders into the folder's `shaders` folder, so you can keep them in
-git or edit them on a computer. `shader copy <name>` writes a copy of any shader there. After editing
+git or edit them on a computer. `shader save <name>` writes a copy of any shader there. After editing
 a file, run `shader reload` to use it. To change one on the phone, open it in the
 [editor](#editing-one).
 
-`shader remove <name>` deletes a shader of yours. A file of yours with the name of one that comes with
+`shader rm <name>` deletes a shader of yours. A file of yours with the name of one that comes with
 Kolahal is used instead of it, until you remove it.
 
 | Command | What it does |
@@ -201,8 +202,8 @@ Kolahal is used instead of it, until you remove it.
 | `shader check <name>` | compiles the shader and says which uniforms it uses |
 | `shader edit <name>` | opens the shader's code in the [editor](#editing-one) |
 | `shader reload` | reads the `.agsl` files in the script folder again |
-| `shader copy <name>` | writes a shader into the script folder's `shaders` folder, to edit it there. A template's name, such as `template-tint`, makes a shader of yours from it |
-| `shader remove <name>` | deletes your shader |
+| `shader save <name>` | writes a shader into the script folder's `shaders` folder, to edit it there. A template's name, such as `template-tint`, makes a shader of yours from it |
+| `shader rm <name>` | deletes your shader. `shader delete <name>` does the same |
 
 ### Editing one
 
@@ -224,7 +225,7 @@ in the same editor as [scripts](/scripting/editor/). `shader edit <name>` does t
   reads what you saved.
 
 A shader that comes with Kolahal isn't changed in place. Saving it makes a file of yours with the same
-name, which is used instead of it, as after `shader copy` and `shader reload`. Its details then say it is
+name, which is used instead of it, as after `shader save` and `shader reload`. Its details then say it is
 from you, and **Remove** brings Kolahal's back.
 
 ## Getting shaders from others
@@ -245,10 +246,9 @@ with **Sources**, at the top of the page. Kolahal doesn't check the shaders of a
 
 | Command | What it does |
 | --- | --- |
-| `shader get` | lists the shared shaders |
+| `shader get` | lists the shared shaders, and marks those you installed that have a newer version |
 | `shader get <name>` | installs or updates one. `shader get <source>/<name>` picks the source |
-| `shader update` | updates every shader you installed this way |
-| `shader update <name>` | updates one |
+| `shader get --update` | updates every shader you installed this way |
 
 The list is kept for an hour. `--refresh` reads it again, and `--replace` replaces a copy you edited.
 
@@ -262,7 +262,7 @@ The quickest start is a template: a working shader of 30 to 50 lines whose comme
 1. **Settings → Shaders → Add shader → Start from a template**, and pick one: each row shows a small picture of the
    screen with it on. A copy becomes one of your shaders: `my-tint`, or `my-tint-2` when that name is taken. With a
    script folder (`script dir`), its file is written into the folder's `shaders` folder. Without one, Kolahal asks
-   for a folder, and **Save to folder** in the shader's details writes the file there. `shader copy template-tint` does the
+   for a folder, and **Save to folder** in the shader's details writes the file there. `shader save template-tint` does the
    same at the prompt.
 2. Edit it: **Edit** in its details opens it in the [editor](#editing-one). Or edit the file on a computer. Its
    comments say what to change first.
@@ -376,7 +376,7 @@ the **Follow** menu: use them with `shader follow` or in a header's `@follow`, a
 | `screen.d1` … `screen.d7` | the same for screen time |
 | `screen.h1` … `screen.h8` | each three hours of today, `h1` from midnight, from 0 to 1: how much of those three hours the screen was on. Hours still to come are 0 |
 
-Screen time and `away` need usage access (type `usage-access`). Without it they have no value. Unlocks are counted
+Screen time and `away` need usage access (type `allow usage`). Without it they have no value. Unlocks are counted
 without it too, but only those Kolahal sees while it runs. A `usual` value needs a day before today. Kolahal works these
 values out only while a shader on home or the live wallpaper follows one, or while **Settings → Shaders** is open for the
 shaders it lists: after you unlock the phone, when home comes back after five minutes or more, and every five minutes

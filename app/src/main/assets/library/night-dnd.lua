@@ -11,7 +11,7 @@
 -- At ON it turns Do Not Disturb on, unless it's on already: then it's yours, and it leaves it be,
 -- at OFF too. At OFF it turns off only what it turned on. (Since Android 15 that's Kolahal's own
 -- Do Not Disturb mode: one you turned on yourself stays on.)
--- Kolahal needs Do Not Disturb access (type `dnd access`). To change the times, change ON and OFF
+-- Kolahal needs Do Not Disturb access (type `allow dnd`). To change the times, change ON and OFF
 -- here and its daily times (`script at night-dnd 22:30, 06:30`) to match. Run by hand, it says
 -- what it will do.
 
@@ -28,7 +28,7 @@ if event and event.time == ON then
     store.set("on", MODE)
     log("Do Not Disturb on until " .. OFF)
   else
-    log(fmt.color("bad", "Couldn't turn Do Not Disturb on"), "Kolahal needs Do Not Disturb access: type dnd access")
+    log(fmt.color("bad", "Couldn't turn Do Not Disturb on"), "Kolahal needs Do Not Disturb access: type allow dnd")
   end
 elseif event and event.time == OFF then
   if not mine then return end

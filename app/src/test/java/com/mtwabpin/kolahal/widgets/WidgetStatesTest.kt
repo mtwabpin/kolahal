@@ -9,7 +9,7 @@ class WidgetStatesTest {
     /** A run that a switch stopped is noted with its error, so the card can lead to the Scripts screen. */
     @Test
     fun aSwitchThatStoppedTheRunIsKeptWithItsError() {
-        val error = "weather: internet is off for this script — tap to allow"
+        val error = "weather: internet is off for this script\nTap to allow it"
         val text = WidgetStates.encodeMeta(5, 7, error, off = true)
         assertEquals(WidgetStates.Meta(5, 7, error, off = true), WidgetStates.parseMeta(text))
         // Any other failure, and a run that worked, say nothing of a switch.

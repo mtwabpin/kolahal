@@ -85,7 +85,7 @@ internal class HostData(
         val todo = todoId(id)
         val to = todoDone(done)
         if (++todoChanges > MAX_TODO_CHANGES) {
-            if (todoChanges == MAX_TODO_CHANGES + 1) logError("todos.setDone: more than $MAX_TODO_CHANGES calls in one run; the rest change nothing")
+            if (todoChanges == MAX_TODO_CHANGES + 1) logError("todos.setDone: more than $MAX_TODO_CHANGES calls in one run\nThe rest change nothing")
             return false
         }
         val changed = TodoStore.get(context).mark(todo, to)
@@ -228,9 +228,9 @@ internal class HostData(
             since is Number -> since.toDouble().takeIf { it.isFinite() }
                 ?.let { (it * 1000).toLong() }
                 ?.takeIf { it <= now }
-                ?: throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970 and not later than now, such as os.time()")
+                ?: throw IllegalArgumentException("usage.data: since must be a past time\nIn seconds since 1970, such as os.time()")
 
-            else -> throw IllegalArgumentException("usage.data: since must be \"month\" or a time in seconds since 1970, such as os.time()")
+            else -> throw IllegalArgumentException("usage.data: since must be \"month\" or a time\nIn seconds since 1970, such as os.time()")
         }
         if (!usageReady("usage.data")) return null
         if (!month) {
@@ -292,7 +292,7 @@ internal class HostData(
 
     /**
      * `usage.summary(period, app?)`: screen time over Android's weeks, months or years, as
-     * `usage-summary` shows it ([com.mtwabpin.kolahal.usage.UsageLevels]). A year counts at least
+     * `usage week`, `month` and `year` show it ([com.mtwabpin.kolahal.usage.UsageLevels]). A year counts at least
      * what its months hold.
      * - [period]: "week", "month" or "year". [app]: a package, for that app alone; without it, all apps.
      * - `{ perDay, rows, top }`: `perDay` the minutes a day over the rows that count (as the `≈`
@@ -311,9 +311,9 @@ internal class HostData(
         val pkg = when (app) {
             null -> null
             is String -> app.trim().takeIf { it.isNotEmpty() && it.length <= MAX_TEXT }
-                ?: throw IllegalArgumentException("usage.summary: app must be a package name, such as \"com.google.android.youtube\"")
+                ?: throw IllegalArgumentException("usage.summary: app must be a package name\nSuch as \"com.google.android.youtube\"")
 
-            else -> throw IllegalArgumentException("usage.summary: app must be a package name, such as \"com.google.android.youtube\"")
+            else -> throw IllegalArgumentException("usage.summary: app must be a package name\nSuch as \"com.google.android.youtube\"")
         }
         if (!usageReady("usage.summary")) return null
         val levels = com.mtwabpin.kolahal.usage.UsageLevels.Companion
@@ -432,7 +432,7 @@ internal fun todoId(id: Any?): Long {
         else -> null
     }
     return n
-        ?: throw IllegalArgumentException("todos.setDone: id must be a todo's id, as todos.list() gives it")
+        ?: throw IllegalArgumentException("todos.setDone: id must be a todo's id\nAs todos.list() gives it")
 }
 
 /** The largest whole number a double holds exactly (2^53). An id is far below it. */

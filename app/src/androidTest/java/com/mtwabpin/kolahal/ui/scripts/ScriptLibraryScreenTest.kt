@@ -319,7 +319,7 @@ class ScriptLibraryScreenTest {
         show()
         inCountdownRow("Install").performClick()
         compose.waitUntil(5_000) { scripts.byName("countdown") != null }
-        compose.waitForText("Installed countdown.lua — run it as 'countdown'")
+        compose.waitForText("Installed countdown.lua\nRun it as 'countdown'")
         countdownRowSays("Installed")
         inCountdownRow("Install").assertDoesNotExist()
         val s = scripts.byName("countdown")!!

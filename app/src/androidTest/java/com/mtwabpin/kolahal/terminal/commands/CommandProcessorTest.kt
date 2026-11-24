@@ -81,7 +81,7 @@ class CommandProcessorTest {
         assertEquals(listOf("Launched YouTube"), run("youtube"))
         // No app matches: it says why.
         assertEquals(
-            listOf("Command not found: maps cafe  (maps is turned off · Settings → Commands)"),
+            listOf("Command not found: maps cafe\nmaps is turned off in Settings → Commands"),
             run("maps cafe")
         )
         // help leaves them out, and names them at the end.
@@ -92,7 +92,7 @@ class CommandProcessorTest {
             help.any { it.startsWith("Turned off: ") && "yt" in it && "maps" in it && "wiki" in it })
         assertTrue(run("help youtube").single().startsWith("yt is turned off"))
         // A typo isn't corrected to it.
-        assertTrue(run("wikk").none { "did you mean" in it })
+        assertTrue(run("wikk").none { "Did you mean" in it })
         // The commands that turn it on again stay on.
         assertFalse(config.set(Keys.COMMANDS_OFF, "config"))
         assertTrue(config.set(Keys.COMMANDS_OFF, "none"))
@@ -143,7 +143,7 @@ class CommandProcessorTest {
     fun widgetsStartNeedsTheAppSelector() {
         config.reset(Keys.SELECTOR_RAIL)
         assertEquals(
-            listOf("widgets.start needs the app selector first: config set selector.rail on"),
+            listOf("widgets.start needs the app selector\n'config set selector.rail on' turns it on"),
             run("config set widgets.start on")
         )
         assertFalse(config[Keys.WIDGETS_START])
@@ -180,11 +180,11 @@ class CommandProcessorTest {
     fun removedSettingsSayWhereTheyWent() {
         assertTrue(
             run("config set widgets.home on").single()
-                .startsWith("widgets.home was removed: widgets are on the widgets page")
+                .startsWith("widgets.home was removed\nWidgets are on the widgets page")
         )
         assertTrue(
             run("config set theme.settings-colors system").single()
-                .startsWith("theme.settings-colors was removed: Settings always use")
+                .startsWith("theme.settings-colors was removed\nSettings always use")
         )
     }
 

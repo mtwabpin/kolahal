@@ -34,11 +34,13 @@ class TtyCommandsTest {
         assertTrue("shader" in gui)
     }
 
-    /** `help` lists by these: the gui style's Screens section has shader alone. */
+    /** `help` lists by these: the gui style has no Screens section at all, as none of its commands is offered there. */
     @Test
     fun helpInTheGuiStyleHasNoScreens() {
         val shown = TtyCommands.offered(tty = false).map { it.name }
-        assertEquals(listOf("shader"), CommandCatalog.HELP_SECTIONS.getValue("screens").filter { it in shown })
+        assertEquals(emptyList<String>(), CommandCatalog.HELP_SECTIONS.getValue("screens").filter { it in shown })
+        // What is drawn over home and behind it is in Look, in both styles.
+        assertEquals(listOf("theme", "font", "shader", "wallpaper"), CommandCatalog.HELP_SECTIONS.getValue("look").filter { it in shown })
         assertEquals(
             CommandCatalog.HELP_SECTIONS.getValue("screens"),
             CommandCatalog.HELP_SECTIONS.getValue("screens").filter { it in TtyCommands.offeredNames(tty = true) },

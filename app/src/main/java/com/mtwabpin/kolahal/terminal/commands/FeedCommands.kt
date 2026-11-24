@@ -47,7 +47,7 @@ class FeedCommands(
     /** Returns whether feed [id] exists. If it doesn't, prints an error. */
     private fun exists(id: Long): Boolean =
         (com.mtwabpin.kolahal.feeds.FeedRepository.get(context)
-            .byId(id) != null).also { if (!it) error("No feed #$id — 'feeds' lists them") }
+            .byId(id) != null).also { if (!it) error("No feed #$id\n$FEEDS_LIST", LIST_COPY) }
 
     /** Built-in RSS/Atom subscriptions. No scripting is needed. */
     fun feeds(args: List<String>) {
@@ -59,7 +59,7 @@ class FeedCommands(
         when (args.firstOrNull()) {
             null, "ls", "list" -> {
                 val all = repo.all()
-                if (all.isEmpty()) return info("No feeds yet — feed add <url> (or 'feeds' for the manager and OPML import)")
+                if (all.isEmpty()) return info("No feeds yet\n'feed add <url>' adds one\n'feeds' opens the manager and OPML import")
                 all.forEach { f ->
                     val flags = listOfNotNull(
                         "${f.unread}/${f.total} unread",
@@ -81,7 +81,7 @@ class FeedCommands(
                         ) + LogContext.ITEM,
                     )
                 }
-                info("Tap a feed to read it · feed read = all unread · feed fetch = refresh now")
+                info("Tap a feed to read it\n'feed read' shows all unread\n'feed fetch' refreshes now")
             }
 
             "add" -> {
@@ -92,11 +92,11 @@ class FeedCommands(
                     )
                 }
                 if (!isNew) return info(
-                    "Already subscribed: #${feed.id} ${feed.url}",
+                    "Already subscribed as feed #${feed.id}\n${feed.url}",
                     LogContext.of(LogContext.URL to feed.url)
                 )
                 info(
-                    "Subscribed #${feed.id} ${feed.url} — fetching…",
+                    "Subscribed to feed #${feed.id}, fetching…\n${feed.url}",
                     LogContext.of(LogContext.URL to feed.url)
                 )
             }
@@ -110,13 +110,14 @@ class FeedCommands(
                         url
                     )
                 }.getOrElse {
+                    val gone = repo.byId(id) == null
                     return error(
-                        (it.message
-                            ?: "Invalid URL") + if (repo.byId(id) == null) " — 'feeds' lists them" else ""
+                        (it.message ?: "Invalid URL") + if (gone) "\n$FEEDS_LIST" else "",
+                        if (gone) LIST_COPY else LogContext.EMPTY
                     )
                 }
                 info(
-                    "Feed #${feed.id} is at ${feed.url} — fetching…",
+                    "Moved feed #${feed.id}, fetching…\n${feed.url}",
                     LogContext.of(LogContext.URL to feed.url)
                 )
             }
@@ -153,11 +154,9 @@ class FeedCommands(
                 // Mark only the shown items as read. Older unread items beyond the limit stay unread.
                 if (unreadOnly) repo.markRead(items.map { it.id })
                 val left = if (unreadOnly) repo.unreadCount(id) else 0
-                if (left > 0) info(
-                    "$left more unread — feed read${
-                        id?.let { " $it" }.orEmpty()
-                    } again"
-                )
+                if (left > 0) "feed read${id?.let { " $it" }.orEmpty()}".let { more ->
+                    info("$left more unread\n'$more' shows more", LogContext.of(LogContext.COPY to more))
+                }
             }
 
             "open" -> {
@@ -180,8 +179,8 @@ class FeedCommands(
                 val failed = items.size - opened.size
                 info(
                     "Opened ${opened.size} item${if (opened.size == 1) "" else "s"}" +
-                            (if (failed > 0) " ($failed couldn't be opened)" else "") +
-                            (if (left > 0) " · $left still unread" else ""),
+                            (if (failed > 0) "\n$failed couldn't be opened" else "") +
+                            (if (left > 0) "\n$left still unread" else ""),
                 )
             }
 
@@ -223,8 +222,8 @@ class FeedCommands(
         val actions = com.mtwabpin.kolahal.notifications.NotificationActions
         val store = com.mtwabpin.kolahal.notifications.NotificationStore
         val prefs = com.mtwabpin.kolahal.notifications.NotifPrefs.get(context)
-        if (!actions.isEnabled(context) && args.firstOrNull() != "enable") {
-            fix("Notification access is off — tap to allow it", "notifs enable")
+        if (!actions.isEnabled(context)) {
+            fix("Notification access is off\nTap to allow it", "allow read-notifications")
             return
         }
         when (args.firstOrNull()) {
@@ -246,19 +245,16 @@ class FeedCommands(
                     )
                 }
             }
-            // If access is off, Kolahal first explains what it reads and asks (Play's prominent disclosure).
-            // If access is already on, Android's screen opens at once, so the user can turn it off.
-            "enable" -> if (actions.isEnabled(context)) startActivity(actions.settingsIntent(context)) else ui.askNotificationAccess()
             "unmute" -> args.drop(1).joinToString(" ").takeIf { it in prefs.muted.value }
                 ?.let { pkg ->
                     prefs.unmute(pkg)
-                    info("${apps.apps.value.firstOrNull { it.pkg == pkg }?.label ?: pkg}: notifications will appear in the log")
+                    info("Unmuted ${apps.apps.value.firstOrNull { it.pkg == pkg }?.label ?: pkg}\n$WILL_APPEAR")
                 }
-                ?: appCommands.withApp(args.drop(1)) { app -> prefs.unmute(app.pkg); info("${app.label}: notifications will appear in the log") }
+                ?: appCommands.withApp(args.drop(1)) { app -> prefs.unmute(app.pkg); info("Unmuted ${app.label}\n$WILL_APPEAR") }
 
             "mute" -> appCommands.withApp(args.drop(1)) { app ->
                 prefs.mute(app.pkg)
-                info("${app.label}: notifications won't appear in the log")
+                info("Muted ${app.label}\nIts notifications won't appear in the log")
             }
 
             "muted" -> {
@@ -292,5 +288,12 @@ class FeedCommands(
     companion object {
         /** The most browser tabs that one `feed open` opens. The other items stay unread. */
         const val MAX_FEED_OPEN = 5
+
+        /** The hint under "No feed #3": the command that lists the feeds, which Copy gives ([LIST_COPY]). */
+        private const val FEEDS_LIST = "'feeds' lists them"
+        private val LIST_COPY = LogContext.of(LogContext.COPY to "feeds")
+
+        /** The line under "Unmuted <app>". */
+        private const val WILL_APPEAR = "Its notifications will appear in the log"
     }
 }

@@ -3,15 +3,19 @@ package com.mtwabpin.kolahal.terminal.commands
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.apps.AppPrefs
+import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** `usage-summary`: Android's weeks, months and years, read on a real device. */
+/** `usage summary`, `week`, `month`, `year` and `full`: Android's weeks, months and years, read on a real device. */
 @RunWith(AndroidJUnit4::class)
 class UsageSummaryCommandsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -35,15 +39,15 @@ class UsageSummaryCommandsTest {
     /** Without usage access it says to allow it, with a tap that opens the page. */
     @Test
     fun itNeedsUsageAccess() = withUsageAccess("ignore") {
-        val denied = commands.ownLines("usage-summary").single()
-        assertEquals("Usage summary needs usage access — tap to allow it", denied.text)
-        assertEquals("usage-access", denied.ctx.values[LogContext.RUN])
+        val denied = commands.ownLines("usage summary").single()
+        assertEquals("Usage summary needs usage access\nTap to allow it", denied.text)
+        assertEquals("allow usage", denied.ctx.values[LogContext.RUN])
     }
 
-    /** Alone: a line for each level that has data, each a tap that runs more; or that there is none yet. */
+    /** `summary`: a line for each level that has data, each a tap that runs more; or that there is none yet. */
     @Test
     fun theOverview() = withUsageAccess("allow") {
-        val shown = commands.ownLines("usage-summary")
+        val shown = commands.ownLines("usage summary")
         val first = StyledText.plain(shown.first().text)
         if (first == "No usage recorded yet") return@withUsageAccess
         // A dim header over the columns, then the lines: no sentences around them.
@@ -59,7 +63,7 @@ class UsageSummaryCommandsTest {
             )
             assertTrue(
                 row.ctx.values[LogContext.RUN].orEmpty(),
-                Regex("usage \\d+|usage-summary (week|month|year)").matches(row.ctx.values[LogContext.RUN].orEmpty())
+                Regex("usage \\d+|usage (week|month|year)").matches(row.ctx.values[LogContext.RUN].orEmpty())
             )
         }
     }
@@ -68,7 +72,7 @@ class UsageSummaryCommandsTest {
     @Test
     fun weeksAndMonths() = withUsageAccess("allow") {
         for (word in listOf("week", "month")) {
-            val shown = texts("usage-summary $word")
+            val shown = texts("usage $word")
             if (shown.size == 1 && shown.single().startsWith("No usage recorded")) continue
             assertTrue(
                 shown.first(),
@@ -84,7 +88,7 @@ class UsageSummaryCommandsTest {
     /** `full` holds the overview and a part for each of weeks, months and years, in that order, each after its rule. */
     @Test
     fun full() = withUsageAccess("allow") {
-        val shown = texts("usage-summary full")
+        val shown = texts("usage full")
         val parts = listOf("weeks", "months", "years").map { shown.indexOf("── $it ──") }
         assertTrue(shown.toString(), parts.all { it > 0 } && parts == parts.sorted())
     }
@@ -92,7 +96,7 @@ class UsageSummaryCommandsTest {
     /** `year`: the big numbers, then a row for each year. */
     @Test
     fun years() = withUsageAccess("allow") {
-        val shown = texts("usage-summary year")
+        val shown = texts("usage year")
         if (shown.size == 1 && shown.single()
                 .startsWith("No usage recorded")
         ) return@withUsageAccess
@@ -105,19 +109,42 @@ class UsageSummaryCommandsTest {
             })
     }
 
-    /** Another word says how to use it. */
+    /** `summary` and `full` take no app, so with words after them they are an app's name. */
     @Test
-    fun anUnknownWord() = withUsageAccess("allow") {
-        assertEquals(
-            listOf("Usage: usage-summary [week | month | year | full] [<app>]"),
-            texts("usage-summary decade")
-        )
+    fun wordsAfterSummaryAreAnApp() = withUsageAccess("allow") {
+        assertEquals(listOf("No app matches 'summary zzqqxx'"), texts("usage summary zzqqxx"))
+        assertEquals(listOf("No app matches 'full zzqqxx'"), texts("usage full zzqqxx"))
+    }
+
+    /** An app whose name starts like a word keeps its name: `usage weekly` is the app, `usage week` Android's weeks. */
+    @Test
+    fun anAppNamedLikeAWord() = withUsageAccess("allow") {
+        val apps = AppRepository.get(context)
+        val prefs = AppPrefs.get(context)
+        apps.refresh()
+        waitUntil("the app list") { apps.apps.value.isNotEmpty() }
+        val app = apps.apps.value.first { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
+        try {
+            prefs.setLabel(app.key, "Weekly")
+            apps.refresh()
+            waitUntil("the new name") { apps.apps.value.any { it.key == app.key && it.label == "Weekly" } }
+            val shown = texts("usage weekly")
+            assertTrue(shown.toString(), shown.first().contains("Weekly today"))
+            val weeks = texts("usage week")
+            assertTrue(weeks.toString(), weeks.none { it.contains("Weekly today") })
+            assertTrue(
+                weeks.toString(),
+                weeks.first().startsWith("No usage recorded") || weeks.any { it.startsWith("Week\tTotal\tA day") })
+        } finally {
+            prefs.setLabel(app.key, null)
+            apps.refresh()
+        }
     }
 
     /** One app over the months: its own numbers, or that it has none; a name that matches no app says so. */
     @Test
     fun oneApp() = withUsageAccess("allow") {
-        val shown = texts("usage-summary month kolahal")
+        val shown = texts("usage month kolahal")
         assertTrue(
             shown.toString(),
             shown.first().startsWith("No use of ") || shown.first().contains("of screen time", ignoreCase = true)
@@ -125,7 +152,7 @@ class UsageSummaryCommandsTest {
         if (shown.first().contains("of screen time", ignoreCase = true)) assertTrue(
             shown.toString(),
             shown.any { it.startsWith("Month\tTotal\tA day") })
-        assertEquals(listOf("No app matches 'zzqqxx'"), texts("usage-summary month zzqqxx"))
+        assertEquals(listOf("No app matches 'zzqqxx'"), texts("usage month zzqqxx"))
     }
 
     private fun lua(code: String, uses: Set<String> = setOf("usage")): String? {

@@ -270,7 +270,7 @@ private val ACTIONABLE_KEYS = setOf(
  * A line's words. Wrapped lines are indented past the prefix (`$ `, `• `), so each item reads as
  * one block:
  * - a command: its prompt, then the line in bold;
- * - an error: plain, in the error color;
+ * - an error: plain, its first line in the error color, and the lines after it as muted details: what to do about it;
  * - an info or output line: its first line, with a profile tag at the end in its profile's color,
  *   and the lines after it as muted details;
  * - a script line: its title (bold when it has a body), then the body, muted.
@@ -286,7 +286,14 @@ private fun wordsOf(e: LogEntry, unread: Boolean): LineModel.Body.Words {
             listOf(Piece("$ "), Piece(e.text, Ink.FG, setOf(StyledText.Style.BOLD)))
         )
 
-        LogKind.ERROR -> paras += Para(Para.Role.TITLE, listOf(Piece(StyledText.plain(e.text))))
+        LogKind.ERROR -> {
+            // Plain: an error's styles are taken off. Its first line says what went wrong; the lines after it, what to do.
+            val plain = StyledText.plain(e.text)
+            paras += Para(Para.Role.TITLE, listOf(Piece(plain.substringBefore('\n'))))
+            plain.substringAfter('\n', "").split('\n').filter { it.isNotEmpty() }.forEach {
+                paras += Para(Para.Role.DETAIL, listOf(Piece(it)))
+            }
+        }
         LogKind.INFO, LogKind.OUTPUT -> {
             val first = text.substringBefore('\n')
             paras += if (StyledText.has(first)) styledParas(first, Para.Role.TITLE, null)

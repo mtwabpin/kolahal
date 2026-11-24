@@ -39,6 +39,8 @@ Run `setup`, or open **Settings → Setup checklist**. Each row shows whether it
 - When you come back, the list updates.
 
 `setup text` prints the same checklist into the log. Tap an unchecked line there to run its fix.
+`allow` lists the same permissions, each with the word that asks for it: `allow usage`, `allow read-notifications`,
+and so on (see [Commands](/reference/commands/#allow)).
 
 <Image src={setup} alt="The setup checklist: default home app, usage access, notifications and notification access done; double-tap to lock, system settings and contacts with Fix buttons" class="shot shot-single" width={320} />
 
@@ -47,17 +49,17 @@ Every row is optional. Kolahal works without any of them, with the limits listed
 | Row | Fix command | Why |
 | --- | --- | --- |
 | **Default home app** | `home` | Kolahal opens when you press Home. Android lets only the default launcher read app shortcuts. Only the default launcher can pause or resume the work profile and see the private space, if you have them. |
-| **Usage access** | `usage-access` | Gives accurate unlock counts (from `KEYGUARD_HIDDEN` usage events), including unlocks while the launcher wasn't running. Also needed for `usage` screen time. Without it, Kolahal counts unlocks with an `ACTION_USER_PRESENT` receiver, which misses unlocks while the launcher isn't running. |
-| **Notifications** | `notifications` | Lets scripts and feeds post notifications. Android 13 and newer asks for this when the app runs. |
-| **Notification access** | `notifs enable` | Shows your notifications in the terminal (`notifs`) and gives scripts `notifications.recent()`. |
-| **Double-tap to lock** | `accessibility` | An optional accessibility service. Its only job is to lock the screen, for the double-tap gesture and the `lock` command. It receives no events and reads no window content. |
-| **Do Not Disturb access** | `dnd access` | Optional. Lets `dnd`, `ring silent` and scripts with `@uses dnd` (such as [night-dnd](/scripting/library/#night-dnd)) change Do Not Disturb. See [Media and device controls](/guides/media-and-controls/). |
-| **Modify system settings** | `brightness access` | Optional. Lets `brightness`, `rotate` and `screen-timeout` change system settings. |
-| **Contacts** | `contacts --allow` | Optional. `call`, `sms` and `contacts` find people by name and suggest your contacts. Full build only. The Play build uses Android's contact picker and asks for no permission. See [People](/guides/people/). |
-| **Calendar** | `agenda --allow` | Optional. Shows upcoming events with `agenda`. See [Productivity](/guides/productivity/). |
-| **Call log** | `calls --allow` | Optional. Your incoming, outgoing and missed calls appear in the log, and `calls` lists them. See [People](/guides/people/#calls-in-the-log). |
-| **Alarms & reminders** | `remind exact` | Optional, Android 12 and newer. Reminders and scripts' daily times run at the exact time. Without it, they can run up to an hour late. A script that pauses the work profile at night ([night-work](/scripting/library/#night-work)) needs it. |
-| **Unrestricted battery** | `battery` | Timer scripts and feeds run on time. Without it, battery optimization can delay them. |
+| **Usage access** | `allow usage` | Gives accurate unlock counts (from `KEYGUARD_HIDDEN` usage events), including unlocks while the launcher wasn't running. Also needed for `usage` screen time. Without it, Kolahal counts unlocks with an `ACTION_USER_PRESENT` receiver, which misses unlocks while the launcher isn't running. |
+| **Notifications** | `allow send-notifications` | Lets scripts and feeds post notifications. Android 13 and newer asks for this when the app runs. |
+| **Notification access** | `allow read-notifications` | Shows your notifications in the terminal (`notifs`) and gives scripts `notifications.recent()`. |
+| **Double-tap to lock** | `allow lock` | An optional accessibility service. Its only job is to lock the screen, for the double-tap gesture and the `lock` command. It receives no events and reads no window content. |
+| **Do Not Disturb access** | `allow dnd` | Optional. Lets `dnd`, `ring silent` and scripts with `@uses dnd` (such as [night-dnd](/scripting/library/#night-dnd)) change Do Not Disturb. See [Media and device controls](/guides/media-and-controls/). |
+| **Modify system settings** | `allow settings` | Optional. Lets `brightness`, `rotate` and `screen-timeout` change system settings. |
+| **Contacts** | `allow contacts` | Optional. `call`, `sms` and `contacts` find people by name and suggest your contacts. Full build only. The Play build uses Android's contact picker and asks for no permission. See [People](/guides/people/). |
+| **Calendar** | `allow calendar` | Optional. Shows upcoming events with `agenda`. See [Productivity](/guides/productivity/). |
+| **Call log** | `allow calls` | Optional. Your incoming, outgoing and missed calls appear in the log, and `calls` lists them. See [People](/guides/people/#calls-in-the-log). |
+| **Alarms & reminders** | `allow alarms` | Optional, Android 12 and newer. Reminders and scripts' daily times run at the exact time. Without it, they can run up to an hour late. A script that pauses the work profile at night ([night-work](/scripting/library/#night-work)) needs it. |
+| **Unrestricted battery** | `allow battery` | Timer scripts and feeds run on time. Without it, battery optimization can delay them. |
 | **Work / private profiles** | (none) | Information only. Lists the work, private space and clone profiles that Kolahal finds, and whether each one is on or paused. |
 
 When you are done, tap **Continue to terminal** to go to the prompt. Next, read [Basics](/getting-started/basics/).

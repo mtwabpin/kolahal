@@ -5,9 +5,6 @@ package com.mtwabpin.kolahal.terminal.commands
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import android.provider.Settings
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
@@ -15,7 +12,6 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats
-import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.terminal.MonthCalendar
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.SetupChecks
@@ -26,7 +22,7 @@ import java.text.DateFormat
 import java.util.Date
 
 /**
- * Commands about the phone and home: `date` and `cal`, `widgets`, `notifications`, `wallpaper`,
+ * Commands about the phone and home: `date` and `cal`, `widget` and `widgets`, `wallpaper`,
  * `screen`, `scramble`, `fetch`, `backup`, `restart` and `setup text`.
  */
 class SystemCommands(
@@ -41,7 +37,7 @@ class SystemCommands(
     fun cal(rest: String) {
         val today = java.time.LocalDate.now()
         val month = MonthCalendar.parse(rest, today)
-            ?: return error("Unknown month '$rest'. Use cal, cal dec, cal dec 2027 or cal 2027-12")
+            ?: return error("Unknown month '$rest'\nUse cal, cal dec, cal dec 2027 or cal 2027-12")
         val lines = MonthCalendar.lines(
             month,
             today
@@ -74,7 +70,7 @@ class SystemCommands(
      */
     fun date(words: List<String>) {
         val places = WorldClock.parse(words)
-            ?: return error("Unknown place '${words.joinToString(" ")}'. Use a city (tokyo, new york), a zone (Asia/Tokyo), utc, or an offset like +5:30")
+            ?: return error("Unknown place '${words.joinToString(" ")}'\nUse a city (tokyo, new york), a zone (Asia/Tokyo), utc, or an offset like +5:30")
         val now = java.time.Instant.now()
         val clock24 = Config.get(context)[Keys.CLOCK_24H]
         if (places.size == 1) {
@@ -95,24 +91,26 @@ class SystemCommands(
     // ---- widgets ----------------------------------------------------------------------------
 
     /**
+     * `widget` and `widgets`, [name] as typed ([WidgetWords]):
      * - `widgets` alone opens Arrange widgets.
-     * - `widgets page` turns home to the widgets page beside the log.
-     * - `widgets ls` prints the placed widgets. A tap opens Arrange widgets.
+     * - `widget page` turns home to the widgets page beside the log.
+     * - `widget ls`, or `widget` alone, prints the placed widgets. A tap opens Arrange widgets.
      * - `widget add` opens the picker.
+     * `widgets page`, `widgets ls` and `widgets add` work the same.
      */
-    fun widgets(args: List<String>) {
+    fun widgets(name: String, args: List<String>) {
         val host = com.mtwabpin.kolahal.widgets.WidgetHost.get(context)
-        when (args.firstOrNull()) {
-            null -> ui.openScreen(Screen.WIDGETS)
-            "page" -> if (conf[Keys.WIDGETS_PAGE] == "off") fix(
-                "The widgets page is off — tap to turn it on",
+        when (WidgetWords.of(name, args)) {
+            WidgetWords.Action.ARRANGE -> ui.openScreen(Screen.WIDGETS)
+            WidgetWords.Action.PAGE -> if (conf[Keys.WIDGETS_PAGE] == "off") fix(
+                "The widgets page is off\nTap to turn it on",
                 "config set widgets.page left"
             ) else ui.showWidgetsPage()
 
-            "ls", "list" -> {
+            WidgetWords.Action.LIST -> {
                 val lines = host.listing(context)
                 if (lines.isEmpty()) return info(
-                    "No widgets yet — widget add opens the picker",
+                    "No widgets yet\nTap to open the widget picker",
                     LogContext.of(LogContext.RUN to "widget add")
                 )
                 lines.forEach { (text, desc) ->
@@ -123,36 +121,26 @@ class SystemCommands(
                 }
             }
 
-            "add" -> ui.openScreen(Screen.WIDGET_PICKER)
-            else -> usage("widgets", "widget")
-        }
-    }
-
-    /** Asks for the runtime permission when possible. Otherwise (before Android 13, or turned off) opens settings. */
-    fun notifications(args: List<String>) {
-        val permissionMissing = Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(
-            android.Manifest.permission.POST_NOTIFICATIONS,
-        ) != PackageManager.PERMISSION_GRANTED
-        when {
-            args.firstOrNull() == "settings" || (!permissionMissing && !Notifier.canPost(context)) ->
-                startActivity(
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                )
-
-            permissionMissing -> ui.requestNotificationPermission()
-            else -> info("Notifications are allowed")
+            WidgetWords.Action.ADD -> ui.openScreen(Screen.WIDGET_PICKER)
+            null -> usage("widget")
         }
     }
 
     /**
-     * - `wallpaper` says whether the home screen wallpaper is Kolahal's.
-     * - `wallpaper match` sets Kolahal's wallpaper ([com.mtwabpin.kolahal.control.WallpaperMatch]), in
+     * - `wallpaper` says what the home screen wallpaper is: the user's own, the theme's color, or a shader
+     *   ([WallpaperStatus]); and the lock screen's, when it has one of another kind. Then it lists what
+     *   can become the wallpaper, each as a line to tap ([WallpaperStatus.choices]).
+     * - `wallpaper theme` sets Kolahal's wallpaper ([com.mtwabpin.kolahal.control.WallpaperMatch]), in
      *   the theme's color as home last showed it.
      *   It asks first, because Android doesn't let an app read the wallpaper it replaces, so the
      *   old one can't be restored.
      * - The Material You themes take their colors from the wallpaper. So the wallpaper can't follow
      *   one, and both forms say so.
+     * - `wallpaper shader <name>` makes a shader Kolahal's live wallpaper
+     *   ([com.mtwabpin.kolahal.shader.WallpaperChoice]), always in Android's own preview, where people
+     *   set it for the home screen, the lock screen or both.
+     * - `wallpaper live` opens Android's own list of live wallpapers, for a phone whose wallpaper settings don't
+     *   link to it.
      */
     fun wallpaper(args: List<String>) {
         val match = com.mtwabpin.kolahal.control.WallpaperMatch
@@ -160,35 +148,64 @@ class SystemCommands(
         val theme = conf[Keys.THEME].takeIf(com.mtwabpin.kolahal.data.MaterialYou::isOne)
             ?: com.mtwabpin.kolahal.data.MaterialYou.NAME
         when (args.firstOrNull()?.lowercase()) {
-            null -> info(
-                when {
-                    !match.isMatched(context) -> "Your home screen wallpaper is your own; Kolahal doesn't change it (wallpaper match sets it to the theme's color)"
-                    match.themeFromWallpaper -> "Your home screen wallpaper is Kolahal's, but it doesn't follow the $theme theme, which takes its colors from the wallpaper. It follows again when you pick another theme"
-                    else -> "Your home screen wallpaper is in the theme's color, and follows the theme"
-                },
-            )
-
-            "match" -> {
-                val color = match.themeColor
-                when {
-                    match.themeFromWallpaper -> error("The $theme theme takes its colors from the wallpaper, so the wallpaper can't follow it: pick another theme, then try again")
-                    match.isMatched(context) -> info("Your home screen wallpaper already follows the theme")
-                    args.getOrNull(1) != "--yes" -> {
-                        info("This replaces your home screen wallpaper with this theme's color, so it doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal can't restore the old one, and log.wallpaper and widgets.wallpaper will show only this color.")
-                        info(
-                            "Tap to replace it",
-                            LogContext.of(LogContext.RUN to "wallpaper match --yes")
-                        )
-                    }
-
-                    color == null -> error("Kolahal doesn't know the theme's color yet: go home, then try again")
-                    match.set(
-                        context,
-                        color
-                    ) -> info("Home screen wallpaper set to this theme's color. It follows the theme until you set another wallpaper; the lock screen wallpaper isn't changed")
-
-                    else -> error("Couldn't change the wallpaper on this phone")
+            null -> {
+                val shown = com.mtwabpin.kolahal.shader.WallpaperChoice.shown(context)
+                val home = WallpaperStatus.home(live = shown.home, matched = match.isMatched(context))
+                WallpaperStatus.lines(
+                    home = home,
+                    lock = WallpaperStatus.lock(own = shown.lockOwn, live = shown.lock),
+                    shader = ShaderCommands.wallpaperDrawn(com.mtwabpin.kolahal.shader.WallpaperChoice.name.value),
+                    theme = theme,
+                    themeFromWallpaper = match.themeFromWallpaper,
+                ).forEach { info(it) }
+                // What can become the wallpaper, each as a line to tap: its word, what it is, and a few words more.
+                val choices = WallpaperStatus.choices(home)
+                val column = choices.map { it.word }.maxBy { it.length }
+                choices.forEach { c ->
+                    out(
+                        c.word,
+                        LogContext.of(
+                            (if (c.run != null) LogContext.RUN else LogContext.COMMAND) to (c.run ?: c.fill.orEmpty()),
+                            LogContext.DESC to c.title,
+                            LogContext.NAME_COL to column,
+                            LogContext.ARGS to c.note,
+                        ),
+                    )
                 }
+            }
+
+            "theme" -> when {
+                match.themeFromWallpaper -> error(WallpaperStatus.said(com.mtwabpin.kolahal.control.WallpaperMatch.Result.FROM_WALLPAPER, theme))
+                match.isMatched(context) -> info(WallpaperStatus.said(com.mtwabpin.kolahal.control.WallpaperMatch.Result.ALREADY, theme))
+                // It asks first: Android doesn't let an app read the wallpaper it replaces, so the old one is lost.
+                args.getOrNull(1) != "--yes" -> {
+                    info(WallpaperStatus.REPLACES)
+                    info("Tap to replace it", LogContext.of(LogContext.RUN to "wallpaper theme --yes"))
+                }
+
+                else -> match.useTheme(context).let { result ->
+                    val words = WallpaperStatus.said(result, theme)
+                    if (WallpaperStatus.failed(result)) error(words) else info(words)
+                }
+            }
+
+            "shader" -> {
+                val name = args.getOrNull(1)?.lowercase() ?: return usage("wallpaper")
+                val shaders = com.mtwabpin.kolahal.shader.Shaders
+                val choice = com.mtwabpin.kolahal.shader.WallpaperChoice
+                if (!shaders.exists(name)) return error("No shader '$name'\n'shader' lists them", LogContext.of(LogContext.COPY to "shader"))
+                val meta = shaders.source(context, name)?.let(com.mtwabpin.kolahal.shader.ShaderMeta::parse)
+                    ?: return error("Shader $name can't be read")
+                (choice.problem(name, meta) ?: shaders.problem(context, name))?.let { return error(shaders.problemLine(name, it)) }
+                choice.set(context, name)
+                // Always Android's own preview, also when Kolahal's wallpaper is the phone's already: there the
+                // person sees the shader and says where it goes, the home screen, the lock screen or both.
+                // Changed without it, a wallpaper that is only on the lock screen would seem not to have been set.
+                if (runCatching { startActivity(choice.preview(context)) }.isFailure) error("This phone has no live wallpaper preview")
+            }
+
+            "live" -> if (runCatching { startActivity(Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)) }.isFailure) {
+                error(WallpaperStatus.NO_LIST)
             }
 
             else -> usage("wallpaper")
@@ -205,14 +222,18 @@ class SystemCommands(
      * ([com.mtwabpin.kolahal.data.HomeScramble]). Its line in the log is scrambled like the others.
      */
     fun scramble(args: List<String>) {
-        val line = com.mtwabpin.kolahal.data.HomeScramble.get(context).run(args) ?: return usage("scramble")
-        if (line == com.mtwabpin.kolahal.data.HomeScramble.NOT_KEPT) error(line) else info(line)
+        val scramble = com.mtwabpin.kolahal.data.HomeScramble
+        val line = scramble.get(context).run(args) ?: return usage("scramble")
+        // While it is on, the line names the way off: that command is what Copy gives.
+        val on = line == scramble.ON || line == scramble.ALREADY_ON
+        if (line == scramble.NOT_KEPT) error(line)
+        else info(line, if (on) LogContext.of(LogContext.COPY to scramble.COPY) else LogContext.EMPTY)
     }
 
     fun screen(args: List<String>) {
         val names = com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens.names
         val name = args.firstOrNull()?.lowercase() ?: return usage("screen")
-        if (name !in names) return error("No screen called $name. Screens: ${names.joinToString(", ")}")
+        if (name !in names) return error("No screen called $name\nScreens: ${names.joinToString(", ")}")
         ui.showTtyScreen(name)
     }
 
@@ -246,14 +267,19 @@ class SystemCommands(
         val auto = com.mtwabpin.kolahal.data.AutoBackup
         when (args.firstOrNull()?.lowercase()) {
             null, "now" -> if (auto.folder(context) == null) {
-                info("Pick a folder for backups; the backup is written there")
+                info("Pick a folder for backups\nThe backup is written there")
                 ui.askBackupFolder(thenBackUp = true)
             } else background("backup") {
                 val name = auto.backUp(context)
-                val every =
-                    conf[Keys.BACKUP_AUTO].takeIf { it != "off" }?.let { " · automatic: $it" }
-                        ?: " · 'backup every daily' automates it"
-                info("Backed up: $name in ${auto.folderName(context) ?: "the backup folder"}$every")
+                val saved = "Backed up: $name\nFolder: ${auto.folderName(context) ?: "the backup folder"}"
+                when (val every = conf[Keys.BACKUP_AUTO].takeIf { it != "off" }) {
+                    null -> info(
+                        "$saved\n'backup every daily' automates it",
+                        LogContext.of(LogContext.COPY to "backup every daily"),
+                    )
+
+                    else -> info("$saved\nAutomatic: $every")
+                }
             }
 
             "every", "auto" -> {
@@ -263,7 +289,7 @@ class SystemCommands(
                 if (value == null || value !in Keys.BACKUP_AUTO.choices) return error("Usage: backup every <daily|weekly|off>")
                 conf.set(Keys.BACKUP_AUTO, value)
                 if (value == "off") return info("Automatic backups off")
-                info("Backing up $value to ${auto.folderName(context) ?: "a folder you pick"}, keeping the newest ${conf[Keys.BACKUP_KEEP]} (backup.keep)")
+                info("Backing up $value to ${auto.folderName(context) ?: "a folder you pick"}\nKeeping the newest ${conf[Keys.BACKUP_KEEP]} (backup.keep)")
                 if (auto.folder(context) == null) ui.askBackupFolder(thenBackUp = false)
             }
 
@@ -291,7 +317,7 @@ class SystemCommands(
                     info("Script process isn't running")
                 } else {
                     android.os.Process.killProcess(scriptProcess.pid)
-                    info("Script process stopped; scheduled scripts will start it again")
+                    info("Script process stopped\nScheduled scripts will start it again")
                 }
             }
 
@@ -301,7 +327,10 @@ class SystemCommands(
 
     /** The text form of the setup checklist (`setup text`). Tapping an unchecked line runs its fix. */
     fun setupText() {
-        info("Setup — tap an unchecked item to fix it, run 'setup text' again to re-check")
+        info(
+            "Setup checklist\nTap an unchecked item to fix it\nRun 'setup text' again to check again",
+            LogContext.of(LogContext.COPY to "setup text"),
+        )
         SetupChecks.run(context).forEach { c ->
             val mark = when {
                 c.ok -> "[x]"

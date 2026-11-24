@@ -393,7 +393,7 @@ class ScriptScreenTest {
         for ((lang, code) in opens) {
             val host = host(byScript = true, grants = ScriptAccess.Grants(setOf("screen"), mapOf("screen" to true)))
             val error = runCatching { run(lang, code, host) }.exceptionOrNull()
-            assertTrue("$lang: $error", error != null && "not when another script starts it" in error.toString())
+            assertTrue("$lang: $error", error != null && "Not when another script starts it" in error.toString())
             assertFalse("$lang", host.hasScreen)
         }
     }

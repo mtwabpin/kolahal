@@ -182,7 +182,7 @@ class TopScreenTest {
     @Test
     fun withoutUsageAccessALineSaysSo() {
         val run = start(45, 20, facts.copy(usageAccess = false, screenTimeMs = -1))
-        assertEquals("Today   no usage access (type usage-access)", run.row(4).trimEnd())
+        assertEquals("Today   no usage access (type allow usage)", run.row(4).trimEnd())
         // Unlocks are counted without it.
         assertEquals("top - 12:34:56 up 2:10, 41 unlocks", run.row(0).trimEnd())
     }

@@ -95,7 +95,7 @@ internal class RunLog(
         full = true
         pending += LogRepository.Pending(
             LogKind.INFO,
-            "More than $what in one run: the rest aren't logged",
+            "More than $what in one run\nThe rest aren't logged",
             source,
             LogContext(baseCtx),
             now()

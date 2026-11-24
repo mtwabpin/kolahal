@@ -25,7 +25,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** `shader get` and `shader update`, and installing ([ShaderStore]), from a list kept as if just downloaded. Nothing goes online. */
+/** `shader get` and `shader get --update`, and installing ([ShaderStore]), from a list kept as if just downloaded. Nothing goes online. */
 @RunWith(AndroidJUnit4::class)
 class ShaderGetTest {
     @get:Rule
@@ -87,17 +87,21 @@ class ShaderGetTest {
         run("shader get sg-glow", "sg-glow is installed and up to date")
         run("shader get sg-later", "sg-later needs Kolahal 99.0 or newer")
         run("shader get sg-own", "You have your own shader named sg-own")
-        run("shader get nobody/here/sg-glow", "No source 'nobody/here'")
+        val noSource = run("shader get nobody/here/sg-glow", "No source 'nobody/here'\n")
+        assertEquals("script sources", noSource.ctx.values[LogContext.COPY])
         Shaders.save(context, "sg-glow", "$code\n// mine")
-        run("shader get sg-glow", "You edited sg-glow")
+        val edited = run("shader get sg-glow", "You edited sg-glow\n")
+        assertEquals(
+            "You edited sg-glow\n'shader get sg-glow --replace' replaces it\n'shader save sg-glow' keeps a copy",
+            StyledText.plain(edited.text),
+        )
     }
 
-    /** Only what was installed from a list can be updated. */
+    /** Only what was installed from a list is updated: a shader of the user's own isn't. */
     @Test
     fun updateNeedsAnInstalledShader() {
         Shaders.save(context, "sg-own", code)
-        run("shader update sg-own", "sg-own wasn't installed with 'shader get'")
-        run("shader update sg-none", "No shader 'sg-none' of yours")
+        run("shader get --update", "No shader was installed with 'shader get'")
     }
 
     // ---- installing ------------------------------------------------------------------------

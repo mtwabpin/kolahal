@@ -1009,7 +1009,7 @@ class ScriptWidgetCardTest {
     @Test
     fun aRunStoppedByASwitchLeadsToScripts() {
         val asked = Asked()
-        val off = "internet is off for this script — tap to allow"
+        val off = "internet is off for this script\nTap to allow it"
         val plain = kept("switch", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
         val linked = kept(
             "switch-link",

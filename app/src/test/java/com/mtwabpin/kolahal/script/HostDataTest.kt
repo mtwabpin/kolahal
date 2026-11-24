@@ -153,7 +153,7 @@ class HostDataTest {
         for (id in wrong) {
             val e = assertThrows(id.toString(), IllegalArgumentException::class.java) { todoId(id) }
             assertEquals(
-                "todos.setDone: id must be a todo's id, as todos.list() gives it",
+                "todos.setDone: id must be a todo's id\nAs todos.list() gives it",
                 e.message
             )
         }

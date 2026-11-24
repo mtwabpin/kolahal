@@ -57,9 +57,9 @@ object AutoBackup {
      * - If the backup is too big, the line says what to make smaller, with no tap action.
      */
     internal fun failure(e: Throwable): Pair<String, LogContext> {
-        val text = "Automatic backup failed: ${e.message ?: e.javaClass.simpleName}"
+        val text = "Automatic backup failed\n" + (e.message ?: e.javaClass.simpleName).replaceFirstChar(Char::uppercase)
         return if (e is Backup.TooBig) text to LogContext.EMPTY
-        else "$text · tap to pick the folder" to LogContext.of(LogContext.RUN to "backup dir")
+        else "$text\nTap to pick the folder" to LogContext.of(LogContext.RUN to "backup dir")
     }
 
     /** When the last backup was written, or null. */

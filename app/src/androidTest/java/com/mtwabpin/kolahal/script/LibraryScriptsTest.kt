@@ -1980,7 +1980,7 @@ class LibraryScriptsTest {
 
         // Without Do Not Disturb access the switch stays as it is, and the run fails with what to do.
         store.set("_noAccess", "1")
-        fails("dnd", "Kolahal needs Do Not Disturb access: type dnd access")
+        fails("dnd", "Kolahal needs Do Not Disturb access: type allow dnd")
         assertEquals(listOf("Do Not Disturb" to false, "Work profile" to true), switches())
         store.set("_noAccess", null)
         // Do Not Disturb that you turned on outside Kolahal stays on.
@@ -2081,7 +2081,7 @@ class LibraryScriptsTest {
             assertTrue(
                 after.error.orEmpty(),
                 after.error.orEmpty()
-                    .contains("Kolahal needs Do Not Disturb access: type dnd access")
+                    .contains("Kolahal needs Do Not Disturb access: type allow dnd")
             )
             assertTrue(
                 "tried at ${after.triedAt}, set at ${after.setAt}",

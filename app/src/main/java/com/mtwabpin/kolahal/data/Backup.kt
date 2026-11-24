@@ -115,8 +115,8 @@ class Backup(private val context: Context) {
         val text = Json.stringify(data)
         val mb = utf8Size(text) / (1024 * 1024)
         if (mb >= Files.MAX_BACKUP_BYTES / (1024 * 1024)) throw TooBig(
-            "the backup would be $mb MB, more than the ${Files.MAX_BACKUP_BYTES / (1024 * 1024)} MB import limit: " +
-                    "lower log.keep-lines or clear the log (clear all), then export again"
+            "the backup would be $mb MB, more than the ${Files.MAX_BACKUP_BYTES / (1024 * 1024)} MB import limit\n" +
+                    "Lower log.keep-lines or run 'clear all', then export again"
         )
         return text
     }

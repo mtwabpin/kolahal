@@ -11,9 +11,11 @@ import android.os.Build
 import android.os.PowerManager
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.commands.Access
+import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.notify.Notifier
 
-/** One item of the setup checklist. [fix] is a terminal command that opens the matching system page. */
+/** One item of the setup checklist. [fix] is a terminal command that opens the matching system page (`allow <word>` for an access). */
 data class SetupCheck(
     val title: String,
     val detail: String,
@@ -24,92 +26,45 @@ data class SetupCheck(
 /** The setup checks. Both the `setup` GUI page and its text form (`setup text`) use them. */
 object SetupChecks {
     fun run(context: Context): List<SetupCheck> {
-        val power = context.getSystemService(PowerManager::class.java)
         val profiles =
             AppRepository.get(context).profiles.value.filter { it.kind != ProfileKind.PERSONAL }
-        return listOfNotNull(
+        return listOf(
             SetupCheck(
                 "Default home app",
                 "Kolahal opens on Home and can pause or resume the work profile",
                 isDefaultLauncher(context),
                 "home",
             ),
-            SetupCheck(
-                "Usage access",
-                "Accurate unlock counts, including unlocks while the launcher wasn't running",
-                com.mtwabpin.kolahal.usage.UsageAccess.granted(context),
-                "usage-access",
-            ),
-            SetupCheck(
-                "Notifications",
-                "Scripts can alert you about new items",
-                Notifier.canPost(context),
-                "notifications",
-            ),
-            SetupCheck(
-                "Notification access",
-                "Your notifications in the terminal (notifs) and for scripts",
-                com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context),
-                "notifs enable",
-            ),
-            if (!com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) null else SetupCheck(
-                "Double-tap to lock",
-                "Optional accessibility service that only locks the screen",
-                com.mtwabpin.kolahal.gesture.LockService.isEnabled(context),
-                "accessibility",
-            ),
-            SetupCheck(
-                "Do Not Disturb access (dnd, ring silent, scripts)",
-                "Optional: lets dnd, ring silent and scripts with @uses dnd (night-dnd) change Do Not Disturb",
-                context.getSystemService(android.app.NotificationManager::class.java).isNotificationPolicyAccessGranted,
-                "dnd access",
-            ),
-            SetupCheck(
-                "Modify system settings (brightness, rotate)",
-                "Optional: lets brightness, rotate and screen-timeout change system settings",
-                android.provider.Settings.System.canWrite(context),
-                "brightness access",
-            ),
-            // The Play build has no READ_CONTACTS. There, call, sms and contacts use Android's contact picker.
-            if (!com.mtwabpin.kolahal.BuildConfig.CONTACTS) null else SetupCheck(
-                "Contacts (call, sms, contacts)",
-                "Optional: call and text people by name, with contact suggestions",
-                com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).hasPermission(),
-                "contacts --allow",
-            ),
-            SetupCheck(
-                "Calendar (agenda)",
-                "Optional: upcoming events with the agenda command",
-                com.mtwabpin.kolahal.productivity.Agenda.hasPermission(context),
-                "agenda --allow",
-            ),
-            if (!com.mtwabpin.kolahal.BuildConfig.CALL_LOG) null else SetupCheck(
-                "Call log (calls in the log)",
-                "Optional: incoming, outgoing and missed calls appear in the log",
-                com.mtwabpin.kolahal.calls.CallEvents.hasPermission(context),
-                "calls --allow",
-            ),
-            // On Android 12+ the user can turn exact alarms off. On Android 14+ they are off by default.
-            if (Build.VERSION.SDK_INT < 31) null else SetupCheck(
-                "Alarms & reminders (remind, script times)",
-                "Optional: reminders and scripts' daily times at the exact time; night-work needs it to pause the work profile",
-                com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context),
-                "remind exact",
-            ),
-            SetupCheck(
-                "Unrestricted battery",
-                "Timer scripts run on schedule instead of being deferred",
-                power.isIgnoringBatteryOptimizations(context.packageName),
-                "battery",
-            ),
-            SetupCheck(
-                "Work / private profiles",
-                if (profiles.isEmpty()) "None found on this device"
-                else profiles.joinToString { "${it.kind.label} (${if (it.quiet) "paused" else "on"})" },
-                profiles.isNotEmpty(),
-                null,
-            ),
+        ) + accesses(context).map {
+            SetupCheck(it.access.title, it.access.detail, it.allowed, it.run)
+        } + SetupCheck(
+            "Work / private profiles",
+            if (profiles.isEmpty()) "None found on this device"
+            else profiles.joinToString { "${it.kind.label} (${if (it.quiet) "paused" else "on"})" },
+            profiles.isNotEmpty(),
+            null,
         )
+    }
+
+    /** The accesses this build and this Android version have ([Accesses.offered]), each with whether it is given now. */
+    fun accesses(context: Context): List<Accesses.Listed> =
+        Accesses.listing(Accesses.offered(Build.VERSION.SDK_INT)) { given(context, it) }
+
+    /** Whether Android gives Kolahal [access] now. */
+    fun given(context: Context, access: Access): Boolean = when (access.word) {
+        Accesses.USAGE -> com.mtwabpin.kolahal.usage.UsageAccess.granted(context)
+        Accesses.SEND_NOTIFICATIONS -> Notifier.canPost(context)
+        Accesses.READ_NOTIFICATIONS -> com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context)
+        Accesses.LOCK -> com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE && com.mtwabpin.kolahal.gesture.LockService.isEnabled(context)
+        Accesses.DND -> context.getSystemService(android.app.NotificationManager::class.java).isNotificationPolicyAccessGranted
+        Accesses.SETTINGS -> android.provider.Settings.System.canWrite(context)
+        Accesses.CONTACTS -> com.mtwabpin.kolahal.BuildConfig.CONTACTS &&
+                com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).hasPermission()
+        Accesses.CALENDAR -> com.mtwabpin.kolahal.productivity.Agenda.hasPermission(context)
+        Accesses.CALLS -> com.mtwabpin.kolahal.BuildConfig.CALL_LOG && com.mtwabpin.kolahal.calls.CallEvents.hasPermission(context)
+        Accesses.ALARMS -> com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
+        Accesses.BATTERY -> context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+        else -> false
     }
 
     fun isDefaultLauncher(context: Context): Boolean = if (Build.VERSION.SDK_INT >= 29) {

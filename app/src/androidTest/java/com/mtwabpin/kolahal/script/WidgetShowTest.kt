@@ -375,7 +375,7 @@ class WidgetShowTest {
             } catch (e: IllegalStateException) {
                 assertTrue(
                     e.message.orEmpty(),
-                    e.message.orEmpty().endsWith("needs `@widget <kind>` at the top of the script")
+                    e.message.orEmpty().endsWith("needs `@widget <kind>`\nAdd it at the top of the script")
                 )
             }
         }

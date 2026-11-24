@@ -417,7 +417,7 @@ class GetScriptsScreenTest {
         compose.onNodeWithText("Tide times").performClick()
         tapWhenEnabled("Install")
         // Said once the install is done: the script is made off and switched on after.
-        compose.waitForText("Installed gstide.lua — run it as 'gstide'")
+        compose.waitForText("Installed gstide.lua\nRun it as 'gstide'")
         val s = scripts.byName(tide.name)!!
         assertEquals(tide.code, s.code)
         assertTrue(s.enabled)
@@ -645,7 +645,7 @@ class GetScriptsScreenTest {
             .assertExists()
         shot(compose.onNode(isDialog()), "add-source.png")
         compose.onNode(hasText("Add") and hasClickAction()).performClick()
-        compose.waitForText("Added gsowner/gsscripts · 1 script")
+        compose.waitForText("Added gsowner/gsscripts\n1 script")
         assertEquals(listOf(other.index), catalog.added())
         compose.waitForNode(hasText("gsowner/gsscripts") and hasText("1 script · Read just now"))
     }

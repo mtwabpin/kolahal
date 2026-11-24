@@ -44,7 +44,7 @@ class RunSecretsTest {
     fun onlyADeclaredNameHasAMark() {
         val undeclared = assertThrows(IllegalStateException::class.java) { run().mark("OTHER") }
         assertEquals(
-            "secrets.get(\"OTHER\") needs `@secret OTHER <site> <description>` at the top of the script",
+            "secrets.get(\"OTHER\") needs a @secret line\nAdd `@secret OTHER <site> <description>` at the top of the script",
             undeclared.message
         )
         // Code typed at the prompt has no secrets at all.
@@ -80,13 +80,13 @@ class RunSecretsTest {
             "k=$value&again=$value",
             s.fill("k=$mark&again=$mark", "https://eu.api.example.com/".toHttpUrl())
         )
-        refused("KEY may only be sent to api.example.com, not evil.example") {
+        refused("KEY may only be sent to api.example.com\nNot to evil.example") {
             s.fill(
                 "k=$mark",
                 "https://evil.example/".toHttpUrl()
             )
         }
-        refused("KEY may only be sent over https, not to http://api.example.com") {
+        refused("KEY may only be sent over https\nNot to http://api.example.com") {
             s.fill(
                 "k=$mark",
                 "http://api.example.com/".toHttpUrl()
@@ -179,14 +179,14 @@ class RunSecretsTest {
         val s = run()
         s.check("api.example.com", listOf("https://api.example.com/?k=x", value), https = true)
         s.check("eu.api.example.com", listOf(value), https = true)
-        refused("KEY may only be sent to api.example.com, not evil.example") {
+        refused("KEY may only be sent to api.example.com\nNot to evil.example") {
             s.check(
                 "evil.example",
                 listOf("https://evil.example/", value),
                 https = true
             )
         }
-        refused("KEY may only be sent over https, not to http://api.example.com") {
+        refused("KEY may only be sent over https\nNot to http://api.example.com") {
             s.check(
                 "api.example.com",
                 listOf(value),

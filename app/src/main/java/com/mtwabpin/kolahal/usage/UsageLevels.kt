@@ -10,7 +10,7 @@ import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 /**
- * Android's usage at its four levels, for `usage-summary`. Android keeps each app's time in front in
+ * Android's usage at its four levels, for `usage summary`, `week`, `month`, `year` and `full`. Android keeps each app's time in front in
  * buckets a day, a week, a month and a year long: about 10 days, 4 weeks, 6 months and 2 years.
  * - A bucket starts when Android rolled the one before over, not at midnight or on the 1st: on one
  *   phone the days start near 4 AM and the months on the 12th. So each bucket keeps its real start

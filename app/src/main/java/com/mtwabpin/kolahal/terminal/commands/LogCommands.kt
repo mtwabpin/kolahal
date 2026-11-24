@@ -22,7 +22,7 @@ class LogCommands(context: Context, private val ui: TerminalUi) : CommandGroup(c
         val reports = com.mtwabpin.kolahal.CrashReports.list(context)
         when (args.firstOrNull()?.lowercase()) {
             null, "ls" -> {
-                if (reports.isEmpty()) return info("No crash reports. If Kolahal stops unexpectedly, a report is kept here until you share or clear it")
+                if (reports.isEmpty()) return info("No crash reports\nIf Kolahal stops unexpectedly, a report is kept here until you share or clear it")
                 reports.forEachIndexed { i, r ->
                     out(
                         "#${i + 1} ${r.kind.label} ${
@@ -34,7 +34,7 @@ class LogCommands(context: Context, private val ui: TerminalUi) : CommandGroup(c
                         LogContext(mapOf(LogContext.RUN to "crashes share ${r.id}") + LogContext.ITEM),
                     )
                 }
-                info("Tap one to share it · crashes clear deletes them all")
+                info("Tap one to share it\n'crashes clear' deletes them all", LogContext.of(LogContext.COPY to "crashes clear"))
             }
 
             "share" -> {
@@ -44,7 +44,8 @@ class LogCommands(context: Context, private val ui: TerminalUi) : CommandGroup(c
                     which.toIntOrNull() != null -> reports.getOrNull(which.toInt() - 1)
                     else -> reports.firstOrNull { it.id == which }
                 }
-                    ?: return error(if (reports.isEmpty()) "No crash reports" else "No crash report $which (crashes lists them)")
+                    ?: return if (reports.isEmpty()) error("No crash reports")
+                    else error("No crash report $which\n'crashes' lists them", LogContext.of(LogContext.COPY to "crashes"))
                 startActivity(com.mtwabpin.kolahal.CrashReports.shareIntent(r.text()))
             }
 
@@ -64,7 +65,7 @@ class LogCommands(context: Context, private val ui: TerminalUi) : CommandGroup(c
         when (args.firstOrNull()) {
             "only" -> ui.filterLog(
                 LogFilter.parse(args.drop(1).joinToString(" "))
-                    ?: return error("Usage: log only <script, feed or app | commands, scripts, feeds, notifications, apps, calls, reminders, starred>")
+                    ?: return error("Usage: log only <name|kind>\nName: a script, feed or app\nKind: commands, scripts, feeds, notifications, apps, calls, reminders, starred")
             )
 
             "all" -> ui.filterLog(null)

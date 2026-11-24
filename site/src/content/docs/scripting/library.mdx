@@ -548,7 +548,7 @@ doesn't use the network.
 
 **Screen time**: a [widget](#widgets) with today's screen time, large, over a bar for each of the
 last 7 days, the oldest first. It doesn't use the network. It needs `@uses usage` ("Your app usage")
-and usage access for Kolahal (`usage-access`).
+and usage access for Kolahal (`allow usage`).
 
 - The days are the ones Android has usage data for: on a phone that keeps less than a week, there
   are fewer bars.
@@ -560,9 +560,9 @@ and usage access for Kolahal (`usage-access`).
 
 **Screen time by month**: a [widget](#widgets) with your screen time a day, large, over a bar for
 each month Android keeps (about 6), the oldest first. It doesn't use the network. It needs `@uses usage`
-("Your app usage") and usage access for Kolahal (`usage-access`). It works in Kolahal 0.5.15 and later.
+("Your app usage") and usage access for Kolahal (`allow usage`). It works in Kolahal 0.5.15 and later.
 
-- The numbers are the ones `usage-summary month` shows: Android's own totals, about right, not exact.
+- The numbers are the ones `usage month` shows: Android's own totals, about right, not exact.
   Android starts each month where the one before ended, not on the 1st, so the dates are its own.
 - A tap on the card logs a row for each month (its dates, its total and its time a day), and home
   turns to the log. `script run screen-time-months` logs them too.
@@ -604,7 +604,7 @@ each with the days since and its size: to tidy up. It doesn't use the network. I
 - A tap on the card logs the 7 days, each with its bar, and home turns to the log.
   `script run unlock-chart` logs them too.
 - The counts are the ones the built-in [`unlocks`](/guides/apps/#screen-time-and-unlocks) command
-  shows. They are most accurate with usage access (`usage-access`).
+  shows. They are most accurate with usage access (`allow usage`).
 - While its widget isn't on the widgets page, a run for an unlock does nothing. To stop these runs
   too, switch its `unlock` event off in the script's sheet.
 - It isn't named `unlocks`, because a script can't have a built-in command's name.
@@ -700,7 +700,7 @@ profile when the phone has one. It doesn't use the network.
 
 - A tap on a switch runs the script. It changes the thing, waits until Android has done it, and
   shows the new state. Until then the switch shows that it is working.
-- Kolahal needs Do Not Disturb access for the first switch. Run `dnd access` once.
+- Kolahal needs Do Not Disturb access for the first switch. Run `allow dnd` once.
 - Since Android 15, the switch turns Kolahal's own Do Not Disturb mode on and off. If you turned
   Do Not Disturb on yourself, it stays on, and the switch stays on too.
 - Android lets only the default launcher pause and resume the work profile. If your work profile
@@ -720,7 +720,7 @@ profile when the phone has one. It doesn't use the network.
   11 PM or at 7 AM. It only turns off what it turned on.
 - Since Android 15, it turns on Kolahal's own Do Not Disturb mode. So if you turn on Do Not Disturb
   yourself, yours stays on in the morning.
-- Kolahal needs Do Not Disturb access. Run `dnd access` once.
+- Kolahal needs Do Not Disturb access. Run `allow dnd` once.
 - Its `mode` option is `priority` (the default), `alarms` (alarms only) or `none` (total silence).
 - To change the times, change `ON` and `OFF` at the top of the script, and change its daily times
   to match (`script at night-dnd 22:30, 06:30`).

@@ -2835,7 +2835,7 @@ Needs `@uses dnd`.
 - `device.dnd()` returns the current Do Not Disturb mode: `"off"`, `"priority"`, `"alarms"` or
   `"none"` (total silence).
 - `device.setDnd(mode)` sets one of those modes (`"on"` means `"priority"`). It returns `true`, or
-  `false` when Kolahal has no Do Not Disturb access. Run `dnd access` once to give it access.
+  `false` when Kolahal has no Do Not Disturb access. Run `allow dnd` once to give it access.
 - Since Android 15, a script turns on Kolahal's own Do Not Disturb mode, separate from yours. When
   the script turns it off again, it never turns off one that you turned on yourself.
 
@@ -3107,7 +3107,7 @@ widget.show{ kind = "list", items = rows, empty = "Nothing unread" }
 ## Your app usage
 
 Screen time, data use and the apps you don't open, as `usage`, `data today` and `storage` show
-them, and `usage-summary`. All five need `@uses usage`, and Kolahal needs **Usage access** (`usage-access`). Each gives
+them, and `usage month`. All five need `@uses usage`, and Kolahal needs **Usage access** (`allow usage`). Each gives
 nil (null in JavaScript) when it can tell nothing: Kolahal has no usage access, or you switched the
 script's "Your app usage" off. So a widget can say so, instead of showing 0. They read only what
 Android keeps. They work in Kolahal 0.5.12 and later; `usage.summary` in 0.5.15 and later.
@@ -3162,11 +3162,11 @@ widget.show{ kind = "stat", value = today.total .. " min", label = "Screen time 
 
 ### usage.summary(period, app?)
 
-Screen time over Android's weeks, months or years, as `usage-summary` shows it: `period` is
+Screen time over Android's weeks, months or years, as `usage week`, `month` and `year` show it: `period` is
 `"week"`, `"month"` or `"year"`. With `app`, a package name such as `"com.google.android.youtube"`,
 for that app alone; without it, for all apps. It gives `{ perDay, rows, top }`:
 
-- `perDay`: the minutes a day over the rows that count, the `≈` number of `usage-summary`. The
+- `perDay`: the minutes a day over the rows that count, the `≈` number of `usage month`. The
   current week, month or year counts once it has run a week.
 - `rows`: the oldest first, each `{ from, to, minutes, perDay, unlocks, current }`. `from` and `to`
   are its real dates, in seconds: Android starts each where the one before ended, not on a Monday or

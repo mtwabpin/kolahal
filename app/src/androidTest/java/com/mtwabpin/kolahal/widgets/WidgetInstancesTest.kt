@@ -465,7 +465,7 @@ class WidgetInstancesTest {
         t.placeAnother(s)
         val commands = CommandRunner(context)
         val refusal =
-            "${s.name}'s widget is on while it is placed: add or remove it on the widgets page"
+            "${s.name}'s widget is on while it is placed\nAdd or remove it on the widgets page"
         assertEquals(listOf(refusal), commands.run("script deny ${s.name} widget"))
         assertTrue(on(s))
     }

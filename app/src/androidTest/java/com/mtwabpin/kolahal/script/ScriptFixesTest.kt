@@ -173,7 +173,7 @@ class ScriptFixesTest {
                     "07:00"
                 )
             }
-            waitUntil("says so") { vm.notice.value?.text == "Saved $name.lua · runs every 1h · daily at 07:00" }
+            waitUntil("says so") { vm.notice.value?.text == "Saved $name.lua\nRuns every 1h · daily at 07:00" }
             close("log(3)")
             waitUntil("timers off") { scripts.byId(s.id)!!.intervalMin == 0 && scripts.byId(s.id)!!.atTimes.isEmpty() }
         } finally {

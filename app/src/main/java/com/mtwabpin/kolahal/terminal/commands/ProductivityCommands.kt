@@ -5,10 +5,8 @@ package com.mtwabpin.kolahal.terminal.commands
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.CalendarContract
-import android.provider.Settings
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
@@ -56,7 +54,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             "stopwatch" -> {
                 // Android has no stopwatch intent. The clock app's stopwatch is one tab away.
                 startActivity(Intent(AlarmClock.ACTION_SHOW_TIMERS))
-                info("Opened the clock app (Android can't open its stopwatch directly)")
+                info("Opened the clock app\nAndroid can't open its stopwatch directly")
             }
 
             "agenda" -> agenda(rest)
@@ -74,9 +72,8 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         val all = todos.all()
         fun pick(): Todo? = pickRef(w.getOrNull(1), all) { it.id }.also {
             if (it == null) error(
-                "No todo '${
-                    w.getOrNull(1).orEmpty()
-                }' — 'todo' lists them with numbers"
+                "No todo '${w.getOrNull(1).orEmpty()}'\n'todo' lists them with numbers",
+                LogContext.of(LogContext.COPY to "todo")
             )
         }
         // A word alone is a subcommand. With more words after it, it is the todo text (`todo clear out the garage`).
@@ -139,14 +136,15 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         val doneCount = all.count { it.done }
         if (shown.isEmpty()) {
             return info(
-                if (all.isEmpty()) "No todos — 'todo <text>' adds one"
-                else "Nothing open · $doneCount done ('todo all' shows them, 'todo clear' removes them)"
+                if (all.isEmpty()) "No todos\n'todo <text>' adds one"
+                else "Nothing open, $doneCount done\n'todo all' shows them\n'todo clear' removes them"
             )
         }
         shown.forEach { t -> todoLine(t, all.indexOf(t) + 1) }
         info(
-            "${all.size - doneCount} open" + (if (doneCount > 0) " · $doneCount done" else "") +
-                    " — tap to toggle · long-press to edit or delete" + if (doneCount > 0 && includeDone) " · 'todo clear' removes done" else ""
+            "${all.size - doneCount} open" + (if (doneCount > 0) ", $doneCount done" else "") +
+                    "\nTap one to toggle it, long-press to edit or delete" +
+                    if (doneCount > 0 && includeDone) "\n'todo clear' removes the done ones" else ""
         )
     }
 
@@ -185,19 +183,22 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             "rm", "remove", "delete" -> {
                 val all = notes.all()
                 val n = pickRef(w.getOrNull(1), all) { it.id }
-                    ?: return error("Usage: notes rm <n> — 'notes' lists them with numbers")
+                    ?: return error(
+                        "Usage: notes rm <n>\n'notes' lists them with numbers",
+                        LogContext.of(LogContext.COPY to "notes")
+                    )
                 notes.remove(n.id)
                 info("Removed note: ${n.text}")
             }
 
             "add" -> addNote(rest.trim().substringAfter(' ', ""))
-            else -> error("Usage: notes [grep <text>|rm <n>] · note <text> adds one")
+            else -> error("Usage: notes [grep <text>|rm <n>]\n'note <text>' adds one")
         }
     }
 
     private fun listNotes(query: String?) {
         val all = notes.all()
-        if (all.isEmpty()) return info("No notes — 'note <text>' saves one")
+        if (all.isEmpty()) return info("No notes\n'note <text>' saves one")
         val fmt = DateTimeFormatter.ofPattern(
             if (conf[Keys.CLOCK_24H]) "d MMM HH:mm" else "d MMM h:mm a",
             Locale.getDefault()
@@ -222,7 +223,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         }
         info(
             if (query != null && shown == 0) "No note contains '$query'"
-            else "$shown note${if (shown == 1) "" else "s"} — tap to copy · 'notes rm <n>'"
+            else "$shown note${if (shown == 1) "" else "s"}\nTap one to copy it\n'notes rm <n>' removes one"
         )
     }
 
@@ -240,34 +241,27 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             null, "ls", "list" -> return listReminders()
             "rm", "cancel", "remove" -> {
                 val r = pickRef(w.getOrNull(1), reminders.all()) { it.id }
-                    ?: return error("Usage: remind rm <n> — 'reminders' lists them with numbers")
+                    ?: return error(
+                        "Usage: remind rm <n>\n'reminders' lists them with numbers",
+                        LogContext.of(LogContext.COPY to "reminders")
+                    )
                 ReminderScheduler.cancel(context, r.id)
                 reminders.remove(r.id)
                 return info("Canceled reminder: ${r.text}")
-            }
-
-            "exact" -> {
-                if (ReminderScheduler.canBeExact(context)) return info("Exact alarms are already allowed")
-                return startActivity(
-                    Intent(
-                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                        Uri.fromParts("package", context.packageName, null)
-                    )
-                )
             }
         }
         val zone = ZoneId.systemDefault()
         val now = LocalDateTime.now(zone)
         val repeating = TimeSpec.parseRepeat(w, now)
         if (w.firstOrNull()?.lowercase() == "every" && repeating == null) {
-            return error("Usage: remind every <day|weekday|weekend|mon,thu|month 1st|year dec 3> [at] [time] <text>")
+            return error("Usage: remind every <when> [time] <text>\nWhen: day, weekday, weekend, mon,thu, month 1st or year dec 3\n'at' may come before the time")
         }
         val parsed =
             repeating?.let { TimeSpec.Parsed(it.at, it.consumed) } ?: TimeSpec.parseWhen(w, now)
-            ?: return error("Usage: remind <10m|2h|18:30|tomorrow 9:00|fri 8am|dec 3 10:00|every mon 19:00> <text>")
+            ?: return error("Usage: remind <when> <text>\nWhen: 10m, 2h, 18:30, tomorrow 9:00, fri 8am, dec 3 10:00 or every mon 19:00")
         val text = w.drop(parsed.consumed).joinToString(" ")
         if (text.isBlank()) return error(
-            "Reminder text missing: remind ${
+            "Reminder text missing\nType it after the time: remind ${
                 w.take(parsed.consumed).joinToString(" ")
             } <text>"
         )
@@ -290,19 +284,21 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         ReminderScheduler.schedule(context, r)
         val then = repeating?.let { ", then ${Repeat.label(it.rule)}" }.orEmpty()
         info(
-            "Reminder set for ${whenLabel(at)} (in ${TimeSpec.formatDuration((at - System.currentTimeMillis() + 999) / 1000)})$then: $text",
+            "Reminder set: $text\n${whenLabel(at).replaceFirstChar { it.uppercase() }}, in ${
+                TimeSpec.formatDuration((at - System.currentTimeMillis() + 999) / 1000)
+            }$then",
             reminderCtx(r),
         )
         if (!Notifier.canPost(context, Notifier.CHANNEL_REMINDERS)) {
             fix(
-                "Notifications are off — the reminder will only appear in the log (tap to allow)",
-                "notifications"
+                "Notifications are off\nThe reminder will only appear in the log\nTap to allow them",
+                "allow send-notifications"
             )
         }
         if (!ReminderScheduler.canBeExact(context)) {
             info(
-                "Exact alarms are off, so it may be up to an hour late — tap to allow them",
-                LogContext.of(LogContext.RUN to "remind exact")
+                "Exact alarms are off\nThe reminder may be up to an hour late\nTap to allow them",
+                LogContext.of(LogContext.RUN to "allow alarms")
             )
         }
     }
@@ -322,7 +318,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             whenLabel(at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
 
         val then = repeating?.let { ", then ${Repeat.label(it.rule)}" }.orEmpty()
-        info("Not set yet, as ${label(parsed.at)} is before 6 AM: $text")
+        info("Not set yet: $text\n${label(parsed.at).replaceFirstChar { it.uppercase() }} is before 6 AM")
         val words =
             if (repeating != null) w.joinToString(" ") else TimeSpec.exactWords(parsed.at, text)
         info(
@@ -346,7 +342,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
 
     private fun listReminders() {
         val all = reminders.all()
-        if (all.isEmpty()) return info("No reminders — e.g. remind 10m tea, remind tomorrow 9:00 call mom, remind every mon 19:00 bins")
+        if (all.isEmpty()) return info("No reminders\nFor example: remind 10m tea\nremind tomorrow 9:00 call mom\nremind every mon 19:00 bins")
         val nowMs = System.currentTimeMillis()
         all.forEachIndexed { i, r ->
             out(
@@ -363,7 +359,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
                 ) + LogContext.ALIGNED + LogContext.ITEM,
             )
         }
-        info("Tap puts 'remind rm' in the prompt · long-press → Cancel reminder")
+        info("Tap one to put 'remind rm' in the prompt\nOr long-press it → Cancel reminder")
     }
 
     private fun reminderCtx(r: Reminder) = LogContext.of(
@@ -423,19 +419,8 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
 
     private fun agenda(rest: String) {
         val arg = words(rest).firstOrNull()
-        if (arg == "--settings") {
-            return startActivity(
-                Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", context.packageName, null)
-                )
-            )
-        }
-        if (arg == "--allow") {
-            return if (Agenda.hasPermission(context)) info("Calendar is allowed") else ui.requestCalendarPermission()
-        }
         if (!Agenda.hasPermission(context)) {
-            return fix("Agenda needs calendar access — tap to allow", "agenda --allow")
+            return fix("Agenda needs calendar access\nTap to allow it", "allow calendar")
         }
         val days = arg?.toIntOrNull()?.coerceIn(1, 31) ?: DEFAULT_AGENDA_DAYS
         val zone = ZoneId.systemDefault()

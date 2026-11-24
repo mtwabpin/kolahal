@@ -44,7 +44,10 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                         ) + if (first) LogContext.ITEM else emptyMap(),
                     )
                 }
-                info("Tap a line to edit it · * = changed from default · 'config reset <key|all>'")
+                info(
+                    "Tap a line to edit it\n* = changed from default\n'config reset <key|all>' puts back the default",
+                    LogContext.of(LogContext.COPY to "config reset"),
+                )
             }
 
             sub == "get" -> withKey(args.getOrNull(1)) { out("${it.key} = ${shown(it)}") }
@@ -60,7 +63,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
 
             sub == "set" -> setKey(args.getOrNull(1), args.drop(2).joinToString(" "), raw)
             Keys.byName(sub) != null -> setKey(sub, args.drop(1).joinToString(" "), raw)
-            else -> error("Usage: config [ls|get|set|reset] <key> [value]")
+            else -> error("Usage: config <key> <value>\nOr: config ls, config get <key>, config reset <key|all>")
         }
     }
 
@@ -84,16 +87,16 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                         LogContext.of(LogContext.RUN to "font $name") + LogContext.ALIGNED
                     )
                 }
-                info("Tap a font to use it · 'font import' adds your own .ttf/.otf · size: config font.size")
-                info("System font: ${conf[Keys.FONT_SANS]} · font sans prompt uses it for the prompt, font sans all for everything")
+                info("Tap a font to use it\n'font import' adds your own .ttf or .otf\n'config font.size <n>' sets its size")
+                info("System font: ${conf[Keys.FONT_SANS]}\n'font sans prompt' uses it for the prompt\n'font sans all' uses it for everything")
             }
 
             "import" -> ui.requestFontImport()
             "sans" -> args.getOrNull(1)?.let { setKey(Keys.FONT_SANS.key, it, "") }
-                ?: info("font.sans = ${conf.display(Keys.FONT_SANS)} · font sans off|prompt|all")
+                ?: info("font.sans = ${conf.display(Keys.FONT_SANS)}\nUsage: font sans off|prompt|all")
 
             FontFiles.CUSTOM if !hasCustom ->
-                fix("No custom font yet — tap to import a .ttf/.otf", "font import")
+                fix("No custom font yet\nTap to import a .ttf or .otf", "font import")
 
             else -> setKey(Keys.FONT.key, sub, "")
         }
@@ -109,9 +112,9 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             }
 
             name?.lowercase() in Keys.REMOVED -> name!!.lowercase()
-                .let { error("$it was removed: ${Keys.REMOVED[it]}") }
+                .let { error("$it was removed\n${Keys.REMOVED.getValue(it).replaceFirstChar(Char::uppercase)}") }
 
-            else -> error("Unknown setting '${name.orEmpty()}' — run 'config'")
+            else -> error("Unknown setting '${name.orEmpty()}'\n'config' shows the settings", LogContext.of(LogContext.COPY to "config"))
         }
     }
 
@@ -125,7 +128,10 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         else if (value.isBlank()) return error("${key.key} = ${conf.display(key)}  (${hint(key)})")
         // Home can start on the widgets page only with the app selector on: there it is the way to open apps.
         if (key == Keys.WIDGETS_START && Keys.WIDGETS_START.parse(value) == true && !conf[Keys.SELECTOR_RAIL]) {
-            return error("widgets.start needs the app selector first: config set selector.rail on")
+            return error(
+                "widgets.start needs the app selector\n'config set selector.rail on' turns it on",
+                LogContext.of(LogContext.COPY to "config set selector.rail on"),
+            )
         }
         if (conf.set(key, value)) {
             info("${key.key} = ${shown(key)}")
@@ -136,7 +142,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             // A shader turned off for being slow may be tried again, as with `shader on`.
             if (key == Keys.SCREEN_SHADER && conf[Keys.SCREEN_SHADER] != ShaderCatalog.OFF) {
                 ShaderSafety.get(context).turnedOn()
-                if (!Shaders.supported) info("${Shaders.NEEDS}: nothing is drawn on this phone")
+                if (!Shaders.supported) info("${Shaders.NEEDS}\nNothing is drawn on this phone")
             }
         } else error("Invalid value for ${key.key}: ${hint(key)}")
     }

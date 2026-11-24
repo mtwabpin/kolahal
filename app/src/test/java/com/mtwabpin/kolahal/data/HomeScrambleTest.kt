@@ -22,6 +22,14 @@ class HomeScrambleTest {
         newSeed = { ++seeds * 1_000 },
     )
 
+    /** The line that says it is on names the command that turns it off, on a line of its own: what Copy gives. */
+    @Test
+    fun theLineOnNamesTheWayOff() {
+        for (line in listOf(HomeScramble.ON, HomeScramble.ALREADY_ON)) {
+            assertEquals("'${HomeScramble.COPY}' turns it off", line.lines().last())
+        }
+    }
+
     @Test
     fun onAndOff() {
         val s = store()

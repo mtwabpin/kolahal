@@ -143,16 +143,19 @@ class AppCommandsTest {
     @Test
     fun hideAndPinActOnAnAppTheyCanChange() {
         settings()
-        assertEquals(
-            listOf("Settings isn't hidden · apps hidden lists them"),
-            run("unhide Settings")
-        )
-        assertEquals(listOf("Settings isn't pinned · pins lists them"), run("unpin Settings"))
+        val notHidden = lines("unhide Settings").single()
+        assertEquals("Settings isn't hidden\n'apps hidden' lists the hidden apps", notHidden.text)
+        assertEquals("apps hidden", notHidden.ctx.copy)
+        val notPinned = lines("unpin Settings").single()
+        assertEquals("Settings isn't pinned\n'pins' lists the pinned apps", notPinned.text)
+        assertEquals("pins", notPinned.ctx.copy)
         run("pin Settings")
         assertEquals(listOf("Settings is pinned already"), run("pin Settings"))
         run("hide Settings")
         waitUntil("Settings hidden") { apps.apps.value.any { it.pkg == SETTINGS && it.hidden } }
-        assertEquals(listOf("Settings is hidden already · unhide Settings"), run("hide Settings"))
+        val hidden = lines("hide Settings").single()
+        assertEquals("Settings is hidden already\n'unhide settings' shows it again", hidden.text)
+        assertEquals("unhide settings", hidden.ctx.copy)
         run("unhide Settings")
         run("unpin Settings")
 
@@ -219,34 +222,41 @@ class AppCommandsTest {
         assertEquals(listOf("No app matches 'zzqqxx'"), run("rename zzqqxx = Llat"))
     }
 
-    /** Pinning says where the app now shows, as the settings that place it are on or off. */
+    /**
+     * Pinning says where the app now shows, as the settings that place it are on or off, and how to unpin
+     * it, which Copy gives. When the line names the setting's command too, Copy keeps the line's words.
+     */
     @Test
     fun pinSaysWhereAPinnedAppShows() {
         val s = settings()
+        val nowhere = lines("pin Settings").single()
         assertEquals(
-            listOf("Pinned Settings — pinned apps come first on an empty prompt with config set suggestions.idle on"),
-            run("pin Settings")
+            "Pinned Settings\nPinned apps come first on an empty prompt with 'config set suggestions.idle on'\n'unpin settings' removes it",
+            nowhere.text
         )
+        assertEquals(null, nowhere.ctx.copy)
         assertTrue(prefs.isPinned(s.key))
         assertEquals(listOf("Unpinned Settings"), run("unpin Settings"))
         assertFalse(prefs.isPinned(s.key))
 
         config.set(Keys.SUGGEST_IDLE, "on")
+        val idle = lines("fav Settings").single()
         assertEquals(
-            listOf("Pinned Settings — it comes first in suggestions on an empty prompt"),
-            run("fav Settings")
+            "Pinned Settings\nIt comes first in suggestions on an empty prompt\n'unpin settings' removes it",
+            idle.text
         )
+        assertEquals("unpin settings", idle.ctx.copy)
         // Pinned already, it would only say so: unpin it first.
         run("unpin Settings")
         config.set(Keys.SELECTOR_RAIL, "on")
         assertEquals(
-            listOf("Pinned Settings — it comes first in suggestions on an empty prompt, and it is a ★ favorite in the app selector"),
+            listOf("Pinned Settings\nIt comes first in suggestions on an empty prompt\nIt is a ★ favorite in the app selector\n'unpin settings' removes it"),
             run("pin Settings"),
         )
         config.reset(Keys.SUGGEST_IDLE)
         run("unpin Settings")
         assertEquals(
-            listOf("Pinned Settings — it is a ★ favorite in the app selector"),
+            listOf("Pinned Settings\nIt is a ★ favorite in the app selector\n'unpin settings' removes it"),
             run("pin Settings")
         )
         assertEquals(listOf(s.key), prefs.pinned())
@@ -261,7 +271,7 @@ class AppCommandsTest {
     @Test
     fun pinsListsThePinnedAppsInOrder() {
         val s = settings()
-        assertEquals(listOf("No pinned apps — pin <app>, or long-press an app → Pin"), run("pins"))
+        assertEquals(listOf("No pinned apps\n'pin <app>' pins one\nOr long-press an app → Pin"), run("pins"))
         val other = apps.apps.value.firstOrNull {
             !it.hidden && it.pkg != SETTINGS && it.profile.kind == ProfileKind.PERSONAL && it.label.lowercase() < "settings"
         }
@@ -271,7 +281,7 @@ class AppCommandsTest {
         val listed = lines("pins")
         assertEquals("Settings, ${other.label}", listed[0].text)
         assertEquals(listOf(SETTINGS, other.pkg), gridPackages(listed[0]))
-        assertEquals("2 pinned · unpin <app> to remove", listed[1].text)
+        assertEquals("2 pinned\n'unpin <app>' removes one", listed[1].text)
         assertEquals(run("pins"), run("pin"))
         assertEquals(run("pins"), run("favs"))
         assertEquals(listOf(s.key, other.key), prefs.pinned())
@@ -329,10 +339,9 @@ class AppCommandsTest {
         val usage = com.mtwabpin.kolahal.data.Stores.APP_USAGE.open(context)
         val launchesBefore = usage.getString("launch:${s.key}", null)
         try {
-            assertEquals(
-                listOf("Settings has no shortcut matching 'zzqq' — 'shortcuts Settings'"),
-                run("open Settings:zzqq")
-            )
+            val none = lines("open Settings:zzqq").single()
+            assertEquals("Settings has no shortcut matching 'zzqq'\n'shortcuts settings' lists them", none.text)
+            assertEquals("shortcuts settings", none.ctx.copy)
             assertEquals(listOf("No app matches 'zzqqxx'"), run("open zzqqxx:thing"))
             run("rename Settings = Llat: Panel")
             waitUntil("the new name") { apps.apps.value.single { it.key == s.key }.label == "Llat: Panel" }
@@ -363,7 +372,7 @@ class AppCommandsTest {
             )
         )
         assertEquals(LogKind.INFO, work.kind)
-        assertEquals("Work profile is paused — tap to resume it and open Llat Work", work.text)
+        assertEquals("Work profile is paused\nTap to resume it and open Llat Work", work.text)
         assertEquals("open Llat Work -w --resume", work.ctx.values[LogContext.RUN])
         val private = launch(
             AppEntry(
@@ -373,7 +382,7 @@ class AppCommandsTest {
             )
         )
         assertEquals(
-            "Private profile is paused — tap to resume it and open Llat Private",
+            "Private profile is paused\nTap to resume it and open Llat Private",
             private.text
         )
         assertEquals("open Llat Private -s --resume", private.ctx.values[LogContext.RUN])
@@ -381,7 +390,7 @@ class AppCommandsTest {
         val personal = apps.profiles.value.first { it.kind == ProfileKind.PERSONAL }
         val gone = launch(AppEntry("Llat Gone", component, personal))
         assertEquals(LogKind.ERROR, gone.kind)
-        assertTrue(gone.text, gone.text.startsWith("Can't launch Llat Gone: "))
+        assertTrue(gone.text, gone.text.startsWith("Can't launch Llat Gone\n"))
     }
 
     /** `shortcuts` lists an app's shortcuts, or says Kolahal must be the default launcher to read them. */
@@ -391,8 +400,9 @@ class AppCommandsTest {
         val listed = lines("shortcuts Settings")
         if (!SetupChecks.isDefaultLauncher(context)) {
             assertEquals(
-                listOf("Shortcuts need Kolahal as the default launcher — run 'home'"),
+                listOf("Shortcuts need Kolahal as the home app\n'home' chooses the default launcher"),
                 listed.map { it.text })
+            assertEquals("home", listed.single().ctx.copy)
         } else if (listed.singleOrNull()?.text != "Settings has no shortcuts") {
             assertTrue(
                 listed.toString(),
@@ -441,9 +451,9 @@ class AppCommandsTest {
     @Test
     fun usageNeedsAccess() = withUsageAccess("ignore") {
         val denied = lines("usage").single()
-        assertEquals("Screen time needs usage access — tap to allow it", denied.text)
+        assertEquals("Screen time needs usage access\nTap to allow it", denied.text)
         assertEquals(LogKind.ERROR, denied.kind)
-        assertEquals("usage-access", denied.ctx.values[LogContext.RUN])
+        assertEquals("allow usage", denied.ctx.values[LogContext.RUN])
     }
 
     /**

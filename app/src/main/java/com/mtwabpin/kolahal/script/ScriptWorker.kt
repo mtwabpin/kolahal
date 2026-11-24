@@ -374,9 +374,9 @@ internal object ScriptRun {
         store.set("notify-blocked", today)
         logs.add(
             LogKind.ERROR,
-            "$name: notifications are blocked — tap to allow",
+            "$name: notifications are blocked\nTap to allow them",
             name,
-            LogContext.of(LogContext.RUN to "notifications")
+            LogContext.of(LogContext.RUN to "allow send-notifications")
         )
     }
 }

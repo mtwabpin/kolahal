@@ -201,13 +201,13 @@ object ScriptAccess {
                     s.name,
                     d
                 )
-            ) "${s.name}: set ${d.name} again, so it goes only to ${d.hosts.joinToString()} — tap to set it"
+            ) "${s.name}: set ${d.name} again\nThen it goes only to ${d.hosts.joinToString()}\nTap to set it"
             else if (store.hostsChanged(
                     s.name,
                     d
                 )
-            ) "${s.name} now sends ${d.name} to ${d.hosts.joinToString()} — tap to set it again"
-            else "${s.name} needs ${d.name}" + (if (d.desc.isBlank()) "" else " (${d.desc})") + " — tap to set it"
+            ) "${s.name}: set ${d.name} again\nIt now goes to ${d.hosts.joinToString()}\nTap to set it again"
+            else "${s.name} needs ${d.name}" + (if (d.desc.isBlank()) "" else "\n${d.desc}") + "\nTap to set it"
             LogRepository.get(context).add(
                 LogKind.INFO,
                 text,
@@ -226,11 +226,11 @@ object ScriptAccess {
         if (s.enabled) askToAllow(context, s.name, s.grants.undecided)
     }
 
-    /** Logs "[name] asks for [items] — tap to allow". One tap allows them all. [what] is the verb in the line. */
+    /** Logs "[name] requests [items]" and "Tap to allow" under it. One tap allows them all. [what] is the verb in the line. */
     fun askToAllow(context: Context, name: String, items: List<String>, what: String = "requests") {
         if (items.isEmpty()) return
         LogRepository.get(context).add(
-            LogKind.INFO, "$name $what ${items.joinToString(", ")} — tap to allow", name,
+            LogKind.INFO, "$name $what ${items.joinToString(", ")}\nTap to allow", name,
             LogContext.of(LogContext.RUN to "script allow $name ${items.joinToString(" ")}"),
         )
     }

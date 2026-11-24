@@ -1,8 +1,11 @@
 package com.mtwabpin.kolahal.terminal.commands
 
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.UsageLine
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderParam
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -14,7 +17,7 @@ class ShaderCompletionTest {
     @Test
     fun theFirstWordIsASubcommandOrAShader() {
         val words = of("")
-        assertTrue(words.toString(), words.containsAll(listOf("use", "off", "get", "update") + ShaderCatalog.BUNDLED))
+        assertTrue(words.toString(), words.containsAll(listOf("ls", "use", "off", "get", "save", "rm") + ShaderCatalog.BUNDLED))
     }
 
     /** `get` completes what the sources have, `use` what is on the phone. */
@@ -23,12 +26,13 @@ class ShaderCompletionTest {
         assertEquals(listOf("glow", "owner/shaders/glow"), of("get", "", shared = listOf("glow", "owner/shaders/glow")))
         assertTrue(of("get", "").isEmpty())
         assertTrue(of("use", "").containsAll(ShaderCatalog.BUNDLED))
-        // None of the user's own on this JVM: nothing to update or remove.
-        assertTrue(of("update", "").isEmpty())
+        // None of the user's own on this JVM: nothing to remove.
+        assertTrue(of("rm", "").isEmpty())
+        assertTrue(of("delete", "").isEmpty())
         assertTrue(of("off", "").isEmpty())
         assertTrue(of("get", "glow", "", shared = listOf("glow")).isEmpty())
-        // copy offers the templates too, which make a shader of the user's; the others don't.
-        assertTrue(of("copy", "").containsAll(ShaderCatalog.BUNDLED + ShaderCatalog.TEMPLATES))
+        // save offers the templates too, which make a shader of the user's; the others don't.
+        assertTrue(of("save", "").containsAll(ShaderCatalog.BUNDLED + ShaderCatalog.TEMPLATES))
         assertTrue(of("use", "").none { it in ShaderCatalog.TEMPLATES })
     }
 
@@ -60,6 +64,32 @@ class ShaderCompletionTest {
         assertTrue(of("edit", "crt", "").isEmpty())
         // No shader can be called edit: `shader edit` is always the subcommand.
         assertTrue("edit" in ShaderCatalog.WORDS)
+    }
+
+    /**
+     * `shader` takes the words `script` and `feed` take: `ls`, `rm` (or `delete`), `save`, and `get --update`. The
+     * old words are no subcommands, offer no shaders after them, and are not in the usage line; the live wallpaper
+     * is `wallpaper shader`.
+     */
+    @Test
+    fun theOldWordsAreGone() {
+        val old = listOf("list", "remove", "copy", "update", "wallpaper")
+        val first = of("")
+        for (word in old) {
+            assertFalse(word, word in ShaderCommands.SUBCOMMANDS)
+            assertFalse(word, word in ShaderCommands.TAKE_NAME)
+            assertFalse(word, word in first)
+            assertTrue(word, of(word, "").isEmpty())
+        }
+        assertTrue(listOf("rm", "delete", "save").all { it in ShaderCommands.TAKE_NAME })
+        assertTrue(listOf("ls", "rm", "delete", "save").all { it in ShaderCatalog.WORDS })
+        val usage = CommandCatalog.COMMAND_USAGES.getValue("shader")
+        val words = UsageLine.choices(UsageLine.tokens(usage)[1]).mapNotNull { it.word }
+        assertTrue(words.toString(), words.containsAll(listOf("ls", "get", "save", "rm")))
+        assertTrue(words.toString(), words.none { it in old })
+        val uses = CommandCatalog.COMMANDS.first { it.name == "shader" }.uses.map { it.first }
+        assertTrue(uses.toString(), "shader get --update" in uses)
+        assertTrue(uses.toString(), uses.none { use -> old.any { use.startsWith("shader $it") } })
     }
 
     /** A word the command reads can't be a shader's name, or that shader couldn't be named. */

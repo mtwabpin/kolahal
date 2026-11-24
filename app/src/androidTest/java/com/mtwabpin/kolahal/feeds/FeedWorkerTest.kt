@@ -106,7 +106,7 @@ class FeedWorkerTest {
 
         body = rss("a", "b")
         FeedScheduler.fetchNow(context, feed.id)
-        waitFor("the backlog line") { mine().any { it.text == "Fwtest: subscribed · 2 earlier posts marked read" } }
+        waitFor("the backlog line") { mine().any { it.text == "Fwtest: subscribed\n2 earlier posts marked read" } }
         assertEquals(0, repo.unreadCount(feed.id))
 
         body = rss("e", "d", "c", "a", "b")

@@ -444,7 +444,7 @@ private fun widgetStyle(styles: Set<StyledText.Style>, color: StyledText.ColorRo
 /**
  * [text] that wraps only at a space or after "|", never inside a word, for `help`'s rows.
  * - After each "|" goes a zero-width space, so `<5m|1h30m>` can wrap there.
- * - After each "-", "–" and "/" goes a word joiner, so `--settings`, `0–100` and `a/b` stay whole.
+ * - After each "-", "–" and "/" goes a word joiner, so `--resume`, `0–100` and `a/b` stay whole.
  * Both are invisible. Text with [StyledText] marks is left as it is.
  */
 internal fun breaksAtSpaces(text: String): String {

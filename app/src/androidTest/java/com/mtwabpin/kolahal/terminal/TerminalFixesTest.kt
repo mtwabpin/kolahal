@@ -80,7 +80,9 @@ class TerminalFixesTest {
         // Even where a tap runs whole command lines.
         config.set(Keys.LAUNCH_INSTANT, InstantRun.ALL)
         val hint = run("echoo hi").single()
-        assertTrue(hint.text, hint.text.contains("did you mean 'echo hi'"))
+        assertEquals("Command not found: echoo\nDid you mean 'echo hi'?\nTap to put it in the prompt", hint.text)
+        // Copy gives the command.
+        assertEquals("echo hi", hint.ctx.copy)
         val vm = viewModel()
         val before = logs.maxId()
         instrumentation.runOnMainSync { vm.onTap(hint) }

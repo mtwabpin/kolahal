@@ -13,7 +13,7 @@
 -- or more, each with the days since and its size. An app Android has no use recorded for says so.
 -- A tap on it logs the whole list. The `storage` command lists them too: there a long-press on one
 -- offers its info and uninstall.
--- It needs usage access for Kolahal (usage-access) and its own "Your app usage" switch.
+-- It needs usage access for Kolahal (allow usage) and its own "Your app usage" switch.
 
 local started = event and event.name
 local days = math.max(7, math.min(365, math.floor(tonumber(options.days) or 30)))
@@ -25,7 +25,7 @@ if apps == nil then
     widget.show{ icon = "moon", items = {}, empty = "Needs usage access", tap = { args = "list", page = "log", label = "Show what to do" } }
   end
   if started == nil or (args or {})[1] == "list" then
-    log("Unused apps needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+    log("Unused apps needs usage access", "Run allow usage, and turn on \"Your app usage\" on this script's sheet")
   end
   return
 end

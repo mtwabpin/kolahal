@@ -131,7 +131,7 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
     private val apps = AppRepository.get(context)
 
     fun run(args: List<String>) {
-        if (args.any { it in OTHER_PROFILES }) return error("activity works only with apps in the personal profile")
+        if (args.any { it in OTHER_PROFILES }) return error("activity works only with personal apps")
         val words = args.filterNot { it.startsWith("-") }
         if (words.isEmpty()) return usage("activity")
         val (appName, name) = ActivityMatch.split(words) { tierOf(it) }
@@ -139,25 +139,24 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
         val app = apps.search(appName, ProfileKind.PERSONAL).firstOrNull()
             ?: return error("No app matches '$appName'")
         val items = activities(context, app)
-        if (items.isEmpty()) return info("${app.label} has no activities that other apps may open")
+        if (items.isEmpty()) return info("${app.label} has no activities to open\nIt lets other apps open none of them")
         if (name.isEmpty()) {
             list(app, items)
-            return info("${items.size} ${if (items.size == 1) "activity" else "activities"} in ${app.label} · tap one to open it")
+            return info("${items.size} ${if (items.size == 1) "activity" else "activities"} in ${app.label}\nTap one to open it")
         }
         when (val found = ActivityMatch.find(items, name)) {
             is ActivityMatch.Found.One -> open(app, found.item)
             is ActivityMatch.Found.Many -> {
                 list(app, found.items)
-                info("${found.items.size} activities in ${app.label} match '$name' · tap one to open it")
+                info("${found.items.size} activities in ${app.label} match '$name'\nTap one to open it")
             }
 
-            ActivityMatch.Found.None -> error(
-                "${app.label} has no activity matching '$name' · 'activity ${
-                    appToken(
-                        app
-                    )
-                }' lists them"
-            )
+            ActivityMatch.Found.None -> "activity ${appToken(app)}".let { lists ->
+                error(
+                    "${app.label} has no activity matching '$name'\n'$lists' lists them",
+                    LogContext.of(LogContext.COPY to lists)
+                )
+            }
         }
     }
 
@@ -240,11 +239,11 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
                 context.startActivity(intent)
                 null
             } catch (_: ActivityNotFoundException) {
-                "Can't open $label: the app no longer has it"
+                "Can't open $label\nThe app no longer has it"
             } catch (_: SecurityException) {
-                "Can't open $label: the app doesn't let other apps open it"
+                "Can't open $label\nThe app doesn't let other apps open it"
             } catch (e: RuntimeException) {
-                "Can't open $label: ${e.reason()}"
+                "Can't open $label\n${e.reason()}"
             }
         }
 

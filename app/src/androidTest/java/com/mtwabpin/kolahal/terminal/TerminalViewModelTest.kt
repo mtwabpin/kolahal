@@ -133,16 +133,18 @@ class TerminalViewModelTest {
             vm.onCallLogPermission(false)
             vm.onNotificationPermission(false)
         }
-        assertEquals(LogKind.ERROR, line("Contacts permission denied").kind)
-        val calendar = line("Calendar permission denied — tap to open app settings")
+        val contacts = line("Contacts permission denied\nTap to open app settings")
+        assertEquals(LogKind.ERROR, contacts.kind)
+        assertEquals("allow contacts", contacts.ctx.values[LogContext.RUN])
+        val calendar = line("Calendar permission denied\nTap to open app settings")
         assertEquals(LogKind.ERROR, calendar.kind)
-        assertEquals("agenda --settings", calendar.ctx.values[LogContext.RUN])
-        val calls = line("Call log permission denied — tap to open app settings")
+        assertEquals("allow calendar", calendar.ctx.values[LogContext.RUN])
+        val calls = line("Call log permission denied\nTap to open app settings")
         assertEquals(LogKind.ERROR, calls.kind)
-        assertEquals("calls --settings", calls.ctx.values[LogContext.RUN])
-        val notifications = line("Notifications denied — tap to open notification settings")
+        assertEquals("allow calls", calls.ctx.values[LogContext.RUN])
+        val notifications = line("Notifications denied\nTap to open notification settings")
         assertEquals(LogKind.ERROR, notifications.kind)
-        assertEquals("notifications settings", notifications.ctx.values[LogContext.RUN])
+        assertEquals("allow send-notifications", notifications.ctx.values[LogContext.RUN])
     }
 
     /** Allowing the calendar or notifications says so; the calendar's line opens the agenda. */
@@ -153,7 +155,7 @@ class TerminalViewModelTest {
             vm.onCalendarPermission(true)
             vm.onNotificationPermission(true)
         }
-        val calendar = line("Calendar allowed — tap to see your agenda")
+        val calendar = line("Calendar allowed\nTap to see your agenda")
         assertEquals(LogKind.INFO, calendar.kind)
         assertEquals("agenda", calendar.ctx.values[LogContext.RUN])
         assertEquals(LogKind.INFO, line("Notifications allowed").kind)
@@ -172,7 +174,7 @@ class TerminalViewModelTest {
     fun anUnloadableFontIsReportedOnce() {
         val vm = home()
         val text =
-            "Font '$token' could not be loaded — using the system monospace · tap to import one"
+            "Font '$token' can't be loaded\nThe system's monospace font is used\nTap to import a font"
         main {
             vm.onFontUnavailable(token)
             vm.onFontUnavailable(token)
@@ -192,8 +194,8 @@ class TerminalViewModelTest {
         main { vm.answerNotificationAccess(false) }
         assertFalse(vm.notificationAccessAsk.value)
         assertEquals(
-            "notifs enable",
-            line("Notification access is off · tap to turn it on").ctx.values[LogContext.RUN]
+            "allow read-notifications",
+            line("Notification access is off\nTap to turn it on").ctx.values[LogContext.RUN]
         )
     }
 
@@ -302,7 +304,7 @@ class TerminalViewModelTest {
                     .setPackage(app.packageName)
                     .putExtra(com.mtwabpin.kolahal.script.HostApi.EXTRA_COMMAND, "${token}wipe"),
             )
-            waitUntil("refused") { added().any { it.text == "launcher.run refused '${token}wipe': sensitive commands must be typed" } }
+            waitUntil("refused") { added().any { it.text == "launcher.run refused '${token}wipe'\nSensitive commands must be typed" } }
             staysTrue("it didn't run") { added().none { it.kind == LogKind.COMMAND && it.text == "${token}wipe" } }
         } finally {
             prefs.setAlias("${token}wipe", null)

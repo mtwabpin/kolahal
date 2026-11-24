@@ -38,13 +38,14 @@ import com.mtwabpin.kolahal.terminal.TerminalUi
  *   turns the last one on again, also after it was turned off for being slow.
  * - `set` changes a shader's parameters and `reset` puts them back ([ShaderParam]).
  * - `follow` makes a parameter follow a value, and `values` lists the values ([ShaderValues]).
- * - `wallpaper` makes one the live wallpaper ([WallpaperChoice]).
  * - `play` plays a one-off shader ([ShaderPlay]), and `words` sets the words that play it ([ShaderWords]).
- * - `get` lists the shared shaders and installs one; `update` updates the installed ones.
+ * - `get` lists the shared shaders and installs or updates one; `get --update` updates every one installed.
  * - `edit` opens a shader in the editor ([TerminalUi.openShaderEditor]). One that comes with Kolahal
  *   becomes the user's own when it is saved ([ShaderCatalog.Edit.COPY]).
- * - `check`, `reload`, `copy` and `remove` work with the user's own files. `copy` of a template's
+ * - `check`, `reload`, `save` and `rm` work with the user's own files. `save` of a template's
  *   name ([ShaderCatalog.TEMPLATES]) makes a shader of the user's from it.
+ *
+ * The live wallpaper's shader is set by `wallpaper shader <name>` ([SystemCommands.wallpaper]).
  *
  * On Android 12 and older, shaders are listed but can't be used.
  */
@@ -63,7 +64,7 @@ class ShaderCommands(
         val sub = args.firstOrNull()?.lowercase().orEmpty()
         val name = args.getOrNull(1)?.lowercase()
         when (sub) {
-            "", "list", "ls" -> list()
+            "", "ls" -> list()
             "use" -> use(name ?: return usage("shader"))
             "on" -> on()
             ShaderCatalog.OFF -> off()
@@ -71,17 +72,15 @@ class ShaderCommands(
             "reset" -> reset(args.drop(1))
             "follow" -> follow(args.drop(1))
             "values" -> values()
-            "wallpaper" -> wallpaper(name)
             "words" -> words(name ?: return usage("shader"), args.drop(2).joinToString(" "))
             "play" -> play(name ?: return usage("shader"), args.getOrNull(2))
             // These use the network, so they run outside the serial command queue.
             "get" -> background("shader get") { getShared(args.drop(1)) }
-            "update" -> background("shader update") { update(args.drop(1)) }
             "check" -> check(name ?: conf[Keys.SCREEN_SHADER].takeUnless { it == ShaderCatalog.OFF } ?: return usage("shader"))
             "reload" -> reload()
             "edit" -> edit(name ?: return usage("shader"))
-            "copy" -> copy(name ?: return usage("shader"))
-            "remove", "rm" -> remove(name ?: return usage("shader"))
+            "save" -> save(name ?: return usage("shader"))
+            "rm", "delete" -> remove(name ?: return usage("shader"))
             else -> use(sub)
         }
     }
@@ -111,35 +110,30 @@ class ShaderCommands(
                 ) + LogContext.ITEM,
             )
         }
-        info("Tap a shader to use it · 'shader off' turns it off · 'shader get' lists shared ones · your own: put .agsl files in the script folder's ${Shaders.DIR} folder, then run 'script import'")
+        info(
+            "Tap a shader to use it\n'shader off' turns it off\n'shader get' lists shared ones\n" +
+                "Your own: put .agsl files in the script folder's ${Shaders.DIR} folder, then run 'shader reload'"
+        )
     }
 
     private fun use(name: String) {
         if (name == ShaderCatalog.OFF) return off()
-        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
+        if (!Shaders.exists(name)) return noShader(name)
         if (!Shaders.supported) return needs()
-        Shaders.use(context, name)?.let { return error("Shader $name: $it") }
-        info("Shader: $name · 'shader off' turns it off")
-        ShaderActions.wallpaperWarning(context, name)?.let { info("$it · 'config set log.wallpaper 0' hides it") }
-    }
-
-    /** `shader wallpaper [<name>]`: the live wallpaper's shader; without a name, which it is. */
-    private fun wallpaper(name: String?) {
-        if (name == null) {
-            val now = wallpaperDrawn(WallpaperChoice.name.value)
-            return info(if (WallpaperChoice.isWallpaper(context)) "Live wallpaper: $now" else "No shader is your wallpaper — 'shader wallpaper <name>'")
+        if (Shaders.once(context, name)) {
+            return error("$name is a one-off shader\n'shader play $name' plays it", copy("shader play $name"))
         }
-        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
-        val meta = Shaders.source(context, name)?.let(ShaderMeta::parse) ?: return error("Shader $name can't be read")
-        (WallpaperChoice.problem(name, meta) ?: Shaders.problem(context, name))?.let { return error("Shader $name: $it") }
-        WallpaperChoice.set(context, name)
-        if (WallpaperChoice.isWallpaper(context)) info("Live wallpaper: $name") else startActivity(WallpaperChoice.preview(context))
+        Shaders.use(context, name)?.let { return error(Shaders.problemLine(name, it)) }
+        info("Shader: $name\n'shader off' turns it off", copy("shader off"))
+        ShaderActions.wallpaperWarning(context, name)?.let {
+            info("$it\n'config set log.wallpaper 0' hides it", copy("config set log.wallpaper 0"))
+        }
     }
 
     /** `shader words <name> <words>|off`: what plays it in a notification; without words, what they are. */
     private fun words(name: String, text: String) {
-        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
-        if (!Shaders.once(context, name)) return error("$name isn't a one-off shader: it has no @once line")
+        if (!Shaders.exists(name)) return noShader(name)
+        if (!Shaders.once(context, name)) return notOnce(name)
         when {
             text.isBlank() -> info(ShaderWords.words.value[name]?.let { "$name plays on: $it" } ?: "$name has no words")
             text.lowercase() == ShaderCatalog.OFF -> {
@@ -150,16 +144,16 @@ class ShaderCommands(
             else -> {
                 ShaderWords.set(context, name, text)
                 info("$name plays when a notification has: ${ShaderWords.words.value[name]}")
-                if (!NotificationActions.isEnabled(context)) fix("Kolahal can't see your notifications — tap to allow it", "notifs enable")
+                if (!NotificationActions.isEnabled(context)) fix("Kolahal can't see your notifications\nTap to allow it", "allow read-notifications")
             }
         }
     }
 
     private fun play(name: String, time: String?) {
-        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
+        if (!Shaders.exists(name)) return noShader(name)
         if (!Shaders.supported) return needs()
-        if (!Shaders.once(context, name)) return error("$name isn't a one-off shader: it has no @once line")
-        Shaders.problem(context, name)?.let { return error("Shader $name: $it") }
+        if (!Shaders.once(context, name)) return notOnce(name)
+        Shaders.problem(context, name)?.let { return error(Shaders.problemLine(name, it)) }
         val seconds = time?.let { it.toFloatOrNull()?.takeIf { s -> s > 0f } ?: return usage("shader") }
         if (!ShaderPlay.play(name, seconds)) info("A shader is playing")
     }
@@ -169,13 +163,13 @@ class ShaderCommands(
         val safety = ShaderSafety.get(context)
         val current = conf[Keys.SCREEN_SHADER]
         val name = if (current != ShaderCatalog.OFF) current else safety.last
-            ?: return error("No shader was on yet — 'shader use <name>'")
+            ?: return error("No shader was on yet\n'shader use <name>' turns one on")
         use(name)
     }
 
     private fun off() {
         val was = Shaders.off(context) ?: return info("No shader is on")
-        info("Shader off · 'shader on' turns $was on again")
+        info("Shader off\n'shader on' turns $was on again", copy("shader on"))
     }
 
     /** `shader set <name> <parameter> <value>`; without a value it says what it is, without a parameter it lists them. */
@@ -183,7 +177,7 @@ class ShaderCommands(
         val name = args.firstOrNull()?.lowercase() ?: return usage("shader")
         val params = paramsOf(name) ?: return
         if (args.size == 1) return params.forEach { line(name, it) }
-        val param = params.find(args[1]) ?: return error("$name has no parameter '${args[1]}' · it has ${params.joinToString { it.name }}")
+        val param = params.find(args[1]) ?: return error("$name has no parameter '${args[1]}'\nIt has ${params.joinToString { it.name }}")
         if (args.size == 2) return line(name, param)
         val value = param.parse(args[2]) ?: return error("${param.name} can be ${param.range}")
         ShaderParams.set(context, name, param, value)
@@ -195,7 +189,7 @@ class ShaderCommands(
         val name = args.firstOrNull()?.lowercase() ?: return usage("shader")
         val params = paramsOf(name) ?: return
         val param = args.getOrNull(1)?.let {
-            params.find(it) ?: return error("$name has no parameter '$it' · it has ${params.joinToString { p -> p.name }}")
+            params.find(it) ?: return error("$name has no parameter '$it'\nIt has ${params.joinToString { p -> p.name }}")
         }
         ShaderParams.reset(context, name, param)
         info(if (param != null) "$name: ${param.name} ${param.text(param.default)}" else "$name: parameters reset")
@@ -206,7 +200,7 @@ class ShaderCommands(
         val name = args.firstOrNull()?.lowercase() ?: return usage("shader")
         val params = paramsOf(name) ?: return
         if (args.size == 1) return params.forEach { line(name, it) }
-        val param = params.find(args[1]) ?: return error("$name has no parameter '${args[1]}' · it has ${params.joinToString { it.name }}")
+        val param = params.find(args[1]) ?: return error("$name has no parameter '${args[1]}'\nIt has ${params.joinToString { it.name }}")
         if (args.size == 2) return line(name, param)
         val text = args.drop(2).joinToString(" ")
         if (text.lowercase() == ShaderCatalog.OFF) {
@@ -214,8 +208,8 @@ class ShaderCommands(
             return info("$name: ${param.name} ${param.text(ShaderParams.of(name, param))}")
         }
         val (id, formula) = ShaderValues.parse(text, ShaderActions.sources(context).map { it.id })
-            ?: return error("No value in '$text' — 'shader values' lists them")
-        if (formula != null && ShaderValues.work(formula, id, "1") == null) return error("'$formula' can't be worked out: try $id / 20")
+            ?: return error("No value in '$text'\n'shader values' lists them", copy("shader values"))
+        if (formula != null && ShaderValues.work(formula, id, "1") == null) return error("'$formula' can't be worked out\nTry $id / 20")
         ShaderParams.setFollow(context, name, param, id, formula)
         info("$name: ${param.name} follows ${formula ?: id}, ${param.text(ShaderParams.now(name, param, ShaderActions.phone(context)))} now")
     }
@@ -225,13 +219,13 @@ class ShaderCommands(
         valueLines(ShaderActions.sources(context, fresh = true)).forEach { (id, desc) ->
             out(id, LogContext.of(LogContext.DESC to desc) + LogContext.ITEM)
         }
-        info("'shader follow <name> <parameter> <value>' makes a shader's parameter follow one")
+        info("Shader parameters can follow these values\nRun 'shader follow <name> <parameter> <value>'")
     }
 
     /** The parameters of [name]. Null, and it has said so, when there are none. */
     private fun paramsOf(name: String): List<ShaderParam>? {
         if (!Shaders.exists(name)) {
-            error("No shader '$name' — 'shader' lists them")
+            noShader(name)
             return null
         }
         val params = Shaders.params(context, name)
@@ -251,13 +245,13 @@ class ShaderCommands(
     )
 
     private fun check(name: String) {
-        if (!Shaders.exists(name)) return error("No shader '$name' — 'shader' lists them")
+        if (!Shaders.exists(name)) return noShader(name)
         val check = Shaders.check(context, name) ?: return error("Shader $name can't be read")
         val problem = check.problem
-        if (problem != null) error("Shader $name: $problem")
+        if (problem != null) error(Shaders.problemLine(name, problem))
         else {
             val (first, rest) = checkLines(check).let { it.first() to it.drop(1) }
-            info("Shader $name $first")
+            info(if (Shaders.supported) "Shader $name $first" else "Shader $name $NO_PROBLEMS\n$toCompile")
             rest.forEach { out(it) }
         }
         // Header lines that are left out: the shader works without them.
@@ -266,7 +260,7 @@ class ShaderCommands(
 
     /** `shader edit <name>`: the shader in the editor. */
     private fun edit(name: String) {
-        if (ShaderCatalog.edit(name, Shaders.userNames) == null) return error("No shader '$name' — 'shader' lists them")
+        if (ShaderCatalog.edit(name, Shaders.userNames) == null) return noShader(name)
         ui.openShaderEditor(name)
     }
 
@@ -280,10 +274,11 @@ class ShaderCommands(
     // ---- shared shaders --------------------------------------------------------------------
 
     /**
-     * `shader get [<name>|<source>/<name>] [--refresh] [--replace]`, as `script get`:
+     * `shader get [<name>|<source>/<name>] [--refresh] [--replace] [--update]`, as `script get`:
      * - without a name, lists the shaders of every source, with the source of those not from
      *   kolahal-scripts. A source that can't be read says why; the others still list.
      * - with a name, installs or updates that shader. It isn't turned on: a tap on the line does that.
+     * - with `--update` and no name, updates every shader installed from a list ([update]).
      */
     private fun getShared(args: List<String>) {
         val refresh = "--refresh" in args
@@ -291,23 +286,23 @@ class ShaderCommands(
         val ref = args.firstOrNull { !it.startsWith("--") }?.let { word ->
             val name = word.substringAfterLast('/').lowercase().substringBefore('.')
             if ('/' in word) "${word.substringBeforeLast('/')}/$name" else name
-        } ?: return listShared(refresh)
+        } ?: return if ("--update" in args) update() else listShared(refresh)
         val sources = catalog.sources()
         if ('/' in ref && ScriptSources.find(sources, ref.substringBeforeLast('/')) == null) {
-            return error("No source '${ref.substringBeforeLast('/')}' — 'script sources' lists them")
+            return error("No source '${ref.substringBeforeLast('/')}'\n'script sources' lists them", copy("script sources"))
         }
         fun find(fresh: Boolean): SharedShader? =
             ScriptSources.pick(catalog.listings(fresh).flatMap { it.shaders }, ref, sources)
 
         val entry = find(refresh) ?: (if (refresh) null else find(true))
-        ?: return error("No shared shader '$ref' — 'shader get' lists them")
+        ?: return error("No shared shader '$ref'\n'shader get' lists them", copy("shader get"))
         when (store.state(entry)) {
             ScriptCatalog.State.NEEDS_NEWER -> error("${entry.name} needs Kolahal ${entry.requires} or newer")
             ScriptCatalog.State.NAME_TAKEN -> error(store.taken(entry))
             ScriptCatalog.State.INSTALLED -> info("${entry.name} is installed and up to date")
             ScriptCatalog.State.MODIFIED ->
                 if ("--replace" in args) install(entry, replace = true)
-                else error("You edited ${entry.name}: 'shader get $ref --replace' replaces it ('shader copy ${entry.name}' keeps a copy)")
+                else edited(entry.name, ref)
 
             ScriptCatalog.State.NOT_INSTALLED, ScriptCatalog.State.UPDATE_AVAILABLE -> install(entry)
         }
@@ -316,8 +311,8 @@ class ShaderCommands(
     private fun listShared(refresh: Boolean) {
         val listings = catalog.listings(refresh)
         val entries = listings.flatMap { it.shaders }
-        info("Shared shaders from ${listings.joinToString(", ") { it.source.name }} — 'shader get <name>' installs one")
-        listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}: $it") } }
+        info("Shared shaders from ${listings.joinToString(", ") { it.source.name }}\n'shader get <name>' installs one")
+        listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}\n$it") } }
         if (entries.isEmpty() && listings.none { it.error != null }) info("None yet")
         entries.forEach { e ->
             val state = when (store.state(e)) {
@@ -352,18 +347,14 @@ class ShaderCommands(
     }
 
     /**
-     * `shader update [<name>] [--replace]`: reads the lists again, then updates the shader named, or
-     * every shader installed from a list that has a newer version. One the user edited is replaced
-     * only with its name and `--replace`.
+     * `shader get --update`: reads the lists again, then updates every shader installed from a list that has a
+     * newer version. One the user edited stays: `shader get <name> --replace` replaces it.
      */
-    private fun update(args: List<String>) {
-        val name = args.firstOrNull { !it.startsWith("--") }?.lowercase()
-        if (name != null && name !in Shaders.userNames) return error("No shader '$name' of yours — 'shader' lists them")
-        if (name != null && store.installedFrom(name) == null) return error("$name wasn't installed with 'shader get', so there is nothing to update it from")
-        val installed = if (name != null) listOf(name) else Shaders.userNames.filter { store.installedFrom(it) != null }
+    private fun update() {
+        val installed = Shaders.userNames.filter { store.installedFrom(it) != null }
         if (installed.isEmpty()) return info("No shader was installed with 'shader get'")
         val listings = catalog.listings(refresh = true)
-        listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}: $it") } }
+        listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}\n$it") } }
         val latest = listings.flatMap { it.shaders }
         // How many have a newer version, updated or not.
         var newer = 0
@@ -372,16 +363,15 @@ class ShaderCommands(
             val copy = Shaders.own(context, n)?.let { store.copy(n, it, latest) } ?: continue
             if (!copy.newer) continue
             newer++
-            val replace = copy.edited && name != null && "--replace" in args
-            if (copy.edited && !replace) {
-                error("You edited $n: 'shader update $n --replace' replaces it ('shader copy $n' keeps a copy)")
+            if (copy.edited) {
+                edited(n, n)
                 continue
             }
             // One that fails doesn't keep the others from being updated.
-            runCatching { install(e, replace) }.onFailure { error("$n isn't updated: ${it.reason()}") }
+            runCatching { install(e) }.onFailure { error("$n isn't updated\n${it.reason()}") }
         }
         // A list that couldn't be read has said so: nothing is known of its shaders.
-        if (newer == 0 && listings.none { it.error != null }) info(if (name != null) "$name is up to date" else "The installed shaders are up to date")
+        if (newer == 0 && listings.none { it.error != null }) info("The installed shaders are up to date")
     }
 
     /** Downloads and installs [e]. It stays off, unless the one that is on is updated. */
@@ -390,55 +380,78 @@ class ShaderCommands(
         store.install(e, store.download(e), replace)
         if (update) info("Updated ${e.name}" + e.version.ifBlank { null }?.let { " to $it" }.orEmpty())
         else info(
-            "Installed ${e.name} from ${e.source} · tap to use it, or 'shader ${e.name}'",
-            LogContext.of(LogContext.RUN to "shader use ${e.name}"),
+            "Installed ${e.name} from ${e.source}\nTap to use it, or run 'shader ${e.name}'",
+            LogContext.of(LogContext.RUN to "shader use ${e.name}", LogContext.COPY to "shader ${e.name}"),
         )
     }
 
     // ---- your own --------------------------------------------------------------------------
 
-    private fun copy(name: String) {
+    /** `shader save <name>`: writes the shader's file into the script folder, to edit it there. */
+    private fun save(name: String) {
         if (Shaders.isTemplate(name)) return background("shader") { startFrom(name) }
-        val source = Shaders.source(context, name) ?: return error("No shader '$name' — 'shader' lists them")
-        if (folder.uri == null) return fix("Copying a shader needs a script folder — tap to pick one", "script dir")
+        val source = Shaders.source(context, name) ?: return noShader(name)
+        if (folder.uri == null) return fix("Saving a shader needs a script folder\nTap to pick one", "script dir")
         background("shader") {
             val path = folder.exportShader(name, source)
-            info("Copied $name to $path in the script folder · edit it there, then run 'shader reload'")
+            info("Saved $name to $path\nEdit it there, then run 'shader reload'", copy("shader reload"))
         }
     }
 
-    /** `shader copy template-…`: a shader of the user's from the template, to edit as a file. */
+    /** `shader save template-…`: a shader of the user's from the template, to edit as a file. */
     private fun startFrom(template: String) {
         val (name, path) = fromTemplate(context, folder, template)
         val once = Shaders.once(context, name)
         info(
-            "Added $name to your shaders, from $template · tap to ${if (once) "play" else "use"} it",
+            "Added $name from $template\nTap to ${if (once) "play" else "use"} it",
             LogContext.of(LogContext.RUN to "shader ${if (once) "play" else "use"} $name"),
         )
-        if (path != null) info("Its file is $path in the script folder · edit it there, then run 'shader reload'")
-        else fix("Copying $name to edit it needs a script folder — tap to pick one, then run 'shader copy $name'", "script dir")
+        if (path != null) info("Its file is $path\nEdit it there, then run 'shader reload'", copy("shader reload"))
+        else error(
+            "Its file needs a script folder\nTap to pick one, then run 'shader save $name'",
+            LogContext.of(LogContext.RUN to "script dir", LogContext.COPY to "shader save $name"),
+        )
     }
 
     private fun remove(name: String) {
         if (name !in Shaders.userNames) {
             return error(
-                if (name in ShaderCatalog.BUNDLED) "$name comes with Kolahal: there is nothing of yours to remove"
-                else "No shader '$name' of yours — 'shader' lists them"
+                if (name in ShaderCatalog.BUNDLED) "$name comes with Kolahal\nThere is nothing of yours to remove"
+                else "No shader '$name' of yours\n'shader' lists them",
+                if (name in ShaderCatalog.BUNDLED) LogContext.EMPTY else copy("shader"),
             )
         }
         if (!Shaders.remove(context, name)) return error("Shader $name can't be removed")
-        info("Removed your $name" + if (name in ShaderCatalog.BUNDLED) " · the one that comes with Kolahal is used again" else "")
+        info("Removed your $name" + if (name in ShaderCatalog.BUNDLED) "\nThe one that comes with Kolahal is used again" else "")
     }
 
     /** What to do on a phone too old for shaders. */
-    private fun needs() = info("${Shaders.NEEDS}; this phone has Android ${Build.VERSION.RELEASE}")
+    private fun needs() = info("${Shaders.NEEDS}\nThis phone has Android ${Build.VERSION.RELEASE}")
+
+    /** There is no shader [name]: the line says what lists them, and Copy gives that command. */
+    private fun noShader(name: String) = error("No shader '$name'\n'shader' lists them", copy("shader"))
+
+    /** [name] can't be played or given words: it isn't a one-off shader. */
+    private fun notOnce(name: String) = error("$name isn't a one-off shader\nIt has no @once line")
+
+    /** The user edited the installed shader [name], which `shader get [ref]` would replace. */
+    private fun edited(name: String, ref: String) = error(
+        "You edited $name\n'shader get $ref --replace' replaces it\n'shader save $name' keeps a copy"
+    )
+
+    /** A line's context where Copy gives [command], the one command the line names. */
+    private fun copy(command: String) = LogContext.of(LogContext.COPY to command)
 
     companion object {
+        /** What [checkLines] and `shader check` say of a shader without problems on a phone that can't compile it. */
+        private const val NO_PROBLEMS = "has no problems"
+        private val toCompile get() = "${Shaders.NEEDS} to compile it"
+
         val SUBCOMMANDS =
-            listOf("list", "use", "on", "off", "set", "reset", "follow", "values", "play", "words", "wallpaper", "get", "update", "check", "reload", "edit", "copy", "remove")
+            listOf("ls", "use", "on", "off", "set", "reset", "follow", "values", "play", "words", "get", "check", "reload", "edit", "save", "rm")
 
         /** The subcommands that take a shader's name: those that take one offer names when typed. */
-        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "words", "wallpaper", "get", "update", "check", "edit", "copy", "remove", "rm")
+        val TAKE_NAME = setOf("use", "set", "reset", "follow", "play", "words", "get", "check", "edit", "save", "rm", "delete")
 
         /**
          * What completes the last word of `shader …`: the subcommands and shaders, then the shaders of
@@ -462,9 +475,9 @@ class ShaderCommands(
             parts.size == 2 -> SUBCOMMANDS + Shaders.names
             parts.size != 3 -> emptyList()
             parts[1] == "get" -> shared
-            parts[1] in setOf("update", "remove", "rm") -> Shaders.userNames
+            parts[1] in setOf("rm", "delete") -> Shaders.userNames
             // A template's name makes a shader of the user's from it.
-            parts[1] == "copy" -> Shaders.names + ShaderCatalog.TEMPLATES.filter { it !in Shaders.names }
+            parts[1] == "save" -> Shaders.names + ShaderCatalog.TEMPLATES.filter { it !in Shaders.names }
             parts[1] in TAKE_NAME -> Shaders.names
             else -> emptyList()
         }
@@ -491,7 +504,7 @@ class ShaderCommands(
 
         /** What [check] found in a shader without problems, in lines: "compiles" first, for after its name. */
         internal fun checkLines(check: Shaders.Check): List<String> = listOfNotNull(
-            if (Shaders.supported) "compiles" else "has no problems · ${Shaders.NEEDS} to compile it",
+            if (Shaders.supported) "compiles" else "$NO_PROBLEMS · $toCompile",
             check.sets.takeIf { it.isNotEmpty() }?.let { "Kolahal sets: ${it.joinToString()}" },
             check.unset.takeIf { it.isNotEmpty() }?.let { "Not set by Kolahal, so 0: ${it.joinToString()}" },
             check.params.takeIf { it.isNotEmpty() }
@@ -551,7 +564,7 @@ class ShaderCommands(
             if (folder.uri == null) return "Shaders read again" to null
             val found = folder.importShaders()
             val text =
-                if (found.names.isEmpty()) "No shaders in the script folder · put .agsl files in its ${Shaders.DIR} folder"
+                if (found.names.isEmpty()) "No shaders in the script folder\nPut .agsl files in its ${Shaders.DIR} folder"
                 else "Read from the script folder: ${found.names.joinToString()}"
             return text to found.skipped.takeIf { it.isNotEmpty() }?.let { "Skipped ${it.joinToString()}" }
         }

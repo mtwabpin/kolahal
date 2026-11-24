@@ -256,9 +256,9 @@ class TtyShaderTest {
         Shaders.save(app, "zz-broken", "uniform shader content;\nhalf4 main(float2 p) {\n    return nope;\n}\n")
         ttyHome()
         config.set(Keys.SCREEN_SHADER, "zz-broken")
-        compose.waitFor("no line says it is broken") { errors("Shader zz-broken:").isNotEmpty() }
-        val error = errors("Shader zz-broken:").single().text
-        assertTrue(error, "line 3" in error)
+        compose.waitFor("no line says it is broken") { errors("Shader zz-broken can't be used\n").isNotEmpty() }
+        val error = errors("Shader zz-broken can't be used\n").single().text
+        assertTrue(error, "\nLine 3: " in error)
         assertTrue("${drawn()}", drawn().isEmpty())
         compose.onNodeWithTag("tty-home").assertExists()
     }
@@ -283,7 +283,7 @@ class TtyShaderTest {
         assertEquals("lcd", config[Keys.SCREEN_SHADER])
         commands.run("shader use zz-broken")
         assertEquals("lcd", config[Keys.SCREEN_SHADER])
-        assertTrue(errors("Shader zz-broken: line 2").isNotEmpty())
+        assertTrue(errors("Shader zz-broken can't be used\nLine 2").isNotEmpty())
     }
 
     /** A shader that was turned off (a crash) isn't drawn until it is turned on again. */
@@ -318,7 +318,9 @@ class TtyShaderTest {
         }
         compose.waitFor("the shader is still on") { config[Keys.SCREEN_SHADER] == "off" }
         compose.waitFor("it is still drawn") { drawn().isEmpty() }
-        assertTrue(newLines().any { "two fingers" in it.text })
+        val off = newLines().single { "Two fingers were held" in it.text }
+        assertTrue(off.text, off.text.startsWith("Shader lcd turned off\n"))
+        assertEquals("shader on", off.ctx.values[LogContext.COPY])
     }
 
     /** The full-screen host is under it without `screen.shader` too: an old Android simply draws nothing. */
@@ -669,7 +671,7 @@ class TtyShaderTest {
         assertEquals("off", config[Keys.SCREEN_SHADER])
     }
 
-    /** A shader from a file is the user's own: it shows in the list and can be used; `shader remove` deletes it. */
+    /** A shader from a file is the user's own: it shows in the list and can be used; `shader rm` deletes it. */
     @Test
     fun aFileOfYoursIsAShader() {
         Shaders.save(app, "zz-fine", "// @description Mine\nuniform shader content;\nhalf4 main(float2 p) { return content.eval(p); }")
@@ -682,7 +684,7 @@ class TtyShaderTest {
             commands.run("shader use zz-fine")
             assertEquals("zz-fine", config[Keys.SCREEN_SHADER])
         }
-        commands.run("shader remove zz-fine")
+        commands.run("shader rm zz-fine")
         assertFalse("zz-fine" in Shaders.userNames)
         // The setting falls back to none when its file is gone.
         assertEquals("off", config[Keys.SCREEN_SHADER])

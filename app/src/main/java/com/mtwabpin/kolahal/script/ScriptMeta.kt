@@ -144,7 +144,7 @@ object ScriptMeta {
     fun isScreen(code: String) = "screen" in uses(code)
 
     /** Why a script with a screen of its own has no timer, event or widget, after its name. */
-    const val SCREEN_ONLY = "draws a full screen, so it runs only when you start it"
+    const val SCREEN_ONLY = "runs only when you start it\nIt draws a full screen"
 
     /**
      * An `event` like the one that [name] brings (or that a daily [time] brings, `at`), with made-up

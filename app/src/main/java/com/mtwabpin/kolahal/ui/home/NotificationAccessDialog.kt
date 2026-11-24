@@ -20,7 +20,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 
 /**
- * Shown by `notifs enable` when notification access is off, before Android's Notification access
+ * Shown by `allow read-notifications` when notification access is off, before Android's Notification access
  * screen opens. It explains what Kolahal reads, why, and that the data stays on the phone.
  * This is Google Play's prominent disclosure:
  * - It shows inside the app, before the system screen.

@@ -32,7 +32,7 @@ import java.time.ZonedDateTime
 
 /**
  * Sets alarms for a script's daily times (`@at`).
- * The alarms are exact when Kolahal may set exact alarms (Alarms & reminders, as `remind exact`
+ * The alarms are exact when Kolahal may set exact alarms (Alarms & reminders, as `allow alarms`
  * asks). Otherwise they can be up to an hour late. Each alarm runs the script
  * ([ScriptAlarmReceiver]) and sets the alarm for the next day.
  */

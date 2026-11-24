@@ -210,14 +210,14 @@ class BuiltInCommandsTest {
         assertEquals(emptyList<Intent>(), opened.toList())
     }
 
-    /** `battery`, `system`, `home` and `usage-access` open their pages in Settings and print nothing. */
+    /** `allow battery`, `system`, `home` and `allow usage` open their pages in Settings and print nothing. */
     @Test
     fun settingsPagesOpen() {
         for ((command, action) in listOf(
-            "battery" to Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
+            "allow battery" to Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
             "system" to Settings.ACTION_SETTINGS,
             "home" to Settings.ACTION_HOME_SETTINGS,
-            "usage-access" to Settings.ACTION_USAGE_ACCESS_SETTINGS,
+            "allow usage" to Settings.ACTION_USAGE_ACCESS_SETTINGS,
         )) {
             opened.clear()
             assertEquals(command, emptyList<String>(), run(command))
@@ -225,41 +225,90 @@ class BuiltInCommandsTest {
         }
     }
 
-    /** Without its accessibility service `lock` says how to allow it; `accessibility` opens that page. */
+    /** Without its accessibility service `lock` says how to allow it; `allow lock` opens that page. */
     @Test
     fun lockWithoutTheServiceSaysHowToAllowIt() {
         assumeTrue("the Play build has no lock", BuildConfig.LOCK_SERVICE)
-        assertEquals(emptyList<String>(), run("accessibility"))
+        assertEquals(emptyList<String>(), run("allow lock"))
         assertEquals(Settings.ACTION_ACCESSIBILITY_SETTINGS, opened.single().action)
         // With the service on, this would lock the emulator's screen.
         assumeFalse("the screen lock service is on", LockService.isEnabled(context))
         assertEquals(
-            listOf("Locking needs the Kolahal screen lock accessibility service — tap to allow it"),
+            listOf("Locking needs an accessibility service\nTap to allow Kolahal screen lock"),
             run("lock")
         )
-        assertEquals("accessibility", logs.recent(1).single().ctx.values[LogContext.RUN])
+        assertEquals("allow lock", logs.recent(1).single().ctx.values[LogContext.RUN])
     }
 
-    /** `notifications` asks for the permission while it's missing and then says it's allowed; `notifications settings` opens Kolahal's page. */
+    /**
+     * `allow send-notifications` asks for the permission while it's missing; once Android said no, it opens Kolahal's
+     * notification settings instead; then it says it's allowed.
+     */
     @Test
-    fun notificationsAsksThenSaysAllowed() {
-        assertEquals(emptyList<String>(), run("notifications settings"))
-        with(opened.single()) {
-            assertEquals(Settings.ACTION_APP_NOTIFICATION_SETTINGS, action)
-            assertEquals(context.packageName, getStringExtra(Settings.EXTRA_APP_PACKAGE))
-        }
-        opened.clear()
+    fun allowNotifyAsksThenSaysAllowed() {
+        // Another test may have answered no already in this process.
+        AllowCommands.answered(com.mtwabpin.kolahal.commands.Accesses.SEND_NOTIFICATIONS, granted = true)
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            assertEquals(emptyList<String>(), run("notifications"))
+            assertEquals(emptyList<String>(), run("allow send-notifications"))
             assertEquals(1, notificationsAsked)
+            assertEquals(emptyList<Intent>(), opened.toList())
+            // Android said no: a tap on the line that says so opens the settings, as `allow send-notifications` does now.
+            AllowCommands.answered(com.mtwabpin.kolahal.commands.Accesses.SEND_NOTIFICATIONS, granted = false)
+            assertEquals(emptyList<String>(), run("allow send-notifications"))
+            with(opened.single()) {
+                assertEquals(Settings.ACTION_APP_NOTIFICATION_SETTINGS, action)
+                assertEquals(context.packageName, getStringExtra(Settings.EXTRA_APP_PACKAGE))
+            }
+            assertEquals(1, notificationsAsked)
+            opened.clear()
             // As the app asks for it. Not taken back after: Android stops an app whose permission is revoked.
             instrumentation.uiAutomation.grantRuntimePermission(
                 context.packageName,
                 Manifest.permission.POST_NOTIFICATIONS
             )
         }
-        assertEquals(listOf("Notifications are allowed"), run("notifications"))
+        assertEquals(listOf("Notifications are allowed"), run("allow send-notifications"))
         assertEquals(emptyList<Intent>(), opened.toList())
+    }
+
+    /**
+     * `allow` lists every access this build has, each with whether it is allowed, and a tap on a line runs
+     * `allow <word>`. A word the build leaves out says so; an unknown one says how to list them.
+     */
+    @Test
+    fun allowListsTheAccesses() {
+        val offered = com.mtwabpin.kolahal.terminal.SetupChecks.accesses(context)
+        val printed = commands.lines("allow")
+        assertEquals("Android permissions\nTap one to allow it", printed.first().text)
+        val lines = printed.drop(1)
+        assertEquals(offered.map { it.access.word }, lines.map { it.text })
+        assertEquals(offered.map { it.run }, lines.map { it.ctx.values[LogContext.RUN] })
+        for ((line, row) in lines.zip(offered)) {
+            val desc = com.mtwabpin.kolahal.data.StyledText.plain(line.ctx.values.getValue(LogContext.DESC))
+            assertEquals(desc, (if (row.allowed) "allowed " else "not allowed ") + row.access.title, desc)
+            assertEquals(row.access.short, line.ctx.values[LogContext.ARGS])
+        }
+        assertEquals(emptyList<Intent>(), opened.toList())
+        assertEquals(listOf("Unknown access: nope\n'allow' lists them"), run("allow nope"))
+        assertEquals("allow", logs.recent(1).single().ctx.copy)
+        if (!BuildConfig.CALL_LOG) assertEquals(listOf("This build can't read the call log"), run("allow calls"))
+        if (!BuildConfig.LOCK_SERVICE) assertEquals(
+            listOf("This build can't lock the screen\nIt has no accessibility service"),
+            run("allow lock")
+        )
+    }
+
+    /** `allow dnd` and `allow settings` open their pages and say so, as `dnd access` and `brightness access` did. */
+    @Test
+    fun allowDndAndSettingsOpenTheirPages() {
+        assertEquals(listOf("Opened Do Not Disturb access"), run("allow dnd"))
+        assertEquals(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS, opened.single().action)
+        opened.clear()
+        assertEquals(listOf("Opened modify system settings"), run("allow settings"))
+        with(opened.single()) {
+            assertEquals(Settings.ACTION_MANAGE_WRITE_SETTINGS, action)
+            assertEquals("package:${context.packageName}", dataString)
+        }
     }
 
     /** `= 10 usd in eur` converts at the rates kept from a fetch in the last six hours; a currency they don't have says so. */
@@ -314,7 +363,7 @@ class BuiltInCommandsTest {
         assertEquals(listOf("Usage: lua <code>"), run("lua"))
         assertEquals(listOf("Usage: js <code>"), run("js"))
         assertEquals(
-            listOf("Snippet too long — use 'script new'"),
+            listOf("Snippet too long\nUse 'script new' for a longer one"),
             run("lua log('${"x".repeat(8_001)}')")
         )
         val from = logs.maxId()
@@ -373,12 +422,12 @@ class BuiltInCommandsTest {
             val without = run("unlocks 3")
             assertEquals(
                 listOf(
-                    "Counting unlocks only while the launcher is running",
-                    "Tap here to allow usage access for accurate counts"
+                    "Counting unlocks only while Kolahal runs",
+                    "Tap to allow usage access for exact counts"
                 ), without.take(2)
             )
             assertEquals(
-                "usage-access",
+                "allow usage",
                 logs.recent(10).single { it.text == without[1] }.ctx.values[LogContext.RUN]
             )
             // Big numbers first: today, a day's average, the total.
@@ -536,7 +585,8 @@ class BuiltInCommandsTest {
         )
         assertEquals(listOf("Usage: restart [scripts]"), run("restart bogus"))
         assertEquals(listOf("Usage: clear [history|all]"), run("clear bogus"))
-        assertEquals(listOf("Usage: widgets [ls|page] · widget add"), run("widget bogus"))
+        assertEquals(listOf("Usage: widget [add|ls|page]"), run("widget bogus"))
+        assertEquals(listOf("Usage: widget [add|ls|page]"), run("widgets bogus"))
         if (BuildConfig.SELF_UPDATE) assertEquals(
             listOf("Usage: update [install]"),
             run("update bogus")
@@ -549,7 +599,7 @@ class BuiltInCommandsTest {
     fun backupWithoutAFolderAsksForOne() {
         assumeTrue("a backup folder is set", AutoBackup.folder(context) == null)
         assertEquals(
-            listOf("Pick a folder for backups; the backup is written there"),
+            listOf("Pick a folder for backups\nThe backup is written there"),
             run("backup")
         )
         assertEquals(listOf(true), backupFolderAsked.toList())
@@ -590,41 +640,53 @@ class BuiltInCommandsTest {
         }
     }
 
-    /** `widget` opens the widgets page and `widget add` the picker; with none placed, `widgets ls` says how to add one. */
+    /**
+     * `widgets` alone opens Arrange widgets, and `widget add` (or `widgets add`) the picker. With none
+     * placed, `widget` alone, `widget ls` and `widgets ls` say how to add one.
+     */
     @Test
     fun widgetsOpenTheirPages() {
-        assertEquals(emptyList<String>(), run("widget"))
+        assertEquals(emptyList<String>(), run("widgets"))
         assertEquals(emptyList<String>(), run("widget add"))
-        assertEquals(listOf(Screen.WIDGETS, Screen.WIDGET_PICKER), screens.toList())
+        assertEquals(emptyList<String>(), run("widgets add"))
+        assertEquals(
+            listOf(Screen.WIDGETS, Screen.WIDGET_PICKER, Screen.WIDGET_PICKER),
+            screens.toList()
+        )
         assumeTrue("widgets are placed", WidgetHost.get(context).listing(context).isEmpty())
-        assertEquals(listOf("No widgets yet — widget add opens the picker"), run("widgets ls"))
-        assertEquals("widget add", logs.recent(1).single().ctx.values[LogContext.RUN])
+        for (typed in listOf("widget", "widget ls", "widgets ls")) {
+            assertEquals(typed, listOf("No widgets yet\nTap to open the widget picker"), run(typed))
+            assertEquals(typed, "widget add", logs.recent(1).single().ctx.values[LogContext.RUN])
+        }
+        assertEquals(3, screens.size)
     }
 
     /**
-     * `widgets page` turns home to the widgets page and opens no screen. With the page off, it says
-     * so, and a tap on the line puts the page on the left.
+     * `widget page` (and `widgets page`) turns home to the widgets page and opens no screen. With the
+     * page off, it says so, and a tap on the line puts the page on the left.
      */
     @Test
     fun widgetsPageTurnsHomeToIt() {
         try {
             config.set(Keys.WIDGETS_PAGE, "right")
-            assertEquals(emptyList<String>(), run("widgets page"))
+            assertEquals(emptyList<String>(), run("widget page"))
             assertEquals(1, widgetsPageTurns)
+            assertEquals(emptyList<String>(), run("widgets page"))
+            assertEquals(2, widgetsPageTurns)
             config.set(Keys.WIDGETS_PAGE, "off")
-            assertEquals(listOf("The widgets page is off — tap to turn it on"), run("widgets page"))
+            assertEquals(listOf("The widgets page is off\nTap to turn it on"), run("widget page"))
             with(logs.recent(1).single()) {
                 assertEquals(LogKind.ERROR, kind)
                 assertEquals("config set widgets.page left", ctx.values[LogContext.RUN])
             }
-            assertEquals(1, widgetsPageTurns)
+            assertEquals(2, widgetsPageTurns)
             assertEquals(emptyList<Screen>(), screens.toList())
         } finally {
             config.reset(Keys.WIDGETS_PAGE)
         }
     }
 
-    /** `widgets ls` numbers each widget, with its state, size and app beside it; a tap opens the widgets page. */
+    /** `widget ls` numbers each widget, with its state, size and app beside it; a tap opens Arrange widgets. `widgets ls` says the same. */
     @Test
     fun widgetsLsListsEachWidget() {
         val widgets = TestWidgets()
@@ -639,6 +701,7 @@ class BuiltInCommandsTest {
                 height = 120
             )
             assertEquals(listOf("1. ClockWidget"), run("widgets ls"))
+            assertEquals(listOf("1. ClockWidget"), run("widget ls"))
             val line = logs.recent(1).single()
             assertEquals(
                 "Pending re-add · Full × 120dp · com.example.pctest",
@@ -687,7 +750,7 @@ class BuiltInCommandsTest {
         val pid = scriptPid()
         assertNotNull("the script process runs", pid)
         assertEquals(
-            listOf("Script process stopped; scheduled scripts will start it again"),
+            listOf("Script process stopped\nScheduled scripts will start it again"),
             run("restart scripts")
         )
         waitUntil("process $pid gone") { scriptPid() != pid }

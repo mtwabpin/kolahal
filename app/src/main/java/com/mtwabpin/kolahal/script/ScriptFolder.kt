@@ -36,9 +36,9 @@ class ScriptFolder(private val context: Context) {
     }
 
     private fun folder(): DocumentFile {
-        val tree = uri ?: throw IllegalStateException("no script folder — run 'script dir' first")
+        val tree = uri ?: throw IllegalStateException("no script folder\nRun 'script dir' to pick one")
         val dir = DocumentFile.fromTreeUri(context, tree)
-        if (dir == null || !dir.canWrite()) throw IllegalStateException("script folder is not accessible — run 'script dir'")
+        if (dir == null || !dir.canWrite()) throw IllegalStateException("script folder is not accessible\nRun 'script dir' to pick it again")
         return dir
     }
 

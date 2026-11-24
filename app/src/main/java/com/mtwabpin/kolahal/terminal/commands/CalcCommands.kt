@@ -27,7 +27,7 @@ class CalcCommands(
             usage(lang.ext)
             return
         }
-        if (!ScriptScheduler.eval(context, lang, code)) error("Snippet too long — use 'script new'")
+        if (!ScriptScheduler.eval(context, lang, code)) error("Snippet too long\nUse 'script new' for a longer one")
     }
 
     // ---- calculator & conversions --------------------------------------------------------

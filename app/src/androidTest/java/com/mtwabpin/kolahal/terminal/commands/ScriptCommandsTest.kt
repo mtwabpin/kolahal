@@ -116,7 +116,7 @@ class ScriptCommandsTest {
         assertEquals("NZ 136/8", statuses.all()[s.name])
         val plain = create("pin2", "return 1")
         assertEquals(
-            listOf("${plain.name} has no status line to pin: it never calls status()"),
+            listOf("${plain.name} has no status line to pin\nIt never calls status()"),
             run("script pin ${plain.name}")
         )
     }
@@ -141,15 +141,18 @@ class ScriptCommandsTest {
             scripts.saveCode(s.id, s.code + "\n-- mine", byUser = true)
             assertTrue(
                 run("script install ${entry.name}").single()
-                    .contains("differs from the library version")
+                    .contains("differs from the library\n'script install ${entry.name} --replace' replaces it")
+            )
+            assertEquals(
+                "script install ${entry.name} --replace",
+                lines("script install ${entry.name}").single().ctx.values[LogContext.COPY]
             )
             assertTrue(scripts.byName(entry.name)!!.code.endsWith("-- mine"))
             run("script install ${entry.name} --replace")
             assertEquals(library.code(entry), scripts.byName(entry.name)!!.code)
-            assertTrue(
-                run("script install nosuchscript").single()
-                    .startsWith("No library script 'nosuchscript'")
-            )
+            val missing = lines("script install nosuchscript").single()
+            assertEquals("No library script 'nosuchscript'\n'script lib' lists them", missing.text)
+            assertEquals("script lib", missing.ctx.values[LogContext.COPY])
         } finally {
             scripts.byName(entry.name)
                 ?.let { ScriptScheduler.cancel(context, it.id); scripts.delete(it.id) }
@@ -158,12 +161,17 @@ class ScriptCommandsTest {
 
     @Test
     fun newChecksTheName() {
-        assertTrue(run("script new Bad!").single().startsWith("Script names:"))
+        assertEquals(
+            listOf("Invalid script name\nUse lowercase letters, digits, - and _, up to 40"),
+            run("script new Bad!")
+        )
         assertTrue(run("script new").single().startsWith("Usage: script new"))
         run("script new ${prefix}js.js")
         assertEquals(ScriptLang.JS, scripts.byName("${prefix}js")!!.lang)
         assertEquals(listOf("${prefix}js"), opened)
-        assertTrue(run("script new ${prefix}js").single().contains("already exists"))
+        val exists = lines("script new ${prefix}js").single()
+        assertEquals("Script '${prefix}js' already exists\n'script edit ${prefix}js' opens it", exists.text)
+        assertEquals("script edit ${prefix}js", exists.ctx.values[LogContext.COPY])
     }
 
     /** Timers, notifications and the switch, each said back. */
@@ -177,8 +185,8 @@ class ScriptCommandsTest {
         // A timer set switches it on, and asks for what it declares that nobody allowed yet.
         assertEquals(
             listOf(
-                "${s.name} requests clipboard — tap to allow",
-                "${s.name}: runs every 15m (Android minimum is 15m)"
+                "${s.name} requests clipboard\nTap to allow",
+                "${s.name}: runs every 15m\nThe Android minimum is 15m"
             ),
             run("script every ${s.name} 5m"),
         )
@@ -239,7 +247,7 @@ class ScriptCommandsTest {
             run("script secret ${s.name} API_KEY --clear")
         )
         assertEquals(
-            listOf("${s.name} has no @secret NOPE — it has: API_KEY"),
+            listOf("${s.name} has no @secret NOPE\nIt has: API_KEY"),
             run("script secret ${s.name} NOPE x")
         )
         val none = create("sec2", "return 1")
@@ -280,13 +288,13 @@ class ScriptCommandsTest {
         )
         assertTrue(
             run("script deny ${s.name} bogus").single()
-                .startsWith("No 'bogus' for ${s.name} — it has: internet header clipboard unlock")
+                .startsWith("No 'bogus' for ${s.name}\nIt has: internet header clipboard unlock")
         )
         assertTrue(run("script allow ${s.name}").single().startsWith("Usage: script allow"))
         val plain = create("acc2", "return 1")
         assertTrue(
             run("script access ${plain.name}").single()
-                .endsWith("has no access switches: no internet, status line to pin, notifications, @uses or @on")
+                .endsWith("has no access switches\nNo internet, status line to pin, notifications, @uses or @on")
         )
     }
 
@@ -298,7 +306,7 @@ class ScriptCommandsTest {
             listOf("${s.name} already has that name"),
             run("script mv ${s.name} ${s.name}")
         )
-        assertTrue(run("script mv ${s.name} Bad!").single().startsWith("Script names:"))
+        assertTrue(run("script mv ${s.name} Bad!").single().startsWith("Invalid script name\n"))
         assertTrue(run("script mv ${s.name}").single().startsWith("Usage: script mv"))
         val to = "${prefix}moved"
         assertEquals(listOf("Renamed ${s.name}.lua to $to.lua"), run("script mv ${s.name} $to.lua"))
@@ -308,22 +316,24 @@ class ScriptCommandsTest {
         // Copy text on the first line copies the script, not the numbered line.
         assertEquals("local a = 1\nreturn a", shown.first().ctx.values[LogContext.COPY])
         assertEquals(
-            listOf("$to.lua isn't from the library, so there is nothing to compare it with"),
+            listOf("$to.lua isn't from the library\nThere is nothing to compare it with"),
             run("script diff $to")
         )
         assertEquals(listOf("Deleted $to"), run("script rm $to"))
         assertNull(scripts.byName(to))
-        assertEquals(listOf("No script named '$to' — 'script ls'"), run("script rm $to"))
+        val missing = lines("script rm $to").single()
+        assertEquals("No script named '$to'\n'script ls' lists them", missing.text)
+        assertEquals("script ls", missing.ctx.values[LogContext.COPY])
         assertEquals(listOf("Script name required"), run("script run"))
         // Every subcommand, those that take no script's name too.
         val said = run("script frobnicate x").single()
         assertTrue(
             said,
-            said.startsWith("Usage: script [ls|lib|install|new|") && said.endsWith("] <name>")
+            said.startsWith("Usage: script <subcommand> <name>\nSubcommands: ls lib install new ")
         )
         for (sub in listOf("set", "dir", "export", "import")) assertTrue(
             "$sub: $said",
-            "|$sub|" in said || "|$sub]" in said
+            " $sub " in said || said.endsWith(" $sub")
         )
     }
 
@@ -364,14 +374,15 @@ class ScriptCommandsTest {
             val from = logs.maxId()
             val added = run("script source add sctestowner/scripts")
             assertEquals(
-                "Added sctestowner/scripts — reads https://sctestowner.github.io/scripts/index.json",
+                "Added sctestowner/scripts\nIt reads https://sctestowner.github.io/scripts/index.json",
                 added[0]
             )
             assertEquals(
-                "warning Kolahal doesn't check scripts from sctestowner/scripts. Only add repositories you trust.",
+                "warning Kolahal doesn't check scripts from sctestowner/scripts\nOnly add repositories you trust",
                 com.mtwabpin.kolahal.data.StyledText.plain(added[1]),
             )
-            waitForLine(from, "sctestowner/scripts has 1 script — 'script get' lists them")
+            val count = waitForLine(from, "sctestowner/scripts has 1 script\n'script get' lists them")
+            assertEquals("script get", count.single().ctx.values[LogContext.COPY])
             assertEquals(listOf(source.index), catalog.added())
             assertEquals(
                 listOf("sctestowner/scripts is a source already"),
@@ -393,11 +404,11 @@ class ScriptCommandsTest {
                 run("script source rm ${ScriptCatalog.SOURCE}")
             )
             assertEquals(
-                listOf("No source 'nobody/here' — 'script sources' lists them"),
+                listOf("No source 'nobody/here'\n'script sources' lists them"),
                 run("script source rm nobody/here")
             )
             assertEquals(
-                listOf("Removed sctestowner/scripts — scripts you installed from it stay"),
+                listOf("Removed sctestowner/scripts\nThe scripts you installed from it stay"),
                 run("script source rm sctestowner/scripts")
             )
             assertEquals(emptyList<String>(), catalog.added())
@@ -447,7 +458,8 @@ class ScriptCommandsTest {
                 ), rows.map { it.ctx.values[LogContext.DESC] })
             val missing = logs.maxId()
             run("script get nobody/here/sctestsun")
-            waitForLine(missing, "No source 'nobody/here' — 'script sources' lists them")
+            val noSource = waitForLine(missing, "No source 'nobody/here'\n'script sources' lists them")
+            assertEquals("script sources", noSource.single().ctx.values[LogContext.COPY])
         } finally {
             catalog.add(source)
             catalog.remove(source.name)
@@ -488,7 +500,7 @@ class ScriptCommandsTest {
     fun anOffCommandSaysItsOff() {
         val s = create("cmd", "-- @command\nlog('sctest-cmd ran')", enabled = false)
         val said = lines(s.name)
-        assertEquals(listOf("${s.name} is off — tap to turn it on"), said.map { it.text })
+        assertEquals(listOf("${s.name} is off\nTap to turn it on"), said.map { it.text })
         assertEquals("script on ${s.name}", said.single().ctx.values[LogContext.RUN])
         // Nothing is coming, so there's nothing to wait on: give a wrong run the time to show.
         Thread.sleep(2_000)

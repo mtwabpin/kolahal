@@ -100,7 +100,7 @@ class BackupActionsTest {
         )
         assertEquals(
             RecordingHost.Notice(
-                "Backup saved: settings, apps, ${repo.all().size} scripts, todos, notes, reminders, feeds and the log (without notifications and calls)",
+                "Backup saved\nSettings, apps, ${repo.all().size} scripts, todos, notes, reminders, feeds and the log\nWithout notifications and calls",
                 false,
             ),
             host.lastNotice(),
@@ -121,7 +121,7 @@ class BackupActionsTest {
         actions.importBackup(Uri.fromFile(backup))
         assertEquals(
             RecordingHost.Notice(
-                "Imported 1 setting, 2 aliases, 1 script (1 new script is off — turn it on in Scripts)",
+                "Backup imported\n1 setting, 2 aliases, 1 script\n1 new script is off: turn it on in Scripts",
                 false
             ),
             host.lastNotice(),
@@ -177,9 +177,9 @@ class BackupActionsTest {
             // An alias that runs code is worth a look too: it may have an app's name.
             assertEquals(
                 RecordingHost.Notice(
-                    "Imported 1 setting, 2 aliases, 2 scripts (2 new scripts are off — turn them on in Scripts)" +
-                            " · skipped config no.such.key, alias help (built-in command)" +
-                            " · check these from the file: search.url = https://example.com/?q=%s, alias ba-calc = = os.time()",
+                    "Backup imported\n1 setting, 2 aliases, 2 scripts\n2 new scripts are off: turn them on in Scripts" +
+                            "\nSkipped config no.such.key, alias help (built-in command)" +
+                            "\nCheck these from the file: search.url = https://example.com/?q=%s, alias ba-calc = = os.time()",
                     false,
                 ),
                 host.lastNotice(),
@@ -201,7 +201,7 @@ class BackupActionsTest {
         actions.importBackup(Uri.fromFile(backup))
         assertEquals(
             RecordingHost.Notice(
-                "Imported 1 setting, 0 aliases, 0 scripts · this backup is from a newer Kolahal, so what this version doesn't know was skipped",
+                "Backup imported\n1 setting, 0 aliases, 0 scripts\nThis backup is from a newer Kolahal, so what this version doesn't know was skipped",
                 false,
             ),
             host.lastNotice(),

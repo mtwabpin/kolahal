@@ -12,8 +12,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 
 /**
  * Installs the shaders shared in the sources of Get more scripts ([ScriptCatalog] reads their lists),
- * and remembers where each came from. Used by Settings → Shaders, and by `shader get` and
- * `shader update`.
+ * and remembers where each came from. Used by Settings → Shaders, and by `shader get`.
  * - A shader is installed only when the downloaded file matches its list and can be used
  *   ([ShaderMeta.problems]). It is then one of the user's own files ([Shaders]).
  * - Installing doesn't turn it on.

@@ -40,6 +40,19 @@ class ShaderCheckTest {
         assertTrue(lines.toString(), "Not set by Kolahal, so 0: mine" in lines)
     }
 
+    /** A shader that can't be used says so on the first line, and the problem on the line under it. */
+    @Test
+    fun aProblemIsOnTheLineUnderIt() {
+        assertEquals(
+            "Shader rain can't be used\nLine 3: unknown identifier 'nope'",
+            Shaders.problemLine("rain", ShaderMeta.CompileError(3, "unknown identifier 'nope'").toString()),
+        )
+        assertEquals(
+            "Shader rain can't be used\n'time' must be a float, not float2",
+            Shaders.problemLine("rain", "'time' must be a float, not float2"),
+        )
+    }
+
     /** `cutout` is listed among the uniforms Kolahal sets, as `corner` is. */
     @Test
     fun itListsTheCutout() {

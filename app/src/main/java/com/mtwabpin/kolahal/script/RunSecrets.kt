@@ -41,7 +41,7 @@ internal class RunSecrets(
     fun mark(name: String): String? {
         val s = secrets ?: throw IllegalStateException("secrets.get only works in saved scripts")
         if (s.declared.none { it.name == name }) {
-            throw IllegalStateException("secrets.get(\"$name\") needs `@secret $name <site> <description>` at the top of the script")
+            throw IllegalStateException("secrets.get(\"$name\") needs a @secret line\nAdd `@secret $name <site> <description>` at the top of the script")
         }
         return if (s.values[name] != null) "__kolahal_secret_${name}_${nonce}__" else null
     }
@@ -58,10 +58,10 @@ internal class RunSecrets(
         // `https://<mark>.api.example.com` ends in an allowed site, but the value would go to the
         // address lookup in plain text, and the lookup's error would give it to the script.
         if (listOf(url.host, url.username, url.password).any(marks::containsMatchIn)) {
-            throw java.io.IOException("$name can't be part of a site's name, only of its path, query, headers or body")
+            throw java.io.IOException("$name can't be part of a site's name\nIt can be in the path, query, headers or body")
         }
-        if (!secret.allows(url.host)) throw java.io.IOException("$name may only be sent to ${secret.hosts.joinToString()}, not ${url.host}")
-        if (!url.isHttps) throw java.io.IOException("$name may only be sent over https, not to http://${url.host}")
+        if (!secret.allows(url.host)) throw java.io.IOException("$name may only be sent to ${secret.hosts.joinToString()}\nNot to ${url.host}")
+        if (!url.isHttps) throw java.io.IOException("$name may only be sent over https\nNot to http://${url.host}")
         value
     }
 
@@ -109,9 +109,9 @@ internal class RunSecrets(
                 s.values[secret.name]?.takeIf { it.length >= SecretStore.MIN_LENGTH } ?: continue
             val forms = forms(value)
             if (carried.none { text -> forms.any { it in text } }) continue
-            if (!secret.allows(host)) throw java.io.IOException("${secret.name} may only be sent to ${secret.hosts.joinToString()}, not $host")
+            if (!secret.allows(host)) throw java.io.IOException("${secret.name} may only be sent to ${secret.hosts.joinToString()}\nNot to $host")
             // A script must assume a hostile network, where plain http shows the value to anyone on the way.
-            if (!https) throw java.io.IOException("${secret.name} may only be sent over https, not to http://$host")
+            if (!https) throw java.io.IOException("${secret.name} may only be sent over https\nNot to http://$host")
         }
     }
 

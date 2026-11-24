@@ -77,7 +77,7 @@ object Stores {
     /** The Play build's picked contacts: names and numbers stay on the phone. */
     val PICKED_CONTACTS = Prefs("picked_contacts", inBackup = false, toCloud = false)
 
-    /** `wallpaper match`'s wallpaper id: another phone's same number is someone's own wallpaper. */
+    /** `wallpaper theme`'s wallpaper id: another phone's same number is someone's own wallpaper. */
     val WALLPAPER_MATCH =
         Prefs("wallpaper_match", inBackup = false, toCloud = false, toNewPhone = false)
 

@@ -47,7 +47,7 @@ internal class ScreenDrawing(private val text: (String) -> String = { it }) {
         "clear" -> clear(Args(op, args))
         "box" -> box(Args(op, args))
         "bar" -> bar(Args(op, args))
-        else -> throw IllegalArgumentException("$op isn't a drawing call; there are $CALLS")
+        else -> throw IllegalArgumentException("$op isn't a drawing call\nDrawing calls: ${CALLS.joinToString()}")
     }
 
     /** What was drawn since the last call, and forgets it. [tick] marks the answer to a tick. */
@@ -129,7 +129,7 @@ internal class ScreenDrawing(private val text: (String) -> String = { it }) {
 
     private fun spend(cells: Int) {
         spent += maxOf(cells, 1)
-        if (spent > budget) throw IllegalStateException("tty.screen: drew more than $BUDGET_SCREENS full screens in one call; draw less each time")
+        if (spent > budget) throw IllegalStateException("tty.screen: drew more than $BUDGET_SCREENS full screens in one call\nDraw less each time")
     }
 
     private fun record(vararg op: Int) {
@@ -166,7 +166,7 @@ internal class ScreenDrawing(private val text: (String) -> String = { it }) {
             null -> 0
             is String -> ScreenFrame.style(role(value), null, 0)
             is Map<*, *> -> options(value)
-            else -> throw error("the style is a color ($ROLES), or a table with $STYLE_KEYS")
+            else -> throw error("the style is a color or a table\nColors: $ROLES\nTable keys: $STYLE_KEYS")
         }
 
         private fun options(map: Map<*, *>): Int {
@@ -178,7 +178,7 @@ internal class ScreenDrawing(private val text: (String) -> String = { it }) {
                     "color" -> fg = role(v?.toString() ?: continue)
                     "bg" -> bg = role(v?.toString() ?: continue)
                     in ScreenFrame.FLAGS -> if (v == true) flags = flags or ScreenFrame.FLAGS.getValue(key)
-                    else -> throw error("no style '$key'; there are $STYLE_KEYS")
+                    else -> throw error("no style '$key'\nStyles: $STYLE_KEYS")
                 }
             }
             return ScreenFrame.style(fg, bg, flags)

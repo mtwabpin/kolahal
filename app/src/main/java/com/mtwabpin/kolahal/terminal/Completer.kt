@@ -483,6 +483,24 @@ class Completer(private val context: Context, private val data: Data) {
         return emptyList()
     }
 
+    /** The shaders that can be a wallpaper, read off the main thread once for each version of the shader files. */
+    private val wallpapersRead = ReadAtVersion<List<String>>()
+
+    /** What `wallpaper shader` offers ([com.mtwabpin.kolahal.shader.WallpaperChoice.suits]): none until it is read. */
+    private fun wallpaperShaders(): List<String> {
+        val version = Shaders.version.value
+        wallpapersRead.get(version, "wallpaper")?.let { return it }
+        loadSoon("wallpaper-shaders") {
+            wallpapersRead.put(version, "wallpaper", Shaders.names.filter { name ->
+                runCatching {
+                    Shaders.source(context, name)?.let(com.mtwabpin.kolahal.shader.ShaderMeta::parse)
+                        ?.let(com.mtwabpin.kolahal.shader.WallpaperChoice::suits)
+                }.getOrNull() == true
+            })
+        }
+        return emptyList()
+    }
+
     /**
      * The values a shader's parameter can follow, and the list of scripts ([Data.scripts]) they were read
      * for: a new list reads them again.
@@ -620,18 +638,18 @@ class Completer(private val context: Context, private val data: Data) {
                 4 if parts[1] == "every" -> words(INTERVALS - "off")
                 else -> emptyList()
             }
-            // `usage-summary month <app>`: after the period, the apps of the personal profile too.
-            "usage-summary" if parts.size >= 3 && parts[1].lowercase() in setOf(
-                "week",
-                "month",
-                "year"
-            ) ->
+            // `usage month <app>`: after the period, the apps of the personal profile too.
+            "usage" if parts.size >= 3 && parts[1].lowercase() in com.mtwabpin.kolahal.terminal.commands.UsageWords.LEVELS ->
                 appCompletions(
                     "$head ${parts[1].lowercase()}",
                     parts.drop(2).joinToString(" ")
                 ) { it.profile.kind == ProfileKind.PERSONAL }
-            // `usage <app>`: a name gets the apps of the personal profile, whose use Android gives Kolahal.
-            "usage" if arg.isNotEmpty() && arg.trim().toIntOrNull() == null -> appCompletions(
+            // `usage <app>`: a name gets the words it starts, then the apps of the personal profile, whose
+            // use Android gives Kolahal. `usage week` still offers Weekly.
+            "usage" if arg.isNotEmpty() && arg.trim().toIntOrNull() == null -> usageWords(
+                head,
+                parts
+            ) + appCompletions(
                 head,
                 arg
             ) { it.profile.kind == ProfileKind.PERSONAL }
@@ -649,7 +667,7 @@ class Completer(private val context: Context, private val data: Data) {
                             "week",
                             "month"
                         )
-                    ) else emptyList()) else emptyList()
+                    ) else usageWords(head, parts)) else emptyList()
 
             "installs", "calls" -> if (parts.size == 2) listOf("20", "50", "200")
                 .filter { it.starts(last) }
@@ -812,6 +830,12 @@ class Completer(private val context: Context, private val data: Data) {
                     )
                 }
 
+            // `wallpaper shader d`: the shaders that can be a wallpaper. `wallpaper m`: the usage line's words.
+            "wallpaper" -> if (parts.size == 3 && parts[1].lowercase() == "shader") {
+                wallpaperShaders().filter { it.starts(last) }
+                    .map { Suggestion.Completion(it, "$head shader $it", icon = R.drawable.ic_palette) }
+            } else emptyList()
+
             "theme" -> Keys.THEME.choices.filter { it.starts(arg) }
                 .map { Suggestion.Completion(it, "$head $it", icon = R.drawable.ic_palette) }
             // `cal dec`: offer the month names.
@@ -843,6 +867,9 @@ class Completer(private val context: Context, private val data: Data) {
             }
 
             "call", "sms", "contacts" -> contactSuggestions(cmd, head, parts)
+            // `allow <what>`: each access this build has, with what it is for.
+            "allow" -> if (parts.size == 2) com.mtwabpin.kolahal.commands.Accesses.let { it.matching(last, it.OFFERED) }
+                .map { Suggestion.Completion(it.word, "$head ${it.word}", help = "${it.title}: ${it.short}") } else emptyList()
             "edit" -> editSuggestions(head, arg)
             in CommandCatalog.PRODUCTIVITY -> productivitySuggestions(cmd, head, parts)
             // `log only …`: offer the kinds, then the sources of the log's lines.
@@ -902,6 +929,11 @@ class Completer(private val context: Context, private val data: Data) {
             appsRepo.search(arg.replace(FLAGS, "").trim(), includeHidden = includeHidden)
                 .filter { only == null || only(it) }.take(cap)
         )
+
+    /** `usage s`: the words of [com.mtwabpin.kolahal.terminal.commands.UsageWords.WORDS] that start with the second word, each with a few words on what it shows. */
+    private fun usageWords(head: String, parts: List<String>): List<Suggestion> =
+        if (parts.size != 2) emptyList() else com.mtwabpin.kolahal.terminal.commands.UsageWords.WORDS.filterKeys { it.starts(parts[1]) }
+            .map { (word, shows) -> Suggestion.Completion(word, "$head $word", help = shows) }
 
     /**
      * The text editor's recent files and those with unsaved text, and when they were read. The
@@ -1102,7 +1134,7 @@ class Completer(private val context: Context, private val data: Data) {
         if (!repo.picker && !repo.hasPermission()) return listOf(
             Suggestion.Completion(
                 "Allow contacts access",
-                "contacts --allow",
+                "allow contacts",
                 icon = R.drawable.ic_person
             )
         )
@@ -1219,7 +1251,7 @@ class Completer(private val context: Context, private val data: Data) {
                     R.drawable.ic_alarm
                 )
 
-                parts.size == 2 -> (listOf("rm", "exact", "every") + listOf(
+                parts.size == 2 -> (listOf("rm", "every") + listOf(
                     "10m",
                     "30m",
                     "1h",
@@ -1282,7 +1314,7 @@ class Completer(private val context: Context, private val data: Data) {
             "volume" to "sound loud quiet",
             "brightness" to "light dim",
             "data" to "mobile cellular",
-            "usage-summary" to "screen time month year history",
+            "usage" to "screen time month year history",
             "wifi" to "wireless network internet",
             "bt" to "bluetooth headphones",
             "=" to "math sum",
@@ -1293,7 +1325,7 @@ class Completer(private val context: Context, private val data: Data) {
             "matrix" to "screen rain",
             "pipes" to "screen",
             "sl" to "screen train locomotive",
-            "battery" to "power",
+            "allow" to "permission access grant usage notifications accessibility battery exact",
             "toggles" to "quick",
         )
 

@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Android's weeks, months and years as `usage-summary` reads them: real edges, the current one apart, no empty ones. */
+/** Android's weeks, months and years as `usage week`, `month` and `year` read them: real edges, the current one apart, no empty ones. */
 class UsageLevelsTest {
     private val hour = 3_600_000L
     private val own = "com.mtwabpin.kolahal"

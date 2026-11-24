@@ -41,7 +41,9 @@ class HelpCatalogTest {
             "status",
             "log",
             "apps",
-            "widgets",
+            "widget",
+            "usage",
+            "allow",
         )
         for (name in needed) {
             val spec = CommandCatalog.COMMANDS.first { it.name == name }

@@ -112,6 +112,20 @@ class LineModelTest {
         assertEquals(Ink.ERROR, w.ink)
     }
 
+    /**
+     * An error with line breaks: its first line is the error, in the error ink, and each line after it is a
+     * muted detail, as an info line's are. So what to do about it reads apart from what went wrong.
+     */
+    @Test
+    fun anErrorsLaterLinesAreDetails() {
+        val e = LogCorpus.error.entry.copy(text = "weather is turned off\nSettings → Commands turns it on\n\nIts name opens the app it matches")
+        val w = words(LogCorpus.Line("an error with what to do", e))
+        assertEquals(listOf("weather is turned off"), w.texts(Para.Role.TITLE))
+        assertEquals(listOf("Settings → Commands turns it on", "Its name opens the app it matches"), w.texts(Para.Role.DETAIL))
+        assertEquals(Ink.ERROR, w.ink)
+        assertTrue(w.paras.all { p -> p.pieces.all { it.ink == null } })
+    }
+
     /** Bold in a script's line is in the text ink; a tag and a color keep their own; a link is one target. */
     @Test
     fun aScriptLinesStyles() {

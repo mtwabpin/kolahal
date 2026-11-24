@@ -56,8 +56,8 @@ class UsageCommandsTest {
             "storage" to "Storage per app"
         )) {
             val denied = lines(typed).single()
-            assertEquals("$said needs usage access — tap to allow it", denied.text)
-            assertEquals("usage-access", denied.ctx.values[LogContext.RUN])
+            assertEquals("$said needs usage access\nTap to allow it", denied.text)
+            assertEquals("allow usage", denied.ctx.values[LogContext.RUN])
         }
     }
 
@@ -87,7 +87,7 @@ class UsageCommandsTest {
             val share = shown.firstOrNull { it.first.contains("% of 75.0 GB") }
             if (share != null) assertTrue(
                 share.first,
-                Regex("\\d+% of 75.0 GB · on pace for $size · \\d+ days? left").matches(share.first)
+                Regex("\\d+% of 75.0 GB\nOn pace for $size, \\d+ days? left").matches(share.first)
             )
         } finally {
             config.set(Keys.DATA_PLAN, plan.toString())
@@ -106,7 +106,7 @@ class UsageCommandsTest {
         assertTrue(texts[largest + 1], texts[largest + 1].startsWith("App\tSize\tCache"))
         assertTrue(
             texts.toString(),
-            texts.any { it == "Not opened for 30 days or more" || it == "Every app you can uninstall was opened in the last 30 days" })
+            texts.any { it == "Not opened for 30 days or more" || it == "No unused apps\nEvery app you can uninstall was opened in the last 30 days" })
         // An unused app's line stands for the app: a tap opens it, a long-press offers its actions.
         val unused = texts.indexOf("Not opened for 30 days or more")
         if (unused >= 0) {

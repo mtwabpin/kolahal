@@ -156,7 +156,7 @@ object CrashReports {
             val detail = r.summary.take(160) + if (r.inScriptProcess) " (script process)" else ""
             logs.add(
                 LogKind.ERROR,
-                "Kolahal $stopped ${whenText(context, r.time)} · tap to share the report\n$detail",
+                "Kolahal $stopped\n${whenText(context, r.time).replaceFirstChar(Char::uppercase)}\n$detail\nTap to share the report",
                 ctx = LogContext.of(LogContext.RUN to "crashes share ${r.id}"),
             )
         }

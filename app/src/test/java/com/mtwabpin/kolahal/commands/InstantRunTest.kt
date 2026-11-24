@@ -156,7 +156,7 @@ class InstantRunTest {
     /** What a script may not send through launcher.run, though a tap in the log runs a call. */
     @Test
     fun clearingTheFeedAndCallingAreSensitive() {
-        assertTrue(InstantRun.isSensitive("notifications-feed clear"))
+        assertTrue(InstantRun.isSensitive("notifications clear"))
         assertTrue("a script may not open the dialer", InstantRun.isSensitive("call mom"))
     }
 
@@ -287,7 +287,7 @@ class InstantRunTest {
         assertTrue(InstantRun.isSensitive("crashes clear"))
         // Opens the browser: typing `so` on the way to something else mustn't.
         assertTrue(InstantRun.isSensitive("source"))
-        assertTrue(InstantRun.isSensitive("wallpaper match --yes"))
+        assertTrue(InstantRun.isSensitive("wallpaper theme --yes"))
     }
 
     @Test
@@ -301,8 +301,8 @@ class InstantRunTest {
     fun shortcutsResumesPermissionsAndPanelsAreSensitive() {
         assertTrue(InstantRun.isSensitive("open phone:mom"))
         assertTrue(InstantRun.isSensitive("launch maps -w --resume"))
-        assertTrue(InstantRun.isSensitive("contacts --allow"))
-        assertTrue(InstantRun.isSensitive("calls --settings"))
+        assertTrue(InstantRun.isSensitive("allow contacts"))
+        assertTrue(InstantRun.isSensitive("allow"))
         assertTrue(InstantRun.isSensitive("wifi"))
         assertTrue(InstantRun.isSensitive("bluetooth"))
         assertTrue(InstantRun.isSensitive("info maps"))
@@ -325,8 +325,8 @@ class InstantRunTest {
             assertTrue(line, InstantRun.isSensitive(line))
         }
         for (line in listOf(
-            "contacts --allow|head",
-            "calls --settings|head",
+            "allow contacts|head",
+            "allow|head",
             "open maps -w --resume|head",
             "open phone:mom|head"
         )) {

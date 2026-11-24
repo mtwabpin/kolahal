@@ -29,7 +29,7 @@
         <exclude domain="sharedpref" path="media.xml" />
         <!-- The Play build's picked contacts: names and numbers stay on the phone. -->
         <exclude domain="sharedpref" path="picked_contacts.xml" />
-        <!-- wallpaper match's wallpaper id: another phone's same number is someone's own wallpaper. -->
+        <!-- wallpaper theme's wallpaper id: another phone's same number is someone's own wallpaper. -->
         <exclude domain="sharedpref" path="wallpaper_match.xml" />
         <!-- Saved notification icons: their names are the apps that notify you. -->
         <exclude domain="file" path="notif-icons/" />
@@ -51,7 +51,7 @@
         <exclude domain="database" path="androidx.work.workdb-journal" />
         <exclude domain="database" path="androidx.work.workdb-wal" />
         <exclude domain="database" path="androidx.work.workdb-shm" />
-        <!-- wallpaper match's wallpaper id: another phone's same number is someone's own wallpaper. -->
+        <!-- wallpaper theme's wallpaper id: another phone's same number is someone's own wallpaper. -->
         <exclude domain="sharedpref" path="wallpaper_match.xml" />
         <!-- Crash reports belong to this phone. -->
         <exclude domain="file" path="crash/" />

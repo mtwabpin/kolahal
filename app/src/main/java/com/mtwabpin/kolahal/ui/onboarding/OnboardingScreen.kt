@@ -78,7 +78,7 @@ internal enum class TourPage { WELCOME, TYPING, LOG, LOOK, KEYBOARD, SELECTOR, A
 
 /** The setup checks that the tour offers ([com.mtwabpin.kolahal.terminal.SetupCheck.fix]). Most people want these. */
 internal val TOUR_CHECKS =
-    listOf("home", "notifications", "notifs enable", "accessibility", "contacts --allow")
+    listOf("home", "allow send-notifications", "allow read-notifications", "allow lock", "allow contacts")
 
 /**
  * The tour (on first start, from `tour`, or from Settings → About → Tour).

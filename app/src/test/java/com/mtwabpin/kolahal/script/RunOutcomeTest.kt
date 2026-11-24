@@ -35,7 +35,7 @@ class RunOutcomeTest {
     @Test
     fun aSwitchThatIsOffSaysWhichWithATapToAllowIt() {
         val o = outcome(java.io.IOException("hn:3: internet is off for this script"), denied)
-        assertEquals("hn: internet is off for this script — tap to allow", o.line)
+        assertEquals("hn: internet is off for this script\nTap to allow it", o.line)
         assertEquals("stopped: internet off", o.status)
         assertEquals(mapOf(LogContext.RUN to "script allow hn internet"), o.extra)
     }
@@ -57,13 +57,31 @@ class RunOutcomeTest {
 
     @Test
     fun anErrorGivesItsFirstLineAndALineToEdit() {
-        val o = outcome(RuntimeException("\nbad value\nstack"), line = 12)
-        assertEquals("hn: bad value (tap to edit line 12)", o.line)
+        val message = "\nbad value\n    at main (hn.js:12)"
+        val o = outcome(RuntimeException(message), line = 12)
+        assertEquals("hn: bad value\nTap to edit line 12", o.line)
         assertEquals("error: bad value (line 12)", o.status)
         assertEquals(
-            mapOf(LogContext.COPY to "\nbad value\nstack", LogContext.LINE to "12"),
+            mapOf(LogContext.COPY to message, LogContext.LINE to "12"),
             o.extra
         )
+    }
+
+    /**
+     * An API error gives the reason and the fix on the lines under its first. They follow it, two
+     * at most, above the line to edit. A stack trace is left out. The status keeps the first line.
+     */
+    @Test
+    fun theLinesUnderAnErrorFollowIt() {
+        val o = outcome(
+            RuntimeException("hn:4: status: no option colour\nOptions: progress, color, refresh\nstack traceback: …"),
+            line = 4,
+        )
+        assertEquals("hn: status: no option colour\nOptions: progress, color, refresh\nTap to edit line 4", o.line)
+        assertEquals("error: status: no option colour (line 4)", o.status)
+        assertEquals("hn: a\nb\nc", outcome(RuntimeException("a\nb\nc\nd")).line)
+        assertEquals("hn: a\nb", outcome(RuntimeException("a\nb\n\nc")).line)
+        assertEquals("hn: a\nb", outcome(RuntimeException("a\nb\n    at f (hn.js:3)")).line)
     }
 
     /** A Lua error starts with where it happened. The line says the name once, and the line number at its end. */
@@ -71,13 +89,13 @@ class RunOutcomeTest {
     fun aLuaErrorSaysTheNameOnce() {
         val message = "hn:12: attempt to index a nil value\nstack traceback: …"
         val o = outcome(RuntimeException(message), line = 12)
-        assertEquals("hn: attempt to index a nil value (tap to edit line 12)", o.line)
+        assertEquals("hn: attempt to index a nil value\nTap to edit line 12", o.line)
         assertEquals("error: attempt to index a nil value (line 12)", o.status)
         // What is copied is the whole message, as Lua gave it.
         assertEquals(message, o.extra[LogContext.COPY])
         // An error thrown again has two places.
         assertEquals(
-            "hn: no stories (tap to edit line 40)",
+            "hn: no stories\nTap to edit line 40",
             outcome(RuntimeException("hn:40: hn:12: no stories"), line = 40).line
         )
         // Another script's place, or one inside the message, stays.

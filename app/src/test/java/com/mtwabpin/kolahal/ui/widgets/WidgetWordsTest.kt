@@ -1848,6 +1848,20 @@ class WidgetWordsTest {
         // A failed run: the log line opens the editor at the line. The card keeps the line's number.
         assertEquals(
             "weather: attempt to index a nil value (line 7)",
+            WidgetWords.cardError("weather: attempt to index a nil value\nTap to edit line 7")
+        )
+        assertEquals(
+            "weather: status: no option colour (line 7)",
+            WidgetWords.cardError("weather: status: no option colour\nOptions: progress, color\nTap to edit line 7")
+        )
+        // A switch that is off stopped the run: the log line allows it.
+        assertEquals(
+            "weather: internet is off for this script",
+            WidgetWords.cardError("weather: internet is off for this script\nTap to allow it")
+        )
+        // What an older version stored.
+        assertEquals(
+            "weather: attempt to index a nil value (line 7)",
             WidgetWords.cardError("weather: attempt to index a nil value (tap to edit line 7)")
         )
         // A switch that is off stopped the run: the log line allows it.

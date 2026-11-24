@@ -10,9 +10,9 @@
 --
 -- Its widget, once you placed it on the widgets page, shows your screen time a day over the months
 -- Android keeps (about 6), large, over a bar for each month, the oldest first: the same numbers as
--- the usage-summary month command. Android starts each month where the one before ended, not on
+-- the usage month command. Android starts each month where the one before ended, not on
 -- the 1st, so the dates are its own. A tap on it logs a row for each month.
--- It needs usage access for Kolahal (usage-access) and its own "Your app usage" switch.
+-- It needs usage access for Kolahal (allow usage) and its own "Your app usage" switch.
 
 -- What started this run: the widgets page ("widget"), a tap ("action"), or you (nil).
 local started = event and event.name
@@ -36,7 +36,7 @@ if s == nil then
     widget.show{ kind = "stat", title = "Screen time by month", icon = "timer", value = "–", label = "Needs usage access", tap = tap }
   end
   if started == nil or (args or {})[1] == "months" then
-    log("Screen time by month needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+    log("Screen time by month needs usage access", "Run allow usage, and turn on \"Your app usage\" on this script's sheet")
   end
   return
 end
@@ -55,7 +55,7 @@ if widget then
     local last = rows[#rows]
     widget.show{
       title = "Screen time by month", icon = "timer",
-      -- ≈: Android's own totals, about right, as usage-summary says.
+      -- ≈: Android's own totals, about right, as usage month says.
       value = "≈" .. duration(s.perDay),
       label = "A day · " .. #rows .. (#rows == 1 and " month" or " months"),
       points = points,

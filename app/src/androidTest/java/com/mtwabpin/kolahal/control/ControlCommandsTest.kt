@@ -130,8 +130,8 @@ class ControlCommandsTest {
         assertEquals(listOf("Ringer normal"), run("ring"))
         assertEquals(listOf("Ringer vibrate"), run("ring vibrate"))
         val asked = lines("ring silent").single()
-        assertEquals("ring silent needs Do Not Disturb access — tap to allow it", asked.text)
-        assertEquals("dnd access", asked.ctx.values[LogContext.RUN])
+        assertEquals("ring silent needs Do Not Disturb access\nTap to allow it", asked.text)
+        assertEquals("allow dnd", asked.ctx.values[LogContext.RUN])
         shell("cmd notification allow_dnd $pkg")
         assertEquals(listOf("Ringer silent"), run("ring silent"))
         assertEquals(listOf("Ringer normal"), run("ring normal"))
@@ -141,7 +141,7 @@ class ControlCommandsTest {
     @Test
     fun doNotDisturbEachWay() {
         shell("cmd notification disallow_dnd $pkg")
-        assertEquals("dnd needs Do Not Disturb access — tap to allow it", run("dnd on").single())
+        assertEquals("dnd needs Do Not Disturb access\nTap to allow it", run("dnd on").single())
         shell("cmd notification allow_dnd $pkg")
         dndOff()
         assertEquals(
@@ -174,7 +174,7 @@ class ControlCommandsTest {
             val said = lines("dnd off").single()
             assertEquals(LogKind.ERROR, said.kind)
             assertEquals(
-                "Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there",
+                "Do Not Disturb is still on\nIt was turned on outside Kolahal\nTurn it off there",
                 said.text
             )
             // Toggling from on tries off, and says the same.
@@ -201,8 +201,8 @@ class ControlCommandsTest {
             "screen-timeout 2m" to "screen-timeout"
         )) {
             val asked = lines(line).single()
-            assertEquals(line, "$what needs 'modify system settings' — tap to allow it", asked.text)
-            assertEquals("brightness access", asked.ctx.values[LogContext.RUN])
+            assertEquals(line, "$what needs 'modify system settings'\nTap to allow it", asked.text)
+            assertEquals("allow settings", asked.ctx.values[LogContext.RUN])
         }
         shell("appops set $pkg WRITE_SETTINGS allow")
         assertTrue(run("brightness 50").single().endsWith(" 50%"))
@@ -212,7 +212,7 @@ class ControlCommandsTest {
         )
         assertTrue(run("brightness auto").single().endsWith(" · auto"))
         assertEquals(
-            listOf("Usage: brightness [0-100|up|down|auto|access]"),
+            listOf("Usage: brightness [0-100|up|down|auto]"),
             run("brightness loud")
         )
         assertEquals(listOf("Auto-rotate on"), run("rotate on"))
@@ -254,10 +254,10 @@ class ControlCommandsTest {
             val asked = lines(line).single()
             assertEquals(
                 line,
-                "Media control needs notification access — tap to allow it",
+                "Media control needs notification access\nTap to allow it",
                 asked.text
             )
-            assertEquals("notifs enable", asked.ctx.values[LogContext.RUN])
+            assertEquals("allow read-notifications", asked.ctx.values[LogContext.RUN])
         }
         assertTrue(run("media loudly").single().startsWith("Usage: media"))
     }

@@ -31,8 +31,8 @@ Kolahal itself makes network requests in exactly five cases:
 2. **Feeds** you subscribe to: one request for each feed when it is due.
 3. **Currency conversion** with `= 100 usd in eur`: a request to open.er-api.com for the base
    currency. The result is cached for six hours.
-4. **Getting scripts and shaders**: when you open Get more scripts or Get more shaders, refresh it, or run `script get`,
-   `shader get` or `shader update`, Kolahal downloads the list of shared scripts and shaders from mtwabpin.github.io and from each
+4. **Getting scripts and shaders**: when you open Get more scripts or Get more shaders, refresh it, or run `script get`
+   or `shader get`, Kolahal downloads the list of shared scripts and shaders from mtwabpin.github.io and from each
    [source you added](/scripting/overview/#your-own-scripts-repository) (and keeps each for an hour).
    It also downloads the file of a script or shader you look at or install.
 5. **Updates**, in the full build only, and only when you run them. `update` asks GitHub for the
@@ -159,7 +159,7 @@ Permissions declared in the manifest:
 | `POST_NOTIFICATIONS` | notifications from scripts and feeds. Android 13 and newer asks for this when the app runs |
 | `REQUEST_DELETE_PACKAGES` | `uninstall` and the Uninstall action open Android's uninstall dialog |
 | `EXPAND_STATUS_BAR` | swiping down on the header (or `shade`) pulls down the notification shade |
-| `SET_WALLPAPER` | `wallpaper match` sets the home screen's wallpaper when you ask for it. It sets it again when the theme changes, if the wallpaper is still Kolahal's |
+| `SET_WALLPAPER` | `wallpaper theme` sets the home screen's wallpaper when you ask for it. It sets it again when the theme changes, if the wallpaper is still Kolahal's |
 | `PACKAGE_USAGE_STATS` | Usage Access, which you grant in Settings: accurate unlock counts, `usage` screen time, the screen time that [shaders can follow](/scripting/shaders/#values-to-follow) and `top` |
 | `ACCESS_NOTIFICATION_POLICY` | lists Kolahal on the Do Not Disturb access page, for `dnd`, `ring silent` and scripts with `@uses dnd`. You still have to grant it |
 | `WRITE_SETTINGS` | "Modify system settings", which you grant in Settings: `brightness`, `rotate`, `screen-timeout` |
@@ -199,7 +199,7 @@ These are off until you turn them on, usually from the [setup checklist](/gettin
 | Alarms & reminders (Android 12+) | `remind` and scripts' daily times run on the minute | up to an hour late; a script can't pause the work profile at night |
 | Unrestricted battery | timers and feeds run on time | Android may delay them |
 
-**Notification access.** Before Android's Notification access screen opens (from `notifs enable` or Setup), Kolahal explains
+**Notification access.** Before Android's Notification access screen opens (from `allow read-notifications` or Setup), Kolahal explains
 what it reads and why. It opens the screen only if you tap **Allow**.
 
 Notification text that Kolahal reads stays on the device:

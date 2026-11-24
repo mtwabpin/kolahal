@@ -93,7 +93,7 @@ class RunLogTest {
         log.flush()
         assertEquals(HostApi.MAX_LINES_PER_RUN + 1, written.size)
         val note = written.last()
-        assertEquals("More than 500 lines in one run: the rest aren't logged", note.text)
+        assertEquals("More than 500 lines in one run\nThe rest aren't logged", note.text)
         assertEquals(LogKind.INFO, note.kind)
         assertEquals(LogContext(base), note.ctx)
     }
@@ -109,7 +109,7 @@ class RunLogTest {
         log.flush()
         assertEquals(4, written.size)
         assertEquals(
-            "More than 256K characters in one run: the rest aren't logged",
+            "More than 256K characters in one run\nThe rest aren't logged",
             written.last().text
         )
     }
@@ -236,7 +236,7 @@ class RunLogTest {
         set(n, "late")
         log.flush()
         assertEquals(
-            "More than 256K characters in one run: the rest aren't logged",
+            "More than 256K characters in one run\nThe rest aren't logged",
             written.last().text
         )
         assertEquals(5, written.size)

@@ -28,7 +28,7 @@
     <!-- Device controls: dnd / ring silent (user grants DND access), Wi-Fi state for 'toggles'. -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <!-- `wallpaper match`: only once asked, only the home screen's, and only while it's the one Kolahal set. -->
+    <!-- `wallpaper theme`: only once asked, only the home screen's, and only while it's the one Kolahal set. -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <!-- brightness / rotate / screen-timeout (user allows "Modify system settings"). -->
     <uses-permission
@@ -48,7 +48,7 @@
         <intent>
             <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
         </intent>
-        <!-- Other home apps: usage and usage-summary count their time, and can name them. -->
+        <!-- Other home apps: usage counts their time, and can name them. -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />

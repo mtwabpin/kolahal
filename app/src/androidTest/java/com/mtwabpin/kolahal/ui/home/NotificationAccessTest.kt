@@ -47,14 +47,14 @@ class NotificationAccessTest {
         assertEquals(true, answer)
     }
 
-    /** `notifs enable` with access off asks before anything opens; Not now leaves a line to ask again. */
+    /** `allow read-notifications` with access off asks before anything opens; Not now leaves a line to ask again. */
     @Test
     fun notifsEnableAsksFirst() {
         access.set(false)
         val vm = vms.terminal(app)
         val logs = LogRepository.get(app)
         val before = logs.recent(1).lastOrNull()?.id ?: 0
-        compose.runOnUiThread { vm.runCommand("notifs enable") }
+        compose.runOnUiThread { vm.runCommand("allow read-notifications") }
         compose.waitUntil(5_000) { vm.notificationAccessAsk.value }
         compose.runOnUiThread { vm.answerNotificationAccess(false) }
         assertFalse(vm.notificationAccessAsk.value)

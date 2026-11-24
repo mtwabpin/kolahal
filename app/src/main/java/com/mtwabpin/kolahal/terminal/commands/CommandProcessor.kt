@@ -52,7 +52,6 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val people = PeopleCommands(context, ui)
     private val appCommands = AppCommands(context, ::background)
     private val usageCommands by lazy { UsageCommands(context) }
-    private val usageSummary by lazy { UsageSummaryCommands(context) }
     private val feedCommands = FeedCommands(context, appCommands, ui)
     private val editCommands = EditCommands(context, ui)
     private val shaderCommands by lazy { ShaderCommands(context, ui, ::background) }
@@ -62,6 +61,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val webCommands = WebCommands(context)
     private val logCommands = LogCommands(context, ui)
     private val systemCommands = SystemCommands(context, ui, ::background)
+    private val allowCommands = AllowCommands(context, ui)
 
     /** Runs [block] outside the command's thread. What it prints still counts as the command's output. */
     private fun background(label: String, block: () -> Unit) {
@@ -147,7 +147,6 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "unalias" -> aliasCommands.unalias(args)
                 in AppCommands.NAMES -> appCommands.run(name, args)
                 in UsageCommands.NAMES -> usageCommands.run(name, args)
-                in UsageSummaryCommands.NAMES -> usageSummary.run(args)
                 // `data` alone opens the mobile data panel; `data today` and `data month` show the data each app used.
                 "data" if args.isNotEmpty() -> usageCommands.run(name, args)
                 "help", "?" -> if (args.isEmpty()) helpCommands.help() else helpCommands.commandHelp(args.first())
@@ -180,7 +179,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "update" -> if (com.mtwabpin.kolahal.BuildConfig.SELF_UPDATE) {
                     UpdateCommands(context, ::background).run(args)
                 } else {
-                    error("This build updates through Google Play, so update isn't available")
+                    error("'update' isn't available in this build\nIt updates through Google Play")
                 }
 
                 "rss" -> feedCommands.rss(rest)
@@ -189,8 +188,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 )
 
                 "feed" -> feedCommands.feeds(args)
-                "widgets", "widget" -> systemCommands.widgets(args)
-                "notifs", "notifications-feed" -> feedCommands.notifs(args)
+                "widgets", "widget" -> systemCommands.widgets(name, args)
+                "notifs", "notifications" -> feedCommands.notifs(args)
                 "url", "web" -> webCommands.openUrl(rest)
                 "source" -> webCommands.openUrl(com.mtwabpin.kolahal.Links.SOURCE)
                 "wallpaper" -> systemCommands.wallpaper(args)
@@ -213,24 +212,20 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "call", "dial" -> people.call(rest)
                 "sms", "text" -> people.sms(args)
                 "contacts", "contact" -> people.listContacts(rest)
-                "notifications" -> systemCommands.notifications(args)
                 "crashes" -> logCommands.crashes(args)
                 "setup" -> if (args.firstOrNull() == "text") systemCommands.setupText() else ui.openScreen(Screen.SETUP)
                 "tour" -> ui.openScreen(Screen.ONBOARDING)
                 "status" -> scriptCommands.status(args)
-                "usage-access" -> startActivity(com.mtwabpin.kolahal.usage.UsageAccess.intent())
-                "battery" -> startSettings(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                "allow" -> allowCommands.run(args)
                 "settings", "prefs" -> ui.openScreen(Screen.SETTINGS)
                 "system" -> startSettings(Settings.ACTION_SETTINGS)
                 "home" -> startSettings(Settings.ACTION_HOME_SETTINGS)
-                "lock", "accessibility" -> if (!com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {
-                    error("This build has no accessibility service, so it can't lock the screen")
-                } else if (name == "accessibility") {
-                    startActivity(com.mtwabpin.kolahal.gesture.LockService.settingsIntent())
+                "lock" -> if (!com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {
+                    error(AllowCommands.NO_LOCK)
                 } else if (!com.mtwabpin.kolahal.gesture.LockService.lock()) {
                     fix(
-                        "Locking needs the Kolahal screen lock accessibility service — tap to allow it",
-                        "accessibility"
+                        "Locking needs an accessibility service\nTap to allow Kolahal screen lock",
+                        "allow lock"
                     )
                 }
 
@@ -297,7 +292,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             conf[Keys.LAUNCH_TOP] && ranked[0].second <= 2 -> appCommands.launch(matches[0])
             else -> {
                 appCommands.appGrid(matches.take(12))
-                info("${matches.size} matches — tap one to launch")
+                info("${matches.size} matches\nTap one to launch it")
             }
         }
     }
@@ -318,20 +313,20 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 head,
                 off
             )
-        ) return error("Command not found: $text  (${InstantRun.canonical(head)} is turned off · Settings → Commands)")
+        ) return error("Command not found: $text\n${InstantRun.canonical(head)} is turned off in Settings → Commands")
         val tty = tty()
         val candidates = TtyCommands.offeredNames(tty) - off + prefs.aliases().keys +
                 scripts.all().filter { ScriptMeta.isCommand(it.code) && TtyCommands.offersScript(it.code, tty) }.map { it.name }
         val best = CommandParsing.nearest(head, candidates)
         if (best == null) {
-            error("Command not found: $text  (try 'help')")
+            error("Command not found: $text\n'help' lists the commands", LogContext.of(LogContext.COPY to "help"))
         } else {
             val corrected = "$best $rest".trim()
             logs.add(
                 LogKind.ERROR,
-                "Command not found: $head — did you mean '$corrected'? (tap to put it in the prompt)",
+                "Command not found: $head\nDid you mean '$corrected'?\nTap to put it in the prompt",
                 // The trailing space marks it as a line to fill in, not to run, whatever launch.instant says.
-                ctx = LogContext.of(LogContext.COMMAND to "$corrected "),
+                ctx = LogContext.of(LogContext.COMMAND to "$corrected ", LogContext.COPY to corrected),
             )
         }
     }

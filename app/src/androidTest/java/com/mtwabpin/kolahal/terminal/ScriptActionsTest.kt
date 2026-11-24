@@ -114,7 +114,7 @@ class ScriptActionsTest {
         assertTrue(now(s).enabled)
         assertTrue(now(s).grants.allows("clipboard"))
         assertTrue(list.value.single { it.name == "sa-one" }.enabled)
-        val ask = newLines().single { it.text == "sa-one needs KEY (Your key) — tap to set it" }
+        val ask = newLines().single { it.text == "sa-one needs KEY\nYour key\nTap to set it" }
         assertEquals("script secret sa-one KEY", ask.ctx.values[LogContext.RUN])
 
         actions.setScriptEnabled(now(s), false)
@@ -179,8 +179,9 @@ class ScriptActionsTest {
         assertEquals("sa line", status.get("sa-one"))
         assertFalse(now(s).grants.allows(ScriptAccess.HEADER))
         val said = newLines().single { it.text.startsWith("sa-one: unpinned") }
-        assertEquals("sa-one: unpinned — 'script pin sa-one' pins it again", said.text)
+        assertEquals("sa-one: unpinned\n'script pin sa-one' pins it again", said.text)
         assertEquals("sa-one", said.ctx.values[LogContext.SCRIPT])
+        assertEquals("script pin sa-one", said.ctx.values[LogContext.COPY])
     }
 
     /** Notifications on asks for Android's permission; off doesn't. */
@@ -209,7 +210,7 @@ class ScriptActionsTest {
         assertEquals(ScriptScheduler.MIN_INTERVAL_MIN, on.intervalMin)
         assertTrue(on.enabled)
         assertFalse(on.grants.allows("clipboard"))
-        val ask = newLines().single { it.text == "sa-one requests clipboard — tap to allow" }
+        val ask = newLines().single { it.text == "sa-one requests clipboard\nTap to allow" }
         assertEquals("script allow sa-one clipboard", ask.ctx.values[LogContext.RUN])
         waitUntil("its timer is set") { work(s).any { !it.isFinished } }
 
@@ -231,7 +232,7 @@ class ScriptActionsTest {
         assertEquals(listOf("07:05", "21:15"), now(s).atTimes)
         assertTrue(now(s).enabled)
         assertFalse(now(s).grants.allows("apps"))
-        assertTrue(newLines().any { it.text == "sa-one requests apps — tap to allow" })
+        assertTrue(newLines().any { it.text == "sa-one requests apps\nTap to allow" })
         // "off" takes them away, as `script at <name> off` does.
         assertTrue(actions.setScriptTimes(s, "off"))
         assertTrue(now(s).atTimes.isEmpty())
@@ -278,7 +279,7 @@ class ScriptActionsTest {
         actions.renameScript(renamed, "Bad Name")
         assertEquals(
             RecordingHost.Notice(
-                "Script names: lowercase letters, digits, - and _, up to 40",
+                "Invalid script name\nUse lowercase letters, digits, - and _, up to 40",
                 true
             ), host.lastNotice()
         )
@@ -360,8 +361,8 @@ class ScriptActionsTest {
         )
         assertEquals(
             RecordingHost.Notice(
-                "Added sa-imp.lua · updated sa-upd.lua · off until you turn them on (script on <name>) · " +
-                        "skipped notes.txt (not .lua / .js), help.lua ('help' is a built-in command)",
+                "Added sa-imp.lua\nUpdated sa-upd.lua\nOff until you turn them on with 'script on <name>'\n" +
+                        "Skipped notes.txt (not .lua / .js), help.lua ('help' is a built-in command)",
                 false,
             ),
             host.lastNotice(),
@@ -484,7 +485,7 @@ class ScriptActionsTest {
         )
         actions.installFromLibrary(entries.single { it.name == "countdown" })
         assertEquals(
-            RecordingHost.Notice("Installed countdown.lua — run it as 'countdown'", false),
+            RecordingHost.Notice("Installed countdown.lua\nRun it as 'countdown'", false),
             host.lastNotice()
         )
         actions.installFromLibrary(entries.single { it.name == "charge-reminder" })
@@ -582,7 +583,7 @@ class ScriptActionsTest {
 
         actions.installSharedScript(entry)
         assertEquals(
-            RecordingHost.Notice("Installed sa-shared.lua — run it as 'sa-shared'", false),
+            RecordingHost.Notice("Installed sa-shared.lua\nRun it as 'sa-shared'", false),
             host.lastNotice()
         )
         assertTrue(repo.byName("sa-shared")!!.enabled)

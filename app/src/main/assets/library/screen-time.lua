@@ -12,7 +12,7 @@
 -- for each day, the oldest first. The days are those Android has usage data for, so on a phone
 -- that keeps less than a week there are fewer bars. A tap on it logs the apps you used most today.
 -- Run by hand (script run screen-time), it logs them too.
--- It needs usage access for Kolahal (usage-access) and its own "Your app usage" switch.
+-- It needs usage access for Kolahal (allow usage) and its own "Your app usage" switch.
 
 -- What started this run: the widgets page ("widget"), a tap ("action"), or you (nil).
 local started = event and event.name
@@ -34,7 +34,7 @@ if today == nil or days == nil then
       tap = { args = "today", page = "log", label = "Show what to do" } }
   end
   if started == nil or (args or {})[1] == "today" then
-    log("Screen time needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+    log("Screen time needs usage access", "Run allow usage, and turn on \"Your app usage\" on this script's sheet")
   end
   return
 end

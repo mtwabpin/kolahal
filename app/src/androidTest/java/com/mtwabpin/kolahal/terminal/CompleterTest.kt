@@ -159,8 +159,8 @@ class CompleterTest {
         // Used lately: first among the commands that start alike.
         history = listOf("note buy milk")
         assertEquals("note", lines("no").first())
-        history = listOf("notifications")
-        assertEquals("notifications", lines("no").first())
+        history = listOf("notifs")
+        assertEquals("notifs", lines("no").first())
     }
 
     @Test
@@ -177,6 +177,57 @@ class CompleterTest {
             lines("crashes ").containsAll(listOf("crashes share", "crashes clear"))
         )
         assertTrue(lines("apps w").toString(), "apps work" in lines("apps w"))
+    }
+
+    /**
+     * `usage ` offers the days, then its words, each with what it shows beside it; a letter gives the
+     * words it starts, then the apps; after a level, the apps. `usage-summary` is no command.
+     */
+    @Test
+    fun usageOffersItsWordsThenApps() {
+        val words = listOf("usage summary", "usage week", "usage month", "usage year", "usage full")
+        val rows = completer.suggestions("usage ").filterIsInstance<Suggestion.Completion>()
+        assertTrue(rows.toString(), "usage 7" in rows.map { it.replacement.trim() })
+        val offered = rows.filter { it.replacement.trim() in words }
+        assertEquals(words, offered.map { it.replacement.trim() })
+        assertTrue(offered.toString(), offered.all { !it.help.isNullOrBlank() })
+        assertEquals("usage month", lines("usage mo").first())
+        val app = apps.apps.value.first { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
+        val after = lines("usage month ${app.label.take(3)}")
+        assertTrue(after.toString(), "usage month ${app.label}" in after)
+        for (typed in listOf("usage", "usage-", "usage-s")) {
+            assertTrue(labels(typed).toString(), labels(typed).none { it.contains("usage-summary") })
+        }
+        assertTrue(lines("usage-summary ").toString(), lines("usage-summary ").isEmpty())
+    }
+
+    /** An app whose name starts like a word is still offered: `usage week` offers Weekly. */
+    @Test
+    fun usageWeekStillOffersWeekly() {
+        val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
+        val app = apps.apps.value.first { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
+        try {
+            prefs.setLabel(app.key, "Weekly")
+            apps.refresh()
+            eventually(5_000) { apps.apps.value.any { it.key == app.key && it.label == "Weekly" } }
+            assertTrue(lines("usage week").toString(), "usage Weekly" in lines("usage week"))
+            assertTrue(lines("usage wee").toString(), lines("usage wee").containsAll(listOf("usage week", "usage Weekly")))
+            assertTrue(lines("usage week wee").toString(), "usage week Weekly" in lines("usage week wee"))
+        } finally {
+            prefs.setLabel(app.key, null)
+            apps.refresh()
+        }
+    }
+
+    /** `widget ` offers its three subcommands; `widgets` alone opens a screen, so it offers none, as `scripts`. */
+    @Test
+    fun widgetOffersItsSubcommands() {
+        assertTrue(
+            lines("widget ").toString(),
+            lines("widget ").containsAll(listOf("widget add", "widget ls", "widget page"))
+        )
+        assertTrue(lines("widgets ").toString(), lines("widgets ").none { it.startsWith("widgets ") })
+        assertTrue(lines("scripts ").toString(), lines("scripts ").none { it.startsWith("scripts ") })
     }
 
     /** `[days]` or `[n]` in a usage line is a value to type, not a word to offer. */
@@ -625,6 +676,30 @@ class CompleterReviewTest {
         )
     }
 
+    /**
+     * `allow ` offers each access this build has, with what it is for, so the two about notifications read
+     * apart; `allow notif` finds both, by the second half of their words. The commands that asked for an
+     * access themselves offer that no more.
+     */
+    @Test
+    fun allowOffersEachAccess() {
+        val offered = com.mtwabpin.kolahal.commands.Accesses.OFFERED
+        val rows = rows("allow ")
+        assertEquals(offered.map { "allow ${it.word}" }, rows.map { it.replacement.trim() }.filter { it.startsWith("allow ") }.take(offered.size))
+        val notif = rows("allow notif").associate { it.label to it.help }
+        assertEquals(setOf("send-notifications", "read-notifications"), notif.keys)
+        assertTrue(notif.toString(), notif.getValue("send-notifications")!!.startsWith("Notifications: send"))
+        assertTrue(notif.toString(), notif.getValue("read-notifications")!!.startsWith("Notification access: read"))
+        assertEquals(listOf("read-notifications"), rows("allow read").map { it.label })
+        for ((typed, gone) in listOf(
+            "dnd " to "dnd access",
+            "brightness " to "brightness access",
+            "notifs " to "notifs enable",
+            "agenda -" to "agenda --allow",
+            "calls -" to "calls --allow",
+        )) assertFalse(lines(typed).toString(), gone in lines(typed))
+    }
+
     @Test
     fun valuesAfterAnId() {
         assertTrue(
@@ -644,7 +719,8 @@ class CompleterReviewTest {
                 )
             )
         )
-        assertTrue(lines("remind ").toString(), "remind exact" in lines("remind "))
+        assertTrue(lines("remind ").toString(), "remind every" in lines("remind "))
+        assertFalse(lines("remind ").toString(), "remind exact" in lines("remind "))
         assertTrue(
             labels("agenda ").toString(),
             labels("agenda ").containsAll(listOf("today", "3 days"))

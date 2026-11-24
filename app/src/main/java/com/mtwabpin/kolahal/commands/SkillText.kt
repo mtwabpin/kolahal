@@ -22,5 +22,5 @@ object SkillText {
 
     /** The log line after a copy of [chars] characters: what was copied, its length, what to do next. */
     fun copied(chars: Int): String =
-        "Copied $NAME (${String.format(Locale.ROOT, "%,d", chars)} characters) · paste it into an AI assistant and say what to build"
+        "Copied $NAME (${String.format(Locale.ROOT, "%,d", chars)} characters)\nPaste it into an AI assistant and say what to build"
 }

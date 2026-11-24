@@ -131,11 +131,10 @@ class ProductivityCommandsTest {
         assertEquals(listOf("Usage: todo done <n>"), run("todo done"))
         assertEquals(listOf("Usage: todo rm <n>"), run("todo rm"))
         assertEquals(listOf("Usage: todo edit <n> <new text>"), run("todo edit #${t.id}"))
-        assertEquals(
-            listOf("No todo '#999999' — 'todo' lists them with numbers"),
-            run("todo done #999999")
-        )
-        assertEquals(listOf("No todo 'x' — 'todo' lists them with numbers"), run("todo remove x"))
+        val none = commands.lines("todo done #999999").single()
+        assertEquals("No todo '#999999'\n'todo' lists them with numbers", none.text)
+        assertEquals("todo", none.ctx.copy)
+        assertEquals(listOf("No todo 'x'\n'todo' lists them with numbers"), run("todo remove x"))
         assertEquals(t, todo("pctest bread"))
     }
 
@@ -153,16 +152,15 @@ class ProductivityCommandsTest {
     fun notesRemoveByIdAndUsage() {
         run("note pctest plan")
         val n = notes.all().single { it.text == "pctest plan" }
+        val usage = commands.lines("notes rm").single()
+        assertEquals("Usage: notes rm <n>\n'notes' lists them with numbers", usage.text)
+        assertEquals("notes", usage.ctx.copy)
         assertEquals(
-            listOf("Usage: notes rm <n> — 'notes' lists them with numbers"),
-            run("notes rm")
-        )
-        assertEquals(
-            listOf("Usage: notes rm <n> — 'notes' lists them with numbers"),
+            listOf("Usage: notes rm <n>\n'notes' lists them with numbers"),
             run("notes rm #999999")
         )
         assertEquals(
-            listOf("Usage: notes [grep <text>|rm <n>] · note <text> adds one"),
+            listOf("Usage: notes [grep <text>|rm <n>]\n'note <text>' adds one"),
             run("notes bogus")
         )
         assertEquals(listOf("No note contains 'pctest-nowhere'"), run("notes grep pctest-nowhere"))
@@ -179,16 +177,15 @@ class ProductivityCommandsTest {
         assertEquals(listed, run("remind ls"))
         assertTrue(listed.toString(), listed.any { it.endsWith(". pctest tea") })
         assertEquals(
-            "Tap puts 'remind rm' in the prompt · long-press → Cancel reminder",
+            "Tap one to put 'remind rm' in the prompt\nOr long-press it → Cancel reminder",
             listed.last()
         )
 
+        val usage = commands.lines("remind rm #999999").single()
+        assertEquals("Usage: remind rm <n>\n'reminders' lists them with numbers", usage.text)
+        assertEquals("reminders", usage.ctx.copy)
         assertEquals(
-            listOf("Usage: remind rm <n> — 'reminders' lists them with numbers"),
-            run("remind rm #999999")
-        )
-        assertEquals(
-            listOf("Usage: remind every <day|weekday|weekend|mon,thu|month 1st|year dec 3> [at] [time] <text>"),
+            listOf("Usage: remind every <when> [time] <text>\nWhen: day, weekday, weekend, mon,thu, month 1st or year dec 3\n'at' may come before the time"),
             run("remind every sometimes pctest x"),
         )
         assertEquals(
@@ -209,8 +206,7 @@ class ProductivityCommandsTest {
             val said = run("remind $day 10:00 pctest dentist")
             assertTrue(
                 said.toString(),
-                said.first().startsWith("Reminder set for $label (in ") && said.first()
-                    .endsWith("): pctest dentist")
+                said.first().startsWith("Reminder set: pctest dentist\n$label, in ")
             )
             assertEquals(
                 said.toString(),
@@ -227,10 +223,10 @@ class ProductivityCommandsTest {
         }
     }
 
-    /** `remind exact` opens Android's page for exact alarms when Kolahal may not set them yet, and says so when it may. */
+    /** `allow alarms` opens Android's page for exact alarms when Kolahal may not set them yet, and says so when it may. */
     @Test
-    fun remindExactOpensTheAlarmsPage() {
-        val said = run("remind exact")
+    fun allowAlarmsOpensTheAlarmsPage() {
+        val said = run("allow alarms")
         if (ReminderScheduler.canBeExact(context)) {
             assertEquals(listOf("Exact alarms are already allowed"), said)
             assertEquals(emptyList<Intent>(), opened.toList())
@@ -291,7 +287,7 @@ class ProductivityCommandsTest {
         assertEquals(emptyList<String>(), run("alarm"))
         assertEquals(emptyList<String>(), run("alarms"))
         assertEquals(
-            listOf("Opened the clock app (Android can't open its stopwatch directly)"),
+            listOf("Opened the clock app\nAndroid can't open its stopwatch directly"),
             run("stopwatch")
         )
         assertEquals(
@@ -309,20 +305,27 @@ class ProductivityCommandsTest {
      */
     @Test
     fun agendaListsTheNextDays() {
+        // Another test may have answered no already in this process.
+        AllowCommands.answered(com.mtwabpin.kolahal.commands.Accesses.CALENDAR, granted = true)
         if (!Agenda.hasPermission(context)) {
-            assertEquals(listOf("Agenda needs calendar access — tap to allow"), run("agenda"))
-            assertEquals("agenda --allow", logs.recent(1).single().ctx.values[LogContext.RUN])
-            assertEquals(emptyList<String>(), run("agenda --allow"))
+            assertEquals(listOf("Agenda needs calendar access\nTap to allow it"), run("agenda"))
+            assertEquals("allow calendar", logs.recent(1).single().ctx.values[LogContext.RUN])
+            assertEquals(emptyList<String>(), run("allow calendar"))
             assertEquals(1, calendarAsked)
+            // Android said no: a tap on the line that says so opens Kolahal's page in Android's settings.
+            AllowCommands.answered(com.mtwabpin.kolahal.commands.Accesses.CALENDAR, granted = false)
+            assertEquals(emptyList<String>(), run("allow calendar"))
+            assertEquals(1, calendarAsked)
+            with(opened.single()) {
+                assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, action)
+                assertEquals("package:${context.packageName}", dataString)
+            }
+            opened.clear()
             // As the app asks for it. Not taken back after: Android stops an app whose permission is revoked.
             shell("pm grant ${context.packageName} android.permission.READ_CALENDAR")
         }
-        assertEquals(listOf("Calendar is allowed"), run("agenda --allow"))
-        assertEquals(emptyList<String>(), run("agenda --settings"))
-        with(opened.single()) {
-            assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, action)
-            assertEquals("package:${context.packageName}", dataString)
-        }
+        assertEquals(listOf("Calendar is allowed"), run("allow calendar"))
+        assertEquals(emptyList<Intent>(), opened.toList())
 
         config.set(Keys.CLOCK_24H, "on")
         // A calendar an aborted run left would be found first, its events with it.

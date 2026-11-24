@@ -98,7 +98,7 @@ class EditCommandTest {
         val said = commands.lines("edit kolahal-test-no-such-file.txt").single()
         assertEquals(LogKind.ERROR, said.kind)
         assertEquals(
-            "No recent file 'kolahal-test-no-such-file.txt' — tap to pick a file",
+            "No recent file 'kolahal-test-no-such-file.txt'\nTap to pick a file",
             said.text
         )
         assertEquals("edit", said.ctx.values[LogContext.RUN])

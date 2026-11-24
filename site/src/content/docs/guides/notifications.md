@@ -10,7 +10,7 @@ Kolahal works with notifications in two separate ways:
 
 ## Notifications in the log
 
-Grant access with `notifs enable` or **setup → Notification access**. After that, new
+Grant access with `allow read-notifications` or **setup → Notification access**. After that, new
 notifications appear in the log as `title — text`. The line ends with the app's status-bar icon, dimmed.
 
 - If the icon isn't saved, the line ends with the app's name instead, for example `· Mail`.
@@ -58,11 +58,11 @@ While Kolahal has access, scripts can read recent notifications with
 
 ## Notifications from scripts and feeds
 
-To allow Kolahal to post notifications, run `notifications`:
+To allow Kolahal to post notifications, run `allow send-notifications`:
 
 - On Android 13 and newer, it asks for the permission.
-- On older versions, it opens Kolahal's notification settings.
-- `notifications settings` always opens these settings.
+- On older versions, after you said no, or with Kolahal's notifications turned off, it opens
+  Kolahal's notification settings.
 
 Then:
 

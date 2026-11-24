@@ -124,7 +124,7 @@ private class MessengerLink(private val context: Context, private val request: S
                 runCatching {
                     val ctx = LogContext.of(LogContext.SCRIPT to script) +
                             request.from?.let { mapOf(LogContext.FROM to it.toString()) }.orEmpty()
-                    LogRepository.get(context).add(LogKind.ERROR, "$script: $LOST", script, ctx)
+                    LogRepository.get(context).add(LogKind.ERROR, "$script: $CLOSED", script, ctx)
                     val scripts = ScriptRepository.get(context)
                     scripts.byName(script)?.let { scripts.recordRun(it.id, "stopped: $LOST") }
                 }
@@ -190,6 +190,10 @@ private class MessengerLink(private val context: Context, private val request: S
     private companion object {
         /** How long the process is kept for the run's end. */
         const val LINGER_MS = 5_000L
+        /** Why a run ended, as the script's last run records it. */
         const val LOST = "its screen closed, because the script process stopped"
+
+        /** The same in the log, after the script's name. */
+        const val CLOSED = "its screen closed\nThe script process stopped"
     }
 }

@@ -68,8 +68,11 @@ class HomeScramble internal constructor(
     }
 
     companion object {
-        const val ON = "Scramble on: home shows no real text · 'scramble off' shows it again"
-        const val ALREADY_ON = "Scramble is on · 'scramble off' turns it off"
+        const val ON = "Scramble on: home shows no real text\n'scramble off' turns it off"
+        const val ALREADY_ON = "Scramble is on\n'scramble off' turns it off"
+
+        /** What Copy gives on the lines [ON] and [ALREADY_ON]: the command they name. */
+        const val COPY = "scramble off"
         const val OFF = "Scramble off"
         const val ALREADY_OFF = "Scramble is off"
         const val NOT_KEPT = "Scramble is off: it could not be saved"

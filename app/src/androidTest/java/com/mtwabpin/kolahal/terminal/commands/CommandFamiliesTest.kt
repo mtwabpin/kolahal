@@ -222,7 +222,7 @@ class CommandFamiliesTest {
             assertEquals(asked.toString(), 3, asked.size)
             assertTrue(
                 asked[0],
-                asked[0].startsWith("Not set yet, as tomorrow ") && asked[0].endsWith(" is before 6 AM: cptest tickets")
+                asked[0].startsWith("Not set yet: cptest tickets\nTomorrow ") && asked[0].endsWith(" is before 6 AM")
             )
             assertTrue(asked[1], asked[1].startsWith("Tap to set it for tomorrow "))
             assertTrue(
@@ -232,13 +232,13 @@ class CommandFamiliesTest {
             assertEquals(emptyList<Any>(), mine())
 
             // Either reading, and tapped twice it's still one reminder.
-            assertTrue(tap("Tap to set it").first().startsWith("Reminder set for tomorrow "))
+            assertTrue(tap("Tap to set it").first().startsWith("Reminder set: cptest tickets\nTomorrow "))
             assertEquals("cptest tickets", mine().single().text)
             assertEquals(java.time.LocalTime.of(2, 0), time(mine().single()))
             assertEquals(listOf("Already set: cptest tickets"), tap("Tap to set it"))
             assertEquals(1, mine().size)
             cancelAll()
-            assertTrue(tap("Or tap to set it").first().startsWith("Reminder set for tomorrow "))
+            assertTrue(tap("Or tap to set it").first().startsWith("Reminder set: 2 cptest tickets\nTomorrow "))
             assertEquals("2 cptest tickets", mine().single().text)
             assertEquals(java.time.LocalTime.of(9, 0), time(mine().single()))
             cancelAll()
@@ -255,7 +255,9 @@ class CommandFamiliesTest {
                 )
             }
             assertEquals(emptyList<Any>(), mine())
-            assertTrue(tap("Tap to set it").first().contains("then every day: cptest pills"))
+            tap("Tap to set it").first().let {
+                assertTrue(it, it.startsWith("Reminder set: cptest pills\n") && it.endsWith(", then every day"))
+            }
             assertEquals("day", mine().single().repeat)
             assertEquals(listOf("Already set: cptest pills"), tap("Tap to set it"))
             cancelAll()
@@ -271,7 +273,7 @@ class CommandFamiliesTest {
             )) {
                 assertTrue(
                     typed,
-                    run("remind $typed cptest x").first().startsWith("Reminder set for")
+                    run("remind $typed cptest x").first().startsWith("Reminder set: cptest x\n")
                 )
                 assertEquals(typed, 1, mine().size)
                 cancelAll()
@@ -287,10 +289,10 @@ class CommandFamiliesTest {
         val store = com.mtwabpin.kolahal.productivity.ReminderStore.get(context)
         fun mine() = store.all().filter { it.text == "cptest pills" }
         try {
-            assertTrue(
-                run("remind every day 8:00 cptest pills").first()
-                    .contains("then every day: cptest pills")
-            )
+            // The reminder's text on the first line, when it comes and that it repeats under it.
+            val set = run("remind every day 8:00 cptest pills").first()
+            assertTrue(set, set.startsWith("Reminder set: cptest pills\n"))
+            assertTrue(set, set.endsWith(", then every day"))
             val r = mine().single()
             assertEquals("day", r.repeat)
             assertEquals("08:00", r.time)
@@ -433,41 +435,55 @@ class CommandFamiliesTest {
         WallpaperMatch.forget(context)
         try {
             assertTrue(
-                run("wallpaper").single().startsWith("Your home screen wallpaper is your own")
+                run("wallpaper").first().startsWith("Home screen wallpaper: your own\n")
             )
-            assertEquals(listOf("Usage: wallpaper [match]"), run("wallpaper bogus"))
+            assertEquals(listOf("Usage: wallpaper [theme|shader <name>|live]"), run("wallpaper bogus"))
 
             val before = wallpapers.getWallpaperId(system)
-            val asked = run("wallpaper match")
+            val asked = run("wallpaper theme")
             assertTrue(asked.toString(), asked.first().contains("can't restore the old one"))
             assertEquals("Tap to replace it", asked.last())
-            assertEquals("wallpaper match --yes", logs.recent(1).last().ctx.values[LogContext.RUN])
+            assertEquals("wallpaper theme --yes", logs.recent(1).last().ctx.values[LogContext.RUN])
             assertEquals("only asked so far", before, wallpapers.getWallpaperId(system))
 
             // Before home has shown a theme, the color isn't known: it refuses and paints nothing.
             WallpaperMatch.themeColor = null
             assertTrue(
-                run("wallpaper match --yes").single()
-                    .startsWith("Kolahal doesn't know the theme's color yet")
+                run("wallpaper theme --yes").single()
+                    .startsWith("The theme's color isn't known yet\n")
             )
             assertEquals("nothing painted", before, wallpapers.getWallpaperId(system))
             // Home applying a theme tells it the color, as MainActivity does.
             WallpaperMatch.follow(context, android.graphics.Color.rgb(0x29, 0x28, 0x28))
             assertTrue(
-                run("wallpaper match --yes").single().startsWith("Home screen wallpaper set")
+                run("wallpaper theme --yes").single().startsWith("Home screen wallpaper set\n")
             )
             assertNotEquals(before, wallpapers.getWallpaperId(system))
-            assertTrue(run("wallpaper").single().contains("follows the theme"))
+            // The lock screen keeps the wallpaper it had, which may have a line of its own after this one.
+            assertTrue(run("wallpaper").first().contains("follows the theme"))
             val ours = wallpapers.getWallpaperId(system)
             assertEquals(
-                listOf("Your home screen wallpaper already follows the theme"),
-                run("wallpaper match")
+                listOf("Your wallpaper already follows the theme"),
+                run("wallpaper theme")
             )
             assertEquals(ours, wallpapers.getWallpaperId(system))
         } finally {
             WallpaperMatch.forget(context)
             wallpapers.clear(system or WallpaperManager.FLAG_LOCK)
         }
+    }
+
+    /** `wallpaper shader` refuses what can't be a wallpaper, as `shader wallpaper` did; `shader wallpaper` is no command. */
+    @Test
+    fun wallpaperShaderRefuses() {
+        assertEquals(listOf("Usage: wallpaper [theme|shader <name>|live]"), run("wallpaper shader"))
+        assertEquals(listOf("No shader 'zz-none'\n'shader' lists them"), run("wallpaper shader zz-none"))
+        if (android.os.Build.VERSION.SDK_INT >= com.mtwabpin.kolahal.shader.Shaders.MIN_SDK) {
+            assertEquals(listOf("Shader hearts can't be used\nHearts is a one-off: it plays once"), run("wallpaper shader hearts"))
+            assertEquals(listOf("Shader crt can't be used\nCrt works on text, and a wallpaper has none"), run("wallpaper shader crt"))
+        }
+        assertEquals(listOf("No shader 'wallpaper'\n'shader' lists them"), run("shader wallpaper pond"))
+        assertEquals("shader", logs.recent(1).last().ctx.values[LogContext.COPY])
     }
 
     /**

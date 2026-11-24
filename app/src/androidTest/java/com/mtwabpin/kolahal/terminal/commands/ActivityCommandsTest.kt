@@ -73,7 +73,7 @@ class ActivityCommandsTest {
         val summary = lines.last()
         val items = lines.dropLast(1)
         assertEquals(LogKind.INFO, summary.kind)
-        assertEquals("${items.size} activities in Settings · tap one to open it", summary.text)
+        assertEquals("${items.size} activities in Settings\nTap one to open it", summary.text)
         assertTrue("${items.size} activities", items.size > 10)
 
         // The same activities as Android reports: exported, enabled, no permission.
@@ -148,7 +148,7 @@ class ActivityCommandsTest {
         val summary = lines.last()
         assertTrue(
             summary.text,
-            Regex("\\d+ activities in Settings match 'wifi' · tap one to open it").matches(summary.text)
+            Regex("\\d+ activities in Settings match 'wifi'\nTap one to open it").matches(summary.text)
         )
         val items = lines.dropLast(1)
         assertTrue(items.size >= 2)
@@ -159,16 +159,16 @@ class ActivityCommandsTest {
     fun saysWhatWentWrong() {
         settings()
         assertEquals(listOf("No app matches 'zzqqxx'"), run("activity zzqqxx").map { it.text })
+        val none = run("activity settings zzqqxx").single()
+        assertEquals("Settings has no activity matching 'zzqqxx'\n'activity Settings' lists them", none.text)
+        assertEquals("activity Settings", none.ctx.copy)
         assertEquals(
-            listOf("Settings has no activity matching 'zzqqxx' · 'activity Settings' lists them"),
-            run("activity settings zzqqxx").map { it.text })
-        assertEquals(
-            listOf("activity works only with apps in the personal profile"),
+            listOf("activity works only with personal apps"),
             run("activity settings -w").map { it.text })
         assertEquals(listOf("Usage: activity <app> [<name>]"), run("activity").map { it.text })
         // An activity that is gone, and one that other apps may not open: a clear line, no crash.
         val gone = ActivityCommands.start(context, SETTINGS, "$SETTINGS.NoSuchActivity", "Nothing")
-        assertEquals("Can't open Nothing: the app no longer has it", gone)
+        assertEquals("Can't open Nothing\nThe app no longer has it", gone)
         @Suppress("DEPRECATION")
         val private = context.packageManager.getPackageInfo(
             SETTINGS,
@@ -177,7 +177,7 @@ class ActivityCommandsTest {
             .firstOrNull { !it.exported }
         assertNotNull(private)
         assertEquals(
-            "Can't open Hidden: the app doesn't let other apps open it",
+            "Can't open Hidden\nThe app doesn't let other apps open it",
             ActivityCommands.start(context, SETTINGS, private!!.name, "Hidden")
         )
     }

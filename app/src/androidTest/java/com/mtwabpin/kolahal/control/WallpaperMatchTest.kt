@@ -31,7 +31,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.abs
 
-/** `wallpaper match`: the wallpaper follows the theme, but only while it's still the one Kolahal set. */
+/** `wallpaper theme`: the wallpaper follows the theme, but only while it's still the one Kolahal set. */
 @RunWith(AndroidJUnit4::class)
 class WallpaperMatchTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

@@ -205,11 +205,11 @@ class SkillTextTest {
     @Test
     fun theLineSaysWhatWasCopiedAndWhatToDo() {
         assertEquals(
-            "Copied skill.md (12,400 characters) · paste it into an AI assistant and say what to build",
+            "Copied skill.md (12,400 characters)\nPaste it into an AI assistant and say what to build",
             SkillText.copied(12_400)
         )
         assertEquals(
-            "Copied skill.md (812 characters) · paste it into an AI assistant and say what to build",
+            "Copied skill.md (812 characters)\nPaste it into an AI assistant and say what to build",
             SkillText.copied(812)
         )
     }

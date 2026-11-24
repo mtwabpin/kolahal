@@ -728,7 +728,7 @@ class LogLineActionsTest {
         home.scriptList = listOf(s)
         val error = line(
             LogKind.ERROR,
-            "$SCRIPT: boom (tap to edit line 4)",
+            "$SCRIPT: boom\nTap to edit line 4",
             LogContext.SCRIPT to SCRIPT,
             LogContext.LINE to "4",
             source = SCRIPT

@@ -91,7 +91,7 @@ class ShaderGiveTest {
         assertEquals("0.25", given()["giver.rainamount"])
         // Not on the line: the error names it as the line would.
         val e = assertThrows(IllegalStateException::class.java) { host(s).shaderGive("snowAmount", 1) }
-        assertEquals("shader.give: add `@gives snowamount` at the top of the script", e.message)
+        assertEquals("shader.give needs `@gives snowamount`\nAdd it at the top of the script", e.message)
     }
 
     @Test

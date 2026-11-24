@@ -15,7 +15,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import androidx.core.net.toUri
 import com.mtwabpin.kolahal.control.ControlArgs
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.data.LogContext
@@ -73,7 +72,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun needMediaAccess(): Boolean {
         if (media.hasAccess()) return false
-        fix("Media control needs notification access — tap to allow it", "notifs enable")
+        fix("Media control needs notification access\nTap to allow it", "allow read-notifications")
         return true
     }
 
@@ -110,7 +109,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                 LogContext.DESC to "${np.app} · ${np.stateLabel}$time",
             ) + (if (pos >= 0 && np.duration > 0) LogContext.bar(pos.toDouble() / np.duration) else emptyMap()),
         )
-        info("Tap to ${if (np.playing) "pause" else "play"} · media next|prev|stop · mp toggles")
+        info("Tap the ♪ line to ${if (np.playing) "pause" else "play"}\n'media next', 'media prev' and 'media stop' skip or stop\n'mp' plays or pauses")
     }
 
     private fun mediaAction(action: MediaRepository.Action) {
@@ -263,7 +262,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun needPolicyAccess(what: String): Boolean {
         if (hasPolicyAccess()) return false
-        fix("$what needs Do Not Disturb access — tap to allow it", "dnd access")
+        fix("$what needs Do Not Disturb access\nTap to allow it", "allow dnd")
         return true
     }
 
@@ -286,7 +285,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         runCatching { audio.ringerMode = mode }
             .onSuccess { info("Ringer ${ringLabel()}") }
             .onFailure {
-                if (it is SecurityException) needPolicyAccess("Changing the ringer") else error(
+                if (it is SecurityException) needPolicyAccess("The ringer") else error(
                     "Ring: ${it.message}"
                 )
             }
@@ -301,10 +300,6 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     }
 
     private fun dnd(arg: String?) {
-        if (arg == "access") return open(
-            Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
-            "Do Not Disturb access"
-        )
         if (arg == "status") return out(
             "Do Not Disturb ${shown(dndLabel())}",
             LogContext.of(LogContext.RUN to "dnd")
@@ -324,7 +319,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             )
 
             com.mtwabpin.kolahal.control.Dnd.Result.STILL_ON -> error(
-                "Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there",
+                "Do Not Disturb is still on\nIt was turned on outside Kolahal\nTurn it off there",
                 again
             )
 
@@ -339,12 +334,9 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun needWrite(what: String): Boolean {
         if (canWrite()) return false
-        fix("$what needs 'modify system settings' — tap to allow it", "brightness access")
+        fix("$what needs 'modify system settings'\nTap to allow it", "allow settings")
         return true
     }
-
-    private fun writeSettingsIntent() =
-        Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, ("package:" + context.packageName).toUri())
 
     private val resolver get() = context.contentResolver
 
@@ -367,7 +359,6 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         "Brightness ${brightnessShort()}" to LogContext(LogContext.bar(brightnessPct() / 100.0))
 
     private fun brightness(arg: String?) {
-        if (arg == "access") return open(writeSettingsIntent(), "modify system settings")
         val level = ControlArgs.brightness(arg)
         if (arg != null && level == null) return usage("brightness")
         if (level != null) {
@@ -447,7 +438,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     private fun open(intent: Intent, what: String) {
         runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             .onSuccess { info("Opened $what") }
-            .onFailure { error("Can't open $what: ${it.reason()}") }
+            .onFailure { error("Can't open $what\n${it.reason()}") }
     }
 
     private fun wifiOn(): Boolean? = runCatching {
@@ -519,7 +510,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         row(
             "Do Not Disturb",
             dndLabel(),
-            if (policy) "dnd" else "dnd access",
+            if (policy) "dnd" else "allow dnd",
             if (policy) "Tap to toggle" else "Tap to grant access"
         )
         row(
@@ -541,13 +532,13 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         row(
             "Auto-rotate",
             if (rotationOn()) "on" else "off",
-            if (write) "rotate" else "brightness access",
+            if (write) "rotate" else "allow settings",
             if (write) "Tap to toggle" else "Tap to allow modifying system settings",
         )
         row(
             "Brightness",
             brightnessShort(),
-            if (write) "brightness auto" else "brightness access",
+            if (write) "brightness auto" else "allow settings",
             "Tap for auto · brightness <0-100>",
             LogContext.bar(brightnessPct() / 100.0)
         )

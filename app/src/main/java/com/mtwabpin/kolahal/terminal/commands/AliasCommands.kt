@@ -20,7 +20,7 @@ class AliasCommands(context: Context) : CommandGroup(context) {
         when (val request = Aliases.parse(rest, TtyCommands.reserved(HomeStyles.ttyNow(conf)))) {
             Aliases.Request.ShowAll -> {
                 val all = prefs.aliases()
-                if (all.isEmpty()) info("No aliases — e.g. alias m = open maps")
+                if (all.isEmpty()) info("No aliases\nFor example: alias m = open maps", LogContext.of(LogContext.COPY to "alias m = open maps"))
                 all.forEach { (k, v) -> out("$k = $v", LogContext.of(LogContext.COMMAND to k)) }
             }
 
@@ -28,7 +28,7 @@ class AliasCommands(context: Context) : CommandGroup(context) {
                 ?.let { out("${request.name} = $it") } ?: error("No alias '${request.name}'")
 
             Aliases.Request.Usage -> error("Usage: alias <name> = <command>")
-            is Aliases.Request.BuiltIn -> error("'${request.name}' is a built-in command and can't be an alias")
+            is Aliases.Request.BuiltIn -> error("'${request.name}' is a built-in command\nIt can't be an alias")
             is Aliases.Request.Define -> {
                 prefs.setAlias(request.name, request.expansion)
                 info("Alias ${request.name} = ${request.expansion}")

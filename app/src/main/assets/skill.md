@@ -29,11 +29,11 @@ Commands are typed at Kolahal's prompt.
 
 **A shader**, on the phone:
 
-1. `shader copy template-tint` makes a shader of yours from a template, called `my-tint` (the log line says the name; `my-tint-2` when taken).
+1. `shader save template-tint` makes a shader of yours from a template, called `my-tint` (the log line says the name; `my-tint-2` when taken).
 2. `shader edit my-tint`, replace all of the code, tap **Save**: it says **Saved · compiles**, or the compiler's error with its line.
-3. `shader my-tint` turns it on over home; `shader play my-tint` plays a one-off; `shader wallpaper my-tint` makes it the live wallpaper; `shader off` turns shaders off.
+3. `shader my-tint` turns it on over home; `shader play my-tint` plays a one-off; `wallpaper shader my-tint` makes it the live wallpaper; `shader off` turns shaders off.
 
-**A shader as a file**: save it as `<name>.agsl` (its name is the file name in lowercase; letters, digits, `-` and `_`; not a `shader` subcommand such as `list` or `edit`), then **Settings → Shaders → Add shader → Import a file**, or put it in the script folder's `shaders` folder and type `shader reload`. Then `shader <name>`. Shaders need Android 13 or newer.
+**A shader as a file**: save it as `<name>.agsl` (its name is the file name in lowercase; letters, digits, `-` and `_`; not a `shader` subcommand such as `ls` or `edit`), then **Settings → Shaders → Add shader → Import a file**, or put it in the script folder's `shaders` folder and type `shader reload`. Then `shader <name>`. Shaders need Android 13 or newer.
 
 ## Scripts
 
@@ -62,7 +62,7 @@ Header lines are comments at the top: `-- @name value` in Lua, `// @name value` 
 | `@uses <what>, …` | What it may use: see "What a script may use". A call without its item stops with an error. |
 | `@on <event>, …` | Runs on events: `unlock`, `charger`, `unplug`, `wifi`, `offline`, `notification`, `boot`, `headset`. |
 | `@every 1h` | Its timer: `15m` (the shortest, Android's limit), `2h`, `1d`, a number of minutes, or `off`; at most a week. Runs that go online wait for a network. |
-| `@at 07:30, 18:00` | Daily times, HH:mm. On the minute when Kolahal may set exact alarms (`remind exact`), else within the hour. |
+| `@at 07:30, 18:00` | Daily times, HH:mm. On the minute when Kolahal may set exact alarms (`allow alarms`), else within the hour. |
 | `@widget <kind> [<size>]` | It fills a card on the widgets page: see "Widgets". |
 | `@option <name> <default> <description>` | A setting the user changes without editing code, read as `options.<name>` (always text). |
 | `@secret <NAME> <site> <description>` | An API key the user sets on the phone, read with `secrets.get`, sent only to that site. |
@@ -220,17 +220,17 @@ Internet has no `@uses` line: a script whose code mentions `http`, `rss`, `url`,
 
 | `@uses` | Allows | Also needs |
 | --- | --- | --- |
-| `notifications` | `notifications.recent`, `@on notification` | notification access: `notifs enable` |
+| `notifications` | `notifications.recent`, `@on notification` | notification access: `allow read-notifications` |
 | `clipboard` | `clipboard.get`, `clipboard.set` | |
 | `apps` | `apps.list` | |
 | `commands` | `launcher.run` | |
-| `dnd` | `device.dnd`, `device.setDnd` | Do Not Disturb access: `dnd access` |
+| `dnd` | `device.dnd`, `device.setDnd` | Do Not Disturb access: `allow dnd` |
 | `todos` | `todos.list`, `todos.setDone` | |
 | `notes` | `notes.list` | |
 | `reminders` | `reminders.list` | |
-| `calendar` | `calendar.events` | the calendar permission: run `agenda` once |
+| `calendar` | `calendar.events` | the calendar permission: `allow calendar` |
 | `feeds` | `feeds.unread` | |
-| `usage` | `usage.today`, `usage.days`, `usage.data`, `usage.unused`, `usage.summary` | usage access: `usage-access` |
+| `usage` | `usage.today`, `usage.days`, `usage.data`, `usage.unused`, `usage.summary` | usage access: `allow usage` |
 | `screen` | `tty.screen` | |
 | `effects` | `shader.play` | |
 | `work` | `device.work`, `device.setWork` | a work profile |
@@ -398,7 +398,7 @@ uniform float shape;
 | `screen.h1` … `screen.h8` | each three hours of today from midnight, 0 to 1: how much the screen was on |
 | `<script>.<name>` | a value a script gives with `shader.give` (`weather.rain`) |
 
-Screen time and `away` need usage access (`usage-access`).
+Screen time and `away` need usage access (`allow usage`).
 
 ### Writing AGSL that compiles
 

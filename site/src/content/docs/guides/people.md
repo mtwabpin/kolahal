@@ -68,7 +68,7 @@ Missed call from +91 98765 43210 ✕
 More details:
 
 - `calls` lists the last 20 calls from Android's call log, newest first, with the day. `calls 50` lists more.
-- To turn this on, grant access with `calls --allow`, or with **Call log** in the [setup checklist](/getting-started/setup/).
+- To turn this on, grant access with `allow calls`, or with **Call log** in the [setup checklist](/getting-started/setup/).
   Calls from before you granted access are not added to the log.
-- To turn it off, remove the permission in Android's app settings (`calls --settings`).
+- To turn it off, remove the permission in Android's app settings (**Settings → Apps → Kolahal → Permissions**).
 - Calls made while the launcher wasn't running appear the next time it starts (only the newest 30).

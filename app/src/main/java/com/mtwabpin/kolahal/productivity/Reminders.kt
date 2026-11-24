@@ -170,7 +170,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     store.remove(id)
                     if (rule != null) LogRepository.get(context).add(
                         LogKind.ERROR,
-                        "Reminder '${r.text}' had an invalid repeat rule, so it won't repeat"
+                        "Reminder '${r.text}' won't repeat\nIts repeat rule is invalid"
                     )
                 } else {
                     // A reminder set before 0.4.12 keeps the time it fired at from now on, as if the user asked for it.

@@ -1063,24 +1063,30 @@ internal object WidgetWords {
     fun badgeLetter(title: String): String? =
         title.firstOrNull { it.isLetterOrDigit() }?.uppercase()
 
-    /** The end of a failed run's log line: a tap on that line opens the editor at the line. */
+    /** The last line of a failed run's log line: a tap on that line opens the editor at the line. */
+    private val EDIT_LINE = Regex("""Tap to edit line (\d+)""")
+
+    /** The end of a failed run's log line in an older version, which a card may still keep. */
     private val EDIT_TAIL = Regex("""\s*\(tap to edit line (\d+)\)$""")
 
-    /** The end of the log line of a run that a switch stopped: a tap on that line allows the item. */
+    /** The end of the log line of a run that a switch stopped, in an older version. */
     private const val ALLOW_TAIL = "— tap to allow"
 
     /**
      * A failed run's error as a card shows it: its first line ([firstLine]) without what only the
      * log line can do. The stored error is the log line's text, such as "weather: attempt to index
-     * a nil value (tap to edit line 7)". A tap on that line edits the script or allows an item. A
-     * tap on the card runs the script again, or opens the Scripts screen after a switch stopped
-     * the run, so the card promises no more.
-     * - "(tap to edit line 7)" at the end becomes "(line 7)".
-     * - "— tap to allow" at the end is left out.
+     * a nil value", then "Tap to edit line 7" on the last line. A tap on that line edits the script
+     * or allows an item. A tap on the card runs the script again, or opens the Scripts screen after
+     * a switch stopped the run, so the card promises no more.
+     * - "Tap to edit line 7" on the last line adds "(line 7)" to the first.
+     * - An error that an older version stored ends its first line in "(tap to edit line 7)",
+     *   which becomes "(line 7)", or in "— tap to allow", which is left out.
      */
     fun cardError(error: String?): String? {
         val line = firstLine(error) ?: return null
-        return line.replace(EDIT_TAIL) { " (line ${it.groupValues[1]})" }.removeSuffix(ALLOW_TAIL)
+        val edit = error.orEmpty().lines().drop(1).lastOrNull()?.trim()
+            ?.let { EDIT_LINE.matchEntire(it) }?.let { " (line ${it.groupValues[1]})" }.orEmpty()
+        return (line.replace(EDIT_TAIL) { " (line ${it.groupValues[1]})" }.removeSuffix(ALLOW_TAIL) + edit)
             .trim().ifEmpty { null }
     }
 

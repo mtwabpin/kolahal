@@ -94,7 +94,7 @@ More about reminders:
 - On Android 12 and later, you can turn off exact alarms for an app. If you do, Kolahal schedules reminders
   the normal way, and they may come late, by up to an hour. `remind` prints a line you can tap to allow
   exact alarms again.
-- If notifications are off, the reminder still shows up in the log. Run `notifications` to allow
+- If notifications are off, the reminder still shows up in the log. Run `allow send-notifications` to allow
   them.
 - In a reminder list, tap a line to put `remind rm …` in the prompt. Long-press it for
   **Cancel reminder**.

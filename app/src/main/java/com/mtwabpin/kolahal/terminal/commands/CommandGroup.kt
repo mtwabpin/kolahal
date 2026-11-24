@@ -33,7 +33,7 @@ abstract class CommandGroup(protected val context: Context) {
     protected fun usage(vararg names: String) =
         error("Usage: " + names.joinToString(" · ") { CommandCatalog.COMMAND_USAGES.getValue(it) })
 
-    /** Prints [text] as an error that a tap fixes: the tap runs [command] ("… needs usage access — tap to allow it"). */
+    /** Prints [text] as an error that a tap fixes: the tap runs [command] ("… needs usage access", and "Tap to allow it" under it). */
     protected fun fix(text: String, command: String) =
         error(text, LogContext.of(LogContext.RUN to command))
 

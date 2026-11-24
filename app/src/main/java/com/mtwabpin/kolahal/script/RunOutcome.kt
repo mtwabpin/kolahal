@@ -41,7 +41,9 @@ internal data class RunOutcome(
  * - [redact] masks what the message may quote (a URL, a header). [errorLine] finds the script's
  *   line in [error]. A REPL run has no line to edit.
  * - A Lua error starts with where it happened (`hn:12: bad value`). That start is left out: the
- *   line says the name once, and the line number at its end (`hn: bad value (tap to edit line 12)`).
+ *   line says the name once, and the line number under it (`hn: bad value`, then `Tap to edit line 12`).
+ * - The lines under the message's first line follow it, up to [MORE_LINES] of them: an API error
+ *   gives the reason and the fix there. Lua's and JavaScript's stack traces are left out.
  */
 internal fun runOutcome(
     name: String,
@@ -57,7 +59,7 @@ internal fun runOutcome(
         // A switch the user turned off stopped the run. Say which one, with a tap to allow it.
         val off = ScriptAccess.label(stop.item).lowercase()
         return RunOutcome(
-            "$name: $off is off for this script — tap to allow",
+            "$name: $off is off for this script\nTap to allow it",
             "stopped: $off off",
             mapOf(LogContext.RUN to "script allow $name ${stop.item}"),
             switchOff = true,
@@ -70,17 +72,23 @@ internal fun runOutcome(
     val first = message?.lines()?.firstOrNull { it.isNotBlank() }
     val msg = (first?.let { it.replace(position(name), "").ifBlank { it } }
         ?: error.javaClass.simpleName).take(ScriptRepository.STATUS_MAX)
+    val more = message?.lines()?.dropWhile { it.isBlank() }?.drop(1)
+        ?.takeWhile { it.isNotBlank() && !it.first().isWhitespace() && !it.startsWith("stack traceback") }
+        ?.take(MORE_LINES)?.map { it.take(ScriptRepository.STATUS_MAX) }.orEmpty()
     val line = if (repl) null else errorLine(error)
     val extra = buildMap {
         put(LogContext.COPY, message ?: msg)
         line?.let { put(LogContext.LINE, it.toString()) }
     }
     return RunOutcome(
-        "$name: $msg" + (line?.let { " (tap to edit line $it)" } ?: ""),
+        "$name: $msg" + more.joinToString("") { "\n$it" } + (line?.let { "\nTap to edit line $it" } ?: ""),
         "error: $msg" + (line?.let { " (line $it)" } ?: ""),
         extra,
     )
 }
+
+/** How many lines under its first line an error's log line keeps ([runOutcome]). */
+private const val MORE_LINES = 2
 
 /**
  * Where a Lua error of the script [name] happened, at the start of its message: `hn:12: `. A

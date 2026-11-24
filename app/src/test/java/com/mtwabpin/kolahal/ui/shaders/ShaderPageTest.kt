@@ -83,7 +83,7 @@ class ShaderPageTest {
     fun theWallpaperWarning() {
         fun warning(suits: String, shows: Int) =
             ShaderActions.wallpaperWarning(ShaderMeta.parse("// @name Pond\n// @suits $suits\nuniform shader content;"), "pond", shows)
-        assertEquals("Pond doesn't work well with a wallpaper, and yours shows at 40%", warning("wallpaper poor", 40))
+        assertEquals("Pond doesn't work well with a wallpaper\nYours shows at 40%", warning("wallpaper poor", 40))
         assertNull(warning("wallpaper poor", ShaderSuits.WALLPAPER_SHOWS))
         assertNull(warning("wallpaper poor", 0))
         assertNull(warning("wallpaper fair", 40))

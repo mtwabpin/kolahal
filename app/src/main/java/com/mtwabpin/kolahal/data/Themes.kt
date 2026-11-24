@@ -41,7 +41,7 @@ object MaterialYou {
 
     /** What the `theme` command says after it sets the Material You theme [name] on a phone that isn't [supported]. */
     fun note(name: String) =
-        "$name takes its colors from the wallpaper on Android 12 and newer. This phone has an older Android, so it shows Material's standard colors"
+        "$name uses Material's standard colors\nIt takes its colors from the wallpaper on Android 12 and newer\nThis phone has an older Android"
 }
 
 /**

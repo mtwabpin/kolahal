@@ -297,7 +297,7 @@ class ScreenSessionTest {
             run(session, script)
             fail("expected an error")
         } catch (e: IllegalStateException) {
-            assertTrue(e.message, "its frames took over 50 ms, 3 in a row" in e.message.orEmpty())
+            assertTrue(e.message, "Its frames took over 50 ms, 3 in a row" in e.message.orEmpty())
         }
         // The screen was closed with home told; the script had no last word after an error.
         assertEquals(1, ended)
@@ -312,7 +312,7 @@ class ScreenSessionTest {
             run(session, script)
             fail("expected an error")
         } catch (e: IllegalStateException) {
-            assertEquals("tty.screen: key took over 1 s, so it closed", e.message)
+            assertEquals("tty.screen closed\nkey took over 1 s", e.message)
         }
         assertEquals(1, ended)
     }
@@ -371,14 +371,14 @@ class ScreenSessionTest {
     /** A Lua table with no functions, or no fields, arrives as an empty map. */
     @Test
     fun theSpecReadsEmptyTables() {
-        assertEquals("tty.screen needs start or frame, or it has nothing to show", specError(mapOf("names" to emptyMap<Any, Any>(), "functions" to emptyMap<Any, Any>())))
-        assertEquals("tty.screen needs start or frame, or it has nothing to show", specError(null))
+        assertEquals("tty.screen needs start or frame\nWithout them it has nothing to show", specError(mapOf("names" to emptyMap<Any, Any>(), "functions" to emptyMap<Any, Any>())))
+        assertEquals("tty.screen needs start or frame\nWithout them it has nothing to show", specError(null))
     }
 
     @Test
     fun theSpecSaysWhatIsWrong() {
         assertEquals(
-            "tty.screen: no function frames; there are start, frame, key, tap, resize, stop",
+            "tty.screen: no function frames\nFunctions: start, frame, key, tap, resize, stop",
             specError(spec("frame", "frames", functions = listOf("frame", "frames")))
         )
         assertEquals("tty.screen: frame must be a function", specError(spec("frame", functions = emptyList())))

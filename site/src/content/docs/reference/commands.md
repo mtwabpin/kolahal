@@ -32,7 +32,7 @@ How to read the usage:
 | `pins` | `favs` | show a grid of pinned apps |
 | `rename <app> = <name>` | | give an app your own label; `rename <app> =` restores the original |
 | `usage [<days> \| <app>]` | `screentime` | screen time for each app (1–30 days), or one app in detail: today by hour and its last 7 days (needs Usage Access) |
-| `usage-summary [week \| month \| year \| full] [<app>]` | | screen time over Android's weeks, months and years: alone, a line for each with its time a day; `full` shows all; with an app after `week`, `month` or `year`, that app alone (needs Usage Access) |
+| `usage [summary \| week \| month \| year \| full] [<app>]` | `screentime` | screen time over Android's weeks, months and years: `summary`, a line for each with its time a day; `full` shows all; with an app after `week`, `month` or `year`, that app alone. A word is the word only on its own or before an app: `usage weekly` is the app Weekly (needs Usage Access) |
 | `storage` | | free space, the largest apps with their cache, and apps not opened for 30 days (needs Usage Access) |
 | `installs [<n>]` | `updates` | recent app installs, updates and uninstalls |
 
@@ -43,7 +43,7 @@ How to read the usage:
 | `call <name\|number>` | `dial` | call a contact or number (in the Play build, without a name it opens the contact picker) |
 | `sms <name\|number> [<text>]` | `text` | start a text message (in the Play build, without a name it opens the contact picker) |
 | `contacts [<query>]` | `contact` | find contacts (without a query, shows favorites). In the Play build, pick a contact, or use `--forget <name>` |
-| `calls [<n>]` | | recent incoming, outgoing and missed calls (20 by default; `calls --allow` asks for call log access) |
+| `calls [<n>]` | | recent incoming, outgoing and missed calls (20 by default; `allow calls` asks for call log access) |
 
 ## Web
 
@@ -62,7 +62,7 @@ How to read the usage:
 | --- | --- | --- |
 | `feed [add <url>\|ls\|rm\|fetch\|read\|all\|open\|notify\|every\|on\|off] [<id>]` | `feeds` | RSS/Atom subscriptions with unread counts |
 | `rss <url>` | | fetch a feed into the log once |
-| `notifs [all\|enable\|mute <app>\|unmute <app>\|muted\|log [on\|off]\|clear]` | `notifications-feed` | your notifications in the terminal |
+| `notifs [all\|mute <app>\|unmute <app>\|muted\|log [on\|off]\|clear]` | `notifications` | your notifications in the terminal (needs notification access: `allow read-notifications`) |
 
 `feed` subcommands:
 
@@ -86,7 +86,6 @@ How to read the usage:
 
 - `notifs`: active notifications
 - `notifs all`: all notifications, including dismissed ones
-- `notifs enable`: open the notification access settings
 - `notifs mute <app>`, `notifs unmute <app>`, `notifs muted`
 - `notifs log on|off`
 - `notifs clear`: dismiss all
@@ -104,8 +103,8 @@ See [Media and device controls](/guides/media-and-controls/).
 | `torch [on\|off]` | | flashlight (with no argument, it toggles) |
 | `volume [0-100\|up\|down\|mute\|unmute]` | `vol` | media volume |
 | `ring [normal\|vibrate\|silent]` | | ringer mode (`silent` needs Do Not Disturb access) |
-| `dnd [on\|off\|alarms\|none\|status\|access]` | | Do Not Disturb (with no argument, it toggles; `access` opens the permission page) |
-| `brightness [0-100\|up\|down\|auto\|access]` | | screen brightness (needs Modify system settings; `access` opens the permission page) |
+| `dnd [on\|off\|alarms\|none\|status]` | | Do Not Disturb (with no argument, it toggles; needs Do Not Disturb access: `allow dnd`) |
+| `brightness [0-100\|up\|down\|auto]` | | screen brightness (needs Modify system settings: `allow settings`) |
 | `rotate [on\|off\|status]` | | auto-rotate (with no argument, it toggles; needs Modify system settings) |
 | `screen-timeout [15s\|30s\|1m\|…]` | | screen timeout (needs Modify system settings) |
 | `wifi` | | Wi-Fi panel |
@@ -132,12 +131,10 @@ See [Productivity](/guides/productivity/), and [Text editor](/guides/text-editor
 | `edit <file>` | | open one of those by its name, or by the start of its name |
 | `remind <when> <text>` | | set a reminder: `10m`, `2h`, `1h30m`, `18:30`, `6pm`, `tomorrow 9:00`, `fri 8am`, `dec 3 10:00`. Repeating: `every day 8:00`, `every weekday`, `every mon,thu 19:00`, `every month 1st`, `every year mar 14`. A time before 6 AM asks you to confirm; `remind --yes <when> <text>` doesn't ask |
 | `reminders` / `remind rm <n>` | | list pending reminders / cancel one |
-| `remind exact` | | allow exact alarms, so reminders go off on time |
 | `timer <5m\|1h30m\|25> [<label>]` | | start a timer in the clock app (with no arguments, show timers) |
 | `alarm <HH:MM\|7am> [<label>]` | | set an alarm in the clock app (with no arguments, show alarms) |
 | `alarms` / `stopwatch` | | open the clock app |
-| `agenda [<days>]` | | upcoming calendar events (3 days by default, up to 31); tap one to open it |
-| `agenda --allow` / `agenda --settings` | | ask for calendar access / open Kolahal's app settings |
+| `agenda [<days>]` | | upcoming calendar events (3 days by default, up to 31); tap one to open it. `allow calendar` asks for calendar access |
 
 ## Scripts
 
@@ -200,11 +197,34 @@ Script names can use lowercase letters, digits, `-` and `_` (up to 40 characters
 | `alias [name = command]` | | list or define aliases |
 | `unalias <name>` | | remove an alias |
 | `config [ls\|set\|get\|reset] <key> <v>` | `set` | settings (with no arguments, opens the settings screen) |
-| `theme <name>` | | `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`; each has a [dark and a light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colors from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
-| `font [<name>\|import\|sans [off\|prompt\|all]]` | | terminal font: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom`. With no arguments, lists them (tap one to use it). `import` picks a .ttf/.otf file. `sans prompt` uses the system font for the prompt, and `sans all` for everything (`font.sans`) |
 | `echo <text>` | | print text |
 | `date [<place>...]` | `time` | current date and time. With places, shows the time in each place and how far ahead or behind it is. A place can be a city (`tokyo`, `new york`), a zone (`Asia/Tokyo`), `utc`, or an offset like `+5:30` |
 | `cal [<month>] [<year>]` | | show the month as a calendar, with today in bold: `cal`, `cal dec`, `cal dec 2027`, `cal 2027-12` |
+
+## Look
+
+How home looks: its colors, its font, what is drawn over it and what is behind it. See
+[Themes and settings](/guides/themes-and-settings/) and [Shaders](/scripting/shaders/).
+
+| Usage | Aliases | Description |
+| --- | --- | --- |
+| `theme <name>` | | `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`; each has a [dark and a light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colors from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
+| `font [<name>\|import\|sans [off\|prompt\|all]]` | | terminal font: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom`. With no arguments, lists them (tap one to use it). `import` picks a .ttf/.otf file. `sans prompt` uses the system font for the prompt, and `sans all` for everything (`font.sans`) |
+| `shader [<name>\|ls\|on\|off]` | | a [shader](/scripting/shaders/) over home and the screens, on Android 13 and newer: `crt`, `paper`, `aurora` and others, or one of yours. Alone, it lists them. `off` always works |
+| `shader set <name> <parameter> <value>` · `shader reset <name>` | | change a shader's [parameters](/scripting/shaders/#parameters), such as the amount of snow, and reset them |
+| `shader follow <name> <parameter> <value>` · `shader values` | | let a parameter [follow a value](/scripting/shaders/#values-to-follow), such as `battery` or one a script gives; `values` lists them |
+| `shader play <name>` · `shader words <name> <words>` | | play a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, once over home; `words` plays it when a notification has one of them |
+| `shader get [<name>]` · `shader get --update` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them and marks those with a newer version, or installs or updates one; `--update` updates every one you installed |
+| `shader check\|save\|rm <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
+| `shader edit <name>` | | open a shader's code in the [editor](/scripting/shaders/#editing-one); one that comes with Kolahal becomes yours when you save it |
+| `wallpaper` | | says what the home screen wallpaper is: yours, the theme's color or a shader, and the lock screen's when it differs. Then it lists what the wallpaper can become, each as a line to tap |
+| `wallpaper theme` | | a plain wallpaper in your theme's color, so your wallpaper doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change. **Settings → Look & feel → Wallpaper** has it too, with a shader and Android's list beside it. See the [FAQ](/reference/faq/#what-wallpaper-theme-does) |
+| `wallpaper shader <name>` | | open Android's own preview with a shader as your [live wallpaper](/scripting/shaders/#as-a-live-wallpaper), to set it for the home screen, the lock screen or both |
+| `wallpaper live` | | open Android's own list of live wallpapers, for a phone whose wallpaper settings don't link to it |
+
+With `shader crt` (or [another, or one of yours](/scripting/shaders/)), the phone's
+graphics chip draws an effect over home and the screens, on Android 13 and newer. `shader off` turns it off.
+They are in **Settings → Shaders** too.
 
 ## Widgets
 
@@ -212,10 +232,10 @@ See [Widgets](/guides/widgets/).
 
 | Usage | Aliases | Description |
 | --- | --- | --- |
-| `widgets` | | open Settings → Widgets → Arrange widgets: your placed widgets; add, resize and arrange them |
-| `widgets page` | `widget page` | turn home to the widgets page. If `widgets.page` is `off`, it says so; tap the line to turn the page on |
-| `widgets ls` | `widget ls` | list placed widgets as text lines (tap one to open the page) |
+| `widgets` | | open Settings → Widgets → Arrange widgets: your placed widgets; add, resize and arrange them. `widgets <sub>` works like `widget <sub>` |
 | `widget add` | | open the widget picker; the widget goes on the widgets page |
+| `widget ls` | | list placed widgets as text lines (tap one to open Arrange widgets); plain `widget` does the same |
+| `widget page` | | turn home to the widgets page. If `widgets.page` is `off`, it says so; tap the line to turn the page on |
 
 ## Device
 
@@ -225,18 +245,38 @@ See [Widgets](/guides/widgets/).
 | `setup [text]` | | setup checklist page (`text`: print it in the log) |
 | `tour` | | a page-by-page tour of how Kolahal works, with a few first settings |
 | `source` | | Kolahal's source code on GitHub |
-| `wallpaper [match]` | | shows whether the home screen wallpaper is Kolahal's or yours. `match` sets it to this theme's color, so the screen doesn't flash when you swipe home. The wallpaper then follows the theme until you set another one. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change. It doesn't work with the `material-you` theme on Android 12 and newer, which takes its colors from the wallpaper |
 | `unlocks [<days> \| week \| month]` | | unlock counts (1–30 days); `week` and `month` as a chart; `month` also with the trend and a line per week |
 | `fetch` | `neofetch`, `fastfetch` | a summary of this phone and Kolahal, in fastfetch style, under `name@device` (`user.name`). It shows Kolahal's icon next to the Android version, device, kernel, uptime, Kolahal's version, apps, scripts, feeds, theme, font, display, CPU, memory, storage, battery, network and today's unlocks, then the theme's colors |
-| `notifications [settings]` | | allow script notifications |
-| `usage-access` | | grant usage access (for the unlock count and screen time) |
+| `allow [<what>]` | | the Android permissions Kolahal can use, each with whether it is allowed; tap one to allow it. `allow <what>` asks for one, or opens its page in Android's settings ([below](#allow)) |
 | `crashes [share\|clear] [<n>]` | | crash reports kept on this phone, newest first (tap one to share it). `share` opens the share sheet with report `n` (by default, the newest). `clear` deletes all reports. See [Privacy](/reference/privacy/#crash-reports) |
-| `battery` | | battery optimization settings |
 | `home` | | choose the default home app |
-| `lock` | | lock the screen (needs the accessibility service) |
+| `lock` | | lock the screen (needs the accessibility service: `allow lock`) |
 | `shade` | | pull down the notification shade |
-| `accessibility` | | turn on the screen-lock service for double-tap |
 | `system` | | Android system settings |
+
+### allow
+
+`allow` lists each permission with a word for it. `allow <word>` asks Android for that one when
+Android can ask, and otherwise opens the page in Android's settings where you turn it on. Once you
+say no to a permission Android asks for, `allow <word>` opens Kolahal's page in Android's settings
+instead. The [setup checklist](/getting-started/setup/) has the same list.
+
+| Usage | Android's name | What it is for |
+| --- | --- | --- |
+| `allow usage` | Usage access | screen time, data use and accurate unlock counts |
+| `allow send-notifications` | Notifications | Kolahal sends you notifications: reminders, scripts, feeds |
+| `allow read-notifications` | Notification access | Kolahal reads your notifications: `notifs`, `media`, scripts with `@uses notifications` |
+| `allow lock` | Accessibility (Kolahal screen lock) | `lock` and double-tap to lock. Full build only |
+| `allow dnd` | Do Not Disturb access | `dnd`, `ring silent` and scripts with `@uses dnd` |
+| `allow settings` | Modify system settings | `brightness`, `rotate` and `screen-timeout` |
+| `allow contacts` | Contacts | `call`, `sms` and `contacts` by name. Full build only: the Play build uses Android's contact picker |
+| `allow calendar` | Calendar | `agenda`, the agenda widget and scripts with `@uses calendar` |
+| `allow calls` | Call log | calls in the log, and `calls`. Full build only |
+| `allow alarms` | Alarms & reminders | reminders and scripts' daily times on the minute (Android 12 and newer) |
+| `allow battery` | Unrestricted battery | timer scripts and feeds run on time |
+
+`allow` is about Kolahal's own permissions. What one script may use is its own switches:
+`script allow|deny <name> <what>`.
 
 ## Screens
 
@@ -258,14 +298,6 @@ words: `clock` opens your clock app, as any other app's name does.
 | `decode` | | the log lines on home scramble and settle again |
 | `boot` | | a short startup sequence with this phone's counts |
 | `screen <name>` | | one of the screens by name, in either home style: `screen clock` |
-| `shader [<name>\|list\|on\|off]` | | a [shader](/scripting/shaders/) over home and the screens, on Android 13 and newer: `crt`, `paper`, `aurora` and others, or one of yours. Alone, it lists them. `off` always works |
-| `shader set <name> <parameter> <value>` · `shader reset <name>` | | change a shader's [parameters](/scripting/shaders/#parameters), such as the amount of snow, and reset them |
-| `shader follow <name> <parameter> <value>` · `shader values` | | let a parameter [follow a value](/scripting/shaders/#values-to-follow), such as `battery` or one a script gives; `values` lists them |
-| `shader wallpaper [<name>]` | | make a shader your [live wallpaper](/scripting/shaders/#as-a-live-wallpaper); alone, it says which one is |
-| `shader play <name>` · `shader words <name> <words>` | | play a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, once over home; `words` plays it when a notification has one of them |
-| `shader get [<name>]` · `shader update [<name>]` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them, or installs one; `update` updates those you installed |
-| `shader check\|copy\|remove <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
-| `shader edit <name>` | | open a shader's code in the [editor](/scripting/shaders/#editing-one); one that comes with Kolahal becomes yours when you save it |
 
 What the screens show:
 
@@ -277,7 +309,7 @@ What the screens show:
 - `top`: this phone and Kolahal at a glance, as the Unix `top` shows a computer, updated every
   second. The first line has the time, how long Kolahal has been running and today's unlocks. Under
   it are bars for the battery, the phone's memory, Kolahal's own memory and today's screen time
-  (with usage access: `usage-access`). Then comes a table of your scripts: when each one last ran,
+  (with usage access: `allow usage`). Then comes a table of your scripts: when each one last ran,
   how it ended, and when its timer runs it next. The latest run is at the top.
 - `boot`: a short startup sequence with this phone's counts: apps, scripts, theme, font and today's
   unlocks.
@@ -306,10 +338,6 @@ the screensaver puts it away, and it comes back when the screensaver closes. The
 only closes it. It never starts while the screen is
 off, in battery saver, or with **Remove animations** on. Your phone usually turns its screen off
 sooner, so you'll mostly see it on a charger. Set it in **Settings → Look & feel → Screensaver**.
-
-**Shaders.** With `shader crt` (or [another, or one of yours](/scripting/shaders/)), the phone's
-graphics chip draws an effect over home and the screens, on Android 13 and newer. `shader off` turns it off.
-They are in **Settings → Shaders** too.
 
 ## Profiles
 
@@ -348,7 +376,8 @@ A command that is off:
 - can't be run by scripts or gestures either, or by a tap on a command line you typed.
 
 Kolahal's own buttons still work: a tap on the header's todo count still runs `todo`, and "tap to
-allow" lines still run `script`, even with those commands off.
+allow" lines still run `script` and `allow`, even with those commands off. So does the setup
+checklist.
 
 `help`, `config` and `settings` always stay on, so you can turn the others back on. From the
 prompt: `config set commands.off yt,wiki,maps`, and `config set commands.off none` turns them all

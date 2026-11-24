@@ -188,10 +188,10 @@ class WidgetActions internal constructor(
          */
         fun runTyped(command: String)
 
-        /** Asks Android for the calendar permission, as `agenda --allow` does. */
+        /** Asks Android for the calendar permission, as `allow calendar` does. */
         fun requestCalendar()
 
-        /** Asks whether to open Android's Notification access screen, as `notifs enable` does. */
+        /** Asks whether to open Android's Notification access screen, as `allow read-notifications` does. */
         fun requestNotificationAccess()
     }
 
@@ -225,13 +225,14 @@ class WidgetActions internal constructor(
                         when {
                             s == null -> logs.add(
                                 LogKind.ERROR,
-                                "No script named '$script' — 'script ls'"
+                                "No script named '$script'\n'script ls' lists them",
+                                ctx = LogContext.of(LogContext.COPY to "script ls"),
                             )
 
                             !s.enabled -> logs.add(
                                 LogKind.INFO,
-                                "$script is off: script on $script",
-                                ctx = LogContext.of(LogContext.COMMAND to "script on $script")
+                                "$script is off\n'script on $script' turns it on",
+                                ctx = LogContext.of(LogContext.COMMAND to "script on $script", LogContext.COPY to "script on $script")
                             )
 
                             else -> ScriptScheduler.runNow(

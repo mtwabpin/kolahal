@@ -12,7 +12,7 @@
 -- the work profile when the phone has one. A tap on a switch runs this script with "dnd" or "work".
 -- The script changes the thing, waits until Android has done it, and shows the new state.
 --
--- - Kolahal needs Do Not Disturb access for the first switch: type dnd access.
+-- - Kolahal needs Do Not Disturb access for the first switch: type allow dnd.
 -- - Since Android 15 that switch turns Kolahal's own Do Not Disturb mode on and off. One you
 --   turned on yourself stays on.
 -- - Android lets only the default launcher pause and resume the work profile. If your work
@@ -48,7 +48,7 @@ local problem
 if word == "dnd" then
   local was = dndOn()
   if not device.setDnd(was and "off" or "on") then
-    problem = "Couldn't change Do Not Disturb. Kolahal needs Do Not Disturb access: type dnd access"
+    problem = "Couldn't change Do Not Disturb. Kolahal needs Do Not Disturb access: type allow dnd"
   elseif not settled(function() return dndOn() ~= was end, 3) then
     problem = was and "Do Not Disturb is still on. You turned it on outside Kolahal, so turn it off there"
       or "Do Not Disturb didn't turn on"

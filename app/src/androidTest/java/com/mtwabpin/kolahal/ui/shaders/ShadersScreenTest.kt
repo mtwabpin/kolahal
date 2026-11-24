@@ -270,7 +270,7 @@ class ShadersScreenTest {
         compose.waitForNode(hasTestTag("shader pond"))
         openSheet("pond", "Pond")
         for (surface in listOf("dark", "light", "wallpaper")) compose.onNodeWithTag("suits $surface").assertExists()
-        compose.waitForText("yours shows at 40%", substring = true)
+        compose.waitForText("Yours shows at 40%", substring = true)
     }
 
     /** One tap turns one on and selects it, and None turns it off. */

@@ -544,7 +544,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                         LogKind.ERROR,
                         "launcher.run refused '${
                             command.trim().substringBefore(' ')
-                        }': sensitive commands must be typed"
+                        }'\nSensitive commands must be typed"
                     )
                 }
                 return
@@ -648,7 +648,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             linesRead = status
             _lines.value = StatusLines.all(context)
             com.mtwabpin.kolahal.shader.ShaderValues.load(context)
-            com.mtwabpin.kolahal.shader.ShaderPlay.load(context)?.let { logs.add(LogKind.ERROR, "No one-off shader '$it' — 'shader' lists them") }
+            com.mtwabpin.kolahal.shader.ShaderPlay.load(context)?.let {
+                logs.add(LogKind.ERROR, "No one-off shader '$it'\n'shader' lists them", ctx = LogContext.of(LogContext.COPY to "shader"))
+            }
         }
         scriptsRead.value = true
         if (read.whole || read.timed || read.trimmed) _hiddenLines.value = logs.hiddenCount()
@@ -779,7 +781,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // Housekeeping runs beside the command queue, not in it: an app opened right after returning
         // mustn't wait behind a trim or the scripts' schedule. Nor does the main thread wait for Android's answers.
         viewModelScope.launch(Dispatchers.IO) {
-            // Allowing exact alarms (`remind exact`) doesn't restart the app. So schedule the pending
+            // Allowing exact alarms (`allow alarms`) doesn't restart the app. So schedule the pending
             // reminders again, so they no longer fire late in Doze.
             val exact = com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
             if (exact && exactAlarms == false) com.mtwabpin.kolahal.data.Quietly.run(
@@ -852,10 +854,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 ?: return
         prefs.edit { putString("day", today).putStringSet("shown", shown + tip.id) }
         // The first tip says how to turn tips off.
-        val off = if (shown.isEmpty()) " (config set log.tips off to stop them)" else ""
+        val off = if (shown.isEmpty()) "\n'config set log.tips off' stops the tips" else ""
         logs.add(
             LogKind.INFO,
-            "Tip: ${tip.text} · tap to try it$off",
+            "Tip: ${tip.text}\nTap to try it$off",
             ctx = LogContext.of(LogContext.COMMAND to tip.example.trimEnd() + " ")
         )
     }
@@ -995,14 +997,15 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             val script = scripts.byName(name) ?: return@io run {
                 logs.add(
                     LogKind.ERROR,
-                    "No script named '$name' — 'script ls'"
+                    "No script named '$name'\n'script ls' lists them",
+                    ctx = LogContext.of(LogContext.COPY to "script ls"),
                 )
             }
             if (!script.enabled) return@io run {
                 logs.add(
                     LogKind.INFO,
-                    "$name is off: script on $name",
-                    ctx = LogContext.of(LogContext.COMMAND to "script on $name")
+                    "$name is off\n'script on $name' turns it on",
+                    ctx = LogContext.of(LogContext.COMMAND to "script on $name", LogContext.COPY to "script on $name")
                 )
             }
             logs.update(
@@ -1468,8 +1471,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             notice(
                 listOfNotNull(
                     "Saved ${script.name}.${script.lang.ext}",
-                    changed
-                ).joinToString(" · ")
+                    changed?.replaceFirstChar(Char::uppercase)
+                ).joinToString("\n")
             )
         }
     }
@@ -1825,11 +1828,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             if (firstRun) {
                 logs.add(
                     LogKind.INFO,
-                    "Kolahal — a terminal launcher. Type 'help' or start typing an app name."
+                    "Kolahal, a terminal launcher\nType 'help' or start typing an app name",
+                    ctx = LogContext.of(LogContext.COPY to "help"),
                 )
                 logs.add(
                     LogKind.INFO,
-                    "↑/↓ recall commands · tap a line to reuse/open it · long-press for actions"
+                    "↑/↓ recall commands\nTap a line to reuse or open it\nLong-press a line for actions"
                 )
                 openScreen(Screen.ONBOARDING) // first run: the tour, which sets up the first few things
             }

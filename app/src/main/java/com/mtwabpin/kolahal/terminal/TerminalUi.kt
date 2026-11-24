@@ -44,7 +44,7 @@ interface TerminalUi {
     fun requestCallLogPermission()
 
     /**
-     * For `notifs enable` when access is off. Explains what notification access reads and why,
+     * For `allow read-notifications` when access is off. Explains what notification access reads and why,
      * and lets the user choose, before Android's Notification access screen opens.
      */
     fun askNotificationAccess()

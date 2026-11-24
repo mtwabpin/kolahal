@@ -180,7 +180,7 @@ internal class UpdateCommands(
     }
 
     private val releaseLink = LogContext.of(LogContext.URL to RELEASE_PAGE)
-    private val installLine = LogContext.of(LogContext.COMMAND to "update install")
+    private val installLine = LogContext.of(LogContext.COMMAND to "update install", LogContext.COPY to "update install")
 
     fun run(args: List<String>) {
         if (args.size > 1 || (args.isNotEmpty() && args[0] != "install")) {
@@ -209,7 +209,7 @@ internal class UpdateCommands(
             isNewer(
                 installed,
                 release.version
-            ) -> info("Installed version is newer than the latest release.")
+            ) -> info("Installed version is newer\nThe latest release is ${release.version}")
 
             !isNewer(
                 release.version,
@@ -221,12 +221,12 @@ internal class UpdateCommands(
                 when {
                     // Android won't install a release over a build signed with another key, so don't download it.
                     OFFICIAL_CERT !in signerDigests(installedPackage(context)) -> info(
-                        "This build isn't signed with Kolahal's release key, so it can't update itself. Get the new version from the release page.",
+                        "This build can't update itself\nIt isn't signed with Kolahal's release key\nGet the new version from the release page",
                         releaseLink,
                     )
 
                     install -> install(release)
-                    else -> info("Run 'update install' to download and install it.", installLine)
+                    else -> info("'update install' downloads and installs it", installLine)
                 }
             }
         }
@@ -241,7 +241,7 @@ internal class UpdateCommands(
                 )
             )
             info(
-                "Allow Kolahal to install unknown apps, then run 'update install' again.",
+                "Allow Kolahal to install unknown apps\nThen run 'update install' again",
                 installLine
             )
             return
@@ -259,7 +259,7 @@ internal class UpdateCommands(
         )
         // Android may block the installer from opening if you left Kolahal during the download.
         info(
-            "Downloaded and verified Kolahal ${release.version}. If the installer doesn't open, run 'update install' again.",
+            "Downloaded and verified Kolahal ${release.version}\nIf the installer doesn't open, run 'update install' again",
             installLine
         )
     }

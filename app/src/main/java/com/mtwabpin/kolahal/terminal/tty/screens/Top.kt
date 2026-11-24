@@ -134,7 +134,7 @@ class TopScreen : TtyScreen {
             meter(grid, row, "Today", today(d), fraction(d.screenTimeMs, sinceMidnight), Ink.SCRIPT, bar)
         } else {
             grid.put(0, row, "Today", LABEL_STYLE)
-            grid.put(LABEL, row, "no usage access (type usage-access)", DIM)
+            grid.put(LABEL, row, "no usage access (type allow usage)", DIM)
             row + 1
         }
         if (row + 1 < rows) table(grid, row + 1, d.scripts, now)

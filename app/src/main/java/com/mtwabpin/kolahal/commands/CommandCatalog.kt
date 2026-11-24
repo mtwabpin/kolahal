@@ -136,10 +136,16 @@ object CommandCatalog {
         ),
         CommandSpec(
             "wallpaper",
-            "wallpaper [match]",
-            "match: set the home screen wallpaper to this theme's color, following the theme, so it doesn't flash when you swipe home",
-            short = "Wallpaper in theme color",
-            args = "match",
+            "wallpaper [theme|shader <name>|live]",
+            "What your wallpaper is, and what it can become. theme: a plain wallpaper in your theme's color, so your wallpaper doesn't flash when you swipe home. shader: a shader as your live wallpaper. live: Android's list of live wallpapers",
+            short = "Your wallpaper",
+            args = "theme · shader <name> · live",
+            uses = listOf(
+                "wallpaper" to "what your wallpaper is: your own, the theme's color or a shader; then what it can become, to tap",
+                "wallpaper theme" to "a plain wallpaper in your theme's color, which follows the theme, so your wallpaper doesn't flash when you swipe home",
+                "wallpaper shader <name>" to "a shader as your live wallpaper: Android's preview opens, for the home screen, the lock screen or both",
+                "wallpaper live" to "Android's own list of live wallpapers, for a phone whose wallpaper settings don't link to it",
+            ),
             sensitive = true
         ),
         CommandSpec(
@@ -241,41 +247,39 @@ object CommandCatalog {
         ),
         CommandSpec(
             "widgets",
-            "widgets [ls|page]",
-            "Settings → Widgets → Arrange widgets: add, resize and arrange them (ls: text list; page: turn home to the widgets page)",
+            "widgets",
+            "Settings → Widgets → Arrange widgets: add, resize and arrange them",
             short = "Arrange widgets",
-            args = "ls · page",
-            uses = listOf(
-                "widgets" to "Arrange widgets: add, resize and arrange them",
-                "widgets page" to "turn home to the widgets page",
-                "widgets ls" to "the placed widgets, as text",
-            ),
         ),
         CommandSpec(
             "widget",
-            "widget add",
-            "Pick a widget to add to the widgets page",
-            short = "Add a widget",
-            args = "add",
+            "widget [add|ls|page]",
+            "Add a widget, list the placed ones, or turn home to the widgets page (no args: text list)",
+            short = "Add or list widgets",
+            args = "add · ls · page",
+            uses = listOf(
+                "widget add" to "pick a widget to add to the widgets page",
+                "widget ls" to "the placed widgets, as text",
+                "widget page" to "turn home to the widgets page",
+            ),
             sensitive = true
         ),
         CommandSpec(
             "notifs",
-            "notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]",
+            "notifs [all|mute <app>|unmute <app>|muted|log [on|off]|clear]",
             "Your notifications in the terminal",
             short = "Your notifications",
-            args = "all · enable · mute <app> · unmute <app> · muted · log [on|off] · clear",
+            args = "all · mute <app> · unmute <app> · muted · log [on|off] · clear",
             uses = listOf(
                 "notifs" to "the notifications showing now",
                 "notifs all" to "dismissed ones too",
-                "notifs enable" to "allow notification access",
                 "notifs mute <app>" to "keep an app's notifications out of the log",
                 "notifs unmute <app>" to "let them in again",
                 "notifs muted" to "the muted apps",
                 "notifs log on|off" to "notifications in the log, or not",
                 "notifs clear" to "dismiss them all",
             ),
-            aka = listOf("notifications-feed"),
+            aka = listOf("notifications"),
             sensitive = true,
         ),
         CommandSpec(
@@ -325,24 +329,22 @@ object CommandCatalog {
         ),
         CommandSpec(
             "usage",
-            "usage [<days> | <app>]",
-            "Screen time per app, or one app in detail",
+            "usage [<days> | <app> | summary | week | month | year | full] [<app>]",
+            "Screen time per app, or one app in detail; over Android's weeks, months and years with a word. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. Tap a line of the summary to see that level.",
             short = "Screen time per app",
-            args = "<days> · <app>",
-            aka = listOf("screentime")
-        ),
-        CommandSpec(
-            "usage-summary", "usage-summary [week | month | year | full] [<app>]",
-            "Screen time over Android's weeks, months and years. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. Tap a line of the overview to see that level.",
-            short = "Screen time over months", args = "week · month · year · full",
+            args = "<days> · <app> · summary · week · month · year · full",
             uses = listOf(
-                "usage-summary" to "each level: how far back, and the time a day",
-                "usage-summary week" to "a row a week: its total and its time a day; the change; the top apps",
-                "usage-summary month" to "the same, a row a month",
-                "usage-summary year" to "a row a year, its top apps, and apps used less or new",
-                "usage-summary month <app>" to "one app: a row a month, its share of screen time, when last used",
-                "usage-summary full" to "all of them",
+                "usage" to "time per app today",
+                "usage <days>" to "time per app over 1 to 30 days",
+                "usage <app>" to "one app: today by hour, and its last 7 days",
+                "usage summary" to "each level: how far back, and the time a day",
+                "usage week" to "a row a week: its total and its time a day; the change; the top apps",
+                "usage month" to "the same, a row a month",
+                "usage year" to "a row a year, its top apps, and apps used less or new",
+                "usage month <app>" to "one app: a row a month, its share of screen time, when last used",
+                "usage full" to "the summary and every level",
             ),
+            aka = listOf("screentime")
         ),
         CommandSpec(
             "installs",
@@ -391,10 +393,10 @@ object CommandCatalog {
         ),
         if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec(
             "contacts",
-            "contacts [<query>|--allow]",
+            "contacts [<query>]",
             "Find contacts (favorites when empty)",
             short = "Find a contact",
-            args = "<query> · --allow",
+            args = "<query>",
             aka = listOf("contact")
         )
         else CommandSpec(
@@ -407,10 +409,10 @@ object CommandCatalog {
         ),
         CommandSpec(
             "calls",
-            "calls [<n>|--allow|--settings]",
+            "calls [<n>]",
             "Recent calls: incoming, outgoing and missed",
             short = "Recent calls",
-            args = "<n> · --allow · --settings"
+            args = "<n>"
         ),
         CommandSpec(
             "url",
@@ -522,20 +524,16 @@ object CommandCatalog {
             "How Kolahal works, a page at a time, with a few initial settings",
             short = "How Kolahal works"
         ),
+        // The words after it come from Accesses; the Play build leaves some out.
         CommandSpec(
-            "notifications",
-            "notifications [settings]",
-            "Allow script notifications",
-            short = "Allow script notifications",
-            args = "settings",
-            sensitive = true
-        ),
-        CommandSpec(
-            "usage-access",
-            "usage-access",
-            "Grant usage access (unlock count and screen time)",
-            short = "Allow usage access",
-            sensitive = true
+            "allow",
+            "allow [<what>]",
+            "The Android permissions Kolahal can use, and whether each is allowed; allow <what> asks for one, or opens its page in Android's settings",
+            short = "Android permissions",
+            args = Accesses.OFFERED.joinToString(" · ") { it.word },
+            uses = listOf("allow" to "every permission and whether it is allowed; tap one to allow it") +
+                    Accesses.OFFERED.map { "allow ${it.word}" to "${it.title}: ${it.short}" },
+            sensitive = true,
         ),
         CommandSpec(
             "crashes",
@@ -551,13 +549,6 @@ object CommandCatalog {
             sensitive = true,
         ),
         CommandSpec(
-            "battery",
-            "battery",
-            "Battery optimization settings",
-            short = "Battery optimization",
-            sensitive = true
-        ),
-        CommandSpec(
             "home",
             "home",
             "Choose the default launcher",
@@ -567,7 +558,7 @@ object CommandCatalog {
         CommandSpec(
             "lock",
             "lock",
-            "Lock the screen (needs the accessibility service)",
+            "Lock the screen (needs the accessibility service: allow lock)",
             short = "Lock the screen",
             sensitive = true
         ),
@@ -576,13 +567,6 @@ object CommandCatalog {
             "shade",
             "Pull down the notification shade",
             short = "Pull down notifications",
-            sensitive = true
-        ),
-        CommandSpec(
-            "accessibility",
-            "accessibility",
-            "Enable the screen-lock service for double-tap",
-            short = "Turn on screen lock",
             sensitive = true
         ),
         CommandSpec(
@@ -733,10 +717,10 @@ object CommandCatalog {
         ),
         CommandSpec(
             "shader",
-            "shader [<name>|list|use|on|off|set|reset|follow|values|play|words|wallpaper|get|update|check|reload|edit|copy|remove] [<name>]",
+            "shader [<name>|ls|use|on|off|set|reset|follow|values|play|words|get|check|reload|edit|save|rm] [<name>]",
             "A shader over home and the full-screen screens: crt, paper, aurora and others, or your own .agsl file (screen.shader). Needs Android 13 or newer",
             short = "A shader over home and the screens",
-            args = "<name> · list · use · on · off · set · reset · follow · values · play · words · wallpaper · get · update · check · reload · edit · copy · remove",
+            args = "<name> · ls · use · on · off · set · reset · follow · values · play · words · get · check · reload · edit · save · rm",
             uses = listOf(
                 "shader" to "the shaders: tap one to use it",
                 "shader <name>" to "use a shader",
@@ -748,16 +732,15 @@ object CommandCatalog {
                 "shader values" to "the values there are to follow",
                 "shader play <name>" to "play a one-off shader, such as hearts, once over home",
                 "shader words <name> <words>" to "play it when a notification has one of the words, with commas between; off ends it",
-                "shader wallpaper <name>" to "make it your live wallpaper, in Android's own preview the first time",
-                "shader get" to "shaders people share; tap one to install it",
+                "shader get" to "shaders people share, marked when one you installed has a newer version; tap one to install it",
                 "shader get <name>" to "install or update a shared shader; it stays off until you use it",
-                "shader update" to "update the shaders you installed with shader get",
+                "shader get --update" to "update every shader you installed with shader get",
                 "shader check <name>" to "whether it compiles, and what Kolahal sets for it",
                 "shader reload" to "read the .agsl files in the script folder again",
                 "shader edit <name>" to "open the editor; one that comes with Kolahal becomes yours when you save it",
-                "shader copy <name>" to "copy a shader to the script folder's shaders folder, to edit it there",
-                "shader copy template-tint" to "a shader of your own to edit, from a template: template-tint, -scene, -moving, -touch, -value or -once",
-                "shader remove <name>" to "remove your own shader",
+                "shader save <name>" to "save a shader's file in the script folder's shaders folder, to edit it there",
+                "shader save template-tint" to "a shader of your own to edit, from a template: template-tint, -scene, -moving, -touch, -value or -once",
+                "shader rm <name>" to "remove your own shader; delete does the same",
             ),
             sensitive = true,
         ),
@@ -920,10 +903,10 @@ object CommandCatalog {
         ),
         CommandSpec(
             "agenda",
-            "agenda [<days>|--allow|--settings]",
+            "agenda [<days>]",
             "Upcoming calendar events (tap to open one)",
             short = "Upcoming events",
-            args = "<days> · --allow · --settings"
+            args = "<days>"
         ),
     )
 
@@ -946,7 +929,7 @@ object CommandCatalog {
      * whether this build has it, and its commands.
      */
     internal val FEATURE_COMMANDS = listOf(
-        com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE to setOf("lock", "accessibility"),
+        com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE to setOf("lock"),
         com.mtwabpin.kolahal.BuildConfig.CALL_LOG to setOf("calls"),
         com.mtwabpin.kolahal.BuildConfig.SELF_UPDATE to setOf("update"),
     )
@@ -1004,7 +987,6 @@ object CommandCatalog {
             "unhide",
             "rename",
             "usage",
-            "usage-summary",
             "storage",
             "installs",
         ),
@@ -1066,12 +1048,17 @@ object CommandCatalog {
             "alias",
             "unalias",
             "config",
-            "theme",
-            "font",
             "backup",
             "echo",
             "date",
             "cal",
+        ),
+        // How home looks: its colors, its font, what is drawn over it and what is behind it.
+        "look" to listOf(
+            "theme",
+            "font",
+            "shader",
+            "wallpaper",
         ),
         "widgets" to listOf(
             "widgets",
@@ -1083,16 +1070,12 @@ object CommandCatalog {
             "tour",
             "fetch",
             "source",
-            "wallpaper",
             "unlocks",
-            "notifications",
-            "usage-access",
+            "allow",
             "crashes",
-            "battery",
             "home",
             "lock",
             "shade",
-            "accessibility",
             "system",
         ),
         "screens" to listOf(
@@ -1104,7 +1087,6 @@ object CommandCatalog {
             "top",
             "decode",
             "boot",
-            "shader",
         ),
     )
 }

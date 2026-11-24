@@ -10,7 +10,7 @@ import androidx.core.graphics.createBitmap
 import com.mtwabpin.kolahal.data.Stores
 
 /**
- * `wallpaper match`: sets the home screen's wallpaper to the theme's color. The wallpaper follows
+ * `wallpaper theme`: sets the home screen's wallpaper to the theme's color. The wallpaper follows
  * the theme as long as it is still the one Kolahal set.
  * - Android gives a wallpaper a new id each time anything sets one. An app can read the id without
  *   seeing the picture. So if another wallpaper was set since, Kolahal leaves it alone and forgets.
@@ -33,7 +33,7 @@ object WallpaperMatch {
 
     /**
      * The color of the theme on screen, fully opaque, as the screen last reported it ([follow]).
-     * Null until home has applied a theme in this process: then `wallpaper match` refuses, rather
+     * Null until home has applied a theme in this process: then `wallpaper theme` refuses, rather
      * than paint over your wallpaper with a color it doesn't know.
      */
     @Volatile
@@ -42,7 +42,7 @@ object WallpaperMatch {
 
     /**
      * True when the theme on screen takes its colors from the wallpaper, as the screen last
-     * reported it ([follow]). Then `wallpaper match` refuses, and the wallpaper stays as it is.
+     * reported it ([follow]). Then `wallpaper theme` refuses, and the wallpaper stays as it is.
      */
     @Volatile
     var themeFromWallpaper = false
@@ -53,6 +53,21 @@ object WallpaperMatch {
         val id = prefs(context).getInt(KEY_ID, 0)
         return id != 0 && WallpaperManager.getInstance(context)
             .getWallpaperId(WallpaperManager.FLAG_SYSTEM) == id
+    }
+
+    /** How asking for the theme's color as the wallpaper ended ([useTheme]). */
+    enum class Result { SET, ALREADY, FROM_WALLPAPER, NO_COLOR, FAILED }
+
+    /**
+     * Makes the theme's color the home screen's wallpaper, as `wallpaper theme` and Settings ask once
+     * the person has agreed to lose the old one. It refuses a theme that takes its colors from the
+     * wallpaper, and a color it doesn't know yet.
+     */
+    fun useTheme(context: Context): Result {
+        if (themeFromWallpaper) return Result.FROM_WALLPAPER
+        if (isMatched(context)) return Result.ALREADY
+        val color = themeColor ?: return Result.NO_COLOR
+        return if (set(context, color)) Result.SET else Result.FAILED
     }
 
     /** Sets the home screen's wallpaper to [color] and saves its id. Returns false if Android doesn't allow it. */

@@ -145,13 +145,13 @@ usage whatsapp   # one app: today, by hour, and the last 7 days
 unlocks          # today's unlock count
 unlocks 7        # one line per day for the last week (1–30)
 unlocks month    # a column a day for 30 days, the trend, and a line per week
-usage-summary    # what Android keeps: days, weeks, months, years
-usage-summary month   # a row per month: its total and its time a day
-usage-summary full    # all of them: the overview, weeks, months and years
-usage-summary month youtube   # one app over the months
+usage summary    # what Android keeps: days, weeks, months, years
+usage month      # a row per month: its total and its time a day
+usage full       # all of them: the summary, weeks, months and years
+usage month youtube   # one app over the months
 ```
 
-`usage` needs **Usage access** (`usage-access`). To count unlocks, Kolahal uses usage access if you granted it.
+`usage` needs **Usage access** (`allow usage`). To count unlocks, Kolahal uses usage access if you granted it.
 If not, it counts `ACTION_USER_PRESENT` broadcasts, but only while the launcher is running.
 
 `usage <app>` shows one app: its time today, how often you opened it, its longest session and when
@@ -173,18 +173,18 @@ would pull the average down every morning. The comparison of two weeks counts fi
 
 ### The long view
 
-Besides its days, Android keeps coarser totals: about 4 weeks, 6 months and 2 years. `usage-summary`
-reads them:
+Besides its days, Android keeps coarser totals: about 4 weeks, 6 months and 2 years. `usage` reads
+them with a word after it:
 
-- `usage-summary` alone: a line for each level, where it starts and the screen time a day in it.
+- `usage summary`: a line for each level, where it starts and the screen time a day in it.
   Tap a line to see that level.
-- `usage-summary week`, `month` and `year`: the time and unlocks a day, the total, and a table with
+- `usage week`, `usage month` and `usage year`: the time and unlocks a day, the total, and a table with
   a row for each week, month or year: its dates, its total and its time a day. Then the change of the
   last one that is over (▼ 13%) and the top apps.
-- `usage-summary year` also has the top apps of each year, and the apps you used <em>less</em> or
+- `usage year` also has the top apps of each year, and the apps you used <em>less</em> or
   that are <em>new</em> since the year before, each with a chip.
-- `usage-summary full`: all of these, each part after a `── weeks ──` line.
-- With an app after `week`, `month` or `year`, such as `usage-summary month youtube`: that app
+- `usage full`: all of these, each part after a `── weeks ──` line.
+- With an app after `week`, `month` or `year`, such as `usage month youtube`: that app
   alone. Its time a day, its total and its share of all your screen time; a row for each week, month
   or year, with "0m" where it wasn't used; its change, and when you last used it. As for `usage <app>`,
   it works for the apps of your personal profile.
@@ -195,7 +195,11 @@ and the library's **screen-time-months** widget shows them as a bar a month.
 The output keeps to numbers and short labels. A `≈` marks Android's own totals: about right, not
 exact. Android starts each week, month and year where the one before ended, not on a Monday or the
 1st, so each date is the real start of one. The current one counts in an average only once it has
-run a week. Every app counts, the home screen, calls and Kolahal too. `help usage-summary` says this too.
+run a week. Every app counts, the home screen, calls and Kolahal too. `help usage` says this too.
+
+A word is the word only on its own, or before an app's name: `usage week` shows the weeks, and
+`usage weekly` the app Weekly. `summary` and `full` take no app, so `usage summary pro` is the app
+Summary Pro. The suggestions under the prompt offer the words and the apps together.
 
 When you uninstall or reinstall an app, Android deletes its history from some levels and not others:
 from the days and the year at once, and from the weeks and months later or not at all. So a year

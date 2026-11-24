@@ -222,7 +222,7 @@ class WidgetPlacementTest {
     fun theAccessIsNotSwitchedByHand() {
         val s = t.create("-e", code)
         val refusal =
-            "${s.name}'s widget is on while it is placed: add or remove it on the widgets page"
+            "${s.name}'s widget is on while it is placed\nAdd or remove it on the widgets page"
         assertEquals(listOf(refusal), commands.run("script allow ${s.name} widget"))
         assertFalse(on(s))
         assertNull(now(s).access[ScriptAccess.WIDGET])

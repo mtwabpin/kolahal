@@ -22,7 +22,7 @@ internal class Fmt(private val text: (Any?) -> String) {
     /** `fmt.link(text, url)`. The address is checked when the line is logged. */
     fun link(args: List<Any?>): String {
         val url = args.getOrNull(1) as? String
-            ?: throw IllegalArgumentException("fmt.link expects (text, url): the text it shows, then the link's address")
+            ?: throw IllegalArgumentException("fmt.link expects (text, url)\nThe text it shows, then the link's address")
         return StyledText.link(url, text(args.getOrNull(0)))
     }
 
@@ -105,10 +105,10 @@ internal class Fmt(private val text: (Any?) -> String) {
         if (value == null) return emptyMap()
         val map = value as? Map<*, *>
             ?: if (value is List<*> && value.isEmpty()) emptyMap<String, Any?>() else
-                throw IllegalArgumentException("$call: its options must be a table/object: { ${known.joinToString()} }")
+                throw IllegalArgumentException("$call: its options must be a table/object\nOptions: ${known.joinToString()}")
         return map.entries.associate { (k, v) ->
             val key = k.toString()
-            if (key !in known) throw IllegalArgumentException("$call: no option '$key'; use ${known.joinToString()}")
+            if (key !in known) throw IllegalArgumentException("$call: no option '$key'\nOptions: ${known.joinToString()}")
             key to v
         }
     }
@@ -127,6 +127,6 @@ internal class Fmt(private val text: (Any?) -> String) {
          */
         fun color(call: String, name: String?, shown: String? = name): StyledText.ColorRole =
             name?.let(StyledText.ColorRole::named)
-                ?: throw IllegalArgumentException("$call: no color '$shown'; use ${StyledText.ColorRole.entries.joinToString { it.role }}")
+                ?: throw IllegalArgumentException("$call: no color '$shown'\nColors: ${StyledText.ColorRole.entries.joinToString { it.role }}")
     }
 }

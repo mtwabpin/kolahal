@@ -256,8 +256,8 @@ class ScriptScreenHomeTest {
     fun anotherScriptOpensNone() {
         val vm = show()
         val s = script("sent", ScriptLang.LUA, life)
-        refuses(vm, "not when another script starts it") { vm.runCommand(s.name, byScript = true) }
-        refuses(vm, "not when another script starts it") {
+        refuses(vm, "Not when another script starts it") { vm.runCommand(s.name, byScript = true) }
+        refuses(vm, "Not when another script starts it") {
             ScriptScheduler.sentByScript { ScriptScheduler.eval(app, ScriptLang.LUA, "tty.screen{ start = function(g) end }") }
         }
     }
@@ -352,7 +352,7 @@ class ScriptScreenHomeTest {
         val process = manager.runningAppProcesses.first { it.processName.endsWith(":script") }
         android.os.Process.killProcess(process.pid)
         compose.waitUntil(20_000) { vm.ttyScreen.value == null }
-        val says = "${s.name}: its screen closed, because the script process stopped"
+        val says = "${s.name}: its screen closed\nThe script process stopped"
         val until = System.currentTimeMillis() + 10_000
         while (logs.recent(200, afterId = logLines.start).none { it.text == says }) {
             if (System.currentTimeMillis() > until) throw AssertionError("the line was never logged")

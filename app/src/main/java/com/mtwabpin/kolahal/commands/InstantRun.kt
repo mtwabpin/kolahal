@@ -31,9 +31,7 @@ object InstantRun {
      * - its first word; or
      * - what its arguments make it do:
      *   - `open phone:mom` starts a shortcut, which may place a call;
-     *   - `open x -w --resume` turns a paused profile on;
-     *   - `--allow` asks for a permission;
-     *   - `--settings` opens Android's settings.
+     *   - `open x -w --resume` turns a paused profile on.
      *
      * [tty]: home is in the tty style. In the gui style a screen's name ([TtyCommands.SCREENS]) is no
      * command: `clock` there is an app, an alias or a script of the user's, which a script may start.
@@ -46,7 +44,7 @@ object InstantRun {
         val head = canonical(t.substringBefore(' '))
         if (head in CommandCatalog.SENSITIVE && (tty || head !in TtyCommands.SCREENS)) return true
         val args = t.substringAfter(' ', "").split(' ')
-        return (head == "open" && (args.any { ':' in it } || "--resume" in args)) || args.any { it == "--allow" || it == "--settings" }
+        return head == "open" && (args.any { ':' in it } || "--resume" in args)
     }
 
     /**

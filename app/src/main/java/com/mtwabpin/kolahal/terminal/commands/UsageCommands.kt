@@ -23,21 +23,25 @@ import java.time.ZoneId
 /**
  * `usage`, `unlocks`, `data today`, `data month` and `storage`: what Android's usage data tells of
  * the phone's screen time, unlocks, mobile and Wi-Fi data, and storage. All but `unlocks` need
- * Usage Access; `unlocks` counts without it while Kolahal runs.
+ * Usage Access; `unlocks` counts without it while Kolahal runs. `usage` with a word of
+ * [UsageWords.WORDS] shows Android's weeks, months and years ([UsageSummaryCommands]).
  */
 class UsageCommands(context: Context) : CommandGroup(context) {
     private val apps = AppRepository.get(context)
     private val unlocks = UnlockCounter.get(context)
     private val config = Config.get(context)
+    private val summary by lazy { UsageSummaryCommands(context) }
 
     fun run(name: String, args: List<String>) {
         // Unlocks are counted without usage access too: while Kolahal runs.
         if (name == "unlocks") return unlocks(args)
         // Screen time says itself how to allow usage access.
-        if (name == "usage" || name == "screentime") return usage(args)
+        if (name == "usage" || name == "screentime") return if (UsageWords.of(args) is UsageWords.Asked.Summary) summary.run(
+            args
+        ) else usage(args)
         if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) return fix(
-            "${if (name == "data") "Data use" else "Storage per app"} needs usage access — tap to allow it",
-            "usage-access"
+            "${if (name == "data") "Data use" else "Storage per app"} needs usage access\nTap to allow it",
+            "allow usage"
         )
         when (name) {
             "data" -> when (args.firstOrNull()?.lowercase()) {
@@ -97,9 +101,9 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                     if (pace > plan) StyledText.ColorRole.BAD else null
                 )
             )
-            info("${(mobile * 100 / plan)}% of ${bytes(plan)} · on pace for ${bytes(pace)} · $left ${if (left == 1L) "day" else "days"} left")
+            info("${(mobile * 100 / plan)}% of ${bytes(plan)}\nOn pace for ${bytes(pace)}, $left ${if (left == 1L) "day" else "days"} left")
         } else if (mobile != null) {
-            info("No plan · config set data.plan 75")
+            info("No data plan set\n'$SET_PLAN' sets a 75 GB plan", LogContext.of(LogContext.COPY to SET_PLAN))
         }
         appTable(s)
     }
@@ -145,7 +149,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                 align = "lrr"
             )
         )
-        if (s.mobile == null) info("Mobile data per app needs Android 10 or newer")
+        if (s.mobile == null) info("Mobile data per app needs Android 10+")
     }
 
     /** The name for Android's user id [uid]: its app's name, or what the system calls the rest. */
@@ -172,13 +176,14 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
     // ---- screen time ----------------------------------------------------------------------
 
-    /** `usage [days]`: the foreground time per app from UsageStats. `usage <app>`: one app in detail ([appUsage]). Needs Usage Access. */
+    /** `usage [days]`: the foreground time per app from UsageStats. `usage <app>`: one app in detail ([appUsage]). Needs Usage Access. The words go to [UsageSummaryCommands] before this. */
     private fun usage(args: List<String>) {
         if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) {
-            fix("Screen time needs usage access — tap to allow it", "usage-access")
+            fix("Screen time needs usage access\nTap to allow it", "allow usage")
             return
         }
-        if (args.isNotEmpty() && args.first().toIntOrNull() == null) {
+        val words = UsageWords.of(args)
+        if (words is UsageWords.Asked.App) {
             // Without a profile flag, the personal app first: Android gives Kolahal only its use.
             val matches =
                 apps.search(CommandParsing.withoutFlags(args), ProfileKind.fromFlags(args))
@@ -187,7 +192,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                 ?: return error("No app matches '${CommandParsing.withoutFlags(args)}'")
             return appUsage(app)
         }
-        val asked = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 30) ?: 1
+        val asked = (words as? UsageWords.Asked.Days)?.days ?: 1
         val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
         // Only the days Android has data for: a day before its usage history begins is left out
         // ([com.mtwabpin.kolahal.usage.UsageHistory]). The events of the whole range are read once.
@@ -250,7 +255,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
      */
     private fun appUsage(app: AppEntry) {
         if (app.profile.kind != ProfileKind.PERSONAL) {
-            return info("Screen time of ${app.profile.kind.label} apps isn't available: Android gives Kolahal only the personal profile's")
+            return info("No screen time for ${app.profile.kind.label} apps\nAndroid gives Kolahal only the personal profile's")
         }
         val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
         val zone = ZoneId.systemDefault()
@@ -351,10 +356,10 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
     /** Says how unlocks are counted without usage access: only while Kolahal runs. */
     private fun noAccessNote() {
-        info("Counting unlocks only while the launcher is running")
+        info("Counting unlocks only while Kolahal runs")
         info(
-            "Tap here to allow usage access for accurate counts",
-            LogContext.of(LogContext.RUN to "usage-access")
+            "Tap to allow usage access for exact counts",
+            LogContext.of(LogContext.RUN to "allow usage")
         )
     }
 
@@ -525,13 +530,13 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                 )
             }
             out(StyledText.table(rows, header = true, align = "lrr"))
-            info("Size is the app and its data, cache included")
+            info("Size is the app, its data and its cache")
         }
         val unused = reader.unused(
             byPkg.keys,
             UNUSED_DAYS,
             sizes.associate { it.pkg to it.size }) { byPkg[it]?.lower ?: it }
-        if (unused.isEmpty()) return info("Every app you can uninstall was opened in the last $UNUSED_DAYS days")
+        if (unused.isEmpty()) return info("No unused apps\nEvery app you can uninstall was opened in the last $UNUSED_DAYS days")
         info("Not opened for $UNUSED_DAYS days or more")
         unused.take(UNUSED_SHOWN).forEach { u ->
             val app = byPkg.getValue(u.pkg)
@@ -544,7 +549,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         val total = unused.sumOf { it.bytes ?: 0L }
         val count =
             if (unused.size > UNUSED_SHOWN) "$UNUSED_SHOWN of ${unused.size} apps" else "${unused.size} ${if (unused.size == 1) "app" else "apps"}"
-        info("$count${if (total > 0) ", ${bytes(total)} in all" else ""} · long-press one for its info or to uninstall")
+        info("$count${if (total > 0) ", ${bytes(total)} in all" else ""}\nLong-press one for its info or to uninstall")
     }
 
     /** [b] bytes as Android's Settings write them: 1000-based, GB with one decimal. */
@@ -563,6 +568,9 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
         private const val MB = 1_000_000L
         private const val GB = 1_000_000_000L
+
+        /** The command that `data month` offers with no data plan: a plan of 75 GB, as an example. */
+        private const val SET_PLAN = "config set data.plan 75"
 
         /** The apps a table shows; the rest are "Other". */
         private const val SHOWN = 8

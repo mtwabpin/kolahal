@@ -33,7 +33,7 @@ object ShaderCatalog {
 
     /** What the `shader` command reads as its own words: no shader has one of these names. */
     val WORDS =
-        listOf("list", "ls", "use", "on", OFF, "set", "reset", "follow", "values", "play", "words", "wallpaper", "get", "update", "check", "reload", "copy", "edit", "rm", "remove")
+        listOf("ls", "use", "on", OFF, "set", "reset", "follow", "values", "play", "words", "get", "check", "reload", "save", "edit", "rm", "delete")
 
     /** A shader's name: one word at the prompt, like a script's. */
     private val NAME = Regex("[a-z0-9][a-z0-9_-]{0,39}")
@@ -74,7 +74,7 @@ object ShaderCatalog {
 
     /**
      * What the editor has open. [YOURS]: the user's file, saved in place. [COPY]: one that comes with Kolahal; the
-     * first save makes the user's file of the same name, which is used instead of it, as after `shader copy` and
+     * first save makes the user's file of the same name, which is used instead of it, as after `shader save` and
      * `shader reload`. Removing that file brings Kolahal's back.
      */
     enum class Edit { YOURS, COPY }

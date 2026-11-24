@@ -13,7 +13,7 @@
 -- Set your plan in GB with config set data.plan 75, and the day it starts again with
 -- config set data.start-day 5. The bar turns red when the pace for the month goes over the plan.
 -- Without a plan it shows the data alone. A tap on it logs the month.
--- It needs usage access for Kolahal (usage-access) and its own "Your app usage" switch.
+-- It needs usage access for Kolahal (allow usage) and its own "Your app usage" switch.
 -- On Android 9, which doesn't tell the mobile data, it shows the Wi-Fi data.
 
 local started = event and event.name
@@ -32,7 +32,7 @@ if month == nil then
       label = "Needs usage access", tap = tap }
   end
   if started == nil or (args or {})[1] == "month" then
-    log("Data this month needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+    log("Data this month needs usage access", "Run allow usage, and turn on \"Your app usage\" on this script's sheet")
   end
   return
 end

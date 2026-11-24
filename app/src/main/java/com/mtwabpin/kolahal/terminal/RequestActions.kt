@@ -6,6 +6,7 @@ package com.mtwabpin.kolahal.terminal
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.contacts.Contact
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.CustomThemes
@@ -17,6 +18,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.ScriptFolder
+import com.mtwabpin.kolahal.terminal.commands.AllowCommands
 import com.mtwabpin.kolahal.terminal.commands.PeopleCommands
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,11 +108,13 @@ class RequestActions(private val context: Context, private val host: Host) {
 
     fun onContactsPermission(granted: Boolean) {
         refreshSetup()
+        AllowCommands.answered(Accesses.CONTACTS, granted)
         if (granted) com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).refresh()
         io {
             logs.add(
                 if (granted) LogKind.INFO else LogKind.ERROR,
-                if (granted) "Contacts allowed" else "Contacts permission denied"
+                if (granted) "Contacts allowed" else "Contacts permission denied\nTap to open app settings",
+                ctx = if (granted) LogContext.EMPTY else LogContext.of(LogContext.RUN to "allow contacts"),
             )
         }
     }
@@ -125,7 +129,7 @@ class RequestActions(private val context: Context, private val host: Host) {
         if (uri == null) return
         io {
             ScriptFolder(context).setFolder(uri)
-            logs.add(LogKind.INFO, "Script folder set — 'script export' / 'script import' to sync")
+            logs.add(LogKind.INFO, "Script folder set\n'script export' and 'script import' sync it")
         }
     }
 
@@ -219,7 +223,7 @@ class RequestActions(private val context: Context, private val host: Host) {
         io {
             logs.add(
                 LogKind.ERROR,
-                "Font '$font' could not be loaded — using the system monospace · tap to import one",
+                "Font '$font' can't be loaded\nThe system's monospace font is used\nTap to import a font",
                 ctx = LogContext.of(LogContext.RUN to "font import"),
             )
         }
@@ -233,11 +237,12 @@ class RequestActions(private val context: Context, private val host: Host) {
 
     fun onNotificationPermission(granted: Boolean) {
         refreshSetup()
+        AllowCommands.answered(Accesses.SEND_NOTIFICATIONS, granted)
         io {
             logs.add(
                 if (granted) LogKind.INFO else LogKind.ERROR,
-                if (granted) "Notifications allowed" else "Notifications denied — tap to open notification settings",
-                ctx = if (granted) LogContext.EMPTY else LogContext.of(LogContext.RUN to "notifications settings"),
+                if (granted) "Notifications allowed" else "Notifications denied\nTap to open notification settings",
+                ctx = if (granted) LogContext.EMPTY else LogContext.of(LogContext.RUN to "allow send-notifications"),
             )
         }
     }
@@ -264,8 +269,8 @@ class RequestActions(private val context: Context, private val host: Host) {
             io {
                 logs.add(
                     LogKind.INFO,
-                    "Notification access is off · tap to turn it on",
-                    ctx = LogContext.of(LogContext.RUN to "notifs enable")
+                    "Notification access is off\nTap to turn it on",
+                    ctx = LogContext.of(LogContext.RUN to "allow read-notifications")
                 )
             }
         }
@@ -279,18 +284,19 @@ class RequestActions(private val context: Context, private val host: Host) {
 
     fun onCalendarPermission(granted: Boolean) {
         refreshSetup()
+        AllowCommands.answered(Accesses.CALENDAR, granted)
         io {
             if (granted) {
                 logs.add(
                     LogKind.INFO,
-                    "Calendar allowed — tap to see your agenda",
+                    "Calendar allowed\nTap to see your agenda",
                     ctx = LogContext.of(LogContext.RUN to "agenda")
                 )
             } else {
                 logs.add(
                     LogKind.ERROR,
-                    "Calendar permission denied — tap to open app settings",
-                    ctx = LogContext.of(LogContext.RUN to "agenda --settings")
+                    "Calendar permission denied\nTap to open app settings",
+                    ctx = LogContext.of(LogContext.RUN to "allow calendar")
                 )
             }
         }
@@ -302,19 +308,20 @@ class RequestActions(private val context: Context, private val host: Host) {
 
     fun onCallLogPermission(granted: Boolean) {
         refreshSetup()
+        AllowCommands.answered(Accesses.CALLS, granted)
         if (granted) com.mtwabpin.kolahal.calls.CallEvents.get(context).start()
         io {
             if (granted) {
                 logs.add(
                     LogKind.INFO,
-                    "Call log allowed — new calls appear here; tap to list recent ones",
+                    "Call log allowed\nNew calls appear here\nTap to list recent ones",
                     ctx = LogContext.of(LogContext.RUN to "calls")
                 )
             } else {
                 logs.add(
                     LogKind.ERROR,
-                    "Call log permission denied — tap to open app settings",
-                    ctx = LogContext.of(LogContext.RUN to "calls --settings")
+                    "Call log permission denied\nTap to open app settings",
+                    ctx = LogContext.of(LogContext.RUN to "allow calls")
                 )
             }
         }

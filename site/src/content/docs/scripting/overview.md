@@ -42,7 +42,7 @@ a few examples. Kolahal doesn't suggest it or list it in `help`, so type it in f
 2. Paste it into the assistant you use, and say what to build: "a widget that shows my next
    train", "a shader that looks like rain on glass".
 3. Add what it writes, as the guide tells it to explain: `script new <name>` and paste the code
-   into the editor, or `shader copy template-tint`, then `shader edit my-tint` for a shader.
+   into the editor, or `shader save template-tint`, then `shader edit my-tint` for a shader.
 
 Read the code before you allow what it asks for, as for any script you didn't write.
 
@@ -80,7 +80,7 @@ Timer rules:
 
 Daily times are alarms:
 
-- If you allow **Alarms & reminders** for Kolahal (an Android setting; `remind exact` asks for
+- If you allow **Alarms & reminders** for Kolahal (an Android setting; `allow alarms` asks for
   it), the script runs on the exact minute, even while the phone sleeps. It runs in the foreground
   for its few seconds.
 - Without that permission, it runs within the hour.

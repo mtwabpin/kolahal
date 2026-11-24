@@ -89,7 +89,7 @@ class SharedShadersTest {
     /** A name a shader can't have: not one word, too long, or a word of the shader command. */
     @Test
     fun aNameAShaderCantHaveIsLeftOut() {
-        for (name in listOf("", "My Glow", "Glow", "-a", "a/b", "..", "a".repeat(41), "off", "get", "update")) {
+        for (name in listOf("", "My Glow", "Glow", "-a", "a/b", "..", "a".repeat(41), "off", "get", "save", "rm")) {
             assertTrue(name, parsed(entry(name)).isEmpty())
         }
     }

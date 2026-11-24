@@ -36,7 +36,7 @@ object UsageAccess {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    /** Android's page where you allow it (`usage-access`). */
+    /** Android's page where you allow it (`allow usage`). */
     fun intent(): Intent =
         Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }

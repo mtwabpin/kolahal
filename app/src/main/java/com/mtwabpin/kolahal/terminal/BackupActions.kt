@@ -22,7 +22,9 @@ class BackupActions(
 
     fun exportBackup(uri: Uri?) {
         if (uri == null) return
-        fileOp("backup") { notice("Backup saved: settings, apps, ${Backup(context).export(uri)} scripts, todos, notes, reminders, feeds and the log (without notifications and calls)") }
+        fileOp("backup") {
+            notice("Backup saved\nSettings, apps, ${Backup(context).export(uri)} scripts, todos, notes, reminders, feeds and the log\nWithout notifications and calls")
+        }
     }
 
     fun importBackup(uri: Uri?) {
@@ -33,22 +35,22 @@ class BackupActions(
             scripts.refreshScriptCaches()
             fun count(n: Int, one: String, many: String = one + "s") =
                 "$n ${if (n == 1) one else many}"
+            // What happened first, then one line for each count or note.
             notice(
-                "Imported ${count(r.settings, "setting")}, ${
-                    count(
-                        r.aliases,
-                        "alias",
-                        "aliases"
-                    )
-                }, ${count(r.scripts, "script")}" +
-                        (if (r.shaders > 0) ", ${count(r.shaders, "shader")}" else "") +
-                        (if (r.full) ", ${r.restored} saved items (todos, notes, reminders, feeds, log…)" else "") +
-                        (if (r.disabled == 1) " (1 new script is off — turn it on in Scripts)" else "") +
-                        (if (r.disabled > 1) " (${r.disabled} new scripts are off — turn them on in Scripts)" else "") +
-                        (if (r.skipped.isNotEmpty()) " · skipped ${r.skipped.joinToString()}" else "") +
-                        (if (r.review.isNotEmpty()) " · check these from the file: ${r.review.joinToString()}" else "") +
-                        (if (r.newer) " · this backup is from a newer Kolahal, so what this version doesn't know was skipped" else "") +
-                        if (r.full) " — restarting to load it all" else ""
+                listOfNotNull(
+                    if (r.full) "Backup imported, restarting to load it all" else "Backup imported",
+                    "${count(r.settings, "setting")}, ${count(r.aliases, "alias", "aliases")}, ${count(r.scripts, "script")}" +
+                            (if (r.shaders > 0) ", ${count(r.shaders, "shader")}" else "") +
+                            if (r.full) ", ${r.restored} saved items (todos, notes, reminders, feeds, log…)" else "",
+                    when {
+                        r.disabled == 1 -> "1 new script is off: turn it on in Scripts"
+                        r.disabled > 1 -> "${r.disabled} new scripts are off: turn them on in Scripts"
+                        else -> null
+                    },
+                    r.skipped.takeIf { it.isNotEmpty() }?.let { "Skipped ${it.joinToString()}" },
+                    r.review.takeIf { it.isNotEmpty() }?.let { "Check these from the file: ${it.joinToString()}" },
+                    if (r.newer) "This backup is from a newer Kolahal, so what this version doesn't know was skipped" else null,
+                ).joinToString("\n")
             )
             // A full restore replaced the preferences and tables, so every in-memory cache is now stale.
             // Restart the app to load everything again.
@@ -110,6 +112,6 @@ class BackupActions(
     private fun backUp() {
         val name = com.mtwabpin.kolahal.data.AutoBackup.backUp(context)
         _backupVersion.value++
-        notice("Backed up: $name in ${com.mtwabpin.kolahal.data.AutoBackup.folderName(context) ?: "the backup folder"}")
+        notice("Backed up: $name\nFolder: ${com.mtwabpin.kolahal.data.AutoBackup.folderName(context) ?: "the backup folder"}")
     }
 }

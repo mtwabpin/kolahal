@@ -108,7 +108,7 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 repo.markRead(newItems.map { it.id })
                 if (toLog) lines += LogRepository.Pending(
                     LogKind.INFO,
-                    "$source: subscribed · ${newItems.size} earlier posts marked read",
+                    "$source: subscribed\n${newItems.size} earlier posts marked read",
                     source,
                     LogContext.of(LogContext.COMMAND to "feed all ${feed.id}") + feedCtx,
                     ts,

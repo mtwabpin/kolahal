@@ -575,7 +575,7 @@ class LuaEngine : ScriptEngine {
               end
             end
             tty.screen = function(spec)
-              if type(spec) ~= "table" then error("tty.screen expects a table: tty.screen{ start = …, frame = … }", 2) end
+              if type(spec) ~= "table" then error("tty.screen expects a table\nSuch as tty.screen{ start = …, frame = … }", 2) end
               local names, functions = {}, {}
               for k, v in next, spec do
                 names[#names + 1] = tostring(k)
