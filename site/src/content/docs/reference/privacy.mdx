@@ -34,6 +34,7 @@ Kolahal itself makes network requests in exactly five cases:
 4. **Getting scripts and shaders**: when you open Get more scripts or Get more shaders, refresh it, or run `script get`
    or `shader get`, Kolahal downloads the list of shared scripts and shaders from mtwabpin.github.io and from each
    [source you added](/scripting/overview/#your-own-scripts-repository) (and keeps each for an hour).
+   It asks each for the list of its own version first, and for the general list when there is none.
    It also downloads the file of a script or shader you look at or install.
 5. **Updates**, in the full build only, and only when you run them. `update` asks GitHub for the
    latest release, and `update install` downloads its APK from GitHub. Nothing checks in the background.

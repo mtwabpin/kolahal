@@ -26,6 +26,9 @@ import java.util.concurrent.ConcurrentHashMap
  *   SHA-256, on GitHub Pages. Only kolahal-scripts is reviewed before a script is added.
  * - This class reads each list only when asked and keeps it for an hour. A source that can't be
  *   read keeps its last list, with the error, and the other sources still show.
+ * - It asks each source for the list of this Kolahal's version first, and for the general list
+ *   when the source has none ([ScriptSources.read]). The files of a list are read from the folder
+ *   the list came from.
  * - It installs a script only when the downloaded file matches its list.
  * - A source's list may have shaders too ([SharedShader]). They are read with the scripts, from the
  *   same file; [com.mtwabpin.kolahal.shader.ShaderStore] installs them.
@@ -50,6 +53,7 @@ class ScriptCatalog(private val context: Context) {
         val sha256: String,
         /** The name of the source that lists it ([ScriptSources.Source.name]). */
         override val source: String = SOURCE,
+        override val folder: String? = null,
     ) : ScriptSources.Listed
 
     /** Where a shared script stands on this phone, or a shared shader ([SharedShaders.state]). */
@@ -134,8 +138,15 @@ class ScriptCatalog(private val context: Context) {
         val shaders: List<SharedShader> = emptyList(),
     )
 
-    /** What one index.json lists. */
-    private class Index(val scripts: List<Entry>, val shaders: List<SharedShader>)
+    /**
+     * What one index.json lists. [by]: the version of Kolahal that read it, null for a list kept by
+     * a Kolahal up to 0.5.16.
+     */
+    private class Index(
+        val scripts: List<Entry>,
+        val shaders: List<SharedShader>,
+        val by: String? = null
+    )
 
     private fun listing(source: ScriptSources.Source, index: Index?, error: String?) =
         Listing(source, index?.scripts.orEmpty(), readAt(source), error, index?.shaders.orEmpty())
@@ -169,8 +180,14 @@ class ScriptCatalog(private val context: Context) {
         // again only when the file changed: a new download.
         val stamp = file.lastModified() to file.length()
         Parsed.byFile[file.path]?.takeIf { it.first == stamp }?.let { return it.second }
-        return runCatching { parse(file.readText(), source) }.getOrNull()
+        return runCatching { readKept(file.readText(), source) }.getOrNull()
             ?.also { Parsed.byFile[file.path] = stamp to it }
+    }
+
+    /** A kept list ([keep], [ScriptSources.kept]), with the folder it came from. */
+    private fun readKept(text: String, source: ScriptSources.Source): Index {
+        val kept = ScriptSources.kept(text)
+        return parse(kept.list, source, kept.folder, kept.by)
     }
 
     /** Each list parsed last, by its file, with the file's time and size: one for the whole app. */
@@ -207,7 +224,8 @@ class ScriptCatalog(private val context: Context) {
 
     /**
      * [source]'s list: the copy kept for an hour, or a download when [refresh] is true or there is
-     * no copy. When the download fails, the listing has the copy kept (if any) and the error.
+     * no copy. A copy another version of Kolahal read is downloaded again. When the download fails,
+     * the listing has the copy kept (if any) and the error.
      */
     fun listing(source: ScriptSources.Source, refresh: Boolean = false): Listing {
         if (!refresh && System.currentTimeMillis() - prefs.getLong(
@@ -215,12 +233,15 @@ class ScriptCatalog(private val context: Context) {
                 0
             ) < KEEP_MS
         ) {
-            index(source)?.let { return listing(source, it, null) }
+            index(source)?.takeIf { it.by == null || it.by == BuildConfig.VERSION_NAME }
+                ?.let { return listing(source, it, null) }
         }
         return try {
-            val raw = get(source.index, MAX_INDEX).toString(Charsets.UTF_8)
-            val index = parse(raw, source)
-            keep(source, raw)
+            val read = ScriptSources.read(source, BuildConfig.VERSION_NAME) {
+                get(it, MAX_INDEX).toString(Charsets.UTF_8)
+            }
+            val index = parse(ScriptSources.root(read.text), source, read.folder)
+            keep(source, read.text, read.folder)
             Errors.byIndex.remove(source.index)
             listing(source, index, null)
         } catch (e: Exception) {
@@ -230,17 +251,26 @@ class ScriptCatalog(private val context: Context) {
         }
     }
 
-    /** Keeps [raw] as [source]'s list, read now. */
+    /**
+     * Keeps [raw] as [source]'s list, read now from version [folder] (null: the general list), with
+     * the folder and this Kolahal's version ([readKept]).
+     */
     @androidx.annotation.VisibleForTesting
-    internal fun keep(source: ScriptSources.Source, raw: String) {
-        cacheFile(source).writeText(raw)
+    internal fun keep(source: ScriptSources.Source, raw: String, folder: String? = null) {
+        cacheFile(source).writeText(
+            ScriptSources.keptText(ScriptSources.Read(raw, folder), BuildConfig.VERSION_NAME)
+        )
         Parsed.byFile.remove(cacheFile(source).path)
         prefs.edit(commit = true) { putLong(fetchedKey(source), System.currentTimeMillis()) }
     }
 
-    private fun parse(raw: String, source: ScriptSources.Source): Index {
-        val root = runCatching { Json.parse(raw) }.getOrNull() as? Map<*, *>
-            ?: throw IOException("its index.json isn't a script list")
+    /** The list [root], read from [source]'s version [folder] (null: the general list) by Kolahal [by]. */
+    private fun parse(
+        root: Map<*, *>,
+        source: ScriptSources.Source,
+        folder: String?,
+        by: String? = null
+    ): Index {
         val format = (root["format"] as? Number)?.toInt()
         if (format != FORMAT) {
             throw IOException(if (format != null && format > FORMAT) "its script list is newer than this Kolahal: update it" else "its index.json isn't a script list")
@@ -276,9 +306,10 @@ class ScriptCatalog(private val context: Context) {
                     requires = m.str("requires"),
                     sha256 = sha,
                     source = source.name,
+                    folder = folder,
                 )
             }.distinctBy { it.name })
-        return Index(scripts, SharedShaders.parse(root["shaders"], source.name))
+        return Index(scripts, SharedShaders.parse(root["shaders"], source.name, folder), by)
     }
 
     /** Downloads [e]'s file from its source and checks it against the list. Throws when it doesn't match (the list changed, so refresh it). */
@@ -287,6 +318,7 @@ class ScriptCatalog(private val context: Context) {
     /**
      * Downloads the file of [e] at [path] in its source, at most [max] bytes, and checks it against
      * the list ([sha256]). [kind] is the list's word in the error: a script or a shader list.
+     * The file is read from the folder of the list [e] is in ([address]).
      */
     internal fun download(
         e: ScriptSources.Listed,
@@ -295,11 +327,16 @@ class ScriptCatalog(private val context: Context) {
         max: Long,
         kind: String
     ): String {
-        val source = sources().firstOrNull { it.name == e.source }
-            ?: throw IOException("${e.source} isn't one of your sources")
-        val bytes = get(source.base + path, max)
+        val bytes = get(address(e, path), max)
         if (sha256Hex(bytes) != sha256) throw IOException("${e.name} doesn't match the $kind list; refresh it and try again")
         return bytes.toString(Charsets.UTF_8)
+    }
+
+    /** The address of the file of [e] at [path]: under the folder of the list [e] is in. */
+    internal fun address(e: ScriptSources.Listed, path: String): String {
+        val source = sources().firstOrNull { it.name == e.source }
+            ?: throw IOException("${e.source} isn't one of your sources")
+        return source.folderBase(e.folder) + path
     }
 
     fun state(e: Entry, installed: List<Script>): State {
@@ -434,13 +471,16 @@ class ScriptCatalog(private val context: Context) {
         )
     }
 
-    /** Downloads [url], at most [max] bytes. */
+    /** Downloads [url], at most [max] bytes. An address that doesn't exist throws [ScriptSources.Missing]. */
     private fun get(url: String, max: Long): ByteArray {
         val request =
             Request.Builder().url(url).header("User-Agent", "Kolahal/${BuildConfig.VERSION_NAME}")
                 .build()
         Net.client.newCall(request).execute().use { resp ->
-            if (!resp.isSuccessful) throw IOException("HTTP ${resp.code} from ${request.url.host}")
+            if (!resp.isSuccessful) {
+                val why = "HTTP ${resp.code} from ${request.url.host}"
+                throw if (ScriptSources.missing(resp.code)) ScriptSources.Missing(why) else IOException(why)
+            }
             val bytes = resp.peekBody(max + 1).bytes()
             if (bytes.size > max) throw IOException("${request.url.encodedPath} is too large")
             return bytes
@@ -458,6 +498,7 @@ class ScriptCatalog(private val context: Context) {
         /** The index.json `format` that this Kolahal reads. */
         private const val FORMAT = 1
         private const val KEEP_MS = 60 * 60 * 1000L
+
         private const val MAX_INDEX = 2L * 1024 * 1024
 
         /** The repository's check allows 64 KB per script. */

@@ -28,6 +28,7 @@ data class SharedShader(
     override val source: String = ScriptCatalog.SOURCE,
     /** It follows how the phone leans (it declares `tilt`). An older list doesn't say. */
     val tilt: Boolean = false,
+    override val folder: String? = null,
 ) : ScriptSources.Listed
 
 /**
@@ -43,12 +44,13 @@ object SharedShaders {
     private val SHA = Regex("^[0-9a-f]{64}$")
 
     /**
-     * The shaders of an index's `shaders` value ([list]), which came from [source]. Null, or anything
-     * that isn't a list, is no shaders. An entry is left out when its name can't be a shader's, its file
-     * isn't `shaders/<name>/<name>.agsl` (never a path that leaves `shaders/`), or it has no SHA-256.
+     * The shaders of an index's `shaders` value ([list]), which came from [source], from its version
+     * [folder] (null: the general list). Null, or anything that isn't a list, is no shaders. An entry
+     * is left out when its name can't be a shader's, its file isn't `shaders/<name>/<name>.agsl`
+     * (never a path that leaves `shaders/`), or it has no SHA-256.
      * One entry per name: the screen uses the name as the list key.
      */
-    fun parse(list: Any?, source: String): List<SharedShader> =
+    fun parse(list: Any?, source: String, folder: String? = null): List<SharedShader> =
         (list as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().mapNotNull { m ->
             fun str(key: String) = m[key]?.toString()?.takeIf { it.isNotBlank() }
             val name = str("name")?.takeIf(ShaderCatalog::valid) ?: return@mapNotNull null
@@ -68,6 +70,7 @@ object SharedShaders {
                 sha256 = sha,
                 source = source,
                 tilt = m["tilt"] == true,
+                folder = folder,
             )
         }.distinctBy { it.name }
 

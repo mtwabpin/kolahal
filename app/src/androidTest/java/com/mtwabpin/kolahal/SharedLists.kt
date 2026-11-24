@@ -62,13 +62,21 @@ class SharedShaderLists : ExternalResource() {
         hadFetched = prefs.getLong("fetched", -1).takeIf { it >= 0 }
     }
 
-    /** Puts [shaders] in kolahal-scripts' list, or in [source]'s, which is then added. */
-    fun listed(vararg shaders: ListedShader, source: ScriptSources.Source = ScriptSources.DEFAULT) {
+    /**
+     * Puts [shaders] in kolahal-scripts' list, or in [source]'s, which is then added. [folder]: the
+     * version folder the list came from, null for the general list.
+     */
+    fun listed(
+        vararg shaders: ListedShader,
+        source: ScriptSources.Source = ScriptSources.DEFAULT,
+        folder: String? = null,
+    ) {
         names += shaders.map { it.name }
         catalog.keep(
             source,
             JSONObject().put("format", 1).put("scripts", JSONArray())
-                .put("shaders", JSONArray(shaders.map { it.json() })).toString()
+                .put("shaders", JSONArray(shaders.map { it.json() })).toString(),
+            folder,
         )
         if (!source.builtIn) catalog.add(source)
         assertEquals(

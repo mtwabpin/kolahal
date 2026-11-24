@@ -383,7 +383,7 @@ object ScriptMeta {
     }
 
     /** Turns "0.4.0" or "0.4.0-lite" into [0, 4, 0]. Null when it isn't a version. */
-    private fun versionParts(v: String): List<Int>? =
+    internal fun versionParts(v: String): List<Int>? =
         v.trim().removePrefix("v").substringBefore('-').split('.')
             .map { it.toIntOrNull() ?: return null }
 

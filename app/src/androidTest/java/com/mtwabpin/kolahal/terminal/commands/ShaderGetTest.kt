@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.terminal.commands
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.ListedShader
@@ -145,6 +146,22 @@ class ShaderGetTest {
         lists.listed(glow, source = lists.other)
         val theirs = lists.store.cached().first { it.source == lists.other.name }
         assertThrows(IllegalStateException::class.java) { lists.store.install(theirs, code, replace = true) }
+    }
+
+    /** A source's list for this version installs as any other, with each file read from the version's folder. */
+    @Test
+    fun aVersionsListReadsItsFilesFromItsFolder() {
+        val folder = checkNotNull(ScriptSources.folderOf(BuildConfig.VERSION_NAME))
+        lists.listed(glow, source = lists.other, folder = folder)
+        val e = lists.store.cached().first { it.source == lists.other.name }
+        assertEquals(folder, e.folder)
+        assertEquals(
+            "${lists.other.base}$folder/shaders/sg-glow/sg-glow.agsl",
+            lists.catalog.address(e, e.path)
+        )
+        lists.store.install(e, code)
+        assertEquals(code, Shaders.own(context, "sg-glow"))
+        assertEquals(lists.other.name, lists.store.installedFrom("sg-glow"))
     }
 
     /** The scripts of a list with shaders are read as ever, and the shaders of one with scripts. */

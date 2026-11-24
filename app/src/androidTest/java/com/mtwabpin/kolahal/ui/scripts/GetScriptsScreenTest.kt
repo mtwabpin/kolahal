@@ -30,6 +30,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.core.content.edit
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptCatalog
@@ -552,6 +553,32 @@ class GetScriptsScreenTest {
         compose.waitForText("Moon phase")
         compose.onNodeWithText("Moon phase").performClick()
         compose.waitForText("From: gsowner/gsscripts, a source you added")
+        tapWhenEnabled("Install")
+        compose.waitForText("Installed gsmoon.lua")
+        assertEquals(other.name, catalog.installedFrom(moon.name))
+        compose.waitForText("Tonight's moon · From gsowner/gsscripts · Installed")
+    }
+
+    /**
+     * A source's list for this version of Kolahal shows as any other, and its files are read from
+     * the version's folder, where the list came from.
+     */
+    @Test
+    fun aVersionsListReadsItsFilesFromItsFolder() {
+        val folder = checkNotNull(ScriptSources.folderOf(BuildConfig.VERSION_NAME))
+        listed(tide)
+        catalog.keep(other, json(moon), folder)
+        catalog.add(other)
+        val e = checkNotNull(catalog.cached(other)).single()
+        assertEquals(folder, e.folder)
+        assertEquals("${other.base}$folder/scripts/gsmoon/gsmoon.lua", catalog.address(e, e.path))
+        // kolahal-scripts' list, kept alone as a Kolahal up to 0.5.16 kept it, is its general list.
+        val general = checkNotNull(catalog.cached()).first { it.name == tide.name }
+        assertEquals(null, general.folder)
+        assertEquals("${ScriptSources.DEFAULT.base}scripts/gstide/gstide.lua", catalog.address(general, general.path))
+        show(moon)
+        compose.waitForText("Moon phase")
+        compose.onNodeWithText("Moon phase").performClick()
         tapWhenEnabled("Install")
         compose.waitForText("Installed gsmoon.lua")
         assertEquals(other.name, catalog.installedFrom(moon.name))

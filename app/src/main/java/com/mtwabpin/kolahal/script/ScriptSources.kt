@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.script
 
+import java.io.IOException
 import java.net.URI
 
 /**
@@ -14,14 +15,105 @@ object ScriptSources {
     /**
      * One source.
      * - [name]: what Kolahal calls it, as `owner/name` for GitHub Pages, otherwise the host and path.
-     * - [index]: the address of its index.json. Script paths in it are read from [base].
+     * - [index]: the address of its index.json, the general list. Script paths in it are read from [base].
+     *
+     * A source may also have a folder for each Kolahal version, with a list of its own ([folderIndex]).
      */
     data class Source(val name: String, val index: String) {
         val base: String get() = index.removeSuffix(INDEX)
         val builtIn: Boolean get() = index == DEFAULT.index
+
+        /**
+         * Where the files of a list read from [folder] are: `<base><folder>/`, or [base] for null (the
+         * general list). [folder] is a version folder ([folderOf]), never text from a list.
+         */
+        fun folderBase(folder: String?): String {
+            if (folder == null) return base
+            require(FOLDER.matches(folder)) { "$folder isn't a version folder" }
+            return "$base$folder/"
+        }
+
+        /** The address of the list in version [folder]: `<base><folder>/index.json`. */
+        fun folderIndex(folder: String): String = folderBase(folder) + INDEX
     }
 
     private const val INDEX = "index.json"
+
+    /** A version folder: three numbers, such as `0.5.17`. */
+    val FOLDER = Regex("^\\d+\\.\\d+\\.\\d+$")
+
+    /**
+     * The folder of Kolahal [versionName] in a source: its three numbers, read as `@requires` reads
+     * a version ([ScriptMeta.isNewer]). `0.5.17` for 0.5.17 and 0.5.17-dev. Null when the name
+     * doesn't have exactly three numbers.
+     */
+    fun folderOf(versionName: String): String? =
+        ScriptMeta.versionParts(versionName)?.takeIf { it.size == 3 }
+            ?.joinToString(".")
+
+    /** Thrown when the server answers that an address doesn't exist (HTTP 404 or 410). */
+    class Missing(message: String) : IOException(message)
+
+    /** True when an HTTP status [code] says the address doesn't exist: 404 or 410. */
+    fun missing(code: Int): Boolean = code == 404 || code == 410
+
+    /** A list as read: its [text], and the version [folder] it came from (null: the general list). */
+    data class Read(val text: String, val folder: String?)
+
+    /** The list in [text], an index.json. Throws when it isn't one. */
+    fun root(text: String): Map<*, *> =
+        runCatching { Json.parse(text) }.getOrNull() as? Map<*, *>
+            ?: throw IOException("its index.json isn't a script list")
+
+    /**
+     * A list kept between runs: the [list] as read, the version [folder] it came from (null: the
+     * general list), and the version of Kolahal that read it ([by]; null when a Kolahal up to 0.5.16
+     * kept it).
+     */
+    class Kept(val list: Map<*, *>, val folder: String?, val by: String?)
+
+    // The keys of a kept list ([keptText]).
+    private const val KEPT_LIST = "list"
+    private const val KEPT_BY = "by"
+    private const val KEPT_FOLDER = "folder"
+
+    /** The text that keeps [read], read by Kolahal [by]. [kept] reads it back. */
+    fun keptText(read: Read, by: String): String = Json.stringify(
+        mapOf(KEPT_LIST to read.text, KEPT_BY to by) +
+                listOfNotNull(read.folder?.let { KEPT_FOLDER to it })
+    )
+
+    /**
+     * The list kept as [text] ([keptText]). A file with the list alone was kept by a Kolahal up to
+     * 0.5.16: it came from the general list. Throws when it isn't a list, or its folder isn't a
+     * version's.
+     */
+    fun kept(text: String): Kept {
+        val root = root(text)
+        // A list always has a format, so a list kept alone is never read as a kept one.
+        val list = root[KEPT_LIST] as? String
+        if (root["format"] != null || list == null) return Kept(root, null, null)
+        val folder = root[KEPT_FOLDER]?.toString()
+        if (folder != null && !FOLDER.matches(folder)) throw IOException("its index.json isn't a script list")
+        return Kept(root(list), folder, root[KEPT_BY]?.toString())
+    }
+
+    /**
+     * Reads [source]'s list for Kolahal [versionName], with [get] (an address in, the text out):
+     * - first the list in the version's folder ([folderOf]);
+     * - the general list ([Source.index]) when that one is [Missing], or the version has no folder.
+     *
+     * Any other failure of the first read is thrown, and the general list isn't read in its place:
+     * a broken list of this version must not show another version's scripts.
+     */
+    fun read(source: Source, versionName: String, get: (String) -> String): Read {
+        val folder = folderOf(versionName) ?: return Read(get(source.index), null)
+        return try {
+            Read(get(source.folderIndex(folder)), folder)
+        } catch (_: Missing) {
+            Read(get(source.index), null)
+        }
+    }
 
     /** kolahal-scripts, where every script is reviewed before it is added. */
     val DEFAULT = Source("kolahal-scripts", "https://mtwabpin.github.io/kolahal-scripts/index.json")
@@ -123,6 +215,12 @@ object ScriptSources {
 
         /** The name of the source that lists it ([Source.name]). */
         val source: String
+
+        /**
+         * The version folder of the list it is in (`0.5.17`), so its file is read from there
+         * ([Source.folderBase]). Null for the general list.
+         */
+        val folder: String?
     }
 
     /**

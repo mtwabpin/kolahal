@@ -57,6 +57,20 @@ class SharedShadersTest {
         assertFalse(e.tilt)
         assertNull(e.requires)
         assertEquals(ScriptCatalog.SOURCE, e.source)
+        assertNull(e.folder)
+    }
+
+    /** The shaders of a version's list are read from its folder, beside the source's index.json. */
+    @Test
+    fun aVersionsListKeepsItsFolder() {
+        val root = Json.parse("""{"shaders":[${entry("glow")}]}""") as Map<*, *>
+        val e = SharedShaders.parse(root["shaders"], "alice/scripts", "0.5.17").single()
+        assertEquals("0.5.17", e.folder)
+        val alice = ScriptSources.Source("alice/scripts", "https://alice.github.io/scripts/index.json")
+        assertEquals(
+            "https://alice.github.io/scripts/0.5.17/shaders/glow/glow.agsl",
+            alice.folderBase(e.folder) + e.path
+        )
     }
 
     /** `tilt` says that it follows the phone's lean. Only true counts; a list that doesn't have it means no. */

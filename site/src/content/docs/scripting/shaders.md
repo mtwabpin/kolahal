@@ -242,7 +242,9 @@ It is then one of your shaders. When the list has a newer version, its row says 
 edited is replaced only when you ask, and **Undo** puts your copy back.
 
 The sources are the same as for scripts: [add your own](/scripting/overview/#your-own-scripts-repository)
-with **Sources**, at the top of the page. Kolahal doesn't check the shaders of a source you add.
+with **Sources**, at the top of the page. Kolahal doesn't check the shaders of a source you add. As for
+scripts, Kolahal asks a source for the list of its own version first, and for the general list when the
+source has none.
 
 | Command | What it does |
 | --- | --- |

@@ -573,7 +573,8 @@ Your values are stored apart from the code, by script name.
 
 **Scripts → Add script → Get more scripts** lists the scripts that people share in
 [kolahal-scripts](https://github.com/mtwabpin/kolahal-scripts) on GitHub. Each script is reviewed
-before it is added.
+before it is added. Kolahal asks for the list of its own version first, and for the general list when
+there is none.
 
 1. Tap a script to see what it does, what it uses and its code.
 2. Tap **Install**.
@@ -645,6 +646,13 @@ To make a repository of your own:
    Action checks the scripts and publishes the list. [Shaders](/scripting/shaders/#getting-shaders-from-others)
    go in `shaders/<name>/<name>.agsl`.
 4. In Kolahal, add `owner/name` in **Sources**.
+
+A repository can also have a list for each version of Kolahal, in a folder named after the version's
+three numbers: `https://owner.github.io/name/0.5.17/index.json`, with its files under
+`https://owner.github.io/name/0.5.17/`. Kolahal asks a source for the list of its own version first,
+and for the general list (`https://owner.github.io/name/index.json`) when the source has none. A
+repository with only the general list works with every version. One made from the template publishes
+each branch named like a version, such as `0.5.17`, in that version's folder.
 
 In the terminal:
 
