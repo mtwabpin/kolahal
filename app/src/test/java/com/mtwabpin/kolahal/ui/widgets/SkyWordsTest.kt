@@ -220,4 +220,30 @@ class SkyWordsTest {
         assertEquals("17:20", SkyWords.main(spec, sun(now), utc, clock24 = true, Locale.ENGLISH))
         assertEquals("78%", SkyWords.main(spec.copy(phase = 0.78f), sun(now), utc, clock24 = true, Locale.ENGLISH))
     }
+
+    /**
+     * The words of a wide card always read whole: a sun's label shortens to its event's name, and
+     * a moon's phase gets smaller, then takes two lines. Here a character is 0.5 of its size wide.
+     */
+    @Test
+    fun theWordsShortenOrGetSmallerButAreNeverCut() {
+        val width = { text: String, sp: Float -> text.length * sp * 0.5f }
+        // "Sunrise in 11 h 59 min" is 132 wide at 12 sp: in 90 the card writes "Sunrise".
+        assertEquals(
+            SkyWords.LineFit("Sunrise", 12f, twoLines = false),
+            SkyWords.fitLine(listOf("Sunrise in 11 h 59 min", "Sunrise"), 12f, 10f, 90f, width)
+        )
+        assertEquals(
+            SkyWords.LineFit("Sunrise in 11 h 59 min", 12f, twoLines = false),
+            SkyWords.fitLine(listOf("Sunrise in 11 h 59 min", "Sunrise"), 12f, 10f, 140f, width)
+        )
+        // "Waning crescent" (15 characters) is 90 wide at 12 sp, 82.5 at 11, 75 at 10.
+        assertEquals(SkyWords.LineFit("Waning crescent", 12f, twoLines = false), SkyWords.fitLine(listOf("Waning crescent"), 12f, 10f, 95f, width))
+        assertEquals(SkyWords.LineFit("Waning crescent", 11f, twoLines = false), SkyWords.fitLine(listOf("Waning crescent"), 12f, 10f, 85f, width))
+        assertEquals(SkyWords.LineFit("Waning crescent", 10f, twoLines = false), SkyWords.fitLine(listOf("Waning crescent"), 12f, 10f, 76f, width))
+        assertEquals(SkyWords.LineFit("Waxing gibbous", 11f, twoLines = true), SkyWords.fitLine(listOf("Waxing gibbous"), 12f, 10f, 60f, width))
+        // The names the card can give are these, the longest of 15 characters.
+        val names = listOf(0.01f, 0.2f, 0.5f, 0.78f, 0.99f).flatMap { p -> listOf(true, false).map { SkyWords.moonName(p, it) } }
+        assertEquals(15, names.maxOf { it.length })
+    }
 }

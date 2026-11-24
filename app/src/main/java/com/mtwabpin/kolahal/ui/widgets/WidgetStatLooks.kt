@@ -61,6 +61,8 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
     val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.BOLD, role)
+    // The value in the role's hue, moved just far enough to read on the card ([valueInk]).
+    val ink = valueInk(role, c.card)
     val title = LocalUntitled.current
     val hasChange = spec.trend != null || spec.delta != null
     val spark = spec.points.size >= 2
@@ -90,7 +92,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.BottomStart
-            ) { BoldValue(spec.value, spec.unit, 88.sp, role, rolls = true) }
+            ) { BoldValue(spec.value, spec.unit, 88.sp, ink, rolls = true) }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -142,7 +144,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                             .weight(1f)
                             .fillMaxWidth(),
                         contentAlignment = Alignment.BottomStart
-                    ) { BoldValue(spec.value, spec.unit, 64.sp, role, rolls = true) }
+                    ) { BoldValue(spec.value, spec.unit, 64.sp, ink, rolls = true) }
                 }
                 // The label's column takes at most about two fifths of the width: the value is the main thing.
                 Column(
@@ -188,7 +190,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 contentAlignment = Alignment.Center
             ) {
                 val shown = WidgetWords.joined(spec.value, spec.unit)
-                RollingText(shown) { roll, laid -> BoldText(shown, 48.sp, role, roll, laid) }
+                RollingText(shown) { roll, laid -> BoldText(shown, 48.sp, ink, roll, laid) }
             }
             spec.label?.let {
                 Text(

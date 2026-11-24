@@ -148,6 +148,34 @@ internal object SkyWords {
         return listOf("$name in ${span(place.next - now)}", name)
     }
 
+    /** The words a card writes in its room ([fitLine]): [text] at [size] sp, on two lines when [twoLines]. */
+    data class LineFit(val text: String, val size: Float, val twoLines: Boolean)
+
+    /**
+     * Which of [lines] a card writes in [room], and how, where [width] gives a text's width at a
+     * size in sp (in the room's unit).
+     * - The first, the longest, that fits whole at [size]: "Sunset in 2 h 10 min", else "Sunset".
+     * - When none does, the last one at a smaller size, down to [least] sp: "Waning crescent".
+     * - When even that is too wide, the last one on two lines, at [least] or 11 sp, whichever is
+     *   larger and no larger than [size]: it breaks between its words, never inside one.
+     */
+    fun fitLine(
+        lines: List<String>,
+        size: Float,
+        least: Float,
+        room: Float,
+        width: (String, Float) -> Float
+    ): LineFit {
+        lines.firstOrNull { width(it, size) <= room }?.let { return LineFit(it, size, twoLines = false) }
+        val last = lines.lastOrNull() ?: return LineFit("", size, twoLines = false)
+        var sp = size - 1f
+        while (sp >= least) {
+            if (width(last, sp) <= room) return LineFit(last, sp, twoLines = false)
+            sp -= 1f
+        }
+        return LineFit(last, minOf(size, maxOf(least, 11f)), twoLines = true)
+    }
+
     /** The time of day of [t] as Kolahal writes it ([TimeFormats.clock]): "17:20" or "5:20 PM". */
     fun clock(t: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): String =
         Instant.ofEpochSecond(t).atZone(zone).format(TimeFormats.clockFormat(clock24, locale))

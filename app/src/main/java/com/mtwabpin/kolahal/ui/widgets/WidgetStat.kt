@@ -355,6 +355,15 @@ internal fun smallLine(small: WidgetSpec.Small): String =
     listOfNotNull(small.value, small.label).joinToString(" ")
 
 /**
+ * The color of a big value drawn as ink in a card's [color] on [ground] (the card's own surface):
+ * [color] as it is where it reads there at 3:1 ([INK_MIN]), else the same hue moved toward white or
+ * black just far enough ([inkOn]). A color a person chooses, or a theme's dim role such as Rosé
+ * Pine's good, keeps its hue and still reads. Only for a value as text: fills, bars, rings and
+ * shapes are areas and keep the theme's color. Bold's and Poster's values and Bold's chart use it.
+ */
+internal fun valueInk(color: Color, ground: Color): Color = inkOn(ground, color, color)
+
+/**
  * One of a stat's smaller values, over its label in [muted]. With [centered], both are centered.
  * - The label starts with a capital here, on a line of its own. Where a look writes it after the
  *   value on one line ("62% humidity"), it keeps the script's case.

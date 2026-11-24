@@ -23,6 +23,7 @@ import com.mtwabpin.kolahal.shader.ShaderMeta
 import com.mtwabpin.kolahal.shader.ShaderSafety
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.WallpaperChoice
+import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.ui.theme.page
 import com.mtwabpin.kolahal.ui.tty.rememberShaderPreview
 import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
@@ -35,8 +36,11 @@ import kotlinx.coroutines.withContext
  * A stat's scene ([WidgetSpec.Stat.scene]): a still of one of Kolahal's shaders as the card's ground,
  * under a scrim of the card's own color [card], so the figures over it read.
  * - The shader draws over the page's color, as over home's empty page, so the picture is all its
- *   own. It is one frame at a fixed time: it never moves, and it is drawn again only when the card
- *   is (its time of day, its parameters and the phone's lean follow as on home's preview of it).
+ *   own. It is a still: its motion's clock (`time`) stays at 0, so it never moves. What it shows is
+ *   what home would show now: the phone's date and hour (`date`, read as it draws, and drawn again at
+ *   each minute of the cards' clock, so the dunes go from day to dusk without a run), its parameters
+ *   with the values they follow (the candle's screen time, a script's rain amount), the battery,
+ *   and the phone's lean while home's own shader follows it.
  * - The shader's file is read and then compiled off the main thread. Until both are done the card
  *   is the plain stat; each result is state, so the card draws again with its scene once it is ready.
  * - In Plain, Tonal and Bold, whose card has a fill for it to replace. Split's tiles and Shape's
@@ -66,7 +70,9 @@ internal fun StatScene(spec: WidgetSpec.Stat, look: WidgetLook, card: Color) {
         }
     }
     val source = code ?: return
-    val ground = rememberShaderPreview(name, source, rememberTtyGrid(), moves = false) ?: return
+    // The cards' minute tick: a scene that follows the hour goes from day to dusk without a run.
+    val (now, _) = rememberNow()
+    val ground = rememberShaderPreview(name, source, rememberTtyGrid(), moves = false, minute = now.time / 60_000) ?: return
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val scrim = remember(card, rtl) {
         val stops = arrayOf(

@@ -130,6 +130,12 @@ internal fun SkyBody(spec: WidgetSpec.Sky, box: WidgetSizes.Box) {
 /** A wide card keeps this much of its width for the sky, at the end. */
 private const val SKY_SHARE = 0.46f
 
+/**
+ * A wide moon card keeps less for the sky: the phase's name is the one thing it says in words, and
+ * the longest ("Waning crescent") needs the room.
+ */
+private const val MOON_SHARE = 0.36f
+
 /** The type of the times at the arc's ends. */
 @Composable
 private fun timeStyle(): TextStyle =
@@ -187,7 +193,7 @@ private fun PlainSky(
         }
 
         WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
-            val skyWidth = maxWidth * SKY_SHARE
+            val skyWidth = maxWidth * if (spec.phase != null) MOON_SHARE else SKY_SHARE
             // Plain and Tonal: the band is drawn first, and the words are over it. Bold's big
             // value is as tall as its line, so the horizon would cross it: its sky keeps to its
             // own part of the card, with no band under the words.
@@ -323,6 +329,7 @@ private fun MoonDisc(phase: Float, waxing: Boolean, role: Color, modifier: Modif
 @Composable
 private fun SplitSky(spec: WidgetSpec.Sky, sky: SkyNow, box: WidgetSizes.Box, role: Color, title: String?) {
     val type = MaterialTheme.typography
+    val moon = spec.phase != null
     val c = lookColors(WidgetLook.SPLIT, role)
     val gap = SplitCorners.GAP
     when (box) {
@@ -336,7 +343,7 @@ private fun SplitSky(spec: WidgetSpec.Sky, sky: SkyNow, box: WidgetSizes.Box, ro
         WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             Tile(SplitCorners.inRow(0, 2), c.tile, Modifier.weight(1f).fillMaxHeight()) {
                 Column(
-                    Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp),
+                    Modifier.fillMaxSize().padding(horizontal = if (moon) 12.dp else 14.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
                     SkyTitle(title, c.content)
@@ -344,8 +351,12 @@ private fun SplitSky(spec: WidgetSpec.Sky, sky: SkyNow, box: WidgetSizes.Box, ro
                     FirstThatFits(sky.lines, type.bodySmall, c.muted)
                 }
             }
-            Tile(SplitCorners.inRow(1, 2), c.tile, Modifier.weight(0.8f).fillMaxHeight()) {
-                SkyDrawing(sky, spec, role, c.tile, Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp))
+            // The moon's tile is narrower: its words need the room ([MOON_SHARE]).
+            Tile(SplitCorners.inRow(1, 2), c.tile, Modifier.weight(if (moon) 0.55f else 0.8f).fillMaxHeight()) {
+                SkyDrawing(
+                    sky, spec, role, c.tile,
+                    Modifier.fillMaxSize().padding(horizontal = if (moon) 4.dp else 8.dp, vertical = 8.dp)
+                )
             }
         }
 
@@ -411,15 +422,19 @@ private fun ShapeBesideSky(spec: WidgetSpec.Sky, sky: SkyNow, role: Color, title
         SkyDrawing(sky, spec, role, c.shapeFill, Modifier.fillMaxSize().padding(side / 6), band = false)
     }) {
         SkyTitle(title, c.content)
-        BigText(sky.main, type.titleLarge)
+        // The title and the words are measured first; the big value takes the height they leave.
+        Box(Modifier.weight(1f, fill = false), contentAlignment = Alignment.CenterStart) {
+            BigText(sky.main, type.titleLarge)
+        }
         FirstThatFits(sky.lines, type.bodySmall, c.muted)
     }
 }
 
 /**
  * The first of [lines] that fits whole on one line in the width it gets, in [style] at the phone's
- * font size. With none that fits, the last one, cut with "…". With [end] it keeps to the end of
- * its room, with [center] to its middle.
+ * font size ([SkyWords.fitLine]). When none does, the last one gets smaller, down to 10 sp; and
+ * when even that is too wide, it takes two lines, broken between its words. So the moon's phase is
+ * never cut mid-word. With [end] it keeps to the end of its room, with [center] to its middle.
  */
 @Composable
 private fun FirstThatFits(
@@ -433,16 +448,17 @@ private fun FirstThatFits(
     val measurer = rememberTextMeasurer()
     BoxWithConstraints {
         val room = constraints.maxWidth
-        val text = remember(lines, style, room, measurer) {
-            lines.firstOrNull {
-                measurer.measure(it, style, maxLines = 1, softWrap = false).size.width <= room
-            } ?: lines.last()
+        val size = style.fontSize.takeIf { it.isSp }?.value ?: 12f
+        val fit = remember(lines, style, room, measurer) {
+            SkyWords.fitLine(lines, size, LEAST_LINE_SP, room.toFloat()) { text, to ->
+                measurer.measure(text, sized(style, size, to), maxLines = 1, softWrap = false).size.width.toFloat()
+            }
         }
         Text(
-            text,
-            style = style,
+            fit.text,
+            style = sized(style, size, fit.size),
             color = color,
-            maxLines = 1,
+            maxLines = if (fit.twoLines) 2 else 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = when {
                 end -> TextAlign.End
@@ -452,6 +468,17 @@ private fun FirstThatFits(
         )
     }
 }
+
+/** The smallest size a sky card's words get before they take two lines, in sp. */
+private const val LEAST_LINE_SP = 10f
+
+/** [style], whose font is [size] sp, at [to] sp, its line height in proportion. */
+private fun sized(style: TextStyle, size: Float, to: Float): TextStyle =
+    if (to == size) style
+    else style.copy(
+        fontSize = to.sp,
+        lineHeight = if (style.lineHeight.isSp) style.lineHeight * (to / size) else style.lineHeight
+    )
 
 /** The dark part of the moon, and the part of the sun's path still to come: the color at this alpha. */
 private const val DARK_ALPHA = 0.3f

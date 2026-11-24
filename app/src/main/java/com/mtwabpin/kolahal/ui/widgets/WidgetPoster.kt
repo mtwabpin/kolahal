@@ -168,6 +168,8 @@ internal fun PosterCard(
 ) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.POSTER)
+    // The value in its color's hue, moved just far enough to read on the card ([valueInk]).
+    val valueColor = valueInk(color, c.card)
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val style = posterStyle()
@@ -218,8 +220,8 @@ internal fun PosterCard(
             val lead = (measured.first().firstBaseline - ink) * scale
             lines.forEachIndexed { i, line ->
                 val at = Modifier.placedAt(valueX.roundToInt(), (valueTop + i * step * scale - lead).roundToInt())
-                if (rolls && i == 0) RollingText(line) { roll, laid -> PosterLine(line, big, color, at.then(roll), laid) }
-                else PosterLine(line, big, color, at)
+                if (rolls && i == 0) RollingText(line) { roll, laid -> PosterLine(line, big, valueColor, at.then(roll), laid) }
+                else PosterLine(line, big, valueColor, at)
             }
         }
         val titleText: @Composable (Int) -> Unit = { maxLines ->
@@ -328,12 +330,25 @@ internal fun PosterStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     )
 }
 
-/** Poster's countdown: the number left; the label (or the card's name) at the top, with the unit and the moment ("days · 20 Dec"). */
+/**
+ * Poster's countdown: the number left; the label (or the card's name) at the top, with the unit
+ * and the moment as its note: "days · 20 Dec". The note shares the title's line, so it says less
+ * where that line is short, rather than be cut:
+ * - Wide: both, one under the other beside the value ([PosterCard]).
+ * - With a label of the script's own, small and large: the unit alone ("days"), so the label has
+ *   the line's room. The label often says the day ("to 31 December").
+ * - With no label (the card's name at the top): small, the moment alone ("20 Dec"); large, both.
+ * - On the day, with no unit: the moment (its time).
+ */
 @Composable
 internal fun PosterCountdown(spec: WidgetSpec.Countdown, box: WidgetSizes.Box, count: State<WidgetWords.Count>, moment: String?) {
     val left = count.value
-    // "days · 20 Dec": beside a wide card's value, the two go one under the other ([PosterCard]).
-    val note = listOfNotNull(left.unit, moment).joinToString(" · ").ifEmpty { null }
+    val note = when {
+        box == WidgetSizes.Box.WIDE -> listOfNotNull(left.unit, moment)
+        spec.label != null -> listOfNotNull(left.unit ?: moment)
+        box == WidgetSizes.Box.SMALL -> listOfNotNull(moment ?: left.unit)
+        else -> listOfNotNull(left.unit, moment)
+    }.joinToString(" · ").ifEmpty { null }
     PosterCard(
         listOf(StyledText.capitalized(left.value)),
         box,

@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -185,14 +186,7 @@ private fun PlainDots(
                     SmallTitle(title, c.content)
                     if (bold) BoldValue(value, null, 44.sp, c.accent)
                     else BigText(value, type.headlineMedium, color = c.content)
-                    val words = listOfNotNull(count.unit, under).joinToString(" · ")
-                    if (words.isNotEmpty()) Text(
-                        words,
-                        style = type.bodySmall,
-                        color = c.muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    UnitAndLabel(count.unit, under, c.muted)
                 }
                 if (fits && dots != null) DayDots(
                     dots,
@@ -215,6 +209,27 @@ private fun PlainDots(
             else BigText(value, type.titleLarge, color = c.content)
             count.unit?.let { Text(it, style = type.labelSmall, color = c.muted, maxLines = 1) }
         }
+    }
+}
+
+/**
+ * The line under a narrow card's number: "days left · A dot a day" when it fits on the line whole,
+ * else [unit] alone ("days left"), never cut after the unit. Without a [unit] (on the day), the
+ * [label] alone, cut with "…" if it must be.
+ */
+@Composable
+private fun UnitAndLabel(unit: String?, label: String?, color: Color) {
+    val style = MaterialTheme.typography.bodySmall
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val room = constraints.maxWidth
+        val both = listOfNotNull(unit, label).joinToString(" · ")
+        val words = remember(both, unit, style, room) {
+            if (unit == null || label == null) both
+            else if (measurer.measure(both, style, maxLines = 1, softWrap = false).size.width <= room) both
+            else unit
+        }
+        if (words.isNotEmpty()) Text(words, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -244,14 +259,7 @@ private fun SplitDots(
                 } else {
                     // A narrow tile has no room for "days left" beside the number: it goes under it, with the label.
                     BigText(StyledText.capitalized(count.value), type.headlineMedium, color = c.content)
-                    val words = listOfNotNull(count.unit, under).joinToString(" · ")
-                    if (words.isNotEmpty()) Text(
-                        words,
-                        style = type.bodySmall,
-                        color = c.muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    UnitAndLabel(count.unit, under, c.muted)
                 }
             }
         }

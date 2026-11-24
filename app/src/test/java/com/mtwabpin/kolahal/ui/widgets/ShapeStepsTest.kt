@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.atan2
 import kotlin.math.hypot
 
 /** The Shape look's shapes that carry a value, and the motion of shapes and buttons ([ShapeSteps]). */
@@ -49,53 +50,87 @@ class ShapeStepsTest {
         assertEquals(0, ShapeSteps.rays(now - day, now - 10 * day, now))
     }
 
+    /** The angle of a corner from the top, clockwise, in degrees from 0 to 360. */
+    private fun degrees(p: ShapeSteps.SunPoint): Double =
+        (Math.toDegrees(atan2((p.x - 0.5f).toDouble(), (0.5f - p.y).toDouble())) + 360) % 360
+
+    private fun radius(p: ShapeSteps.SunPoint) = hypot(p.x - 0.5f, p.y - 0.5f)
+
     /**
-     * The rays that are left are spread round the whole sun, the first at the top. Their largest gap
-     * is as small as it can be: k rays in 12 places can't all be closer than 12 / k places apart
-     * (rounded up), and they are never further.
+     * For each count from 12 to 0, a regular sun: that many rays, the first at the top, all evenly
+     * spaced, each from the body to the edge (a fifth of the radius deep, as Sunny's rays), and
+     * nothing inside the body, so the text keeps its room at every count.
      */
     @Test
-    fun theRaysLeftAreSpreadRoundTheSun() {
-        val places = (12 downTo 1).associateWith { k ->
-            ShapeSteps.sunRays(k).withIndex().filter { it.value }.map { it.index }
+    fun eachCountIsARegularSun() {
+        val body = ShapeSteps.SUN_BODY
+        assertEquals("a ray is as deep as Sunny's", 0.2f, (ShapeSteps.OUTER - body) / ShapeSteps.OUTER, 1e-6f)
+        for (n in 12 downTo 0) {
+            val corners = ShapeSteps.sunCorners(n)
+            val tips = corners.filter { it.kind == ShapeSteps.SunCorner.TIP }
+            assertEquals("$n rays", n, tips.size)
+            if (n > 0) {
+                assertEquals("$n rays: the first at the top", ShapeSteps.SunCorner.TIP, corners.first().kind)
+                assertEquals("$n rays: the first at the top", 0.0, degrees(corners.first()), 1e-3)
+                tips.forEachIndexed { i, tip ->
+                    assertEquals("$n rays: ray $i evenly spaced", i * 360.0 / n, degrees(tip), 1e-3)
+                    assertEquals("$n rays: ray $i at the edge", ShapeSteps.OUTER, radius(tip), 1e-5f)
+                }
+            }
+            val valleys = corners.filter { it.kind == ShapeSteps.SunCorner.VALLEY }
+            // Rays that meet share a valley; fewer rays have one on each side.
+            assertEquals("$n rays: valleys", if (n >= 8) n else 2 * n, valleys.size)
+            valleys.forEach { assertEquals("$n rays: a valley on the body", body, radius(it), 1e-5f) }
+            corners.filter { it.kind == ShapeSteps.SunCorner.ARC }.forEach {
+                assertTrue("$n rays: the body's round part keeps outside it", radius(it) >= body - 1e-5f)
+            }
+            if (n >= 8) assertTrue("$n rays meet", corners.none { it.kind == ShapeSteps.SunCorner.ARC })
         }
-        assertEquals(List(12) { it }, places[12])
-        assertEquals(listOf(0, 2, 3, 5, 7, 9, 10), places[7])
-        assertEquals(listOf(0, 4, 8), places[3])
-        assertEquals(listOf(0, 6), places[2])
-        assertEquals(listOf(0), places[1])
-        for ((k, kept) in places) {
-            assertEquals("$k rays", k, kept.size)
-            assertEquals("$k rays: one at the top", 0, kept.first())
-            val gaps = kept.zipWithNext { a, b -> b - a } + (12 - kept.last() + kept.first())
-            assertEquals("$k rays: the largest gap $gaps", (12 + k - 1) / k, gaps.max())
+        // 8 rays: Sunny's, rays that meet at an eighth of the circle each.
+        assertEquals(Math.PI / 8, ShapeSteps.rayHalfWidth(8), 1e-9)
+        // None: a plain circle of the body.
+        assertTrue(ShapeSteps.sunCorners(0).all { it.kind == ShapeSteps.SunCorner.ARC })
+    }
+
+    /** A ray of a few stands on the body between two valleys, as wide as the rule says, and no wider than its share. */
+    @Test
+    fun aFewRaysStandOnARoundBody() {
+        for (n in 1..7) {
+            val half = Math.toDegrees(ShapeSteps.rayHalfWidth(n))
+            assertTrue("$n rays: narrower than their share", 2 * half < 360.0 / n)
+            val corners = ShapeSteps.sunCorners(n)
+            // The corners after the top ray: its valley at half its width, then the body.
+            assertEquals(ShapeSteps.SunCorner.VALLEY, corners[1].kind)
+            assertEquals("$n rays", half, degrees(corners[1]), 1e-3)
+            assertEquals(ShapeSteps.SunCorner.ARC, corners[2].kind)
         }
-        assertEquals(List(12) { false }, ShapeSteps.sunRays(0))
+        assertEquals(Math.PI / 10, ShapeSteps.rayHalfWidth(1), 1e-9)
+        assertEquals(Math.PI / 8, ShapeSteps.rayHalfWidth(5), 1e-9)
     }
 
     /**
-     * A shape's corners: [ShapeSteps.SUN_STEPS] for each ray, the first where it meets the ray before,
-     * the middle one its top; the first ray's top at the top, the next ray clockwise from it.
+     * A flower's corners: [ShapeSteps.FLOWER_STEPS] for each leaf, the first where it meets the leaf
+     * before, the middle one its top; the first leaf's top at the top.
      */
     @Test
-    fun aRayRisesFromTheBodyOrLiesOnIt() {
-        val body = ShapeSteps.SUN_BODY
-        val steps = ShapeSteps.SUN_STEPS
-        val out = ShapeSteps.sunRays(2)
-        val corners = ShapeSteps.lobeCorners(out, body, ShapeSteps.SUN_SHARPNESS, steps)
-        assertEquals(12 * steps * 2, corners.size)
+    fun aLeafRisesFromTheBodyOrLiesOnIt() {
+        val body = ShapeSteps.FLOWER_BODY
+        val steps = ShapeSteps.FLOWER_STEPS
+        val out = listOf(true, false, true, false, false, false, false)
+        val corners = ShapeSteps.lobeCorners(out, body, ShapeSteps.FLOWER_SHARPNESS, steps)
+        assertEquals(7 * steps * 2, corners.size)
         fun radius(i: Int) = hypot(corners[2 * i] - 0.5f, corners[2 * i + 1] - 0.5f)
         val top = steps / 2
         assertEquals(0.5f, corners[2 * top], 1e-4f)
         assertEquals(0f, corners[2 * top + 1], 1e-4f)
-        assertTrue("the second place is right of the middle", corners[2 * (steps + top)] > 0.5f)
-        for (ray in 0 until 12) {
-            val first = ray * steps
-            assertEquals("ray $ray meets the one before", body, radius(first), 1e-4f)
-            val expected = if (out[ray]) ShapeSteps.OUTER else body
-            assertEquals("the top of ray $ray", expected, radius(first + top), 1e-4f)
+        assertTrue("the second leaf is right of the middle", corners[2 * (steps + top)] > 0.5f)
+        for (leaf in 0 until 7) {
+            val first = leaf * steps
+            assertEquals("leaf $leaf meets the one before", body, radius(first), 1e-4f)
+            val expected = if (out[leaf]) ShapeSteps.OUTER else body
+            assertEquals("the top of leaf $leaf", expected, radius(first + top), 1e-4f)
             for (s in 0 until steps) {
-                assertTrue("ray $ray stays in its box", radius(first + s) in body - 1e-4f..ShapeSteps.OUTER + 1e-4f)
+                assertTrue("leaf $leaf stays in its box", radius(first + s) in body - 1e-4f..ShapeSteps.OUTER + 1e-4f)
             }
         }
     }

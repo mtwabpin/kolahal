@@ -17,6 +17,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -239,13 +240,17 @@ private fun Modifier.shaderEffect(
  * It is only looked at, so it is kept out of what judges the shader on home: no mark in
  * [ShaderSafety], no line in the log and no touches. Home isn't drawn while it is.
  * It leans with the phone, as on home, until it goes or a minute has passed. With [moves] off it stands still.
+ *
+ * [minute]: a count that changes each minute (a card's clock tick). A still shader that declares `date` is
+ * drawn again when it changes, so a scene follows the hour as on home ([FollowDate]) without a frame of its own.
  */
 @Composable
 internal fun rememberShaderPreview(
     name: String, code: String, grid: TtyGrid, cols: Int = 0, left: Int = 0, moves: Boolean = true, over: OverShader? = null,
+    minute: Long? = null,
 ): Modifier? {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
-    return previewLayer(name, code, grid, cols, left, moves, over)
+    return previewLayer(name, code, grid, cols, left, moves, over, minute)
 }
 
 /**
@@ -276,7 +281,9 @@ internal fun rememberPeekShader(name: String, grid: TtyGrid, cols: Int = 0, left
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, left: Int, moves: Boolean, over: OverShader?): Modifier? {
+private fun previewLayer(
+    name: String, code: String, grid: TtyGrid, cols: Int, left: Int, moves: Boolean, over: OverShader?, minute: Long? = null,
+): Modifier? {
     if (rememberScreenReader()) return null
     val loaded by produceState<LoadedShader?>(null, name, code) {
         value = withContext(Dispatchers.IO) { LoadedShader.compile(name, code) }
@@ -292,8 +299,11 @@ private fun previewLayer(name: String, code: String, grid: TtyGrid, cols: Int, l
     // The sample in a shader's details is smaller than the window: its corner is 0. Settings' preview of home is the whole window.
     val corner = rememberWindowCorner()
     val inputs = remember(shader, grid, cols, left) { ShaderInputs(shader, grid, cols, left, params, shader.meta.once) { } }
+    // A still that follows the day reads the minute as it draws ([ShaderInputs.effect]): a new minute draws it again.
+    val day = remember(shader) { ShaderDay() }
+    if (minute != null) SideEffect { day.minute = minute.toInt() }
     if (over != null) DrawOverShader(over, shader.meta)
-    return (over?.surface ?: Modifier).shaderEffect(inputs, clock, touch, battery, corner)
+    return (over?.surface ?: Modifier).shaderEffect(inputs, clock, touch, battery, corner, day.takeIf { minute != null })
 }
 
 /**

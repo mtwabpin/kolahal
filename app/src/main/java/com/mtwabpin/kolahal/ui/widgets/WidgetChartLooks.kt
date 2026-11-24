@@ -74,8 +74,8 @@ internal val CHART_SIDE_FROM = 260.dp
 private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.BOLD, color)
-    // The value in the role's color where it reads on the card at 3:1, else in the card's text color.
-    val ink = if (inkContrast(color, c.card) >= INK_MIN) color else c.content
+    // The value in the role's hue, moved just far enough to read on the card at 3:1 ([valueInk]).
+    val ink = valueInk(color, c.card)
     val title = LocalUntitled.current
     val bars = spec.style == "bars"
     val rest = MaterialTheme.colorScheme.surfaceContainerHighest
