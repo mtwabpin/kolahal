@@ -461,6 +461,31 @@ day. These are left: each is small, rare, or was not seen on a device.
   Arabic or Persian sends other digits was not checked.
 - Remark:
 
+** TODO [#C] Smaller items left by the work of 24 November 2026  :home:screens:
+Left after that night's changes: the rest of the screens on Material 3 Expressive components, the
+full-screen screens as commands of the TTY style only, and the still =dunes=. Each is small; none
+was seen to go wrong on a device.
+- In the default style, a suggestion for an alias or a script of yours named after a screen
+  (=clock=, =top=, =boot=, …) shows the built-in command's description beside it
+  (=ui/home/SuggestionList.kt=, =completionHelp= reads =CommandCatalog.COMMANDS= whatever the
+  style). Fix: ask =TtyCommands.isCommand= with the style.
+- A script that draws a screen says "TTY style only" on its card in the default style and has
+  no Run there, but its sheet still has Run, and it works (=ui/scripts/ScriptSheet.kt=). To
+  decide: hide it there too, or keep it as the way to try a screen without changing the style.
+- The library marks =template-screen= and its JavaScript twin "TTY style only" in the default
+  style too (=ui/scripts/ScriptLibraryScreen.kt=, =overline=). They are for writing a screen, which
+  the editor's reference covers in both styles. To decide: mark only the seven =tty-= scripts.
+- =dunes= stands still and its caravan climbs once an hour (=assets/shaders/dunes.agsl=, =way=).
+  As a wallpaper on a phone, the first camel comes onto the screen about five minutes after the
+  hour, so the dune is empty until then. Fix, if wanted: start the climb at the screen's left edge
+  (it needs the screen's width in heights, which the shader has as =wide=).
+- The script sheet's lower row (Compare, Update or Reset, Delete) is still a row that wraps, while
+  the upper one is a button group (=ui/scripts/ScriptSheet.kt=).
+- The device tests of the Scripts tab that type a search put the keyboard away first
+  (=ScriptsTopTest=, =keyboardDown=): with it up and a row of chosen chips, a phone has room for two
+  cards. Other tests that count cards after typing a search may have the same weakness.
+- Remark:
+
 ** TODO [#C] Behind another launcher, a wallpaper shader's values stand still  :perf:
 - The values a shader follows (screen time, unlocks, what scripts give) are worked out in home's
   process and written to the live wallpaper's state file (=MainActivity.followTheme= starts
