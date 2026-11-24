@@ -1,17 +1,19 @@
 // @name Rain
-// @description Rain seen from indoors: fine, faint streaks far off, clearer ones nearer, and mist. A touch holds it off
+// @description A calm rain seen from indoors: fine streaks that fall slowly, far off and nearer, and mist. A touch holds it off
 // @suits dark good, light fair, wallpaper good
 // @animated
 // @param amount 0.0..2.0 = 1.0 Amount of rain
-// @param speed 0.3..2.5 = 1.0 Speed of the rain
+// @param speed 0.5..3.0 = 1.0 Speed of the rain
 //
-// Five depths of rain, all some way off: from a far curtain of fine, short, faint streaks to a few
-// drops in the middle distance, about four times as wide and twice as bright. The nearer a depth,
-// the faster it crosses the screen (the far rain in about three seconds, the nearest in about one)
-// and the longer its streaks, as a moving drop leaves a longer trace. Amount sets how many drops
-// there are and speed how fast they fall; neither changes the other. The rain spreads a little
-// from a point far above the screen, and leaning the phone moves that point. It only shows where
-// the page does, so text stays as it is. Five steps a pixel at most, most of them ending early.
+// A calm rain to leave on all day. Five depths of rain, all some way off: from a far curtain of
+// fine, short, faint streaks to a few drops in the middle distance, about four times as wide and
+// twice as bright. The nearer a depth, the faster it crosses the screen (at a speed of 1, the far
+// rain in about ten seconds and the nearest in about three) and the longer its streaks. Amount sets
+// how many drops there are and speed how fast they fall; neither changes the other. Slow waves of
+// heavier and lighter rain dim and brighten it, and in a heavy rain light swells far off now and
+// then. The rain spreads a little from a point far above the screen, and leaning the phone moves
+// that point. It only shows where the page does, so text stays as it is. Five steps a pixel at
+// most, most of them ending early.
 
 uniform shader content;
 uniform float2 resolution;
@@ -60,20 +62,24 @@ half4 main(float2 xy) {
     // The finest streak's half width, in pixels: about one on a phone, more on a sharper screen.
     float unit = max(1.0, cell.y / 44.0);
 
-    // The air: very large sheets of heavier and lighter rain that drift down and across, so it
-    // comes in waves.
-    float sheet = noise(float2(xy.x / size.x * 1.1 + t * 0.04, xy.y / size.y * 0.75 - t * 0.07));
+    // The air: very large sheets of heavier and lighter rain that drift slowly down and across, so
+    // it comes in gentle waves: one passes down the screen in about half a minute.
+    float sheet = noise(float2(xy.x / size.x * 1.1 + t * 0.015, xy.y / size.y * 0.75 - t * 0.025));
 
     // The wind's slant and the phone's lean: how far the rain goes sideways for each pixel it falls.
     float slant = 0.07 + 0.45 * tilt.x;
 
     // What grows from one depth to the next: the width of a streak, the room each streak has across,
-    // the room between two drops down a streak, and the speed. The far rain crosses the screen in
-    // about three seconds, the nearest in about one.
+    // the room between two drops down a streak, and the speed. At a speed of 1 the far rain crosses
+    // the screen in about ten seconds and the nearest in about three.
     float scale = 1.0;
     float width = size.x / 110.0;
     float gap = size.y * 0.06;
-    float fall = size.y * 0.3 * speed;
+    float fall = size.y * 0.1 * speed;
+    // How long a drop's trace is: what it falls in about a fifth of a second at a speed of 1, and
+    // for longer the slower it falls, so slow rain is still fine streaks and not dots, and fast rain
+    // doesn't leave long ones.
+    float exposure = 0.21 / pow(speed, 0.8);
 
     float rain = 0.0;
     for (int i = 0; i < 5; i++) {
@@ -108,17 +114,17 @@ half4 main(float2 xy) {
         float y = (from.y - t * fall * (0.8 + 0.4 * own)) / gap + own * 7.0;
         float drop = floor(y);
         float part = fract(y);
-        // A drop's head is at 0.8 down its room. Its trace above is what it falls in about a
-        // twelfth of a second, so faster rain leaves longer streaks; the head is a few pixels.
-        float most = min(0.7, fall * 0.085 / gap);
+        // A drop's head is at 0.8 down its room, with its trace above it; the head is a few pixels.
+        float most = min(0.7, fall * exposure / gap);
         float head = unit * mix(2.0, 5.0, near) / gap;
         if (part <= 0.8 - most || part >= 0.8 + head) {
             continue;
         }
 
-        // Which drops are there: more where a heavy sheet passes, and fewer of the nearer ones.
+        // Which drops are there: few of the nearer ones, and fewer at an amount of 1 than its share of
+        // 2, so a usual rain is calm. A drop is there for its whole fall: the waves only dim it.
         float r = hash(float2(col * 1.7 + near * 31.0, mod(drop, 512.0)));
-        float there = step(1.0 - amount * mix(0.5 + 0.45 * sheet, 0.16 + 0.2 * sheet, near), r);
+        float there = step(1.0 - amount * (0.4 + 0.3 * amount) * mix(0.72, 0.15, near), r);
 
         // Its width: a thin line, a little wider and softer nearer, and each drop its own.
         float off = abs(across - mix(0.3, 0.7, fract(r * 3.1))) * spread * width;
@@ -136,25 +142,24 @@ half4 main(float2 xy) {
 
         // Far rain is faintest; the nearer, the clearer, but never bright.
         float bright = mix(0.22, 0.42, near) * mix(0.7, 1.0, fract(r * 5.9));
-        rain += tail * line * bright * mix(0.6 + 0.8 * sheet, 0.8 + 0.4 * sheet, near);
+        rain += tail * line * bright * mix(0.65 + 0.7 * sheet, 0.8 + 0.4 * sheet, near);
     }
 
     // Haze: the far rain as mist, thicker lower down and where a heavy sheet is.
     float low = smoothstep(0.15, 0.75, xy.y / size.y);
-    float haze = (0.03 + 0.07 * low) * (0.25 + 1.2 * sheet);
+    float haze = (0.03 + 0.07 * low) * (0.55 + 0.6 * sheet);
 
-    // Far off, now and then, light swells in the haze near the top and dies away: once in about
-    // twenty seconds at most, slowly, and never bright. Only where the page is dark, and only while
-    // it rains.
+    // In a heavy rain only (an amount over 1), far off, now and then, light swells softly in the
+    // haze near the top and dies away: once in about a minute, and never bright. Only where the page
+    // is dark.
     float flicker = 0.0;
-    if (dark > 0.0 && amount > 0.0) {
-        float turn = floor(t / 19.0);
-        float age = t - turn * 19.0 - 3.0 - 9.0 * hash(float2(turn, 5.0));
-        float swell = step(0.5, hash(float2(turn, 9.0))) * smoothstep(0.0, 0.25, age) * exp(-max(age, 0.0) * 2.2)
-            * (1.0 + 0.5 * sin(age * 9.0));
+    if (dark > 0.0 && amount > 1.0) {
+        float turn = floor(t / 31.0);
+        float age = t - turn * 31.0 - 3.0 - 20.0 * hash(float2(turn, 5.0));
+        float swell = step(0.5, hash(float2(turn, 9.0))) * smoothstep(0.0, 0.6, age) * exp(-max(age, 0.0) * 1.5);
         if (swell != 0.0) {
             float2 glowAt = (xy - size * float2(0.2 + 0.6 * hash(float2(turn, 2.0)), 0.08)) / size.x;
-            flicker = dark * 0.07 * min(amount, 1.0) * swell * exp(-dot(glowAt, glowAt) * 2.5) * (0.5 + 0.7 * sheet);
+            flicker = dark * 0.05 * smoothstep(1.0, 1.8, amount) * swell * exp(-dot(glowAt, glowAt) * 2.5) * (0.5 + 0.7 * sheet);
         }
     }
 
@@ -170,7 +175,7 @@ half4 main(float2 xy) {
             * (1.0 - smoothstep(dome * 2.0, dome * 7.0, away.y));
         float rim = held * (1.0 - smoothstep(0.0, cell.y * 0.22, abs(far - dome))) * max(0.0, -away.y / max(far, 1.0));
         if (rim > 0.0) {
-            float spray = hash(float2(floor(atan(away.x, -away.y) * 14.0), floor(t * 14.0)));
+            float spray = hash(float2(floor(atan(away.x, -away.y) * 14.0), floor(t * 6.0)));
             rim *= 0.35 + 0.65 * step(0.55, spray);
         }
         rain = rain * (1.0 - 0.92 * dry) + rim * 0.3 * min(amount, 1.0);
