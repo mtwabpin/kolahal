@@ -127,6 +127,7 @@ class ShortcutsWriteTest {
             "data/StatusLines.kt",
             "script/ScriptAccess.kt",
             "terminal/TerminalViewModel.kt",
+            "ui/onboarding/OnboardingScreen.kt",
             "widgets/Shortcuts.kt"
         )
         assertEquals(known, naming(Regex("""\bStores\.LAUNCHER\b""")) - "data/Stores.kt")
