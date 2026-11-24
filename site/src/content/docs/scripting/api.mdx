@@ -40,6 +40,15 @@ import wAgenda from '../../../assets/widgets/example-agenda-4x2.png';
 import wImage from '../../../assets/widgets/example-image-4x2.png';
 import wStyles from '../../../assets/widgets/example-styles-4x1.png';
 import wWater from '../../../assets/widgets/example-water-2x1.png';
+import wVersus from '../../../assets/widgets/example-versus-2x2.png';
+import wSky from '../../../assets/widgets/example-sky-2x2.png';
+import wGauge from '../../../assets/widgets/bold-kind-gauge-2x2.png';
+import wRings from '../../../assets/widgets/bold-kind-rings-4x2.png';
+import wStages from '../../../assets/widgets/split-kind-stages-4x1.png';
+import wPoints from '../../../assets/widgets/bold-kind-stat-points-2x1.png';
+import wScene from '../../../assets/widgets/bold-kind-stat-scene-2x1.png';
+import wDots from '../../../assets/widgets/bold-kind-countdown-dots-2x2.png';
+import wPage from '../../../assets/widgets/bold-kind-countdown-page-2x1.png';
 
 Both languages have the same API.
 
@@ -1241,6 +1250,11 @@ widget.show({
 </TabItem>
 </Tabs>
 
+<Cards items={[
+  { src: wPoints, alt: 'A 2×1 stat card called Steps: 6,240 with 7 days beside it, over a soft line of the week’s numbers', size: '2x1', caption: '<code>points</code>' },
+  { src: wScene, alt: 'A 2×1 stat card called Lisbon: 14° and Clear night over a still of the pond at night, its moon in the corner', size: '2x1', caption: '<code>scene = "pond"</code>' },
+]} />
+
 **`text`**: a few lines.
 
 | Field | Value | What it is |
@@ -1458,6 +1472,12 @@ widget.show({
 </TabItem>
 </Tabs>
 
+<Cards items={[
+  { src: wGauge, alt: 'A 2×2 gauge called Air · Nairobi: 118 US AQI on a thick arc in good, warning and bad colors, filled to the value, with Unhealthy for some under it', size: '2x2', caption: '<code>gauge</code>' },
+  { src: wRings, alt: 'A 4×2 card of four rings inside each other: Steps 6,240 of 8,000 as a moving wave, Water 5 of 8 glasses, Sleep 7:10 of 8 h and Stand 4 of 12 h, each named beside them', size: '4x2', caption: '<code>rings</code>' },
+  { src: wStages, alt: 'A 4×1 card called Parcel: On its way, By 18:00, and four stages, Ordered and Shipped ticked, On its way as a cookie and a wave toward Delivered', size: '4x1', caption: '<code>stages</code>' },
+]} />
+
 **`chart`**: numbers over time.
 
 | Field | Value | What it is |
@@ -1523,6 +1543,11 @@ moment's time. A large card has the bar from `from`. Needs Kolahal 0.5.17.
   run. On the day they say "Today", or `reached` once the moment has passed.
 - In the **Shape** look, `dots` go round a circle and `page` is cut to a shape, in place of the
   sun. **Poster** keeps its number.
+
+<Cards items={[
+  { src: wDots, alt: 'A 2×2 countdown called Paris in the dots style: a grid of dots, today’s ringed, then 26 days left and A dot a day', size: '2x2', caption: '<code>dots</code>' },
+  { src: wPage, alt: 'A 2×1 countdown in the page style: a calendar page for 20 December beside Paris trip, In 26 days and Sunday', size: '2x1', caption: '<code>page</code>' },
+]} />
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -2150,6 +2175,8 @@ widget.show({
 </TabItem>
 </Tabs>
 
+<Cards items={[{ src: wVersus, alt: 'A 2×2 versus card called League: Lisbon 2–1 Paris with a mark for each side, 67’ at the top, possession 58% to 42% as a two-sided bar, and 64’ Goal', size: '2x2', caption: 'versus' }]} />
+
 **`sky`**: the sun on its path across the sky, or the moon in its phase on its own path. The script
 gives the times once, and Kolahal moves the sun or the moon. No run is needed as time passes. Needs
 Kolahal 0.5.17.
@@ -2235,6 +2262,8 @@ widget.show({
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: wSky, alt: 'A 2×2 sky card for Lisbon in the Shape look: the sun on its arc over the horizon, 17:20 large and Sunset in 3 h 34 min', size: '2x2', caption: 'sky' }]} />
 
 ### Limits
 
