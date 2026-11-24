@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,11 +52,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -1072,9 +1073,13 @@ private val DIAL_SHAPE get() = MaterialShapes.Cookie9Sided
 /**
  * An analog dial at the time [now] in [zone], as the mockup draws it in a 100-unit square: four dots
  * for 12, 3, 6 and 9, the hour hand in the text color, the minute hand in the accent, a dot in
- * the middle, and the place's [name] over the middle.
- * - It reads the time while drawing, so the clock's tick (once a minute) draws the dial again and
- *   composes nothing. It has no second hand: nothing moves between two ticks.
+ * the middle, and the place's [name] above the middle.
+ * - While the hour hand passes through the name, the name is as far under the middle
+ *   ([DialLabel]). The minute hand doesn't move it: the name is over the hands, with a ring of the
+ *   card's color around its letters, so it reads over the minute hand.
+ * - It reads the time while drawing, and the name's place while placing it, so the clock's tick
+ *   (once a minute) draws the dial again and composes nothing. It has no second hand: nothing moves
+ *   between two ticks.
  * - With [filled] it draws its own cookie first; in a card that is the shape, the card is the cookie.
  * - It is no item for a screen reader: the card's description says the time.
  */
@@ -1114,7 +1119,6 @@ private fun ClockDial(
                     }
                     val at = Instant.ofEpochMilli(now.value).atZone(zone)
                     val minutes = at.minute
-                    val hours = at.hour % 12 + minutes / 60f
                     fun hand(turns: Float, length: Float, width: Float, color: Color) {
                         val a = turns * 2 * PI
                         val end = middle + Offset(
@@ -1129,23 +1133,51 @@ private fun ClockDial(
                             cap = StrokeCap.Round
                         )
                     }
-                    hand(hours / 12f, 20f, 5f, hour)
-                    hand(minutes / 60f, 30f, 3.5f, minute)
+                    hand(
+                        DialLabel.hourTurns(at.hour, minutes),
+                        DialLabel.HOUR_LENGTH,
+                        DialLabel.HOUR_WIDTH,
+                        hour
+                    )
+                    hand(minutes / 60f, DialLabel.MINUTE_LENGTH, DialLabel.MINUTE_WIDTH, minute)
                     drawCircle(hour, 3.5f * unit, middle)
                 }
                 .clearAndSetSemantics {})
         if (name != null && side >= 96.dp) {
-            Text(
-                name,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = hour,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .offset(y = -side * 0.17f)
+            val style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+            val ring = with(LocalDensity.current) { 3.dp.toPx() }
+            val ringStyle = remember(style, ring) {
+                style.copy(drawStyle = Stroke(width = ring, join = StrokeJoin.Round))
+            }
+            Box(
+                Modifier
                     .widthIn(max = side * 0.5f)
+                    .layout { measurable, constraints ->
+                        val label = measurable.measure(constraints)
+                        layout(label.width, label.height) {
+                            // Placed with the time read here: the minute's tick places the name again and composes nothing.
+                            val unit = side.toPx() / 100f
+                            val at = Instant.ofEpochMilli(now.value).atZone(zone)
+                            val y = DialLabel.labelY(
+                                DialLabel.hourTurns(at.hour, at.minute),
+                                label.width / unit,
+                                label.height / unit
+                            )
+                            label.place(0, (y * unit).roundToInt())
+                        }
+                    }
                     .clearAndSetSemantics {},
-            )
+            ) {
+                // A ring of the card's color around the letters, under them: they read over a hand.
+                Text(
+                    name,
+                    style = ringStyle,
+                    color = looks.shapeFill,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(name, style = style, color = hour, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
