@@ -72,6 +72,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
@@ -81,7 +82,6 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.ui.BackButton
-import com.mtwabpin.kolahal.ui.IconLabel
 import com.mtwabpin.kolahal.ui.home.LogLine
 import com.mtwabpin.kolahal.ui.home.rememberLineIndents
 import com.mtwabpin.kolahal.ui.theme.Term
@@ -512,12 +512,13 @@ private fun CodeBlock(code: String) {
 }
 
 /**
- * Copy and Insert, at the bottom of an example's view. Copy puts [code] on the clipboard (as
- * [clipLabel]); Insert calls [onInsert].
+ * Copy and Insert, at the bottom of an example's view, as medium buttons. Copy puts [code] on the
+ * clipboard (as [clipLabel]); Insert calls [onInsert].
  */
 @Composable
 private fun CopyInsertBar(code: String, clipLabel: String, onInsert: () -> Unit) {
     val context = LocalContext.current
+    val size = ButtonDefaults.MediumContainerHeight
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -530,7 +531,8 @@ private fun CopyInsertBar(code: String, clipLabel: String, onInsert: () -> Unit)
                 .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         ) {
             FilledTonalButton(
-                shapes = ButtonDefaults.shapes(),
+                shapes = ButtonDefaults.shapesFor(size),
+                contentPadding = ButtonDefaults.contentPaddingFor(size, hasStartIcon = true),
                 onClick = {
                     context.getSystemService(ClipboardManager::class.java)
                         ?.setPrimaryClip(ClipData.newPlainText(clipLabel, code))
@@ -543,19 +545,28 @@ private fun CopyInsertBar(code: String, clipLabel: String, onInsert: () -> Unit)
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = ButtonDefaults.MediumContainerHeight)
+                    .heightIn(min = size)
                     .testTag("example-copy"),
-            ) { IconLabel(R.drawable.ic_content_copy, "Copy") }
+            ) { SizedIconLabel(R.drawable.ic_content_copy, "Copy", size) }
             Button(
-                shapes = ButtonDefaults.shapes(),
+                shapes = ButtonDefaults.shapesFor(size),
+                contentPadding = ButtonDefaults.contentPaddingFor(size, hasStartIcon = true),
                 onClick = onInsert,
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = ButtonDefaults.MediumContainerHeight)
+                    .heightIn(min = size)
                     .testTag("example-insert"),
-            ) { IconLabel(R.drawable.ic_add, "Insert") }
+            ) { SizedIconLabel(R.drawable.ic_add, "Insert", size) }
         }
     }
+}
+
+/** A button's icon and word, at the icon size, spacing and text style of a button [size] tall. */
+@Composable
+private fun SizedIconLabel(icon: Int, text: String, size: Dp) {
+    Icon(painterResource(icon), null, Modifier.size(ButtonDefaults.iconSizeFor(size)))
+    Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(size)))
+    Text(text, style = ButtonDefaults.textStyleFor(size))
 }
 
 /** Opens nothing: the links of an example's lines only show. */

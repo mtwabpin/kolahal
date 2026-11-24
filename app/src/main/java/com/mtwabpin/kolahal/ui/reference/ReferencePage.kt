@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -347,6 +348,8 @@ private fun FunctionsTab(
                     selected = namespace == null,
                     onClick = { onNamespace(null); state.requestScrollToItem(0) },
                     label = { Text("All") },
+                    shapes = FilterChipDefaults.shapes(),
+                    colors = FilterChipDefaults.filterChipColors(),
                     modifier = Modifier.testTag("namespace All"),
                 )
             }
@@ -360,6 +363,8 @@ private fun FunctionsTab(
                             fontFamily = if (g.head != null) Term.code.fontFamily else null
                         )
                     },
+                    shapes = FilterChipDefaults.shapes(),
+                    colors = FilterChipDefaults.filterChipColors(),
                     modifier = Modifier.testTag("namespace ${g.name}"),
                 )
             }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -220,6 +221,8 @@ fun ShadersScreen(
                             selected = f in filters,
                             onClick = { chips = if (f.name in chips) chips - f.name else chips + f.name },
                             label = { Text(f.label) },
+                            shapes = FilterChipDefaults.shapes(),
+                            colors = FilterChipDefaults.filterChipColors(),
                             modifier = Modifier.testTag("shader-filter ${f.name}"),
                         )
                     }

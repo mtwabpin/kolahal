@@ -62,7 +62,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -548,8 +547,7 @@ private fun RemoveTarget(over: Boolean, modifier: Modifier, onPlaced: (Rect) -> 
                 Icon(painterResource(R.drawable.ic_delete), null, tint = error)
                 Text(
                     "Remove",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLargeEmphasized,
                     color = error
                 )
             }

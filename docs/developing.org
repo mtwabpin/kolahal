@@ -424,16 +424,21 @@ this phone.
   | =Button=, =TextButton=, =FilledTonalButton=, =OutlinedButton= | the same with =shapes = ButtonDefaults.shapes()=               |
   | =IconButton=, =OutlinedIconButton=, =FilledIconButton=     | the same with =shapes = IconButtonDefaults.shapes()=           |
   | =IconToggleButton=                                        | the same with =shapes = IconButtonDefaults.toggleableShapes()= |
-  | =OutlinedTextField=                                       | =TextField= with =TextFieldDefaults.roundedShape=, =fieldColors()= |
+  | =OutlinedTextField=, =OutlinedSecureTextField=            | =TextField= or =SecureTextField= with =TextFieldDefaults.roundedShape=, =fieldColors()= |
   | =SegmentedButton=                                         | =ConnectedChoices=, or =ToggleButton= in a connected group     |
   | =TopAppBar=                                               | =LargeFlexibleTopAppBar= or =MediumFlexibleTopAppBar=          |
   | =AssistChip=, =SuggestionChip=                            | a button                                                       |
   | =ExtendedFloatingActionButton=                            | =SmallExtendedFloatingActionButton=                            |
   | =DropdownMenu=, =ExposedDropdownMenuBox=                  | =DropdownMenuPopup= and =DropdownMenuGroup=                    |
-  | =ListItem=, a row of your own                             | =SegmentedListItem=                                            |
+  | =ListItem(headlineContent = …)=, a row of your own        | =SegmentedListItem=, or =ListItem= with =content= (=onClick=, =checked=) |
+  | =FilterChip=, =ElevatedFilterChip=, =InputChip=           | the same with =shapes = FilterChipDefaults.shapes()= (=InputChipDefaults.shapes()=); a filter chip keeps its colors with =colors = FilterChipDefaults.filterChipColors()= |
+  | =TimePickerDialog=                                        | =VibrantTimePickerDialog=                                      |
+  | =TimePicker=, =TimeInput=                                 | the same with =shapes = TimePickerDefaults.shapes()=           |
+  | =LinearProgressIndicator=, =CircularProgressIndicator=    | =LoadingIndicator=, centered, while a list loads; =LinearWavyProgressIndicator= when the progress is known |
+  | =MaterialTheme(…)= around a screen                        | =GuiTheme= (themes are made in =ui/theme/= only)               |
   =ExpressiveOnlyTest= fails on the components it can name, in any file that uses Material 3, and
-  on a =TextField= without =TextFieldDefaults.roundedShape= and =fieldColors()=; a row or tab bar
-  of your own is left to review.
+  on a =TextField= or =SecureTextField= without =TextFieldDefaults.roundedShape= and =fieldColors()=;
+  a row or tab bar of your own is left to review.
 
 ** Keeping a pull request out of others' way
 

@@ -8,14 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -85,11 +83,7 @@ fun ScriptSourcesScreen(vm: TerminalViewModel) {
             bottom = 96.dp,
         ) {
             if (shared.loading) item(key = "loading") {
-                LinearProgressIndicator(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                )
+                ListLoading()
             }
             itemsIndexed(sources, key = { _, l -> l.source.index }) { i, l ->
                 SourceRow(

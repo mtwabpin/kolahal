@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
@@ -129,8 +130,8 @@ class ScriptSheetTest {
 
     /**
      * Waits for [name]'s switch, as its card in the list shows it, to be [on]. The sheet's Enabled row
-     * shows the same script, but has no state to read; a tap on it before it shows the change would
-     * switch from what it showed before.
+     * shows the same script, but the card is what the test reads; a tap on the row before it shows the
+     * change would switch from what it showed before.
      */
     private fun waitForSwitch(on: Boolean, name: String = "sstest") {
         val switch =
@@ -152,6 +153,13 @@ class ScriptSheetTest {
         )
 
     private fun script(name: String = "sstest") = scripts.byName(name)!!
+
+    /**
+     * One of the sheet's actions (Run, Run with…, Edit, Export): a button with its word, or its icon
+     * alone where the words don't fit on the line, which says the word to a screen reader.
+     */
+    private fun action(label: String) =
+        compose.onNode(hasText(label) or hasContentDescription(label))
 
     /** The sheet names the script, its language, version, author, kind and description, and that it never ran. */
     @Test
@@ -436,9 +444,9 @@ class ScriptSheetTest {
     fun exportAndEditHandTheScriptOn() {
         val s = create("local x = 1")
         openSheet()
-        compose.onNodeWithText("Export").performClick()
+        action("Export").performClick()
         compose.waitFor("the script handed to the export") { sent.all.any { it is UiEvent.ExportScript && it.script.id == s.id } }
-        compose.onNodeWithText("Edit").performClick()
+        action("Edit").performClick()
         compose.runOnIdle { assertEquals(s.id, vm.editing.value?.id) }
         compose.onNodeWithText("Runs every").assertDoesNotExist()
     }
@@ -451,8 +459,8 @@ class ScriptSheetTest {
     fun runStartsItAndTheSheetSaysWhen() {
         create("local x = 1")
         openSheet()
-        compose.onNodeWithText("Run with…").assertDoesNotExist()
-        compose.onNodeWithText("Run").performClick()
+        action("Run with…").assertDoesNotExist()
+        action("Run").performClick()
         compose.waitForText("Running sstest…")
         compose.waitFor("a run", ms = 30_000) { script().lastRun != null }
         compose.waitForText("Last run just now · ok", substring = true)
@@ -466,7 +474,7 @@ class ScriptSheetTest {
     fun runWithPassesArguments() {
         create("-- @command\nlog('got ' .. argline)")
         openSheet()
-        compose.onNodeWithText("Run with…").performClick()
+        action("Run with…").performClick()
         compose.onNodeWithTag("run-args").performTextInput("one two")
         compose.onNodeWithTag("run-with-run").performClick()
         compose.waitFor("the run's line", ms = 30_000) {

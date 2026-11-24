@@ -3,26 +3,37 @@
  */
 package com.mtwabpin.kolahal.ui.scripts
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerDialog
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.VibrantTimePickerDialog
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -34,10 +45,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +66,7 @@ import com.mtwabpin.kolahal.ui.ErrorTextButton
 import com.mtwabpin.kolahal.ui.GuiSheet
 import com.mtwabpin.kolahal.ui.IconLabel
 import com.mtwabpin.kolahal.ui.IntervalSelector
+import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.SectionTitle
 import com.mtwabpin.kolahal.ui.SwitchRow
@@ -62,6 +77,7 @@ import com.mtwabpin.kolahal.ui.fieldColors
 import com.mtwabpin.kolahal.ui.home.scriptColor
 import com.mtwabpin.kolahal.ui.produceIo
 import com.mtwabpin.kolahal.ui.relative
+import com.mtwabpin.kolahal.ui.shaders.wordsFit
 
 /** A label and its value on a script's sheet. Used for the user's scripts and for shared ones. */
 @Composable
@@ -181,28 +197,15 @@ internal fun ScriptSheet(
         )
 
         Spacer(Modifier.height(16.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                shapes = ButtonDefaults.shapes(),
-                onClick = { vm.scriptActions.runScriptNow(s) }) {
-                IconLabel(R.drawable.ic_play, "Run")
+        SheetActions(
+            buildList {
+                add(SheetAction("Run", R.drawable.ic_play, filled = true) { vm.scriptActions.runScriptNow(s) })
+                // A command takes arguments; a script with @on or @at runs on an event: the editor's long-press on Run.
+                if (runWith) add(SheetAction("Run with…", R.drawable.ic_tune) { runWithOpen = true })
+                add(SheetAction("Edit", R.drawable.ic_edit, run = onEdit))
+                add(SheetAction("Export", R.drawable.ic_download, run = onExport))
             }
-            // A command takes arguments; a script with @on or @at runs on an event: the editor's long-press on Run.
-            if (runWith) OutlinedButton(
-                shapes = ButtonDefaults.shapes(),
-                onClick = { runWithOpen = true }) {
-                Text("Run with…")
-            }
-            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onEdit) {
-                IconLabel(R.drawable.ic_edit, "Edit")
-            }
-            OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = onExport) {
-                IconLabel(R.drawable.ic_download, "Export")
-            }
-        }
+        )
 
         Spacer(Modifier.height(8.dp))
         SwitchRow(
@@ -372,9 +375,9 @@ internal fun ScriptSheet(
                     initialMinute = 0,
                     is24Hour = vm.config[Keys.CLOCK_24H]
                 )
-                TimePickerDialog(
+                // The vibrant dialog has no title of its own: its title is the first line of its content.
+                VibrantTimePickerDialog(
                     onDismissRequest = { pickingTime = false },
-                    title = { Text("Daily at") },
                     confirmButton = {
                         TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                             val picked = "%02d:%02d".format(clock.hour, clock.minute)
@@ -391,7 +394,14 @@ internal fun ScriptSheet(
                             shapes = ButtonDefaults.shapes(),
                             onClick = { pickingTime = false }) { Text("Cancel") }
                     },
-                ) { TimePicker(clock) }
+                ) {
+                    Text(
+                        "Daily at",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(bottom = 20.dp),
+                    )
+                    TimePicker(clock, shapes = TimePickerDefaults.shapes())
+                }
             }
         }
 
@@ -492,3 +502,80 @@ private fun SecretRow(secret: ScriptMeta.Secret, isSet: Boolean, onClick: () -> 
         onClick = onClick,
     )
 }
+
+/** One of the main things to do with a script, on its sheet. [filled]: Run, in the theme's color. */
+private class SheetAction(val label: String, val icon: Int, val filled: Boolean = false, val run: () -> Unit)
+
+/**
+ * [actions] in an Expressive button group, as on a shader's sheet: the pressed one widens, and its
+ * neighbors give way. Each has its icon and its word. Where the words don't fit on the line
+ * ([wordsFit]: four of them on a phone), each is its icon alone, and says its word in a bubble on a
+ * long-press and to a screen reader.
+ */
+@Composable
+private fun SheetActions(actions: List<SheetAction>) {
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelLarge
+    val density = LocalDensity.current
+    val labels = actions.map { it.label }
+    // The widest word, as a button draws it.
+    val widest = remember(labels, style, measurer, density) {
+        with(density) { labels.maxOfOrNull { measurer.measure(it, style, softWrap = false, maxLines = 1).size.width }?.toDp() ?: 0.dp }
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // A button's own parts beside its word: the padding at both ends, the icon and the room after it.
+        val words = wordsFit(
+            room = maxWidth.value,
+            widest = (widest + WORD_PADDING * 2 + ButtonDefaults.IconSize + WORD_GAP).value,
+            count = actions.size,
+            gap = ButtonGroupDefaults.HorizontalArrangement.spacing.value,
+            grows = ButtonGroupDefaults.ExpandedRatio,
+        )
+        ButtonGroup(
+            overflowIndicator = { menu -> ButtonGroupDefaults.OverflowIndicator(menu) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            for (a in actions) customItem(
+                buttonGroupContent = {
+                    val source = remember { MutableInteractionSource() }
+                    if (words) FilledTonalButton(
+                        onClick = a.run,
+                        shapes = ButtonDefaults.shapes(),
+                        colors = if (a.filled) ButtonDefaults.buttonColors() else ButtonDefaults.filledTonalButtonColors(),
+                        contentPadding = PaddingValues(horizontal = WORD_PADDING),
+                        interactionSource = source,
+                        modifier = Modifier
+                            .weight(1f)
+                            .animateWidth(source),
+                    ) {
+                        Icon(painterResource(a.icon), null, Modifier.size(ButtonDefaults.IconSize))
+                        Spacer(Modifier.width(WORD_GAP))
+                        Text(a.label, maxLines = 1, softWrap = false)
+                    } else Box(
+                        Modifier
+                            .weight(1f)
+                            .animateWidth(source)
+                    ) {
+                        // The bubble's own box takes no weight from the group: the box around it does.
+                        Labeled(a.label, Modifier.fillMaxWidth()) {
+                            FilledTonalIconButton(
+                                onClick = a.run,
+                                shapes = IconButtonDefaults.shapes(),
+                                colors = if (a.filled) IconButtonDefaults.filledIconButtonColors() else IconButtonDefaults.filledTonalIconButtonColors(),
+                                interactionSource = source,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Icon(painterResource(a.icon), a.label, Modifier.size(ButtonDefaults.IconSize)) }
+                        }
+                    }
+                },
+                menuContent = { state ->
+                    DropdownMenuItem(text = { Text(a.label) }, onClick = { a.run(); state.dismiss() })
+                },
+            )
+        }
+    }
+}
+
+/** The padding at each end of a button with its word, and the room between its icon and the word. */
+private val WORD_PADDING = 8.dp
+private val WORD_GAP = 6.dp

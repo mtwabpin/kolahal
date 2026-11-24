@@ -46,7 +46,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -113,8 +112,7 @@ internal fun WidgetToolbar(
                 Column(Modifier.weight(1f)) {
                     Text(
                         label,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmallEmphasized,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -224,8 +222,7 @@ internal fun WidgetToolbar(
 private fun ToolbarLabel(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.labelMediumEmphasized,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
     )

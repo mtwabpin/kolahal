@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.tappableElement
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -627,10 +629,12 @@ fun applyTermSettings(
 fun darkTheme(config: Config, phone: Configuration): Boolean =
     config[Keys.THEME_ALWAYS_DARK] || (phone.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
+/** The terminal's Material theme: the palette's colors, with the Expressive motion of the GUI screens ([GuiTheme]). */
 @Composable
 fun KolahalTheme(content: @Composable () -> Unit) {
     val p = Term.palette
-    MaterialTheme(
+    MaterialExpressiveTheme(
+        motionScheme = MotionScheme.expressive(),
         colorScheme = darkColorScheme(
             background = p.bg,
             surface = p.surface,

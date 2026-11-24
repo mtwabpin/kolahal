@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,13 +17,15 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,19 +80,27 @@ internal fun CompareDialog(
                 .fillMaxSize()
                 .testTag("compare")
         ) {
-            Column(Modifier.safeDrawingPadding()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 16.dp)
-                ) {
-                    LabeledIconButton(R.drawable.ic_close, "Close", onClick = onDismiss)
-                    Text(
-                        "${s.name}.${s.lang.ext}",
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Monospace),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            // The bar folds to its small height as the lines scroll, as a page's bar does.
+            val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+            Column(
+                Modifier
+                    .safeDrawingPadding()
+                    .nestedScroll(scroll.nestedScrollConnection)
+            ) {
+                MediumFlexibleTopAppBar(
+                    title = {
+                        Text(
+                            "${s.name}.${s.lang.ext}",
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    navigationIcon = { LabeledIconButton(R.drawable.ic_close, "Close", onClick = onDismiss) },
+                    // The column keeps clear of the system bars already.
+                    windowInsets = WindowInsets(0.dp),
+                    scrollBehavior = scroll,
+                )
                 // A legend: what each color means and how many lines have it.
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

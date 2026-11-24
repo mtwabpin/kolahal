@@ -54,7 +54,6 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,7 +71,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
@@ -493,7 +491,10 @@ private fun relativeSpan(time: Long, short: Boolean = false): String =
                 (if (short) DateUtils.FORMAT_ABBREV_RELATIVE else 0),
     ).toString()
 
-/** A full-width row (≥ 56dp). A tap anywhere on it toggles the switch. [color] is the background it sits on. */
+/**
+ * A full-width row (56 dp or more). A tap anywhere on it toggles the switch, and a screen reader
+ * hears it as a checkbox, on or off. [color] is the background it sits on.
+ */
 @Composable
 internal fun SwitchRow(
     title: String,
@@ -502,30 +503,24 @@ internal fun SwitchRow(
     color: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     onChange: (Boolean) -> Unit,
 ) {
-    Surface(
-        onClick = { onChange(!checked) },
-        shape = MaterialTheme.shapes.large,
-        color = color,
+    SegmentedListItem(
+        checked = checked,
+        onCheckedChange = onChange,
+        shapes = rowShapes(),
+        colors = rowColors(color),
+        contentPadding = ROW_PADDING,
+        supportingContent = {
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(vertical = 8.dp)
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.width(16.dp))
-            Switch(checked = checked, onCheckedChange = null)
-        }
-    }
+    ) { Text(title, style = MaterialTheme.typography.bodyLarge) }
 }
 
 /**
@@ -544,30 +539,21 @@ internal fun ValueRow(
     valueMaxWidth: Dp? = null,
     onClick: () -> Unit
 ) {
-    Surface(
+    SegmentedListItem(
         onClick = onClick,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(vertical = 8.dp)
-        ) {
-            Column(Modifier.weight(1f)) {
+        shapes = rowShapes(),
+        colors = rowColors(MaterialTheme.colorScheme.surfaceContainerLow),
+        contentPadding = ROW_PADDING,
+        supportingContent = if (detail.isNotBlank()) {
+            {
                 Text(
-                    name,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace)
+                    detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (detail.isNotBlank()) {
-                    Text(
-                        detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
-            Spacer(Modifier.width(16.dp))
+        } else null,
+        trailingContent = {
             Text(
                 value,
                 style = MaterialTheme.typography.labelLarge,
@@ -577,9 +563,45 @@ internal fun ValueRow(
                 overflow = if (valueMaxWidth != null) TextOverflow.Ellipsis else TextOverflow.Clip,
                 modifier = if (valueMaxWidth != null) Modifier.widthIn(max = valueMaxWidth) else Modifier,
             )
-        }
+        },
+        // A row without a detail is one line: 48 dp, the touch size, not a list's 56 dp.
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp),
+    ) {
+        Text(
+            name,
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace)
+        )
     }
 }
+
+/**
+ * The space inside [SwitchRow], [ValueRow] and [IntervalSelector]: none at the sides, so their words
+ * line up with the titles and buttons of the sheet or dialog they are on.
+ */
+private val ROW_PADDING = PaddingValues(vertical = 8.dp)
+
+/** The rows' shape: the large corners, in every state. */
+@Composable
+private fun rowShapes() = ListItemDefaults.shapes(
+    shape = MaterialTheme.shapes.large,
+    selectedShape = MaterialTheme.shapes.large,
+    pressedShape = MaterialTheme.shapes.large,
+)
+
+/**
+ * The rows' colors: [color] behind them, on or off. A list's switch row turns another color while it
+ * is on; these rows look like the sheet they are on.
+ */
+@Composable
+private fun rowColors(color: Color) = ListItemDefaults.segmentedColors(
+    containerColor = color,
+    selectedContainerColor = color,
+    selectedContentColor = MaterialTheme.colorScheme.onSurface,
+    selectedTrailingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    selectedSupportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
 
 /**
  * Material's Expressive text field colors, but with the container color of the tonal buttons
@@ -639,6 +661,7 @@ internal fun CountChip(
     FilterChip(
         selected = on,
         onClick = onClick,
+        shapes = FilterChipDefaults.shapes(),
         label = {
             Text(buildAnnotatedString {
                 append(label)
@@ -676,17 +699,15 @@ internal fun IntervalSelector(
         if (open) 180f else 0f,
         MaterialTheme.motionScheme.defaultSpatialSpec()
     )
-    Surface(
+    SegmentedListItem(
         onClick = { open = !open },
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shapes = rowShapes(),
+        colors = rowColors(MaterialTheme.colorScheme.surfaceContainerLow),
+        contentPadding = ROW_PADDING,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(16.dp))
+        trailingContent = {
             Box {
                 FilledTonalToggleButton(checked = open, onCheckedChange = { open = it }) {
                     Text(
@@ -724,6 +745,6 @@ internal fun IntervalSelector(
                     }
                 }
             }
-        }
-    }
+        },
+    ) { Text(label, style = MaterialTheme.typography.bodyLarge) }
 }

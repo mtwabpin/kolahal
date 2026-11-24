@@ -24,9 +24,10 @@ class LabeledIconButtonsTest {
      *   long-press of its own (Run: Run with…).
      * - WidgetsToolbar.kt: a step of a widget's size, which repeats while it is held.
      * - WidgetMedia.kt: a widget's buttons. A long-press on a card opens Arrange widgets.
+     * - SettingsPeek.kt: the eye in Settings, which shows home while it is held.
      */
     private val unlabeled =
-        mapOf("EditorBars.kt" to 1, "WidgetsToolbar.kt" to 1, "WidgetMedia.kt" to 3)
+        mapOf("EditorBars.kt" to 1, "WidgetsToolbar.kt" to 1, "WidgetMedia.kt" to 3, "SettingsPeek.kt" to 1)
 
     @Test
     fun everyIconButtonShowsItsLabel() {

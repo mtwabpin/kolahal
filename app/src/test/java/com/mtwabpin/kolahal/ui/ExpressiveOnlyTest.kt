@@ -9,8 +9,11 @@ import org.junit.Test
 class ExpressiveOnlyTest {
     private val root = sourceFile("src/main/java/com/mtwabpin/kolahal")
 
-    /** Part of the terminal, which draws its own look in its own colors. */
-    private val terminal = setOf("SuggestionList.kt")
+    /** Part of the terminal, which draws its own look in its own colors. A path under [root]. */
+    private val terminal = setOf("ui/home/SuggestionList.kt")
+
+    /** Where the app's themes are made: the only files that may call `MaterialTheme(`. */
+    private val themes = "ui/theme/"
 
     /** A Material name called, bare or written out (`androidx.compose.material3.TextField(`). */
     private fun calls(names: String) =
@@ -19,13 +22,19 @@ class ExpressiveOnlyTest {
     private val older = calls(
         "OutlinedTextField|OutlinedSecureTextField|SegmentedButton|SingleChoiceSegmentedButtonRow|MultiChoiceSegmentedButtonRow|" +
                 "ExposedDropdownMenuBox|DropdownMenu|AssistChip|ElevatedAssistChip|SuggestionChip|ElevatedSuggestionChip|" +
-                "TopAppBar|CenterAlignedTopAppBar|MediumTopAppBar|LargeTopAppBar|ExtendedFloatingActionButton|ListItem",
+                "TopAppBar|CenterAlignedTopAppBar|MediumTopAppBar|LargeTopAppBar|ExtendedFloatingActionButton|" +
+                "TimePickerDialog|LinearProgressIndicator|CircularProgressIndicator",
     )
+
+    /** Material's list item. Its older form takes `headlineContent`; the Expressive ones take `content`. */
+    private val listItem = calls("ListItem")
     private val needShapes = calls(
         "Button|TextButton|FilledTonalButton|OutlinedButton|ElevatedButton|IconButton|OutlinedIconButton|FilledIconButton|" +
-                "FilledTonalIconButton|IconToggleButton|FilledIconToggleButton|FilledTonalIconToggleButton|OutlinedIconToggleButton",
+                "FilledTonalIconButton|IconToggleButton|FilledIconToggleButton|FilledTonalIconToggleButton|OutlinedIconToggleButton|" +
+                "FilterChip|ElevatedFilterChip|InputChip|TimePicker|TimeInput",
     )
-    private val textField = calls("TextField")
+    private val textField = calls("TextField|SecureTextField")
+    private val theme = calls("MaterialTheme")
 
     /** What's inside the brackets opening just before [start]. */
     private fun arguments(text: String, start: Int): String {
@@ -38,9 +47,16 @@ class ExpressiveOnlyTest {
         return text.substring(start, i)
     }
 
-    /** Every older component, button without its Expressive shapes, and text field not shaped and colored as the others in [text]. */
-    private fun problems(text: String): List<String> =
+    /**
+     * Every older component, button, chip or time picker without its Expressive shapes, and text field
+     * not shaped and colored as the others in [text]. Outside the theme files ([inTheme] false), a
+     * `MaterialTheme(` call too: a screen's theme comes from `GuiTheme`.
+     */
+    private fun problems(text: String, inTheme: Boolean = false): List<String> =
         older.findAll(text).map { it.groupValues[1] }.toList() +
+                listItem.findAll(text)
+                    .filter { Regex("""\bheadlineContent\b""") in arguments(text, it.range.last + 1) }
+                    .map { "ListItem with headlineContent" }.toList() +
                 needShapes.findAll(text).mapNotNull { m ->
                     val args = arguments(text, m.range.last + 1)
                     val name = m.groupValues[1]
@@ -56,18 +72,19 @@ class ExpressiveOnlyTest {
                         m.range.last + 1
                     ).let { "TextFieldDefaults.roundedShape" !in it || "fieldColors()" !in it }
                 }
-                    .map { "TextField without roundedShape and fieldColors()" }.toList()
+                    .map { "${it.groupValues[1]} without roundedShape and fieldColors()" }.toList() +
+                (if (inTheme) emptyList<String>() else theme.findAll(text).map { "MaterialTheme outside $themes" }.toList())
 
     @Test
     fun materialScreensUseExpressiveComponentsOnly() {
-        // Every file that uses Material 3, in any folder.
+        // Every file that uses Material 3, in any folder, by its path: two files can have one name.
         val files = root.walkTopDown()
             .filter { it.extension == "kt" && "androidx.compose.material3" in it.readText() }
-            .toList()
+            .associateBy { it.relativeTo(root).invariantSeparatorsPath }
         assertTrue("no sources at ${root.absolutePath}", files.size > 20)
-        val found =
-            files.filter { it.name !in terminal }.associate { it.name to problems(it.readText()) }
-                .filterValues { it.isNotEmpty() }
+        val found = files.filterKeys { it !in terminal }
+            .mapValues { (path, file) -> problems(file.readText(), inTheme = path.startsWith(themes)) }
+            .filterValues { it.isNotEmpty() }
         assertEquals(
             "Use the Expressive components: docs/developing.org, Common changes",
             emptyMap<String, List<String>>(),
@@ -118,6 +135,81 @@ class ExpressiveOnlyTest {
         assertEquals(
             emptyList<String>(),
             problems("SegmentedListItem(onClick = {}, shapes = s) {}\nBasicTextField(value = a, onValueChange = {})")
+        )
+    }
+
+    /** Chips and the time picker need their shapes; the older time picker dialog and progress bars are named. */
+    @Test
+    fun theCheckFindsChipsPickersAndProgress() {
+        assertEquals(
+            listOf("FilterChip without shapes", "InputChip without shapes", "ElevatedFilterChip without shapes"),
+            problems(
+                "FilterChip(selected = a, onClick = {}, label = {})\n" +
+                        "InputChip(selected = a, onClick = {}, label = {})\n" +
+                        "androidx.compose.material3.ElevatedFilterChip(selected = a, onClick = {}, label = {})"
+            ),
+        )
+        assertEquals(
+            emptyList<String>(),
+            problems("FilterChip(selected = a, onClick = {}, label = {}, shapes = FilterChipDefaults.shapes())")
+        )
+        assertEquals(
+            listOf("TimePickerDialog", "TimePicker without shapes", "TimeInput without shapes"),
+            problems("TimePickerDialog(onDismissRequest = {}, confirmButton = {}) { TimePicker(clock); TimeInput(clock) }"),
+        )
+        assertEquals(
+            emptyList<String>(),
+            problems(
+                "VibrantTimePickerDialog(onDismissRequest = {}, confirmButton = {}) {\n" +
+                        "    TimePicker(state = clock, shapes = TimePickerDefaults.shapes())\n}"
+            ),
+        )
+        assertEquals(
+            listOf("LinearProgressIndicator", "CircularProgressIndicator"),
+            problems("LinearProgressIndicator(Modifier.fillMaxWidth())\nCircularProgressIndicator()"),
+        )
+        assertEquals(
+            emptyList<String>(),
+            problems("LinearWavyProgressIndicator(Modifier.fillMaxWidth())\nCircularWavyProgressIndicator()\nLoadingIndicator()"),
+        )
+    }
+
+    /**
+     * Only the older list item is named, not the Expressive ones; a secure field is a text field; a
+     * theme is made in the theme files only.
+     */
+    @Test
+    fun theCheckFindsListItemsSecureFieldsAndThemes() {
+        assertEquals(
+            listOf("ListItem with headlineContent"),
+            problems("ListItem(headlineContent = { Text(\"x\") }, supportingContent = { Text(\"y\") })"),
+        )
+        assertEquals(
+            emptyList<String>(),
+            problems(
+                "ListItem(checked = a, onCheckedChange = {}, supportingContent = { Text(\"y\") }) { Text(\"x\") }\n" +
+                        "ListItem(onClick = {}, shapes = ListItemDefaults.shapes()) { Text(\"x\") }"
+            ),
+        )
+        assertEquals(
+            listOf("SecureTextField without roundedShape and fieldColors()"),
+            problems("SecureTextField(state = secret, colors = fieldColors())"),
+        )
+        assertEquals(
+            emptyList<String>(),
+            problems("SecureTextField(state = secret, shape = TextFieldDefaults.roundedShape, colors = fieldColors())")
+        )
+        assertEquals(
+            listOf("MaterialTheme outside ui/theme/"),
+            problems("MaterialTheme(colorScheme = scheme) { Text(\"x\", color = MaterialTheme.colorScheme.primary) }"),
+        )
+        assertEquals(
+            emptyList<String>(),
+            problems("MaterialTheme(colorScheme = scheme) {}", inTheme = true)
+        )
+        assertEquals(
+            emptyList<String>(),
+            problems("MaterialExpressiveTheme(colorScheme = scheme) { Text(\"x\", color = MaterialTheme.colorScheme.primary) }")
         )
     }
 }
