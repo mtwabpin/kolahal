@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 108 108">
+  <!-- Idea A, "Fewer, bolder parts": today's icon with half the parts, to read at small sizes. An idea for the launcher icon, kept on 24 November 2026 (see ../../README.org → graphics).
+       Drawn on the 108 × 108 square of an adaptive icon: a launcher shows the 72 × 72 middle (18 to 90),
+       and everything that matters stays inside it. -->
+  <rect x="0" y="0" width="108" height="108" fill="#292828"/>
+  <path d="M33 32 V48" fill="none" stroke="#d8a657" stroke-width="5.5" stroke-linecap="round"/>
+  <rect x="43" y="31" width="30" height="7.5" rx="3.75" fill="#a89984"/>
+  <rect x="43" y="42.5" width="19" height="5.5" rx="2.75" fill="#a89984" fill-opacity="0.55"/>
+  <path d="M32 60 L40 67.5 L32 75" fill="none" stroke="#a9b665" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="48" y="60" width="10" height="15" rx="2.5" fill="#a9b665"/>
+</svg>

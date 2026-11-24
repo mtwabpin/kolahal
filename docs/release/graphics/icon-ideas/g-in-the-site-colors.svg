@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 108 108">
+  <!-- Idea G, "In the site's colors": today's icon with nothing moved, recolored to the website's dusk. An idea for the launcher icon, kept on 24 November 2026 (see ../../README.org → graphics).
+       Drawn on the 108 × 108 square of an adaptive icon: a launcher shows the 72 × 72 middle (18 to 90),
+       and everything that matters stays inside it. -->
+  <rect x="0" y="0" width="108" height="108" fill="#2a2233"/>
+  <path d="M33 33 V45" fill="none" stroke="#f0a868" stroke-width="4" stroke-linecap="round"/>
+  <rect x="40" y="31.5" width="19" height="9" rx="2" fill="#f2e2c4"/>
+  <rect x="62" y="34.5" width="12" height="6" rx="1.8" fill="#f2e2c4" fill-opacity="0.7"/>
+  <rect x="40" y="43" width="11" height="2.6" rx="1.3" fill="#f2e2c4" fill-opacity="0.5"/>
+  <rect x="62" y="43" width="8" height="2.6" rx="1.3" fill="#f2e2c4" fill-opacity="0.5"/>
+  <path d="M33 50 V56" fill="none" stroke="#9ca0c4" stroke-width="4" stroke-linecap="round"/>
+  <rect x="40" y="51.4" width="34" height="3.4" rx="1.7" fill="#9ca0c4" fill-opacity="0.35"/>
+  <rect x="46" y="51.4" width="18" height="3.4" rx="1.7" fill="#9ca0c4"/>
+  <path d="M32 62 L38.5 68 L32 74" fill="none" stroke="#f0a868" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="44" y="62" width="8" height="12" rx="1.5" fill="#f0a868"/>
+</svg>

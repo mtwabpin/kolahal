@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 108 108">
+  <!-- Idea B, "The log over a scene": the log's bar, two lines and the prompt, with a dusk scene behind them. The website's icon is this one. An idea for the launcher icon, kept on 24 November 2026 (see ../../README.org → graphics).
+       Drawn on the 108 × 108 square of an adaptive icon: a launcher shows the 72 × 72 middle (18 to 90),
+       and everything that matters stays inside it. -->
+  <rect x="0" y="0" width="108" height="108" fill="#3a3350"/>
+  <circle cx="70" cy="38" r="10" fill="#f0a868"/>
+  <path d="M0 58 L28 48 L48 56 L70 46 L108 58 V108 H0 Z" fill="#231d2c"/>
+  <path d="M33 32 V46" fill="none" stroke="#f0a868" stroke-width="4.5" stroke-linecap="round"/>
+  <rect x="41" y="31.5" width="16" height="6.5" rx="3.25" fill="#f2e2c4"/>
+  <rect x="41" y="41.5" width="10" height="4.5" rx="2.25" fill="#f2e2c4" fill-opacity="0.6"/>
+  <path d="M32 63 L39 69 L32 75" fill="none" stroke="#f2e2c4" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="46" y="63" width="8.5" height="12" rx="2" fill="#f2e2c4"/>
+</svg>

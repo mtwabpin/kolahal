@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 108 108">
+  <!-- Idea F, "Lines into ridges": the log's lines rise into ridges under a small sun, over the prompt. An idea for the launcher icon, kept on 24 November 2026 (see ../../README.org → graphics).
+       Drawn on the 108 × 108 square of an adaptive icon: a launcher shows the 72 × 72 middle (18 to 90),
+       and everything that matters stays inside it. -->
+  <rect x="0" y="0" width="108" height="108" fill="#292828"/>
+  <circle cx="69" cy="28.5" r="4" fill="#d8a657"/>
+  <path d="M30 38 H42 L50 30 L57 37 L63 32 L69 38 H78" fill="none" stroke="#a89984" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 49 H38 L47 42 L55 49 H78" fill="none" stroke="#a89984" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+  <path d="M32 62 L38.5 68 L32 74" fill="none" stroke="#a9b665" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="44" y="62" width="8" height="12" rx="1.5" fill="#a9b665"/>
+</svg>
