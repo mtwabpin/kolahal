@@ -508,7 +508,7 @@ object Keys {
             "mountains" to "Misty ridges that breathe, under the hour's sun or moon",
             "pond" to "A still pond under far hills, with rings of rain",
             "dunes" to "One long dune in a desert, under the hour's sky",
-            "rain" to "A storm with depth: far mist, rain, and big soft drops close by",
+            "rain" to "Rain seen from indoors: fine streaks at many depths, and mist",
             "snowfall" to "Snow falls behind the text and drifts as the phone leans",
             "grove-snow" to "A few crisp flakes that fall and wander slowly",
             "grove-autumn" to "A few autumn leaves that turn as they drift down",
