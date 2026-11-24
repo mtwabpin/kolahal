@@ -1,13 +1,13 @@
 // @title Live football
 // @desc Live football scores from one league: the team option's live match as its status line, to pin at the top of home; football live lists them all
 // @author Kolahal
-// @version 1.6
+// @version 1.7
 // @command
 // @usage [live|<team>]
-// @widget stat 4x1
+// @widget versus 4x1
 // @every 15m
 // @tags sport, football, soccer, live
-// @requires 0.4.7
+// @requires 0.5.17
 // @option league eng.1 The league: eng.1 (Premier League), esp.1, ger.1, ita.1, fra.1, uefa.champions, ind.1, usa.1, or another of ESPN's codes
 // @option team any The team whose live match it follows, such as Arsenal; any: the league's first live match
 // @option refresh 30 Seconds between updates while home shows the match (10 at the fastest)
@@ -26,10 +26,10 @@
 // stands (LIVE, FT, UPCOMING) and the minutes played as a bar; a typed command shows "Fetching
 // scores…" at once, which turns into the answer. An older Kolahal shows lines, as before.
 //
-// Its widget, once you placed it on the widgets page, is the live score: the score large between
-// the two sides, the minute beside it, and the minutes played as a bar that moves while the match is
-// on. While the page shows it, it is fetched again every refresh seconds. A tap lists the league's
-// live matches in the log.
+// Its widget, once you placed it on the widgets page, is the match: the two teams with their
+// initials, the score large between them, the minute at the top (HT, FT), the last goal, and
+// possession as the bar between the sides when ESPN has it. While the page shows it, it is fetched
+// again every refresh seconds. A tap lists the league's live matches in the log.
 
 const league = (options.league || "eng.1").trim();
 const BOARD = `https://site.api.espn.com/apis/site/v2/sports/soccer/${encodeURIComponent(league)}/scoreboard`;
@@ -89,31 +89,73 @@ const hasWidget = typeof widget !== "undefined";
 // A tap on its widget lists the league's live matches, and home turns to the log.
 const TAP = { args: "live", page: "log", label: "Live matches" };
 
-// Its widget for a match: the score large between the two sides ("ARS 2–1 CHE"), home first, with
-// the minute beside it ("HT" at half time, "FT" at the end) and the match's name under it.
-// While it's on: the minutes played as a bar that moves, and the widgets page asks again every
-// [every] seconds while it shows the card. A card one row tall has the bar in the place of the name.
-function card(event, live, p, every) {
+// A team's mark on the card: its initials, a letter or two ("Manchester City" is MC, "Arsenal" A),
+// without words such as FC. Two teams with the same initials get their abbreviations' first two
+// letters instead ("LIV" and "LEE": LI and LE).
+const NOT_INITIALS = ["fc", "afc", "cf", "sc", "&", "and", "of", "de"];
+const initials = (c) => ((c.team && c.team.displayName) || "").split(/\s+/)
+  .filter((w) => w && !NOT_INITIALS.includes(w.toLowerCase())).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+function marks(home, away) {
+  const m = [initials(home), initials(away)];
+  return m[0] !== m[1] ? m : [home, away].map((c) => ((c.team && c.team.abbreviation) || "").slice(0, 2));
+}
+
+// A team's share of the ball, as ESPN gives it ("58.3"); null when it has none.
+function possession(c) {
+  const s = (c.statistics || []).find((x) => x.name === "possessionPct");
+  const n = s ? Number(s.displayValue) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+// The last goal: "82' Goal, V. Muñoz", "Own goal" or "Penalty" for those; null before the first.
+// A penalty shootout's kicks are left out.
+function lastGoal(event) {
+  const details = (event.competitions && event.competitions[0] && event.competitions[0].details) || [];
+  const goals = details.filter((d) => d.scoringPlay && !d.shootout)
+    .sort((a, b) => ((a.clock && a.clock.value) || 0) - ((b.clock && b.clock.value) || 0));
+  const g = goals[goals.length - 1];
+  if (!g) return null;
+  const what = g.ownGoal ? "Own goal" : g.penaltyKick ? "Penalty" : "Goal";
+  const who = g.athletesInvolved && g.athletesInvolved[0];
+  return [`${(g.clock && g.clock.displayValue) || ""} ${what}`.trim(), who && (who.shortName || who.displayName)].filter(Boolean).join(", ");
+}
+
+// Its widget for a match: the two teams, home first, each with its initials, and the score large
+// between them; the minute at the top ("HT" at half time, "FT" at the end) and the last goal. When
+// ESPN has possession, it is the bar between the sides ("58%"). While it's on, the widgets page asks
+// again every [every] seconds while it shows the card.
+function card(event, live, every) {
   const [home, away] = ["home", "away"].map((h) => sides(event).find((c) => c.homeAway === h) || {});
-  const abbr = (c) => (c.team && c.team.abbreviation) || "?";
   const type = (event.status && event.status.type) || {};
-  const clock = state(event) === "post" ? ["FT", "full time"]
-    : type.shortDetail === "HT" ? ["HT", "half time"]
-    : [(event.status && event.status.displayClock) || "", "minute"];
+  const clock = state(event) === "post" ? "FT"
+    : type.shortDetail === "HT" ? "HT"
+    : (event.status && event.status.displayClock) || "";
+  const mark = marks(home, away);
+  const owns = [home, away].map(possession);
   const d = {
+    kind: "versus",
     icon: "ball",
-    value: `${abbr(home)} ${home.score ?? ""}–${away.score ?? ""} ${abbr(away)}`,
-    label: event.name || "",
+    score: `${home.score ?? ""}–${away.score ?? ""}`,
+    sides: [home, away].map((c, i) => {
+      const t = c.team || {};
+      const side = { name: t.shortDisplayName || t.displayName || t.abbreviation || "?" };
+      if (mark[i]) side.mark = mark[i];
+      if (owns[0] != null && owns[1] != null && owns[0] + owns[1] > 0) {
+        side.value = owns[i];
+        side.text = `${Math.round(owns[i])}%`;
+      }
+      return side;
+    }),
     tap: TAP,
     // A result changes no more. A live score is old after a minute out of view.
     staleAfter: live ? 60 : 900,
   };
-  if (clock[0]) d.more = [{ value: clock[0], label: clock[1] }];
+  if (clock) d.badge = clock;
+  const goal = lastGoal(event);
+  if (goal) d.line = goal;
   if (!live) return d;
   d.color = "good";
-  d.moving = true;
   d.refresh = every;
-  if (p != null) d.progress = p;
   return d;
 }
 
@@ -125,13 +167,13 @@ function showMatch(event) {
   const every = Math.max(10, Number(options.refresh) || 30);
   if (live) status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
   else status(line(event));
-  if (hasWidget) widget.show(card(event, live, p, every));
+  if (hasWidget) widget.show(card(event, live, every));
 }
 
-// No match to follow: no status line, and its widget says so.
+// No match to follow: no status line, and its widget says so, as one big value.
 function showNone() {
   status(null);
-  if (hasWidget) widget.show({ icon: "ball", value: "–", label: `No live match in ${league}`, tap: TAP, staleAfter: 900 });
+  if (hasWidget) widget.show({ kind: "stat", icon: "ball", value: "–", label: `No live match in ${league}`, tap: TAP, staleAfter: 900 });
 }
 
 // The followed match ({ league, id, ended }).

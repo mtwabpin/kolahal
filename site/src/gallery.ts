@@ -90,7 +90,7 @@ export const PICTURES: Picture[] = [
 	{ section: 'widgets', file: 'widgets/countdown-date-2x1.png', caption: 'countdown', alt: 'countdown: 36 days to 31 December', href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/webnumber-2x1.png', caption: 'webnumber', alt: 'webnumber: 21.4 °C, the sensor at home', href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/forecast-2x2.png', caption: 'forecast', alt: 'forecast: three days, each with its low and its high and a bar between them', href: '/scripting/library/#widgets' },
-	{ section: 'widgets', file: 'widgets/aqi-2x2.png', caption: 'aqi', alt: 'aqi: 118 large over Unhealthy for some', href: '/scripting/library/#widgets' },
+	{ section: 'widgets', file: 'widgets/aqi-2x2.png', caption: 'aqi', alt: 'aqi: 118 on a gauge in green, orange and red, over Unhealthy for sensitive groups', href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/currency-2x2.png', caption: 'exchange', alt: 'exchange: 1 USD in INR, EUR and GBP', href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/quote-2x2.png', caption: 'quote', alt: 'quote: a quote in bold, and who said it', href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/comic-2x2.png', caption: 'xkcd', alt: 'xkcd: the latest comic, with its title under it', href: '/scripting/library/#widgets' },
@@ -101,7 +101,7 @@ export const PICTURES: Picture[] = [
 	{ section: 'widgets', file: 'widgets/crypto-4x2.png', caption: 'crypto', alt: "crypto: Bitcoin, Ethereum and Solana, each with its price and the day's change", href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/hn-4x2.png', caption: 'hn', alt: 'hn: three front-page stories with their points', href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/releases-4x2.png', caption: 'releases', alt: 'releases: three repositories with their newest release and how old it is', href: '/scripting/library/#widgets' },
-	{ section: 'widgets', file: 'widgets/livescore-4x1.png', caption: 'cricket and football', alt: 'cricket: a live score, with the overs as a wave', href: '/scripting/library/#widgets' },
+	{ section: 'widgets', file: 'widgets/livescore-4x1.png', caption: 'cricket and football', alt: 'cricket: India and New Zealand, 237/4 · 299/8, with the runs against the target as a bar', href: '/scripting/library/#widgets' },
 	{ section: 'widgets', file: 'widgets/quicktoggles-4x1.png', caption: 'quick-toggles', alt: 'quick-toggles: Do Not Disturb on, and the work profile off', href: '/scripting/library/#widgets' },
 
 	// Scripts and the editor

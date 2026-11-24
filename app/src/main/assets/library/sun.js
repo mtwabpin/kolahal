@@ -4,8 +4,9 @@
 // @usage [<city>|<lat> <lng>]
 // @title Sunrise and sunset
 // @author Kolahal
-// @version 1.0
-// @requires 0.5.0
+// @version 1.1
+// @requires 0.5.17
+// @widget sky 2x2
 // @at 05:00
 //
 // Usage:
@@ -15,9 +16,20 @@
 //
 // Times are local to the location (timezone=auto), so no device timezone
 // handling is needed.
+//
+// Its widget, once you placed it on the widgets page, is the sun on its path from sunrise to sunset
+// at the saved location. Kolahal moves the sun as the day goes; the script gives the times once a
+// day. A tap logs the times.
 
-// A failure: what didn't work, in the theme's bad colour, and why under it.
-const fail = (what, why) => log(fmt.color("bad", what), why);
+// The widgets page asked for this run: it fills the widget and logs nothing.
+const quiet = !!event && event.name === "widget";
+
+// A failure: what didn't work, in the theme's bad colour, and why under it. In a run for the
+// widget it is an error instead, so the run counts as failed.
+const fail = (what, why) => {
+  if (quiet) throw new Error(`${what}: ${why}`);
+  return log(fmt.color("bad", what), why);
+};
 
 const line = (argline || "").trim();
 
@@ -50,6 +62,7 @@ try {
 
   const lat = store.get("lat");
   const lng = store.get("lng");
+  if ((!lat || !lng) && quiet) throw new Error("No location yet: sun <city> or sun <lat> <lng>");
   if (!lat || !lng) return log(fmt.color("muted", "No location yet: sun <city> or sun <lat> <lng>"));
 
   const data = await getJson(
@@ -84,13 +97,29 @@ try {
   else if (now < from) first = [hm(from - now), "to sunrise"];
   else if (now < to) first = [hm(to - now), "daylight left"];
   else first = day ? [day, "of daylight today"] : null;
+
+  // Its widget: the sun's path from today's sunrise to sunset, as times in seconds (the place's
+  // times moved back by its offset). Where the sun doesn't rise or set today, the day's length.
+  const place = store.get("place") || `${lat}, ${lng}`;
+  const tap = { args: "", page: "log" };
+  const offset = (data.utc_offset_seconds || 0) * 1000;
+  if (to > from) {
+    widget.show({ kind: "sky", title: place, icon: "sun", color: "warn", rises: Math.floor((from - offset) / 1000),
+      sets: Math.floor((to - offset) / 1000), staleAfter: 86400, tap });
+  } else {
+    widget.show({ kind: "stat", title: place, icon: "sun", value: day || "–", label: "Of daylight", staleAfter: 86400, tap });
+  }
+  if (quiet) return;
+
   const numbers = fmt.stats([first, [rise, "sunrise"], [set, "sunset"]].filter(Boolean));
   const share = to > from ? Math.min(1, Math.max(0, (now - from) / (to - from))) : null;
   const under = [
     share == null ? null : fmt.bar(share, { color: "warn" }),
     day && first && first[1] !== "of daylight today" && first[1] !== "of daylight" ? `${day} of daylight today` : null,
   ].filter(Boolean);
-  log(store.get("place") || `${lat}, ${lng}`, [numbers, ...under].join("\n"));
+  log(place, [numbers, ...under].join("\n"));
 } catch (e) {
+  // A run for the widget fails with the error as it is, so its card says why.
+  if (quiet) throw e;
   return fail("No sun times", `${e.message || e}`);
 }

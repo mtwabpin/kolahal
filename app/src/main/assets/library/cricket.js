@@ -1,13 +1,13 @@
 // @title Live cricket
 // @desc Live cricket scores: the team option's live match as its status line, to pin at the top of home; cricket live lists them all
 // @author Kolahal
-// @version 1.6
+// @version 1.7
 // @command
 // @usage [live|<team>]
-// @widget stat 4x1
+// @widget versus 4x1
 // @every 15m
 // @tags sport, cricket, live
-// @requires 0.4.7
+// @requires 0.5.17
 // @option team any The team whose live match it follows, such as India or Mumbai; any: the first live international
 // @option refresh 30 Seconds between updates while home shows the match (10 at the fastest)
 //
@@ -26,10 +26,11 @@
 // "Fetching scores…" at once, which turns into the answer. An older Kolahal shows them as lines, as
 // before.
 //
-// Its widget, once you placed it on the widgets page, is the live score: both sides' scores large,
-// how the match stands, and the overs as a bar that moves while the match is on. In a chase it has
-// the runs to win and the balls left beside the score. While the page shows it, it is fetched again
-// every refresh seconds. A tap lists the live matches in the log.
+// Its widget, once you placed it on the widgets page, is the match: the two sides with their
+// initials, both scores large between them, a dot by the side batting, and how the match stands
+// (the runs to win and the balls left in a chase). In a chase, the runs against the target are the
+// bar between them. While the page shows it, it is fetched again every refresh seconds. A tap lists
+// the live matches in the log.
 
 const PANEL = "https://site.web.api.espn.com/apis/site/v2/sports/cricket/scorepanel";
 const BOARD = (league) => `https://site.web.api.espn.com/apis/site/v2/sports/cricket/${league}/scoreboard`;
@@ -137,36 +138,75 @@ const hasWidget = typeof widget !== "undefined";
 // A tap on its widget lists the live matches, and home turns to the log.
 const TAP = { args: "live", page: "log", label: "Live matches" };
 
-// Its widget for a match: both sides' scores large ("IND 237/4 · NZ 299/8"), and how the match
-// stands under them.
-// - While it's on: the overs as a bar that moves, and the widgets page asks again every [every]
-//   seconds while it shows the card. A card one row tall has the bar in the place of the words.
-// - In a chase: the runs to win and the balls left beside the score, as the summary gives them
-//   ("India require 64 runs with 60 balls remaining").
-function card(event, live, p, every) {
-  const abbr = (c) => (c.team && c.team.abbreviation) || "?";
+// A team's mark on the card: its initials, a letter or two ("New Zealand" is NZ, "India" I). Two
+// teams with the same initials get their abbreviations' first two letters instead.
+const initials = (c) => ((c.team && c.team.displayName) || "").split(/\s+/).filter(Boolean)
+  .slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+function marks(sides) {
+  const m = sides.map(initials);
+  return m[0] !== m[1] ? m : sides.map((c) => ((c.team && c.team.abbreviation) || "").slice(0, 2));
+}
+
+// The side batting now, 0 or 1: the one whose current innings it is, as ESPN marks it; else the one
+// chasing a target, else the first with overs. Null when no side is batting.
+function batting(event) {
+  const sides = teams(event);
+  const now = sides.findIndex((c) => (c.linescores || []).some((l) => l.isCurrent === 1 && l.isBatting));
+  if (now >= 0) return now;
+  const re = /\(\d+(?:\.\d)?\/\d+ ov/;
+  const chasing = sides.findIndex((c) => (c.score || "").includes("target") && re.test(c.score));
+  if (chasing >= 0) return chasing;
+  const first = sides.findIndex((c) => re.test(c.score || ""));
+  return first >= 0 ? first : null;
+}
+
+// Its widget for a match: the two sides, each with its initials, and their scores large between them
+// ("258 · 115/2"); LIVE or RESULT at the top, and how the match stands as the last line ("India
+// require 64 runs with 60 balls remaining").
+// - While it's on: a dot by the side batting, and the widgets page asks again every [every] seconds
+//   while it shows the card.
+// - In a chase: the runs against the target as the bar between the sides. The chasing side's part
+//   is its runs, moving while it bats; the other side's is the runs still to get, with the target
+//   at its end ("Target 259"). A target cut by rain (DLS) is the one the score gives.
+function card(event, live, every) {
+  const sides = teams(event).slice(0, 2);
   const runs = (c) => (c.score || "").split(" (")[0].trim();
   const said = (event.status && event.status.summary) || "";
+  // A card of two sides needs two: without them, how the match stands as one line.
+  if (sides.length < 2) return { kind: "stat", icon: "cricket", value: "–", label: said || "No live match", tap: TAP, staleAfter: 900 };
+  const mark = marks(sides);
+  // The chase: who chases, the target, and the runs of its innings now (the last after "&" in a Test).
+  const chasing = sides.findIndex((c) => /target \d+/.test(c.score || ""));
+  const target = chasing >= 0 ? Number(sides[chasing].score.match(/target (\d+)/)[1]) : NaN;
+  const got = chasing >= 0 ? Number((runs(sides[chasing]).split("&").pop().trim().match(/^\d+/) || [])[0]) : NaN;
+  const bar = Number.isFinite(target) && Number.isFinite(got) && target > 0
+    ? (i) => (i === chasing ? { value: got } : { value: Math.max(0, target - got), text: `Target ${target}` })
+    : null;
   const d = {
+    kind: "versus",
     icon: "cricket",
-    value: teams(event).map((c) => `${abbr(c)} ${runs(c)}`.trim()).join(" · ") || "–",
-    label: said,
+    score: sides.map((c) => runs(c) || "–").join(" · ") || "–",
+    sides: sides.map((c, i) => {
+      const t = c.team || {};
+      const name = t.displayName && t.displayName.length <= 24 ? t.displayName : t.shortDisplayName || t.abbreviation || "?";
+      const side = { name };
+      if (mark[i]) side.mark = mark[i];
+      return bar ? { ...side, ...bar(i) } : side;
+    }),
+    badge: live ? "LIVE" : "RESULT",
     tap: TAP,
     // A result changes no more. A live score is old after a minute out of view.
     staleAfter: live ? 60 : 900,
   };
+  if (said) d.line = said;
   if (!live) return d;
-  d.color = "good";
-  d.moving = true;
-  d.refresh = every;
-  if (p != null) d.progress = p;
-  if (/\b(?:require|need)s?\b/i.test(said)) {
-    const toWin = said.match(/(\d+)\s+(?:more\s+)?runs?\b/);
-    const balls = said.match(/(\d+)\s+balls?\b/);
-    d.more = [];
-    if (toWin) d.more.push({ value: toWin[1], label: "to win" });
-    if (balls) d.more.push({ value: balls[1], label: "balls left" });
+  const at = batting(event);
+  if (at != null && at < 2) {
+    d.turn = at + 1;
+    d.moving = true;
   }
+  d.color = "good";
+  d.refresh = every;
   return d;
 }
 
@@ -178,13 +218,13 @@ function showMatch(event) {
   const every = Math.max(10, Number(options.refresh) || 30);
   if (live) status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
   else status(line(event));
-  if (hasWidget) widget.show(card(event, live, p, every));
+  if (hasWidget) widget.show(card(event, live, every));
 }
 
-// No match to follow: no status line, and its widget says so.
+// No match to follow: no status line, and its widget says so, as one big value.
 function showNone() {
   status(null);
-  if (hasWidget) widget.show({ icon: "cricket", value: "–", label: "No live match", tap: TAP, staleAfter: 900 });
+  if (hasWidget) widget.show({ kind: "stat", icon: "cricket", value: "–", label: "No live match", tap: TAP, staleAfter: 900 });
 }
 
 // The followed match ({ league, id, ended }) and what it shows now.

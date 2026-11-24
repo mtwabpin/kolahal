@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.sourceFile
@@ -55,6 +56,17 @@ class LibraryFilesTest {
             )
             assertFalse(name, ScriptMeta.postsNotifications(code))
         }
+    }
+
+    /**
+     * None asks for a newer Kolahal than the one it comes with ([ScriptMeta.needsNewer]): it could call
+     * what this build doesn't have. A -dev build counts as its release, so 0.5.17-dev ships @requires 0.5.17.
+     */
+    @Test
+    fun noneNeedsANewerKolahal() {
+        val newer = files.map { it.first }.filter { ScriptMeta.needsNewer(it.readText(), BuildConfig.VERSION_NAME) }
+            .map { "${it.name} (${ScriptMeta.requires(it.readText())})" }
+        assertEquals(BuildConfig.VERSION_NAME, emptyList<String>(), newer)
     }
 
     /** Nothing the editor would point out on saving one. */

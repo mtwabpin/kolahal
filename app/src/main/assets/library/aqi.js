@@ -1,13 +1,13 @@
 // @title Air quality
 // @desc Air quality: aqi [city], without one its city option (US, Indian or European index; the nearest station's with a WAQI token)
 // @author Kolahal
-// @version 1.6
+// @version 1.7
 // @command
 // @usage [<city>]
 // @widget progress 2x1
 // @at 08:00
 // @tags weather, air, health
-// @requires 0.4.7
+// @requires 0.5.17
 // @option city "" The city when you type none
 // @option scale us|in|eu The index: us (US EPA), in (India's CPCB) or eu (European)
 // @secret WAQI_TOKEN api.waqi.info Optional: your free token from aqicn.org/data-platform/token, for the nearest station's reading
@@ -16,7 +16,8 @@
 // api.waqi.info when you set a WAQI token. `aqi Delhi`, or `aqi` for its city option (`script set
 // aqi city Pune`); `script set aqi scale in` for India's index. On a timer (no arguments) it keeps
 // the latest figure as its status line: pin it (`script pin aqi`) to see it at the top of home.
-// Its widget, once you placed it on the widgets page, shows that figure in a ring.
+// Its widget, once you placed it on the widgets page, shows that figure on a gauge, its arc colored
+// by the scale's bands.
 //
 // Where the numbers come from:
 // - Without a token, or with scale in or eu: Open-Meteo's model (CAMS, on a grid tens of km wide),
@@ -276,18 +277,26 @@ const aqi = figures[0][1];
 const text = `${name} ${aqi} · ${place.name}`;
 if (!line) status(text, newer ? { progress: Math.min(1, aqi / GOOD_TOP), color: band(aqi)[1] } : undefined);
 
-// Its widget, in the same runs: the figure in a ring, in its band's colour, with the band's name.
-// The ring is full at the top of the scale's second-worst band, as the bar in the log is. A tap
-// runs aqi again and turns home to the log, for the readings.
+// Its widget, in the same runs: the figure on a gauge, with the band's name in its colour and the
+// scale as its unit. The arc runs to the top of the scale's second-worst band, as the bar in the log
+// does, in a zone for each colour of the scale's bands: from 0 good, then warn, then bad. A tap runs
+// aqi again and turns home to the log, for the readings.
 if (typeof widget !== "undefined" && !line) {
+  const zones = [];
+  BANDS[scale].forEach(([, , colour], i) => {
+    if (!zones.length || zones[zones.length - 1].color !== colour) zones.push({ from: i ? BANDS[scale][i - 1][0] + 1 : 0, color: colour });
+  });
   widget.show({
-    title: `${name} · ${place.name}`,
+    title: place.name,
     icon: "wind",
+    style: "gauge",
     value: aqi,
     max: worst,
+    unit: name,
     text: String(aqi),
     label: band(aqi)[0],
     color: band(aqi)[1],
+    zones,
     tap: { args: "", page: "log" },
   });
 }

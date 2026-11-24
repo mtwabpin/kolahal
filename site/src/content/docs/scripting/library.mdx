@@ -125,7 +125,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Twenty-three scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others),
+Twenty-four scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others),
 and two [templates](#templates), each in Lua and in JavaScript, show how to make your own.
 
 None of the network scripts need an API key.
@@ -192,7 +192,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Twenty-three scripts have a [widget](/scripting/overview/#widgets): a card on the
+Twenty-four scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -203,7 +203,8 @@ Twenty-three scripts have a [widget](/scripting/overview/#widgets): a card on th
 | --- | --- | --- |
 | [weather](#weather) | the temperature, large, with the sky, humidity and wind | runs `weather`, and home turns to the log |
 | [forecast](#forecast) | three days, each with its low and its high and a bar between them, all on one scale | runs `forecast`, and home turns to the log |
-| [aqi](#aqi) | the air quality figure in a ring, in its band's color | runs `aqi`, and home turns to the log |
+| [aqi](#aqi) | the air quality figure on a gauge, with the band's name in its color | runs `aqi`, and home turns to the log |
+| [sun](#sun) | the sun on its path from sunrise to sunset, which Kolahal moves through the day | runs `sun`, and home turns to the log |
 | [crypto](#crypto) | its coins, each with its price and the day's change | runs `crypto`, and home turns to the log |
 | [exchange](#exchange) | one unit of your currency in each of the others you chose | runs `exchange`, and home turns to the log |
 | [hn](#hn) | the first 8 stories of the front page, with their points | on a row: opens the story |
@@ -212,8 +213,8 @@ Twenty-three scripts have a [widget](/scripting/overview/#widgets): a card on th
 | [quote](#quote) | the last quote, and who said it | fetches a new quote |
 | [xkcd](#xkcd) | the latest comic, with its number and title under it | opens the comic on xkcd.com |
 | [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
-| [cricket](#cricket) | the followed match: both scores, how it stands, and the overs as a bar | runs `cricket live`, and home turns to the log |
-| [football](#football) | the followed match: the score, the minute, and the minutes played as a bar | runs `football live`, and home turns to the log |
+| [cricket](#cricket) | the followed match: the two sides and their scores, how it stands, and in a chase the runs against the target as a bar | runs `cricket live`, and home turns to the log |
+| [football](#football) | the followed match: the two teams and the score, the minute, the last goal, and possession as a bar | runs `football live`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
 | [screen-time](#screen-time) | today's screen time, over a bar for each of the last 7 days | logs today's apps, and home turns to the log |
 | [screen-time-months](#screen-time-months) | your screen time a day, over a bar for each month Android keeps | logs a row for each month, and home turns to the log |
@@ -230,7 +231,7 @@ Twenty-three scripts have a [widget](/scripting/overview/#widgets): a card on th
   { src: countdown, alt: "countdown: 36 days to 31 December", size: "2x1", caption: "countdown" },
   { src: webnumber, alt: "webnumber: 21.4 °C, the sensor at home", size: "2x1", caption: "webnumber" },
   { src: forecast, alt: "forecast: three days, each with its low and its high and a bar between them", size: "2x2", caption: "forecast" },
-  { src: aqi, alt: "aqi: 118 large over Unhealthy for some", size: "2x2", caption: "aqi" },
+  { src: aqi, alt: "aqi: 118 on a gauge in green, orange and red, over Unhealthy for sensitive groups", size: "2x2", caption: "aqi" },
   { src: exchange, alt: "exchange: 1 USD in INR, EUR and GBP", size: "2x2", caption: "exchange" },
   { src: quote, alt: "quote: a quote in bold, and who said it", size: "2x2", caption: "quote" },
   { src: xkcd, alt: "xkcd: the latest comic, with its title under it", size: "2x2", caption: "xkcd" },
@@ -241,7 +242,7 @@ Twenty-three scripts have a [widget](/scripting/overview/#widgets): a card on th
   { src: crypto, alt: "crypto: Bitcoin, Ethereum and Solana, each with its price and the day's change", size: "4x2", caption: "crypto" },
   { src: hn, alt: "hn: three front-page stories with their points", size: "4x2", caption: "hn" },
   { src: releases, alt: "releases: three repositories with their newest release and how old it is", size: "4x2", caption: "releases" },
-  { src: cricket, alt: "cricket: a live score, with the overs as a wave", size: "4x1", caption: "cricket and football" },
+  { src: cricket, alt: "cricket: India and New Zealand, 237/4 · 299/8, with the runs against the target as a bar", size: "4x1", caption: "cricket and football" },
   { src: toggles, alt: "quick-toggles: Do Not Disturb on, and the work profile off", size: "4x1", caption: "quick-toggles" },
 ]} />
 
@@ -368,6 +369,11 @@ script pin aqi                 # at the top of home, with a colored bar
 left large (before sunrise, the time to it; after sunset, the day's length), then sunrise and sunset,
 with a bar of how much of today's daylight has gone. `sun Lisbon` or `sun 12.97 77.59` saves the
 location. After that, just type `sun`.
+
+Its widget is the [sky](/scripting/api/#kinds-and-their-fields) of the saved location: the sun on
+its path from sunrise to sunset. Kolahal moves the sun as the day goes, and the script gives the
+times once a day. Where the sun doesn't rise or set that day, it shows the day's length. A tap runs
+`sun`, and home turns to the log.
 
 ## crypto
 
@@ -505,9 +511,12 @@ script pin cricket           # the score at the top of home
   `India` matches India A too. Use the abbreviation (`IND`, `NZ`) to pick the senior side.
 - Its `team` option is the team its timer looks for (`any`: the first live international), and
   `refresh` is how often the pinned score updates while home shows it (30 seconds, 10 at the fastest).
-- Its widget is **Live score**: both sides' scores large, and how the match stands under them.
-  - While the match is on, the overs are a bar that moves. In a chase, the runs to win and the
-    balls left are beside the score.
+- Its widget is **Live score**: the two sides with their initials and both scores between them,
+  LIVE or RESULT at the top, and how the match stands as its last line (the runs to win and the
+  balls left in a chase).
+  - While the match is on, a dot marks the side batting.
+  - In a chase, the runs against the target are a bar between the sides: the chasing side's runs,
+    and the runs still to get, with the target at the end.
   - While the widgets page shows the card, the score is fetched again every `refresh` seconds.
     Out of view it follows the timer.
   - With no match to follow it says "No live match". A tap runs `cricket live`, and home turns to
@@ -529,9 +538,10 @@ football live                # the league's live matches, as a table
   `esp.1`, `ger.1`, `ita.1`, `fra.1`, `uefa.champions`, `ind.1`, `usa.1` or another.
 - Its `team` option is the team its timer looks for (`any`: the league's first live match), and
   `refresh` is how often the pinned score updates while home shows it.
-- Its widget is **Live score**, as for `cricket`: the score large between the two sides, the
-  minute beside it (HT at half time, FT at the end), and the minutes played as a bar that moves
-  while the match is on. A tap runs `football live`, and home turns to the log.
+- Its widget is **Live score**, as for `cricket`: the two teams with their initials and the score
+  large between them, the minute at the top (HT at half time, FT at the end), and the last goal.
+  When ESPN has possession, it is the bar between the teams. A tap runs `football live`, and home
+  turns to the log.
 
 ## charge-reminder
 

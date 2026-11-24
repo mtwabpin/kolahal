@@ -71,6 +71,7 @@ class LibraryWidgetsTest {
                 "releases.lua",
                 "screen-time-months.lua",
                 "screen-time.lua",
+                "sun.js",
                 "template-widget-js.js",
                 "template-widget-list-js.js",
                 "template-widget-list.lua",
@@ -979,91 +980,111 @@ class LibraryWidgetsTest {
     private val liveTap = WidgetTap(args = "live", label = "Live matches", toLog = true)
     private val jsLiveTap = mapOf("args" to "live", "page" to "log", "label" to "Live matches")
 
+    /** A side of a versus card, as the scores' scripts write one: its name and initials, and a part of the bar when there is one. */
+    private fun side(name: String, mark: String, value: Any? = null, text: String? = null): Map<String, Any> =
+        listOfNotNull("name" to name, "mark" to mark, value?.let { "value" to it }, text?.let { "text" to it }).toMap()
+
     /**
-     * Live score, cricket: both sides' scores large and how the match stands. While the match is on,
-     * the overs are a bar that moves and the page asks again every `refresh` seconds. A chase has the
-     * runs to win and the balls left.
+     * Live score, cricket: the two sides with their initials and both scores between them, LIVE or
+     * RESULT, and how the match stands as the last line. While the match is on, a dot by the side
+     * batting, and the page asks again every `refresh` seconds. In a chase, the runs against the
+     * target are the bar: the chasing side's runs, and the runs still to get with the target.
      */
     @Test
     fun cricket() {
         val chase = parse(
             "cricket.js",
             mapOf(
-                "icon" to "🏏",
-                "value" to "IND 237/4 · NZ 299/8",
-                "label" to "India require 64 runs with 60 balls remaining",
+                "kind" to "versus",
+                "icon" to "cricket",
+                "score" to "237/4 · 299/8",
+                "sides" to listOf(side("India", "I", 237L), side("New Zealand", "NZ", 63L, "Target 300")),
+                "badge" to "LIVE",
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
-                "color" to "good",
+                "line" to "India require 63 runs with 60 balls remaining",
+                "turn" to 1L,
                 "moving" to true,
+                "color" to "good",
                 "refresh" to 30L,
-                "progress" to 0.8,
-                "more" to listOf(
-                    mapOf("value" to "64", "label" to "to win"),
-                    mapOf("value" to "60", "label" to "balls left")
-                ),
             ),
         )
         assertEquals(
-            WidgetSpec.Stat(
+            WidgetSpec.Versus(
                 WidgetBase(
-                    icon = "🏏",
+                    icon = "cricket",
                     color = StyledText.ColorRole.GOOD,
                     tap = liveTap,
                     staleAfter = 60,
                     refresh = 30
                 ),
-                value = "IND 237/4 · NZ 299/8",
-                label = "India require 64 runs with 60 balls remaining",
-                more = listOf(
-                    WidgetSpec.Small("64", "to win"),
-                    WidgetSpec.Small("60", "balls left")
+                sides = listOf(
+                    WidgetSpec.Side("India", "I", value = 237f),
+                    WidgetSpec.Side("New Zealand", "NZ", value = 63f, text = "Target 300"),
                 ),
-                progress = 0.8f,
+                score = "237/4 · 299/8",
+                turn = 1,
                 moving = true,
+                line = "India require 63 runs with 60 balls remaining",
+                badge = "LIVE",
             ),
             chase,
         )
-        // A Test has no limit of overs: no bar. The fastest refresh is 10 seconds.
-        val test = parse(
+        // Before a chase there is no target: no bar. The fastest refresh is 10 seconds.
+        val first = parse(
             "cricket.js",
             mapOf(
-                "icon" to "🏏",
-                "value" to "IND 245 & 120/3 · NZ 245",
-                "label" to "Day 2: India lead by 120 runs",
+                "kind" to "versus",
+                "icon" to "cricket",
+                "score" to "– · 142/3",
+                "sides" to listOf(side("India", "I"), side("New Zealand", "NZ")),
+                "badge" to "LIVE",
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
-                "color" to "good",
+                "line" to "New Zealand chose to bat",
+                "turn" to 2L,
                 "moving" to true,
+                "color" to "good",
                 "refresh" to 10L,
             ),
-        ) as WidgetSpec.Stat
-        assertEquals(null, test.progress)
-        assertEquals(10, test.base.refresh)
-        // The result: it changes no more, so nothing moves and the page asks for nothing.
+        ) as WidgetSpec.Versus
+        assertEquals(listOf<Float?>(null, null), first.sides.map { it.value })
+        assertEquals(2, first.turn)
+        assertEquals(10, first.base.refresh)
+        // The result: it changes no more, so nothing moves and the page asks for nothing. A chase
+        // that reached its target has the whole bar.
         val result = parse(
             "cricket.js",
             mapOf(
-                "icon" to "🏏",
-                "value" to "IND 301/6 · NZ 299/8",
-                "label" to "India won by 4 wickets",
+                "kind" to "versus",
+                "icon" to "cricket",
+                "score" to "301/6 · 299/8",
+                "sides" to listOf(side("India", "I", 301L), side("New Zealand", "NZ", 0L, "Target 300")),
+                "badge" to "RESULT",
                 "tap" to jsLiveTap,
-                "staleAfter" to 900L
+                "staleAfter" to 900L,
+                "line" to "India won by 4 wickets",
             )
         )
         assertEquals(
-            WidgetSpec.Stat(
-                WidgetBase(icon = "🏏", tap = liveTap, staleAfter = 900),
-                value = "IND 301/6 · NZ 299/8",
-                label = "India won by 4 wickets"
+            WidgetSpec.Versus(
+                WidgetBase(icon = "cricket", tap = liveTap, staleAfter = 900),
+                sides = listOf(
+                    WidgetSpec.Side("India", "I", value = 301f),
+                    WidgetSpec.Side("New Zealand", "NZ", value = 0f, text = "Target 300"),
+                ),
+                score = "301/6 · 299/8",
+                line = "India won by 4 wickets",
+                badge = "RESULT",
             ),
             result,
         )
-        // Nothing to follow.
+        // Nothing to follow: one big value, as a stat.
         val none = parse(
             "cricket.js",
             mapOf(
-                "icon" to "🏏",
+                "kind" to "stat",
+                "icon" to "cricket",
                 "value" to "–",
                 "label" to "No live match",
                 "tap" to jsLiveTap,
@@ -1072,72 +1093,90 @@ class LibraryWidgetsTest {
         )
         assertEquals(
             WidgetSpec.Stat(
-                WidgetBase(icon = "🏏", tap = liveTap, staleAfter = 900),
+                WidgetBase(icon = "cricket", tap = liveTap, staleAfter = 900),
                 value = "–",
                 label = "No live match"
             ), none
         )
     }
 
-    /** Live score, football: the score large between the two sides, the minute beside it, and the minutes played as a bar. */
+    /**
+     * Live score, football: the two teams with their initials, home first, and the score between
+     * them; the minute at the top and the last goal under it. When ESPN has possession, it is the bar.
+     */
     @Test
     fun football() {
         val live = parse(
             "football.js",
             mapOf(
-                "icon" to "⚽",
-                "value" to "ARS 2–1 CHE",
-                "label" to "Chelsea at Arsenal",
+                "kind" to "versus",
+                "icon" to "ball",
+                "score" to "2–1",
+                "sides" to listOf(side("Arsenal", "A", 58.3, "58%"), side("Chelsea", "C", 41.7, "42%")),
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
-                "more" to listOf(mapOf("value" to "67'", "label" to "minute")),
+                "badge" to "67'",
+                "line" to "64' Goal, B. Saka",
                 "color" to "good",
-                "moving" to true,
                 "refresh" to 30L,
-                "progress" to 0.7444444444444445,
             ),
         )
         assertEquals(
-            WidgetSpec.Stat(
+            WidgetSpec.Versus(
                 WidgetBase(
-                    icon = "⚽",
+                    icon = "ball",
                     color = StyledText.ColorRole.GOOD,
                     tap = liveTap,
                     staleAfter = 60,
                     refresh = 30
                 ),
-                value = "ARS 2–1 CHE",
-                label = "Chelsea at Arsenal",
-                more = listOf(WidgetSpec.Small("67'", "minute")),
-                progress = 0.7444444444444445.toFloat(),
-                moving = true,
+                sides = listOf(
+                    WidgetSpec.Side("Arsenal", "A", value = 58.3f, text = "58%"),
+                    WidgetSpec.Side("Chelsea", "C", value = 41.7f, text = "42%"),
+                ),
+                score = "2–1",
+                line = "64' Goal, B. Saka",
+                badge = "67'",
             ),
             live,
         )
+        // No possession and no goal yet: no bar and no line.
+        val start = parse(
+            "football.js",
+            mapOf(
+                "kind" to "versus",
+                "icon" to "ball",
+                "score" to "0–0",
+                "sides" to listOf(side("Arsenal", "A"), side("Chelsea", "C")),
+                "tap" to jsLiveTap,
+                "staleAfter" to 60L,
+                "badge" to "1'",
+                "color" to "good",
+                "refresh" to 30L,
+            ),
+        ) as WidgetSpec.Versus
+        assertEquals(listOf<Float?>(null, null), start.sides.map { it.value })
+        assertEquals(null, start.line)
         val ended = parse(
             "football.js",
             mapOf(
-                "icon" to "⚽",
-                "value" to "ARS 2–1 CHE",
-                "label" to "Chelsea at Arsenal",
+                "kind" to "versus",
+                "icon" to "ball",
+                "score" to "2–1",
+                "sides" to listOf(side("Arsenal", "A", 58.3, "58%"), side("Chelsea", "C", 41.7, "42%")),
                 "tap" to jsLiveTap,
                 "staleAfter" to 900L,
-                "more" to listOf(mapOf("value" to "FT", "label" to "full time"))
+                "badge" to "FT",
+                "line" to "64' Goal, B. Saka",
             ),
-        )
-        assertEquals(
-            WidgetSpec.Stat(
-                WidgetBase(icon = "⚽", tap = liveTap, staleAfter = 900),
-                value = "ARS 2–1 CHE",
-                label = "Chelsea at Arsenal",
-                more = listOf(WidgetSpec.Small("FT", "full time"))
-            ),
-            ended,
-        )
+        ) as WidgetSpec.Versus
+        assertEquals(WidgetBase(icon = "ball", tap = liveTap, staleAfter = 900), ended.base)
+        assertEquals("FT", ended.badge)
         val none = parse(
             "football.js",
             mapOf(
-                "icon" to "⚽",
+                "kind" to "stat",
+                "icon" to "ball",
                 "value" to "–",
                 "label" to "No live match in eng.1",
                 "tap" to jsLiveTap,
@@ -1146,21 +1185,21 @@ class LibraryWidgetsTest {
         )
         assertEquals(
             WidgetSpec.Stat(
-                WidgetBase(icon = "⚽", tap = liveTap, staleAfter = 900),
+                WidgetBase(icon = "ball", tap = liveTap, staleAfter = 900),
                 value = "–",
                 label = "No live match in eng.1"
             ), none
         )
     }
 
-    /** The scores' scripts start at 4 cells by 1 row, and have the widget's switch beside what they had. */
+    /** The scores' scripts start as a versus card 4 cells by 1 row, and have the widget's switch beside what they had. */
     @Test
-    fun theScoresHaveAWideStatWidget() {
+    fun theScoresHaveAWideVersusWidget() {
         for (file in listOf("cricket.js", "football.js")) {
             val code = sourceFile("src/main/assets/library/$file").readText()
             assertEquals(
                 file,
-                ScriptMeta.Widget(WidgetKind.STAT, com.mtwabpin.kolahal.widgets.WidgetSize.S4X1),
+                ScriptMeta.Widget(WidgetKind.VERSUS, com.mtwabpin.kolahal.widgets.WidgetSize.S4X1),
                 ScriptMeta.widget(code)
             )
             assertEquals(file, true, ScriptAccess.WIDGET in ScriptAccess.items(code))
@@ -1223,24 +1262,77 @@ class LibraryWidgetsTest {
         assertEquals(emptyList<WidgetSpec.Row>(), none.items)
     }
 
-    /** The figure is a whole number in JavaScript, which arrives as a long or as a double. Past the scale's top, the ring is full. */
+    /**
+     * A gauge with a zone for each color of the scale's bands, the scale as its unit. The figure is a
+     * whole number in JavaScript, which arrives as a long or as a double. Past the scale's top, the
+     * arc is full.
+     */
     @Test
     fun aqi() {
         fun spec(value: Any) = parse(
             "aqi.js",
             mapOf(
-                "title" to "US AQI · Pune", "value" to value, "max" to 300L, "text" to "156",
-                "label" to "Unhealthy", "color" to "bad", "tap" to jsToLog,
+                "title" to "Pune", "icon" to "wind", "style" to "gauge", "value" to value, "max" to 300L,
+                "unit" to "US AQI", "text" to "156", "label" to "Unhealthy", "color" to "bad",
+                "zones" to listOf(
+                    mapOf("from" to 0L, "color" to "good"),
+                    mapOf("from" to 51L, "color" to "warn"),
+                    mapOf("from" to 151L, "color" to "bad"),
+                ),
+                "tap" to jsToLog,
             ),
         )
 
         val expected = WidgetSpec.Progress(
-            WidgetBase(title = "US AQI · Pune", color = StyledText.ColorRole.BAD, tap = toLog),
-            value = 156f, max = 300f, text = "156", label = "Unhealthy",
+            WidgetBase(title = "Pune", icon = "wind", color = StyledText.ColorRole.BAD, tap = toLog),
+            value = 156f, max = 300f, text = "156", label = "Unhealthy", style = "gauge", unit = "US AQI",
+            zones = listOf(
+                WidgetSpec.GaugeZone(0f, StyledText.ColorRole.GOOD),
+                WidgetSpec.GaugeZone(51f, StyledText.ColorRole.WARN),
+                WidgetSpec.GaugeZone(151f, StyledText.ColorRole.BAD),
+            ),
         )
         assertEquals(expected, spec(156L))
         assertEquals(expected, spec(156.0))
         assertEquals(300f, (spec(999L) as WidgetSpec.Progress).value)
+    }
+
+    /**
+     * sun: the sun's path from today's sunrise to its sunset, in seconds, in the sun's color, once a
+     * day. Where the sun doesn't rise or set that day, the day's length as a stat.
+     */
+    @Test
+    fun sun() {
+        val sky = parse(
+            "sun.js",
+            mapOf(
+                "kind" to "sky", "title" to "Pune, IN", "icon" to "sun", "color" to "warn",
+                "rises" to 1_795_483_200L, "sets" to 1_795_521_240L, "staleAfter" to 86_400L, "tap" to jsToLog,
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Sky(
+                WidgetBase(title = "Pune, IN", icon = "sun", color = StyledText.ColorRole.WARN, tap = toLog, staleAfter = 86_400),
+                rises = 1_795_483_200L,
+                sets = 1_795_521_240L,
+            ),
+            sky,
+        )
+        val polar = parse(
+            "sun.js",
+            mapOf(
+                "kind" to "stat", "title" to "Tromsø, NO", "icon" to "sun", "value" to "0h 0m",
+                "label" to "Of daylight", "staleAfter" to 86_400L, "tap" to jsToLog,
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Stat(
+                WidgetBase(title = "Tromsø, NO", icon = "sun", tap = toLog, staleAfter = 86_400),
+                value = "0h 0m",
+                label = "Of daylight",
+            ),
+            polar,
+        )
     }
 
     /** A row a day by its short name, with its sky, its low and its high, and its range for the bar. */

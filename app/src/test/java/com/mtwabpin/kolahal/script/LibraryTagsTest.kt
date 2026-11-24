@@ -117,7 +117,7 @@ class LibraryTagsTest {
         assertEquals(
             mapOf(
                 TEMPLATE to 18,
-                WIDGET to 27,
+                WIDGET to 28,
                 COMMAND to 33,
                 TIMER to 26,
                 EVENT to 4,
