@@ -48,6 +48,8 @@ import com.mtwabpin.kolahal.ui.theme.Term
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetJson
+import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
@@ -86,6 +88,11 @@ import java.time.ZoneOffset
  * The pictures go to the app's own files on the device, with a list of them (`manifest.json`):
  *
  *     adb pull /sdcard/Android/data/com.mtwabpin.kolahal.debug/files/gallery
+ *
+ * The website's pictures ([theGuidesExamplesAreDrawnAndSaved], [thePageIsDrawnAndSaved]) take
+ * instrumentation arguments, so they can be drawn again in another theme (tools/site-pictures.sh):
+ * `theme` (a theme's name; Kolahal's default without it), `light` (`true` for the theme's light
+ * version) and `look` (one look for every card; without it each card has its [siteLook]).
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetGalleryTest {
@@ -95,6 +102,7 @@ class WidgetGalleryTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val config = Config.get(context)
     private val paletteBefore = Term.palette
+    private val arguments = InstrumentationRegistry.getArguments()
     private val zone: ZoneId = ZoneId.systemDefault()
     private val nowMs = System.currentTimeMillis()
     private val now = nowMs / 1000
@@ -153,7 +161,7 @@ class WidgetGalleryTest {
      * `<look>-<name>-<size>.png`. Instrumentation arguments narrow it down: `looks` (a comma list
      * such as `tonal,shape`; all looks without it) and `names` (a comma list of card names, as in the
      * file names; all cards without it). With `light` set to `true` the cards are in the theme's
-     * light version.
+     * light version, and with `theme` (a theme's name) in that theme instead of Gruvbox Material.
      *
      *     adb pull /sdcard/Android/data/com.mtwabpin.kolahal.debug/files/gallery-looks
      */
@@ -161,6 +169,7 @@ class WidgetGalleryTest {
     fun everyLookIsDrawnAndSaved() {
         val args = InstrumentationRegistry.getArguments()
         if (args.getString("light") == "true") Term.palette = Palettes.gruvboxMaterialLight
+        args.getString("theme")?.let { Term.palette = Palettes.named(it, args.getString("light") != "true") }
         val looks = args.getString("looks")?.split(',')?.mapNotNull { WidgetLook.named(it) }
             ?.ifEmpty { null } ?: WidgetLook.entries
         val names =
@@ -177,13 +186,12 @@ class WidgetGalleryTest {
      * The website's pictures of the scripting guide's widget examples: each example's Lua code runs
      * as a script ([DocsExamples]), and its card is drawn from what it handed to `widget.show`. They
      * go to `files/gallery-docs`, as `docs-<name>-<size>.png`, with the ready-made
-     * cards as `real-<name>-<size>.png`: all in Kolahal's default theme (green), as the website's
-     * other screenshots are.
+     * cards as `real-<name>-<size>.png`: all in Kolahal's default theme ([Keys.THEME]), each card in
+     * its [siteLook], as the website's other screenshots are. The class's arguments change both.
      */
     @Test
     fun theGuidesExamplesAreDrawnAndSaved() {
-        // The website shows Kolahal's default theme, as its other screenshots do.
-        Term.palette = Palettes.green
+        Term.palette = sitePalette()
         pictureFile(DocsExamples.PICTURE).outputStream()
             .use { hills().compress(Bitmap.CompressFormat.PNG, 100, it) }
         try {
@@ -200,7 +208,7 @@ class WidgetGalleryTest {
                 )
             }
             // The ready-made cards too, for the library and widgets pages.
-            draw(shots + readyMade(), "gallery-docs")
+            draw((shots + readyMade()).map { it.copy(look = siteLookOf(it)) }, "gallery-docs")
         } finally {
             pictureFile(DocsExamples.PICTURE).delete()
         }
@@ -213,7 +221,7 @@ class WidgetGalleryTest {
      */
     @Test
     fun thePageIsDrawnAndSaved() {
-        Term.palette = Palettes.green
+        Term.palette = sitePalette()
         val out = checkNotNull(context.getExternalFilesDir("gallery-page")) { "no external files" }
         out.listFiles()?.forEach { it.delete() }
         val ready = readyMade()
@@ -257,6 +265,7 @@ class WidgetGalleryTest {
                         ) {
                             cards.forEachIndexed { i, shot ->
                                 Box(Modifier.gridPlace(places[i])) {
+                                    CompositionLocalProvider(LocalWidgetLook provides siteLookOf(shot)) {
                                     WidgetCard(
                                         title = shot.title,
                                         height = WidgetSizes.heightDp(shot.size, pageDp).dp,
@@ -270,6 +279,7 @@ class WidgetGalleryTest {
                                             clock24 = true
                                         ),
                                     )
+                                    }
                                 }
                             }
                         }
@@ -285,6 +295,17 @@ class WidgetGalleryTest {
         }
         assertTrue("${file.name} is empty", file.length() > 0)
     }
+
+    /** The website's palette: the `theme` and `light` arguments, else Kolahal's default theme, dark. */
+    private fun sitePalette() = Palettes.named(
+        arguments.getString("theme") ?: Keys.THEME.default,
+        arguments.getString("light") != "true"
+    )
+
+    /** [shot]'s look on the website: the `look` argument, else its [siteLook]. */
+    private fun siteLookOf(shot: Shot): WidgetLook =
+        WidgetLook.named(arguments.getString("look"))
+            ?: siteLook(shot.name.removePrefix("kind-"), WidgetJson.kindOf(shot.spec))
 
     /** Draws each of [all] and saves it in the app's files, in [dir], with a list of them. */
     private fun draw(all: List<Shot>, dir: String) {
@@ -1091,5 +1112,26 @@ class WidgetGalleryTest {
         const val MARGIN_DP = 4
         const val HILLS = "https://example.com/widget-gallery-hills.png"
         const val COMIC = "https://example.com/widget-gallery-comic.png"
+
+        /** Cards whose look differs from their kind's ([siteLook]), so that cards side by side differ. */
+        val LOOK_BY_NAME = mapOf(
+            "weather" to WidgetLook.SPLIT,
+            "habit" to WidgetLook.SHAPE,
+            "water" to WidgetLook.BOLD,
+            // Their label is cut short in Shape, and Split drops the styled second line.
+            "aqi" to WidgetLook.BOLD,
+            "styles" to WidgetLook.BOLD,
+        )
+
+        /**
+         * A card's look on the website: one of the expressive looks, Bold, Split or Shape, by its
+         * [name] or else its [kind]. A picture offers only Plain and Tonal, so it is Tonal.
+         */
+        fun siteLook(name: String, kind: WidgetKind): WidgetLook = LOOK_BY_NAME[name] ?: when (kind) {
+            WidgetKind.STAT, WidgetKind.CHART, WidgetKind.COUNTDOWN, WidgetKind.CLOCK -> WidgetLook.BOLD
+            WidgetKind.PROGRESS, WidgetKind.BUTTONS -> WidgetLook.SHAPE
+            WidgetKind.TEXT, WidgetKind.LIST, WidgetKind.AGENDA, WidgetKind.TOGGLES, WidgetKind.MEDIA -> WidgetLook.SPLIT
+            WidgetKind.IMAGE -> WidgetLook.TONAL
+        }
     }
 }

@@ -1,0 +1,527 @@
+#!/usr/bin/env bash
+# The website's captures of the app, taken on an emulator by hand and written down here as they were
+# taken (site/CAPTURES.md names each picture's function). It is a record that runs: run it whole
+# with another theme, look at every picture, and fix what drifts (a row that moved, a wait too short).
+#
+#   tools/site-captures.sh setup            # the state the pictures need (clears the app's data first)
+#   tools/site-captures.sh <picture>...     # one or more pictures, by function name (list: `list`)
+#   tools/site-captures.sh all              # setup, every picture, restore
+#   tools/site-captures.sh restore          # the emulator as it was, and the app's data cleared
+#   THEME=nord DARK=no tools/site-captures.sh all
+#
+# - Emulator only, never a phone: every command goes to $SERIAL (emulator-5554). The app is the
+#   debug build (the full build), already installed and set up as the home app by `setup`.
+# - Coordinates are for this emulator's screen: 1080 × 2400 pixels at 420 dpi, gesture navigation,
+#   Gboard with its number row, animations off. Another screen needs them measured again.
+# - Each picture is kept at full size in docs/release/graphics/raw/<name>.png and put on the site
+#   540 pixels wide, stripped and quantized (`site_shot`); widget cards are cut at full size.
+# - Invented, neutral content only: big cities, the invented name Maya, public feeds. A weather
+#   script's city is set before its first run, or it reports the machine's own location.
+# - Needs adb, ImageMagick (magick) and pngquant on the PATH (nix shell nixpkgs#imagemagick
+#   nixpkgs#pngquant).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+SERIAL=${SERIAL:-emulator-5554}
+THEME=${THEME:-rose-pine}   # the app's theme
+DARK=${DARK:-yes}           # the phone's dark mode: yes (the theme's dark version) or no (its light one)
+# A zone where it is dusk (about 18:00 to 18:40) when you run it, so the scenes look as they do in
+# the pictures, and no clock tells where the machine is. Asia/Dhaka is UTC+6 (whole hours keep the world clocks' offsets round), Asia/Bangkok +7.
+ZONE=${ZONE:-Asia/Dhaka}
+ZONE_BEFORE=${ZONE_BEFORE:-}   # the zone to put back in `restore`; empty leaves it to the automatic time zone
+APP=com.mtwabpin.kolahal.debug
+RAW=docs/release/graphics/raw
+ASSETS=site/src/assets
+TMP=${TMP_CAPTURES:-$(mktemp -d)}
+A=(adb -s "$SERIAL")
+
+# ---- helpers ----------------------------------------------------------------------------------
+
+sh_() { "${A[@]}" shell "$@" < /dev/null; }
+tap() { sh_ input tap "$1" "$2"; }
+key() { sh_ input keyevent "$1"; }
+# t "<command>" [wait]: types a command at the prompt (the keyboard up) and presses Enter.
+t() {
+  local s=${1// /%s}
+  s=${s//\'/\\\'}; s=${s//\"/\\\"}; s=${s//(/\\(}; s=${s//)/\\)}; s=${s//&/\\&}
+  s=${s//</\\<}; s=${s//>/\\>}; s=${s//;/\\;}; s=${s//\*/\\*}
+  sh_ input text "$s"; sleep 0.6; key 66; sleep "${2:-2}"
+}
+# ty "<text>": types without Enter.
+ty() { local s=${1// /%s}; sh_ input text "${s//\*/\\*}"; }
+# The keyboard's ˅ closes it (Back doesn't always); a tap on empty log space opens it.
+kbdown() { tap 163 2337; sleep 1; }
+kbup() { tap 300 2283; sleep 1.5; }   # the prompt (keyboard down); a tap on the log could reuse a line
+# Home: the Home key, then a moment for the log to settle.
+home() { key KEYCODE_HOME; sleep 2; }
+# wait_cleared: the "Screen cleared · Undo" bar stays about 7 seconds.
+wait_cleared() { sleep 7; }
+# edtype <file>: types a file into the focused editor, line by line (it doesn't auto-indent or
+# close brackets, so the file goes in as it is).
+edtype() {
+  local line s
+  while IFS= read -r line; do
+    if [ -n "$line" ]; then s=${line// /%s}; sh_ "input text '$s'"; fi
+    key 66
+  done < "$1"
+}
+# cap <name>: a full-size capture, kept in raw/.
+cap() { "${A[@]}" exec-out screencap -p > "$RAW/$1.png"; echo "$RAW/$1.png"; }
+# site_shot <name> <site path>: the capture <name>, 540 pixels wide, on the site.
+site_shot() {
+  local out=$ASSETS/$2
+  mkdir -p "$(dirname "$out")"
+  magick "$RAW/$1.png" -resize 540x -strip "$out"
+  pngquant --quality 85-98 --force --output "$out" "$out"
+}
+# site_crop <name> <geometry> <site path>: a part of the capture <name> (WxH+X+Y at full size),
+# 540 pixels wide, on the site.
+site_crop() {
+  local out=$ASSETS/$3
+  mkdir -p "$(dirname "$out")"
+  magick "$RAW/$1.png" -crop "$2" +repage -resize 540x -strip "$out"
+  pngquant --quality 85-98 --force --output "$out" "$out"
+}
+# site_card <name> <WxH+X+Y> <site path>: one widget card cut at full size from the region given,
+# trimmed to the card on the page's ground and given an even margin of 18 pixels.
+site_card() {
+  local out=$ASSETS/$3 bg
+  bg=$(magick "$RAW/$1.png" -format '%[pixel:p{540,2100}]' info:)
+  magick "$RAW/$1.png" -crop "$2" +repage -bordercolor "$bg" -border 2 -fuzz 3% -trim +repage \
+    -bordercolor "$bg" -border 18 -strip "$out"
+  pngquant --quality 85-98 --force --output "$out" "$out"
+}
+
+# ---- widgets: Add widget and Arrange widgets --------------------------------------------------
+
+LOOKX_plain=140; LOOKX_tonal=340; LOOKX_bold=540; LOOKX_split=740; LOOKX_shape=940
+# w_search <name>: on Arrange widgets, + and a search for name (the picker keeps the last search:
+# ✕ clears it first).
+w_search() { tap 1006 212; sleep 2; tap 975 621; sleep 0.5; tap 540 621; sleep 0.8; ty "$1"; sleep 1.5; kbdown; }
+# w_look <look>: the selected card's look, then ✓.
+w_look() { local v=LOOKX_$1; sleep 2.5; tap "${!v}" 1968; sleep 1; tap 975 1764; sleep 1.5; }
+# w_add <name> <look>: the first row the search finds, placed, in that look.
+w_add() { w_search "$1"; tap 540 953; sleep 1.5; w_look "$2"; }
+
+# ---- the state --------------------------------------------------------------------------------
+
+setup() {
+  sh_ pm clear "$APP"
+  sh_ cmd package set-home-activity "$APP/com.mtwabpin.kolahal.MainActivity"
+  sh_ cmd uimode night "$DARK"
+  sh_ cmd time_zone_detector set_auto_detection_enabled false
+  sh_ service call alarm 3 s16 "$ZONE"
+  sh_ appops set "$APP" GET_USAGE_STATS allow
+  sh_ appops set "$APP" SCHEDULE_EXACT_ALARM allow
+  sh_ cmd notification allow_listener "$APP/com.mtwabpin.kolahal.notifications.KolahalNotificationListener"
+  sh_ pm grant "$APP" android.permission.POST_NOTIFICATIONS
+  home; sleep 2
+  tap 980 147; sleep 2   # Skip, on the first start's tour
+  local c
+  for c in "config set launch.instant off" "config set header.show on" \
+    "config set screen.hide-bars status" "hide kolahal" "theme $THEME" \
+    "config set selector.rail on" "config set suggestions.idle on" "config set log.tips off" \
+    "config set log.fresh 0" \
+    "todo Buy coffee beans" "todo Book the dentist" "todo Renew the passport" "todo Water the plants" \
+    "script install weather" "script install world-clocks" "script install habit" \
+    "script install forecast" "script install unlock-chart"; do t "$c" 1.5; done
+  # The cities before the scripts' first runs, then the lines they wrote are cleared.
+  for c in "script set weather city Tokyo" "script set forecast city Lisbon" \
+    "script set world-clocks zones Asia/Tokyo Africa/Nairobi Europe/Lisbon" "status clear all" \
+    "clear"; do t "$c" 1; done
+  for c in "habit done" "feed add https://www.nasa.gov/feeds/iotd-feed/" \
+    "feed add https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" \
+    "rename kolahal debug = Kolahal" "script install countdown" "script install charge-reminder" \
+    "pin maps" "pin clock" "pin camera" "todo toggle #1"; do t "$c" 2; done
+  sh_ "cmd notification post -S bigtext -t Maya maya 'Are we still on for Saturday? I can bring the tent.'"
+  t "alarm 7:00" 4   # the Clock app sets it; `restore` deletes it
+  home; kbup
+  # The API reference's Water example (scripting/api.mdx → Taps) and the video's demo script focus
+  # (docs/release/video.org → The demo script), typed into the editor; ✕ saves.
+  sed -n '/^This widget counts glasses of water/,/^```$/p' site/src/content/docs/scripting/api.mdx \
+    | sed '1,5d;$d' > "$TMP/water.lua"
+  sed -n '/^\*\* The demo script/,/^#+end_src/p' docs/release/video.org \
+    | sed -n '/^#+begin_src lua/,/^#+end_src/p' | sed '1d;$d' > "$TMP/focus.lua"
+  for c in water focus; do
+    t "script new $c" 3
+    tap 540 900; sleep 0.5; sh_ input keycombination 113 29; sleep 0.5; key 67; sleep 0.5   # select all, delete
+    edtype "$TMP/$c.lua"; kbdown
+    tap 1017 191; sleep 2; kbup
+  done
+  # The widgets, each in an expressive look (Bold, Split, Shape; never Plain or Tonal).
+  t "widget add" 3
+  tap 540 621; sleep 1; ty Weather; sleep 1.5; kbdown; tap 540 953; w_look split
+  w_add Battery bold
+  w_add "World clocks" bold
+  w_add 3-day split
+  w_add Habit shape
+  w_add Unlocks bold
+  w_add Todos split
+  w_add Water bold
+  tap 75 212; sleep 2   # back home
+  # Five glasses on the Water card (its row is the last on the page).
+  kbup; t "widget page" 3; sh_ input swipe 540 1800 540 600 300; sleep 1.5
+  local i; for i in 1 2 3 4 5; do tap 300 2205; sleep 2; done
+  home
+}
+
+restore() {
+  home; kbup; t "notifs clear" 2; kbdown
+  # The 7:00 alarm `setup` made, first in Clock's list: open it and Delete.
+  sh_ am start -a android.intent.action.SHOW_ALARMS; sleep 3
+  tap 963 380; sleep 2; tap 250 1443; sleep 2; home
+  # The wallpaper: Android goes back to its default one when the live wallpaper's app is removed
+  # (there is no shell command for it), so the app is installed again from this folder's build.
+  "${A[@]}" uninstall "$APP"; sleep 3
+  "${A[@]}" install -r -t app/build/outputs/apk/debug/app-debug.apk
+  sh_ cmd package set-home-activity com.google.android.apps.nexuslauncher/.NexusLauncherActivity
+  sh_ cmd uimode night no
+  [ -n "$ZONE_BEFORE" ] && sh_ service call alarm 3 s16 "$ZONE_BEFORE"
+  sh_ cmd time_zone_detector set_auto_detection_enabled true
+  sh_ appops set "$APP" GET_USAGE_STATS default
+  sh_ appops set "$APP" SCHEDULE_EXACT_ALARM default
+  sh_ cmd notification disallow_listener "$APP/com.mtwabpin.kolahal.notifications.KolahalNotificationListener"
+  sh_ pm revoke "$APP" android.permission.POST_NOTIFICATIONS
+  sh_ settings put global window_animation_scale 0
+  sh_ settings put global transition_animation_scale 0
+  sh_ settings put global animator_duration_scale 0
+  "${A[@]}" emu power ac off; "${A[@]}" emu power capacity 100
+  sh_ pm clear "$APP"   # the device tests fail on what the captures leave behind
+}
+
+# ---- the pictures (in the order they were taken) -----------------------------------------------
+
+# shots/widgets/add.png: the picker of widgets to add, each with its kind and size.
+widgets_add() {
+  home; kbup; t "widget add" 3
+  tap 975 621; sleep 1   # ✕: the picker keeps the last search
+  key KEYCODE_BACK 2>/dev/null; sleep 1   # the search box takes the keyboard: Back closes it
+  cap widgets-add-picker; site_shot widgets-add-picker shots/widgets/add.png
+  key KEYCODE_BACK; sleep 1; home
+}
+
+# shots/home/water.png, world-clocks.png, unlock-chart.png: three cards of the widgets page, cut at
+# full size for the home page's "Scripts and widgets" (Water Bold at 5 / 8, World clocks Bold,
+# Unlocks Bold).
+home_cards() {
+  home; kbup; t "widget page" 3
+  sh_ input swipe 540 600 540 1800 300; sleep 1.5   # to the top of the page
+  cap widgets-page-water
+  site_card widgets-page-water 545x272+0+2068 shots/home/water.png
+  site_card widgets-page-water 540x530+0+495 shots/home/world-clocks.png
+  site_card widgets-page-water 512x530+545+1022 shots/home/unlock-chart.png
+  home
+}
+
+# hero <scene> <yes|no> <name>: home with the keyboard down over a scene, as the home page's phone
+# shows it (shots/hero/<scene>-<dark|light>.png): the weather, a conversion and a reminder.
+hero() {
+  sh_ cmd uimode night "$2"; home; kbup
+  t "shader $1" 3; t clear 1; t weather 5; t "= 5 km in mi" 2; t "remind 8pm pick up the bike" 2
+  kbdown; wait_cleared; cap "$3"
+}
+hero_dunes_dark() { hero dunes yes home-dunes-dark; site_shot home-dunes-dark shots/hero/dunes-dark.png; }
+hero_mountains_dark() { hero mountains yes home-mountains-dark; site_shot home-mountains-dark shots/hero/mountains-dark.png; }
+hero_pond_light() { hero pond no home-pond-light; site_shot home-pond-light shots/hero/pond-light.png; sh_ cmd uimode night "$DARK"; }
+
+# shots/typing/home.png: home with the keyboard down, no shader: the header, two answers, the prompt.
+typing_home() {
+  home; kbup; t "shader off" 2; t clear 1; t weather 5; t "= 5 km in mi" 2; kbdown; wait_cleared
+  cap typing-home; site_shot typing-home shots/typing/home.png
+}
+
+# shots/suggestions/empty.png, flash.png, theme.png: an empty prompt (favorites nearest it, then
+# the most-used apps), `flash` finding torch, and the theme names after `theme `. Opens a few apps
+# first, so they count as used; the key bar off, as by default. No clipboard chip may show in the
+# keyboard's strip: Gboard hides it about a minute after a copy.
+suggestions() {
+  local a
+  for a in calendar files clock calendar files; do home; kbup; t "$a" 3; done
+  home; kbup; t "config set keybar.show off" 2; t clear 1; t weather 5; t "= 5 km in mi" 2
+  kbdown; wait_cleared
+  tap 540 500; sleep 2.5; cap suggestions-empty; site_shot suggestions-empty shots/suggestions/empty.png
+  ty flash; sleep 2; cap suggestions-flash; site_shot suggestions-flash shots/suggestions/flash.png
+  tap 928 1464; sleep 1   # ✕ empties the prompt
+  ty "theme "; sleep 2; cap suggestions-theme; site_shot suggestions-theme shots/suggestions/theme.png
+  tap 928 1464; sleep 1; kbdown
+}
+
+# shots/scripts/forecast.png: `forecast lisbon`, three days with their lows and highs.
+forecast() {
+  home; kbup; t clear 1; t "forecast lisbon" 6; kbdown; wait_cleared
+  cap scripts-forecast; site_shot scripts-forecast shots/scripts/forecast.png
+}
+
+# shots/log/fresh.png: a few commands, then `fresh`: a clean screen, "▴ 12 earlier lines".
+fresh() {
+  home; kbup; t "= 12 * 4.5 + 18" 2; t "date tokyo lisbon" 2; t todo 2; t fresh 3; kbdown; sleep 2
+  cap log-fresh; site_shot log-fresh shots/log/fresh.png
+}
+
+# shots/pinning/pin.png, pinned.png, bar.png: weather's action sheet with "Pin weather to the
+# top", the pinned line under the header, then the demo script focus pinned with its bar.
+pinning() {
+  home; kbup; t clear 1; t weather 5; kbdown; wait_cleared
+  sh_ input swipe 300 2120 300 2120 900; sleep 2   # long-press weather's 17°C line
+  cap pinning-pin; site_shot pinning-pin shots/pinning/pin.png
+  tap 300 1290; sleep 3   # Pin weather to the top
+  cap pinning-pinned; site_shot pinning-pinned shots/pinning/pinned.png
+  kbup; t "focus 2" 3; kbdown
+  sh_ input swipe 200 2187 200 2187 900; sleep 2   # long-press "Focus until …"
+  tap 300 1290; sleep 4   # Pin focus to the top: the newest pinned line shows first
+  cap pinning-bar; site_shot pinning-bar shots/pinning/bar.png
+  kbup; t "focus stop" 2; t "script unpin focus" 2; t "script unpin weather" 2; kbdown
+}
+
+# shots/schedule/times.png: night-dnd's sheet at its end: Runs every, Daily at 07:00, 23:00.
+schedule_times() {
+  home; kbup; t "script install night-dnd" 3; t scripts 3
+  tap 300 2217; sleep 2.5   # Night Do Not Disturb, the sixth card by name
+  sh_ input swipe 540 2000 540 400 300; sleep 1; sh_ input swipe 540 2000 540 400 300; sleep 1.5
+  cap schedule-times; site_shot schedule-times shots/schedule/times.png
+  key KEYCODE_BACK; sleep 1; home
+}
+
+# shots/schedule/charger.png: charge-reminder's line on unplugging: 62%, +12% added, a bar.
+# The emulator's battery goes 50% → plugged in → 62% → unplugged, home in front all along.
+schedule_charger() {
+  home; kbup; t clear 1; kbdown; wait_cleared
+  "${A[@]}" emu power capacity 50; sleep 2; "${A[@]}" emu power ac on; sleep 30
+  "${A[@]}" emu power capacity 62; sleep 10; "${A[@]}" emu power ac off; sleep 10
+  cap schedule-charger; site_shot schedule-charger shots/schedule/charger.png
+  "${A[@]}" emu power capacity 100
+}
+
+# shots/widgets/page.png, page-light.png: the widgets page (8 cards, `setup`'s), dark and light.
+# shots/widget-options/arrange.png: Arrange widgets with Habit streak chosen (its Look and Size
+# rows); arrange-all.png: the same with nothing chosen.
+widgets_pages() {
+  home; kbup; t "widget page" 3
+  sh_ input swipe 540 600 540 1800 300; sleep 2   # to the top
+  cap widgets-page; site_shot widgets-page shots/widgets/page.png
+  sh_ cmd uimode night no; sleep 4
+  cap widgets-page-light; site_shot widgets-page-light shots/widgets/page-light.png
+  sh_ cmd uimode night "$DARK"; sleep 4
+  sh_ input swipe 275 1280 275 1280 900; sleep 3   # long-press Habit streak
+  cap arrange-widgets-look; site_shot arrange-widgets-look shots/widget-options/arrange.png
+  tap 975 1764; sleep 2   # ✓
+  cap arrange-widgets; site_shot arrange-widgets shots/widget-options/arrange-all.png
+}
+
+# shots/widget-options/looks.png: World clocks in Bold (setup's), Split and Shape, cut from the
+# page and set in a grid on its ground (they aren't side by side on the page). Run on Arrange
+# widgets (after widgets_pages). The look sheet can come up late: check each card's look.
+widget_looks() {
+  w_search "World clocks"; tap 540 953; sleep 4; w_look split
+  w_search "World clocks"; tap 540 953; sleep 4; w_look shape
+  tap 75 212; sleep 2.5
+  sh_ input swipe 540 600 540 1800 300; sleep 2; cap widget-looks-top
+  sh_ input swipe 540 1800 540 400 300; sleep 2; cap widget-looks-bottom
+  local bg='srgb(25,23,36)' f
+  cut_() { magick "$RAW/$1.png" -crop "$2" +repage -bordercolor "$bg" -border 2 -fuzz 3% -trim +repage -bordercolor "$bg" -border 18 "$TMP/$3.png"; }
+  cut_ widget-looks-top 540x535+0+515 bold
+  cut_ widget-looks-bottom 518x520+540+1550 split   # short of the selector's letters at the edge
+  cut_ widget-looks-bottom 540x540+0+1815 shape     # short of the gesture handle
+  magick "$TMP/bold.png" "$TMP/split.png" -background "$bg" -gravity north +append +repage "$TMP/row1.png"
+  magick "$TMP/shape.png" -background "$bg" -gravity center \
+    -extent "$(magick identify -format %w "$TMP/row1.png")x$(magick identify -format %h "$TMP/shape.png")" +repage "$TMP/row2.png"
+  magick "$TMP/row1.png" "$TMP/row2.png" -background "$bg" -append +repage "$RAW/widget-looks.png"
+  site_shot widget-looks shots/widget-options/looks.png
+}
+
+# shots/widget-options/options.png: a second Weather card, its city option Paris, in Split,
+# dragged up beside Tokyo's.
+widget_options() {
+  tap 858 190; sleep 2.5   # + on the widgets page
+  tap 975 621; sleep 0.5; tap 540 621; sleep 0.8; ty Weather; sleep 1.5; kbdown
+  tap 540 953; sleep 4   # placed; its Options sheet opens
+  tap 960 2210; sleep 2   # city
+  tap 540 1230; sleep 1; sh_ input keycombination 113 29; sleep 0.5; ty Paris; sleep 1
+  tap 812 1083; sleep 2   # Save
+  key KEYCODE_BACK; sleep 1.5
+  tap 740 1968; sleep 1.5   # Split
+  # Drag it up: the page scrolls to the top and drops it beside Tokyo's card (the Remove target is
+  # above, at y 160–260: don't let go there).
+  sh_ input motionevent DOWN 800 1380; sleep 0.6
+  local y; for y in 1300 1200 1100 1000 900 800 700 600 500 420 380; do sh_ input motionevent MOVE 800 $y; sleep 0.15; done
+  sleep 3; sh_ input motionevent MOVE 800 400; sleep 0.3; sh_ input motionevent UP 800 400; sleep 2
+  tap 975 1764; sleep 1.5; tap 75 212; sleep 2.5
+  sh_ input swipe 540 600 540 1800 300; sleep 2
+  cap widget-options-cities; site_shot widget-options-cities shots/widget-options/options.png
+  home
+}
+
+# shots/wallpaper/preview.png, lock.png, log.png: `wallpaper shader pond` in Android's preview,
+# set on both screens and seen on the lock screen, then home's log with the pond through it.
+# The emulator's lock screen is off (None): it is turned on for the picture and off again; with it
+# on, the screen sleeps after a few seconds. `restore` puts the emulator's wallpaper back.
+wallpaper() {
+  home; kbup; t clear 1; t "shader off" 2; t "wallpaper shader pond" 5
+  cap wallpaper-preview; site_shot wallpaper-preview shots/wallpaper/preview.png
+  tap 540 2245; sleep 2.5   # Set wallpaper
+  tap 540 1415; sleep 4     # Home screen and lock screen
+  sh_ locksettings set-disabled false
+  key KEYCODE_POWER; sleep 3; key KEYCODE_POWER; sleep 5
+  cap wallpaper-lock; site_shot wallpaper-lock shots/wallpaper/lock.png
+  sh_ input swipe 540 1900 540 700 300; sleep 2
+  sh_ locksettings set-disabled true; key KEYCODE_WAKEUP; sleep 1; sh_ wm dismiss-keyguard; sleep 2
+  home; kbup
+  t "config set log.wallpaper 60" 2; t clear 1; t weather 5; t "= 5 km in mi" 2
+  t "remind 8pm pick up the bike" 2; kbdown; wait_cleared
+  cap wallpaper-log; site_shot wallpaper-log shots/wallpaper/log.png
+  kbup; t "config set log.wallpaper 0" 2; kbdown
+}
+
+# parts/selector-slide.png, selector-pick.png, selector-open.png and shots/selector/pick.png: the app
+# selector under a held touch. At G on the edge (with setup's three favorites, y 1370 is G); then a
+# quick slide onto Google's row, captured on the device at once (the row fills from 300 ms and the
+# app opens at 800 ms: the first capture shows it highlighted, the second filling); back onto the
+# edge, which cancels, and a lift there, which leaves the list open.
+selector() {
+  home; kbup; t clear 1; kbdown; wait_cleared
+  sh_ input motionevent DOWN 1068 1550
+  local y; for y in 1530 1510 1490 1470 1450 1430 1412 1400 1390 1380 1370; do sh_ input motionevent MOVE 1068 $y; done
+  sleep 1.2; cap selector-slide
+  sh_ "input motionevent MOVE 900 1380; input motionevent MOVE 700 1385; input motionevent MOVE 500 1387; screencap -p /sdcard/pick1.png; screencap -p /sdcard/pick2.png"
+  sh_ input motionevent MOVE 1068 1387; sleep 0.5; sh_ input motionevent UP 1068 1387; sleep 1.5
+  cap selector-open
+  "${A[@]}" pull /sdcard/pick1.png "$RAW/selector-pick.png" > /dev/null
+  "${A[@]}" pull /sdcard/pick2.png "$RAW/selector-pick-filling.png" > /dev/null
+  sh_ rm /sdcard/pick1.png /sdcard/pick2.png
+  site_shot selector-slide parts/selector-slide.png
+  site_shot selector-pick parts/selector-pick.png
+  site_shot selector-open parts/selector-open.png
+  site_shot selector-pick-filling shots/selector/pick.png
+  key KEYCODE_BACK; sleep 1
+}
+
+# parts/home.png (marks in getting-started/parts.mdx): countdown pinned, then four groups:
+# countdown, date tokyo london, a conversion, a todo added.
+parts_home() {
+  home; kbup; t clear 1
+  t "countdown add 2026-12-25 Holidays" 3; t countdown 3; kbdown
+  sh_ input swipe 200 1880 200 1880 900; sleep 2   # long-press "Countdowns"
+  tap 300 1290; sleep 3   # Pin countdown to the top
+  kbup; t clear 1; t countdown 3; t "date tokyo london" 2; t "= 5 km in mi" 2
+  t "todo add call the bank" 2; kbdown; wait_cleared
+  cap parts-home; site_shot parts-home parts/home.png
+}
+
+# parts/action-sheet.png: the todo line's action sheet, from the sheet's top (after parts_home).
+parts_action_sheet() {
+  sh_ input swipe 300 2128 300 2128 900; sleep 2   # long-press "4. [ ] call the bank"
+  cap action-sheet-todo; site_crop action-sheet-todo 1080x1520+0+880 parts/action-sheet.png
+  key KEYCODE_BACK; sleep 1.5
+}
+
+# parts/quick-actions.png: a tap on the $, from the sheet's top.
+parts_quick_actions() {
+  tap 42 2283; sleep 2
+  cap quick-actions; site_crop quick-actions 1080x1800+0+600 parts/quick-actions.png
+  key KEYCODE_BACK; sleep 1.5
+}
+
+# parts/typing.png: `ma` typed with the key bar on (todo and a conversion in the log), from the
+# header to the key bar.
+parts_typing() {
+  home; kbup; t "config set keybar.show on" 2; t clear 1; t todo 2
+  t "= 100 usd in eur" 3; kbdown; wait_cleared
+  tap 540 600; sleep 2; ty ma; sleep 2.5
+  cap parts-typing; site_crop parts-typing 1080x1430+0+100 parts/typing.png
+  tap 928 1360; sleep 1; t "config set keybar.show off" 2; kbdown
+}
+
+# parts/settings.png: `settings`.
+parts_settings() {
+  home; kbup; t settings 3
+  cap parts-settings; site_shot parts-settings parts/settings.png
+}
+
+# parts/scripts-tab.png: the Scripts tab (after parts_settings), Focus turned off, Countdowns'
+# details open. Turns Focus on again after.
+parts_scripts() {
+  tap 540 527; sleep 2.5        # the Scripts tab
+  tap 937 1757; sleep 1.5       # Focus's switch: off
+  tap 803 1513; sleep 2         # Countdowns' details arrow
+  cap parts-scripts; site_shot parts-scripts parts/scripts-tab.png
+  tap 803 1513; sleep 1.5
+  tap 937 1757; sleep 1.5       # Focus on again
+  key KEYCODE_BACK; sleep 1; home
+}
+
+# parts/editor.png: unlock-chart.lua in the editor with the keyboard up, from above its top bar to
+# the symbol bar. A letter typed and deleted hides the cursor's handle that a tap leaves.
+parts_editor() {
+  home; kbup; t "script edit unlock-chart" 3
+  tap 700 1000; sleep 2; sh_ input text x; sleep 0.5; key 67; sleep 1.5
+  cap parts-editor; site_crop parts-editor 1080x1440+0+80 parts/editor.png
+  kbdown; tap 1017 191; sleep 2; home
+}
+
+# setup.png: the `setup` checklist.
+setup_checklist() {
+  home; kbup; t setup 3
+  cap setup; site_shot setup setup.png
+  key KEYCODE_BACK; sleep 1; home
+}
+
+# terminal-feeds.png: home with the countdown pinned (parts_home), then countdown, the feed list
+# (`feed`, not `feed read`: news items carry real people's names) and a conversion.
+terminal_feeds() {
+  home; kbup; t clear 1; t countdown 3; t feed 3; t "= 5 km in mi" 2; kbdown; wait_cleared
+  cap terminal-feeds; site_shot terminal-feeds terminal-feeds.png
+}
+
+# app-grid.png and shots/profiles/resume.png: a work profile made for the pictures (a managed
+# profile with no admin app, which the shell can create), some apps added to it; `apps`, then
+# `work off` and a tap on a faded work app: "Resume work apps?". The profile is removed after.
+profiles() {
+  local u p
+  u=$(sh_ pm create-user --profileOf 0 --managed Work | sed -n 's/.*created user id \([0-9]*\).*/\1/p' | tr -d '\r')
+  sh_ am start-user "$u"; sleep 5
+  for p in com.google.android.calendar com.android.chrome com.google.android.deskclock \
+    com.google.android.contacts com.google.android.apps.docs com.google.android.documentsui \
+    com.google.android.gm com.google.android.apps.maps com.google.android.apps.messaging \
+    com.google.android.apps.photos; do sh_ pm install-existing --user "$u" "$p"; done
+  home; kbup; t clear 1; t apps 4; kbdown; wait_cleared
+  cap app-grid; site_shot app-grid app-grid.png
+  kbup; t "work off" 4; t clear 1; t apps 4; kbdown; wait_cleared
+  tap 210 1397; sleep 2.5   # W Calendar, faded
+  cap profiles-resume; site_shot profiles-resume shots/profiles/resume.png
+  tap 500 1458; sleep 1     # Cancel
+  sh_ pm remove-user "$u"
+}
+
+# shots/tty/home.png, matrix.png, clock.png: the TTY style. Typing right after
+# `config set home.style tty` gets lost while home is redrawn: give it a moment and open the
+# keyboard again. The screens need the animator scale at 1 (with animations off they show a still
+# frame and a note).
+tty() {
+  home; kbup; t "shader off" 2; t "config set home.style tty" 3; key KEYCODE_HOME; sleep 2; kbup
+  t clear 1; t weather 5; t cal 2; t todo 2; kbdown; wait_cleared
+  cap tty-home; site_shot tty-home shots/tty/home.png
+  sh_ settings put global animator_duration_scale 1
+  kbup; t matrix 5; cap tty-matrix; site_shot tty-matrix shots/tty/matrix.png; key KEYCODE_BACK; sleep 2
+  kbup; t clock 4; cap tty-clock; site_shot tty-clock shots/tty/clock.png; key KEYCODE_BACK; sleep 2
+  sh_ settings put global animator_duration_scale 0
+  kbup; t "config set home.style gui" 3; kbdown
+}
+
+# ---- running it -------------------------------------------------------------------------------
+
+# The pictures in an order that works from `setup`'s state: each leaves home in front.
+PICTURES=(widgets_add home_cards hero_dunes_dark hero_mountains_dark hero_pond_light typing_home
+  suggestions forecast fresh pinning schedule_times schedule_charger widgets_pages widget_looks
+  widget_options wallpaper selector parts_home parts_action_sheet parts_quick_actions parts_typing
+  parts_settings parts_scripts parts_editor setup_checklist terminal_feeds profiles tty)
+
+[ $# -gt 0 ] || { sed -n '2,24p' "$0"; exit 2; }
+mkdir -p "$RAW"
+for f in "$@"; do
+  case $f in
+    list) printf '%s\n' setup restore "${PICTURES[@]}" ;;
+    all) setup; for p in "${PICTURES[@]}"; do "$p"; done; restore ;;
+    *) declare -F "$f" > /dev/null || { echo "No picture or step named $f (list: $0 list)" >&2; exit 2; }; "$f" ;;
+  esac
+done
+echo "Look at each picture before committing it; the notes at the top of site/CAPTURES.md say how."

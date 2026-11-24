@@ -6,6 +6,7 @@
 #   tools/device-tests.sh --class com.mtwabpin.kolahal.ui.scripts.ScriptSheetTest,com.mtwabpin.kolahal.data.LogMarksTest
 #   tools/device-tests.sh --emulators 1      # one emulator, when memory is short
 #   tools/device-tests.sh --keep             # leave the emulators running: the next run starts sooner
+#   tools/device-tests.sh --arg theme=nord   # an instrumentation argument for the tests (-e theme nord); repeatable
 #
 # - Emulators only, never a phone: the tests install a debug build and change its settings.
 # - How many: --emulators 1|2, or by default 2 when 12 GB or more is free (each needs about 4 GB),
@@ -28,12 +29,14 @@ OUT=app/build/device-tests
 emulators=""
 classes=""
 keep=false
+extra=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --emulators) emulators=$2; shift 2 ;;
     --class) classes=$2; shift 2 ;;
     --keep) keep=true; shift ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    --arg) extra+=(-e "${2%%=*}" "${2#*=}"); shift 2 ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *) echo "Unknown option $1 (see --help)" >&2; exit 2 ;;
   esac
 done
@@ -107,6 +110,7 @@ for i in "${!serials[@]}"; do
   s=${serials[$i]}
   args=(-w --no-window-animation -e numShards "$emulators" -e shardIndex "$i")
   [ -n "$classes" ] && args+=(-e class "$classes")
+  args+=("${extra[@]}")
   ( t0=$(date +%s)
     "$ADB" -s "$s" shell am instrument "${args[@]}" "$TEST_PACKAGE/$RUNNER" > "$OUT/shard-$i.txt" 2>&1 || true
     echo "$(( $(date +%s) - t0 ))" > "$OUT/shard-$i.seconds" ) &

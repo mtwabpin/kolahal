@@ -22,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogRepository
@@ -51,12 +52,15 @@ import java.security.MessageDigest
 /**
  * The website's pictures of the scripting guide's log examples ([DocsExamples.logs]). Each
  * example's Lua code runs as a script, and its lines are drawn as the log draws them, in
- * Kolahal's default theme (green, dark), as the website's other screenshots are. Nothing is
+ * Kolahal's default theme ([Keys.THEME]), dark, as the website's other screenshots are. Nothing is
  * fetched: the picture line's picture is drawn here.
  *
  * The pictures go to the app's own files on the device, as `log-<name>.png`, with `manifest.json`:
  *
  *     adb pull /sdcard/Android/data/com.mtwabpin.kolahal.debug/files/gallery-log
+ *
+ * Instrumentation arguments draw them in another theme (tools/site-pictures.sh): `theme` (a theme's
+ * name; Kolahal's default without it) and `light` (`true` for the theme's light version).
  */
 @RunWith(AndroidJUnit4::class)
 class LogGalleryTest {
@@ -66,12 +70,19 @@ class LogGalleryTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val logs = LogRepository.get(context)
     private val paletteBefore = Term.palette
+    private val arguments = InstrumentationRegistry.getArguments()
+
+    /** The palette of the pictures: the `theme` and `light` arguments, else the default theme, dark. */
+    private val palette = Palettes.named(
+        arguments.getString("theme") ?: Keys.THEME.default,
+        arguments.getString("light") != "true"
+    )
     private val name = "example"
     private val id = 920_000_000L + System.nanoTime() % 1_000_000
 
     @Before
     fun setUp() {
-        Term.palette = Palettes.green
+        Term.palette = palette
         pictureFile(DocsExamples.COMIC).outputStream()
             .use { comic().compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
@@ -205,7 +216,7 @@ class LogGalleryTest {
 
     /** A strip with two stick figures, as a comic has them: a stand-in for the xkcd picture. */
     private fun comic(): Bitmap {
-        val p = Palettes.green
+        val p = palette
         val picture = Bitmap.createBitmap(720, 300, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(picture)
         canvas.drawColor(lerp(p.surface, p.fg, 0.08f).toArgb())

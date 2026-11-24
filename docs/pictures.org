@@ -1,0 +1,95 @@
+#+TITLE: How every picture is made
+#+STARTUP: showall
+
+Every picture of Kolahal outside the app has a source in this repository and a command that makes it
+again: the website's, the store's and the Discord server's. Where a picture shows the app's colors,
+they come from one file, =site/src/data/themes.json=, the export of the app's built-in themes (each
+theme's dark and light palette by role). =tools/export-themes.mjs= writes it from =ui/theme/Theme.kt=;
+the JVM test =ThemeExportTest= fails when it no longer matches =Palettes=, so a change to a theme is
+followed by =node tools/export-themes.mjs= and the pictures drawn again.
+
+The default theme is the app's, =rose-pine=. A script given another theme writes into
+=build/pictures/<theme>/= (git ignores it) unless it is given a folder, so the committed pictures stay
+as they are until you choose to replace them.
+
+* The pictures
+
+| Pictures                                | Files                                                                                                                      | Made by                                                                                             | Needs                                                                | Theme                                                       |
+|-----------------------------------------+----------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+----------------------------------------------------------------------+-------------------------------------------------------------|
+| Scenes: stills of the app's shaders     | =site/src/assets/scenes/=, =docs/release/graphics/scenes/=, =docs/discord/src/scenes/=                                     | =tools/site-scenes.sh [theme] [folder]=                                                             | Python with moderngl, pillow and numpy; OpenGL; ImageMagick; Node.js | yes                                                         |
+| The guide's widget and log pictures     | =site/src/assets/widgets/=, =log/=, =fmt/=, =parts/widgets-page.png=                                                       | =tools/site-pictures.sh [theme] [light]=: the device tests =WidgetGalleryTest= and =LogGalleryTest= | an emulator, Android Studio's JDK                                    | yes                                                         |
+| Captures of the app                     | =docs/release/graphics/raw/= (full size), =site/src/assets/shots/= and the site's other captures (=site/CAPTURES.md=)      | ~tools/site-captures.sh all~ (~THEME~, ~DARK~)                                                      | an emulator, adb, ImageMagick, pngquant                              | yes                                                         |
+| Store screenshots and feature graphic   | =docs/release/graphics/drafts/=, =screenshots/=, =feature-graphic.png=                                                     | =tools/play-graphics.sh=, from =screenshot.html= and =feature-graphic.html=                         | Chrome or Chromium, ImageMagick, the website's packages              | the captures and scenes in them; the frame is the website's |
+| Store icon                              | =docs/release/graphics/icon.png=                                                                                           | =tools/play-graphics.sh=, from =icon.svg=                                                           | as above                                                             | no: the launcher icon's colors                              |
+| The Discord set                         | =docs/discord/= (server icon, banners, emoji, role icons, stickers)                                                        | =tools/discord-graphics.sh [theme] [folder]=, from =docs/discord/src/=                              | Node.js, Chrome or Chromium, ImageMagick, the website's packages     | yes                                                         |
+| Icons                                   | =docs/release/graphics/icon.svg=, =icon-rounded.svg=, =icon-ideas/=, =site/public/favicon.svg=, =site/src/assets/logo.svg= | drawn by hand as SVG                                                                                | a text editor                                                        | no: fixed colors                                            |
+| The website's copy of the app's palette | the =--k-*= block at the end of =site/src/styles/site.css=                                                                 | =node tools/site-palette.mjs [theme] --write=                                                       | Node.js                                                              | yes                                                         |
+| The website's theme cards               | =site/src/components/ThemeCards.astro=                                                                                     | read =site/src/data/themes.json= when the site is built                                             | the site's build                                                     | every theme                                                 |
+| Pictures of the widgets to share        | =share/widgets/= (git ignores it)                                                                                          | =tools/widget-sheets.sh [folder]=, from the guide's widget pictures                                 | ImageMagick, the Adwaita Mono font                                   | the cards' own; the sheet is green                          |
+
+** Scenes
+
+=tools/site-scenes.sh= has one list, =SCENES=, with a row for every still the project uses: the
+shader, the size, the hour, dark or light, the shader's parameters, the format and quality, and where
+it goes. Change a row there, not a picture by hand. Every scene is drawn as a wallpaper (no page of
+text over it), on 23 November 2026, by =tools/scenes/agsl.py=, which turns the AGSL into GLSL and
+draws it off-screen as the app would, with the theme's colors as the shader's color uniforms.
+=tools/scenes/run.sh= runs it and says what it needs:
+
+- With Nix: nothing to install; =nix shell= brings Python and its three packages.
+- Without Nix: a Python 3 with =moderngl=, =pillow= and =numpy= (=pip install moderngl pillow numpy=,
+  in a virtual environment), named by =KOLAHAL_PYTHON=; on Linux, EGL and Mesa as well (Debian and
+  Ubuntu: =libegl1 libgl1-mesa-dri=).
+- OpenGL 3.3 through EGL: a GPU's driver, or Mesa's software renderer where there is none, which is
+  slower and draws the same.
+
+The renderer draws one shader at a time: =tools/scenes/run.sh app/src/main/assets/shaders/pond.agsl
+pond.png --size 1080x2340 --hour 18 --dark --wallpaper --theme nord= (its head lists the rest:
+~--set name=value~ for a parameter, =--time=, =--text= for a page of text-colored bars, =--bench=).
+Where other work uses the GPU, ~GPU_LOCK=<file>~ makes the script hold that file with =flock= around
+each render.
+
+As a wallpaper, =mountains=, =pond= and =dunes= draw their own sky and look the same in every theme;
+=lanterns= and =candle= take the theme's accent (today's lantern, the candle's mark).
+
+** The Discord set
+
+The sources in =docs/discord/src/= have a placeholder where a color goes: ={{dark.accent}}= is the
+dark version's accent, ={{light.background:rgb}}= the light background as three numbers for
+=rgb(… / 0.72)=, and ={{extra.sky}}= and ={{extra.rule}}= two colors the app has no role for.
+=tools/fill-theme.mjs= fills them in (its head says how each extra color is worked out); the script
+then renders the filled copy. With the default theme it uses the committed scenes in
+=docs/discord/src/scenes/=; with another it draws that theme's scenes first with
+=tools/site-scenes.sh=. What each picture is for: [[file:discord/README.org][discord/README.org]].
+
+** Captures and the guide's pictures
+
+=tools/site-captures.sh= takes the captures of the app on an emulator, as they were taken by hand
+(=site/CAPTURES.md= lists each one and what it shows); =tools/site-pictures.sh= draws the guide's
+widget cards and log lines with two device tests. Both run on an emulator, never on a phone, and
+each script's head says how. The store's screenshots are made from the captures in
+=docs/release/graphics/raw/=: which drafts go to Play, and the feature graphic's variant, are
+=PLAY= and =FEATURE= at the top of =tools/play-graphics.sh= ([[file:release/google-play.org][release/google-play.org]] → Graphics).
+Git keeps the drafts too (=docs/release/graphics/drafts/=), so every one is there to choose from; the script renders them again.
+
+* To redraw everything in another theme
+
+The theme is a name in =site/src/data/themes.json= (=nord= below). Each command writes over the
+committed pictures; to look first, leave out the folder of steps 2 and 8, and the pictures go to
+=build/pictures/nord/=. In this order:
+
+1. The export, if a theme changed in the app: =node tools/export-themes.mjs=, then the JVM tests
+   (=ThemeExportTest=).
+2. The scenes: =tools/site-scenes.sh nord .= (the store's and Discord's pages read them from there).
+3. The website's copy of the app's palette: =node tools/site-palette.mjs nord --write=.
+4. The guide's widget and log pictures, on an emulator: =tools/site-pictures.sh nord=
+   (=tools/site-pictures.sh nord light= for the light version).
+5. The captures, on an emulator: ~THEME=nord tools/site-captures.sh all~ (~DARK=no~ for the light
+   version). Look at every picture.
+6. A person chooses the store's screenshots and the feature graphic's variant from the drafts:
+   =PLAY= and =FEATURE= at the top of =tools/play-graphics.sh=, after a first run of it.
+7. The store's pictures: =tools/play-graphics.sh=.
+8. The Discord set: =tools/discord-graphics.sh nord docs/discord=.
+
+The icons and the website's own colors (=site/src/styles/tokens.css=) are not the app's theme and
+stay as they are, and so does the frame of the store's pictures.
