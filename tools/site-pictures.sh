@@ -12,10 +12,16 @@
 #   tools/site-pictures.sh nord light      # its light version
 #   LOOK=split tools/site-pictures.sh      # every card in one look (else each card's own:
 #                                          # WidgetGalleryTest.siteLook, Bold, Split or Shape)
+#   ZONE=Asia/Tokyo tools/site-pictures.sh  # the emulator's time zone for the run (Asia/Dhaka)
+#
+# The world clocks show each city's difference from the emulator's zone, so the run sets a zone of
+# whole hours first, as tools/site-captures.sh does: automatic time zone off, ZONE set, and a stop
+# if its offset isn't whole hours. When the run ends, also when it fails, automatic time zone is on
+# again.
 #
 # Needs:
-# - An emulator, emulator-5554 unless SERIAL names another (never a phone: the run installs the
-#   debug build and its tests). tools/device-tests.sh starts one if none runs.
+# - A running emulator, emulator-5554 unless SERIAL names another (never a phone: the run installs
+#   the debug build and its tests). Its zone is set before the build, so start it first.
 # - Android Studio's JDK: JAVA_HOME (for example ~/.apps/Android/Studio/jbr).
 # - flock, when GPU_LOCK or GRADLE_LOCK name lock files that other jobs on this machine hold.
 # The run builds the debug app (Gradle), installs it over the one there (its data stays) and runs
@@ -26,9 +32,18 @@ cd "$(dirname "$0")/.."
 THEME=${1:-}
 LIGHT=${2:-}
 SERIAL=${SERIAL:-emulator-5554}
+ZONE=${ZONE:-Asia/Dhaka}
 APP=com.mtwabpin.kolahal.debug
 ASSETS=site/src/assets
 : "${JAVA_HOME:?Set JAVA_HOME to the JDK of Android Studio}"
+sh_() { adb -s "$SERIAL" shell "$@" < /dev/null; }
+
+out=$(mktemp -d)
+trap 'sh_ cmd time_zone_detector set_auto_detection_enabled true; rm -rf "$out"' EXIT
+sh_ cmd time_zone_detector set_auto_detection_enabled false
+sh_ service call alarm 3 s16 "$ZONE" > /dev/null
+z=$(sh_ date +%z | tr -d '\r')
+[ "${z: -2}" = 00 ] || { echo "The zone $ZONE is UTC$z: take one of whole hours (ZONE=)." >&2; exit 1; }
 
 args=()
 [ -n "$THEME" ] && args+=(--arg "theme=$THEME")
@@ -42,8 +57,6 @@ run=(env ANDROID_SERIAL="$SERIAL" tools/device-tests.sh --emulators 1 --keep
 [ -n "${GPU_LOCK:-}" ] && run=(flock "$GPU_LOCK" "${run[@]}")
 "${run[@]}"
 
-out=$(mktemp -d)
-trap 'rm -rf "$out"' EXIT
 for d in gallery-docs gallery-page gallery-log gallery-fmt; do
   adb -s "$SERIAL" pull "/sdcard/Android/data/$APP/files/$d" "$out/" > /dev/null
 done

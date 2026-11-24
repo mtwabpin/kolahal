@@ -67,7 +67,9 @@ then renders the filled copy. With the default theme it uses the committed scene
 =tools/site-captures.sh= takes the captures of the app on an emulator, as they were taken by hand
 (=site/CAPTURES.md= lists each one and what it shows); =tools/site-pictures.sh= draws the guide's
 widget cards and log lines with two device tests. Both run on an emulator, never on a phone, and
-each script's head says how. The store's screenshots are made from the captures in
+each script's head says how. Both set the emulator to a zone of whole hours first (=ZONE=,
+Asia/Dhaka unless named), with automatic time zone off, because the world clocks show each city's
+difference from it; at the end automatic time zone is on again. The store's screenshots are made from the captures in
 =docs/release/graphics/raw/=: which drafts go to Play, and the feature graphic's variant, are
 =PLAY= and =FEATURE= at the top of =tools/play-graphics.sh= ([[file:release/google-play.org][release/google-play.org]] → Graphics).
 Git keeps the drafts too (=docs/release/graphics/drafts/=), so every one is there to choose from; the script renders them again.
