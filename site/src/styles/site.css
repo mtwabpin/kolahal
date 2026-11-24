@@ -1,0 +1,846 @@
+/*
+ * Kolahal's look for Starlight ("Scenes"). Every color comes from tokens.css (--s-*), which
+ * defines both themes; this file maps Starlight's own variables to them and styles its parts.
+ *
+ * - The frame (header, sidebar, "On this page") sits on the page's ground; a guide page's text
+ *   sits on a lighter sheet with rounded top corners, as in the mockup. The sheet is the calmer
+ *   of the two for long reading in the light theme, and keeps the same layout in the dark one.
+ * - Type: Bricolage Grotesque for headings, Instrument Sans for text, JetBrains Mono for code.
+ * - Rounded, quiet surfaces: 10 px rows, 14 px buttons, code blocks and asides, 22 px sheets.
+ *   No drop shadows, except under a phone's screenshot.
+ *
+ * The app's palette (--k-*) is at the end, in its own part: only pictures of the app use it.
+ */
+
+/* ---- Starlight's variables, from the tokens ---------------------------------------------- */
+
+:root {
+	--sl-font: var(--s-font-text);
+	--sl-font-mono: var(--s-font-mono);
+
+	--sl-color-white: var(--s-ink);
+	--sl-color-gray-1: var(--s-ink-soft);
+	--sl-color-gray-2: var(--s-ink-soft);
+	--sl-color-gray-3: var(--s-muted);
+	--sl-color-gray-4: color-mix(in srgb, var(--s-muted) 55%, var(--s-rule));
+	--sl-color-gray-5: var(--s-rule);
+	--sl-color-gray-6: var(--s-sheet);
+	--sl-color-gray-7: var(--s-sheet);
+	--sl-color-black: var(--s-ground);
+
+	--sl-color-accent-low: var(--s-wash);
+	--sl-color-accent: var(--s-link);
+	--sl-color-accent-high: var(--s-link-hover);
+
+	--sl-color-text: var(--s-ink-soft);
+	--sl-color-text-accent: var(--s-link);
+	--sl-color-text-invert: var(--s-on-button);
+	--sl-color-bg: var(--s-ground);
+	--sl-color-bg-nav: var(--s-ground);
+	--sl-color-bg-sidebar: var(--s-ground);
+	--sl-color-bg-inline-code: var(--s-wash);
+	--sl-color-bg-accent: var(--s-button);
+	--sl-color-hairline: var(--s-rule);
+	--sl-color-hairline-light: var(--s-rule);
+	--sl-color-hairline-shade: var(--s-rule);
+	--sl-color-backdrop-overlay: color-mix(in srgb, var(--s-ground) 72%, transparent);
+
+	/* Starlight's named colors, which a few of its parts use: the asides' own colors. */
+	--sl-color-blue-low: var(--s-note);
+	--sl-color-blue: var(--s-on-note);
+	--sl-color-blue-high: var(--s-on-note);
+	--sl-color-purple-low: var(--s-note);
+	--sl-color-purple: var(--s-on-note);
+	--sl-color-purple-high: var(--s-on-note);
+	--sl-color-green-low: var(--s-tip);
+	--sl-color-green: var(--s-on-tip);
+	--sl-color-green-high: var(--s-on-tip);
+	--sl-color-orange-low: var(--s-caution);
+	--sl-color-orange: var(--s-on-caution);
+	--sl-color-orange-high: var(--s-on-caution);
+	--sl-color-red-low: var(--s-danger);
+	--sl-color-red: var(--s-on-danger);
+	--sl-color-red-high: var(--s-on-danger);
+
+	--sl-shadow-sm: none;
+	--sl-shadow-md: none;
+	--sl-shadow-lg: none;
+
+	--sl-text-body: 1.0625rem;
+	--sl-text-code: 0.90625rem;
+	--sl-text-code-sm: 0.88em;
+	--sl-line-height: 1.65;
+	--sl-line-height-headings: 1.15;
+	--sl-text-h1: 2.25rem;
+	--sl-text-h2: 1.5rem;
+	--sl-text-h3: 1.25rem;
+	--sl-text-h4: 1.0625rem;
+	--sl-text-h5: 1rem;
+}
+@media (min-width: 50em) {
+	:root {
+		--sl-text-h1: 2.75rem;
+		--sl-text-h2: 1.6875rem;
+		--sl-text-h3: 1.3125rem;
+		--sl-text-h4: 1.125rem;
+	}
+}
+
+/* Where the guide's sheet starts, below the header. */
+:root {
+	--guide-sheet-top: calc(var(--sl-nav-height) + var(--sl-mobile-toc-height));
+}
+
+body {
+	background: var(--s-ground);
+	color: var(--s-ink-soft);
+	font-size: var(--sl-text-body);
+}
+
+::selection {
+	background: color-mix(in srgb, var(--s-link) 30%, transparent);
+}
+
+:focus-visible {
+	outline: 2px solid var(--s-link);
+	outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+	}
+}
+
+/* ---- Header ------------------------------------------------------------------------------ */
+
+/* One background and one bottom border, so a page can make the header clear over a scene. */
+.page > header.header {
+	background: var(--s-ground);
+	border-bottom: 1px solid var(--s-ground);
+	color: var(--s-ink);
+}
+.site-title {
+	gap: 0.625rem;
+	font-family: var(--s-font-display);
+	font-weight: 700;
+	font-size: 1.3125rem;
+	letter-spacing: -0.01em;
+	color: var(--s-ink);
+}
+.site-title img {
+	border-radius: 0.5rem;
+}
+header.header .social-icons a,
+header.header starlight-theme-select label,
+header.header .sl-menu-button {
+	color: var(--s-ink);
+}
+header.header .social-icons a:hover,
+header.header starlight-theme-select label:hover {
+	color: var(--s-link);
+}
+header.header .social-icons::after {
+	border-inline-end-color: var(--s-rule);
+}
+
+/* Search: a quiet rounded field on the ground; on a phone, the icon alone. */
+site-search button[data-open-modal] {
+	color: var(--s-ink);
+}
+@media (min-width: 50rem) {
+	site-search button[data-open-modal] {
+		height: 2.75rem;
+		border: 1px solid var(--s-rule);
+		border-radius: var(--s-radius-m);
+		padding-inline: 0.875rem 0.5rem;
+		background: color-mix(in srgb, var(--s-sheet) 70%, transparent);
+		color: var(--s-muted);
+		font-size: var(--sl-text-sm);
+	}
+	site-search button[data-open-modal]:hover {
+		border-color: var(--s-muted);
+		color: var(--s-ink);
+	}
+	site-search button[data-open-modal] > kbd {
+		border-radius: 0.375rem;
+		background: var(--s-wash);
+		color: var(--s-muted);
+		font-family: var(--s-font-text);
+	}
+}
+
+/* The search dialog: a sheet over the dimmed page. */
+site-search dialog {
+	background: var(--s-sheet);
+	border: 1px solid var(--s-rule);
+	color: var(--s-ink-soft);
+}
+site-search dialog::backdrop {
+	background: color-mix(in srgb, var(--s-ground) 72%, transparent);
+}
+@media (min-width: 50rem) {
+	site-search dialog {
+		border-radius: var(--s-radius-l);
+	}
+}
+#starlight__search {
+	--pagefind-ui-primary: var(--s-ink);
+	--pagefind-ui-text: var(--s-ink-soft);
+	--pagefind-ui-font: var(--s-font-text);
+	--pagefind-ui-background: var(--s-sheet);
+	--pagefind-ui-border: var(--s-rule);
+	--pagefind-ui-tag: var(--s-wash);
+	--pagefind-ui-border-radius: var(--s-radius-m);
+}
+#starlight__search .pagefind-ui__search-input {
+	color: var(--s-ink);
+}
+#starlight__search .pagefind-ui__search-input::placeholder {
+	color: var(--s-muted);
+	opacity: 1;
+}
+#starlight__search .pagefind-ui__result-link {
+	color: var(--s-ink);
+	font-weight: 600;
+}
+#starlight__search .pagefind-ui__result-excerpt {
+	color: var(--s-muted);
+}
+#starlight__search mark {
+	background: color-mix(in srgb, var(--s-link) 22%, transparent);
+	color: var(--s-ink);
+	border-radius: 0.2rem;
+}
+#starlight__search .pagefind-ui__result-inner {
+	border-radius: var(--s-radius-s);
+}
+#starlight__search .pagefind-ui__button {
+	border-radius: var(--s-radius-m);
+	border: 1.5px solid var(--s-ink);
+	background: transparent;
+	color: var(--s-ink);
+	font-weight: 600;
+}
+site-search button[data-close-modal] {
+	color: var(--s-link);
+	font-weight: 600;
+}
+
+/* ---- The sheet under a guide page -------------------------------------------------------- */
+
+/* Pages with the sidebar: the content column is a sheet with rounded top corners; the frame
+   around it (header, sidebar, "On this page") stays on the ground. */
+[data-has-sidebar] .main-pane {
+	min-height: calc(100vh - var(--guide-sheet-top));
+	background: var(--s-sheet);
+	border-radius: var(--s-radius-l) var(--s-radius-l) 0 0;
+}
+@media (min-width: 50rem) {
+	.sidebar-pane {
+		border-inline-end: 0;
+	}
+}
+@media (min-width: 72rem) {
+	.right-sidebar {
+		border-inline-start: 0;
+	}
+}
+/* The title and the text are one piece, as in the mockup: no rule between them. */
+.content-panel + .content-panel {
+	border-top: 0;
+}
+[data-has-sidebar] main .content-panel:first-of-type {
+	padding-top: 2.25rem;
+}
+.content-panel:has(> .sl-container > h1#_top) + .content-panel {
+	padding-top: 0.5rem;
+}
+
+/* ---- Sidebar ----------------------------------------------------------------------------- */
+
+#starlight__sidebar .sidebar-content {
+	padding-top: 1.5rem;
+	gap: 0.75rem;
+}
+#starlight__sidebar .top-level > li + li {
+	margin-top: 1.125rem;
+}
+#starlight__sidebar summary {
+	padding: 0.25rem 0.75rem;
+}
+/* A group's label: small, bold, upper case and spaced. */
+#starlight__sidebar .group-label .large {
+	font-family: var(--s-font-text);
+	font-size: 0.8125rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--s-muted);
+}
+#starlight__sidebar summary .caret {
+	color: var(--s-muted);
+	font-size: 1rem;
+}
+#starlight__sidebar ul ul {
+	margin-top: 0.375rem;
+}
+#starlight__sidebar ul ul li {
+	margin-inline-start: 0;
+	padding-inline-start: 0;
+	border-inline-start: 0;
+}
+#starlight__sidebar ul ul li + li {
+	margin-top: 0.125rem;
+}
+#starlight__sidebar ul ul a {
+	display: flex;
+	align-items: center;
+	min-height: 2.25rem;
+	padding: 0.4375rem 0.75rem;
+	border-radius: var(--s-radius-s);
+	font-size: 0.9375rem;
+	color: var(--s-ink-soft);
+}
+#starlight__sidebar ul ul a:hover {
+	color: var(--s-ink);
+	background: color-mix(in srgb, var(--s-current) 55%, transparent);
+}
+/* The current page: a rounded row, a shade darker (or lighter) than the ground, in bold. */
+#starlight__sidebar a[aria-current='page'],
+#starlight__sidebar a[aria-current='page']:hover,
+#starlight__sidebar a[aria-current='page']:focus {
+	color: var(--s-ink);
+	font-weight: 600;
+	background: var(--s-current);
+}
+@media (max-width: 49.99rem) {
+	/* A phone: every row a full touch target. */
+	#starlight__sidebar ul ul a {
+		min-height: 2.75rem;
+		font-size: 1rem;
+	}
+	#starlight__sidebar summary {
+		min-height: 2.75rem;
+	}
+}
+
+/* The menu button on a phone. */
+.sl-menu-button button,
+button.sl-menu-button {
+	border-radius: var(--s-radius-s);
+	background: var(--s-ground);
+	color: var(--s-ink);
+}
+
+/* ---- On this page ------------------------------------------------------------------------ */
+
+.right-sidebar-panel {
+	padding-top: 2.25rem;
+}
+.right-sidebar-panel h2#starlight__on-this-page {
+	margin-bottom: 0.625rem;
+	padding-inline: 0.75rem;
+	font-family: var(--s-font-text);
+	font-size: 0.8125rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--s-muted);
+}
+starlight-toc a {
+	border-radius: var(--s-radius-s);
+	padding-block: 0.3125rem;
+	padding-inline-end: 0.75rem;
+	font-size: var(--sl-text-sm);
+	line-height: 1.4;
+	color: var(--s-ink-soft);
+}
+starlight-toc ul ul a {
+	color: var(--s-muted);
+}
+starlight-toc a:hover {
+	color: var(--s-ink);
+}
+starlight-toc a[aria-current='true'],
+starlight-toc a[aria-current='true']:hover {
+	color: var(--s-ink);
+	font-weight: 600;
+	background: var(--s-current);
+}
+
+/* On narrower screens, the bar under the header that opens the list. */
+mobile-starlight-toc nav {
+	border-top: 0;
+	background: var(--s-ground);
+}
+mobile-starlight-toc summary {
+	border-bottom: 0;
+}
+mobile-starlight-toc .toggle {
+	border-color: var(--s-rule);
+	border-radius: var(--s-radius-s);
+	background: color-mix(in srgb, var(--s-sheet) 70%, transparent);
+	color: var(--s-muted);
+}
+mobile-starlight-toc details[open] .toggle {
+	border-color: var(--s-muted);
+}
+mobile-starlight-toc .display-current {
+	color: var(--s-ink);
+}
+mobile-starlight-toc .dropdown {
+	border: 1px solid var(--s-rule);
+	border-radius: 0 0 var(--s-radius-m) var(--s-radius-m);
+	background: var(--s-sheet);
+}
+mobile-starlight-toc .dropdown a {
+	min-height: 2.75rem;
+	display: flex;
+	align-items: center;
+}
+
+/* ---- Page title: the section, muted, above a large title --------------------------------- */
+
+.k-section {
+	display: block;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--s-muted);
+}
+#_top {
+	font-family: var(--s-font-display);
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	line-height: 1.05;
+	color: var(--s-ink);
+	text-wrap: balance;
+}
+
+/* ---- Content ----------------------------------------------------------------------------- */
+
+.sl-markdown-content {
+	color: var(--s-ink-soft);
+}
+.sl-markdown-content :is(strong, b):not(:where(.not-content *)) {
+	color: var(--s-ink);
+}
+.sl-markdown-content :is(h2, h3, h4, h5, h6):not(:where(.not-content *)) {
+	color: var(--s-ink);
+	font-weight: 700;
+}
+.sl-markdown-content :is(h2, h3):not(:where(.not-content *)) {
+	font-family: var(--s-font-display);
+	letter-spacing: -0.01em;
+}
+.sl-markdown-content :not(h1, h2, h3, h4, h5, h6) + :is(h2):not(:where(.not-content *)),
+.sl-markdown-content :not(h1, h2, h3, h4, h5, h6) + .sl-heading-wrapper.level-h2 {
+	margin-top: 2.25rem;
+}
+/* The link beside a heading. */
+.sl-anchor-link {
+	color: var(--s-muted);
+}
+.sl-anchor-link:hover {
+	color: var(--s-link);
+}
+
+/* Links in the text: the link color, underlined. */
+.sl-markdown-content a:not(:where(.not-content *, .sl-link-button)) {
+	color: var(--s-link);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.2em;
+}
+.sl-markdown-content a:not(:where(.not-content *, .sl-link-button)):hover {
+	color: var(--s-link-hover);
+	text-decoration-thickness: 2px;
+}
+
+/* Inline code: tinted and rounded. */
+.sl-markdown-content :not(pre) > code:not(:where(.not-content *)) {
+	border-radius: 0.375rem;
+	padding: 0.125rem 0.375rem;
+	background: var(--s-wash);
+	color: var(--s-ink);
+	font-size: 0.88em;
+}
+.sl-markdown-content a > code {
+	color: inherit;
+}
+/* Commands are typed as written: no ligatures ("|-" must not turn into one sign). */
+.sl-markdown-content code,
+.expressive-code code {
+	font-variant-ligatures: none;
+}
+
+.sl-markdown-content hr:not(:where(.not-content *)) {
+	border-bottom-color: var(--s-rule);
+}
+.sl-markdown-content blockquote:not(:where(.not-content *)) {
+	border-inline-start: 3px solid var(--s-rule);
+	color: var(--s-muted);
+}
+.sl-markdown-content kbd {
+	border: 1px solid var(--s-rule);
+	border-radius: 0.375rem;
+	padding: 0.05em 0.4em;
+	background: var(--s-sheet);
+	font-family: var(--s-font-text);
+	font-size: 0.85em;
+}
+
+/* Tables: labels in small upper case over rounded, striped rows. */
+.sl-markdown-content table:not(:where(.not-content *)) {
+	width: 100%;
+	max-width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 0.9375rem;
+	line-height: 1.55;
+}
+.sl-markdown-content :is(th, td):not(:where(.not-content *)) {
+	border-bottom: 0;
+	padding: 0.5625rem 0.875rem;
+}
+.sl-markdown-content :is(th:first-child, td:first-child):not(:where(.not-content *)) {
+	padding-inline-start: 0.875rem;
+}
+.sl-markdown-content :is(th:last-child, td:last-child):not(:where(.not-content *)) {
+	padding-inline-end: 0.875rem;
+}
+.sl-markdown-content th:not(:where(.not-content *)) {
+	padding-block: 0 0.625rem;
+	border-bottom: 1.5px solid var(--s-rule-strong);
+	font-size: 0.8125rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--s-muted);
+}
+.sl-markdown-content tbody tr:nth-child(even) td:not(:where(.not-content *)) {
+	background: var(--s-stripe);
+}
+.sl-markdown-content tbody tr:nth-child(even) td:first-child:not(:where(.not-content *)) {
+	border-start-start-radius: var(--s-radius-s);
+	border-end-start-radius: var(--s-radius-s);
+}
+.sl-markdown-content tbody tr:nth-child(even) td:last-child:not(:where(.not-content *)) {
+	border-start-end-radius: var(--s-radius-s);
+	border-end-end-radius: var(--s-radius-s);
+}
+.sl-markdown-content tbody tr:first-child td:not(:where(.not-content *)) {
+	padding-top: 0.75rem;
+}
+/* Code in a table wraps at spaces and after "|", so a long usage doesn't push the
+   description off the edge. */
+.sl-markdown-content table code {
+	white-space: normal;
+}
+
+/* Asides: a tinted rounded note, the icon at the start, the title in bold. */
+.starlight-aside {
+	position: relative;
+	border: 0;
+	border-radius: var(--s-radius-m);
+	padding: 1rem 1.125rem 1rem 3.375rem;
+	font-size: 1rem;
+	background: var(--aside-bg);
+	color: var(--aside-on);
+}
+.starlight-aside--note {
+	--aside-bg: var(--s-note);
+	--aside-on: var(--s-on-note);
+}
+.starlight-aside--tip {
+	--aside-bg: var(--s-tip);
+	--aside-on: var(--s-on-tip);
+}
+.starlight-aside--caution {
+	--aside-bg: var(--s-caution);
+	--aside-on: var(--s-on-caution);
+}
+.starlight-aside--danger {
+	--aside-bg: var(--s-danger);
+	--aside-on: var(--s-on-danger);
+}
+.starlight-aside[class*='starlight-aside--'] {
+	--sl-color-asides-border: transparent;
+	--sl-color-asides-text-accent: var(--aside-on);
+	background: var(--aside-bg);
+}
+.starlight-aside__title {
+	display: block;
+	font-size: 1rem;
+	font-weight: 700;
+	line-height: 1.5;
+	color: var(--aside-on);
+}
+.starlight-aside__icon {
+	position: absolute;
+	inset-inline-start: 1.125rem;
+	top: 1.0625rem;
+	width: 1.375rem;
+	height: 1.375rem;
+	font-size: 1.375rem;
+}
+.starlight-aside__title + .starlight-aside__content {
+	margin-top: 0.25rem;
+}
+.starlight-aside__content,
+.starlight-aside__content :is(p, li, strong) {
+	color: var(--aside-on);
+}
+.starlight-aside__content a {
+	color: var(--aside-on);
+	font-weight: 600;
+}
+.sl-markdown-content .starlight-aside code:not(:where(.not-content *)) {
+	background: color-mix(in srgb, var(--aside-on) 12%, transparent);
+	color: inherit;
+}
+
+/* A table inside an aside: its rules and stripes in the aside's own ink. */
+.sl-markdown-content .starlight-aside th:not(:where(.not-content *)) {
+	border-bottom-color: color-mix(in srgb, var(--aside-on) 45%, transparent);
+	color: var(--aside-on);
+}
+.sl-markdown-content .starlight-aside tbody tr:nth-child(even) td:not(:where(.not-content *)) {
+	background: color-mix(in srgb, var(--aside-on) 7%, transparent);
+}
+
+/* Code blocks: dark in both themes, the title as a small upper-case label (astro.config.mjs). */
+.expressive-code .frame {
+	box-shadow: none;
+}
+.expressive-code .frame.has-title .header {
+	border-bottom: 1px solid var(--s-code-rule);
+	border-start-start-radius: var(--s-radius-m);
+	border-start-end-radius: var(--s-radius-m);
+}
+.expressive-code .frame.has-title .header .title {
+	padding: 0.5625rem 1.125rem;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+.expressive-code .frame.has-title .header .title::after {
+	display: none;
+}
+
+/* Cards (Starlight's): a tinted sheet, the icon in the ink, no colored borders. */
+.card {
+	--sl-card-border: transparent;
+	--sl-card-bg: var(--s-wash);
+	border: 0;
+	border-radius: var(--s-radius-l);
+	background: var(--s-stripe);
+	color: var(--s-ink-soft);
+}
+.card .title {
+	font-family: var(--s-font-display);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	color: var(--s-ink);
+}
+.card .icon {
+	border: 0;
+	border-radius: var(--s-radius-s);
+	padding: 0.25em;
+	color: var(--s-ink);
+	background: var(--s-wash);
+}
+.card .body a {
+	color: var(--s-link);
+}
+
+/* Buttons, as at the top of the mockup: filled, or outlined in the ink. */
+.sl-link-button {
+	min-height: 3rem;
+	justify-content: center;
+	border-radius: var(--s-radius-m);
+	padding: 0.5rem 1.375rem;
+	font-size: 1rem;
+	font-weight: 600;
+	text-decoration: none;
+}
+.sl-link-button.primary,
+.sl-link-button.primary:hover {
+	border: 1.5px solid var(--s-button);
+	background: var(--s-button);
+	color: var(--s-on-button);
+}
+.sl-link-button.primary:hover {
+	background: color-mix(in srgb, var(--s-button) 88%, var(--s-ground));
+}
+.sl-link-button.secondary {
+	border: 1.5px solid var(--s-ink);
+	background: transparent;
+	color: var(--s-ink);
+}
+.sl-link-button.secondary:hover {
+	background: color-mix(in srgb, var(--s-ink) 8%, transparent);
+	color: var(--s-ink);
+}
+.sl-link-button.minimal {
+	color: var(--s-link);
+}
+/* Buttons side by side: the row's gap spaces them, not their own margins. */
+.sl-markdown-content .sl-flex > .sl-link-button {
+	margin: 0;
+}
+
+/* Tabs: the chosen tab is a rounded row in the wash. */
+starlight-tabs .tablist-wrapper {
+	border-bottom: 0;
+}
+starlight-tabs [role='tablist'] {
+	gap: 0.25rem;
+	border-bottom: 0;
+}
+starlight-tabs [role='tab'] {
+	min-height: 2.5rem;
+	margin: 0;
+	border: 0;
+	border-radius: var(--s-radius-s);
+	padding: 0.375rem 1rem;
+	box-shadow: none;
+	color: var(--s-muted);
+	font-weight: 600;
+}
+starlight-tabs [role='tab']:hover {
+	color: var(--s-ink);
+}
+starlight-tabs [role='tab'][aria-selected='true'] {
+	border: 0;
+	background: var(--s-wash);
+	color: var(--s-ink);
+}
+
+/* Previous and next: rounded rows with a hairline. */
+.pagination-links a {
+	border: 1px solid var(--s-rule);
+	border-radius: var(--s-radius-m);
+	background: transparent;
+	box-shadow: none;
+	color: var(--s-muted);
+	font-size: 0.8125rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+}
+.pagination-links a:hover {
+	border-color: var(--s-muted);
+	background: color-mix(in srgb, var(--s-wash) 45%, transparent);
+}
+.pagination-links .link-title {
+	margin-top: 0.125rem;
+	font-family: var(--s-font-display);
+	font-size: 1.25rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	text-transform: none;
+	color: var(--s-ink);
+}
+
+/* The page's footer: "Edit page" and the date. */
+footer .meta,
+footer .meta a {
+	color: var(--s-muted);
+}
+footer .meta a:hover {
+	color: var(--s-link);
+}
+
+/* The skip link. */
+.sl-skip-link {
+	border-radius: var(--s-radius-s);
+	background: var(--s-button);
+	color: var(--s-on-button);
+}
+
+/* ---- Pictures ---------------------------------------------------------------------------- */
+
+/* A phone's screenshot: rounded like the phone, with the only shadow on the site. */
+.shot {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--s-radius-l);
+	border: 1px solid var(--s-phone-edge);
+	box-shadow: 0 28px 50px -30px color-mix(in srgb, var(--s-phone) 70%, transparent);
+}
+.shots {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+	gap: 1.25rem;
+	margin-block: 1.5rem;
+}
+.shots figure {
+	margin: 0;
+}
+.shots figcaption {
+	font-size: var(--sl-text-sm);
+	color: var(--s-muted);
+	text-align: center;
+	margin-top: 0.625rem;
+}
+.shot-single {
+	max-width: 18rem;
+	margin-inline: auto;
+}
+
+/* A fmt function's picture in the scripting guide's table: as wide as the line it shows. */
+.fmt-shot {
+	display: block;
+	max-width: 240px;
+	height: auto;
+	border-radius: var(--s-radius-s);
+}
+
+/* ---- The app's palette (--k-*) ------------------------------------------------------------ */
+
+/*
+ * Kolahal's default theme, "green", in its dark and light versions (ui/theme/Theme.kt). Only
+ * pictures of the app read these: the simulated phone, the theme cards and the like. Nothing
+ * in the site's own chrome uses them.
+ */
+:root {
+	--k-bg: #0b0d0b;
+	--k-surface: #151915;
+	--k-fg: #d7ded3;
+	--k-dim: #7f8a7b;
+	--k-prompt: #8fd18a;
+	--k-error: #f0907d;
+	--k-info: #9db8a0;
+	--k-link: #7fb8f0;
+	--k-script: #b5cea8;
+	--k-work: #f2b35b;
+	--k-private: #c792ea;
+	--k-good: #8fd18a;
+	--k-warn: #f2b35b;
+	/* How strong a tag's chip or a pill's shade is (RichText.drawChips: 24 % dark, 14 % light). */
+	--k-chip: 24%;
+	--k-rule: color-mix(in srgb, var(--k-dim) 25%, transparent);
+	--k-gutter: color-mix(in srgb, var(--k-prompt) 45%, transparent);
+}
+
+/* Palettes.greenLight: the same greens, darker, on a pale green-gray. */
+:root[data-theme='light'] {
+	--k-bg: #f3f7f1;
+	--k-surface: #e3ebe0;
+	--k-fg: #1e2a1d;
+	--k-dim: #5b6957;
+	--k-prompt: #2f7d32;
+	--k-error: #b3261e;
+	--k-info: #4b6b4e;
+	--k-link: #1d63a8;
+	--k-script: #3f6b35;
+	--k-work: #9a5b00;
+	--k-private: #7a3fb0;
+	--k-good: #2f7d32;
+	--k-warn: #9a5b00;
+	--k-chip: 14%;
+}

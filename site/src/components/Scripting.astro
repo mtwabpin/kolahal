@@ -1,0 +1,271 @@
+---
+/**
+ * "Scripts and widgets" on the home page: what a script is and what it can do, a short real script
+ * beside the widget it fills (the Water example of the API reference, scripting/api.mdx, and its
+ * render), a row of the library's widgets (renders from WidgetGalleryTest), and what comes with it.
+ * Each line says what the guide says (scripting/overview, api, library, editor; guides/widgets).
+ *
+ * The widget pictures are renders in the app's green theme, dark, so they sit on that theme's
+ * background in both of the site's themes, as on the phone's widgets page.
+ */
+import { Image } from 'astro:assets';
+import { Code } from '@astrojs/starlight/components';
+import HomeSection from './HomeSection.astro';
+import water from '../assets/widgets/example-water-2x1.png';
+import habit from '../assets/widgets/habit-2x2.png';
+import forecast from '../assets/widgets/forecast-2x2.png';
+import clocks from '../assets/widgets/worldclocks-2x2.png';
+import unlocks from '../assets/widgets/unlocks-2x2.png';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+/** The Lua version of the API reference's Water example, as it is there. */
+const WATER = `-- @title Water
+-- @widget progress 2x1
+-- @option goal 8 Glasses a day
+
+local today = os.date("%Y-%m-%d")
+local n = tonumber(
+  store.get(today) or "0"
+)
+if event and event.name == "action"
+    and args[1] == "add" then
+  n = n + 1
+  store.set(today, tostring(n))
+end
+local goal = tonumber(options.goal) or 8
+
+widget.show{
+  kind = "progress",
+  value = n,
+  max = goal,
+  text = n .. " / " .. goal,
+  color = n >= goal and "good"
+    or "accent",
+  tap = {
+    args = "add",
+    label = "add a glass",
+  },
+}`;
+
+/** Library scripts with a widget, and their cards. */
+const MORE = [
+	{ src: habit, name: 'habit.lua', alt: 'habit: 5 days in a row over a dot for each day' },
+	{ src: forecast, name: 'forecast.js', alt: 'forecast: three days, each with its low and its high' },
+	{ src: clocks, name: 'world-clocks.lua', alt: 'world-clocks: the time in Kolkata, London and New York' },
+	{ src: unlocks, name: 'unlock-chart.lua', alt: 'unlock-chart: 46 unlocks today over a bar for each of the last 7 days' },
+];
+
+const FACTS: { title: string; text: string }[] = [
+	{
+		title: '57 scripts come with it',
+		text: `The <a href="${base}/scripting/library/">library</a> has weather, news, a habit streak, world clocks and more, and 18 templates to start your own from. One tap installs one.`,
+	},
+	{
+		title: 'Get more scripts',
+		text: `Scripts that people share, each one reviewed before it is added. You see what a script does, what it uses and its code before you <a href="${base}/scripting/overview/#getting-scripts-from-others">install it</a>.`,
+	},
+	{
+		title: 'An editor on the phone',
+		text: `Line numbers, colored code, a symbol bar and Run. <a href="${base}/scripting/editor/">The editor</a> opens shaders too.`,
+	},
+	{
+		title: 'A switch for each thing it uses',
+		text: `Each thing a script uses, such as the internet, your notifications or your calendar, has a <a href="${base}/scripting/overview/#what-a-script-may-use">switch</a> of its own.`,
+	},
+];
+---
+
+<HomeSection id="scripts-and-widgets" title="Scripts and widgets" link={{ href: '/scripting/overview/', text: 'Scripting overview' }}>
+	<Fragment slot="lead">
+		<p>
+			A script is a short file in Lua 5.4 or JavaScript. It can be a command you type, run on a timer or when something
+			happens on the phone, write lines to the log, and fill a widget on the <a href={`${base}/guides/widgets/`}>widgets page</a>.
+		</p>
+	</Fragment>
+
+	<div class="sc-sec sc-pair">
+		<div class="sc-code">
+			<Code code={WATER} lang="lua" title="water.lua" />
+		</div>
+		<div class="sc-side">
+			<figure class="sc-made">
+				<div class="sc-page">
+					<Image src={water} alt="The Water widget: 5 / 8 over a bar, five eighths full" width={300} densities={[1, 2]} />
+				</div>
+				<figcaption>The widget it fills. A tap adds a glass.</figcaption>
+			</figure>
+			<div class="sc-facts">
+				{
+					FACTS.map((f) => (
+						<div class="sc-fact">
+							<h3>{f.title}</h3>
+							<p set:html={f.text} />
+						</div>
+					))
+				}
+			</div>
+		</div>
+	</div>
+
+	<div class="sc-sec sc-more">
+		<h3 class="sc-label">More widgets from the library</h3>
+		<ul class="sc-page sc-grid">
+			{
+				MORE.map((w) => (
+					<li>
+						<Image src={w.src} alt={w.alt} width={240} densities={[1, 2]} />
+						<span>{w.name}</span>
+					</li>
+				))
+			}
+		</ul>
+		<p class="sc-links">
+			<a href={`${base}/scripting/library/#widgets`}>Every widget in the library</a>
+			<a href={`${base}/guides/widgets/`}>The widgets page</a>
+			<a href={`${base}/scripting/api/`}>The API</a>
+		</p>
+	</div>
+</HomeSection>
+
+<style>
+	.sc-pair {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2rem 3rem;
+		align-items: flex-start;
+	}
+	.sc-code {
+		flex: 1 1 24rem;
+		min-width: 0;
+	}
+	.sc-code :global(.expressive-code) {
+		margin: 0;
+	}
+	.sc-side {
+		flex: 1 1 26rem;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2rem;
+	}
+	/* The phone's widgets page: the pictures' own background, the app's green theme, dark. */
+	.sc-page {
+		--app-ground: #0b0d0b;
+		background: var(--app-ground);
+		border-radius: var(--s-radius-l);
+		border: 1px solid var(--s-phone-edge);
+		padding: 0.75rem;
+	}
+	.sc-made {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+	.sc-made .sc-page {
+		display: flex;
+		justify-content: center;
+		padding: 1.25rem;
+	}
+	.sc-made :global(img) {
+		display: block;
+		width: 18.75rem;
+		max-width: 100%;
+		height: auto;
+	}
+	figcaption {
+		font-size: 0.9375rem;
+		color: var(--s-muted);
+	}
+	.sc-facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+		gap: 1.5rem 2rem;
+	}
+	.sc-fact {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+	.sc-sec h3 {
+		margin: 0;
+		font-family: var(--s-font-text);
+		font-size: 1.1875rem;
+		font-weight: 700;
+		line-height: 1.3;
+		color: var(--s-ink);
+	}
+	p {
+		margin: 0;
+		font-size: 1rem;
+		color: var(--s-ink-soft);
+	}
+	p :global(a),
+	.sc-links a {
+		color: var(--s-link);
+		text-underline-offset: 0.2em;
+	}
+	p :global(a:hover),
+	.sc-links a:hover {
+		color: var(--s-link-hover);
+	}
+	.sc-more {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+	.sc-more .sc-label {
+		padding-bottom: 0.625rem;
+		border-bottom: 1.5px solid var(--s-rule-strong);
+		font-size: 0.875rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--s-ink-soft);
+	}
+	.sc-grid {
+		list-style: none;
+		margin: 0;
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+	.sc-grid li {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.sc-grid :global(img) {
+		display: block;
+		width: 100%;
+		max-width: 15rem;
+		height: auto;
+	}
+	/* The script's name, under its card: as the phone writes a file name, light on the page's dark. */
+	.sc-grid span {
+		padding-bottom: 0.25rem;
+		font-family: var(--s-font-mono);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: #c3ccbf;
+	}
+	@media (max-width: 40rem) {
+		.sc-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+	.sc-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.5rem;
+		font-weight: 600;
+	}
+	.sc-links a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.75rem;
+	}
+</style>

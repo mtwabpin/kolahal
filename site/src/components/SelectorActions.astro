@@ -1,8 +1,9 @@
 ---
 /**
  * App actions while picking (`selector.actions`), drawn: the thumb slid off the edge onto
- * Chrome's row, with the setting off and with far-side. Always in the app's default "green"
- * palette, whatever the site theme, like the home screen demo.
+ * Chrome's row, with the setting off and with far-side. As in the app, the list has no card of its
+ * own: it stands in the log's place, between the header and the prompt, with the log faded out. Always in the app's default "green"
+ * palette, whatever the site theme, like the home screen demo; the phone's frame is the site's.
  */
 ---
 
@@ -16,17 +17,19 @@
 			</defs>
 			<rect x="4" y="4" width="232" height="432" rx="30" class="body" />
 			<rect x="12" y="12" width="216" height="416" rx="22" class="screen" />
-			<rect x="12" y="60" width="128" height="330" rx="10" class="panel" />
+			<text x="24" y="34" class="clock">12:30</text>
+			<rect x="66" y="27" width="30" height="5" rx="2.5" class="faint" />
+			<text x="24" y="414" class="prompt">$</text>
 			<text x="22" y="86" class="row">Calendar</text>
 			<text x="22" y="124" class="row">Camera</text>
-			<rect x="12" y="140" width="128" height="36" class="focus" />
+			<rect x="14" y="141" width="124" height="34" rx="7" class="focus" />
 			<text x="22" y="162" class="focused">Chrome</text>
 			<text x="22" y="200" class="row">Clock</text>
 			<text x="22" y="238" class="row">Contacts</text>
 			<text x="22" y="276" class="row">Drive</text>
 			<text x="22" y="314" class="row">Files</text>
 			<text x="22" y="352" class="row">Gmail</text>
-			<text x="76" y="408" text-anchor="middle" class="near">OPENS APP</text>
+			<text x="76" y="393" text-anchor="middle" class="near">OPENS APP</text>
 			<line x1="222" y1="220" x2="222" y2="380" class="strip" />
 			<text x="214" y="214" text-anchor="end" class="note">edge</text>
 			<path d="M222 320 C 190 300, 140 190, 104 160" class="path" />
@@ -39,14 +42,16 @@
 		<svg viewBox="0 0 240 440" role="img" aria-label="far-side: the list's third farthest from the edge is the far side. The thumb is there on Chrome's row, which says Actions; lifting opens Chrome's actions. The rest of the list still opens the app.">
 			<rect x="4" y="4" width="232" height="432" rx="30" class="body" />
 			<rect x="12" y="12" width="216" height="416" rx="22" class="screen" />
-			<rect x="12" y="60" width="128" height="330" rx="10" class="panel" />
-			<rect x="12" y="60" width="38" height="330" rx="10" class="far-zone" />
-			<line x1="50" y1="60" x2="50" y2="390" class="far-edge" />
+			<text x="24" y="34" class="clock">12:30</text>
+			<rect x="66" y="27" width="30" height="5" rx="2.5" class="faint" />
+			<text x="24" y="414" class="prompt">$</text>
+			<rect x="12" y="60" width="38" height="326" class="far-zone" />
+			<line x1="50" y1="60" x2="50" y2="386" class="far-edge" />
 			<text x="31" y="52" text-anchor="middle" class="far">FAR</text>
 			<text x="95" y="52" text-anchor="middle" class="near">NEAR</text>
 			<text x="22" y="86" class="row">Calendar</text>
 			<text x="22" y="124" class="row">Camera</text>
-			<rect x="12" y="140" width="128" height="36" class="focus" />
+			<rect x="14" y="141" width="124" height="34" rx="7" class="focus" />
 			<text x="22" y="162" class="focused">Chrome</text>
 			<text x="134" y="162" text-anchor="end" class="actions">⋯ Actions</text>
 			<text x="22" y="200" class="row">Clock</text>
@@ -54,8 +59,8 @@
 			<text x="22" y="276" class="row">Drive</text>
 			<text x="22" y="314" class="row">Files</text>
 			<text x="22" y="352" class="row">Gmail</text>
-			<text x="31" y="408" text-anchor="middle" class="far">ACTIONS</text>
-			<text x="95" y="408" text-anchor="middle" class="near">OPENS APP</text>
+			<text x="31" y="393" text-anchor="middle" class="far">ACTIONS</text>
+			<text x="95" y="393" text-anchor="middle" class="near">OPENS APP</text>
 			<line x1="222" y1="220" x2="222" y2="380" class="strip" />
 			<text x="214" y="214" text-anchor="end" class="note">edge</text>
 			<path d="M222 320 C 190 300, 120 190, 36 160" class="path" />
@@ -95,22 +100,34 @@
 	figcaption {
 		font-size: var(--sl-text-sm);
 		line-height: 1.5;
-		color: var(--sl-color-gray-2);
+		color: var(--s-ink-soft);
 	}
-	.body { fill: #232a22; }
+	figcaption strong {
+		color: var(--s-ink);
+	}
+	figcaption code {
+		border-radius: 0.375rem;
+		padding: 0.0625rem 0.3125rem;
+		background: var(--s-wash);
+		color: var(--s-ink);
+		font-size: 0.88em;
+	}
+	.body { fill: var(--s-phone); stroke: var(--s-phone-edge); stroke-width: 1.5; }
 	.screen { fill: var(--k-bg); }
-	.panel { fill: var(--k-surface); stroke: rgba(215, 222, 211, 0.16); stroke-width: 1; }
-	.row { fill: var(--k-dim); font-family: var(--sl-font-mono); font-size: 12px; }
-	.focus { fill: rgba(143, 209, 138, 0.18); }
-	.focused { fill: var(--k-prompt); font-family: var(--sl-font-mono); font-size: 12px; font-weight: 700; }
-	.actions { fill: var(--k-prompt); font-family: var(--sl-font-mono); font-size: 10px; }
+	.clock { fill: var(--k-fg); font: 700 12px var(--s-font-mono); }
+	.faint { fill: var(--k-dim); opacity: 0.55; }
+	.prompt { fill: var(--k-prompt); font: 700 13px var(--s-font-mono); }
+	.row { fill: var(--k-dim); font-family: var(--s-font-mono); font-size: 12px; }
+	.focus { fill: rgba(143, 209, 138, 0.14); }
+	.focused { fill: var(--k-prompt); font-family: var(--s-font-mono); font-size: 12px; font-weight: 700; }
+	.actions { fill: var(--k-prompt); font-family: var(--s-font-mono); font-size: 10px; }
 	.strip { stroke: var(--k-dim); stroke-width: 4; stroke-linecap: round; }
 	.path { fill: none; stroke: var(--k-dim); stroke-width: 1.5; stroke-dasharray: 4 4; }
 	.thumb { fill: var(--k-fg); fill-opacity: 0.16; stroke: var(--k-fg); stroke-width: 1.5; stroke-opacity: 0.6; }
 	.hatch { stroke: var(--k-work); stroke-width: 1.2; opacity: 0.55; }
 	.far-zone { fill: url(#sa-hatch); }
 	.far-edge { stroke: var(--k-work); stroke-width: 1.5; stroke-dasharray: 3 3; }
-	.far { fill: var(--k-work); font-family: var(--sl-font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
-	.near { fill: var(--k-prompt); font-family: var(--sl-font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
-	.note { fill: var(--k-dim); font-family: var(--sl-font-mono); font-size: 10px; }
+	.far { fill: var(--k-work); font-family: var(--s-font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+	.near { fill: var(--k-prompt); font-family: var(--s-font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+	.note { fill: var(--k-dim); font-family: var(--s-font-mono); font-size: 10px; }
 </style>

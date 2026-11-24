@@ -1,0 +1,174 @@
+---
+/**
+ * "By touch, or by typing" on the home page: the app selector on a phone, beside two groups of
+ * three things each way of using Kolahal does. Each line says what the guide says
+ * (getting-started/basics, guides/gestures).
+ */
+import { Image } from 'astro:assets';
+import HomeSection from './HomeSection.astro';
+import selectorPick from '../assets/parts/selector-pick.png';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+type Item = { title: string; text: string };
+const GROUPS: { label: string; items: Item[] }[] = [
+	{
+		label: 'By touch',
+		items: [
+			{
+				title: 'One thumb opens any app',
+				text: `Slide along the edge of the screen through your apps, then onto the one you want, and lift. Turn on the <a href="${base}/getting-started/basics/#app-selector">app selector</a> in Settings → App selector.`,
+			},
+			{
+				title: 'A log you can touch',
+				text: 'Tap a line for its main action. Swipe it right to copy it or left to delete it, and long-press it for all its actions.',
+			},
+			{
+				title: 'Gestures you set',
+				text: `A double-tap, a swipe down on the header and a swipe up on the prompt can each run a <a href="${base}/guides/gestures/">command you choose</a>, such as the app list or quick actions.`,
+			},
+		],
+	},
+	{
+		label: 'By typing',
+		items: [
+			{
+				title: 'A few letters and Enter',
+				text: "Type any part of an app's name. The apps that match are suggested as you type, the best match nearest your thumb.",
+			},
+			{
+				title: 'One prompt for the rest',
+				text: 'Sums and unit conversions, todos, reminders and feeds all run from the same line.',
+			},
+			{
+				title: 'Commands of your own',
+				text: 'An alias gives a short name to anything you type, as in <code>alias m = open maps</code>, and a script can be a command too.',
+			},
+		],
+	},
+];
+---
+
+<HomeSection id="by-touch-or-typing" title="By touch, or by typing">
+	<div class="w-row">
+		<figure class="w-phone">
+			<Image
+				src={selectorPick}
+				alt="The app selector: the list of apps uses the screen between the header and the prompt, and the app at the thumb is magnified and filling"
+				width={234}
+				densities={[1, 2]}
+			/>
+		</figure>
+		<div class="w-groups">
+			{
+				GROUPS.map((g) => (
+					<div class="w-group">
+						<h3>{g.label}</h3>
+						<div class="w-items">
+							{g.items.map((it) => (
+								<div class="w-item">
+									<h4>{it.title}</h4>
+									<p set:html={it.text} />
+								</div>
+							))}
+						</div>
+					</div>
+				))
+			}
+		</div>
+	</div>
+</HomeSection>
+
+<style>
+	.w-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 2.5rem 4.5rem;
+	}
+	/* The picture in the site's phone frame. */
+	.w-phone {
+		flex: 0 1 15.625rem;
+		width: 15.625rem;
+		max-width: 100%;
+		margin: 0 auto;
+		box-sizing: border-box;
+		padding: 0.5rem;
+		border-radius: 2.125rem;
+		border: 1px solid var(--s-phone-edge);
+		background: var(--s-phone);
+		box-shadow: 0 30px 60px -28px var(--w-shadow, rgb(0 0 0 / 0.8));
+	}
+	:global(:root[data-theme='light']) .w-phone {
+		--w-shadow: color-mix(in srgb, var(--s-ink) 55%, transparent);
+	}
+	.w-phone :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: 1.625rem;
+	}
+	.w-groups {
+		flex: 999 1 32.5rem;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2.5rem;
+	}
+	.w-group {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+	.w-group h3 {
+		margin: 0;
+		padding-bottom: 0.625rem;
+		border-bottom: 1.5px solid var(--s-rule-strong);
+		font-family: var(--s-font-text);
+		font-size: 0.875rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--s-ink-soft);
+	}
+	.w-items {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.25rem 2rem;
+	}
+	.w-item {
+		flex: 1 1 12.5rem;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+	.w-item h4 {
+		margin: 0;
+		font-family: var(--s-font-text);
+		font-size: 1.1875rem;
+		font-weight: 700;
+		line-height: 1.3;
+		color: var(--s-ink);
+	}
+	p {
+		margin: 0;
+		font-size: 1rem;
+		color: var(--s-ink-soft);
+	}
+	p :global(a) {
+		color: var(--s-link);
+		text-underline-offset: 0.2em;
+	}
+	p :global(a:hover) {
+		color: var(--s-link-hover);
+	}
+	p :global(code) {
+		font-family: var(--s-font-mono);
+		font-size: 0.88em;
+		padding: 0.1em 0.4em;
+		border-radius: 0.375rem;
+		background: var(--s-wash);
+		color: var(--s-ink);
+		white-space: nowrap;
+	}
+</style>

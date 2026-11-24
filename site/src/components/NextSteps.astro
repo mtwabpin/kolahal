@@ -1,119 +1,95 @@
 ---
 /**
- * "Next steps" on the home page, drawn like the app's suggestion list: one row per place to go,
- * the first one marked with ↵ as Enter would open it, the prompt under the list.
+ * "Next steps" on the home page: one rounded row per place to go, its name and a line about it,
+ * with an arrow at the end (↗ for another site). It reads on the page's ground and on a sheet.
  */
 import { DIRECT_DOWNLOADS } from '../release';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const ROWS: { icon: string; name: string; text: string; href: string; external?: boolean }[] = [
-	{ icon: '↓', name: 'install', text: DIRECT_DOWNLOADS ? 'Download and install; the tour opens the first time' : 'Join the alpha test on Google Play; the tour opens the first time', href: `${base}/getting-started/install/` },
-	{ icon: '?', name: 'basics', text: 'Suggestions, the key bar, tap and long-press, shortcuts', href: `${base}/getting-started/basics/` },
-	{ icon: 'λ', name: 'scripts', text: 'The scripting overview, the API and the library', href: `${base}/scripting/overview/` },
-	{ icon: '≡', name: 'commands', text: 'Every built-in command', href: `${base}/reference/commands/` },
-	{ icon: '#', name: 'discord', text: 'Ask a question', href: 'https://discord.gg/3D25w6gXR5', external: true },
-	{ icon: '!', name: 'github', text: 'Report a bug or ask for a feature', href: 'https://github.com/mtwabpin/kolahal/issues/new/choose', external: true },
-	{ icon: '⚿', name: 'security', text: 'Report a security problem privately', href: `${base}/reference/security/` },
+const ROWS: { name: string; text: string; href: string; external?: boolean }[] = [
+	{ name: 'Install', text: DIRECT_DOWNLOADS ? 'Download and install; the tour opens the first time' : 'Join the alpha test on Google Play; the tour opens the first time', href: `${base}/getting-started/install/` },
+	{ name: 'Basics', text: 'Suggestions, the key bar, tap and long-press, shortcuts', href: `${base}/getting-started/basics/` },
+	{ name: 'Scripts', text: 'The scripting overview, the API and the library', href: `${base}/scripting/overview/` },
+	{ name: 'Commands', text: 'Every built-in command', href: `${base}/reference/commands/` },
+	{ name: 'Discord', text: 'Ask a question', href: 'https://discord.gg/3D25w6gXR5', external: true },
+	{ name: 'GitHub', text: 'Report a bug or ask for a feature', href: 'https://github.com/mtwabpin/kolahal/issues/new/choose', external: true },
+	{ name: 'Security', text: 'Report a security problem privately', href: `${base}/reference/security/` },
 ];
 ---
 
 <nav class="next not-content" aria-label="Next steps">
 	<ul>
-		{ROWS.map((r, i) => (
+		{ROWS.map((r) => (
 			<li>
-				<a href={r.href} class={i === 0 ? 'hi' : undefined}>
-					<span class="ic" aria-hidden="true">{r.icon}</span>
+				<a href={r.href}>
 					<span class="name">{r.name}</span>
 					<span class="text">{r.text}</span>
-					{r.external && <span class="ext" aria-label="(opens another site)">↗</span>}
-					{i === 0 && <span class="enter" aria-hidden="true">↵</span>}
+					<span class="go" aria-hidden="true">{r.external ? '↗' : '→'}</span>
+					{r.external && <span class="sr-only">(opens another site)</span>}
 				</a>
 			</li>
 		))}
 	</ul>
-	<div class="prompt" aria-hidden="true">$ <span class="cursor">▍</span></div>
 </nav>
 
 <style>
 	.next {
 		max-width: 46rem;
 		margin-top: 1rem;
-		font-family: var(--sl-font-mono);
 	}
 	ul {
 		list-style: none;
 		margin: 0;
 		padding: 0;
+		display: grid;
+		gap: 0.25rem;
+	}
+	li + li {
+		margin: 0;
 	}
 	a {
 		display: flex;
-		align-items: center;
-		gap: 0.9rem;
-		padding: 0.75rem 0.9rem;
-		border-radius: 0.5rem;
-		color: var(--k-fg);
+		align-items: baseline;
+		gap: 1rem;
+		min-height: 2.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: var(--s-radius-s);
+		color: var(--s-ink);
 		text-decoration: none;
 	}
-	a:hover,
-	a.hi {
-		background: color-mix(in srgb, var(--k-prompt) 16%, transparent);
-		box-shadow: inset 3px 0 0 var(--k-prompt);
+	a:hover {
+		background: color-mix(in srgb, var(--s-current) 70%, transparent);
 	}
 	a:focus-visible {
-		outline: 2px solid var(--k-prompt);
+		outline: 2px solid var(--s-link);
 		outline-offset: 2px;
 	}
-	.ic {
-		width: 1.4rem;
-		text-align: center;
-		color: var(--k-prompt);
-	}
 	.name {
+		min-width: 7.5rem;
 		font-weight: 700;
-		min-width: 9rem;
 	}
 	.text {
 		flex: 1;
-		color: var(--k-dim);
-		font-size: var(--sl-text-sm);
+		color: var(--s-muted);
 	}
-	.ext,
-	.enter {
-		color: var(--k-dim);
+	.go {
+		color: var(--s-muted);
 	}
-	.prompt {
-		margin-top: 0.4rem;
-		padding: 0.75rem 0.9rem;
-		border-top: 1px solid var(--k-rule);
-		color: var(--k-prompt);
-		font-weight: 700;
-	}
-	.cursor {
-		color: var(--k-fg);
-		font-weight: 400;
-		animation: blink 1.1s steps(1) infinite;
-	}
-	@keyframes blink {
-		50% {
-			opacity: 0;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.cursor {
-			animation: none;
-		}
+	a:hover .go {
+		color: var(--s-ink);
 	}
 	@media (max-width: 40rem) {
 		a {
 			flex-wrap: wrap;
-			row-gap: 0.1rem;
+			row-gap: 0.125rem;
 		}
 		.name {
 			min-width: 0;
+			flex: 1;
 		}
 		.text {
+			order: 3;
 			flex-basis: 100%;
-			padding-left: 2.3rem;
 		}
 	}
 </style>

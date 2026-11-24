@@ -2,7 +2,8 @@
 /**
  * A screenshot with numbered markers, beside the list that names them: the slot is an ordered
  * list (MDX), whose items match the markers in order. Each mark is [x, y] in percent of the image,
- * set beside the part it names rather than over its text.
+ * set beside the part it names rather than over its text. The markers and the list's numbers are
+ * amber in both site themes, so they read over the app's dark screen.
  */
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
@@ -44,9 +45,9 @@ const { src, alt, marks, width = 320 } = Astro.props;
 		position: relative;
 		flex: 0 1 auto;
 		width: 100%;
-		border-radius: 1rem;
+		border-radius: var(--s-radius-l);
 		overflow: hidden;
-		border: 1px solid var(--sl-color-gray-5);
+		border: 1px solid var(--s-phone-edge);
 		line-height: 0;
 	}
 	.ann-shot img {
@@ -64,7 +65,7 @@ const { src, alt, marks, width = 320 } = Astro.props;
 		place-items: center;
 		background: #f2b35b;
 		color: #0b0d0b;
-		font: 700 0.65rem/1 var(--sl-font-mono);
+		font: 700 0.65rem/1 var(--s-font-text);
 		box-shadow: 0 0 0 2px #0b0d0b;
 	}
 	.ann-legend {
@@ -97,6 +98,6 @@ const { src, alt, marks, width = 320 } = Astro.props;
 		place-items: center;
 		background: #f2b35b;
 		color: #0b0d0b;
-		font: 700 0.68rem/1 var(--sl-font-mono);
+		font: 700 0.72rem/1 var(--s-font-text);
 	}
 </style>

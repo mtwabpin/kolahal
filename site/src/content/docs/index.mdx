@@ -1,62 +1,45 @@
 ---
 title: Kolahal
-description: A keyboard-first terminal launcher for Android, with scripts in Lua 5.4 or JavaScript.
+description: A touch and type optimized launcher for Android, with scripts and widgets in Lua 5.4 or JavaScript, and scenes from its own shaders.
 template: splash
 hero:
-  title: Your home screen is a terminal.
-  tagline: Kolahal is a keyboard-first Android launcher. Type part of an app name and press Enter to open it. Write your own scripts in Lua 5.4 or JavaScript.
+  title: A home screen for touch and typing.
+  tagline: Slide a thumb along the edge to any app, or type part of its name and press Enter. What you run stays in a log you can tap and swipe, with a scene behind it if you like.
   actions:
-    - text: Guide
+    - text: Read the guide
       link: /getting-started/install/
-      icon: right-arrow
       variant: secondary
-    - text: Command reference
-      link: /reference/commands/
-      variant: secondary
-    - text: View on GitHub
-      link: https://github.com/mtwabpin/kolahal
-      icon: external
-      variant: minimal
 ---
 
-import { Image } from 'astro:assets';
-import terminal from '../../assets/terminal-feeds.png';
-import grid from '../../assets/app-grid.png';
-import setup from '../../assets/setup.png';
 import ThemeCards from '../../components/ThemeCards.astro';
-import WhatItDoes from '../../components/WhatItDoes.astro';
 import NextSteps from '../../components/NextSteps.astro';
+import HomeSection from '../../components/HomeSection.astro';
+import Ways from '../../components/Ways.astro';
+import Scripting from '../../components/Scripting.astro';
+import Scenes from '../../components/Scenes.astro';
+import Tour from '../../components/Tour.astro';
+import { TOUR_ON_HOME } from '../../home';
 
-## What it does
+<Ways />
 
-<WhatItDoes />
+<Scripting />
 
-## Screens
+{TOUR_ON_HOME && <Tour end={false} />}
 
-<div class="shots">
-	<figure>
-		<Image src={terminal} alt="Kolahal terminal with feed items, the feed list and a unit conversion" class="shot" width={360} />
-		<figcaption>The log: feed items, `feed`, `= 5 km in mi`</figcaption>
-	</figure>
-	<figure>
-		<Image src={grid} alt="App grid with personal and work apps as chips" class="shot" width={360} />
-		<figcaption>`apps`: every app as a chip (work apps marked `W`)</figcaption>
-	</figure>
-	<figure>
-		<Image src={setup} alt="Setup checklist with fix buttons" class="shot" width={360} />
-		<figcaption>`setup`: first-run checklist</figcaption>
-	</figure>
-</div>
+<HomeSection id="themes" title="Themes">
+	<Fragment slot="lead">
+		Each theme has a dark and a light version. Kolahal uses the one that matches the phone's dark mode.
+	</Fragment>
 
-## Themes
+	<ThemeCards />
 
-Each theme has a dark and a light version. Kolahal uses the one that matches the phone's dark mode.
-This site uses the green theme, the default, in both versions.
+	<Fragment slot="foot">
+		[`material-you`](/guides/themes-and-settings/#material-you) takes its colors from your phone's wallpaper, on Android 12 and newer. Here it is in Material's standard colors.
+	</Fragment>
+</HomeSection>
 
-<ThemeCards />
+<Scenes />
 
-[`material-you`](/guides/themes-and-settings/#material-you) takes its colors from your phone's wallpaper, on Android 12 and newer. Here it is in Material's standard colors.
-
-## Next steps
-
-<NextSteps />
+<HomeSection id="next-steps" title="Next steps">
+	<NextSteps />
+</HomeSection>

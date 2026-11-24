@@ -1,0 +1,83 @@
+/*
+ * The site's own colors and type. The light theme takes its colors from the `mountains` scene at
+ * dusk, the dark one from `pond`: the home page's hero is that scene, and the page under it is the
+ * color the scene fades into.
+ *
+ * The app's palette (--k-*, in the main stylesheet) is separate: it colors the simulated phone and
+ * the theme cards, which show the app as it is.
+ *
+ * Starlight's convention: dark on :root, light under [data-theme='light'].
+ */
+:root {
+	--s-ground: #141a28; /* the page; what the hero's scene fades into */
+	--s-sheet: #1c2233; /* raised surfaces: cards, the sidebar's current group, tables */
+	--s-wash: #2b3350; /* inline code, the current item, a table's header */
+	--s-ink: #ece9f2; /* headings and strong text */
+	--s-ink-soft: #d7d4e3; /* running text */
+	--s-muted: #a9a6bd; /* labels, captions */
+	--s-rule: #343b52; /* hairlines */
+	--s-rule-strong: #8d8aa3; /* the rule under a group's label */
+	--s-link: #f0cfa0;
+	--s-link-hover: #fbe9cc;
+	--s-button: #f2e2c4; /* the filled button */
+	--s-on-button: #1a1c28;
+	--s-code: #0d111b; /* code blocks, dark in both themes */
+	--s-on-code: #ece9f2;
+	--s-code-rule: #2b3350;
+	--s-code-label: #a9a6bd;
+	--s-note: #2a2644; /* an aside of the "note" kind */
+	--s-on-note: #e4dcfb;
+	--s-phone: #0a0c13; /* a phone's frame */
+	--s-phone-edge: #3a4057;
+
+	--s-font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;
+	--s-font-text: 'Instrument Sans Variable', 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--s-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	--s-radius-s: 0.625rem; /* a row in a list, inline code */
+	--s-radius-m: 0.875rem; /* buttons, code blocks, asides */
+	--s-radius-l: 1.375rem; /* sheets and pictures */
+	/* Added for the guide (site.css): asides of the other kinds, a table's stripes, and the
+	   current row of a list on the ground (the sidebar, "On this page"). */
+	--s-tip: #1d302f;
+	--s-on-tip: #c8ecd8;
+	--s-caution: #362a1c;
+	--s-on-caution: #f5d9a8;
+	--s-danger: #3a2129;
+	--s-on-danger: #f7c6cf;
+	--s-stripe: #222942;
+	--s-current: #2b3350;
+}
+
+:root[data-theme='light'] {
+	--s-ground: #eddcd2;
+	--s-sheet: #f8f0ea;
+	--s-wash: #e7d3c8;
+	--s-ink: #241c2b;
+	--s-ink-soft: #33293d;
+	--s-muted: #5a4f63;
+	--s-rule: #d8c3b8;
+	--s-rule-strong: #241c2b;
+	--s-link: #4a3b80;
+	--s-link-hover: #2c2253;
+	--s-button: #241c2b;
+	--s-on-button: #f8eee8;
+	--s-code: #2a2233;
+	--s-on-code: #ece7f2;
+	--s-code-rule: #453a52;
+	--s-code-label: #c9c0d6;
+	--s-note: #e9e2f1;
+	--s-on-note: #2c2253;
+	--s-phone: #17151c;
+	--s-phone-edge: #17151c;
+	/* Added for the guide (site.css): asides of the other kinds, a table's stripes, and the
+	   current row of a list on the ground (the sidebar, "On this page"). */
+	--s-tip: #dcebe0;
+	--s-on-tip: #1c3a2a;
+	--s-caution: #f3e0c2;
+	--s-on-caution: #4a2f0e;
+	--s-danger: #f4d5d5;
+	--s-on-danger: #5c1c25;
+	--s-stripe: #f2e6df;
+	--s-current: #dfc8bb;
+}

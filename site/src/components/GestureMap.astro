@@ -1,7 +1,8 @@
 ---
 /**
  * Every touch gesture on home, drawn on a phone in the app's default "green" palette and
- * numbered; the slot is an ordered list (MDX) naming them in the same order.
+ * numbered; the slot is an ordered list (MDX) naming them in the same order. The numbers are
+ * amber in both site themes, on the screen and in the list, so the two match.
  */
 ---
 
@@ -114,7 +115,7 @@
 		flex: 1 1 16rem;
 		min-width: 0;
 	}
-	.body { fill: #232a22; }
+	.body { fill: var(--s-phone); stroke: var(--s-phone-edge); stroke-width: 1.5; }
 	.screen { fill: var(--k-bg); }
 	.rule { stroke: rgba(215, 222, 211, 0.12); stroke-width: 1; }
 	.clock { fill: var(--k-fg); font: 700 15px var(--sl-font-mono); }
@@ -131,7 +132,7 @@
 	.finger { fill: var(--k-work); fill-opacity: 0.35; stroke: var(--k-work); stroke-width: 1.5; }
 	.ring { fill: none; stroke: var(--k-work); stroke-width: 1.5; stroke-dasharray: 3 2; }
 	.num circle { fill: var(--k-work); stroke: var(--k-bg); stroke-width: 2; }
-	.num text { fill: var(--k-bg); font: 700 9px var(--sl-font-mono); text-anchor: middle; }
+	.num text { fill: var(--k-bg); font: 700 9px var(--s-font-text); text-anchor: middle; }
 	.legend :global(ol) {
 		list-style: none;
 		counter-reset: step;
@@ -158,6 +159,6 @@
 		place-items: center;
 		background: #f2b35b;
 		color: #0b0d0b;
-		font: 700 0.68rem/1 var(--sl-font-mono);
+		font: 700 0.72rem/1 var(--s-font-text);
 	}
 </style>

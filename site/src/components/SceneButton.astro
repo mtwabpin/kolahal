@@ -1,0 +1,95 @@
+---
+/**
+ * A button-like link in the site's look (the home page's hero, the tour's end):
+ * - `filled`: the main action, in the button color;
+ * - `outline`: a second action, outlined in the text color;
+ * - `plain`: a third, as text with an arrow.
+ * All are 52 px tall (44 px at least for a touch), with 14 px corners. `icon` adds an arrow after
+ * the text or a download mark before it.
+ */
+interface Props {
+	href: string;
+	variant?: 'filled' | 'outline' | 'plain';
+	icon?: 'arrow' | 'download';
+}
+const { href, variant = 'filled', icon = variant === 'plain' ? 'arrow' : undefined } = Astro.props;
+---
+
+<a href={href} class:list={['s-btn', variant]}>
+	{
+		icon === 'download' && (
+			<svg aria-hidden="true" viewBox="0 0 24 24">
+				<path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14" />
+			</svg>
+		)
+	}
+	<slot />
+	{
+		icon === 'arrow' && (
+			<svg aria-hidden="true" viewBox="0 0 24 24">
+				<path d="M5 12h14M13 6l6 6-6 6" />
+			</svg>
+		)
+	}
+</a>
+
+<style>
+	.s-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.625rem;
+		min-height: 3.25rem;
+		padding: 0 1.5rem;
+		box-sizing: border-box;
+		border-radius: var(--s-radius-m);
+		font-family: var(--s-font-text);
+		font-size: 1.0625rem;
+		font-weight: 600;
+		line-height: 1.2;
+		text-decoration: none;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease,
+			border-color 0.15s ease;
+	}
+	.s-btn:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: 3px;
+	}
+	svg {
+		width: 1.125rem;
+		height: 1.125rem;
+		flex: none;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2.2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.filled {
+		background: var(--s-button);
+		color: var(--s-on-button);
+	}
+	.filled:hover {
+		background: color-mix(in srgb, var(--s-button) 86%, var(--s-ground));
+		color: var(--s-on-button);
+	}
+	.outline {
+		border: 1.5px solid var(--s-ink);
+		color: var(--s-ink);
+	}
+	.outline:hover {
+		background: color-mix(in srgb, var(--s-ink) 8%, transparent);
+		color: var(--s-ink);
+	}
+	.plain {
+		padding: 0 0.5rem;
+		color: var(--s-ink);
+	}
+	.plain:hover {
+		color: var(--s-ink);
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+	}
+</style>

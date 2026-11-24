@@ -1,129 +1,249 @@
 ---
 /**
- * Starlight Hero override: the title, tagline and actions open the home page's scroll tour
- * (HomeTour), with the simulated phone beside them.
+ * Starlight Hero override: the top of the home page. A scene from the app's own shaders fills it,
+ * behind the site's header, and fades into the page: `mountains` in the light theme, `pond` in the
+ * dark one. Over it: the line about Kolahal, the title and tagline (the page's front matter), the
+ * buttons, a note, and a still phone (ScenePhone). A spacer after the phone keeps the scene's sun
+ * or moon in view beside it on a wide screen.
+ *
+ * - The first button: the APK while the site offers it, else the test on Google Play (release.ts).
+ *   Then the front matter's actions, then "Take the tour": down to the tour when the home page
+ *   shows it, else its own page (home.ts).
+ * - Any other page with a hero (Starlight's 404) gets its title, tagline and actions only.
+ * - On this page only, the header is see-through over the scene and fills in as the page scrolls
+ *   (where the browser has scroll-driven animations; elsewhere it stays as it is). The rule is
+ *   `:root:has(.s-hero) header.header`.
  */
-import { LinkButton } from '@astrojs/starlight/components';
-import HomeTour from './HomeTour.astro';
+import { getImage } from 'astro:assets';
+import ScenePhone from './ScenePhone.astro';
+import SceneButton from './SceneButton.astro';
+import mountains from '../assets/scenes/mountains-wide.jpg';
+import pond from '../assets/scenes/pond-wide.jpg';
 import { APK, DIRECT_DOWNLOADS, PLAY_APK, VERSION } from '../release';
+import { TOUR_ON_HOME } from '../home';
 
-const { data } = Astro.locals.starlightRoute.entry;
+const { data, id } = Astro.locals.starlightRoute.entry;
+/** The home page (src/content/docs/index.mdx). */
+const home = id === 'index' || id === '';
 const { title = data.title, tagline, actions = [] } = data.hero || {};
 // Action links are written site-absolute (`/reference/commands/`), like the Markdown links.
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? base + href : href);
+const VARIANT = { primary: 'filled', secondary: 'outline', minimal: 'plain' } as const;
+
+// The scene at two widths: the narrow one for phones.
+const scene = async (src: ImageMetadata, width: number) => (await getImage({ src, width, format: 'webp', quality: 80 })).src;
+const [lightWide, lightNarrow, darkWide, darkNarrow] = await Promise.all([
+	scene(mountains, 2560),
+	scene(mountains, 1280),
+	scene(pond, 2560),
+	scene(pond, 1280),
+]);
+const scenes = [
+	`--light-wide:url(${lightWide})`,
+	`--light-narrow:url(${lightNarrow})`,
+	`--dark-wide:url(${darkWide})`,
+	`--dark-narrow:url(${darkNarrow})`,
+].join(';');
 ---
 
-<div class="hero">
-	<HomeTour>
-		<div class="stack" slot="intro">
-			<div class="copy">
-				<p class="kicker">── a launcher for Android ──</p>
-				<h1 id="_top" data-page-title set:html={title} />
-				{tagline && <div class="tagline" set:html={tagline} />}
+{!home && (
+	<div class="s-plain">
+		<h1 id="_top" data-page-title set:html={title} />
+		{tagline && <p class="s-tagline" set:html={tagline} />}
+		{actions.length > 0 && (
+			<div class="s-actions">
+				{actions.map(({ link, text, variant }) => (
+					<SceneButton href={withBase(link)} variant={VARIANT[variant ?? 'secondary']}>{text}</SceneButton>
+				))}
 			</div>
-			<div class="get">
-				<div class="actions">
-					{DIRECT_DOWNLOADS ? (
-						<LinkButton href={APK} icon="download" iconPlacement="start">Download the APK</LinkButton>
-					) : (
-						<LinkButton href={withBase('/getting-started/play-testing/')} icon="right-arrow">Join the alpha test</LinkButton>
-					)}
-					{actions.map(({ attrs: { class: className, ...attrs } = {}, icon, link: href, text, variant }) => (
-						<LinkButton href={withBase(href)} {variant} icon={icon?.name} class:list={[className]} {...attrs}>
-							{text}
-						</LinkButton>
-					))}
-				</div>
+		)}
+	</div>
+)}
+{home && <div class="s-hero">
+	<div class="s-scene" style={scenes} aria-hidden="true"></div>
+	<div class="s-row">
+		<div class="s-copy">
+			<p class="s-kicker">A touch and type optimized launcher for Android</p>
+			<h1 id="_top" data-page-title set:html={title} />
+			{tagline && <p class="s-tagline" set:html={tagline} />}
+			<div class="s-actions">
 				{DIRECT_DOWNLOADS ? (
-					<p class="note">
-						Kolahal {VERSION} · Android 9 or newer · the <a href={PLAY_APK}>Play build</a> if Play Protect blocks this one
-					</p>
+					<SceneButton href={APK} variant="filled" icon="download">Download the APK</SceneButton>
 				) : (
-					<p class="note">Kolahal {VERSION} · Android 9 or newer · in alpha testing on Google Play</p>
+					<SceneButton href={withBase('/getting-started/play-testing/')} variant="filled" icon="arrow">Join the test on Google Play</SceneButton>
 				)}
+				{actions.map(({ link, text, variant }) => (
+					<SceneButton href={withBase(link)} variant={VARIANT[variant ?? 'secondary']}>{text}</SceneButton>
+				))}
+				<SceneButton href={TOUR_ON_HOME ? '#tour' : withBase('/tour/')} variant="plain">Take the tour</SceneButton>
 			</div>
+			{DIRECT_DOWNLOADS ? (
+				<p class="s-note">
+					Kolahal {VERSION} · Android 9 or newer · the <a href={PLAY_APK}>Play build</a> if Play Protect blocks this one
+				</p>
+			) : (
+				<p class="s-note">Kolahal {VERSION} · Android 9 or newer · in alpha testing on Google Play</p>
+			)}
 		</div>
-	</HomeTour>
-</div>
+		<div class="s-phone">
+			<ScenePhone />
+		</div>
+		<div class="s-spacer" aria-hidden="true"></div>
+	</div>
+</div>}
 
 <style>
-	.stack {
+	.s-plain {
 		display: flex;
 		flex-direction: column;
-		gap: 1.75rem;
-	}
-	.copy {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
 		align-items: flex-start;
+		gap: 1.25rem;
+		padding: 3rem 0 2rem;
+		font-family: var(--s-font-text);
 	}
-	/* Like the log's "── 2 new since you left ──" */
-	.kicker {
-		font-family: var(--sl-font-mono);
-		font-weight: 700;
-		color: var(--k-prompt);
-		font-size: var(--sl-text-sm);
+	.s-plain > * {
 		margin: 0;
 	}
-	h1 {
-		font-family: var(--sl-font-mono);
-		font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 4.5vw), 3.5rem);
-		line-height: 1.12;
-		font-weight: 700;
-		letter-spacing: -0.04em;
-		color: var(--sl-color-white);
+	.s-hero {
+		position: relative;
+		padding: 3rem 0 5.5rem;
+		color: var(--s-ink);
+		font-family: var(--s-font-text);
+	}
+	/*
+	 * The scene: from the top of the page (behind the header) to the hero's end, as wide as the
+	 * window, fading into the page's color at the bottom. It stays behind the content.
+	 */
+	.s-scene {
+		--scene: var(--dark-wide);
+		position: absolute;
+		z-index: -1;
+		/*
+		 * From above the top of the page, whatever is over the hero (the header, a banner), to the
+		 * hero's end. The scene keeps to its bottom, and its sun or moon (at about 82 % across) to the
+		 * right of the phone.
+		 */
+		top: -12rem;
+		bottom: 0;
+		left: calc(50% - 50vw);
+		width: 100vw;
+		background:
+			linear-gradient(to bottom, transparent 62%, var(--s-ground)),
+			var(--scene) 68% 100% / cover no-repeat,
+			var(--s-ground);
+	}
+	:global(:root[data-theme='light']) .s-scene {
+		--scene: var(--light-wide);
+	}
+	/* On a phone the scene is behind the text, and the phone under it stands on the page. */
+	@media (max-width: 50rem) {
+		.s-scene {
+			--scene: var(--dark-narrow);
+			bottom: auto;
+			height: calc(12rem + 40rem);
+			background-position: 0 0, 80% 100%, 0 0;
+		}
+		:global(:root[data-theme='light']) .s-scene {
+			--scene: var(--light-narrow);
+		}
+	}
+	/* The scene is as wide as the window, and nothing scrolls sideways for it. */
+	:global(:root:has(.s-hero) .main-pane) {
+		overflow-x: clip;
+	}
+	/* The header: see-through over the scene, filled in once the page scrolls under it. */
+	@supports (animation-timeline: scroll()) {
+		:global(:root:has(.s-hero) header.header) {
+			animation: s-header-fill linear both;
+		}
+		/* Apart from the shorthand, which resets the timeline (and a minifier would fold it in). */
+		:global(:root:has(.s-hero) header.header.header) {
+			animation-timeline: scroll(root block);
+			animation-range: 0 5rem;
+		}
+	}
+	@keyframes s-header-fill {
+		from {
+			background-color: transparent;
+			border-bottom-color: transparent;
+			box-shadow: none;
+		}
+	}
+
+	.s-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 3rem 3.5rem;
+	}
+	.s-copy {
+		flex: 1 1 27.5rem;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 1.375rem;
+	}
+	.s-copy > * {
 		margin: 0;
+	}
+	.s-kicker {
+		font-size: 0.9375rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--s-ink-soft);
+	}
+	/* By its id too: the page's title rules have it. */
+	h1#_top {
+		margin: 0;
+		font-family: var(--s-font-display);
+		font-weight: 700;
+		font-size: clamp(2.625rem, 5.4vw, 4.25rem);
+		line-height: 1.02;
+		letter-spacing: -0.025em;
+		color: var(--s-ink);
 		text-wrap: balance;
 	}
-	/* The prompt's caret after the title. */
-	h1::after {
-		content: '';
-		display: inline-block;
-		width: 0.5em;
-		height: 0.95em;
-		margin-inline-start: 0.15em;
-		vertical-align: -0.1em;
-		background: var(--k-prompt);
-		animation: blink 1.2s steps(1) infinite;
+	.s-tagline {
+		max-width: 31em;
+		font-size: 1.1875rem;
+		line-height: 1.55;
+		color: var(--s-ink-soft);
 	}
-	@keyframes blink {
-		50% {
-			opacity: 0;
-		}
-	}
-	.tagline {
-		font-size: clamp(var(--sl-text-base), calc(0.0625rem + 2vw), var(--sl-text-xl));
-		color: var(--sl-color-gray-1);
-		max-width: 34ch;
-	}
-	.actions {
+	.s-actions {
 		display: flex;
-		gap: 0.75rem;
 		flex-wrap: wrap;
-	}
-	.get {
-		display: flex;
-		flex-direction: column;
 		gap: 0.75rem;
+		margin-top: 0.375rem;
 	}
-	.note {
-		font-size: var(--sl-text-sm);
-		color: var(--sl-color-gray-3);
-		margin: 0;
+	.s-note {
+		font-size: 0.9375rem;
+		color: var(--s-ink-soft);
 	}
-	.note a {
-		color: var(--k-link);
+	.s-note a {
+		color: inherit;
+		text-underline-offset: 0.2em;
 	}
-	@media (min-width: 50rem) and (max-width: 72rem) {
-		h1 {
-			font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 3.4vw), 3rem);
+	.s-phone {
+		flex: 0 1 17.5rem;
+		margin: 0 auto;
+		display: flex;
+		justify-content: center;
+		max-width: 100%;
+	}
+	/* Room for the scene's sun or moon beside the phone. */
+	.s-spacer {
+		flex: 0 1 6.25rem;
+		height: 0;
+	}
+	@media (max-width: 50rem) {
+		.s-hero {
+			padding: 1.5rem 0 4rem;
 		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		h1::after {
-			animation: none;
+		.s-spacer {
+			display: none;
 		}
 	}
 </style>

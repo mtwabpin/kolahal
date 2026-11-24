@@ -1,0 +1,104 @@
+---
+/**
+ * "A scene behind it" on the home page: four of the shaders that come with Kolahal, from renders of
+ * them (assets/scenes/), each with its name and a sentence that the shaders page agrees with
+ * (scripting/shaders.md and the shaders' headers). The second card is the scene the hero doesn't
+ * show in the current theme: `pond` beside the light theme's mountains, `mountains` beside the dark
+ * theme's pond.
+ */
+import { Image } from 'astro:assets';
+import HomeSection from './HomeSection.astro';
+import dunes from '../assets/scenes/dunes-wide.jpg';
+import pond from '../assets/scenes/pond-wide.jpg';
+import mountains from '../assets/scenes/mountains-wide.jpg';
+import lanterns from '../assets/scenes/lanterns.webp';
+import candle from '../assets/scenes/candle.webp';
+
+/** The shaders that come with Kolahal (ShaderCatalog.BUNDLED; the table in scripting/shaders.md). */
+const BUNDLED = 33;
+
+type Card = { src: ImageMetadata; name: string; text: string; alt: string; wide: boolean; pos: string; theme?: 'light' | 'dark' };
+const CARDS: Card[] = [
+	{ src: dunes, name: 'dunes', text: 'A caravan climbs the long dune once an hour.', alt: 'Sand dunes in pink and orange light under a pale sun', wide: true, pos: '60% 50%' },
+	{ src: pond, name: 'pond', text: 'A still pond under far hills, with rings of rain.', alt: 'A still pond under far hills, the moon low over them', wide: true, pos: '78% 50%', theme: 'light' },
+	{ src: mountains, name: 'mountains', text: 'Ridges in mist that breathe slowly and follow the hour.', alt: 'Mountain ridges in mist under a low sun, with birds', wide: true, pos: '70% 40%', theme: 'dark' },
+	{ src: lanterns, name: 'lanterns', text: "Seven lanterns, each as high as that day's unlocks.", alt: 'Paper lanterns rising over dark water at night', wide: false, pos: '50% 30%' },
+	{ src: candle, name: 'candle', text: "It burns down as today's screen time is spent.", alt: 'A lit candle in a brass dish on a dark table', wide: false, pos: '50% 28%' },
+];
+---
+
+<HomeSection id="a-scene-behind-it" title="A scene behind it" link={{ href: '/scripting/shaders/', text: `All ${BUNDLED} shaders` }}>
+	<Fragment slot="lead">
+		<p>
+			{BUNDLED} shaders come with Kolahal. They draw behind home, or as your phone's wallpaper. Some are drawn from your
+			screen time and unlocks, which never leave the phone. Shaders need Android 13 or newer.
+		</p>
+	</Fragment>
+	<ul class="sn-cards">
+		{
+			CARDS.map((c) => (
+				<li class:list={['sn-card', { wide: c.wide }, c.theme && `for-${c.theme}`]}>
+					<Image src={c.src} alt={c.alt} width={c.wide ? 720 : 400} densities={[1, 2]} style={`object-position:${c.pos}`} />
+					<div>
+						<span class="sn-name">{c.name}</span>
+						<span class="sn-text">{c.text}</span>
+					</div>
+				</li>
+			))
+		}
+	</ul>
+</HomeSection>
+
+<style>
+	.sn-cards {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.25rem;
+	}
+	.sn-card {
+		flex: 1 1 10rem;
+		min-width: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	.sn-card.wide {
+		flex: 2 1 18.75rem;
+	}
+	/* The card of the scene the hero doesn't show in this theme. */
+	.for-light {
+		display: none;
+	}
+	:global(:root[data-theme='light']) .for-light {
+		display: flex;
+	}
+	:global(:root[data-theme='light']) .for-dark {
+		display: none;
+	}
+	.sn-card :global(img) {
+		display: block;
+		width: 100%;
+		height: 15.625rem;
+		object-fit: cover;
+		border-radius: var(--s-radius-l);
+		background: var(--s-sheet);
+	}
+	.sn-card div {
+		display: flex;
+		flex-direction: column;
+	}
+	.sn-name {
+		font-family: var(--s-font-mono);
+		font-size: 0.9375rem;
+		font-weight: 600;
+		color: var(--s-ink);
+	}
+	.sn-text {
+		font-size: 0.9375rem;
+		color: var(--s-ink-soft);
+	}
+</style>

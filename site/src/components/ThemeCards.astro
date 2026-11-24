@@ -53,21 +53,21 @@ const vars = (c: P) => `--t-bg:${c.bg};--t-fg:${c.fg};--t-dim:${c.dim};--t-promp
 	.themes li {
 		margin: 0;
 		font-size: var(--sl-text-sm);
-		color: var(--sl-color-gray-3);
+		color: var(--s-muted);
 	}
 	.pair {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		border-radius: 0.5rem;
+		border-radius: var(--s-radius-m);
 		overflow: hidden;
-		margin-bottom: 0.5rem;
-		box-shadow: 0 0 0 1px var(--k-rule);
+		margin-bottom: 0.625rem;
+		box-shadow: 0 0 0 1px var(--s-rule);
 	}
 	.half {
 		background: var(--t-bg);
 		color: var(--t-fg);
 		font: 0.7rem/1.6 var(--sl-font-mono);
-		padding: 0.55rem 0.6rem;
+		padding: 0.625rem 0.75rem;
 		white-space: nowrap;
 		overflow: hidden;
 	}
@@ -96,12 +96,11 @@ const vars = (c: P) => `--t-bg:${c.bg};--t-fg:${c.fg};--t-dim:${c.dim};--t-promp
 		padding: 0 3px;
 	}
 	code {
-		font-family: var(--sl-font-mono);
-		color: var(--sl-color-gray-1);
+		font-family: var(--s-font-mono);
+		font-weight: 600;
+		color: var(--s-ink);
 	}
 	.default {
-		color: var(--k-prompt);
-		font-family: var(--sl-font-mono);
-		font-size: var(--sl-text-xs);
+		color: var(--s-muted);
 	}
 </style>
