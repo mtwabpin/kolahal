@@ -4,30 +4,31 @@
 //  1. Reads the data file and checks it: each chapter's length against its cuts, the short cut's
 //     segments against the full cut, and each caption's time on screen against its length (at
 //     least 3 s, and about 15 characters a second).
-//  2. Works out each chapter of the cut: the pieces of recordings it is made of, its captions, its
-//     ground, and whether it joins the next with a crossfade (where the ground changes). A
-//     crossfade overlaps the two chapters by half its length on each side, so every chapter
-//     starts in the joined video where the plan says, whatever the form.
+//  2. Works out each chapter of the cut: the pieces of recordings it is made of, its captions and
+//     its ground. Then the motion, in the video's own seconds (motion.mjs, numbers from
+//     video.json → motion): where the phone grows for a close-up, where it lifts and lands, where
+//     the ground drifts and slides, when each caption comes and goes.
 //  3. Shoots the still layers it needs from cards.html with headless Chrome (cached by what they
 //     show, under <out>/work/layers/).
 //  4. Cuts each chapter's phone clip from its recordings (1080 × 2400, 30 frames a second), with a
-//     plain stand-in screen for a recording not yet made.
-//  5. Builds the form asked for, one chapter at a time, each into files of its own under work/:
+//     plain stand-in screen for a recording not yet made. Each clip runs half a change (the
+//     seconds of motion.change) past the chapter at either end, and is cut in up to three: the
+//     change at its start (head), the rest (body), the change at its end (tail).
+//  5. Builds the form asked for, one piece at a time, each a job of its own: a chapter's body, or
+//     the change between two chapters (one second, centred on the cut, that reads the tail of one
+//     clip and the head of the next):
 //       whole    ground, phone in its frame, captions (H.264 in MP4; the default)
-//       phone    the phone clips alone, upright at the recording's size (H.264 in MP4)
-//       framed   the phone in its frame with round corners and shadow, on a transparent ground
-//                (VP9 with alpha in WebM)
-//     Each chapter's file is cut in up to three: its first second (head) and last second (tail)
-//     where it crossfades with its neighbour, and the rest (body). A crossfade is a small job of
-//     its own on a tail and the next head; the join reads the bodies and crossfades in order
-//     (ffmpeg's concat demuxer) and writes the video.
+//       phone    the phone clips alone, upright at the recording's size, with plain cuts
+//       framed   the phone in its frame with round corners and shadow, on a transparent ground,
+//                with the phone's lift and landing but no close-ups (VP9 with alpha in WebM)
+//     The join reads the pieces in order (ffmpeg's concat demuxer) and writes the video.
 //  6. Writes the captions as an SRT file beside it, the same for every form.
 //
-// Memory: no job ever holds more than one chapter. ffmpeg runs one at a time, with a bounded number
-// of threads, and still pictures are looped only for the seconds they show. Where systemd-run is
-// there, each ffmpeg and Chrome runs in a scope with a memory cap (VIDEO_MEMORY_MAX, 6G by
-// default), so a job that grows is stopped alone; VIDEO_THREADS (4 by default) bounds the threads.
-// The run prints the largest memory an ffmpeg job used.
+// Memory: no job ever holds more than one chapter, or the one second where two meet. ffmpeg runs
+// one at a time, with a bounded number of threads, and still pictures are looped only for the
+// seconds they show. Where systemd-run is there, each ffmpeg and Chrome runs in a scope with a
+// memory cap (VIDEO_MEMORY_MAX, 6G by default), so a job that grows is stopped alone; VIDEO_THREADS
+// (4 by default) bounds the threads. The run prints the largest memory an ffmpeg job used.
 //
 // Seconds in the data file:
 //  - full.cuts: [{in, out}, …] in the recording's own seconds; their lengths add up to the
@@ -38,13 +39,15 @@
 //  - captions: [{at, text, note?}, …] from the chapter's start; each shows until the next one, the
 //    last until the chapter's end. `word` shows as code. head: the label and heading over all of
 //    a chapter's captions; card: the opening's and the closing's words instead.
-//  - close: [[from, to], …] where the phone is shown 1.5 times larger, with its top off the frame.
+//  - close: [[from, to], …] where the phone is shown motion.close.scale times larger: it starts
+//    growing at from and is back at full size by to.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spring, track, valueAt, exprOf, moves, range, n } from './motion.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
@@ -89,28 +92,29 @@ const work = path.join(videoDir, 'work');
 
 const data = JSON.parse(fs.readFileSync(path.join(here, 'video.json'), 'utf8'));
 const FPS = data.fps;
-const CF = data.crossfade;
 const REC = data.recording;
+const M = data.motion;
+const springs = Object.fromEntries(Object.entries(M.springs).map(([k, v]) => [k, spring(v)]));
+const CHANGE = M.change.seconds; // the seconds of a change between two chapters, centred on the cut
 
-// The frame: 1920 × 1080, or 3840 × 2160 with --4k. Layout in 1920 × 1080 pixels, times U.
+// The frame: 1920 × 1080, or 3840 × 2160 with --4k. Layout and motion in 1920 × 1080 pixels, times U.
 const U = k4 ? 2 : 1;
 const W = 1920 * U;
 const H = 1080 * U;
-// The phone's layer from cards.html (kind frame): the frame at the recording's scale, with room
-// for its shadow around it.
+// The phone's layers from cards.html (kinds frame and shadow): the frame at the recording's scale,
+// with room for its shadow around it.
 const PH = { w: 1554, h: 2854, frameX: 200, frameY: 40, frameW: 1154, frameH: 2474, screenX: 237, screenY: 77 };
+const FCX = PH.frameX + PH.frameW / 2; // the frame's middle on its layer
+const FCY = PH.frameY + PH.frameH / 2;
 // The frame stands at the frame's full height less 80 px above and below (1840 of 2160 at 4K),
 // its left edge a ninth of the way in.
 const phoneH = H * 1840 / 2160;
 const K = phoneH / PH.frameH;
 const phoneCX = W / 9 + (PH.frameW * K) / 2;
-const phoneBottom = (H + phoneH) / 2;
 // The captions' column, right of the phone (even at 1.5 times), and its two layers.
 const COL = { x: 880, w: 960 };
 const HEAD = { y: 0, h: 520 };
 const TEXT = { y: 548, h: 492 };
-const ZOOM = 0.8; // seconds the phone takes to grow or shrink
-const FADE = 0.3; // seconds a caption takes to fade in or out
 
 function fail(msg) {
 	console.error(msg);
@@ -186,42 +190,23 @@ function resolve(ch) {
 }
 
 const chapters = data.chapters.filter((c) => c[cut]).map(resolve);
-// Where the ground changes, a crossfade: half of it before the chapter's start, half after.
+// Every cut between two chapters is a change: half of it before the cut, half after, so each
+// chapter's clip runs that far past it at either end.
 chapters.forEach((c, i) => {
-	c.xfIn = i > 0 && chapters[i - 1].ground !== c.ground;
-	c.pre = c.xfIn ? CF / 2 : 0;
-});
-chapters.forEach((c, i) => {
-	c.xfOut = i + 1 < chapters.length && chapters[i + 1].xfIn;
-	c.post = c.xfOut ? CF / 2 : 0;
+	c.pre = i > 0 ? CHANGE / 2 : 0;
+	c.post = i + 1 < chapters.length ? CHANGE / 2 : 0;
 	c.dur = c.pre + c.seconds + c.post;
+	// A change where the ground changes too is a change of scene.
+	c.newScene = i > 0 && chapters[i - 1].ground !== c.ground;
+	if (c.seconds < 2 * CHANGE) warnings.add(`${c.id}: ${c.seconds} s is too short for a change of ${CHANGE} s at either end.`);
 });
 let clock = 0;
 for (const c of chapters) {
 	c.start = clock;
 	clock += c.seconds;
+	c.end = clock;
 }
 const total = clock;
-
-// The ground's slow pan: one movement across each run of chapters on the same ground, so it goes
-// on over a plain cut. 0.1% of the frame's width a second, at least 3% over a run.
-const runs = [];
-for (const c of chapters) {
-	if (runs.length && runs.at(-1).ground === c.ground) runs.at(-1).chapters.push(c);
-	else runs.push({ ground: c.ground, chapters: [c] });
-}
-for (const run of runs) {
-	const first = run.chapters[0];
-	const last = run.chapters.at(-1);
-	const t0 = first.start - first.pre;
-	const t1 = last.start + last.seconds + last.post;
-	run.extra = Math.max(0.03, 0.001 * (t1 - t0));
-	for (const c of run.chapters) {
-		c.run = run;
-		c.p0 = (c.start - c.pre - t0) / (t1 - t0);
-		c.p1 = (c.start - c.pre + c.dur - t0) / (t1 - t0);
-	}
-}
 
 // The captions' time on screen.
 const plain = (s) => s.replace(/`/g, '');
@@ -232,6 +217,100 @@ for (const c of chapters) {
 		if (shown + 0.05 < need)
 			warnings.add(`${c.id} (${cut}): "${plain(cap.text)}" shows ${r3(shown)} s; ${r3(need)} s would read at 15 characters a second.`);
 	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 2. The motion, in the video's seconds. Distances are pixels of a 1920 × 1080 frame.
+
+const SP = springs.phone;
+const EXIT = M.exit;
+
+// The phone: zoom goes from 0 (full size) to 1 (a close-up); lift is 0 where the phone rests and 1
+// where it is lifted off the ground (lower, a little larger, its shadow wider and further down).
+const zoom = track(0);
+const lift = track(1);
+lift.moves.push({ kind: 'spring', s: SP, t: M.phone.start, d: -1 });
+for (const c of chapters) {
+	for (const [from, to] of c.close) {
+		const a = c.start + from;
+		const b = Math.max(a + SP.settle, c.start + to - SP.settle);
+		zoom.moves.push({ kind: 'spring', s: SP, t: a, d: 1 }, { kind: 'spring', s: SP, t: b, d: -1 });
+	}
+	const kick = c.newScene ? M.change.sceneKick : c.pre ? M.change.kick : 0;
+	// Lifted most on the cut itself, where the screen changes.
+	if (kick) lift.moves.push({ kind: 'kick', s: SP, t: c.start - SP.peakTime, d: kick });
+}
+// The close-up grows the phone about one point of its screen (motion.close.anchor, as shares of
+// the screen's width and height), which stays where it is.
+const CS = M.close.scale;
+const anchor = { x: PH.screenX + M.close.anchor[0] * REC.width, y: PH.screenY + M.close.anchor[1] * REC.height };
+
+// The ground: one track for each run of chapters on the same ground, the left edge of what shows
+// of its wide picture. It drifts slowly over the run (easing in and out), nudges on at each cut
+// inside the run, and at a change of scene the old ground slides on as the new one slides in, both
+// on the same spring, while the new one fades in over the old.
+const runs = [];
+for (const c of chapters) {
+	if (runs.length && runs.at(-1).ground === c.ground) runs.at(-1).chapters.push(c);
+	else runs.push({ ground: c.ground, chapters: [c] });
+}
+const G = M.ground;
+runs.forEach((run, r) => {
+	const first = run.chapters[0];
+	const last = run.chapters.at(-1);
+	const x = track(0);
+	if (r > 0) x.moves.push({ kind: 'spring', s: springs.ground, t: first.start - G.lead, d: G.slide });
+	x.moves.push({ kind: 'wave', t: first.start, secs: last.end - first.start, d: G.pan * 1920 * (last.end - first.start) });
+	for (const c of run.chapters.slice(1)) x.moves.push({ kind: 'spring', s: springs.ground, t: c.start - G.lead, d: G.nudge });
+	if (r + 1 < runs.length) x.moves.push({ kind: 'spring', s: springs.ground, t: last.end - G.lead, d: G.slide });
+	run.x = x;
+	[run.lo, run.hi] = range(x, first.start - first.pre, last.end + last.post, FPS);
+	for (const c of run.chapters) c.run = run;
+});
+
+// The words of chapter c: each part of each caption with the seconds it comes in (tin) and starts
+// to leave (tout; null for the closing card, which stays to the end). The label, the heading and
+// the first line come one after the other, a stagger apart, once the chapter has started (at the
+// opening, once the phone is on its way); all of them leave together before the chapter ends.
+function wordsOf(c, i) {
+	const g = data.grounds[c.ground];
+	const st = M.stagger;
+	const a0 = c.start + (i === 0 ? M.phone.start + M.words.opening : M.words.delay);
+	const end = i + 1 < chapters.length ? c.end - EXIT.seconds : null;
+	const out = [];
+	const add = (spec, w, h, y, tin, tout) => out.push({ png: layer({ tokens: g.tokens, ...spec }, w, h, U), y, tin, tout });
+	if (c.ch.card) {
+		const parts = c.ch.card.line ? ['heading', 'text', 'line'] : ['heading', 'text'];
+		parts.forEach((part, k) => add({ kind: 'card', ...c.ch.card, part }, COL.w, 1080, 0, a0 + k * st, end));
+	}
+	if (c.ch.head) ['label', 'heading'].forEach((part, k) => add({ kind: 'head', ...c.ch.head, part }, COL.w, HEAD.h, HEAD.y, a0 + k * st, end));
+	c.captions.forEach((cap, k) => {
+		const tin = k === 0 ? a0 + (c.ch.head ? 2 * st : 0) : c.start + cap.at;
+		const tout = k + 1 < c.captions.length ? c.start + cap.to - EXIT.seconds : end;
+		const spec = { kind: 'text', text: cap.text, note: cap.note };
+		add({ ...spec, part: cap.note ? 'text' : undefined }, COL.w, TEXT.h, TEXT.y, tin, tout);
+		if (cap.note) add({ ...spec, part: 'note' }, COL.w, TEXT.h, TEXT.y, tin + st, tout);
+	});
+	for (const w of out) {
+		// From motion.words.rise below its place, up into it on the words' spring, and away
+		// upwards by exitRise as it leaves.
+		w.y0 = w.y;
+		w.dy = track(M.words.rise);
+		w.dy.moves.push({ kind: 'spring', s: springs.words, t: w.tin, d: -M.words.rise });
+		if (w.tout !== null) w.dy.moves.push({ kind: 'exit', t: w.tout, secs: EXIT.seconds, power: EXIT.power, d: -M.words.exitRise });
+		w.from = w.tin;
+		w.to = w.tout === null ? total : w.tout + EXIT.seconds;
+	}
+	return out;
+}
+
+// What --check prints about the motion.
+function motionNotes() {
+	const lines = Object.entries(springs).map(([k, s]) =>
+		`  spring ${k}: overshoot ${(s.overshoot * 100).toFixed(1)}%, settles in ${s.settle} s ` +
+		`(stiffness ${s.stiffness.toFixed(1)}, damping ${s.damping.toFixed(2)}, mass 1; ratio ${s.ratio.toFixed(3)})`);
+	lines.push(`  exit: ${EXIT.seconds} s, eased in to the power ${EXIT.power}; stagger ${M.stagger} s; a change ${CHANGE} s`);
+	return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -349,14 +428,14 @@ async function shootLayers() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Pieces: a chapter's video cut where its crossfades begin and end.
+// Pieces: a chapter's clip cut where its changes begin and end.
 
-// The parts of chapter c: [name, from, to] in its own seconds.
+// The parts of chapter c's clip: [name, from, to] in its own seconds.
 function parts(c) {
 	const p = [];
-	if (c.xfIn) p.push(['head', 0, CF]);
-	p.push(['body', c.xfIn ? CF : 0, c.xfOut ? c.dur - CF : c.dur]);
-	if (c.xfOut) p.push(['tail', c.dur - CF, c.dur]);
+	if (c.pre) p.push(['head', 0, 2 * c.pre]);
+	p.push(['body', 2 * c.pre, c.dur - 2 * c.post]);
+	if (c.post) p.push(['tail', c.dur - 2 * c.post, c.dur]);
 	return p;
 }
 // split(c, label, base, codec, ext): the filters and outputs that write the stream `label` of
@@ -402,10 +481,10 @@ function source(id) {
 	return s;
 }
 
-// The phone clip of chapter c, as pieces; returns {head?, body, tail?, list}.
+// The phone clip of chapter c, as pieces; returns {files: {head?, body, tail?}}.
 async function phoneClip(c) {
 	const base = path.join(work, cut, `${c.id}.phone`);
-	// Half a crossfade more at either end, from the recording around the cut where there is any.
+	// Half a change more at either end, from the recording around the cut where there is any.
 	const pieces = c.pieces.map((p) => ({ ...p }));
 	pieces[0].in -= c.pre;
 	pieces.at(-1).out += c.post;
@@ -414,8 +493,6 @@ async function phoneClip(c) {
 		return s.real ? [s.file, mtime(s.file)] : [s.still];
 	})]);
 	const out = split(c, '[v]', base, X264_WORK, 'mp4');
-	fs.mkdirSync(path.dirname(base), { recursive: true });
-	out.list = concatList(base + '.txt', Object.values(out.files));
 	if (fresh(out.files.body, sig)) return out;
 	const args = [];
 	const filters = [];
@@ -443,139 +520,204 @@ async function phoneClip(c) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// 5. The forms, one chapter at a time.
+// 5. The forms, one piece at a time.
 
-// The phone's growth for the close-ups: 0 at full size, 1 at closeScale, eased, at time t of
-// the chapter's clip (which starts `pre` seconds before the chapter).
-function zoomExpr(c) {
-	if (!c.close.length) return null;
-	const ps = c.close.map(([a, b]) => {
-		const A = r3(a + c.pre);
-		const B = r3(b + c.pre);
-		const P = `min(clip((t-${A})/${ZOOM},0,1),clip((${B}-t)/${ZOOM},0,1))`;
-		return `(${P})*(${P})*(3-2*(${P}))`;
+// The pieces of the joined video in order: each chapter's body, and between two chapters their
+// change. w0 and w1 are its seconds in the video.
+function pieceList() {
+	const list = [];
+	chapters.forEach((c, i) => {
+		list.push({ kind: 'body', c, w0: c.start + c.pre, w1: c.end - c.post, name: c.id });
+		const next = chapters[i + 1];
+		if (next) list.push({ kind: 'change', a: c, c: next, w0: c.end - CHANGE / 2, w1: c.end + CHANGE / 2, name: `${c.id}+${next.id}` });
 	});
-	return ps.reduce((acc, p) => `max(${acc},${p})`);
+	return list;
 }
 
-// The layers of the whole picture of chapter c: registered first, shot all at once.
-function wholeLayers(c) {
-	const g = data.grounds[c.ground];
-	const scene = g.scene ? `file://${path.join(sceneDir, g.scene)}` : null;
-	const gw = Math.round((W * (1 + c.run.extra)) / U / 2) * 2; // CSS pixels
-	const L = {
-		ground: layer({ kind: 'ground', tokens: g.tokens, scene }, gw, 1080, U),
-		wash: layer({ kind: 'wash', tokens: g.tokens, scene }, 1920, 1080, U),
-		frame: layer({ kind: 'frame', tokens: g.tokens }, PH.w, PH.h),
-		mask: layer({ kind: 'mask' }, REC.width, REC.height),
-		// The captions: [png, x, y, from, to] in the clip's seconds, never during a crossfade
-		// (words of two chapters would lie on each other).
-		over: [],
+// Filters with expressions: commas escaped for the filter graph, the whole in quotes.
+const q = (e) => `'${String(e).replace(/,/g, '\\,')}'`;
+// A still picture as a stream, for `len` seconds only.
+const still = (i, len) => `[${i}:v]loop=loop=-1:size=1,setpts=N/${FPS}/TB,trim=duration=${r3(len)}`;
+
+// A graph under construction: its inputs and filters.
+function graph() {
+	const g = { args: [], f: [], n: 0 };
+	g.input = (...a) => {
+		g.args.push(...a);
+		return g.n++;
 	};
-	const add = (png, x, y, a, b) =>
-		L.over.push([png, x, y, r3(Math.max(c.xfIn ? CF : 0, a)), r3(Math.min(c.xfOut ? c.dur - CF : c.dur, b))]);
-	if (c.ch.card) add(layer({ kind: 'card', tokens: g.tokens, ...c.ch.card }, COL.w, 1080, U), COL.x, 0, 0, c.dur);
-	if (c.ch.head) add(layer({ kind: 'head', tokens: g.tokens, ...c.ch.head }, COL.w, HEAD.h, U), COL.x, HEAD.y, c.pre, c.pre + c.seconds);
-	for (const cap of c.captions) {
-		const png = layer({ kind: 'text', tokens: g.tokens, text: cap.text, note: cap.note }, COL.w, TEXT.h, U);
-		add(png, COL.x, TEXT.y, c.pre + cap.at, c.pre + cap.to);
-	}
-	return L;
+	return g;
 }
 
-async function wholeChapter(c, clip, L) {
-	const base = path.join(work, `${cut}-${H}p`, c.id);
-	const out = split(c, '[out]', base, X264_WORK, 'mp4');
-	const sig = JSON.stringify([L, c.p0, c.p1, c.close, c.dur, mtime(clip.files.body), W]);
-	if (fresh(out.files.body, sig)) return out;
-	fs.mkdirSync(path.dirname(base), { recursive: true });
-	const D = r3(c.dur);
-	// A still picture as a stream, for `len` seconds only.
-	const still = (i, len) => `[${i}:v]loop=loop=-1:size=1,setpts=N/${FPS}/TB,trim=duration=${r3(len)}`;
-	const inputs = [...IN, '-f', 'concat', '-safe', '0', '-i', clip.list, '-i', L.ground, '-i', L.wash, '-i', L.frame, '-i', L.mask,
-		...L.over.flatMap((o) => ['-i', o[0]])];
-	const f = [];
-	// The ground, panning from p0 to p1 of its extra width over the chapter, and the wash.
-	f.push(`${still(1, D)},format=rgb24,crop=${W}:${H}:x='(iw-ow)*(${r3(c.p0)}+${r3(c.p1 - c.p0)}*t/${D})':y=0[g0]`);
-	f.push(`[2:v]format=rgba[wash]`);
-	f.push(`[g0][wash]overlay=0:0:format=rgb:eof_action=repeat[g]`);
-	// The phone: the recording with round corners in its frame, at the recording's scale.
-	f.push(`[4:v]format=gray[mask]`);
-	f.push(`[0:v]format=yuv420p,setpts=PTS-STARTPTS[rec]`);
-	f.push(`[rec][mask]alphamerge[screen]`);
-	f.push(`${still(3, D)},format=rgba[frame]`);
-	f.push(`[frame][screen]overlay=${PH.screenX}:${PH.screenY}:format=rgb:eof_action=endall[phone]`);
-	const zoom = zoomExpr(c);
-	const s = data.closeScale - 1;
-	const ex = (e) => e.replace(/,/g, '\\,');
-	if (zoom) {
-		const scale = `${r3(K)}*(1+${s}*(${zoom}))`;
-		f.push(`[phone]scale=w='trunc(${PH.w}*${ex(scale)}/2)*2':h='trunc(${PH.h}*${ex(scale)}/2)*2':eval=frame:flags=bicubic,format=yuva420p[ph]`);
-	} else {
-		f.push(`[phone]scale=${Math.round((PH.w * K) / 2) * 2}:${Math.round((PH.h * K) / 2) * 2}:flags=bicubic,format=yuva420p[ph]`);
-	}
-	// Placed by the frame's middle and its bottom edge, which stay put as it grows.
-	const fx = `${r3(phoneCX)}-${PH.frameX + PH.frameW / 2}*w/${PH.w}`;
-	const fy = `${r3(phoneBottom)}-${PH.frameY + PH.frameH}*h/${PH.h}`;
-	f.push(`[g][ph]overlay=x='${fx}':y='${fy}':eval=${zoom ? 'frame' : 'init'}:format=yuv420[v0]`);
-	// The captions, each looped only for its seconds, faded in and out.
-	L.over.forEach(([, x, y, A, B], i) => {
-		const len = r3(B - A);
-		f.push(`${still(5 + i, len)},format=yuva420p,fade=t=in:st=0:d=${FADE}:alpha=1,` +
-			`fade=t=out:st=${r3(len - FADE)}:d=${FADE}:alpha=1,setpts=PTS+${A}/TB[c${i}]`);
-		f.push(`[v${i}][c${i}]overlay=${x * U}:${y * U}:eof_action=pass:format=yuv420[v${i + 1}]`);
+// The phone for piece p into graph g: its frame with the clip in it, and its shadow, at the
+// recording's scale ([phone] and [shadow]). In a change, the next chapter's phone fades in over
+// the one before it for motion.change.screen seconds about the cut. frames(c) and shadows(c)
+// name each chapter's layers.
+function phoneLayers(g, p, clips, frameOf, shadowOf) {
+	const D = r3(p.w1 - p.w0);
+	const sides = p.kind === 'body'
+		? [{ c: p.c, file: clips.get(p.c.id).files.body }]
+		: [{ c: p.a, file: clips.get(p.a.id).files.tail }, { c: p.c, file: clips.get(p.c.id).files.head }];
+	const mask = g.input('-i', layerMask);
+	g.f.push(sides.length > 1 ? `[${mask}:v]format=gray,split=2[m0][m1]` : `[${mask}:v]format=gray[m0]`);
+	sides.forEach((s, k) => {
+		const clip = g.input(...IN, '-i', s.file);
+		const frame = g.input('-i', frameOf(s.c));
+		const shadow = g.input('-i', shadowOf(s.c));
+		g.f.push(`[${clip}:v]format=yuv420p,setpts=PTS-STARTPTS[rec${k}]`);
+		g.f.push(`[rec${k}][m${k}]alphamerge[scr${k}]`);
+		g.f.push(`${still(frame, D)},format=rgba[fr${k}]`);
+		g.f.push(`[fr${k}][scr${k}]overlay=${PH.screenX}:${PH.screenY}:format=rgb:eof_action=endall[ph${k}]`);
+		g.f.push(`${still(shadow, D)},format=rgba[sh${k}]`);
 	});
-	f.push(`[v${L.over.length}]format=yuv420p,trim=duration=${D}[out]`);
-	await ffmpeg([...inputs, '-filter_complex', `${f.join(';')};${out.graph}`, ...out.args], `${c.id} at ${W} × ${H}`);
-	mark(out.files.body, sig);
-	return out;
+	let phone = '[ph0]';
+	let shadow = '[sh0]';
+	if (sides.length > 1) {
+		const fade = `fade=t=in:st=${r3(p.c.start - M.change.screen / 2 - p.w0)}:d=${M.change.screen}:alpha=1`;
+		g.f.push(`[ph1]${fade}[ph1f]`, `[ph0][ph1f]overlay=0:0:format=rgb[phx]`);
+		g.f.push(`[sh1]${fade}[sh1f]`, `[sh0][sh1f]overlay=0:0:format=rgb[shx]`);
+		phone = '[phx]';
+		shadow = '[shx]';
+	}
+	// At the very start the phone fades in as it rises.
+	if (p.w0 <= M.phone.start && M.phone.start < p.w1) {
+		const fade = `fade=t=in:st=${r3(M.phone.start - p.w0)}:d=${M.phone.fade}:alpha=1`;
+		g.f.push(`${phone}${fade}[phy]`, `${shadow}${fade}[shy]`);
+		phone = '[phy]';
+		shadow = '[shy]';
+	}
+	g.f.push(`${phone}null[phone]`, `${shadow}null[shadow]`);
 }
 
-async function framedChapter(c, clip, frame, mask) {
-	const base = path.join(work, `${cut}-framed`, c.id);
-	const out = split(c, '[out]', base, FFV1_WORK, 'mkv');
-	const sig = JSON.stringify([frame, mask, c.dur, mtime(clip.files.body)]);
-	if (fresh(out.files.body, sig)) return out;
-	fs.mkdirSync(path.dirname(base), { recursive: true });
-	const D = r3(c.dur);
-	const f = [
-		`[1:v]loop=loop=-1:size=1,setpts=N/${FPS}/TB,trim=duration=${D},format=rgba[frame]`,
-		`[2:v]format=gray[mask]`,
-		`[0:v]format=yuv420p,setpts=PTS-STARTPTS[rec]`,
-		`[rec][mask]alphamerge[screen]`,
-		`[frame][screen]overlay=${PH.screenX}:${PH.screenY}:format=rgb:eof_action=endall,format=yuva420p,trim=duration=${D}[out]`,
-	];
-	await ffmpeg([...IN, '-f', 'concat', '-safe', '0', '-i', clip.list, '-i', frame, '-i', mask,
-		'-filter_complex', `${f.join(';')};${out.graph}`, ...out.args], `${c.id} framed`);
-	mark(out.files.body, sig);
-	return out;
+// The phone's place for piece p: expressions of t (the piece's own seconds) for its scale (of the
+// layer's pixels), the middle of its frame (cx, cy), and its shadow's scale and middle; or numbers
+// where nothing moves within the piece. base: the scale at rest; mid: the frame's middle at rest;
+// px: pixels of the picture per pixel of a 1920 × 1080 frame; close: whether close-ups show.
+function phonePlace(p, { base, mid, px, close }) {
+	const z = close && moves(zoom, p.w0, p.w1);
+	const l = moves(lift, p.w0, p.w1);
+	const Z = !close ? '0' : z ? `(${exprOf(zoom, p.w0, p.w1)})` : n(valueAt(zoom, p.w0));
+	const L = l ? `(${exprOf(lift, p.w0, p.w1)})` : n(valueAt(lift, p.w0));
+	const P = M.phone;
+	const s = `${n(base)}*(1+${n(CS - 1)}*${Z})*(1+${n(P.grow)}*${L})`;
+	// Grown about the anchor: the frame's middle moves so the anchor stays.
+	const cx = `${n(mid.x)}+${n((anchor.x - FCX) * base * (1 - CS))}*${Z}`;
+	const cy = `${n(mid.y)}+${n((anchor.y - FCY) * base * (1 - CS))}*${Z}+${n(P.rise * px)}*${L}`;
+	const ss = `(${s})*(1+${n(P.shadowGrow)}*${L})`;
+	const scy = `${cy}+${n(P.shadowDrop * px)}*${L}`;
+	return { moving: z || l, s, cx, cy, ss, scy };
+}
+// The filters that scale the layer `inp` by `s` and lay it over `under` with its frame's middle
+// at (cx, cy), into `out`.
+function placed(g, inp, under, out, s, cx, cy, moving, fmt) {
+	const sw = moving ? `w=${q(`trunc(${PH.w}*${s}/2)*2`)}:h=${q(`trunc(${PH.h}*${s}/2)*2`)}:eval=frame`
+		: `${Math.round((PH.w * eval0(s)) / 2) * 2}:${Math.round((PH.h * eval0(s)) / 2) * 2}`;
+	g.f.push(`${inp}scale=${sw}:flags=bicubic,format=${fmt === 'rgb' ? 'rgba' : 'yuva420p'}${inp.replace(']', 's]')}`);
+	const pos = moving ? `x=${q(`${cx}-${FCX}*w/${PH.w}`)}:y=${q(`${cy}-${FCY}*h/${PH.h}`)}:eval=frame`
+		: `x=${Math.round(eval0(cx) - (FCX * Math.round((PH.w * eval0(s)) / 2) * 2) / PH.w)}:y=${Math.round(eval0(cy) - (FCY * Math.round((PH.h * eval0(s)) / 2) * 2) / PH.h)}`;
+	g.f.push(`${under}${inp.replace(']', 's]')}overlay=${pos}:format=${fmt}${out}`);
+}
+// A constant expression (no t) worked out.
+function eval0(e) {
+	if (/\bt\b/.test(e)) throw new Error(`Not a constant: ${e}`);
+	return Function(`return (${e});`)();
 }
 
-// The crossfade between chapter a's tail and chapter b's head: a job of one second.
-async function crossfade(a, b, pa, pb, codec, ext) {
-	const file = path.join(path.dirname(pa.files.tail), `${a.id}+${b.id}.${ext}`);
-	const sig = JSON.stringify([mtime(pa.files.tail), mtime(pb.files.head)]);
+let layerMask;
+
+// The whole picture of piece p: ground, phone, captions.
+async function wholePiece(p, clips, words) {
+	const dir = path.join(work, `${cut}-${H}p`);
+	const file = path.join(dir, `${p.name}.mp4`);
+	const D = r3(p.w1 - p.w0);
+	const g = graph();
+	// The grounds: one, or the two of a change of scene.
+	const rs = p.kind === 'body' ? [p.c.run] : p.a.run === p.c.run ? [p.a.run] : [p.a.run, p.c.run];
+	rs.forEach((run, k) => {
+		const gi = g.input('-i', run.layer);
+		const wi = g.input('-i', run.wash);
+		const x = moves(run.x, p.w0, p.w1) ? exprOf(run.x, p.w0, p.w1) : n(valueAt(run.x, p.w0));
+		g.f.push(`${still(gi, D)},format=rgb24,crop=${W}:${H}:x=${q(`clip(${U}*(${x}-${n(run.lo)}),0,iw-ow)`)}:y=0[gr${k}]`);
+		g.f.push(`${still(wi, D)},format=rgba[wa${k}]`);
+		g.f.push(`[gr${k}][wa${k}]overlay=0:0:format=rgb[gw${k}]`);
+	});
+	if (rs.length > 1) {
+		g.f.push(`[gw1]format=rgba,fade=t=in:st=${r3(p.c.start - G.lead - p.w0)}:d=${G.fade}:alpha=1[gf1]`);
+		g.f.push(`[gw0][gf1]overlay=0:0:format=rgb[g]`);
+	} else g.f.push(`[gw0]null[g]`);
+	// The phone.
+	phoneLayers(g, p, clips, (c) => c.frame, (c) => c.shadow);
+	const at = phonePlace(p, { base: K, mid: { x: phoneCX, y: H / 2 }, px: U, close: true });
+	placed(g, '[shadow]', '[g]', '[v0]', at.ss, at.cx, at.scy, at.moving, 'yuv420');
+	placed(g, '[phone]', '[v0]', '[v1]', at.s, at.cx, at.cy, at.moving, 'yuv420');
+	// The captions that show within the piece, each looped only for its seconds, faded in and
+	// out and moved on its track.
+	let v = 1;
+	for (const w of words) {
+		if (w.to <= p.w0 || w.from >= p.w1) continue;
+		const i = g.input('-i', w.png);
+		const len = r3(w.to - w.from);
+		const fades = [`fade=t=in:st=0:d=${M.words.fade}:alpha=1`];
+		if (w.tout !== null) fades.push(`fade=t=out:st=${r3(w.tout - w.from)}:d=${EXIT.seconds}:alpha=1`);
+		const a = r3(Math.max(0, p.w0 - w.from));
+		const b = r3(Math.min(w.to, p.w1) - w.from);
+		g.f.push(`${still(i, len)},format=yuva420p,${fades.join(',')},trim=start=${a}:end=${b},` +
+			`setpts=PTS-STARTPTS+${r3(Math.max(0, w.from - p.w0))}/TB[w${v}]`);
+		const y = moves(w.dy, p.w0, p.w1)
+			? `y=${q(`${w.y0 * U}+${U}*(${exprOf(w.dy, p.w0, p.w1)})`)}:eval=frame`
+			: `y=${Math.round(w.y0 * U + U * valueAt(w.dy, p.w0))}`;
+		g.f.push(`[v${v}][w${v}]overlay=x=${COL.x * U}:${y}:eof_action=pass:format=yuv420[v${v + 1}]`);
+		v++;
+	}
+	g.f.push(`[v${v}]format=yuv420p,trim=duration=${D}[out]`);
+	return render(g, file, X264_WORK, p, clips, `${p.name} at ${W} × ${H}`);
+}
+
+// The phone alone in its frame on a transparent ground of the frame layer's size, with its lift
+// and landing (no close-ups: they are a matter of the 16:9 picture).
+async function framedPiece(p, clips) {
+	const dir = path.join(work, `${cut}-framed`);
+	const file = path.join(dir, `${p.name}.mkv`);
+	const D = r3(p.w1 - p.w0);
+	const g = graph();
+	g.f.push(`color=c=black@0:s=${PH.w}x${PH.h}:r=${FPS}:d=${D},format=rgba[g]`);
+	phoneLayers(g, p, clips, () => frameDark, () => shadowDark);
+	const at = phonePlace(p, { base: 1, mid: { x: FCX, y: FCY }, px: PH.frameH / (1080 * 1840 / 2160), close: false });
+	placed(g, '[shadow]', '[g]', '[v0]', at.ss, at.cx, at.scy, at.moving, 'rgb');
+	placed(g, '[phone]', '[v0]', '[v1]', at.s, at.cx, at.cy, at.moving, 'rgb');
+	g.f.push(`[v1]format=yuva420p,trim=duration=${D}[out]`);
+	return render(g, file, FFV1_WORK, p, clips, `${p.name} framed`);
+}
+
+// The phone clips alone: a body is the clip's own body; a change is a plain cut on the cut.
+async function phonePiece(p, clips) {
+	if (p.kind === 'body') return clips.get(p.c.id).files.body;
+	const file = path.join(work, cut, `${p.name}.phone.mp4`);
+	const g = graph();
+	const a = g.input(...IN, '-i', clips.get(p.a.id).files.tail);
+	const b = g.input(...IN, '-i', clips.get(p.c.id).files.head);
+	const h = r3(CHANGE / 2);
+	g.f.push(`[${a}:v]trim=end=${h},setpts=PTS-STARTPTS[a]`, `[${b}:v]trim=start=${h},setpts=PTS-STARTPTS[b]`, `[a][b]concat=n=2:v=1:a=0[out]`);
+	return render(g, file, X264_WORK, p, clips, `${p.name} cut`);
+}
+
+// Runs graph g into file unless an earlier run made it from the same things.
+async function render(g, file, codec, p, clips, what) {
+	const ids = p.kind === 'body' ? [p.c.id] : [p.a.id, p.c.id];
+	const sig = JSON.stringify([g.args, g.f, ids.map((id) => mtime(clips.get(id).files.body))]);
 	if (fresh(file, sig)) return file;
-	await ffmpeg([...IN, '-i', pa.files.tail, ...IN, '-i', pb.files.head, '-filter_complex',
-		`[0:v]settb=AVTB[a];[1:v]settb=AVTB[b];[a][b]xfade=transition=fade:duration=${CF}:offset=0[v]`,
-		'-map', '[v]', ...codec, file], `${a.id} to ${b.id} crossfade`);
+	fs.mkdirSync(path.dirname(file), { recursive: true });
+	await ffmpeg([...g.args, '-filter_complex', g.f.join(';'), '-map', '[out]', ...codec, file], what);
 	mark(file, sig);
 	return file;
-}
-
-// The join: bodies and crossfades in order, read one after the other.
-async function join(pieces, codec, ext, listFile) {
-	const order = [];
-	for (let i = 0; i < chapters.length; i++) {
-		order.push(pieces[i].files.body);
-		if (chapters[i].xfOut) order.push(await crossfade(chapters[i], chapters[i + 1], pieces[i], pieces[i + 1], codec, ext));
-	}
-	return concatList(listFile, order);
 }
 
 const X264_FINAL = ['-c:v', 'libx264', '-profile:v', 'high', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(FPS), ...OUT];
 const SILENCE = ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo'];
 const AAC = ['-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart'];
+
+let frameDark;
+let shadowDark;
 
 // ---------------------------------------------------------------------------------------------
 
@@ -588,6 +730,7 @@ async function main() {
 	console.log(`${cut} cut, ${theme}, ${only === 'whole' ? `${W} × ${H}` : only}: ${chapters.length} chapters, ${total} s.`);
 	for (const w of warnings) console.log(`  note: ${w}`);
 	if (checkOnly) {
+		console.log(`Motion (video.json → motion):\n${motionNotes()}`);
 		console.log(`Captions: ${srtFile}`);
 		return;
 	}
@@ -595,41 +738,57 @@ async function main() {
 
 	const t0 = Date.now();
 	const secs = () => ((Date.now() - t0) / 1000).toFixed(0);
-	const todo = onlyChapter ? chapters.filter((c) => c.id === onlyChapter) : chapters;
-	if (!todo.length) fail(`No chapter ${onlyChapter} in the ${cut} cut.`);
+	let pieces = pieceList();
+	if (onlyChapter) {
+		pieces = pieces.filter((p) => p.kind === 'body' && p.c.id === onlyChapter);
+		if (!pieces.length) fail(`No chapter ${onlyChapter} in the ${cut} cut.`);
+	}
+	const todo = chapters.filter((c) => pieces.some((p) => p.c === c || p.a === c));
 	// Sources and layers first, so everything Chrome draws is shot in one go.
 	for (const c of todo) for (const p of c.pieces) source(p.id);
-	const frameDark = layer({ kind: 'frame', tokens: 'dark' }, PH.w, PH.h);
-	const mask = layer({ kind: 'mask' }, REC.width, REC.height);
-	const layers = only === 'whole' ? todo.map(wholeLayers) : [];
+	layerMask = layer({ kind: 'mask' }, REC.width, REC.height);
+	frameDark = layer({ kind: 'frame', tokens: 'dark' }, PH.w, PH.h);
+	shadowDark = layer({ kind: 'shadow', tokens: 'dark' }, PH.w, PH.h);
+	const words = new Map();
+	if (only === 'whole') {
+		for (const c of todo) {
+			const g = data.grounds[c.ground];
+			c.frame = layer({ kind: 'frame', tokens: g.tokens }, PH.w, PH.h);
+			c.shadow = layer({ kind: 'shadow', tokens: g.tokens }, PH.w, PH.h);
+			const run = c.run;
+			if (!run.layer) {
+				const scene = g.scene ? `file://${path.join(sceneDir, g.scene)}` : null;
+				const gw = Math.round((1920 + (run.hi - run.lo) + 4) / 2) * 2; // CSS pixels
+				run.layer = layer({ kind: 'ground', tokens: g.tokens, scene }, gw, 1080, U);
+				run.wash = layer({ kind: 'wash', tokens: g.tokens, scene }, 1920, 1080, U);
+			}
+			words.set(c.id, wordsOf(c, chapters.indexOf(c)));
+		}
+	}
 	await shootLayers();
 	if (missing.length) console.log(`Not recorded yet, so a plain stand-in: ${missing.join(', ')} (looked in ${recDir}).`);
 
-	const clips = [];
-	for (const c of todo) clips.push(await phoneClip(c));
+	const clips = new Map();
+	for (const c of todo) clips.set(c.id, await phoneClip(c));
 	console.log(`Phone clips: ${secs()} s.`);
 
-	let pieces = clips;
-	let codec = X264_WORK;
-	let ext = 'mp4';
-	if (only === 'whole') {
-		pieces = [];
-		for (let i = 0; i < todo.length; i++) pieces.push(await wholeChapter(todo[i], clips[i], layers[i]));
-	} else if (only === 'framed') {
-		pieces = [];
-		for (let i = 0; i < todo.length; i++) pieces.push(await framedChapter(todo[i], clips[i], frameDark, mask));
-		codec = FFV1_WORK;
-		ext = 'mkv';
+	const files = [];
+	for (const p of pieces) {
+		if (only === 'whole') {
+			const ws = p.kind === 'body' ? words.get(p.c.id) : [...words.get(p.a.id), ...words.get(p.c.id)];
+			files.push(await wholePiece(p, clips, ws));
+		} else if (only === 'framed') files.push(await framedPiece(p, clips));
+		else files.push(await phonePiece(p, clips));
 	}
-	console.log(`Chapters: ${secs()} s.`);
+	console.log(`Pieces: ${secs()} s.`);
 	const peak = () => `largest memory of a job ${(peakKiB / 1048576).toFixed(2)} GiB (${peakJob})`;
 	if (onlyChapter) {
-		console.log(`${onlyChapter}: ${Object.values(pieces[0].files).join(', ')}; ${peak()}.`);
+		console.log(`${onlyChapter}: ${files.join(', ')}; ${peak()}.`);
 		return;
 	}
 
 	const form = only === 'whole' ? `${k4 ? '-2160p' : ''}` : `-${only}`;
-	const list = await join(pieces, codec, ext, path.join(work, `${name}${form}.txt`));
+	const list = concatList(path.join(work, `${name}${form}.txt`), files);
 	let out;
 	const input = [...IN, '-f', 'concat', '-safe', '0', '-i', list];
 	if (only === 'framed') {

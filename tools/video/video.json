@@ -1,8 +1,20 @@
 {
 	"fps": 30,
 	"recording": { "width": 1080, "height": 2400, "lead": 2 },
-	"crossfade": 1,
-	"closeScale": 1.5,
+	"motion": {
+		"springs": {
+			"phone": { "overshoot": 0.03, "settle": 0.6 },
+			"words": { "overshoot": 0.02, "settle": 0.5 },
+			"ground": { "overshoot": 0.01, "settle": 1.1 }
+		},
+		"exit": { "seconds": 0.2, "power": 2 },
+		"stagger": 0.08,
+		"close": { "scale": 1.5, "anchor": [0.5, 1] },
+		"phone": { "start": 0.1, "fade": 0.3, "rise": 60, "grow": 0.04, "shadowGrow": 0.12, "shadowDrop": 36 },
+		"words": { "rise": 26, "exitRise": 12, "fade": 0.25, "delay": 0.12, "opening": 0.3 },
+		"change": { "seconds": 1, "screen": 0.24, "kick": 0, "sceneKick": 0.45 },
+		"ground": { "lead": 0.25, "slide": 150, "fade": 0.5, "nudge": 40, "pan": 0.001 }
+	},
 	"grounds": {
 		"mountains": { "scene": "mountains-wide.jpg", "tokens": "light" },
 		"pond": { "scene": "pond-wide.jpg", "tokens": "dark" },

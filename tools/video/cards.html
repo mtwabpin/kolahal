@@ -6,12 +6,17 @@
      Kinds:
        ground   the scene at the top, fading into the ground's color; wider than the frame, for the pan
        wash     the ground's color behind the captions, so they keep their contrast over the scene
-       frame    the phone's frame with its shadow, at the recording's own scale (the screen is empty)
+       frame    the phone's frame at the recording's own scale (the screen is empty)
+       shadow   the frame's shadow alone, on the same canvas, so it can move apart from the phone
        mask     the screen's round corners: white inside, black outside, at the recording's size
        head     a chapter's label and heading, standing on the bottom edge of the layer
        text     a caption's words, and a small note under them, hanging from the top of the layer
        card     the name, the line under it, and a last line: the opening and the closing
        missing  a stand-in screen for a chapter not yet recorded, in the app theme's colors
+
+     A head, a text and a card take a "part" (head: label or heading; text: text or note; card:
+     heading, text or line): only that part shows, in its place, so the parts can come in one after
+     the other.
 
      The look is the website's (its tokens, site/src/styles/tokens.css, and its fonts, from the
      site's packages inside this repository: run `pnpm install` in site/ first). The phone's frame
@@ -75,9 +80,21 @@
 		border-radius: 148px;
 		border: 4px solid var(--s-phone-edge);
 		background: var(--s-phone);
-		box-shadow: 0 148px 288px -115px var(--frame-shadow, rgb(0 0 0 / 0.8));
 	}
-	:root[data-theme='light'] .frame { --frame-shadow: color-mix(in srgb, var(--s-ink) 60%, transparent); }
+	/* The shadow under the frame: the cover's box-shadow (0 148px 288px -115px) drawn as a blurred
+	   shape of its own, so it is there under the phone too when the two move apart. */
+	.shadow {
+		position: absolute;
+		left: calc(200px + 115px);
+		top: calc(40px + 115px + 148px);
+		width: calc(1154px - 230px);
+		height: calc(2474px - 230px);
+		border-radius: 33px;
+		background: var(--frame-shadow, rgb(0 0 0 / 0.8));
+		filter: blur(144px);
+	}
+	:root[data-theme='light'] .shadow { --frame-shadow: color-mix(in srgb, var(--s-ink) 60%, transparent); }
+	.hidden { visibility: hidden; }
 	.mask { position: absolute; inset: 0; background: #000; }
 	.mask div { position: absolute; inset: 0; border-radius: 115px; background: #fff; }
 
@@ -184,19 +201,23 @@
 		case 'frame':
 			body.appendChild(el('div', 'frame'));
 			break;
+		case 'shadow':
+			body.appendChild(el('div', 'shadow'));
+			break;
 		case 'mask':
 			body.appendChild(el('div', 'mask')).appendChild(el('div'));
 			break;
 		case 'head': {
 			const h = body.appendChild(el('div', 'head'));
-			h.appendChild(el('div', 'label', words(spec.label)));
-			h.appendChild(el('h1', '', words(spec.heading)));
+			h.appendChild(el('div', 'label', words(spec.label))).dataset.part = 'label';
+			h.appendChild(el('h1', '', words(spec.heading))).dataset.part = 'heading';
 			break;
 		}
 		case 'text': {
 			const t = body.appendChild(el('div', 'text'));
 			const p = t.appendChild(el('p', '', words(spec.text)));
-			if (spec.note) t.appendChild(el('div', 'note', words(spec.note)));
+			p.dataset.part = 'text';
+			if (spec.note) t.appendChild(el('div', 'note', words(spec.note))).dataset.part = 'note';
 			// At most two lines: a longer caption gets smaller type, down to 46 px.
 			// Measured once the font is in.
 			document.fonts.load('54px "Instrument Sans Variable"').then(() => {
@@ -207,9 +228,9 @@
 		}
 		case 'card': {
 			const c = body.appendChild(el('div', 'card'));
-			c.appendChild(el('h1', '', words(spec.heading)));
-			c.appendChild(el('p', '', words(spec.text)));
-			if (spec.line) c.appendChild(el('div', 'line', words(spec.line)));
+			c.appendChild(el('h1', '', words(spec.heading))).dataset.part = 'heading';
+			c.appendChild(el('p', '', words(spec.text))).dataset.part = 'text';
+			if (spec.line) c.appendChild(el('div', 'line', words(spec.line))).dataset.part = 'line';
 			break;
 		}
 		case 'missing': {
@@ -222,6 +243,9 @@
 			break;
 		}
 	}
+	// One part only: the others keep their place but don't show.
+	if (spec.part)
+		for (const e of document.querySelectorAll('[data-part]')) e.classList.toggle('hidden', e.dataset.part !== spec.part);
 </script>
 </body>
 </html>
