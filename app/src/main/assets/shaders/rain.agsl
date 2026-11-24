@@ -1,19 +1,18 @@
 // @name Rain
-// @description A calm rain seen from indoors: fine streaks that fall slowly, far off and nearer, and mist. A touch holds it off
+// @description A calm rain out of the window, away from you: short streaks that fall slowly, nearly straight down, and mist. A touch holds it off
 // @suits dark good, light fair, wallpaper good
 // @animated
 // @param amount 0.0..2.0 = 1.0 Amount of rain
 // @param speed 0.5..3.0 = 1.0 Speed of the rain
 //
-// A calm rain to leave on all day. Five depths of rain, all some way off: from a far curtain of
-// fine, short, faint streaks to a few drops in the middle distance, about four times as wide and
-// twice as bright. The nearer a depth, the faster it crosses the screen (at a speed of 1, the far
-// rain in about ten seconds and the nearest in about three) and the longer its streaks. Amount sets
-// how many drops there are and speed how fast they fall; neither changes the other. Slow waves of
-// heavier and lighter rain dim and brighten it, and in a heavy rain light swells far off now and
-// then. The rain spreads a little from a point far above the screen, and leaning the phone moves
-// that point. It only shows where the page does, so text stays as it is. Five steps a pixel at
-// most, most of them ending early.
+// A calm rain to leave on all day, seen out of a window: all of it some way off. Three far depths
+// of short, thin, faint streaks, each about ten times as long as it is wide, that differ only a
+// little in size and speed. At a speed of 1 they cross the screen in eleven to twelve seconds,
+// nearly straight down with a slight lean. Amount sets how many drops there are and speed how fast
+// they fall; neither changes the other. Slow waves of heavier and lighter rain dim and brighten it,
+// and in a heavy rain light swells far off now and then. Leaning the phone leans the rain a little.
+// It only shows where the page does, so text stays as it is. Three steps a pixel at most, most of
+// them ending early.
 
 uniform shader content;
 uniform float2 resolution;
@@ -67,35 +66,34 @@ half4 main(float2 xy) {
     float sheet = noise(float2(xy.x / size.x * 1.1 + t * 0.015, xy.y / size.y * 0.75 - t * 0.025));
 
     // The wind's slant and the phone's lean: how far the rain goes sideways for each pixel it falls.
-    float slant = 0.07 + 0.45 * tilt.x;
+    float slant = 0.05 + 0.15 * tilt.x;
 
-    // What grows from one depth to the next: the width of a streak, the room each streak has across,
-    // the room between two drops down a streak, and the speed. At a speed of 1 the far rain crosses
-    // the screen in about ten seconds and the nearest in about three.
+    // What grows a little from one depth to the next: the width of a streak, the room each streak
+    // has across, the room between two drops down a streak, and the speed. All three depths are far
+    // off, so they differ only a little. At a speed of 1 the rain crosses the screen in eleven to
+    // twelve seconds on average.
     float scale = 1.0;
-    float width = size.x / 110.0;
-    float gap = size.y * 0.06;
-    float fall = size.y * 0.1 * speed;
-    // How long a drop's trace is: what it falls in about a fifth of a second at a speed of 1, and
-    // for longer the slower it falls, so slow rain is still fine streaks and not dots, and fast rain
-    // doesn't leave long ones.
-    float exposure = 0.21 / pow(speed, 0.8);
+    float width = size.x / 100.0;
+    float gap = size.y * 0.045;
+    float fall = size.y * 0.08 * speed;
+    // A streak's length: a short stroke, about ten times as long as it is wide, at every speed.
+    float stroke = unit * 18.0;
 
     float rain = 0.0;
-    for (int i = 0; i < 5; i++) {
-        // Each depth after the first: a little wider, with more room and more speed.
+    for (int i = 0; i < 3; i++) {
+        // Each depth after the first: a little wider, with a little more room and speed.
         if (i > 0) {
-            scale *= 1.4;
-            width *= 1.62;
-            gap *= 1.4;
-            fall *= 1.35;
+            scale *= 1.12;
+            width *= 1.25;
+            gap *= 1.2;
+            fall *= 1.08;
         }
-        // How near this depth is, from 0 (far) to 1 (the middle distance).
-        float near = float(i) / 4.0;
+        // How near this depth is, from 0 (farthest) to 1 (still far).
+        float near = float(i) / 2.0;
 
         // The point this depth's streaks spread from, far above the screen. Leaning forward or back
         // brings it nearer or takes it away.
-        float above = size.y * mix(10.0, 3.5, near) * (1.0 + 0.3 * tilt.y);
+        float above = size.y * mix(10.0, 8.0, near) * (1.0 + 0.3 * tilt.y);
         float2 from = xy - float2(size.x * 0.5 - slant * (above + size.y * 0.5), -above);
         // Across: which streak, counted by angle, so the streaks widen a little as they come down.
         // Along: how far down its streak.
@@ -114,35 +112,36 @@ half4 main(float2 xy) {
         float y = (from.y - t * fall * (0.8 + 0.4 * own)) / gap + own * 7.0;
         float drop = floor(y);
         float part = fract(y);
-        // A drop's head is at 0.8 down its room, with its trace above it; the head is a few pixels.
-        float most = min(0.7, fall * exposure / gap);
-        float head = unit * mix(2.0, 5.0, near) / gap;
+        // A drop's head is at 0.8 down its room, with its short trace above it; the head is a few
+        // pixels.
+        float most = min(0.7, stroke * scale / gap);
+        float head = unit * 2.0 / gap;
         if (part <= 0.8 - most || part >= 0.8 + head) {
             continue;
         }
 
-        // Which drops are there: few of the nearer ones, and fewer at an amount of 1 than its share of
-        // 2, so a usual rain is calm. A drop is there for its whole fall: the waves only dim it.
+        // Which drops are there: fewer at an amount of 1 than its share of 2, so a usual rain is
+        // calm. A drop is there for its whole fall: the waves only dim it.
         float r = hash(float2(col * 1.7 + near * 31.0, mod(drop, 512.0)));
-        float there = step(1.0 - amount * (0.4 + 0.3 * amount) * mix(0.72, 0.15, near), r);
+        float there = step(1.0 - amount * (0.4 + 0.3 * amount) * mix(0.6, 0.45, near), r);
 
-        // Its width: a thin line, a little wider and softer nearer, and each drop its own.
+        // Its width: a thin line, and each drop its own.
         float off = abs(across - mix(0.3, 0.7, fract(r * 3.1))) * spread * width;
         float wide = thick * mix(0.65, 1.0, fract(r * 11.3));
         // A drop that isn't there, or a pixel beside its streak: nothing of this depth.
         if (there <= 0.0 || off >= wide) {
             continue;
         }
-        float line = 1.0 - smoothstep(wide * mix(0.35, 0.1, near), wide, off);
+        float line = 1.0 - smoothstep(wide * 0.35, wide, off);
         line *= line;
 
         // The streak: a soft tail that grows toward the head, each one its own length.
-        float len = most * mix(0.55, 1.0, fract(r * 7.3));
-        float tail = smoothstep(0.8 - len, 0.8 - 0.2 * len, part) * (1.0 - smoothstep(0.8, 0.8 + head, part));
+        float len = most * mix(0.7, 1.0, fract(r * 7.3));
+        float tail = smoothstep(0.8 - len, 0.8 - 0.5 * len, part) * (1.0 - smoothstep(0.8, 0.8 + head, part));
 
-        // Far rain is faintest; the nearer, the clearer, but never bright.
-        float bright = mix(0.22, 0.42, near) * mix(0.7, 1.0, fract(r * 5.9));
-        rain += tail * line * bright * mix(0.65 + 0.7 * sheet, 0.8 + 0.4 * sheet, near);
+        // Faint, and a little clearer in the less far depths, but never bright.
+        float bright = mix(0.24, 0.32, near) * mix(0.7, 1.0, fract(r * 5.9));
+        rain += tail * line * bright * (0.7 + 0.6 * sheet);
     }
 
     // Haze: the far rain as mist, thicker lower down and where a heavy sheet is.
