@@ -143,13 +143,14 @@ internal object WidgetWords {
      * What a countdown to [to] says at [now].
      * - Before the moment: "12 days" ([style] "days"), or "03:25:10" ([style] "clock"). With no
      *   style, it counts days while the moment is more than 48 hours away, and is a clock after that.
+     *   The styles that draw days ([CountdownDays.counts]) count days to the end.
      * - On the day of the moment, once it has passed: [reached], or "today".
      * - On later days: the time since, as "3 days ago".
      */
     fun countdown(to: Long, now: Long, style: String?, reached: String?, zone: ZoneId): Count {
         val left = to - now
         if (left > 0) {
-            val clock = style == "clock" || (style != "days" && left <= 48 * HOUR)
+            val clock = style == "clock" || (style == null && left <= 48 * HOUR)
             if (clock) return Count(clock(left), null, ticks = true)
             val (n, unit) = spanParts(left)
             return Count(n, unit, ticks = false)
@@ -375,7 +376,7 @@ internal object WidgetWords {
                 }
 
                 is WidgetSpec.Countdown -> {
-                    add(countdown(spec.to, now, "days", spec.reached, zone).text)
+                    add(CountdownDays.said(spec, now, zone, locale) ?: countdown(spec.to, now, "days", spec.reached, zone).text)
                     add(spec.label)
                 }
                 // Each button and each switch is an item of its own for a screen reader. The card names them.

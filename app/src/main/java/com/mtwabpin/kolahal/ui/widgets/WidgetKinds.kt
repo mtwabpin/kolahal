@@ -93,7 +93,7 @@ internal fun KindBody(
         is WidgetSpec.Buttons -> ButtonsBody(spec, onTap)
         is WidgetSpec.Toggles -> TogglesBody(spec, onTap, stamp)
         is WidgetSpec.Clock -> ClockBody(spec, box, onTap)
-        is WidgetSpec.Agenda -> AgendaBody(spec, onTap)
+        is WidgetSpec.Agenda -> AgendaBody(spec, onTap, box)
         is WidgetSpec.Image -> ImageBody(spec, box)
         is WidgetSpec.Versus -> VersusBody(spec, box)
         is WidgetSpec.Sky -> SkyBody(spec, box)

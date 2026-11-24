@@ -179,6 +179,11 @@ data class PlacedWidget(
     val column: Int = WidgetPlacement.UNPLACED,
     /** Its top edge, in dp from the top of the page. [WidgetPlacement.UNPLACED] until it has a place. */
     val topDp: Int = WidgetPlacement.UNPLACED,
+    /**
+     * The shape the Shape look gives it ([WidgetShape]), chosen on the Widgets screen. Null: the
+     * card's own. Only a widget Kolahal draws has one.
+     */
+    val shape: WidgetShape? = null,
 ) {
     /** Whether it has a place on the page: a [column] and a [topDp]. */
     val positioned: Boolean get() = column >= 0 && topDp >= 0
@@ -373,13 +378,15 @@ object WidgetOrder {
 
 /**
  * Stores one record per line in SharedPreferences:
- * `id|provider|serial|height|order|location|span|look|column|top`.
+ * `id|provider|serial|height|order|location|span|look|column|top|shape`.
  * - A pending entry has `-` as its id. So has a widget Kolahal draws itself: its provider field holds
  *   its source (`script:weather`, see [WidgetSource]).
  * - Lines saved before widths existed have no span. They are full width.
  * - Lines saved before looks and places (0.5.14 and older) have neither: the look is
  *   [WidgetLook.PLAIN], and [start] gives each widget the place it had ([WidgetPlacement.placeMissing]).
  *   An older Kolahal reads fields by position and ignores the last three.
+ * - The shape is written only when one was chosen ([PlacedWidget.shape]). A line without one, or
+ *   with a shape this version doesn't know, has the card's own.
  * - [PlacedWidget.order] is still written, in reading order, so an older Kolahal shows the widgets
  *   in a sensible order.
  * - A height or a width outside what the widget may have is brought inside it ([WidgetLayout.minDp],
@@ -390,7 +397,7 @@ object WidgetOrder {
  */
 object WidgetCodec {
     fun encode(all: List<PlacedWidget>): String = all.joinToString("\n") {
-        listOf(
+        (listOf(
             it.id?.toString() ?: "-",
             it.provider,
             it.profileSerial,
@@ -401,12 +408,16 @@ object WidgetCodec {
             it.look.id,
             it.column,
             it.topDp
-        ).joinToString("|")
+        ) + listOfNotNull(it.shape?.id)).joinToString("|")
     }
 
     /** The look stored for a widget: only one Kolahal draws ([sourced]) has one; an app's widget draws itself. */
     private fun lookOf(raw: Any?, sourced: Boolean): WidgetLook =
         if (sourced) WidgetLook.named(raw?.toString()) ?: WidgetLook.PLAIN else WidgetLook.PLAIN
+
+    /** The shape stored for a widget, as its look ([lookOf]): null for the card's own. */
+    private fun shapeOf(raw: Any?, sourced: Boolean): WidgetShape? =
+        if (sourced) WidgetShape.named(raw?.toString()) else null
 
     /** A stored place: a whole number from 0, else [WidgetPlacement.UNPLACED]. Too large a column is brought inside the page. */
     private fun columnOf(raw: Long?, span: Int): Int =
@@ -444,6 +455,7 @@ object WidgetCodec {
                 // A place needs both numbers: with one missing, the widget gets a place again at start.
                 column = if (top >= 0) column else WidgetPlacement.UNPLACED,
                 topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
+                shape = shapeOf(f.getOrNull(10), source),
             )
         }.toList()
 
@@ -480,7 +492,7 @@ object WidgetCodec {
             get() = if (statusCards > 0) "Status cards are gone: $statusCards removed from the widgets page. Status lines still show at the top of home." else null
     }
 
-    /** The backup form. Ids are device-specific, so they are left out. */
+    /** The backup form. Ids are device-specific, so they are left out. A shape is there only once one was chosen. */
     fun export(all: List<PlacedWidget>): List<Map<String, Any?>> = WidgetOrder.sorted(all).map {
         mapOf(
             "provider" to it.provider,
@@ -492,7 +504,7 @@ object WidgetCodec {
             "look" to it.look.id,
             "column" to it.column,
             "top" to it.topDp,
-        )
+        ) + listOfNotNull(it.shape?.let { shape -> "shape" to shape.id })
     }
 
     /**
@@ -535,6 +547,7 @@ object WidgetCodec {
             look = lookOf(m["look"], sourced),
             column = if (top >= 0) column else WidgetPlacement.UNPLACED,
             topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
+            shape = shapeOf(m["shape"], sourced),
         )
     }
 

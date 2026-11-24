@@ -438,7 +438,7 @@ private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Col
 }
 
 /**
- * Shape's chart in a wide card: the value in a cookie (with its label in a large one), and beside
+ * Shape's chart in a wide card: the value in a cookie or the shape chosen for the card ([cardShape]), with its label in a large one, and beside
  * it the points: round pills for bars, the latest in the role's color, or the line, or dots
  * ([Dots]): a calendar in a large card, the last seven days in a 1-row one.
  */
@@ -448,7 +448,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
     val large = box == WidgetSizes.Box.LARGE
-    BesideShape(MaterialShapes.Cookie12Sided, c.shapeFill, inShape = { side ->
+    BesideShape(cardShape(MaterialShapes.Cookie12Sided), c.shapeFill, inShape = { side ->
         Column(
             Modifier.padding(horizontal = side / 7),
             horizontalAlignment = Alignment.CenterHorizontally

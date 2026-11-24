@@ -188,6 +188,12 @@ class WidgetActions internal constructor(
          */
         fun runTyped(command: String)
 
+        /**
+         * Puts [line] in the prompt, as a tap on a log line with a command does, turns home to the
+         * log and opens the keyboard. Nothing runs: you type the rest and press Enter.
+         */
+        fun fillPrompt(line: String)
+
         /** Asks Android for the calendar permission, as `allow calendar` does. */
         fun requestCalendar()
 
@@ -273,6 +279,7 @@ class WidgetActions internal constructor(
             OwnTap.Resume -> ownData.resume(::openPlayer)
             // A command prints in the log, so quick taps on one item run it once, as for a header item.
             is OwnTap.Typed -> if (taps.allow("own:$id:$what")) host.runTyped(tap.command)
+            is OwnTap.Fill -> host.fillPrompt(tap.line)
             is OwnTap.RunShortcut -> {
                 // The command is looked up now, in your list: the card's description never holds it.
                 val shortcut = ownData.shortcut(tap.index) ?: return

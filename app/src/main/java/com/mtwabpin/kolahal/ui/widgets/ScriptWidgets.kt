@@ -188,6 +188,8 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
  * - [stamp] is a number that changes when the content was filled again, also with the same
  *   description: a script's card gives the time of its last run. A switch that waits for its script
  *   watches it ([KindBody]).
+ * - [body] draws the content in place of [spec]'s kind, on a Plain card: one of Kolahal's own cards
+ *   in a look of its own ([OwnBody]). [spec] is still what it says, and a [note] comes first.
  */
 @Composable
 internal fun WidgetCard(
@@ -204,6 +206,7 @@ internal fun WidgetCard(
     onLongClick: (() -> Unit)? = null,
     onTap: ((WidgetTap) -> Unit)? = null,
     stamp: Long = 0,
+    body: (@Composable (box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) -> Unit)? = null,
 ) {
     BoxWithConstraints(
         modifier
@@ -239,14 +242,21 @@ internal fun WidgetCard(
         } else {
             Modifier.semantics(mergeDescendants = true) {}
         }
-        val look = drawnLook(LocalWidgetLook.current, spec, note, footer)
+        // A built-in card's look of its own ([body]) is drawn on a Plain card.
+        val look = if (body != null) WidgetLook.PLAIN else drawnLook(LocalWidgetLook.current, spec, note, footer)
         val colors = lookColors(look, roleColor(spec?.base))
+        // In the Shape look, a card with a choice of shape takes the one chosen for it, else the one its script names.
+        val chosenShape = LocalChosenShape.current
+        val battery = LocalBattery.current != null
+        val taken = remember(look, spec, chosenShape, battery) {
+            if (look == WidgetLook.SHAPE && hasShapeChoice(null, spec, battery)) chosenShape ?: spec?.base?.shape else null
+        }
         // The Shape look in a square box: the card is one Material shape, and the body sits in it.
         val polygon = if (look == WidgetLook.SHAPE && squareBox(
                 widthDp,
                 heightDp
             )
-        ) cardPolygon(spec) else null
+        ) cardPolygon(spec)?.let { own -> taken?.let(::polygonOf) ?: own } else null
         // Split's tiles and Shape's shape are the card: the frame itself draws nothing there.
         val bare = look == WidgetLook.SPLIT || polygon != null
         val side = min(maxWidth, maxHeight)
@@ -268,9 +278,12 @@ internal fun WidgetCard(
                 // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
                 CompositionLocalProvider(
                     LocalCardLongPress provides onLongClick,
-                    LocalWidgetLook provides look
+                    LocalWidgetLook provides look,
+                    LocalCardShape provides taken
                 ) {
-                    if (polygon != null && spec != null) {
+                    if (body != null && note == null && spec != null) {
+                        body(box, onTap)
+                    } else if (polygon != null && spec != null) {
                         ShapedCard(title, spec, polygon, side, box, onTap, stamp)
                     } else {
                         // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
@@ -318,7 +331,7 @@ private fun drawnLook(
  * up to the level. The body draws a few short lines in it ([LocalCardShaped]), with the title from
  * [LocalUntitled]. The shape clips the body, so a fill keeps to it.
  * - A new shape morphs from the one before and settles ([rememberSettle]): the battery's, which
- *   changes with its level ([batteryPolygon]), or another kind's.
+ *   changes with its level ([batteryPolygon]), another kind's, or one chosen for the card ([LocalCardShape]).
  * - A countdown and a habit's week draw their own shape, which changes with what they show
  *   ([carriesShape]). The frame then draws none and cuts nothing.
  */
@@ -726,9 +739,11 @@ internal fun SourceWidget(
     // Which widget of which script: a script can have several on the page ([WidgetRef]).
     val ref = WidgetSource.scriptRef(w.source)
     val builtin = WidgetSource.builtinId(w.source)
-    // Every card inside draws in the widget's own look ([LocalWidgetLook]).
+    // Every card inside draws in the widget's own look ([LocalWidgetLook]). A built-in card draws
+    // one it doesn't offer as Plain, as its Look row shows: Shape stored on Todos is Plain there.
+    val look = if (builtin != null) w.look.drawnFor(WidgetSource.builtinKind(builtin), builtin) else w.look
     GuiTheme {
-        CompositionLocalProvider(LocalWidgetLook provides w.look) {
+        CompositionLocalProvider(LocalWidgetLook provides look, LocalChosenShape provides w.shape) {
             if (ref != null) {
                 ScriptWidget(ref, height, actions, feed)
             } else if (builtin == WidgetSource.BATTERY) {

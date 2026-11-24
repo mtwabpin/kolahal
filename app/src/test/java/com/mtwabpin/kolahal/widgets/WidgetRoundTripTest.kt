@@ -269,6 +269,13 @@ class WidgetRoundTripTest {
         ),
     )
 
+    /** A dot a day and a calendar page come back as they went. */
+    @Test
+    fun countdownDotsAndPage() {
+        roundTrip(WidgetKind.COUNTDOWN, mapOf("to" to 1_797_000_000L, "from" to 1_790_000_000L, "style" to "dots"))
+        roundTrip(WidgetKind.COUNTDOWN, mapOf("to" to 1_797_000_000L, "style" to "page"))
+    }
+
     /** The smallest description of each kind comes back too. */
     @Test
     fun theLeastOfEachKind() {

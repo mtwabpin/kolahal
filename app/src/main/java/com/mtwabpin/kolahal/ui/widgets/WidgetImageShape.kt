@@ -143,9 +143,10 @@ internal fun ShapedImage(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
 }
 
 /**
- * [spec]'s picture cut to [polygon], [side] across, covering it. Without the picture, the shape in
- * the card's color, with the card's icon in its role's color, or else the words the card says in
- * the picture's place. [small] makes those words smaller.
+ * [spec]'s picture cut to [polygon] (or the shape chosen for the card, [cardShape]), [side] across,
+ * covering it. Without the picture, the shape in the card's color, with the card's icon in its
+ * role's color, or else the words the card says in the picture's place. [small] makes those words
+ * smaller.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -161,7 +162,7 @@ private fun PictureInShape(
     BoxWithConstraints(
         Modifier
             .size(side)
-            .clip(polygon.toShape())
+            .clip(cardShape(polygon).toShape())
             .background(c.shapeFill),
         contentAlignment = Alignment.Center
     ) {

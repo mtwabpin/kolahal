@@ -115,11 +115,14 @@ data class WidgetTap(
 /**
  * The fields every kind has. All are optional. [staleAfter] and [refresh] are in seconds.
  * [note] is a short text on a large card's last line, in the card's color: "Done today".
+ * [shape] is the card's own shape in the Shape look, where it has one shape ([WidgetShape]), until
+ * the user chooses another.
  */
 data class WidgetBase(
     val title: String? = null,
     val icon: String? = null,
     val color: StyledText.ColorRole? = null,
+    val shape: WidgetShape? = null,
     val tap: WidgetTap? = null,
     val staleAfter: Int? = null,
     val refresh: Int? = null,
@@ -267,7 +270,8 @@ sealed interface WidgetSpec {
 
     /**
      * Kind `countdown`: the time to or since a moment. [to] and [from] are in seconds since 1970.
-     * [style] is `days` or `clock`. [reached] is what to say on the day.
+     * [style] is `days`, `clock`, `dots` (a dot a day) or `page` (a calendar page). [reached] is what
+     * to say on the day.
      */
     data class Countdown(
         override val base: WidgetBase,
@@ -570,6 +574,7 @@ object WidgetJson {
             "title" to base.title,
             "icon" to base.icon,
             "color" to base.color?.role,
+            "shape" to base.shape?.id,
             "tap" to base.tap?.let(::tapMap),
             "staleAfter" to base.staleAfter,
             "refresh" to base.refresh,
@@ -857,6 +862,7 @@ object WidgetJson {
             title = m.text("title"),
             icon = m.text("icon"),
             color = m.color("color"),
+            shape = m.text("shape")?.let { id -> WidgetShape.entries.firstOrNull { it.id == id } ?: odd() },
             tap = m.tap("tap"),
             staleAfter = m.number("staleAfter")?.toInt()?.coerceIn(MIN_STALE, MAX_STALE),
             refresh = m.number("refresh")?.toInt()?.coerceIn(MIN_REFRESH, MAX_REFRESH),
@@ -976,7 +982,7 @@ object WidgetJson {
                 to = m.seconds("to") ?: odd(),
                 from = m.seconds("from"),
                 label = m.text("label")?.let(StyledText::capitalized),
-                style = m.oneOf("style", "days", "clock"),
+                style = m.oneOf("style", "days", "clock", "dots", "page"),
                 reached = m.text("reached")?.let(StyledText::capitalized),
             )
 

@@ -210,13 +210,15 @@ class WidgetsScreenTest {
         assertNull(widgets.toChoose.value)
     }
 
-    /** The Agenda has a Days row: Auto at first, and a tap saves another count. Other widgets have none. */
+    /** The Agenda has the Now look, and a Days row: Auto at first, and a tap saves another count. Other widgets have none. */
     @Test
     fun theAgendaHasADaysRow() {
         val (_, agenda) = placeBuiltin(WidgetSource.AGENDA)
         val (_, battery) = placeBuiltin(WidgetSource.BATTERY)
         show()
         choose(agenda)
+        // An agenda's own look, beside the five it shares.
+        compose.onNodeWithTag("look Now").assertExists()
         listOf("Auto", "1", "3", "7", "14").forEach {
             compose.onNodeWithTag("days $it").assertExists()
         }
@@ -235,9 +237,10 @@ class WidgetsScreenTest {
         val (_, clock) = placeClock()
         show()
         choose(own)
-        // Battery is a progress card: every look but Poster, which is for a stat, a countdown and a clock.
-        (WidgetLook.entries - WidgetLook.POSTER).forEach { compose.onNodeWithTag("look ${it.label}").assertExists() }
+        // Battery is a progress card: every look but Poster, which is for a stat, a countdown and a clock, and Now, an agenda's.
+        (WidgetLook.entries - WidgetLook.POSTER - WidgetLook.ownOnly - WidgetLook.NOW).forEach { compose.onNodeWithTag("look ${it.label}").assertExists() }
         compose.onNodeWithTag("look Poster").assertDoesNotExist()
+        compose.onNodeWithTag("look Now").assertDoesNotExist()
         compose.onNodeWithTag("look Plain").assertIsOn()
         listOf("1×1", "2×1", "2×2", "4×1", "4×2", "4×4").forEach {
             compose.onNodeWithTag("size $it").assertExists()

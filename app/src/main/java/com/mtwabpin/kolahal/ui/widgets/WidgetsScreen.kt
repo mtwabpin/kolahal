@@ -92,6 +92,7 @@ import com.mtwabpin.kolahal.widgets.WidgetOrder
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSource
+import com.mtwabpin.kolahal.widgets.WidgetStates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -340,13 +341,14 @@ fun WidgetsScreen(
             bottomBar = {
                 if (chosen != null && dragged == null) {
                     val chosenRef = WidgetSource.scriptRef(chosen.source)
+                    // A built-in widget's kind is fixed; a script's is the one its @widget line names.
+                    val chosenKind = WidgetSource.builtinId(chosen.source)?.let(WidgetSource::builtinKind)
+                        ?: chosenRef?.let { scripts?.get(it.script)?.widget?.kind }
                     WidgetToolbar(
                         w = chosen,
                         label = labelOf(chosen) ?: chosen.provider,
                         size = widgets.sizeOf(chosen),
-                        // A built-in widget's kind is fixed; a script's is the one its @widget line names.
-                        kind = WidgetSource.builtinId(chosen.source)?.let(WidgetSource::builtinKind)
-                            ?: chosenRef?.let { scripts?.get(it.script)?.widget?.kind },
+                        kind = chosenKind,
                         minHeight = remember(chosen.key, providersVersion) {
                             widgets.minHeightOf(
                                 chosen
@@ -356,6 +358,12 @@ fun WidgetsScreen(
                             widgets.minSpanOf(chosen)
                         },
                         onLook = { widgets.setLook(chosen.key, it) },
+                        // A script's card is judged by what it shows, as the card on the page last read it.
+                        shapes = shapeChoicesFor(
+                            chosen,
+                            chosenKind,
+                            chosenRef?.let { WidgetStates.lastRead(it.key)?.spec }),
+                        onShape = { widgets.setShape(chosen.key, it) },
                         onSize = { widgets.setSize(chosen.key, it) },
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
                         onWidth = { widgets.resizeWidth(chosen.key, it) },

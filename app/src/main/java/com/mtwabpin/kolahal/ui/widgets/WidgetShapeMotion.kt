@@ -47,11 +47,12 @@ import androidx.graphics.shapes.RoundedPolygon
 /**
  * The spring of a shape that settles: the theme's fast spatial spring, which goes about 10% past
  * its end once and comes back with no second swing that shows. While the card can't be seen, the
- * shape is simply there. With the phone's animations off, Compose ends the spring at once.
+ * shape is simply there. On the Widgets screen ([LocalArranging]) it settles too: a shape chosen
+ * there is seen. With the phone's animations off, Compose ends the spring at once.
  */
 @Composable
 internal fun settleSpec(): FiniteAnimationSpec<Float> =
-    if (cardSeen()) MaterialTheme.motionScheme.fastSpatialSpec() else snap()
+    if (cardSeen() || LocalArranging.current) MaterialTheme.motionScheme.fastSpatialSpec() else snap()
 
 /**
  * A shape that morphs into the next one it is given, on [settleSpec]. [morph] goes from the shape

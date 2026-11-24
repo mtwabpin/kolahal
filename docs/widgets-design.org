@@ -77,6 +77,21 @@ Built, and not in the design:
 - *Poster* (0.5.17), a sixth look for =stat=, =countdown= and =clock= only: the value so large that
   the card's end and bottom edges crop it, never more than a fifth of the last character's width
   and 15% of a digit's height ([[src:ui/widgets/WidgetPoster.kt::object PosterFit][PosterFit]]), with the label small in a corner.
+- *Next and Stack* (0.5.17), looks of Kolahal's own cards only
+  ([[src:ui/widgets/OwnDesigns.kt::internal object OwnDesigns][OwnDesigns]]). Next on Todos: the
+  next todo large with a check, a ring of the ticked ones, and Undo for the last tick; it takes
+  Shape's place there. Next on Reminders: the next one in a pill that empties over its last hour,
+  the later ones as points on a line. Stack on Notes: the newest note on a stack of sheets, and +,
+  which puts =note = in the prompt. A card in one of them is drawn on a Plain card by its own body
+  (=WidgetCard='s =body=).
+- *Now* (0.5.17), a look for =agenda= only (Kolahal's Agenda card and a script's): what is on now
+  with a bar, the free time until the next event, and that event; a large card has the day with
+  the free time between its events, 15 minutes or more
+  ([[src:ui/widgets/AgendaFree.kt::internal object AgendaFree][AgendaFree]], drawn by =AgendaNow.kt=).
+- *Dots and page* (0.5.17), two styles of =countdown= that count days on the calendar: a dot a day
+  (a week each past 60 days, none past 60 weeks), and the date as a calendar page
+  ([[src:ui/widgets/CountdownDays.kt::internal object CountdownDays][CountdownDays]], drawn by
+  =WidgetCountdownDays.kt= in every look but Poster).
 - *Arrange widgets* (the Widgets screen). A tap chooses a widget, a long-press drags it over column
   guides, handles on its end and bottom edges resize it, and dropping it on the Remove target
   removes it (after a question). Close gaps packs the page. The toolbar has a Look row and a Size
@@ -244,7 +259,7 @@ Phase 4 was dropped.
 | description     | The table (Lua) or object (JavaScript) a script hands to =widget.show=.                  |
 | state           | The last checked description of a widget, plus when it was set and the last error.       |
 | placed          | The user added the widget to the widgets page.                                           |
-| look            | How Kolahal draws a placed widget: Plain, Tonal, Bold, Split, Shape or Poster.          |
+| look            | How Kolahal draws a placed widget: Plain, Tonal, Bold, Split, Shape, Poster, Next, Stack, Now. |
 | role            | A color by meaning, not by value: =accent=, =good=, =warn=, =bad=, =info=, =link=, =muted=, =text=. |
 
 * What existed before widgets, and what it meant for the design
@@ -371,6 +386,7 @@ Every kind takes these fields. All are optional.
 | =title=      | text, up to 40       | The card's name, shown small where the content needs it, and said by a screen reader. Default: the script's =@title=, else its name; a further widget adds its id ("Weather 2"). |
 | =icon=       | a name, or text up to 4 | An icon name (=WidgetIcons=, Material Symbols drawn in the card's color), or an emoji or a letter. Only the Bold, Split and Shape looks draw it (see [[*Expressive shapes and motion][Expressive shapes]]). A lower-case word over 4 letters that is no name is an error. |
 | =color=      | a role               | The color of the bar, ring, chart, note or tonal card. Default: =accent=.                     |
+| =shape=      | =cookie9=, =cookie12=, =clover4=, =clover8=, =sun=, =burst= | The card's shape in the Shape look, where it is one shape or its main value sits in one (=hasShapeChoice=), until the user picks one in the Shape row of Arrange widgets. Default: the kind's own. |
 | =tap=        | an action            | What a tap on the card does. Default: refresh. See [[*4. Interaction][Interaction]].         |
 | =staleAfter= | seconds, 60 to 604800 | How long the content counts as current. Default: one hour; 60 seconds for =toggles=. |
 | =refresh=    | seconds, 10 to 3600  | Run again this often while the card can be seen. The same limits as =status=.                 |
@@ -844,6 +860,7 @@ a script can't run it.
 | The card                 | A =Surface= with large round corners (28 dp; 24 dp for a small box). Split's tiles have 28 dp outside and 8 dp inside, 4 dp apart. |
 | The icon                 | Drawn only by some looks: a cookie with the icon beside a Bold stat's value, the icon by the title in a Split stat or countdown, and a shape with the icon (or the title's first letter) in a Shape stat or text. A Plain or Tonal card has no badge since the title line went (21 November 2026). The design had a badge on every large card. |
 | Shape                    | In a square box (1×1, 2×2) the whole card is one =MaterialShapes= shape; in a wide one the main value sits in a shape. Buttons and switches each take a shape, and change shape when pressed or switched. Some shapes carry the value ([[src:ui/widgets/WidgetShapeValues.kt::internal fun carriesShape][WidgetShapeValues]]): a countdown is a sun of 12 rays that loses one as each step goes (a day, an hour or five minutes, by the wait), a week of a habit is a flower of 7 leaves, and the battery goes from a circle through cookies to a burst as it runs low. |
+| A chosen shape           | Where the Shape look draws one shape for the card or its main value ([[src:ui/widgets/WidgetShapeChoice.kt::internal fun hasShapeChoice][hasShapeChoice]]: a stat, a text's mark, a single progress, a gauge, stages, rings, a chart other than a habit's week, a clock, a picture), Arrange widgets has a Shape row: six =MaterialShapes= (=Cookie9Sided=, =Cookie12Sided=, =Clover4Leaf=, =Clover8Leaf=, =Sunny=, =SoftBurst=), the card's own first. The choice is kept per placed card beside its look, and in backups; a script's =shape= is the card's own. The new shape settles as a shape that changes does. The words in the soft burst keep 4% more of its side from the edge: its points cut deeper. |
 | The large card's frame  | 16 dp at the sides and 14 dp at the top and bottom. No card has a title line since 21 November 2026: the content names the card small where it needs to, and the note and the age are the last line. |
 | List rows                | Each row in a lightly tinted container: 16 dp corners at the ends of the list, 4 dp between rows, 2 dp apart. A plain =Row=, so a row can be as low as 32 dp. A clock's rows in a large card too. |
 | Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. A held button widens by 15% and its neighbours in the row narrow, as in a =ButtonGroup=, on the fast spatial spring; the grid does it with its rows' weights, since a =ButtonGroup= is one row with an overflow menu. |
@@ -1268,7 +1285,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - When small :: The score over the two marks.
 - Looks :: All but Shape: the marks are shapes in every look. Bold has the score in Bold's type
   in the card's color, Split each side and the score on tiles.
-- Data :: Made for the library's football, cricket and chess scripts, which show a stat today
+- Data :: The library's football and cricket scripts, and chess in the shared scripts repository
   ([[src:ui/widgets/WidgetVersus.kt::internal fun VersusBody][VersusBody]]).
 - Taps :: The card.
 
@@ -1291,6 +1308,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - When small :: The sky over the next time.
 - Looks :: All five. Shape puts the sky in the sun's shape (a circle for the moon); in a square
   box that shape is the card.
+- Data :: The library's sun.js (=@widget sky 2x2=): today's sunrise and sunset at its saved place.
 - Taps :: The card.
 
 ** Ready-made widgets
@@ -1357,7 +1375,8 @@ them.
 
 *** 2. Air quality                                               :first:built:
 
-- Shows :: The index in a ring, in its band's color (good, warn, bad), with the band's name.
+- Shows :: The index on a gauge to the top of the scale's second-worst band, a zone for each
+  color of its bands (good, warn, bad), with the band's name in its color and the scale as its unit.
 - Sizes :: 1×1, 2×1, 2×2.
 - Data :: =aqi.js= (=@widget progress 2x1=), changed. Open-Meteo, or the nearest station with the
   optional =WAQI_TOKEN= secret. Internet.
@@ -1367,8 +1386,8 @@ them.
 - Sketch ::
   #+begin_src js
   if (typeof widget !== "undefined" && !line) widget.show({
-    title: `${name} · ${place.name}`, icon: "wind", value: aqi, max: worst, text: String(aqi),
-    label: band(aqi)[0], color: band(aqi)[1], tap: { args: "", page: "log" },
+    title: place.name, icon: "wind", style: "gauge", value: aqi, max: worst, unit: name,
+    text: String(aqi), label: band(aqi)[0], color: band(aqi)[1], zones, tap: { args: "", page: "log" },
   });
   #+end_src
 
@@ -1705,11 +1724,12 @@ them.
 
 *** 23. Live score                                               :phase3:built:
 
-- Shows :: The followed match: both sides' scores large, how the match stands under them, and,
-  while it is live, a moving bar for how far along it is (cricket with a limit of overs) and
-  "to win" and "balls left" when a side chases. With no live match: "No live match".
+- Shows :: The followed match on a versus card: the two sides with their initials, the score
+  between them, LIVE, RESULT or the minute as the badge, and a last line (how a cricket match
+  stands, football's last goal). The bar is football's possession, or in a cricket chase the runs
+  against the target; a dot marks the side batting. With no live match: a stat, "No live match".
 - Sizes :: 2×1, 4×1.
-- Data :: =cricket.js= and =football.js= (each =@widget stat 4x1=), changed. Internet.
+- Data :: =cricket.js= and =football.js= (each =@widget versus 4x1=), changed. Internet.
 - Refresh :: =@every 15m=, and =refresh= from its =refresh= option (30 seconds, 10 at the fastest)
   while the match is live and the card can be seen. Live content is old after a minute, a result
   after 15.
@@ -1718,9 +1738,9 @@ them.
   widget.
 - Sketch ::
   #+begin_src js
-  widget.show({ icon: "cricket", value: score, label: status, color: "good", progress: overs / 50,
-    moving: true, refresh: Math.max(10, Number(options.refresh) || 30), staleAfter: 60,
-    tap: { args: "live", page: "log", label: "Live matches" } });
+  widget.show({ kind: "versus", icon: "cricket", score, sides, badge: "LIVE", line: status,
+    turn: batting + 1, moving: true, color: "good", refresh: Math.max(10, Number(options.refresh) || 30),
+    staleAfter: 60, tap: { args: "live", page: "log", label: "Live matches" } });
   #+end_src
 
 *** 24. Comic of the day                                         :phase3:built:

@@ -122,15 +122,16 @@ internal fun shapeValueStyle(side: Dp, share: Float = 0.35f): TextStyle =
 
 /**
  * A few short lines centered in a card that is one shape ([LocalCardShaped]). A shape's points and
- * bites take about a sixth of each side, so the lines keep inside that.
+ * bites take about a sixth of each side, so the lines keep inside that; a burst's take more ([cardInset]).
  */
 @Composable
 internal fun ShapeLines(content: @Composable ColumnScope.() -> Unit) {
+    val extra = cardInset()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(maxWidth * 0.16f),
+                .padding(maxWidth * (0.16f + extra)),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
             content = content
@@ -141,6 +142,7 @@ internal fun ShapeLines(content: @Composable ColumnScope.() -> Unit) {
 /**
  * Shape outside a square box: the main value in a shape at the start, the rest beside it. The shape
  * is as tall as the card's room (about 72 dp in a 1-row card), up to 140 dp, and at most half the width.
+ * In a shape chosen for the card that cuts deeper, what is in it keeps more room ([cardInset]).
  */
 @Composable
 internal fun BesideShape(
@@ -149,10 +151,14 @@ internal fun BesideShape(
     inShape: @Composable BoxScope.(Dp) -> Unit,
     beside: @Composable ColumnScope.() -> Unit
 ) {
+    val extra = cardInset()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = minOf(maxHeight, 140.dp, maxWidth / 2)
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            ShapedBox(polygon, fill, side) { inShape(side) }
+            ShapedBox(polygon, fill, side) {
+                if (extra > 0f) Box(Modifier.padding(side * extra), contentAlignment = Alignment.Center) { inShape(side) }
+                else inShape(side)
+            }
             Column(
                 Modifier
                     .padding(start = 14.dp)

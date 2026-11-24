@@ -257,12 +257,12 @@ private fun SplitRings(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
     }
 }
 
-/** The rings [side] across; in Shape ([shaped]) set in a cookie that is [side] across. */
+/** The rings [side] across; in Shape ([shaped]) set in a cookie, or the shape chosen for the card ([cardShape]), that is [side] across. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RingsIn(spec: WidgetSpec.Progress, color: Color, side: Dp, shaped: Boolean) {
     if (shaped) {
-        ShapedBox(MaterialShapes.Cookie12Sided, MaterialTheme.colorScheme.surfaceContainerHighest, side) {
+        ShapedBox(cardShape(MaterialShapes.Cookie12Sided), MaterialTheme.colorScheme.surfaceContainerHighest, side) {
             NestedRings(spec, color, side * 0.74f)
         }
     } else NestedRings(spec, color, side)

@@ -247,7 +247,8 @@ object SplitCorners {
 
 /**
  * The Material shape of a card that is one shape: the Shape look in a square box ([squareBox]).
- * Null for a kind that keeps its card there, and for a progress with several bars.
+ * Null for a kind that keeps its card there, and for a progress with several bars. This is the
+ * card's own; a shape chosen for it takes its place ([LocalCardShape]).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun cardPolygon(spec: WidgetSpec?): RoundedPolygon? = when (spec) {

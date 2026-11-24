@@ -50,6 +50,7 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.ui.home.colorOf
 import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import java.time.Instant
@@ -102,9 +103,10 @@ private val AGENDA_PLACES = 200.dp
  *   them, and every event keeps a 44 dp tap. A tap on the heading is a tap on that event.
  * - "+3 more" is the line under the events.
  * - With nothing to show it says the description's `empty` text.
+ * - The Now look draws what is on now, the free time and what is next ([NowAgenda]), for [box].
  */
 @Composable
-internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) {
+internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?, box: WidgetSizes.Box) {
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
@@ -121,6 +123,10 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
         return
     }
     val look = LocalWidgetLook.current
+    if (look == WidgetLook.NOW) {
+        NowAgenda(spec, minute.time / 1000, zone, clock24, box, onTap)
+        return
+    }
     if (look == WidgetLook.BOLD || look == WidgetLook.SPLIT || look == WidgetLook.SHAPE) {
         DatedAgenda(look, days, minute.time, zone, clock24, roleColor(spec.base), onTap)
         return
@@ -336,7 +342,7 @@ private fun AgendaRow(
  * hands a long-press on to the card, as a list's row does. Nothing without an action or an [onTap].
  */
 @Composable
-private fun Modifier.eventPress(tap: WidgetTap?, onTap: ((WidgetTap) -> Unit)?): Modifier {
+internal fun Modifier.eventPress(tap: WidgetTap?, onTap: ((WidgetTap) -> Unit)?): Modifier {
     val longPress = LocalCardLongPress.current
     return if (tap != null && onTap != null) {
         combinedClickable(

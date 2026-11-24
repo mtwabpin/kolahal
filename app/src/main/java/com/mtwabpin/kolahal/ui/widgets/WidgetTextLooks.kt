@@ -241,11 +241,14 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     }
 }
 
-/** The card's icon, or else the first letter of its title, in the [role] color on a clover of the role's container. */
+/**
+ * The card's icon, or else the first letter of its title, in the [role] color on a clover (or the
+ * shape chosen for the card, [cardShape]) of the role's container.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TextMark(icon: String?, title: String?, role: Color, side: Dp) {
-    ShapedBox(MaterialShapes.Clover4Leaf, roleContainer(role), side) {
+    ShapedBox(cardShape(MaterialShapes.Clover4Leaf), roleContainer(role), side) {
         if (icon != null) WidgetIconText(
             icon,
             MaterialTheme.typography.titleMedium,

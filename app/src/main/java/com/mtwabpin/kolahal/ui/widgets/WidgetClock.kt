@@ -1081,7 +1081,8 @@ private val DIAL_SHAPE get() = MaterialShapes.Cookie9Sided
  * - It reads the time while drawing, and the name's place while placing it, so the clock's tick
  *   (once a minute) draws the dial again and composes nothing. It has no second hand: nothing moves
  *   between two ticks.
- * - With [filled] it draws its own cookie first; in a card that is the shape, the card is the cookie.
+ * - With [filled] it draws its own cookie first, or the shape chosen for the card ([cardShape]); in a
+ *   card that is the shape, the card is the cookie.
  * - It is no item for a screen reader: the card's description says the time.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -1097,7 +1098,7 @@ private fun ClockDial(
     val hour = looks.content
     val minute = looks.accent
     val dots = looks.muted
-    val fill = if (filled) Modifier.background(looks.shapeFill, DIAL_SHAPE.toShape()) else Modifier
+    val fill = if (filled) Modifier.background(looks.shapeFill, cardShape(DIAL_SHAPE).toShape()) else Modifier
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth, maxHeight)
         Box(

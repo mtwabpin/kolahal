@@ -54,6 +54,7 @@ import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
+import com.mtwabpin.kolahal.widgets.WidgetShape
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -138,6 +139,8 @@ class WidgetGalleryTest {
      * With [inView] the card is drawn as on the page in view: a wave moves and a picture loads.
      * With [taps] the card takes taps, as on the page: a media card's bar is then a slider.
      * With [battery] the card is the Battery and network card of that status ([LocalBattery]).
+     * With [body] the card is one of Kolahal's own in a look of its own (Next, Stack): [spec] is
+     * then only what it says.
      */
     private data class Shot(
         val name: String,
@@ -148,7 +151,8 @@ class WidgetGalleryTest {
         val prefix: String = "real",
         val look: WidgetLook = WidgetLook.PLAIN,
         val taps: Boolean = false,
-        val battery: Status? = null
+        val battery: Status? = null,
+        val body: OwnBody? = null,
     ) {
         val file get() = "$prefix-$name-${size.id}.png"
     }
@@ -178,7 +182,8 @@ class WidgetGalleryTest {
         val names =
             args.getString("names")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
                 ?.toSet()
-        val cards = (kinds() + readyMade()).filter { names == null || it.name in names }
+        // A card in a look of its own ([Shot.body]) looks the same whatever look is chosen.
+        val cards = (kinds() + readyMade()).filter { (names == null || it.name in names) && it.body == null }
         draw(
             looks.flatMap { look -> cards.map { it.copy(prefix = look.id, look = look) } },
             "gallery-looks"
@@ -356,6 +361,7 @@ class WidgetGalleryTest {
                                             clock24 = true
                                         ),
                                         onTap = if (shot.taps) ({ _: WidgetTap -> }) else null,
+                                        body = shot.body,
                                     )
                                 }
                             }
@@ -507,6 +513,32 @@ class WidgetGalleryTest {
         ),
     )
 
+    /** A countdown to a day 26 days on, as a dot a day: the trip was booked 14 days ago. */
+    private val countdownDots = WidgetSpec.Countdown(
+        base("Paris", color = ColorRole.LINK),
+        to = today.plusDays(26).atStartOfDay(zone).toEpochSecond(),
+        from = today.minusDays(14).atStartOfDay(zone).toEpochSecond(),
+        label = "A dot a day",
+        style = "dots"
+    )
+
+    /** The same day as a calendar page. */
+    private val countdownPage = WidgetSpec.Countdown(
+        base("Paris trip", color = ColorRole.LINK),
+        to = today.plusDays(26).atStartOfDay(zone).toEpochSecond(),
+        style = "page"
+    )
+
+    /** Events from the time of the run, as the mockup has them: on now, then after free time. */
+    private val agendaNow = WidgetSpec.Agenda(
+        base("Agenda"),
+        listOf(
+            WidgetSpec.Event("Team call", now - 54 * 60, now + 36 * 60, color = ColorRole.ACCENT),
+            WidgetSpec.Event("Lunch", now + 126 * 60, now + 186 * 60, where = "Lisbon office", color = ColorRole.WARN),
+            WidgetSpec.Event("Dentist", now + 276 * 60, now + 321 * 60, color = ColorRole.BAD),
+        ),
+    )
+
     /** One or two cards for each kind, with the mockup's examples. */
     private fun kinds(): List<Shot> = listOf(
         Shot(
@@ -584,6 +616,22 @@ class WidgetGalleryTest {
             "kind-poster-clock", WidgetSize.S2X2, "Tokyo",
             WidgetSpec.Clock(base("Tokyo"), listOf(WidgetSpec.Zone("Asia/Tokyo", "Tokyo"))),
             look = WidgetLook.POSTER,
+        ),
+        // Shape with another shape than the card's own (sheet 14), named here as a script names it.
+        Shot(
+            "kind-shape-stat", WidgetSize.S1X1, "Air",
+            WidgetSpec.Stat(base("Air", color = ColorRole.WARN).copy(shape = WidgetShape.CLOVER8), value = "118", label = "AQI"),
+            look = WidgetLook.SHAPE,
+        ),
+        Shot(
+            "kind-shape-stat", WidgetSize.S2X2, "Streak",
+            WidgetSpec.Stat(base("Streak").copy(shape = WidgetShape.BURST), value = "128", label = "days"),
+            look = WidgetLook.SHAPE,
+        ),
+        Shot(
+            "kind-shape-progress", WidgetSize.S2X1, "Lisbon",
+            WidgetSpec.Progress(base("Lisbon").copy(shape = WidgetShape.SUN), value = 72f, max = 100f, label = "Trip saved"),
+            look = WidgetLook.SHAPE,
         ),
         Shot(
             "kind-text", WidgetSize.S4X1, "Weather note",
@@ -775,6 +823,12 @@ class WidgetGalleryTest {
                 style = "days"
             ),
         ),
+        // A dot a day (sheet 12): 40 days from the start, 14 of them over, today's ringed.
+        Shot("kind-countdown-dots", WidgetSize.S2X2, "Paris", countdownDots),
+        Shot("kind-countdown-dots", WidgetSize.S2X1, "Paris", countdownDots),
+        // The date as a calendar page: the month on a band, the day, the weekday, and when.
+        Shot("kind-countdown-page", WidgetSize.S2X1, "Paris trip", countdownPage),
+        Shot("kind-countdown-page", WidgetSize.S2X2, "Paris trip", countdownPage.copy(from = now - 14 * 86_400)),
         Shot(
             "kind-buttons", WidgetSize.S2X2, "Timer",
             WidgetSpec.Buttons(
@@ -833,6 +887,9 @@ class WidgetGalleryTest {
                 ),
             ),
         ),
+        // The Now look (sheet 10): a call 60% through, an hour and a half free, then lunch and the dentist.
+        Shot("kind-agenda-now", WidgetSize.S4X1, "Agenda", agendaNow, look = WidgetLook.NOW),
+        Shot("kind-agenda-now", WidgetSize.S4X2, "Agenda", agendaNow, look = WidgetLook.NOW),
         Shot("kind-media", WidgetSize.S4X1, "Now playing", media),
         Shot("kind-media-cover", WidgetSize.S4X1, "Now playing", mediaCover, taps = true),
         Shot(
@@ -919,12 +976,20 @@ class WidgetGalleryTest {
             base("Pune", "sun"), value = "27°", label = "Sunny",
             more = listOf(WidgetSpec.Small("62%", "humidity"), WidgetSpec.Small("9 km/h", "wind")),
         )
+        // As aqi.js writes it on the US scale: a gauge to 300, a zone for each color of its bands.
         val aqi = WidgetSpec.Progress(
-            base("US AQI · Pune", "wind", ColorRole.WARN),
+            base("Pune", "wind", ColorRole.WARN),
             value = 118f,
-            max = 500f,
+            max = 300f,
             text = "118",
-            label = "Unhealthy for some"
+            label = "Unhealthy for sensitive groups",
+            style = "gauge",
+            unit = "US AQI",
+            zones = listOf(
+                WidgetSpec.GaugeZone(0f, ColorRole.GOOD),
+                WidgetSpec.GaugeZone(51f, ColorRole.WARN),
+                WidgetSpec.GaugeZone(151f, ColorRole.BAD),
+            ),
         )
         // Its label as countdown.lua writes it: "to 20 December".
         val goaDay = today.plusDays(37)
@@ -1015,6 +1080,19 @@ class WidgetGalleryTest {
             Reminder(2, at(1, 7, 0) * 1000, "Water plants"),
             Reminder(3, at(3, 9, 0) * 1000, "Pay rent")
         )
+        // The Next look: 3 of 7 ticked, the next one first.
+        val nextList = listOf("Pay electricity bill", "Book train tickets", "Post the letter")
+            .mapIndexed { i, text -> Todo(i + 1L, text, done = true) } +
+                listOf("Book the dentist", "Renew the passport", "Water the plants", "Call the plumber")
+                    .mapIndexed { i, text -> Todo(i + 4L, text, done = false) }
+        val nextTodos = OwnDesigns.nextTodos(nextList)
+        val timeline = checkNotNull(OwnDesigns.timeline(reminders, nowMs, zone, clock24 = true))
+        val notes = listOf(
+            Note(3, "Parcel comes Tuesday. The gate code is with the guard.", nowMs),
+            Note(2, "Wi-Fi in Lisbon: blue-heron-42", nowMs - 86_400_000L),
+            Note(1, "Book: The Dispossessed", nowMs - 3 * 86_400_000L)
+        )
+        val stack = checkNotNull(OwnDesigns.stack(notes, zone, clock24 = true))
         val shortcuts = listOf(
             Shortcut("torch", "torch", "torch"),
             Shortcut("dnd", "dnd", "moon"),
@@ -1024,8 +1102,8 @@ class WidgetGalleryTest {
         return listOf(
             Shot("weather", WidgetSize.S2X1, "Pune", weather),
             Shot("weather", WidgetSize.S1X1, "Pune", weather),
-            Shot("aqi", WidgetSize.S2X2, "US AQI · Pune", aqi),
-            Shot("aqi", WidgetSize.S1X1, "US AQI · Pune", aqi),
+            Shot("aqi", WidgetSize.S2X2, "Pune", aqi),
+            Shot("aqi", WidgetSize.S1X1, "Pune", aqi),
             Shot("forecast", WidgetSize.S2X2, "Pune", forecast),
             Shot("forecast", WidgetSize.S4X2, "Pune", forecast),
             // The larger card has a start, for its bar: 55% of the wait is over.
@@ -1149,12 +1227,29 @@ class WidgetGalleryTest {
                 "Todos",
                 OwnCards.todos(todos.mapIndexed { i, text -> Todo(i + 1L, text, done = false) })
             ),
+            Shot("todos-next", WidgetSize.S2X2, "Todos", OwnCards.todos(nextList), body = nextTodosBody(nextTodos)),
+            Shot("todos-next", WidgetSize.S4X1, "Todos", OwnCards.todos(nextList), body = nextTodosBody(nextTodos)),
+            Shot("todos-next", WidgetSize.S4X2, "Todos", OwnCards.todos(nextList), body = nextTodosBody(nextTodos)),
             Shot("agenda", WidgetSize.S4X2, "Agenda", agenda),
             Shot(
                 "reminders",
                 WidgetSize.S2X2,
                 "Reminders",
                 OwnCards.reminders(reminders, nowMs, zone, clock24 = true)
+            ),
+            Shot(
+                "reminders-next",
+                WidgetSize.S2X2,
+                "Reminders",
+                OwnCards.reminders(reminders, nowMs, zone, clock24 = true),
+                body = timelineBody(timeline)
+            ),
+            Shot(
+                "reminders-next",
+                WidgetSize.S4X1,
+                "Reminders",
+                OwnCards.reminders(reminders, nowMs, zone, clock24 = true),
+                body = timelineBody(timeline)
             ),
             Shot(
                 "notes",
@@ -1171,6 +1266,20 @@ class WidgetGalleryTest {
                         )
                     )
                 )
+            ),
+            Shot(
+                "notes-stack",
+                WidgetSize.S2X2,
+                "Notes",
+                checkNotNull(OwnCards.notes(notes, zone = zone, clock24 = true)),
+                body = noteStackBody(stack)
+            ),
+            Shot(
+                "notes-stack",
+                WidgetSize.S4X1,
+                "Notes",
+                checkNotNull(OwnCards.notes(notes, zone = zone, clock24 = true)),
+                body = noteStackBody(stack)
             ),
             Shot(
                 "worldclocks", WidgetSize.S2X2, "World clocks",
@@ -1246,13 +1355,19 @@ class WidgetGalleryTest {
                 ),
             ),
             Shot(
-                "livescore", WidgetSize.S4X1, "NZ v IND · live",
-                WidgetSpec.Stat(
-                    base("NZ v IND · live", "cricket", ColorRole.BAD),
-                    value = "NZ 136/8",
-                    label = "31.2 of 50 overs",
-                    progress = 0.62f,
-                    moving = true
+                "livescore", WidgetSize.S4X1, "Live cricket",
+                // As cricket.js writes a chase: the runs against the target as the bar.
+                WidgetSpec.Versus(
+                    base(icon = "cricket", color = ColorRole.GOOD),
+                    listOf(
+                        WidgetSpec.Side("India", mark = "I", value = 237f),
+                        WidgetSpec.Side("New Zealand", mark = "NZ", value = 63f, text = "Target 300"),
+                    ),
+                    score = "237/4 · 299/8",
+                    turn = 1,
+                    moving = true,
+                    line = "India require 63 runs with 60 balls remaining",
+                    badge = "LIVE",
                 ),
                 inView = true,
             ),

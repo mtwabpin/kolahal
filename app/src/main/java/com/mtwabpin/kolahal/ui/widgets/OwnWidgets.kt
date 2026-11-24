@@ -44,6 +44,8 @@ import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.Shortcuts
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetJson
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -477,6 +479,8 @@ internal fun OwnWidget(id: String, height: Dp, actions: WidgetCardActions?, own:
  * - While the page is in view, and each time home comes back to it, the card says so
  *   ([WidgetCardActions.ownShown]), so that old data is read again. With [againMs] it says so
  *   again that often while the card can be seen ([cardSeen]): for data that changes with no sign, as a calendar does.
+ * - [body] draws the card in a look of its own, in place of [spec]'s kind: Todos and Reminders in
+ *   Next, Notes in Stack ([OwnDesigns]). [spec] still says what the card is ([WidgetCard]).
  */
 @Composable
 private fun OwnCard(
@@ -491,6 +495,7 @@ private fun OwnCard(
     againMs: Long? = null,
     cardTaps: Boolean = true,
     listOpens: Boolean = false,
+    body: OwnBody? = null,
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Filled when the page comes into view; read again every [againMs] only while the card can be seen.
@@ -536,6 +541,7 @@ private fun OwnCard(
             onClickLabel = cardTapLabel,
             onLongClick = onLongClick,
             onTap = onTap,
+            body = body,
         )
     }
 }
@@ -672,20 +678,38 @@ private fun AgendaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?)
  *   a tap on it opens the todo again.
  * - A tap on "+3 more", or on the name over a large card's rows, runs `todo` and turns home to
  *   the log. The rest of the card takes no tap: a near miss between rows leaves the page as it is.
+ * - In the Next look the next todo is large, with a check, and a ring counts the ticked ones
+ *   ([OwnDesigns.nextTodos]). Undo opens the todo ticked last again, until the page is turned away.
  */
 @Composable
 private fun TodosWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val list by (own?.todos ?: NOT_READ).collectAsStateWithLifecycle()
     // The todos ticked here since the page came into view. They are forgotten when it is turned away.
     var kept by remember { mutableStateOf(emptySet<Long>()) }
+    // The todo ticked last here, for the Next look's Undo. It is forgotten with [kept].
+    var last by remember { mutableStateOf<Long?>(null) }
     val inView = LocalWidgetsShown.current
-    LaunchedEffect(inView) { if (!inView) kept = emptySet() }
+    LaunchedEffect(inView) {
+        if (!inView) {
+            kept = emptySet()
+            last = null
+        }
+    }
     val spec = remember(list, kept) { list?.let { OwnCards.todos(it, kept) } }
-    val description = remember(list) { list?.let(OwnCards::todosSaid) ?: "Todos" }
+    val next = LocalWidgetLook.current.drawnFor(WidgetKind.LIST, WidgetSource.TODOS) == WidgetLook.NEXT
+    // With no todos at all the card says so, in any look.
+    val design = remember(list, last, next) {
+        list?.takeIf { next && it.isNotEmpty() }?.let { OwnDesigns.nextTodos(it, last) }
+    }
+    val description = remember(list, design) {
+        design?.let(OwnDesigns::nextSaid) ?: list?.let(OwnCards::todosSaid) ?: "Todos"
+    }
+    val body = remember(design) { design?.let(::nextTodosBody) }
     val onRowTap: (String) -> Unit = remember {
         { words ->
             (OwnTaps.parse(WidgetSource.TODOS, words) as? OwnTap.SetTodo)?.let {
                 kept = if (it.done) kept + it.id else kept - it.id
+                last = if (it.done) it.id else null
             }
         }
     }
@@ -699,14 +723,16 @@ private fun TodosWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
         cardTapLabel = "open todos",
         onRowTap = onRowTap,
         cardTaps = false,
-        listOpens = true
+        listOpens = true,
+        body = body,
     )
 }
 
 /**
  * The built-in Reminders card: the next reminder and the two after it, with the time to each.
  * The header's minute tick makes the card again, so the time counts down with no run. A tap runs
- * `reminders` and turns home to the log.
+ * `reminders` and turns home to the log. In the Next look the next one is a pill that empties as
+ * its time comes, and the later ones are points on a line ([OwnDesigns.timeline]).
  */
 @Composable
 private fun RemindersWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
@@ -726,6 +752,11 @@ private fun RemindersWidget(height: Dp, actions: WidgetCardActions?, own: OwnFee
         }
     }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Reminders" }
+    val next = LocalWidgetLook.current.drawnFor(WidgetKind.LIST, WidgetSource.REMINDERS) == WidgetLook.NEXT
+    val design = remember(list, minute, zone, clock24, next) {
+        list?.takeIf { next }?.let { OwnDesigns.timeline(it, minute.time, zone, clock24) }
+    }
+    val body = remember(design) { design?.let(::timelineBody) }
     OwnCard(
         WidgetSource.REMINDERS,
         height,
@@ -733,18 +764,22 @@ private fun RemindersWidget(height: Dp, actions: WidgetCardActions?, own: OwnFee
         description,
         actions,
         cardTap = OwnTaps.OPEN,
-        cardTapLabel = "open reminders"
+        cardTapLabel = "open reminders",
+        body = body,
     )
 }
 
 /**
  * The built-in Notes card: the newest note, or the newest three in a large card. A tap runs `notes`
- * and turns home to the log.
+ * and turns home to the log. In the Stack look the newest note is on a stack of sheets, with + for
+ * a new note ([OwnDesigns.stack]).
  */
 @Composable
 private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val list by (own?.notes ?: NOT_READ).collectAsStateWithLifecycle()
-    val count = if (height >= LARGE) OwnCards.MAX_NOTES else 1
+    val stack = LocalWidgetLook.current.drawnFor(WidgetKind.TEXT, WidgetSource.NOTES) == WidgetLook.STACK
+    // The stack shows the newest note alone, so a screen reader hears that one too.
+    val count = if (height >= LARGE && !stack) OwnCards.MAX_NOTES else 1
     val clock24 = rememberClock24()
     val spec: WidgetSpec? = remember(list, count, clock24) {
         list?.let {
@@ -755,6 +790,10 @@ private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
         }
     }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Notes" }
+    val design = remember(list, clock24, stack) {
+        list?.takeIf { stack }?.let { OwnDesigns.stack(it, clock24 = clock24) }
+    }
+    val body = remember(design) { design?.let(::noteStackBody) }
     OwnCard(
         WidgetSource.NOTES,
         height,
@@ -762,7 +801,8 @@ private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
         description,
         actions,
         cardTap = OwnTaps.OPEN,
-        cardTapLabel = "open notes"
+        cardTapLabel = "open notes",
+        body = body,
     )
 }
 

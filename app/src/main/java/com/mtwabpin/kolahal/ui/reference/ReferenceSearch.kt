@@ -120,7 +120,7 @@ internal object ReferenceSearch {
         WidgetKind.LIST -> "Rows, each with a title and more"
         WidgetKind.PROGRESS -> "A ring or a bar, up to 4 bars or rings, a gauge, or stages"
         WidgetKind.CHART -> "Numbers over time, as a line, bars or dots"
-        WidgetKind.COUNTDOWN -> "The time to a moment"
+        WidgetKind.COUNTDOWN -> "The time to a moment, as a number, a dot a day or a calendar page"
         WidgetKind.BUTTONS -> "1 to 8 buttons"
         WidgetKind.TOGGLES -> "1 to 6 switches, each on or off"
         WidgetKind.CLOCK -> "The time in up to 4 places"

@@ -1151,6 +1151,7 @@ Every kind takes these fields. All are optional.
 | `title` | text, up to 40 characters | The card's name. A card has no title line: the name shows small where the content doesn't say what it is, over a large list or text, or as the label of a number, a bar, a ring, a chart or a countdown that has none. A screen reader always says it. Without it: the script's `@title`, or its name. |
 | `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's color by the Bold, Split and Shape looks; or an emoji or a letter. |
 | `color` | a role | The color of the bar, the ring, the chart or the note: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
+| `shape` | `cookie9`, `cookie12`, `clover4`, `clover8`, `sun` or `burst` | The card's shape in the **Shape** look, until the user chooses one in its Shape row: a 9-sided or 12-sided cookie, a 4-leaf or 8-leaf clover, a sun or a burst. Only for a card that is one shape, or whose main value sits in one: a `stat`, `text`, `progress` (not its bars), `chart` (not a habit's week), `clock` or `image`. Without it: the kind's own, such as a cookie for a `stat` and a clover for a `progress`. Needs Kolahal 0.5.17. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is on screen. A widget scrolled out of sight waits, and runs as soon as it is back if its time has passed. |
@@ -1495,7 +1496,7 @@ run is needed as time passes.
 | `to` | a time in seconds | Needed. The moment: `os.time{…}` in Lua, `Date.now() / 1000` in JavaScript. |
 | `from` | a time in seconds, before `to` | Where the wait started. With it, the card has a bar from the start to the moment. A large card writes both dates under the bar. |
 | `label` | text, up to 60 | What the moment is. |
-| `style` | `days` or `clock` | `days` says "12 days", `clock` says "03:25:10". Without it: days while the moment is more than 48 hours away, a clock after that. |
+| `style` | `days`, `clock`, `dots` or `page` | `days` says "12 days", `clock` says "03:25:10". Without it: days while the moment is more than 48 hours away, a clock after that. `dots` draws a dot a day, and `page` the date as a calendar page (below). |
 | `reached` | text, up to 60 | What the card says on the day, once the moment has passed. Without it: "Today". |
 
 - After that day, the card says how long ago the moment was.
@@ -1505,6 +1506,23 @@ run is needed as time passes.
   `from` when the card has one, else it is the time left. With less than a step left, the sun is
   a plain circle.
 - A time in milliseconds is an error that says to divide it by 1000.
+
+With `style = "dots"`, the days left are dots in a grid, today's ringed, with the number and
+"days left" under them. A dot goes out each day. With `from`, the days already over stay as small
+faint dots; without it, there are only the days left. Needs Kolahal 0.5.17.
+
+- A day is the phone's day: a moment on 20 December is 26 days away all through 24 November.
+- Over 60 days, a dot is a week, and the card says "A dot a week". Over 60 weeks, the card has the
+  number without dots.
+
+With `style = "page"`, the moment is a calendar page: the month on a band, the day large, and
+beside it the card's name, "In 26 days" and the weekday. On the day, the weekday's place has the
+moment's time. A large card has the bar from `from`. Needs Kolahal 0.5.17.
+
+- Both count days on the calendar to the end, never as a clock, and change at midnight with no
+  run. On the day they say "Today", or `reached` once the moment has passed.
+- In the **Shape** look, `dots` go round a circle and `page` is cut to a shape, in place of the
+  sun. **Poster** keeps its number.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -2139,7 +2157,7 @@ Kolahal 0.5.17.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `rises` | a time in seconds | Needed. When the sun rises, or with `phase` the moon. |
-| `sets` | a time in seconds, after `rises` | Needed. When it sets: less than a day after `rises`. |
+| `sets` | a time in seconds, after `rises` | Needed. When it sets: less than a day after `rises`, or for the moon (with `phase`) less than 24 h 50 min. |
 | `phase` | a number, 0 to 1 | The part of the moon that is lit. With it, the card is the moon's. |
 | `waxing` | true or false | The moon's lit part grows. It is drawn on the right. |
 | `phases` | a list of phases | Up to 4 of the moon's next phases, each `{ phase, waxing, at }`. They go with `phase`. |
@@ -2244,7 +2262,7 @@ What a description keeps, and what it refuses.
 | `image`: `image` | 2000 characters | an error: a link is never cut |
 | `image`: the picture's file | 10 MB | not shown; the card keeps its `alt` |
 | `versus`: `sides` | 2 sides | an error, as for one or three |
-| `sky`: `sets` | less than a day after `rises` | an error |
+| `sky`: `sets` | less than a day after `rises`, 24 h 50 min for the moon | an error |
 | `sky`: `phases` | 4 phases | the first 4 are kept |
 | `staleAfter` | 60 to 604800 seconds | held between them |
 | `refresh` | 10 to 3600 seconds | held between them |

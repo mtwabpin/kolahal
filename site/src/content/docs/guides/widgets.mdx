@@ -98,7 +98,7 @@ reminders, what is playing. Kolahal draws them as cards, in the theme's colors.
 | **Todos** | your open todos, each with a checkbox | on a row: marks the todo done. On "+2 more": runs `todo` |
 | **Agenda** | your calendar's events for today and the next days | on an event: opens it in your calendar app. On the card: runs `agenda` |
 | **Reminders** | the time to the next reminder, with its text, and the reminders after it | runs `reminders` |
-| **Notes** | your newest note, or the newest three in a taller card | runs `notes` |
+| **Notes** | your newest note, or the newest three in a taller card | runs `notes`. In the **Stack** look, on +: starts a new note |
 
 <Cards items={[
   { src: battery, alt: "The Battery and network card: 68% in a shape filled to that level, Charging, and Wi-Fi", size: "2x1", caption: "Battery and network" },
@@ -122,6 +122,10 @@ The card lists your open [todos](/guides/productivity/#todos), the oldest first.
 - A todo that you add with `todo buy milk` shows on the card at once.
 - A card with more todos than fit says how many more there are ("+2 more"). Tap that line, or the
   name over a large card's rows, for the whole list. A tap between rows does nothing.
+- In the **Next** look the card puts the next todo first, large, with a check to tap. A ring
+  fills as todos are ticked ("3/7"). Tap the check and the todo after it comes up. **Undo** brings
+  back the one you ticked last, until you leave the widgets page. A 4×1 card shows one todo at a
+  time with "then" and the one after it; a 4×2 card shows the next ones under it as rows.
 
 ### Reminders and Notes
 
@@ -130,6 +134,12 @@ The card lists your open [todos](/guides/productivity/#todos), the oldest first.
   rows, each with its text and when it is due. The time counts down by the minute.
 - **Notes** shows your newest [note](/guides/productivity/#notes). A taller card shows the newest
   three, each on one line.
+- In the **Next** look, **Reminders** shows the time to the next reminder in a pill ("in 42 min")
+  that empties in the last hour before it, and the reminders after it as points on a line. The
+  pill moves by the minute.
+- In the **Stack** look, **Notes** shows your newest note on a stack of sheets, one for each other
+  note. Tap **+** to write a new note: home turns to the log with `note ` in the prompt and the
+  keyboard open. Type the note and press Enter.
 
 ### Shortcuts
 
@@ -202,6 +212,11 @@ command reads the same calendar.
   One that goes on says "now".
 - A tap on an event opens it in your calendar app. A tap elsewhere runs `agenda`.
 - An event that has ended leaves the card by itself.
+- In the **Now** [look](#looks), the card answers what you are in, how long you have, and what is
+  next: the event on now with a bar that fills as it goes, "free 1h 30" until the next event, and
+  that event with its time and place. With nothing on now, it shows the free time until the next
+  one. All-day events are never "now". A 2×2 or larger card shows the day, each event with its
+  length and the free time between them.
 - With no event in these days, the card says so: "No events in the next 14 days".
 - It needs the calendar permission. Without it, the card says "Allow calendar access", and a tap
   asks for it.
@@ -300,7 +315,8 @@ For one of Kolahal's widgets or a script's widget, the toolbar has:
 
 | Row | Buttons |
 | --- | --- |
-| Look | Plain, Tonal, Bold, Split, Shape, Poster ([below](#looks)) |
+| Look | Plain, Tonal, Bold, Split, Shape, Poster, and for some widgets a look of their own: Now, Next or Stack ([below](#looks)) |
+| Shape (in the Shape look) | six shapes, the card's own first ([below](#looks)) |
 | Size | 1×1, 2×1, 2×2, 4×1, 4×2, 4×4 |
 | Days (Agenda only) | Auto, 1, 3, 7, 14 |
 
@@ -338,8 +354,9 @@ setup can run again. For other widgets, remove the widget and add it again.
 
 ### Looks
 
-Kolahal's own widgets and scripts' widgets can be drawn in six looks. Each placed widget has its
-own, so two weather widgets can look different. Choose it in the toolbar's **Look** row.
+Kolahal's own widgets and scripts' widgets share most looks, and a few widgets have a look of
+their own. Each placed widget has its own look, so two weather widgets can look different. Choose
+it in the toolbar's **Look** row.
 
 | Look | What it looks like |
 | --- | --- |
@@ -349,11 +366,22 @@ own, so two weather widgets can look different. Choose it in the toolbar's **Loo
 | Split | the card in separate tiles: one for the main value, one for each row or button |
 | Shape | a 1×1 or 2×2 card is a shape (a cookie, a clover, a sun); in a wider card the main value sits in one. Buttons and switches each take a shape. Some shapes change with what they show: a countdown's sun loses a ray each day, a habit's week is a flower with a leaf for each day done, and the battery goes from round when full to spiky when low. A picture is cut to a shape |
 | Poster | the value so large that the card's edge crops it, with the label small in a corner. Only a number, a countdown and a clock have it |
+| Next | Todos: the next todo large with a check to tap, and a ring of the ticked ones. Reminders: the next one in a pill that empties as its time comes, and the later ones on a line |
+| Stack | Notes: the newest note on a stack of sheets, and + for a new note |
+| Now | what is on now and how far along it is, the free time until the next event, and that event. A 2×2 or larger card has the day, with the free time between its events. Only an agenda has it |
 
 The **Look** row shows only the looks that change the card. Buttons, switches and Now playing
 have no **Bold**, a picture has only **Plain**, **Tonal** and **Shape**, and a match's score
-(`versus`) has no **Shape**. If a script shows another kind of card later, a look you chose for it
-comes back when the kind has it.
+(`versus`) has no **Shape**. Todos has no **Shape** either: its rows have checkboxes where Shape
+draws its shapes. It has **Next** instead. If a script shows another kind of card later, a look you
+chose for it comes back when the kind has it.
+
+In the **Shape** look, a card that is one shape, or whose main value sits in one, has a **Shape**
+row under **Look**: a 9-sided and a 12-sided cookie, a 4-leaf and an 8-leaf clover, a sun and a
+burst. The first is the card's own shape, so one tap gives it back. Tap another and the card takes
+it at once. A countdown, a habit's week, the battery and the sky have no **Shape** row, as their
+shape shows what they count. Nor do buttons, switches, lists, an agenda or several bars, where each
+part takes a shape of its own.
 
 Some looks leave out small details, such as the weather card's high, low and rain in **Shape**.
 TalkBack still reads them. Another app's widget draws itself, so it has no looks.
@@ -365,7 +393,7 @@ from the page.
 
 ## Backups
 
-A [backup](/guides/backup/) records which widgets you placed, with their size, place and look. But other apps'
+A [backup](/guides/backup/) records which widgets you placed, with their size, place, look and shape. But other apps'
 widgets themselves can't move between installs. So after an import:
 
 1. Open **Settings → Widgets → Arrange widgets**. The widgets that aren't on the page already are

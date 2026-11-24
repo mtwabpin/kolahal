@@ -88,6 +88,9 @@ internal sealed interface OwnTap {
     /** Runs [command] as if it was typed, and turns home to the log: `todo`, `notes`. */
     data class Typed(val command: String) : OwnTap
 
+    /** Puts [line] in the prompt, turns home to the log and opens the keyboard. Nothing runs: `note `, for a new note. */
+    data class Fill(val line: String) : OwnTap
+
     /** One of the Now playing card's three buttons. */
     data class Media(val action: MediaRepository.Action) : OwnTap
 
@@ -122,7 +125,8 @@ internal sealed interface OwnTap {
  * |------------------|---------------------------------------------------------------------|
  * | shortcuts        | `run <index>`, `edit`                                               |
  * | todos            | `done #<id>`, `undo #<id>`, `open`                                  |
- * | reminders, notes | `open`                                                              |
+ * | reminders        | `open`                                                              |
+ * | notes            | `open`, `new`                                                       |
  * | media            | `prev`, `toggle`, `next`, `seek <ms>`, `resume`, `open`, `allow`    |
  * | agenda           | `event <id> [<begin>]`, `open`, `allow`                             |
  */
@@ -134,6 +138,7 @@ internal object OwnTaps {
     const val TOGGLE = "toggle"
     const val NEXT = "next"
     const val RESUME = "resume"
+    const val NEW = "new"
 
     /** The words of the Shortcuts button at [index], counted from 0. */
     fun run(index: Int): String = "run $index"
@@ -184,7 +189,13 @@ internal object OwnTaps {
             }
 
             WidgetSource.REMINDERS -> if (verb == OPEN) alone(OwnTap.Typed("reminders")) else null
-            WidgetSource.NOTES -> if (verb == OPEN) alone(OwnTap.Typed("notes")) else null
+            WidgetSource.NOTES -> when (verb) {
+                OPEN -> alone(OwnTap.Typed("notes"))
+                // A new note is typed after `note `, as in the terminal.
+                NEW -> alone(OwnTap.Fill("note "))
+                else -> null
+            }
+
             WidgetSource.MEDIA -> when (verb) {
                 PREV -> alone(OwnTap.Media(MediaRepository.Action.PREV))
                 TOGGLE -> alone(OwnTap.Media(MediaRepository.Action.TOGGLE))

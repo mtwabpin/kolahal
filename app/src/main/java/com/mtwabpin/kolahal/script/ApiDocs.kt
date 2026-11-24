@@ -48,7 +48,7 @@ object ApiDocs {
         "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
                 "kind is the card to draw; without it, the kind on the @widget line. " +
                 WidgetKind.forScripts.joinToString(" ") { "${it.id}: ${widgetFields(it)}." } + " " +
-                "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link; label is what a screen reader says, " +
+                "Every kind: title, icon, color, shape (the Shape look's: cookie9, cookie12, clover4, clover8, sun or burst), tap ({ args } runs this script again, { url } opens a link; label is what a screen reader says, " +
                 "page = \"log\" turns home to the log after the run), staleAfter, refresh (seconds), note (a few words on a large card's last line). " +
                 "An unknown field is an error"
 
@@ -62,7 +62,7 @@ object ApiDocs {
         WidgetKind.PROGRESS -> "value, max, text, label, style (ring, bar, gauge or rings), moving, or items for bars or rings (each { label, value, max, text, color, unit, moving }); " +
                 "a gauge also takes min, unit, zones (each { from, color }); or stages (2 to 6 names) and stage (the one it is at, from 1)"
         WidgetKind.CHART -> "points, style (line, bars or dots), min, max, value, label, labels, summary"
-        WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style (days or clock), reached"
+        WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style (days, clock, dots: a dot a day, or page: a calendar page), reached"
         WidgetKind.BUTTONS -> "items (1 to 8, each { label, icon, color, tap })"
         WidgetKind.TOGGLES -> "items (1 to 6, each { label, icon, on, tap }; the tap is { args }, and the run shows the new state)"
         WidgetKind.CLOCK -> "zones (each { zone, label }; a zone is a name such as Asia/Kolkata), seconds"

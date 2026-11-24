@@ -92,6 +92,15 @@ class VersusAndSkyParserTest {
             "widget: score is needed: the score between the sides, as text, such as \"2–1\"",
             refused(mapOf("sides" to two), WidgetKind.VERSUS)
         )
+        // An empty name or score, or one of blanks only, is refused as a missing one, as an image's alt is.
+        assertEquals(
+            "widget: item 1 of sides: name is needed: the side's name, such as a player or a team",
+            refused(mapOf("sides" to listOf(mapOf("name" to " "), mapOf("name" to "B")), "score" to "1–0"), WidgetKind.VERSUS)
+        )
+        assertEquals(
+            "widget: score is needed: the score between the sides, as text, such as \"2–1\"",
+            refused(mapOf("sides" to two, "score" to ""), WidgetKind.VERSUS)
+        )
     }
 
     /** A mark is a letter or two, as seen; a longer one is cut there, with no "…". */

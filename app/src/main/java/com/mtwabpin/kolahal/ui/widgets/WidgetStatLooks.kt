@@ -482,7 +482,7 @@ private fun ShapedStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     }
 }
 
-/** Shape's stat in a wide card: the value in a cookie, and beside it "Sunny · Pune" over the smaller values. */
+/** Shape's stat in a wide card: the value in a cookie (or the shape chosen for the card, [cardShape]), and beside it "Sunny · Pune" over the smaller values. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapeBesideStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
@@ -492,7 +492,7 @@ private fun ShapeBesideStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val head = labelAndTitle(spec.label, LocalUntitled.current)
     val more = spec.more.joinToString(" · ") { WidgetWords.joined(it.value, it.label) }
     val large = box == WidgetSizes.Box.LARGE
-    BesideShape(MaterialShapes.Cookie12Sided, c.shapeFill, inShape = { side ->
+    BesideShape(cardShape(MaterialShapes.Cookie12Sided), c.shapeFill, inShape = { side ->
         RollingBigText(
             WidgetWords.joined(spec.value, spec.unit),
             shapeValueStyle(side),

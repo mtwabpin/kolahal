@@ -1377,6 +1377,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 showLog()
             }
 
+            override fun fillPrompt(line: String) {
+                this@TerminalViewModel.setText(line)
+                showLog()
+                _events.tryEmit(UiEvent.FocusPrompt)
+            }
+
             override fun requestCalendar() = requestCalendarPermission()
             override fun requestNotificationAccess() = askNotificationAccess()
         })

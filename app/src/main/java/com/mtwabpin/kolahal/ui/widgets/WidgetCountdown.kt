@@ -53,6 +53,8 @@ import java.time.ZoneId
  */
 @Composable
 internal fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
+    // A dot a day or a calendar page ([CountdownDaysBody]), in every look but Poster, which keeps its number.
+    if (CountdownDays.counts(spec.style) && LocalWidgetLook.current != WidgetLook.POSTER) return CountdownDaysBody(spec, box)
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     // The time now, in seconds. Only what changes with it reads it: the count and the bar's step.

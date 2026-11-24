@@ -457,18 +457,19 @@ private fun SplitGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
 }
 
 /**
- * Shape's gauge in a card that is the clover ([LocalCardShaped]): the dial inside the clover, clear
- * of its leaves, with the word under it in a 2×2.
+ * Shape's gauge in a card that is the clover ([LocalCardShaped]), or the shape chosen for it: the
+ * dial inside the shape, clear of its leaves or points, with the word under it in a 2×2.
  */
 @Composable
 private fun ShapedGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val c = lookColors(WidgetLook.SHAPE, color)
     val fill = MaterialTheme.colorScheme.surfaceContainerHighest
+    val extra = cardInset()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(maxWidth * 0.18f),
+                .padding(maxWidth * (0.18f + extra)),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             GaugeDial(
@@ -484,7 +485,10 @@ private fun ShapedGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
     }
 }
 
-/** Shape's gauge in a wide card: the dial in a clover at the start, and beside it the title, the word and the unit. */
+/**
+ * Shape's gauge in a wide card: the dial in a clover (or the shape chosen for the card, [cardShape])
+ * at the start, and beside it the title, the word and the unit.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapeBesideGauge(spec: WidgetSpec.Progress, color: Color) {
@@ -492,7 +496,7 @@ private fun ShapeBesideGauge(spec: WidgetSpec.Progress, color: Color) {
     val fill = MaterialTheme.colorScheme.surfaceContainerHighest
     val title = LocalUntitled.current
     BesideShape(
-        MaterialShapes.Clover4Leaf,
+        cardShape(MaterialShapes.Clover4Leaf),
         fill,
         inShape = { side ->
             GaugeDial(

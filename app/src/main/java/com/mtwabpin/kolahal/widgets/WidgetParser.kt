@@ -130,7 +130,7 @@ object WidgetParser {
     const val MAX_REFRESH = 3_600
 
     private val COMMON =
-        listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "note")
+        listOf("kind", "title", "icon", "color", "shape", "tap", "staleAfter", "refresh", "note")
     private val TAP = listOf("args", "url", "label", "page")
     private val STAT =
         listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving", "points", "scene")
@@ -247,6 +247,7 @@ object WidgetParser {
             title = t.text("title", MAX_TITLE),
             icon = t.icon(),
             color = t.color(),
+            shape = t.choice("shape", WidgetShape.ids)?.let(WidgetShape::named),
             tap = t.tap(),
             staleAfter = t.seconds("staleAfter", MIN_STALE, MAX_STALE),
             refresh = t.seconds("refresh", MIN_REFRESH, MAX_REFRESH),
@@ -287,7 +288,7 @@ object WidgetParser {
         if (all.size != SIDES) t.fail("sides has ${all.size} ${if (all.size == 1) "side" else "sides"}: give $SIDES")
         val sides = t.items("sides", SIDES, shape, SIDE).map { s ->
             WidgetSpec.Side(
-                name = s.need("name", MAX_SHORT, "the side's name, such as a player or a team"),
+                name = s.need("name", MAX_SHORT, SIDE_NAME_IS).ifEmpty { s.fail("name is needed: $SIDE_NAME_IS") },
                 mark = s.text("mark", MAX_ICON_NAME)?.takeSeen(MAX_MARK, MAX_ICON_UNITS)?.ifEmpty { null },
                 color = s.color(),
                 value = s.number("value", "a number, 0 or more")?.also {
@@ -302,7 +303,7 @@ object WidgetParser {
         return WidgetSpec.Versus(
             base,
             sides = sides,
-            score = t.need("score", MAX_SHORT, "the score between the sides, as text, such as \"2–1\""),
+            score = t.need("score", MAX_SHORT, SCORE_IS).ifEmpty { t.fail("score is needed: $SCORE_IS") },
             turn = turn,
             moving = t.flag("moving"),
             line = t.label("line", MAX_LABEL, styled = true),
@@ -350,6 +351,8 @@ object WidgetParser {
     }
 
     private const val ALT_IS = "what the picture shows, in words, for a screen reader"
+    private const val SIDE_NAME_IS = "the side's name, such as a player or a team"
+    private const val SCORE_IS = "the score between the sides, as text, such as \"2–1\""
 
     /**
      * A picture from the web. The script gives its link, and home fetches it.
@@ -555,7 +558,7 @@ object WidgetParser {
             if (bars.isNotEmpty()) t.fail("give items or stages, not both")
             if (style != null) t.fail("style goes with value or items, not with stages")
         }
-        if (!t.has("value") && bars.isEmpty() && stages.isEmpty()) t.fail("value is needed: how far along it is, from 0 to max. Or give items, for bars")
+        if (!t.has("value") && bars.isEmpty() && stages.isEmpty()) t.fail("value, items or stages is needed\nvalue: how far along it is, from 0 to max\nitems: up to $MAX_BARS bars or rings\nstages: 2 to $MAX_STAGES names, with stage")
         if (style == "rings" && bars.isEmpty()) t.fail("style 'rings' needs items: up to $MAX_BARS rings, each { ${BAR.joinToString()} }")
         if (gauge && bars.isNotEmpty()) t.fail("style 'gauge' goes with value, not with items")
         // Bars are on one scale: the widget's max, or else the largest value among them.
@@ -659,7 +662,7 @@ object WidgetParser {
             to = to,
             from = from,
             label = t.label("label", MAX_LABEL),
-            style = t.choice("style", listOf("days", "clock")),
+            style = t.choice("style", listOf("days", "clock", "dots", "page")),
             reached = t.label("reached", MAX_LABEL),
         )
     }

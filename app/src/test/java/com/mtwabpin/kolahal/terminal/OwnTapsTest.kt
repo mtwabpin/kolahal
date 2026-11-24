@@ -59,6 +59,16 @@ class OwnTapsTest {
         assertNull(OwnTaps.parse("todos", "rm #12"))
     }
 
+    /** The Notes card's + puts `note ` in the prompt: nothing runs, and the words can't carry a note. */
+    @Test
+    fun aNewNoteStartsInThePrompt() {
+        assertEquals(OwnTap.Fill("note "), OwnTaps.parse("notes", "new"))
+        assertEquals(OwnTap.Fill("note "), OwnTaps.parse("notes", OwnTaps.NEW))
+        assertNull(OwnTaps.parse("notes", "new torch"))
+        assertNull(OwnTaps.parse("todos", "new"))
+        assertNull(OwnTaps.parse("reminders", "new"))
+    }
+
     @Test
     fun mediaHasItsButtons() {
         assertEquals(OwnTap.Media(MediaRepository.Action.PREV), OwnTaps.parse("media", "prev"))

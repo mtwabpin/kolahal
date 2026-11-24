@@ -732,6 +732,100 @@ internal object ReferenceExamplesVariants {
             )
         },
         Widget(
+            "countdown-dots", WidgetKind.COUNTDOWN, WidgetSize.S2X1, "Countdown",
+            lua = """
+            -- 26 days to go, from a trip booked
+            -- 14 days ago: a dot a day.
+            local t = os.date("*t")
+
+            widget.show{
+              kind = "countdown",
+              title = "Paris",
+              label = "A dot a day",
+              style = "dots",
+              from = os.time({
+                year = t.year,
+                month = t.month,
+                day = t.day - 14,
+                hour = 0,
+              }),
+              to = os.time({
+                year = t.year,
+                month = t.month,
+                day = t.day + 26,
+                hour = 0,
+              }),
+            }
+            """,
+            js = """
+            // 26 days to go, from a trip booked
+            // 14 days ago: a dot a day.
+            const t = new Date();
+
+            widget.show({
+              kind: "countdown",
+              title: "Paris",
+              label: "A dot a day",
+              style: "dots",
+              from: new Date(
+                t.getFullYear(),
+                t.getMonth(),
+                t.getDate() - 14,
+              ).getTime() / 1000,
+              to: new Date(
+                t.getFullYear(),
+                t.getMonth(),
+                t.getDate() + 26,
+              ).getTime() / 1000,
+            });
+            """,
+            of = "countdown", variant = "A dot a day",
+        ) { now, zone ->
+            val today = java.time.Instant.ofEpochSecond(now).atZone(zone).toLocalDate()
+            WidgetSpec.Countdown(
+                WidgetBase(title = "Paris"),
+                to = today.plusDays(26).atStartOfDay(zone).toEpochSecond(),
+                from = today.minusDays(14).atStartOfDay(zone).toEpochSecond(),
+                label = "A dot a day",
+                style = "dots"
+            )
+        },
+        Widget(
+            "countdown-page", WidgetKind.COUNTDOWN, WidgetSize.S2X1, "Countdown",
+            lua = """
+            widget.show{
+              kind = "countdown",
+              title = "Goa trip",
+              style = "page",
+              to = os.time({
+                year = 2026,
+                month = 12,
+                day = 20,
+                hour = 0,
+              }),
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "countdown",
+              title: "Goa trip",
+              style: "page",
+              to: new Date(
+                2026,
+                11,
+                20,
+              ).getTime() / 1000,
+            });
+            """,
+            of = "countdown", variant = "A calendar page",
+        ) { _, zone ->
+            WidgetSpec.Countdown(
+                WidgetBase(title = "Goa trip"),
+                to = java.time.LocalDate.of(2026, 12, 20).atStartOfDay(zone).toEpochSecond(),
+                style = "page"
+            )
+        },
+        Widget(
             "buttons-1", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
             lua = """
             widget.show{

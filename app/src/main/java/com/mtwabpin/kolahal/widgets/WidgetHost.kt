@@ -622,6 +622,11 @@ class WidgetHost private constructor(context: Context) {
         all.map { if (it.key == key && it.source != null && it.look != look) it.copy(look = look) else it }
     }
 
+    /** Sets the shape the Shape look gives the widget [key]; null gives it its own again. Only a widget Kolahal draws has one. */
+    fun setShape(key: String, shape: WidgetShape?) = update { all ->
+        all.map { if (it.key == key && it.source != null && it.shape != shape) it.copy(shape = shape) else it }
+    }
+
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */
     fun setSize(key: String, size: WidgetSize) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return

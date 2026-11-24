@@ -416,14 +416,17 @@ private fun ShapedStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color:
     }
 }
 
-/** Shape's stages in a wide card: a cookie with "3/4" at the start, and beside it the current stage, the label and the marks. */
+/**
+ * Shape's stages in a wide card: a cookie (or the shape chosen for the card, [cardShape]) with "3/4"
+ * at the start, and beside it the current stage, the label and the marks.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapeBesideStages(spec: WidgetSpec.Progress, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
     BesideShape(
-        MaterialShapes.Cookie9Sided,
+        cardShape(MaterialShapes.Cookie9Sided),
         c.shapeFill,
         inShape = { side ->
             BigText(

@@ -356,7 +356,10 @@ private fun Modifier.levelClip(fraction: Float, overFill: Boolean): Modifier = d
     ) { this@drawWithContent.drawContent() }
 }
 
-/** Shape's progress in a card that is a clover: the clover fills from the bottom to the level, with the label above and the value on the fill. */
+/**
+ * Shape's progress in a card that is a clover, or the shape chosen for it: the shape fills from the
+ * bottom to the level, with the label above and the value on the fill.
+ */
 @Composable
 private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
@@ -365,6 +368,7 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
     val small = box == WidgetSizes.Box.SMALL
     val line = spec.label ?: LocalUntitled.current
+    val extra = cardInset()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = maxWidth
         Box(
@@ -384,7 +388,11 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = side * 0.15f, start = side * 0.22f, end = side * 0.22f)
+                    .padding(
+                        top = side * (0.15f + extra),
+                        start = side * (0.22f + extra),
+                        end = side * (0.22f + extra)
+                    )
             )
         }
         // A little under the middle, where the fill reaches at half.
@@ -394,14 +402,17 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
                 if (small) type.titleMedium else type.displaySmall,
                 Modifier
                     .align(Alignment.Center)
-                    .padding(top = side * 0.12f, start = side * 0.18f, end = side * 0.18f),
+                    .padding(top = side * 0.12f, start = side * (0.18f + extra), end = side * (0.18f + extra)),
                 color = ink
             )
         }
     }
 }
 
-/** Shape's progress in a wide card: a clover filled to the level with the value on it, and beside it the title over the label. */
+/**
+ * Shape's progress in a wide card: a clover (or the shape chosen for the card, [cardShape]) filled
+ * to the level with the value on it, and beside it the title over the label.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
@@ -410,17 +421,23 @@ private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
     val fraction = WidgetWords.fraction(spec.value, spec.max)
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
     val title = LocalUntitled.current
+    val own = cardShape(MaterialShapes.Clover4Leaf)
+    val extra = cardInset()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = minOf(maxHeight, 140.dp, maxWidth / 2)
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            ShapedLevel(batteryPolygon(spec) ?: MaterialShapes.Clover4Leaf, fraction, color, side) {
+            ShapedLevel(batteryPolygon(spec) ?: own, fraction, color, side) {
                 OnLevel(fraction, c) { ink ->
                     BigText(
                         text,
                         shapeValueStyle(side, 0.25f),
                         Modifier
                             .align(Alignment.Center)
-                            .padding(top = side * 0.18f, start = side / 6, end = side / 6),
+                            .padding(
+                                top = side * 0.18f,
+                                start = side * (1f / 6 + extra),
+                                end = side * (1f / 6 + extra)
+                            ),
                         color = ink
                     )
                 }

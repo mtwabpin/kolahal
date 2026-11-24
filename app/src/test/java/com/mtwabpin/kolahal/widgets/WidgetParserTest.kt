@@ -644,7 +644,7 @@ class WidgetParserTest {
         assertEquals(spec, WidgetJson.decode(WidgetJson.encode(spec)))
         // Only an event has it. Anywhere else it is an unknown field, as before.
         assertEquals(
-            "widget: an agenda widget has no field 'id'; use kind, title, icon, color, tap, staleAfter, refresh, note, events, days, empty",
+            "widget: an agenda widget has no field 'id'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, events, days, empty",
             refused(mapOf("id" to 1, "events" to rows), WidgetKind.AGENDA)
         )
         assertEquals(
@@ -811,7 +811,7 @@ class WidgetParserTest {
             noImage("image" to link, "alt" to "a", "fit" to "stretch")
         )
         assertEquals(
-            "widget: an image widget has no field 'src'; use kind, title, icon, color, tap, staleAfter, refresh, note, image, alt, caption, fit",
+            "widget: an image widget has no field 'src'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, image, alt, caption, fit",
             noImage("src" to link, "alt" to "a")
         )
     }
@@ -958,11 +958,11 @@ class WidgetParserTest {
     fun whatAProgressRefuses() {
         fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.PROGRESS)
         assertEquals(
-            "widget: value is needed: how far along it is, from 0 to max. Or give items, for bars",
+            "widget: value, items or stages is needed\nvalue: how far along it is, from 0 to max\nitems: up to 4 bars or rings\nstages: 2 to 6 names, with stage",
             no("label" to "x")
         )
         assertEquals(
-            "widget: value is needed: how far along it is, from 0 to max. Or give items, for bars",
+            "widget: value, items or stages is needed\nvalue: how far along it is, from 0 to max\nitems: up to 4 bars or rings\nstages: 2 to 6 names, with stage",
             no("items" to emptyMap<String, Any?>())
         )
         assertEquals("widget: value must be a number, not '68%'", no("value" to "68%"))
@@ -1167,6 +1167,8 @@ class WidgetParserTest {
         )
         assertEquals(WidgetSpec.Countdown(WidgetBase(), to = 0), countdown("to" to 0))
         assertEquals("clock", countdown("to" to 60, "style" to "clock").style)
+        assertEquals("dots", countdown("to" to 60, "style" to "dots").style)
+        assertEquals("page", countdown("to" to 60, "style" to " Page ").style)
     }
 
     /** `os.time()` is whole seconds. `Date.now() / 1000` has a fraction, which is dropped. */
@@ -1209,7 +1211,7 @@ class WidgetParserTest {
         )
         assertEquals("widget: from must be before to", no("to" to 100, "from" to 100))
         assertEquals(
-            "widget: style must be days or clock, not 'hours'",
+            "widget: style must be days, clock, dots or page, not 'hours'",
             no("to" to 100, "style" to "hours")
         )
     }
@@ -1323,12 +1325,12 @@ class WidgetParserTest {
     @Test
     fun anUnknownFieldListsTheKnownOnes() {
         assertEquals(
-            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, tap, staleAfter, refresh, note, value, label, unit, delta, trend, more, progress, moving, points, scene",
+            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, value, label, unit, delta, trend, more, progress, moving, points, scene",
             refused(mapOf("value" to 1, "colour" to "good")),
         )
         // Another kind's field is unknown too.
         assertEquals(
-            "widget: a text widget has no field 'value'; use kind, title, icon, color, tap, staleAfter, refresh, note, text, caption",
+            "widget: a text widget has no field 'value'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, text, caption",
             refused(mapOf("text" to "a", "value" to 1), WidgetKind.TEXT),
         )
         assertEquals(

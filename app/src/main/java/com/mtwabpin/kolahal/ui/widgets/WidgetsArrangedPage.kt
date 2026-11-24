@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -115,7 +116,7 @@ private data class Drop(val w: PlacedWidget, val column: Int, val topDp: Int)
  *   Narrower, Taller, Shorter, what the widget itself holds ([editOf]: Options, Edit shortcuts or
  *   Widget settings, as in its toolbar) and Remove.
  * - The chosen widget is scrolled into view, clear of the bars ([topRoom], [bottomRoom]), when it is
- *   chosen and each time it moves or changes size.
+ *   chosen and each time it moves, changes size or changes look.
  */
 @Composable
 internal fun ArrangedPage(
@@ -370,13 +371,15 @@ internal fun ArrangedPage(
                     var size by remember { mutableStateOf(IntSize.Zero) }
                     // The chosen widget is scrolled into view when it is chosen (the toolbar coming up
                     // could hide it) and again each time it moves or changes size: in a long page it
-                    // would go off the screen. After a frame, so its new place and the toolbar are laid
-                    // out first. Not while a handle is held: the page would move under the finger.
+                    // would go off the screen. Its look too: the Shape row makes the toolbar taller.
+                    // After a frame, so its new place and the toolbar are laid out first. Not while a
+                    // handle is held: the page would move under the finger.
                     if (selected == w.key && dragged == null && resizing == null) LaunchedEffect(
                         w.column,
                         w.topDp,
                         w.span,
-                        w.heightDp
+                        w.heightDp,
+                        w.look
                     ) {
                         withFrameNanos { }
                         bring.bringIntoView(
@@ -608,7 +611,10 @@ private fun ArrangedCard(
                 .clearAndSetSemantics {}
         ) {
             if (w.source != null) {
-                SourceWidget(w, w.heightDp.dp, actions = null, feed = feed)
+                // A shape chosen in the toolbar settles here as it does on the widgets page.
+                CompositionLocalProvider(LocalArranging provides true) {
+                    SourceWidget(w, w.heightDp.dp, actions = null, feed = feed)
+                }
             } else {
                 Surface(
                     shape = MaterialTheme.shapes.large,

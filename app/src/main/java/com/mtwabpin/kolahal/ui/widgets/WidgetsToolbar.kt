@@ -57,7 +57,9 @@ import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetShape
 import com.mtwabpin.kolahal.widgets.WidgetSize
+import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -68,6 +70,7 @@ internal class ToolbarEdit(val label: String, val icon: Int, val onClick: () -> 
  * The controls for the chosen widget, docked at the bottom: its name and size, and Remove and Done.
  * - One of Kolahal's own widgets: its look and its size, one tap each. With [edit], a button for
  *   what the widget itself holds: the Shortcuts widget's list, or the options of a script's widget.
+ *   In the Shape look, a card with a choice of shape ([shapes]) has a row of shapes under the look.
  * - An app's widget: width and height in steps, and Square. It draws itself, so it has no look.
  *   With [edit], Widget settings: its setup screen, opened again.
  */
@@ -80,6 +83,8 @@ internal fun WidgetToolbar(
     minHeight: Int,
     minSpan: Int,
     onLook: (WidgetLook) -> Unit,
+    shapes: ShapeChoices? = null,
+    onShape: (WidgetShape?) -> Unit = {},
     onSize: (WidgetSize) -> Unit,
     onHeight: (Int) -> Unit,
     onWidth: (Int) -> Unit,
@@ -92,8 +97,10 @@ internal fun WidgetToolbar(
 ) {
     val own = w.source != null
     // Only the looks that change this kind of card ([WidgetLook.offeredFor]); one it doesn't offer draws Plain.
-    val looks = WidgetLook.offeredFor(kind)
-    val drawn = w.look.drawnFor(kind)
+    // One of Kolahal's own widgets has a look of its own too: Next for Todos, Stack for Notes.
+    val builtin = WidgetSource.builtinId(w.source)
+    val looks = WidgetLook.offeredFor(kind, builtin)
+    val drawn = w.look.drawnFor(kind, builtin)
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -150,6 +157,11 @@ internal fun WidgetToolbar(
             if (own) {
                 ToolbarLabel("Look")
                 ChoiceRow(looks.map { it.label }, drawn.label, "look ") { onLook(looks[it]) }
+                // In the Shape look, a card with one shape: which of Material's shapes it is.
+                if (shapes != null && drawn == WidgetLook.SHAPE) {
+                    ToolbarLabel("Shape")
+                    ShapeChoiceRow(shapes, onShape)
+                }
                 ToolbarLabel("Size")
                 ChoiceRow(WidgetSize.entries.map { it.label }, size?.label, "size ") {
                     onSize(
