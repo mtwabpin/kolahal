@@ -41,7 +41,18 @@ internal class RecordingHost : ScriptActions.Host {
     override fun notice(text: String, error: Boolean, undo: (() -> Unit)?) {
         val n = Notice(text, error)
         notices += n
+        copy = null
         if (undo != null) this.undo = n to undo
+    }
+
+    /** What Copy gives on the last notice's line, when that notice suggested one command; else null. */
+    @Volatile
+    var copy: String? = null
+        private set
+
+    override fun notice(text: String, copy: String) {
+        notice(text, false, null)
+        this.copy = copy
     }
 
     override fun show(text: String) {

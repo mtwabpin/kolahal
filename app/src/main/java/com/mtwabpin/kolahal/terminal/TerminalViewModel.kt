@@ -206,6 +206,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override fun notice(text: String, error: Boolean, undo: (() -> Unit)?) =
             this@TerminalViewModel.notice(text, error, undo)
 
+        override fun notice(text: String, copy: String) =
+            this@TerminalViewModel.notice(text, ctx = LogContext.of(LogContext.COPY to copy))
+
         override fun show(text: String) = this@TerminalViewModel.show(text)
         override fun emit(event: UiEvent) {
             _events.tryEmit(event)
@@ -1534,9 +1537,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         check.fix?.let { cmd -> io { processor.run(cmd, expand = false, fromApp = true) } }
     }
 
-    private fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null) {
+    private fun notice(
+        text: String,
+        error: Boolean = false,
+        undo: (() -> Unit)? = null,
+        ctx: LogContext = LogContext.EMPTY,
+    ) {
         show(text, undo)
-        logs.add(if (error) LogKind.ERROR else LogKind.INFO, text)
+        logs.add(if (error) LogKind.ERROR else LogKind.INFO, text, ctx = ctx)
     }
 
     /**

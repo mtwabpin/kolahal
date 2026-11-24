@@ -367,10 +367,27 @@ class ScriptActionsTest {
             ),
             host.lastNotice(),
         )
+        // Two came in, so no one command to copy.
+        assertNull(host.copy)
         assertFalse(repo.byName("sa-imp")!!.enabled)
         assertEquals("return 2", repo.byName("sa-upd")!!.code)
         assertFalse(repo.byName("sa-upd")!!.enabled)
         assertTrue(host.commandList!!.any { it.name == "sa-imp" })
+    }
+
+    /** One file imported: the message speaks of one script, by its name, and Copy gives the command that turns it on. */
+    @Test
+    fun importingOneFileNamesItsScript() {
+        actions.importScriptFiles(listOf(Uri.fromFile(file("sa-imp.lua", "log('imported')"))))
+        assertEquals(
+            RecordingHost.Notice(
+                "Added sa-imp.lua\nOff until you turn it on with 'script on sa-imp'",
+                false,
+            ),
+            host.lastNotice(),
+        )
+        assertEquals("script on sa-imp", host.copy)
+        assertFalse(repo.byName("sa-imp")!!.enabled)
     }
 
     /** A shader imported with the scripts isn't in their list, so the message says where it is. */

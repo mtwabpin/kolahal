@@ -64,6 +64,9 @@ class ScriptActions(
 
         /** Shows [text] on the page and logs it. With [undo], the page offers Undo for a while. */
         fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null)
+
+        /** As [notice], and Copy on the logged line gives [copy]: the one command that [text] suggests. */
+        fun notice(text: String, copy: String) = notice(text)
         fun show(text: String)
         fun emit(event: UiEvent)
         fun openEditor(script: Script)
@@ -225,17 +228,18 @@ class ScriptActions(
         fileOp("import") {
             val r = ScriptFiles(context).import(uris)
             refreshScriptCaches()
-            notice(
-                buildList {
-                    // One fact to a line: what came in, that it is off, then what was left out.
-                    if (r.created.isNotEmpty()) add("Added ${r.created.joinToString()}")
-                    if (r.updated.isNotEmpty()) add("Updated ${r.updated.joinToString()}")
-                    if (r.created.isNotEmpty() || r.updated.isNotEmpty()) add("Off until you turn them on with 'script on <name>'")
-                    if (r.shaders.isNotEmpty()) add("Shaders ${r.shaders.joinToString()}, under Settings → Shaders")
-                    if (r.skipped.isNotEmpty()) add("Skipped ${r.skipped.joinToString()}")
-                }.joinToString("\n").ifEmpty { "Nothing imported" },
-                error = r.created.isEmpty() && r.updated.isEmpty() && r.shaders.isEmpty(),
-            )
+            val came = r.created + r.updated
+            val text = buildList {
+                // One fact to a line: what came in, that it is off, then what was left out.
+                if (r.created.isNotEmpty()) add("Added ${r.created.joinToString()}")
+                if (r.updated.isNotEmpty()) add("Updated ${r.updated.joinToString()}")
+                offUntilOn(came)?.let { add(it) }
+                if (r.shaders.isNotEmpty()) add("Shaders ${r.shaders.joinToString()}, under Settings → Shaders")
+                if (r.skipped.isNotEmpty()) add("Skipped ${r.skipped.joinToString()}")
+            }.joinToString("\n").ifEmpty { "Nothing imported" }
+            val turnOn = turnOnCommand(came)
+            if (turnOn != null) host.notice(text, turnOn)
+            else notice(text, error = came.isEmpty() && r.shaders.isEmpty())
         }
     }
 
@@ -591,6 +595,24 @@ class ScriptActions(
     suspend fun refreshScriptCaches() = listReads.read()
 
     companion object {
+        /**
+         * The line of an import that says the scripts that came in are off, and how to turn them on.
+         * [files] are their files, as `chess.lua`. One script is named in the command; for several the
+         * command says `<name>`. Null when none came in.
+         */
+        internal fun offUntilOn(files: List<String>): String? = when (files.size) {
+            0 -> null
+            1 -> "Off until you turn it on with 'script on ${scriptName(files.single())}'"
+            else -> "Off until you turn them on with 'script on <name>'"
+        }
+
+        /** What Copy gives on an import's line: the command that turns on its one script ([offUntilOn]). Null for none or several. */
+        internal fun turnOnCommand(files: List<String>): String? =
+            files.singleOrNull()?.let { "script on ${scriptName(it)}" }
+
+        /** A script's name from its file's name: `chess.lua` is `chess`. A script's name has no dot. */
+        private fun scriptName(file: String): String = file.substringBeforeLast('.')
+
         /** [optionsVersion]: one for the process, because `script set` changes options too. */
         private val optionChanges = MutableStateFlow(0)
 
