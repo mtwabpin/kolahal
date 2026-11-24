@@ -135,6 +135,7 @@ export default defineConfig({
 					items: [
 						{ slug: 'getting-started/install' },
 						{ slug: 'getting-started/play-testing' },
+						{ slug: 'tour', label: 'Tour' },
 						{ slug: 'getting-started/setup' },
 						{ slug: 'getting-started/parts' },
 						{ slug: 'getting-started/basics' },

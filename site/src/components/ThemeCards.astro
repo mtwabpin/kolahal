@@ -7,12 +7,12 @@
  * Each half is a piece of home in that palette: a few commands and their answers as the log draws
  * them (ui/home/LogView.kt: the bar beside each line in the accent at 45 %, the script color beside a
  * script's lines and the error color beside an error; the time in the muted color; a profile's tag
- * bold in its color). Under each half, a row of dots: that version's colors in the theme builder's
- * order (ui/settings/ThemeBuilder.kt), the same on every card so they compare down the page.
+ * bold in its color). Under each half, a strip of that version's colors in the theme builder's order
+ * (ui/settings/ThemeBuilder.kt), the same on every card so they compare down the page.
  *
- * - A dot says its name and value to a screen reader, and on hover. A row of dots takes focus (and a
- *   tap): it then lists every color with its value over the sample.
- * - A dot gets a ring in the site's rule color where it is close to the card under it, in the site's
+ * - A color in the strip says its name and value to a screen reader, and on hover. A strip takes
+ *   focus (and a tap): it then lists every color with its value over the sample.
+ * - A color gets a ring in the site's rule color where it is close to the card under it, in the site's
  *   dark or light theme (under 1.8:1 against --s-sheet, read from tokens.css).
  * - `NOTES` has a word or two after a theme's command.
  * - material-you takes its colors from the phone's wallpaper. It is drawn here in Material's
@@ -23,8 +23,8 @@ import tokens from '../styles/tokens.css?raw';
 
 type Palette = Record<string, string>;
 
-/** The dots: the theme builder's order, without surface, muted text, info and personal apps. */
-const DOTS: [role: string, name: string][] = [
+/** The strip: the theme builder's order, without surface, muted text, info and personal apps. */
+const COLORS: [role: string, name: string][] = [
 	['background', 'Background'],
 	['text', 'Text'],
 	['accent', 'Accent'],
@@ -83,7 +83,7 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 ---
 
 <p class="legend not-content">
-	The dots under each half are that version's colors, from the left: background, text, accent, links, script output,
+	The strip under each half is that version's colors, from the left: background, text, accent, links, script output,
 	errors, good, warning, work apps and private space.
 </p>
 <ul class="themes not-content">
@@ -150,9 +150,9 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 						<div class:list={['panel', v.key]} aria-hidden="true">
 							<p>{v.label}</p>
 							<ul>
-								{DOTS.map(([role, name]) => (
+								{COLORS.map(([role, name]) => (
 									<li>
-										<i class:list={ringClass(v.c[role])} style={`--dot:${v.c[role]}`} />
+										<i class:list={ringClass(v.c[role])} style={`--swatch:${v.c[role]}`} />
 										<span>{name}</span>
 										<span class="hex">{v.c[role]}</span>
 									</li>
@@ -163,9 +163,9 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 				</div>
 				<div class="rows">
 					{t.versions.map((v) => (
-						<ul class:list={['dots', v.key]} tabindex="0" aria-label={`${t.name}, ${v.key}: its colors`}>
-							{DOTS.map(([role, name]) => (
-								<li class:list={ringClass(v.c[role])} style={`--dot:${v.c[role]}`} data-tip={`${name} ${v.c[role]}`}>
+						<ul class:list={['strip', v.key]} tabindex="0" aria-label={`${t.name}, ${v.key}: its colors`}>
+							{COLORS.map(([role, name]) => (
+								<li class:list={ringClass(v.c[role])} style={`--swatch:${v.c[role]}`} data-tip={`${name} ${v.c[role]}`}>
 									<span class="sr-only">
 										{name} {v.c[role]}
 									</span>
@@ -294,40 +294,42 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		border-inline-start-color: color-mix(in srgb, var(--t-error) 45%, transparent);
 	}
 
-	/* The dots: one row under each half, each row as wide as its half and inset as its log. */
+	/* The strips: one under each half, as wide as its half and inset as its log. */
 	.rows {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		container-type: inline-size;
 	}
-	/* As large as fits, up to 1.125rem: ten dots and nine half-dot gaps in a half, inside its inset. */
-	.dots {
+	/* Ten colors side by side with small gaps, the ends rounded. */
+	.strip {
 		--inset: 0.75rem;
-		--size: min(1.125rem, (50cqi - 2 * var(--inset)) / 14.5);
-		--gap: calc(var(--size) / 2);
 		list-style: none;
 		margin: 0;
 		padding: 0 var(--inset);
 		min-height: 2.75rem;
 		display: flex;
 		align-items: center;
-		gap: var(--gap);
+		gap: 2px;
 		border-radius: var(--s-radius-s);
 		min-width: 0;
 	}
-	.dots li {
+	.strip li {
 		position: relative;
-		flex: none;
+		flex: 1;
 		margin: 0;
-		width: var(--size);
-		height: var(--size);
-		border-radius: 50%;
-		background: var(--dot);
+		height: 1.125rem;
+		border-radius: 0.1875rem;
+		background: var(--swatch);
 	}
-	.dots:focus {
+	.strip li:first-child {
+		border-radius: 0.5625rem 0.1875rem 0.1875rem 0.5625rem;
+	}
+	.strip li:last-child {
+		border-radius: 0.1875rem 0.5625rem 0.5625rem 0.1875rem;
+	}
+	.strip:focus {
 		outline: none;
 	}
-	.dots:focus-visible {
+	.strip:focus-visible {
 		outline: 2px solid var(--s-link);
 		outline-offset: -2px;
 	}
@@ -341,8 +343,8 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 	:global(:root[data-theme='light']) .near-light {
 		box-shadow: 0 0 0 1px var(--s-rule);
 	}
-	/* A dot's name and value on hover: over the dot, toward the middle of the card. */
-	.dots li::after {
+	/* A color's name and value on hover: over it, toward the middle of its strip. */
+	.strip li::after {
 		content: attr(data-tip);
 		display: none;
 		position: absolute;
@@ -356,16 +358,16 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		white-space: nowrap;
 		pointer-events: none;
 	}
-	.dots.dark li::after {
+	.strip li:nth-child(-n + 5)::after {
 		left: -0.25rem;
 	}
-	.dots.light li::after {
+	.strip li:nth-child(n + 6)::after {
 		right: -0.25rem;
 	}
-	.dots li:hover::after {
+	.strip li:hover::after {
 		display: block;
 	}
-	.dots:focus li::after {
+	.strip:focus li::after {
 		display: none;
 	}
 
@@ -383,8 +385,8 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		font: 0.8125rem/1.4 var(--s-font-mono);
 		overflow: hidden;
 	}
-	.card:has(.dots.dark:focus) .panel.dark,
-	.card:has(.dots.light:focus) .panel.light {
+	.card:has(.strip.dark:focus) .panel.dark,
+	.card:has(.strip.light:focus) .panel.light {
 		display: block;
 	}
 	.panel p {
@@ -425,7 +427,7 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		width: 0.75rem;
 		height: 0.75rem;
 		border-radius: 50%;
-		background: var(--dot);
+		background: var(--swatch);
 	}
 
 	@media (max-width: 30rem) {
@@ -439,7 +441,7 @@ const THEMES = Object.entries(data.themes as Record<string, { dark: Palette; lig
 		.tm {
 			display: none;
 		}
-		.dots {
+		.strip {
 			--inset: 0.5rem;
 		}
 		.panel {
