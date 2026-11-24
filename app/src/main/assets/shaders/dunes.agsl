@@ -1,27 +1,21 @@
 // @name Dunes
-// @description A long dune crest after woodblock prints, with ranges of dunes and far mesas behind it, sand blowing off the top and a caravan on its way up. It follows the hour
+// @description A long dune crest after woodblock prints, with ranges of dunes and far mesas behind it and a caravan that climbs it once an hour. It follows the hour
 // @suits dark good, light good, wallpaper poor
-// @param wind 0.0..2.0 = 1.0 Wind
 // @param camels 0..7 = 5 Camels in the caravan
-// @animated
-// @fps 15
-// @settles 5
 //
 // Flat shapes with one soft gradient each. Every dune has a long side against the wind and a short one
 // behind it; one is in the light and the other in the shade, and they change places as the sun or the moon
 // crosses the sky. The scene is measured by the screen's height, so a wider screen shows more of the
 // desert. The lower part of the page is the theme's own, where the newest lines are.
+//
+// It stands still: it has no `time`, so it is drawn again once a minute, for the date, and when something it
+// shows changes. The caravan's place is the minute of the hour.
 
 uniform shader content;
 uniform float2 resolution;
-uniform float time;
 uniform float4 date;
-uniform float2 tilt;
-uniform float2 touch;
-uniform float touchAge;
 uniform float dark;
 uniform float wallpaper;
-uniform float wind;
 uniform float camels;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 fg;
@@ -46,19 +40,11 @@ float hash2(float2 p) {
     return fract((q.x + q.y) * q.z);
 }
 
-// Smooth noise along a line and over the plane, 0 to 1.
+// Smooth noise along a line, 0 to 1.
 float noise1(float x) {
     float at = floor(x);
     float f = fract(x);
     return mix(hash(at), hash(at + 1.0), f * f * (3.0 - 2.0 * f));
-}
-
-float noise2(float2 p) {
-    float2 at = floor(p);
-    float2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash2(at), hash2(at + float2(1.0, 0.0)), f.x),
-        mix(hash2(at + float2(0.0, 1.0)), hash2(at + float2(1.0, 1.0)), f.x), f.y);
 }
 
 // How much of morning, day, evening and night there is at hour h.
@@ -178,7 +164,7 @@ float3 rowSand(float3 color, float2 q, float y, float4 top, float n, float width
             // Lines across the wind on the side against it, near each other far off and wider apart nearby.
             float rows = 40.0 * sqrt(v + 0.02) + 1.1 * sin(q.x * 21.0 + 6.0 * v) + 0.5 * sin(q.x * 53.0 - 9.0 * v);
             float line = 0.4 - smoothstep(0.0, 0.20, abs(fract(rows) - 0.35)) + 0.6 * smoothstep(0.0, 0.30, abs(fract(rows + 0.32) - 0.35));
-            float where = smoothstep(-0.6, 0.8, sin(q.x * 11.0 - time * 0.012 + 2.2 * sin(v * 9.0 + q.x * 6.0)));
+            float where = smoothstep(-0.6, 0.8, sin(q.x * 11.0 + 2.2 * sin(v * 9.0 + q.x * 6.0)));
             bright += line * where * ripples * smoothstep(0.03, 0.14, v) * (1.0 - smoothstep(0.55, 0.95, v)) * (1.0 - 0.8 * lee);
         }
         float3 sand = mix(mix(shade, lit, clamp(bright, 0.0, 1.15)), haze, mix(0.60, 0.34, near) * smoothstep(0.0, 1.0, v) + 0.22 * (1.0 - near));
@@ -199,14 +185,12 @@ float3 row(float3 color, float2 q, float y, float n, float base, float tall, flo
     return color;
 }
 
-// Mist in a long bar around y = at, from one x to another, with soft ends: where it is, from 0 to 1. It sways
-// slowly from side to side.
-float mist(float2 q, float at, float thick, float from, float to, float n) {
+// Mist in a long bar around y = at, from one x to another, with soft ends: where it is, from 0 to 1.
+float mist(float2 q, float at, float thick, float from, float to) {
     float dy = (q.y - at) / thick;
     float sum = 0.0;
     if (abs(dy) < 1.6) {
-        float x = q.x + 0.04 * sin(time * 0.02 * (1.0 + 0.5 * n) + n);
-        float ends = min(x - from, to - x) / (thick * 6.0);
+        float ends = min(q.x - from, to - q.x) / (thick * 6.0);
         sum = exp(-dy * dy * 3.5) * smoothstep(0.0, 1.0, ends - dy * dy);
     }
     return sum;
@@ -236,7 +220,6 @@ half4 main(float2 xy) {
     float small = min(res.x, res.y);
     float wide = res.x / res.y;
     float2 q = float2((xy.x - 0.5 * res.x) / res.y, y);
-    float lift = tilt.x * 0.0030;
     float px = 1.0 / res.y;
 
     // The sun by day and the moon by night, each on its own arc, from left to right.
@@ -260,16 +243,14 @@ half4 main(float2 xy) {
 
     // The scene is worked out from the front: what a nearer dune hides is not drawn. First the nearest range's
     // top line, then the long dune's outline. It climbs from the left to its top and falls away behind it.
-    float2 nearAt = q + float2(lift * 4.5, 0.0);
     bool nearHere = y > 0.422 && y < 0.832;
     float4 nearTop = float4(0.0);
     bool behind = false;
     if (nearHere) {
-        nearTop = rowTop(nearAt.x, 2.0, 0.532, 0.090, 0.740);
+        nearTop = rowTop(q.x, 2.0, 0.532, 0.090, 0.740);
         behind = (y - nearTop.x) / px + 0.5 >= 1.0;
     }
-    float2 g = q + float2(lift * 3.0, 0.0);
-    float dx = g.x - PEAK.x;
+    float dx = q.x - PEAK.x;
     float side = dx < 0.0 ? dx / 0.62 : dx / 0.33;
     float outline = PEAK.y + (dx < 0.0 ? 0.150 * (1.0 - climb(1.0 + max(side, -1.0))) : 0.132 * (1.0 - (1.0 - min(side, 1.0)) * (1.0 - min(side, 1.0))));
     float cover = clamp((y - outline) * res.y + 0.5, 0.0, 1.0);
@@ -342,7 +323,6 @@ half4 main(float2 xy) {
 
         // Far off, mesas: flat-topped rock, pale, that only a wide screen has room for.
         if (y > 0.300 && y < PLAIN + 0.004) {
-            float2 m = q + float2(lift * 0.5, 0.0);
             float top = PLAIN;
             // Each: where it is, half its width at the top, how high.
             float3 rock1 = float3(-0.640, 0.105, 0.052);
@@ -351,11 +331,11 @@ half4 main(float2 xy) {
             float3 rock4 = float3(1.020, 0.150, 0.058);
             for (int i = 0; i < 4; i++) {
                 float3 rock = i == 0 ? rock1 : i == 1 ? rock2 : i == 2 ? rock3 : rock4;
-                float d = abs(m.x - rock.x) - rock.y;
+                float d = abs(q.x - rock.x) - rock.y;
                 // A wall that leans a little, with an uneven top, and a slope of fallen rock at its foot.
                 float wall = 1.0 - smoothstep(0.0, 0.10, d / rock.z);
                 float foot = 1.0 - clamp(d / (rock.z * 2.4), 0.0, 1.0);
-                float high = rock.z * max(wall * (0.94 + 0.06 * noise1(m.x * 34.0 + rock.x * 9.0)), 0.36 * foot * foot);
+                float high = rock.z * max(wall * (0.94 + 0.06 * noise1(q.x * 34.0 + rock.x * 9.0)), 0.36 * foot * foot);
                 top = min(top, PLAIN - high);
             }
             float rockHere = clamp((y - top) * res.y + 0.5, 0.0, 1.0);
@@ -371,28 +351,29 @@ half4 main(float2 xy) {
 
         // Two ranges of dunes far off, each with bars of mist before it.
         if (y > 0.34 && y < 0.56) {
-            color = row(color, q + float2(lift, 0.0), y, 0.0, 0.401, 0.026, 0.150, 0.045, 0.12, from, px,
+            color = row(color, q, y, 0.0, 0.401, 0.026, 0.150, 0.045, 0.12, from, px,
                 mix(litFar, litNear, 0.12), mix(shadeFar, shadeNear, 0.12), haze, warm);
-            float bar = mist(q, 0.4110, 0.0075, -0.56, -0.02, 0.0) + mist(q, 0.4150, 0.0065, 0.18, 0.80, 2.0);
+            float bar = mist(q, 0.4110, 0.0075, -0.56, -0.02) + mist(q, 0.4150, 0.0065, 0.18, 0.80);
             color = mix(color, mix(haze, glow, 0.25 * shine), 0.42 * clamp(bar, 0.0, 1.0));
-            color = row(color, q + float2(lift * 2.0, 0.0), y, 1.0, 0.434, 0.056, 0.300, 0.110, 0.45, from, px,
+            color = row(color, q, y, 1.0, 0.434, 0.056, 0.300, 0.110, 0.45, from, px,
                 mix(litFar, litNear, 0.45), mix(shadeFar, shadeNear, 0.45), haze, warm);
-            bar = mist(q, 0.4580, 0.0100, -0.06, 0.66, 1.0) + mist(q, 0.4500, 0.0085, -0.98, -0.32, 3.0);
+            bar = mist(q, 0.4580, 0.0100, -0.06, 0.66) + mist(q, 0.4500, 0.0085, -0.98, -0.32);
             color = mix(color, mix(haze, glow, 0.25 * shine), 0.40 * clamp(bar, 0.0, 1.0));
         }
 
-        // A caravan on its way up the long dune, against the sky.
+        // A caravan on its way up the long dune, against the sky: from its foot to near its top in an hour.
         float camel = 0.0062;
         if (camels > 0.5 && y < outline + 0.004 && y > outline - 0.030 && dx < 0.0) {
-            float way = PEAK.x - 0.275 + fract(time * 0.0009 + 0.55) * 0.255;
-            float box = (g.x - way) / camel;
+            float way = PEAK.x - 0.275 + fract(date.w / 3600.0) * 0.255;
+            float box = (q.x - way) / camel;
             if (box < 4.0 && box > 1.2 - 5.2 * camels) {
                 float n = clamp(floor(0.5 - box / 5.2), 0.0, camels - 1.0);
                 float at = way - n * 5.2 * camel;
                 float foot = PEAK.y + 0.150 * (1.0 - climb(1.0 + max((at - PEAK.x) / 0.62, -1.0)));
-                float2 c = float2(g.x - at, foot - y) / (camel * (0.9 + 0.2 * hash(n + 4.0)));
+                float2 c = float2(q.x - at, foot - y) / (camel * (0.9 + 0.2 * hash(n + 4.0)));
                 if (c.y > -0.5 && c.y < 2.4) {
-                    float gait = 0.22 * sin(time * 1.6 + n * 2.0);
+                    // Each camel is in mid step, and in another one where the caravan is a minute later.
+                    float gait = 0.22 * sin(way * 900.0 + n * 2.0);
                     float body = (length((c - float2(0.0, 1.08)) / float2(0.68, 0.36)) - 1.0) * 0.36;
                     body = min(body, (length((c - float2(-0.04, 1.42)) / float2(0.32, 0.28)) - 1.0) * 0.28);
                     body = min(body, stroke(c, float2(0.50, 1.08), float2(0.88, 1.14)) - 0.13);
@@ -414,7 +395,7 @@ half4 main(float2 xy) {
         if (shown > 0.002) {
             // The crest: first away from the wind, then back across.
             float crest = PEAK.x - 0.20 * vh + 0.050 * sin(5.6 * sqrt(max(vh, 0.0))) * (0.3 + vh);
-            float e = g.x - crest;
+            float e = q.x - crest;
             float lee = smoothstep(-1.5 * px, 1.5 * px, e);
             float toSun = (sunAt.x - PEAK.x) / (abs(sunAt.x - PEAK.x) + 0.05) * there * moonlight;
             float light = clamp(0.5 + mix(-0.56, 0.56, lee) * toSun, 0.0, 1.0);
@@ -422,39 +403,19 @@ half4 main(float2 xy) {
             float bright = mix(0.50, light, 0.30 + 0.70 * apart);
             // Ripples against the wind: lines across it, near each other far off and wider apart nearby. Behind the
             // crest the sand has slid, and is smooth.
-            float row1 = 44.0 * sqrt(vh + 0.02) + 1.1 * sin(g.x * 21.0 + 6.0 * vh) + 0.5 * sin(g.x * 53.0 - 9.0 * vh) + 4.0 * exp(-abs(e) * 16.0);
+            float row1 = 44.0 * sqrt(vh + 0.02) + 1.1 * sin(q.x * 21.0 + 6.0 * vh) + 0.5 * sin(q.x * 53.0 - 9.0 * vh) + 4.0 * exp(-abs(e) * 16.0);
             float line = 0.4 - smoothstep(0.0, 0.20, abs(fract(row1) - 0.35)) + 0.6 * smoothstep(0.0, 0.30, abs(fract(row1 + 0.32) - 0.35));
-            float where = smoothstep(-0.6, 0.8, sin(g.x * 11.0 - time * 0.012 + 2.2 * sin(vh * 9.0 + g.x * 6.0)));
+            float where = smoothstep(-0.6, 0.8, sin(q.x * 11.0 + 2.2 * sin(vh * 9.0 + q.x * 6.0)));
             bright += line * where * 0.045 * smoothstep(0.04, 0.16, vh) * (1.0 - smoothstep(0.55, 0.95, vh)) * (1.0 - 0.8 * lee);
             float3 sand = mix(mix(mix(shadeFar, shadeNear, 0.7), mix(litFar, litNear, 0.7), clamp(bright, 0.0, 1.15)), haze, 0.62 * smoothstep(0.0, 0.9, vh));
             color = mix(color, sand, shown);
-        }
-
-        // Sand that the wind carries off the top: thin and level, and wider as it goes.
-        float2 a = g - PEAK;
-        if (wind > 0.0 && a.x > -0.05 && a.x < 0.20 && a.y > -0.02 && a.y < 0.045 && (a.x > 0.0 || cover < 1.0)) {
-            float past = max(a.x, 0.0);
-            float under = (a.x < 0.0 ? y - outline : a.y - 0.10 * past) / (0.0012 + 0.055 * past);
-            float air = exp(-abs(under) - past * 11.0) * smoothstep(-0.05, 0.0, a.x) * (1.0 - smoothstep(0.10, 0.20, a.x));
-            if (air > 0.01) {
-                air *= 0.2 + 0.8 * smoothstep(0.2, 0.8, noise2(float2((a.x - time * 0.02) * 34.0, under * 0.9 + 3.0)));
-                float3 dust = mix(mix(litNear, haze, 0.35), disc, 0.45 * there);
-                color = mix(color, dust, clamp(air * wind * 0.75, 0.0, 1.0));
-            }
         }
     }
 
     // The nearest range, before the long dune's foot. It ends in the ground's own color.
     if (nearHere) {
-        color = rowSand(color, nearAt, y, nearTop, 2.0, 0.740, 0.300, 0.90, 0.07, from, px,
+        color = rowSand(color, q, y, nearTop, 2.0, 0.740, 0.300, 0.90, 0.07, from, px,
             mix(litFar, litNear, 0.92), mix(shadeFar, shadeNear, 0.92), haze, warm, float4(ground1, 1.0));
-    }
-
-    // A touch on the sand raises a little of it.
-    if (touchAge < 5.0 && touch.y > PLAIN * res.y) {
-        float2 t = (xy - touch - small * float2(0.06, -0.015) * touchAge * wind) / (small * float2(0.035 + 0.06 * touchAge, 0.02 + 0.03 * touchAge));
-        float puff = exp(-dot(t, t) - 0.8 * touchAge) * smoothstep(0.0, 0.15, touchAge);
-        if (puff > 0.005) color = mix(color, mix(litNear, haze, 0.5), puff * (0.4 + 0.6 * noise2(float2(t.x + t.y, t.y * 1.7 - t.x) * 1.3 + 9.0)));
     }
 
     color = mix(color, float3(bg.rgb), ground(y) * (1.0 - wallpaper));

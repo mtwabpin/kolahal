@@ -242,7 +242,7 @@ class ShaderMetaTest {
         }
         // Only the ones that say they move are drawn over and over.
         assertEquals(
-            listOf("mountains", "pond", "dunes", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "aura", "lanterns", "record", "candle", "hearts", "pulse"),
+            listOf("mountains", "pond", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "aura", "lanterns", "record", "candle", "hearts", "pulse"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
         )
     }
@@ -253,7 +253,7 @@ class ShaderMetaTest {
         val metas = ShaderCatalog.BUNDLED.associateWith {
             ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText())
         }
-        assertEquals(listOf("foil", "mountains", "dunes", "rain", "snowfall", "night"), metas.filterValues { it.tilt }.keys.toList())
+        assertEquals(listOf("foil", "mountains", "rain", "snowfall", "night"), metas.filterValues { it.tilt }.keys.toList())
         assertEquals(setOf("frost", "rain"), metas.filterValues { it.uses(ShaderMeta.PRESSED) }.keys)
         assertEquals(
             emptySet<String>(),

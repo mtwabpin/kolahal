@@ -5,7 +5,7 @@ description: AGSL shaders over home and the full-screen screens, the ones that c
 
 A shader is a small program that the phone's graphics chip runs for every pixel. Kolahal can draw
 one over home and the [full-screen screens](/reference/commands/#screens), such as `matrix` and
-`screen clock`. Settings, the widgets page, menus and the keyboard stay as they are. Shaders are
+`clock`. Settings, the widgets page, menus and the keyboard stay as they are. Shaders are
 written in AGSL, Android's version of GLSL.
 
 Shaders need **Android 13 or newer**.
@@ -28,9 +28,10 @@ The preview stays at the top while the rest scrolls under it, where the screen i
 - A parameter that [follows a value](#values-to-follow) is one line: what it follows, its value and a thin bar for it.
   Its slider comes back when you pick **Nothing** in its **Follow** menu.
 - Parameters that follow a row of values, such as the eight parts of today's screen time in `seismograph`, are one row
-  with a small chart of their values. Tap it to show or hide each of them.
+  with a small chart of their values. Tap it to show or hide each of them. There, a parameter's **Follow** button is
+  its link icon: hold it to see what it follows.
 - **Check** compiles it and says which [uniforms](#uniforms) it uses.
-- **Copy to script folder** and **Share** give you the file or its code, to edit it or pass it on.
+- **Save to folder** writes its file into the script folder, to edit it there, and **Share** passes its code on.
 - **Update** brings a newer version of a shared shader.
 - **Remove** deletes one of yours. **Undo** brings it back.
 
@@ -68,7 +69,7 @@ nothing while the screen is still.
 | `frost` | ice grows in from the edges and corners, and melts under your finger. The amount of ice can be changed |
 | `mountains` | flat mountain ridges in mist, after woodblock prints. They breathe slowly, follow the hour, and shift a little as the phone leans. The number of birds can be changed. It moves |
 | `pond` | a still pond under far hills, after woodblock prints, with rings of rain and a path of light. It follows the hour. The number of birds can be changed. It moves |
-| `dunes` | a long dune after woodblock prints, with ranges of dunes and far mesas behind it, sand blowing off its top and a caravan on its way up. It follows the hour, and a wider screen shows more of the desert. The wind and the number of camels can be changed. It moves |
+| `dunes` | a long dune after woodblock prints, with ranges of dunes and far mesas behind it, and a caravan that climbs it once an hour. It follows the hour, and a wider screen shows more of the desert. The number of camels can be changed. It stands still, drawn again once a minute |
 | `rain` | a storm you stand in: mist far off, rain in between and big soft drops close by; it slants as the phone leans, and a touch holds it off. It moves |
 | `snowfall` | snow falls behind the text and drifts as the phone leans; a touch blows it away. Its amount and size can be changed. It moves |
 | `grove-snow` | small, crisp flakes fall and wander slowly behind the text, and dim with the hour. It moves |
@@ -261,7 +262,7 @@ The quickest start is a template: a working shader of 30 to 50 lines whose comme
 1. **Settings → Shaders → Add shader → Start from a template**, and pick one: each row shows a small picture of the
    screen with it on. A copy becomes one of your shaders: `my-tint`, or `my-tint-2` when that name is taken. With a
    script folder (`script dir`), its file is written into the folder's `shaders` folder. Without one, Kolahal asks
-   for a folder, and **Copy** in the shader's details writes the file there. `shader copy template-tint` does the
+   for a folder, and **Save to folder** in the shader's details writes the file there. `shader copy template-tint` does the
    same at the prompt.
 2. Edit it: **Edit** in its details opens it in the [editor](#editing-one). Or edit the file on a computer. Its
    comments say what to change first.

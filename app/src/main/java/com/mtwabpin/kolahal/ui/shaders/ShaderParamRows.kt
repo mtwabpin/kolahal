@@ -25,8 +25,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
+import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.FilledTonalToggleButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -65,6 +68,9 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
@@ -74,6 +80,7 @@ import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.ui.ConnectedChoices
 import com.mtwabpin.kolahal.ui.HOLD_TO_TYPE
+import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.ui.TypeValueDialog
 import com.mtwabpin.kolahal.ui.TypedNumber
 import com.mtwabpin.kolahal.ui.fieldColors
@@ -109,6 +116,7 @@ internal fun ShaderParamRows(
     val phone = remember(given, follows, formulas) { actions.phone() }
     // A run is found from what the header says each parameter follows, so it stays one row whatever is picked.
     val runs = remember(params) { ShaderSeries.runs(params.map { p -> p.follow.takeIf { p.choices.isEmpty() } }) }
+    val inRun = remember(runs) { runs.flatMap { it.indices }.toSet() }
     val follow = params.map { ShaderParams.follow(follows[shader].orEmpty(), it) }
     val formula = params.map { ShaderParams.formula(shader, it) }
     val followed = params.mapIndexed { i, param -> follow[i]?.let { ShaderParams.followed(param, it, formula[i], phone) } }
@@ -139,6 +147,8 @@ internal fun ShaderParamRows(
                     }
                 } else ParamRow(
                     shader, params[i], segShapes(k, rows.size), follow[i], formula[i], followed[i], now[i], given, phone, actions,
+                    // The run's row says what they follow, while one still follows what its header says.
+                    inSeries = i in inRun && follow[i] == params[i].follow,
                 )
             }
         }
@@ -152,7 +162,8 @@ internal fun ShaderParamRows(
 
 /**
  * One parameter. [follow] is the value it follows, with [formula]; [followed] what that makes it (null: nothing yet,
- * then what is set counts); [value] what it is now.
+ * then what is set counts); [value] what it is now. [inSeries]: it is under the row of its run, which says what it
+ * follows, so its Follow button is the link icon alone.
  */
 @Composable
 private fun ParamRow(
@@ -166,6 +177,7 @@ private fun ParamRow(
     given: Map<String, String>,
     phone: ShaderValues.Phone,
     actions: ShaderActions,
+    inSeries: Boolean,
 ) {
     // A tap on a number's title or value says it can be held, in a toast, as a tap on the sheet's eye does.
     val context = LocalContext.current
@@ -200,7 +212,8 @@ private fun ParamRow(
         shapes = shapes,
         colors = segColors(),
         modifier = if (typable) Modifier.typeValueAction { typing = true } else Modifier,
-        trailingContent = if (!number) null else {
+        // A number that follows a value has its value on the line with its name ([FollowLine]).
+        trailingContent = if (!number || follow != null) null else {
             {
                 Text(
                     param.text(value),
@@ -232,19 +245,66 @@ private fun ParamRow(
             }
         },
     ) {
-        if (number && follow != null) Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(param.title, Modifier.weight(1f))
-            Spacer(Modifier.width(8.dp))
-            FollowButton(
-                param, follow, hasValue = followed != null, actions, onPick = pick, onFormula = addFormula,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-        } else Text(
+        if (number && follow != null) FollowLine(
+            name = { Text(param.title) },
+            button = {
+                FollowButton(
+                    param, follow, hasValue = followed != null, actions, onPick = pick, onFormula = addFormula, icon = inSeries,
+                )
+            },
+            value = {
+                Text(
+                    param.text(value),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+            },
+        ) else Text(
             param.title,
             Modifier
                 .fillMaxWidth()
                 .then(hold),
         )
+    }
+}
+
+/** The room between a following parameter's name and its Follow button, and between the button and its value. */
+private val NAME_GAP = 8.dp
+private val VALUE_GAP = 12.dp
+
+/**
+ * The line of a number that follows a value: its [name] at the start, then its Follow [button], and its [value] at
+ * the end, centered on the line. The value has the room it needs first, then the name, as long as the button keeps
+ * what it needs or half of what is left; the button has the rest, and its words end in "…" where they don't fit. A
+ * name with less room than it needs wraps.
+ */
+@Composable
+private fun FollowLine(
+    name: @Composable () -> Unit,
+    button: @Composable () -> Unit,
+    value: @Composable () -> Unit,
+) {
+    Layout(listOf(name, button, value)) { (names, buttons, values), constraints ->
+        val title = names.first()
+        val follow = buttons.first()
+        val nameGap = NAME_GAP.roundToPx()
+        val valueGap = VALUE_GAP.roundToPx()
+        val shown = values.first().measure(Constraints(maxWidth = constraints.maxWidth))
+        val needs = follow.maxIntrinsicWidth(Constraints.Infinity)
+        val wants = title.maxIntrinsicWidth(Constraints.Infinity)
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else wants + nameGap + needs + valueGap + shown.width
+        val room = (width - shown.width - nameGap - valueGap).coerceAtLeast(0)
+        val least = minOf(needs, room / 2)
+        val nameWidth = minOf(wants, room - least)
+        val titlePlaced = title.measure(Constraints(maxWidth = nameWidth))
+        val buttonPlaced = follow.measure(Constraints(maxWidth = minOf(needs, room - nameWidth)))
+        val height = constraints.constrainHeight(maxOf(titlePlaced.height, buttonPlaced.height, shown.height))
+        layout(width, height) {
+            titlePlaced.placeRelative(0, (height - titlePlaced.height) / 2)
+            buttonPlaced.placeRelative(width - shown.width - valueGap - buttonPlaced.width, (height - buttonPlaced.height) / 2)
+            shown.placeRelative(width - shown.width, (height - shown.height) / 2)
+        }
     }
 }
 
@@ -362,6 +422,10 @@ private fun ParamSlider(shader: String, param: ShaderParam, value: Float, action
  * What a parameter follows, and the menu to pick it: Kolahal's values and those that scripts give. The value
  * it follows may have nothing yet: then what is set counts. With [onFormula], the menu also offers a formula
  * for the value it follows ([FormulaField]).
+ *
+ * The button says what it follows in the fewest words beside its link icon ([ShaderSeries.followsOne]), on one line
+ * that ends in "…" where it doesn't fit, and a screen reader hears "Follows" and the value's whole name. With [icon] it is the link icon alone,
+ * which says the whole name on a long-press, as the app's other icon buttons do ([Labeled]).
  */
 @Composable
 private fun FollowButton(
@@ -371,25 +435,39 @@ private fun FollowButton(
     actions: ShaderActions,
     onPick: (String?) -> Unit,
     onFormula: (() -> Unit)? = null,
+    icon: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf(false) }
     val sources by produceState(emptyList<ShaderValues.Source>(), open) { if (open) value = actions.sources() }
+    val noValue = if (hasValue) "" else " (no value yet)"
+    val words = if (follow == null) "Follow" else "Follows ${ShaderValues.label(follow)}$noValue"
+    val short = if (follow == null) "Follow" else ShaderSeries.followsOne(follow) + noValue
     Box(modifier) {
-        FilledTonalToggleButton(
+        if (icon) Labeled(words) {
+            FilledTonalIconToggleButton(
+                checked = follow != null,
+                onCheckedChange = { open = true },
+                shapes = IconButtonDefaults.toggleableShapes(),
+                modifier = Modifier.testTag("follow ${param.name}"),
+            ) { Icon(painterResource(R.drawable.wi_link), words, Modifier.size(IconButtonDefaults.smallIconSize)) }
+        } else FilledTonalToggleButton(
             checked = follow != null,
             onCheckedChange = { open = true },
             shapes = ToggleButtonDefaults.shapesFor(ButtonDefaults.ExtraSmallContainerHeight),
             contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.ExtraSmallContainerHeight),
             modifier = Modifier
                 .heightIn(ButtonDefaults.ExtraSmallContainerHeight)
-                .testTag("follow ${param.name}"),
+                .testTag("follow ${param.name}")
+                .semantics { if (words != short) contentDescription = words },
         ) {
             Icon(painterResource(R.drawable.wi_link), null, Modifier.size(ButtonDefaults.ExtraSmallIconSize))
             Spacer(Modifier.width(ButtonDefaults.ExtraSmallIconSpacing))
             Text(
-                if (follow == null) "Follow" else "Follows ${ShaderValues.label(follow)}" + if (hasValue) "" else " (no value yet)",
+                short,
                 style = ButtonDefaults.textStyleFor(ButtonDefaults.ExtraSmallContainerHeight),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         DropdownMenuPopup(expanded = open && sources.isNotEmpty(), onDismissRequest = { open = false }) {

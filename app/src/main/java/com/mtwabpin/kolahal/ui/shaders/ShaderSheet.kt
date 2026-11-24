@@ -33,7 +33,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -95,7 +94,7 @@ import kotlinx.coroutines.launch
  * The sheet for one shader on the Shaders screen ([name] of [rows]). Left and right swipe to the others,
  * in the list's order, as the preview is what one looks for.
  * - A preview, which stays in place over the rest where there is room, then Use or Turn off, Edit (its code in the editor, [onEdit]), Check (does it
- *   compile, and which uniforms Kolahal sets), Share, and Copy to the script folder. Holding the eye shows home with the shader, in
+ *   compile, and which uniforms Kolahal sets), Share, and Save to folder (a copy in the script folder). Holding the eye shows home with the shader, in
  *   use or not ([onPeek]).
  * - Its parameters, under the preview, which follows them ([ShaderParamRows]).
  * - Set as wallpaper, for one that can be ([WallpaperChoice]).
@@ -288,10 +287,10 @@ private fun ShaderDetails(
             buildList {
                 // As a script's sheet does, Edit closes the sheet. One that comes with Kolahal becomes yours when it is saved.
                 add(SheetAction("Edit", R.drawable.ic_edit) { onDismiss(); onEdit(row.name) })
-                add(SheetAction("Check", R.drawable.ic_info) { scope.launch { check = actions.check(row.name) } })
+                add(SheetAction("Check", R.drawable.ic_rule) { scope.launch { check = actions.check(row.name) } })
                 add(SheetAction("Share", R.drawable.ic_share) { share(context, row) })
                 // Its message is on the page, behind the sheet.
-                add(SheetAction("Copy", R.drawable.ic_folder, "Copy to script folder") { onDismiss(); actions.copyToFolder(row.name) })
+                add(SheetAction("Save", R.drawable.ic_save, "Save to folder") { onDismiss(); actions.copyToFolder(row.name) })
                 if (row.yours) add(SheetAction("Remove", R.drawable.ic_delete, error = true) { onDismiss(); actions.remove(row.name) })
             }
         )
@@ -475,7 +474,6 @@ internal fun wordsFit(room: Float, widest: Float, count: Int, gap: Float, grows:
  * its icon and its word. Where the words don't fit on the line ([wordsFit]: four or five of them on a phone),
  * each is its icon alone, and says its word in a bubble on a long-press and to a screen reader.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SheetActions(actions: List<SheetAction>) {
     val colors = MaterialTheme.colorScheme

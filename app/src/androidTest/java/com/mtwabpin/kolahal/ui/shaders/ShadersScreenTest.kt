@@ -454,6 +454,42 @@ class ShadersScreenTest {
         compose.waitFor("the series stays open") { rows() == 0 }
     }
 
+    /**
+     * In Seismograph's opened series each parameter is one line inside its row: its name, its Follow button and its
+     * value side by side. The button is the link icon, which says what it follows to a screen reader.
+     */
+    @Test
+    fun aSeriesParameterIsOneLine() {
+        needsAndroid13()
+        show()
+        compose.onNodeWithTag("shader-search").performTextInput("seismograph")
+        compose.waitForNode(hasTestTag("shader seismograph"))
+        openSheet("seismograph", "Seismograph")
+        compose.onNodeWithTag("series h1").performScrollTo().performClick()
+        compose.waitFor("the series stays closed") {
+            compose.onAllNodesWithTag("follow h8", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNode(hasTestTag("follow h3") and hasContentDescription("Follows Screen time from 06:00 to 09:00", substring = true))
+            .assertExists()
+        for (param in Shaders.params(app, "seismograph")) {
+            val button = compose.onNodeWithTag("follow ${param.name}", useUnmergedTree = true).fetchSemanticsNode()
+            val merged = compose.onNodeWithTag("follow ${param.name}").fetchSemanticsNode()
+            assertNull("${param.name}: its button has words", merged.config.getOrNull(SemanticsProperties.Text))
+            val name = compose.onNode(hasText(param.title), useUnmergedTree = true).fetchSemanticsNode()
+            // The row holds the name and the value, its only other text.
+            val row = name.parent!!
+            val value = row.children.single { it.id != name.id && it.config.getOrNull(SemanticsProperties.Text) != null }
+            val line = row.boundsInRoot
+            val parts = listOf(name.boundsInRoot, button.boundsInRoot, value.boundsInRoot)
+            for (part in parts) {
+                assertEquals("${param.name}: not on one line", parts[0].center.y, part.center.y, 2f)
+                assertTrue("${param.name}: $part is outside its row $line", part.left >= line.left - 1f && part.right <= line.right + 1f)
+            }
+            assertTrue("${param.name}: its name runs into its button", parts[0].right <= parts[1].left + 1f)
+            assertTrue("${param.name}: its button runs into its value", parts[1].right <= parts[2].left + 1f)
+        }
+    }
+
     /** The preview stays where it is while the details scroll to their end. */
     @Test
     fun thePreviewStaysInView() {
@@ -532,8 +568,8 @@ class ShadersScreenTest {
         compose.onNodeWithText("From: Kolahal").assertExists()
         compose.onNodeWithText("Remove").assertDoesNotExist()
         compose.onNode(hasContentDescription("Remove") and hasClickAction()).assertDoesNotExist()
-        // Its four buttons: Edit, Check, Share and Copy, as words or as icons that say them.
-        for (word in listOf("Edit", "Check", "Share", "Copy to script folder")) {
+        // Its four buttons: Edit, Check, Share and Save to folder, as words or as icons that say them.
+        for (word in listOf("Edit", "Check", "Share", "Save to folder")) {
             compose.onNode((hasText(word) or hasContentDescription(word)) and hasClickAction()).performScrollTo().assertExists()
         }
     }
@@ -547,7 +583,7 @@ class ShadersScreenTest {
         Shaders.save(app, "zz-fine", fine)
         show()
         openSheet("zz-fine", "Mine")
-        for (word in listOf("Edit", "Check", "Share", "Copy to script folder", "Remove")) {
+        for (word in listOf("Edit", "Check", "Share", "Save to folder", "Remove")) {
             compose.onNode(hasContentDescription(word) and hasClickAction()).performScrollTo().assertExists()
         }
         compose.onNodeWithText("Edit").assertDoesNotExist()

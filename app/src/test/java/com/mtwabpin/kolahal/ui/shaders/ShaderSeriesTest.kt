@@ -45,4 +45,16 @@ class ShaderSeriesTest {
         assertEquals("Follows your unlocks", ShaderSeries.follows(UsageValues.UNLOCK_DAYS.ids))
         assertEquals("Follows values from weather", ShaderSeries.follows(listOf("weather.t1", "weather.t2", "weather.t3")))
     }
+
+    /** One parameter's Follow button names the value in the fewest true words, beside its link icon: no "Follows". */
+    @Test
+    fun oneParameterSaysItsValueShortly() {
+        assertEquals("Battery", ShaderSeries.followsOne("battery"))
+        assertEquals("Time of day", ShaderSeries.followsOne("day"))
+        assertEquals("Unlocks", ShaderSeries.followsOne(UsageValues.UNLOCKS))
+        assertEquals("Screen time", ShaderSeries.followsOne(UsageValues.SCREEN))
+        assertEquals("Time away", ShaderSeries.followsOne(UsageValues.AWAY))
+        assertEquals("Screen time from 06:00 to 09:00", ShaderSeries.followsOne("screen.h3"))
+        assertEquals("weather · rain", ShaderSeries.followsOne("weather.rain"))
+    }
 }

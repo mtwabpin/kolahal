@@ -73,6 +73,18 @@ internal object ShaderSeries {
         else -> if ('.' in ids.first()) "Follows values from ${ids.first().substringBefore('.')}" else "Follows ${ids.size} values"
     }
 
+    /**
+     * What one parameter that follows [id] says on its Follow button, beside the button's link icon: the value's
+     * name in the fewest true words, "Battery", "Unlocks", "weather · rain". The icon says that it follows, so the
+     * word isn't spent on it: the button has little room beside the parameter's name and value.
+     */
+    fun followsOne(id: String): String = when (id) {
+        UsageValues.UNLOCKS -> "Unlocks"
+        UsageValues.SCREEN -> "Screen time"
+        UsageValues.AWAY -> "Time away"
+        else -> ShaderValues.label(id)
+    }
+
     /** The row of [UsageValues] that all of [ids] are in, or null. */
     private fun usage(ids: List<String>): UsageValues.Series? =
         UsageValues.series(ids.first())?.takeIf { s -> ids.all { UsageValues.series(it) == s } }
