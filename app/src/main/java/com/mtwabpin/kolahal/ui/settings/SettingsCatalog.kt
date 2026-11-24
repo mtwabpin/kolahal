@@ -124,7 +124,7 @@ internal class Category(
 
 private val CATEGORIES = listOf(
     Category(
-        "look", "Look & feel", "Theme, font, text size, full screen, screensaver", R.drawable.ic_palette,
+        "look", "Look & feel", "Theme, font, text size, system bars, screensaver", R.drawable.ic_palette,
         listOf(
             "Terminal" to listOf(
                 Keys.THEME,
@@ -133,7 +133,7 @@ private val CATEGORIES = listOf(
                 Keys.FONT_SANS,
                 Keys.FONT_SIZE,
             ),
-            "Screen" to listOf(Keys.STATUS_BAR),
+            "Screen" to listOf(Keys.SCREEN_HIDE_BARS),
             "Screensaver" to listOf(Keys.SCREEN_SAVER, Keys.SCREEN_SAVER_AFTER),
         ),
     ),

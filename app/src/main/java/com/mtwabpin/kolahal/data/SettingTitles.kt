@@ -11,7 +11,7 @@ object SettingTitles {
     private val ALL = mapOf(
         "theme.name" to "Theme",
         "theme.always-dark" to "Always dark",
-        "screen.bars" to "Full screen",
+        "screen.hide-bars" to "Hide system bars",
         "screen.saver" to "Screensaver",
         "screen.saver-after" to "Start after (minutes)",
         "screen.shader" to "Shader",

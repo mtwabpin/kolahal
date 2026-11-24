@@ -326,6 +326,16 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     }
                     if (commandsOpen) commandsPage(vm, version, commandQuery) { commandQuery = it }
                     if (open.id == "look") {
+                        // What the wallpaper can become, as `wallpaper` lists it: the theme's color, a shader, Android's list.
+                        item(key = "h:wallpaper") { PeekFade(peek) { GroupHeader("Wallpaper") } }
+                        item(key = "wallpaper") {
+                            PeekFade(peek) {
+                                WallpaperGroup(
+                                    inUse.takeIf(com.mtwabpin.kolahal.data.MaterialYou::isOne) ?: com.mtwabpin.kolahal.data.MaterialYou.NAME,
+                                    say,
+                                ) { vm.openScreen(Screen.SHADERS) }
+                            }
+                        }
                         item(key = "h:own-themes") { PeekFade(peek) { GroupHeader("Your themes") } }
                         item(key = "own-themes") {
                             PeekFade(peek) {

@@ -15,12 +15,8 @@ import com.mtwabpin.kolahal.data.MaterialYou
  */
 internal object ChoiceLabels {
     private val LABELS: Map<String, Map<String, String>> = mapOf(
-        // The setting is called "Full screen", so "show" (the bars) means it is off.
-        Keys.STATUS_BAR.key to mapOf(
-            "show" to "Off",
-            "hide" to "Status bar",
-            "immersive" to "Immersive"
-        ),
+        // The setting is called "Hide system bars": None, Status bar, Both.
+        Keys.SCREEN_HIDE_BARS.key to mapOf("status" to "Status bar"),
         Keys.FONT_SANS.key to mapOf("prompt" to "Prompt only"),
         Keys.SEARCH_ENGINE.key to mapOf("duckduckgo" to "DuckDuckGo"),
     )

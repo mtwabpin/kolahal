@@ -26,7 +26,7 @@ The old names still work in `config`, which tells you the new name. Older backup
 | `gui.colors` | removed in 0.3.1: Settings always use the theme's colors |
 | `widgets.home`, `widgets.height` | removed: widgets are on the widgets page (`widgets.page`) |
 | `font` | `font.family` |
-| `statusbar` | `screen.bars` |
+| `statusbar`, `screen.bars` | `screen.hide-bars`. Its values changed too: `show`, `hide` and `immersive` are `none`, `status` and `both`; a saved one carries over |
 | `suggestions` | `suggestions.max` |
 | `keybar`, `keybar2` | `keybar.row1`, `keybar.row2` |
 | `launch.instant.min` | `launch.instant-letters` |
@@ -52,7 +52,7 @@ The `theme` and `font` commands didn't change.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `header.show` | bool | `off` | show the [header](/getting-started/basics/#the-header), the line at the top of home, with the parts you chose on each side. When off, only the [pinned header](/getting-started/basics/#the-pinned-header) is at the top, and you open settings with `settings` |
-| `header.below-bar` | bool | `on` | in full screen, put the header below the status bar's area instead of next to the camera. When the status bar is shown, the header is always below it |
+| `header.below-bar` | bool | `on` | with the status bar hidden (`screen.hide-bars`), put the header below the status bar's area instead of next to the camera. When the status bar is shown, the header is always below it |
 | `header.padding` | number 0–24 | `6` | space (dp) above and below the header's text. The header is one line of text with this much above and below it (31 dp at font size 14). Not in Settings |
 | `header.left` | parts separated by commas, or `none` | `time,date` | the parts on the header's left side, from left to right. Any of `time` `date` `battery` `alarm` `todo` `network` `unlocks` `profiles` `settings`. Each part can be on one side only. Also in Settings → Header → Arrange the header |
 | `header.right` | as `header.left` | `alarm,todo,battery` | the parts on the header's right side, from left to right. If they don't fit, parts in the middle are left out first |
@@ -69,7 +69,7 @@ The `theme` and `font` commands didn't change.
 | --- | --- | --- | --- |
 | `theme.name` | choice: `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `rose-pine` `material-you`, or [one you made](/guides/themes-and-settings/#your-own-themes) | `green` | color theme (also `theme <name>`). The phone's dark mode chooses its dark or [light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colors from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
 | `theme.always-dark` | bool | `off` | always use the theme's dark version, even in light mode |
-| `screen.bars` | choice: `show` `hide` `immersive` | `show` | full screen: `hide` hides the status bar, and `immersive` hides both system bars. Swipe from the edge to show them |
+| `screen.hide-bars` | choice: `none` `status` `both` | `none` | which of Android's bars Kolahal hides: `status` hides the status bar at the top (time, battery, notifications), and `both` hides it and the navigation bar at the bottom. A swipe from its edge shows a hidden bar for a moment. In Settings it is **Hide system bars** |
 | `font.family` | choice: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom` | `jetbrains-mono` | terminal font (also `font <name>`). `custom` is a .ttf/.otf file you imported with `font import` |
 | `font.sans` | choice: `off` `prompt` `all` | `off` | use the system font instead of the terminal font, for the prompt or for the whole terminal (also `font sans <mode>`). Lists with aligned columns and the script editor keep the terminal font |
 | `font.size` | number 10–24 | `14` | terminal font size (sp). Pinching the log also changes it |

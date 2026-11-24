@@ -710,4 +710,32 @@ class SettingsScreenTest {
         compose.onNodeWithText(FontFiles.label(FontFiles.names.last { it != FontFiles.CUSTOM }))
             .assertExists()
     }
+
+    /**
+     * Look & feel has what the wallpaper can become, as `wallpaper` lists it: the theme's color, with why one
+     * would want it, a shader, and Android's own list. The theme's color asks first, as the old wallpaper can't
+     * be brought back: Cancel leaves the wallpaper as it is. Shader opens the Shaders screen.
+     */
+    @Test
+    fun theWallpaperGroupOffersTheThreeAndAsksFirst() {
+        val wallpapers = android.app.WallpaperManager.getInstance(app)
+        val system = android.app.WallpaperManager.FLAG_SYSTEM
+        com.mtwabpin.kolahal.control.WallpaperMatch.forget(app)
+        // A theme with colors of its own is on screen, as home tells it when it applies one.
+        com.mtwabpin.kolahal.control.WallpaperMatch.follow(app, android.graphics.Color.rgb(0x29, 0x28, 0x28))
+        val before = wallpapers.getWallpaperId(system)
+        show("look")
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("wallpaper")
+        compose.waitForText("So your wallpaper doesn't flash when you swipe home")
+        compose.onNodeWithText("Android's live wallpapers").assertExists()
+        compose.onNodeWithText("A shader as your live wallpaper: pick one in Shaders").assertExists()
+        compose.onNodeWithText("Theme's color").performClick()
+        compose.waitForText("Replace your home screen wallpaper?")
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Replace your home screen wallpaper?").assertDoesNotExist()
+        assertEquals("only asked", before, wallpapers.getWallpaperId(system))
+        compose.onNodeWithText("Shader").performClick()
+        compose.waitUntil(5_000) { vm.screen.value == Screen.SHADERS }
+    }
 }

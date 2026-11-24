@@ -16,7 +16,7 @@ class ConfigDefaultsTest {
         assertEquals("time,date", Keys.HEADER_LEFT.default)
         assertEquals("alarm,todo,battery", Keys.HEADER_RIGHT.default)
         // From 0.4.16: the status bar shows, the header is off and sits below the bar's area when on.
-        assertEquals("show", Keys.STATUS_BAR.default)
+        assertEquals("none", Keys.SCREEN_HIDE_BARS.default)
         assertEquals(false, Keys.HEADER_SHOW.default)
         assertEquals(true, Keys.HEADER_BELOW_BAR.default)
         // From 0.4.16: the app selector slides through apps, in taller rows, with icons and letters on the edge.

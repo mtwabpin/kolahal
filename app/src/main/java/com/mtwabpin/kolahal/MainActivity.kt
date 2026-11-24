@@ -466,7 +466,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                // `notifs enable` from the prompt, Setup or the tour shows this dialog over whatever screen is open.
+                // `allow read-notifications` from the prompt, Setup or the tour shows this dialog over whatever screen is open.
                 val askingNotifications by vm.notificationAccessAsk.collectAsStateWithLifecycle()
                 if (askingNotifications) NotificationAccessDialog(
                     onAllow = { vm.answerNotificationAccess(true) },
@@ -517,7 +517,7 @@ class MainActivity : ComponentActivity() {
         if (intent.hasCategory(Intent.CATEGORY_HOME) && alreadyHome) vm.onHomePressed()
     }
 
-    /** Applies `screen.bars`: show, hide (status bar only) or immersive (status and navigation bars). */
+    /** Applies `screen.hide-bars`: none, status (the status bar only) or both (the status and navigation bars). */
     private fun applyBars() {
         val controller =
             androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
@@ -530,12 +530,12 @@ class MainActivity : ComponentActivity() {
         val light = Term.bg.luminance() > 0.5f
         controller.isAppearanceLightStatusBars = light
         controller.isAppearanceLightNavigationBars = light
-        when (vm.config[Keys.STATUS_BAR]) {
-            "hide" -> {
+        when (vm.config[Keys.SCREEN_HIDE_BARS]) {
+            "status" -> {
                 controller.hide(status); controller.show(nav)
             }
 
-            "immersive" -> controller.hide(status or nav)
+            "both" -> controller.hide(status or nav)
             else -> controller.show(status or nav)
         }
     }

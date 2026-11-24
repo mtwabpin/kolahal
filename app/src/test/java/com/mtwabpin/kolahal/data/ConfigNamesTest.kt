@@ -74,6 +74,26 @@ class ConfigNamesTest {
         assertEquals(mapOf("theme.name" to "amber"), Keys.migrate(saved))
     }
 
+    /**
+     * The bars' setting changed its name and its values in 0.5.17: a saved one keeps what it hid, under
+     * either of its old names, and a value of today's is left as it is.
+     */
+    @Test
+    fun theBarsSettingKeepsWhatItHid() {
+        val key = Keys.SCREEN_HIDE_BARS.key
+        assertEquals("screen.hide-bars", key)
+        assertEquals(listOf("none", "status", "both"), Keys.SCREEN_HIDE_BARS.choices)
+        for ((old, new) in listOf("show" to "none", "hide" to "status", "immersive" to "both")) {
+            assertEquals(mapOf(key to new), Keys.migrate(mapOf("screen.bars" to old)))
+            assertEquals(mapOf(key to new), Keys.migrate(mapOf("statusbar" to old)))
+            assertEquals(mapOf(key to new), Keys.migrate(mapOf(key to new)))
+        }
+        // One saved under today's name wins over an old one.
+        assertEquals(mapOf(key to "both"), Keys.migrate(mapOf("screen.bars" to "hide", key to "both")))
+        // The words Settings shows for it.
+        assertEquals("Hide system bars", SettingTitles[key])
+    }
+
     @Test
     fun aRemovedNameIsNeitherASettingNorARename() {
         for (name in Keys.REMOVED.keys) {

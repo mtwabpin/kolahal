@@ -650,7 +650,7 @@ fun KolahalTheme(content: @Composable () -> Unit) {
 
 /**
  * Top and side padding that keeps content clear of the status bar and any camera cutout. When the
- * status bar is hidden (`screen.bars hide`), its inset is 0. The cutout inset is not 0, so nothing
+ * status bar is hidden (`screen.hide-bars status`), its inset is 0. The cutout inset is not 0, so nothing
  * is drawn behind the camera hole.
  */
 @Composable
@@ -664,7 +664,7 @@ fun androidx.compose.ui.Modifier.cutoutSafePadding(): androidx.compose.ui.Modifi
 /**
  * Draws the page color behind three-button navigation, over a list that scrolls under it.
  * Without it, the list text would show between the buttons.
- * - The gesture handle and a hidden bar (`screen.bars immersive`) take no taps, so their inset is
+ * - The gesture handle and a hidden bar (`screen.hide-bars both`) take no taps, so their inset is
  *   0 here. In those cases the list still runs to the screen edge.
  * - Put it before the scroll modifier, on a list that reaches the bottom of the screen.
  * - [alpha] fades it together with the page.
