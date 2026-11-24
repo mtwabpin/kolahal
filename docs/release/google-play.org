@@ -258,7 +258,7 @@ pixels all round hold nothing that must be seen.
 | =05-answers=                | =answers-dark=                | a sum, a conversion, the todos, a reminder, =date tokyo lisbon=           |
 | =06-answers-light=          | =answers-dunes-light=         | the same over =dunes=, light                                             |
 | =07-log-actions=            | =action-sheet-line=           | a long-press on a line: its actions                                      |
-| =08-notifications-feeds=    | =log-notification-feed=       | a notification (an invented "Maya") and the feeds in the log             |
+| =08-notification-feeds=     | =log-notification-feed=       | a notification (an invented "Maya") and the feeds in the log             |
 | =09-widgets=                | =widgets-page=                | the widgets page: weather, forecast and todos in Split, battery, world clocks, unlocks and Water in Bold, the habit streak in Shape |
 | =10-widgets-light=          | =widgets-page-light=          | the same, light                                                          |
 | =11-widget-looks=           | =arrange-widgets-look=        | Arrange widgets, Habit streak chosen: its Look and Size rows             |
