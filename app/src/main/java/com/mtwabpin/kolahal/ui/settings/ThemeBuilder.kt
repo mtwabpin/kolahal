@@ -344,7 +344,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
         if (confirmDelete && editing != null) {
             ConfirmDialog(
                 "Delete $editing?",
-                "If it is in use, Kolahal switches to the green theme.",
+                "If it is in use, Kolahal switches to the default theme, ${ChoiceLabels.theme(Keys.THEME.default)}.",
                 "Delete",
                 icon = R.drawable.ic_delete,
                 onDismiss = { confirmDelete = false },

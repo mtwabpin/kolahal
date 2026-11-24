@@ -417,12 +417,13 @@ object Palettes {
      * - The theme can be built-in or made by the user ([CustomThemes]).
      * - `material-you` and its variations return the colors of the phone's wallpaper ([MaterialYouPalettes]).
      * - A custom theme without a light version uses the same colors for both.
-     * - An unknown name returns green.
+     * - An unknown name returns the default theme ([Keys.THEME]).
      */
     fun named(name: String, dark: Boolean = true): Palette {
         if (MaterialYou.isOne(name)) return MaterialYouPalettes.of(dark, name)
         BUILT_IN[name]?.let { (d, l) -> return if (dark) d else l }
-        val colors = CustomThemes.colors(name) ?: return if (dark) green else greenLight
+        val colors = CustomThemes.colors(name)
+            ?: return BUILT_IN.getValue(Keys.THEME.default).let { (d, l) -> if (dark) d else l }
         return fromColors(if (dark) colors else CustomThemes.light(colors) ?: colors)
     }
 
@@ -478,7 +479,8 @@ object Palettes {
  * theme or font size recomposes everything that reads them.
  */
 object Term {
-    var palette by mutableStateOf(Palettes.green)
+    /** The default theme's dark version until [applyTermSettings] reads the settings. */
+    var palette by mutableStateOf(Palettes.named(Keys.THEME.default))
     var fontSize by mutableIntStateOf(14)
 
     /** The terminal typeface (`font`). [FontFamily.Monospace] is the system monospace font. */

@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.sourceFile
 import com.mtwabpin.kolahal.ui.settings.ChoiceLabels
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -42,7 +43,29 @@ class ThemeVersionsTest {
             assertTrue("$name: light background", light.bg.luminance() > 0.7f)
         }
         assertEquals(Palettes.gruvbox, Palettes.named("gruvbox"))
-        assertEquals(Palettes.greenLight, Palettes.named("no-such-theme", dark = false))
+        assertEquals(
+            "an unknown name is the default theme",
+            Palettes.named(Keys.THEME.default, dark = false),
+            Palettes.named("no-such-theme", dark = false),
+        )
+    }
+
+    /**
+     * rose-pine is the default theme: it comes first in the list, and the window shows its page
+     * before the theme is read (start_window.xml in res/values and res/values-night), with bar icons
+     * that show on it.
+     */
+    @Test
+    fun rosePineIsTheDefault() {
+        assertEquals("rose-pine", Keys.THEME.default)
+        assertEquals(Keys.THEME.default, Keys.BUILT_IN_THEMES.first())
+        for ((dir, dark) in listOf("values" to false, "values-night" to true)) {
+            val xml = sourceFile("src/main/res/$dir/start_window.xml").readText()
+            val hex = Regex("""<color name="start_background">#([0-9A-F]{6})</color>""").find(xml)
+                ?.groupValues?.get(1) ?: error("$dir: no start_background")
+            assertEquals(dir, Palettes.named(Keys.THEME.default, dark).bg, Color(0xFF000000 or hex.toLong(16)))
+            assertTrue(dir, xml.contains("""<bool name="start_light_bars">${!dark}</bool>"""))
+        }
     }
 
     @Test
@@ -60,6 +83,7 @@ class ThemeVersionsTest {
     fun everyBuiltInThemeCanBePicked() {
         assertEquals(
             listOf(
+                "rose-pine",
                 "green",
                 "amber",
                 "mono",
@@ -68,7 +92,6 @@ class ThemeVersionsTest {
                 "gruvbox",
                 "gruvbox-material",
                 "nord",
-                "rose-pine",
                 "material-you",
                 "material-you-soft",
                 "material-you-tinted",

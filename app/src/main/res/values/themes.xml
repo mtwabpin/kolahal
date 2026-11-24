@@ -1,8 +1,11 @@
 <resources>
+    <!-- The window's color before the theme is read: the default theme's page (start_window.xml). -->
     <style name="Theme.Kolahal" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowBackground">@color/start_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">@bool/start_light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/start_light_bars</item>
         <item name="android:windowShowWallpaper">false</item>
     </style>
 </resources>

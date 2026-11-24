@@ -63,7 +63,7 @@ class ThemeBuilderTest {
 
     @After
     fun tearDown() {
-        Term.palette = Palettes.green
+        Term.palette = Palettes.named(Keys.THEME.default)
         listOf("tb-test", "tb-test-2", "tb-renamed").forEach { CustomThemes.delete(app, it) }
         shared.delete()
     }
@@ -128,8 +128,9 @@ class ThemeBuilderTest {
         save.performClick()
         val saved = CustomThemes.colors("tb-test")!!
         assertEquals(0xFFFAFAF0.toInt(), CustomThemes.light(saved)!!.getValue("background"))
+        // The dark version is the default theme's, the one in use.
         assertEquals(
-            Palettes.colorsOf(Palettes.green).getValue("background"),
+            Palettes.colorsOf(Palettes.named(Keys.THEME.default)).getValue("background"),
             saved.getValue("background")
         )
     }
@@ -193,7 +194,7 @@ class ThemeBuilderTest {
     }
 
     @Test
-    fun deletingTheThemeInUseGoesBackToGreen() {
+    fun deletingTheThemeInUseGoesBackToTheDefault() {
         CustomThemes.save(app, "tb-test", Palettes.colorsOf(Palettes.amber))
         config.set(Keys.THEME, "tb-test")
         open("tb-test")
@@ -201,7 +202,7 @@ class ThemeBuilderTest {
         compose.onNodeWithText("Delete").performClick()
         assertNull(CustomThemes.colors("tb-test"))
         assertTrue(config.isDefault(Keys.THEME))
-        assertEquals("green", config[Keys.THEME])
+        assertEquals(Keys.THEME.default, config[Keys.THEME])
     }
 
     /** Exported, a theme's file carries its name; imported, it is kept as yours, under a free name, and used. */

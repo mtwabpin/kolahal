@@ -172,8 +172,10 @@ object Keys {
     /**
      * The themes that come with Kolahal. [CustomThemes] holds the ones people make.
      * A name added here can't be a saved theme's name any more: [CustomThemes.load] renames that theme.
+     * The default ([THEME]) comes first.
      */
     val BUILT_IN_THEMES = listOf(
+        "rose-pine",
         "green",
         "amber",
         "mono",
@@ -181,11 +183,10 @@ object Keys {
         "solarized",
         "gruvbox",
         "gruvbox-material",
-        "nord",
-        "rose-pine"
+        "nord"
     ) + MaterialYou.VARIANTS
     val THEME = ConfigKey.Choice(
-        "theme.name", "green", BUILT_IN_THEMES,
+        "theme.name", "rose-pine", BUILT_IN_THEMES,
         "Color theme: a built-in one or one you made.\nEach has a dark and a light version, chosen by the phone's dark mode.\n" +
                 "With ${MaterialYou.NAME}, the colors come from your wallpaper, on Android 12 and newer.\nWith ${MaterialYou.SOFT}, ${MaterialYou.TINTED} or ${MaterialYou.BLACK}, they're on a lighter, a tinted or a black background",
         added = { CustomThemes.names },
@@ -544,7 +545,7 @@ object Keys {
     val LOG_GUTTER = ConfigKey.Bool(
         "log.gutter",
         true,
-        "Thin color bar at the left of each log line: green for commands, script color for background output, red for errors"
+        "Thin color bar at the left of each log line: the accent color for commands, script color for background output, red for errors"
     )
     val DATA_PLAN = ConfigKey.Num(
         "data.plan",

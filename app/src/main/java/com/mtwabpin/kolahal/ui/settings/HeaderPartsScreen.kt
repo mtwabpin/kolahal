@@ -129,7 +129,7 @@ internal object HeaderArrangement {
 private val PART_INFO: Map<String, Triple<String, String, Int>> = mapOf(
     "time" to Triple("Time", "12- or 24-hour, as the clock setting says", R.drawable.ic_schedule),
     "date" to Triple("Date", "The day and date", R.drawable.ic_calendar),
-    "battery" to Triple("Battery", "Its level, green while charging", R.drawable.ic_battery),
+    "battery" to Triple("Battery", "Its level, in the accent color while charging", R.drawable.ic_battery),
     "alarm" to Triple(
         "Next alarm",
         "Its time, and its day when it's a day or more away; only while one is set",

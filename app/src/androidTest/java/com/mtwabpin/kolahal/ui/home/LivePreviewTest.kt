@@ -30,7 +30,8 @@ import org.junit.runner.RunWith
 class LivePreviewTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val config = Config.get(instrumentation.targetContext)
-    private val green = Palettes.named("green", true)
+    /** The default theme's dark version: nothing is set in [setUp] but Always dark. */
+    private val byDefault = Palettes.named(Keys.THEME.default, true)
     private val dracula = Palettes.named("dracula", true)
 
     private fun reset() =
@@ -93,7 +94,7 @@ class LivePreviewTest {
             "theme",
             "theme dra",
             "theme nosuch",
-            "theme green",
+            "theme ${Keys.THEME.default}",
             "theme dracula | head",
             "theme dracula now",
             "font",
@@ -121,12 +122,12 @@ class LivePreviewTest {
 
     @Test
     fun typingShowsItAndChangingTheLinePutsItBack() = onHome { vm ->
-        shows(green) { Term.palette }
+        shows(byDefault) { Term.palette }
         line(vm, "theme dracula")
         shows(dracula) { Term.palette }
-        assertEquals("nothing saved", "green", config[Keys.THEME])
+        assertEquals("nothing saved", Keys.THEME.default, config[Keys.THEME])
         line(vm, "theme dracul")
-        shows(green) { Term.palette }
+        shows(byDefault) { Term.palette }
 
         line(vm, "config set font.size 20")
         shows(20) { Term.fontSize }
@@ -150,7 +151,7 @@ class LivePreviewTest {
         line(vm, "theme dracula")
         shows(dracula) { Term.palette }
         instrumentation.runOnMainSync { vm.openScreen(Screen.SETTINGS) }
-        shows(green) { Term.palette }
+        shows(byDefault) { Term.palette }
         instrumentation.runOnMainSync { vm.openScreen(Screen.TERMINAL) }
         shows(dracula) { Term.palette }
     }
@@ -162,7 +163,7 @@ class LivePreviewTest {
      */
     @Test
     fun enterKeepsItWithNoFlashOfTheOldLook() = onHome { vm ->
-        shows(green) { Term.palette }
+        shows(byDefault) { Term.palette }
         line(vm, "theme dracula")
         shows(dracula) { Term.palette }
         // The same line last in the log wouldn't be written again.
@@ -174,7 +175,7 @@ class LivePreviewTest {
         }
         try {
             Thread.sleep(500)
-            assertEquals("not saved yet", "green", config[Keys.THEME])
+            assertEquals("not saved yet", Keys.THEME.default, config[Keys.THEME])
             assertEquals(dracula, Term.palette)
         } finally {
             instrumentation.runOnMainSync { db.endTransaction() }

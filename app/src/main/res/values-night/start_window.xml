@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The default theme's dark page (rose-pine: Rosé Pine's base), shown until the theme is read. -->
+    <color name="start_background">#191724</color>
+    <!-- Light bar icons on the dark page. -->
+    <bool name="start_light_bars">false</bool>
+</resources>

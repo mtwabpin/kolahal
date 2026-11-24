@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The default theme's light page (rose-pine: Rosé Pine Dawn's base), shown until the theme is read. -->
+    <color name="start_background">#FAF4ED</color>
+    <!-- Dark bar icons on the light page. -->
+    <bool name="start_light_bars">true</bool>
+</resources>
