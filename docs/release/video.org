@@ -2,12 +2,15 @@
 #+STARTUP: showall
 
 A plan for Kolahal's preview video on its Google Play listing: what it shows, in which order, with
-what on the phone, and how to record and put it together. Nothing is recorded yet. Written on 24
+what on the phone, and how to record and put it together. Recorded on 24 November 2026 with
+=tools/video/record.sh= ([[*Making it][Making it]]); the cut's real seconds are in =video.json=. Written on 24
 November 2026 against branch 0.5.17; every command, script and setting in it was checked against
 the guide (=site/src/content/docs/=) and the code of that day. Where a step could not be checked
 without a device, [[*What is uncertain][What is uncertain]] says so.
 
-It runs 281 seconds (4 min 41 s) in 16 chapters, and a short cut of 109 seconds keeps 10 of them.
+It runs 298 seconds (4 min 58 s) in 16 chapters, and a short cut of 109 seconds keeps 10 of them.
+Four chapters came out longer than planned once recorded (4, 5, 6 and 10: the steps of their
+shots take longer than the plan's seconds); the shot tables keep the plan's timing.
 
 * What it is for and what it must obey
 
@@ -150,7 +153,7 @@ follows.
 
 A small line under the last caption: "Turn it on in Settings → App selector."
 
-** 4. A few commands, the log, and =fresh= (26 s)
+** 4. A few commands, the log, and =fresh= (33 s)
 
 The words "fresh command and longs" are read as: the =fresh= command (a clean screen, with nothing
 deleted) and the log ("logs"), with what a long-press, a tap and a swipe do to a line. Commands
@@ -170,7 +173,7 @@ answer in the log, so the chapter shows a few, then works on their lines.
 Before another take of this chapter: =todo= and =todo rm= the "water the plants" it added, so the
 count starts at 3 again.
 
-** 5. Scripts as commands (18 s)
+** 5. Scripts as commands (22 s)
 
 | s     | On the phone                                                                 | The viewer sees                                                                                          | Caption                                                                         |
 |-------+------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------|
@@ -181,7 +184,7 @@ count starts at 3 again.
 Both scripts are from the library (=weather.lua=: wttr.in; =forecast.js=: Open-Meteo; neither needs
 an account or a key). Their answers are the real weather of the day of the take.
 
-** 6. What a script may use (18 s)
+** 6. What a script may use (22 s)
 
 | s     | On the phone                                                                                           | The viewer sees                                                                                                       | Caption                                                                           |
 |-------+--------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------|
@@ -229,7 +232,7 @@ After the take: =focus stop=, =script unpin focus= (the weather line stays pinne
 | 8–15  | tap + at the top; in the Kolahal group, tap Countdowns                                                | the picker with each widget's kind and size; the countdown card lands on the page: the days to New Year            | You place a script's widget. It never places itself.                               |
 | 15–18 | (cut: Countdowns set to Bold off camera)                                                                                               | the page with its cards, the countdown in Bold                                                                                            | (same caption)                                                                     |
 
-** 10. A widget's options, size and look (22 s)
+** 10. A widget's options, size and look (24 s)
 
 | s     | On the phone                                                                                                     | The viewer sees                                                                                         | Caption                                                                               |
 |-------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------|
@@ -299,23 +302,23 @@ After the take: =config set home.style gui=.
 | 1. Opening apps by typing           |      18 |    0:22 |
 | 2. Suggestions                      |      16 |    0:38 |
 | 3. The app selector                 |      20 |    0:58 |
-| 4. Commands, the log and =fresh=    |      26 |    1:24 |
-| 5. Scripts as commands              |      18 |    1:42 |
-| 6. What a script may use            |      18 |    2:00 |
-| 7. Timers, times and events         |      20 |    2:20 |
-| 8. Pinning                          |      18 |    2:38 |
-| 9. Widgets from scripts             |      18 |    2:56 |
-| 10. Options, size and look          |      22 |    3:18 |
-| 11. Shaders                         |      20 |    3:38 |
-| 12. Shader parameters               |      22 |    4:00 |
-| 13. The live wallpaper              |      16 |    4:16 |
-| 14. Bonus: the TTY style            |      20 |    4:36 |
-| Closing                             |       5 |    4:41 |
+| 4. Commands, the log and =fresh=    |      33 |    1:31 |
+| 5. Scripts as commands              |      22 |    1:53 |
+| 6. What a script may use            |      22 |    2:15 |
+| 7. Timers, times and events         |      20 |    2:35 |
+| 8. Pinning                          |      18 |    2:53 |
+| 9. Widgets from scripts             |      18 |    3:11 |
+| 10. Options, size and look          |      24 |    3:35 |
+| 11. Shaders                         |      20 |    3:55 |
+| 12. Shader parameters               |      22 |    4:17 |
+| 13. The live wallpaper              |      16 |    4:33 |
+| 14. Bonus: the TTY style            |      20 |    4:53 |
+| Closing                             |       5 |    4:58 |
 |-------------------------------------+---------+---------|
-| Total                               |     281 |    4:41 |
+| Total                               |     298 |    4:58 |
 
-The changes between chapters overlap them, so they add nothing. The 19 seconds left under
-300 are for a chapter that needs more time once recorded (a slow network answer, a long caption).
+The changes between chapters overlap them, so they add nothing. Of the 19 seconds the plan left
+under 300 for chapters that needed more time once recorded, 17 went to chapters 4, 5, 6 and 10.
 The first 30 seconds, the part Play plays by itself, hold the opening, typing and the start of the
 suggestions.
 
@@ -636,6 +639,7 @@ its table.
 | =compose.mjs=   | cuts the recordings, builds the picture, joins the chapters, writes the video and the captions (its head says how, step by step)            |
 | =motion.mjs=    | the springs and eases every move is made of, and the expressions ffmpeg evaluates for them on each frame                                     |
 | =cards.html=    | the still layers, shot with headless Chrome: the ground, the wash behind the words, the phone's frame and its mask, every caption, the cards |
+| =record.sh=     | the recordings: the emulator's state, then each chapter's take with its taps, typing and waits ([[*Recording: =tools/video/record.sh=][Recording]])            |
 | =stand-ins.sh=  | stand-in recordings from the store's captures (=graphics/raw/=), to put the whole video together before anything is recorded               |
 
 ** The commands
@@ -692,6 +696,16 @@ Measured on this machine (12 threads, 4 per job), with the stand-ins:
 | =short --only framed= (phone clips made)     | 9.5 min  | 1.3 GiB              |
 | =full --4k --chapter 04-log= (25 s)          | 1.3 min  | 1.4 GiB              |
 
+With the recordings (25 November 2026, other builds running on the computer at a low priority):
+
+| Run                                          | Time     | Most memory of a job |
+|----------------------------------------------+----------+----------------------|
+| =full=, 1920 × 1080 (layers shot before)     | 11.0 min | 1.34 GiB             |
+| =short=, 1920 × 1080                         | 4.3 min  | 1.32 GiB             |
+| =full --only phone=                          | 1.4 min  | 0.67 GiB             |
+| =short --only phone=                         | 0.6 min  | 0.67 GiB             |
+| =full --chapter 04-log= (33 s)               | 0.5 min  | 1.27 GiB             |
+
 "From nothing" includes shooting every layer with Chrome and cutting every phone clip, about a
 third of the time. Not run since the motion was added: =full --only phone= (2.4 min before) and
 =full --4k= (16 min and 2.9 GiB before); VP9 with transparency is slow to write, and
@@ -701,9 +715,71 @@ A theme other than =rose-pine= (=tools/video/compose.sh full nord=) reads its re
 =build/video/recordings/nord/= and writes into =build/video/nord/=; the frame and the captions stay
 the website's.
 
+** Recording: =tools/video/record.sh=
+
+The recordings are made by a script on the emulator, as the website's pictures are
+(=tools/site-captures.sh=, whose helpers and state it shares). Each chapter is a function with its
+exact taps, typing and waits, so the whole recording can be made again in another theme or after
+the app changes, and then looked at take by take:
+
+#+begin_src sh
+tools/video/record.sh setup                # the state (clears the app's data first)
+tools/video/record.sh 04-log 05-scripts    # chapters, by id, each as a new take
+tools/video/record.sh keep 04-log 3        # take 3 as build/video/recordings/04-log.mp4
+tools/video/record.sh all                  # setup, every chapter kept as taken, restore
+tools/video/record.sh restore              # the emulator as it was, the app's data cleared
+THEME=nord tools/video/record.sh all       # into recordings/nord/, for compose.sh full nord
+#+end_src
+
+*The state* (=setup=): the capture script's (=tools/site-captures.sh setup=): Rosé Pine dark, the
+header at the very top (=header.below-bar off=, the status bar hidden), the built-in =maps= off, the
+selector's strip on, idle suggestions, no tips, no fresh screen by itself, the todos, an alarm
+at 7:00, a public feed, the library scripts with their cities set before a first run (weather Tokyo,
+forecast Lisbon, world clocks Tokyo, Nairobi, Lisbon), the Water and =focus= scripts typed into the
+editor, Gboard's clipboard chip off, a zone of whole hours. Besides: instant launch off while
+setting up (typed commands go in whole), the TTY style's own keys for chapter 14, and the widgets
+page of the video: World clocks (Bold) and the forecast (Split), Todos (Split), Water (Shape) and
+weather (Bold), so the cards placed in chapters 9 and 10 land under them. Each chapter makes what
+it needs itself, off camera, and can be taken again alone: a cleared log, its own settings (instant
+launch for apps from the third letter in chapter 1 only; Maps' data cleared there, as its start page
+shows strangers' names and photos), the script, widget or pin an earlier take left removed.
+Where this differs from [[*The data to prepare before recording][The data to prepare]] (Tonal there,
+a feed and todos of its own), the script is what the recordings show.
+
+*The takes.* =screenrecord= on the device, 1080 × 2400 at 20 Mbit/s (the text stays sharp through two
+more encodes, and the shaders' motion doesn't smear), with Android's three animation scales at 1
+(the app's own motion; moving shaders move) and "Show taps" on. Touches go in through the
+emulator's console (=adb emu event send=), as the touchscreen's own events: "Show taps" draws no dot
+for =input tap=, and a slide bends and moves at a finger's speed. Typed text goes in a letter at a
+time, about four a second. Each take is made a constant 30 frames a second, with a sheet of a
+frame a second beside it (=takes/<id>-<n>.jpg=) and the second of each step (=<id>-<n>.marks=), from
+which the cuts in =video.json= are read. The clock is a zone of whole hours where it is about 17:00
+at the start (=ZONE= sets one), picked again for chapters 11 to 13, whose scenes follow the hour.
+
+*What the takes taught* (each is in the script's comments):
+
+- A tap on the log opens the keyboard on touch-down and lifts on the suggestion that has just
+  appeared under the finger: the log is tapped high, at y 700.
+- A touch held still on the log is a long-press, which puts the last command back in the prompt,
+  and a slow sideways one turns to the widgets page: the rain is touched with a small circle.
+- Home doesn't close a sheet over Settings: Back does.
+- The editor opens at a script's end, and a drag on the keyboard types: the keyboard is closed
+  first, and four flings reach the top.
+- A new widget lands in Plain while it loads: the cut goes from the picker to the page.
+- A chapter that opens another app cuts away while its splash is up (Maps would show its sign-in).
+
+*What to check in a take*, on its sheet: the first frames with a keyboard have its number row and
+no clipboard chip; the header at the very top; no line from an earlier take or from setting up (a
+history suggestion counts); nothing personal (no account, no notification, the machine's own zone
+nowhere); in chapters 1, 2 and 4 what the captions speak of lies below the screen's top quarter
+(the close-up hides it); every network answer arrived; each touch is where the caption says; the
+pace (a beat of rest after each result); a still half second on each side of every cut; and, while
+other work builds on the computer, no dropped or uneven frames.
+
 ** The recordings
 
-One file per chapter in =build/video/recordings/= (git ignores =build/=), named by the chapter's id:
+One file per chapter in =build/video/recordings/= (git ignores =build/=), named by the chapter's id
+(=record.sh keep= puts a take there):
 
 | Chapter                          | File                   |
 |----------------------------------+------------------------|

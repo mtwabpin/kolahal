@@ -43,28 +43,28 @@
 			"head": { "label": "BY TYPING", "heading": "A few letters" },
 			"full": {
 				"seconds": 18,
-				"cuts": [],
+				"cuts": [{ "in": 1.6, "out": 10.6 }, { "in": 12.2, "out": 21.2 }],
 				"close": [[0.5, 17.8]],
 				"captions": [
 					{ "at": 0, "text": "Type any part of an app's name." },
 					{ "at": 3, "text": "The best match sits at the bottom, nearest your thumb." },
-					{ "at": 9, "text": "Enter opens it." },
-					{ "at": 12, "text": "When the letters fit only one app, it opens without Enter." }
+					{ "at": 6.6, "text": "Enter opens it." },
+					{ "at": 9.6, "text": "When the letters fit only one app, it opens without Enter." }
 				]
 			},
 			"short": {
 				"seconds": 14,
 				"segments": [
-					{ "from": 3, "to": 9.8 },
-					{ "from": 12.3, "to": 16 },
-					{ "chapter": "02-suggestions", "from": 5, "to": 8.5 }
+					{ "from": 2.4, "to": 8.9 },
+					{ "from": 11, "to": 14.9 },
+					{ "chapter": "02-suggestions", "from": 4.6, "to": 8.2 }
 				],
 				"close": [[0.5, 13.8]],
 				"captions": [
 					{ "at": 0, "text": "Type any part of an app's name." },
 					{ "at": 3, "text": "The best match sits at the bottom, nearest your thumb." },
-					{ "at": 6.8, "text": "When the letters fit only one app, it opens without Enter." },
-					{ "at": 10.5, "text": "Commands come up under other words too: `flash` finds `torch`." }
+					{ "at": 6.5, "text": "When the letters fit only one app, it opens without Enter." },
+					{ "at": 10.4, "text": "Commands come up under other words too: `flash` finds `torch`." }
 				]
 			},
 			"stills": ["typing-home", "typing-suggestions", "parts-typing"]
@@ -77,12 +77,12 @@
 			"head": { "label": "SUGGESTIONS", "heading": "What you need next" },
 			"full": {
 				"seconds": 16,
-				"cuts": [],
+				"cuts": [{ "in": 1.6, "out": 17.6 }],
 				"close": [[0.5, 15.8]],
 				"captions": [
 					{ "at": 0, "text": "An empty prompt offers your favorites and the apps you use most." },
 					{ "at": 5, "text": "Commands come up under other words too: `flash` finds `torch`." },
-					{ "at": 10, "text": "After a command, what can come next." }
+					{ "at": 10.2, "text": "After a command, what can come next." }
 				]
 			},
 			"short": null,
@@ -96,21 +96,22 @@
 			"head": { "label": "BY TOUCH", "heading": "One thumb" },
 			"full": {
 				"seconds": 20,
-				"cuts": [],
+				"cuts": [{ "in": 1, "out": 14.5 }, { "in": 15.6, "out": 22.1 }],
 				"captions": [
 					{ "at": 0, "text": "Slide a thumb along the edge of the screen." },
 					{ "at": 3, "text": "The list moves with your thumb. The app level with it is the one you get." },
-					{ "at": 9, "text": "Slide onto the list and lift to open it." },
-					{ "at": 13, "text": "Or hold still until its row fills.", "note": "Turn it on in Settings → App selector." }
+					{ "at": 9.2, "text": "Slide onto the list and lift to open it." },
+					{ "at": 13.5, "text": "Or hold still until its row fills.", "note": "Turn it on in Settings → App selector." }
 				]
 			},
 			"short": {
 				"seconds": 16,
-				"segments": [{ "from": 0, "to": 16 }],
+				"segments": [{ "from": 0.4, "to": 13.4 }, { "from": 16, "to": 19 }],
 				"captions": [
 					{ "at": 0, "text": "Slide a thumb along the edge of the screen." },
 					{ "at": 3, "text": "The list moves with your thumb. The app level with it is the one you get." },
-					{ "at": 9, "text": "Slide onto the list and lift to open it.", "note": "Turn it on in Settings → App selector." }
+					{ "at": 8.8, "text": "Slide onto the list and lift to open it." },
+					{ "at": 13, "text": "Or hold still until its row fills.", "note": "Turn it on in Settings → App selector." }
 				]
 			},
 			"stills": ["selector-open", "selector-slide", "selector-thumb-g", "selector-pick-filling"]
@@ -122,32 +123,38 @@
 			"ground": "mountains",
 			"head": { "label": "THE LOG", "heading": "Answers in the log" },
 			"full": {
-				"seconds": 26,
-				"cuts": [],
-				"close": [[0.5, 22.6]],
+				"seconds": 33,
+				"cuts": [
+					{ "in": 1.6, "out": 7.3 },
+					{ "in": 8.3, "out": 14.4 },
+					{ "in": 15.1, "out": 29.7 },
+					{ "in": 30.5, "out": 35.3 },
+					{ "in": 37.8, "out": 39.6 }
+				],
+				"close": [[0.5, 32.8]],
 				"captions": [
 					{ "at": 0, "text": "Sums and units start with `=`." },
-					{ "at": 4, "text": "Other commands answer in the same place." },
-					{ "at": 11, "text": "Tap a line for its main action." },
-					{ "at": 14, "text": "Swipe a line right to copy it…" },
-					{ "at": 17, "text": "…or left to delete it." },
-					{ "at": 20, "text": "Long-press it for all of its actions." },
-					{ "at": 23, "text": "`fresh` gives a clean screen. Nothing is deleted." }
+					{ "at": 5.6, "text": "Other commands answer in the same place." },
+					{ "at": 13.6, "text": "Tap a line for its main action." },
+					{ "at": 16.9, "text": "Swipe a line right to copy it…" },
+					{ "at": 19.9, "text": "…or left to delete it." },
+					{ "at": 23.2, "text": "Long-press it for all of its actions." },
+					{ "at": 26.4, "text": "`fresh` gives a clean screen. Nothing is deleted." }
 				]
 			},
 			"short": {
 				"seconds": 14,
 				"segments": [
-					{ "from": 0, "to": 8 },
-					{ "from": 14, "to": 17 },
-					{ "from": 20, "to": 23 }
+					{ "from": 0, "to": 5.7 },
+					{ "from": 10.9, "to": 13 },
+					{ "from": 16.9, "to": 19.9 },
+					{ "from": 23.2, "to": 26.4 }
 				],
 				"close": [[0.5, 13.8]],
 				"captions": [
 					{ "at": 0, "text": "Sums and units start with `=`." },
-					{ "at": 4, "text": "Other commands answer in the same place." },
-					{ "at": 8, "text": "Swipe a line right to copy it…" },
-					{ "at": 11, "text": "Long-press it for all of its actions." }
+					{ "at": 7.8, "text": "Swipe a line right to copy it…" },
+					{ "at": 10.8, "text": "Long-press it for all of its actions." }
 				]
 			},
 			"stills": ["answers-dark", "action-sheet-line", "log-fresh"]
@@ -159,19 +166,24 @@
 			"ground": "pond",
 			"head": { "label": "SCRIPTS", "heading": "Commands of your own" },
 			"full": {
-				"seconds": 18,
-				"cuts": [],
+				"seconds": 22,
+				"cuts": [
+					{ "in": 1.9, "out": 9.2 },
+					{ "in": 10.1, "out": 14.5 },
+					{ "in": 16.6, "out": 24.3 },
+					{ "in": 26.9, "out": 29.5 }
+				],
 				"captions": [
 					{ "at": 0, "text": "A script in Lua or JavaScript can be a command." },
-					{ "at": 6, "text": "Ready-made scripts come with it, such as `weather` and `forecast`." },
-					{ "at": 11, "text": "Read and change any script in the editor on the phone." }
+					{ "at": 7.3, "text": "Ready-made scripts come with it, such as `weather` and `forecast`." },
+					{ "at": 12.7, "text": "Read and change any script in the editor on the phone." }
 				]
 			},
 			"short": {
 				"seconds": 10,
 				"segments": [
-					{ "from": 0, "to": 6 },
-					{ "chapter": "07-scheduling", "from": 5, "to": 9 }
+					{ "from": 1, "to": 7 },
+					{ "chapter": "07-scheduling", "from": 13.9, "to": 17.9 }
 				],
 				"captions": [
 					{ "at": 0, "text": "A script in Lua or JavaScript can be a command." },
@@ -187,12 +199,17 @@
 			"ground": "pond",
 			"head": { "label": "PERMISSIONS", "heading": "A switch for each thing" },
 			"full": {
-				"seconds": 18,
-				"cuts": [],
+				"seconds": 22,
+				"cuts": [
+					{ "in": 1.7, "out": 10 },
+					{ "in": 10.6, "out": 16.6 },
+					{ "in": 17.8, "out": 19 },
+					{ "in": 21.9, "out": 28.4 }
+				],
 				"captions": [
 					{ "at": 0, "text": "You see what a script uses before you install it." },
-					{ "at": 9, "text": "Each thing a script uses has a switch of its own." },
-					{ "at": 15, "text": "A script that never goes online gets no internet." }
+					{ "at": 15.3, "text": "Each thing a script uses has a switch of its own." },
+					{ "at": 19, "text": "A script that never goes online gets no internet." }
 				]
 			},
 			"short": null,
@@ -206,11 +223,16 @@
 			"head": { "label": "SCHEDULING", "heading": "When it runs" },
 			"full": {
 				"seconds": 20,
-				"cuts": [],
+				"cuts": [
+					{ "in": 1.7, "out": 7.6 },
+					{ "in": 10.6, "out": 20.4 },
+					{ "in": 22.9, "out": 25.2 },
+					{ "in": 54.6, "out": 56.6 }
+				],
 				"captions": [
 					{ "at": 0, "text": "At times of day…" },
-					{ "at": 5, "text": "…on a timer…" },
-					{ "at": 9, "text": "…or when something happens, such as plugging in the charger." }
+					{ "at": 5.9, "text": "…on a timer…" },
+					{ "at": 15.7, "text": "…or when something happens, such as plugging in the charger." }
 				]
 			},
 			"short": null,
@@ -224,23 +246,29 @@
 			"head": { "label": "PINNING", "heading": "A line at the top" },
 			"full": {
 				"seconds": 18,
-				"cuts": [],
+				"cuts": [
+					{ "in": 6.6, "out": 14.4 },
+					{ "in": 16.4, "out": 19.6 },
+					{ "in": 23, "out": 24.6 },
+					{ "in": 26.6, "out": 29.2 },
+					{ "in": 30.5, "out": 33.3 }
+				],
 				"captions": [
 					{ "at": 0, "text": "A script can keep one line of status. Pin it to the top of home." },
 					{ "at": 5, "text": "A script never pins itself. You do." },
-					{ "at": 8, "text": "A line can carry a bar that shows how far along it is." },
-					{ "at": 14, "text": "Pinned lines take turns. Tap the dots for the next." }
+					{ "at": 8.6, "text": "A line can carry a bar that shows how far along it is." },
+					{ "at": 15, "text": "Pinned lines take turns. Tap the dots for the next." }
 				]
 			},
 			"short": {
 				"seconds": 10,
 				"segments": [
-					{ "from": 2, "to": 6 },
-					{ "from": 8, "to": 14 }
+					{ "from": 3.4, "to": 7.8 },
+					{ "from": 11, "to": 16.6 }
 				],
 				"captions": [
 					{ "at": 0, "text": "A script can keep one line of status. Pin it to the top of home." },
-					{ "at": 4.5, "text": "A line can carry a bar that shows how far along it is." }
+					{ "at": 4.4, "text": "A line can carry a bar that shows how far along it is." }
 				]
 			},
 			"stills": ["pinning-pin", "pinning-pinned", "pinning-bar"]
@@ -253,22 +281,22 @@
 			"head": { "label": "WIDGETS", "heading": "Widgets from scripts" },
 			"full": {
 				"seconds": 18,
-				"cuts": [],
+				"cuts": [{ "in": 1.6, "out": 13.6 }, { "in": 20.8, "out": 26.8 }],
 				"captions": [
 					{ "at": 0, "text": "Scripts fill cards on a page beside home." },
-					{ "at": 4, "text": "A tap runs the script again: one more glass." },
-					{ "at": 8, "text": "You place a script's widget. It never places itself." }
+					{ "at": 3.4, "text": "A tap runs the script again: one more glass." },
+					{ "at": 7.6, "text": "You place a script's widget. It never places itself." }
 				]
 			},
 			"short": {
 				"seconds": 14,
 				"segments": [
 					{ "from": 0, "to": 8 },
-					{ "chapter": "10-widget-options", "from": 3, "to": 9 }
+					{ "chapter": "10-widget-options", "from": 2.9, "to": 8.9 }
 				],
 				"captions": [
 					{ "at": 0, "text": "Scripts fill cards on a page beside home." },
-					{ "at": 4, "text": "A tap runs the script again: one more glass." },
+					{ "at": 3.4, "text": "A tap runs the script again: one more glass." },
 					{ "at": 8, "text": "Five looks: Plain, Tonal, Bold, Split and Shape." }
 				]
 			},
@@ -281,13 +309,20 @@
 			"ground": "pond",
 			"head": { "label": "OPTIONS", "heading": "Each card its own way" },
 			"full": {
-				"seconds": 22,
-				"cuts": [],
+				"seconds": 24,
+				"cuts": [
+					{ "in": 1.7, "out": 13.4 },
+					{ "in": 13.8, "out": 17.4 },
+					{ "in": 20.9, "out": 23.4 },
+					{ "in": 24.5, "out": 26.3 },
+					{ "in": 27.1, "out": 29.9 },
+					{ "in": 37.1, "out": 38.7 }
+				],
 				"captions": [
 					{ "at": 0, "text": "Long-press a card to arrange it." },
 					{ "at": 3, "text": "Five looks: Plain, Tonal, Bold, Split and Shape." },
-					{ "at": 9, "text": "Sizes from 1×1 to 4×4." },
-					{ "at": 12, "text": "A script's options set what it shows: a second card for another city." }
+					{ "at": 9.6, "text": "Sizes from 1×1 to 4×4." },
+					{ "at": 12.6, "text": "A script's options set what it shows: a second card for another city." }
 				]
 			},
 			"short": null,
@@ -301,20 +336,28 @@
 			"head": { "label": "SHADERS", "heading": "A scene behind it" },
 			"full": {
 				"seconds": 20,
-				"cuts": [],
+				"cuts": [
+					{ "in": 4.9, "out": 9 },
+					{ "in": 9.6, "out": 11.1 },
+					{ "in": 18.4, "out": 20.2 },
+					{ "in": 23.2, "out": 25.7 },
+					{ "in": 33, "out": 36 },
+					{ "in": 43.7, "out": 47.8 },
+					{ "in": 55.2, "out": 58.2 }
+				],
 				"captions": [
 					{ "at": 0, "text": "A shader draws a scene behind home." },
-					{ "at": 10, "text": "Some move, some stand still." },
-					{ "at": 14, "text": "Some answer your touch." },
+					{ "at": 9.9, "text": "Some move, some stand still." },
+					{ "at": 12.9, "text": "Some answer your touch." },
 					{ "at": 17, "text": "Others change how the text looks. Android 13 or newer." }
 				]
 			},
 			"short": {
 				"seconds": 16,
 				"segments": [
-					{ "from": 6, "to": 10 },
-					{ "from": 14, "to": 17 },
-					{ "chapter": "12-parameters", "from": 1, "to": 10 }
+					{ "from": 5.6, "to": 9.6 },
+					{ "from": 13.4, "to": 16.4 },
+					{ "chapter": "12-parameters", "from": 2.8, "to": 11.8 }
 				],
 				"captions": [
 					{ "at": 0, "text": "A shader draws a scene behind home." },
@@ -333,12 +376,19 @@
 			"head": { "label": "PARAMETERS", "heading": "Change it as you watch" },
 			"full": {
 				"seconds": 22,
-				"cuts": [],
+				"cuts": [
+					{ "in": 5, "out": 8.3 },
+					{ "in": 19, "out": 26.8 },
+					{ "in": 31, "out": 32.5 },
+					{ "in": 34.1, "out": 36.8 },
+					{ "in": 37.8, "out": 39.2 },
+					{ "in": 44.6, "out": 49.9 }
+				],
 				"captions": [
 					{ "at": 0, "text": "Some shaders have parameters." },
-					{ "at": 4, "text": "Drag a slider and the preview follows." },
-					{ "at": 10, "text": "A parameter can follow a value: the battery, the time, your unlocks, or a script's." },
-					{ "at": 15, "text": "Here the battery sets the number of camels." }
+					{ "at": 5.8, "text": "Drag a slider and the preview follows." },
+					{ "at": 11.1, "text": "A parameter can follow a value: the battery, the time, your unlocks, or a script's." },
+					{ "at": 17, "text": "Here the battery sets the number of camels." }
 				]
 			},
 			"short": null,
@@ -352,18 +402,24 @@
 			"head": { "label": "WALLPAPER", "heading": "Behind everything" },
 			"full": {
 				"seconds": 16,
-				"cuts": [],
+				"cuts": [
+					{ "in": 7.1, "out": 9.2 },
+					{ "in": 10.9, "out": 15 },
+					{ "in": 17.1, "out": 21.8 },
+					{ "in": 22.8, "out": 23.9 },
+					{ "in": 33.5, "out": 37.5 }
+				],
 				"captions": [
 					{ "at": 0, "text": "A shader can be your phone's wallpaper." },
-					{ "at": 7, "text": "On the lock screen too." },
+					{ "at": 6.2, "text": "On the lock screen too." },
 					{ "at": 12, "text": "And behind the log, as much as you like." }
 				]
 			},
 			"short": {
 				"seconds": 8,
 				"segments": [
-					{ "from": 0, "to": 4 },
-					{ "from": 7, "to": 11 }
+					{ "from": 1.6, "to": 5.6 },
+					{ "from": 7.4, "to": 11.4 }
 				],
 				"captions": [
 					{ "at": 0, "text": "A shader can be your phone's wallpaper." },
@@ -380,12 +436,17 @@
 			"head": { "label": "BONUS", "heading": "Home on a grid" },
 			"full": {
 				"seconds": 20,
-				"cuts": [],
+				"cuts": [
+					{ "in": 6.6, "out": 10 },
+					{ "in": 13.2, "out": 18.6 },
+					{ "in": 20.8, "out": 26.5 },
+					{ "in": 28.8, "out": 34.3 }
+				],
 				"captions": [
 					{ "at": 0, "text": "One setting draws home like a terminal." },
 					{ "at": 5, "text": "Some commands take the whole screen: `top`…" },
-					{ "at": 10, "text": "…`matrix`…" },
-					{ "at": 14, "text": "…and `sl`." }
+					{ "at": 10.6, "text": "…`matrix`…" },
+					{ "at": 14.5, "text": "…and `sl`." }
 				]
 			},
 			"short": null,

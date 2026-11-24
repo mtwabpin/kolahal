@@ -86,8 +86,8 @@ pictures in `Asia/Dhaka` (the world clocks' −3:00 and −6:00).
 | `shots/pinning/bar.png` | "Focus: 2 min left" with its bar (the demo script `focus`) | `pinning` | `pinning-bar` |
 | `shots/widgets/page.png`, `page-light.png` | the widgets page, Bold, Split and Shape cards | `widgets_pages` | `widgets-page`, `widgets-page-light` |
 | `shots/widgets/add.png` | the picker of widgets to add | `widgets_add` | `widgets-add-picker` |
-| `shots/widget-options/arrange.png` | Arrange widgets, Habit streak chosen | `widgets_pages` | `arrange-widgets-look` |
-| `shots/widget-options/arrange-all.png` | Arrange widgets, nothing chosen | `widgets_pages` | `arrange-widgets` |
+| `shots/widget-options/arrange.png` | Arrange widgets, Habit streak chosen, the title bar folded | `arrange_widgets` | `arrange-widgets-look` |
+| `shots/widget-options/arrange-all.png` | Arrange widgets, nothing chosen, opened fresh | `arrange_widgets` | `arrange-widgets` |
 | `shots/widget-options/looks.png` | World clocks in Bold, Split and Shape, set in a grid | `widget_looks` | `widget-looks` |
 | `shots/widget-options/options.png` | two weather cards side by side, Tokyo and Paris, Split | `widget_options` | `widget-options-cities` |
 | `shots/shaders/candle.png`, `lanterns.png`, `hourglass.png` | three scenes behind home | `play_scenes` | `scene-*` |

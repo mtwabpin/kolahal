@@ -337,8 +337,6 @@ schedule_charger() {
 }
 
 # shots/widgets/page.png, page-light.png: the widgets page (8 cards, `setup`'s), dark and light.
-# shots/widget-options/arrange.png: Arrange widgets with Habit streak chosen (its Look and Size
-# rows); arrange-all.png: the same with nothing chosen.
 widgets_pages() {
   home; kbup; t "widget page" 3
   sh_ input swipe 540 600 540 1800 300; sleep 2   # to the top
@@ -346,10 +344,27 @@ widgets_pages() {
   sh_ cmd uimode night no; sleep 4
   cap widgets-page-light; site_shot widgets-page-light shots/widgets/page-light.png
   sh_ cmd uimode night "$DARK"; sleep 4
+  arrange_widgets
+}
+
+# shots/widget-options/arrange-all.png: Arrange widgets with nothing chosen, opened fresh by the
+# widgets page's pencil, its title bar open; arrange.png: Habit streak chosen by a long-press on
+# the page at its top (its Look and Size rows). Choosing a card scrolls it into view above the
+# toolbar, and that scroll folds the title bar by as much: from the page's top it folds whole (the
+# small title, at full strength), but from a page scrolled part way it stops part way, with the
+# big title half faded between its two states. ✓ leaves Arrange widgets with the bar as it is, so
+# the picture with nothing chosen is taken first, on a fresh open.
+arrange_widgets() {
+  home; kbup; t "widget page" 3
+  sh_ input swipe 540 600 540 1800 300; sleep 2   # the page at its top
+  tap 985 190; sleep 3   # the pencil: Arrange widgets, fresh
+  cap arrange-widgets; site_shot arrange-widgets shots/widget-options/arrange-all.png
+  key KEYCODE_BACK; sleep 2
+  sh_ input swipe 540 600 540 1800 300; sleep 2   # the page at its top again
   sh_ input swipe 275 1280 275 1280 900; sleep 3   # long-press Habit streak
   cap arrange-widgets-look; site_shot arrange-widgets-look shots/widget-options/arrange.png
-  tap 975 1764; sleep 2   # ✓
-  cap arrange-widgets; site_shot arrange-widgets shots/widget-options/arrange-all.png
+  tap 975 1764; sleep 1.5; key KEYCODE_BACK; sleep 1.5   # ✓, back to the page
+  home
 }
 
 # shots/widget-options/looks.png: World clocks in Bold (setup's), Split and Shape, cut from the
