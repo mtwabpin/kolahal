@@ -87,6 +87,15 @@ object WallpaperChoice {
     /** Whether a shader with [meta] can be a wallpaper on a phone that has shaders: not a one-off, and not on text. */
     fun suits(meta: ShaderMeta): Boolean = meta.once == null && !meta.text
 
+    /**
+     * The share of the phone's wallpaper that shows behind home's page ([setting], `log.wallpaper`, in
+     * percent) while the shader with [meta] is on over home (null: none). A shader that can be a
+     * wallpaper ([suits]) brings its own ground, so none of the phone's shows: 0. One that works on
+     * text or plays once keeps [setting]. The setting itself is left as it is, so the wallpaper shows
+     * again when the shader is off.
+     */
+    fun homeShare(setting: Int, meta: ShaderMeta?): Int = if (meta != null && suits(meta)) 0 else setting
+
     /** Why shader [name] with [meta] is no wallpaper, or null when it can be one. */
     fun problem(name: String, meta: ShaderMeta): String? = when {
         !supported -> Shaders.NEEDS

@@ -3,7 +3,6 @@
  */
 package com.mtwabpin.kolahal.ui.shaders
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.page
 import com.mtwabpin.kolahal.ui.tty.rememberShaderPreview
 import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
 
@@ -43,7 +43,8 @@ internal fun ShaderPreview(name: String, code: String, modifier: Modifier = Modi
             .then(size)
             .clip(MaterialTheme.shapes.extraLarge)
             .then(look)
-            .background(Term.bg)
+            // Marked while the shader reads it, so the sample's text keeps its colors ([ShaderMeta.PAGE_ALPHA]).
+            .page(marked = look != Modifier)
             // A picture: a screen reader has nothing to read here.
             .clearAndSetSemantics { testTag = "shader-preview" },
         contentAlignment = Alignment.BottomStart,

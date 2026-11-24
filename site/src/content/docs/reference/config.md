@@ -121,7 +121,7 @@ three settings of the log differ here:
 | `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height. The default home style only: with `home.style tty` every line is one row |
 | `log.tables` | choice: `boxed` `plain` | `boxed` | how tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only); wider tables scroll sideways |
 | `log.fold` | number 0–60 | `8` | fold a log line taller than this many lines of text, under "▾ N more lines"; a tap shows the rest. A line only a line or two longer shows whole. `0`: never fold |
-| `log.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the log, in percent. `0` is none. A higher number shows less of the theme's color |
+| `log.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the log, in percent. `0` is none. A higher number shows less of the theme's color. A [scene shader](/scripting/shaders/#what-it-works-well-over) hides it while it is on |
 | `chips.height` | number 20–64 | `44` | height (dp) of suggestion chips, the suggestion list's rows and app chips in the log |
 | `log.keep-days` | number 1–365 | `60` | delete log lines older than this many days (checked at least twice a day). Starred lines are kept |
 | `log.keep-lines` | number 500–50000 | `5000` | delete the oldest log lines beyond this number. Typed commands are counted separately, so ↑ history is kept. Starred lines are kept and not counted. Only with `config set`: the settings screen doesn't show it |

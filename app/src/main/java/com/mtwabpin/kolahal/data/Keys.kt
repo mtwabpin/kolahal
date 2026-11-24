@@ -569,7 +569,7 @@ object Keys {
         "log.wallpaper",
         0,
         0..100,
-        "How much of the phone's wallpaper shows behind the log (%).\n0 is none. Higher shows less of the theme's color"
+        "How much of the phone's wallpaper shows behind the log (%).\n0 is none. Higher shows less of the theme's color. A scene shader hides it while it is on"
     )
     val LOG_TALLER_TAPS = ConfigKey.Bool(
         "log.taller-taps",

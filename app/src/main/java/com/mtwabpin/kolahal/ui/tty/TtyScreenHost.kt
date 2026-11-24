@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -74,7 +73,7 @@ import com.mtwabpin.kolahal.terminal.tty.screens.TtyKey
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreen
 import com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens
 import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
-import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.page
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -263,12 +262,15 @@ fun TtyScreenHost(
         onDispose { ShaderPlay.cover(false) }
     }
 
+    val played = rememberPlayedShader(on = !seeThrough)
+
     Box(
         modifier
             .fillMaxSize()
-            .then(rememberPlayedShader(on = !seeThrough))
+            .then(played)
             .then(shaderLook)
-            .then(if (seeThrough) Modifier else Modifier.background(Term.bg))
+            // Marked while a shader reads it ([ShaderMeta.PAGE_ALPHA]).
+            .then(if (seeThrough) Modifier else Modifier.page(marked = shaderLook != Modifier || played != Modifier))
             .semantics {
                 contentDescription = if (saver) "Screensaver: ${screen.title}" else screen.title
                 onClick(label = "close") { close(null); true }

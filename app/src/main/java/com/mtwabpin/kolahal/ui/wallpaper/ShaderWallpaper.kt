@@ -236,8 +236,10 @@ class ShaderWallpaper : WallpaperService() {
             val shader = runtime ?: return
             val colors = if (dark) next.dark else next.light
             val page = colors["bg"] ?: 0xFF000000.toInt()
-            // A page of one color is what there is to draw over.
-            shader.setInputShader(ShaderMeta.INPUT, LinearGradient(0f, 0f, 0f, 1f, page, page, Shader.TileMode.CLAMP))
+            // A page of one color is what there is to draw over, a step under opaque as on home
+            // ([ShaderMeta.PAGE_ALPHA]): nothing covers it, so a scene draws all of it.
+            val marked = (page and 0x00FFFFFF) or ((ShaderMeta.PAGE_ALPHA * 255f + 0.5f).toInt() shl 24)
+            shader.setInputShader(ShaderMeta.INPUT, LinearGradient(0f, 0f, 0f, 1f, marked, marked, Shader.TileMode.CLAMP))
             uniforms = ShaderUniforms(meta!!, shader, next.cellW, next.cellH, colors, dark, wallpaper = true)
             paint.shader = shader
         }

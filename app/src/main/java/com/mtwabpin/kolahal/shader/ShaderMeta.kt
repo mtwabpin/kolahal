@@ -77,6 +77,14 @@ class ShaderMeta private constructor(
         /** The shader's input: the surface it is drawn over. */
         const val INPUT = "content"
 
+        /**
+         * The alpha of the page a shader reads as [INPUT]: a step under opaque. Text and pictures drawn on
+         * it are opaque, so a pixel at full alpha is covered and the bare page is the only thing below it:
+         * a scene stays behind an icon, a photo or an emoji even where its color is the page's. Every
+         * surface that hands its page to a shader draws it so, and only while a shader reads it.
+         */
+        const val PAGE_ALPHA = 254f / 255f
+
         /** The uniform that is 1 while a finger is down on the surface, else 0. */
         const val PRESSED = "pressed"
 

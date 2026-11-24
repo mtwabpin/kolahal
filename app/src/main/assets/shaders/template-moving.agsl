@@ -25,9 +25,9 @@ half4 main(float2 xy) {
     float2 p = xy / resolution;
     // Above the sea: the page as it is. Most pixels end here, and cost nearly nothing.
     if (p.y < 0.68) return half4(here);
-    // Behind the text only, as in the template Hills.
+    // Behind the text and pictures only, as in the template Hills (full alpha: not the page).
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    float open = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    float open = (1.0 - clamp(d * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
     if (open <= 0.0) return half4(here);
 
     // Time, wrapped at about an hour, so it stays exact when the shader is on for days.

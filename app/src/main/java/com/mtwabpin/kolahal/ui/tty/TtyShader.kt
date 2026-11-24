@@ -249,6 +249,21 @@ internal fun rememberShaderPreview(
 }
 
 /**
+ * The header of shader [name] ([ShaderMeta]), read from its file. Null for none ([ShaderCatalog.OFF]),
+ * until it is read, and when its file can't be read. Read again when a shader file changes.
+ */
+@Composable
+internal fun rememberShaderMeta(name: String?): ShaderMeta? {
+    val context = LocalContext.current.applicationContext
+    val files by Shaders.version.collectAsStateWithLifecycle()
+    val meta by produceState<ShaderMeta?>(null, name, files) {
+        value = if (name == null || name == ShaderCatalog.OFF) null
+        else withContext(Dispatchers.IO) { Shaders.source(context, name)?.let(ShaderMeta::parse) }
+    }
+    return meta
+}
+
+/**
  * Home as a preview shows it with the shader [name] over it ([rememberShaderPreview]): nothing until it is
  * read and compiled. [over]: as on home ([rememberTtyShader]).
  */

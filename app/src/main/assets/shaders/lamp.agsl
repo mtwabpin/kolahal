@@ -31,7 +31,9 @@ half4 main(float2 xy) {
 
     // How much of this pixel is the page, and not text or a line.
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    float page = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    // Text and pictures (icons, photos, emoji) are opaque, and Kolahal draws the page a step under
+    // opaque: a pixel at full alpha is covered, whatever its color, and the scene stays behind it.
+    float page = (1.0 - clamp(d * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
 
     // Away from the lamp the page is darker: by a ninth on a light theme, where it shows, and by a
     // third on a dark one, where the page is nearly black already. Text loses a tenth at most.

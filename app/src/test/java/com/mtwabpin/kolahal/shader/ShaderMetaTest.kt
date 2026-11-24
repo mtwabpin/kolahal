@@ -400,4 +400,55 @@ class ShaderMetaTest {
         // Only the one-off is one.
         assertEquals(listOf("template-once"), metas.filterValues { it.once != null }.keys.toList())
     }
+
+    /**
+     * Every shader that comes with Kolahal and tells the page from text (not one for text, which works on all of
+     * it) takes a pixel at full alpha as covered: text and pictures are opaque and the page under them is a step
+     * under ([ShaderMeta.PAGE_ALPHA]), so an icon, a photo or an emoji keeps its colors under a scene. One that gives
+     * faint text more contrast gives it to text only, not to a picture.
+     */
+    @Test
+    fun theScenesKeepPicturesAsTheyAre() {
+        assertTrue(ShaderMeta.PAGE_ALPHA < 0.999f)
+        assertEquals(254, Math.round(ShaderMeta.PAGE_ALPHA * 255f))
+        val files = sourceFile("src/main/assets/shaders").listFiles().orEmpty().filter { it.extension == "agsl" }
+        val tested = files.filter { file ->
+            val code = file.readText().replace(Regex("//[^\n]*"), "")
+            val pageTest = "length(here.rgb - " in code || "ink2(here)" in code
+            if (!pageTest || ShaderMeta.parse(file.readText()).text) return@filter false
+            assertTrue("${file.name} doesn't take full alpha as covered", "step(0.999, here.a)" in code)
+            if ("float gain" in code) assertTrue("${file.name} gives pictures more contrast", "picture(here.rgb" in code)
+            true
+        }.map { it.nameWithoutExtension }
+        assertTrue(tested.toString(), tested.containsAll(listOf("pond", "mountains", "dunes", "rain", "snowfall", "template-scene")))
+    }
+
+    /**
+     * Every surface that hands its page to a shader marks it ([ShaderMeta.PAGE_ALPHA]): without the mark a scene
+     * takes the whole page as covered and draws nothing. A new surface fails here until it marks its page.
+     */
+    @Test
+    fun everySurfaceThatHandsItsPageToAShaderMarksIt() {
+        val calls = listOf(
+            "rememberTtyShader(", "rememberShaderPreview(", "rememberPeekShader(", "rememberPlayedShader(",
+            "rememberPlayedOnHome(", "setInputShader(ShaderMeta.INPUT",
+        )
+        val surfaces = sourceFile("src/main/java").walkTopDown()
+            .filter { it.isFile && it.extension == "kt" && it.name != "TtyShader.kt" }
+            .filter { file ->
+                // The calls, not their names in comments.
+                val code = file.readLines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }
+                    .joinToString("\n")
+                calls.any { it in code }
+            }
+            .toList()
+        for (file in surfaces) {
+            val code = file.readText()
+            assertTrue("${file.name} hands its page to a shader without the mark", "marked =" in code || "PAGE_ALPHA" in code)
+        }
+        assertEquals(
+            setOf("GuiHome.kt", "TtyHome.kt", "TtyScreenHost.kt", "ShaderPreview.kt", "WidgetStatScene.kt", "ShaderWallpaper.kt"),
+            surfaces.map { it.name }.toSet(),
+        )
+    }
 }

@@ -40,6 +40,7 @@ uniform float d6;
 uniform float d7;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 fg;
+layout(color) uniform half4 dim;
 layout(color) uniform half4 accent;
 
 // A number from 0 to 1 that looks random for each n or p (Dave Hoskins' hashes without sine).
@@ -228,6 +229,17 @@ float person(float2 p, float arm, float lean) {
     return d;
 }
 
+// How much c, a pixel of what is drawn on the page, belongs to a picture rather than to text: 0 on the way
+// from the page to the text's color or the dim text's, 1 away from both.
+float picture(float3 c, float3 page, float3 ink, float3 faint) {
+    float3 o = c - page;
+    float3 a = ink - page;
+    float3 b = faint - page;
+    float off = min(length(o - a * clamp(dot(o, a) / max(dot(a, a), 0.0001), 0.0, 1.0)),
+                    length(o - b * clamp(dot(o, b) / max(dot(b, b), 0.0001), 0.0, 1.0)));
+    return smoothstep(0.015, 0.045, off);
+}
+
 half4 main(float2 xy) {
     float4 here = float4(content.eval(xy));
     float y = xy.y / resolution.y;
@@ -239,8 +251,13 @@ half4 main(float2 xy) {
     float ink = length(here.rgb - page);
     float full = length(float3(fg.rgb) - float3(bg.rgb));
     float gain = 1.0 + (clamp(full * 0.85 / max(ink, 0.001), 1.0, 2.1) - 1.0) * (1.0 - ground(y) * (1.0 - wallpaper));
+    // A picture keeps its own colors: only text, on the way from the page to its color, gets more
+    // contrast. Where the gain is 1, and on the bare page, there is nothing to check.
+    if (gain > 1.0 && ink > 0.008) gain = mix(gain, 1.0, picture(here.rgb, page, float3(fg.rgb) * here.a, float3(dim.rgb) * here.a));
     float3 letters = clamp(page + (here.rgb - page) * gain, 0.0, 1.0);
-    float amount = 1.0 - clamp(ink * 5.0, 0.0, 1.0);
+    // Text and pictures (icons, photos, emoji) are opaque, and Kolahal draws the page a step under
+    // opaque: a pixel at full alpha is covered, whatever its color, and the scene stays behind it.
+    float amount = (1.0 - clamp(ink * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
     if (amount <= 0.0) return half4(float4(letters, here.a));
 
     float4 w = hours(date.w / 3600.0);

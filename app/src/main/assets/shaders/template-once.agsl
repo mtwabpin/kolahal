@@ -36,6 +36,8 @@ half4 main(float2 xy) {
 
     // Behind the text only, as in the template Hills, and less on a light theme.
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    amount *= (1.0 - clamp(d * 5.0, 0.0, 1.0)) * mix(0.75, 1.0, dark);
+    // Text and pictures (icons, photos, emoji) are opaque, and Kolahal draws the page a step under
+    // opaque: a pixel at full alpha is covered, whatever its color, and the scene stays behind it.
+    amount *= (1.0 - clamp(d * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a)) * mix(0.75, 1.0, dark);
     return half4(here * (1.0 - amount) + float4(float3(accent.rgb) * amount, amount));
 }

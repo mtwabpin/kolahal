@@ -63,7 +63,9 @@ half4 main(float2 xy) {
     here = mix(here, soaked, 0.22);
 
     // The page shows as much as the pixel is close to it. Text and lines show none of it.
-    float page = 1.0 - clamp(sqrt(ink2(here)) * 5.0, 0.0, 1.0);
+    // Text and pictures (icons, photos, emoji) are opaque, and Kolahal draws the page a step under
+    // opaque: a pixel at full alpha is covered, whatever its color, and the scene stays behind it.
+    float page = (1.0 - clamp(sqrt(ink2(here)) * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
     if (page <= 0.0) {
         return half4(here);
     }

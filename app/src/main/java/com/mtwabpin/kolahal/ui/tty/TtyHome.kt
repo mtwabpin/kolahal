@@ -65,6 +65,7 @@ import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.SetupChecks
@@ -154,13 +155,23 @@ internal fun TtyHome(
         shaderName, grid, frame.cols, frame.originX, on = !preview, over = over,
     )
 
+    val played = rememberPlayedOnHome(frame.cols, frame.originX, on = !preview)
+    val shaderMeta = rememberShaderMeta(if (preview) previewShader else shaderName)
+
     CompositionLocalProvider(LocalTtyFrame provides frame) {
         Column(
             Modifier
                 .fillMaxSize()
-                .then(rememberPlayedOnHome(frame.cols, frame.originX, on = !preview))
+                .then(played)
                 .then(shader)
-                .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
+                // Marked while a shader reads it, so text and pictures keep their colors ([ShaderMeta.PAGE_ALPHA]).
+                .page(
+                    // A scene brings its own ground: the phone's wallpaper doesn't show through it ([WallpaperChoice.homeShare]).
+                    wallpaper = WallpaperChoice.homeShare(
+                        remember(configVersion) { config[Keys.LOG_WALLPAPER] }, shaderMeta.takeIf { shader != Modifier }
+                    ),
+                    marked = shader != Modifier || played != Modifier,
+                )
                 .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal))
                 .windowInsetsPadding(
                     WindowInsets.navigationBars

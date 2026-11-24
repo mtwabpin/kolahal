@@ -2,10 +2,10 @@
 // @description A scene behind the text: two hills under a sky, in the theme's colors
 // @suits dark good, light good, wallpaper good
 //
-// A scene draws only where the page shows, so text stays as it is. It uses the theme's colors, so
-// it fits every theme; dark says whether the theme is dark, and a light one takes less of it. As a
-// live wallpaper (wallpaper is 1) the page is the theme's background alone, with no text: there it
-// is a little stronger. Change the hills first: where they are, how they wave, their colors.
+// A scene draws only where the page shows, so text and pictures stay as they are. It takes the
+// theme's colors, so it fits every theme; dark says if the theme is dark, and a light one takes less
+// of it. As a live wallpaper (wallpaper is 1) the page is the theme's background alone, with no text:
+// there it is a little stronger. Change the hills first: where they are, how they wave, their colors.
 
 uniform shader content;
 uniform float2 resolution;
@@ -20,10 +20,10 @@ layout(color) uniform half4 good;
 half4 main(float2 xy) {
     float4 here = float4(content.eval(xy));
 
-    // Page or text? A pixel that differs from the background (bg) and from cards and bars (surface)
-    // is text or a line. open is 1 on the page and 0 on text, with a soft edge between.
+    // Page or text? Kolahal draws the page a step under opaque, so a pixel at full alpha is text or a
+    // picture; so is one unlike the background (bg) and cards (surface). open: 1 on the page, 0 there.
     float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    float open = 1.0 - clamp(d * 5.0, 0.0, 1.0);
+    float open = (1.0 - clamp(d * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
     // On text there is nothing more to work out.
     if (open <= 0.0) return half4(here);
 

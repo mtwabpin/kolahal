@@ -86,6 +86,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.shader.ShaderCatalog
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
@@ -102,6 +103,7 @@ import com.mtwabpin.kolahal.ui.tty.OverShaderBox
 import com.mtwabpin.kolahal.ui.tty.rememberOverShader
 import com.mtwabpin.kolahal.ui.tty.rememberPeekShader
 import com.mtwabpin.kolahal.ui.tty.rememberPlayedOnHome
+import com.mtwabpin.kolahal.ui.tty.rememberShaderMeta
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -207,13 +209,22 @@ internal fun GuiHome(
     val scrambledHome = LocalScramble.current != null && !preview
     val scrambleWaves = remember { LogDecode() }.takeIf { scrambledHome }
     if (scrambleWaves != null) ScrambleWaves(scrambleWaves, state.scroll.list, rows.firstOrNull()?.key)
+    val played = rememberPlayedOnHome(on = !preview)
+    val shaderMeta = rememberShaderMeta(if (preview) previewShader else shaderName)
 
     Column(
         Modifier
             .fillMaxSize()
-            .then(rememberPlayedOnHome(on = !preview))
+            .then(played)
             .then(shader)
-            .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
+            // Marked while a shader reads it, so text and pictures keep their colors ([ShaderMeta.PAGE_ALPHA]).
+            .page(
+                // A scene brings its own ground: the phone's wallpaper doesn't show through it ([WallpaperChoice.homeShare]).
+                wallpaper = WallpaperChoice.homeShare(
+                    remember(configVersion) { config[Keys.LOG_WALLPAPER] }, shaderMeta.takeIf { shader != Modifier }
+                ),
+                marked = shader != Modifier || played != Modifier,
+            )
             .then(if (decode == null) Modifier else decodeArea.only)
             // No top padding here: the header fills the band beside the camera.
             .windowInsetsPadding(

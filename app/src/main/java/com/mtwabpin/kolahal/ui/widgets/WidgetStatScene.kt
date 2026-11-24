@@ -22,7 +22,7 @@ import com.mtwabpin.kolahal.shader.ShaderMeta
 import com.mtwabpin.kolahal.shader.ShaderSafety
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.WallpaperChoice
-import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.ui.theme.page
 import com.mtwabpin.kolahal.ui.tty.rememberShaderPreview
 import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
 import com.mtwabpin.kolahal.widgets.WidgetLook
@@ -79,7 +79,8 @@ internal fun StatScene(spec: WidgetSpec.Stat, look: WidgetLook, card: Color) {
         Modifier
             .fillMaxSize()
             .then(ground)
-            .background(Term.bg)
+            // The scene reads this page: marked, so it shows over all of it ([ShaderMeta.PAGE_ALPHA]).
+            .page(marked = true)
     )
     Box(
         Modifier

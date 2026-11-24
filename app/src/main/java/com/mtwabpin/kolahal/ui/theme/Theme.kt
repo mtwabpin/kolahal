@@ -695,6 +695,15 @@ fun androidx.compose.ui.Modifier.navigationBarScrim(alpha: () -> Float = { 1f })
  * The home screen background in the theme color. When [wallpaper] is above 0 (`log.wallpaper`,
  * `widgets.wallpaper`), the window lets the phone's wallpaper through. The background is then
  * drawn fainter, so the wallpaper shows through by that many percent.
+ *
+ * [marked]: a shader reads this page. It is drawn a step under opaque
+ * ([com.mtwabpin.kolahal.shader.ShaderMeta.PAGE_ALPHA]), so the shader tells the bare page from the text
+ * and pictures over it.
  */
-fun androidx.compose.ui.Modifier.page(wallpaper: Int = 0): androidx.compose.ui.Modifier =
-    background(Term.bg.copy(alpha = Term.bg.alpha * (1f - wallpaper.coerceIn(0, 100) / 100f)))
+fun androidx.compose.ui.Modifier.page(wallpaper: Int = 0, marked: Boolean = false): androidx.compose.ui.Modifier =
+    background(
+        Term.bg.copy(
+            alpha = Term.bg.alpha * (1f - wallpaper.coerceIn(0, 100) / 100f) *
+                    (if (marked) com.mtwabpin.kolahal.shader.ShaderMeta.PAGE_ALPHA else 1f)
+        )
+    )

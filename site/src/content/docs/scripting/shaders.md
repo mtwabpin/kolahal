@@ -105,6 +105,10 @@ A shader's details rate it for a dark theme, a light theme and a wallpaper that 
 If more than 20% of your wallpaper shows, turning on a shader that is poor over one gives a warning. It is turned on all
 the same. The author rates a shader in its [header](#the-header), and one without a rating shows none.
 
+A scene, a shader that can be your [live wallpaper](#as-a-live-wallpaper), brings its own ground: while it is on over
+home, your wallpaper doesn't show behind the log, whatever `log.wallpaper` says. The setting keeps its value, and the
+wallpaper is back when the shader is off. Shaders that work on text and one-offs leave it as it is.
+
 ## As a live wallpaper
 
 A shader can be your phone's wallpaper, behind any launcher and on the lock screen. Open its details and tap **Set as
@@ -307,8 +311,13 @@ Good to know:
 - Look at a few pixels around each one, not hundreds. A shader that does too much work makes home slow.
 - An `@animated` shader runs over every pixel of the screen at each frame. A scene that moves slowly costs a
   third with `// @fps 10`, and one that moves only after a touch costs nothing once it fades with `// @settles`.
+- To draw behind the text only, as the scenes do, tell the page from what is on it by its alpha. Kolahal
+  draws the page a step under opaque (an alpha of 254/255) while a shader reads it, and text, icons, photos
+  and emoji on it are opaque: a pixel with `c.a > 0.999` is covered, whatever its color. A test by color
+  alone would paint over an icon's white or dark parts. `template-scene` uses both: the alpha, and the
+  color for the soft edges of letters.
 - If the screen shows your wallpaper ([`log.wallpaper`](/reference/config/#log)), the pixels behind the
-  text can be transparent: check `c.a`.
+  text are more transparent still: check `c.a`.
 - Moving pixels far from where they are makes a tap miss what it shows. Keep it under half a cell,
   except near the corners.
 
