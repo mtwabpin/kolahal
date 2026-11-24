@@ -282,8 +282,6 @@ pixels all round hold nothing that must be seen.
 =raw/= keeps every capture at full size (1080 × 2400), the website uses them too: =site/CAPTURES.md=
 says what each of the others shows. Of those, =quick-actions-full-build= and =quick-actions= must
 not go to Play: their last row is Lock screen, which the Play build doesn't have.
-=widgets-page-looks= is the first widgets page, with Tonal cards: no draft uses it, and it stays
-only while the website's =shots/home/habit.png= and =forecast.png= are cut from it.
 
 ** Taking the captures again
 
@@ -302,7 +300,8 @@ widgets pages, Arrange widgets, the TTY style and the captures of drafts 24 to 2
 with =tools/site-captures.sh=, which holds the exact taps of every capture the website uses: its
 =setup= does steps 1 to 3 (and a little more: favorites, the Water card, a few scripts), its
 =restore= does step 6, and each capture is a function named in the table below. It sets the zone
-=Asia/Dhaka= (UTC+6): a zone of whole hours keeps the world clocks' differences round.
+=Asia/Dhaka= (UTC+6): a zone of whole hours keeps the world clocks' differences round, and the
+script stops on a half-hour one.
 
 1. Note what you change, to put it back afterwards (step 6). Then:
    - =cmd package set-home-activity com.mtwabpin.kolahal.debug/com.mtwabpin.kolahal.MainActivity=

@@ -25,8 +25,10 @@ cd "$(dirname "$0")/.."
 SERIAL=${SERIAL:-emulator-5554}
 THEME=${THEME:-rose-pine}   # the app's theme
 DARK=${DARK:-yes}           # the phone's dark mode: yes (the theme's dark version) or no (its light one)
-# A zone where it is dusk (about 18:00 to 18:40) when you run it, so the scenes look as they do in
-# the pictures, and no clock tells where the machine is. Asia/Dhaka is UTC+6 (whole hours keep the world clocks' offsets round), Asia/Bangkok +7.
+# A zone of whole hours where it is dusk (about 18:00 to 18:40) when you run it, so the scenes look
+# as they do in the pictures, and no clock tells where the machine is: Asia/Dhaka is UTC+6,
+# Asia/Bangkok +7, Asia/Tokyo +9. Never a half-hour zone (Asia/Yangon is +6:30): the world
+# clocks show each city's difference from it, and Nairobi "−3:30" reads oddly. `zone` refuses one.
 ZONE=${ZONE:-Asia/Dhaka}
 ZONE_BEFORE=${ZONE_BEFORE:-}   # the zone to put back in `restore`; empty leaves it to the automatic time zone
 APP=com.mtwabpin.kolahal.debug
@@ -103,14 +105,22 @@ w_look() { local v=LOOKX_$1; sleep 2.5; tap "${!v}" 1968; sleep 1; tap 975 1764;
 # w_add <name> <look>: the first row the search finds, placed, in that look.
 w_add() { w_search "$1"; tap 540 953; sleep 1.5; w_look "$2"; }
 
+# zone: the emulator in $ZONE, automatic time zone off, and a stop if its offset isn't whole hours.
+zone() {
+  local z
+  sh_ cmd time_zone_detector set_auto_detection_enabled false
+  sh_ service call alarm 3 s16 "$ZONE" > /dev/null
+  z=$(sh_ date +%z | tr -d '\r')
+  [ "${z: -2}" = 00 ] || { echo "The zone $ZONE is UTC$z: take one of whole hours (ZONE=)." >&2; exit 1; }
+}
+
 # ---- the state --------------------------------------------------------------------------------
 
 setup() {
   sh_ pm clear "$APP"
   sh_ cmd package set-home-activity "$APP/com.mtwabpin.kolahal.MainActivity"
   sh_ cmd uimode night "$DARK"
-  sh_ cmd time_zone_detector set_auto_detection_enabled false
-  sh_ service call alarm 3 s16 "$ZONE"
+  zone
   sh_ appops set "$APP" GET_USAGE_STATS allow
   sh_ appops set "$APP" SCHEDULE_EXACT_ALARM allow
   sh_ cmd notification allow_listener "$APP/com.mtwabpin.kolahal.notifications.KolahalNotificationListener"
@@ -200,16 +210,26 @@ widgets_add() {
   key KEYCODE_BACK; sleep 1; home
 }
 
-# shots/home/water.png, world-clocks.png, unlock-chart.png: three cards of the widgets page, cut at
-# full size for the home page's "Scripts and widgets" (Water Bold at 5 / 8, World clocks Bold,
-# Unlocks Bold).
+# shots/home/water.png, world-clocks.png, unlock-chart.png, habit.png, forecast.png: five cards of
+# the widgets page, cut at full size for the home page's "Scripts and widgets" (Water Bold at 5 / 8,
+# Unlocks Bold, Habit streak Shape, 3-day forecast Split, and World clocks Split for this picture
+# only: in a row with the other three it differs from both of its neighbours' shapes, and Shape
+# shows Tokyo alone, as an analog clock). The zone is set again first: the clocks show each city's
+# difference from it. World clocks goes back to Bold after, as the later pictures want it.
 home_cards() {
+  zone
   home; kbup; t "widget page" 3
-  sh_ input swipe 540 600 540 1800 300; sleep 1.5   # to the top of the page
-  cap widgets-page-water
-  site_card widgets-page-water 545x272+0+2068 shots/home/water.png
-  site_card widgets-page-water 540x530+0+495 shots/home/world-clocks.png
-  site_card widgets-page-water 512x530+545+1022 shots/home/unlock-chart.png
+  tap 985 190; sleep 2.5; tap 350 1000; sleep 3; w_look split   # the pencil, World clocks, Split
+  tap 75 212; sleep 2.5
+  home; kbup; t "widget page" 3
+  sh_ input swipe 540 1800 540 600 300; sleep 2   # to the end of the page: the Water card whole
+  cap widgets-page-clocks-split
+  site_card widgets-page-clocks-split 545x272+0+2068 shots/home/water.png
+  site_card widgets-page-clocks-split 540x530+0+495 shots/home/world-clocks.png
+  site_card widgets-page-clocks-split 512x530+545+1022 shots/home/unlock-chart.png
+  site_card widgets-page-clocks-split 540x530+0+1022 shots/home/habit.png
+  site_card widgets-page-clocks-split 518x530+545+495 shots/home/forecast.png
+  tap 985 190; sleep 2.5; tap 350 1000; sleep 3; w_look bold; tap 75 212; sleep 2.5
   home
 }
 
@@ -507,13 +527,78 @@ tty() {
   kbup; t "config set home.style gui" 3; kbdown
 }
 
+# ---- for the blog post on 0.5.17 (kept in raw/ only) --------------------------------------------
+
+# no_clip <name>: Gboard's clipboard chip in the keyboard's strip, painted over with the keyboard's
+# own color. The emulator takes in the host's clipboard, so the chip comes back however long you
+# wait; its text shows as dots.
+no_clip() {
+  local f=$RAW/$1.png bg
+  bg=$(magick "$f" -format '%[pixel:p{150,1575}]' info:)
+  magick "$f" -fill "$bg" -draw 'rectangle 300,1525 780,1625' "$f"
+}
+
+# raw/tty-top.png: the TTY style's `top` screen: the time, bars for the battery, memory, Kolahal's
+# own and today's screen time, and the scripts' table. It needs the animator scale at 1.
+tty_top() {
+  home; kbup; t "shader off" 2; t "config set home.style tty" 3; key KEYCODE_HOME; sleep 2; kbup
+  sh_ settings put global animator_duration_scale 1
+  t clear 1; t top 4   # a moment to settle
+  cap tty-top; key KEYCODE_BACK; sleep 2
+  sh_ settings put global animator_duration_scale 0
+  kbup; t "config set home.style gui" 3; kbdown
+}
+
+# raw/scramble-before.png, scramble-after.png: the same home, then `scramble` typed (its own line
+# is the only other change), then `scramble off`.
+scramble_pair() {
+  home; kbup; t "shader off" 2; t clear 1; t weather 5; t "= 5 km in mi" 2; t todo 2; kbdown; wait_cleared
+  cap scramble-before
+  kbup; t scramble 3; kbdown; sleep 2
+  cap scramble-after
+  kbup; t "scramble off" 2; kbdown
+}
+
+# raw/typing-tty-parts.png, typing-gui-parts.png: `ca` typed over the same log, keyboard up, with
+# the suggestions and the key bar: in the TTY style with all its parts on the grid, then in the
+# default style. The settings go back after.
+typing_styles() {
+  local p parts=(suggestions selector keybar quick-actions menu)
+  home; kbup; t "shader off" 2; t "config set home.style tty" 3; key KEYCODE_HOME; sleep 2; kbup
+  for p in "${parts[@]}"; do t "config set tty.$p tty" 1.5; done
+  t "config set keybar.show on" 1.5
+  t clear 1; t "= 5 km in mi" 2; kbdown; wait_cleared; kbup; ty ca; sleep 2.5
+  cap typing-tty-parts; no_clip typing-tty-parts
+  tap 947 1358; sleep 0.5   # ✕ empties the prompt
+  for p in "${parts[@]}"; do t "config set tty.$p gui" 1.5; done
+  t "config set home.style gui" 3; key KEYCODE_HOME; sleep 2; kbup
+  t clear 1; t "= 5 km in mi" 2; kbdown; wait_cleared; kbup; ty ca; sleep 2.5
+  cap typing-gui-parts; no_clip typing-gui-parts
+  tap 928 1358; sleep 0.5
+  t "config set keybar.show off" 1.5; kbdown
+}
+
+# raw/reference-table-tty.png: the editor's reference, Log lines, fmt.table's entry with its Home
+# style set to TTY: the table drawn with box lines, as on the grid.
+reference_tty() {
+  home; kbup; t "script edit unlock-chart" 3; kbdown
+  tap 639 191; sleep 2.5     # ?: the reference
+  tap 848 527; sleep 2       # the Log lines tab
+  tap 1017 1740; sleep 2.5   # fmt.table
+  tap 789 848; sleep 2       # Home style: TTY
+  cap reference-table-tty
+  key KEYCODE_BACK; sleep 1.5; key KEYCODE_BACK; sleep 1.5
+  tap 1017 191; sleep 2; home   # ✕ closes the editor
+}
+
 # ---- running it -------------------------------------------------------------------------------
 
 # The pictures in an order that works from `setup`'s state: each leaves home in front.
 PICTURES=(widgets_add home_cards hero_dunes_dark hero_mountains_dark hero_pond_light typing_home
   suggestions forecast fresh pinning schedule_times schedule_charger widgets_pages widget_looks
   widget_options wallpaper selector parts_home parts_action_sheet parts_quick_actions parts_typing
-  parts_settings parts_scripts parts_editor setup_checklist terminal_feeds profiles tty)
+  parts_settings parts_scripts parts_editor setup_checklist terminal_feeds profiles tty
+  tty_top scramble_pair typing_styles reference_tty)
 
 [ $# -gt 0 ] || { sed -n '2,24p' "$0"; exit 2; }
 mkdir -p "$RAW"

@@ -18,7 +18,9 @@ a page needs. Paths below are under `site/src/assets/`.
 - `tools/site-captures.sh`: everything taken on the emulator, one shell function per picture with
   the exact taps, typing, held touches and waits, after `setup` (the state: `THEME`, `DARK`, the
   time zone, todos, scripts, widgets in their looks) and before `restore` (the emulator as it was,
-  the app's data cleared). Coordinates are for the emulator's 1080 × 2400 screen. `THEME=nord
+  the app's data cleared). The zone is one of whole hours (`ZONE`, Asia/Dhaka): the world clocks
+  show each city's difference from it, and a half-hour zone makes them "−3:30"; the script stops
+  on one. Coordinates are for the emulator's 1080 × 2400 screen. `THEME=nord
   tools/site-captures.sh all` takes them all; run it whole, look at every picture, fix what drifts.
 
 Each hand-made capture is kept at full size in `docs/release/graphics/raw/` under the name in the
@@ -46,10 +48,10 @@ header's signs and the `clock` screen's centering.
 
 | File | What it shows | Function | Raw |
 | --- | --- | --- | --- |
-| `shots/home/water.png` | the API reference's Water card, 5 / 8, **Bold** | `home_cards` | `widgets-page-water` |
-| `shots/home/world-clocks.png` | World clocks, **Bold** | `home_cards` | `widgets-page-water` |
-| `shots/home/unlock-chart.png` | Unlocks, **Bold** | `home_cards` | `widgets-page-water` |
-| `shots/home/habit.png`, `forecast.png` | Habit streak **Shape**, 3-day forecast **Split** | (Play captures) | `widgets-page-looks` |
+| `shots/home/water.png` | the API reference's Water card, 5 / 8, **Bold** | `home_cards` | `widgets-page-clocks-split` |
+| `shots/home/habit.png`, `forecast.png` | Habit streak **Shape**, 3-day forecast for Lisbon **Split** | `home_cards` | `widgets-page-clocks-split` |
+| `shots/home/world-clocks.png` | World clocks, Tokyo with Nairobi −3:00 and Lisbon −6:00, **Split** (Bold on the other pages) | `home_cards` | `widgets-page-clocks-split` |
+| `shots/home/unlock-chart.png` | Unlocks, **Bold** | `home_cards` | `widgets-page-clocks-split` |
 | `shots/home/selector.png`, `quick-actions.png` | the selector at G; quick actions | (Play captures) | `selector-thumb-g`, `quick-actions-full-build` |
 
 ## The tour (`/tour/`) and the gallery
@@ -121,3 +123,16 @@ and buttons, with a few cards set by name), and the script copies them to the sa
 | `widgets/*.png` (23 others) | the library's cards and Kolahal's own | the same test (`real-*`) |
 | `log/*.png` (10) | the scripting guide's log examples | `LogGalleryTest#theGuidesLogExamplesAreDrawnAndSaved` |
 | `fmt/*.png` (11) | the fmt samples, one line each | `LogGalleryTest#theFmtSamplesAreDrawnAndSaved` |
+
+## For the blog post on 0.5.17
+
+Kept in `docs/release/graphics/raw/` only: the post on this release uses them, and no page shows
+them. In `typing-*-parts` Gboard's clipboard chip is painted over (`no_clip`): the emulator takes in
+the host's clipboard, so the chip doesn't go away by waiting.
+
+| Raw | What it shows | Function |
+| --- | --- | --- |
+| `tty-top` | the TTY style's `top` screen: the time, bars for the battery, memory, Kolahal and today's screen time, the scripts' table | `tty_top` |
+| `scramble-before`, `scramble-after` | the same home (weather, a conversion, `todo`), then after `scramble`: the header says *scrambled* | `scramble_pair` |
+| `typing-tty-parts`, `typing-gui-parts` | `ca` typed over the same log with the suggestions and the key bar: the TTY style with every part on the grid (`tty.suggestions`, `tty.selector`, `tty.keybar`, `tty.quick-actions`, `tty.menu` set to `tty`), then the default style | `typing_styles` |
+| `reference-table-tty` | the editor's reference, Log lines → `fmt.table`, its Home style set to TTY | `reference_tty` |
