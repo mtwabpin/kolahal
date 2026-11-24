@@ -35,7 +35,7 @@ where a request goes: on Android 17, Android blocks the local network itself.
 
 Notification access is in (since 0.4.6): notifications in the log, =notifs=, media controls and
 =@on notification= scripts. Play has no declaration form for a notification listener; its User
-Data policy wants an in-app disclosure with consent before the access, so =notifs enable= (from the
+Data policy wants an in-app disclosure with consent before the access, so =allow read-notifications= (from the
 prompt, Setup or the tour) shows what Kolahal reads, what for and that it stays on the phone, and
 opens Android's Notification access screen only on *Allow* (=NotificationAccessDialog=). The Data
 safety answer stays "no data collected": notifications never leave the phone. The Play-build APK on

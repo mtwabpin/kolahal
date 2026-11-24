@@ -158,7 +158,7 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
   home in both styles and the full-screen screens (design §7, "As built"):
   - [X] Files: bundled ones in =assets/shaders/=, the user's in =files/shaders/=, from the script
     folder (=script import= and =shader reload=, top level or =shaders/=) and from a picked file
-    (Scripts → Import a file). =script export= and =shader copy= write them back.
+    (Scripts → Import a file). =script export= and =shader save= write them back.
   - [X] Uniforms found in the source (=ShaderMeta=, JVM-tested); only the declared ones are set.
     Wrong types and a missing =content= are refused before compiling.
   - [X] Compile errors are one log line with the compiler's line; home stays up.
@@ -184,7 +184,7 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
   - [X] Ratings: =// @suits= (dark, light, wallpaper: good, fair, poor) and =// @text=; a warning when
     a shader that is poor over a wallpaper is turned on while more than 20 % of it shows.
   - [X] The =date= uniform (a still shader that declares it is drawn again each minute).
-  - [X] The live wallpaper: =shader wallpaper <name>=, in a process of its own (=:wallpaper=), drawn
+  - [X] The live wallpaper: =wallpaper shader <name>=, in a process of its own (=:wallpaper=), drawn
     from what home hands over in a file; the =wallpaper= uniform (=ui/wallpaper/=,
     =shader/WallpaperChoice.kt=).
 - The Shaders screen and its store (22 November):
@@ -193,7 +193,7 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
     Each has a sheet: preview, check, code, copy, share, update, remove with undo.
   - [X] Get more shaders: an optional =shaders= array beside =scripts= in the sources' =index.json=
     (=format= stays 1; released versions read only =scripts=), with the scripts' sources, cache and
-    download. =shader get= and =shader update=.
+    download. =shader get= and =shader get --update=.
   - [X] Backups hold the user's shaders, and where the installed ones came from.
   - [ ] Left: the check of shaders in the shared repository, and shaders there.
 - Four more inputs (22 November), not yet built or run on a device:

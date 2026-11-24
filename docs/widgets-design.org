@@ -1738,7 +1738,7 @@ became =terminal/OwnWidgets.kt= and =WidgetAge= in =terminal/WidgetActions.kt=.
 | =OwnWidgets.kt=              | Kolahal's own data for the built-in widgets (=OwnData=, =OwnFeed=), their taps' few words (=OwnTaps=), and when the calendar is read again (=AgendaTurns=). |
 | =TapGate.kt=                 | One run in 2 seconds for each item, with one tap that waits.                                           |
 | =ScriptActions.kt=           | =setWidgetOption=: a widget's own option, and the run it asks for.                                     |
-| =terminal/commands/SystemCommands.kt= | =widgets=, =widgets page=, =widgets ls=, =widget add=.                                                 |
+| =terminal/commands/SystemCommands.kt= | =widgets=, =widget add=, =widget ls=, =widget page= (=WidgetWords=: =widgets <sub>= works the same). |
 
 =ui/widgets/=:
 
@@ -1795,7 +1795,7 @@ Elsewhere:
 - =LauncherApp.kt= :: Receive =WIDGETS_CHANGED=.
 - =MainActivity.kt= (=HomePager=) :: Tell the widgets page when it is the settled page
   (=LocalWidgetsShown=).
-- =commands/CommandCatalog.kt= :: =widgets= and =widget add= in help.
+- =commands/CommandCatalog.kt= :: =widgets=, and =widget add=, =ls= and =page=, in help.
 - =data/Backup.kt= :: See below.
 - =assets/library/= :: The changed and new scripts. For each: =tools/library-history.sh=, the
   counts in =LibraryFilesTest=, a case in =LibraryScriptsTest= and =LibraryWidgetsTest=, and the

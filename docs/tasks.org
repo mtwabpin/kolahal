@@ -673,6 +673,28 @@ Looks, positions and the new Arrange widgets screen shipped in 0.5.15. Still to 
 - Dragging on the widgets page itself, as phone home screens do.
 - =widget look <name> <look>= at the prompt.
 
+** WAITING [#C] The last uneven command families, after the reorganization of 24 November 2026  :home:
+That day =wallpaper= took over =shader wallpaper=, =allow= the eleven ways to ask for a permission,
+=usage= took over =usage-summary=, =widget= and =widgets= follow =script= and =scripts=, and =help=
+got a Look section. Two kinds of unevenness are left. Both wait for a choice, as each has more
+than one good answer. Paths under =terminal/commands/=.
+- The pairs of a singular and a plural. =script=/=scripts=, =feed=/=feeds= and =widget=/=widgets=
+  share one rule: the plural alone opens the screen, the singular with a verb acts, and either
+  takes the other's subcommands. The pairs in =ProductivityCommands.kt= (=run=) don't:
+  - =note <text>= saves a note, whatever the text: =note rm 3= saves a note that says "rm 3".
+    Only =notes= takes =grep= and =rm=.
+  - =reminders= lists and takes nothing; only =remind= takes =rm=.
+  - =alarms= opens the clock app and ignores what follows; =alarm= sets one.
+  - =pin= alone lists the favorites and =pins= shows them as a grid; =pins <app>= pins nothing.
+  To decide: one rule for these too (the plural lists, the singular acts, either takes the
+  other's verbs), or leave them, since none has a screen of its own.
+- The other names of a verb. =shader= takes =ls= and =rm= (and =delete=) alone since that day;
+  =script= and =feed= still take =list= beside =ls= (=ScriptCommands.kt=, =FeedCommands.kt=), and
+  =notes= takes =rm=, =remove= and =delete=, and =grep=, =find= and =search=. To decide: one name
+  for each verb everywhere (and which other names, if any, every family takes), or the families
+  as they are.
+- Remark:
+
 ** WAITING [#C] Rich responses from scripts with A2UI  :scripts:project:
 - A2UI is Google's open protocol with which an AI agent describes a UI as data, and the app draws it with its
   own components. Watched, not planned (the maintainer, 22 November 2026).

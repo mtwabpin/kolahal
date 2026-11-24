@@ -501,7 +501,8 @@ is one =when (name)=, and each branch hands over to a command group, one class p
 =AliasCommands=, =HelpCommands=, =CalcCommands= (the ~= 6*7~ calculator, conversions, =lua=, =js=), =WebCommands=,
 =LogCommands=, =SystemCommands=, =AppCommands=, =UsageCommands=, =ScriptCommands=, =ShaderCommands=,
 =FeedCommands=, =ConfigCommands=, =PeopleCommands=, =ProductivityCommands=, =EditCommands=,
-=UpdateCommands= and =ControlCommands=, all in =terminal/commands/=. Each extends [[src:terminal/commands/CommandGroup.kt::abstract class CommandGroup][CommandGroup]],
+=UpdateCommands=, =ControlCommands= and =AllowCommands= (=allow=, which asks Android for a permission:
+the "tap to allow" lines and the setup checklist run it), all in =terminal/commands/=. Each extends [[src:terminal/commands/CommandGroup.kt::abstract class CommandGroup][CommandGroup]],
 which holds what they share: printing to the log (=out=, =info=, =error=, =usage=, =fix=) and
 starting other screens.
 
@@ -965,7 +966,7 @@ Type =contacts= without having granted the permission:
 4. The result arrives at the callback registered at the top of =MainActivity=, which calls
    [[src:terminal/TerminalViewModel.kt::fun onContactsPermission][vm.onContactsPermission(granted)]].
 5. [[src:terminal/RequestActions.kt::fun onContactsPermission][RequestActions.onContactsPermission]] refreshes the contacts and writes "Contacts allowed" (or
-   an error) to the log, which shows up through the usual pipeline.
+   an error whose tap runs =allow contacts=) to the log, which shows up through the usual pipeline.
 
 Four layers took part, and none of them reached past its neighbor. (The Play build has no
 contacts permission: there =contacts= opens Android's contact picker through =pickContact= instead.)

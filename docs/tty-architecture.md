@@ -1133,17 +1133,18 @@ tty.screen({
   `ShaderSafety` are there, and the Android side is `shader/Shaders.kt` (compiling, the user's
   files, turning one on and off, the log lines). The user's files are in `files/shaders/`, kept in
   step with the script folder by `script import` / `script export` and `shader reload` /
-  `shader copy`, so a shader is found by name without the folder. Bundled: the 33 of
+  `shader save`, so a shader is found by name without the folder. Bundled: the 33 of
   `ShaderCatalog.BUNDLED`, in `assets/shaders/`: `crt`, `lcd`, `eink`, `paper`, `riso`, `graph`,
   `foil`, `lamp`, `dusk`, `frost`, `mountains`, `pond`, `dunes`, `rain`, `snowfall`, `grove-snow`,
   `grove-autumn`, `aurora`, `night`, `fireflies`, `contour`, `ink`, `aura`, `day-ring`, `lanterns`,
   `kintsugi`, `record`, `candle`, `hourglass`, `windows`, `seismograph`, `hearts` and `pulse` (no `scanlines`,
   `bloom` or `aberration`; `crt` has scanlines and a color fringe). A file of the user's with a
   bundled name is used instead of the bundled one.
-- *Commands* (`terminal/commands/ShaderCommands.kt`): `shader` or `shader list`, `shader <name>`
-  or `use <name>`, `on`, `off`, `set`, `reset`, `follow`, `values`, `play`, `words`, `wallpaper`,
-  `get`, `update`, `check`, `reload`, `edit`, `copy`, `remove`. `screen.shader` is a `Choice` whose list
-  grows by the user's files (`Choice.added`, as `theme.name`), so it completes. `copy` of a
+- *Commands* (`terminal/commands/ShaderCommands.kt`): `shader` or `shader ls`, `shader <name>`
+  or `use <name>`, `on`, `off`, `set`, `reset`, `follow`, `values`, `play`, `words`,
+  `get` (`get --update` updates every installed one), `check`, `reload`, `edit`, `save`, `rm` (or `delete`).
+  The live wallpaper's shader is `wallpaper shader <name>` (`SystemCommands.wallpaper`). `screen.shader` is a `Choice` whose list
+  grows by the user's files (`Choice.added`, as `theme.name`), so it completes. `save` of a
   template's name (`ShaderCatalog.TEMPLATES`: `template-*.agsl` beside the bundled files, never
   listed or used) saves a copy as the user's `my-<idea>` (`my-<idea>-2` when that is taken, also by a
   file in the script folder) and writes it into the script folder, as Add shader → Start from a
@@ -1291,7 +1292,7 @@ types.
   a frame loop; absent → the shader costs nothing while the screen is still),
   `// @param curvature 0..0.3 = 0.1` (becomes a slider), `// @warp`, `// @bloom <radius> <gain>`
   (asks the host for a blurred second pass, composed with `createBlendModeEffect`).
-- Commands: `shader list | use <name> | off | check <name>`; Settings → TTY → Shader.
+- Commands: `shader ls | use <name> | off | check <name>`; Settings → TTY → Shader.
 - Validation: metadata parse and size limit (64 KB) in the Model (`ShaderMeta`, pure; it is `shader/ShaderMeta.kt`);
   compile with `RuntimeShader(source)` in `ui/tty/TtyShader.kt` inside try/catch
   (`IllegalArgumentException` carries the compiler's message and line). An error is a log line
@@ -1338,7 +1339,7 @@ fails to turn on keeps the one that was on.
 ### 7.5 Android 9–12
 
 No AGSL (API 33). They get `tty.crt` as in §5.2: scanlines, vignette and text glow on 9–11, plus
-real bloom on 12. `shader list` on those versions says that shaders need Android 13 and lists
+real bloom on 12. `shader ls` on those versions says that shaders need Android 13 and lists
 the built-in look. User `.agsl` files are listed but marked unavailable.
 
 **As built.** No effect at all on Android 9–12 (`tty.crt` was removed). `shader` there says
@@ -1414,8 +1415,9 @@ wallpaper.
 
 ### 7.9 The live wallpaper (built, not in the design)
 
-A shader can be the phone's live wallpaper, apart from `screen.shader`: `shader wallpaper <name>`
-or Set as wallpaper in its details. `shader/WallpaperChoice.kt` keeps the choice (default `pond`,
+A shader can be the phone's live wallpaper, apart from `screen.shader`: `wallpaper shader <name>`
+or Set as wallpaper in its details; `wallpaper` alone says what the home and lock screens show
+(`WallpaperChoice.shown`, `terminal/commands/WallpaperStatus.kt`). `shader/WallpaperChoice.kt` keeps the choice (default `pond`,
 for someone who picks Kolahal in Android's own list) and opens Android's live wallpaper preview the
 first time. Not a one-off and not an `@text` shader; Android 13 and newer.
 
