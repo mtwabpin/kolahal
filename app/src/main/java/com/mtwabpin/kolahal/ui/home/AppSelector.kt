@@ -1296,7 +1296,19 @@ fun AppSelector(
 }
 
 /**
- * One list row: the section letter in the gutter, the profile tag in its color, ★, and the label.
+ * What a screen reader hears for a row of an app that isn't in the personal profile: its name, its
+ * profile, and "paused" when the profile is paused ("Maps, work, paused"). Null for a personal app.
+ */
+private fun spokenWithProfile(app: AppEntry): String? =
+    if (app.profile.kind == ProfileKind.PERSONAL) null
+    else listOfNotNull(app.label, app.profile.kind.label, "paused".takeIf { app.profile.quiet }).joinToString(", ")
+
+/**
+ * One list row: the section letter in the gutter, the icon, the profile tag in its color, ★, and the label.
+ * - A work or private app's icon has the system's profile badge, so the row has no tag then. The tag
+ *   shows when the row has no icon: `selector.icons` is off, or the icon didn't load.
+ * - A screen reader hears the profile, and whether it is paused, after the name ("Maps, work, paused"),
+ *   as on the `apps` grid.
  * - It starts at the screen's other edge, away from the strip: on the right edge from the left, on
  *   the left edge from the right ([SelectorEdge.rowStart]). There it has its letter and icon, and
  *   from there a magnified row grows and the hold fills it. On the left edge the name is aligned
@@ -1341,6 +1353,10 @@ private fun SelectorRow(
         }
     }
     val quiet = app.profile.quiet
+    // The icon's badge marks a work or private app. Without an icon (none, or it didn't load), the tag does.
+    var iconMissing by remember(app.key, icon) { mutableStateOf(false) }
+    val tagged = app.profile.kind != ProfileKind.PERSONAL && (icon == null || iconMissing)
+    val spoken = spokenWithProfile(app)
     val holdColor = Term.prompt.copy(alpha = 0.3f)
     val focusColor = Term.prompt.copy(alpha = 0.14f)
 
@@ -1420,6 +1436,7 @@ private fun SelectorRow(
                 }
             }
             .combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
+            .then(if (spoken == null) Modifier else Modifier.semantics { contentDescription = spoken })
             // Room on the strip's side, between the row's end and the bubble.
             .fromEdgePadding(edge, 12.dp),
     ) {
@@ -1451,11 +1468,12 @@ private fun SelectorRow(
                 icon,
                 Modifier
                     .fromEdgePadding(edge, 8.dp)
-                    .testTag("app-selector-icon")
+                    .testTag("app-selector-icon"),
+                onLoaded = { iconMissing = !it },
             )
         }
         val marks: @Composable RowScope.() -> Unit = {
-            if (app.profile.kind != ProfileKind.PERSONAL) {
+            if (tagged) {
                 val tag = "[${app.profile.kind.tag}]"
                 Text(
                     if (mirrored) " $tag" else "$tag ",
@@ -1507,7 +1525,9 @@ private fun SelectorRow(
  * in the middle of the row's [height], from the screen's other edge as [SelectorRow] is. One font
  * size, so nothing is magnified: the app under the thumb is inverse in the accent color instead,
  * and while it is held, its row fills with the surface color from its start, cell by cell. The
- * apps of other letters fade back as in the GUI. TalkBack reads the app's name.
+ * apps of other letters fade back as in the GUI. The grid has no icons, so a work or private app
+ * keeps its tag. TalkBack reads the app's name, and for a work or private app its profile and
+ * whether it is paused, as in the GUI.
  */
 @Composable
 private fun TtySelectorRow(
@@ -1575,7 +1595,10 @@ private fun TtySelectorRow(
             }
             // The GUI's rows have no tag; this tells the grid's from them (`tty.selector`).
             .testTag("tty-selector-row")
-            .semantics { text = androidx.compose.ui.text.AnnotatedString(app.label) }
+            .semantics {
+                text = androidx.compose.ui.text.AnnotatedString(app.label)
+                spokenWithProfile(app)?.let { contentDescription = it }
+            }
             .combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick),
     )
 }

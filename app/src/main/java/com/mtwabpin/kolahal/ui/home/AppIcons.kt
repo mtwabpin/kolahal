@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -108,15 +109,25 @@ object AppIcons {
     }
 }
 
-/** The icon of [app] at [size]. While it loads, an empty space of the same size shows, so the layout doesn't jump. */
+/**
+ * The icon of [app] at [size]. While it loads, an empty space of the same size shows, so the layout doesn't jump.
+ * - [onLoaded] is told after each load whether there is an icon (false: it didn't load, and the space stays empty).
+ */
 @Composable
-fun AppIcon(app: AppEntry, size: Dp, modifier: Modifier = Modifier) {
+fun AppIcon(
+    app: AppEntry,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    onLoaded: ((Boolean) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val px = with(LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
+    val loaded by rememberUpdatedState(onLoaded)
     // The old icon stays visible while a dropped icon loads again ([AppIcons.generation]).
     val icon by produceState(AppIcons.cached(app, px), app.key, px, AppIcons.generation) {
         value = AppIcons.cached(app, px)
             ?: withContext(Dispatchers.IO) { AppIcons.load(context.applicationContext, app, px) }
+        loaded?.invoke(value != null)
     }
     val bitmap = icon
     if (bitmap == null) Box(modifier.size(size)) else Image(

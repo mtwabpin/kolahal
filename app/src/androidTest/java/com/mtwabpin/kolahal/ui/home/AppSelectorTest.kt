@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.ui.home
 
+import android.content.ComponentName
+import android.os.Process
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
@@ -9,10 +11,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -29,6 +34,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.Profile
+import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.ui.theme.Term
@@ -289,6 +296,66 @@ class AppSelectorTest {
         compose.onNodeWithTag("app-selector").performTouchInput { down(center) }
         compose.waitForIdle()
         assertEquals(0, iconsShown())
+    }
+
+    /**
+     * Apps of other profiles, made from one of the phone's own apps so their icons load: Maps (work),
+     * Mail (work, paused) and Photos (private). Broken is a work app that isn't installed, so its
+     * icon doesn't load.
+     */
+    private fun profileApps(): List<AppEntry> {
+        val base = apps.apps.value.first { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
+        fun copy(label: String, serial: Long, kind: ProfileKind, quiet: Boolean = false) =
+            base.copy(label = label, profile = Profile(base.profile.user, serial, kind, quiet))
+        return listOf(
+            copy("Maps", 101, ProfileKind.WORK),
+            copy("Mail", 102, ProfileKind.WORK, quiet = true),
+            copy("Photos", 103, ProfileKind.PRIVATE),
+            AppEntry(
+                "Broken",
+                ComponentName("com.example.broken", "com.example.broken.Main"),
+                Profile(Process.myUserHandle(), 104, ProfileKind.WORK, false),
+            ),
+        )
+    }
+
+    /** The row of the app called [label] in the open list. */
+    private fun row(label: String) = compose.onNode(hasText(label))
+
+    /** The texts of [label]'s row: its section letter (or ""), its tag if it has one, and its name. */
+    private fun rowTexts(label: String) =
+        row(label).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.Text].map { it.text.trim() }
+
+    /**
+     * With icons, a work or private app's row has no tag: the system's badge on its icon marks it. A
+     * screen reader hears the profile and whether it is paused. An icon that doesn't load leaves the
+     * tag.
+     */
+    @Test
+    fun withIconsTheBadgeTakesTheTagsPlace() {
+        show(left = false, position = "bottom", list = profileApps(), icons = true, showList = true)
+        compose.waitForIdle()
+        compose.waitUntil(5_000) { "[W]" in rowTexts("Broken") }
+        for (label in listOf("Maps", "Mail", "Photos")) {
+            assertTrue("$label: ${rowTexts(label)}", rowTexts(label).none { it.startsWith("[") })
+        }
+        row("Maps").assert(hasContentDescription("Maps, work"))
+        row("Mail").assert(hasContentDescription("Mail, work, paused"))
+        row("Photos").assert(hasContentDescription("Photos, private"))
+    }
+
+    /** Without icons, a work or private app's row has its tag, and a screen reader still hears the profile. */
+    @Test
+    fun withoutIconsTheTagMarksTheProfile() {
+        show(left = false, position = "bottom", list = profileApps(), icons = false, showList = true)
+        compose.waitForIdle()
+        assertTrue("Maps: ${rowTexts("Maps")}", "[W]" in rowTexts("Maps"))
+        assertTrue("Mail: ${rowTexts("Mail")}", "[W]" in rowTexts("Mail"))
+        assertTrue("Photos: ${rowTexts("Photos")}", "[S]" in rowTexts("Photos"))
+        row("Maps").assert(hasContentDescription("Maps, work"))
+        row("Mail").assert(hasContentDescription("Mail, work, paused"))
+        row("Photos").assert(hasContentDescription("Photos, private"))
     }
 
     /** Plan B: holding still while picking launches the app once its row has filled, without lifting. */
