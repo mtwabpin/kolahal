@@ -253,7 +253,7 @@ pixels all round hold nothing that must be seen.
 |-----------------------------+-------------------------------+--------------------------------------------------------------------------|
 | =01-home-pond=              | =home-pond-dark=              | home: the header, the log (weather, a conversion, a reminder) over =pond= |
 | =02-home-mountains-light=   | =home-mountains-light=        | the same over =mountains=, in the light version                          |
-| =03-typing=                 | =typing-suggestions=          | =ma= typed: Maps nearest the thumb, Messages, Camera, Gmail, =maps=       |
+| =03-typing=                 | =typing-suggestions=          | =ma= typed: Maps nearest the thumb, Messages, Camera, Gmail              |
 | =04-selector=               | =selector-thumb-g=            | the app selector open under a held thumb, at G                           |
 | =05-answers=                | =answers-dark=                | a sum, a conversion, the todos, a reminder, =date tokyo lisbon=           |
 | =06-answers-light=          | =answers-dunes-light=         | the same over =dunes=, light                                             |
@@ -295,11 +295,12 @@ The emulator: =sdk_gphone64_x86_64= (Android 16, API 36, Google Play image), 108
 (=wm size=), gesture navigation, the host's GPU (shaders draw), animations off (the device tests
 want them off). The stock apps give the suggestions and the selector's list.
 
-The captures were taken in two goes. The first ones were taken by hand with the steps below. The
-widgets pages, Arrange widgets, the TTY style and the captures of drafts 24 to 27 were taken again
+The first captures were taken by hand with the steps below. All that show home were taken again
 with =tools/site-captures.sh=, which holds the exact taps of every capture the website uses: its
 =setup= does steps 1 to 3 (and a little more: favorites, the Water card, a few scripts), its
-=restore= does step 6, and each capture is a function named in the table below. It sets the zone
+=restore= does step 6, and each capture is a function (the =play_*= functions for the store's own:
+=play_home=, =play_answers=, =play_typing=, =play_selector=, =play_scenes=, =play_log=,
+=play_scramble=, =play_sheets=). It sets the zone
 =Asia/Dhaka= (UTC+6): a zone of whole hours keeps the world clocks' differences round, and the
 script stops on a half-hour one.
 
@@ -318,7 +319,10 @@ script stops on a half-hour one.
    about two seconds apart. In this order:
    - =config set launch.instant off= (instant launch would cut a typed command short; =pm clear=
      puts it back), =config set header.show on=, =config set screen.hide-bars status=,
-     =hide kolahal= (the debug build's own entry), =theme rose-pine=, =config set selector.rail on=.
+     =config set header.below-bar off= (the header's line at the very top: with the status bar
+     hidden and =header.below-bar= on, an empty band stays where the bar was),
+     =config set commands.off maps= (the built-in command =maps= off, so that =ma= suggests the
+     app Maps and no command of that name), =hide kolahal= (the debug build's own entry), =theme rose-pine=, =config set selector.rail on=.
    - =todo Buy coffee beans=, =todo Book the dentist=, =todo Renew the passport=,
      =todo Water the plants=.
    - =script install weather=, =script install world-clocks=, =script install habit=,
@@ -353,7 +357,7 @@ script stops on a half-hour one.
    | =home-mountains-light=        | =cmd uimode night no=; =shader mountains=, =clear= and the same three; keyboard down                                                                    |
    | =answers-dunes-light=         | still light: =shader dunes=, =clear=, ~= 12 * 4.5 + 18~, ~= 72 f in c~, =todo=, =remind fri 9am renew the passport=, =date tokyo lisbon=           |
    | =answers-dark=                | =cmd uimode night yes=; =shader off=, =clear= and the same five                                                                                         |
-   | =typing-suggestions=          | =shader pond=, =clear=, =todo=, ~= 100 usd in eur~, then =ma= typed (no Enter), keyboard up; check that no clipboard chip shows in the keyboard's strip |
+   | =typing-suggestions=          | =shader pond=, =clear=, =todo=, ~= 100 usd in eur~, then =ma= typed (no Enter), keyboard up; no clipboard chip in the keyboard's strip (=setup= turns it off) |
    | =selector-thumb-g=, =-p=      | the home log of =home-pond-dark=; =input motionevent DOWN 1068 1550=, MOVE up to =1068 1412= in steps (G), capture; MOVE down to =1068 1600= (P), capture; MOVE =1068 2350=, UP there (nothing opens) |
    | =widgets-page=                | =site-captures.sh widgets_pages=: =widget page=, scrolled to the top                                                                                     |
    | =widgets-page-light=          | the same in =night no=                                                                                                                                   |

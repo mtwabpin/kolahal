@@ -105,6 +105,20 @@ w_look() { local v=LOOKX_$1; sleep 2.5; tap "${!v}" 1968; sleep 1; tap 975 1764;
 # w_add <name> <look>: the first row the search finds, placed, in that look.
 w_add() { w_search "$1"; tap 540 953; sleep 1.5; w_look "$2"; }
 
+# gboard_chip <on|off>: Gboard's "Show recently copied text and images in suggestions bar". The
+# emulator takes in the host's clipboard, so with it on a clipboard chip takes the number row's
+# place however long you wait: setup turns it off, restore on again (Settings → On-screen keyboard
+# → Gboard → Clipboard, its first switch).
+gboard_chip() {
+  local now
+  sh_ am start --activity-clear-task -a android.settings.INPUT_METHOD_SETTINGS > /dev/null; sleep 3
+  tap 270 705; sleep 3; tap 300 1790; sleep 3
+  # 1 when the switch's track is lit (on), 0 when it is grey (off)
+  now=$("${A[@]}" exec-out screencap -p | magick png:- -format '%[fx:p{915,640}.b-p{915,640}.r>0.1?1:0]' info:)
+  if { [ "$1" = on ] && [ "$now" = 0 ]; } || { [ "$1" = off ] && [ "$now" = 1 ]; }; then tap 970 640; sleep 1.5; fi
+  home
+}
+
 # zone: the emulator in $ZONE, automatic time zone off, and a stop if its offset isn't whole hours.
 zone() {
   local z
@@ -125,11 +139,16 @@ setup() {
   sh_ appops set "$APP" SCHEDULE_EXACT_ALARM allow
   sh_ cmd notification allow_listener "$APP/com.mtwabpin.kolahal.notifications.KolahalNotificationListener"
   sh_ pm grant "$APP" android.permission.POST_NOTIFICATIONS
+  gboard_chip off
   home; sleep 2
   tap 980 147; sleep 2   # Skip, on the first start's tour
   local c
+  # Pictures are taken with the header's line at the very top of the screen: with the status bar
+  # hidden and header.below-bar on (its default), an empty band stays where the bar was. Demos are
+  # taken with the built-in command maps off: `ma` then suggests the app Maps, not a command too.
   for c in "config set launch.instant off" "config set header.show on" \
-    "config set screen.hide-bars status" "hide kolahal" "theme $THEME" \
+    "config set screen.hide-bars status" "config set header.below-bar off" \
+    "config set commands.off maps" "hide kolahal" "theme $THEME" \
     "config set selector.rail on" "config set suggestions.idle on" "config set log.tips off" \
     "config set log.fresh 0" \
     "todo Buy coffee beans" "todo Book the dentist" "todo Renew the passport" "todo Water the plants" \
@@ -177,15 +196,20 @@ setup() {
 
 restore() {
   home; kbup; t "notifs clear" 2; kbdown
-  # The 7:00 alarm `setup` made, first in Clock's list: open it and Delete.
+  # The 7:00 alarm `setup` made, first in Clock's list: open it and Delete. Clock shows it open
+  # already when it was set a moment ago: then a tap on its arrow would close it.
   sh_ am start -a android.intent.action.SHOW_ALARMS; sleep 3
-  tap 963 380; sleep 2; tap 250 1443; sleep 2; home
+  sh_ uiautomator dump /sdcard/ui.xml > /dev/null
+  sh_ grep -q 'text=\"Delete\"' /sdcard/ui.xml || { tap 963 380; sleep 2; }
+  sh_ rm /sdcard/ui.xml
+  tap 250 1443; sleep 2; home
   # The wallpaper: Android goes back to its default one when the live wallpaper's app is removed
   # (there is no shell command for it), so the app is installed again from this folder's build.
   "${A[@]}" uninstall "$APP"; sleep 3
   "${A[@]}" install -r -t app/build/outputs/apk/debug/app-debug.apk
   sh_ cmd package set-home-activity com.google.android.apps.nexuslauncher/.NexusLauncherActivity
   sh_ cmd uimode night no
+  gboard_chip on
   [ -n "$ZONE_BEFORE" ] && sh_ service call alarm 3 s16 "$ZONE_BEFORE"
   sh_ cmd time_zone_detector set_auto_detection_enabled true
   sh_ appops set "$APP" GET_USAGE_STATS default
@@ -329,11 +353,14 @@ widgets_pages() {
 }
 
 # shots/widget-options/looks.png: World clocks in Bold (setup's), Split and Shape, cut from the
-# page and set in a grid on its ground (they aren't side by side on the page). Run on Arrange
-# widgets (after widgets_pages). The look sheet can come up late: check each card's look.
+# page and set in a grid on its ground (they aren't side by side on the page). After
+# widget_options (Paris's card on the page). The look sheet can come up late: check each card's look.
 widget_looks() {
-  w_search "World clocks"; tap 540 953; sleep 4; w_look split
-  w_search "World clocks"; tap 540 953; sleep 4; w_look shape
+  home; kbup; t "widget page" 3; tap 985 190; sleep 2.5   # the pencil: Arrange widgets
+  # A placed World clocks card opens its Options sheet: Back closes it. The new cards go at the
+  # end of the page, Split beside Water and Shape under it.
+  w_search "World clocks"; tap 540 953; sleep 4; key KEYCODE_BACK; sleep 1.5; w_look split
+  w_search "World clocks"; tap 540 953; sleep 4; key KEYCODE_BACK; sleep 1.5; w_look shape
   tap 75 212; sleep 2.5
   sh_ input swipe 540 600 540 1800 300; sleep 2; cap widget-looks-top
   sh_ input swipe 540 1800 540 400 300; sleep 2; cap widget-looks-bottom
@@ -350,8 +377,10 @@ widget_looks() {
 }
 
 # shots/widget-options/options.png: a second Weather card, its city option Paris, in Split,
-# dragged up beside Tokyo's.
+# dragged up beside Tokyo's. Run it before widget_looks, on setup's page: a removed card leaves a
+# hole on the page that the others don't close.
 widget_options() {
+  home; kbup; t "widget page" 3
   tap 858 190; sleep 2.5   # + on the widgets page
   tap 975 621; sleep 0.5; tap 540 621; sleep 0.8; ty Weather; sleep 1.5; kbdown
   tap 540 953; sleep 4   # placed; its Options sheet opens
@@ -362,8 +391,8 @@ widget_options() {
   tap 740 1968; sleep 1.5   # Split
   # Drag it up: the page scrolls to the top and drops it beside Tokyo's card (the Remove target is
   # above, at y 160–260: don't let go there).
-  sh_ input motionevent DOWN 800 1380; sleep 0.6
-  local y; for y in 1300 1200 1100 1000 900 800 700 600 500 420 380; do sh_ input motionevent MOVE 800 $y; sleep 0.15; done
+  sh_ input motionevent DOWN 800 1530; sleep 0.6   # the new card, beside Water
+  local y; for y in 1450 1380 1300 1200 1100 1000 900 800 700 600 500 420 380; do sh_ input motionevent MOVE 800 $y; sleep 0.15; done
   sleep 3; sh_ input motionevent MOVE 800 400; sleep 0.3; sh_ input motionevent UP 800 400; sleep 2
   tap 975 1764; sleep 1.5; tap 75 212; sleep 2.5
   sh_ input swipe 540 600 540 1800 300; sleep 2
@@ -380,6 +409,8 @@ wallpaper() {
   cap wallpaper-preview; site_shot wallpaper-preview shots/wallpaper/preview.png
   tap 540 2245; sleep 2.5   # Set wallpaper
   tap 540 1415; sleep 4     # Home screen and lock screen
+  # Maya's notification would show on the lock screen and shrink its clock: cleared first.
+  home; kbup; t "notifs clear" 2; kbdown
   sh_ locksettings set-disabled false
   key KEYCODE_POWER; sleep 3; key KEYCODE_POWER; sleep 5
   cap wallpaper-lock; site_shot wallpaper-lock shots/wallpaper/lock.png
@@ -404,6 +435,11 @@ selector() {
   sleep 1.2; cap selector-slide
   sh_ "input motionevent MOVE 900 1380; input motionevent MOVE 700 1385; input motionevent MOVE 500 1387; screencap -p /sdcard/pick1.png; screencap -p /sdcard/pick2.png"
   sh_ input motionevent MOVE 1068 1387; sleep 0.5; sh_ input motionevent UP 1068 1387; sleep 1.5
+  # The two captures can outlast the 800 ms, and Google opens: the open list is taken on its own,
+  # a slide to G and a lift on the edge.
+  home; sh_ input motionevent DOWN 1068 1550
+  for y in 1530 1510 1490 1470 1450 1430 1412 1400 1390 1380 1370; do sh_ input motionevent MOVE 1068 $y; done
+  sleep 1.2; sh_ input motionevent UP 1068 1370; sleep 1.5
   cap selector-open
   "${A[@]}" pull /sdcard/pick1.png "$RAW/selector-pick.png" > /dev/null
   "${A[@]}" pull /sdcard/pick2.png "$RAW/selector-pick-filling.png" > /dev/null
@@ -447,7 +483,7 @@ parts_typing() {
   home; kbup; t "config set keybar.show on" 2; t clear 1; t todo 2
   t "= 100 usd in eur" 3; kbdown; wait_cleared
   tap 540 600; sleep 2; ty ma; sleep 2.5
-  cap parts-typing; site_crop parts-typing 1080x1430+0+100 parts/typing.png
+  cap parts-typing; site_crop parts-typing 1080x1530+0+0 parts/typing.png   # the header is at the top
   tap 928 1360; sleep 1; t "config set keybar.show off" 2; kbdown
 }
 
@@ -493,7 +529,9 @@ terminal_feeds() {
 }
 
 # app-grid.png and shots/profiles/resume.png: a work profile made for the pictures (a managed
-# profile with no admin app, which the shell can create), some apps added to it; `apps`, then
+# profile with no admin app, which the shell can create), some apps added to it; `apps` typed on
+# a home with a few lines in the log: three columns, a count in each heading, "+N more" on a long
+# group. raw/app-grid-more.png: the same after a tap on the personal group's "+N more". Then
 # `work off` and a tap on a faded work app: "Resume work apps?". The profile is removed after.
 profiles() {
   local u p
@@ -503,12 +541,14 @@ profiles() {
     com.google.android.contacts com.google.android.apps.docs com.google.android.documentsui \
     com.google.android.gm com.google.android.apps.maps com.google.android.apps.messaging \
     com.google.android.apps.photos; do sh_ pm install-existing --user "$u" "$p"; done
-  home; kbup; t clear 1; t apps 4; kbdown; wait_cleared
+  home; kbup; t clear 1; t weather 5; t "= 5 km in mi" 2; t apps 4; kbdown; wait_cleared
   cap app-grid; site_shot app-grid app-grid.png
+  tap 825 1515; sleep 2.5   # "+8 more" at the end of the personal group
+  cap app-grid-more
   kbup; t "work off" 4; t clear 1; t apps 4; kbdown; wait_cleared
-  tap 210 1397; sleep 2.5   # W Calendar, faded
+  tap 225 1731; sleep 2.5   # Calendar, the first work app, faded
   cap profiles-resume; site_shot profiles-resume shots/profiles/resume.png
-  tap 500 1458; sleep 1     # Cancel
+  tap 556 1470; sleep 1     # Cancel
   sh_ pm remove-user "$u"
 }
 
@@ -517,7 +557,9 @@ profiles() {
 # keyboard again. The screens need the animator scale at 1 (with animations off they show a still
 # frame and a note).
 tty() {
-  home; kbup; t "shader off" 2; t "config set home.style tty" 3; key KEYCODE_HOME; sleep 2; kbup
+  # parts_home's pinned countdown and its fourth todo go first: the TTY and blog pictures have neither.
+  home; kbup; t "script unpin countdown" 2; t "todo rm 4" 2
+  t "shader off" 2; t "config set home.style tty" 3; key KEYCODE_HOME; sleep 2; kbup
   t clear 1; t weather 5; t cal 2; t todo 2; kbdown; wait_cleared
   cap tty-home; site_shot tty-home shots/tty/home.png
   sh_ settings put global animator_duration_scale 1
@@ -527,16 +569,119 @@ tty() {
   kbup; t "config set home.style gui" 3; kbdown
 }
 
-# ---- for the blog post on 0.5.17 (kept in raw/ only) --------------------------------------------
+# ---- the store's captures of home (docs/release/google-play.org → Graphics) ---------------------
+# First taken by hand; the site shows them too (site/CAPTURES.md, "Play captures").
 
-# no_clip <name>: Gboard's clipboard chip in the keyboard's strip, painted over with the keyboard's
-# own color. The emulator takes in the host's clipboard, so the chip comes back however long you
-# wait; its text shows as dots.
-no_clip() {
-  local f=$RAW/$1.png bg
-  bg=$(magick "$f" -format '%[pixel:p{150,1575}]' info:)
-  magick "$f" -fill "$bg" -draw 'rectangle 300,1525 780,1625' "$f"
+# raw/home-pond-dark.png, home-mountains-light.png: hero's home over pond (dark) and mountains
+# (light), for the store, the home page's phone and the scripts guide's `weather`.
+play_home() {
+  hero pond yes home-pond-dark
+  site_shot home-pond-dark shots/hero/pond-dark.png; site_shot home-pond-dark shots/scripts/weather.png
+  hero mountains no home-mountains-light
+  site_shot home-mountains-light shots/hero/mountains-light.png
+  site_shot home-mountains-light shots/scripts/weather-light.png
+  sh_ cmd uimode night "$DARK"
 }
+
+# raw/answers-dunes-light.png, answers-dark.png: a sum, a conversion, the todos, a reminder and
+# `date tokyo lisbon`, over dunes in light, then with no shader in dark.
+play_answers() {
+  local mode
+  for mode in no yes; do
+    sh_ cmd uimode night "$mode"; home; kbup
+    if [ "$mode" = no ]; then t "shader dunes" 3; else t "shader off" 2; fi
+    t clear 1; t "= 12 * 4.5 + 18" 2; t "= 72 f in c" 2; t todo 2
+    t "remind fri 9am renew the passport" 2; t "date tokyo lisbon" 2; kbdown; wait_cleared
+    if [ "$mode" = no ]; then
+      cap answers-dunes-light; site_shot answers-dunes-light shots/hero/dunes-light.png
+      site_shot answers-dunes-light shots/log/answers-light.png
+    else
+      cap answers-dark; site_shot answers-dark shots/log/answers.png
+    fi
+  done
+  sh_ cmd uimode night "$DARK"
+}
+
+# raw/typing-suggestions.png: `ma` typed over pond (todo and a conversion in the log), keyboard up.
+play_typing() {
+  home; kbup; t "shader pond" 3; t clear 1; t todo 2; t "= 100 usd in eur" 3; kbdown; wait_cleared
+  kbup; ty ma; sleep 2.5
+  cap typing-suggestions; site_shot typing-suggestions shots/typing/ma.png
+  key 67; key 67; sleep 1; kbdown   # the two letters deleted
+}
+
+# raw/selector-thumb-g.png, selector-thumb-p.png: the log of home-pond-dark, the selector under a
+# held touch at G, then at P; let go at the bottom of the edge, where nothing opens.
+play_selector() {
+  home; kbup; t "shader pond" 3; t clear 1; t weather 5; t "= 5 km in mi" 2
+  t "remind 8pm pick up the bike" 2; kbdown; wait_cleared
+  sh_ input motionevent DOWN 1068 1550
+  # With setup's three favorites (★ first on the edge) y 1370 is G and 1550 is P.
+  local y; for y in 1530 1510 1490 1470 1450 1430 1412 1400 1390 1380 1370; do sh_ input motionevent MOVE 1068 $y; done
+  sleep 1.2; cap selector-thumb-g
+  for y in 1400 1450 1500 1550; do sh_ input motionevent MOVE 1068 $y; done
+  sleep 1.2; cap selector-thumb-p
+  sh_ input motionevent MOVE 1068 2350; sleep 0.3; sh_ input motionevent UP 1068 2350; sleep 1.5
+  site_shot selector-thumb-g shots/home/selector.png; site_shot selector-thumb-g shots/selector/slide.png
+  site_shot selector-thumb-p shots/selector/slide-p.png
+}
+
+# raw/scene-candle-screen-time.png, scene-lanterns-unlocks.png, scene-hourglass-screen-time.png:
+# three scenes behind home, each with a line that its parameter follows.
+play_scenes() {
+  home; kbup; t "shader candle" 3; t clear 1; t "usage 1" 3; kbdown; wait_cleared
+  cap scene-candle-screen-time; site_shot scene-candle-screen-time shots/shaders/candle.png
+  kbup; t "shader lanterns" 3; t clear 1; t "unlocks week" 3; kbdown; wait_cleared
+  cap scene-lanterns-unlocks; site_shot scene-lanterns-unlocks shots/shaders/lanterns.png
+  kbup; t "shader hourglass" 3; t clear 1; t weather 5; t "remind 8pm pick up the bike" 2; kbdown; wait_cleared
+  cap scene-hourglass-screen-time; site_shot scene-hourglass-screen-time shots/shaders/hourglass.png
+}
+
+# raw/log-notification-feed.png, action-sheet-line.png, quick-actions-full-build.png: over pond,
+# Maya's notification (setup's) and the feeds in the log; a long-press on the NASA feed's row; a
+# tap on the $.
+play_log() {
+  home; kbup; t "shader pond" 3; t clear 1; t notifs 2; t feed 3; t "remind 8pm pick up the bike" 2
+  kbdown; wait_cleared
+  cap log-notification-feed; site_shot log-notification-feed shots/log/feed.png
+  sh_ input swipe 300 1690 300 1690 900; sleep 2   # long-press "#1 NASA Image of the Day"
+  cap action-sheet-line; site_shot action-sheet-line shots/log/actions.png
+  key KEYCODE_BACK; sleep 1.5
+  tap 42 2283; sleep 2   # the $
+  cap quick-actions-full-build; site_shot quick-actions-full-build shots/home/quick-actions.png
+  key KEYCODE_BACK; sleep 1.5
+}
+
+# raw/scramble.png: `scramble on` over pond (weather, a conversion, `todo`); `scramble off` after.
+play_scramble() {
+  home; kbup; t "shader pond" 3; t clear 1; t weather 5; t "= 5 km in mi" 2; t todo 2
+  t "scramble on" 3; kbdown; wait_cleared
+  cap scramble; site_shot scramble shots/log/scramble.png
+  kbup; t "scramble off" 2; t "shader off" 2; kbdown
+}
+
+# raw/script-sheet-switches.png, shader-details-follows.png, shader-details-slider.png: sheets in
+# Settings (they once brought the status bar back): weather.lua's sheet (its switches and its
+# city), then Shaders with "screen time" searched and Candle's ⓘ, then "mountains" and its ⓘ.
+play_sheets() {
+  home; kbup; t scripts 3
+  tap 540 735; sleep 1; ty weather; sleep 1.5; key KEYCODE_BACK; sleep 1   # the search
+  tap 300 1010; sleep 2.5   # Weather, the one row
+  cap script-sheet-switches; site_shot script-sheet-switches shots/access/switches.png
+  key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 1
+  home; kbup; t settings 3
+  tap 540 1162; sleep 2.5   # Shaders
+  tap 540 620; sleep 1; ty "screen time"; sleep 2; key KEYCODE_BACK; sleep 1.5
+  tap 942 1362; sleep 3     # ⓘ on Candle, the second row
+  cap shader-details-follows; site_shot shader-details-follows shots/shader-parameters/follow.png
+  key KEYCODE_BACK; sleep 1.5
+  tap 975 620; sleep 1; tap 540 620; sleep 1; ty mountains; sleep 2; key KEYCODE_BACK; sleep 1.5
+  tap 942 945; sleep 3      # ⓘ on Mountains
+  cap shader-details-slider; site_shot shader-details-slider shots/shader-parameters/sliders.png
+  key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 1; home
+}
+
+# ---- for the blog post on 0.5.17 (kept in raw/ only) --------------------------------------------
 
 # raw/tty-top.png: the TTY style's `top` screen: the time, bars for the battery, memory, Kolahal's
 # own and today's screen time, and the scripts' table. It needs the animator scale at 1.
@@ -568,12 +713,12 @@ typing_styles() {
   for p in "${parts[@]}"; do t "config set tty.$p tty" 1.5; done
   t "config set keybar.show on" 1.5
   t clear 1; t "= 5 km in mi" 2; kbdown; wait_cleared; kbup; ty ca; sleep 2.5
-  cap typing-tty-parts; no_clip typing-tty-parts
+  cap typing-tty-parts
   tap 947 1358; sleep 0.5   # ✕ empties the prompt
   for p in "${parts[@]}"; do t "config set tty.$p gui" 1.5; done
   t "config set home.style gui" 3; key KEYCODE_HOME; sleep 2; kbup
   t clear 1; t "= 5 km in mi" 2; kbdown; wait_cleared; kbup; ty ca; sleep 2.5
-  cap typing-gui-parts; no_clip typing-gui-parts
+  cap typing-gui-parts
   tap 928 1358; sleep 0.5
   t "config set keybar.show off" 1.5; kbdown
 }
@@ -594,11 +739,12 @@ reference_tty() {
 # ---- running it -------------------------------------------------------------------------------
 
 # The pictures in an order that works from `setup`'s state: each leaves home in front.
-PICTURES=(widgets_add home_cards hero_dunes_dark hero_mountains_dark hero_pond_light typing_home
-  suggestions forecast fresh pinning schedule_times schedule_charger widgets_pages widget_looks
-  widget_options wallpaper selector parts_home parts_action_sheet parts_quick_actions parts_typing
-  parts_settings parts_scripts parts_editor setup_checklist terminal_feeds profiles tty
-  tty_top scramble_pair typing_styles reference_tty)
+PICTURES=(widgets_add home_cards hero_dunes_dark hero_mountains_dark hero_pond_light
+  play_home play_answers play_typing play_selector play_scenes play_log play_scramble play_sheets
+  typing_home suggestions forecast fresh pinning schedule_times schedule_charger widgets_pages
+  widget_options widget_looks wallpaper selector parts_home parts_action_sheet parts_quick_actions
+  parts_typing parts_settings parts_scripts parts_editor setup_checklist terminal_feeds profiles
+  tty tty_top scramble_pair typing_styles reference_tty)
 
 [ $# -gt 0 ] || { sed -n '2,24p' "$0"; exit 2; }
 mkdir -p "$RAW"

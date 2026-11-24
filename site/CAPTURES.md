@@ -26,20 +26,25 @@ a page needs. Paths below are under `site/src/assets/`.
 Each hand-made capture is kept at full size in `docs/release/graphics/raw/` under the name in the
 last column, and put on the site 540 pixels wide, stripped and quantized (`magick … -resize 540x
 -strip`, `pngquant --quality 85-98`); a widget card for the home page is cut at full size from the
-widgets page. *Dark* is the phone's dark mode on (`cmd uimode night yes`), *light* off (Rosé Pine
+widgets page. Every capture is taken with the status bar hidden and `config set header.below-bar
+off`: the header's line at the very top of the screen, with no empty band above it where the status
+bar was. The built-in command `maps` is off (`config set commands.off maps`), so that typing `ma`
+suggests the app Maps and no command of that name. *Dark* is the phone's dark mode on (`cmd uimode night yes`), *light* off (Rosé Pine
 Dawn). A `<name>-light.png` beside a picture in `shots/` is shown in the site's light theme instead.
 
 Taken on 24 November 2026 with the debug build of 0.5.17 (the full build) on the emulator
 `sdk_gphone64_x86_64`, Android 16. The TTY pictures are from that build with the fix to the TTY
-header's signs and the `clock` screen's centering.
+header's signs and the `clock` screen's centering. Taken again that evening with
+`header.below-bar` off and `maps` off: the scenes at dusk in `ZONE=Asia/Riyadh` (UTC+3), the widget
+pictures in `Asia/Dhaka` (the world clocks' −3:00 and −6:00).
 
 ## The hero's phone (home page)
 
 | File | What it shows | Function | Raw |
 | --- | --- | --- | --- |
-| `shots/hero/pond-dark.png` | home over `pond`: weather, a conversion, a reminder | (Play captures, `docs/release/google-play.org`) | `home-pond-dark` |
-| `shots/hero/mountains-light.png` | the same over `mountains`, light | (Play captures) | `home-mountains-light` |
-| `shots/hero/dunes-light.png` | answers over `dunes`, light | (Play captures) | `answers-dunes-light` |
+| `shots/hero/pond-dark.png` | home over `pond`: weather, a conversion, a reminder | `play_home` | `home-pond-dark` |
+| `shots/hero/mountains-light.png` | the same over `mountains`, light | `play_home` | `home-mountains-light` |
+| `shots/hero/dunes-light.png` | answers over `dunes`, light | `play_answers` | `answers-dunes-light` |
 | `shots/hero/pond-light.png` | home over `pond`, light | `hero_pond_light` | `home-pond-light` |
 | `shots/hero/mountains-dark.png` | home over `mountains` | `hero_mountains_dark` | `home-mountains-dark` |
 | `shots/hero/dunes-dark.png` | home over `dunes` | `hero_dunes_dark` | `home-dunes-dark` |
@@ -52,24 +57,28 @@ header's signs and the `clock` screen's centering.
 | `shots/home/habit.png`, `forecast.png` | Habit streak **Shape**, 3-day forecast for Lisbon **Split** | `home_cards` | `widgets-page-clocks-split` |
 | `shots/home/world-clocks.png` | World clocks, Tokyo with Nairobi −3:00 and Lisbon −6:00, **Split** (Bold on the other pages) | `home_cards` | `widgets-page-clocks-split` |
 | `shots/home/unlock-chart.png` | Unlocks, **Bold** | `home_cards` | `widgets-page-clocks-split` |
-| `shots/home/selector.png`, `quick-actions.png` | the selector at G; quick actions | (Play captures) | `selector-thumb-g`, `quick-actions-full-build` |
+| `shots/home/selector.png`, `quick-actions.png` | the selector at G; quick actions | `play_selector`, `play_log` | `selector-thumb-g`, `quick-actions-full-build` |
 
 ## The tour (`/tour/`) and the gallery
 
 | File | What it shows | Function | Raw |
 | --- | --- | --- | --- |
 | `shots/typing/home.png` | home with the keyboard down, no shader | `typing_home` | `typing-home` |
-| `shots/typing/ma.png` | `ma` typed over `pond` | (Play captures) | `typing-suggestions` |
+| `shots/typing/ma.png` | `ma` typed over `pond` | `play_typing` | `typing-suggestions` |
 | `shots/suggestions/empty.png` | an empty prompt: favorites nearest it, then the most-used apps | `suggestions` | `suggestions-empty` |
 | `shots/suggestions/flash.png` | `flash` finds `torch` | `suggestions` | `suggestions-flash` |
 | `shots/suggestions/theme.png` | after `theme `, the theme names | `suggestions` | `suggestions-theme` |
-| `shots/selector/slide.png`, `slide-p.png` | the selector at G and at P | (Play captures) | `selector-thumb-g`, `-p` |
+| `shots/selector/slide.png`, `slide-p.png` | the selector at G and at P | `play_selector` | `selector-thumb-g`, `-p` |
 | `shots/selector/pick.png` | Google's row highlighted and filling under a held thumb | `selector` | `selector-pick-filling` |
-| `shots/log/answers.png`, `answers-light.png`, `actions.png`, `feed.png`, `scramble.png` | the log | (Play captures) | |
+| `shots/log/answers.png`, `answers-light.png` | a sum, a conversion, the todos, a reminder, two cities' times | `play_answers` | `answers-dark`, `answers-dunes-light` |
+| `shots/log/feed.png`, `actions.png` | Maya's notification and the feeds; a line's actions | `play_log` | `log-notification-feed`, `action-sheet-line` |
+| `shots/log/scramble.png` | `scramble on` over the log | `play_scramble` | `scramble` |
 | `shots/log/fresh.png` | after `fresh`: "▴ 12 earlier lines · tap to show" | `fresh` | `log-fresh` |
-| `shots/scripts/weather.png`, `weather-light.png`, `editor.png` | `weather`; the editor | (Play captures) | |
+| `shots/scripts/weather.png`, `weather-light.png` | `weather` over `pond`, and over `mountains` light | `play_home` | `home-pond-dark`, `home-mountains-light` |
+| `shots/scripts/editor.png` | the editor | (Play captures) | `editor-script` |
 | `shots/scripts/forecast.png` | `forecast lisbon` | `forecast` | `scripts-forecast` |
-| `shots/access/library.png`, `switches.png`, `cards.png` | the library, a script's sheet, the script manager | (Play captures) | |
+| `shots/access/switches.png` | weather.lua's sheet: its switches and its city | `play_sheets` | `script-sheet-switches` |
+| `shots/access/library.png`, `cards.png` | the library, the script manager | (Play captures) | `library`, `scripts-list` |
 | `shots/schedule/times.png` | night-dnd's sheet: Runs every, Daily at 07:00, 23:00 | `schedule_times` | `schedule-times` |
 | `shots/schedule/charger.png` | charge-reminder on unplugging: 62%, +12%, a bar | `schedule_charger` | `schedule-charger` |
 | `shots/pinning/pin.png` | weather's action sheet with *Pin weather to the top* | `pinning` | `pinning-pin` |
@@ -81,7 +90,9 @@ header's signs and the `clock` screen's centering.
 | `shots/widget-options/arrange-all.png` | Arrange widgets, nothing chosen | `widgets_pages` | `arrange-widgets` |
 | `shots/widget-options/looks.png` | World clocks in Bold, Split and Shape, set in a grid | `widget_looks` | `widget-looks` |
 | `shots/widget-options/options.png` | two weather cards side by side, Tokyo and Paris, Split | `widget_options` | `widget-options-cities` |
-| `shots/shaders/*`, `shots/shader-parameters/*`, `shots/themes/*` | shaders, their details, Settings | (Play captures) | |
+| `shots/shaders/candle.png`, `lanterns.png`, `hourglass.png` | three scenes behind home | `play_scenes` | `scene-*` |
+| `shots/shader-parameters/follow.png`, `sliders.png` | Candle's and Mountains' details | `play_sheets` | `shader-details-follows`, `-slider` |
+| `shots/shaders/list.png`, `shots/themes/*` | the list of shaders, Settings | (Play captures) | `shaders-list`, `settings`, `theme-picker` |
 | `shots/wallpaper/preview.png` | Android's wallpaper preview with `pond` | `wallpaper` | `wallpaper-preview` |
 | `shots/wallpaper/lock.png` | the lock screen with `pond` behind the clock | `wallpaper` | `wallpaper-lock` |
 | `shots/wallpaper/log.png` | the log with the pond through it (`log.wallpaper 60`) | `wallpaper` | `wallpaper-log` |
@@ -107,7 +118,7 @@ the `parts/` pictures: after taking one again, check each mark still sits on wha
 | `parts/scripts-tab.png` | the Scripts tab: Countdowns' details open, Focus off | `parts_scripts` | `parts-scripts` |
 | `parts/editor.png` | the editor with the symbol bar | `parts_editor` | `parts-editor` |
 | `setup.png` | the setup checklist | `setup_checklist` | `setup` |
-| `app-grid.png` | `apps` with personal and work apps (W) | `profiles` | `app-grid` |
+| `app-grid.png` | `apps` over a short log: personal and work apps in three columns, a count in each heading, "+8 more" | `profiles` | `app-grid` |
 | `terminal-feeds.png` | countdown pinned, the feed list and a conversion | `terminal_feeds` | `terminal-feeds` |
 
 ## The guide's widget and log pictures
@@ -127,8 +138,9 @@ and buttons, with a few cards set by name), and the script copies them to the sa
 ## For the blog post on 0.5.17
 
 Kept in `docs/release/graphics/raw/` only: the post on this release uses them, and no page shows
-them. In `typing-*-parts` Gboard's clipboard chip is painted over (`no_clip`): the emulator takes in
-the host's clipboard, so the chip doesn't go away by waiting.
+them. The emulator takes in the host's clipboard, and Gboard would show it as a chip in place of the
+number row however long you wait: `setup` turns Gboard's "Show recently copied text and images in
+suggestions bar" off (`gboard_chip`), `restore` on again.
 
 | Raw | What it shows | Function |
 | --- | --- | --- |
@@ -136,3 +148,4 @@ the host's clipboard, so the chip doesn't go away by waiting.
 | `scramble-before`, `scramble-after` | the same home (weather, a conversion, `todo`), then after `scramble`: the header says *scrambled* | `scramble_pair` |
 | `typing-tty-parts`, `typing-gui-parts` | `ca` typed over the same log with the suggestions and the key bar: the TTY style with every part on the grid (`tty.suggestions`, `tty.selector`, `tty.keybar`, `tty.quick-actions`, `tty.menu` set to `tty`), then the default style | `typing_styles` |
 | `reference-table-tty` | the editor's reference, Log lines → `fmt.table`, its Home style set to TTY | `reference_tty` |
+| `app-grid-more` | `apps` as in `app-grid.png`, after a tap on the personal group's "+8 more": the whole group and "Show less" | `profiles` |
