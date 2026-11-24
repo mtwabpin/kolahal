@@ -41,7 +41,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.TtyCommands
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.takeWhole
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.EmptyNote
@@ -69,11 +70,17 @@ internal object ShortcutPicks {
     }
 
     /**
-     * The commands to pick from, in order: the built-in commands this build offers
-     * ([CommandCatalog.OFFERED_NAMES], as the prompt's suggestions and `help`) and [scriptCommands].
+     * The commands to pick from, in order: the built-in commands this build offers in the home style
+     * ([TtyCommands.offeredNames], as the prompt's suggestions and `help`) and [scriptCommands]. In
+     * the gui style ([tty] false), the screens' commands and the [screenScripts] are left out.
      */
-    fun commands(scriptCommands: List<String>): List<String> =
-        (CommandCatalog.OFFERED_NAMES + scriptCommands).distinct().sorted()
+    fun commands(
+        scriptCommands: List<String>,
+        screenScripts: Set<String> = emptySet(),
+        tty: Boolean = true,
+    ): List<String> =
+        (TtyCommands.offeredNames(tty) + TtyCommands.offeredScripts(scriptCommands, screenScripts, tty))
+            .distinct().sorted()
 }
 
 /**
@@ -87,8 +94,12 @@ internal object ShortcutPicks {
 internal fun ShortcutsEditor(vm: TerminalViewModel, onDismiss: () -> Unit) {
     val stored by vm.shortcuts.collectAsStateWithLifecycle()
     val scriptCommands by vm.commandNames.collectAsStateWithLifecycle()
-    // The built-in commands and your command scripts, to pick from while typing.
-    val commands = remember(scriptCommands) { ShortcutPicks.commands(scriptCommands) }
+    val screenScripts by vm.screenScripts.collectAsStateWithLifecycle()
+    val configVersion by vm.config.version.collectAsStateWithLifecycle()
+    // The built-in commands and your command scripts, to pick from while typing, as the home style offers them.
+    val commands = remember(scriptCommands, screenScripts, configVersion) {
+        ShortcutPicks.commands(scriptCommands, screenScripts, HomeStyles.ttyNow(vm.config))
+    }
     val list = stored.orEmpty()
     // The place in the list that is being changed. The list's size means a new shortcut.
     var editing by rememberSaveable { mutableStateOf<Int?>(null) }

@@ -11,7 +11,7 @@ import android.util.Base64
 import androidx.core.content.edit
 import androidx.core.database.sqlite.transaction
 import com.mtwabpin.kolahal.apps.AppPrefs
-import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.data.FullBackup.APP_PREFS
 import com.mtwabpin.kolahal.data.FullBackup.PREFS
 import com.mtwabpin.kolahal.data.FullBackup.TABLES
@@ -155,9 +155,10 @@ object FullBackup {
         (data["prefs"] as? Map<*, *>)?.forEach { (file, entries) ->
             if (file !is String || file !in PREFS || entries !is Map<*, *>) return@forEach
             val safe = when (file) {
-                // The same rule as `alias`: an alias never hides a built-in command.
+                // The same rule as `alias`: an alias never hides a built-in command. One named after a
+                // screen comes back: it works in the gui style, where that name is no command.
                 "aliases" -> entries.filterKeys {
-                    it?.toString()?.lowercase() !in CommandCatalog.RESERVED_NAMES
+                    it?.toString()?.lowercase() !in TtyCommands.ALWAYS_RESERVED
                 }
                 // Settings are text. A number or a switch there (only an edited file has one) would
                 // break home at every start.

@@ -1097,8 +1097,10 @@ class HostApi(
             return false
         }
         // State-changing commands (clear, uninstall, notifs clear, config, …) stay with the user. Home checks
-        // again with your aliases: this process can't see them change (an alias such as `c = clear`).
-        if (com.mtwabpin.kolahal.commands.InstantRun.isSensitive(command)) {
+        // again with your aliases and the home style: this process can't see them change (an alias such as
+        // `c = clear`). So a screen's name (`clock`) passes here, as in the gui style it is your app, alias or
+        // script; in the tty style, where it opens the screen, home refuses it.
+        if (com.mtwabpin.kolahal.commands.InstantRun.isSensitive(command, tty = false)) {
             logError("launcher.run refused '${command.substringBefore(' ')}': sensitive commands must be typed")
             return false
         }

@@ -59,8 +59,12 @@ TTY gets both (§3.4, §2.7); the thumb should then be added to the GUI too, or 
   a cached `CellBlock` in `drawBehind`, not `Modifier.Node`s. A `CellBlock` is a small `CellBuffer`,
   so log rows, home's parts and screens all paint through the same `GridPainter.draw(CellBuffer)`.
 - *Colors*: as designed; the contrast nudge is not built (§5.1).
-- *Screens*: `matrix`, `pipes` and `sl` are commands of their own; all seven open with
-  `screen <name>`. They work in both styles.
+- *Screens*: each of the seven is a command of its own (`matrix`, `clock`, `top`…), in the TTY
+  style only; `screen <name>` opens any of them in both styles. In the GUI style the seven names are
+  plain words (an alias, a script or an app), `screen` and scripts with `@uses screen` are offered
+  nowhere but run when typed in full, and the screensaver offers only `decode` (§6.1, `TtyCommands`).
+- *Settings of one style*: `log.item-spacing` does nothing in the TTY style, which has no gap
+  between a list's items; Settings and `config` leave it out there (`HomeStyles.GUI_ONLY`).
 - *Shaders*: on home in **both** styles, on the full-screen screens and as a live wallpaper; API
   33+ only. The CRT look drawn without AGSL (`tty.crt`) was built and removed; Android 9–12 get no
   effect (§5.2, §7.5).
@@ -248,7 +252,7 @@ it is in `Keys.CONFIG_ONLY`: only `config` sets it. The live preview passes thro
 Not built: the `tty on|off` alias, `tty.cursor` (the prompt's cursor is always a block),
 `tty.blink` (it blinks every 530 ms while the prompt has focus, the window has focus and home is
 started, and stands still when Android's animator scale is 0), `tty.images` (decided against), `tty.boot` (`boot` runs only as
-`screen boot`), `tty.fps` and `tty.smooth-scroll`. `tty.crt` was built and removed (§5.2).
+a command), `tty.fps` and `tty.smooth-scroll`. `tty.crt` was built and removed (§5.2).
 
 ### 1.5 Packages
 
@@ -493,9 +497,10 @@ wrapping in `Wrap.kt`. `LogLook` carries `cols`, `gutter`, `dim`, `boxedTables`,
 `itemGapRows` and `rtl`. A row is at least 16 columns wide (`MIN_COLS`). Where it differs from the
 table:
 
-- *Gaps*: `log.spacing` and `log.item-spacing` stay in dp, as in the GUI: the space goes between
-  the lines' blocks, and each block's cells stay on the grid (`TtyLog` passes `itemGapRows = 0`).
-  The gutter's color is drawn down through an item's gap.
+- *Gaps*: `log.spacing` stays in dp, as in the GUI: the space goes between the lines' blocks, and
+  each block's cells stay on the grid (`TtyLog` passes `itemGapRows = 0`). A list's items have no
+  gap between them, whatever `log.item-spacing` says (`HomeStyles.TTY_ITEM_GAP_DP`, 0): a list
+  prints line under line, as in a terminal, and the setting is the GUI's alone.
 - *Unread*: an unread script line starts with `•` (the GUI's bullet); the divider is
   `── 3 new since you left ──…` in bold accent, under a blank row. The day divider is
   `── Tue 17 Nov ──…`, muted, under a blank row.
@@ -979,8 +984,8 @@ with a FG head; on a light theme it is dark rain on paper).
 | `clock` | big digits from block cells, date under it; fps 0, ticks each second (or minute without seconds) |
 | `pipes` | box-drawing geometry, so pipes join at any font |
 | `sl` | ends by itself; `frame` returns false |
-| `top` | built in step 5, through `screen top` only: Kolahal's uptime, today's unlocks, bars for the battery, free memory, Kolahal's memory and today's screen time (usage access), then the scripts by latest run with their result and next timer; read each second from `ScreenData.top` (`TopSource`, made by `terminal/TopFacts`); any key or tap leaves |
-| `decode` | the log lines on home scramble and settle (`terminal/tty/Decode`), through `screen decode` or as the screensaver; see "The lines home shows" below |
+| `top` | built in step 5, as `top` or `screen top`: Kolahal's uptime, today's unlocks, bars for the battery, free memory, Kolahal's memory and today's screen time (usage access), then the scripts by latest run with their result and next timer; read each second from `ScreenData.top` (`TopSource`, made by `terminal/TopFacts`); any key or tap leaves |
+| `decode` | the log lines on home scramble and settle (`terminal/tty/Decode`), as `decode`, `screen decode` or the screensaver; see "The lines home shows" below |
 | `boot` | `[ ok ]` lines from real startup facts (apps read, scripts loaded, theme); at most 1.2 s; `tty.boot on` plays it at cold start only, never after process death recovery |
 
 **As built.** The interface is in `terminal/tty/screens/TtyScreen.kt` with more than the sketch:
@@ -992,12 +997,22 @@ when the phone is hot). `PlacedRows` lets a screen put each grid row at its own 
 `ScreenData` holds what `boot`, `top` and `decode` read. `TtyScreens.names` is `matrix`, `clock`,
 `pipes`, `decode`, `sl`, `top`, `boot`.
 
-- Commands: `matrix`, `pipes` and `sl` are commands of their own; every screen opens with
-  `screen <name>` (`SystemCommands.screen`), which lists them when the name is unknown.
+- Commands: in the TTY style every screen is a command of its own, sensitive, so only its whole
+  name and Enter open it; `screen <name>` (`SystemCommands.screen`) opens one in either style and
+  lists them when the name is unknown. `commands/TtyCommands.kt` holds the rule: in the GUI style
+  the seven names are not commands (`CommandProcessor` sends them on to a script or an app, aliases
+  of them expand), `screen` is hidden as `skill.md` is, and command scripts with `@uses screen`
+  (`ScriptMeta.isScreen`) are not suggested, listed or run by instant launch. Making or renaming a
+  script or alias checks the style's names (`TtyCommands.reserved`); reading them back from the
+  folder or a backup checks `TtyCommands.ALWAYS_RESERVED`, which leaves the seven out, so none is
+  dropped.
+- Screensaver: `ScreenSaver.choices` is off and the four in the TTY style, off and `decode` in the
+  GUI style, where `decode` scrambles home's own log; a stored `matrix`, `clock` or `pipes` is off
+  in the GUI style (`ScreenSaver.inEffect`) and runs again with the TTY style.
 - `matrix` draws half-width katakana, digits and a few signs in every other column; `clock` big
   block digits with the date, AM/PM without `clock.24h`; `pipes` heavy box lines; `sl` crosses once.
 - `boot` types its lines through `Decode` (each character passes through a few others), 0.9 s to
-  type and 0.3 s held. It runs only as `screen boot`: there is no `tty.boot` and no cold-start run.
+  type and 0.3 s held. It runs only as `boot` or `screen boot`: there is no `tty.boot` and no cold-start run.
 
 ### 6.2 Host and lifecycle (`ui/tty/TtyScreenHost`)
 
@@ -1420,7 +1435,7 @@ first time. Not a one-off and not an `@text` shader; Android 13 and newer.
 ### 7.10 Tilt (built, not in the design)
 
 See *Tilt* in the **As built** note at the top of §7: `shader/ShaderTilt.kt` (pure) and
-`ui/tty/LiveTilt.kt` (the one sensor listener). Shaders that declare `tilt`: `dunes`, `foil`,
+`ui/tty/LiveTilt.kt` (the one sensor listener). Shaders that declare `tilt`: `foil`,
 `mountains`, `night`, `rain`, `snowfall`. "Uses tilt" shows on the Shaders screen and in Get more
 shaders (an optional `tilt` in the sources' index).
 
@@ -1539,7 +1554,7 @@ split across agents by block type once `CellBlock` is fixed.
 **As built (0.5.17).** Steps 0, 1, 2, 3, 6 and 7 are built; [tty.org](tty.org) has each step's
 state and what is left.
 
-- 1: `clock` and `boot` open as `screen clock` and `screen boot`.
+- 1: `clock` and `boot` are commands in the TTY style, and open as `screen clock` and `screen boot` in both.
 - 2: `TtyLineRow` instead of `TtyBlock`; images as their names, by the decisions.
 - 3: built without the scroll thumb; each part can also be the GUI's own (`tty.*` keys).
 - 4: the groundwork is built (RTL and bidi, shaped runs, the TalkBack pass, `ParityTest`, the

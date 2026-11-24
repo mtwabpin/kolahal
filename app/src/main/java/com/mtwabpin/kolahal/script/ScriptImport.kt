@@ -5,7 +5,7 @@ package com.mtwabpin.kolahal.script
 
 import android.content.Context
 import com.mtwabpin.kolahal.BuildConfig
-import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
@@ -143,10 +143,12 @@ internal class ScriptImport(private val context: Context) {
     companion object {
         /**
          * The name rule of a folder and a backup: the form of a script name, and not a built-in
-         * command's name. An app's name is allowed, because these are your own scripts coming back.
+         * command's name. An app's name is allowed, because these are your own scripts coming back,
+         * and so are the screens' names ([TtyCommands.ALWAYS_RESERVED]): a script named `clock` runs
+         * by its name in the gui style, and with `script run clock` in the tty style.
          */
         fun named(name: String): Boolean =
-            ScriptNames.NAME.matches(name) && name !in CommandCatalog.RESERVED_NAMES
+            ScriptNames.NAME.matches(name) && name !in TtyCommands.ALWAYS_RESERVED
     }
 }
 

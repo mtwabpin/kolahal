@@ -8,6 +8,7 @@ import android.net.Uri
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.data.Backup.Companion.REVIEW
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.Json
@@ -202,8 +203,9 @@ class Backup(private val context: Context) {
             val name = k?.toString()
             when {
                 name == null || v == null -> Unit
-                // The same rule as `alias`: an alias must never hide a built-in command.
-                name in CommandCatalog.RESERVED_NAMES -> skipped += "alias $name (built-in command)"
+                // The same rule as `alias`: an alias must never hide a built-in command. One named after
+                // a screen comes back: it works in the gui style, where that name is no command.
+                name in TtyCommands.ALWAYS_RESERVED -> skipped += "alias $name (built-in command)"
                 else -> {
                     prefs.setAlias(name, v.toString()); aliases++
                 }

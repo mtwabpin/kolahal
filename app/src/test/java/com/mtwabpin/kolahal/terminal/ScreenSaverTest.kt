@@ -121,4 +121,24 @@ class ScreenSaverTest {
             assertFalse(key.key, key in Keys.CONFIG_ONLY)
         }
     }
+
+    /**
+     * The gui style offers off and decode, which scrambles home's own log there; matrix, clock and
+     * pipes draw the grid, so only the tty style offers them. One kept from the tty style is off in
+     * the gui style, and `config` says so beside the stored value.
+     */
+    @Test
+    fun theChoicesFollowTheHomeStyle() {
+        assertEquals(Keys.SCREEN_SAVER.choices, ScreenSaver.choices(tty = true))
+        assertEquals(listOf("off", "decode"), ScreenSaver.choices(tty = false))
+        for (saver in ScreenSaver.SCREENS) assertEquals(saver, ScreenSaver.inEffect(saver, tty = true))
+        assertEquals("decode", ScreenSaver.inEffect("decode", tty = false))
+        for (saver in listOf("matrix", "clock", "pipes")) {
+            assertEquals(saver, "off", ScreenSaver.inEffect(saver, tty = false))
+            assertTrue(saver, ScreenSaver.note(saver, tty = false).orEmpty().contains("home.style tty"))
+            assertEquals(saver, null, ScreenSaver.note(saver, tty = true))
+        }
+        assertEquals(null, ScreenSaver.note("decode", tty = false))
+        assertEquals(null, ScreenSaver.note("off", tty = false))
+    }
 }

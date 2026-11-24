@@ -7,12 +7,14 @@ import android.content.Context
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.FontFiles
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.MaterialYou
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderSafety
 import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.terminal.ScreenSaver
 import com.mtwabpin.kolahal.terminal.TerminalUi
 
 /** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
@@ -28,12 +30,14 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 // A gap above each group of keys (log.*, header.*, …), not above every key: a list this
                 // long would get twice as long.
                 var group: String? = null
-                Keys.ALL.forEach { k ->
+                val tty = HomeStyles.ttyNow(conf)
+                // A setting that does nothing in the home style (log.item-spacing in tty) isn't listed.
+                Keys.ALL.filter { HomeStyles.applies(it, tty) }.forEach { k ->
                     val marker = if (conf.isDefault(k)) "" else " *"
                     val first = k.key.substringBefore(".") != group
                     group = k.key.substringBefore(".")
                     out(
-                        "${k.key} = ${conf.display(k)}$marker",
+                        "${k.key} = ${shown(k)}$marker",
                         LogContext.of(
                             LogContext.COMMAND to "config set ${k.key} ",
                             LogContext.DESC to k.help
@@ -43,7 +47,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 info("Tap a line to edit it · * = changed from default · 'config reset <key|all>'")
             }
 
-            sub == "get" -> withKey(args.getOrNull(1)) { out("${it.key} = ${conf.display(it)}") }
+            sub == "get" -> withKey(args.getOrNull(1)) { out("${it.key} = ${shown(it)}") }
             sub == "reset" -> {
                 if (args.getOrNull(1) == "all") {
                     Keys.ALL.forEach(conf::reset)
@@ -124,7 +128,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             return error("widgets.start needs the app selector first: config set selector.rail on")
         }
         if (conf.set(key, value)) {
-            info("${key.key} = ${conf.display(key)}")
+            info("${key.key} = ${shown(key)}")
             // Android 9 to 11 has no wallpaper colors for material-you to take. Say what it shows instead.
             if (key == Keys.THEME && MaterialYou.isOne(conf[Keys.THEME]) && !MaterialYou.supported) info(
                 MaterialYou.note(conf[Keys.THEME])
@@ -135,6 +139,21 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 if (!Shaders.supported) info("${Shaders.NEEDS}: nothing is drawn on this phone")
             }
         } else error("Invalid value for ${key.key}: ${hint(key)}")
+    }
+
+    /**
+     * [key]'s value as `config` shows it, with a note where the home style sets it aside: a
+     * screensaver the gui style doesn't run ([ScreenSaver.note]), or a setting that does nothing in
+     * the tty style ([HomeStyles.GUI_ONLY]).
+     */
+    private fun shown(key: ConfigKey<*>): String {
+        val tty = HomeStyles.ttyNow(conf)
+        val note = when {
+            key == Keys.SCREEN_SAVER -> ScreenSaver.note(conf[Keys.SCREEN_SAVER], tty)
+            !HomeStyles.applies(key, tty) -> "does nothing in the tty style"
+            else -> null
+        }
+        return conf.display(key) + (note?.let { " ($it)" } ?: "")
     }
 
     private fun hint(key: ConfigKey<*>) = when (key) {

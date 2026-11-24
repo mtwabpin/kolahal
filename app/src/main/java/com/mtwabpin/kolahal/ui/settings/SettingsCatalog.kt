@@ -6,10 +6,12 @@ package com.mtwabpin.kolahal.ui.settings
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.terminal.Screen
+import com.mtwabpin.kolahal.terminal.ScreenSaver
 
 /**
  * Sliders that show home through Settings while the user drags them, like the brightness slider in
@@ -71,9 +73,26 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         // clock (used for the log's times) and your name (used by fetch) still apply.
         Keys.HEADER_BELOW_BAR to on(Keys.HEADER_SHOW),
         Keys.GESTURE_SWIPE_DOWN to on(Keys.HEADER_SHOW),
-        Keys.SCREEN_SAVER_AFTER to choice(Keys.SCREEN_SAVER) { it != "off" },
+        // A screensaver that the gui style doesn't run (matrix, clock, pipes) is off there.
+        Keys.SCREEN_SAVER_AFTER to { c: Config -> ScreenSaver.inEffect(c[Keys.SCREEN_SAVER], HomeStyles.ttyNow(c)) != ScreenSaver.OFF },
+        // The tty style has no gap between a list's items (HomeStyles.GUI_ONLY).
+        Keys.LOG_ITEM_SPACING to { c: Config -> HomeStyles.applies(Keys.LOG_ITEM_SPACING, HomeStyles.ttyNow(c)) },
     )
 }
+
+/**
+ * The values Settings offers for a choice: every value, but for `screen.saver`, whose values follow
+ * the home style ([ScreenSaver.choices]): off and decode in the gui style.
+ */
+internal fun shownChoices(key: ConfigKey.Choice, config: Config): List<String> =
+    if (key == Keys.SCREEN_SAVER) ScreenSaver.choices(HomeStyles.ttyNow(config)) else key.choices
+
+/**
+ * The value Settings marks as chosen for a choice: the stored one, but for a screensaver the gui
+ * style doesn't run, which shows as off there ([ScreenSaver.inEffect]). The stored value stays.
+ */
+internal fun shownChoice(key: ConfigKey.Choice, value: String, config: Config): String =
+    if (key == Keys.SCREEN_SAVER) ScreenSaver.inEffect(value, HomeStyles.ttyNow(config)) else value
 
 /** Whether Settings shows [key], given the current values of the other settings ([SHOWN_WHEN]). */
 internal fun applies(key: ConfigKey<*>, config: Config): Boolean =

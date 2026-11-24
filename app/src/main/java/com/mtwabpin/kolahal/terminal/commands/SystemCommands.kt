@@ -198,6 +198,7 @@ class SystemCommands(
     /**
      * `screen <name>`: one of the full-screen screens over home
      * ([com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens]). Without a known name it lists them.
+     * It runs in both home styles; the gui style doesn't offer it ([com.mtwabpin.kolahal.commands.TtyCommands]).
      */
     /**
      * `scramble [on|off]`: home shows its log scrambled, for a screen recording, or as it is again

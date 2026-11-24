@@ -5,15 +5,19 @@ package com.mtwabpin.kolahal.terminal.commands
 
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppPrefs
-import com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
+import com.mtwabpin.kolahal.commands.TtyCommands
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.LogContext
 
 /** The `alias` and `unalias` commands. [CommandProcessor] expands the aliases ([Aliases.expand]). */
 class AliasCommands(context: Context) : CommandGroup(context) {
     private val prefs = AppPrefs.get(context)
+    private val conf = Config.get(context)
 
     fun alias(rest: String) {
-        when (val request = Aliases.parse(rest, RESERVED_NAMES)) {
+        // The names of the screens' commands are built-in only in the tty style ([TtyCommands.reserved]).
+        when (val request = Aliases.parse(rest, TtyCommands.reserved(HomeStyles.ttyNow(conf)))) {
             Aliases.Request.ShowAll -> {
                 val all = prefs.aliases()
                 if (all.isEmpty()) info("No aliases — e.g. alias m = open maps")

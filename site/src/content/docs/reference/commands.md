@@ -244,12 +244,20 @@ These take the whole screen, like a program in a terminal, in your theme's color
 Back or Home closes them, and so does any key on a hardware keyboard: a character you type goes on
 into the prompt (except `q`, which only quits).
 
+The screens are commands of the [TTY home style](/reference/config/#tty-home-style)
+(`home.style tty`). In the default style they aren't suggested or listed, and their names are plain
+words: `clock` opens your clock app, as any other app's name does.
+
 | Usage | Aliases | Description |
 | --- | --- | --- |
-| `screen <name>` | | one of the screens below, by name: `screen clock`, `screen top` |
-| `matrix` | | characters fall down the screen, as in the film (also `screen matrix`) |
-| `pipes` | | pipes grow across the screen and turn at random (also `screen pipes`) |
-| `sl` | | a steam locomotive crosses the screen, then home comes back (also `screen sl`) |
+| `matrix` | | characters fall down the screen, as in the film |
+| `pipes` | | pipes grow across the screen and turn at random |
+| `sl` | | a steam locomotive crosses the screen, then home comes back |
+| `clock` | | the time in big digits, with the date |
+| `top` | | this phone and Kolahal at a glance, updated every second |
+| `decode` | | the log lines on home scramble and settle again |
+| `boot` | | a short startup sequence with this phone's counts |
+| `screen <name>` | | one of the screens by name, in either home style: `screen clock` |
 | `shader [<name>\|list\|on\|off]` | | a [shader](/scripting/shaders/) over home and the screens, on Android 13 and newer: `crt`, `paper`, `aurora` and others, or one of yours. Alone, it lists them. `off` always works |
 | `shader set <name> <parameter> <value>` · `shader reset <name>` | | change a shader's [parameters](/scripting/shaders/#parameters), such as the amount of snow, and reset them |
 | `shader follow <name> <parameter> <value>` · `shader values` | | let a parameter [follow a value](/scripting/shaders/#values-to-follow), such as `battery` or one a script gives; `values` lists them |
@@ -259,7 +267,7 @@ into the prompt (except `q`, which only quits).
 | `shader check\|copy\|remove <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
 | `shader edit <name>` | | open a shader's code in the [editor](/scripting/shaders/#editing-one); one that comes with Kolahal becomes yours when you save it |
 
-The screens are `matrix`, `clock`, `pipes`, `decode`, `sl`, `top` and `boot`:
+What the screens show:
 
 - `clock`: the time in big digits, with the date under it. The seconds show when they fit.
   `clock.24h` sets 12- or 24-hour time.
@@ -279,15 +287,21 @@ They pause while the screen is off or another app is open, and close if you're a
 Android's accessibility settings, `matrix`, `pipes`, `sl` and `boot` show a single still frame, and
 `decode` shows the plain text.
 
-Instant launch never opens them, and scripts can't run them. `clock`, `decode`, `top` and `boot`
-open only through `screen`, so typing `clock` still opens your clock app.
+Instant launch never opens them, and scripts can't run them: type the whole name and press Enter.
+In the TTY style a screen's name is Kolahal's command, so it runs the screen, not an alias, a script
+or an app of that name. To open your clock app by typing `clock` there, turn the command off in
+**Settings → Commands**. A script of yours named `clock` still runs with `script run clock`, and
+`script mv clock <new-name>` renames it. In the default style the name is yours again: your alias,
+your script or the app.
 
 A script can draw a full-screen screen of its own with [`tty.screen`](/scripting/api/#ttyscreenspec). Such
-a script is a command: type its name.
+a script is a command: type its name. In the default style it isn't suggested or listed, but its
+whole name still runs it.
 
 **Screensaver.** With `screen.saver` set to `matrix`, `clock`, `pipes` or `decode`, that screen opens over
 home after `screen.saver-after` minutes (5 by default) without a touch, while the log page shows and
-nothing is open or typed. With `keyboard.on-home` on, the keyboard being up doesn't count as typing:
+nothing is open or typed. In the default home style only `decode` runs, scrambling home's own lines
+where they are; `matrix`, `clock` and `pipes` wait for `home.style tty`. With `keyboard.on-home` on, the keyboard being up doesn't count as typing:
 the screensaver puts it away, and it comes back when the screensaver closes. The first touch or key
 only closes it. It never starts while the screen is
 off, in battery saver, or with **Remove animations** on. Your phone usually turns its screen off

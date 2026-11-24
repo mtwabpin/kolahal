@@ -63,6 +63,7 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
@@ -262,7 +263,6 @@ private fun TtyList(
     val gutter = remember(configVersion) { config[Keys.LOG_GUTTER] }
     val dim = remember(configVersion) { config[Keys.LOG_DIM] }
     val groupGap = remember(configVersion) { config[Keys.LOG_SPACING] }
-    val itemGap = remember(configVersion) { config[Keys.LOG_ITEM_SPACING] }
     val options = remember(search, timeMode, Term.foldLines) {
         LineOptions(if (search != null) TimeMode.ALL else timeMode, Term.foldLines)
     }
@@ -278,10 +278,11 @@ private fun TtyList(
         val margin = with(density) { GRID_MARGIN.roundToPx() }
         val cols = m.cols((width - 2 * margin).coerceAtLeast(m.cellW))
         val originX = ((width - cols * m.cellW) / 2).coerceAtLeast(0)
-        // log.spacing and log.item-spacing in dp, as the GUI has them: only the space between lines
-        // follows them; each line's cells stay on the grid. Search results have no gaps.
+        // log.spacing in dp, as the GUI has it: only the space between lines follows it; each line's
+        // cells stay on the grid. A list's items have no gap between them (HomeStyles.TTY_ITEM_GAP_DP),
+        // whatever log.item-spacing says. Search results have no gaps.
         val groupGapPx = if (search != null) 0 else with(density) { groupGap.dp.roundToPx() }
-        val itemGapPx = if (search != null) 0 else with(density) { itemGap.dp.roundToPx() }
+        val itemGapPx = if (search != null) 0 else with(density) { HomeStyles.TTY_ITEM_GAP_DP.dp.roundToPx() }
         val look = LogLook(
             cols = cols,
             gutter = gutter,

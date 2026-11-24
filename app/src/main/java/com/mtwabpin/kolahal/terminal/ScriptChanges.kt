@@ -69,7 +69,7 @@ internal class ScriptChanges(private val context: Context) {
 
     /** Renames [s] to [to]. If [to] is not a valid name, returns the reason instead. */
     fun rename(s: Script, to: String): String? {
-        ScriptNames.invalid(to) { scripts.byName(it) != null }?.let { return it }
+        ScriptNames.invalid(to, ScriptNames.builtIn(context)) { scripts.byName(it) != null }?.let { return it }
         scripts.rename(s.id, to)
         logs.onStatusChanged()
         return null

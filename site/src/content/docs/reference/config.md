@@ -76,12 +76,12 @@ The `theme` and `font` commands didn't change.
 
 ## Screens
 
-The full-screen [screens](/reference/commands/#screens), such as `matrix` and `screen clock`.
+The full-screen [screens](/reference/commands/#screens), such as `matrix` and `clock`.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `screen.saver` | choice: `off` `matrix` `clock` `pipes` `decode` | `off` | a screensaver: this screen opens over home after `screen.saver-after` minutes without a touch, while the log page shows and nothing is open or typed. The first touch or key only closes it. It never starts while the screen is off, in battery saver, or with Android's **Remove animations** on |
-| `screen.saver-after` | number 0–60 | `5` | minutes without a touch before the screensaver starts; 0 is 30 seconds. Settings shows it while `screen.saver` is on |
+| `screen.saver` | choice: `off` `matrix` `clock` `pipes` `decode` | `off` | a screensaver: this screen opens over home after `screen.saver-after` minutes without a touch, while the log page shows and nothing is open or typed. The first touch or key only closes it. It never starts while the screen is off, in battery saver, or with Android's **Remove animations** on. `matrix`, `clock` and `pipes` draw the character grid, so they run only with `home.style tty`: in the `gui` style Settings offers `off` and `decode`, and one of the others is off there and comes back with the TTY style (`config get` says so) |
+| `screen.saver-after` | number 0–60 | `5` | minutes without a touch before the screensaver starts; 0 is 30 seconds. Settings shows it while the screensaver is on in the home style |
 | `screen.shader` | choice: `off` `crt` `lcd` `eink` `paper` `riso` `graph` `foil` `lamp` `dusk` `frost` `mountains` `pond` `dunes` `rain` `snowfall` `grove-snow` `grove-autumn` `aurora` `night` `fireflies` `contour` `ink` `aura` `day-ring` `lanterns` `kintsugi` `record` `candle` `hourglass` `windows` `seismograph` `hearts` `pulse`, or [one of yours](/scripting/shaders/#adding-your-own) | `off` | a [shader](/scripting/shaders/) over home and the screens (also `shader <name>`). Needs Android 13 or newer; on older versions nothing is drawn. In Settings it is under **Shaders** |
 
 ## TTY home style
@@ -90,6 +90,10 @@ With `config set home.style tty`, home is drawn on a character grid, like a term
 no pictures (an image shows its text, a person their initials). The widgets page stays as it is. The
 `tty.…` keys set how one part of it is drawn: `gui`, as in the default home style, or `tty`, on the grid.
 They only matter with `home.style tty`. Not in Settings.
+
+The full-screen [screens](/reference/commands/#screens) (`matrix`, `clock`, `top`…) are commands of this
+style only, and so are scripts that draw a screen of their own. `log.item-spacing` isn't one of its
+settings: the grid has no gap between a list's items, so Settings and `config` leave it out there.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -107,7 +111,7 @@ They only matter with `home.style tty`. Not in Settings.
 | `log.time` | choice: `off` `commands` `groups` | `groups` | times on the right of log lines. `groups`: on the first line of each group and when the minute changes. `commands`: on the lines you type |
 | `log.dim` | bool | `on` | dim output older than the latest command |
 | `log.spacing` | number 0–40 | `5` | gap (dp) above each output group. A group is a command and its output, or a background batch (feeds, scripts) |
-| `log.item-spacing` | number 0–40 | `5` | gap (dp) between the items of a list in one group, such as stories, contacts or feed items. The color bar runs through it |
+| `log.item-spacing` | number 0–40 | `5` | gap (dp) between the items of a list in one group, such as stories, contacts or feed items. The color bar runs through it. The default home style only: with `home.style tty` there is no gap |
 | `log.gutter` | bool | `on` | thin color bar at the left of each log line: green for commands, the script's color for background output, red for errors |
 | `log.line-height` | number 10–56 | `22` | minimum height of a log line, in sp. 22 is 22 dp at the default text size, and it scales with the phone's text size. With `log.taller-taps`, lines you can tap get +10, and two-column rows get +14. A line has up to 3 dp of padding above and below. The padding gets smaller as the height gets close to one line of text (19 at text size 14), and there is none at that height. A line is never shorter than its text. Script status lines in the header also use this height |
 | `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height |

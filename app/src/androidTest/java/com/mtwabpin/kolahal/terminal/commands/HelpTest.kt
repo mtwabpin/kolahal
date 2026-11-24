@@ -5,6 +5,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.TtyCommands
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.StyledText
@@ -27,6 +30,9 @@ class HelpTest {
 
     private fun help(): List<LogEntry> = commands.lines("help")
 
+    /** The commands `help` lists in the home style the test runs in ([TtyCommands]). */
+    private fun offered() = TtyCommands.offered(HomeStyles.ttyNow(Config.get(context)))
+
     /** The left column holds only the name; what it does and its arguments are beside it, the arguments muted under. */
     @Test
     fun eachRowIsTheNameWithItsDescriptionAndArguments() {
@@ -34,7 +40,7 @@ class HelpTest {
         val column = rows.first().ctx.values.getValue(LogContext.NAME_COL)
         assertTrue("one column for all", rows.all { it.ctx.values[LogContext.NAME_COL] == column })
         assertTrue(column, column.length >= "screen-timeout".length)
-        for (spec in CommandCatalog.OFFERED) {
+        for (spec in offered()) {
             val row = rows.singleOrNull { it.text == spec.name && it.ctx.script == null }
                 ?: error("${spec.name} has no row")
             assertEquals(spec.short, row.ctx.values[LogContext.DESC])
@@ -56,7 +62,7 @@ class HelpTest {
     fun sectionHeadingsHaveACount() {
         val shown = help().map { StyledText.plain(it.text) }
         for ((section, names) in CommandCatalog.HELP_SECTIONS) {
-            val count = names.count { it in CommandCatalog.OFFERED_NAMES }
+            val count = names.count { name -> offered().any { it.name == name } }
             if (count == 0) continue
             val heading = section.replaceFirstChar { it.uppercase() } + " · $count"
             assertTrue("$heading not in $shown", heading in shown)

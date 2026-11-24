@@ -8,7 +8,8 @@ package com.mtwabpin.kolahal.commands
  * - its usage, its help, and what the `help` list and `help <command>` show ([COMMANDS], [CommandSpec]);
  * - its place in `help` ([HELP_SECTIONS]);
  * - which build has it ([FEATURE_COMMANDS]);
- * - whether it is offered at all ([HIDDEN]).
+ * - whether it is offered at all ([HIDDEN]);
+ * - which home style offers it ([TtyCommands]).
  *
  * `CommandProcessor` (in terminal) runs the commands. Each one's other names and whether it is sensitive are in its entry ([CommandSpec]).
  * Each list has one entry per line, so that two new commands added at once don't conflict.
@@ -669,10 +670,10 @@ object CommandCatalog {
             short = "A month's calendar",
             args = "<month> [<year>]"
         ),
-        // The screens take the whole screen until a key or a tap. Each is sensitive: typing `ma`
-        // or `pi` on the way to an app must not open one, and a script can't. `clock`, `decode`,
-        // `top` and `boot` are only reached through `screen`, so typing an app's name (Clock) still
-        // opens the app, and "top" stays a plain word.
+        // The screens take the whole screen until a key or a tap. Each is sensitive: typing `cl`
+        // or `ma` on the way to an app must not open one, and a script can't. They are commands only
+        // in the tty home style ([TtyCommands]): in the gui style `clock` opens the Clock app, and
+        // `screen <name>` runs only when typed in full.
         CommandSpec(
             "screen",
             "screen <name>",
@@ -700,6 +701,34 @@ object CommandCatalog {
             "sl",
             "A steam locomotive crosses the screen",
             short = "A steam locomotive",
+            sensitive = true
+        ),
+        CommandSpec(
+            "clock",
+            "clock",
+            "The time in big digits, with the date, until a key or a tap",
+            short = "The time in big digits",
+            sensitive = true
+        ),
+        CommandSpec(
+            "top",
+            "top",
+            "This phone and Kolahal at a glance, updated each second, as top shows a computer, until a key or a tap",
+            short = "This phone, live",
+            sensitive = true
+        ),
+        CommandSpec(
+            "decode",
+            "decode",
+            "Home's log lines scramble and settle again, until a key or a tap",
+            short = "The log scrambles and settles",
+            sensitive = true
+        ),
+        CommandSpec(
+            "boot",
+            "boot",
+            "A startup sequence with this phone's counts, then home comes back",
+            short = "A startup sequence",
             sensitive = true
         ),
         CommandSpec(
@@ -938,7 +967,7 @@ object CommandCatalog {
         "skill.md",
     )
 
-    /** The commands this build offers. Help lists them and completion suggests them. */
+    /** The commands this build offers in the tty home style. Help lists them and completion suggests them; [TtyCommands.offered] gives a style's. */
     val OFFERED: List<CommandSpec> = COMMANDS.filter { it.name !in UNAVAILABLE && it.name !in HIDDEN }
     val OFFERED_NAMES: Set<String> = OFFERED.mapTo(LinkedHashSet()) { it.name }
 
@@ -1071,6 +1100,10 @@ object CommandCatalog {
             "matrix",
             "pipes",
             "sl",
+            "clock",
+            "top",
+            "decode",
+            "boot",
             "shader",
         ),
     )

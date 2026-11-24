@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandSpec
 import com.mtwabpin.kolahal.commands.CommandsOff
+import com.mtwabpin.kolahal.commands.TtyCommands
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -39,12 +41,13 @@ import com.mtwabpin.kolahal.ui.theme.segShapes
 internal const val COMMANDS_CATEGORY = "commands"
 
 /**
- * The commands that can be turned off ([CommandsOff.CHOICES]), under the section titles `help`
- * uses. A command in no section comes last, under "Other".
+ * The commands that can be turned off ([CommandsOff.CHOICES]) and that the home style offers
+ * ([TtyCommands.offered]; [tty]: `home.style tty`), under the section titles `help` uses. A command
+ * in no section comes last, under "Other".
  */
-internal fun commandSections(): List<Pair<String, List<CommandSpec>>> {
+internal fun commandSections(tty: Boolean = true): List<Pair<String, List<CommandSpec>>> {
     val specs =
-        CommandCatalog.OFFERED.filter { it.name in CommandsOff.CHOICES }.associateBy { it.name }
+        TtyCommands.offered(tty).filter { it.name in CommandsOff.CHOICES }.associateBy { it.name }
     val placed = HashSet<String>()
     val sections = CommandCatalog.HELP_SECTIONS.mapNotNull { (section, names) ->
         val shown = names.mapNotNull(specs::get).filter { placed.add(it.name) }
@@ -101,7 +104,9 @@ internal fun LazyListScope.commandsPage(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         )
     }
-    val sections = commandsFound(commandSections(), query)
+    // Only `config` sets the style, at the prompt, so it doesn't change while this page is open.
+    val tty = HomeStyles.ttyNow(vm.config)
+    val sections = commandsFound(commandSections(tty), query)
     // During a search, the commands found come right under the field: the keyboard leaves little room.
     if (query.isBlank()) {
         item(key = "commands:hint") {

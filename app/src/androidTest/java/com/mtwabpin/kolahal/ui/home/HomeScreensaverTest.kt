@@ -63,8 +63,12 @@ class HomeScreensaverTest {
     /** The view home is drawn in, for putting the keyboard away ([keyboardDown]). */
     private var view: android.view.View? = null
 
-    /** Home as MainActivity shows it: the terminal, with the screens over it, the keyboard down unless [keyboardUp]. */
-    private fun show(saver: String = "matrix", keyboardUp: Boolean = false): TerminalViewModel {
+    /**
+     * Home as MainActivity shows it: the terminal, with the screens over it, the keyboard down unless
+     * [keyboardUp]. In the tty style by default: matrix draws the grid, so only that style runs it.
+     */
+    private fun show(saver: String = "matrix", keyboardUp: Boolean = false, style: String = "tty"): TerminalViewModel {
+        config.set(Keys.HOME_STYLE, style)
         config.set(Keys.SCREEN_SAVER, saver)
         config.set(Keys.SCREEN_SAVER_AFTER, "1")
         val vm = vms.terminal(app)
@@ -152,6 +156,15 @@ class HomeScreensaverTest {
         val v = view ?: return
         val ime = androidx.core.view.WindowInsetsCompat.Type.ime()
         compose.waitUntil(5_000) { androidx.core.view.ViewCompat.getRootWindowInsets(v)?.isVisible(ime) != true }
+    }
+
+    /** In the gui style a screensaver that draws the grid is off; the stored value stays for the tty style. */
+    @Test
+    fun matrixWaitsForTheTtyStyle() {
+        val vm = show(style = "gui")
+        idleFor(1_500)
+        assertNull(vm.ttyScreen.value)
+        assertEquals("matrix", config[Keys.SCREEN_SAVER])
     }
 
     @Test

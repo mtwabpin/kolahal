@@ -7,7 +7,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppPrefs
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandCatalog.HELP_SECTIONS
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.commands.CommandSpec
@@ -15,6 +14,9 @@ import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.Pipes
 import com.mtwabpin.kolahal.commands.SkillText
+import com.mtwabpin.kolahal.commands.TtyCommands
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
@@ -29,6 +31,7 @@ class HelpCommands(
 ) : CommandGroup(context) {
     private val scripts = ScriptRepository.get(context)
     private val prefs = AppPrefs.get(context)
+    private val conf = Config.get(context)
 
     /**
      * Prints a command's row in `help`: its name, in a column as wide as [column] (the longest name
@@ -71,13 +74,15 @@ class HelpCommands(
 
     /**
      * `help`: every command, in sections, one row each (name, what it does, its arguments).
-     * Each built-in command is in a section of [HELP_SECTIONS]; the script commands come last.
+     * Each built-in command is in a section of [HELP_SECTIONS]; the script commands come last. Only
+     * what the home style offers is listed ([TtyCommands]).
      */
     fun help() {
         val off = off()
-        val offered = CommandCatalog.OFFERED.filter { it.name !in off }
+        val tty = HomeStyles.ttyNow(conf)
+        val offered = TtyCommands.offered(tty).filter { it.name !in off }
         val byName = offered.associateBy { it.name }
-        val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) }
+        val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) && TtyCommands.offersScript(it.code, tty) }
         // One column for the whole list, so the descriptions line up.
         val column = (offered.map { it.name } + commandScripts.map { it.name }).maxBy { it.length }
         val placed = HashSet<String>()
@@ -116,7 +121,7 @@ class HelpCommands(
                 off
             )
         ) return info("${InstantRun.canonical(typed)} is turned off: its name opens the app it matches · Settings → Commands turns it on")
-        val offered = CommandCatalog.OFFERED.filter { it.name !in off }
+        val offered = TtyCommands.offered(HomeStyles.ttyNow(conf)).filter { it.name !in off }
         offered.firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
             out(
                 StyledText.stats(listOf(spec.name to "")),

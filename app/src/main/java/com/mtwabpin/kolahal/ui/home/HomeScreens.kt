@@ -24,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.terminal.ScreenSaver
@@ -66,7 +67,8 @@ internal fun phoneState(context: Context): ScreenSaver.Phone {
 @Composable
 internal fun ScreenSaverWatch(vm: TerminalViewModel, sheetOpen: Boolean, typing: Boolean) {
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
-    val saver = remember(configVersion) { vm.config[Keys.SCREEN_SAVER] }
+    // In the gui style a screen that draws the character grid is off: the stored value waits for the tty style.
+    val saver = remember(configVersion) { ScreenSaver.inEffect(vm.config[Keys.SCREEN_SAVER], HomeStyles.ttyNow(vm.config)) }
     if (saver !in ScreenSaver.SCREENS) return
     val after = remember(configVersion) { vm.config[Keys.SCREEN_SAVER_AFTER] }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
@@ -100,8 +102,8 @@ internal fun ScreenSaverWatch(vm: TerminalViewModel, sheetOpen: Boolean, typing:
 }
 
 /**
- * The full-screen screen over home's log page, in both home styles: one you opened (`screen top`,
- * `matrix`…) or the idle screensaver. MainActivity puts it over the terminal page. The screensaver
+ * The full-screen screen over home's log page, in both home styles: one you opened (`top`,
+ * `screen matrix`…) or the idle screensaver. MainActivity puts it over the terminal page. The screensaver
  * closes if battery saver or "Remove animations" comes on while it runs.
  */
 @Composable

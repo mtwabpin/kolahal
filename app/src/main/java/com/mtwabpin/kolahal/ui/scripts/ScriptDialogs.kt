@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -21,7 +19,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,12 +34,10 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
@@ -52,7 +51,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
@@ -217,21 +215,11 @@ internal fun UpdateAllDialog(
                 Spacer(Modifier.height(8.dp))
                 for ((s, c) in copies) {
                     val on = isOn(s, c)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(value = on, role = Role.Checkbox) { ticked[s.id] = it }
-                            .padding(vertical = 4.dp)
-                            .testTag("update:${s.name}"),
-                    ) {
-                        Checkbox(checked = on, onCheckedChange = null)
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                "${s.name}.${s.lang.ext}",
-                                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace)
-                            )
+                    ListItem(
+                        checked = on,
+                        onCheckedChange = { ticked[s.id] = it },
+                        leadingContent = { Checkbox(checked = on, onCheckedChange = null) },
+                        supportingContent = {
                             Text(
                                 buildAnnotatedString {
                                     append(
@@ -250,7 +238,16 @@ internal fun UpdateAllDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colors.onSurfaceVariant,
                             )
-                        }
+                        },
+                        colors = dialogRowColors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("update:${s.name}"),
+                    ) {
+                        Text(
+                            "${s.name}.${s.lang.ext}",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace)
+                        )
                     }
                 }
             }
@@ -428,7 +425,10 @@ internal fun OptionDialog(
                             FilterChip(
                                 selected = value.text == c,
                                 onClick = { value = TextFieldValue(c) },
-                                label = { Text(c) })
+                                label = { Text(c) },
+                                shapes = FilterChipDefaults.shapes(),
+                                colors = FilterChipDefaults.filterChipColors(),
+                            )
                         }
                     }
                 } else {
@@ -534,7 +534,9 @@ internal fun NewScriptDialog(
     var name by remember { mutableStateOf("") }
     var lang by remember { mutableStateOf(ScriptLang.LUA) }
     var command by remember { mutableStateOf(false) }
-    val builtIns = CommandCatalog.RESERVED_NAMES
+    // The same names as `script new`: those of the screens are built-in only in the tty style.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val builtIns = remember { ScriptNames.builtIn(context) }
     val clean = name.trim().lowercase()
     // The same checks as `script new`, shown while the user types.
     val problem = when {
@@ -574,19 +576,24 @@ internal fun NewScriptDialog(
                 ) {
                     lang = if (it == "Lua") ScriptLang.LUA else ScriptLang.JS
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Checkbox(checked = command, onCheckedChange = { command = it })
-                    Column {
-                        Text("Command template", style = MaterialTheme.typography.bodyLarge)
+                // The whole row ticks the box.
+                ListItem(
+                    checked = command,
+                    onCheckedChange = { command = it },
+                    leadingContent = { Checkbox(checked = command, onCheckedChange = null) },
+                    supportingContent = {
                         Text(
                             "Runs from the prompt by name, with arguments",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    }
+                    },
+                    colors = dialogRowColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                ) {
+                    Text("Command template", style = MaterialTheme.typography.bodyLarge)
                 }
             }
         },
@@ -604,3 +611,15 @@ internal fun NewScriptDialog(
         },
     )
 }
+
+/**
+ * The colors of a row to tick in a dialog: on the dialog's own color, ticked or not, as the box
+ * shows which. The row's text keeps its colors when ticked.
+ */
+@Composable
+private fun dialogRowColors() = ListItemDefaults.colors(
+    containerColor = Color.Transparent,
+    selectedContainerColor = Color.Transparent,
+    selectedContentColor = MaterialTheme.colorScheme.onSurface,
+    selectedSupportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)

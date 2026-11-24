@@ -5,7 +5,6 @@ package com.mtwabpin.kolahal.terminal.commands
 
 import android.content.Context
 import android.text.format.DateUtils
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -190,7 +189,7 @@ class ScriptCommands(
                     target ?: return error("Usage: script new <name>[.lua|.js] [lua|js] [--cmd]")
                 )
                 if (!ScriptNames.NAME.matches(name)) return error("Script names: lowercase letters, digits, - and _ only")
-                if (name in CommandCatalog.RESERVED_NAMES) return error("'$name' is a built-in command, pick another name")
+                if (name in ScriptNames.builtIn(context)) return error("'$name' is a built-in command, pick another name")
                 val asCommand = "--cmd" in args || "cmd" in args
                 val chosen =
                     args.drop(2).firstNotNullOfOrNull(ScriptLang::of) ?: lang ?: ScriptLang.LUA

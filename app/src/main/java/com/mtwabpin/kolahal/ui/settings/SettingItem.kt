@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
@@ -194,16 +195,22 @@ internal fun SettingItem(
                             ThemeSwatches(value, dark) { vm.setConfig(key, it) }
                         } else if (key == Keys.FONT) {
                             FontChoices(value, { vm.setConfig(key, it) }, vm::requestFontImport)
-                        } else if (key.choices.size > 4) {
-                            ChipChoices(
-                                key.choices,
-                                value,
-                                label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
                         } else {
-                            ConnectedChoices(
-                                key.choices,
-                                value,
-                                label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
+                            // The values this home style offers, and the one in effect: a screensaver the gui style
+                            // doesn't run shows as off there. Read with the version, so a change of style redraws them.
+                            val choices = run { version.value; shownChoices(key, config) }
+                            val chosen = run { version.value; shownChoice(key, value, config) }
+                            if (choices.size > 4) {
+                                ChipChoices(
+                                    choices,
+                                    chosen,
+                                    label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
+                            } else {
+                                ConnectedChoices(
+                                    choices,
+                                    chosen,
+                                    label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
+                            }
                         }
                     }
                 },
@@ -371,7 +378,10 @@ fun ChipChoices(
             androidx.compose.material3.FilterChip(
                 selected = c == selected,
                 onClick = { onPick(c) },
-                label = { Text(label(c)) })
+                label = { Text(label(c)) },
+                shapes = FilterChipDefaults.shapes(),
+                colors = FilterChipDefaults.filterChipColors(),
+            )
         }
     }
 }

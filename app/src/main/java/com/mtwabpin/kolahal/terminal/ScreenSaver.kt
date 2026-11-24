@@ -17,6 +17,28 @@ object ScreenSaver {
     val SCREENS = listOf("matrix", "clock", "pipes", "decode")
 
     /**
+     * The screens with a form of their own in the gui style: `decode` scrambles home's own log where
+     * it is. The others draw the character grid, so only the tty style offers them.
+     */
+    val GUI_SCREENS = listOf("decode")
+
+    /** `screen.saver`'s values that the home style offers ([tty]: `home.style tty`): off, and [SCREENS] or [GUI_SCREENS]. */
+    fun choices(tty: Boolean): List<String> = listOf(OFF) + if (tty) SCREENS else GUI_SCREENS
+
+    /**
+     * The screensaver that runs in the home style with [saver] stored. One the style doesn't offer
+     * ([choices]) is off there, and the stored value stays: it runs again in the tty style.
+     */
+    fun inEffect(saver: String, tty: Boolean): String = if (saver in choices(tty)) saver else OFF
+
+    /** What `config` says after `screen.saver`'s value when it is off in the gui style ([inEffect]), or null. */
+    fun note(saver: String, tty: Boolean): String? =
+        if (saver != OFF && inEffect(saver, tty) == OFF) "off in the gui style, which has decode only; $saver runs with home.style tty" else null
+
+    /** `screen.saver`'s value for no screensaver. */
+    const val OFF = "off"
+
+    /**
      * What home is doing.
      * - [inFront]: home is resumed and its window has the focus (no other app, no dialog).
      * - [logPage]: the log page shows, not the widgets page.

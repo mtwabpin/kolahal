@@ -256,7 +256,7 @@ class TopScreenTest {
         )
     }
 
-    /** `top` is a screen of its own, reached through `screen top`, and it keeps going with animations off. */
+    /** `top` is a screen of its own, as `top` or `screen top`, and it keeps going with animations off. */
     @Test
     fun itIsAScreen() {
         assertTrue("top" in TtyScreens.names)

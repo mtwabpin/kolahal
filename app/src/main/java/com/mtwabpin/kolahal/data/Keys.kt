@@ -210,7 +210,7 @@ object Keys {
         "screen.saver",
         "off",
         listOf("off", "matrix", "clock", "pipes", "decode"),
-        "A full-screen screen over home after some minutes without a touch (screen.saver-after); any touch or key closes it. Never while the screen is off, in battery saver or with Remove animations on",
+        "A full-screen screen over home after some minutes without a touch (screen.saver-after); any touch or key closes it. matrix, clock and pipes run in the tty home style only, decode in both. Never while the screen is off, in battery saver or with Remove animations on",
         notes = mapOf(
             "off" to "No screensaver",
             "matrix" to "Characters fall down the screen",
@@ -531,7 +531,7 @@ object Keys {
         "log.item-spacing",
         5,
         0..40,
-        "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the color bar runs through it"
+        "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the color bar runs through it. The gui home style only: the tty style has no gap there"
     )
     val LOG_GUTTER = ConfigKey.Bool(
         "log.gutter",

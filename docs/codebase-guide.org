@@ -641,13 +641,14 @@ a tap or Back, in both styles. Each is a [[src:terminal/tty/screens/TtyScreen.kt
 deterministic: time and chance come in as arguments, so a JVM test steps one frame by frame.
 [[src:terminal/tty/screens/TtyScreen.kt::object TtyScreens][TtyScreens]] names them.
 
-- *Opening one.* =matrix=, =pipes=, =sl= and =screen <name>= call =TerminalUi.showTtyScreen=, which
+- *Opening one.* A screen's own name (=matrix=, =clock=…, in the TTY style only:
+  [[src:commands/TtyCommands.kt::object TtyCommands][TtyCommands]]) and =screen <name>= (in both styles) call =TerminalUi.showTtyScreen=, which
   sets =vm.ttyScreen=. [[src:ui/home/HomeScreens.kt::fun HomeScreenOverlay][HomeScreenOverlay]] (over the log page) hands it to =TtyScreenHost=, which
   runs the frames, paints them, and puts =screen.shader= over them.
 - *The screensaver.* [[src:terminal/ScreenSaver.kt::object ScreenSaver][ScreenSaver]] (pure) decides when: after =screen.saver-after= minutes with
   no touch or key, while home is in front, never with the screen off, in battery saver or with
   "Remove animations" on. Then =vm.showScreenSaver(name)= runs =screen.saver='s screen, and any
-  touch closes it.
+  touch closes it. In the GUI style only =decode= runs (=ScreenSaver.inEffect=): the others draw the grid.
 - *Their data.* =top= reads [[src:terminal/TopFacts.kt::internal class TopFacts][TopFacts]] each second; =boot= gets =vm.ttyScreenData()=. =decode=
   takes over the lines home shows (=ShownLog=); in the GUI style, home's own text scrambles where
   it is (=LogDecode=).
@@ -1135,7 +1136,7 @@ Some JVM tests read the source and fail on a rule, not on behavior. You will mee
   =LibraryTagsTest= checks their tags, =LibraryWidgetsTest= passes what each hands to =widget.show=
   through the real parser, =LibraryHistoryTest= checks =assets/library-history.txt=; on a device,
   =LibraryScriptsTest= runs the ones that need no network, and =LibraryScreensTest= runs the screen
-  templates (=template-screen-*=) on a made-up home at two sizes.
+  scripts (=template-screen=, =template-screen-js= and =tty-*=) on a made-up home at two sizes.
 - The catalogs: =DispatchNamesTest= (every name =execute= dispatches is in =CommandCatalog=),
   =HelpCatalogTest= (every command is in a =help= section), =SettingsCatalogTest= (every setting is
   on a Settings page, or in =Keys.CONFIG_ONLY=).

@@ -27,9 +27,11 @@ import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.FontFiles
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
@@ -159,6 +161,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override val history get() = this@TerminalViewModel.history
         override val scripts get() = scriptList.value
         override val commandNames get() = _commandNames.value
+        override val screenScripts get() = _screenScripts.value
         override val scriptUsages get() = this@TerminalViewModel.scriptUsages
         override val scriptDescriptions get() = this@TerminalViewModel.scriptDescriptions
         override val statusNames get() = _lines.value.mapTo(HashSet()) { it.name }
@@ -239,14 +242,35 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     @Volatile
     private var commandUsages: Map<String, String> = scriptUsages + CommandCatalog.COMMAND_USAGES
 
+    /** [commandUsages] as the gui style offers them: without the tty commands and the screen scripts ([TtyCommands]). Set together with [commandNames]. */
+    @Volatile
+    private var guiUsages: Map<String, String> = scriptUsages + (CommandCatalog.COMMAND_USAGES - TtyCommands.ONLY)
+
+    private val _screenScripts = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * The ones of [commandNames] that draw a full-screen screen (`@uses screen`, [ScriptMeta.isScreen]):
+     * TTY things, which the gui style doesn't offer ([TtyCommands.offeredScripts]). Set together with [commandNames].
+     */
+    val screenScripts: StateFlow<Set<String>> = _screenScripts.asStateFlow()
+
     /** The script names in the bundled library, read once, off the main thread when home starts. `script install` completes them. */
     private val libraryNames: List<String> by lazy { ScriptLibrary(context).entries.map { it.name } }
 
-    /** [commandUsages] without the built-in commands turned off (commands.off): their names are plain words. */
+    /**
+     * [commandUsages] as the home style offers them ([guiUsages] in the gui style), without the
+     * built-in commands turned off (commands.off): their names are plain words.
+     */
     private fun usages(): Map<String, String> {
-        val off = CommandsOff.names(config[Keys.COMMANDS_OFF])
-        return if (off.isEmpty()) commandUsages else commandUsages - off
+        val tty = HomeStyles.ttyNow(config)
+        val off = TtyCommands.off(CommandsOff.names(config[Keys.COMMANDS_OFF]), tty)
+        val all = if (tty) commandUsages else guiUsages
+        return if (off.isEmpty()) all else all - off
     }
+
+    /** The command scripts the home style offers ([TtyCommands.offeredScripts]): in the gui style, none that draws a screen. */
+    private fun offeredScripts(): List<String> =
+        TtyCommands.offeredScripts(_commandNames.value, _screenScripts.value, HomeStyles.ttyNow(config))
 
     /**
      * What [setCommandScripts] read last: each script's name, whether it is on, and its code.
@@ -268,9 +292,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             commands.mapNotNull { (s, meta) -> meta.usage(s.name)?.let { s.name to it } }.toMap()
         val descriptions =
             commands.mapNotNull { (s, meta) -> meta.description?.let { s.name to it } }.toMap()
+        val screens = commands.filter { (_, meta) -> meta.isScreen }.mapTo(HashSet()) { (s, _) -> s.name }
         scriptUsages = usages
         commandUsages = usages + CommandCatalog.COMMAND_USAGES
+        guiUsages = (usages - screens) + (CommandCatalog.COMMAND_USAGES - TtyCommands.ONLY)
         scriptDescriptions = descriptions
+        _screenScripts.value = screens
         _commandNames.value = commands.map { (s, _) -> s.name }
         commandsFrom = from
     }
@@ -511,7 +538,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // Checked here, where the command runs, with the aliases as they are now: a sensitive command
             // never runs from a script. (The :script process checks first, but only without aliases.)
             val command = intent.getStringExtra(HostApi.EXTRA_COMMAND) ?: return
-            if (InstantRun.isSensitive(command, appPrefs.aliases())) {
+            if (InstantRun.isSensitive(command, appPrefs.aliases(), HomeStyles.ttyNow(config))) {
                 io {
                     logs.add(
                         LogKind.ERROR,
@@ -854,7 +881,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override fun instantTarget(text: String): InstantRun.Target<AppEntry>? = InstantRun.target(
             text, config[Keys.LAUNCH_INSTANT], config[Keys.LAUNCH_INSTANT_MIN],
             rankedApps = { appsRepo.searchRanked(it) }, appLabel = { it.label },
-            commands = usages(), aliases = appPrefs.aliases(), scriptCommands = _commandNames.value,
+            commands = usages(), aliases = appPrefs.aliases(), scriptCommands = offeredScripts(),
             isOn = { !it.profile.quiet },
         )
 
@@ -886,7 +913,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 line,
                 usages(),
                 appPrefs.aliases(),
-                _commandNames.value,
+                offeredScripts(),
                 tapped = true
             ) { name ->
                 appsRepo.searchRanked(name).firstOrNull()?.second == 0

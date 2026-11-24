@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.terminal.tty
 
 import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.terminal.tty.screens.BootScreen
 import com.mtwabpin.kolahal.terminal.tty.screens.ClockScreen
 import com.mtwabpin.kolahal.terminal.tty.screens.ScreenData
@@ -52,23 +53,25 @@ class ScreensTest {
     }
 
     /**
-     * `screen <name>` opens every screen; `matrix`, `pipes` and `sl` are also commands of their own.
-     * `clock`, `decode`, `top` and `boot` are not, so typing `clock` still opens the clock app, and "top"
-     * stays a plain word.
+     * `screen <name>` opens every screen, and each screen is a command of its own too, in the tty home
+     * style only ([TtyCommands]): in the gui style `clock` opens the clock app, and "top" is a plain word.
      */
     @Test
     fun theCommandsAndTheScreensAgree() {
-        assertEquals(listOf("screen", "matrix", "pipes", "sl", "shader"), CommandCatalog.HELP_SECTIONS["screens"])
+        assertEquals(
+            listOf("screen", "matrix", "pipes", "sl", "clock", "top", "decode", "boot", "shader"),
+            CommandCatalog.HELP_SECTIONS["screens"],
+        )
         // shader is in the section too: it draws over the screens and the tty home, it isn't a screen.
-        for (name in CommandCatalog.HELP_SECTIONS.getValue("screens") - setOf("screen", "shader")) {
-            assertTrue(name, name in TtyScreens.names)
-        }
+        assertEquals(TtyScreens.names.toSet(), CommandCatalog.HELP_SECTIONS.getValue("screens").toSet() - setOf("screen", "shader"))
+        assertEquals(TtyScreens.names.toSet(), TtyCommands.SCREENS)
         val commands = CommandCatalog.COMMANDS.map { it.name }.toSet()
         assertTrue("screen" in commands)
-        assertFalse("clock" in commands)
-        assertFalse("decode" in commands)
-        assertFalse("top" in commands)
-        assertFalse("boot" in commands)
+        // Each waits for Enter: typing `cl` on the way to an app never opens one, and a script can't.
+        for (name in TtyScreens.names) {
+            assertTrue(name, name in commands)
+            assertTrue(name, name in CommandCatalog.SENSITIVE)
+        }
         // The screen command's help names every screen.
         val help = CommandCatalog.COMMANDS.first { it.name == "screen" }.help
         for (name in TtyScreens.names) assertTrue(name, name in help)

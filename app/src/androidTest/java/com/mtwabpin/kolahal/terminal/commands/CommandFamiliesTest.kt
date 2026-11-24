@@ -96,7 +96,10 @@ class CommandFamiliesTest {
     @Test
     fun helpListsEveryCommandAndPipesFilterIt() {
         val help = run("help")
-        for (spec in CommandCatalog.OFFERED) assertTrue(
+        // The commands of the home style the test runs in (TtyCommands).
+        for (spec in com.mtwabpin.kolahal.commands.TtyCommands.offered(
+            com.mtwabpin.kolahal.data.HomeStyles.ttyNow(config)
+        )) assertTrue(
             "${spec.name} missing from help",
             spec.name in help
         )

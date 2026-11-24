@@ -10,14 +10,14 @@ import android.provider.Settings
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandCatalog.PRODUCTIVITY
-import com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.Pipes
+import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -154,8 +154,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 // Offered to nobody (CommandCatalog.HIDDEN): it runs only when typed in full.
                 "skill.md" -> helpCommands.skill()
                 "fetch", "neofetch", "fastfetch" -> systemCommands.fetch()
-                // Full-screen screens over home, until a key or a tap (terminal/tty/screens).
-                "matrix", "pipes", "sl" -> ui.showTtyScreen(name)
+                // Full-screen screens over home, until a key or a tap (terminal/tty/screens). Commands only
+                // in the tty style (TtyCommands.SCREENS): in the gui style the name is a plain word, as below.
+                "matrix", "pipes", "sl", "clock", "top", "decode", "boot" -> if (tty()) ui.showTtyScreen(name)
+                else scriptCommands.runCommand(name, args) ?: fallbackLaunch(trimmed)
                 "screen" -> systemCommands.screen(args)
                 "shader" -> shaderCommands.run(args)
                 "clear", "cls" -> logCommands.clear(args)
@@ -254,7 +256,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     /** Expands the first word through your aliases ([Aliases.expand]). */
     private fun expandAliases(line: String): String =
-        Aliases.expand(line, RESERVED_NAMES) { prefs.alias(it) }
+        Aliases.expand(line, TtyCommands.reserved(tty())) { prefs.alias(it) }
 
     /**
      * What the alias [word] stands for, for the prompt to show in its place ([com.mtwabpin.kolahal.terminal.Abbreviations]),
@@ -300,8 +302,11 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** The built-in commands turned off (commands.off). */
-    private fun off() = CommandsOff.names(conf[Keys.COMMANDS_OFF])
+    /** The built-in commands turned off (commands.off), as far as they are commands in the home style ([TtyCommands.off]). */
+    private fun off() = TtyCommands.off(CommandsOff.names(conf[Keys.COMMANDS_OFF]), tty())
+
+    /** Whether home is in the tty style now: the screens are commands only there ([TtyCommands]). */
+    private fun tty() = HomeStyles.ttyNow(conf)
 
     /** Unknown input: suggests the closest command, in case the first word has a typo. */
     private fun notFound(text: String) {
@@ -314,8 +319,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 off
             )
         ) return error("Command not found: $text  (${InstantRun.canonical(head)} is turned off · Settings → Commands)")
-        val candidates = CommandCatalog.OFFERED_NAMES - off + prefs.aliases().keys +
-                scripts.all().filter { ScriptMeta.isCommand(it.code) }.map { it.name }
+        val tty = tty()
+        val candidates = TtyCommands.offeredNames(tty) - off + prefs.aliases().keys +
+                scripts.all().filter { ScriptMeta.isCommand(it.code) && TtyCommands.offersScript(it.code, tty) }.map { it.name }
         val best = CommandParsing.nearest(head, candidates)
         if (best == null) {
             error("Command not found: $text  (try 'help')")

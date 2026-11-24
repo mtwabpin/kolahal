@@ -14,11 +14,13 @@ import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.commands.Units
 import com.mtwabpin.kolahal.commands.UsageLine
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.FontFiles
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.SettingTitles
@@ -60,6 +62,9 @@ class Completer(private val context: Context, private val data: Data) {
 
         /** Names of enabled `@command` scripts. */
         val commandNames: List<String>
+
+        /** The ones of [commandNames] that draw a full-screen screen (`@uses screen`): the gui style doesn't offer them ([TtyCommands.offeredScripts]). */
+        val screenScripts: Set<String> get() = emptySet()
 
         /** Usage lines of the command scripts that declare one. */
         val scriptUsages: Map<String, String>
@@ -137,7 +142,9 @@ class Completer(private val context: Context, private val data: Data) {
     /** What the first word can complete to, as [firstWords] made it last, and what it was made from. */
     private class FirstWords(
         val off: String,
+        val tty: Boolean,
         val commandNames: List<String>,
+        val screenScripts: Set<String>,
         val aliases: Map<String, String>,
         val names: List<String>
     ) {
@@ -149,17 +156,30 @@ class Completer(private val context: Context, private val data: Data) {
 
     /**
      * The names a first word completes to: built-in commands not turned off, command scripts and
-     * aliases, each once. Made again only when one of those changes, not on each key.
+     * aliases, each once, as the home style offers them ([TtyCommands]). Made again only when one of
+     * those or the style changes, not on each key.
      */
     private fun firstWords(): FirstWords {
         val off = config[Keys.COMMANDS_OFF]
+        val tty = tty()
         val commandNames = data.commandNames
+        val screenScripts = data.screenScripts
         val aliases = appPrefs.aliases()
-        firstWords?.let { if (it.off == off && it.commandNames === commandNames && it.aliases === aliases) return it }
-        val names =
-            (CommandCatalog.OFFERED_NAMES - CommandsOff.names(off) + commandNames + aliases.keys).distinct()
-        return FirstWords(off, commandNames, aliases, names).also { firstWords = it }
+        firstWords?.let {
+            if (it.off == off && it.tty == tty && it.commandNames === commandNames &&
+                it.screenScripts === screenScripts && it.aliases === aliases
+            ) return it
+        }
+        val names = (TtyCommands.offeredNames(tty) - TtyCommands.off(CommandsOff.names(off), tty) +
+                TtyCommands.offeredScripts(commandNames, screenScripts, tty) + aliases.keys).distinct()
+        return FirstWords(off, tty, commandNames, screenScripts, aliases, names).also { firstWords = it }
     }
+
+    /** Whether home is in the tty style now ([HomeStyles.ttyNow]): it decides which commands are offered ([TtyCommands]). */
+    private fun tty(): Boolean = HomeStyles.ttyNow(config)
+
+    /** A command script the style doesn't offer: one that draws a screen, in the gui style. Typed in full, it still runs. */
+    private fun unofferedScript(name: String, tty: Boolean): Boolean = !tty && name in data.screenScripts
 
     /** Each command's place in `history` (newest first), as [recentRanks] made it last. */
     @Volatile
@@ -187,7 +207,8 @@ class Completer(private val context: Context, private val data: Data) {
         val cmd = InstantRun.canonical(head)
         val scriptList = data.scripts
         // Commands turned off (commands.off) aren't offered: their names are plain words, for apps.
-        val off = CommandsOff.names(config[Keys.COMMANDS_OFF])
+        val tty = tty()
+        val off = TtyCommands.off(CommandsOff.names(config[Keys.COMMANDS_OFF]), tty)
         if (parts.size == 1) {
             val first = firstWords()
             val names = first.set
@@ -207,11 +228,12 @@ class Completer(private val context: Context, private val data: Data) {
             val ranked = appsRepo.searchRanked(head).take(cap)
             // Enter may launch an app, as the prompt's fallback does: on its whole name, on the only
             // match, or with launch.top on a prefix match. Then that app is the first, highlighted row,
-            // so Enter, TAB and the highlight agree. A command offered to nobody (`skill.md`) runs on
-            // Enter, so then no app is that row.
+            // so Enter, TAB and the highlight agree. A command offered to nobody (`skill.md`, and in the
+            // gui style `screen` and the screen scripts) runs on Enter, so then no app is that row.
             val top = ranked.firstOrNull()
             val enterLaunches =
-                top != null && head !in names && head !in CommandCatalog.HIDDEN && (head !in CommandCatalog.SYNONYMS || cmd in off) &&
+                top != null && head !in names && head !in TtyCommands.hidden(tty) && !unofferedScript(head, tty) &&
+                        (head !in CommandCatalog.SYNONYMS || cmd in off) &&
                         (top.first.label.equals(
                             head,
                             ignoreCase = true
@@ -227,7 +249,7 @@ class Completer(private val context: Context, private val data: Data) {
                         "$head ",
                         icon = if (head in data.commandNames) R.drawable.ic_code else null,
                         help = helpFor(head)
-                            ?: CommandCatalog.COMMANDS.firstOrNull { it.name == cmd }?.help,
+                            ?: CommandCatalog.COMMANDS.firstOrNull { it.name == cmd && TtyCommands.isCommand(cmd, tty) }?.help,
                         enter = true
                     )
                 )
@@ -245,8 +267,8 @@ class Completer(private val context: Context, private val data: Data) {
             ) + cmds.take(3) + apps.drop(1) + about else whole + options + cmds.take(3) + apps + about).distinctBy { it.key }
         }
         // Commands that this build leaves out (Play build: the call log, the screen lock, `update`) and
-        // those offered to nobody (`skill.md`) get no suggestions.
-        if (cmd in CommandCatalog.UNAVAILABLE || cmd in CommandCatalog.HIDDEN || cmd in off) return emptyList()
+        // those offered to nobody (`skill.md`; in the gui style `screen` and the screen scripts) get no suggestions.
+        if (cmd in CommandCatalog.UNAVAILABLE || cmd in TtyCommands.hidden(tty) || cmd in off || unofferedScript(cmd, tty)) return emptyList()
         val specific = argSuggestions(cmd, head, parts, scriptList)
         // Commands without their own completer still get the options that their usage line lists.
         val options = if (specific.isEmpty()) usageOptions(cmd, parts) else emptyList()
@@ -317,8 +339,10 @@ class Completer(private val context: Context, private val data: Data) {
     private fun described(word: String, shown: Set<String>): List<Suggestion> {
         if (word.length < (if (word.all(Char::isDigit)) 2 else 3)) return emptyList()
         fun says(text: String) = words(text).any { it.startsWith(word, ignoreCase = true) }
-        val builtIn = CommandCatalog.COMMANDS.asSequence()
-            .filter { it.name !in CommandCatalog.UNAVAILABLE && it.name !in CommandCatalog.HIDDEN && it.name !in shown && it.name != word }
+        val tty = tty()
+        // The commands the style offers: none left out by this build or offered to nobody.
+        val builtIn = TtyCommands.offered(tty).asSequence()
+            .filter { it.name !in shown && it.name != word }
             // The options in its usage line count too (`ring … silent`), but not short ones such as `on`.
             .filter { spec ->
                 says(spec.help) || says(KEYWORDS[spec.name].orEmpty()) || words(spec.usage).asSequence()
@@ -326,7 +350,7 @@ class Completer(private val context: Context, private val data: Data) {
             }
             .map { Suggestion.Completion(it.name, "${it.name} ", help = it.help) }
         val scripted = data.scriptDescriptions.asSequence()
-            .filter { (name, desc) -> name !in shown && says(desc) }
+            .filter { (name, desc) -> name !in shown && !unofferedScript(name, tty) && says(desc) }
             .map { (name, desc) ->
                 Suggestion.Completion(
                     name,
@@ -336,7 +360,7 @@ class Completer(private val context: Context, private val data: Data) {
                 )
             }
         val settings =
-            Keys.ALL.asSequence().filter { says(SettingTitles[it.key].orEmpty()) || says(it.help) }
+            Keys.ALL.asSequence().filter { HomeStyles.applies(it, tty) && (says(SettingTitles[it.key].orEmpty()) || says(it.help)) }
                 .map {
                     Suggestion.Completion(
                         it.key,
@@ -378,8 +402,9 @@ class Completer(private val context: Context, private val data: Data) {
 
     /** Returns the literal options at this argument position in the command's usage line (`apps [work|personal|…]`). */
     private fun usageOptions(cmd: String, parts: List<String>): List<Suggestion.Completion> {
-        val usage =
-            CommandCatalog.COMMAND_USAGES[cmd] ?: data.scriptUsages[cmd] ?: return emptyList()
+        // A screen's name in the gui style is no command: a script of that name gives the usage.
+        val usage = CommandCatalog.COMMAND_USAGES[cmd]?.takeIf { TtyCommands.isCommand(cmd, tty()) }
+            ?: data.scriptUsages[cmd] ?: return emptyList()
         val token = UsageLine.tokens(usage).drop(1).getOrNull(parts.size - 2) ?: return emptyList()
         if (token.startsWith("<")) return emptyList() // a placeholder: <app>, <query>, …
         val inner = token.removeSurrounding("[", "]")
@@ -556,7 +581,9 @@ class Completer(private val context: Context, private val data: Data) {
                     else Suggestion.Completion("$name = $command", "$head $name = $command")
                 } else emptyList()
             // `help to`: offer the command names.
-            "help" -> if (parts.size == 2) (CommandCatalog.OFFERED_NAMES - CommandsOff.names(config[Keys.COMMANDS_OFF])).filter {
+            "help" -> if (parts.size == 2) tty().let { tty ->
+                TtyCommands.offeredNames(tty) - TtyCommands.off(CommandsOff.names(config[Keys.COMMANDS_OFF]), tty)
+            }.filter {
                 it.starts(
                     last
                 )
@@ -728,8 +755,10 @@ class Completer(private val context: Context, private val data: Data) {
                             "get",
                             "reset"
                         ).filter { it.startsWith(last, ignoreCase = true) } else emptyList()
+                        // A setting that does nothing in the home style (log.item-spacing in tty) isn't offered.
+                        val tty = tty()
                         subs.map { Suggestion.Completion(it, "$prefix $it ") } +
-                                Keys.ALL.filter { it.key.starts(last) }
+                                Keys.ALL.filter { it.key.starts(last) && HomeStyles.applies(it, tty) }
                                     .map {
                                         Suggestion.Completion(
                                             it.key,
@@ -744,6 +773,8 @@ class Completer(private val context: Context, private val data: Data) {
                         val prefix = parts.take(keyIndex + 1).joinToString(" ")
                         val values = when {
                             key is ConfigKey.Bool -> listOf("on", "off")
+                            // The screensavers of the home style: in the gui style only decode has a form there.
+                            key == Keys.SCREEN_SAVER -> ScreenSaver.choices(tty())
                             key is ConfigKey.Choice -> key.choices
                             // A gesture's action is one of these words, or any command.
                             key.key.startsWith("gesture.") -> listOf(

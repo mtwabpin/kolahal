@@ -7,7 +7,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.content.edit
 import androidx.lifecycle.SavedStateHandle
-import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -206,7 +205,7 @@ class ScriptActions(
             show("Names: lowercase letters, digits, - and _")
             return
         }
-        if (clean in CommandCatalog.RESERVED_NAMES) {
+        if (clean in ScriptNames.builtIn(context)) {
             show("'$clean' is a built-in command, pick another name")
             return
         }

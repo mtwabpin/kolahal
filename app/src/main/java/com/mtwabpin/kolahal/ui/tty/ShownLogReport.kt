@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
@@ -177,7 +178,7 @@ private class ShownLogReport(
     private fun gapOf(gap: LineModel.Gap): Int = when {
         search != null -> 0
         gap == LineModel.Gap.GROUP -> with(density) { config[Keys.LOG_SPACING].dp.roundToPx() }
-        gap == LineModel.Gap.ITEM -> with(density) { config[Keys.LOG_ITEM_SPACING].dp.roundToPx() }
+        gap == LineModel.Gap.ITEM -> with(density) { HomeStyles.TTY_ITEM_GAP_DP.dp.roundToPx() }
         else -> 0
     }
 }

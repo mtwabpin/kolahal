@@ -71,7 +71,7 @@ fun interface TopSource {
 }
 
 /**
- * `top` (through `screen top`): a live view of this phone and Kolahal in the style of the Unix
+ * `top` (also `screen top`): a live view of this phone and Kolahal in the style of the Unix
  * `top`, refreshed each second.
  * - A header line: the time, how long Kolahal has run, and today's unlocks.
  * - Meters with bars in block eighths: the battery, the phone's memory in use, Kolahal's memory

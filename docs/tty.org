@@ -11,8 +11,9 @@ override the rest. Internal: nothing here is published. Checked against the code
 How a user reaches TTY today: =config set home.style tty= (values =gui=, the default, and =tty=). The
 key is in =Keys.CONFIG_ONLY=, so it is on no Settings page and nothing in Settings switches it; the
 part keys (=tty.suggestions=, =tty.selector=, =tty.keybar=, =tty.quick-actions=, =tty.menu=) are config
-only too. The full-screen screens (=screen <name>=), the screensaver (Settings → Look & feel →
-Screensaver) and shaders (Settings → Shaders) work in both styles.
+only too. Shaders (Settings → Shaders) work in both styles. The full-screen screens are commands of
+the TTY style (=clock=, =top=…); in the GUI style only =screen <name>= typed in full opens one, and the
+screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
 
 - One step at a time, in order; each leaves master shippable. Steps 0 and 1 can run in parallel.
 - Sizes: S up to 2 days, M about a week, L about two weeks.

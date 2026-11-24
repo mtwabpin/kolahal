@@ -80,7 +80,7 @@ interface TerminalUi {
     fun showWidgetsPage()
 
     /**
-     * For `screen <name>` and `matrix`, `pipes` and `sl`: shows that full-screen screen over home
+     * For `screen <name>` and the screens' own commands (`matrix`, `clock`…): shows that full-screen screen over home
      * ([com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens]) until a key, a tap or Back.
      */
     fun showTtyScreen(name: String)

@@ -34,14 +34,17 @@ object InstantRun {
      *   - `open x -w --resume` turns a paused profile on;
      *   - `--allow` asks for a permission;
      *   - `--settings` opens Android's settings.
+     *
+     * [tty]: home is in the tty style. In the gui style a screen's name ([TtyCommands.SCREENS]) is no
+     * command: `clock` there is an app, an alias or a script of the user's, which a script may start.
      */
-    fun isSensitive(line: String): Boolean {
+    fun isSensitive(line: String, tty: Boolean = true): Boolean {
         // Add spaces around pipes first: `torch|head` runs `torch`, and a script may not send that.
         val t = Pipes.spaced(CommandParsing.spaces(line)).trim()
         // `=…` runs code in the calculator. (`=notify(…)` has no space after the `=`.)
         if (t.startsWith("=")) return true
         val head = canonical(t.substringBefore(' '))
-        if (head in CommandCatalog.SENSITIVE) return true
+        if (head in CommandCatalog.SENSITIVE && (tty || head !in TtyCommands.SCREENS)) return true
         val args = t.substringAfter(' ', "").split(' ')
         return (head == "open" && (args.any { ':' in it } || "--resume" in args)) || args.any { it == "--allow" || it == "--settings" }
     }
@@ -50,10 +53,10 @@ object InstantRun {
      * Like [isSensitive], but also expands [aliases] the way the dispatcher does (up to 5 levels).
      * So an alias such as `c = clear` can't hide a sensitive command from the check.
      */
-    fun isSensitive(line: String, aliases: Map<String, String>): Boolean {
+    fun isSensitive(line: String, aliases: Map<String, String>, tty: Boolean = true): Boolean {
         var current = Pipes.spaced(CommandParsing.spaces(line))
         repeat(6) {
-            if (isSensitive(current)) return true
+            if (isSensitive(current, tty)) return true
             val head = current.substringBefore(' ')
             val body = aliases[head] ?: aliases[head.lowercase()] ?: return false
             current = Pipes.spaced(body + " " + current.substringAfter(' ', ""))
