@@ -47,6 +47,7 @@ import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.EmptyNote
 import com.mtwabpin.kolahal.ui.FeatureTabs
 import com.mtwabpin.kolahal.ui.GuiListPage
@@ -544,6 +545,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                 onDismissRequest = { adding = false },
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
+                DialogBars()
                 Column(
                     Modifier
                         .navigationBarsPadding()

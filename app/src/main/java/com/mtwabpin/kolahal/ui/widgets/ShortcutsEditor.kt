@@ -45,6 +45,7 @@ import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.takeWhole
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.EmptyNote
 import com.mtwabpin.kolahal.ui.GuiSheet
 import com.mtwabpin.kolahal.ui.LabeledIconButton
@@ -248,7 +249,7 @@ private fun ShortcutDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "Add shortcut" else "Change shortcut") },
+        title = { DialogBars(); Text(if (initial == null) "Add shortcut" else "Change shortcut") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(

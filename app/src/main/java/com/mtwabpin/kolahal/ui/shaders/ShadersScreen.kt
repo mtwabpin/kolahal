@@ -69,6 +69,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.commands.ShaderCommands
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.GroupHeader
 import com.mtwabpin.kolahal.ui.GuiListPage
 import com.mtwabpin.kolahal.ui.LabeledIconButton
@@ -400,6 +401,7 @@ private fun AddShaderSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
+        DialogBars()
         Column(
             Modifier
                 .navigationBarsPadding()
@@ -466,6 +468,7 @@ private fun TemplateSheet(
         sheetState = rememberExpandedSheetState(),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
+        DialogBars()
         Column(
             Modifier
                 .verticalScroll(rememberScrollState())

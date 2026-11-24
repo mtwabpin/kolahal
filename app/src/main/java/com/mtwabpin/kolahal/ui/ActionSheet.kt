@@ -62,7 +62,7 @@ data class ActionMenu(
 
 /**
  * A bottom sheet in the terminal's style: its surface color, rounded only at the top, and no drag
- * handle. It opens fully.
+ * handle. It opens fully, and hides the bars that home hides ([DialogBars]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,8 +73,10 @@ internal fun TermSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.(
         containerColor = Term.surface,
         dragHandle = null,
         shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-        content = content,
-    )
+    ) {
+        DialogBars()
+        content()
+    }
 }
 
 /** Long-press actions in a compact bottom sheet. The line is on top; destructive actions come last, in red. */

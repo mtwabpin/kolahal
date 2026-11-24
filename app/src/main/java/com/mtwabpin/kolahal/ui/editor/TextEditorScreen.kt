@@ -32,6 +32,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.terminal.LogAction
 import com.mtwabpin.kolahal.ui.ActionMenu
 import com.mtwabpin.kolahal.ui.ActionSheet
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.editor.TextEditorViewModel.Phase
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.Term
@@ -207,7 +208,7 @@ private fun EditorQuestion(
     GuiTheme {
         AlertDialog(
             onDismissRequest = onCancel,
-            title = { Text(title) },
+            title = { DialogBars(); Text(title) },
             text = { Text(text) },
             confirmButton = {
                 TextButton(

@@ -62,6 +62,7 @@ import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.ConfirmDialog
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.ErrorTextButton
 import com.mtwabpin.kolahal.ui.GuiSheet
 import com.mtwabpin.kolahal.ui.IconLabel
@@ -395,6 +396,7 @@ internal fun ScriptSheet(
                             onClick = { pickingTime = false }) { Text("Cancel") }
                     },
                 ) {
+                    DialogBars()
                     Text(
                         "Daily at",
                         style = MaterialTheme.typography.labelMedium,

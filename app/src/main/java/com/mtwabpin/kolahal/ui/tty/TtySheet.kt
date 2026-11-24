@@ -54,6 +54,7 @@ import com.mtwabpin.kolahal.terminal.tty.CellStyle
 import com.mtwabpin.kolahal.terminal.tty.HomeCells
 import com.mtwabpin.kolahal.terminal.tty.SheetCells
 import com.mtwabpin.kolahal.ui.ActionMenu
+import com.mtwabpin.kolahal.ui.DialogBars
 
 /** An action's row is at least this tall, so it is easy to hit (the GUI's sheet has 48 dp rows). */
 private val ACTION_HEIGHT = 48.dp
@@ -200,13 +201,14 @@ internal fun TtySecretSheet(
 /**
  * A dialog of the grid's parts at the bottom of the screen, on the theme's background, at most 90 %
  * of the screen tall (its rows scroll past that). A tap outside it, Back or Esc closes it; [onKey]
- * gets the other keys first and says whether it used them.
+ * gets the other keys first and says whether it used them. It hides the bars that home hides ([DialogBars]).
  */
 @Composable
 private fun TtyDialog(onDismiss: () -> Unit, onKey: (Key) -> Boolean, content: @Composable ColumnScope.(TtyFrame) -> Unit) {
     val grid = rememberTtyGrid()
     val keyFocus = remember { FocusRequester() }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        DialogBars()
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()

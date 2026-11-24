@@ -53,7 +53,8 @@ internal fun ShaderPreview(name: String, code: String, modifier: Modifier = Modi
             SampleLine("  London  14°  light rain", Term.fg)
             SampleLine("  wttr.in/london", Term.link)
             SampleLine("$ ping example", Term.prompt)
-            SampleLine("  No answer", Term.error)
+            // An error line, as home prints one for a command that isn't there.
+            SampleLine("  Command not found: ping example", Term.error)
             SampleLine("  14:02", Term.dim)
         }
     }

@@ -54,6 +54,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.ui.CountChip
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.SearchField
@@ -331,6 +332,7 @@ internal fun FilterSheet(
         sheetState = rememberExpandedSheetState(),
         containerColor = colors.surfaceContainerLow
     ) {
+        DialogBars()
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 24.dp, end = 12.dp)

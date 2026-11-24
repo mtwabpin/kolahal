@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 
 /**
@@ -35,7 +36,7 @@ fun NotificationAccessDialog(onAllow: () -> Unit, onDismiss: () -> Unit) {
             onDismissRequest = onDismiss,
             modifier = Modifier.testTag("notification-access-dialog"),
             icon = { Icon(painterResource(R.drawable.ic_notifications), null) },
-            title = { Text("Let Kolahal read your notifications?") },
+            title = { DialogBars(); Text("Let Kolahal read your notifications?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("With notification access, Kolahal reads the notifications your apps post: which app, the title and the text.")

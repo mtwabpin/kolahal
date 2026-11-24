@@ -86,6 +86,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
 import com.mtwabpin.kolahal.ui.ConfirmDialog
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.EmptyNote
 import com.mtwabpin.kolahal.ui.ErrorTextButton
 import com.mtwabpin.kolahal.ui.FeatureTabs
@@ -690,7 +691,7 @@ private fun FeedAddressDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(painterResource(R.drawable.ic_rss), null) },
-        title = { Text(title) },
+        title = { DialogBars(); Text(title) },
         text = {
             TextField(
                 shape = TextFieldDefaults.roundedShape,

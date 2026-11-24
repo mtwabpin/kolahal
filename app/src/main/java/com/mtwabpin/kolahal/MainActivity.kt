@@ -49,10 +49,13 @@ import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.ui.CreateTextFile
+import com.mtwabpin.kolahal.ui.HiddenBars
+import com.mtwabpin.kolahal.ui.HidesBars
 import com.mtwabpin.kolahal.ui.TextEditorActivity
 import com.mtwabpin.kolahal.ui.editor.ScriptEditor
 import com.mtwabpin.kolahal.ui.editor.ShaderEditor
 import com.mtwabpin.kolahal.ui.feeds.FeedsScreen
+import com.mtwabpin.kolahal.ui.hideBars
 import com.mtwabpin.kolahal.ui.home.HomeClock
 import com.mtwabpin.kolahal.ui.home.HomeScreenOverlay
 import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
@@ -87,8 +90,11 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), HidesBars {
     private val vm: TerminalViewModel by viewModels()
+
+    // Every sheet and dialog over home and the other screens hides what home hides (DialogBars).
+    override val hiddenBars: HiddenBars get() = HiddenBars.of(vm.config[Keys.SCREEN_HIDE_BARS])
 
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -521,23 +527,12 @@ class MainActivity : ComponentActivity() {
     private fun applyBars() {
         val controller =
             androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-        val status = androidx.core.view.WindowInsetsCompat.Type.statusBars()
-        val nav = androidx.core.view.WindowInsetsCompat.Type.navigationBars()
-        // A swipe from the edge shows hidden bars for a moment, then they hide again.
-        controller.systemBarsBehavior =
-            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         // Dark icons on a light theme.
         val light = Term.bg.luminance() > 0.5f
         controller.isAppearanceLightStatusBars = light
         controller.isAppearanceLightNavigationBars = light
-        when (vm.config[Keys.SCREEN_HIDE_BARS]) {
-            "status" -> {
-                controller.hide(status); controller.show(nav)
-            }
-
-            "both" -> controller.hide(status or nav)
-            else -> controller.show(status or nav)
-        }
+        // A swipe from the edge shows hidden bars for a moment, then they hide again.
+        window.hideBars(hiddenBars)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

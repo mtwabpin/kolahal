@@ -342,7 +342,8 @@ internal fun rememberExpandedSheetState(): SheetState =
 
 /**
  * A bottom sheet over a GUI page. It is fully open or closed ([rememberExpandedSheetState]), in
- * the sheets' color, and its content is a column with 24 dp at each side.
+ * the sheets' color, and its content is a column with 24 dp at each side. It hides the bars that
+ * home hides ([DialogBars]).
  * - [scroll]: the column scrolls. For a sheet that can be taller than the screen.
  * - [scrimColor]: what dims the page behind it. Transparent leaves the page as it is.
  */
@@ -366,6 +367,7 @@ internal fun GuiSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = shown),
         dragHandle = { Box(Modifier.graphicsLayer { this.alpha = shown }) { BottomSheetDefaults.DragHandle() } },
     ) {
+        DialogBars()
         Column(
             (if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                 .navigationBarsPadding()
@@ -380,6 +382,7 @@ internal fun GuiSheet(
  * - [confirm] uses the error color and runs [onConfirm].
  * - [dismiss] (Cancel unless given), Back and a tap outside run [onDismiss].
  * - [icon], if given, shows above the [title].
+ * - It hides the bars that home hides ([DialogBars]).
  */
 @Composable
 internal fun ConfirmDialog(
@@ -396,7 +399,7 @@ internal fun ConfirmDialog(
         icon = if (icon != null) {
             { Icon(painterResource(icon), null) }
         } else null,
-        title = { Text(title) },
+        title = { DialogBars(); Text(title) },
         text = { Text(text) },
         confirmButton = { ErrorTextButton(onClick = onConfirm) { Text(confirm) } },
         dismissButton = {

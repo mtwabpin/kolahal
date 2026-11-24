@@ -36,6 +36,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.script.LineDiff
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -75,6 +76,7 @@ internal fun CompareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        DialogBars()
         Surface(
             color = colors.surface, modifier = Modifier
                 .fillMaxSize()

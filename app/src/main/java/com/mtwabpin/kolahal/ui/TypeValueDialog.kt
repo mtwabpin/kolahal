@@ -76,7 +76,7 @@ internal fun <T : Any> TypeValueDialog(
     val focus = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { DialogBars(); Text(title) },
         text = {
             TextField(
                 shape = TextFieldDefaults.roundedShape,

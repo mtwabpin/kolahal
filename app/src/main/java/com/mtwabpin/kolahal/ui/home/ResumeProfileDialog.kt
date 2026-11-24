@@ -15,6 +15,7 @@ import androidx.compose.ui.res.painterResource
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 
 /**
@@ -38,7 +39,7 @@ fun ResumeProfileDialog(app: AppEntry, onResume: () -> Unit, onDismiss: () -> Un
                     null
                 )
             },
-            title = { Text(if (private) "Unlock the private space?" else "Resume work apps?") },
+            title = { DialogBars(); Text(if (private) "Unlock the private space?" else "Resume work apps?") },
             text = {
                 Text(
                     if (private) "${app.label} is in your private space, which is locked. Android asks for your lock, then Kolahal opens ${app.label}."

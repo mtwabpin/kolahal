@@ -298,6 +298,46 @@ class LineLayoutTest {
         assertTrue(layout(LogCorpus.statsAlone, time = null).row(0).contains("41"))
     }
 
+    /**
+     * Big numbers that don't fit on a row break between items: each value stays over its label, in
+     * the same column, and an item that doesn't fit moves whole to the next pair of rows (the weather
+     * script's UV on a phone, as `0` over `UV` at the left).
+     */
+    @Test
+    fun bigNumbersBreakBetweenItems() {
+        val items = listOf("17°C" to "🌦 Patchy light rain", "70%" to "humidity", "→ 54 km/h" to "wind", "0" to "UV")
+        val body = StyledText.stats(items)
+        val ctx = LogContext(mapOf(LogContext.TITLE to "1", LogContext.BODY to body))
+        val e = LogEntry(9002, LogCorpus.AT, LogKind.SCRIPT, "weather", "Tokyo", ctx)
+        val m = lineModel(LogCorpus.row(LogCorpus.Line("weather", e)), options)
+        val drawn = listOf("17°C" to "🌦 Patchy light rain", "70%" to "Humidity", "→ 54 km/h" to "Wind", "0" to "UV")
+        for (cols in listOf(32, 40, 47, 53, 80)) {
+            val block = LineLayout.layout(m, LogLook(cols), null)
+            val rows = (0 until block.rows).map { block.row(it) }
+            val name = "At $cols:\n" + rows.joinToString("\n")
+
+            /** Where [text] starts in [row], in cells, or -1. */
+            fun cellOf(row: String, text: String) =
+                row.indexOf(text).let { if (it < 0) -1 else CellWidth.total(row.substring(0, it)) }
+
+            /** The value's row and column: just over its label, in the same column. */
+            fun item(value: String, label: String): Pair<Int, Int> {
+                val r = rows.indexOfFirst { label in it }
+                assertTrue(name, r > 0)
+                val col = cellOf(rows[r], label)
+                val above = rows[r - 1]
+                val at = above.indices.firstOrNull { CellWidth.total(above.substring(0, it)) == col }
+                assertTrue("$value over $label. $name", at != null && above.startsWith(value, at))
+                return r - 1 to col
+            }
+            val placed = drawn.map { (value, label) -> item(value, label) }
+            // Each item that moves starts its pair of rows at the left, where the first one is.
+            for ((row, col) in placed) if (col == placed[0].second) assertTrue(name, row == placed[0].first || row > placed[0].first + 1)
+            if (cols == 47) assertTrue(name, placed[3].first > placed[2].first && placed[3].second == placed[0].second)
+            if (cols == 80) assertEquals(name, setOf(placed[0].first), placed.map { it.first }.toSet())
+        }
+    }
+
     /** A column chart: two rows of eighths, the newest column in the accent color, slots to come as dots, labels under. */
     @Test
     fun aColumnChartIsBlocks() {

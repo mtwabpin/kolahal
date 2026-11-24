@@ -63,6 +63,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.ui.fieldColors
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
@@ -168,6 +169,7 @@ internal fun RunWithDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
+            DialogBars()
             Text(
                 "Run with",
                 style = if (material) MaterialTheme.typography.headlineSmall else body.copy(
@@ -415,7 +417,7 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
     GuiTheme {
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Go to line") },
+            title = { DialogBars(); Text("Go to line") },
             text = {
                 TextField(
                     shape = TextFieldDefaults.roundedShape,

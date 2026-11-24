@@ -59,6 +59,7 @@ import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.ConnectedChoices
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.ErrorTextButton
 import com.mtwabpin.kolahal.ui.IconLabel
 import com.mtwabpin.kolahal.ui.LabeledIconButton
@@ -140,7 +141,7 @@ private fun RestoreDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(painterResource(R.drawable.ic_refresh), null) },
-        title = { Text("${if (update) "Update" else "Reset"} ${s.name}.${s.lang.ext}?") },
+        title = { DialogBars(); Text("${if (update) "Update" else "Reset"} ${s.name}.${s.lang.ext}?") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -205,7 +206,7 @@ internal fun UpdateAllDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(painterResource(R.drawable.ic_refresh), null) },
-        title = { Text("Update from the library") },
+        title = { DialogBars(); Text("Update from the library") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
@@ -294,7 +295,7 @@ internal fun AccessDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { DialogBars(); Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("It requests:", style = MaterialTheme.typography.bodyMedium)
@@ -340,7 +341,7 @@ internal fun SecretDialog(
     var visible by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${secret.name} for $script") },
+        title = { DialogBars(); Text("${secret.name} for $script") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (secret.desc.isNotBlank()) Text(
@@ -412,7 +413,7 @@ internal fun OptionDialog(
     var value by remember { mutableStateOf(TextFieldValue(current, TextRange(current.length))) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${option.name} for $script") },
+        title = { DialogBars(); Text("${option.name} for $script") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (option.desc.isNotBlank()) Text(
@@ -484,7 +485,7 @@ internal fun RenameDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(painterResource(R.drawable.ic_edit), null) },
-        title = { Text("Rename ${s.name}.${s.lang.ext}") },
+        title = { DialogBars(); Text("Rename ${s.name}.${s.lang.ext}") },
         text = {
             TextField(
                 shape = TextFieldDefaults.roundedShape,
@@ -550,7 +551,7 @@ internal fun NewScriptDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(painterResource(R.drawable.ic_code), null) },
-        title = { Text("New script") },
+        title = { DialogBars(); Text("New script") },
         text = {
             Column {
                 TextField(

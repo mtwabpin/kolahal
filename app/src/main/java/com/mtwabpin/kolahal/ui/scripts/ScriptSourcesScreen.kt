@@ -40,6 +40,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.GuiListPage
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.PageHint
@@ -163,7 +164,7 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onAdd: (ScriptSources.Source)
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(painterResource(R.drawable.ic_download), null) },
-        title = { Text("Add source") },
+        title = { DialogBars(); Text("Add source") },
         text = {
             Column {
                 TextField(
