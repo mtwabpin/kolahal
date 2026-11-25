@@ -110,7 +110,7 @@ class VersusAndSkyParserTest {
             "sides" to listOf(mapOf("name" to "A", "mark" to given), mapOf("name" to "B"))
         ).sides[0].mark
         assertEquals("N", mark("N"))
-        assertEquals("Ca", mark("Nilsen"))
+        assertEquals("Ni", mark("Nilsen"))
         assertEquals("♔", mark("♔"))
         assertEquals("7", mark(7))
         assertNull(mark("  "))

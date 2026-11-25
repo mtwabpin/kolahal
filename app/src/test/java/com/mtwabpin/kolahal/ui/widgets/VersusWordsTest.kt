@@ -26,7 +26,7 @@ class VersusWordsTest {
 
     @Test
     fun aSideHasItsMarkAndItsColor() {
-        assertEquals("C", VersusWords.mark(chess.sides[0]))
+        assertEquals("N", VersusWords.mark(chess.sides[0]))
         assertEquals("U", VersusWords.mark(chess.sides[1]))
         assertEquals("", VersusWords.mark(WidgetSpec.Side("…")))
         assertEquals(StyledText.ColorRole.ACCENT, VersusWords.role(chess.sides[0], 0))
