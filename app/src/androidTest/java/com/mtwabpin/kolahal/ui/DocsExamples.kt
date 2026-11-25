@@ -44,13 +44,14 @@ object DocsExamples {
 
     /**
      * What an example needs before its code, to run here: Do Not Disturb on, five glasses of water so
-     * far, some reminders on.
+     * far, some reminders on, the porch light on.
      */
     val luaBefore = mapOf(
         "toggles" to "device = { dnd = function() return \"priority\" end, setDnd = function() end }\n",
         "water" to "store.set(os.date(\"%Y-%m-%d\"), \"5\")\n",
         "toggles-2" to "store.set(\"Morning\", \"on\")\n",
         "toggles-4" to "store.set(\"Morning\", \"on\"); store.set(\"Evening\", \"on\")\n",
+        "toggles-icons" to "store.set(\"Porch\", \"on\")\n",
     )
 
     /** [luaBefore] for the JavaScript code. */
@@ -59,6 +60,7 @@ object DocsExamples {
         "water" to "{ const d0 = new Date(); store.set(d0.getFullYear() + \"-\" + (d0.getMonth() + 1) + \"-\" + d0.getDate(), \"5\"); }\n",
         "toggles-2" to "store.set(\"Morning\", \"on\");\n",
         "toggles-4" to "store.set(\"Morning\", \"on\"); store.set(\"Evening\", \"on\");\n",
+        "toggles-icons" to "store.set(\"Porch\", \"on\");\n",
     )
 
     /** The options an example's code reads. */

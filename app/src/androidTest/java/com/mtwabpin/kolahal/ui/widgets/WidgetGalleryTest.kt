@@ -990,12 +990,12 @@ class WidgetGalleryTest {
         Shot("kind-sky-moon", WidgetSize.S2X1, "Moon", moon),
     )
 
-    /** A game of chess: Carlsen to move, his clock running. */
+    /** A game of chess: Nilsen to move, his clock running. */
     private val chess = WidgetSpec.Versus(
         base("Berlin"),
         listOf(
-            WidgetSpec.Side("Carlsen", mark = "NO", value = 72f, text = "1:12"),
-            WidgetSpec.Side("Caruana", mark = "US", value = 3490f, text = "58:10"),
+            WidgetSpec.Side("Nilsen", mark = "NO", value = 72f, text = "1:12"),
+            WidgetSpec.Side("Carter", mark = "US", value = 3490f, text = "58:10"),
         ),
         score = "1½–½",
         turn = 1,

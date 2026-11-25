@@ -148,7 +148,9 @@ object WidgetParser {
     private val PROGRESS_STYLES = listOf("ring", "bar", "gauge", "rings")
     private val CHART =
         listOf("points", "style", "min", "max", "value", "label", "labels", "summary")
+    private val CHART_STYLES = listOf("line", "bars", "dots")
     private val COUNTDOWN = listOf("to", "from", "label", "style", "reached")
+    private val COUNTDOWN_STYLES = listOf("days", "clock", "dots", "page")
     private val BUTTONS = listOf("items")
     private val BUTTON = listOf("label", "icon", "color", "tap")
     private val TOGGLES = listOf("items")
@@ -163,6 +165,7 @@ object WidgetParser {
      */
     private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap", "id")
     private val IMAGE = listOf("image", "alt", "caption", "fit")
+    private val FITS = listOf("crop", "fit")
     private val VERSUS = listOf("sides", "score", "turn", "moving", "caption", "badge")
     private val SIDE = listOf("name", "mark", "color", "value", "text")
     private val SKY = listOf("rises", "sets", "phase", "waxing", "phases")
@@ -170,16 +173,55 @@ object WidgetParser {
 
     private val TRENDS = listOf("up", "down", "flat")
 
+    /** The fields every kind takes. The editor's reference names each one: ApiDocsTest checks it. */
+    val COMMON_FIELDS: List<String> = COMMON
+
+    /** The fields of a `tap`, which every kind and some items take. */
+    val TAP_FIELDS: List<String> = TAP
+
+    /**
+     * The fields of a [kind] widget after the common ones, at every level: its own, then those of its
+     * items, sides, zones, phases or events. Only a kind a script can use has them. The editor's
+     * reference names each one with the kind (ApiDocsTest), and shows each that changes what the card
+     * draws in an example (ReferenceExamplesTest).
+     */
+    fun fieldsOf(kind: WidgetKind): List<String> = own(kind) + inner(kind)
+
+    /** The fields of the items, sides, zones, phases or events of a [kind] widget, and of a list's lead. */
+    private fun inner(kind: WidgetKind): List<String> = when (kind) {
+        WidgetKind.STAT -> SMALL
+        WidgetKind.LIST -> ROW + RANGE + LEAD
+        WidgetKind.PROGRESS -> BAR + GAUGE_ZONE
+        WidgetKind.BUTTONS -> BUTTON
+        WidgetKind.TOGGLES -> TOGGLE
+        WidgetKind.CLOCK -> ZONE
+        WidgetKind.AGENDA -> EVENT
+        WidgetKind.VERSUS -> SIDE
+        WidgetKind.SKY -> PHASE
+        WidgetKind.TEXT, WidgetKind.CHART, WidgetKind.COUNTDOWN, WidgetKind.IMAGE -> emptyList()
+        WidgetKind.MEDIA -> notForScripts(kind)
+    }
+
+    /**
+     * The fields of a [kind] widget that take one of a few words, with the words: `shape` on every
+     * kind, and a kind's `style`, `trend` or `fit`. The parser reads them from these lists.
+     */
+    fun choicesOf(kind: WidgetKind): Map<String, List<String>> = mapOf("shape" to WidgetShape.ids) + when (kind) {
+        WidgetKind.STAT -> mapOf("trend" to TRENDS)
+        WidgetKind.PROGRESS -> mapOf("style" to PROGRESS_STYLES)
+        WidgetKind.CHART -> mapOf("style" to CHART_STYLES)
+        WidgetKind.COUNTDOWN -> mapOf("style" to COUNTDOWN_STYLES)
+        WidgetKind.IMAGE -> mapOf("fit" to FITS)
+        else -> emptyMap()
+    }
+
     /**
      * Every field name a description can have, at any level. No name may be a Lua keyword (a script
      * writes `{ title = … }`), and none may be `status` or `notify`: those words in a script's code
      * switch on access items ([com.mtwabpin.kolahal.script.ScriptMeta.setsStatus]). A test checks this.
      */
-    val FIELDS: Set<String> = (
-            COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + RANGE + PROGRESS + BAR + CHART + COUNTDOWN +
-                    BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE +
-                    VERSUS + SIDE + SKY + PHASE
-            ).toSet()
+    val FIELDS: Set<String> =
+        (COMMON + TAP + WidgetKind.forScripts.flatMap { fieldsOf(it) }).toSet()
 
     /**
      * The fields whose text keeps its styles, as `<kind>.<field>`: bold, italic, underline, strike
@@ -364,7 +406,7 @@ object WidgetParser {
         image = t.picture("image"),
         alt = t.need("alt", MAX_ALT, ALT_IS).ifEmpty { t.fail("alt is needed: $ALT_IS") },
         caption = t.label("caption", MAX_CAPTION, styled = true),
-        fit = t.choice("fit", listOf("crop", "fit")),
+        fit = t.choice("fit", FITS),
     )
 
     private fun stat(t: Table, base: WidgetBase) = WidgetSpec.Stat(
@@ -652,7 +694,7 @@ object WidgetParser {
         return WidgetSpec.Chart(
             base,
             points = points,
-            style = t.choice("style", listOf("line", "bars", "dots")) ?: "line",
+            style = t.choice("style", CHART_STYLES) ?: "line",
             min = min,
             max = max,
             value = t.text("value", MAX_VALUE),
@@ -673,7 +715,7 @@ object WidgetParser {
             to = to,
             from = from,
             label = t.label("label", MAX_LABEL),
-            style = t.choice("style", listOf("days", "clock", "dots", "page")),
+            style = t.choice("style", COUNTDOWN_STYLES),
             reached = t.label("reached", MAX_LABEL),
         )
     }

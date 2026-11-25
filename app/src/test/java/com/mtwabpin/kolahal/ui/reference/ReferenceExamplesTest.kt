@@ -2,6 +2,8 @@ package com.mtwabpin.kolahal.ui.reference
 
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.sourceFile
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,6 +55,45 @@ class ReferenceExamplesTest {
         for (names in listOf(
             widgets,
             ReferenceExamples.logs.map { it.name })) assertEquals(names.distinct(), names)
+    }
+
+    /**
+     * The fields that change nothing a card draws: what a tap does, when the script runs, what a
+     * screen reader says, and an event's id, which isn't kept. The other fields each change the card.
+     */
+    private val notDrawn = setOf("kind", "tap", "staleAfter", "refresh", "summary", "id")
+
+    /**
+     * Each kind a script can use has an example, but `image`: the reference doesn't draw a picture,
+     * as drawing it would fetch it. And the examples and variants of a kind, in both languages, show
+     * each word of its `style` and each of its fields that changes what the card draws
+     * ([WidgetParser.fieldsOf]). The common ones that do (`title`, `icon`, `color`, `shape`, `note`)
+     * are each in an example of some kind.
+     */
+    @Test
+    fun eachKindStyleAndFieldHasAnExample() {
+        val all = ReferenceExamples.widgets + ReferenceExamples.variants
+        val missing = mutableListOf<String>()
+        for (lang in ScriptLang.entries) {
+            // A field as the code writes it: `style = ` in Lua, `style: ` in JavaScript.
+            val set = if (lang == ScriptLang.LUA) " = " else ": "
+            fun writes(code: String, field: String) = Regex("\\b$field$set").containsMatchIn(code)
+            for (kind in WidgetKind.forScripts - WidgetKind.IMAGE) {
+                val code = all.filter { it.kind == kind }.joinToString("\n") { it.code(lang) }
+                if (code.isEmpty()) missing += "${kind.id}: no example"
+                for (word in WidgetParser.choicesOf(kind)["style"].orEmpty()) {
+                    if ("style$set\"$word\"" !in code) missing += "${kind.id} in $lang: style $word"
+                }
+                for (field in WidgetParser.fieldsOf(kind) - notDrawn) {
+                    if (!writes(code, field)) missing += "${kind.id} in $lang: $field"
+                }
+            }
+            val code = all.joinToString("\n") { it.code(lang) }
+            for (field in WidgetParser.COMMON_FIELDS - notDrawn) {
+                if (!writes(code, field)) missing += "any kind in $lang: $field"
+            }
+        }
+        assertEquals(emptyList<String>(), missing.distinct())
     }
 
     /** A variant varies one of the guide's examples: same kind, same size, and a chip label of its own. */

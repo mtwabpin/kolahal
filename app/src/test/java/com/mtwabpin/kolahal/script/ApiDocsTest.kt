@@ -2,6 +2,8 @@ package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.sourceFile
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -134,6 +136,41 @@ class ApiDocsTest {
                 assertEquals(setOf(ScriptLang.LUA, ScriptLang.JS), call.langs)
             }
         }
+    }
+
+    /**
+     * The reference's text for `widget.show` names every field the parser reads, and every word a
+     * field takes ([WidgetParser.fieldsOf], [WidgetParser.choicesOf]). A kind's fields are in its own
+     * part ("stat: value, label, …."). The common fields, a tap's and `shape`'s words are in the part
+     * before the kinds or the one after them ("Every kind: …").
+     */
+    @Test
+    fun widgetShowNamesEveryFieldTheParserReads() {
+        val doc = ApiDocs.find("widget.show", ScriptLang.LUA)!!.doc
+        assertEquals(doc, ApiDocs.find("widget.show", ScriptLang.JS)!!.doc)
+        val kinds = WidgetKind.forScripts
+        val starts = kinds.map { kind ->
+            doc.indexOf(". ${kind.id}: ").also { assertTrue("no part for ${kind.id}: $doc", it >= 0) }
+        }
+        val every = doc.indexOf("Every kind:")
+        assertTrue("no part for every kind: $doc", every > starts.last())
+        assertEquals("the kinds are out of order", starts.sorted(), starts)
+        val common = doc.take(starts.first()) + " " + doc.substring(every)
+        fun names(text: String, word: String) = Regex("\\b${Regex.escape(word)}\\b").containsMatchIn(text)
+        val missing = mutableListOf<String>()
+        kinds.forEachIndexed { i, kind ->
+            val part = doc.substring(starts[i], starts.getOrElse(i + 1) { every })
+            for (field in WidgetParser.fieldsOf(kind)) {
+                if (!names(part, field)) missing += "${kind.id}: $field"
+            }
+            for ((field, words) in WidgetParser.choicesOf(kind)) for (word in words) {
+                if (!names(if (field == "shape") common else part, word)) missing += "${kind.id}: $field $word"
+            }
+        }
+        for (field in WidgetParser.COMMON_FIELDS + WidgetParser.TAP_FIELDS) {
+            if (!names(common, field)) missing += "every kind: $field"
+        }
+        assertEquals(emptyList<String>(), missing.distinct())
     }
 
     /** `allowed(what)` takes every `@uses` item, and its text names them all. */

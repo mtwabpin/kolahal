@@ -64,10 +64,12 @@ internal object ReferenceExamples {
     val widgets: List<Widget> = ReferenceExamplesWidgets.widgets
 
     /**
-     * More versions of some of the guide's examples, for the reference only: another number of rows
-     * or switches, another style. Each is real code in both languages, and ReferenceCardsTest runs it
-     * as it runs the guide's. [Widget.of] names the example it varies; every name is unique among all
-     * the examples. The guide doesn't have these, so ReferenceExamplesTest doesn't look for them there.
+     * More versions of some of the guide's examples, for the reference: another number of rows or
+     * switches, another style, a field the guide's example leaves out. Each is real code in both
+     * languages, and ReferenceCardsTest runs it as it runs the guide's. [Widget.of] names the example
+     * it varies; every name is unique among all the examples. The guide has only some of them, so
+     * ReferenceExamplesTest doesn't look for them there. It checks that the examples and variants
+     * together show each kind, each style and each field that changes what a card draws.
      */
     val variants: List<Widget> = ReferenceExamplesVariants.variants
 

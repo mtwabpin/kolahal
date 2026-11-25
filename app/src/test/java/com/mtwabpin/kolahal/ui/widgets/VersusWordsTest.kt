@@ -15,8 +15,8 @@ class VersusWordsTest {
     private val chess = WidgetSpec.Versus(
         WidgetBase(title = "Berlin"),
         listOf(
-            WidgetSpec.Side("Carlsen", value = 72f, text = "1:12"),
-            WidgetSpec.Side("Caruana", mark = "U", color = StyledText.ColorRole.GOOD, value = 3490f, text = "58:10"),
+            WidgetSpec.Side("Nilsen", value = 72f, text = "1:12"),
+            WidgetSpec.Side("Carter", mark = "U", color = StyledText.ColorRole.GOOD, value = 3490f, text = "58:10"),
         ),
         score = "1½–½",
         turn = 1,
@@ -66,7 +66,7 @@ class VersusWordsTest {
     @Test
     fun aScreenReaderHearsTheWholeMatch() {
         assertEquals(
-            listOf("Carlsen 1½–½ Caruana", "Carlsen 1:12", "Caruana 58:10", "Carlsen's turn", "17. b3"),
+            listOf("Nilsen 1½–½ Carter", "Nilsen 1:12", "Carter 58:10", "Nilsen's turn", "17. b3"),
             VersusWords.said(chess)
         )
         val football = WidgetSpec.Versus(

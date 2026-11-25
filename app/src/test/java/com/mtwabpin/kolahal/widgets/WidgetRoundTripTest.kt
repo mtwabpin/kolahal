@@ -177,8 +177,8 @@ class WidgetRoundTripTest {
         WidgetKind.VERSUS,
         base + mapOf(
             "sides" to listOf(
-                mapOf("name" to "Carlsen", "mark" to "N", "color" to "accent", "value" to 72, "text" to "1:12"),
-                mapOf("name" to "Caruana", "mark" to "U", "color" to "link", "value" to 3490, "text" to "58:10"),
+                mapOf("name" to "Nilsen", "mark" to "N", "color" to "accent", "value" to 72, "text" to "1:12"),
+                mapOf("name" to "Carter", "mark" to "U", "color" to "link", "value" to 3490, "text" to "58:10"),
             ),
             "score" to "1½–½",
             "turn" to 1,

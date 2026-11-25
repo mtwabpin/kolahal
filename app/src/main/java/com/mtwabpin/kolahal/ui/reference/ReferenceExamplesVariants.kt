@@ -7,6 +7,7 @@ import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.ui.reference.ReferenceExamples.Widget
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetShape
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -69,21 +70,40 @@ internal object ReferenceExamplesVariants {
             )
         },
         Widget(
-            "steps-value", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
+            "steps-bar", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
             lua = """
             widget.show{
               kind = "stat",
-              value = "6,240",
+              title = "Battery",
+              icon = "battery",
+              shape = "sun",
+              value = 68,
+              unit = "%",
+              label = "Charging",
+              progress = 0.68,
+              moving = true,
             }
             """,
             js = """
             widget.show({
               kind: "stat",
-              value: "6,240",
+              title: "Battery",
+              icon: "battery",
+              shape: "sun",
+              value: 68,
+              unit: "%",
+              label: "Charging",
+              progress: 0.68,
+              moving: true,
             });
             """,
-            of = "steps", variant = "Value only",
-        ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240") },
+            of = "steps", variant = "With a bar",
+        ) { _, _ ->
+            WidgetSpec.Stat(
+                WidgetBase(title = "Battery", icon = "battery", shape = WidgetShape.SUN),
+                value = "68", unit = "%", label = "Charging", progress = 0.68f, moving = true,
+            )
+        },
         Widget(
             "steps-week", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
             lua = """
@@ -107,6 +127,36 @@ internal object ReferenceExamplesVariants {
             WidgetSpec.Stat(
                 WidgetBase(), value = "6,240", label = "Steps today",
                 points = listOf(5120f, 7400f, 4310f, 8020f, 6650f, 3980f, 6240f),
+            )
+        },
+        // The guide's example of a stat's scene, without its comment.
+        Widget(
+            "steps-scene", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
+            lua = """
+            widget.show{
+              kind = "stat",
+              title = "Lisbon",
+              value = "14°",
+              label = "Clear night",
+              scene = "pond",
+              points = { 17, 16, 16, 15, 14 },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "stat",
+              title: "Lisbon",
+              value: "14°",
+              label: "Clear night",
+              scene: "pond",
+              points: [17, 16, 16, 15, 14],
+            });
+            """,
+            of = "steps", variant = "Scene",
+        ) { _, _ ->
+            WidgetSpec.Stat(
+                WidgetBase(title = "Lisbon"), value = "14°", label = "Clear night",
+                points = listOf(17f, 16f, 16f, 15f, 14f), scene = "pond",
             )
         },
         Widget(
@@ -348,6 +398,72 @@ internal object ReferenceExamplesVariants {
             )
         },
         Widget(
+            "list-checks", WidgetKind.LIST, WidgetSize.S4X2, "List",
+            lua = """
+            widget.show{
+              kind = "list",
+              title = "Habits",
+              items = {
+                {
+                  title = "Stretch",
+                  icon = "walk",
+                  done = true,
+                },
+                {
+                  title = "Read 20 pages",
+                  icon = "book",
+                  done = true,
+                },
+                {
+                  title = "Water the plants",
+                  icon = "drop",
+                  color = "warn",
+                  done = false,
+                },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "list",
+              title: "Habits",
+              items: [
+                {
+                  title: "Stretch",
+                  icon: "walk",
+                  done: true,
+                },
+                {
+                  title: "Read 20 pages",
+                  icon: "book",
+                  done: true,
+                },
+                {
+                  title: "Water the plants",
+                  icon: "drop",
+                  color: "warn",
+                  done: false,
+                },
+              ],
+            });
+            """,
+            of = "list", variant = "With checkboxes",
+        ) { _, _ ->
+            WidgetSpec.Rows(
+                WidgetBase(title = "Habits"),
+                listOf(
+                    WidgetSpec.Row("Stretch", icon = "walk", done = true),
+                    WidgetSpec.Row("Read 20 pages", icon = "book", done = true),
+                    WidgetSpec.Row(
+                        "Water the plants",
+                        icon = "drop",
+                        color = ColorRole.WARN,
+                        done = false
+                    ),
+                ),
+            )
+        },
+        Widget(
             "progress-bars", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
             lua = """
             widget.show{
@@ -422,42 +538,46 @@ internal object ReferenceExamplesVariants {
             lua = """
             widget.show{
               kind = "progress",
-              title = "UV · Lisbon",
+              title = "Outside",
               style = "gauge",
-              value = 7,
-              max = 11,
-              label = "High",
+              value = 4,
+              min = -10,
+              max = 40,
+              unit = "°C",
+              label = "Cold",
               zones = {
-                { from = 0, color = "good" },
-                { from = 3, color = "warn" },
-                { from = 8, color = "bad" },
+                { from = -10, color = "info" },
+                { from = 10, color = "good" },
+                { from = 30, color = "bad" },
               },
             }
             """,
             js = """
             widget.show({
               kind: "progress",
-              title: "UV · Lisbon",
+              title: "Outside",
               style: "gauge",
-              value: 7,
-              max: 11,
-              label: "High",
+              value: 4,
+              min: -10,
+              max: 40,
+              unit: "°C",
+              label: "Cold",
               zones: [
-                { from: 0, color: "good" },
-                { from: 3, color: "warn" },
-                { from: 8, color: "bad" },
+                { from: -10, color: "info" },
+                { from: 10, color: "good" },
+                { from: 30, color: "bad" },
               ],
             });
             """,
             of = "progress", variant = "Gauge",
         ) { _, _ ->
             WidgetSpec.Progress(
-                WidgetBase(title = "UV · Lisbon"), value = 7f, max = 11f, label = "High",
-                style = "gauge",
+                WidgetBase(title = "Outside"), value = 4f, max = 40f, label = "Cold",
+                style = "gauge", min = -10f, unit = "°C",
                 zones = listOf(
-                    WidgetSpec.GaugeZone(0f, ColorRole.GOOD),
-                    WidgetSpec.GaugeZone(3f, ColorRole.WARN),
-                    WidgetSpec.GaugeZone(8f, ColorRole.BAD),
+                    WidgetSpec.GaugeZone(-10f, ColorRole.INFO),
+                    WidgetSpec.GaugeZone(10f, ColorRole.GOOD),
+                    WidgetSpec.GaugeZone(30f, ColorRole.BAD),
                 ),
             )
         },
@@ -583,6 +703,70 @@ internal object ReferenceExamplesVariants {
             )
         },
         Widget(
+            "water-bar", WidgetKind.PROGRESS, WidgetSize.S2X1, "Water",
+            lua = """
+            widget.show{
+              kind = "progress",
+              title = "Water",
+              style = "bar",
+              value = 5,
+              max = 8,
+              text = "5 / 8",
+              label = "Glasses today",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "progress",
+              title: "Water",
+              style: "bar",
+              value: 5,
+              max: 8,
+              text: "5 / 8",
+              label: "Glasses today",
+            });
+            """,
+            of = "water", variant = "A bar",
+        ) { _, _ ->
+            WidgetSpec.Progress(
+                WidgetBase(title = "Water"), value = 5f, max = 8f, text = "5 / 8",
+                label = "Glasses today", style = "bar",
+            )
+        },
+        Widget(
+            "water-ring", WidgetKind.PROGRESS, WidgetSize.S2X1, "Water",
+            lua = """
+            widget.show{
+              kind = "progress",
+              title = "Water",
+              style = "ring",
+              value = 5,
+              max = 8,
+              text = "5 / 8",
+              color = "link",
+              moving = true,
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "progress",
+              title: "Water",
+              style: "ring",
+              value: 5,
+              max: 8,
+              text: "5 / 8",
+              color: "link",
+              moving: true,
+            });
+            """,
+            of = "water", variant = "A moving ring",
+        ) { _, _ ->
+            WidgetSpec.Progress(
+                WidgetBase(title = "Water", color = ColorRole.LINK), value = 5f, max = 8f,
+                text = "5 / 8", style = "ring", moving = true,
+            )
+        },
+        Widget(
             "chart-line", WidgetKind.CHART, WidgetSize.S2X2, "Chart",
             lua = """
             widget.show{
@@ -682,6 +866,49 @@ internal object ReferenceExamplesVariants {
                 style = "dots",
                 value = "3",
                 label = "Days in a row",
+            )
+        },
+        Widget(
+            "chart-scale", WidgetKind.CHART, WidgetSize.S2X2, "Chart",
+            lua = """
+            widget.show{
+              kind = "chart",
+              title = "Bedroom",
+              note = "Window open",
+              points = {
+                21, 21.5, 22, 22.5, 23,
+                22.5, 22, 21.5, 21,
+              },
+              min = 15,
+              max = 30,
+              value = "21°",
+              label = "Over the day",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "chart",
+              title: "Bedroom",
+              note: "Window open",
+              points: [
+                21, 21.5, 22, 22.5, 23,
+                22.5, 22, 21.5, 21,
+              ],
+              min: 15,
+              max: 30,
+              value: "21°",
+              label: "Over the day",
+            });
+            """,
+            of = "chart", variant = "On a scale",
+        ) { _, _ ->
+            WidgetSpec.Chart(
+                WidgetBase(title = "Bedroom", note = "Window open"),
+                listOf(21f, 21.5f, 22f, 22.5f, 23f, 22.5f, 22f, 21.5f, 21f),
+                min = 15f,
+                max = 30f,
+                value = "21°",
+                label = "Over the day",
             )
         },
         Widget(
@@ -823,6 +1050,53 @@ internal object ReferenceExamplesVariants {
                 WidgetBase(title = "Goa trip"),
                 to = java.time.LocalDate.of(2026, 12, 20).atStartOfDay(zone).toEpochSecond(),
                 style = "page"
+            )
+        },
+        Widget(
+            "countdown-reached", WidgetKind.COUNTDOWN, WidgetSize.S2X1, "Countdown",
+            lua = """
+            -- Midnight today: the moment has
+            -- passed, so the card shows reached.
+            local t = os.date("*t")
+
+            widget.show{
+              kind = "countdown",
+              title = "Results",
+              style = "days",
+              reached = "Out today",
+              to = os.time({
+                year = t.year,
+                month = t.month,
+                day = t.day,
+                hour = 0,
+              }),
+            }
+            """,
+            js = """
+            // Midnight today: the moment has
+            // passed, so the card shows reached.
+            const t = new Date();
+
+            widget.show({
+              kind: "countdown",
+              title: "Results",
+              style: "days",
+              reached: "Out today",
+              to: new Date(
+                t.getFullYear(),
+                t.getMonth(),
+                t.getDate(),
+              ).getTime() / 1000,
+            });
+            """,
+            of = "countdown", variant = "On the day",
+        ) { now, zone ->
+            val today = java.time.Instant.ofEpochSecond(now).atZone(zone).toLocalDate()
+            WidgetSpec.Countdown(
+                WidgetBase(title = "Results"),
+                to = today.atStartOfDay(zone).toEpochSecond(),
+                style = "days",
+                reached = "Out today"
             )
         },
         Widget(
@@ -1058,6 +1332,80 @@ internal object ReferenceExamplesVariants {
             )
         },
         Widget(
+            "toggles-icons", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
+            lua = """
+            -- Each switch is a setting in the
+            -- script's store: a tap flips it.
+            if event and event.name == "action" then
+              store.set(
+                args[1],
+                store.get(args[1]) == "on" and "off"
+                  or "on"
+              )
+            end
+
+            widget.show{
+              kind = "toggles",
+              title = "Lights",
+              items = {
+                {
+                  label = "Porch",
+                  icon = "torch",
+                  on = store.get("Porch") == "on",
+                  tap = { args = "Porch" },
+                },
+                {
+                  label = "Garden",
+                  icon = "leaf",
+                  on = store.get("Garden") == "on",
+                  tap = { args = "Garden" },
+                },
+              },
+            }
+            """,
+            js = """
+            // Each switch is a setting in the
+            // script's store: a tap flips it.
+            if (event && event.name === "action") {
+              store.set(
+                args[0],
+                store.get(args[0]) === "on"
+                  ? "off"
+                  : "on",
+              );
+            }
+
+            widget.show({
+              kind: "toggles",
+              title: "Lights",
+              items: [
+                {
+                  label: "Porch",
+                  icon: "torch",
+                  on: store.get("Porch") === "on",
+                  tap: { args: "Porch" },
+                },
+                {
+                  label: "Garden",
+                  icon: "leaf",
+                  on: store.get("Garden") === "on",
+                  tap: { args: "Garden" },
+                },
+              ],
+            });
+            """,
+            of = "toggles", variant = "With icons",
+        ) { _, _ ->
+            // The porch light is on.
+            WidgetSpec.Toggles(
+                WidgetBase(title = "Lights", staleAfter = 60),
+                listOf(
+                    WidgetSpec.Toggle("Porch", on = true, tap = WidgetTap(args = "Porch"), icon = "torch"),
+                    WidgetSpec.Toggle("Garden", on = false, tap = WidgetTap(args = "Garden"), icon = "leaf"),
+                ),
+            )
+        },
+        Widget(
             "clock-4", WidgetKind.CLOCK, WidgetSize.S2X1, "Clock",
             lua = """
             widget.show{
@@ -1101,6 +1449,38 @@ internal object ReferenceExamplesVariants {
                     WidgetSpec.Zone("America/New_York"),
                     WidgetSpec.Zone("Asia/Tokyo")
                 ),
+            )
+        },
+        Widget(
+            "clock-seconds", WidgetKind.CLOCK, WidgetSize.S2X1, "Clock",
+            lua = """
+            widget.show{
+              kind = "clock",
+              title = "Tokyo",
+              staleAfter = 604800,
+              seconds = true,
+              zones = {
+                { zone = "Asia/Tokyo" },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "clock",
+              title: "Tokyo",
+              staleAfter: 604800,
+              seconds: true,
+              zones: [
+                { zone: "Asia/Tokyo" },
+              ],
+            });
+            """,
+            of = "clock", variant = "With seconds",
+        ) { _, _ ->
+            WidgetSpec.Clock(
+                WidgetBase(title = "Tokyo", staleAfter = 604800),
+                listOf(WidgetSpec.Zone("Asia/Tokyo")),
+                seconds = true,
             )
         },
         Widget(
@@ -1286,13 +1666,13 @@ internal object ReferenceExamplesVariants {
               moving = true,
               sides = {
                 {
-                  name = "Carlsen",
+                  name = "Nilsen",
                   mark = "NO",
                   value = 72,
                   text = "1:12",
                 },
                 {
-                  name = "Caruana",
+                  name = "Carter",
                   mark = "US",
                   value = 3490,
                   text = "58:10",
@@ -1310,13 +1690,13 @@ internal object ReferenceExamplesVariants {
               moving: true,
               sides: [
                 {
-                  name: "Carlsen",
+                  name: "Nilsen",
                   mark: "NO",
                   value: 72,
                   text: "1:12",
                 },
                 {
-                  name: "Caruana",
+                  name: "Carter",
                   mark: "US",
                   value: 3490,
                   text: "58:10",
@@ -1330,13 +1710,78 @@ internal object ReferenceExamplesVariants {
             WidgetSpec.Versus(
                 WidgetBase(title = "Berlin"),
                 listOf(
-                    WidgetSpec.Side("Carlsen", mark = "NO", value = 72f, text = "1:12"),
-                    WidgetSpec.Side("Caruana", mark = "US", value = 3490f, text = "58:10"),
+                    WidgetSpec.Side("Nilsen", mark = "NO", value = 72f, text = "1:12"),
+                    WidgetSpec.Side("Carter", mark = "US", value = 3490f, text = "58:10"),
                 ),
                 score = "1½–½",
                 turn = 1,
                 moving = true,
                 line = "17. b3",
+            )
+        },
+        Widget(
+            "versus-colors", WidgetKind.VERSUS, WidgetSize.S2X2, "Match",
+            lua = """
+            widget.show{
+              kind = "versus",
+              title = "Cup final",
+              badge = "FT",
+              score = "1–1",
+              sides = {
+                {
+                  name = "Rivertown",
+                  mark = "R",
+                  color = "bad",
+                  value = 55,
+                  text = "55%",
+                },
+                {
+                  name = "Hillside",
+                  mark = "H",
+                  color = "good",
+                  value = 45,
+                  text = "45%",
+                },
+              },
+              caption = "Penalties next",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "versus",
+              title: "Cup final",
+              badge: "FT",
+              score: "1–1",
+              sides: [
+                {
+                  name: "Rivertown",
+                  mark: "R",
+                  color: "bad",
+                  value: 55,
+                  text: "55%",
+                },
+                {
+                  name: "Hillside",
+                  mark: "H",
+                  color: "good",
+                  value: 45,
+                  text: "45%",
+                },
+              ],
+              caption: "Penalties next",
+            });
+            """,
+            of = "versus", variant = "In team colors",
+        ) { _, _ ->
+            WidgetSpec.Versus(
+                WidgetBase(title = "Cup final"),
+                listOf(
+                    WidgetSpec.Side("Rivertown", mark = "R", color = ColorRole.BAD, value = 55f, text = "55%"),
+                    WidgetSpec.Side("Hillside", mark = "H", color = ColorRole.GOOD, value = 45f, text = "45%"),
+                ),
+                score = "1–1",
+                line = "Penalties next",
+                badge = "FT",
             )
         },
         Widget(
