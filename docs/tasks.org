@@ -630,6 +630,26 @@ was seen to go wrong on a device.
 - Fix: drop entries older than the window when one is added.
 - Remark:
 
+** TODO [#C] Three shader loaders set their result from the IO thread  :shaders:tests:
+- =ui/tty/TtyShader.kt=: =rememberShaderMeta=, =previewLayer= with =rememberPeekShader=, and =stillLayer=
+  set a Compose state from =Dispatchers.IO=. =produceIo= in =ui/GuiComponents.kt= did the same until
+  0.5.17, and the template sheet then came up empty in 13 of 20 runs of its test: a write from another
+  thread while a frame is composed can be missed.
+- What you'd see: in a test, a shader's preview or details that stay empty now and then. None failed
+  in the release runs of 0.5.17.
+- Fix: set the value on the main thread, as =produceIo= does now (=Dispatchers.Main.immediate=).
+- Remark:
+
+** TODO [#C] The whole device suite needs two runs on one emulator  :tests:tools:
+- =tools/device-tests.sh=: one run of all 1524 tests takes the emulator's graphics memory past 6.5 GiB
+  near its end, where runs start to die. It also installs over the app that is there without clearing
+  its data, and widgets left on the page by an earlier run make widget tests fail.
+- What you'd see: a whole run that breaks off at about 85%, or widget tests that fail after another
+  run and pass alone.
+- Fix: let the script run the suite in two halves (the runner's =numShards=2=), with the emulator
+  started again between them, and clear the app's data before a run. For 0.5.17 this was done by hand.
+- Remark:
+
 ** TODO [#C] A live wallpaper keeps drawing unseen behind a scene shader  :home:perf:
 - =MainActivity.kt= (=applyTheme=): the window asks Android to show the wallpaper
   (=FLAG_SHOW_WALLPAPER=) whenever =log.wallpaper= is above 0, or a widgets page is see-through
