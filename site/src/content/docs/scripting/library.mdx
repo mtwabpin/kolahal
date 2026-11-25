@@ -339,8 +339,8 @@ weather Paris
 script set weather city Pune # the city when you type none
 ```
 
-- A second weather widget can show another city: set its `city` in its **Options**. The status line
-  and the values for shaders stay the script's own city's.
+- A second weather widget can show another city: set its `city` on its settings page (**Settings**
+  in Arrange widgets). The status line and the values for shaders stay the script's own city's.
 
 ## forecast
 
@@ -646,9 +646,10 @@ habit undo                   # take today's mark away
   undo. The streak and the dots are then as they were before the mark. `habit undo` does the same.
 - While today is still open, the streak counts up to yesterday. A missed day starts it again at 0.
 - Its `name` option is the card's title: what you count (`script set habit name Read`).
-- To follow two habits, place the widget twice and give the second its own `name` in its
-  **Options**. Each widget keeps its own days.
-- It runs at 00:01, so the card starts the new day with an open dot.
+- To follow two habits, place the widget twice and give the second its own `name` on its settings
+  page. Each widget keeps its own days.
+- It runs at 00:01, so the card starts the new day with an open dot. A second card starts it when
+  it is next on screen.
 - A `2x1` card has the last 7 days in one row. A `4x2` card has the streak at the start and five
   weeks beside it.
 - It counts one habit. For a second one, rename your copy (`script mv habit read`) and install
@@ -679,7 +680,7 @@ counter undo                 # take one back
   `script set counter target 0` and `script set counter icon coffee`. Then type `counter`: the card
   shows the change at once.
 - To count two things, place the widget twice. For the second one, open **Arrange widgets**,
-  select it and tap **Options**. Each widget keeps its own count.
+  select it and tap **Settings**. Each widget keeps its own count.
 - Two quick taps on a button count as two: a tap within 2 seconds of the last one waits, and runs when the 2 seconds are over. A third quick tap is ignored.
 - Typed, `counter` logs today's count large, and the last 7 days, each with its bar.
 

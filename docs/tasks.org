@@ -89,11 +89,12 @@ ships (the release notes then say what changed).
 - Remark:
 
 ** TODO [#B] A further widget's option dialog shows the wrong default  :scripts:
-- =ui/widgets/WidgetOptionsSheet.kt= (=WidgetOptionsSheet='s call of =OptionDialog=), =ui/scripts/ScriptDialogs.kt=
+- =ui/widgets/WidgetSettingsScreen.kt= (=ScriptOptions='s call of =OptionDialog=), =ui/scripts/ScriptDialogs.kt=
   (=OptionDialog=).
-- Widget 2's city dialog says "Default: London" (the declared default), but Reset gives the script's
-  own value, Pune. The dialog's title uses the file name.
-- Fix: show "Script's value: Pune" for a further widget, titled with the sheet's name. Small.
+- On the settings page of widget 2 of weather, the city dialog says "Default: London" (the
+  declared default), but Reset gives the script's own value, Pune. The dialog's title uses the
+  file name.
+- Fix: show "Script's value: Pune" for a further widget, titled with the widget's name. Small.
 - Remark:
 
 ** TODO [#B] Close gaps, a move and a resize can't be undone  :arrange:

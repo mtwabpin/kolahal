@@ -103,7 +103,8 @@ A shader's details rate it for a dark theme, a light theme and a wallpaper that 
 - **Poor**: it hides what is behind it, or is hard to read.
 
 If more than 20% of your wallpaper shows, turning on a shader that is poor over one gives a warning. It is turned on all
-the same. The author rates a shader in its [header](#the-header), and one without a rating shows none.
+the same. A scene gets none, since it hides the wallpaper while it is on (below). The author rates a shader in its
+[header](#the-header), and one without a rating shows none.
 
 A scene, a shader that can be your [live wallpaper](#as-a-live-wallpaper), brings its own ground: while it is on over
 home, your wallpaper doesn't show behind the log, whatever `log.wallpaper` says. The setting keeps its value, and the

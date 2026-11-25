@@ -109,8 +109,8 @@ Built, and not in the design:
   script's options, a value saved running the card again; Shortcuts' editor), Color, Shape (in the
   Shape look, for a card with a choice), What shows (Name and Icon, where the card has them:
   =WidgetParts.offered=) and Reset to the card's own (color, shape, what shows; not the options,
-  the look or the size). Back returns to Arrange widgets with the card still chosen. An app's widget
-  has no page. The button that opens it shows a dot in the card's color and, in the Shape look, a
+  the look or the size), with Undo in a snackbar. Back returns to Arrange widgets with the card
+  still chosen. An app's widget has no page. The button that opens it shows a dot in the card's color and, in the Shape look, a
   small copy of its shape.
 - *Other apps' widgets* share the page and the grid with Kolahal's own. They have no look: they
   draw themselves. On a phone without app widgets (Android Go) Kolahal's own still work.
@@ -211,8 +211,8 @@ Where each ready-made widget is in the code:
 - *GitHub releases* reads each feed once more for its widget, with =rss.fetch=. A release that the
   card shows must still be new to the check.
 - *Lobsters* has no widget. Only Hacker News got the list.
-- *An option change* runs the placed widgets that read the option, wherever it is set: in the
-  widget's own Options sheet on the Widgets screen, in the script's sheet on the Scripts screen, or
+- *An option change* runs the placed widgets that read the option, wherever it is set: on the
+  widget's settings page, in the script's sheet on the Scripts screen, or
   with =script set=.
 - *Backups.* A script widget whose script is missing is placed all the same. Its card says
   "Script removed" until you remove it or a script takes the name.
@@ -605,7 +605,7 @@ view model read the log again. Widgets get their own message and their own count
 | =refresh= in the description | While the card can be seen (the page in view, the card on screen), run again that often.     | ="widget"=              |
 | A tap with arguments       | See [[*4. Interaction][Interaction]].                                                           | ="action"=              |
 | A tap on a card with no =tap= | One quiet run, at most one in 2 seconds.                                                     | ="widget"=              |
-| An option changed          | A value set in the widget's Options sheet on the Widgets screen, in the script's sheet or with =script set=: the placed widgets that read it run. | ="widget"=              |
+| An option changed          | A value set on the widget's settings page, in the script's sheet or with =script set=: the placed widgets that read it run. | ="widget"=              |
 | A switch turned on         | An access switch of the script was allowed: its placed widgets run, so a card that the switch had stopped is filled at once. | ="widget"=              |
 
 The design had a "Refresh" item in a menu on the card. There is no menu: a long-press opens
@@ -748,7 +748,7 @@ Not built. A long-press on any card of the widgets page opens Arrange widgets, w
 chosen, and so does one on the line that stands for a widget that can't show (a paused profile, a
 locked private space, an app that took its id back). Another app's widget has the long-press for a
 screen reader too (=KolahalWidgetView=). Its toolbar has what the menu was to have, as far as it is
-built: the look, the size, Options (for a script with options), Edit shortcuts (for Shortcuts),
+built: the look, the size, Settings (the card's settings page, for Kolahal's and scripts' cards),
 Widget settings (for another app's widget whose setup can run again), and Remove. There is no
 Refresh (a tap on a card with no =tap= refreshes it), Run in the log or Edit script.
 
@@ -1097,8 +1097,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   =unit= (up to 12). =delta= (text such as "+2.4%", up to 16) with =trend= (=up=, =down= or
   =flat=). =more=: up to 3 of ~{ value, label }~, each up to 24. =progress= (0 to 1), with
   =moving= (true) to draw it as a wave, for something in progress. =points= (numbers, the last
-  60): a soft line under the value, from edge to edge. =scene=: a shader whose still is the card's
-  ground, under a scrim (=StatScenes=: no shader on text or played once). The value's digits roll
+  60): a soft line under the value, from edge to edge. =scene=: one of Kolahal's own shaders, its still
+  the card's ground, under a scrim (=StatScenes=: no shader on text or played once). The value's digits roll
   to a new value (=RollingText=).
 - When small :: 1×1 shows the value and the label. The smaller values and the title are left out.
 - Data :: Any script.
@@ -1152,6 +1152,10 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   value large and "of 8,000" (its =max= and =unit=). 2×2: the first 3 values under the rings.
   1-row: a short row each beside them. Split gives the rings and the values tiles; Shape sets the
   rings in a cookie.
+- Strict by style :: A field that only another style draws is an error, as an unknown one is: =min=,
+  =unit= and =zones= off a gauge, an item's =unit= and =moving= off rings. =ring= with =items= is
+  an error that names =rings=; =gauge= with =items= is an error too. More than 6 stages is an error, not
+  a cut: the last stage is the goal.
 - Stages :: =stages= (2 to 6 names) and =stage= (from 1): done stages are ticked dots, the current
   one a cookie, the way to the next a wave (=value= of =max= along it), later ones rings. The
   current name is the main text, =label= under it. 4×1: names under the marks; 2×1: the marks
@@ -1286,7 +1290,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   move. A last line and a small badge at the top.
 - Fields :: =sides= (exactly 2, each =name= (needed, 24), =mark= (2 characters as seen),
   =color=, =value= (0 or more: its part of the bar), =text= (12: its figure)). =score= (needed,
-  24). =turn= (1 or 2). =moving= (the turn's part of the bar is a wave). =line= (60, may have
+  24). =turn= (1 or 2). =moving= (the turn's part of the bar is a wave). =caption= (60, may have
   styles). =badge= (8).
 - When wide :: A 4×1 card: each name beside its mark, the score with the badge and the last line
   between them, the bar under them. Narrower (2×1): the score between the marks and the names
@@ -1629,7 +1633,7 @@ them.
 - Sizes :: 2×1, 2×2, 4×1.
 - Data :: =world-clocks.lua= (=@widget clock 2x2=), new. Its =zones= option: up to 4 time zones,
   and =Zone=Label= names one. No access.
-- Refresh :: It runs when it is placed, when its Options sheet changes an option, and when the
+- Refresh :: It runs when it is placed, when its settings page changes an option, and when the
   content is a week old (=staleAfter=). Kolahal ticks.
 - Taps :: None of its own: a tap refreshes it.
 - Sketch ::
@@ -1749,7 +1753,7 @@ them.
   widget.
 - Sketch ::
   #+begin_src js
-  widget.show({ kind: "versus", icon: "cricket", score, sides, badge: "LIVE", line: status,
+  widget.show({ kind: "versus", icon: "cricket", score, sides, badge: "LIVE", caption: status,
     turn: batting + 1, moving: true, color: "good", refresh: Math.max(10, Number(options.refresh) || 30),
     staleAfter: 60, tap: { args: "live", page: "log", label: "Live matches" } });
   #+end_src
@@ -1823,7 +1827,7 @@ became =terminal/OwnWidgets.kt= and =WidgetAge= in =terminal/WidgetActions.kt=.
 | =WidgetModel.kt=             | =WidgetSource= (the sources, the built-in widgets' ids, kinds and names, a rename), =PlacedWidget=, =WidgetLayout=, =WidgetOrder=, and =WidgetCodec= (the stored line, the changes at start, the backup form). Pure. |
 | =WidgetPlacement.kt=         | Columns and tops: no overlap, push down, Close gaps, a place for an imported widget. Pure.              |
 | =WidgetDrag.kt=              | The arithmetic of the page and of a drag, in pixels. Pure.                                             |
-| =WidgetLook.kt=              | The five looks, and which ones a kind offers.                                                          |
+| =WidgetLook.kt=              | The nine looks, and which ones a kind offers.                                                          |
 | =WidgetIcons.kt=             | The icon names. Pure; the drawables are in =ui/widgets/WidgetIconDrawables.kt=.                                |
 | =Shortcuts.kt=               | The Shortcuts widget's list: what is kept, its stored form, and the review after an import.            |
 | =WidgetHost.kt=              | The Android side: the =AppWidgetHost=, the placed list, placing Kolahal's own widgets and a script's further ones, the copies in the database (=syncAccess=), moving, resizing and looks, the backup's export and import, and =widgets ls=. |
@@ -1986,7 +1990,7 @@ Widget pill and chip in the Scripts list (the library has a Widget chip).
 - Read functions for scripts, each behind a new =@uses= item: =todos=, =notes=, =reminders=,
   =calendar=, =feeds=. They also help scripts that only log, such as a morning summary.
 - Several widgets from one script, each with its own options: up to 6, with =event.instance= and
-  an Options sheet for each widget.
+  options for each widget (on its settings page).
 - Styled text in widgets (=fmt.bold=, =fmt.color=): bold, italic, underline, strike and the color
   roles, in seven fields.
 

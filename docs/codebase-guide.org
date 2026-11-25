@@ -548,6 +548,7 @@ widget needs an Activity.
 | Shaders                   | [[src:ui/shaders/ShadersScreen.kt::fun ShadersScreen(][ui/shaders/ShadersScreen.kt]], =GetShadersScreen.kt=                                                             | shown over home, so a shader can be seen on it                           |
 | Text editor               | [[src:ui/TextEditorActivity.kt::class TextEditorActivity][ui/TextEditorActivity.kt]], [[src:ui/editor/TextEditorScreen.kt::fun TextEditorScreen][ui/editor/TextEditorScreen.kt]]                                                       | a window of its own; shares =CodeEditor= with the script editor          |
 | Feeds, Widgets, setup, …  | =FeedsScreen.kt=, =WidgetsScreen.kt=, =WidgetPickerScreen.kt=, =SetupScreen.kt=, =OnboardingScreen.kt= |                                                                          |
+| A card's settings page    | =ui/widgets/WidgetSettingsScreen.kt= | =Screen.WIDGET_SETTINGS=, from Settings in Arrange widgets; a card's color, shape and hidden parts are kept in its stored line (=PlacedWidget.color=, =shape=, =hidden=) |
 
 *** The text editor: a second window
 
@@ -766,8 +767,8 @@ Cards read through [[src:terminal/WidgetActions.kt::class WidgetFeed][WidgetFeed
 =vm.widgetActions=: a tap runs the same script again with arguments, or opens a web link; a card
 that is old and on screen asks for one quiet run. In =ui/=, [[src:ui/widgets/ScriptWidgets.kt::internal fun WidgetCard(][WidgetCard]] draws a card; each kind
 has a file (=WidgetStat.kt=, =WidgetList.kt=, ...) and its looks beside it (=WidgetStatLooks.kt=,
-...), chosen per card ([[src:widgets/WidgetLook.kt::enum class WidgetLook][WidgetLook]]: Plain, Tonal, Bold, Split, Shape, Poster, Now for an agenda, and Next and
-Stack for Todos, Reminders and Notes, drawn in =OwnNextTodos.kt=, =OwnTimeline.kt= and =OwnStack.kt= from =OwnDesigns.kt=). The Widgets screen arranges
+...), chosen per card ([[src:widgets/WidgetLook.kt::enum class WidgetLook][WidgetLook]]: Plain, Tonal, Bold, Split, Shape, Poster, Next on Todos and
+Reminders and Stack on Notes, drawn in =OwnNextTodos.kt=, =OwnTimeline.kt= and =OwnStack.kt= from =OwnDesigns.kt=, and Now on an agenda in =AgendaNow.kt=). The Widgets screen arranges
 the page and the picker adds to it. The design record is [[file:widgets-design.org][docs/widgets-design.org]].
 
 ** Navigation without a navigation library

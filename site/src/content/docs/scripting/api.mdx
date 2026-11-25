@@ -1160,7 +1160,7 @@ Every kind takes these fields. All are optional.
 | `title` | text, up to 40 characters | The card's name. A card has no title line: the name shows small where the content doesn't say what it is, over a large list or text, or as the label of a number, a bar, a ring, a chart or a countdown that has none. A screen reader always says it. Without it: the script's `@title`, or its name. |
 | `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's color by the Bold, Split and Shape looks; or an emoji or a letter. |
 | `color` | a role | The color of the bar, the ring, the chart or the note: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. The user can choose another for a placed card on its settings page in Arrange widgets; that one then wins, also over a color the script changes with what it shows. |
-| `shape` | `cookie4`, `cookie6`, `cookie9`, `cookie12`, `clover4`, `clover8`, `sun`, `burst`, `circle`, `pixel`, `gem`, `slanted`, `arch`, `ghost` or `pill` | The card's shape in the **Shape** look, until the user chooses one on its settings page: a 4-, 6-, 9- or 12-sided cookie, a 4-leaf or 8-leaf clover, a sun, a burst, a circle, a pixel circle, a gem, a slanted square, an arch, a ghost or a pill. Only for a card that is one shape, or whose main value sits in one: a `stat`, `text`, `progress` (not its bars), `chart` (not a habit's week), `clock` or `image`. A `clock`, a gauge and rings draw a round dial in it, so they take neither `slanted`, `arch`, `ghost` nor `pill`. Without it, or with one the card can't take: the kind's own, such as a cookie for a `stat` and a clover for a `progress`. Needs Kolahal 0.5.17. |
+| `shape` | `cookie4`, `cookie6`, `cookie9`, `cookie12`, `clover4`, `clover8`, `sun`, `burst`, `circle`, `pixel`, `gem`, `slanted`, `arch`, `ghost` or `pill` | The card's shape in the **Shape** look, until the user chooses one on its settings page: a 4-, 6-, 9- or 12-sided cookie, a 4-leaf or 8-leaf clover, a sun, a burst, a circle, a pixel circle, a gem, a slanted square, an arch, a ghost or a pill. Only for a card that is one shape, or whose main value sits in one: a `stat`, `text`, `progress` (not its bars), `chart` (not a habit's week), `clock` or `image`. A `clock`, a gauge and rings draw a round dial in it, so they take neither `slanted`, `arch`, `ghost` nor `pill`. Without it, or with one the card can't take: the card's own at its size: a 12-sided cookie for a `stat`, a `chart`, rings and an `image` (a 4-leaf clover for an `image` in a 1-row card), a 4-leaf clover for a `progress` and a `text`'s mark (stages beside their words, in a card that isn't square, are a 9-sided cookie), and a 9-sided cookie for a `clock`. Needs Kolahal 0.5.17. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is on screen. A widget scrolled out of sight waits, and runs as soon as it is back if its time has passed. |
@@ -1211,15 +1211,17 @@ of the card's color, strongest where they are, so they read on a light and a dar
 
 - Name a shader that draws a picture behind the text: one that can be a wallpaper. The ones that
   suit weather are `pond`, `rain`, `snowfall`, `dunes` and `mountains`; `night`, `aurora`, `dusk`,
-  `frost` and the others work too, and so does a shader of your own.
+  `frost` and the others work too.
+- Only Kolahal's own shaders are drawn on a card, as they come with it; for a shader of your own
+  the card is the plain stat.
 - `crt`, `lcd`, `eink`, `riso` and `foil` work on the text, and `hearts` and `pulse` play once: they
-  are an error here. A shader of your own that does either is left out when the card draws.
+  are an error here.
 - It is one frame, drawn again only when the card is: it never moves, and costs nothing while the
   card sits there. Its time of day follows the phone's.
 - It shows in the **Plain**, **Tonal** and **Bold** looks, in place of the card's color. **Split**,
   **Shape** and **Poster** keep their own.
-- Without it the card is the plain stat: under Android 13, with TalkBack on, and when the shader is
-  missing or doesn't compile.
+- Without it the card is the plain stat: on Android 12 and older, with TalkBack on, and when the
+  shader is missing or doesn't compile.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -1340,11 +1342,11 @@ each other, or stages. It needs `value`, `items` or `stages`.
 | `max` | a number above 0 | The top of the scale. Without it: 1. |
 | `text` | text, up to 24 | What the ring's middle says: `68%`. Without it: the percent. A gauge's value. |
 | `label` | text, up to 60 | What it is. A gauge's word for its value: `High`. |
-| `style` | `ring`, `bar`, `gauge` or `rings` | Without it, the card picks a ring or a bar for the space it has. `gauge` and `rings` are below. |
-| `items` | a list of bars | Up to 4 bars, each `{ label, value, max, text, color, unit, moving }`: a `label` up to 40 characters, a `text` up to 24, a `unit` up to 12. `value` is needed. |
+| `style` | `ring`, `bar`, `gauge` or `rings` | Without it, the card picks a ring or a bar for the space it has. With `items`, no style or `bar` draws bars, and `ring` is an error (`rings` draws them as rings). `gauge` and `rings` are below. |
+| `items` | a list of bars | Up to 4 bars, each `{ label, value, max, text, color, unit, moving }`: a `label` up to 40 characters, a `text` up to 24. `value` is needed. A `unit` (up to 12) and `moving` go with `rings` only: on bars they are an error. |
 | `moving` | true or false | Draws the ring and the bars as waves, for something in progress. |
 | `min` | a number below `max` | A gauge's lowest value. Without it: 0. |
-| `unit` | text, up to 12 | A gauge's unit: `US AQI`, `km/h`. |
+| `unit` | text, up to 12 | A gauge's unit: `US AQI`, `km/h`. On any other style it is an error. |
 | `zones` | a list of zones | A gauge's zones, up to 5, each `{ from, color }`. |
 | `stages` | a list of 2 to 6 texts, up to 24 each | The stages, the first one first: `Ordered`, `Shipped`, `Delivered`. |
 | `stage` | a whole number | The stage it is at: 1 for the first. Needed with `stages`. |
@@ -1362,8 +1364,8 @@ value large in it: air quality, UV, wind. Needs Kolahal 0.5.17.
   in the card's color.
 - `label` is the word for the value, in the color of the zone the value is in: `Unhealthy for
   some`. `unit` is written with the value.
-- The value is held between `min` and `max`. Only a gauge takes `min` and `zones`: on any other
-  style they are an error.
+- The value is held between `min` and `max`. Only a gauge takes `min`, `unit` and `zones`: on any
+  other style they are an error. A gauge draws `value`: with `items` it is an error.
 - A 2×2 has the arc around the value, and the word under it. A 1-row card has half the arc, with
   the title, the word and the unit beside it.
 
@@ -1376,7 +1378,8 @@ water, sleep. Needs Kolahal 0.5.17.
   `unit` goes after the scale: "5 of 8 glasses". The value is the ring's `text`, or its number.
 - A 2×2 has the values of the first 3 under the rings; a 1-row card has them beside the rings, as
   many as fit. A value there is the ring's `text`, or its percent.
-- `rings` needs `items`.
+- `rings` needs `items`. An item's `unit` and `moving` go with `rings` only, and `ring` with
+  `items` is an error.
 
 **Stages** (`stages`) are a path of fixed steps: a parcel, a flight, a build. Needs Kolahal 0.5.17.
 
@@ -1386,8 +1389,8 @@ water, sleep. Needs Kolahal 0.5.17.
   With `moving`, the wave moves.
 - The current stage's name is the card's main text, and `label` is a line under it: `Arrives
   Thursday`. A 4×1 has each stage's name under its dot.
-- `stages` keeps its first 6 names and needs 2. `stage` must be one of them. Stages take no `items`
-  and no `style`.
+- `stages` has 2 to 6 names: more is an error, as the last stage is the goal. `stage` must be one
+  of them. Stages take no `items` and no `style`.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -2098,7 +2101,7 @@ widget.show({
 | `score` | text or a number, up to 24 | Needed. The score, large between the sides: `2–1`, `1½–½`. |
 | `turn` | 1 or 2 | The side to move, or the side with the ball: a dot by its name. |
 | `moving` | true or false | Draws the part of the bar of the side in `turn` as a wave that moves: its clock runs. |
-| `line` | text, up to 60 | A last line: the last move, the last goal. |
+| `caption` | text, up to 60 | A last line: the last move, the last goal. |
 | `badge` | text, up to 8 | A small text at the top, in the card's color: `67'`, `LIVE`. |
 
 Each side is `{ name, mark, color, value, text }`. Only `name` is needed.
@@ -2117,12 +2120,12 @@ Each side is `{ name, mark, color, value, text }`. Only `name` is needed.
   `refresh` while the game is on.
 - A small card shows the score over the two marks. A `2x1` card has the score between the marks
   and the names under them, with no bar. A `4x1` card has each name beside its mark, the score with
-  the badge and the last line in the middle, and the bar under them. A large card has the title and
+  the badge and the caption in the middle, and the bar under them. A large card has the title and
   the badge at the top, the marks either side of the score with the names under them, then the bar
-  and the last line.
+  and the caption.
 - The marks are shapes in every look, so a versus card has no **Shape** look.
 - A screen reader says the badge, the sides with the score ("Lisbon 2–1 Paris"), each side's figure
-  where there is a bar, whose turn it is, and the last line.
+  where there is a bar, whose turn it is, and the caption.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -2145,7 +2148,7 @@ widget.show{
       text = "42%",
     },
   },
-  line = "64' Goal",
+  caption = "64' Goal",
 }
 ```
 </TabItem>
@@ -2169,7 +2172,7 @@ widget.show({
       text: "42%",
     },
   ],
-  line: "64' Goal",
+  caption: "64' Goal",
 });
 ```
 </TabItem>
@@ -2184,8 +2187,8 @@ Kolahal 0.5.17.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `rises` | a time in seconds | Needed. When the sun rises, or with `phase` the moon. |
-| `sets` | a time in seconds, after `rises` | Needed. When it sets: less than a day after `rises`, or for the moon (with `phase`) less than 24 h 50 min. |
-| `phase` | a number, 0 to 1 | The part of the moon that is lit. With it, the card is the moon's. |
+| `sets` | a time in seconds, after `rises` | Needed. When it sets: less than a day after `rises`, or for the moon (with `phase`) less than 24 h 50 min. A day's moonset often comes before its moonrise: give the moon's next set after its rise. |
+| `phase` | a number, 0 to 1 | The part of the moon that is lit, held between 0 and 1. With it, the card is the moon's. |
 | `waxing` | true or false | The moon's lit part grows. It is drawn on the right. |
 | `phases` | a list of phases | Up to 4 of the moon's next phases, each `{ phase, waxing, at }`. They go with `phase`. |
 
@@ -2209,6 +2212,9 @@ Each phase is `{ phase, waxing, at }`. `phase` and `at` are needed.
   stays close for a few days with no run. A day of the moon is 24 h 50 min.
 - The times change little from day to day. Give it a `staleAfter` of a day (86400), so the widgets
   page runs the script once a day, not each hour.
+- On a day the sun doesn't set or doesn't rise, it has no path: a set a whole day after the rise is
+  an error. Show another kind then, such as a `stat` with the day's length, as the library's `sun`
+  does.
 - `color` is the color of the sun or the moon and of its path: `warn` suits the sun, `link` the moon.
 - Kolahal writes each time in 12-hour or 24-hour form, as the header does
   ([`clock.24h`](/reference/config/)).
@@ -2280,7 +2286,7 @@ What a description keeps, and what it refuses.
 | `stat`: `points` | 60 numbers | the last 60 are kept: the newest |
 | `progress`: `items` | 4 bars | the first 4 are kept |
 | `progress`: `zones` | 5 zones | the first 5 are kept |
-| `progress`: `stages` | 2 to 6 names | the first 6 are kept; fewer than 2 is an error |
+| `progress`: `stages` | 2 to 6 names | an error, as for fewer than 2 |
 | `chart`: `points` | 60 numbers | the last 60 are kept: the newest |
 | `chart`: `labels` | 2 texts | the first 2 are kept |
 | `buttons`: `items` | 1 to 8 buttons | an error, as for none |
@@ -2307,7 +2313,7 @@ What a description keeps, and what it refuses.
 A card's labels start with a capital, as the rest of Kolahal's text does, whatever the script
 writes: `label = "unlocks today"` shows "Unlocks today". This goes for the `label` of a card, of a
 `lead`, of a `progress` bar, of a button and of a switch, the names of `stages`, each `caption`,
-a row's `detail`, `empty`, `reached`, a chart's `labels` and a versus card's `line`, and for the
+a row's `detail`, `empty`, `reached` and a chart's `labels`, and for the
 labels of [`fmt.stats`](#big-numbers) in the log. Every other text stays as written, such as
 titles, `note`, `text`, `trailing`, `where`, values and units, a clock's place names and a tap's
 `label`.
@@ -2336,7 +2342,7 @@ color.
 | `list` | a row's `title`, `detail` and `trailing` |
 | `stat` | `label` |
 | `image` | `caption` |
-| `versus` | `line` |
+| `versus` | `caption` |
 
 - These work there: `fmt.bold`, `fmt.italic`, `fmt.underline`, `fmt.strike` and
   `fmt.color(role, text)`. You join them with other text, as in the log.
@@ -2535,7 +2541,7 @@ days. Each widget is a card of its own, with its own content and its own
 [options](/scripting/overview/#options).
 
 - In the picker, the row of a script whose widget is placed says **Added · tap to add another**. A
-  tap places one more widget, and opens its options.
+  tap places one more widget and, if the script has options, opens its settings page.
 - A script can have 6 widgets at most.
 - The script needs no change. It reads `options` and calls `widget.show`, as for one widget.
 
@@ -2556,9 +2562,10 @@ How a script tells its widgets apart:
 
 - [`event.instance`](#event) is the widget's number, as text: `"2"`, `"3"` and so on for the
   further widgets. For the first widget it is nil (undefined in JavaScript).
-- A widget keeps its number while it is placed. When you remove a widget, its number is free, and
-  the next further widget you place takes the smallest free one. If the first widget was removed,
-  the picker brings it back before it adds a further one.
+- A widget keeps its number while it is placed. When you remove a widget, its number is not given
+  again: the next further widget you place gets a new one, so it never finds what the script
+  stored for the removed one. If the first widget was removed, the picker brings it back before it
+  adds a further one.
 - It is there only in a run for one widget: a `"widget"` run, or a tap on a card.
 - `event.widget` is `true` in a tap's run, as for one widget.
 - Kolahal sets it. A script can't choose which widget it fills.
@@ -2569,9 +2576,9 @@ A widget's options:
 
 - A further widget follows the script's options until you set one for that widget. After that,
   it keeps its own value for that option, and follows the script for the others.
-- To change them, open **Arrange widgets**, select the card and tap **Options**
-  ([Widgets from scripts](/guides/widgets/#widgets-from-scripts)).
-- The first widget has no options of its own. Its **Options** are the script's.
+- To change them, open **Arrange widgets**, select the card and tap **Settings**: its options are
+  under **This card** ([Widgets from scripts](/guides/widgets/#widgets-from-scripts)).
+- The first widget has no options of its own: its settings page shows the script's.
 - Removing a widget deletes its content and its own options.
 
 <Tabs syncKey="lang">
@@ -3542,9 +3549,9 @@ Today's screen time since midnight, in minutes (`total`), and the `n` apps you u
 your personal profile, used for a minute or more, are in the list. `total` counts every app,
 Kolahal too, as `usage` does, so it can be more than the list adds up to.
 
-`limit` is your daily limit for screen time in minutes (`usage.screen-time-limit`), nil when you set
-none. `color` is the role Kolahal gives `total` against it, as `usage` colors it: `"warn"` from the
-limit, `"bad"` from one and a half times it, nil under it or without a limit. A card can take it as
+`limit` is your daily limit for screen time in minutes (`usage.screen-time-limit`), nil (null in
+JavaScript) when you set none. `color` is the role Kolahal gives `total` against it, as `usage`
+colors it: `"warn"` from the limit, `"bad"` from one and a half times it, nil under it or without a limit. A card can take it as
 its `color`: the library's **screen-time** card does. Kolahal before 0.5.17 gives neither.
 
 ### usage.days(n?)
