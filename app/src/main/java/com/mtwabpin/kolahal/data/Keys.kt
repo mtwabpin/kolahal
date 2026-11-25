@@ -654,6 +654,13 @@ object Keys {
         true,
         "A tip a day in the log for your first two weeks: something you haven't used yet"
     )
+
+    /** terminal/DismissOnDelete: a swipe dismisses once its Undo is gone, Delete line at once. Settings → Log shows it with notification access. */
+    val NOTIFS_DISMISS_ON_DELETE = ConfigKey.Bool(
+        "notifs.dismiss-on-delete",
+        true,
+        "Deleting a notification's line also dismisses the notification, once Undo is gone. Ongoing ones, such as music or a call, stay.\nOff: deleting a line only removes it from the log.\nClearing the log dismisses nothing. 'notifs clear' dismisses them all"
+    )
     val FEEDS_LOG = ConfigKey.Bool("feeds.log", true, "Post new feed items in the log")
     val FEEDS_LOG_LINES = ConfigKey.Num(
         "feeds.log-lines",
@@ -867,6 +874,7 @@ object Keys {
         LOG_KEEP_LINES,
         LOG_FRESH,
         LOG_TIPS,
+        NOTIFS_DISMISS_ON_DELETE,
         SEARCH_ENGINE,
         SEARCH_URL,
         COMMANDS_OFF,

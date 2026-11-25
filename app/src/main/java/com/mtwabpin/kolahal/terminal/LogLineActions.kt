@@ -13,6 +13,8 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
@@ -357,7 +359,15 @@ class LogLineActions(
                 ctx.copy?.let(StyledText::plain) ?: entry.shownText, sensitive(entry)
             )
         }
-        danger += LogAction("Delete line", destructive = true) { host.io { logs.delete(entry.id) } }
+        // No Undo follows, so a notification's line dismisses its notification at once ([DismissOnDelete]).
+        danger += LogAction("Delete line", destructive = true) {
+            host.io {
+                logs.delete(entry.id)
+                DismissOnDelete.keyOf(ctx, Config.get(context)[Keys.NOTIFS_DISMISS_ON_DELETE]) {
+                    NotificationActions.isEnabled(context)
+                }?.let(NotificationActions::dismissIfClearable)
+            }
+        }
         return actions + danger
     }
 

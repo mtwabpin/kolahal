@@ -128,6 +128,7 @@ three settings of the log differ here:
 | `log.keep-lines` | number 500–50000 | `5000` | delete the oldest log lines beyond this number. Typed commands are counted separately, so ↑ history is kept. Starred lines are kept and not counted. Only with `config set`: the settings screen doesn't show it |
 | `log.tips` | bool | `on` | for your first two weeks, one line a day about something you haven't used yet. Tap it to try it |
 | `log.fresh` | number 0–240 | `10` | show a clean home screen after you've been away this many minutes (0: never). Earlier output is one tap away. `fresh` does this at once |
+| `notifs.dismiss-on-delete` | bool | `on` | deleting a notification's line also [dismisses the notification](/guides/notifications/#deleting-a-line-dismisses-its-notification): after a swipe once **Undo** is gone, with **Delete line** at once. Ongoing ones, such as music or a call, stay. Clearing the log dismisses nothing. Off: deleting a line only removes it from the log. Needs notification access |
 | `feeds.log` | bool | `on` | post new feed items in the log |
 | `feeds.log-lines` | 1–50 | `10` | how many new items per feed and refresh appear in the log. The rest appear as one "+N more" line |
 | `feeds.read-shown` | bool | `off` | items posted in the log count as read. When off, only items you opened or listed count as read |

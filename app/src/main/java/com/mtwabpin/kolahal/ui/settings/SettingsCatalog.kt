@@ -110,6 +110,8 @@ internal val NEEDS_ACCESS: Map<ConfigKey<*>, List<String>> = buildMap {
     // Screen time isn't known without usage access, and unlocks are then counted only while Kolahal runs.
     put(Keys.USAGE_SCREEN_TIME_LIMIT, listOf(Accesses.USAGE))
     put(Keys.USAGE_UNLOCK_LIMIT, listOf(Accesses.USAGE))
+    // Without notification access there are no notification lines, and nothing to dismiss.
+    put(Keys.NOTIFS_DISMISS_ON_DELETE, listOf(Accesses.READ_NOTIFICATIONS))
     // No word plays a one-off shader without notification access, and none plays over an app without
     // Display over other apps. The Shaders tab shows its switch. A build without it (BuildConfig.SHADER_OVER_APPS) has neither the setting nor that access.
     if (BuildConfig.SHADER_OVER_APPS) put(Keys.SHADER_OVER_APPS, listOf(Accesses.READ_NOTIFICATIONS, Accesses.OVERLAY))
@@ -225,6 +227,7 @@ private val CATEGORIES = listOf(
                 Keys.LOG_KEEP_DAYS,
             ),
             "Tips" to listOf(Keys.LOG_TIPS),
+            "Notifications" to listOf(Keys.NOTIFS_DISMISS_ON_DELETE),
         ),
     ),
     Category(

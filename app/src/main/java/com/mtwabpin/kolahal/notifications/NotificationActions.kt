@@ -80,6 +80,22 @@ object NotificationActions {
         }
     }
 
+    /**
+     * Dismisses the notification [key] if it is still showing and can be dismissed ([clearable]): deleting its
+     * line does this (`notifs.dismiss-on-delete`). One that is gone, or ongoing (music, a call), is left as it
+     * is, and nothing is said.
+     */
+    fun dismissIfClearable(key: String) {
+        val listener = KolahalNotificationListener.connected ?: return
+        val sbn = runCatching { listener.getActiveNotifications(arrayOf(key)) }.getOrNull()
+            ?.firstOrNull { it?.key == key } ?: return
+        if (clearable(sbn.notification.flags)) dismiss(key)
+    }
+
+    /** Whether a notification with these [flags] can be dismissed, as by the shade's Clear all: not an ongoing one. */
+    fun clearable(flags: Int): Boolean =
+        flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_NO_CLEAR) == 0
+
     /** Dismisses every clearable notification. */
     fun dismissAll(): Boolean {
         val listener = KolahalNotificationListener.connected ?: return false

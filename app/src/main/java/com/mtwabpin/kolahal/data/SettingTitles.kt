@@ -81,6 +81,7 @@ object SettingTitles {
         "keyboard.on-home" to "Open the keyboard on Home",
         "backup.auto" to "Automatic backups",
         "log.tips" to "Daily tips",
+        "notifs.dismiss-on-delete" to "Deleting a line dismisses its notification",
         "backup.keep" to "Backups to keep",
         "launch.instant" to "Instant launch",
         "launch.instant-letters" to "Letters before instant launch",

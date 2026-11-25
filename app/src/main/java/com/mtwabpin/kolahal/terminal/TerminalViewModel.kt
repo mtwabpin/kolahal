@@ -1080,10 +1080,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         offer.undo()
     }
 
-    /** Swipe left on a log line. */
+    /**
+     * Swipe left on a log line (and TalkBack's Delete on it). A notification's line also dismisses its
+     * notification, once Undo is no longer offered ([DismissOnDelete]).
+     */
     fun swipeDelete(entry: LogEntry) {
         viewModelScope.launch(deleteIo) { runCatching { logs.delete(entry.id) } }
-        offerUndo(UndoOffer("Line deleted") {
+        val key = DismissOnDelete.keyOf(entry.ctx, config[Keys.NOTIFS_DISMISS_ON_DELETE]) {
+            com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context)
+        }
+        offerUndo(DismissOnDelete.undoOffer("Line deleted", key, dismiss = { k ->
+            viewModelScope.launch(deleteIo) {
+                runCatching { com.mtwabpin.kolahal.notifications.NotificationActions.dismissIfClearable(k) }
+            }
+        }) {
             viewModelScope.launch(deleteIo) {
                 runCatching {
                     logs.restore(

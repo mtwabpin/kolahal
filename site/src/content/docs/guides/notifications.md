@@ -23,6 +23,9 @@ What you can do with a line:
 
 - **Tap** it to open the notification. If the notification is gone, the app opens.
 - **Long-press** it to dismiss it, mute the app, or copy the text.
+- **Delete** it, with the [swipe](/guides/gestures/) that deletes a line or **Delete line** in the long-press
+  menu. The notification is dismissed too, so it also goes from the notification shade. See
+  [Deleting a line dismisses its notification](#deleting-a-line-dismisses-its-notification).
 
 To keep the log readable, Kolahal skips these notifications:
 
@@ -57,6 +60,24 @@ While Kolahal has access, scripts can read recent notifications with
 [`notifications.recent(n)`](/scripting/api/#notificationsrecentn). A script can also run when a
 notification arrives, with `@on notification`: for every app, or
 [only for the apps it names](/scripting/overview/#notifications-from-some-apps).
+
+### Deleting a line dismisses its notification
+
+A swipe that deletes a line offers **Undo** for a few seconds. A dismissed notification can't be brought
+back, so Kolahal dismisses it only once **Undo** is gone:
+
+- Tap **Undo** in time, and the line is back and the notification stays where it is.
+- **Delete line** in the long-press menu has no **Undo**, so the notification is dismissed at once.
+- A notification that can't be dismissed, such as music or a call, stays. Only its line goes.
+- A notification that is already gone is fine: nothing happens, and nothing is said.
+- Clearing the log (`clear`) and lines the log deletes by itself don't dismiss anything, and neither does
+  **Delete command and output**. `notifs clear` dismisses all your notifications.
+
+For example, a message from Alex shows as a line. Swipe it away, and a few seconds later it is gone from the
+shade and the lock screen too.
+
+To only remove lines from the log, turn off **Settings → Log → Deleting a line dismisses its notification**,
+or run `config set notifs.dismiss-on-delete off`. The setting shows once Kolahal has notification access.
 
 ## Notifications from scripts and feeds
 
