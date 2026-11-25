@@ -117,7 +117,7 @@ private data class Drop(val w: PlacedWidget, val column: Int, val topDp: Int)
  *   Narrower, Taller, Shorter, what the widget itself holds ([editOf]: Settings or Widget settings,
  *   as in its toolbar) and Remove.
  * - The chosen widget is scrolled into view, clear of the bars ([topRoom], [bottomRoom]), when it is
- *   chosen, when the screen comes back to it, and each time it moves or changes size.
+ *   chosen, when the screen comes back to it, and each time it moves or changes size. [onBrought] runs after.
  * - With [onEdge] (more than one page), a widget held at the screen's start or end edge asks for the
  *   page before or after, one each [EDGE_HOLD_MS] while it stays there. [onEdge] moves it there and
  *   shows that page; the drag goes on, and the widget lands where it is let go.
@@ -145,6 +145,7 @@ internal fun ArrangedPage(
     onRemove: (PlacedWidget) -> Unit,
     editOf: (PlacedWidget) -> ToolbarEdit?,
     onEdge: ((key: String, step: Int) -> Unit)? = null,
+    onBrought: suspend () -> Unit = {},
 ) {
     val density = LocalDensity.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -421,6 +422,7 @@ internal fun ArrangedPage(
                                 size.height + bottomRoomPx
                             )
                         )
+                        onBrought()
                     }
                     val minHeight = remember(w.key, providersVersion) { widgets.minHeightOf(w) }
                     val minSpan = remember(w.key, providersVersion) { widgets.minSpanOf(w) }

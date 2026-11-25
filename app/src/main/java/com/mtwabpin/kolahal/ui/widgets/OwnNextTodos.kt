@@ -56,8 +56,8 @@ internal fun nextTodosBody(t: OwnDesigns.NextTodos): OwnBody = { box, onTap -> N
  * ticked last again, until the page is turned away.
  * - 2×2: a ring of the ticked ones with "3/7", "Todos" and "4 left" beside it, then "Next" and the
  *   todo in two lines with its check, then Undo and "+3 more".
- * - 4×2 and taller: the 4×1 row on top, then the todos after it as rows with checkboxes, as many
- *   as fit, then Undo and "+3 more".
+ * - 4×2 and taller: the 4×1 row on top, its line without the count, then the todos after the two it
+ *   names as rows with checkboxes, as many as fit, then "+3 more". No todo is there twice.
  * - 4×1: the check, the todo with "then Renew the passport · +2" under it, and the ring.
  * - 2×1: the check, and the todo in two lines with "+3 more" under it. No ring: no room.
  * - 1×1: the ring with "3/7" alone.
@@ -76,7 +76,7 @@ private fun NextTodosBody(t: OwnDesigns.NextTodos, box: WidgetSizes.Box, onTap: 
         val height = maxHeight
         when {
             box == WidgetSizes.Box.LARGE && width < 300.dp -> NextSquare(t, role, onTap)
-            box == WidgetSizes.Box.LARGE -> NextTall(t, role, height, onTap)
+            box == WidgetSizes.Box.LARGE -> NextTall(t, role, onTap)
             box == WidgetSizes.Box.WIDE -> NextRow(t, role, min(height, 56.dp), ring = true, onTap)
             width >= 150.dp -> NextRow(t, role, min(height, 48.dp), ring = false, onTap)
             else -> Box(
@@ -152,7 +152,7 @@ private fun NextSquare(t: OwnDesigns.NextTodos, role: Color, onTap: ((WidgetTap)
                         modifier = Modifier.weight(1f, fill = false)
                     )
                 }
-                NextFoot(t, more = t.left - 1, role, onTap, Modifier.padding(top = 4.dp))
+                NextFoot(t.undo, more = t.left - 1, role, onTap, Modifier.padding(top = 4.dp))
             }
             if (next != null) CheckShape(
                 next,
@@ -167,27 +167,34 @@ private fun NextSquare(t: OwnDesigns.NextTodos, role: Color, onTap: ((WidgetTap)
 }
 
 /**
- * A 4×2 or taller card: the 4×1's row at the top ([NextRow]), then the todos after the next one as
- * rows with checkboxes, as many as fit in [height], then Undo and "+3 more".
+ * A 4×2 or taller card: the 4×1's row at the top ([NextRow]), whose line names the todo after the next
+ * one without a count, then the todos after those two as rows with checkboxes ([OwnDesigns.followRows]),
+ * as many as fit in the room under the top row as it is drawn, then "+3 more" for the ones left out.
+ * No todo is on the card twice, and Undo is on the top row's line.
  */
 @Composable
-private fun NextTall(t: OwnDesigns.NextTodos, role: Color, height: Dp, onTap: ((WidgetTap) -> Unit)?) {
-    val type = MaterialTheme.typography
-    val rows = t.open.drop(1)
-    val lineDp = linesDp(type.bodyMedium)
-    val rowDp = OwnDesigns.followRowDp(lineDp)
-    // The row at the top, with its todo in two lines and the line under it, and the room after it.
-    val topDp = maxOf(56, 2 * linesDp(type.titleMedium) + linesDp(type.bodyMedium)) + 8
-    val shown = OwnDesigns.followShown(rows.size, height.value.toInt() - topDp, lineDp, undo = t.undo != null)
-    val more = t.left - 1 - shown
+private fun NextTall(t: OwnDesigns.NextTodos, role: Color, onTap: ((WidgetTap) -> Unit)?) {
+    val rows = OwnDesigns.followRows(t)
+    val lineDp = linesDp(MaterialTheme.typography.bodyMedium)
     Column(Modifier.fillMaxSize()) {
-        NextRow(t, role, 56.dp, ring = true, onTap, lines = 2)
+        NextRow(t, role, 56.dp, ring = true, onTap, lines = 2, rest = false)
         Spacer(Modifier.height(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
-            rows.take(shown).forEachIndexed { i, todo ->
-                key(todo.id) { FollowRow(todo, rowDp.dp, segmentShape(i, shown), role, onTap) }
+        // The room that is left under the top row, whether its todo takes one line or two.
+        BoxWithConstraints(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            val room = maxHeight.value.toInt()
+            val shown = OwnDesigns.followShown(rows.size, room, lineDp)
+            val more = OwnDesigns.followMore(t, shown)
+            val rowDp = OwnDesigns.followHeightDp(shown, room, lineDp, more > 0)
+            Column(verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
+                rows.take(shown).forEachIndexed { i, todo ->
+                    key(todo.id) { FollowRow(todo, rowDp.dp, segmentShape(i, shown), role, onTap) }
+                }
+                NextFoot(null, more, role, onTap, Modifier.height(OwnDesigns.FOOT_DP.dp))
             }
-            NextFoot(t, more, role, onTap, Modifier.height(OwnDesigns.FOOT_DP.dp))
         }
     }
 }
@@ -196,7 +203,8 @@ private fun NextTall(t: OwnDesigns.NextTodos, role: Color, height: Dp, onTap: ((
  * One row: the next todo's check ([side] across), the todo with a line under it, and with [ring]
  * the ring at the end. The line under it is "then Renew the passport · +2" beside a ring, else
  * "+3 more"; Undo comes first on it while there is one. With nothing open, "Nothing open" stands
- * where the todo is. The todo has [lines] at most.
+ * where the todo is. The todo has [lines] at most. Without [rest], the line has no count: a tall
+ * card's, whose rows go on from there.
  */
 @Composable
 private fun NextRow(
@@ -206,6 +214,7 @@ private fun NextRow(
     ring: Boolean,
     onTap: ((WidgetTap) -> Unit)?,
     lines: Int = if (ring) 1 else 2,
+    rest: Boolean = true,
 ) {
     val type = MaterialTheme.typography
     val muted = lookColors().muted
@@ -220,7 +229,7 @@ private fun NextRow(
                 maxLines = lines,
                 overflow = TextOverflow.Ellipsis
             )
-            val then = if (ring) OwnDesigns.thenWords(t) else null
+            val then = if (ring) OwnDesigns.thenWords(t, rest) else null
             if (then != null || t.undo != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     t.undo?.let { UndoText(it, role, onTap, Modifier.padding(end = 12.dp)) }
@@ -236,7 +245,7 @@ private fun NextRow(
                     )
                 }
             } else if (!ring) {
-                NextFoot(t, more = t.left - 1, role, onTap)
+                NextFoot(t.undo, more = t.left - 1, role, onTap)
             }
         }
         if (ring) Box(Modifier.padding(start = 12.dp)) { RingCount(t, role, min(side, 48.dp)) }
@@ -331,16 +340,15 @@ private fun FollowRow(
     }
 }
 
-/** The line under the todos: Undo while there is one, then "+3 more" for [more] open todos not shown. Nothing without either. */
+/** The line under the todos: Undo while there is one ([undo]), then "+3 more" for [more] open todos not shown. Nothing without either. */
 @Composable
 private fun NextFoot(
-    t: OwnDesigns.NextTodos,
+    undo: Todo?,
     more: Int,
     role: Color,
     onTap: ((WidgetTap) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val undo = t.undo
     if (undo == null && more <= 0) return
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (undo != null) UndoText(undo, role, onTap, Modifier.padding(end = 12.dp))

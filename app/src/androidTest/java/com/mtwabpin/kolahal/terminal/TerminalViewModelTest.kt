@@ -253,6 +253,32 @@ class TerminalViewModelTest {
         }
     }
 
+    /**
+     * A page turn asked from another thread, as a command asks it, reaches home on the main thread. Home's pager
+     * starts the turn on the thread the ask reaches it on, and a collector whose dispatcher doesn't move it, as a
+     * Compose test's, runs on the thread that emits. Off the main thread, a turn of three pages stopped Compose
+     * with "performMeasureAndLayout called during measure layout".
+     */
+    @Test
+    fun aPageTurnIsAskedOnTheMainThread() {
+        val vm = home()
+        val threads = CopyOnWriteArrayList<Thread>()
+        // Unconfined: the collector runs on the thread that emits.
+        val inPlace = CoroutineScope(Dispatchers.Unconfined + Job())
+        try {
+            inPlace.launch { vm.widgetsTurns.collect { threads += Thread.currentThread() } }
+            // From this thread, which is not the main one, as a command's.
+            vm.showWidgetsPage(2)
+            waitUntil("the turn asked from another thread") { threads.size == 1 }
+            main { vm.showWidgetsPage(1) }
+            waitUntil("the turn asked from the main thread") { threads.size == 2 }
+            val mainThread = android.os.Looper.getMainLooper().thread
+            assertEquals(listOf(mainThread, mainThread), threads.toList())
+        } finally {
+            inPlace.cancel()
+        }
+    }
+
     /** Header taps: the todo count runs `todo`, the gear opens Settings. */
     @Test
     fun headerTapsRunTodoAndOpenSettings() {

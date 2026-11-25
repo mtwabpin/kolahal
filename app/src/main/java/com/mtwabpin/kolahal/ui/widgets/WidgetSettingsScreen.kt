@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -211,12 +211,15 @@ fun WidgetSettingsScreen(vm: TerminalViewModel) {
                 // The card and the space around it and its line.
                 val pinned = (w.heightDp + 56).dp <= room * PINNED_SHARE
                 val preview = @Composable { CardPreview(w, pageDp, vm) }
+                // Not kept from one opening to the next, as a saved scroll position would be: each card's page opens at its top.
+                val scroll = remember { ScrollState(0) }
                 Column(Modifier.fillMaxSize()) {
                     if (pinned) preview()
                     Column(
                         Modifier
                             .weight(1f)
-                            .verticalScroll(rememberScrollState())
+                            .testTag("widget-settings-list")
+                            .verticalScroll(scroll)
                             .padding(bottom = padding.calculateBottomPadding() + 16.dp)
                     ) {
                         if (!pinned) preview()

@@ -1244,11 +1244,23 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     val widgetsTurns: SharedFlow<Int> = _widgetsTurns
 
+    /**
+     * Asks home for a page turn ([emit]) on the main thread. A command asks from its own thread, and the pager
+     * starts the turn on the thread the ask reaches it on: the main thread through home's own dispatcher, but the
+     * asking thread where a dispatcher doesn't move it, as under a Compose test. A turn of three pages or more
+     * jumps first and lays the pager out at once, which off the main thread stops Compose with
+     * "performMeasureAndLayout called during measure layout".
+     */
+    private fun askTurn(emit: () -> Unit) {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) emit()
+        else viewModelScope.launch(Dispatchers.Main.immediate) { emit() }
+    }
+
     override fun showWidgetsPage() = showWidgetsPage(1)
 
     override fun showWidgetsPage(page: Int) {
         _events.tryEmit(UiEvent.HideKeyboard)
-        _widgetsTurns.tryEmit(page)
+        askTurn { _widgetsTurns.tryEmit(page) }
     }
 
     // ---- full-screen screens (matrix, clock, pipes, decode, sl, top, boot) ------------------
@@ -1278,7 +1290,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     override fun showTtyScreen(name: String) {
         _events.tryEmit(UiEvent.HideKeyboard)
-        _logTurns.tryEmit(Unit)
+        askTurn { _logTurns.tryEmit(Unit) }
         _screenSaverOn.value = false
         _ttyScreen.value = name
     }
@@ -1374,7 +1386,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             override fun openUrl(url: String) = this@TerminalViewModel.openUrl(url)
             override fun openScreen(screen: Screen) = this@TerminalViewModel.openScreen(screen)
             override fun showLog() {
-                _logTurns.tryEmit(Unit)
+                askTurn { _logTurns.tryEmit(Unit) }
             }
 
             override fun runTyped(command: String) {

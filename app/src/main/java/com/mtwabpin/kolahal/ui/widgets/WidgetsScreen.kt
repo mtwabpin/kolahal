@@ -4,6 +4,8 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.animateTo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -341,6 +343,7 @@ fun WidgetsScreen(
 
     GuiTheme {
         val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+        val barSettles = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
         // Where the Remove target is in the window while a widget is held.
         var removeAt by remember { mutableStateOf(Rect.Zero) }
         val overRemove by remember { derivedStateOf { dragged?.let { removeAt.contains(it.window) } == true } }
@@ -555,6 +558,15 @@ fun WidgetsScreen(
                         editOf = { editOf(it) },
                         // With more than one page: held at the screen's edge, a widget goes to the next page.
                         onEdge = if (pages.size > 1) ::toEdge else null,
+                        // The scroll that brings the chosen card into view takes the top bar part of the way with
+                        // it, and no drag ends there to settle the bar: its small title would stay half faded in
+                        // over the large one. So the bar closes the rest of the way.
+                        onBrought = {
+                            val bar = scroll.state
+                            if (bar.collapsedFraction > 0.01f && bar.collapsedFraction < 0.99f) {
+                                AnimationState(bar.heightOffset).animateTo(bar.heightOffsetLimit, barSettles) { bar.heightOffset = value }
+                            }
+                        },
                     )
                 }
                 if (pending.isNotEmpty()) {

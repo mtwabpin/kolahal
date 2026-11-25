@@ -8,6 +8,7 @@ import com.mtwabpin.kolahal.terminal.OwnTaps
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -61,23 +62,67 @@ class OwnDesignsTest {
     }
 
     /**
-     * The todos under the next one are rows to tap, as tall as a list's ([TAP_ROW_DP]), so fewer fit.
+     * The todos under the top row are rows to tap, as tall as a list's ([TAP_ROW_DP]), as many as fit.
      * The rooms are a 4×2's and a 4×4's on a phone 411 dp wide (192 and 392 dp, 28 of them its
-     * margins, 76 its top row), with the text at its usual size (a line of 20 dp).
+     * margins, 64 its top row and the gap under it), with the text at its usual size (a line of 20 dp).
      */
     @Test
-    fun theRowsAfterTheNextAreRowsToTap() {
+    fun theRowsUnderTheTopRowAreRowsToTap() {
         assertEquals(TAP_ROW_DP, OwnDesigns.followRowDp(20))
         assertEquals("a larger font", 50, OwnDesigns.followRowDp(50))
-        // A 4×2: one of two, then "+1 more".
-        assertEquals(1, OwnDesigns.followShown(2, 88, 20, undo = false))
-        assertEquals(1, OwnDesigns.followShown(1, 88, 20, undo = false))
-        // Undo keeps its line also when every row fits.
-        assertEquals(1, OwnDesigns.followShown(1, 88, 20, undo = true))
-        // A 4×4: six when they all fit, else five and "+3 more".
-        assertEquals(6, OwnDesigns.followShown(6, 288, 20, undo = false))
-        assertEquals(5, OwnDesigns.followShown(8, 288, 20, undo = false))
-        assertEquals(5, OwnDesigns.followShown(8, 288, 20, undo = true))
+        // A 4×2: two when they are all there are, else one and "+3 more".
+        assertEquals(2, OwnDesigns.followShown(2, 100, 20))
+        assertEquals(1, OwnDesigns.followShown(3, 100, 20))
+        assertEquals(1, OwnDesigns.followShown(1, 100, 20))
+        assertEquals(0, OwnDesigns.followShown(0, 100, 20))
+        // A 4×4: six when they are all there are, and six of eight with "+2 more".
+        assertEquals(6, OwnDesigns.followShown(6, 300, 20))
+        assertEquals(6, OwnDesigns.followShown(8, 300, 20))
+        // Ten dp less, and the line for "+3 more" takes the sixth row's place.
+        assertEquals(5, OwnDesigns.followShown(8, 290, 20))
+    }
+
+    /** A tall card names the next todo and the one after it in its top row, and its rows go on from the third: none is there twice. */
+    @Test
+    fun aTallCardShowsNoTodoTwice() {
+        val t = OwnDesigns.nextTodos(todos)
+        // The top row's line has no count: the rows and the line under them carry on.
+        assertEquals("then Renew the passport", OwnDesigns.thenWords(t, rest = false))
+        assertEquals(listOf("Water the plants", "Call the plumber"), OwnDesigns.followRows(t).map { it.text })
+        val named = listOf(t.next!!.text, "Renew the passport") + OwnDesigns.followRows(t).map { it.text }
+        assertEquals(named.distinct(), named)
+        assertEquals(t.open.map { it.text }, named)
+        // What is left out is counted: both rows shown, one, none.
+        assertEquals(0, OwnDesigns.followMore(t, 2))
+        assertEquals(1, OwnDesigns.followMore(t, 1))
+        assertEquals(2, OwnDesigns.followMore(t, 0))
+        // Two open or fewer: no rows, and nothing left out.
+        val two = OwnDesigns.nextTodos(todos.map { if (it.id < 6L) it.copy(done = true) else it })
+        assertEquals(emptyList<Todo>(), OwnDesigns.followRows(two))
+        assertEquals(0, OwnDesigns.followMore(two, 0))
+        val none = OwnDesigns.nextTodos(todos.map { it.copy(done = true) })
+        assertEquals(0, OwnDesigns.followMore(none, 0))
+        // A long list counts every open one, also those the card doesn't hold.
+        val many = OwnDesigns.nextTodos((1..80L).map { Todo(it, "Todo $it", false) })
+        assertEquals(80 - 2 - 5, OwnDesigns.followMore(many, 5))
+    }
+
+    /** The rows share the room they have, up to a list's tallest row; the line for "+3 more" is kept first. */
+    @Test
+    fun theRowsShareTheirRoom() {
+        // A 4×2 with one row and "+3 more": 100 less the line and its gap is more than a row may take.
+        assertEquals(WidgetWords.ROW_MAX_DP.toFloat(), OwnDesigns.followHeightDp(1, 100, 20, more = true), 0f)
+        // Two rows and nothing left out: they share 100 dp with the gap between them.
+        assertEquals(49f, OwnDesigns.followHeightDp(2, 100, 20, more = false), 0f)
+        // Never less than a row to tap, and none shown is that too.
+        assertEquals(TAP_ROW_DP.toFloat(), OwnDesigns.followHeightDp(5, 250, 20, more = true), 0f)
+        assertEquals(TAP_ROW_DP.toFloat(), OwnDesigns.followHeightDp(0, 100, 20, more = false), 0f)
+        // What they take fits the room: rows, gaps and the line.
+        for ((shown, room, more) in listOf(Triple(1, 100, true), Triple(2, 100, false), Triple(5, 300, true), Triple(6, 300, false))) {
+            val used = shown * OwnDesigns.followHeightDp(shown, room, 20, more) + (shown - 1) * ROW_GAP_DP +
+                if (more) OwnDesigns.FOOT_DP + ROW_GAP_DP else 0
+            assertTrue("$shown rows in $room dp take $used", used <= room + 0.01f)
+        }
     }
 
     /** A tick brings the one after; Undo stays for the ticked one while it is done. */

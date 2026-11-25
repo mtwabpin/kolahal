@@ -74,14 +74,24 @@ internal object OwnDesigns {
     fun leftWords(t: NextTodos): String = if (t.left > 0) "${t.left} left" else "All done"
 
     /**
-     * What a one-row card says under the next todo: the one after it, and how many come after
-     * that: "then Renew the passport · +2". Null when the next is the last one open.
+     * What a card's top row says under the next todo: the one after it, and with [rest] how many come
+     * after that: "then Renew the passport · +2". Null when the next is the last one open. A tall card
+     * lists the rest as rows ([followRows]) and counts what is left out under them, so its line has no count.
      */
-    fun thenWords(t: NextTodos): String? {
+    fun thenWords(t: NextTodos, rest: Boolean = true): String? {
         val after = t.open.getOrNull(1) ?: return null
         val more = t.left - 2
-        return "then ${after.text}" + if (more > 0) " · +$more" else ""
+        return "then ${after.text}" + if (rest && more > 0) " · +$more" else ""
     }
+
+    /**
+     * The todos a tall card lists as rows under its top row: those after the two that row names, the
+     * next one and the "then" one. So no todo is on the card twice.
+     */
+    fun followRows(t: NextTodos): List<Todo> = t.open.drop(2)
+
+    /** How many open todos a tall card leaves out with [shown] rows under its top row: its "+3 more". */
+    fun followMore(t: NextTodos, shown: Int): Int = (t.left - minOf(2, t.open.size) - shown).coerceAtLeast(0)
 
     /** The height of the line with Undo and "+3 more" under the todos, in dp. */
     const val FOOT_DP = 20
@@ -93,13 +103,24 @@ internal object OwnDesigns {
     fun followRowDp(lineDp: Int): Int = WidgetWords.textRowDp(TAP_ROW_DP, lineDp)
 
     /**
-     * How many of the [count] todos after the next one a tall card shows in the [roomDp] under its
-     * top row, each [followRowDp] tall with [ROW_GAP_DP] between two. The foot line ([FOOT_DP]) is kept
-     * for "+3 more" when rows are left out, and for Undo while there is one ([undo]), also when every row fits.
+     * How many of the [count] rows of a tall card ([followRows]) it shows in the [roomDp] under its top
+     * row, each [followRowDp] tall with [ROW_GAP_DP] between two: as many as fit. The foot line
+     * ([FOOT_DP]) is kept for "+3 more" only when rows are left out. Undo is on the top row's line.
      */
-    fun followShown(count: Int, roomDp: Int, lineDp: Int, undo: Boolean): Int {
-        val room = roomDp - if (undo) FOOT_DP + ROW_GAP_DP else 0
-        return WidgetWords.rowsShown(count, room, followRowDp(lineDp), FOOT_DP, ROW_GAP_DP)
+    fun followShown(count: Int, roomDp: Int, lineDp: Int): Int =
+        WidgetWords.rowsShown(count, roomDp, followRowDp(lineDp), FOOT_DP, ROW_GAP_DP)
+
+    /**
+     * The height of each of the [shown] rows of a tall card, in dp, in the [roomDp] under its top row:
+     * [followRowDp], or more where the rows have room to share, up to a list's tallest row
+     * ([WidgetWords.ROW_MAX_DP]). With [more] left out, the foot line and its gap are kept first.
+     */
+    fun followHeightDp(shown: Int, roomDp: Int, lineDp: Int, more: Boolean): Float {
+        val least = followRowDp(lineDp)
+        if (shown <= 0) return least.toFloat()
+        val room = roomDp - if (more) FOOT_DP + ROW_GAP_DP else 0
+        val share = (room + ROW_GAP_DP).toFloat() / shown - ROW_GAP_DP
+        return share.coerceIn(least.toFloat(), maxOf(least, WidgetWords.ROW_MAX_DP).toFloat())
     }
 
     /**

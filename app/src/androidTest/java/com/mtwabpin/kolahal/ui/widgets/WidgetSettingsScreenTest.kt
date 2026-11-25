@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
@@ -50,6 +51,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -71,6 +73,13 @@ class WidgetSettingsScreenTest {
         InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val t = TestScriptWidgets("wopts")
     private val options = ScriptOptions(app)
+
+    /** Not a first run: right after an install, the welcome tour would open over the screens a moment after the view model starts. */
+    @Before
+    fun setUp() {
+        app.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("intro_shown", true).commit()
+    }
 
     @After
     fun tearDown() = t.close()
@@ -311,6 +320,33 @@ class WidgetSettingsScreenTest {
             t.host.addTo = WidgetLocation.PANEL
             t.host.pages.value.drop(before).forEach { t.host.removePage(it.location) }
         }
+    }
+
+    /**
+     * A card's page opens at its top, also after another card's page was left scrolled to its end. The
+     * screens keep what they saved while another is open, as home's do: a saved scroll position would come back.
+     */
+    @Test
+    fun aCardsPageOpensAtItsTop() {
+        fun shaped(suffix: String, title: String): Script {
+            val s = t.place(t.create(suffix, "-- @title $title\n-- @widget stat 2x2\nwidget.show{ value = 118, label = \"AQI\", icon = \"sun\" }"))
+            t.host.setLook(t.entry(s.name)!!.key, WidgetLook.SHAPE)
+            return s
+        }
+        val vm = show(shaped("-air", "Wopts Air"), shaped("-rain", "Wopts Rain"))
+        fun scrolledBy() = compose.onNodeWithTag("widget-settings-list").fetchSemanticsNode()
+            .config[SemanticsProperties.VerticalScrollAxisRange].value()
+
+        open(vm, "Wopts Air")
+        assertEquals(0f, scrolledBy())
+        compose.onNodeWithText(WidgetSettingsWords.RESET).performScrollTo()
+        compose.waitForIdle()
+        assertTrue("the page is too short to scroll on this screen", scrolledBy() > 0f)
+        back()
+        compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+
+        open(vm, "Wopts Rain")
+        assertEquals(0f, scrolledBy())
     }
 
     /** Out of the Shape look, the page has no shapes; Back returns to Arrange widgets. */

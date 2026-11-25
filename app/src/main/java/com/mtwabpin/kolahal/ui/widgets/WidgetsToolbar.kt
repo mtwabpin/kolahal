@@ -9,6 +9,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -32,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +49,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -53,9 +57,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StyledText.ColorRole
@@ -320,11 +326,34 @@ private fun ToolbarLabel(text: String) {
     )
 }
 
+/** The smallest size a choice's word shrinks to, in sp: the page tabs' labels stop there too. */
+private const val CHOICE_MIN_SP = 10
+
+/** The room at each side of a choice's word inside its button, in dp. */
+private const val CHOICE_PAD_DP = 4
+
 /**
- * [choices] as one row of connected buttons, [selected] checked (none when it is not among them).
+ * How many of [count] choices go in each row, in a space [widthDp] wide, where the widest word at its
+ * smallest size needs a button [needDp] wide and [gapDp] is between two buttons.
+ * - All in one row when each button then holds that word.
+ * - Else the fewest rows whose buttons hold it, with the same count in each: six are three and three,
+ *   never five and one. With a count that doesn't divide, the last row has fewer.
+ * At least one to a row: a word wider than the space is cut.
+ */
+internal fun choicesPerRow(count: Int, widthDp: Float, needDp: Float, gapDp: Float): Int {
+    if (count <= 1) return 1
+    val fit = ((widthDp + gapDp) / (needDp + gapDp)).toInt().coerceIn(1, count)
+    val rows = (count + fit - 1) / fit
+    return (count + rows - 1) / rows
+}
+
+/**
+ * [choices] as connected buttons that share the width, [selected] checked (none when it is not among them).
  * A tap picks one ([onPick] with its index). Each is tagged [tagPrefix] and its text.
- * The buttons share the row's width. At a large font size, where their words don't fit in one row,
- * they wrap to a second, as the library's connected button group does: each stays whole, one tap.
+ * - One row at the usual font size. With a larger font a word that doesn't fit its button shrinks to fit,
+ *   as a page tab's does, down to [CHOICE_MIN_SP] sp.
+ * - Where the widest word doesn't fit even then, the buttons are in rows of the same count
+ *   ([choicesPerRow]), each row connected by itself: every word stays whole, and each choice is one tap.
  */
 @Composable
 private fun ChoiceRow(
@@ -333,28 +362,50 @@ private fun ChoiceRow(
     tagPrefix: String,
     onPick: (Int) -> Unit
 ) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        choices.forEachIndexed { i, choice ->
-            ToggleButton(
-                checked = choice == selected,
-                onCheckedChange = { onPick(i) },
-                shapes = when (i) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    choices.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .semantics { role = Role.RadioButton }
-                    .testTag(tagPrefix + choice),
-            ) {
-                Text(choice, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val gap = ButtonGroupDefaults.ConnectedSpaceBetween
+    val measurer = rememberTextMeasurer()
+    val smallest = MaterialTheme.typography.labelLarge.copy(fontSize = CHOICE_MIN_SP.sp)
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // The button the widest word needs at its smallest size.
+        val need = remember(choices, smallest, density) {
+            val widest = choices.maxOfOrNull { measurer.measure(it, smallest, maxLines = 1, softWrap = false).size.width } ?: 0
+            with(density) { widest.toDp() } + (2 * CHOICE_PAD_DP).dp
+        }
+        val perRow = choicesPerRow(choices.size, maxWidth.value, need.value, gap.value)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            choices.indices.chunked(perRow).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { i ->
+                        val choice = choices[i]
+                        ToggleButton(
+                            checked = choice == selected,
+                            onCheckedChange = { onPick(i) },
+                            shapes = when (i) {
+                                row.first() -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                row.last() -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                            },
+                            contentPadding = PaddingValues(horizontal = CHOICE_PAD_DP.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .semantics { role = Role.RadioButton }
+                                .testTag(tagPrefix + choice),
+                        ) {
+                            Text(
+                                choice,
+                                autoSize = TextAutoSize.StepBased(
+                                    minFontSize = CHOICE_MIN_SP.sp,
+                                    maxFontSize = LocalTextStyle.current.fontSize,
+                                    stepSize = 1.sp,
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
