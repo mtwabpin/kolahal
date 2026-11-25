@@ -60,21 +60,25 @@ class ShaderOverAppsTest {
         assertEquals(ShaderClock.moves(phone, 0L), ShaderOverApps.plays(yes))
     }
 
-    /** Only a one-off whose header rates it for other apps plays there: hearts does, pulse bends the page under it and waits for home. */
+    /**
+     * Only a one-off whose header rates it for other apps plays there: hearts does, and so does pulse, which lights
+     * the edge over a clear ground. One without a rating waits for home.
+     */
     @Test
     fun aShaderNotRatedForAppsWaitsForHome() {
         val hearts = ShaderMeta.parse(asset("hearts"))
-        val pulse = ShaderMeta.parse(asset("pulse"))
+        val unrated = ShaderMeta.parse("// @suits dark good, light good\n// @once 3\nuniform shader content;")
         assertEquals(ShaderFit.GOOD, ShaderOverApps.fit(hearts))
-        assertNull(ShaderOverApps.fit(pulse))
+        assertNull(ShaderOverApps.fit(unrated))
         assertTrue(ShaderOverApps.plays(yes.copy(fit = ShaderOverApps.fit(hearts))))
-        assertFalse(ShaderOverApps.plays(yes.copy(fit = ShaderOverApps.fit(pulse))))
-        // Of the shaders that come with Kolahal, the hearts alone.
+        assertFalse(ShaderOverApps.plays(yes.copy(fit = ShaderOverApps.fit(unrated))))
+        // Of the shaders that come with Kolahal, every one-off.
         val rated = ShaderCatalog.BUNDLED.filter { ShaderOverApps.fit(ShaderMeta.parse(asset(it))) != null }
         assertEquals(
-            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce"),
+            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse"),
             rated,
         )
+        assertEquals(ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(asset(it)).once != null }, rated)
         // A rating is a one-off's: a shader that stays on has none, whatever its header says.
         assertNull(ShaderOverApps.fit(ShaderMeta.parse("// @suits apps good\nuniform shader content;")))
         assertEquals(ShaderFit.FAIR, ShaderOverApps.fit(ShaderMeta.parse("// @suits apps fair\n// @once 2\nuniform shader content;")))
@@ -98,6 +102,18 @@ class ShaderOverAppsTest {
         assertTrue("uniform float dark;" in code)
         assertEquals("dark is read in heartLook alone", dark.findAll(code).count(), 1 + dark.findAll(look).count())
         assertEquals(2, Regex("""\breturn\b[^;]*\bhere\b""").findAll(code.substringAfter("half4 main")).count())
+    }
+
+    /**
+     * On a clear ground pulse returns its light alone: what it read, which is nothing there, and its light over it. It
+     * reads no color of the page, so it has nothing to mix into the app under it; `dark` is the theme's.
+     */
+    @Test
+    fun pulseDrawsNothingButItsLight() {
+        val code = asset("pulse").replace(Regex("//[^\n]*"), "")
+        assertTrue("return half4(here * (1.0 - cover) + float4(color * cover, cover));" in code)
+        assertTrue("if (progress <= 0.0 || progress >= 1.0) return half4(here);" in code)
+        for (page in listOf("bg", "surface")) assertFalse(page, Regex("""uniform\s+\w+\s+$page\b""").containsMatchIn(code))
     }
 
     /**

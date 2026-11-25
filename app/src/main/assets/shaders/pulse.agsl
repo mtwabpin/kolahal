@@ -1,23 +1,25 @@
 // @name Pulse
 // @description Light runs in around the edges of the screen, swells once and is gone
-// @suits dark good, light good, wallpaper good
+// @suits dark good, light good, wallpaper good, apps fair
 // @param colors twilight|theme|accent = twilight Colors
 // @param start bottom|top|side = bottom Starts at
 // @once 3
 //
 // The edge light of Aura as an event, driven by progress alone. Two fronts of light leave one point
 // of the edge and run around the screen both ways until they meet on the other side. Then the whole
-// edge swells once and sinks back into it. It only shows where the page does, so text stays as it
-// is. Pixels farther in than the light reaches return at once, so a frame costs least at the
-// start and at the end, and at the swell, when the light is widest, about as much as Aurora's.
+// edge swells once and sinks back into it. Like every one-off it draws over everything on the
+// screen: the page, text, pictures and a scene. Pixels farther in than the light reaches return at
+// once, so a frame costs least at the start and at the end, and at the swell, when the light is
+// widest, about as much as Aurora's.
+// It is rated for other apps (apps fair): there content is clear, and its light alone is returned,
+// laid over the app as it is, across whatever is at the screen's edges. dark is still the theme's,
+// not the app's, so over a light app with a dark theme it shows less.
 
 uniform shader content;
 uniform float2 resolution;
 uniform float corner;
 uniform float progress;
 uniform float dark;
-layout(color) uniform half4 bg;
-layout(color) uniform half4 surface;
 layout(color) uniform half4 accent;
 layout(color) uniform half4 link;
 layout(color) uniform half4 info;
@@ -89,13 +91,6 @@ half4 main(float2 xy) {
     float depth = max(inside(p, mid, r), 0.0);
     if (depth > limit) return half4(here);
 
-    // Not over text: a pixel that differs from the page is text or a line.
-    float differs = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    // Text and pictures (icons, photos, emoji) are opaque, and Kolahal draws the page a step under
-    // opaque: a pixel at full alpha is covered, whatever its color, and the scene stays behind it.
-    float open = (1.0 - clamp(differs * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
-    if (open <= 0.0) return half4(here);
-
     // The glow is measured from an outline with corners at least as round as the light is wide at
     // most, so on a screen with square corners the glows of two sides meet in a curve.
     float curve = max(r, small * 0.15);
@@ -150,7 +145,7 @@ half4 main(float2 xy) {
     float4 w = shares(1.2 * gap + 0.15 * progress);
     float3 front = vivid(a * w.x + b * w.y + c * w.z + d * w.w);
     float3 back = vivid(mix(front, 0.5 * (a + b), 0.45));
-    float strength = lit * (0.7 + 0.35 * swell + 0.6 * spark) * sqrt(fade) * open;
+    float strength = lit * (0.7 + 0.35 * swell + 0.6 * spark) * sqrt(fade);
     float3 light = (front * (0.45 * rim + 0.5 * core) + back * 0.6 * haze) * strength;
 
     // The light is laid over the page as a layer of its own color, as much as it is bright: on a

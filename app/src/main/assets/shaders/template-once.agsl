@@ -3,9 +3,10 @@
 // @suits dark good, light good, wallpaper good, apps good
 // @once 3
 //
-// @once 3 makes it a one-off: it plays for 3 seconds over the shader that is on, and goes. The
-// Shaders screen lists it under One-off, and 'shader play <name>' plays it. progress goes from 0 to
-// 1 meanwhile: start and end with nothing, so it comes and goes without a jump.
+// @once 3 makes it a one-off: it plays for 3 seconds over the shader that is on, and goes. It draws
+// over everything on the screen, text and a scene included. The Shaders screen lists it under
+// One-off, and 'shader play <name>' plays it. progress goes from 0 to 1 meanwhile: start and end
+// with nothing, so it comes and goes without a jump.
 // It can play when a notification comes: in its details, under Plays on a notification, type words
 // with commas between, such as a name. 'shader words <name> Alex, picnic' does the same.
 // 'apps good' lets it play over another app too, where Kolahal can (the build from GitHub). There
@@ -17,8 +18,6 @@ uniform shader content;
 uniform float2 resolution;
 uniform float progress;
 uniform float dark;
-layout(color) uniform half4 bg;
-layout(color) uniform half4 surface;
 layout(color) uniform half4 accent;
 
 half4 main(float2 xy) {
@@ -37,10 +36,7 @@ half4 main(float2 xy) {
     }
     if (amount <= 0.002) return half4(here);
 
-    // Behind the text only, as in the template Hills, and less on a light theme.
-    float d = min(length(here.rgb - float3(bg.rgb) * here.a), length(here.rgb - float3(surface.rgb) * here.a));
-    // Text and pictures (icons, photos, emoji) are opaque, and Kolahal draws the page a step under
-    // opaque: a pixel at full alpha is covered, whatever its color, and the scene stays behind it.
-    amount *= (1.0 - clamp(d * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a)) * mix(0.75, 1.0, dark);
+    // Over everything, text and a scene included, and less on a light theme.
+    amount *= mix(0.75, 1.0, dark);
     return half4(here * (1.0 - amount) + float4(float3(accent.rgb) * amount, amount));
 }

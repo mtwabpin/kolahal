@@ -459,6 +459,29 @@ class ShaderMetaTest {
     }
 
     /**
+     * A one-off that comes with Kolahal, and the template for one, draws over everything on the screen: text,
+     * pictures and a scene included. It reads what is under it only to hand it on: `here` is read once, and is
+     * then only returned, as it is (before and after its run, or where it draws nothing) or under its own color.
+     * Nothing it decides depends on `here`, and it has no color of the page (`bg`, `surface`) to compare with.
+     */
+    @Test
+    fun aOneOffDrawsOverEverything() {
+        val files = sourceFile("src/main/assets/shaders").listFiles().orEmpty().filter { it.extension == "agsl" }
+        val once = files.filter { ShaderMeta.parse(it.readText()).once != null }
+        assertTrue(once.map { it.nameWithoutExtension }.containsAll(listOf("hearts", "pulse", "template-once")))
+        val here = Regex("""\bhere\b""")
+        for (file in once) {
+            val code = file.readText().replace(Regex("//[^\n]*"), "")
+            assertFalse("${file.name} has a color of the page", Regex("""\b(bg|surface)\b""").containsMatchIn(code))
+            for (line in code.lines().map { it.trim() }.filter { here.containsMatchIn(it) }) {
+                if (line == "float4 here = float4(content.eval(xy));") continue
+                assertTrue("${file.name} keeps off what is under it: $line", "return half4(here" in line)
+                assertFalse("${file.name} decides by what is under it: $line", here.containsMatchIn(line.substringBefore("return")))
+            }
+        }
+    }
+
+    /**
      * Every surface that hands its page to a shader marks it ([ShaderMeta.PAGE_ALPHA]): without the mark a scene
      * takes the whole page as covered and draws nothing. A new surface fails here until it marks its page.
      */
