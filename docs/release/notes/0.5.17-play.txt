@@ -1,0 +1,7 @@
+What's new:
+• 45 shaders on home (Android 13+): scenes like rain and mountains, and one-offs a notification plays, also over other apps.
+• Scenes of your screen time, and a shader as your live wallpaper.
+• Up to five widgets pages, a settings page for each card, and new cards: scores, the sun, gauges.
+• Daily limits for screen time and unlocks.
+• Full-screen screens, a screensaver, and scramble for screen recordings.
+• Rosé Pine is the default theme: theme green brings the old look back.
