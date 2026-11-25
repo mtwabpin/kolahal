@@ -163,7 +163,14 @@ class ShaderCommands(
         val safety = ShaderSafety.get(context)
         val current = conf[Keys.SCREEN_SHADER]
         val name = if (current != ShaderCatalog.OFF) current else safety.last
-            ?: return error("No shader was on yet\n'shader use <name>' turns one on")
+        if (name == null) {
+            // No shader over home to turn on. One that was turned off without ever being over home is on again:
+            // a one-off that stopped Kolahal while it played, whose line says 'shader on'.
+            val was = safety.tripped()?.let(ShaderSafety::nameOf)
+                ?: return error("No shader was on yet\n'shader use <name>' turns one on")
+            safety.turnedOn()
+            return info("Shader $was is on again")
+        }
         use(name)
     }
 

@@ -92,6 +92,10 @@ class AllowCommands(context: Context, private val ui: TerminalUi) : CommandGroup
             )
 
             Accesses.BATTERY -> startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            Accesses.OVERLAY -> open(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName)),
+                "display over other apps",
+            )
         }
     }
 

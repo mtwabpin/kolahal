@@ -12,6 +12,7 @@ import org.junit.Test
 class AccessesTest {
     private val words = listOf(
         "usage", "send-notifications", "read-notifications", "lock", "dnd", "settings", "contacts", "calendar", "calls", "alarms", "battery",
+        "overlay",
     )
 
     /**
@@ -56,9 +57,9 @@ class AccessesTest {
         assertEquals(words, Accesses.offered(34) { true }.map { it.word })
     }
 
-    /** The Play build has no screen lock service, no call log and no contacts permission. */
+    /** The Play build has no screen lock service, no call log, no contacts permission and no drawing over other apps. */
     @Test
-    fun thePlayBuildLeavesThreeOut() {
+    fun thePlayBuildLeavesFourOut() {
         assertEquals(
             listOf("usage", "send-notifications", "read-notifications", "dnd", "settings", "calendar", "alarms", "battery"),
             Accesses.offered(34) { false }.map { it.word },
@@ -67,14 +68,20 @@ class AccessesTest {
         assertFalse(Accesses.inBuild(lock) { false })
         assertTrue(Accesses.inBuild(lock) { true })
         assertTrue(Accesses.inBuild(Accesses.find("usage")!!) { false })
+        assertFalse(Accesses.inBuild(Accesses.find("overlay")!!) { false })
     }
 
-    /** Android asks for exact alarms from Android 12 on; before that they are always allowed, and not listed. */
+    /**
+     * Android asks for exact alarms from Android 12 on; before that they are always allowed, and not listed.
+     * Drawing over other apps is for shaders, which need Android 13: not listed before that.
+     */
     @Test
     fun alarmsFromAndroid12() {
         assertFalse(Accesses.offered(30) { true }.any { it.word == "alarms" })
         assertTrue(Accesses.offered(31) { true }.any { it.word == "alarms" })
-        assertEquals(words.size - 1, Accesses.offered(28) { true }.size)
+        assertFalse(Accesses.offered(32) { true }.any { it.word == "overlay" })
+        assertTrue(Accesses.offered(33) { true }.any { it.word == "overlay" })
+        assertEquals(words.size - 2, Accesses.offered(28) { true }.size)
     }
 
     @Test
@@ -83,6 +90,7 @@ class AccessesTest {
         assertEquals(BuildConfig.LOCK_SERVICE, "lock" in offered)
         assertEquals(BuildConfig.CALL_LOG, "calls" in offered)
         assertEquals(BuildConfig.CONTACTS, "contacts" in offered)
+        assertEquals(BuildConfig.SHADER_OVER_APPS, "overlay" in offered)
     }
 
     /** Each line says whether it is allowed now, and a tap runs `allow <word>`. */
@@ -185,6 +193,8 @@ class AccessesTest {
             Triple("calls", "calls --allow", "ui::requestCallLogPermission"),
             Triple("alarms", "remind exact", "Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM"),
             Triple("battery", "battery", "Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS"),
+            // It never had another form.
+            Triple("overlay", "nothing", "Settings.ACTION_MANAGE_OVERLAY_PERMISSION"),
         )
         assertEquals(words, reaches.map { it.first })
         val asks = branches("src/main/java/com/mtwabpin/kolahal/terminal/commands/AllowCommands.kt")

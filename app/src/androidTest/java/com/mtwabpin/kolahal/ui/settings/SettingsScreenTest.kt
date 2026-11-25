@@ -44,6 +44,7 @@ import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.CrashReports
 import com.mtwabpin.kolahal.CrashReportsAside
 import com.mtwabpin.kolahal.Links
+import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
@@ -54,6 +55,7 @@ import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
 import com.mtwabpin.kolahal.ui.theme.Palettes
+import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -392,9 +394,38 @@ class SettingsScreenTest {
         compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.HEADER_PARTS }
     }
 
+    /** Runs [block] with usage access [mode] (allow, ignore), and puts it back as it was after. */
+    private fun withUsageAccess(mode: String, block: () -> Unit) {
+        val before = Regex("GET_USAGE_STATS: (\\w+)")
+            .find(shell("appops get ${app.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+        try {
+            shell("appops set ${app.packageName} GET_USAGE_STATS $mode")
+            block()
+        } finally {
+            shell("appops set ${app.packageName} GET_USAGE_STATS $before")
+        }
+    }
+
+    /**
+     * Without usage access the daily limits are one line and a button that asks for it, in place of their rows.
+     * What is set stays.
+     */
+    @Test
+    fun withoutUsageAccessTheDailyLimitsAskForIt() = withUsageAccess("ignore") {
+        config.set(Keys.USAGE_UNLOCK_LIMIT, "60")
+        show("header")
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("access:$HEADER_CATEGORY:Daily limits:${Accesses.USAGE}")
+        compose.onNodeWithText("Needs usage access").assertExists()
+        compose.onNodeWithText("Allow usage access").assertExists()
+        for (key in listOf(Keys.USAGE_SCREEN_TIME_LIMIT, Keys.USAGE_UNLOCK_LIMIT)) {
+            compose.onNodeWithText(SettingTitles[key.key] ?: key.key, useUnmergedTree = true).assertDoesNotExist()
+        }
+        compose.runOnIdle { assertEquals(60, config[Keys.USAGE_UNLOCK_LIMIT]) }
+    }
+
     /** The daily limits are on the Header page, with the header off too: a hold on one's title types it. */
     @Test
-    fun aDailyLimitIsTypedOnTheHeaderPage() {
+    fun aDailyLimitIsTypedOnTheHeaderPage() = withUsageAccess("allow") {
         val key = Keys.USAGE_UNLOCK_LIMIT
         show("header")
         scrollTo(key)

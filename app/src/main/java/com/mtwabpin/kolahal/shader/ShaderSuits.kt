@@ -3,9 +3,12 @@
  */
 package com.mtwabpin.kolahal.shader
 
-/** What a shader can be over: a dark theme, a light one, or a page that the wallpaper shows through (`log.wallpaper`). */
+/**
+ * What a shader can be over: a dark theme, a light one, a page that the wallpaper shows through (`log.wallpaper`),
+ * or another app, for a one-off shader ([ShaderOverApps]): there it draws on a clear ground, with nothing to read.
+ */
 enum class ShaderSurface(val word: String, val label: String) {
-    DARK("dark", "Dark theme"), LIGHT("light", "Light theme"), WALLPAPER("wallpaper", "Wallpaper");
+    DARK("dark", "Dark theme"), LIGHT("light", "Light theme"), WALLPAPER("wallpaper", "Wallpaper"), APPS("apps", "Other apps");
 
     companion object {
         fun named(word: String): ShaderSurface? = entries.firstOrNull { it.word == word }
@@ -21,10 +24,16 @@ enum class ShaderFit(val word: String, val label: String) {
     }
 }
 
-/** `// @suits dark good, light fair, wallpaper poor`: how well a shader works over each, as its author says. What isn't there isn't rated. */
+/**
+ * `// @suits dark good, light fair, wallpaper poor`: how well a shader works over each, as its author says. A
+ * one-off may add `apps good`. What isn't there isn't rated.
+ */
 object ShaderSuits {
     /** The header's word for it. */
     const val DIRECTIVE = "suits"
+
+    /** The surfaces of home, which every shader that comes with Kolahal is rated for. [ShaderSurface.APPS] is for a one-off alone. */
+    val HOME = listOf(ShaderSurface.DARK, ShaderSurface.LIGHT, ShaderSurface.WALLPAPER)
 
     /** How much of the wallpaper (`log.wallpaper`, percent) may show before a shader that is poor over one is worth a warning. */
     const val WALLPAPER_SHOWS = 20

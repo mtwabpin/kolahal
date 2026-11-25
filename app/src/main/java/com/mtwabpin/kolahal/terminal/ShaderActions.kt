@@ -16,6 +16,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderFit
 import com.mtwabpin.kolahal.shader.ShaderMeta
+import com.mtwabpin.kolahal.shader.ShaderOverApps
 import com.mtwabpin.kolahal.shader.ShaderParam
 import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderPlay
@@ -139,8 +140,13 @@ class ShaderActions(
         }
     }
 
-    /** Plays the one-off shader [name] over home, once it is in front. */
+    /**
+     * Plays the one-off shader [name] over home, once it is in front. One that was turned off is on again by
+     * this tap, as a shader over home is by the tap that uses it.
+     */
     fun play(name: String) {
+        val safety = ShaderSafety.get(context)
+        if (safety.tripped()?.let(ShaderSafety::nameOf) == name) safety.turnedOn()
         ShaderPlay.play(name, null)
     }
 
@@ -177,6 +183,21 @@ class ShaderActions(
 
     /** Whether Kolahal may see notifications. */
     fun seesNotifications(): Boolean = NotificationActions.isEnabled(context)
+
+    /** Whether this build and this Android can play a one-off shader over other apps ([ShaderOverApps]). */
+    val overAppsOffered: Boolean get() = ShaderOverApps.offered
+
+    /** Whether a word's one-off shader plays over the app in front (`screen.shader-over-apps`). */
+    fun overApps(): Boolean = config[Keys.SHADER_OVER_APPS]
+
+    fun setOverApps(on: Boolean) = host.io { config.set(Keys.SHADER_OVER_APPS, if (on) "on" else "off") }
+
+    /** Opens Android's page where Display over other apps is given, as `allow overlay` does. */
+    fun askOverApps() {
+        if (runCatching { context.startActivity(ShaderOverApps.accessIntent(context)) }.isFailure) {
+            host.notice("Can't open display over other apps", error = true)
+        }
+    }
 
     /**
      * The values there are to follow, for the Follow menu: Kolahal's, and those of the scripts that are on. The rows

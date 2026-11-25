@@ -291,6 +291,8 @@ class MainActivity : ComponentActivity(), HidesBars {
         if (Shaders.supported) lifecycleScope.launch {
             UsageWatch.run(applicationContext, lifecycle)
         }
+        // The window for a one-off shader over another app. The Play build has none.
+        if (BuildConfig.SHADER_OVER_APPS) com.mtwabpin.kolahal.ui.shaders.ShaderOverlay.install(application)
         lifecycleScope.launch {
             androidx.compose.runtime.snapshotFlow { vm.previewed }.collect { applyTheme() }
         }

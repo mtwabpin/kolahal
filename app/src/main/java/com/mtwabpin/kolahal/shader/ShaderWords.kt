@@ -5,6 +5,7 @@ package com.mtwabpin.kolahal.shader
 
 import android.content.Context
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Stores
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,12 +40,17 @@ object ShaderWords {
     /**
      * A notification came: the first shader with a word of it plays. From any thread of the main process.
      * One that comes as Kolahal starts waits for the words to be read ([Shaders.settingsRead]).
+     *
+     * With a [context], from the listener's main thread, it may play over the app in front ([ShaderOverApps.onWord]),
+     * in a build that has that. [heldBack]: Do Not Disturb holds the notification back, so it plays on home only.
      */
-    fun onNotification(title: String, text: String) {
+    fun onNotification(title: String, text: String, context: Context? = null, heldBack: Boolean = false) {
         Shaders.settingsRead()
         val all = _words.value
         if (all.isEmpty()) return
-        pick(all, "$title\n$text", Shaders::exists)?.let { ShaderPlay.play(it, null) }
+        val name = pick(all, "$title\n$text", Shaders::exists) ?: return
+        if (BuildConfig.SHADER_OVER_APPS && context != null) ShaderOverApps.onWord(context, name, heldBack)
+        else ShaderPlay.play(name, null)
     }
 
     /**

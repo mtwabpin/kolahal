@@ -329,7 +329,10 @@ class ShaderMetaTest {
         assertEquals(12, meta("// @fps 12", "// @fps 5").fps)
     }
 
-    /** What it works well over. What can't be read isn't rated; every bundled shader is, for all three. */
+    /**
+     * What it works well over. What can't be read isn't rated; every bundled shader is, for the three surfaces
+     * of home. Other apps are a one-off's alone to be rated for.
+     */
     @Test
     fun whatItSuits() {
         assertEquals(
@@ -337,12 +340,32 @@ class ShaderMetaTest {
             ShaderSuits.read("Dark good, light great, wallpaper  poor, paper good, light"),
         )
         assertEquals(emptyMap<ShaderSurface, ShaderFit>(), ShaderMeta.parse("uniform shader content;").suits)
+        assertEquals(listOf(ShaderSurface.DARK, ShaderSurface.LIGHT, ShaderSurface.WALLPAPER), ShaderSuits.HOME)
+        assertEquals(ShaderSurface.entries.toSet(), ShaderSuits.HOME.toSet() + ShaderSurface.APPS)
         for (name in ShaderCatalog.BUNDLED) {
-            val suits = ShaderMeta.parse(sourceFile("src/main/assets/shaders/$name.agsl").readText()).suits
-            assertEquals(name, ShaderSurface.entries.toSet(), suits.keys)
+            val meta = ShaderMeta.parse(sourceFile("src/main/assets/shaders/$name.agsl").readText())
+            val suits = meta.suits
+            assertEquals(name, ShaderSuits.HOME.toSet(), suits.keys - ShaderSurface.APPS)
+            assertTrue("$name is rated for other apps, and is no one-off", ShaderSurface.APPS !in suits || meta.once != null)
             // One that is poor on both themes wouldn't be worth having.
             assertTrue(name, suits[ShaderSurface.DARK] != ShaderFit.POOR || suits[ShaderSurface.LIGHT] != ShaderFit.POOR)
         }
+    }
+
+    /** The header's fourth surface: `apps`, "Other apps", read with the others in any order, and left out by a word that is none. */
+    @Test
+    fun otherAppsIsASurface() {
+        assertEquals(ShaderSurface.APPS, ShaderSurface.named("apps"))
+        assertEquals("Other apps", ShaderSurface.APPS.label)
+        assertEquals(
+            mapOf(
+                ShaderSurface.DARK to ShaderFit.GOOD, ShaderSurface.LIGHT to ShaderFit.GOOD,
+                ShaderSurface.WALLPAPER to ShaderFit.GOOD, ShaderSurface.APPS to ShaderFit.GOOD,
+            ),
+            ShaderMeta.parse("// @suits dark good, light good, wallpaper good, apps good\n// @once 6\nuniform shader content;").suits,
+        )
+        assertEquals(mapOf(ShaderSurface.APPS to ShaderFit.FAIR), ShaderSuits.read("Apps FAIR"))
+        assertEquals(emptyMap<ShaderSurface, ShaderFit>(), ShaderSuits.read("apps great, app good, other apps good"))
     }
 
     /** Every bundled shader and template has a file, and every file is a bundled shader or a template. */
@@ -373,7 +396,7 @@ class ShaderMetaTest {
             assertNotNull(name, meta.title)
             assertNotNull(name, meta.description)
             assertEquals("$name reads uniforms nothing sets", emptyList<String>(), meta.unset())
-            assertEquals(name, ShaderSurface.entries.toSet(), meta.suits.keys)
+            assertEquals(name, ShaderSuits.HOME.toSet(), meta.suits.keys - ShaderSurface.APPS)
             meta
         }
         val tint = metas.getValue("template-tint")
@@ -397,6 +420,9 @@ class ShaderMetaTest {
         val once = metas.getValue("template-once")
         assertEquals(3f, once.once)
         assertTrue(once.uses(ShaderMeta.PROGRESS))
+        // It shows the rating that lets a one-off play over another app. No other template has it.
+        assertEquals(ShaderFit.GOOD, once.suits[ShaderSurface.APPS])
+        assertEquals(listOf("template-once"), metas.filterValues { ShaderSurface.APPS in it.suits }.keys.toList())
         // Only the one-off is one.
         assertEquals(listOf("template-once"), metas.filterValues { it.once != null }.keys.toList())
     }

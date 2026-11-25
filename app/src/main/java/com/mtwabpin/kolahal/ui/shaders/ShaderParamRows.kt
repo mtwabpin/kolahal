@@ -78,6 +78,7 @@ import com.mtwabpin.kolahal.shader.ShaderParam
 import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.terminal.ShaderActions
+import com.mtwabpin.kolahal.ui.AccessNeeds
 import com.mtwabpin.kolahal.ui.ConnectedChoices
 import com.mtwabpin.kolahal.ui.HOLD_TO_TYPE
 import com.mtwabpin.kolahal.ui.Labeled
@@ -85,6 +86,7 @@ import com.mtwabpin.kolahal.ui.TypeValueDialog
 import com.mtwabpin.kolahal.ui.TypedNumber
 import com.mtwabpin.kolahal.ui.fieldColors
 import com.mtwabpin.kolahal.ui.rememberHoldToType
+import com.mtwabpin.kolahal.ui.rememberMissing
 import com.mtwabpin.kolahal.ui.theme.segColors
 import com.mtwabpin.kolahal.ui.theme.segShapes
 import com.mtwabpin.kolahal.ui.typeValueAction
@@ -440,7 +442,9 @@ private fun FollowButton(
 ) {
     var open by remember { mutableStateOf(false) }
     val sources by produceState(emptyList<ShaderValues.Source>(), open) { if (open) value = actions.sources() }
-    val noValue = if (hasValue) "" else " (no value yet)"
+    // A value of the phone's use says that it needs usage access, while that isn't given ([AccessNeeds.valueNote]).
+    val missing = rememberMissing(remember(follow, sources) { (listOfNotNull(follow) + sources.map { it.id }).mapNotNullTo(HashSet<String>(), AccessNeeds::ofValue) })
+    val noValue = follow?.let { AccessNeeds.valueNote(it, missing) }?.let { " ($it)" } ?: if (hasValue) "" else " (no value yet)"
     val words = if (follow == null) "Follow" else "Follows ${ShaderValues.label(follow)}$noValue"
     val short = if (follow == null) "Follow" else ShaderSeries.followsOne(follow) + noValue
     Box(modifier) {
@@ -479,7 +483,7 @@ private fun FollowButton(
                     selectedTextColor = MaterialTheme.colorScheme.onPrimary,
                 )
                 val rows = listOf(null to "Nothing") + sources.map { s ->
-                    s.id to s.label + s.value?.let { " · ${ShaderValues.shown(s.id, it)}" }.orEmpty()
+                    s.id to s.label + (AccessNeeds.valueNote(s.id, missing)?.let { " ($it)" } ?: s.value?.let { " · ${ShaderValues.shown(s.id, it)}" }.orEmpty())
                 }
                 rows.forEachIndexed { i, (id, label) ->
                     SelectableDropdownMenuItem(

@@ -4,6 +4,8 @@
 package com.mtwabpin.kolahal.ui.settings
 
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.BuildConfig
+import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.HomeStyles
@@ -98,6 +100,38 @@ internal fun shownChoice(key: ConfigKey.Choice, value: String, config: Config): 
 /** Whether Settings shows [key], given the current values of the other settings ([SHOWN_WHEN]). */
 internal fun applies(key: ConfigKey<*>, config: Config): Boolean =
     SHOWN_WHEN[key]?.invoke(config) ?: true
+
+/**
+ * Settings that can't work without the accesses Android gives Kolahal ([Accesses], by their words). Without one,
+ * Settings hides them, and their group shows a line and a button that asks for it ([groupShows]). The stored
+ * value stays, and `config` can still change every setting.
+ */
+internal val NEEDS_ACCESS: Map<ConfigKey<*>, List<String>> = buildMap {
+    // Screen time isn't known without usage access, and unlocks are then counted only while Kolahal runs.
+    put(Keys.USAGE_SCREEN_TIME_LIMIT, listOf(Accesses.USAGE))
+    put(Keys.USAGE_UNLOCK_LIMIT, listOf(Accesses.USAGE))
+    // No word plays a one-off shader without notification access, and none plays over an app without
+    // Display over other apps. Settings → Shaders shows its switch. The Play build has neither the setting nor that access.
+    if (BuildConfig.SHADER_OVER_APPS) put(Keys.SHADER_OVER_APPS, listOf(Accesses.READ_NOTIFICATIONS, Accesses.OVERLAY))
+}
+
+/** What a group of settings shows: the settings it draws ([keys]), then a line and a button for each access in [asks]. */
+internal data class GroupShows(val keys: List<ConfigKey<*>>, val asks: List<String>) {
+    val isEmpty: Boolean get() = keys.isEmpty() && asks.isEmpty()
+}
+
+/**
+ * What a group shows of [keys] (those that apply, [applies]) while the accesses [missing] aren't given: each
+ * setting that has every access it [needs], and each missing access that one of the others needs, once.
+ */
+internal fun groupShows(
+    keys: List<ConfigKey<*>>,
+    missing: Set<String>,
+    needs: Map<ConfigKey<*>, List<String>> = NEEDS_ACCESS,
+): GroupShows {
+    val lacks = keys.map { key -> needs[key].orEmpty().filter { it in missing } }
+    return GroupShows(keys.filterIndexed { i, _ -> lacks[i].isEmpty() }, lacks.flatten().distinct())
+}
 
 /** Pages with an eye button that shows home while held. The value is the same typing flag as in [PEEK_SLIDERS]. */
 internal val PEEK_PAGES: Map<String, Boolean> = mapOf(

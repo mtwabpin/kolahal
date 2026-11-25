@@ -23,9 +23,10 @@ problems=0
 
 # Permissions Play keeps for default phone, SMS or assistant apps, or for a few declared uses
 # (contacts: where Android's contact picker won't do; the local network: where a device picker won't).
+# SYSTEM_ALERT_WINDOW too: only the full build draws a one-off shader over other apps.
 for p in READ_CALL_LOG WRITE_CALL_LOG PROCESS_OUTGOING_CALLS READ_SMS SEND_SMS RECEIVE_SMS RECEIVE_MMS \
          READ_CONTACTS WRITE_CONTACTS QUERY_ALL_PACKAGES USE_EXACT_ALARM REQUEST_INSTALL_PACKAGES MANAGE_EXTERNAL_STORAGE \
-         ACCESS_BACKGROUND_LOCATION ACCESS_LOCAL_NETWORK; do
+         ACCESS_BACKGROUND_LOCATION ACCESS_LOCAL_NETWORK SYSTEM_ALERT_WINDOW; do
     if grep -q "name='android.permission.$p'" <<<"$permissions"; then
         echo "$(basename "$apk") asks for $p."
         problems=1
@@ -55,6 +56,11 @@ if [ ! -s "$dex" ]; then
     problems=1
 elif grep -aq 'repos/mtwabpin/kolahal/releases' "$dex"; then
     echo "$(basename "$apk") has the self-updater's code in it."
+    problems=1
+fi
+# The window that draws a shader over other apps (ui/shaders/ShaderOverlay.kt), by its name: gone with its code.
+if [ -s "$dex" ] && grep -aq 'Kolahal one-off shader' "$dex"; then
+    echo "$(basename "$apk") has the window for shaders over other apps in it."
     problems=1
 fi
 

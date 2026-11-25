@@ -330,12 +330,12 @@ Comments at the top, all optional:
 | `// @name Tint` | Its name for people (`@title` also works). |
 | `// @description …` | What it looks like (`@desc` also works). |
 | `// @param amount 0.0..2.0 = 1.0 Amount` | Something people change: see "Parameters". |
-| `// @suits dark good, light fair, wallpaper poor` | How it looks over a dark theme, a light theme and a wallpaper behind the log: `good`, `fair` or `poor`. |
+| `// @suits dark good, light fair, wallpaper poor` | How it looks over a dark theme, a light theme and a wallpaper behind the log: `good`, `fair` or `poor`. A one-off adds `apps good` to play over other apps (GitHub build), on a clear `content`. |
 | `// @text` | It works on text, so it can't be a live wallpaper. |
 | `// @animated` | It changes by itself: drawn up to 30 times a second, and `time` moves. Without it, it is drawn only when the screen changes, and costs nothing while it is still. |
 | `// @fps 10` | An animated shader's frames a second, 1 to 30. Use it for slow scenes. |
 | `// @settles 4` | Seconds a touch changes the picture, 0.5 to 60 (60). A shader whose only clock is `touchAge` stops after that until the next touch. |
-| `// @once 3` | A one-off: plays for this many seconds (1 to 10) over the shader that is on, then goes; `progress` runs from 0 to 1. Start and end with nothing. |
+| `// @once 3` | A one-off: plays for this many seconds (1 to 10) over the shader that is on, then goes. Start and end with nothing. |
 | `// @author …` | Who made it. |
 | `// @version 1.0` | Its version. |
 | `// @license MIT` | Its license. |
@@ -564,8 +564,6 @@ half4 main(float2 xy) {
 ```
 
 ### Shader: a one-off
-
-Plays with `shader play <name>`, or from a script with `shader.play`.
 
 ```glsl
 // @name Flash

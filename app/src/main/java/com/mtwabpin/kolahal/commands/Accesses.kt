@@ -10,7 +10,7 @@ package com.mtwabpin.kolahal.commands
  * - [short]: what it is for, in a few words, for the `allow` list and suggestions.
  * - [detail]: what it is for, in a sentence, for the setup checklist.
  * - [needs]: the part of the build it is for, which the Play build leaves out; null when every build has it.
- * - [minSdk]: the first Android version that asks for it. Before that, it is always given.
+ * - [minSdk]: the first Android version that asks for it. Before that, it is always given, or has no use.
  */
 data class Access(
     val word: String,
@@ -22,7 +22,7 @@ data class Access(
 )
 
 /** The parts of Kolahal that the Play build leaves out, which some accesses are for. */
-enum class BuildFeature { LOCK_SERVICE, CONTACTS, CALL_LOG }
+enum class BuildFeature { LOCK_SERVICE, CONTACTS, CALL_LOG, SHADER_OVER_APPS }
 
 /**
  * Every access Kolahal can use, in the order of the setup checklist. `allow` lists them, `allow <word>`
@@ -45,6 +45,7 @@ object Accesses {
     const val CALLS = "calls"
     const val ALARMS = "alarms"
     const val BATTERY = "battery"
+    const val OVERLAY = "overlay"
 
     val ALL = listOf(
         Access(
@@ -119,6 +120,15 @@ object Accesses {
             "script timers on schedule",
             "Timer scripts run on schedule instead of being deferred",
         ),
+        // Shaders need Android 13: before that there is nothing to play over an app.
+        Access(
+            OVERLAY,
+            "Display over other apps",
+            "play a one-off shader over other apps",
+            "Optional: a one-off shader plays over the app in front when a notification has one of its words",
+            needs = BuildFeature.SHADER_OVER_APPS,
+            minSdk = 33,
+        ),
     )
 
     /** Whether this build has [feature]. */
@@ -126,6 +136,7 @@ object Accesses {
         BuildFeature.LOCK_SERVICE -> com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE
         BuildFeature.CONTACTS -> com.mtwabpin.kolahal.BuildConfig.CONTACTS
         BuildFeature.CALL_LOG -> com.mtwabpin.kolahal.BuildConfig.CALL_LOG
+        BuildFeature.SHADER_OVER_APPS -> com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS
     }
 
     /** Whether [access] is in a build that has the features [has] says yes to. */

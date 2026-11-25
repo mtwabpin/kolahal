@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
+import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -20,6 +22,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
 import org.junit.Assert.assertEquals
@@ -88,6 +91,53 @@ class HeaderPartsScreenTest {
         // Within a side: the date down, after the network.
         compose.onNodeWithTag("part-date").performCustomAccessibilityActionWithLabel("Move down")
         compose.runOnIdle { assertEquals("network,date", config[Keys.HEADER_LEFT]) }
+    }
+
+    /** Runs [block] with usage access [mode] (allow, ignore), and puts it back as it was after. */
+    private fun withUsageAccess(mode: String, block: () -> Unit) {
+        val before = Regex("GET_USAGE_STATS: (\\w+)")
+            .find(shell("appops get ${app.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+        try {
+            shell("appops set ${app.packageName} GET_USAGE_STATS $mode")
+            block()
+        } finally {
+            shell("appops set ${app.packageName} GET_USAGE_STATS $before")
+        }
+    }
+
+    /** Without usage access, Unlocks says what it needs, and while it isn't shown it has no handle to put it on. */
+    @Test
+    fun unlocksOffWithoutUsageAccess() = withUsageAccess("ignore") {
+        show()
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("part:unlocks")
+        compose.onNodeWithText("Needs usage access", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Allow usage access", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("drag-unlocks", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("drag-network", useUnmergedTree = true).assertExists()
+    }
+
+    /** Without usage access, Unlocks on a side still has its handle and can be taken off. */
+    @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
+    @Test
+    fun unlocksOnWithoutUsageAccess() = withUsageAccess("ignore") {
+        config.set(Keys.HEADER_LEFT, "time,unlocks")
+        show()
+        compose.onNodeWithText("Needs usage access", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("drag-unlocks", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("part-unlocks").performCustomAccessibilityActionWithLabel("Don't show")
+        compose.runOnIdle { assertEquals("time", config[Keys.HEADER_LEFT]) }
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("part:unlocks")
+        compose.onNodeWithTag("drag-unlocks", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    /** With usage access, Unlocks is a part like the others. */
+    @Test
+    fun unlocksWithUsageAccess() = withUsageAccess("allow") {
+        show()
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("part:unlocks")
+        compose.onNodeWithText("Today's count", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("drag-unlocks", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Needs usage access", useUnmergedTree = true).assertDoesNotExist()
     }
 
     /** Dragged by its handle up past Right side, the battery ends the left side. */

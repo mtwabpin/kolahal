@@ -152,7 +152,9 @@ class KolahalNotificationListener : NotificationListenerService() {
         // Scripts can't see notifications from the private space, just as they can't see its apps (apps.list).
         if (isPrivate(sbn.user)) return
         // Neither do they play a one-off shader.
-        com.mtwabpin.kolahal.shader.ShaderWords.onNotification(n.title.orEmpty(), n.text.orEmpty())
+        // In the full build it may play over the app in front, unless Do Not Disturb holds this notification back.
+        val held = com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS && heldBack(sbn, rankingMap)
+        com.mtwabpin.kolahal.shader.ShaderWords.onNotification(n.title.orEmpty(), n.text.orEmpty(), this, held)
         com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).fire(
             "notification",
             mapOf(
@@ -164,6 +166,10 @@ class KolahalNotificationListener : NotificationListenerService() {
             ),
         )
     }
+
+    /** Whether Do Not Disturb holds [sbn] back: its ranking in [map] says so. False when the ranking isn't known. */
+    private fun heldBack(sbn: StatusBarNotification, map: RankingMap?): Boolean =
+        map != null && map.getRanking(sbn.key, ranking) && !ranking.matchesInterruptionFilter()
 
     private fun isPrivate(user: android.os.UserHandle): Boolean {
         // Your own profile is never private, so don't ask the system for each of its notifications.

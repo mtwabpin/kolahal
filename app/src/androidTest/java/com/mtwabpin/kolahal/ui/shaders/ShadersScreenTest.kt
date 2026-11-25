@@ -8,12 +8,15 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -32,12 +35,15 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.ListedShader
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.SharedShaderLists
 import com.mtwabpin.kolahal.TestViewModels
+import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.script.ScriptCatalog
@@ -53,6 +59,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.editor.BUNDLED_NOTE
 import com.mtwabpin.kolahal.ui.editor.ShaderEditor
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
@@ -84,6 +91,9 @@ class ShadersScreenTest {
 
     @get:Rule
     val lists = SharedShaderLists()
+
+    @get:Rule
+    val access = NotificationAccess()
 
     private val app =
         InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
@@ -194,6 +204,7 @@ class ShadersScreenTest {
     @Test
     fun itsWordsAreKept() {
         needsAndroid13()
+        access.set(true)
         try {
             show()
             compose.onNodeWithTag("shader-search").performTextInput("hearts")
@@ -208,6 +219,147 @@ class ShadersScreenTest {
         } finally {
             ShaderPlay.current.value?.let(ShaderPlay::done)
             ShaderWords.set(app, "hearts", "")
+        }
+    }
+
+    /** Without notification access, the words' field is a line and a button that asks for it. The words are kept. */
+    @Test
+    fun itsWordsNeedNotificationAccess() {
+        needsAndroid13()
+        ShaderWords.set(app, "hearts", "Alex")
+        access.set(false)
+        try {
+            show()
+            compose.onNodeWithTag("shader-search").performTextInput("hearts")
+            compose.waitForNode(hasTestTag("shader hearts"))
+            openSheet("hearts", "Hearts")
+            // On the sheet: the page under it asks for the same access, where Play over other apps needs it.
+            val onSheet = androidx.compose.ui.test.hasAnyAncestor(hasTestTag("shader-pager"))
+            compose.onNode(hasTestTag("needs-access ${Accesses.READ_NOTIFICATIONS}") and onSheet).performScrollTo()
+            compose.onNode(hasText("Needs notification access") and onSheet).assertExists()
+            compose.onNode(hasText("Allow notification access") and onSheet).assertExists()
+            compose.onNodeWithTag("shader-words").assertDoesNotExist()
+            assertEquals("Alex", ShaderWords.words.value["hearts"])
+        } finally {
+            ShaderWords.set(app, "hearts", "")
+        }
+    }
+
+    /** Runs [block] with usage access [mode] (allow, ignore), and puts it back as it was after. */
+    private fun withUsageAccess(mode: String, block: () -> Unit) {
+        val before = Regex("GET_USAGE_STATS: (\\w+)")
+            .find(shell("appops get ${app.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+        try {
+            shell("appops set ${app.packageName} GET_USAGE_STATS $mode")
+            block()
+        } finally {
+            shell("appops set ${app.packageName} GET_USAGE_STATS $before")
+        }
+    }
+
+    /** Runs [block] with Android's Display over other apps access [mode] (allow, ignore), and puts it back as it was after. */
+    private fun withOverlayAccess(mode: String, block: () -> Unit) {
+        val before = Regex("SYSTEM_ALERT_WINDOW: (\\w+)")
+            .find(shell("appops get ${app.packageName} SYSTEM_ALERT_WINDOW"))?.groupValues?.get(1) ?: "default"
+        try {
+            shell("appops set ${app.packageName} SYSTEM_ALERT_WINDOW $mode")
+            block()
+        } finally {
+            shell("appops set ${app.packageName} SYSTEM_ALERT_WINDOW $before")
+        }
+    }
+
+    private fun overApps() = hasTestTag("shader-over-apps")
+
+    /** Scrolls the list to Play over other apps, under the one-off shaders. */
+    private fun showOverApps() {
+        show()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(overApps())
+    }
+
+    /**
+     * Play over other apps needs Display over other apps. Without it there is no switch: its name stands over one
+     * line and one button that asks for the access, as an option that needs an access has them everywhere.
+     */
+    @Test
+    fun playOverOtherAppsNeedsDisplayOverOtherApps() {
+        needsAndroid13()
+        assumeTrue("this build plays nothing over other apps", BuildConfig.SHADER_OVER_APPS)
+        access.set(true)
+        withOverlayAccess("ignore") {
+            showOverApps()
+            compose.onNode(overApps() and isToggleable()).assertDoesNotExist()
+            compose.onNodeWithText("Play over other apps").assertExists()
+            compose.onNodeWithTag("needs-access ${Accesses.OVERLAY}").assertExists()
+            compose.onNodeWithText("Needs display over other apps").assertExists()
+            compose.onNode(hasText("Allow display over other apps") and hasClickAction()).assertExists()
+            // Notification access is there: nothing asks for it.
+            compose.onNodeWithTag("needs-access ${Accesses.READ_NOTIFICATIONS}").assertDoesNotExist()
+        }
+    }
+
+    /** Without notification access too, no word plays a shader at all: a line and a button for each, that one first. */
+    @Test
+    fun playOverOtherAppsNeedsNotificationAccessToo() {
+        needsAndroid13()
+        assumeTrue("this build plays nothing over other apps", BuildConfig.SHADER_OVER_APPS)
+        access.set(false)
+        withOverlayAccess("ignore") {
+            showOverApps()
+            compose.onNode(overApps() and isToggleable()).assertDoesNotExist()
+            val asked = compose.onAllNodes(SemanticsMatcher("needs an access") { it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("needs-access ") == true })
+                .fetchSemanticsNodes().sortedBy { it.positionInRoot.y }.map { it.config[SemanticsProperties.TestTag] }
+            assertEquals(listOf("needs-access ${Accesses.READ_NOTIFICATIONS}", "needs-access ${Accesses.OVERLAY}"), asked)
+            compose.onNode(hasText("Allow notification access") and hasClickAction()).assertExists()
+            compose.onNode(hasText("Allow display over other apps") and hasClickAction()).assertExists()
+        }
+    }
+
+    /** With both accesses the switch is there, off at first, and a tap keeps the setting; nothing asks for an access. */
+    @Test
+    fun playOverOtherAppsIsASwitchWithItsAccesses() {
+        needsAndroid13()
+        assumeTrue("this build plays nothing over other apps", BuildConfig.SHADER_OVER_APPS)
+        access.set(true)
+        withOverlayAccess("allow") {
+            showOverApps()
+            compose.onNodeWithTag("needs-access ${Accesses.OVERLAY}").assertDoesNotExist()
+            compose.onNodeWithTag("needs-access ${Accesses.READ_NOTIFICATIONS}").assertDoesNotExist()
+            compose.onNode(overApps() and isToggleable()).assertIsOff().performClick()
+            compose.waitFor("the setting isn't on") { config[Keys.SHADER_OVER_APPS] }
+            compose.onNode(overApps() and isToggleable()).assertIsOn().performClick()
+            compose.waitFor("the setting isn't off") { !config[Keys.SHADER_OVER_APPS] }
+        }
+    }
+
+    /**
+     * Without usage access, a scene of the phone's use stays in the list and says that it needs it, in its row and
+     * on its sheet, with the button that asks for it. With it, neither says so.
+     */
+    @Test
+    fun aSceneOfThePhonesUseNeedsUsageAccess() {
+        needsAndroid13()
+        withUsageAccess("ignore") {
+            show()
+            compose.onNodeWithTag("shader-search").performTextInput("candle")
+            compose.waitForNode(hasTestTag("shader candle") and hasText("Needs usage access", substring = true))
+            openSheet("candle", "Candle")
+            compose.onNodeWithTag("needs-access ${Accesses.USAGE}").performScrollTo()
+            compose.onNodeWithText("Allow usage access").assertExists()
+        }
+    }
+
+    /** With usage access, the scene's row and sheet are as they were. */
+    @Test
+    fun aSceneOfThePhonesUseWithUsageAccess() {
+        needsAndroid13()
+        withUsageAccess("allow") {
+            show()
+            compose.onNodeWithTag("shader-search").performTextInput("candle")
+            compose.waitForNode(hasTestTag("shader candle"))
+            compose.onNode(hasTestTag("shader candle") and hasText("Needs usage access", substring = true)).assertDoesNotExist()
+            openSheet("candle", "Candle")
+            compose.onNodeWithTag("needs-access ${Accesses.USAGE}").assertDoesNotExist()
         }
     }
 
@@ -321,6 +473,24 @@ class ShadersScreenTest {
         row("lcd").performClick()
         compose.waitForNode(hasTestTag("shader lcd") and hasText("In use"))
         assertNull(ShaderSafety.get(app).tripped())
+    }
+
+    /** A one-off that was turned off says why, and the tap that plays it turns it on again. */
+    @Test
+    fun aOneOffThatWasTurnedOffTurnsOnAgain() {
+        needsAndroid13()
+        val id = ShaderSafety.id("hearts", Shaders.bundled(app, "hearts"))
+        ShaderSafety.get(app).trip(id, "Kolahal stopped while it played over an app")
+        show()
+        compose.onNodeWithTag("shader-search").performTextInput("hearts")
+        compose.waitForNode(
+            hasTestTag("shader hearts") and hasText("Turned off: Kolahal stopped while it played over an app", substring = true)
+        )
+        row("hearts").performClick()
+        compose.waitFor("hearts is still turned off") { ShaderSafety.get(app).tripped() == null }
+        compose.waitFor("its row still says so") {
+            compose.onAllNodes(hasTestTag("shader hearts") and hasText("Turned off", substring = true)).fetchSemanticsNodes().isEmpty()
+        }
     }
 
     /** The sheet shows the code and checks it; Use turns it on. */
@@ -476,6 +646,10 @@ class ShadersScreenTest {
         compose.onNode(hasTestTag("follow h3") and hasContentDescription("Follows Screen time from 06:00 to 09:00", substring = true))
             .assertExists()
         for (param in Shaders.params(app, "seismograph")) {
+            // The eight rows are longer than the sheet: each is brought into view first. A row under the sheet's
+            // edge has no bounds on the screen, and one cut by the edge has only a part of them.
+            compose.onNodeWithTag("follow ${param.name}").performScrollTo()
+            compose.waitForIdle()
             val button = compose.onNodeWithTag("follow ${param.name}", useUnmergedTree = true).fetchSemanticsNode()
             val merged = compose.onNodeWithTag("follow ${param.name}").fetchSemanticsNode()
             assertNull("${param.name}: its button has words", merged.config.getOrNull(SemanticsProperties.Text))
@@ -486,6 +660,7 @@ class ShadersScreenTest {
             val line = row.boundsInRoot
             val parts = listOf(name.boundsInRoot, button.boundsInRoot, value.boundsInRoot)
             for (part in parts) {
+                assertTrue("${param.name}: $part isn't on the screen", part.width > 0f && part.height > 0f)
                 assertEquals("${param.name}: not on one line", parts[0].center.y, part.center.y, 2f)
                 assertTrue("${param.name}: $part is outside its row $line", part.left >= line.left - 1f && part.right <= line.right + 1f)
             }

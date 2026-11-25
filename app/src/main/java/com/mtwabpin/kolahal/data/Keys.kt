@@ -530,6 +530,12 @@ object Keys {
             "pulse" to "A one-off: light runs in around the screen's edges once",
         ),
     )
+    /** A one-off shader that a notification's word plays is drawn over the app in front (shader/ShaderOverApps.kt). Not in the Play build ([ALL]). Settings → Shaders sets it. */
+    val SHADER_OVER_APPS = ConfigKey.Bool(
+        "screen.shader-over-apps",
+        false,
+        "Play a one-off shader over the app in front when a notification has one of its words, if the shader is rated for other apps.\nNeeds Android's Display over other apps access, and Android 13 or newer"
+    )
     val LOG_SPACING = ConfigKey.Num(
         "log.spacing",
         5,
@@ -830,6 +836,8 @@ object Keys {
         LOG_DIM,
         HOME_STYLE,
         SCREEN_SHADER,
+        // The Play build can't draw over other apps, so it has no setting for it.
+        *listOfNotNull(SHADER_OVER_APPS.takeIf { com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS }).toTypedArray(),
         LOG_SPACING,
         LOG_ITEM_SPACING,
         LOG_GUTTER,
@@ -879,7 +887,8 @@ object Keys {
 
     /**
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
-     * of their own (the header's sides: Settings → Header → Arrange the header; the shader: Settings → Shaders).
+     * of their own (the header's sides: Settings → Header → Arrange the header; the shader and where a one-off
+     * plays: Settings → Shaders).
      */
     val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(
         LOG_KEEP_LINES,
@@ -905,6 +914,7 @@ object Keys {
         TTY_QUICK_ACTIONS,
         TTY_MENU,
         SCREEN_SHADER,
+        SHADER_OVER_APPS,
     )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */

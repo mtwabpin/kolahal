@@ -1,6 +1,6 @@
 // @name Burst
 // @description A one-off: three rings of the accent color spread from the middle of the screen
-// @suits dark good, light good, wallpaper good
+// @suits dark good, light good, wallpaper good, apps good
 // @once 3
 //
 // @once 3 makes it a one-off: it plays for 3 seconds over the shader that is on, and goes. The
@@ -8,6 +8,9 @@
 // 1 meanwhile: start and end with nothing, so it comes and goes without a jump.
 // It can play when a notification comes: in its details, under Plays on a notification, type words
 // with commas between, such as a name. 'shader words <name> Alex, picnic' does the same.
+// 'apps good' lets it play over another app too, where Kolahal can (the build from GitHub). There
+// content is clear (all 0), and what main returns lies over the app: return only what you draw,
+// premultiplied, and no color for the page.
 // Change the number of rings and when each starts first.
 
 uniform shader content;

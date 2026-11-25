@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -41,12 +43,16 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.commands.Access
+import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.headerSide
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ui.AccessNeeded
 import com.mtwabpin.kolahal.ui.GroupHeader
 import com.mtwabpin.kolahal.ui.GuiListPage
 import com.mtwabpin.kolahal.ui.PageHint
+import com.mtwabpin.kolahal.ui.rememberMissing
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.segColors
 import com.mtwabpin.kolahal.ui.theme.segShapes
@@ -147,6 +153,22 @@ private val PART_INFO: Map<String, Triple<String, String, Int>> = mapOf(
 )
 
 /**
+ * The parts that show the phone's use, and the accesses they need ([Accesses], by their words). Without usage
+ * access, the header counts only the unlocks Kolahal sees while it runs. Then the part says what it needs, in
+ * place of what it shows ([AccessNeeded]): one that is on stays movable, so it can be taken off ([stuck]).
+ */
+internal val HEADER_PART_NEEDS: Map<String, List<String>> = mapOf(
+    "unlocks" to listOf(Accesses.USAGE),
+)
+
+/** Whether the row at [index] can't move: a part that isn't shown and needs an access that is [missing] ([HEADER_PART_NEEDS]). */
+internal fun stuck(rows: List<ArrangeRow>, index: Int, missing: Set<String>): Boolean {
+    val part = rows.getOrNull(index) as? ArrangeRow.Part ?: return false
+    return HEADER_PART_NEEDS[part.kind].orEmpty().any { it in missing } &&
+            HeaderArrangement.sideOf(rows, index) == HeaderSide.HIDDEN
+}
+
+/**
  * The screen to arrange the header.
  * - Parts are listed under Left side, Right side and Not shown.
  * - Each part has a handle. Drag it up or down; drag it past a heading to move it to another side.
@@ -174,6 +196,10 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
         vm.setConfig(Keys.HEADER_RIGHT, right.joinToString(",").ifEmpty { "none" })
     }
 
+    // A part that needs an access Android hasn't given says so in place of what it shows ([HEADER_PART_NEEDS]).
+    val missing = rememberMissing(remember { HEADER_PART_NEEDS.values.flatten().toSet() })
+    val missingNow by rememberUpdatedState(missing)
+    val ask = { access: Access -> vm.runCommand(Accesses.command(access)) }
     val list = rememberLazyListState()
     // The part being dragged, and its offset from the position where the list lays it out.
     var dragging by remember { mutableStateOf<String?>(null) }
@@ -252,7 +278,7 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
                     val item =
                         info.visibleItemsInfo.firstOrNull { y >= it.offset && y < it.offset + it.size }
                             ?: return@awaitEachGesture
-                    if (rows.getOrNull(item.index) !is ArrangeRow.Part) return@awaitEachGesture
+                    if (rows.getOrNull(item.index) !is ArrangeRow.Part || stuck(rows, item.index, missingNow)) return@awaitEachGesture
                     down.consume()
                     dragging = item.key as String
                     offset.floatValue = 0f
@@ -285,7 +311,9 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
                         val held = dragging == row.key
                         val (title, detail, icon) = PART_INFO.getValue(row.kind)
                         val side = HeaderArrangement.sideOf(rows, index)
-                        val actions = buildList {
+                        val lacks = HEADER_PART_NEEDS[row.kind].orEmpty().filter { it in missing }
+                        val fixed = stuck(rows, index, missing)
+                        val actions = if (fixed) emptyList() else buildList {
                             if (index > 1) add(CustomAccessibilityAction("Move up") {
                                 save(
                                     HeaderArrangement.move(rows, index, index - 1)
@@ -314,14 +342,20 @@ internal fun HeaderPartsScreen(vm: TerminalViewModel) {
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             },
-                            supportingContent = { Text(detail) },
-                            trailingContent = {
-                                Icon(
-                                    painterResource(R.drawable.ic_drag_handle),
-                                    contentDescription = "Drag $title",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.testTag("drag-${row.kind}"),
-                                )
+                            supportingContent = {
+                                if (lacks.isEmpty()) Text(detail)
+                                else Column { lacks.forEach { AccessNeeded(it, ask) } }
+                            },
+                            // One that can't be put on has no handle.
+                            trailingContent = if (fixed) null else {
+                                {
+                                    Icon(
+                                        painterResource(R.drawable.ic_drag_handle),
+                                        contentDescription = "Drag $title",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.testTag("drag-${row.kind}"),
+                                    )
+                                }
                             },
                             modifier = Modifier
                                 .then(

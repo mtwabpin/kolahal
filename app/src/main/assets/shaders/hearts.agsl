@@ -1,12 +1,14 @@
 // @name Hearts
 // @description Hearts rise from the bottom of the screen, sway and fade
 // @once 6
-// @suits dark good, light good, wallpaper good
+// @suits dark good, light good, wallpaper good, apps good
 // @param amount 0.2..1.6 = 1.0 Number of hearts
 //
 // Three layers of columns. Each column has two hearts, which start at their own times, grow in with a little
 // bounce, rise at their own pace and fade near the end. A heart stays in its column, so each pixel looks at
 // six of them.
+// It is rated for other apps (apps good): there content is clear, and the hearts alone are returned, laid
+// over the app as they are. Nothing is drawn between them: no veil, and no color of the page.
 
 uniform shader content;
 uniform float2 resolution;

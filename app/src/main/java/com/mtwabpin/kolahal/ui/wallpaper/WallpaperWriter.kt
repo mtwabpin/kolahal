@@ -77,7 +77,8 @@ object WallpaperWriter {
         last = state
     }
 
-    private fun colors(p: Palette): Map<String, Int> = mapOf(
+    /** The colors of [p] by the names shaders know them by ([com.mtwabpin.kolahal.shader.ShaderMeta.COLORS]). */
+    internal fun colors(p: Palette): Map<String, Int> = mapOf(
         "bg" to p.bg, "surface" to p.surface, "fg" to p.fg, "dim" to p.dim, "accent" to p.prompt,
         "error" to p.error, "warn" to p.warn, "good" to p.good, "info" to p.info, "link" to p.link,
     ).mapValues { it.value.toArgb() }

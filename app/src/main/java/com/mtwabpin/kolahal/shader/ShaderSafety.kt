@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.update
  *   [recover] turns the shader off: a safe mode.
  * - A tripped shader isn't drawn until its file changes or the user turns a shader on again
  *   ([turnedOn]). After [MAX_TRIPS] trips in a row with none [proven] in between, `screen.shader` goes off.
+ * - A one-off shader that plays over another app ([ShaderOverApps]) has a mark of its own ([overBegin]): home's
+ *   mark is for what home draws, and stays as it is.
  */
 class ShaderSafety(private val store: Store) {
     interface Store {
@@ -122,8 +124,9 @@ class ShaderSafety(private val store: Store) {
         return count
     }
 
-    /** The user turned a shader on: it may be drawn again, and tripped again. */
+    /** The user turned a shader on: it may be drawn again, and tripped again. One kept from other apps may play there again. */
     fun turnedOn() {
+        if (store.get(OVER_BARRED) != null) store.set(OVER_BARRED, null)
         if (tripped() == null) return
         store.set(TRIPPED, null)
         store.set(WHY, null)
@@ -142,9 +145,44 @@ class ShaderSafety(private val store: Store) {
         return id.takeIf { exit != Exit.OTHER }
     }
 
+    /**
+     * [id] is about to be compiled, to play over another app: it is marked, on disk, apart from home's mark
+     * ([begin]). [overEnd] follows when its window is gone, or when it never got one.
+     */
+    @Synchronized
+    fun overBegin(id: String) = store.set(OVER, id, now = true)
+
+    /** [id] has played over the app, or won't. Its mark goes. */
+    @Synchronized
+    fun overEnd(id: String) {
+        if (store.get(OVER) == id) store.set(OVER, null)
+    }
+
+    /**
+     * As [recover], for the shader that an earlier process was playing over another app when it ended. It is
+     * kept from other apps ([overBarred]) until its file changes or the user turns a shader on ([turnedOn]).
+     * The caller trips it, which keeps it from home too.
+     */
+    @Synchronized
+    fun overRecover(exit: Exit): String? {
+        val id = store.get(OVER) ?: return null
+        store.set(OVER, null)
+        if (exit == Exit.OTHER) return null
+        store.set(OVER_BARRED, (barred() - id + id).takeLast(MAX_BARRED).joinToString("\n"))
+        return id
+    }
+
+    /** Whether [id] was playing over another app when Kolahal crashed or hung: it doesn't play there by itself again. */
+    fun overBarred(id: String): Boolean = id in barred()
+
+    private fun barred(): List<String> = store.get(OVER_BARRED)?.split('\n').orEmpty()
+
     companion object {
         /** After this many trips in a row, `screen.shader` goes off. */
         const val MAX_TRIPS = 3
+
+        /** How many shaders are kept from other apps at most: the last ones. */
+        const val MAX_BARRED = 8
 
         private const val ARMED = "shader.armed"
         private const val TRIPPED = "shader.tripped"
@@ -152,6 +190,8 @@ class ShaderSafety(private val store: Store) {
         private const val TRIPS = "shader.trips"
         private const val PROVEN = "shader.proven"
         private const val LAST = "shader.last"
+        private const val OVER = "shader.over"
+        private const val OVER_BARRED = "shader.over-barred"
 
         /** The shader [name] whose code is [source], as the store names it. */
         fun id(name: String, source: String): String = name + "@" + sha256Hex(source.toByteArray()).take(12)

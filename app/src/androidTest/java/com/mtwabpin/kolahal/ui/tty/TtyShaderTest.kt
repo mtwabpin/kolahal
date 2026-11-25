@@ -302,6 +302,33 @@ class TtyShaderTest {
         compose.waitFor("it isn't drawn") { drawn() == listOf("lcd") }
     }
 
+    /**
+     * A one-off that was turned off, with no shader ever on over home: `shader on` turns it on again, as its
+     * line says, where there is no shader over home to turn on. Without one turned off, it says that none was on.
+     */
+    @Test
+    fun shaderOnTurnsATurnedOffOneOffOnAgain() {
+        needsAndroid13()
+        val safety = ShaderSafety.get(app)
+        val last = safety.last
+        try {
+            config.set(Keys.SCREEN_SHADER, "off")
+            safety.last = null
+            commands.run("shader on")
+            assertTrue(errors("No shader was on yet").isNotEmpty())
+            val id = ShaderSafety.id("hearts", Shaders.bundled(app, "hearts"))
+            safety.trip(id, "Kolahal stopped while it played over an app")
+            assertTrue(safety.isTripped(id))
+            commands.run("shader on")
+            assertNull(safety.tripped())
+            assertTrue(newLines().any { it.text == "Shader hearts is on again" })
+            assertEquals("off", config[Keys.SCREEN_SHADER])
+        } finally {
+            safety.turnedOn()
+            safety.last = last
+        }
+    }
+
     /** Two fingers held on home turn the shader off, whatever it does to the screen. */
     @Test
     fun twoFingersHeldTurnItOff() {

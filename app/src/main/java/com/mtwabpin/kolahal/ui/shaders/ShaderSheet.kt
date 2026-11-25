@@ -67,11 +67,17 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.commands.Accesses
+import com.mtwabpin.kolahal.ui.AccessNeeded
+import com.mtwabpin.kolahal.ui.AccessNeeds
 import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderFit
+import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderSurface
 import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
@@ -85,6 +91,8 @@ import com.mtwabpin.kolahal.ui.GuiSheet
 import com.mtwabpin.kolahal.ui.SectionTitle
 import com.mtwabpin.kolahal.ui.editor.Syntax
 import com.mtwabpin.kolahal.ui.fieldColors
+import com.mtwabpin.kolahal.ui.openUsageAccess
+import com.mtwabpin.kolahal.ui.rememberMissing
 import com.mtwabpin.kolahal.ui.scripts.Fact
 import com.mtwabpin.kolahal.ui.scripts.ReadOnlyCode
 import com.mtwabpin.kolahal.ui.settings.PeekButton
@@ -223,6 +231,11 @@ private fun ShaderDetails(
         if (row.meta.params.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             ShaderParamRows(row.name, row.meta.params, actions, opened = opened)
+        }
+        // What its parameters follow of the phone's use needs usage access. Without it, they keep their own values.
+        val follows by ShaderParams.follows.collectAsStateWithLifecycle()
+        rememberMissing(AccessNeeds.ofParams(row.meta.params, follows[row.name].orEmpty())).forEach {
+            AccessNeeded(it, { openUsageAccess(context) }, Modifier.padding(top = 16.dp))
         }
         if (row.meta.once != null) ShaderWordsField(row.name, actions, onAskNotifications, Modifier.padding(top = 16.dp))
         if (row.meta.suits.isNotEmpty()) SuitsRow(row.meta.suits, Modifier.padding(top = 16.dp))
@@ -374,7 +387,8 @@ private fun CheckResult(check: Shaders.Check) {
 
 /**
  * The words that play the one-off shader [name] when a notification has one ([ShaderWords]), kept as they are
- * typed. Without notification access, a button asks for it.
+ * typed. Without notification access, a line and a button that asks for it take the field's place ([AccessNeeded]);
+ * the words stay kept, and the field shows them again once the access is there.
  */
 @Composable
 private fun ShaderWordsField(name: String, actions: ShaderActions, onAskNotifications: () -> Unit, modifier: Modifier = Modifier) {
@@ -385,7 +399,8 @@ private fun ShaderWordsField(name: String, actions: ShaderActions, onAskNotifica
     Column(modifier) {
         SectionTitle("Plays on a notification")
         Spacer(Modifier.height(8.dp))
-        TextField(
+        if (!sees) AccessNeeded(Accesses.READ_NOTIFICATIONS, { onAskNotifications() })
+        else TextField(
             value = text,
             onValueChange = {
                 text = it.take(ShaderWords.MAX_CHARS)
@@ -400,20 +415,18 @@ private fun ShaderWordsField(name: String, actions: ShaderActions, onAskNotifica
                 .fillMaxWidth()
                 .testTag("shader-words"),
         )
-        if (!sees && text.isNotBlank()) {
-            Spacer(Modifier.height(4.dp))
-            SheetError("Kolahal can't see your notifications")
-            FilledTonalButton(onClick = onAskNotifications, shapes = ButtonDefaults.shapes()) { Text("Allow notification access") }
-        }
     }
 }
 
-/** How well a shader works over a dark theme, a light one and a wallpaper: a card for each that is rated. */
+/** How well a shader works over a dark theme, a light one, a wallpaper and other apps: a card for each that is rated. */
 @Composable
 private fun SuitsRow(suits: Map<ShaderSurface, ShaderFit>, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    val rated = ShaderSurface.entries.filter { it in suits }
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+    // The Play build plays nothing over other apps, so it shows no rating for them.
+    val all = ShaderSurface.entries.filter { it in suits && (it != ShaderSurface.APPS || BuildConfig.SHADER_OVER_APPS) }
+    // Four don't fit side by side with their words on a phone: two rows of two then.
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+    for (rated in if (all.size > 3) all.chunked(2) else listOf(all)) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
         rated.forEachIndexed { i, surface ->
             val fit = suits.getValue(surface)
             Surface(
@@ -434,6 +447,7 @@ private fun SuitsRow(suits: Map<ShaderSurface, ShaderFit>, modifier: Modifier = 
                                 ShaderSurface.DARK -> R.drawable.wi_moon
                                 ShaderSurface.LIGHT -> R.drawable.wi_sun
                                 ShaderSurface.WALLPAPER -> R.drawable.ic_wallpaper
+                                ShaderSurface.APPS -> R.drawable.ic_apps
                             }
                         ),
                         null, Modifier.size(20.dp), tint = colors.onSurfaceVariant,
@@ -451,6 +465,7 @@ private fun SuitsRow(suits: Map<ShaderSurface, ShaderFit>, modifier: Modifier = 
                 }
             }
         }
+    }
     }
 }
 

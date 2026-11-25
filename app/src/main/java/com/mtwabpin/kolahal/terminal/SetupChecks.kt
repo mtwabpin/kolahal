@@ -64,6 +64,7 @@ object SetupChecks {
         Accesses.CALLS -> com.mtwabpin.kolahal.BuildConfig.CALL_LOG && com.mtwabpin.kolahal.calls.CallEvents.hasPermission(context)
         Accesses.ALARMS -> com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
         Accesses.BATTERY -> context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+        Accesses.OVERLAY -> com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS && android.provider.Settings.canDrawOverlays(context)
         else -> false
     }
 

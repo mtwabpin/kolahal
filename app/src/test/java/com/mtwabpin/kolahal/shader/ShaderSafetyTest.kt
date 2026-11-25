@@ -177,6 +177,94 @@ class ShaderSafetyTest {
         assertEquals(1, safety.trip(id))
     }
 
+    /**
+     * A one-off that plays over another app has a mark of its own, on disk before it is compiled: home's mark
+     * stays whose it is, and each goes without the other.
+     */
+    @Test
+    fun aShaderOverAnAppHasAMarkOfItsOwn() {
+        safety.arm(id)
+        safety.overBegin(other)
+        assertEquals(id, armed)
+        assertEquals(other, store.values["shader.over"])
+        assertEquals(listOf("shader.armed", "shader.over"), store.synced)
+        // Another one's end leaves it, its own takes it away, and home's mark is as it was.
+        safety.overEnd(id)
+        assertEquals(other, store.values["shader.over"])
+        safety.overEnd(other)
+        assertNull(store.values["shader.over"])
+        assertEquals(id, armed)
+        safety.disarm(id)
+        assertNull(armed)
+    }
+
+    /**
+     * One that was playing over an app when Kolahal crashed or hung is found at the next start and kept from
+     * other apps, also after another shader trips. Home's own mark is found apart from it.
+     */
+    @Test
+    fun aCrashOverAnAppKeepsItFromOtherApps() {
+        safety.arm(id)
+        safety.overBegin(other)
+        val next = ShaderSafety(store)
+        assertFalse(next.overBarred(other))
+        assertEquals(other, next.overRecover(Exit.CRASH))
+        assertTrue(next.overBarred(other))
+        assertFalse(next.overBarred(id))
+        // The mark is gone: a second look finds nothing. Home's is still there to be found.
+        assertNull(next.overRecover(Exit.CRASH))
+        assertEquals(id, next.recover(Exit.CRASH))
+        // Tripped as home's is, it stays kept from apps when another shader takes the trip's place.
+        next.trip(other)
+        next.trip(id)
+        assertFalse(next.isTripped(other))
+        assertTrue(next.overBarred(other))
+        // A hang and an end nobody knows count as well, and several are kept.
+        next.overBegin(id)
+        assertEquals(id, ShaderSafety(store).overRecover(Exit.HANG))
+        assertTrue(next.overBarred(id) && next.overBarred(other))
+        next.overBegin(id)
+        assertEquals(id, ShaderSafety(store).overRecover(Exit.UNKNOWN))
+        assertEquals("$other\n$id", store.values["shader.over-barred"])
+    }
+
+    /** An update, a low memory or a force-stop while one plays over an app isn't its fault. */
+    @Test
+    fun anotherEndOverAnAppIsNotACrash() {
+        safety.overBegin(id)
+        val next = ShaderSafety(store)
+        assertNull(next.overRecover(Exit.OTHER))
+        assertNull(next.overRecover(Exit.CRASH))
+        assertFalse(next.overBarred(id))
+        assertNull(store.values["shader.over"])
+    }
+
+    /** It plays over apps again when the user turns a shader on, as a tripped one is drawn again; a changed file is another shader. */
+    @Test
+    fun turningAShaderOnLetsItPlayOverAppsAgain() {
+        safety.overBegin(id)
+        assertEquals(id, safety.overRecover(Exit.CRASH))
+        assertTrue(safety.overBarred(id))
+        assertFalse(safety.overBarred(other))
+        // Not tripped, so nothing else changes: the screens aren't told.
+        val seen = safety.version.value
+        safety.turnedOn()
+        assertFalse(safety.overBarred(id))
+        assertEquals(seen, safety.version.value)
+    }
+
+    /** Only the last few are kept. */
+    @Test
+    fun theOldestKeptFromAppsMakesRoom() {
+        val ids = (0..ShaderSafety.MAX_BARRED).map { ShaderSafety.id("s$it", "half4 main() {}") }
+        for (one in ids) {
+            safety.overBegin(one)
+            assertEquals(one, safety.overRecover(Exit.CRASH))
+        }
+        assertFalse(safety.overBarred(ids.first()))
+        assertTrue(ids.drop(1).all(safety::overBarred))
+    }
+
     @Test
     fun theShaderThatWasOnIsRemembered() {
         assertNull(safety.last)

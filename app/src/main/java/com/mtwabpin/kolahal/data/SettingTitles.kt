@@ -15,6 +15,7 @@ object SettingTitles {
         "screen.saver" to "Screensaver",
         "screen.saver-after" to "Start after (minutes)",
         "screen.shader" to "Shader",
+        "screen.shader-over-apps" to "Play over other apps",
         "font.family" to "Font",
         "font.sans" to "System font",
         "font.size" to "Text size",

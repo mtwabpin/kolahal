@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.ui.shaders
 
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SmallExtendedFloatingActionButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,8 +58,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.commands.Access
+import com.mtwabpin.kolahal.commands.Accesses
+import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderMeta
+import com.mtwabpin.kolahal.shader.ShaderOverApps
+import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.UsageWatch
@@ -67,6 +75,8 @@ import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.commands.ShaderCommands
+import com.mtwabpin.kolahal.ui.AccessNeeded
+import com.mtwabpin.kolahal.ui.AccessNeeds
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
 import com.mtwabpin.kolahal.ui.DialogBars
@@ -77,9 +87,12 @@ import com.mtwabpin.kolahal.ui.PageHint
 import com.mtwabpin.kolahal.ui.SearchField
 import com.mtwabpin.kolahal.ui.home.rememberScreenReader
 import com.mtwabpin.kolahal.ui.produceIo
+import com.mtwabpin.kolahal.ui.rememberMissing
 import com.mtwabpin.kolahal.ui.rememberExpandedSheetState
 import com.mtwabpin.kolahal.ui.rememberNoticeSnackbar
+import com.mtwabpin.kolahal.ui.settings.NEEDS_ACCESS
 import com.mtwabpin.kolahal.ui.settings.PEEK_FADE_MS
+import com.mtwabpin.kolahal.ui.settings.groupShows
 import com.mtwabpin.kolahal.ui.settings.PeekButton
 import com.mtwabpin.kolahal.ui.settings.PeekHint
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
@@ -96,6 +109,7 @@ import kotlinx.coroutines.launch
  * - Details, on each row, opens its sheet ([ShaderSheet]). Its Edit opens the shader's code in the editor ([onEdit]).
  * - Add shader: Get more shaders, Import a file, Read the script folder again, Start from a template
  *   ([TemplateSheet]).
+ * - Under the one-off shaders, Play over other apps ([OverAppsSwitch]), in a build that has it.
  * - On Android 12 and older the shaders are listed, but can't be used.
  * - While it is open, the values from the phone's use that any listed shader follows are worked out ([UsageWatch.list]),
  *   so its details and previews show them even when it isn't in use.
@@ -282,6 +296,7 @@ fun ShadersScreen(
                     onDetails = { details = r.name },
                 )
             }
+            if (actions.overAppsOffered && once.isNotEmpty()) item(key = "over-apps") { OverAppsSwitch(actions, onAskNotifications) }
             item(key = "hint") {
                 PageHint(
                     "If a shader makes home hard to read, hold two fingers still on it for a second. " +
@@ -362,7 +377,11 @@ private fun ShaderChoice(
             Column {
                 row.meta.description?.let { Text(it) }
                 val words by ShaderWords.words.collectAsStateWithLifecycle()
-                val notes = ShaderPage.notes(row, inUse, words[row.name].takeIf { row.meta.once != null }, wallpaper).joinToString(" · ")
+                // One that follows the phone's use draws on its own values without usage access, and says that it needs it.
+                val follows by ShaderParams.follows.collectAsStateWithLifecycle()
+                val needs = rememberMissing(AccessNeeds.ofParams(row.meta.params, follows[row.name].orEmpty()))
+                    .mapNotNull { word -> Accesses.find(word)?.let(AccessNeeds::line) }
+                val notes = (ShaderPage.notes(row, inUse, words[row.name].takeIf { row.meta.once != null }, wallpaper) + needs).joinToString(" · ")
                 if (notes.isNotEmpty()) Text(
                     notes,
                     style = MaterialTheme.typography.bodySmall,
@@ -385,6 +404,61 @@ private fun ShaderChoice(
         },
         modifier = Modifier.testTag("shader ${row.name}"),
     ) { Text(row.title) }
+}
+
+/**
+ * Play over other apps (`screen.shader-over-apps`), under the one-off shaders: a switch, as a setting's row in
+ * Settings. Only a build and an Android that can do it show it ([ShaderActions.overAppsOffered]).
+ * - It needs notification access, as no word plays a shader without it, and Android's Display over other apps
+ *   access ([NEEDS_ACCESS]). While one is missing, its name stands over a line and a button for each missing
+ *   access in the switch's place ([AccessNeeded]), as in Settings. What is stored stays, and nothing plays over apps.
+ * - The button for Display over other apps says what the access is for, then opens Android's page for it.
+ */
+@Composable
+private fun OverAppsSwitch(actions: ShaderActions, onAskNotifications: () -> Unit) {
+    val key = Keys.SHADER_OVER_APPS
+    val title = SettingTitles[key.key] ?: key.key
+    val shows = groupShows(listOf(key), rememberMissing(remember { NEEDS_ACCESS[key].orEmpty().toSet() }))
+    if (key !in shows.keys) {
+        val context = LocalContext.current
+        val ask = { access: Access ->
+            if (access.word == Accesses.OVERLAY) {
+                // Android's page covers this one: a toast shows over it.
+                Toast.makeText(context, ShaderOverApps.WHY, Toast.LENGTH_LONG).show()
+                actions.askOverApps()
+            } else onAskNotifications()
+        }
+        Column(Modifier.testTag("shader-over-apps")) {
+            GroupHeader(title)
+            shows.asks.forEachIndexed { i, word ->
+                AccessNeeded(word, ask, Modifier.padding(start = 16.dp, end = 16.dp, top = if (i == 0) 0.dp else 8.dp))
+            }
+        }
+        return
+    }
+    val settings by actions.settings.collectAsStateWithLifecycle()
+    val on = remember(settings) { actions.overApps() }
+    SegmentedListItem(
+        checked = on,
+        onCheckedChange = { actions.setOverApps(it) },
+        shapes = segShapes(0, 1),
+        colors = segColors(),
+        supportingContent = {
+            Column {
+                Text(key.help.replaceFirstChar { it.uppercase() })
+                Text(
+                    key.key,
+                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        },
+        trailingContent = { Switch(checked = on, onCheckedChange = null) },
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .testTag("shader-over-apps"),
+    ) { Text(title) }
 }
 
 /** The ways to add a shader. */

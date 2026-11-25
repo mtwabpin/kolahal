@@ -39,11 +39,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.CrashReports
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.commands.Access
+import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ui.AccessNeeded
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
 import com.mtwabpin.kolahal.ui.FeatureTabs
@@ -53,6 +56,7 @@ import com.mtwabpin.kolahal.ui.NoMatchNote
 import com.mtwabpin.kolahal.ui.SearchField
 import com.mtwabpin.kolahal.ui.home.TerminalScreen
 import com.mtwabpin.kolahal.ui.produceIo
+import com.mtwabpin.kolahal.ui.rememberMissing
 import com.mtwabpin.kolahal.ui.rememberNoticeSnackbar
 import com.mtwabpin.kolahal.ui.shaders.ShadersScreen
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
@@ -164,6 +168,9 @@ fun SettingsScreen(vm: TerminalViewModel) {
     // Read it here, not in the list's content below. Reading a derived value while the list measures
     // can deadlock with a snapshot applied from another thread (Compose tests do that).
     val applicableKeys = applicable
+    // Settings that need an access Android hasn't given have a line and a button in their place ([NEEDS_ACCESS]).
+    val missing = rememberMissing(remember { NEEDS_ACCESS.values.flatten().toSet() })
+    val ask = { access: Access -> vm.runCommand(Accesses.command(access)) }
     val context = LocalContext.current
     // For About → Crash reports. They are read off the main thread, and read again after a delete.
     var crashReads by remember { mutableIntStateOf(0) }
@@ -268,8 +275,9 @@ fun SettingsScreen(vm: TerminalViewModel) {
                         }
                     }
                     for ((title, all) in open.groups) {
-                        val keys = all.filter { it in applicableKeys }
-                        if (keys.isEmpty()) continue
+                        val shows = groupShows(all.filter { it in applicableKeys }, missing)
+                        val keys = shows.keys
+                        if (shows.isEmpty) continue
                         item(key = "h:${open.id}:$title") {
                             PeekFade(
                                 peek,
@@ -287,6 +295,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                                 }
                             }
                         }
+                        accessItems(shows, "${open.id}:$title", { peek }, ask)
                     }
                     if (open.id == BACKUP_CATEGORY) {
                         item(key = "h:backup-files") { Spacer(Modifier.height(16.dp)) }
@@ -436,7 +445,9 @@ fun SettingsScreen(vm: TerminalViewModel) {
                             }
                         }
                     }
-                    hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
+                    hits.groupBy({ it.first }, { it.second }).forEach { (c, found) ->
+                        val shows = groupShows(found, missing)
+                        val keys = shows.keys
                         item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
                         keys.forEachIndexed { index, key ->
                             item(key = "hit:" + key.key) {
@@ -446,6 +457,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                                 ) { SettingItem(vm, key, version, index, keys.size, undo, hint) }
                             }
                         }
+                        accessItems(shows, "hit:${c.id}", { peek }, ask)
                     }
                     return@GuiListPage
                 }
@@ -505,6 +517,27 @@ fun SettingsScreen(vm: TerminalViewModel) {
 /** The row that opens this screen. */
 private fun ScreenRow.action(open: (Screen) -> Unit) =
     Action(icon, title, subtitle, chevron = true) { open(screen) }
+
+/**
+ * Under a group's settings, the line and the button for each access that [shows] asks for ([groupShows]).
+ * [group] keeps their keys apart from another group's.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.accessItems(
+    shows: GroupShows,
+    group: String,
+    peek: () -> TerminalViewModel.Peek?,
+    ask: (Access) -> Unit,
+) {
+    for (word in shows.asks) item(key = "access:$group:$word") {
+        PeekFade(peek(), modifier = Modifier.animateItem()) {
+            AccessNeeded(
+                word,
+                ask,
+                Modifier.padding(start = 16.dp, end = 16.dp, top = if (shows.keys.isEmpty()) 0.dp else 8.dp),
+            )
+        }
+    }
+}
 
 /**
  * Adds a settings category's grouped rows to a list in another screen. For example, the Feeds tab
