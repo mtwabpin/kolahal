@@ -214,7 +214,7 @@ How home looks: its colors, its font, what is drawn over it and what is behind i
 | `shader [<name>\|ls\|on\|off]` | | a [shader](/scripting/shaders/) over home and the screens, on Android 13 and newer: `crt`, `paper`, `aurora` and others, or one of yours. Alone, it lists them. `off` always works |
 | `shader set <name> <parameter> <value>` · `shader reset <name>` | | change a shader's [parameters](/scripting/shaders/#parameters), such as the amount of snow, and reset them |
 | `shader follow <name> <parameter> <value>` · `shader values` | | let a parameter [follow a value](/scripting/shaders/#values-to-follow), such as `battery` or one a script gives; `values` lists them |
-| `shader play <name>` · `shader words <name> <words>` | | play a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, once over home; `words` plays it when a notification has one of them, in the full build also [over the app in front](/scripting/shaders/#over-other-apps) |
+| `shader play <name>` · `shader words <name> <words>` | | play a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`, once over home; `words` plays it when a notification has one of them, also [over the app in front](/scripting/shaders/#over-other-apps) |
 | `shader get [<name>]` · `shader get --update` | | [shared shaders](/scripting/shaders/#getting-shaders-from-others): `get` lists them and marks those with a newer version, or installs or updates one; `--update` updates every one you installed |
 | `shader check\|save\|rm <name>` · `shader reload` | | work with the shaders of [your own](/scripting/shaders/#adding-your-own) |
 | `shader edit <name>` | | open a shader's code in the [editor](/scripting/shaders/#editing-one); one that comes with Kolahal becomes yours when you save it |
@@ -275,7 +275,7 @@ instead. The [setup checklist](/getting-started/setup/) has the same list.
 | `allow calls` | Call log | calls in the log, and `calls`. Full build only |
 | `allow alarms` | Alarms & reminders | reminders and scripts' daily times on the minute (Android 12 and newer) |
 | `allow battery` | Unrestricted battery | timer scripts and feeds run on time |
-| `allow overlay` | Display over other apps | a [one-off shader](/scripting/shaders/#over-other-apps) plays over the app in front (Android 13 and newer). Full build only |
+| `allow overlay` | Display over other apps | a [one-off shader](/scripting/shaders/#over-other-apps) plays over the app in front (Android 13 and newer). Not on Android Go and other low-memory phones, which can't allow it |
 
 `allow` is about Kolahal's own permissions. What one script may use is its own switches:
 `script allow|deny <name> <what>`.

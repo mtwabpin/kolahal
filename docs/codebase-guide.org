@@ -726,8 +726,9 @@ The facts are in =shader/=, part of the Model and plain Kotlin where it can be:
   scripts' values, so the live wallpaper gets them in its state.
 - =ShaderPlay=: one-off shaders (=@once=) that play for some seconds over home (=shader play=, a
   script's =shader.play=); =ShaderWords= plays one when a notification has its words.
-- [[src:shader/ShaderOverApps.kt::object ShaderOverApps][ShaderOverApps]]: a word's one-off over the app in front (=screen.shader-over-apps=), in the full
-  build only. =plays= is the one rule (pure): the setting, the access, the shader's rating for =apps=
+- [[src:shader/ShaderOverApps.kt::object ShaderOverApps][ShaderOverApps]]: a word's one-off over the app in front (=screen.shader-over-apps=), in both
+  builds. =plays= is the one rule (pure): the setting, the access, a phone that can give it (=phoneGives=:
+  not a low-memory one), the shader's rating for =apps=
   (=@suits=), home not in front, the screen on and unlocked, no Do Not Disturb, no full-screen app,
   and what stops a one-off on home. Where it says no, =ShaderPlay= has the shader wait for home. It
   reads and compiles the shader off the main thread, under a mark of its own in =ShaderSafety=
@@ -1113,15 +1114,17 @@ included. [[file:developing.org][docs/developing.org]] has the rest of the build
 |------------+----------------+----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | =debug=    | =.debug=       | no       | installs beside a release build; =-Pcoverage= turns on test coverage                                                                                                                                                      |
 | =release=  | none           | yes      | =isMinifyEnabled= and =isShrinkResources=                                                                                                                                                                                 |
-| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.LOCK_SERVICE=, =CALL_LOG=, =CONTACTS=, =SELF_UPDATE= and =SHADER_OVER_APPS= are false; the manifest drops the accessibility service, the call log, contacts, the updater and =SYSTEM_ALERT_WINDOW= |
+| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.LOCK_SERVICE=, =CALL_LOG=, =CONTACTS= and =SELF_UPDATE= are false (=SHADER_OVER_APPS= stays true); the manifest drops the accessibility service, the call log, contacts and the updater |
 
 Code checks =BuildConfig.LOCK_SERVICE= / =CALL_LOG= / =CONTACTS= / =SELF_UPDATE= wherever
 behavior differs in =play=. Without =CONTACTS=, =ContactsRepository.picker= is on: names come from
 the contacts picked with Android's contact picker (=ContactPicker=), remembered on the phone.
 Without =SELF_UPDATE=, =update= is never built, so R8 drops the updater
-(=tools/check-play-build.sh= checks the APK). Without =SHADER_OVER_APPS=, a word's one-off never
-reaches =ShaderOverApps= and home never sets its window, so R8 drops =ShaderOverlay= (the script
-checks for its window's name); the setting isn't in =Keys.ALL=, and =allow overlay= isn't offered.
+(=tools/check-play-build.sh= checks the APK). =SHADER_OVER_APPS= is true in both builds; it stays so the
+Play build can drop the feature if Google refuses it (=app/build.gradle.kts= says how). Without it, a
+word's one-off never reaches =ShaderOverApps= and home never sets its window, so R8 drops =ShaderOverlay=
+(the script checks that its window's name and =SYSTEM_ALERT_WINDOW= come together); the setting isn't in
+=Keys.ALL=, and =allow overlay= isn't offered.
 
 ** How the tests are organized
 

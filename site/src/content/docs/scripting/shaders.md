@@ -119,7 +119,7 @@ the same. A scene gets none, since it hides the wallpaper while it is on (below)
 [header](#the-header), and one without a rating shows none.
 
 A [one-off shader](#one-off-shaders) can have a fourth rating, for **other apps**: only one that is good or fair
-there plays [over the app in front](#over-other-apps). The full build shows it.
+there plays [over the app in front](#over-other-apps).
 
 A scene, a shader that can be your [live wallpaper](#as-a-live-wallpaper), brings its own ground: while it is on over
 home, your wallpaper doesn't show behind the log, whatever `log.wallpaper` says. The setting keeps its value, and the
@@ -158,7 +158,7 @@ screen, text and the shader that is on included. Tap one under **One-off** in th
 plays when a notification's title or text has one of them: whole words, in any case. Kolahal needs notification access for
 this: without it, the field is "Needs notification access" and an **Allow notification access** button, and the words you
 typed come back once it is allowed. Notifications from the private space don't count. `shader words hearts Alex, picnic` does the same, and
-`shader words hearts off` ends it. In the full build it can play [over the app you are in](#over-other-apps).
+`shader words hearts off` ends it. It can also play [over the app you are in](#over-other-apps).
 
 A script can play one too, with [`shader.play`](/scripting/api/#shaderplayname-seconds).
 
@@ -179,14 +179,12 @@ same.
 
 ### Over other apps
 
-Full build only (the one from GitHub): the Play build has no such setting, and doesn't ask for the access.
-
 A one-off can play over the app you are in, so you see it without going home. It is off until you turn it on:
 
 1. On the **Shaders** tab, under the one-off shaders, **Play over other apps** says what it needs first:
    "Needs display over other apps", and "Needs notification access" while Kolahal can't see your notifications.
-   Tap **Allow display over other apps**. Android's **Display over other apps** page opens: turn Kolahal on
-   there. `allow overlay` opens the page too.
+   Tap **Allow display over other apps**. Kolahal says what it will draw and when: tap **Allow**, and Android's
+   **Display over other apps** page opens: turn Kolahal on there. `allow overlay` does the same.
 2. Back in Kolahal, turn on **Play over other apps**. `config set screen.shader-over-apps on` does the same.
 
 Then a notification with one of a shader's words plays it at once over the app in front, when all of these hold:
@@ -208,6 +206,7 @@ Otherwise it waits for home, as before. One that played over an app doesn't play
 - After Kolahal starts again in the background, as after an update, one-offs wait for home until home has been in
   front once.
 - `shader play` and a script's `shader.play` play over home only.
+- Android Go and other phones with little memory can't allow Display over other apps, so Kolahal doesn't offer it there.
 
 To let a shader of yours play there, add `apps good` (or `apps fair`) to its `@suits` line, and draw on a clear ground:
 over another app there is nothing to read, so `content.eval` gives 0 everywhere, and what the shader returns is laid over

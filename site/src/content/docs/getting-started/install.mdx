@@ -79,10 +79,11 @@ Because of Google Play's rules, the Play build is different from the full build 
 - **No accessibility service.** Play asks for a declaration and a video for an accessibility service. So the Play build has no `lock` and no double-tap to lock.
 - **No contacts permission.** Play requires apps to use Android's contact picker when the picker is enough. So `call`, `sms` and `contacts` open the picker and remember who you pick ([People](/guides/people/#in-the-play-build)).
 - **No `update`.** Apps on Play update only through Play.
-- **No shaders over other apps.** For now, only the full build can play a [one-off shader](/scripting/shaders/#over-other-apps) over the app in front. In the Play build it plays over home.
 
-Everything else is the same, including notification access. Before Android's Notification access screen opens,
-Kolahal explains what it reads and asks for your permission. Play requires this of apps that read notifications.
+Everything else is the same, including notification access and [one-off shaders over other apps](/scripting/shaders/#over-other-apps).
+Before Android's Notification access screen opens, Kolahal explains what it reads and asks for your permission. Play
+requires this of apps that read notifications. Before Android's Display over other apps page opens, Kolahal says what it
+will draw and when.
 
 ## Build from source
 

@@ -68,11 +68,13 @@ or listed in =help=, and typed anyway they say why they're missing ("This build 
 accessibility service …", "This build updates through Google Play …"). With =SELF_UPDATE= off the
 updater's code is never reached, so R8 removes it. =CONTACTS= switches =call=, =sms= and =contacts=
 to Android's contact picker.
-=SHADER_OVER_APPS= is off as well, and the manifest removes =SYSTEM_ALERT_WINDOW=: a one-off shader
-plays over other apps in the full build only, so the Play build has no setting, no =allow overlay= and
-no window for it.
+=SHADER_OVER_APPS= stays on in the Play build: a one-off shader plays over other apps in both builds
+(=SYSTEM_ALERT_WINDOW=, off until the user turns it on). The switch stays so the Play build can drop it
+if Google refuses it: set it to false for =play= and remove the permission in its manifest
+([[file:google-play.org][google-play.org]] says so in full).
 =tools/check-play-build.sh= checks the Play APK (=assemblePlay=; it has the bundle's manifest) and
-fails if it ever asks for a restricted permission again or carries the updater or that window.
+fails if it ever asks for a restricted permission again, carries the updater, or has
+=SYSTEM_ALERT_WINDOW= without the window for shaders over other apps or the window without it.
 
 * How a release travels
 
