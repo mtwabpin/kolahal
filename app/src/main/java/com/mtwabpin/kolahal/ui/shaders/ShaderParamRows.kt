@@ -8,7 +8,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,7 +23,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
@@ -31,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemShapes
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SegmentedListItem
@@ -41,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -58,6 +64,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -68,10 +75,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.shader.ShaderParam
@@ -230,10 +239,12 @@ private fun ParamRow(
                 when {
                     !number -> {
                         Spacer(Modifier.height(8.dp))
-                        ConnectedChoices(
+                        val pickWord: (String) -> Unit = { word -> if (followed == null) param.parse(word)?.let { actions.setParam(shader, param, it) } }
+                        if (param.choices.size <= WORDS_IN_ROW) ConnectedChoices(
                             param.choices, param.text(value), tagPrefix = "param ${param.name} ",
                             label = { it.replaceFirstChar(Char::uppercase) },
-                        ) { word -> if (followed == null) param.parse(word)?.let { actions.setParam(shader, param, it) } }
+                            onPick = pickWord,
+                        ) else ChoiceRows(param.choices, param.text(value), tagPrefix = "param ${param.name} ", onPick = pickWord)
                         Spacer(Modifier.height(4.dp))
                         FollowButton(param, follow, hasValue = followed != null, actions, onPick = pick)
                     }
@@ -268,6 +279,86 @@ private fun ParamRow(
                 .fillMaxWidth()
                 .then(hold),
         )
+    }
+}
+
+/** The most words in one row of a parameter's buttons. A choice of more is in rows ([choiceRows]). */
+private const val WORDS_IN_ROW = 4
+
+/**
+ * How a parameter's choice of [count] words is laid out: how many buttons each row has, from the top. Every button in
+ * a row has the same width, and every row the full width [widthDp], so the buttons of a shorter row are wider.
+ * - Up to four words: one row, as any choice of a few words is ([ConnectedChoices]).
+ * - Five to eight: two rows, as even as they go, the longer first: five are three and two, six three and three,
+ *   seven four and three, eight four and four.
+ * - At a large font a word shrinks to fit its button first. Only where fewer buttons than that fit in a row, each
+ *   [needDp] wide for the widest word at its smallest, with [gapDp] between two, do the rows break further: into
+ *   as many rows as it takes, again as even as they go, the longer first. Seven where three fit are three, two and two.
+ */
+internal fun choiceRows(count: Int, widthDp: Float, needDp: Float, gapDp: Float): List<Int> {
+    if (count <= WORDS_IN_ROW) return listOf(count)
+    val fit = ((widthDp + gapDp) / (needDp + gapDp)).toInt().coerceIn(1, WORDS_IN_ROW)
+    val rows = (count + fit - 1) / fit
+    return List(rows) { i -> count / rows + if (i < count % rows) 1 else 0 }
+}
+
+/** The smallest size of a word in [ChoiceRows], in sp, and the room at each side of it inside its button, in dp. */
+private const val CHOICE_MIN_SP = 10
+private const val CHOICE_PAD_DP = 4
+
+/**
+ * A choice of more than [WORDS_IN_ROW] words, as the Arrange toolbar's choices are: rows of connected buttons laid out
+ * by [choiceRows], [selected] checked. A tap picks one ([onPick] with its word).
+ * - A word that doesn't fit its button shrinks to fit, down to [CHOICE_MIN_SP] sp.
+ * - Where the widest word doesn't fit even then, there are more rows: every word stays whole, and each choice is one tap.
+ */
+@Composable
+private fun ChoiceRows(choices: List<String>, selected: String, tagPrefix: String, onPick: (String) -> Unit) {
+    val labels = choices.map { it.replaceFirstChar(Char::uppercase) }
+    val gap = ButtonGroupDefaults.ConnectedSpaceBetween
+    val measurer = rememberTextMeasurer()
+    val smallest = MaterialTheme.typography.labelLarge.copy(fontSize = CHOICE_MIN_SP.sp)
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // The button the widest word needs at its smallest size.
+        val need = remember(labels, smallest, density) {
+            val widest = labels.maxOfOrNull { measurer.measure(it, smallest, maxLines = 1, softWrap = false).size.width } ?: 0
+            with(density) { widest.toDp() } + (2 * CHOICE_PAD_DP).dp
+        }
+        val counts = choiceRows(choices.size, maxWidth.value, need.value, gap.value)
+        val rows = counts.runningFold(0, Int::plus).zipWithNext { from, to -> (from until to).toList() }
+        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            rows.forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { i ->
+                        ToggleButton(
+                            checked = choices[i] == selected,
+                            onCheckedChange = { onPick(choices[i]) },
+                            shapes = when (i) {
+                                row.first() -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                row.last() -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                            },
+                            contentPadding = PaddingValues(horizontal = CHOICE_PAD_DP.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag(tagPrefix + choices[i]),
+                        ) {
+                            Text(
+                                labels[i],
+                                autoSize = TextAutoSize.StepBased(
+                                    minFontSize = CHOICE_MIN_SP.sp,
+                                    maxFontSize = LocalTextStyle.current.fontSize,
+                                    stepSize = 1.sp,
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

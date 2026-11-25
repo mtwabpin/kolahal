@@ -380,7 +380,7 @@ uniform float shape;
 ```
 
 - `@param <name> <min>..<max> = <default> <title>`: a slider; with no decimal point anywhere in it (`1..8 = 3`), whole numbers. The default must be in the range.
-- `@param <name> a|b|c = a <title>`: 2 to 4 words (letters, digits, `-`), shown as buttons; the uniform gets the word's place, 0 for the first.
+- `@param <name> a|b|c = a <title>`: 2 to 8 words (letters, digits, `-`), shown as buttons; the uniform gets the word's place, 0 for the first.
 - Each needs `uniform float <name>;`. Up to 8 parameters; a name can't be a uniform Kolahal sets.
 - People change them in the shader's details or with `shader set <name> <param> <value>`.
 - **Following a value**: end the line with `@follow <value>` (or a formula such as `@follow battery / 20`), and the parameter follows it until the user picks another. A number from Kolahal is spread over the range (a full battery is `max`); a formula's result is the value itself.

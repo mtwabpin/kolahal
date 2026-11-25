@@ -69,8 +69,8 @@ class ShaderParam private constructor(
         /** The most a shader can have. */
         const val MAX = 8
 
-        /** The most words to choose from: they share one row. */
-        const val MAX_CHOICES = 4
+        /** The most words to choose from: up to four share one row of buttons, more are in two rows. */
+        const val MAX_CHOICES = 8
 
         private val LINE = Regex("""^([A-Za-z_]\w{0,39})\s+(\S+)\s*=\s*(\S+)\s*(.*)$""")
         private val FOLLOW = Regex("""(?:^|\s+)@follow\s+(\S.*?)\s*$""")

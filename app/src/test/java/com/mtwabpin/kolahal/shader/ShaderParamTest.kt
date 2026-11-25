@@ -55,11 +55,22 @@ class ShaderParamTest {
         assertEquals("ring", p.text(7f))
     }
 
+    /** Up to eight words: the shader's details show more than four in two rows. A ninth is refused. */
+    @Test
+    fun eightWordsAtMost() {
+        val p = read("style glossy|flat|gradient|outline|double|neon|cartoon|halftone = glossy Heart")!!
+        assertEquals(ShaderParam.MAX_CHOICES, p.choices.size)
+        assertEquals(0f, p.default)
+        assertEquals(7f, p.parse("Halftone"))
+        assertEquals("neon", p.text(5f))
+        assertNull(read("style glossy|flat|gradient|outline|double|neon|cartoon|halftone|pixel = glossy Heart"))
+    }
+
     @Test
     fun whatCantBeReadIsNone() {
         for (bad in listOf(
             "", "amount", "amount 0..2", "amount 2..0 = 1", "amount 1..1 = 1", "amount 0..2 = 3", "amount 0..2 = some",
-            "9lives 0..2 = 1", "shape one = one", "shape a|b = c", "shape a|A = a", "shape a||b = a", "shape a|b|c|d|e = a",
+            "9lives 0..2 = 1", "shape one = one", "shape a|b = c", "shape a|A = a", "shape a||b = a", "shape a|b|c|d|e|f|g|h|i = a",
         )) assertNull(bad, read(bad))
     }
 

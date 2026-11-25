@@ -582,6 +582,36 @@ class ShadersScreenTest {
         }
     }
 
+    /**
+     * The hearts' eight styles are two rows of four buttons, each row as wide as the other; a tap on one picks it, and
+     * Reset puts it back.
+     */
+    @Test
+    fun aChoiceOfEightWordsIsTwoRows() {
+        needsAndroid13()
+        val param = Shaders.params(app, "hearts").first { it.name == "style" }
+        fun bounds(word: String) = compose.onNodeWithTag("param style $word", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        try {
+            show()
+            compose.onNodeWithTag("shader-search").performTextInput("hearts")
+            compose.waitForNode(hasTestTag("shader hearts"))
+            openSheet("hearts", "Hearts")
+            compose.onNodeWithTag("param style halftone", useUnmergedTree = true).performScrollTo()
+            val (upper, lower) = param.choices.map(::bounds).chunked(4)
+            assertEquals(listOf(4, 4), listOf(upper.size, lower.size))
+            for (row in listOf(upper, lower)) assertEquals(1, row.map { it.top }.distinct().size)
+            assertTrue(lower.first().top >= upper.first().bottom)
+            assertEquals(upper.first().left, lower.first().left, 1f)
+            assertEquals(upper.last().right, lower.last().right, 1f)
+            compose.onNodeWithTag("param style neon", useUnmergedTree = true).performClick()
+            compose.waitFor("not set") { ShaderParams.of("hearts", param) == 5f }
+            tapOnSheet("Reset")
+            compose.waitFor("not reset") { ShaderParams.of("hearts", param) == param.default }
+        } finally {
+            ShaderParams.reset(app, "hearts")
+        }
+    }
+
     /** While a parameter follows a value it has no slider; picking Nothing in its Follow menu brings the slider back. */
     @Test
     fun aFollowingParameterHasNoSlider() {

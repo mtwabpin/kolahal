@@ -3,11 +3,13 @@
 // @once 6
 // @suits dark good, light good, wallpaper good, apps good
 // @param amount 0.2..1.1 = 1.0 Number of hearts
+// @param style glossy|flat|gradient|outline|double|neon|cartoon|halftone = glossy Heart
 //
 // Three rows of lanes across the screen, the back one first, with at most one heart in each lane. A heart
 // drops at its own time, lands squashed, bounces three times lower each time, rocks on its tip and rests.
 // Near the end it crouches, hops and falls out through the bottom edge, those on the left first. A pixel
 // looks at the three hearts of its lanes, and is let go when it is above them.
+// Its hearts are drawn in the style chosen (style), by a part that is the same in each hearts shader.
 // It is rated for other apps (apps good): there content is clear, and the hearts alone are returned, laid
 // over the app as they are. Nothing is drawn between them: no veil, and no color of the page.
 
@@ -15,6 +17,8 @@ uniform shader content;
 uniform float2 resolution;
 uniform float progress;
 uniform float amount;
+uniform float dark;
+uniform float style;
 
 // A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
 float hash(float2 p) {
@@ -23,8 +27,29 @@ float hash(float2 p) {
     return fract((q.x + q.y) * q.z);
 }
 
-// How far p is from a heart about 1 high whose tip is at 0 and which points up (Inigo Quilez' distance).
-float heart(float2 p) {
+// The heart, in the style chosen. This part is the same in each of the hearts shaders, down to the end of
+// heartLook. style is the place of the word chosen in the @param line: 0 glossy, 1 flat, 2 gradient, 3 outline,
+// 4 double, 5 neon, 6 cartoon, 7 halftone. It is the same for every pixel, so each style's work is inside its
+// own if, and a pixel pays for that style alone.
+
+// A heart's color for its tone from 0 to 1: rose to red.
+float3 paint(float tone) {
+    return mix(float3(1.0, 0.42, 0.55), float3(0.91, 0.16, 0.30), tone);
+}
+
+// How much of a shape shows where its distance is d: 1 inside, 0 outside, with a soft edge.
+float within(float d, float soft) {
+    return 1.0 - smoothstep(-soft, soft, d);
+}
+
+// How much of the band between the distances lo and hi shows.
+float band(float d, float lo, float hi, float soft) {
+    return smoothstep(lo - soft, lo + soft, d) * (1.0 - smoothstep(hi - soft, hi + soft, d));
+}
+
+// How far p is from a pointed heart with wide lobes, about 1 high, whose tip is at 0 and which points up
+// (Inigo Quilez' distance). It is 1.1 high and 1.2 wide.
+float heartPointed(float2 p) {
     p.x = abs(p.x);
     if (p.x + p.y > 1.0) {
         float2 d = p - float2(0.25, 0.75);
@@ -36,17 +61,131 @@ float heart(float2 p) {
     return sqrt(min(dot(a, a), dot(b, b))) * (p.x < p.y ? -1.0 : 1.0);
 }
 
+// The right half of any heart made of a round lobe and a straight side down to the tip (p.x is 0 or more).
+// c and r: the lobe's middle and radius; u and t: the direction of the side from the tip, and its length;
+// ny: the height of the notch; b and ca: the direction of the middle of the lobe's outer arc, and the
+// cosine of half its angle. With the pointed heart's numbers this is heartPointed.
+float lobes(float2 p, float2 c, float r, float2 u, float t, float ny, float2 b, float ca) {
+    float2 q = p - c;
+    float far = length(q);
+    float bow = far - r;
+    float along = dot(p, u);
+    float2 s = p - u * clamp(along, 0.0, t);
+    float2 k = p - float2(0.0, ny);
+    float near = dot(q, b) > ca * far ? bow * bow : dot(k, k);
+    float d = sqrt(min(near, dot(s, s)));
+    return (bow < 0.0 || (p.y < c.y && along < t && p.x * u.y < p.y * u.x)) ? -d : d;
+}
+
+// A rounder heart, as on a favorite button: a blunt tip (the shape is grown by 0.11) and a soft notch
+// (the axis is smoothed there).
+float heartRound(float2 p) {
+    p = float2(sqrt(p.x * p.x + 0.0016 * smoothstep(0.3, 0.6, p.y)), p.y - 0.128);
+    return lobes(p, float2(0.23, 0.5836), 0.26, float2(0.7193, 0.6947), 0.5708, 0.7048, float2(0.6004, 0.7997), -0.1582) - 0.11;
+}
+
+// A chubby heart: wider than high, with big lobes, a shallow notch and a blunt tip.
+float heartChubby(float2 p) {
+    p = float2(sqrt(p.x * p.x + 0.0009 * smoothstep(0.3, 0.6, p.y)), p.y - 0.125);
+    return lobes(p, float2(0.22, 0.5526), 0.30, float2(0.7880, 0.6157), 0.5136, 0.7565, float2(0.7363, 0.6767), -0.0799) - 0.10;
+}
+
+// How far p is from an arc of radius r around c. m points from c to the arc's middle, and sc is the sine
+// and cosine of half its angle.
+float toArc(float2 p, float2 c, float2 m, float2 sc, float r) {
+    p -= c;
+    float2 q = float2(abs(p.x * m.y - p.y * m.x), dot(p, m));
+    return sc.y * q.x > sc.x * q.y ? length(q - sc * r) : abs(length(q) - r);
+}
+
+// The room a heart of the chosen style needs past a glossy one, in units of its size, for the tests that let a
+// pixel go before a heart is tried. Neon's glow reaches 0.86 from the middle, where the others reach 0.67 at most;
+// 0.13 is enough also for a heart that leans, is drawn out or grows past its size.
+float heartRoom() {
+    return abs(style - 5.0) < 0.5 ? 0.13 : 0.0;
+}
+
+// How far p is from the heart of the chosen style, about 1 high, whose tip is at 0 and which points up.
+float heart(float2 p) {
+    // Flat and outline: the round heart.
+    if (abs(style - 1.0) < 0.5 || abs(style - 3.0) < 0.5) return heartRound(p);
+    // Cartoon: the chubby heart, a little smaller, as its outline lies outside it.
+    if (abs(style - 6.0) < 0.5) return 0.93 * heartChubby((p - float2(0.0, 0.038)) / 0.93);
+    // The others: the pointed heart.
+    return heartPointed(p);
+}
+
 // How one heart looks at p, measured from its middle in units of its size, y down. d is heart() there, soft how
 // wide its edge is in the same units, and tone, from 0 to 1, its own shade. It gives the color already multiplied
-// by how much of the heart is there, and that amount.
+// by how much of the heart is there, and that amount. Nothing is drawn farther than 0.8 from the middle.
 half4 heartLook(float2 p, float d, float soft, float tone) {
-    float shape = 1.0 - smoothstep(-soft, soft, d);
-    if (shape <= 0.0) return half4(0.0);
-    // Rose to red, lighter toward the upper left, with a small bright spot.
-    float3 own = mix(float3(1.0, 0.42, 0.55), float3(0.91, 0.16, 0.30), tone);
-    own += 0.16 * clamp(-p.x - p.y, -0.6, 0.8);
-    own += 0.45 * (1.0 - smoothstep(0.04, 0.13, length(p - float2(-0.20, -0.24))));
-    return half4(float4(clamp(own, 0.0, 1.0) * shape, shape));
+    float3 own = paint(tone);
+    if (style < 0.5) {
+        // Glossy: rose to red, lighter toward the upper left, with a small bright spot.
+        float shape = within(d, soft);
+        if (shape <= 0.0) return half4(0.0);
+        own += 0.16 * clamp(-p.x - p.y, -0.6, 0.8);
+        own += 0.45 * (1.0 - smoothstep(0.04, 0.13, length(p - float2(-0.20, -0.24))));
+        return half4(float4(clamp(own, 0.0, 1.0) * shape, shape));
+    }
+    if (style < 1.5) {
+        // Flat: one flat color.
+        float shown = within(d, soft);
+        return half4(float4(own * shown, shown));
+    }
+    if (style < 2.5) {
+        // Gradient: flat, a little lighter at the top than at the bottom.
+        float shown = within(d, soft);
+        if (shown <= 0.0) return half4(0.0);
+        float down = clamp(0.5 + p.y / 1.1, 0.0, 1.0);
+        own = mix(mix(own, float3(1.0), 0.24), own * 0.80, down);
+        return half4(float4(own * shown, shown));
+    }
+    if (style < 3.5) {
+        // Outline: a line and nothing else, one even stroke. It lies inside the edge, so the heart keeps its size.
+        float shown = 1.0 - smoothstep(0.055 - soft, 0.055 + soft, abs(d + 0.055));
+        return half4(float4(own * shown, shown));
+    }
+    if (style < 4.5) {
+        // Double: two outlines, one inside the other.
+        float shown = max(band(d, -0.075, 0.0, soft), band(d, -0.215, -0.15, soft));
+        return half4(float4(own * shown, shown));
+    }
+    if (style < 5.5) {
+        // Neon: a glowing tube, as on a neon sign: a pale core, a colored line and a halo, out to 0.79 from the middle.
+        // How far the pixel is from the middle of the tube, which runs a little inside the edge.
+        float off = abs(d + 0.06);
+        float tube = 1.0 - smoothstep(0.042 - soft, 0.042 + soft, off);
+        float core = 1.0 - smoothstep(0.0, 0.034, off);
+        float halo = 1.0 - smoothstep(0.0, 0.25, off);
+        halo *= halo * mix(0.42, 0.62, dark);
+        // The tube is pale in its middle on a dark theme. On a light one that would not show, so it keeps its color.
+        float3 lit = mix(own * 0.94, mix(own, float3(1.0), 0.25 + 0.6 * core), dark);
+        return half4(float4(mix(own * halo, lit, tube), mix(halo, 1.0, tube)));
+    }
+    if (style < 6.5) {
+        // Cartoon: a chubby heart with a dark outline and one curved highlight.
+        float shown = within(d - 0.03, soft);
+        if (shown <= 0.0) return half4(0.0);
+        // The outline: a dark tone of the same color, on both sides of the edge.
+        float3 color = mix(own * 0.20 + float3(0.07, 0.02, 0.08), own, within(d + 0.045, soft));
+        // The highlight: an arc with round ends on the upper left lobe.
+        float arc = toArc(p, float2(-0.205, -0.085), float2(-0.7071, -0.7071), float2(0.5736, 0.8192), 0.215) - 0.038;
+        color = mix(color, float3(1.0), 0.9 * within(arc, soft));
+        return half4(float4(color * shown, shown));
+    }
+    // Halftone: an outline filled with dots that grow toward the lower right, as in print.
+    float shown = within(d, soft);
+    if (shown <= 0.0) return half4(0.0);
+    // Dots on a grid turned by 45 degrees, five to a unit along each of its lines.
+    float2 g = float2(p.x + p.y, p.x - p.y) * 5.2;
+    float2 f = fract(g) - 0.5;
+    float big = mix(0.20, 0.56, clamp(0.5 + 0.55 * (p.x + p.y), 0.0, 1.0));
+    float blur = soft * 7.35;
+    float dots = 1.0 - smoothstep(big - blur, big + blur, length(f));
+    // A thin gap parts the dots from the outline.
+    float cover = max(dots * within(d + 0.085, soft), band(d, -0.055, 0.0, soft)) * shown;
+    return half4(float4(own * cover, cover));
 }
 
 // p turned by the angle a.
@@ -113,7 +252,7 @@ half4 main(float2 xy) {
             up = 0.95 * resolution.y * away - 0.5 * g * away * away;
             if (up < -1.4 * size) continue;
         }
-        if (xy.y < ground - up - 1.5 * size) continue;
+        if (xy.y < ground - up - (1.5 + heartRoom()) * size) continue;
 
         // It is squashed when it lands and before it hops, and drawn out while it falls.
         float squash = 0.26 * hard * exp(-13.0 * since) + 0.2 * smoothstep(-0.2, 0.0, away) * (away < 0.0 ? 1.0 : 0.0);

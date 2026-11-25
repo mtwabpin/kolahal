@@ -81,14 +81,22 @@ class ShaderOverAppsTest {
         assertNull(ShaderOverApps.fit(ShaderMeta.parse("// @suits dark good\n// @once 2\nuniform shader content;")))
     }
 
-    /** On a clear ground hearts returns the hearts alone: what it read, which is nothing there, and its own color over it. */
+    /**
+     * On a clear ground hearts returns the hearts alone: what it read, which is nothing there, and its own color over it.
+     * It reads `dark` for a heart's own color alone: the Neon style glows differently on a light theme. `dark` says which
+     * theme it is, nothing of the page or the app under it, so it is read in heartLook and nowhere else.
+     */
     @Test
     fun heartsDrawsNothingButHearts() {
         val code = asset("hearts").replace(Regex("//[^\n]*"), "")
         assertTrue("return half4(here * (1.0 - cover) + float4(color, cover));" in code)
         assertTrue("if (progress <= 0.0 || progress >= 1.0) return half4(here);" in code)
         // No color of the page, and nothing mixed into what is under it but the hearts.
-        for (page in listOf("bg", "surface", "dark")) assertFalse(page, Regex("""uniform\s+\w+\s+$page\b""").containsMatchIn(code))
+        for (page in listOf("bg", "surface")) assertFalse(page, Regex("""uniform\s+\w+\s+$page\b""").containsMatchIn(code))
+        val look = code.substringAfter("half4 heartLook(").substringBefore("\n}\n")
+        val dark = Regex("""\bdark\b""")
+        assertTrue("uniform float dark;" in code)
+        assertEquals("dark is read in heartLook alone", dark.findAll(code).count(), 1 + dark.findAll(look).count())
         assertEquals(2, Regex("""\breturn\b[^;]*\bhere\b""").findAll(code.substringAfter("half4 main")).count())
     }
 
