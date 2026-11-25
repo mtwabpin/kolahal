@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -46,6 +45,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SelectableDropdownMenuItem
@@ -81,7 +81,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -510,17 +509,6 @@ internal fun SwitchRow(
     checked: Boolean,
     color: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     onChange: (Boolean) -> Unit,
-) = SwitchRow(title, AnnotatedString(subtitle), checked, color, onChange = onChange)
-
-/** A [SwitchRow] whose [subtitle] has pictures in its text ([inlineContent]), such as an app's icon beside its name. */
-@Composable
-internal fun SwitchRow(
-    title: String,
-    subtitle: AnnotatedString,
-    checked: Boolean,
-    color: Color = MaterialTheme.colorScheme.surfaceContainerLow,
-    inlineContent: Map<String, InlineTextContent> = emptyMap(),
-    onChange: (Boolean) -> Unit,
 ) {
     SegmentedListItem(
         checked = checked,
@@ -532,8 +520,37 @@ internal fun SwitchRow(
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                inlineContent = inlineContent,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp),
+    ) { Text(title, style = MaterialTheme.typography.bodyLarge) }
+}
+
+/**
+ * A [SwitchRow] with its own [supporting] content under the title, such as a list of lines, in the
+ * subtitle's style. The whole row is still the one tap, and the switch keeps its place at the end.
+ */
+@Composable
+internal fun SwitchRow(
+    title: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    supporting: @Composable () -> Unit,
+) {
+    SegmentedListItem(
+        checked = checked,
+        onCheckedChange = onChange,
+        shapes = rowShapes(),
+        colors = rowColors(MaterialTheme.colorScheme.surfaceContainerLow),
+        contentPadding = ROW_PADDING,
+        supportingContent = {
+            ProvideTextStyle(
+                MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                supporting
             )
         },
         trailingContent = { Switch(checked = checked, onCheckedChange = null) },

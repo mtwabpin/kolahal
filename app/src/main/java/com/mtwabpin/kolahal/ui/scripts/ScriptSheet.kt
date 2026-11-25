@@ -7,20 +7,18 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
@@ -53,9 +51,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.Placeholder
-import androidx.compose.ui.text.PlaceholderVerticalAlign
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -207,19 +202,19 @@ internal fun ScriptSheet(
     }
     var editingOption by remember(s.id) { mutableStateOf<ScriptMeta.Option?>(null) }
     // The apps its `@on notification` line names, by their names when installed, else by package.
-    // A package means the personal profile's app: that one's icon shows beside its name.
+    // A package means the personal profile's app: its line shows that one's icon beside its name.
     val notificationApps = remember(s.code) { ScriptMeta.parse(s.code).notificationApps }
     val context = LocalContext.current.applicationContext
     val installed by remember(context) { AppRepository.get(context).apps }.collectAsStateWithLifecycle()
     val eventApps by produceIo(
-        notificationApps.orEmpty().map { EventApp(it, null) },
+        notificationApps.orEmpty().map { EventApp(it, it, null) },
         notificationApps,
         installed,
         what = "Reading the names of a script's apps"
     ) {
         notificationApps.orEmpty().map { pkg ->
             val app = installed.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }
-            EventApp(AppNames.label(context, pkg, app?.profile?.serial) ?: pkg, app)
+            EventApp(pkg, AppNames.label(context, pkg, app?.profile?.serial) ?: pkg, app)
         }
     }
     val grants = info.grants
@@ -325,7 +320,7 @@ internal fun ScriptSheet(
             SectionTitle("Events")
             Spacer(Modifier.height(4.dp))
             events.forEach { item ->
-                if (item == "notification" && eventApps.any { it.app != null }) {
+                if (item == "notification" && eventApps.isNotEmpty()) {
                     NotificationAppsRow(eventApps, grants.allows(item)) { vm.scriptActions.setScriptAccess(s, item, it) }
                 } else SwitchRow(
                     ScriptAccess.label(item),
@@ -579,43 +574,45 @@ private fun SecretRow(secret: ScriptMeta.Secret, isSet: Boolean, onClick: () -> 
     )
 }
 
-/** An app a script's `@on notification` line names: its [name] (its package when not installed), and the personal profile's [app] when installed. */
-private class EventApp(val name: String, val app: AppEntry?)
+/**
+ * An app a script's `@on notification` line names: its [pkg], its [name] (its package when not
+ * installed), and the personal profile's [app] when installed.
+ */
+private class EventApp(val pkg: String, val name: String, val app: AppEntry?)
 
 /**
- * The notification event's switch, when its `@on notification` names an installed app: each such
- * app's icon shows before its name, in the help's own text. An app that is not installed is its
- * package alone.
+ * The notification event's switch, when its `@on notification` names apps: a first line, then a line
+ * for each app in the header's order, its icon and its name. An app that is not installed is its
+ * package, with the icon's place left empty, so every name starts at the same edge.
  * - The icon is half again the text's size, as the app chips' icons are, so it grows with the font
- *   size. A no-break space holds its place in the text, so it never ends a line without its name.
- * - A screen reader hears the row as before: the icons say nothing, their names are in the text.
+ *   size. Its place is a quarter wider than the icon: the gap before the name.
+ * - A long name stays on its line, cut with an ellipsis, and the switch keeps its place at the row's end.
+ * - A screen reader hears the row as one statement: the first line, then the names. The icons say nothing.
  */
 @Composable
 private fun NotificationAppsRow(apps: List<EventApp>, checked: Boolean, onChange: (Boolean) -> Unit) {
-    val icon = MaterialTheme.typography.bodySmall.fontSize * 1.5f
-    val iconDp = with(LocalDensity.current) { icon.toDp() }
-    val help = buildAnnotatedString {
-        append(ScriptAccess.NOTIFICATIONS_FROM)
-        apps.forEachIndexed { i, a ->
-            if (i > 0) append(", ")
-            if (a.app != null) appendInlineContent("$i", "\u00A0")
-            append(a.name)
-        }
-        append(ScriptAccess.NOTIFICATIONS_LINE)
-    }
-    // Its room is a quarter wider than the icon: the gap before the name.
-    val icons = apps.withIndex().mapNotNull { (i, a) ->
-        val app = a.app ?: return@mapNotNull null
-        "$i" to InlineTextContent(Placeholder(icon * 1.25f, icon, PlaceholderVerticalAlign.TextCenter)) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                AppIcon(app, iconDp, Modifier.testTag("$EVENT_APP_ICON_TAG ${app.pkg}"))
+    val icon = with(LocalDensity.current) { (MaterialTheme.typography.bodySmall.fontSize * 1.5f).toDp() }
+    SwitchRow(ScriptAccess.label("notification"), checked, onChange) {
+        // A gap between the lines: the icons are taller than the text and would touch each other.
+        Column(verticalArrangement = Arrangement.spacedBy(APP_LINE_GAP)) {
+            Text(ScriptAccess.NOTIFICATIONS_FROM_APPS)
+            apps.forEach { a ->
+                Row(Modifier.testTag("$EVENT_APP_LINE_TAG ${a.pkg}"), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(icon * 1.25f, icon), contentAlignment = Alignment.CenterStart) {
+                        a.app?.let { AppIcon(it, icon, Modifier.testTag("$EVENT_APP_ICON_TAG ${a.pkg}")) }
+                    }
+                    Text(a.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
-    }.toMap()
-    SwitchRow(ScriptAccess.label("notification"), help, checked, inlineContent = icons, onChange = onChange)
+    }
 }
 
-/** The test tag of an app's icon on the notification event's switch ([NotificationAppsRow]), before a space and its package. */
+/** The test tags of an app's line and its icon on the notification event's switch ([NotificationAppsRow]), before a space and its package. */
+/** The room between two apps' lines on the notification event's switch, and under its first line. */
+private val APP_LINE_GAP = 6.dp
+
+internal const val EVENT_APP_LINE_TAG = "event-app-line"
 internal const val EVENT_APP_ICON_TAG = "event-app-icon"
 
 /** One of the main things to do with a script, on its sheet. [filled]: Run, in the theme's color. */

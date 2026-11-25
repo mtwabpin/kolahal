@@ -117,11 +117,13 @@ object ScriptAccess {
      */
     fun notificationHelp(apps: List<String>): String =
         if (apps.isEmpty()) "Runs for no app: its @on notification line names no package"
-        else NOTIFICATIONS_FROM + apps.joinToString(", ") + NOTIFICATIONS_LINE
+        else "Runs on notifications from ${apps.joinToString(", ")} (@on notification)"
 
-    /** The words before and after the apps in [notificationHelp]. The script's sheet puts an installed app's icon beside its name. */
-    const val NOTIFICATIONS_FROM = "Runs on notifications from "
-    const val NOTIFICATIONS_LINE = " (@on notification)"
+    /**
+     * The first line of the notification event on a script's sheet when its `@on notification` names
+     * apps. A line for each app follows it, with its icon when installed.
+     */
+    const val NOTIFICATIONS_FROM_APPS = "Runs on notifications from these apps (@on notification)"
 
     /**
      * A script's access. It combines what its code declares with `@uses`, which of [INTERNET] and

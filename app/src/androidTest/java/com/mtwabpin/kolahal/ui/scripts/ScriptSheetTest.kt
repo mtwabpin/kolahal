@@ -22,6 +22,7 @@ import androidx.compose.ui.test.isOn
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -39,6 +40,7 @@ import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptOptions
@@ -262,47 +264,76 @@ class ScriptSheetTest {
         compose.onNodeWithTag("private-online").assertDoesNotExist()
     }
 
-    /** An app's icon on the notification event's switch: [pkg]'s, or any app's when null. */
-    private fun appIcons(pkg: String? = null) = compose.onAllNodes(
-        SemanticsMatcher("${pkg ?: "an app"}'s icon") {
-            val tag = it.config.getOrNull(SemanticsProperties.TestTag).orEmpty()
-            if (pkg == null) tag.startsWith(EVENT_APP_ICON_TAG) else tag == "$EVENT_APP_ICON_TAG $pkg"
+    /** Nodes on the notification event's switch tagged [tag] (an app's line or icon): [pkg]'s, or any app's when null. */
+    private fun tagged(tag: String, pkg: String? = null) = compose.onAllNodes(
+        SemanticsMatcher("${pkg ?: "an app"}'s $tag") {
+            val t = it.config.getOrNull(SemanticsProperties.TestTag).orEmpty()
+            if (pkg == null) t.startsWith("$tag ") else t == "$tag $pkg"
         },
         useUnmergedTree = true,
     )
 
+    private fun appLines(pkg: String? = null) = tagged(EVENT_APP_LINE_TAG, pkg)
+    private fun appIcons(pkg: String? = null) = tagged(EVENT_APP_ICON_TAG, pkg)
+
     /**
-     * The apps an `@on notification` line names: an installed one (Settings) shows its icon beside its
-     * name, and one that isn't shows its package alone, in the same line of the switch.
+     * The apps an `@on notification` line names, each on a line of its own under a first line, in the
+     * header's order: an installed one (Settings) with its icon and its name, and one that isn't by its
+     * package alone. The row is still one switch, read as one statement.
      */
     @Test
-    fun theNotificationEventShowsTheIconsOfInstalledApps() {
+    fun theNotificationEventShowsALineForEachApp() {
         val settings = "com.android.settings"
+        val chat = "com.example.chat"
         val apps = AppRepository.get(app)
         apps.awaitLoaded(10_000)
         assertTrue(
             "Settings is in the app list",
             apps.apps.value.any { it.pkg == settings && it.profile.kind == ProfileKind.PERSONAL })
         val name = AppNames.label(app, settings) ?: settings
-        create("-- @uses notifications\n-- @on notification $settings com.example.chat\nlog(1)")
+        create("-- @uses notifications\n-- @on notification $settings $chat\nlog(1)")
         openSheet()
         compose.waitFor("Settings' icon shows") { appIcons(settings).fetchSemanticsNodes().size == 1 }
+        // One switch, its first line and then the names.
         compose.onNode(
-            hasText("Runs on notifications from", substring = true) and
+            isToggleable() and
+                    hasText(ScriptAccess.NOTIFICATIONS_FROM_APPS, substring = true) and
                     hasText(name, substring = true) and
-                    hasText("com.example.chat", substring = true)
+                    hasText(chat, substring = true)
         ).performScrollTo().assertExists()
-        appIcons("com.example.chat").assertCountEquals(0)
+        appLines().assertCountEquals(2)
+        appLines(settings).assertCountEquals(1)
+        appLines(chat).assertCountEquals(1)
+        val settingsLine = appLines(settings).onFirst()
+        settingsLine.assert(hasAnyDescendant(hasText(name)))
+        settingsLine.assert(hasAnyDescendant(hasTestTag("$EVENT_APP_ICON_TAG $settings")))
+        val chatLine = appLines(chat).onFirst()
+        chatLine.assert(hasAnyDescendant(hasText(chat)))
+        chatLine.assert(!hasAnyDescendant(hasTestTag("$EVENT_APP_ICON_TAG $chat")))
+        appIcons(chat).assertCountEquals(0)
         appIcons().assertCountEquals(1)
+        // In the header's order, one under the other, the names at the same left edge.
+        val first = settingsLine.fetchSemanticsNode().boundsInRoot
+        val second = chatLine.fetchSemanticsNode().boundsInRoot
+        assertTrue("Settings' line is above the chat's", first.bottom <= second.top)
+        assertEquals(first.left, second.left, 0.5f)
+        val nameLeft = compose.onNode(hasText(name) and hasAnyAncestor(hasTestTag("$EVENT_APP_LINE_TAG $settings")), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.left
+        val packageLeft = compose.onNode(hasText(chat) and hasAnyAncestor(hasTestTag("$EVENT_APP_LINE_TAG $chat")), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.left
+        assertEquals(nameLeft, packageLeft, 0.5f)
     }
 
-    /** A notification event that names no app has no icon. */
+    /** A notification event that names no app is the plain row: no lines and no icon. */
     @Test
-    fun theNotificationEventWithoutAppsHasNoIcon() {
+    fun theNotificationEventWithoutAppsHasNoLines() {
         create("-- @uses notifications\n-- @on notification\nlog(1)")
         openSheet()
         compose.onNodeWithText("Runs when this happens (@on notification)").performScrollTo().assertExists()
-        stays("no icon") { appIcons().fetchSemanticsNodes().isEmpty() }
+        stays("no lines and no icon") {
+            appLines().fetchSemanticsNodes().isEmpty() && appIcons().fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithText(ScriptAccess.NOTIFICATIONS_FROM_APPS, substring = true).assertDoesNotExist()
     }
 
     /**
