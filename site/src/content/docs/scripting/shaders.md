@@ -95,6 +95,12 @@ nothing while the screen is still.
 | `kintsugi` | the week's unlocks as a dark tea bowl mended with gold, on a table by a window: a seam for each day from left to right, the oldest first, each as long and branched as that day's unlocks, today's the brightest. On a light theme the bowl is pale over the log. It follows the hour and your [unlocks](#values-to-follow) |
 | `hourglass` | today's screen time as an hourglass on a table: the top holds what is left of a usual day, and the sand stands at a mark in the accent color when it is spent; past that it spills in a heap at the foot of the stand. It follows the hour and your [screen time](#values-to-follow) |
 | `pulse` | a [one-off](#one-off-shaders): light runs in around the edges of the screen from one point, swells once and is gone. Its colors and where it starts can be changed. It can play [over other apps](#over-other-apps) |
+| `comet` | a [one-off](#one-off-shaders): one bright head with a long tail runs a full lap around the edge, quickest halfway, and slows as it gets home. Its colors can be changed. It can play [over other apps](#over-other-apps) |
+| `breath` | a [one-off](#one-off-shaders): the whole edge glows in and out twice, softly, its colors drifting round, with no running fronts. Its colors can be changed. It can play [over other apps](#over-other-apps) |
+| `scan-line` | a [one-off](#one-off-shaders): one bright line travels down the screen with a short afterglow in rows behind it, as on an old tube. Its colors can be changed. It can play [over other apps](#over-other-apps) |
+| `spill` | a [one-off](#one-off-shaders): light gathers at the top middle, where notifications come from, runs down both sides and drains away at the bottom. Its colors can be changed. It can play [over other apps](#over-other-apps) |
+| `trace` | a [one-off](#one-off-shaders): a heartbeat line runs across the bottom of the screen once, two beats behind a bright head, and fades after it. Its colors can be changed. It can play [over other apps](#over-other-apps) |
+| `northern-lights` | a [one-off](#one-off-shaders): a curtain of soft color falls from the top edge, its folds drifting slowly, and fades like northern lights. Its colors can be changed. It can play [over other apps](#over-other-apps) |
 
 On the **Shaders** tab, a tap turns one on. Its details (ⓘ) have a preview: swipe left or right for the
 others, and hold the eye to see your own home with it, without turning it on.

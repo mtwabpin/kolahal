@@ -178,7 +178,7 @@ SCRIPTS IN LUA OR JAVASCRIPT
 • Each script has a switch for each thing it uses, and runs sandboxed in a separate process.
 
 A SCENE BEHIND IT
-• On Android 13 and newer, 39 shaders draw behind the log: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
+• On Android 13 and newer, 45 shaders draw behind the log: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
 • Some are drawn from your screen time and unlocks, such as a candle that burns down through the day. Those numbers stay on the phone.
 • Sliders change a shader, and a slider can follow the battery, the time of day or a value from a script.
 • A scene can also be your phone's live wallpaper, and you can write shaders of your own.

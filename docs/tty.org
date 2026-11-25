@@ -151,7 +151,7 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
   and the app shortcut for safe mode (each under "Left" below).
 - AGSL files loaded like scripts, a =RenderEffect= on the TTY layer, uniforms (time, size, theme
   colors, touch, the grid), a frame-time watchdog, safe mode and an always-reachable off; Settings
-  stays outside the effect. A bundled set (as planned: CRT, bloom, rain; as built, the 39 of
+  stays outside the effect. A bundled set (as planned: CRT, bloom, rain; as built, the 45 of
   =ShaderCatalog.BUNDLED=, with no =bloom=).
 - Built (22 November): =screen.shader= (=off=, a bundled one or a file of the
   user's own) and the =shader= command (list, use, on, off, check, reload, copy, remove). It covers
