@@ -13,7 +13,8 @@
 #   else 1. An emulator already running (emulator-5554, emulator-5556) is used. For two, one that
 #   runs without -read-only is restarted read-only first: two copies of an AVD need it.
 # - It starts the missing ones from the kolahal_test AVD, read-only, so two can run from one AVD and
-#   nothing a test does is kept. It stops the ones it started, unless --keep.
+#   nothing a test does is kept, on the host's GPU (-gpu host). It stops the ones it started, unless --keep.
+# - It warns when an emulator draws in software: the shader tests that time a one-off fail there.
 # - Window animations are off, as in Gradle's runs (testOptions.animationsDisabled).
 # - Exit status 0 only when every test passed. Each emulator's output is in app/build/device-tests/.
 set -euo pipefail
@@ -36,7 +37,7 @@ while [ $# -gt 0 ]; do
     --class) classes=$2; shift 2 ;;
     --keep) keep=true; shift ;;
     --arg) extra+=(-e "${2%%=*}" "${2#*=}"); shift 2 ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "Unknown option $1 (see --help)" >&2; exit 2 ;;
   esac
 done
@@ -74,7 +75,7 @@ for s in "${serials[@]}"; do
   port=${s#emulator-}
   echo "Starting $s…"
   nohup "$SDK/emulator/emulator" -avd "$AVD" -port "$port" -read-only -no-window -no-audio \
-    -no-boot-anim -no-snapshot-load > "$OUT/$s.log" 2>&1 &
+    -no-boot-anim -no-snapshot-load -gpu host > "$OUT/$s.log" 2>&1 &
   started+=("$s")
 done
 stop_started() {
@@ -94,6 +95,19 @@ for s in "${serials[@]}"; do
 done
 # A freshly booted emulator is busy for a while (package scans, dexopt): let it settle.
 [ ${#started[@]} -gt 0 ] && sleep 30
+
+# An emulator started without -gpu host may draw in software (SwiftShader or llvmpipe). A shader frame
+# then takes a few hundred ms, and the tests that wait for a one-off shader to end fail ("it doesn't end").
+software=()
+for s in "${serials[@]}"; do
+  if "$ADB" -s "$s" shell dumpsys SurfaceFlinger 2>/dev/null | grep -m1 '^GLES:' | grep -qiE 'swiftshader|llvmpipe|lavapipe'; then
+    software+=("$s")
+  fi
+done
+if [ ${#software[@]} -gt 0 ]; then
+  echo "Warning: ${software[*]} draws in software, so shader tests will be slow and timing tests can fail." >&2
+  echo "  Start the emulator with -gpu host." >&2
+fi
 
 echo "Installing on ${serials[*]}…"
 # Wait for these installs only: a plain `wait` would also wait for the emulators started above.
