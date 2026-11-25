@@ -48,7 +48,7 @@ Every row is optional. Kolahal works without any of them, with the limits listed
 
 | Row | Fix command | Why |
 | --- | --- | --- |
-| **Default home app** | `home` | Kolahal opens when you press Home. Android lets only the default launcher read app shortcuts. Only the default launcher can pause or resume the work profile and see the private space, if you have them. |
+| **Default home app** | `home` | Kolahal opens when you press Home. Android lets only the default launcher read app shortcuts. Only the default launcher can pause or resume the work profile and see the private space, if you have them. **Settings → About → Default home app** says whether Kolahal is the home app; a tap there makes it the home app, or opens Android's page where you choose another. |
 | **Usage access** | `allow usage` | Gives accurate unlock counts (from `KEYGUARD_HIDDEN` usage events), including unlocks while the launcher wasn't running. Also needed for `usage` screen time. Without it, Kolahal counts unlocks with an `ACTION_USER_PRESENT` receiver, which misses unlocks while the launcher isn't running. |
 | **Notifications** | `allow send-notifications` | Lets scripts and feeds post notifications. Android 13 and newer asks for this when the app runs. |
 | **Notification access** | `allow read-notifications` | Shows your notifications in the terminal (`notifs`) and gives scripts `notifications.recent()`. |

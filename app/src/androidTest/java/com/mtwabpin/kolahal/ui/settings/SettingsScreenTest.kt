@@ -534,6 +534,27 @@ class SettingsScreenTest {
         assertEquals(Links.SOURCE, browser.intents.single().dataString)
     }
 
+    /**
+     * About: the home app's row says whether Kolahal is it. While it isn't, a tap asks with Android's
+     * dialog and, after a "no", opens Android's page for the home app; while it is, the page at once.
+     */
+    @Test
+    fun aboutSetsOrChangesTheHomeApp() = catching("android.app.role.action.REQUEST_ROLE") { dialog ->
+        catching(android.provider.Settings.ACTION_HOME_SETTINGS) { page ->
+            val isHome = com.mtwabpin.kolahal.terminal.SetupChecks.isDefaultLauncher(app)
+            show(ABOUT_PAGE)
+            compose.waitUntil(5_000) { vm.isHome.value == isHome }
+            compose.onNode(hasText("Default home app") and hasText(homeAppLine(isHome))).performClick()
+            if (asksForHome(isHome, android.os.Build.VERSION.SDK_INT)) {
+                compose.waitUntil(5_000) { dialog.intents.isNotEmpty() }
+            } else {
+                assertTrue(dialog.intents.isEmpty())
+            }
+            // The caught dialog answers "no", so the page follows; without a dialog it comes first.
+            compose.waitUntil(5_000) { page.intents.isNotEmpty() }
+        }
+    }
+
     /** A report's sheet: Share comes after Email and hands over the whole report, which stays kept. */
     @Test
     fun aCrashReportCanBeShared() = catching(Intent.ACTION_CHOOSER) { sheet ->

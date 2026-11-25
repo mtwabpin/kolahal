@@ -3,10 +3,14 @@
  */
 package com.mtwabpin.kolahal.ui.settings
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -32,6 +37,7 @@ import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.CrashReports
 import com.mtwabpin.kolahal.Links
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
 import com.mtwabpin.kolahal.ui.GuiSheet
@@ -97,15 +103,29 @@ internal fun emailDeveloper(context: Context, subject: String, body: String): Bo
 internal fun aboutThisPhone(): String =
     "\n\n--\n$VERSION_TEXT · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}"
 
+/** What the home app's row says under its title: whether Kolahal is the home app, and what a tap does. */
+internal fun homeAppLine(isHome: Boolean): String =
+    if (isHome) "Kolahal is your home app · tap to change" else "Kolahal isn't your home app · tap to make it"
+
 /**
- * The About page's rows: the guide, the tour, Discord, the source code, crash reports, email and
- * the version.
+ * Whether a tap on the home app's row opens Android's own dialog that makes Kolahal the home app.
+ * Only while Kolahal isn't it, on Android 10 ([sdk] 29) and newer: once it is, the dialog does
+ * nothing, and Android's page for the home app is where another one is chosen.
+ */
+internal fun asksForHome(isHome: Boolean, sdk: Int): Boolean = !isHome && sdk >= 29
+
+/**
+ * The About page's rows: the guide, the tour, the home app, Discord, the source code, crash
+ * reports, email and the version.
  * - [crashCount]: how many crash reports are kept. Null while they are read.
+ * - [isHome]: whether Kolahal is the home app now. [onRefreshIsHome] reads that again.
  * - [onTour] and [onCrashReports] open those pages.
  * - [say] shows a message, when no app on the phone can open a link or send email.
  */
 internal fun LazyListScope.aboutItems(
     crashCount: Int?,
+    isHome: Boolean,
+    onRefreshIsHome: () -> Unit,
     onTour: () -> Unit,
     onCrashReports: () -> Unit,
     say: (String) -> Unit
@@ -113,6 +133,20 @@ internal fun LazyListScope.aboutItems(
     item(key = "h:about") { Spacer(Modifier.height(8.dp)) }
     item(key = "about") {
         val context = LocalContext.current
+        // The row is right from the start, also when the page opens before home was resumed.
+        LaunchedEffect(Unit) { onRefreshIsHome() }
+        // Android's page for the home app: to choose another one, on Android 9, and when its dialog
+        // doesn't make Kolahal the home app (a "no", or no dialog at all after "Don't ask again").
+        val homeSettings = {
+            if (runCatching { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }.isFailure) {
+                say("This phone has no settings page for the home app")
+            }
+        }
+        val askHome =
+            rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode != Activity.RESULT_OK) homeSettings()
+                onRefreshIsHome()
+            }
         val kept = when (crashCount) {
             null -> "Reports kept on this phone"
             0 -> "None so far"
@@ -135,6 +169,10 @@ internal fun LazyListScope.aboutItems(
                     chevron = true,
                     onClick = onTour
                 ),
+                Action(R.drawable.ic_home, "Default home app", homeAppLine(isHome)) {
+                    val ask = if (asksForHome(isHome, Build.VERSION.SDK_INT)) SetupChecks.homeRoleRequest(context) else null
+                    if (ask != null) askHome.launch(ask) else homeSettings()
+                },
                 Action(
                     R.drawable.ic_forum,
                     "Discord",

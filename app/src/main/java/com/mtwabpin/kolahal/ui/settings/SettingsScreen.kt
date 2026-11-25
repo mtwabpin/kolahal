@@ -176,6 +176,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
     val crashList = crashes
     // While home shows through Settings (slider dragged or eye held), everything except that slider fades out.
     val peek by vm.peek.collectAsStateWithLifecycle()
+    val isHome by vm.isHome.collectAsStateWithLifecycle()
     // Read only at draw time, so each fade frame only redraws and does not recompose Settings.
     val shown = androidx.compose.animation.core.animateFloatAsState(
         if (peek == null) 1f else 0f, tween(PEEK_FADE_MS), label = "peek",
@@ -379,6 +380,8 @@ fun SettingsScreen(vm: TerminalViewModel) {
                 if (aboutPage) {
                     aboutItems(
                         crashList?.size,
+                        isHome = isHome,
+                        onRefreshIsHome = { vm.refreshIsHome() },
                         onTour = { vm.openScreen(Screen.ONBOARDING) },
                         onCrashReports = { openId = CRASHES_PAGE },
                         say = say
