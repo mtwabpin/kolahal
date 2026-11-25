@@ -1,0 +1,146 @@
+// @name Hearts poppers
+// @description Two bursts of hearts from the bottom corners cross in the middle, then fall back and fade
+// @once 5
+// @suits dark good, light good, wallpaper good, apps good
+// @param amount 0.2..1.4 = 1.0 Number of hearts
+//
+// A burst from the bottom left corner, and one from the right a moment later. The air slows every piece
+// alike, so a burst is one pattern that widens, slows and sinks: a pixel works out the speed a piece left
+// with if it is here now, and looks only at the pieces whose speeds are nearest that, four hearts and four
+// dots of each burst. Outside the cone a burst fills, a pixel is let go before any piece is tried.
+// It is rated for other apps (apps good): there content is clear, and the hearts alone are returned, laid
+// over the app as they are. Nothing is drawn between them: no veil, and no color of the page.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float progress;
+uniform float dark;
+uniform float amount;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// How far p is from a heart about 1 high whose tip is at 0 and which points up (Inigo Quilez' distance).
+float heart(float2 p) {
+    p.x = abs(p.x);
+    if (p.x + p.y > 1.0) {
+        float2 d = p - float2(0.25, 0.75);
+        return length(d) - 0.3535534;
+    }
+    float2 a = p - float2(0.0, 1.0);
+    float m = 0.5 * max(p.x + p.y, 0.0);
+    float2 b = p - float2(m, m);
+    return sqrt(min(dot(a, a), dot(b, b))) * (p.x < p.y ? -1.0 : 1.0);
+}
+
+// How one heart looks at p, measured from its middle in units of its size, y down. d is heart() there, soft how
+// wide its edge is in the same units, and tone, from 0 to 1, its own shade. It gives the color already multiplied
+// by how much of the heart is there, and that amount.
+half4 heartLook(float2 p, float d, float soft, float tone) {
+    float shape = 1.0 - smoothstep(-soft, soft, d);
+    if (shape <= 0.0) return half4(0.0);
+    // Rose to red, lighter toward the upper left, with a small bright spot.
+    float3 own = mix(float3(1.0, 0.42, 0.55), float3(0.91, 0.16, 0.30), tone);
+    own += 0.16 * clamp(-p.x - p.y, -0.6, 0.8);
+    own += 0.45 * (1.0 - smoothstep(0.04, 0.13, length(p - float2(-0.20, -0.24))));
+    return half4(float4(clamp(own, 0.0, 1.0) * shape, shape));
+}
+
+// p turned by the angle a.
+float2 turn(float2 p, float a) {
+    return float2(p.x * cos(a) - p.y * sin(a), p.x * sin(a) + p.y * cos(a));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float now = progress * 5.0;
+    float width = resolution.x;
+    float height = resolution.y;
+    // The share of places in a burst that have a heart.
+    float many = min(0.7 * amount, 1.0);
+    float3 color = float3(0.0);
+    float cover = 0.0;
+    for (int s = 0; s < 2; s++) {
+        // The left corner's burst, then the right's a moment later: the same thing mirrored.
+        float side = float(s);
+        float age = now - 0.1 - 0.3 * side;
+        if (age <= 0.0) continue;
+
+        // span is how far a piece that left at one screen height a second has gone, sink how far all have fallen.
+        float reach = (1.0 - exp(-1.6 * age)) / 1.6;
+        float span = reach * height;
+        float sink = 0.17 * height * (age - reach);
+        // The speed a piece left with if it is here now: x toward the middle, y up.
+        float2 v = (xy - float2(side * width, 1.01 * height + sink)) / span;
+        v = float2(mix(v.x, -v.x, side), -v.y);
+        if (v.x < -0.15 || v.x > 1.1 || v.y < 0.25 || v.y > 1.9) continue;
+
+        // A few dots, one to a square of 0.14 in speed: this pixel's square and the three nearest it.
+        float2 at = v / 0.14;
+        float2 sq = floor(at);
+        float2 next = float2(fract(at.x) < 0.5 ? -1.0 : 1.0, fract(at.y) < 0.5 ? -1.0 : 1.0);
+        for (int j = 0; j < 4; j++) {
+            float2 c = sq + next * float2(j == 1 || j == 3 ? 1.0 : 0.0, j >= 2 ? 1.0 : 0.0);
+            float2 id = c + float2(side * 53.0 + 7.0, 29.0);
+            if (hash(id + 43.1) > 0.22 * amount) continue;
+            float r1 = hash(id);
+            float r2 = hash(id + 19.7);
+            float2 aim = (c + 0.5 + 0.9 * (float2(r1, r2) - 0.5)) * 0.14;
+            float fast = length(aim);
+            if (fast < 0.8 || fast > 1.8 || aim.x < 0.0 || aim.x > 0.7 * aim.y) continue;
+            float size = width * mix(0.007, 0.013, r2);
+            float shown = 1.0 - smoothstep(size - 1.0, size + 1.0, length((v - aim) * span));
+            shown *= 0.9 * (1.0 - smoothstep(0.0, 0.7, age - mix(1.2, 2.9, r1)));
+            // The hearts' rose to red, paler on a dark theme.
+            float3 own = mix(mix(float3(1.0, 0.42, 0.55), float3(0.91, 0.16, 0.30), r1), float3(1.0), 0.35 * dark);
+            color = mix(color, own, shown);
+            cover = mix(cover, 1.0, shown);
+        }
+
+        // The hearts, one to a square of 0.2. They pop out past their size and settle, and later sway as they fall.
+        float grow = max(1.0 - exp(-8.0 * age) * cos(12.0 * age), 0.001);
+        float swaying = 0.012 * width * smoothstep(1.0, 2.2, age);
+        at = v / 0.2;
+        sq = floor(at);
+        next = float2(fract(at.x) < 0.5 ? -1.0 : 1.0, fract(at.y) < 0.5 ? -1.0 : 1.0);
+        for (int j = 0; j < 4; j++) {
+            float2 c = sq + next * float2(j == 1 || j == 3 ? 1.0 : 0.0, j >= 2 ? 1.0 : 0.0);
+            float2 id = c + float2(side * 37.0 + 3.0, 11.0);
+            float r3 = hash(id + 43.1);
+            if (r3 > many) continue;
+            float r1 = hash(id);
+            float r2 = hash(id + 19.7);
+            // Its own speed, inside a cone that leans toward the middle.
+            float2 aim = (c + 0.5 + 0.76 * (float2(r1, r2) - 0.5)) * 0.2;
+            float fast = length(aim);
+            if (fast < 0.7 || fast > 1.6 || aim.x < 0.03 * aim.y || aim.x > 0.6 * aim.y) continue;
+            float fade = 1.0 - smoothstep(0.0, 0.9, age - mix(1.8, 3.3, r2));
+            if (fade <= 0.0) continue;
+
+            // It grows as the burst opens, so two never need more room than their squares have.
+            float big = r3 / many;
+            float size = min(width * mix(0.045, 0.10, big * big), 0.14 * span);
+            float2 off = (v - aim) * span;
+            off = float2(mix(off.x, -off.x, side), -off.y);
+            off.x += swaying * sin(2.4 * age + 6.2832 * r1);
+            // Farther than any corner of its square, at whatever angle: not on it.
+            float px = size * grow;
+            if (dot(off, off) > 1.28 * px * px) continue;
+            // It tumbles fast at first and hardly at the end.
+            float2 p = turn(off / px, (r1 - 0.5) * 3.4 * reach);
+            if (abs(p.x) > 0.8 || abs(p.y) > 0.8) continue;
+
+            float shown = 0.92 * fade;
+            float4 look = float4(heartLook(p, heart(float2(p.x, 0.55 - p.y)), 1.2 / px, r2)) * shown;
+            color = color * (1.0 - look.a) + look.rgb;
+            cover = cover * (1.0 - look.a) + look.a;
+        }
+    }
+    return half4(here * (1.0 - cover) + float4(color, cover));
+}

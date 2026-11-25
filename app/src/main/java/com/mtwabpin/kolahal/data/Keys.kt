@@ -527,6 +527,12 @@ object Keys {
             "windows" to "An apartment block, a floor of lit windows for each day's screen time",
             "seismograph" to "A pen draws today's screen time on a strip of paper",
             "hearts" to "A one-off: hearts rise over home once",
+            "hearts-fountain" to "A one-off: a fountain of hearts from the bottom, once",
+            "hearts-falling" to "A one-off: hearts drift down like petals, once",
+            "hearts-stream" to "A one-off: small hearts rise along the right edge, once",
+            "hearts-poppers" to "A one-off: two bursts of hearts from the bottom corners, once",
+            "hearts-fireworks" to "A one-off: three fireworks open into hearts of sparks, once",
+            "hearts-bounce" to "A one-off: hearts drop, bounce, settle in a row and hop away, once",
             "pulse" to "A one-off: light runs in around the screen's edges once",
         ),
     )

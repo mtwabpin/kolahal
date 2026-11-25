@@ -69,9 +69,12 @@ class ShaderOverAppsTest {
         assertNull(ShaderOverApps.fit(pulse))
         assertTrue(ShaderOverApps.plays(yes.copy(fit = ShaderOverApps.fit(hearts))))
         assertFalse(ShaderOverApps.plays(yes.copy(fit = ShaderOverApps.fit(pulse))))
-        // Of the shaders that come with Kolahal, hearts alone.
+        // Of the shaders that come with Kolahal, the hearts alone.
         val rated = ShaderCatalog.BUNDLED.filter { ShaderOverApps.fit(ShaderMeta.parse(asset(it))) != null }
-        assertEquals(listOf("hearts"), rated)
+        assertEquals(
+            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce"),
+            rated,
+        )
         // A rating is a one-off's: a shader that stays on has none, whatever its header says.
         assertNull(ShaderOverApps.fit(ShaderMeta.parse("// @suits apps good\nuniform shader content;")))
         assertEquals(ShaderFit.FAIR, ShaderOverApps.fit(ShaderMeta.parse("// @suits apps fair\n// @once 2\nuniform shader content;")))

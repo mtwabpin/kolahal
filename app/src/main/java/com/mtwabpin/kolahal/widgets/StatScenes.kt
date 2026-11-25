@@ -17,7 +17,10 @@ import com.mtwabpin.kolahal.shader.ShaderCatalog
  */
 object StatScenes {
     /** The bundled shaders that are no scene: they work on text, or play once. A test reads their headers. */
-    val NOT_SCENES = listOf("crt", "lcd", "eink", "riso", "foil", "hearts", "pulse")
+    val NOT_SCENES = listOf(
+        "crt", "lcd", "eink", "riso", "foil", "hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers",
+        "hearts-fireworks", "hearts-bounce", "pulse",
+    )
 
     /** The scenes the guide names for a weather card, as the words for what the sky does. */
     val WEATHER = listOf("pond", "rain", "snowfall", "dunes", "mountains")

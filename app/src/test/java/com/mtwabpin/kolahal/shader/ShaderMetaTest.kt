@@ -242,7 +242,8 @@ class ShaderMetaTest {
         }
         // Only the ones that say they move are drawn over and over.
         assertEquals(
-            listOf("mountains", "pond", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "aura", "lanterns", "record", "candle", "hearts", "pulse"),
+            listOf("mountains", "pond", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "aura", "lanterns", "record", "candle", "hearts",
+                "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
         )
     }
@@ -287,7 +288,10 @@ class ShaderMetaTest {
         // It can be told how far it has come.
         assertTrue(ShaderMeta.PROGRESS in ShaderMeta.KNOWN)
         assertTrue("must be a float" in ShaderMeta.problems("uniform shader content; uniform float2 progress;").single())
-        assertEquals(listOf("hearts", "pulse"), ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).once != null })
+        assertEquals(
+            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse"),
+            ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).once != null },
+        )
     }
 
     /** How often it needs to be drawn: a whole number of frames a second, and the seconds a touch lasts, each within its range. */

@@ -19,7 +19,8 @@ object ShaderCatalog {
         "crt", "lcd", "eink", "paper", "riso", "graph", "foil", "lamp", "dusk", "frost",
         "mountains", "pond", "dunes", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies",
         "contour", "ink", "aura", "day-ring", "lanterns", "kintsugi", "record", "candle", "hourglass", "windows",
-        "seismograph", "hearts", "pulse",
+        "seismograph", "hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks",
+        "hearts-bounce", "pulse",
     )
 
     /**

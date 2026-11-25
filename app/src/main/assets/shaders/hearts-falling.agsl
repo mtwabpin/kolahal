@@ -1,0 +1,108 @@
+// @name Hearts falling
+// @description Hearts drift down from the top like petals, swaying and turning, in three depths
+// @once 8
+// @suits dark good, light good, wallpaper good, apps good
+// @param amount 0.2..1.25 = 1.0 Number of hearts
+//
+// Three layers of columns. Each column has two hearts, which start at their own times in the first
+// half and fall at their own pace, swinging like leaves. A heart stays in its column, so each pixel
+// looks at six of them, and most are let go by their height alone.
+// It is rated for other apps (apps good): there content is clear, and the hearts alone are returned, laid
+// over the app as they are. Nothing is drawn between them: no veil, and no color of the page.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float progress;
+uniform float amount;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// How far p is from a heart about 1 high whose tip is at 0 and which points up (Inigo Quilez' distance).
+float heart(float2 p) {
+    p.x = abs(p.x);
+    if (p.x + p.y > 1.0) {
+        float2 d = p - float2(0.25, 0.75);
+        return length(d) - 0.3535534;
+    }
+    float2 a = p - float2(0.0, 1.0);
+    float m = 0.5 * max(p.x + p.y, 0.0);
+    float2 b = p - float2(m, m);
+    return sqrt(min(dot(a, a), dot(b, b))) * (p.x < p.y ? -1.0 : 1.0);
+}
+
+// How one heart looks at p, measured from its middle in units of its size, y down. d is heart() there, soft how
+// wide its edge is in the same units, and tone, from 0 to 1, its own shade. It gives the color already multiplied
+// by how much of the heart is there, and that amount.
+half4 heartLook(float2 p, float d, float soft, float tone) {
+    float shape = 1.0 - smoothstep(-soft, soft, d);
+    if (shape <= 0.0) return half4(0.0);
+    // Rose to red, lighter toward the upper left, with a small bright spot.
+    float3 own = mix(float3(1.0, 0.42, 0.55), float3(0.91, 0.16, 0.30), tone);
+    own += 0.16 * clamp(-p.x - p.y, -0.6, 0.8);
+    own += 0.45 * (1.0 - smoothstep(0.04, 0.13, length(p - float2(-0.20, -0.24))));
+    return half4(float4(clamp(own, 0.0, 1.0) * shape, shape));
+}
+
+// p turned by a.
+float2 turn(float2 p, float a) {
+    return float2(p.x * cos(a) - p.y * sin(a), p.x * sin(a) + p.y * cos(a));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float3 color = float3(0.0);
+    float cover = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float n = float(i);
+        // The far layer first: more columns of smaller, paler hearts.
+        float width = resolution.x / (5.0 - n);
+        float column = floor(xy.x / width);
+        for (int j = 0; j < 2; j++) {
+            float2 id = float2(column * 1.7 + n * 31.0, float(j) * 13.0 + n * 7.0);
+            float r3 = hash(id + 43.1);
+            if (r3 > 0.8 * amount) continue;
+            // How far down it falls, half the screen to all of it. A pixel below that is never on it.
+            float fall = resolution.y * mix(0.50, 1.05, fract(13.0 * r3));
+            if (xy.y > 1.022 * fall) continue;
+
+            // Its own time, 0 to 1: it starts in the first half, and is gone before the end.
+            float r1 = hash(id);
+            float start = 0.01 + 0.40 * r1;
+            if (progress <= start) continue;
+            float r2 = hash(id + 19.7);
+            float t = (progress - start) / (0.56 - 0.04 * n + 0.03 * r2);
+            if (t >= 1.0) continue;
+
+            // It swings like a leaf: quick through the middle of a swing, held at its ends, and falls from
+            // above the top. Most pixels are above or below it, so its height is tried first.
+            float size = width * mix(0.20, 0.27, r2);
+            float swing = 6.2832 * (9.0 * r3 + (1.5 + r2) * t);
+            float high = -size + (fall + size) * (t - 0.022 * sin(2.0 * swing));
+            if (abs(xy.y - high) > 0.8 * size) continue;
+            float across = (column + 0.5) * width + 0.2 * width * sin(swing);
+            float2 p = float2(xy.x - across, xy.y - high) / size;
+            if (abs(p.x) > 0.8 || abs(p.y) > 0.8) continue;
+
+            // It tips into each swing, and turns slowly as it goes. It narrows as it turns edge on.
+            p = turn(p, 0.55 * sin(swing) + (r1 - 0.5) * 1.6 * t);
+            p.x /= mix(1.0, abs(cos(0.5 * swing + 6.2832 * r1)), 0.45);
+            if (abs(p.x) > 0.8) continue;
+            float d = heart(float2(p.x, 0.55 - p.y));
+            float soft = 1.2 / size;
+
+            // It fades in at the top and out near the end. The far layers are paler.
+            float shown = smoothstep(0.0, 0.06, t) * (1.0 - smoothstep(0.75, 1.0, t)) * mix(0.60, 0.95, n / 2.0);
+            float4 look = float4(heartLook(p, d, soft, r2)) * shown;
+            color = color * (1.0 - look.a) + look.rgb;
+            cover = cover * (1.0 - look.a) + look.a;
+        }
+    }
+    return half4(here * (1.0 - cover) + float4(color, cover));
+}

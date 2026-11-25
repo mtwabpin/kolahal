@@ -1,0 +1,134 @@
+// @name Hearts fireworks
+// @description A spark rises and opens into a heart of sparks, which widens, twinkles and sinks, three times
+// @once 6.5
+// @suits dark good, light good, wallpaper good, apps fair
+//
+// Three fireworks, a second or so apart. Each is a spark that rises with a tail and slows, then thirty
+// sparks spaced evenly around the outline of a heart, which open fast, widen as they sink, twinkle
+// and go out one by one. A pixel looks at each firework once: at the one spark of its outline that
+// it is nearest. Pixels outside a firework's box are let go before anything else is worked out.
+// On a dark theme the middle of a spark is white hot; on a light one the sparks are a deeper red.
+// It is rated for other apps (apps fair): there content is clear, and the sparks alone are returned, laid
+// over the app as they are. Nothing is drawn between them: no veil, and no color of the page. dark is
+// still the theme's, not the app's, so over a light app with a dark theme the sparks look pale.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float progress;
+uniform float dark;
+
+// A number from 0 to 1 that looks random for each p (Dave Hoskins' hash without sine).
+float hash(float2 p) {
+    float3 q = fract(float3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+// How far p is from a heart about 1 high whose tip is at 0 and which points up (Inigo Quilez' distance).
+float heart(float2 p) {
+    p.x = abs(p.x);
+    if (p.x + p.y > 1.0) {
+        float2 d = p - float2(0.25, 0.75);
+        return length(d) - 0.3535534;
+    }
+    float2 a = p - float2(0.0, 1.0);
+    float m = 0.5 * max(p.x + p.y, 0.0);
+    float2 b = p - float2(m, m);
+    return sqrt(min(dot(a, a), dot(b, b))) * (p.x < p.y ? -1.0 : 1.0);
+}
+
+// How far along the outline of heart() the point nearest p is, from 0 to 1: from the tip up the right
+// side, over both lobes by way of the notch (0.5), and down the left side. The outline is 3.6356 long.
+float around(float2 p) {
+    float left = p.x < 0.0 ? 1.0 : 0.0;
+    p.x = abs(p.x);
+    float s;
+    if (p.x + p.y > 1.0) {
+        // On a lobe: by its angle.
+        float2 c = p - float2(0.25, 0.75);
+        s = 0.7071068 + 0.3535534 * (atan(c.y, c.x) + 0.7853982);
+    } else {
+        // On a straight side, or nearest the notch.
+        float2 a = p - float2(0.0, 1.0);
+        float m = 0.5 * max(p.x + p.y, 0.0);
+        float2 b = p - float2(m, m);
+        s = dot(a, a) < dot(b, b) ? 1.8178 : 1.4142136 * m;
+    }
+    return (left > 0.5 ? 3.6356 - s : s) / 3.6356;
+}
+
+// p turned by a.
+float2 turn(float2 p, float a) {
+    return float2(p.x * cos(a) - p.y * sin(a), p.x * sin(a) + p.y * cos(a));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float T = progress * 6.5;
+    float W = resolution.x;
+    float H = resolution.y;
+    float3 color = float3(0.0);
+    float cover = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float n = float(i);
+        // Where each opens, how wide its heart gets, and when it leaves the bottom.
+        float2 mid = (i == 0 ? float2(0.34, 0.30) : i == 1 ? float2(0.69, 0.19) : float2(0.48, 0.44)) * resolution;
+        float size = W * (i == 0 ? 0.44 : i == 1 ? 0.34 : 0.56);
+        float age = T - (i == 0 ? 0.1 : i == 1 ? 1.2 : 2.4);
+        if (age <= 0.0 || age >= 3.9) continue;
+        float glow = 0.0;
+        if (age < 0.8) {
+            // The spark on its way up: fast at first, almost still when it opens. Its tail is as long as it is fast.
+            float left = (1.0 - age / 0.8) * (1.0 - age / 0.8);
+            float2 d = xy - float2(mid.x + 0.05 * W * (n - 1.0) * left, mid.y + (H - mid.y) * left);
+            if (abs(d.x) > 0.04 * W || d.y < -0.04 * W) continue;
+            float r = 0.006 * W;
+            glow = exp(-dot(d, d) / (r * r));
+            float tail = 0.01 * H + 0.12 * H * (1.0 - age / 0.8);
+            if (d.y > 0.0) glow = max(glow, 0.7 * exp(-d.x * d.x / (0.6 * r * r)) * exp(-3.0 * d.y / tail));
+            glow *= smoothstep(0.0, 0.06, age);
+        } else {
+            // The heart of sparks: it opens fast, then widens slowly as it sinks.
+            float b = age - 0.8;
+            float px = size * (1.0 - exp(-6.0 * b)) * (1.0 + 0.07 * b);
+            float2 q = turn(xy - mid - float2(0.0, 0.022 * H * b * b), 0.12 * (n - 1.0)) / max(px, 0.001);
+            float edge = max(abs(q.x), abs(q.y));
+            if (edge > 1.3) continue;
+            // off is how far this pixel is outside the outline, in pixels. A spark is at most 0.0105 of the
+            // width across, and its tail toward the inside is longer while the heart is still opening. A
+            // pixel more than 7.5 times that from the outline gets nothing from any spark, so it goes here.
+            float2 o = float2(q.x, 0.55 - q.y);
+            float off = heart(o) * px;
+            float opening = 0.3 * size * exp(-6.0 * b);
+            if (off > 7.5 * 0.0105 * W || -off > 7.5 * (0.0105 * W + opening)) continue;
+            // Thirty sparks spaced evenly around the outline: this pixel is nearest one of them. along is
+            // how far it is from that spark along the outline, in pixels.
+            float u = around(o);
+            float k = floor(u * 30.0 + 0.5);
+            float along = (u * 30.0 - k) * (3.6356 / 30.0) * px;
+            float r1 = hash(float2(mod(k, 30.0), n * 7.0 + 1.0));
+            float r2 = hash(float2(mod(k, 30.0), n * 7.0 + 3.0));
+            float r = W * mix(0.006, 0.0105, r1);
+            float tail = r + opening;
+            float across = off > 0.0 ? off / r : off / tail;
+            float apart = along * along / (r * r) + across * across;
+            glow = exp(-apart) + 0.25 * exp(-apart / 9.0) * mix(0.5, 1.0, dark);
+            // Later each twinkles at its own pace, and they go out one by one.
+            float life = mix(2.0, 3.0, r2);
+            glow *= mix(1.0, 0.55 + 0.45 * sin(b * mix(9.0, 16.0, r1) + 6.2832 * r2), smoothstep(0.4, 1.0, b));
+            glow *= (1.0 - smoothstep(0.65 * life, life, b)) * (1.0 - smoothstep(0.9, 1.3, edge));
+        }
+        float shown = clamp(glow * mix(1.5, 1.0, dark), 0.0, 1.0);
+        if (shown <= 0.003) continue;
+        // Each firework has its own red, the hearts' rose to red; on a light theme a deeper one. On a
+        // dark theme the middle of a spark is white hot. A firework lies over the ones before it.
+        float tone = mix(1.0, i == 0 ? 0.3 : i == 1 ? 0.95 : 0.62, 0.4 + 0.6 * dark);
+        float3 own = mix(float3(1.0, 0.42, 0.55), float3(0.91, 0.16, 0.30), tone);
+        own = mix(own, float3(1.0), 0.85 * dark * smoothstep(0.55, 1.0, glow));
+        color = mix(color, own, shown);
+        cover = mix(cover, 1.0, shown);
+    }
+    return half4(here * (1.0 - cover) + float4(color, cover));
+}
