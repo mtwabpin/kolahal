@@ -333,6 +333,8 @@ class EditorBarsTest {
         compose.onNodeWithTag("icon sun").assertExists()
 
         compose.onNodeWithTag("reference-search").performTextInput("sun")
+        // Icons come last in the results, under the widget and log examples that say "sun": scroll down to it.
+        compose.onNodeWithTag("reference-results").performScrollToNode(hasTestTag("icon sun"))
         compose.onNodeWithTag("icon sun").performClick()
         referenceClosed()
         openReference()

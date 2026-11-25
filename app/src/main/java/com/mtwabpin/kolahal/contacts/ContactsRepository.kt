@@ -95,7 +95,8 @@ class ContactsRepository private constructor(private val context: Context) {
     /** True when contacts come from Android's contact picker, not READ_CONTACTS. This is the Play build. */
     var picker = !BuildConfig.CONTACTS
         internal set(value) {
-            field = value; _contacts.value = emptyList(); refresh()
+            synchronized(this) { field = value; _contacts.value = emptyList() }
+            refresh()
         }
 
     private val prefs by lazy { Stores.PICKED_CONTACTS.open(context) }
@@ -109,7 +110,7 @@ class ContactsRepository private constructor(private val context: Context) {
             // Use the same lock as remember and forget, so a load that started earlier can't finish after them.
             scope.launch {
                 synchronized(this@ContactsRepository) {
-                    _contacts.value = loadPicked()
+                    if (picker) _contacts.value = loadPicked()
                 }
             }
             return
@@ -145,12 +146,16 @@ class ContactsRepository private constructor(private val context: Context) {
     /** Lock that allows one load at a time. It is separate, so [reload] on the main thread never waits for a load. */
     private val loading = Any()
 
-    /** Reads every number again, on the caller's thread. */
+    /**
+     * Reads every number again, on the caller's thread. Not kept when [picker] was switched on meanwhile (tests
+     * switch it): a read that started before would replace the picked contacts.
+     */
     private fun reloadNow() {
         synchronized(loading) {
             stale = false
             if (!hasPermission()) return
-            _contacts.value = load()
+            val read = load()
+            synchronized(this) { if (!picker) _contacts.value = read }
         }
     }
 

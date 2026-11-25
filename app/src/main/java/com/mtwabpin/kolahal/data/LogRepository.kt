@@ -146,6 +146,14 @@ class LogRepository private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Writes now the lines [batched] holds on this thread. For work handed to another thread: what this
+     * one printed before comes first in the log, not after the other thread's lines.
+     */
+    fun flushBatch() {
+        batch.get()?.flush()
+    }
+
     /** Inserts [lines] in one transaction and announces them once. Returns their ids, in order. */
     private fun write(lines: List<Pending>): List<Long> {
         val w = db.writableDatabase

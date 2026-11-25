@@ -106,6 +106,9 @@ import kotlinx.coroutines.withContext
  * - [read] runs again whenever one of [keys] changes.
  * - A failure is logged through [Quietly] as "[what] failed: …", at most once a day, and the value
  *   stays as it was: [initial], or the last read that worked.
+ * - The value is set on the main thread, where composition reads it. Where the effect resumes off it (a
+ *   test's effects run unconfined, so the code goes on on the IO thread), a write there while a frame is
+ *   composed could be missed, and the value never shown.
  */
 @Composable
 fun <T> produceIo(initial: T, vararg keys: Any?, what: String, read: suspend () -> T): State<T> {
@@ -121,7 +124,7 @@ fun <T> produceIo(initial: T, vararg keys: Any?, what: String, read: suspend () 
                 Result.failure(e)
             }
         }
-        result.onSuccess { value = it }
+        withContext(Dispatchers.Main.immediate) { result.onSuccess { value = it } }
     }
 }
 

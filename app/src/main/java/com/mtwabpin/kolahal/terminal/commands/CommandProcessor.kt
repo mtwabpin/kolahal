@@ -66,6 +66,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     /** Runs [block] outside the command's thread. What it prints still counts as the command's output. */
     private fun background(label: String, block: () -> Unit) {
         val cause = logs.currentCause
+        // The command's lines wait in its batch until it ends: written now, they stay above the block's.
+        logs.flushBatch()
         backgroundScope.launch {
             logs.withCause(cause) {
                 runCatching(block).onFailure { error("$label: ${it.reason()}") }

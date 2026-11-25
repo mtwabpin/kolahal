@@ -15,8 +15,8 @@ import org.junit.runner.RunWith
 
 /**
  * Records the hot paths of a normal session: cold start, typing into the prompt (suggestions),
- * running commands, scrolling the log, the settings screen, the script editor, the app selector
- * on the edge and the widgets page.
+ * running commands, scrolling the log, the settings screen, the Shaders tab, the script editor, the
+ * app selector on the edge and the widgets page.
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
@@ -82,6 +82,11 @@ class BaselineProfileGenerator {
         // Settings screen (Compose Material 3) and back.
         type("settings"); enter()
         device.waitForIdle()
+        device.swipe(w, h * 2 / 3, w, h / 4, 20)
+        device.pressBack()
+        device.waitForIdle()
+        // The Shaders tab and back.
+        type("shaders"); enter()
         device.swipe(w, h * 2 / 3, w, h / 4, 20)
         device.pressBack()
         device.waitForIdle()
