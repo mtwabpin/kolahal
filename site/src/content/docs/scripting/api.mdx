@@ -1203,6 +1203,41 @@ A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's
 | `points` | a list of numbers | The value's recent numbers, the oldest first: a soft line from edge to edge under the value, as a chart's line. The last 60 are kept. A `1x1` card leaves it out. Needs Kolahal 0.5.17. |
 | `scene` | a shader's name | A still of that shader as the card's ground, under a scrim that keeps the figures readable ([scenes](#a-stats-scene)). Needs Kolahal 0.5.17. |
 
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- a value with its unit and a bar under it, a wave while it charges; a sun in the Shape look
+widget.show{
+  kind = "stat",
+  title = "Battery",
+  icon = "battery",
+  shape = "sun",
+  value = 68,
+  unit = "%",
+  label = "Charging",
+  progress = 0.68,
+  moving = true,
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// a value with its unit and a bar under it, a wave while it charges; a sun in the Shape look
+widget.show({
+  kind: "stat",
+  title: "Battery",
+  icon: "battery",
+  shape: "sun",
+  value: 68,
+  unit: "%",
+  label: "Charging",
+  progress: 0.68,
+  moving: true,
+});
+```
+</TabItem>
+</Tabs>
+
 #### A stat's scene
 
 With `scene`, a stat's card has a still of one of Kolahal's [shaders](/scripting/shaders/) as its
@@ -1288,6 +1323,63 @@ Each row is `{ title, detail, trailing, icon, color, tap, done, range }`. Only `
 
 A checkbox is for a todo or a habit. It only shows a state: Kolahal doesn't change it. Give the
 row a `tap` with `args`, and let that run change the thing and call `widget.show` again.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- habits: a checkbox and an icon on each row, the one still to do in the warning color
+widget.show{
+  kind = "list",
+  title = "Habits",
+  items = {
+    {
+      title = "Stretch",
+      icon = "walk",
+      done = true,
+    },
+    {
+      title = "Read 20 pages",
+      icon = "book",
+      done = true,
+    },
+    {
+      title = "Water the plants",
+      icon = "drop",
+      color = "warn",
+      done = false,
+    },
+  },
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// habits: a checkbox and an icon on each row, the one still to do in the warning color
+widget.show({
+  kind: "list",
+  title: "Habits",
+  items: [
+    {
+      title: "Stretch",
+      icon: "walk",
+      done: true,
+    },
+    {
+      title: "Read 20 pages",
+      icon: "book",
+      done: true,
+    },
+    {
+      title: "Water the plants",
+      icon: "drop",
+      color: "warn",
+      done: false,
+    },
+  ],
+});
+```
+</TabItem>
+</Tabs>
 
 A range is for numbers that compare at a glance: each day's lowest and highest temperature, or a
 price's low and high of the day, with `value` where it is now.
@@ -1411,6 +1503,23 @@ widget.show{
   },
 }
 
+-- a gauge from below 0: min is its lowest value
+widget.show{
+  kind = "progress",
+  title = "Outside",
+  style = "gauge",
+  value = 4,
+  min = -10,
+  max = 40,
+  unit = "°C",
+  label = "Cold",
+  zones = {
+    { from = -10, color = "info" },
+    { from = 10, color = "good" },
+    { from = 30, color = "bad" },
+  },
+}
+
 -- rings: steps still moving, water and sleep
 widget.show{
   kind = "progress",
@@ -1431,6 +1540,29 @@ widget.show{
   value = 0.4,
   label = "Arrives Thursday",
 }
+
+-- style = "bar": one bar, whatever the card's size
+widget.show{
+  kind = "progress",
+  title = "Water",
+  style = "bar",
+  value = 5,
+  max = 8,
+  text = "5 / 8",
+  label = "Glasses today",
+}
+
+-- style = "ring": one ring, here a wave while the day goes on
+widget.show{
+  kind = "progress",
+  title = "Water",
+  style = "ring",
+  value = 5,
+  max = 8,
+  text = "5 / 8",
+  color = "link",
+  moving = true,
+}
 ```
 </TabItem>
 <TabItem label="JavaScript">
@@ -1448,6 +1580,23 @@ widget.show({
     { from: 0, color: "good" },
     { from: 51, color: "warn" },
     { from: 151, color: "bad" },
+  ],
+});
+
+// a gauge from below 0: min is its lowest value
+widget.show({
+  kind: "progress",
+  title: "Outside",
+  style: "gauge",
+  value: 4,
+  min: -10,
+  max: 40,
+  unit: "°C",
+  label: "Cold",
+  zones: [
+    { from: -10, color: "info" },
+    { from: 10, color: "good" },
+    { from: 30, color: "bad" },
   ],
 });
 
@@ -1470,6 +1619,29 @@ widget.show({
   stage: 3,
   value: 0.4,
   label: "Arrives Thursday",
+});
+
+// style: "bar": one bar, whatever the card's size
+widget.show({
+  kind: "progress",
+  title: "Water",
+  style: "bar",
+  value: 5,
+  max: 8,
+  text: "5 / 8",
+  label: "Glasses today",
+});
+
+// style: "ring": one ring, here a wave while the day goes on
+widget.show({
+  kind: "progress",
+  title: "Water",
+  style: "ring",
+  value: 5,
+  max: 8,
+  text: "5 / 8",
+  color: "link",
+  moving: true,
 });
 ```
 </TabItem>
@@ -1511,6 +1683,45 @@ With `style = "dots"`, each point is a day, and the last point is today. Needs K
 - Without a `summary`, a screen reader says "Done on 23 of the last 35 days", or for other points
   "35 days, from 26 to 62, today 42".
 
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- a line on a fixed scale, from 15 to 30, so a small change looks small; a note on a large card
+widget.show{
+  kind = "chart",
+  title = "Bedroom",
+  note = "Window open",
+  points = {
+    21, 21.5, 22, 22.5, 23,
+    22.5, 22, 21.5, 21,
+  },
+  min = 15,
+  max = 30,
+  value = "21°",
+  label = "Over the day",
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// a line on a fixed scale, from 15 to 30, so a small change looks small; a note on a large card
+widget.show({
+  kind: "chart",
+  title: "Bedroom",
+  note: "Window open",
+  points: [
+    21, 21.5, 22, 22.5, 23,
+    22.5, 22, 21.5, 21,
+  ],
+  min: 15,
+  max: 30,
+  value: "21°",
+  label: "Over the day",
+});
+```
+</TabItem>
+</Tabs>
+
 **`countdown`**: the time to a moment. The script gives the moment once, and Kolahal counts. No
 run is needed as time passes.
 
@@ -1529,6 +1740,50 @@ run is needed as time passes.
   `from` when the card has one, else it is the time left. With less than a step left, the sun is
   a plain circle.
 - A time in milliseconds is an error that says to divide it by 1000.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- countdown: in days, never a clock; on the day, once the moment has passed, it shows reached
+-- Midnight today: the moment has
+-- passed, so the card shows reached.
+local t = os.date("*t")
+
+widget.show{
+  kind = "countdown",
+  title = "Results",
+  style = "days",
+  reached = "Out today",
+  to = os.time({
+    year = t.year,
+    month = t.month,
+    day = t.day,
+    hour = 0,
+  }),
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// countdown: in days, never a clock; on the day, once the moment has passed, it shows reached
+// Midnight today: the moment has
+// passed, so the card shows reached.
+const t = new Date();
+
+widget.show({
+  kind: "countdown",
+  title: "Results",
+  style: "days",
+  reached: "Out today",
+  to: new Date(
+    t.getFullYear(),
+    t.getMonth(),
+    t.getDate(),
+  ).getTime() / 1000,
+});
+```
+</TabItem>
+</Tabs>
 
 With `style = "dots"`, the days left are dots in a grid, today's ringed, with the number and
 "days left" under them. A dot goes out each day. With `from`, the days already over stay as small
@@ -1869,6 +2124,36 @@ widget.show{
   },
 }
 
+-- toggles: each switch with an icon, its state kept in the script's store
+-- Each switch is a setting in the
+-- script's store: a tap flips it.
+if event and event.name == "action" then
+  store.set(
+    args[1],
+    store.get(args[1]) == "on" and "off"
+      or "on"
+  )
+end
+
+widget.show{
+  kind = "toggles",
+  title = "Lights",
+  items = {
+    {
+      label = "Porch",
+      icon = "torch",
+      on = store.get("Porch") == "on",
+      tap = { args = "Porch" },
+    },
+    {
+      label = "Garden",
+      icon = "leaf",
+      on = store.get("Garden") == "on",
+      tap = { args = "Garden" },
+    },
+  },
+}
+
 -- clock: Kolahal moves the clocks
 widget.show{
   kind = "clock",
@@ -1880,6 +2165,17 @@ widget.show{
       label = "Pune",
     },
     { zone = "America/New_York" },
+  },
+}
+
+-- clock: one place, with the seconds
+widget.show{
+  kind = "clock",
+  title = "Tokyo",
+  staleAfter = 604800,
+  seconds = true,
+  zones = {
+    { zone = "Asia/Tokyo" },
   },
 }
 
@@ -1968,6 +2264,37 @@ widget.show({
   ],
 });
 
+// toggles: each switch with an icon, its state kept in the script's store
+// Each switch is a setting in the
+// script's store: a tap flips it.
+if (event && event.name === "action") {
+  store.set(
+    args[0],
+    store.get(args[0]) === "on"
+      ? "off"
+      : "on",
+  );
+}
+
+widget.show({
+  kind: "toggles",
+  title: "Lights",
+  items: [
+    {
+      label: "Porch",
+      icon: "torch",
+      on: store.get("Porch") === "on",
+      tap: { args: "Porch" },
+    },
+    {
+      label: "Garden",
+      icon: "leaf",
+      on: store.get("Garden") === "on",
+      tap: { args: "Garden" },
+    },
+  ],
+});
+
 // clock: Kolahal moves the clocks
 widget.show({
   kind: "clock",
@@ -1979,6 +2306,17 @@ widget.show({
       label: "Pune",
     },
     { zone: "America/New_York" },
+  ],
+});
+
+// clock: one place, with the seconds
+widget.show({
+  kind: "clock",
+  title: "Tokyo",
+  staleAfter: 604800,
+  seconds: true,
+  zones: [
+    { zone: "Asia/Tokyo" },
   ],
 });
 
@@ -2150,6 +2488,31 @@ widget.show{
   },
   caption = "64' Goal",
 }
+
+-- versus: each side with its mark in its own color
+widget.show{
+  kind = "versus",
+  title = "Cup final",
+  badge = "FT",
+  score = "1–1",
+  sides = {
+    {
+      name = "Rivertown",
+      mark = "R",
+      color = "bad",
+      value = 55,
+      text = "55%",
+    },
+    {
+      name = "Hillside",
+      mark = "H",
+      color = "good",
+      value = 45,
+      text = "45%",
+    },
+  },
+  caption = "Penalties next",
+}
 ```
 </TabItem>
 <TabItem label="JavaScript">
@@ -2173,6 +2536,31 @@ widget.show({
     },
   ],
   caption: "64' Goal",
+});
+
+// versus: each side with its mark in its own color
+widget.show({
+  kind: "versus",
+  title: "Cup final",
+  badge: "FT",
+  score: "1–1",
+  sides: [
+    {
+      name: "Rivertown",
+      mark: "R",
+      color: "bad",
+      value: 55,
+      text: "55%",
+    },
+    {
+      name: "Hillside",
+      mark: "H",
+      color: "good",
+      value: 45,
+      text: "45%",
+    },
+  ],
+  caption: "Penalties next",
 });
 ```
 </TabItem>
