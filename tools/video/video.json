@@ -28,7 +28,7 @@
 			"recording": "00-opening.mp4",
 			"ground": "mountains",
 			"card": {
-				"heading": "Kolahal: Terminal Launcher",
+				"heading": "Kolahal - Terminal Launcher",
 				"text": "A home screen for touch and typing."
 			},
 			"full": { "seconds": 4, "cuts": [] },
@@ -458,7 +458,7 @@
 			"recording": "15-closing.mp4",
 			"ground": "mountains",
 			"card": {
-				"heading": "Kolahal: Terminal Launcher",
+				"heading": "Kolahal - Terminal Launcher",
 				"text": "A home screen for touch and typing.",
 				"line": "On Google Play · mtwabpin.github.io/kolahal"
 			},

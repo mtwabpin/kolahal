@@ -720,7 +720,7 @@ maintainer, or need a choice first:
 - The store listing. Its descriptions in [[file:release/google-play.org][release/google-play.org]] ("Store listing text") were
   rewritten that day: the short description "A home screen for touch and typing that opens apps and
   runs commands", and a full description with By touch and By typing first, then widgets, scripts
-  and shaders. The name stays "Kolahal: Terminal Launcher": the maintainer keeps it, as it tells the
+  and shaders. The name stays "Kolahal - Terminal Launcher": the maintainer keeps it, as it tells the
   audience the style. Play Console still has the older descriptions: they change when the
   maintainer pastes the new texts and uploads the new graphics.
 - The repository's description on GitHub (About, at the top of the repository's page).

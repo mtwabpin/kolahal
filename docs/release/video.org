@@ -108,12 +108,12 @@ keyboard down and a cleared log unless it says otherwise. The captions are the e
 
 ** Opening (4 s)
 
-The opening and closing cards carry the name as the store has it, "Kolahal: Terminal Launcher", with
+The opening and closing cards carry the name as the store has it, "Kolahal - Terminal Launcher", with
 the website's line under it.
 
 | s   | On the phone                                                                  | The viewer sees                                    | Caption                                                    |
 |-----+-------------------------------------------------------------------------------+----------------------------------------------------+------------------------------------------------------------|
-| 0–4 | home, still: the header (time, date, alarm 7:00, 3 todos, battery), a few lines, the selector's letters on the edge | Kolahal's home beside its name | *Kolahal: Terminal Launcher* / A home screen for touch and typing. |
+| 0–4 | home, still: the header (time, date, alarm 7:00, 3 todos, battery), a few lines, the selector's letters on the edge | Kolahal's home beside its name | *Kolahal - Terminal Launcher* / A home screen for touch and typing. |
 
 ** 1. Opening apps by typing (18 s)
 
@@ -292,7 +292,7 @@ After the take: =config set home.style gui=.
 
 | s   | On the phone                    | The viewer sees                     | Caption                                                                          |
 |-----+---------------------------------+-------------------------------------+----------------------------------------------------------------------------------|
-| 0–5 | home, still, in the GUI style    | the phone beside the name           | *Kolahal: Terminal Launcher* / A home screen for touch and typing. / On Google Play · mtwabpin.github.io/kolahal |
+| 0–5 | home, still, in the GUI style    | the phone beside the name           | *Kolahal - Terminal Launcher* / A home screen for touch and typing. / On Google Play · mtwabpin.github.io/kolahal |
 
 ** The running total
 

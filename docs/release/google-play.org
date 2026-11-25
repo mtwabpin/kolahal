@@ -104,7 +104,7 @@ Policy pages (opened 22 October 2026):
 * The first time in Play Console
 
 1. *Decide free or paid* first: a free app can never become paid later.
-2. *Create the app*: name "Kolahal: Terminal Launcher", default language English, App.
+2. *Create the app*: name "Kolahal - Terminal Launcher", default language English, App.
 3. *Play app signing*: give Play the release key, as in [[file:play-signing.org][play-signing.org]], before the first
    bundle goes up.
 4. *App content*, the answers:
@@ -133,10 +133,10 @@ Since 24 November 2026 the descriptions present Kolahal as a home screen for tou
 touch as much a part of it as typing. The name is unchanged. Until the texts are pasted into Play
 Console, the listing there still has the older short description and text.
 
-App name (30 characters at most; this is 26):
+App name (30 characters at most; this is 27):
 
 #+begin_example
-Kolahal: Terminal Launcher
+Kolahal - Terminal Launcher
 #+end_example
 
 The name keeps "Terminal Launcher" by the maintainer's choice (24 November 2026): it tells the
