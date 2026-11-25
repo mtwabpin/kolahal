@@ -1,5 +1,6 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
 import { docsSchema } from '@astrojs/starlight/schema';
 import { DIRECT_DOWNLOADS } from './release';
 
@@ -15,6 +16,9 @@ const pattern = [
 	...(DIRECT_DOWNLOADS ? ['!**/*.alpha.{md,mdx}'] : ALPHA_TWINS.map((page) => `!${page}.{md,mdx}`)),
 ];
 
+/** Starlight's front matter, and `date`: when a blog post came out, shown under its title (PageTitle.astro). */
+const schema = docsSchema({ extend: z.object({ date: z.coerce.date().optional() }) });
+
 export const collections = {
-	docs: defineCollection({ loader: glob({ base: './src/content/docs', pattern }), schema: docsSchema() }),
+	docs: defineCollection({ loader: glob({ base: './src/content/docs', pattern }), schema }),
 };

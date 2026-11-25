@@ -181,6 +181,10 @@ export default defineConfig({
 						{ slug: 'reference/faq' },
 					],
 				},
+				{
+					label: 'Blog',
+					items: [{ slug: 'blog/0-5-17' }],
+				},
 			],
 		}),
 	],

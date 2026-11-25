@@ -1,0 +1,389 @@
+---
+title: "Kolahal 0.5.17: shaders, widgets and home on a grid"
+description: "Kolahal 0.5.17 in short, with a command to try for each part: shaders over home and as your wallpaper, scenes drawn from your screen time, one-off shaders that play on a notification, new widget cards and looks, daily limits, home on a character grid, scramble, the commands that moved and the website."
+date: 2026-11-25
+prev: false
+---
+
+import Shots from '../../../components/Shots.astro';
+
+[Kolahal](/) is a terminal style launcher for Android, optimized for touch and extensible with scripts and shaders. Version 0.5.17 is mostly about the two sides of home: shaders over the log, some of them drawn from how you use the phone, and new cards on the widgets page. Home can also be drawn on a character grid, and a few commands moved. The [release notes](https://github.com/mtwabpin/kolahal/releases) have every change.
+
+## Shaders over home
+
+Why shaders? Because home is the screen you come back to all day, and it seemed a pity for it to be only useful. A pond under a low moon, a candle that burns down with your day: none of it opens an app any faster. It is one of those ideas whose whole job is to make a small corner of life more beautiful.
+
+On Android 13 and newer, a shader (a small program the graphics chip runs for every pixel) can be drawn over home and its full-screen screens. 45 come with Kolahal: some change how the text looks (an old CRT, e-paper, graph paper), others are scenes behind it (rain, snowfall, mountains, a pond, northern lights), and fourteen play once and go.
+
+```sh title="At the prompt"
+shader rain
+```
+
+`shader` alone lists them, and the **Shaders** tab, beside Settings, Scripts and Feeds, has them with previews and a search; `shaders` opens it. `shader off`, or two fingers held still on the screen for a second, always turns one off. A scene brings its own ground, so your wallpaper doesn't show through the log while it is on. Moving ones stand still in battery saver and after a minute without a touch.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/home-pond-dark.webp", alt: "Home on the phone over the pond shader in a dark theme: hills and a low moon over still water, and under them the weather in Tokyo, 5 km in miles and a reminder to pick up the bike." },
+		{ file: "blog/0-5-17/home-mountains-light.webp", alt: "The same home over the mountains shader in the light theme: pale purple ridges in mist under a low sun." },
+		{ file: "blog/0-5-17/answers-dunes-light.webp", alt: "Home over the dunes shader in the light theme, a small caravan on the dune, over sums, a todo list, a reminder and the time in Tokyo and Lisbon." },
+	]}
+>
+`pond`, `mountains` and `dunes` over home on the phone.
+</Shots>
+
+## Scenes of how you use the phone
+
+Eight shaders draw your screen time and unlocks. `candle` and `hourglass` run down as today's screen time is spent, against a usual day (the average of the six days before); `seismograph` and `day-ring` trace today; `windows`, `record`, `lanterns` and `kintsugi` show the week. Screen time needs usage access:
+
+```sh title="At the prompt"
+allow usage
+shader candle
+```
+
+None of it leaves the phone. A shader has no network and no files: it gets numbers and draws them, and it can't send or save anything. [Privacy](/reference/privacy/) says what each permission is for.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/scene-candle-screen-time.webp", alt: "Home over the candle shader: a lit candle beside a brass rod in a dark room, over usage 1 in the log, 7h 39m of screen time today with a bar for each app." },
+		{ file: "blog/0-5-17/scene-hourglass-screen-time.webp", alt: "Home over the hourglass shader: a wooden hourglass, sand falling into its lower bulb and a little spilled at its foot, over the weather and a reminder." },
+		{ file: "blog/0-5-17/scene-lanterns-unlocks.webp", alt: "Home over the lanterns shader: paper lanterns at different heights over dark water, over unlocks week in the log, 11 unlocks today with a chart of the week." },
+	]}
+>
+`candle` and `hourglass` with today's screen time, and `lanterns` with the week's unlocks.
+</Shots>
+
+## A shader as your wallpaper
+
+```sh title="At the prompt"
+wallpaper shader pond
+```
+
+This opens Android's own preview, where you set the shader as the live wallpaper of the home screen, the lock screen or both, behind any launcher. On the Shaders tab it is **Set as wallpaper** in a shader's details. The wallpaper keeps your parameters, follows the same values as on home, and moves only while you can see it. Shaders that change the text, such as `crt`, can't be a wallpaper. `wallpaper` alone says what your wallpaper is now and lists what it can become.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/wallpaper-preview.webp", alt: "Android's wallpaper preview with the pond shader, named Kolahal shader, and a Set wallpaper button." },
+		{ file: "blog/0-5-17/wallpaper-lock.webp", alt: "The lock screen with the pond shader behind a large clock reading 06 21." },
+		{ file: "blog/0-5-17/wallpaper-log.webp", alt: "Home with the pond wallpaper behind the log: the weather, 5 km in miles and a reminder." },
+	]}
+>
+`pond` in Android's preview, on the lock screen, and behind the log.
+</Shots>
+
+## Parameters that follow a value
+
+Some shaders have parameters, such as the amount of snow: sliders in a shader's details, or `shader set snowfall amount 1.5`. A parameter can follow a value instead: the battery, the time of day, your unlocks, your screen time, or a value a script gives. With the library's **weather** script it rains on home as it rains outside:
+
+```sh title="At the prompt"
+script install weather
+shader rain
+shader follow rain amount weather.rain
+```
+
+A value can go through a formula (`shader follow dunes camels battery / 20`), and `shader values` lists what there is to follow.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/shader-details-slider.webp", alt: "The details of Mountains: a preview of the scene over a few log lines, its description, a Birds slider at 5 with a Follow button, how well it suits a dark theme, a light theme and a wallpaper, and Use." },
+		{ file: "blog/0-5-17/shader-details-follows.webp", alt: "The details of Candle: a preview of the lit candle over a few log lines, its description, and its parameter following Screen time, at 1.06 with a thin bar under it, then Use and Set as wallpaper." },
+	]}
+>
+The **Birds** slider of `mountains`, and `candle` following today's screen time.
+</Shots>
+
+## Shaders that play once
+
+Why one-offs? A scene is there all day, but some things happen once. A message from someone you were waiting to hear from is worth a few seconds of hearts, and then they should go.
+
+Fourteen shaders play once over home for a few seconds, drawn over everything on the screen, a scene included. `hearts` comes in seven motions: rising, a fountain, falling petals, a stream up the edge, poppers from the corners, fireworks and a bounce. Its hearts come in eight styles, from glossy and flat to neon and halftone (`shader set hearts style neon`). `pulse` runs light around the edge of the screen, and six more are made of light too: a comet, the edge breathing, a scan line, a spill from the top, a heartbeat trace and northern lights.
+
+```sh title="At the prompt"
+shader play hearts-fountain
+shader words hearts picnic
+```
+
+The second line makes `hearts` play when a notification has the word "picnic"; in a one-off's details it is **Plays on a notification**, and it needs notification access.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/oneoff-hearts-fountain.webp", alt: "Home with the weather in Tokyo, 5 km in miles and a reminder in the log, and glossy red hearts rising from the bottom of the screen and fanning out over the log and the empty space above it." },
+		{ file: "blog/0-5-17/oneoff-pulse.webp", alt: "The same home with a glow of blue and pink light along the bottom edge of the screen and partway up both sides." },
+	]}
+>
+`hearts-fountain` and `pulse` in mid-play over home.
+</Shots>
+
+You are seldom on home when the message comes, so a one-off can also play over the app you are in. It is off until you turn on **Play over other apps** on the Shaders tab and allow Android's Display over other apps (`allow overlay`); before Android's page opens, Kolahal says what it will draw and when. Touches go through to the app, and nothing of the app is read. The shader waits for home while the phone is locked, over a full-screen app, in battery saver, or when Do Not Disturb holds the notification back.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/shaders-over-apps.webp", alt: "The Shaders tab scrolled to its one-off shaders, Spill, Trace and Northern lights, each with a play button and a details button, and under them Play over other apps turned on, with what it does and what it needs." },
+		{ file: "blog/0-5-17/oneoff-over-app.webp", alt: "Android's Clock app on its stopwatch at zero, with pink hearts rising over it, a little fainter than on home, after a notification with the word picnic." },
+	]}
+>
+**Play over other apps** on the Shaders tab, and `hearts` over Android's Clock after a notification with its word.
+</Shots>
+
+## Writing your own
+
+A shader is a `.agsl` file, in Android's version of GLSL. Six commented templates of 30 to 50 lines are the quickest start:
+
+```sh title="At the prompt"
+shader save template-tint
+shader edit my-tint
+```
+
+**Save** in the editor checks it at once and names the line that fails. **Add shader** on the Shaders tab does the same with buttons and imports `.agsl` files. `@fps` and `@settles` in the header keep a moving shader cheap, and a one-off of yours plays over other apps once its header says it suits them. `shader get` lists the shaders shared in [kolahal-scripts](https://github.com/mtwabpin/kolahal-scripts), each reviewed first. More on the [shaders page](/scripting/shaders/).
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/shaders-tab.webp", alt: "The Shaders tab: the tabs Settings, Scripts, Shaders and Feeds at the top, screen time typed in the search with the chips Dark theme, Light theme, Wallpaper and Still under it, the scenes Record, Candle and Hourglass, each with what it draws, and the Add shader button." },
+		{ file: "blog/0-5-17/editor.webp", alt: "The script editor with the library's unlock-chart.lua open: colored Lua with line numbers, buttons at the top for search, the API reference, save, run and close, and a bar of symbols at the bottom." },
+	]}
+>
+The Shaders tab searched for screen time, and the editor that `shader edit` opens, here with a script.
+</Shots>
+
+## Widgets
+
+Why more cards? Because the widgets page is the side of home you read without typing, and some things read best as what they are: a match as two sides and a score, the evening as the sun low on its arc, a parcel as a point on its way.
+
+Scripts get new kinds of card for that. `versus` shows two sides, the score and a bar between them, such as possession; `sky` shows the sun on its arc or the moon in its phase, and Kolahal moves it through the day without running the script. A progress card can be a gauge, rings inside each other, or stages on a line for a parcel or a flight. A number can have its recent values as a line behind it, or one of Kolahal's scenes, and a countdown can be dots, one going out each day, or a calendar page. In the library, `football` and `cricket` show the score on a versus card, `aqi` is a gauge with the scale's zones, and `sun` has the sky.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/card-versus.webp", alt: "A versus card: League, the 67th minute, Lisbon 2–1 Paris with a lettered mark for each side, possession 58 to 42 as a two-part bar, and 64' Goal under it." },
+		{ file: "blog/0-5-17/card-gauge.webp", alt: "A gauge card: air quality in Nairobi, 118 US AQI inside a thick arc in the colors of its zones, and Unhealthy for some under it." },
+		{ file: "blog/0-5-17/card-sky.webp", alt: "A sky card in the Shape look: the sun on its arc over the horizon, 17:20 and Sunset in 3 h 16 min, for Lisbon." },
+	]}
+>
+`versus`, a gauge and `sky`, three of the new kinds.
+</Shots>
+
+The looks say more as well. **Poster** sets a number, a countdown or a clock so large that the card's edge crops it. In **Shape**, the shape carries the value: a countdown is a sun that loses a ray each day, a habit's week is a flower with a leaf for each day done, and the battery goes from round when full to spiky when low. Todos, Reminders, Notes and the agenda have looks of their own: **Next** for the next todo or reminder, **Stack** for the newest note, and **Now** for what is on and the free time until the next event. Todos has no Shape look any more; Next took its place.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/card-countdown-sun.webp", alt: "A countdown in the Shape look: a sun with seven rays down its right side, one for each of the 7 days left to Paris, its left side smooth where the days have gone." },
+		{ file: "blog/0-5-17/card-poster-clock.webp", alt: "A clock in the Poster look: Tokyo's hour and minutes, 07 over 04, so large that the card's edge crops them, with Tokyo and Wed small at the top." },
+		{ file: "blog/0-5-17/card-reminders-next.webp", alt: "Reminders in the Next look: Call the bank at 14:46 in a pill that reads in 42 min, then Water plants on Wednesday and Pay rent on Friday as points on a line." },
+	]}
+>
+A countdown in **Shape**, a clock in **Poster**, and Reminders in **Next**.
+</Shots>
+
+**Settings** in Arrange widgets now opens a page for the chosen card, with the card itself at the top, changing as you choose: its own options, its color from the theme, in the Shape look its shape among fifteen, and whether its name and its icon show. Widgets can go on up to five pages, each with a name of its own. For another app's widget, **Widget settings** opens its setup again, to pick another city or calendar without removing it, when its app allows that.
+
+```sh title="At the prompt"
+script install sun
+sun Lisbon
+widget add
+```
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/widget-card-settings.webp", alt: "The settings page of a Weather card: the card at the top in the Shape look, 14°C in a clover, then This card with its city option set to Tokyo, Color with Link chosen among the theme's colors, and the first shapes." },
+		{ file: "blog/0-5-17/widgets-arrange-pages.webp", alt: "Arrange widgets with three pages, Page 1, Travel and Health, as tabs at the top, the Battery and network card chosen, and its toolbar with Settings, the Look, Size and Page rows." },
+	]}
+>
+A card's settings page, and three widgets pages in Arrange widgets.
+</Shots>
+
+## Daily limits
+
+The scenes above show the day as it goes; a limit gives its figures a line to cross. It changes nothing else: no notification, nothing blocked, only the color of a number.
+
+Set one for screen time (in minutes) and one for unlocks in **Settings → Header → Daily limits**. At the limit, today's figure turns the theme's warning color, and from one and a half times the limit its error color: in the header's unlocks, `usage`, `unlocks`, `top` and `fetch`, with a line that says how far over it is. The library's Screen time card takes the color too.
+
+```sh title="At the prompt"
+config set usage.unlock-limit 60
+unlocks 7
+```
+
+Without usage access, the page says so and has an **Allow** button in place of the limits. Other options that need an access now do the same, such as a one-off's words without notification access.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/daily-limits.webp", alt: "Settings, Header, scrolled to Daily limits: a screen time limit of 180 minutes and an unlock limit of 60, each with what it does, its config key and a slider, under a preview of the top of home." },
+		{ file: "blog/0-5-17/usage-limits.webp", alt: "A limit of 10 unlocks a day: the header's unlock count, 13, in the warning color, and unlocks 7 in the log with 13 unlocks today in the same color, the line 3 over your limit of 10, and each day's line in the color of its own count." },
+	]}
+>
+**Daily limits** in Settings → Header with both limits set, and `unlocks 7` over a limit of 10 unlocks.
+</Shots>
+
+## Home on a character grid
+
+Why a TTY style? Because Kolahal is a terminal at heart, and now it can look like one all the way down. It does nothing a launcher needs. It is for the people who smile at a screen made only of characters on a grid, and it is there for fun.
+
+```sh title="At the prompt"
+config set home.style tty
+```
+
+Home's log, header and prompt are then drawn on a strict grid: one font size, whole lines, no pictures. `tty.suggestions`, `tty.selector`, `tty.keybar`, `tty.quick-actions` and `tty.menu` put the other parts on it too (`config` only), and `config set home.style gui` goes back.
+
+Seven commands then take the whole screen until a tap, Back or a key: `matrix`, `pipes`, `sl`, `clock`, `top`, `decode` and `boot`. In the default style these names stay plain words; `screen top` opens one in either style. **Settings → Look & feel → Screensaver** opens `matrix`, `clock`, `pipes` or `decode` after 30 seconds to 60 minutes without a touch; the default style offers `decode`, which scrambles home's own lines where they are.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/tty-top.webp", alt: "The top screen: the time, 26 minutes up and 11 unlocks on its first line, bars for the battery, memory, Kolahal and today's screen time with their values, and a table of eight scripts with when each last ran, its result and when it runs next." },
+		{ file: "blog/0-5-17/tty-matrix.webp", alt: "The matrix screen: columns of falling characters in the theme's colors on a dark screen." },
+		{ file: "blog/0-5-17/tty-clock.webp", alt: "The clock screen: 7:03 in large block digits with PM beside them, and Tuesday 24 November 2026 under them." },
+	]}
+>
+`top`, `matrix` and `clock`, three of the seven screens.
+</Shots>
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/typing-tty-parts.webp", alt: "Home in the TTY style with ca typed at the prompt: 5 km in miles in the log, then the suggestions on the grid without icons (Voice Search, Contacts, Calendar, the commands calls, call and cal, and Camera marked as the first), and a bar of symbol keys over the keyboard." },
+		{ file: "blog/0-5-17/typing-gui-parts.webp", alt: "The same line typed in the default style: the answer of the conversion in large type, the suggestions with the apps' icons, Camera highlighted as the first, and the same bar of symbol keys over the keyboard." },
+	]}
+>
+`ca` typed over the same log, in the TTY style with every part on the grid and in the default style.
+</Shots>
+
+## scramble, for screen recordings
+
+```sh title="At the prompt"
+scramble
+```
+
+Every line of the log keeps its place, its length and its colors, but each letter and digit is replaced and pictures show as plain blocks, until `scramble off`. Nothing stored changes, and a tap works on the real line. What you type, the header's figures and other screens such as Settings stay readable: [Screen recordings](/reference/privacy/#screen-recordings) has the list.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/scramble-before.webp", alt: "Home with the weather in Tokyo, 5 km in miles and a todo list of three items under the header." },
+		{ file: "blog/0-5-17/scramble-after.webp", alt: "The same home with scramble on: the header starts with the word scrambled, and each line keeps its shape and colors, with other letters and digits in place of the real ones, the times beside the commands too." },
+	]}
+>
+The same home without and with `scramble`.
+</Shots>
+
+## Commands that moved
+
+Kolahal is in testing, and this release changed several commands without keeping their old names. If an alias, a gesture or a shortcut of yours runs one of the old ones, it needs the new one:
+
+| Before | Now |
+| --- | --- |
+| `usage-access` | `allow usage` |
+| `notifications` | `allow send-notifications` |
+| `notifs enable` | `allow read-notifications` |
+| `dnd access` | `allow dnd` |
+| `brightness access` | `allow settings` |
+| `remind exact` | `allow alarms` |
+| `battery` | `allow battery` |
+| `agenda --allow` | `allow calendar` |
+| `contacts --allow` | `allow contacts` (full build only) |
+| `calls --allow` | `allow calls` (full build only) |
+| `accessibility` | `allow lock` (full build only) |
+| `usage-summary` | `usage summary`, `usage week`, `usage month`, `usage year`, `usage full` |
+| `wallpaper match` | `wallpaper theme` |
+| `screen.bars` `show`, `hide`, `immersive` | `screen.hide-bars` `none`, `status`, `both` (**Hide system bars** in Settings) |
+
+`--settings` after `agenda`, `calls` and `contacts` is gone too, `notifications` is now another name of `notifs`, and your `screen.bars` setting carries over. `allow` alone lists every permission, each marked allowed or not; a tap asks for it. `widget` acts and `widgets` opens the screen, as with `script` and `scripts`: `widget add`, `widget ls`, `widget page`.
+
+`screen`, `shader` and `scramble`, and in the TTY style the seven screens' names, are now Kolahal's: a line that starts with one runs the command, not an alias, a script or an app. A script with one of these names still runs with `script run <name>`, and `script mv <name> <new-name>` renames it; **Settings → Commands** turns a command off.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/setup.webp", alt: "The setup checklist, 7 of 13 done: default home app, usage access, notifications, notification access, double-tap to lock, Do Not Disturb access, modify system settings and contacts, each ticked or with a Fix button." },
+		{ file: "blog/0-5-17/widgets-add-picker.webp", alt: "Add widget: a search field, then Kolahal's own widgets, such as Battery and network, Shortcuts, Now playing, Todos and Agenda, each with its size." },
+	]}
+>
+The setup checklist, with the same permissions as `allow`, and the picker that `widget add` opens.
+</Shots>
+
+## For people who write scripts
+
+- `skill.md`, typed in full, copies a guide for an AI assistant on writing Kolahal scripts and shaders.
+- The new cards are a script's to show: `versus` and `sky`, `style = "gauge"` or `"rings"`, `stages`, a number's `points` or `scene`, and the countdown styles `dots` and `page`.
+- The editor's reference names every widget kind, style and field, each with an example, and **Home style** under a log example shows it as the GUI or the TTY style draws it.
+- `tty.screen` draws a full-screen screen of your own on the grid. Start from the library's `template-screen` (or `template-screen-js`), or read Kolahal's own screens as scripts, such as `tty-matrix`. In the default style such a script is marked **TTY style only**.
+- `shader.give` gives a value for shaders to follow, as `weather.rain` does; `shader.play` plays a one-off shader.
+- A source of shared scripts and shaders is asked for its own version's list first, so scripts for a version can be shared before it is released.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/script-sheet-switches.webp", alt: "The sheet of weather.lua: buttons to run, set, edit and update it, switches for Enabled, Internet and Pinned at the top, Gives shaders with rain and snow that nothing follows yet, and its city option set to Tokyo." },
+		{ file: "blog/0-5-17/library.webp", alt: "The library of ready-made scripts: a search field, chips for templates, widgets and commands, then Air quality, Charge reminder, Countdowns and others, each with an Install button." },
+		{ file: "blog/0-5-17/reference-table-tty.webp", alt: "The reference's page for fmt.table under Log lines: a table of two coins' prices drawn as home draws it, Home style with GUI and TTY and TTY chosen, the example's code, and Copy and Insert buttons." },
+	]}
+>
+A script's sheet with the values it gives shaders, the library, and a reference example in the TTY style.
+</Shots>
+
+## The website
+
+The [site](/) has a different look: the terminal look is gone. The home page opens on a scene drawn from the app's own shaders that changes every few seconds, three for each of the site's light and dark themes, with a phone beside it showing home over the same scene. It then shows the app by touch and by typing, scripts and widgets, the themes as cards with each theme's colors, and the shaders. The [tour](/tour/) shows fourteen small parts of the app, each with screenshots and the command to try, and the [gallery](/getting-started/gallery/) collects the guide's screenshots section by section. Every picture of the app was taken again in Rosé Pine.
+
+<Shots
+	wide
+	items={[
+		{ file: "blog/0-5-17/site-home-dark.webp", alt: "The site's home page in its dark theme: A home screen for touch and typing, buttons to join the test and read the guide, and a phone showing home over misty mountains under a low sun, the same scene behind the page." },
+		{ file: "blog/0-5-17/site-home-light.webp", alt: "The home page in its light theme: the same heading and the phone over pale mountains by water." },
+	]}
+>
+The home page in the site's dark and light themes.
+</Shots>
+
+<Shots
+	wide
+	items={[
+		{ file: "blog/0-5-17/site-themes-dark.webp", alt: "The home page's themes: a card for each theme, rose-pine marked default, then green, amber, mono, dracula and solarized, each with sample lines in its dark and light version and a strip of its colors." },
+	]}
+>
+The themes on the home page, each with its dark and light version and its colors.
+</Shots>
+
+<Shots
+	wide
+	items={[
+		{ file: "blog/0-5-17/site-tour-dark.webp", alt: "The tour page in the dark theme: A tour of Kolahal, its first part, Opening apps by typing, with two screenshots, and the fourteen parts listed on the right." },
+		{ file: "blog/0-5-17/site-gallery-light.webp", alt: "The gallery page in the light theme: its first section, Home and its parts, with two screenshots, and its sections listed on the right." },
+	]}
+>
+The tour and the gallery.
+</Shots>
+
+## Smaller changes
+
+**Rosé Pine is the default theme**, with Rosé Pine Dawn as its light version. It shows after the update if you never chose a theme, or typed `theme green` while green was the default; `theme green` brings the old look back.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/theme-picker.webp", alt: "Settings, Look & feel: the theme cards with Rosé Pine chosen, Always dark, and the font cards with JetBrains Mono chosen." },
+		{ file: "blog/0-5-17/suggestions-theme.webp", alt: "theme typed at the prompt, with the theme names suggested above it and rose-pine nearest the prompt." },
+		{ file: "blog/0-5-17/widgets-page-light.webp", alt: "The widgets page in Rosé Pine Dawn: weather, battery, clocks, a forecast, a streak, unlocks, todos and a water count." },
+	]}
+>
+The theme cards in Settings, the themes at the prompt, and the widgets page in Rosé Pine Dawn.
+</Shots>
+
+- `apps` shows each app's icon on its chip, in three even columns, with a count in each profile's heading; a profile with many apps shows its pinned and most-used apps first, then **+N more**, which opens the rest in place.
+- Messages in the log say what happened on the first line and what to do on the lines under it; **Copy text** on such a line copies the command it suggests.
+- After Kolahal starts, the log's lines are ready in about half the time, in time for the first frame.
+- On Android 12 and newer, the header and the prompt keep clear of the screen's rounded corners.
+- **Settings → About → Default home app** says whether Kolahal is your home app, and a tap makes it so or opens Android's page to choose another.
+- Tap and hold a number setting, or a shader's parameter, to type its value.
+- Among the fixes: a sheet or a dialog no longer brings the status bar back while **Hide system bars** is on, a rare crash in lists is gone, a second weather card for another city no longer changes the pinned weather line, and countdowns change their date at local midnight, not at midnight UTC.
+
+<Shots
+	items={[
+		{ file: "blog/0-5-17/app-grid.webp", alt: "apps typed under the weather in Tokyo and 5 km in miles: the personal apps, 19 in their heading, as chips with icons in three columns ending in +8 more, then the work apps, 17, with a small badge on each icon and +6 more." },
+		{ file: "blog/0-5-17/app-grid-more.webp", alt: "The same list after a tap on +8 more: all 19 personal apps in three columns, from Calendar to YT Music, and Show less at the end." },
+	]}
+>
+`apps` in three columns with a count in each heading, and the personal apps after a tap on **+8 more**.
+</Shots>
+
+## Getting it
+
+Kolahal is in testing on Google Play, where you install and update it; this release has no APKs on GitHub.
+
+1. Join the group [groups.google.com/g/kolahal](https://groups.google.com/g/kolahal) with the Google account your phone's Play Store uses.
+2. Open [play.google.com/apps/testing/com.mtwabpin.kolahal](https://play.google.com/apps/testing/com.mtwabpin.kolahal) with the same account and tap **Become a tester**.
+3. Install Kolahal from its [Play Store page](https://play.google.com/store/apps/details?id=com.mtwabpin.kolahal), where it is **Kolahal - Terminal Launcher**. It can take a few minutes to appear there after step 2.
+
+It needs Android 9 or newer, and installs over 0.5.16 with your data and settings. Google Play releases Kolahal to everyone only after at least 12 testers keep it for 14 days in a row, so please keep it installed that long; [Test on Google Play](/getting-started/play-testing/) has the details. The Play build leaves out the screen lock, calls in the log and `update`, and finds people with Android's contact picker instead of reading your contacts.
+
+Kolahal is free software under the GPL v3, and its [source is on GitHub](https://github.com/mtwabpin/kolahal). It is developed with AI assistance and the developers review every change except the tests; the [README](https://github.com/mtwabpin/kolahal) says where the review of the codebase stands. Keep a [backup](/guides/backup/), and [report](https://github.com/mtwabpin/kolahal/issues/new/choose) what breaks.

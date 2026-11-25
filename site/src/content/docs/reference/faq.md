@@ -1,6 +1,7 @@
 ---
 title: FAQ
 description: Answers to common questions, such as why the wallpaper flashes when you go home.
+next: false
 ---
 
 ## Why does my wallpaper flash when I go home?

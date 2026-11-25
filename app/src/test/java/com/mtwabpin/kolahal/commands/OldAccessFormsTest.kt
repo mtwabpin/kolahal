@@ -10,7 +10,7 @@ import java.io.File
  * `allow <word>` took the place of the commands and sub-forms that asked for an access
  * (`usage-access`, `notifs enable`, `calls --allow`, …). No text may tell a person to type one of
  * them again: not the app's code, library scripts and skill.md, nor the guide and the docs.
- * The release notes keep them, as the history they are.
+ * The release notes and the site's blog posts keep them, as the history they are.
  */
 class OldAccessFormsTest {
     /** Each old form, as code builds it or a text names it. */
@@ -39,7 +39,9 @@ class OldAccessFormsTest {
 
     /** History and plans, which may name what is gone. */
     private fun skipped(file: File) =
-        file.path.replace('\\', '/').let { "/docs/release/notes/" in it || it.endsWith("/docs/tasks.org") }
+        file.path.replace('\\', '/').let {
+            "/docs/release/notes/" in it || "/content/docs/blog/" in it || it.endsWith("/docs/tasks.org")
+        }
 
     private val texts = setOf("kt", "kts", "xml", "lua", "js", "md", "mdx", "org", "txt")
 

@@ -1,7 +1,7 @@
 ---
 /**
  * Starlight PageTitle override: the name of the page's sidebar group, small and muted, above the
- * title.
+ * title, and a blog post's date (front matter `date`) under it.
  */
 const { entry, sidebar } = Astro.locals.starlightRoute;
 
@@ -18,10 +18,18 @@ function section(entries: Entry[], parent?: string): string | undefined {
 	}
 }
 const group = section(sidebar);
+const date = entry.data.date;
 ---
 
 {group && <span class="k-section" aria-hidden="true">{group}</span>}
 <h1 id="_top">{entry.data.title}</h1>
+{
+	date && (
+		<time class="k-date" datetime={date.toISOString().slice(0, 10)}>
+			{date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
+		</time>
+	)
+}
 
 <style>
 	h1 {

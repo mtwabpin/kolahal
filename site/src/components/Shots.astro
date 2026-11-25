@@ -8,6 +8,8 @@
  *   it (`ma-light.png`) is shown in the site's light theme instead.
  * - `standIn`: an older picture shown until the capture is there.
  * - `alt` says what the capture shows; `caption` is the line under it.
+ * - `wide`: pictures wider than tall (a page of the website), up to two to a row, one alone filling it.
+ * - Text between the tags (Markdown) is one caption under the whole row: the row is then a figure.
  */
 import { Image } from 'astro:assets';
 import { hasShot, lightOf, shot } from '../shots';
@@ -20,24 +22,34 @@ interface Item {
 }
 interface Props {
 	items: Item[];
+	wide?: boolean;
 }
 
+const { wide } = Astro.props;
 const items = Astro.props.items
 	.map((it) => ({ ...it, src: shot(it.file, it.standIn), light: hasShot(it.file) ? lightOf(it.file) : undefined }))
 	.filter((it) => it.src);
+const width = wide ? 600 : 280;
+const rowCaption = Astro.slots.has('default');
+const Row = rowCaption ? 'figure' : 'div';
 ---
 
 {
 	items.length > 0 && (
-		<div class="shots-row not-content">
+		<Row class:list={['shots-row not-content', { wide, single: wide && items.length === 1 }]}>
 			{items.map((it) => (
 				<figure>
-					<Image src={it.src!} alt={it.alt} width={280} densities={[1, 2]} class:list={{ 'for-dark': it.light }} />
-					{it.light && <Image src={it.light} alt={it.alt} width={280} densities={[1, 2]} class="for-light" />}
+					<Image src={it.src!} alt={it.alt} width={width} densities={[1, 2]} class:list={{ 'for-dark': it.light }} />
+					{it.light && <Image src={it.light} alt={it.alt} width={width} densities={[1, 2]} class="for-light" />}
 					{it.caption && <figcaption set:html={it.caption} />}
 				</figure>
 			))}
-		</div>
+			{rowCaption && (
+				<figcaption class="row-caption">
+					<slot />
+				</figcaption>
+			)}
+		</Row>
 	)
 }
 
@@ -77,5 +89,24 @@ const items = Astro.props.items
 		font-size: var(--sl-text-sm);
 		line-height: 1.5;
 		color: var(--s-ink-soft);
+	}
+	figure.shots-row {
+		max-width: none;
+	}
+	.wide {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	}
+	.wide.single {
+		grid-template-columns: 1fr;
+	}
+	.wide figure {
+		max-width: none;
+	}
+	.row-caption {
+		grid-column: 1 / -1;
+		margin-top: -0.75rem;
+	}
+	.row-caption :global(p) {
+		margin: 0;
 	}
 </style>

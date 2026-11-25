@@ -412,6 +412,13 @@ mobile-starlight-toc .dropdown a {
 	font-weight: 600;
 	color: var(--s-muted);
 }
+/* A blog post's date, under its title. */
+.k-date {
+	display: block;
+	margin-top: 0.625rem;
+	font-size: 0.875rem;
+	color: var(--s-muted);
+}
 #_top {
 	font-family: var(--s-font-display);
 	font-weight: 700;
