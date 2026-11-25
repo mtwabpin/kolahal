@@ -142,10 +142,10 @@ Kolahal: Terminal Launcher
 The name keeps "Terminal Launcher" by the maintainer's choice (24 November 2026): it tells the
 audience the style of the app. The descriptions say what it is made for, touch and typing.
 
-Short description (80 at most; this is 68):
+Short description (80 at most; this is 78):
 
 #+begin_example
-A home screen for touch and typing that opens apps and runs commands
+A touch optimized terminal style launcher, extensible with scripts and shaders
 #+end_example
 
 Google flagged "A keyboard-first home screen: type part of an app's name and press Enter."
