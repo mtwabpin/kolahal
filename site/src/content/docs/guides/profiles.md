@@ -23,6 +23,10 @@ Each app has a tag for its profile, and each profile has its own color:
 
 Kolahal shows `[P]` only when the same app is also in another profile. Normal personal apps have no tag.
 
+Where the app's icon shows, in the app selector and in `apps`, the icon carries the system's badge
+for its profile, and the tag is left out. Without icons, and in the TTY style, the tag
+shows. A screen reader hears the profile either way ("Maps, work").
+
 Use the flags to pick a profile in `open`, `info`, `uninstall`, `hide`, `unhide` and `rename`:
 
 ```sh

@@ -17,6 +17,7 @@ the system file picker. The file contains:
 - hidden apps, custom labels and pinned favorites
 - every script with its code, timers, notification flag and on/off state
 - your own [shaders](/scripting/shaders/), and where the installed ones came from
+- the widgets you placed, with their pages, sizes, looks, colors and shapes ([Backups](/guides/widgets/#backups))
 - the [sources you added](/scripting/overview/#your-own-scripts-repository) to Get more scripts (their addresses only)
 - **everything else** under `data`:
   - todos, notes and reminders

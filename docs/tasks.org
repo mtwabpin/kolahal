@@ -630,6 +630,72 @@ was seen to go wrong on a device.
 - Fix: drop entries older than the window when one is added.
 - Remark:
 
+** TODO [#C] A live wallpaper keeps drawing unseen behind a scene shader  :home:perf:
+- =MainActivity.kt= (=applyTheme=): the window asks Android to show the wallpaper
+  (=FLAG_SHOW_WALLPAPER=) whenever =log.wallpaper= is above 0, or a widgets page is see-through
+  (=widgets.wallpaper=). It doesn't ask whether a scene shader is on, and a scene hides the wallpaper.
+- What you'd see: with =log.wallpaper 40=, a live wallpaper and =shader pond= on, the live wallpaper
+  goes on drawing behind the scene, where nobody sees it, and costs battery; on the way into home
+  it can flash for a frame before the scene covers it.
+- Fix: leave the flag off while a scene is on. Not done, because switching the flag as a shader
+  loads may itself flash: it needs trying on a phone first.
+- Remark:
+
+** TODO [#C] No device test proves that a one-off shader draws anything  :shaders:
+- In the instrumented home a one-off registers as played and ends, but nothing shows on the
+  screen, so a test such as "pulse lights the top edge over a scene" could not be written.
+- What you'd see: nothing. A one-off that stopped drawing would pass every test.
+- Fix: find why the played layer draws nothing under a test; start at =playedLayer= in
+  =ui/tty/TtyShader.kt= under a Compose test. Then a screenshot test for one one-off.
+- Remark:
+
+** TODO [#C] A one-off over a screen that hides other apps' windows counts as played  :shaders:
+- =ui/shaders/ShaderOverlay.kt= (=OverlayWindow=): the window says it played once a frame was
+  drawn. Screens that hide other apps' windows, such as Android's own Settings and Files, hide
+  the window too, but the frame is still drawn.
+- What you'd see: with **Play over other apps** on and Android's Settings open, a notification
+  with the word for =hearts= plays it where nobody sees it, and it doesn't play at home either.
+- Fix: let it wait for home when the window can't be seen. How Android tells an app that its
+  window is hidden is to be found first.
+- Remark:
+
+** TODO [#C] After Android restarts Kolahal in the background, a one-off waits for home  :shaders:
+- =MainActivity.followTheme= installs the window for one-offs over other apps
+  (=ShaderOverlay.install=), so it exists only once home has been made in that process
+  (=ShaderOverApps.stage= is null until then).
+- What you'd see: after an update, or after Android ends Kolahal to free memory, a notification
+  with a shader's word plays nothing over the app in front: the shader waits until home has
+  been opened once.
+- Fix: install the window when the process starts (=LauncherApp=), in a build that has it.
+- Remark:
+
+** TODO [#C] On a low-memory phone, "other apps" still shows in two places  :shaders:screens:
+- Android Go and other low-memory phones can't give Display over other apps, so the option, the
+  line in =allow= and the setup checklist leave it out (=Accesses.offered=). Two places don't:
+- Typing =allow ov= still suggests =overlay= (=terminal/Completer.kt=, the =allow= case, reads
+  =Accesses.OFFERED=, which ignores the phone).
+- A shader's details still show its rating for other apps (=ui/shaders/ShaderSheet.kt=,
+  =SuitsRow=, which looks only at the build).
+- Fix: both ask =ShaderOverApps.phoneGives= with =ShaderPhone.lowRam=. Small.
+- Remark:
+
+** TODO [#C] The guide's pictures that show what changed on 25 November 2026  :docs:
+These show something that is no longer so, and need taking again (the alt texts with them):
+- Three tabs, and the Settings list with a Shaders row: =parts/settings.png= (parts page and
+  gallery), =shots/themes/settings.png= (gallery), and =shots/shaders/list.png= (tour and
+  gallery), which shows Shaders as a page of Settings, not as a tab.
+- The agenda's Now look with its old words, "free 1h 30": =widgets/now-kind-agenda-now-4x1.png=
+  (widgets guide and gallery; the gallery's alt text says "1h 30" too).
+- The setup checklist, "7 of 13 done": with Display over other apps it has 14 rows
+  (=setup.png=, setup page and gallery).
+- Any picture of the editor's reference with the chess sample's old player names. None was found
+  in the guide on 25 November 2026; look again when retaking.
+- Remark:
+
+** TODO [#C] Tools: the render tool kept outside the repository hands a shader the page upside down and opaque  :shaders:
+- =agsl.py= draws the page upside down and opaque, not a step under opaque as Kolahal does, so its pictures of a scene over text are wrong.
+- Remark:
+
 ** TODO App Functions, so assistants can add and update scripts  :project:
 Android's App Functions (=androidx.appfunctions=, Android 16 and newer) let an assistant on the
 phone call functions an app declares. Kolahal could offer:
@@ -748,6 +814,30 @@ maintainer, or need a choice first:
 - The idea: both are in the same shared repository and name each other, so installing one offers the other.
 - Why it waits: the maintainer wants to try following values first. Combining the Shaders and Scripts screens
   is too much; how the two show that they belong together is to be explored.
+- Remark:
+
+** WAITING [#C] A ring that hugs the camera's hole  :shaders:project:
+- Kolahal gives shaders the camera cutout's bounding box only (=shader/ShaderUniforms.kt=,
+  =cutout=), and =day-ring= dips under that box (=assets/shaders/day-ring.agsl=).
+- What you'd see: on a phone that declares its cutout as a plain box larger than the lens, as the
+  maintainer's does, the ring dips well clear of the hole instead of following it.
+- Two ways were discussed and parked: reading the cutout's outline where a phone's maker declares
+  a real one, and a one-time setting for the hole's size and place.
+- Remark:
+
+** WAITING [#C] Scenes that follow the time of day or the phone's dark mode  :shaders:project:
+- A scene draws its day or its night from the theme's light or dark version, not from the time
+  of day.
+- The maintainer wants an option to follow the time, or the phone's dark mode. The open question:
+  a day scene only reads with dark text, so the scene and the text must switch together, either
+  the whole theme or home alone while a scene is on.
+- Parked by the maintainer (25 November 2026).
+- Remark:
+
+** WAITING [#C] Two limits for one-offs over other apps  :shaders:
+- Suggested by the study of Play's policy, not built: a pause between two one-offs over other
+  apps, and none during a phone call. Today one plays at a time, with no pause after it
+  (=shader/ShaderOverApps.kt=, =plays=), and a call isn't looked at.
 - Remark:
 
 * Keep as it is

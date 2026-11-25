@@ -189,7 +189,7 @@ A one-off can play over the app you are in, so you see it without going home. It
 
 Then a notification with one of a shader's words plays it at once over the app in front, when all of these hold:
 
-- The shader is rated good or fair for other apps in its [header](#the-header), as `hearts` and `pulse` are.
+- The shader is rated good or fair for other apps in its [header](#the-header), as every one-off that comes with Kolahal is.
 - Home isn't in front, the screen is on and the phone is unlocked.
 - Do Not Disturb doesn't hold the notification back.
 - No full-screen app, such as a video or a game, is in front.
@@ -219,7 +219,7 @@ A shader can make the screen hard to read. These always work:
 
 - Type `shader off`. The keyboard and the prompt work, even when you can't see them.
 - Hold two fingers still on the screen for a second.
-- **Shaders → None**. Settings has no shader over it.
+- **Shaders → None**. The **Shaders** tab has no shader over it.
 - `config set screen.shader off`.
 
 Shaders also stop on their own:
@@ -242,7 +242,7 @@ it [at the same times](#tilt-and-power).
 
 A shader is a text file that ends in `.agsl`. Its name is the file's name in lowercase: `My Glow.agsl`
 is `my-glow`. A file can have at most 64 KB. A few words that `shader` uses itself, such as `off` and
-`list`, can't be a shader's name.
+`ls`, can't be a shader's name.
 
 There are three ways to add one, all under **Shaders → Add shader**:
 
@@ -513,7 +513,7 @@ some seconds. So a phone in a stand, or in your hand while you lie down, leans b
 degrees is 1.
 
 Kolahal reads the phone's motion sensor only while a shader that declares `tilt` shows: with home (or the
-shader's preview in Settings) in front, or as your live wallpaper while the wallpaper shows. It stops in battery saver, with **Remove animations** on, when the phone is hot or nearly out of
+shader's preview on the **Shaders** tab) in front, or as your live wallpaper while the wallpaper shows. It stops in battery saver, with **Remove animations** on, when the phone is hot or nearly out of
 battery, and after a minute without a touch unless the phone is charging. `tilt` then goes back to `0, 0`.
 
 A shader that isn't `@animated` is drawn again only when the lean changes, at most 30 times a second. On a

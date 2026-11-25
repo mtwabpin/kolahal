@@ -130,8 +130,11 @@ the Play build: no screen lock and no calls in the log, so neither is mentioned.
 this is 3996. Keep it in step with the app when features change.
 
 Since 24 November 2026 the descriptions present Kolahal as a home screen for touch and typing, with
-touch as much a part of it as typing. The name is unchanged. Until the texts are pasted into Play
-Console, the listing there still has the older short description and text.
+touch as much a part of it as typing. On 25 November 2026 the name, both descriptions and the new
+pictures were pasted into Play Console and sent for review. Seven lines of the full description below
+were corrected after that, the same day (the widgets pages, the limits, the looks, where shaders draw,
+the badge on work and private apps, and American spelling): Play Console has the text as it was sent
+until this one is pasted again.
 
 App name (30 characters at most; this is 27):
 
@@ -165,12 +168,12 @@ BY TOUCH
 • Tap a line of the log for its main action; long-press for copy, share, open, run again and more.
 • Swipe a line right to copy it, left to delete it.
 • Gestures that run any command: a double-tap, a swipe down on the header, a swipe up on the prompt.
-• A widgets page one swipe away, and a touch key bar while you type.
+• Up to five widgets pages a swipe away, and a touch key bar while you type.
 
 BY TYPING
 • Type any part of an app's name: the closest match sits right above your thumb.
 • Instant launch opens an app as soon as the letters match only that app.
-• With an empty prompt, your most-used apps are one tap away; pin favourites to keep them at the front.
+• With an empty prompt, your most-used apps are one tap away; pin favorites to keep them at the front.
 • Aliases for anything you type often, app shortcuts, and every past command one ↑ away.
 
 ALSO IN THE LOG
@@ -182,14 +185,14 @@ LITTLE TOOLS BUILT IN
 • Web search with the engine you choose
 • Call and text people by name: pick them once from your contacts
 • To-dos, notes, reminders, timers and alarms, and your calendar's agenda
-• Screen time per app and an unlock counter
+• Screen time per app, unlocks and daily limits
 • Torch, volume, ring mode, Do Not Disturb, brightness and rotation from the prompt
 • An RSS and Atom reader with unread counts, notifications, and OPML import and export
 
 WIDGETS
 • Kolahal's own widgets for to-dos, shortcuts, your agenda, reminders, notes and what's playing, and other apps' widgets.
 • Scripts fill widgets too: weather, a countdown, a habit streak and more.
-• Each widget has its size and its look: Plain, Tonal, Bold, Split or Shape.
+• Each widget has its size, color and look, such as Bold, Shape or Poster.
 
 SCRIPTS IN LUA OR JAVASCRIPT
 • Run a script on a timer, at set times, or when something happens, such as an unlock or plugging in.
@@ -199,14 +202,14 @@ SCRIPTS IN LUA OR JAVASCRIPT
 • Each script has a switch for each thing it uses, and runs sandboxed in a separate process.
 
 A SCENE BEHIND IT
-• On Android 13 and newer, 45 shaders draw behind the log: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
+• On Android 13 and newer, 45 shaders draw on home: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
 • Some are drawn from your screen time and unlocks, such as a candle that burns down through the day.
 • Sliders change a shader, and a slider can follow the battery, the time of day or a value from a script.
 • A scene can also be your phone's live wallpaper, and you can write shaders of your own.
 • Off by default: a word in a notification can play a shader over the app you're in. It needs "Display over other apps".
 
 MAKE IT YOURS
-• Thirteen colour themes, four in your wallpaper's colours, and a theme builder with a live preview
+• Thirteen color themes, four in your wallpaper's colors, and a theme builder with a live preview
 • Five monospace fonts, one you import, or your phone's own font
 • Home on a character grid, like a terminal, with full-screen screens and a screensaver
 • Settings that show your home screen underneath as you change them
@@ -218,7 +221,7 @@ PRIVATE BY DESIGN
 • Before you record or share the screen, one command replaces the text on home with random letters.
 
 WORK PROFILE AND PRIVATE SPACE
-• Their apps sit in the same list as yours, marked [W] and [S], and you can pause or resume the work profile with a tap or a command.
+• Their apps sit in the same list as yours, their icons badged, and you can pause or resume the work profile with a tap or a command.
 
 The guide: mtwabpin.github.io/kolahal
 The source code: github.com/mtwabpin/kolahal
