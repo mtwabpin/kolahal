@@ -13,7 +13,8 @@ import com.mtwabpin.kolahal.widgets.WidgetSize
  * What the editor points out when you save a script. It reads only the script's text and finds:
  * - a name the API doesn't have (`http.gte`),
  * - a call that needs a `@uses` line the script lacks,
- * - `@` lines Kolahal doesn't know or can't read (`@evrey 1h`, `@at 25:00`, `@on unlok`, `@widget graph`).
+ * - `@` lines Kolahal doesn't know or can't read (`@evrey 1h`, `@at 25:00`, `@on unlok`,
+ *   `@on notification com.example/chat`, `@widget graph`).
  * These are hints, not errors. The script is saved either way.
  */
 object ScriptCheck {
@@ -113,13 +114,9 @@ object ScriptCheck {
                     .firstOrNull { ScriptScheduler.normalizeTime(it) == null }
                     ?.let { out += Issue(i + 1, "@at $it isn't a time: HH:mm, such as 07:30") }
 
-                "on" -> ScriptMeta.unknownEvents(line).firstOrNull()
-                    ?.let {
-                        out += Issue(
-                            i + 1,
-                            "@on $it isn't an event: ${ScriptMeta.EVENTS.joinToString(", ")}"
-                        )
-                    }
+                // An unknown event, a package name that isn't one, or one after an event other than notification.
+                "on" -> ScriptMeta.readOn(rest).problems.firstOrNull()
+                    ?.let { out += Issue(i + 1, it.second) }
                 // Read the names the same way a run does: a name in capitals, or after a tab, counts.
                 "uses" -> ScriptMeta.usesNames(rest).firstOrNull { it !in ScriptMeta.USES }
                     ?.let {

@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.apps.AppNames
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
@@ -94,8 +96,8 @@ internal fun Fact(label: String, value: String) {
  * The sheet for one script: run, edit, export, on/off, notifications, timers, library and delete.
  * A command, or a script with `@on` or `@at`, also has Run with… ([RunWithDialog]): arguments, or an
  * event to simulate.
- * It reads nothing from the script's code but its options and its events: the page already read the
- * rest ([info]).
+ * It reads nothing from the script's code but its options, its events and the apps its
+ * `@on notification` names: the page already read the rest ([info]).
  */
 @Composable
 internal fun ScriptSheet(
@@ -154,6 +156,12 @@ internal fun ScriptSheet(
         vm.scriptActions.optionValues(s)
     }
     var editingOption by remember(s.id) { mutableStateOf<ScriptMeta.Option?>(null) }
+    // The apps its `@on notification` line names, by their names when installed, else by package.
+    val notificationApps = remember(s.code) { ScriptMeta.parse(s.code).notificationApps }
+    val context = LocalContext.current.applicationContext
+    val appNames by produceIo(notificationApps.orEmpty(), notificationApps, what = "Reading the names of a script's apps") {
+        notificationApps.orEmpty().map { AppNames.label(context, it) ?: it }
+    }
     val grants = info.grants
     var renaming by remember(s.id) { mutableStateOf(false) }
     val runWith = remember(s.code) { EditorLogic.offersRunWith(s.code) }
@@ -257,7 +265,9 @@ internal fun ScriptSheet(
             events.forEach { item ->
                 SwitchRow(
                     ScriptAccess.label(item),
-                    ScriptAccess.help(item),
+                    if (item == "notification" && notificationApps != null) {
+                        ScriptAccess.notificationHelp(appNames)
+                    } else ScriptAccess.help(item),
                     grants.allows(item)
                 ) { vm.scriptActions.setScriptAccess(s, item, it) }
             }

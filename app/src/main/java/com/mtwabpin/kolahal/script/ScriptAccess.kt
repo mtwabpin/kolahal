@@ -112,6 +112,14 @@ object ScriptAccess {
     }
 
     /**
+     * The help of the notification event for a script whose `@on notification` names apps
+     * ([ScriptMeta.notificationApps]): [apps] are their names, or their packages when not installed.
+     */
+    fun notificationHelp(apps: List<String>): String =
+        if (apps.isEmpty()) "Runs for no app: its @on notification line names no package"
+        else "Runs on notifications from ${apps.joinToString(", ")} (@on notification)"
+
+    /**
      * A script's access. It combines what its code declares with `@uses`, which of [INTERNET] and
      * [HEADER] it uses ([base]), and what the user decided. [HEADER] is off until pinned, and
      * [WIDGET] is off until its widget is placed.

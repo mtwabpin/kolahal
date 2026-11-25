@@ -70,5 +70,5 @@ internal fun scriptRuns(code: String): String = buildList {
     if (ScriptMeta.isCommand(code)) add("command")
     ScriptMeta.every(code)?.let { add("every ${CommandParsing.formatInterval(it)}") }
     ScriptMeta.at(code).takeIf { it.isNotEmpty() }?.let { add("daily ${it.joinToString(", ")}") }
-    ScriptMeta.events(code).takeIf { it.isNotEmpty() }?.let { add("on ${it.joinToString(", ")}") }
+    ScriptMeta.eventsText(code).takeIf { it.isNotEmpty() }?.let { add("on ${it.joinToString(", ")}") }
 }.joinToString(" · ")

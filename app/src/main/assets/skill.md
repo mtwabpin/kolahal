@@ -60,8 +60,8 @@ Header lines are comments at the top: `-- @name value` in Lua, `// @name value` 
 | `@desc <text>` | One line, shown in `help`, suggestions and Scripts. |
 | `@usage [<args>]` | Its arguments, as a usage line: `[<city>]`; its words are suggested as you type. Empty: it takes none. |
 | `@uses <what>, …` | What it may use: see "What a script may use". A call without its item stops with an error. |
-| `@on <event>, …` | Runs on events: `unlock`, `charger`, `unplug`, `wifi`, `offline`, `notification`, `boot`, `headset`. |
-| `@every 1h` | Its timer: `15m` (the shortest, Android's limit), `2h`, `1d`, a number of minutes, or `off`; at most a week. Runs that go online wait for a network. |
+| `@on <event>, …` | Events: `unlock`, `charger`, `unplug`, `wifi`, `offline`, `notification`, `boot`, `headset`. `notification <package> …` runs for those apps only. |
+| `@every 1h` | Its timer: `15m` (the shortest), `2h`, `1d`, a number of minutes, or `off`; at most a week. Runs that go online wait for a network. |
 | `@at 07:30, 18:00` | Daily times, HH:mm. On the minute when Kolahal may set exact alarms (`allow alarms`), else within the hour. |
 | `@widget <kind> [<size>]` | It fills a card on the widgets page: see "Widgets". |
 | `@option <name> <default> <description>` | A setting the user changes without editing code, read as `options.<name>` (always text). |

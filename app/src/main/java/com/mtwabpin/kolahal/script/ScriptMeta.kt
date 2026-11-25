@@ -15,7 +15,8 @@ import com.mtwabpin.kolahal.widgets.WidgetSize
  *   -- @desc <text>        — a one-line description shown in `help` and suggestions
  *   -- @usage <args>       — the arguments, written like a built-in usage line (`[random|<number>]`);
  *                            empty when there are none. Used for suggestions and `launch.instant`
- *   -- @on <event>[, ...]  — run when a device event happens (see [EVENTS]); the payload is `event`
+ *   -- @on <event>[, ...]  — run when a device event happens (see [EVENTS]); the payload is `event`.
+ *                            `notification <package> …` runs only for those apps ([notificationApps])
  *   -- @uses <what>[, ...] — what it needs (see [USES]); without it, those calls fail
  *   -- @secret <NAME> <site> <description> — a key you set, read with secrets.get, sent only to <site> ([Secret])
  *   -- @option <name> <default> <description> — a setting you change without editing the code, read as options.<name> ([Option])
@@ -44,6 +45,7 @@ object ScriptMeta {
         val isCommand by lazy { isCommand(code) }
         val isScreen by lazy { isScreen(code) }
         val events by lazy { events(code) }
+        val notificationApps by lazy { notificationApps(code) }
         val uses by lazy { uses(code) }
         val secrets by lazy { secrets(code) }
         val options by lazy { options(code) }
@@ -148,19 +150,24 @@ object ScriptMeta {
 
     /**
      * An `event` like the one that [name] brings (or that a daily [time] brings, `at`), with made-up
-     * values. Used to try a script from the editor.
+     * values. Used to try a script from the editor. A notification comes from the first of [apps], the
+     * script's [notificationApps], when it names some, so the script doesn't stop at its check of `event.pkg`.
      */
-    fun sampleEvent(name: String, time: String? = null): Map<String, Any?> = when (name) {
+    fun sampleEvent(name: String, time: String? = null, apps: List<String>? = null): Map<String, Any?> = when (name) {
         "charger" -> mapOf("name" to name, "level" to 64, "plug" to "ac")
         "unplug" -> mapOf("name" to name, "level" to 64)
-        "notification" -> mapOf(
-            "name" to name,
-            "app" to "Messages",
-            "pkg" to "com.google.android.apps.messaging",
-            "title" to "Alice",
-            "text" to "Running late, there in 10",
-            "time" to System.currentTimeMillis(),
-        )
+        "notification" -> {
+            val pkg = apps?.firstOrNull()
+            mapOf(
+                "name" to name,
+                // The app's name isn't known here: the last word of its package stands for it.
+                "app" to (pkg?.substringAfterLast('.')?.replaceFirstChar { it.uppercase() } ?: "Messages"),
+                "pkg" to (pkg ?: "com.google.android.apps.messaging"),
+                "title" to "Alice",
+                "text" to "Running late, there in 10",
+                "time" to System.currentTimeMillis(),
+            )
+        }
 
         "headset" -> mapOf("name" to name, "type" to "wired", "device" to "Headset", "mic" to true)
         "wifi" -> mapOf("name" to name, "network" to "wifi")
@@ -404,16 +411,96 @@ object ScriptMeta {
     /** Known events from every `@on` line, in [EVENTS] order. Unknown names are ignored. */
     fun events(code: String): List<String> {
         if (isScreen(code)) return emptyList()
-        val named = words(code).toSet()
+        val named = onLines(code).flatMap { line -> line.events.map { it.first } }.toSet()
         return EVENTS.filter { it in named }
     }
 
-    /** Names in `@on` lines that aren't events (for warnings). */
-    fun unknownEvents(code: String): List<String> = words(code).filter { it !in EVENTS }.distinct()
+    /** Words in `@on` lines that are neither an event nor a package after `notification` (for warnings). */
+    fun unknownEvents(code: String): List<String> =
+        onLines(code).flatMap { line -> line.problems.map { it.first } }.distinct()
 
-    private fun words(code: String): List<String> =
-        on.findAll(code).flatMap { m -> m.groupValues[2].split(',', ' ', '\t') }
-            .map { it.trim().lowercase() }
-            .filter { it.isNotEmpty() }
-            .toList()
+    /**
+     * A package name as Android writes it: two or more words of letters, digits and `_`, each starting
+     * with a letter, joined by dots. `com.example.chat`.
+     */
+    val PACKAGE = Regex("""[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+""")
+
+    /**
+     * The apps whose notifications run the script: the package names after `notification` in its
+     * `@on` lines, `@on notification com.example.chat org.example.mail, unlock`. Null when every app's
+     * do: an `@on notification` names none, or the script has no such line.
+     * - Several lines add up. One `@on notification` without names means every app.
+     * - A word after `notification` that is not a package name matches no app: such a line runs for
+     *   none of them until it is fixed. The editor's check names the word ([ScriptCheck]).
+     */
+    fun notificationApps(code: String): List<String>? {
+        if (isScreen(code)) return null
+        val named = onLines(code).flatMap { it.events }.filter { it.first == "notification" }
+        if (named.isEmpty() || named.any { it.second.isEmpty() }) return null
+        return named.flatMap { it.second }.filter(PACKAGE::matches).distinct()
+    }
+
+    /** Whether a notification from [pkg] runs a script whose `@on notification` names [apps] ([notificationApps]). */
+    fun runsFor(apps: Collection<String>?, pkg: String?): Boolean = apps == null || pkg in apps
+
+    /** The events as a person reads them, in [EVENTS] order: `notification (com.example.chat)`, `unlock`. */
+    fun eventsText(code: String): List<String> {
+        val apps = notificationApps(code)
+        return events(code).map {
+            if (it == "notification" && apps != null) "$it (${apps.joinToString(", ")})" else it
+        }
+    }
+
+    /**
+     * What one `@on` line names, read by [readOn].
+     * - [events]: each event, with the words after it when it is `notification`, in line order.
+     * - [problems]: each word that is neither, with what the editor's check says of it.
+     */
+    internal class OnLine(
+        val events: List<Pair<String, List<String>>>,
+        val problems: List<Pair<String, String>>
+    )
+
+    /**
+     * Reads the text after `@on`. Commas and spaces separate events. The words after `notification`,
+     * up to the next comma or event, are the package names of the apps it is for. Events are read in any
+     * case; package names are kept as written, as Android's are.
+     */
+    internal fun readOn(rest: String): OnLine {
+        val events = ArrayList<Pair<String, List<String>>>()
+        val problems = ArrayList<Pair<String, String>>()
+        for (part in rest.split(',')) {
+            // The names after `notification` in this part, while there is one. Its pair in events holds this same list.
+            var apps: MutableList<String>? = null
+            for (word in part.split(spaces).filter { it.isNotEmpty() }) {
+                val name = word.lowercase()
+                when {
+                    name in EVENTS -> {
+                        apps = if (name == "notification") ArrayList() else null
+                        events += name to (apps ?: emptyList())
+                    }
+                    // A word without a dot is more likely a misspelled event than a package.
+                    apps != null && '.' in word -> {
+                        apps.add(word)
+                        if (!PACKAGE.matches(word)) problems += word to
+                                "@on notification $word isn't a package name: letters, digits, _ and dots, such as com.example.chat"
+                    }
+
+                    apps != null -> {
+                        apps.add(word)
+                        problems += word to "@on $word isn't an event or a package name: ${EVENTS.joinToString(", ")}"
+                    }
+
+                    PACKAGE.matches(word) -> problems += word to
+                            "@on $word: only notification takes package names, as in @on notification $word"
+
+                    else -> problems += word to "@on $word isn't an event: ${EVENTS.joinToString(", ")}"
+                }
+            }
+        }
+        return OnLine(events, problems)
+    }
+
+    private fun onLines(code: String): List<OnLine> =
+        on.findAll(code).map { readOn(it.groupValues[2]) }.toList()
 }

@@ -145,7 +145,8 @@ internal fun EditorTextButton(label: String, onClick: () -> Unit) {
  * The Run with dialog: a long press on the editor's run, or Run with… on a script's sheet. The user can set:
  * - the words to pass as `args`, as when the script runs as a command;
  * - an event to simulate: one of its `@on` events or `@at` times, or none. The event gets
- *   made-up values ([com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent]).
+ *   made-up values ([com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent]); a notification comes
+ *   from the first app its `@on notification` line names.
  *
  * The editor shows it in the terminal's colors and font; with [material], the sheet shows it in Material's.
  */
@@ -229,7 +230,8 @@ internal fun RunWithDialog(
                         chosen?.let {
                             com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(
                                 it.first,
-                                it.second
+                                it.second,
+                                com.mtwabpin.kolahal.script.ScriptMeta.notificationApps(code)
                             )
                         })
                 },

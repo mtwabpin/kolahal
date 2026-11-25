@@ -35,6 +35,94 @@ class ScriptMetaTest {
         assertEquals(listOf("sunrise"), ScriptMeta.unknownEvents(code))
     }
 
+    /** `@on notification` alone runs for every app's notifications: no names. */
+    @Test
+    fun aNotificationLineWithoutPackages() {
+        assertNull(ScriptMeta.notificationApps("-- @on notification"))
+        assertNull(ScriptMeta.notificationApps("-- @on unlock"))
+        assertNull(ScriptMeta.notificationApps("log(1)"))
+    }
+
+    /** The words after `notification`, up to a comma or another event, are the apps; their case is kept. */
+    @Test
+    fun aNotificationLineWithPackages() {
+        assertEquals(listOf("com.example.chat"), ScriptMeta.notificationApps("-- @on notification com.example.chat"))
+        assertEquals(
+            listOf("com.example.chat", "org.example.Mail"),
+            ScriptMeta.notificationApps("// @on notification com.example.chat\torg.example.Mail")
+        )
+        val code = "-- @on notification com.example.chat org.example.mail, unlock\n-- @on charger"
+        assertEquals(listOf("com.example.chat", "org.example.mail"), ScriptMeta.notificationApps(code))
+        assertEquals(listOf("unlock", "charger", "notification"), ScriptMeta.events(code))
+        assertTrue(ScriptMeta.unknownEvents(code).isEmpty())
+        // An event after the names ends them, as a comma does.
+        assertEquals(listOf("com.example.chat"), ScriptMeta.notificationApps("-- @on Notification com.example.chat unlock"))
+        assertEquals(listOf("unlock", "notification"), ScriptMeta.events("-- @on unlock notification com.example.chat"))
+    }
+
+    /** Lines add up, and one `@on notification` without names means every app. */
+    @Test
+    fun severalNotificationLines() {
+        assertEquals(
+            listOf("com.example.chat", "org.example.mail"),
+            ScriptMeta.notificationApps("-- @on notification com.example.chat\n-- @on notification org.example.mail com.example.chat")
+        )
+        assertNull(ScriptMeta.notificationApps("-- @on notification com.example.chat\n-- @on unlock, notification"))
+        // A script with a screen of its own runs on no event.
+        assertNull(ScriptMeta.notificationApps("-- @uses screen\n-- @on notification com.example.chat"))
+    }
+
+    /** A word after `notification` that isn't a package is reported, and matches no app: the script doesn't run for every app. */
+    @Test
+    fun namesThatArentPackages() {
+        val code = "-- @on notification com.example/chat chat"
+        assertEquals(listOf("notification"), ScriptMeta.events(code))
+        assertEquals(emptyList<String>(), ScriptMeta.notificationApps(code))
+        assertEquals(listOf("com.example/chat", "chat"), ScriptMeta.unknownEvents(code))
+        // A package after another event, or alone after a comma, is no event and names no app.
+        assertEquals(listOf("com.example.chat"), ScriptMeta.unknownEvents("-- @on unlock com.example.chat"))
+        assertNull(ScriptMeta.notificationApps("-- @on notification, com.example.chat"))
+        assertTrue(ScriptMeta.PACKAGE.matches("com.example.chat_2"))
+        assertFalse(ScriptMeta.PACKAGE.matches("chat"))
+        assertFalse(ScriptMeta.PACKAGE.matches("com..chat"))
+        assertFalse(ScriptMeta.PACKAGE.matches("com.2chat"))
+    }
+
+    /** A notification runs a script for every app, or only for the apps it names. */
+    @Test
+    fun whichNotificationsRunIt() {
+        assertTrue(ScriptMeta.runsFor(null, "org.example.mail"))
+        assertTrue(ScriptMeta.runsFor(listOf("com.example.chat"), "com.example.chat"))
+        assertFalse(ScriptMeta.runsFor(listOf("com.example.chat"), "org.example.mail"))
+        assertFalse(ScriptMeta.runsFor(emptyList(), "com.example.chat"))
+        assertFalse(ScriptMeta.runsFor(listOf("com.example.chat"), null))
+    }
+
+    /** Run with: a sample notification comes from the first app the script names. */
+    @Test
+    fun aSampleNotificationFromANamedApp() {
+        val e = ScriptMeta.sampleEvent("notification", apps = listOf("com.example.chat", "org.example.mail"))
+        assertEquals("com.example.chat", e["pkg"])
+        assertEquals("Chat", e["app"])
+        assertEquals("notification", e["name"])
+        assertEquals("Messages", ScriptMeta.sampleEvent("notification")["app"])
+    }
+
+    /** How the script page and `script triggers` say the events. */
+    @Test
+    fun eventsAsText() {
+        assertEquals(
+            listOf("unlock", "notification (com.example.chat, org.example.mail)"),
+            ScriptMeta.eventsText("-- @on notification com.example.chat org.example.mail, unlock")
+        )
+        assertEquals(listOf("notification"), ScriptMeta.eventsText("-- @on notification"))
+        // The sheet: an installed app by its name, another by its package.
+        assertEquals(
+            "Runs on notifications from Chat, org.example.mail (@on notification)",
+            ScriptAccess.notificationHelp(listOf("Chat", "org.example.mail"))
+        )
+    }
+
     @Test
     fun noDirective() {
         assertTrue(ScriptMeta.events("-- @command\n-- @desc d\nlocal on = 1").isEmpty())

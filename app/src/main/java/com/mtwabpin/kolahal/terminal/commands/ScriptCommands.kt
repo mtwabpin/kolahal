@@ -819,7 +819,7 @@ class ScriptCommands(
     /** Lists the scripts with `@on` lines and the events they run on. */
     private fun listTriggers() {
         val subscribed = scripts.all().mapNotNull { s ->
-            val events = ScriptMeta.events(s.code)
+            val events = ScriptMeta.eventsText(s.code)
             val unknown = ScriptMeta.unknownEvents(s.code)
             if (events.isEmpty() && unknown.isEmpty()) null else Triple(s, events, unknown)
         }

@@ -336,6 +336,29 @@ local b = device.battery()
 status((b.charging and "charging " or "on battery ") .. tostring(b.level) .. "%")
 ```
 
+### Notifications from some apps
+
+`@on notification` runs the script for a notification from any app. To run it only for some apps,
+write their package names after `notification`, separated by spaces. A comma ends the list, so
+other events can follow:
+
+```lua
+-- @on notification com.example.chat org.example.mail, unlock
+-- @uses notifications
+```
+
+- A notification from any other app doesn't start the script at all.
+- Several `@on notification` lines add up. One without package names runs it for every app.
+- An app that isn't installed is no error: the script runs once it is installed and posts a
+  notification.
+- A package name is letters, digits, `_` and dots, such as `com.example.chat`. Saving points out a
+  word that isn't one; until it is fixed, that line runs the script for no app.
+- The script's sheet shows the apps under **Events**, by their names.
+- **Run with…** in the editor simulates a notification from the first app on the line.
+
+To find an app's package name, long-press the app in the [apps grid](/guides/apps/) and choose
+**Copy package name**.
+
 ## Describing a script
 
 More comment lines describe a script, so the file is complete on its own. The script manager shows
@@ -403,7 +426,7 @@ feeds), your app usage, a full-screen screen and the work profile only if it ask
 
 | `@uses` | allows |
 | --- | --- |
-| `notifications` | [`notifications.recent`](/scripting/api/#notificationsrecentn) and the `@on notification` trigger |
+| `notifications` | [`notifications.recent`](/scripting/api/#notificationsrecentn) and the [`@on notification`](#notifications-from-some-apps) trigger |
 | `clipboard` | [`clipboard.get` and `clipboard.set`](/scripting/api/#clipboardget--clipboardsettext) |
 | `apps` | [`apps.list`](/scripting/api/#appslist) |
 | `commands` | [`launcher.run`](/scripting/api/#launcherruncommand): terminal commands, and other scripts by name, when you start the script from the prompt |

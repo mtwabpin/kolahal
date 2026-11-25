@@ -54,7 +54,9 @@ notifs clear           # dismiss everything and clear the list
 To open the notification shade, swipe down on the header (see [Gestures](/guides/gestures/)).
 
 While Kolahal has access, scripts can read recent notifications with
-[`notifications.recent(n)`](/scripting/api/#notificationsrecentn).
+[`notifications.recent(n)`](/scripting/api/#notificationsrecentn). A script can also run when a
+notification arrives, with `@on notification`: for every app, or
+[only for the apps it names](/scripting/overview/#notifications-from-some-apps).
 
 ## Notifications from scripts and feeds
 

@@ -964,14 +964,14 @@ Plays a [one-off shader](/scripting/shaders/#one-off-shaders), such as `hearts`,
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
--- @on notification
+-- @on notification com.example.chat
 -- @uses notifications, effects
 if event and (event.text or ""):find("Alex", 1, true) then shader.play("hearts") end
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-// @on notification
+// @on notification com.example.chat
 // @uses notifications, effects
 if (event && (event.text ?? "").includes("Alex")) shader.play("hearts");
 ```
@@ -4075,7 +4075,7 @@ happened. `event.name` is the event: `unlock`, `charger`, `unplug`, `wifi`, `off
 | Event | Other fields |
 | --- | --- |
 | `charger`, `unplug` | `level` (battery %), and `plug` (`ac`, `usb`, `wireless`, `other`) while plugged in |
-| `notification` | `app`, `pkg`, `title`, `text`, `time` |
+| `notification` | `app`, `pkg`, `title`, `text`, `time`. `pkg` is one of the apps the `@on` line names, if it [names any](/scripting/overview/#notifications-from-some-apps) |
 | `headset` | `type` (`wired`), `device`, `mic` |
 | `wifi` | `network` (`wifi`) |
 | `boot` | `uptime` (seconds) |

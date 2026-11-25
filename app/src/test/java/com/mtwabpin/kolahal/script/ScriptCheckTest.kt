@@ -75,6 +75,39 @@ class ScriptCheckTest {
         assertTrue(issues[4].text.startsWith("@uses clipbord isn't valid"))
     }
 
+    /** Package names after `notification` read well; each word that isn't one is named, with its line. */
+    @Test
+    fun anOnLineWithPackages() {
+        assertTrue(lua("-- @uses notifications\n-- @on notification com.example.chat org.example.mail, unlock\nlog(1)").isEmpty())
+        assertTrue(lua("-- @uses notifications\n-- @on unlock, notification com.example.chat_2\nlog(1)").isEmpty())
+        assertEquals(
+            listOf(
+                ScriptCheck.Issue(
+                    2,
+                    "@on notification com.example/chat isn't a package name: letters, digits, _ and dots, such as com.example.chat"
+                )
+            ),
+            lua("-- @uses notifications\n-- @on notification com.example/chat\nlog(1)")
+        )
+        assertEquals(
+            "@on notification 2com.example isn't a package name: letters, digits, _ and dots, such as com.example.chat",
+            lua("-- @on notification 2com.example").single().text
+        )
+        assertEquals(
+            "@on chat isn't an event or a package name: ${ScriptMeta.EVENTS.joinToString(", ")}",
+            lua("-- @on notification chat").single().text
+        )
+        // A package after another event, or after a comma, belongs to no notification.
+        assertEquals(
+            "@on com.example.chat: only notification takes package names, as in @on notification com.example.chat",
+            lua("-- @on unlock com.example.chat").single().text
+        )
+        assertEquals(
+            "@on com.example.chat: only notification takes package names, as in @on notification com.example.chat",
+            lua("-- @on notification, com.example.chat").single().text
+        )
+    }
+
     /** A comment isn't a call, and a table of the script's own by that name is its own. */
     @Test
     fun notEverythingIsAnIssue() {

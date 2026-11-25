@@ -582,7 +582,8 @@ object ApiDocs {
         Directive(
             "on",
             "<event>, …",
-            "Run on these events: " + ScriptMeta.EVENTS.joinToString(" ")
+            "Run on these events: " + ScriptMeta.EVENTS.joinToString(" ") +
+                    ". After notification, package names limit it to those apps: @on notification com.example.chat org.example.mail, unlock"
         ),
         Directive(
             "uses",

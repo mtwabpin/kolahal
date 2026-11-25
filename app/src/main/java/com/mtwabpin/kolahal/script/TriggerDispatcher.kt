@@ -33,15 +33,16 @@ import kotlinx.coroutines.launch
  * network callback, unlock receiver and notification listener also live here.
  *
  * Each matching, enabled script gets a one-time, non-interactive [ScriptWorker] run. Its `event`
- * global is the payload. The same script + event fires at most once per [DEBOUNCE_MS] (for
+ * global is the payload. A script whose `@on notification` names apps gets runs only for their
+ * notifications: the others queue no run at all ([targets]). The same script + event fires at most once per [DEBOUNCE_MS] (for
  * notifications: once per app). So a flapping charger or a chatty app can't start a storm of runs.
  */
 class TriggerDispatcher private constructor(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val main = Handler(Looper.getMainLooper())
 
-    /** (script id, events) for enabled scripts with `@on`. Reloaded when [ScriptRepository.version] changes. */
-    private var subscriptions: List<Pair<Long, List<String>>> = emptyList()
+    /** Enabled scripts with `@on`. Reloaded when [ScriptRepository.version] changes. */
+    private var subscriptions: List<Subscription> = emptyList()
     private var loadedVersion = -1L
     private val lastFired = HashMap<String, Long>()
 
@@ -66,7 +67,9 @@ class TriggerDispatcher private constructor(private val context: Context) {
         val now = SystemClock.elapsedRealtime()
         scope.launch {
             runCatching {
-                val targets = subscribers(event)
+                refresh()
+                // A script whose `@on notification` names other apps is not started at all.
+                val targets = targets(subscriptions, event, payload["pkg"] as? String)
                 if (targets.isEmpty()) return@runCatching
                 val data = mapOf("name" to event) + payload.filterValues { it != null }
                     .mapValues { (_, v) -> clip(v) }
@@ -87,11 +90,6 @@ class TriggerDispatcher private constructor(private val context: Context) {
     private fun clip(v: Any?): Any? =
         if (v is String && v.length > MAX_TEXT) v.takeWhole(MAX_TEXT) + "…" else v
 
-    private fun subscribers(event: String): List<Long> {
-        refresh()
-        return subscriptions.filter { event in it.second }.map { it.first }
-    }
-
     /** True when a switched-on script declares `@uses notifications`. Otherwise nothing keeps a copy of notifications for scripts. */
     fun wantsNotifications(): Boolean {
         refresh()
@@ -105,15 +103,8 @@ class TriggerDispatcher private constructor(private val context: Context) {
         val v = ScriptRepository.version.get()
         if (v == loadedVersion) return
         val enabled = ScriptRepository.get(context).all().filter { it.enabled }
-        subscriptions = enabled
-            // Events the user switched off don't run the script. A notification's text only goes to scripts
-            // that declare `@uses notifications` and are allowed it.
-            .map { s ->
-                val grants = s.grants
-                s.id to ScriptMeta.events(s.code)
-                    .filter { grants.allows(it) && (it != "notification" || grants.allows("notifications")) }
-            }
-            .filter { it.second.isNotEmpty() }
+        subscriptions = enabled.map { Subscription.of(it.id, it.code, it.grants) }
+            .filter { it.events.isNotEmpty() }
         notificationReaders = enabled.any { it.grants.allows("notifications") }
         loadedVersion = v
     }
@@ -223,9 +214,37 @@ class TriggerDispatcher private constructor(private val context: Context) {
         fire("boot", mapOf("uptime" to SystemClock.elapsedRealtime() / 1000))
     }
 
+    /**
+     * What runs a script: its [id], the [events] it runs on, and for a notification, the [apps] whose
+     * notifications do (null: every app's, [ScriptMeta.notificationApps]).
+     */
+    internal class Subscription(val id: Long, val events: List<String>, val apps: Set<String>?) {
+        companion object {
+            /**
+             * The script's subscription from its [code] and its [grants]. Events the user switched off
+             * don't run the script. A notification's text only goes to scripts that declare
+             * `@uses notifications` and are allowed it.
+             */
+            fun of(id: Long, code: String, grants: ScriptAccess.Grants): Subscription {
+                val parsed = ScriptMeta.parse(code)
+                return Subscription(
+                    id,
+                    parsed.events.filter { grants.allows(it) && (it != "notification" || grants.allows("notifications")) },
+                    parsed.notificationApps?.toSet(),
+                )
+            }
+        }
+    }
+
     companion object : Singleton<TriggerDispatcher>(::TriggerDispatcher) {
         const val DEBOUNCE_MS = 30_000L
         private const val OFFLINE_CONFIRM_MS = 3_000L
         private const val MAX_TEXT = 2_000
+
+        /** The ids of the scripts that [event] runs. A notification from [pkg] runs only those for its app ([ScriptMeta.runsFor]). */
+        internal fun targets(subscriptions: List<Subscription>, event: String, pkg: String?): List<Long> =
+            subscriptions.filter {
+                event in it.events && (event != "notification" || ScriptMeta.runsFor(it.apps, pkg))
+            }.map { it.id }
     }
 }

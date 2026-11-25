@@ -125,15 +125,16 @@ internal object ScriptRun {
         val event = inputData.getString(ScriptWorker.KEY_EVENT)
             ?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
         val from = inputData.getLong(ScriptWorker.KEY_FROM, -1L).takeIf { it >= 0 }
-        // The run may have been queued before a switch went off. So the event (or, for a notification,
-        // reading notifications) is checked again when the run starts.
+        // The run may have been queued before a switch went off or the code changed. So the event (or, for
+        // a notification, reading notifications and the apps its `@on` line names) is checked again when the run starts.
         val on = event?.get("name") as? String
         // A sample event run from the editor was asked for, so it always runs.
         if (script != null && on != null && on in ScriptMeta.EVENTS && !inputData.getBoolean(
                 ScriptWorker.KEY_INTERACTIVE,
                 false
             ) &&
-            (!script.grants.allows(on) || (on == "notification" && !script.grants.allows("notifications")))
+            (!script.grants.allows(on) || (on == "notification" && (!script.grants.allows("notifications") ||
+                    !ScriptMeta.runsFor(ScriptMeta.parse(script.code).notificationApps, event?.get("pkg") as? String))))
         ) return true
         // A pinned status line's refresh runs every few seconds while home shows it, and a widget's run
         // whenever its card is old. So what stays the same isn't reported again: an error shows once until
