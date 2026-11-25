@@ -322,6 +322,32 @@ class ScriptPageTest {
         assertFalse(ScriptPage.facts(list, copies, set, shared, emptySet())[0].needsKey)
     }
 
+    /**
+     * A script has the internet together with private data by what is switched on: its info names the
+     * private items, and its facts keep it for the Access filter.
+     */
+    @Test
+    fun theInternetWithPrivateDataFollowsTheSwitches() {
+        val code = "-- @uses notifications, effects\nlocal r = http.get('https://example.com')"
+        fun of(access: Map<String, Boolean>) =
+            infos(Script(1, "reader", ScriptLang.LUA, code, 0, true, false, null, null, access = access)).single()
+
+        val both = of(mapOf("notifications" to true, "effects" to true))
+        assertEquals(listOf("notifications"), both.privateOnline)
+        val facts = ScriptPage.facts(listOf(both), emptyMap(), emptyMap(), emptyMap(), emptySet())
+        assertTrue(facts.single().privateOnline)
+        // Either side off, or not allowed yet: nothing.
+        for (access in listOf(
+            mapOf("notifications" to true, "internet" to false),
+            mapOf("notifications" to false),
+            emptyMap(),
+        )) {
+            val info = of(access)
+            assertEquals(access.toString(), emptyList<String>(), info.privateOnline)
+            assertFalse(ScriptPage.facts(listOf(info), emptyMap(), emptyMap(), emptyMap(), emptySet()).single().privateOnline)
+        }
+    }
+
     /** The banner is about the copies that differ. Closed, it stays closed until a copy differs that it wasn't closed for. */
     @Test
     fun theBannerShowsForCopiesItWasNotClosedFor() {

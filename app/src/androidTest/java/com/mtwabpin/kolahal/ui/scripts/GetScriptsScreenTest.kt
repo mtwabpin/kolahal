@@ -38,6 +38,7 @@ import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import org.json.JSONArray
@@ -112,6 +113,19 @@ class GetScriptsScreenTest {
         code = "-- @uses clipboard\nlocal s = clipboard.get()\n",
         uses = listOf("clipboard"),
     )
+
+    /** One that reads the clipboard and uses the internet. */
+    private val clipWeb = Shared(
+        "gsclipweb",
+        ScriptLang.LUA,
+        "Clipboard to the web",
+        "Looks up what you copy",
+        "cy",
+        "0.1",
+        listOf("tools"),
+        code = "-- @uses clipboard\nif false then log(http.get('https://example.com').body) end\n",
+        uses = listOf("clipboard"),
+    )
     private val newer = Shared(
         "gsnewer",
         ScriptLang.LUA,
@@ -158,7 +172,7 @@ class GetScriptsScreenTest {
         // Adding it first makes sure its list is forgotten too, also when the test only kept its list.
         catalog.add(other)
         catalog.remove(other.name)
-        listOf(tide, joke, clip, newer, moon).forEach { s ->
+        listOf(tide, joke, clip, clipWeb, newer, moon).forEach { s ->
             scripts.byName(s.name)?.let { scripts.delete(it.id) }
             catalog.forget(s.name)
         }
@@ -452,6 +466,32 @@ class GetScriptsScreenTest {
         assertEquals(clip.code, s.code)
         assertTrue(s.enabled)
         assertFalse("clipboard was switched off before installing", s.grants.allows("clipboard"))
+    }
+
+    /**
+     * One that reads private data and uses the internet says so on its sheet and in the install
+     * dialog. Switching the private item off there takes the dialog's line away; it installs either way.
+     */
+    @Test
+    fun theSheetAndTheDialogWarnOfTheInternetWithPrivateData() {
+        listed(clipWeb)
+        show(clipWeb)
+        compose.waitForText(clipWeb.title)
+        compose.onNodeWithText(clipWeb.title).performClick()
+        val line =
+            "This script can read your clipboard and use the internet. Only allow both for a script you trust."
+        compose.waitForText(line)
+        tapWhenEnabled("Install")
+        compose.waitForText("Install ${clipWeb.file}?")
+        val inDialog = hasAnyAncestor(hasAnyDescendant(hasText("It requests:")))
+        compose.onNode(hasText(line) and inDialog).assertExists()
+        compose.onNode(hasText("Clipboard") and hasClickAction()).performClick()
+        compose.waitFor("the dialog's line is gone") {
+            compose.onAllNodes(hasText(line) and inDialog).fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNode(hasText("Install") and hasClickAction() and inDialog).performClick()
+        compose.waitForText("Installed ${clipWeb.file}")
+        assertFalse(scripts.byName(clipWeb.name)!!.grants.allows("clipboard"))
     }
 
     /** Left on in the dialog, what it asks for is allowed. */

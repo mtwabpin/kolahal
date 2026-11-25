@@ -393,6 +393,15 @@ private fun SharedSheet(
         }
         if (e.tags.isNotEmpty()) Fact("Tags", e.tags.joinToString(", "))
         addedSource(e)?.let { Fact("From", "$it, a source you added") }
+        // Installed, it gets the internet its code uses and what you allow of its @uses items.
+        text?.let { t ->
+            PrivateOnlineWarning(
+                remember(t) {
+                    ScriptAccess.privateWithInternet(uses + listOfNotNull(ScriptAccess.INTERNET.takeIf { ScriptMeta.usesInternet(t) }))
+                },
+                Modifier.padding(top = 8.dp),
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
         SharedButtons(
@@ -419,6 +428,10 @@ private fun SharedSheet(
             "Install ${e.name}.${e.lang.ext}?",
             uses,
             "Install",
+            // A new script that uses the internet has it from the start: the line counts it.
+            has = listOfNotNull(ScriptAccess.INTERNET.takeIf {
+                code?.getOrNull()?.let(ScriptMeta::usesInternet) == true
+            }),
             onDismiss = { asking = false }) { choices ->
             asking = false
             vm.scriptActions.installSharedScript(e, choices)

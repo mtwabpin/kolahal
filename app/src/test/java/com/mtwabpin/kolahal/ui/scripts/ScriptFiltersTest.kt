@@ -352,6 +352,29 @@ class ScriptFiltersTest {
         )
     }
 
+    /**
+     * Internet and private data: a group of its own, so it narrows what else is chosen. The sheet
+     * shows it only when a script has both.
+     */
+    @Test
+    fun theAccessChipKeepsTheInternetWithPrivateData() {
+        val list = sample.map { it.copy(privateOnline = it.name in setOf("weather", "my-notes")) }
+        val chip = ScriptFilters.byId(ScriptFilters.PRIVATE_ONLINE)!!
+        assertEquals(FilterGroup.ACCESS, chip.group)
+        assertEquals("Internet and private data", chip.label)
+        assertEquals(
+            listOf("my-notes", "weather"),
+            names(shown(list, setOf(ScriptFilters.PRIVATE_ONLINE), "", ScriptSort.NAME))
+        )
+        // With On, only the one that is on: across groups, all must match.
+        assertEquals(
+            listOf("weather"),
+            names(shown(list, setOf(ScriptFilters.PRIVATE_ONLINE, "on"), "", ScriptSort.NAME))
+        )
+        assertTrue(FilterGroup.ACCESS in ScriptFilters.sheetGroups(list, emptySet()).toMap())
+        assertFalse(FilterGroup.ACCESS in ScriptFilters.sheetGroups(sample, emptySet()).toMap())
+    }
+
     /** An id no chip has (one saved by an older version) is ignored. */
     @Test
     fun anUnknownIdIsIgnored() {

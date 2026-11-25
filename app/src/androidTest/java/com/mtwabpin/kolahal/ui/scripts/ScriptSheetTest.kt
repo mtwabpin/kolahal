@@ -220,6 +220,63 @@ class ScriptSheetTest {
         compose.waitFor("unlock off") { !script().grants.allows("unlock") }
     }
 
+    /**
+     * The internet together with private data: a line under the switches names what the script can
+     * read, and goes at once when either side is switched off. It blocks nothing: the script stays on.
+     */
+    @Test
+    fun theSheetWarnsOfTheInternetWithPrivateData() {
+        create("-- @uses notifications, effects\nif false then log(http.get(\"https://example.com\").body) end")
+        openSheet()
+        val line =
+            "This script can read your notifications and use the internet. Only allow both for a script you trust."
+        fun gone() = compose.waitFor("the line is gone") {
+            compose.onAllNodesWithText(line).fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithText(line).performScrollTo().assertExists()
+        compose.onNodeWithText("Internet").performScrollTo().performClick()
+        compose.waitFor("internet off") { !script().grants.allows("internet") }
+        gone()
+        compose.onNodeWithText("Internet").performScrollTo().performClick()
+        compose.waitForText(line)
+        compose.onNodeWithText("Your notifications").performScrollTo().performClick()
+        compose.waitFor("notifications off") { !script().grants.allows("notifications") }
+        gone()
+        assertTrue(script().enabled)
+    }
+
+    /** The internet alone, or private data alone, has no line. */
+    @Test
+    fun noLineWithoutBothSides() {
+        create("-- @uses clipboard\nclipboard.get()")
+        create("if false then http.get(\"https://example.com\") end", name = "sstother")
+        openSheet()
+        compose.onNodeWithText("Clipboard").performScrollTo().assertExists()
+        compose.onNodeWithTag("private-online").assertDoesNotExist()
+    }
+
+    /**
+     * Switching on a script that asks for private data, while it has the internet, says so in the
+     * dialog. Switching the item off there takes the line away, and Turn on still works.
+     */
+    @Test
+    fun switchingOnSaysWhatThePairMeans() {
+        create("-- @uses clipboard\nif false then http.get(\"https://example.com\") end", enabled = false)
+        openSheet()
+        compose.onNodeWithText("Enabled").performClick()
+        val title = "Turn on sstest.lua?"
+        val line =
+            "This script can read your clipboard and use the internet. Only allow both for a script you trust."
+        inDialog(line, title = title).assertExists()
+        inDialog("Clipboard", title = title).performClick()
+        compose.waitFor("the line is gone") {
+            compose.onAllNodes(hasText(line) and hasAnyAncestor(dialog(title))).fetchSemanticsNodes().isEmpty()
+        }
+        inDialog("Turn on").performClick()
+        compose.waitFor("on") { script().enabled }
+        assertFalse(script().grants.allows("clipboard"))
+    }
+
     /** Runs every sets the script's timer. */
     @Test
     fun runsEverySetsTheTimer() {

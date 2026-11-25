@@ -145,6 +145,90 @@ object ScriptAccess {
     fun grants(code: String, values: Map<String, Boolean>) =
         Grants(ScriptMeta.parse(code).uses, values, base(code).toSet())
 
+    /** A private item: the words the warning names it by, after "your" ([what]), and why it counts ([why]). */
+    class Reads(val what: String, val why: String)
+
+    /**
+     * What a script can read about you. With [INTERNET] on as well, it can send that off the phone, so
+     * the script's page, its card, the dialogs that grant access and `script access` warn of the pair
+     * ([privateWithInternet], [warning]). They warn and block nothing.
+     * - [INTERNET] is the access itself: Kolahal doesn't look at addresses, so every address counts.
+     * - Each access is here or in [NOT_PRIVATE], with why (ScriptPrivacyTest fails on one in neither).
+     */
+    val PRIVATE: Map<String, Reads> = linkedMapOf(
+        "notifications" to Reads("notifications", "The text of the notifications you get from every app: messages, mail, sign-in codes"),
+        "clipboard" to Reads("clipboard", "What you copied last, which may be a password, an address or a message"),
+        "apps" to Reads("app list", "The apps you installed, which can tell your bank, your health and your habits"),
+        "work" to Reads("work profile status", "Whether you have a work profile, and when you pause it"),
+        "todos" to Reads("to-dos", "Your own list, in your words"),
+        "notes" to Reads("notes", "Your own notes, in your words"),
+        "reminders" to Reads("reminders", "What you set to be reminded of, and when"),
+        "calendar" to Reads("calendar", "Your events: where you will be, when and with whom"),
+        "feeds" to Reads("feeds", "The sites you follow, and what you haven't read"),
+        "usage" to Reads("app usage", "Your screen time per app, your data use and the apps you don't open"),
+    )
+
+    /** The accesses that read nothing about you, with why. Each access is here or in [PRIVATE]. */
+    val NOT_PRIVATE: Map<String, String> = linkedMapOf(
+        INTERNET to "The way out, not data: the warning is about it together with a private item",
+        HEADER to "Shows its own status line at the top of home; reads nothing",
+        WIDGET to "Shows its own widget on the widgets page; reads nothing",
+        "notify" to "Posts notifications to you; reads none",
+        "commands" to "Runs commands as typed; launcher.run answers only true or false, so no output comes back",
+        "dnd" to "A setting of the phone (off, priority, alarms or none), not data about you",
+        "screen" to "Draws a screen of its own; the taps and keys it reads are the ones you give it there",
+        "effects" to "Plays a shader over home; reads nothing",
+        "unlock" to "Starts a run when you unlock the phone; the event carries nothing",
+        "charger" to "Starts a run on charging; the event carries the battery level",
+        "unplug" to "Starts a run when unplugged; the event carries the battery level",
+        "wifi" to "Starts a run on Wi-Fi; the event carries no network name",
+        "offline" to "Starts a run when the phone goes offline; the event carries nothing",
+        "notification" to "Starts a run on a notification, and only with notifications allowed: that item is the private one",
+        "boot" to "Starts a run after a restart; the event carries the uptime",
+        "headset" to "Starts a run when a headset connects; the event carries its kind and name",
+    )
+
+    /**
+     * The private items ([PRIVATE]) that [grants] allow, when they allow [INTERNET] too: what the
+     * script can read and send off the phone. Empty without the internet, or without a private item.
+     * What counts is what is switched on now, not what the code declares.
+     */
+    fun privateWithInternet(grants: Grants): List<String> =
+        if (grants.allows(INTERNET)) PRIVATE.keys.filter(grants::allows) else emptyList()
+
+    /**
+     * The same for [items] as if each one were allowed: what a dialog or a line is about to allow,
+     * with what the script has on already.
+     */
+    fun privateWithInternet(items: Collection<String>): List<String> =
+        if (INTERNET in items) PRIVATE.keys.filter { it in items } else emptyList()
+
+    /** "can read your notifications and use the internet": what the [items] of [privateWithInternet] let a script do. */
+    fun canRead(items: List<String>): String {
+        val names = items.map { PRIVATE[it]?.what ?: it }
+        val list =
+            if (names.size == 1) names[0] else names.dropLast(1).joinToString(", ") + " and " + names.last()
+        return "can read your $list" + (if (names.size > 1) ", and" else " and") + " use the internet"
+    }
+
+    /** What to do about the pair, after what the script can do. */
+    const val TRUST = "Only allow both for a script you trust"
+
+    /** The pair's name: the filter that finds such scripts, and their tag in `script ls`. */
+    const val PAIR_NAME = "Internet and private data"
+
+    /**
+     * The line on a script's page, on its open card and in the dialogs that grant access. Null when
+     * [items] ([privateWithInternet]) is empty: "This script can read your notifications and use the
+     * internet. Only allow both for a script you trust."
+     */
+    fun warning(items: List<String>): String? =
+        if (items.isEmpty()) null else "This script ${canRead(items)}. $TRUST."
+
+    /** The same as hint lines, under a log line about the script. Empty when [items] is empty. */
+    fun warningHint(items: List<String>): String =
+        if (items.isEmpty()) "" else "\nIt ${canRead(items)}\n$TRUST"
+
     /** [values], plus everything [code] declares that nobody has decided yet, set to allowed. */
     fun allowUndecided(code: String, values: Map<String, Boolean>): Map<String, Boolean> =
         values + ScriptMeta.parse(code).uses.filter { it !in values }.associateWith { true }
@@ -234,11 +318,19 @@ object ScriptAccess {
         if (s.enabled) askToAllow(context, s.name, s.grants.undecided)
     }
 
-    /** Logs "[name] requests [items]" and "Tap to allow" under it. One tap allows them all. [what] is the verb in the line. */
+    /**
+     * Logs "[name] requests [items]" and "Tap to allow" under it. One tap allows them all. [what] is the
+     * verb in the line. When allowing them gives the script the internet together with private data
+     * ([privateWithInternet]), the line says so before the tap ([warningHint]).
+     */
     fun askToAllow(context: Context, name: String, items: List<String>, what: String = "requests") {
         if (items.isEmpty()) return
+        val grants = com.mtwabpin.kolahal.data.ScriptRepository.get(context).byName(name)?.grants
+        val pair = grants?.let { g ->
+            privateWithInternet(items + (PRIVATE.keys + INTERNET).filter(g::allows))
+        }.orEmpty().takeIf { p -> items.any { it == INTERNET || it in p } }.orEmpty()
         LogRepository.get(context).add(
-            LogKind.INFO, "$name $what ${items.joinToString(", ")}\nTap to allow", name,
+            LogKind.INFO, "$name $what ${items.joinToString(", ")}\nTap to allow" + warningHint(pair), name,
             LogContext.of(LogContext.RUN to "script allow $name ${items.joinToString(" ")}"),
         )
     }

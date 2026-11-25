@@ -538,6 +538,13 @@ private fun LibrarySheet(
                     "Keys",
                     keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
             }
+            // Install allows what it declares, and it has the internet its code uses.
+            PrivateOnlineWarning(
+                remember(text) {
+                    ScriptAccess.privateWithInternet(uses + listOfNotNull(ScriptAccess.INTERNET.takeIf { ScriptMeta.usesInternet(text) }))
+                },
+                Modifier.padding(top = 8.dp),
+            )
         }
         Spacer(Modifier.height(16.dp))
         androidx.compose.foundation.layout.Box(Modifier.testTag("library-sheet-install")) {

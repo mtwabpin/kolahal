@@ -274,12 +274,16 @@ internal fun UpdateAllDialog(
  * - installs a shared script.
  * Each item ([items], [ScriptAccess] names) has a switch, and all start on. The user can switch off
  * what they don't want before [confirm]. The script's Access switches can change them later.
+ * - [has]: what the script has on already, outside these switches (the internet, items allowed
+ *   before). With the switches that are on, it decides the line about the internet together with
+ *   private data ([PrivateOnlineWarning]), which goes as soon as a switch takes one side away.
  */
 @Composable
 internal fun AccessDialog(
     title: String,
     items: List<String>,
     confirm: String,
+    has: Collection<String> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (Map<String, Boolean>) -> Unit
 ) {
@@ -297,7 +301,11 @@ internal fun AccessDialog(
         onDismissRequest = onDismiss,
         title = { DialogBars(); Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            // It scrolls when the items and the line are taller than the dialog, at a large font size.
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text("It requests:", style = MaterialTheme.typography.bodyMedium)
                 items.forEach { item ->
                     SwitchRow(
@@ -307,6 +315,10 @@ internal fun AccessDialog(
                         color = Color.Transparent
                     ) { choices[item] = it }
                 }
+                PrivateOnlineWarning(
+                    ScriptAccess.privateWithInternet(has + choices.filterValues { it }.keys),
+                    Modifier.padding(top = 4.dp),
+                )
             }
         },
         confirmButton = {

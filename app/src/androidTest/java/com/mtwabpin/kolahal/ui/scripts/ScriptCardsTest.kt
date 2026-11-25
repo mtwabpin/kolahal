@@ -48,7 +48,7 @@ import org.junit.runner.RunWith
 /**
  * The script manager's cards: their access pills switch what a script may do; a pill offers Update, Reset or
  * Add key, Reset asks first and offers Undo; the filter sheet finds the library copies you edited, and Compare
- * shows how.
+ * shows how. A script with the internet together with private data is marked, and found by its filter.
  */
 @RunWith(AndroidJUnit4::class)
 class ScriptCardsTest {
@@ -154,6 +154,58 @@ class ScriptCardsTest {
         listOf("Access", "Events").forEach {
             compose.onNodeWithText(it, useUnmergedTree = true).assertDoesNotExist()
         }
+    }
+
+    /**
+     * A script with the internet together with private data has a mark after its file, which says what
+     * it means to a screen reader, and its open card has the line; one with the internet alone has
+     * neither. Switching the private item off on the card takes both away.
+     */
+    @Test
+    fun aCardMarksTheInternetWithPrivateData() {
+        val s = scripts.create(
+            "scpills",
+            ScriptLang.LUA,
+            "-- @uses notifications\nif false then log(http.get(\"https://example.com\").body) end"
+        )
+        scripts.create("scplain", ScriptLang.LUA, "if false then log(http.get(\"https://example.com\").body) end")
+        show(details = false)
+        val mark = hasContentDescription("Can read private data and use the internet")
+        fun card(name: String) = hasTestTag("script-card") and hasText(name)
+        compose.waitForNode(card("scpills.lua") and mark)
+        compose.onNode(card("scplain.lua")).assertExists()
+        compose.onNode(card("scplain.lua") and mark).assertDoesNotExist()
+
+        compose.onNode(expandAll).performClick()
+        val line =
+            "This script can read your notifications and use the internet. Only allow both for a script you trust."
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(card("scpills.lua") and hasText(line))
+        val pill = hasText("Notifications") and hasAnyAncestor(card("scpills.lua"))
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(pill)
+        compose.onNode(pill).performClick()
+        compose.waitFor("notifications off") { !scripts.byId(s.id)!!.grants.allows("notifications") }
+        compose.waitFor("the mark and the line are gone") {
+            compose.onAllNodes(card("scpills.lua") and mark).fetchSemanticsNodes().isEmpty() &&
+                    compose.onAllNodes(card("scpills.lua") and hasText(line)).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    /** The Access filter, Internet and private data, keeps only the scripts that have both. */
+    @Test
+    fun theAccessFilterFindsThem() {
+        scripts.create(
+            "scpills",
+            ScriptLang.LUA,
+            "-- @uses clipboard\nif false then log(http.get(\"https://example.com\").body) end"
+        )
+        scripts.create("scplain", ScriptLang.LUA, "if false then log(http.get(\"https://example.com\").body) end")
+        show(details = false)
+        compose.onNodeWithContentDescription("Filters").performClick()
+        compose.onNodeWithTag("filter:private-online").performScrollTo().performClick()
+        compose.onNode(hasText("Show ", substring = true) and hasClickAction()).performClick()
+        compose.waitForNode(hasTestTag("chosen-filters") and hasAnyDescendant(hasText("Internet and private data")))
+        compose.onNodeWithText("scpills.lua").assertExists()
+        compose.onNodeWithText("scplain.lua").assertDoesNotExist()
     }
 
     /**

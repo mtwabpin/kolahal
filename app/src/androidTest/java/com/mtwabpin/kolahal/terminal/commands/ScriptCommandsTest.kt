@@ -207,6 +207,26 @@ class ScriptCommandsTest {
     }
 
     /**
+     * The internet together with private data, said under the line where access is given: the line
+     * that asks to allow it, and `script on`. A script with the internet off gets neither.
+     */
+    @Test
+    fun theInternetWithPrivateDataIsSaidWhereItIsGiven() {
+        val pair = "\nIt can read your clipboard and use the internet\nOnly allow both for a script you trust"
+        val s = create("pair", "-- @uses clipboard\nlocal r = http.get('https://example.com')", enabled = false)
+        // A timer switches it on without allowing what it declares: the line that asks says what allowing it means.
+        assertEquals(
+            listOf("${s.name} requests clipboard\nTap to allow$pair", "${s.name}: runs every 1h"),
+            run("script every ${s.name} 1h"),
+        )
+        run("script off ${s.name}")
+        assertEquals("${s.name}: turned on$pair", run("script on ${s.name}").first())
+        run("script deny ${s.name} internet")
+        run("script off ${s.name}")
+        assertEquals("${s.name}: turned on", run("script on ${s.name}").first())
+    }
+
+    /**
      * A script's secrets: listed, set (not too short), and cleared; a name it doesn't declare is refused.
      * A value typed on the line, too short or not, is in no line of the log (its command line neither)
      * and so not in the history.
@@ -268,7 +288,11 @@ class ScriptCommandsTest {
             "clipboard",
             "unlock"
         )) assertTrue("$item: $listed", listed.any { it.startsWith(item) })
+        // The internet together with the clipboard: said under the first line.
+        val pair = "\nIt can read your clipboard and use the internet\nOnly allow both for a script you trust"
+        assertTrue(listed.first(), listed.first().endsWith("changes one$pair"))
         assertEquals(listOf("${s.name}: clipboard off"), run("script deny ${s.name} clipboard"))
+        assertFalse(run("script access ${s.name}").first().endsWith(pair))
         assertFalse(scripts.byId(s.id)!!.grants.allows("clipboard"))
         statuses.set(s.name, "line")
         // Pinned until it isn't; its line stays either way.
@@ -277,10 +301,14 @@ class ScriptCommandsTest {
         run("script deny ${s.name} header")
         assertFalse(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
         assertEquals("line", statuses.all()[s.name])
+        // Allowing the clipboard again, with the internet on, says what the pair can do.
         assertEquals(
-            listOf("${s.name}: clipboard on, unlock on"),
+            listOf("${s.name}: clipboard on, unlock on$pair"),
             run("script allow ${s.name} clipboard unlock")
         )
+        // The internet off, and on again: the line says it too.
+        assertEquals(listOf("${s.name}: internet off"), run("script deny ${s.name} internet"))
+        assertEquals(listOf("${s.name}: internet on$pair"), run("script allow ${s.name} internet"))
         assertTrue(scripts.byId(s.id)!!.grants.allows("unlock"))
         assertEquals(
             listOf("${s.name} doesn't declare @uses dnd"),
@@ -485,6 +513,10 @@ class ScriptCommandsTest {
             desc,
             desc.startsWith("manual") && "on unlock" in desc && desc.endsWith("never run")
         )
+        // The internet together with private data: a tag after the name, as the Scripts screen marks it.
+        val pair = create("ls2", "-- @uses notes\nlocal r = http.get('https://example.com')")
+        assertTrue(
+            lines("script ls").any { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == "${pair.name}.lua internet and private data" })
         val triggers = lines("script triggers")
         val mine =
             triggers.single { it.text == "${s.name}.lua" }.ctx.values[LogContext.DESC].orEmpty()

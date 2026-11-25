@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -81,6 +82,7 @@ import com.mtwabpin.kolahal.ui.home.scriptColor
 import com.mtwabpin.kolahal.ui.produceIo
 import com.mtwabpin.kolahal.ui.relative
 import com.mtwabpin.kolahal.ui.shaders.wordsFit
+import com.mtwabpin.kolahal.ui.theme.Term
 
 /** A label and its value on a script's sheet. Used for the user's scripts and for shared ones. */
 @Composable
@@ -91,6 +93,44 @@ internal fun Fact(label: String, value: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
+
+/**
+ * The line that warns of the internet together with private data ([ScriptAccess.warning]): beside a
+ * script's access switches, on its open card, and in the dialogs and pages where access is granted.
+ * Nothing shows when [items] ([ScriptAccess.privateWithInternet]) is empty.
+ * - A caution, as the card's lines about a copy: an icon in the theme's warning color, and the text
+ *   in the body color. It wraps at any font size, and takes no room from a switch.
+ * - A screen reader reads it as one statement.
+ */
+@Composable
+internal fun PrivateOnlineWarning(items: List<String>, modifier: Modifier = Modifier) {
+    val text = ScriptAccess.warning(items) ?: return
+    Row(
+        modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {}
+            .testTag(PRIVATE_ONLINE_TAG),
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_privacy_tip),
+            null,
+            Modifier
+                .padding(top = 1.dp)
+                .size(18.dp),
+            tint = Term.palette.warn,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** The test tag of [PrivateOnlineWarning]. */
+internal const val PRIVATE_ONLINE_TAG = "private-online"
 
 /**
  * The sheet for one script: run, edit, export, on/off, notifications, timers, library and delete.
@@ -257,6 +297,8 @@ internal fun ScriptSheet(
                     grants.allows(item)
                 ) { vm.scriptActions.setScriptAccess(s, item, it) }
             }
+            // The internet together with private data: it goes as soon as either side is switched off.
+            PrivateOnlineWarning(info.privateOnline, Modifier.padding(top = 8.dp))
         }
         if (events.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))

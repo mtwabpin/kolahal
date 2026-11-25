@@ -88,6 +88,8 @@ data class ScriptFacts(
     val selfUpdated: Boolean = false,
     /** Its `@title`. A card shows it in place of the name. */
     val title: String? = null,
+    /** It may use the internet together with private data ([ScriptAccess.privateWithInternet]). */
+    val privateOnline: Boolean = false,
 )
 
 /** The groups of the filter sheet. In a group, any chip may match. Across groups, all must. */
@@ -96,6 +98,9 @@ enum class FilterGroup(val title: String) {
     RUNS("How it runs"),
     SOURCE("Source"),
     VERSION("Library version"),
+
+    /** The internet together with private data. A group of its own, so it narrows whatever else is chosen. */
+    ACCESS("Access"),
     USES("Uses"),
     LANGUAGE("Language"),
 
@@ -130,6 +135,9 @@ object ScriptFilters {
     const val NEW_VERSION = "new-version"
     const val EDITED = "edited"
 
+    /** The chip for scripts with the internet together with private data. */
+    const val PRIVATE_ONLINE = "private-online"
+
     /** Every chip, in the order the sheet shows them. */
     val ALL: List<ScriptFilter> = listOf(
         ScriptFilter("on", FilterGroup.STATUS, "On") { it.on },
@@ -158,6 +166,7 @@ object ScriptFilters {
             "New version"
         ) { it.copy == CopyState.NEW_VERSION },
         ScriptFilter(EDITED, FilterGroup.VERSION, "Edited") { it.copy == CopyState.EDITED },
+        ScriptFilter(PRIVATE_ONLINE, FilterGroup.ACCESS, ScriptAccess.PAIR_NAME) { it.privateOnline },
     ) + ScriptMeta.USES.map { what ->
         ScriptFilter(
             "uses:$what",
@@ -374,6 +383,7 @@ internal object ScriptPage {
             changedAt = s.changedAt,
             selfUpdated = selfUpdated,
             title = info.title,
+            privateOnline = info.privateOnline.isNotEmpty(),
         )
     }
 

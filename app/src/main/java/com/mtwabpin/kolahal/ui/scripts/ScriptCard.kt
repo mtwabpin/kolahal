@@ -81,7 +81,8 @@ private val LINE_ICON = 14.dp
  * it is off.
  * - Compact: a dot (on, failed, off), the title, the file name and where it came from (shared, a
  *   source you added, or yours), Run for a command, the details arrow, the switch, and one line
- *   about how it runs and how its last run went.
+ *   about how it runs and how its last run went. A script with the internet together with private
+ *   data has a mark after where it came from ([PRIVATE_ONLINE_MARK]).
  * - A pill beside that line offers what needs doing: "New version · Update", "Edited · Reset" or
  *   "Add key".
  * - Expanded: see [ScriptDetails]. Then a line of its own tells each problem with its button, so
@@ -189,13 +190,16 @@ internal fun ScriptCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    // The file, and where it came from when that isn't the library.
+                    // The file, and where it came from when that isn't the library. A long name is
+                    // cut, so where it came from and the mark stay in view.
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "${s.name}.${s.lang.ext}",
                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                             color = if (live) scriptColor(s.name) else colors.outline,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                         val from = when (copy?.source) {
                             ScriptSource.LIBRARY -> null
@@ -207,6 +211,17 @@ internal fun ScriptCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = colors.outline,
                             maxLines = 1
+                        )
+                        // The internet together with private data, so such scripts are found without
+                        // opening each one. Its details and its sheet say which items.
+                        if (info.privateOnline.isNotEmpty()) Icon(
+                            painterResource(R.drawable.ic_privacy_tip),
+                            PRIVATE_ONLINE_MARK,
+                            Modifier
+                                .padding(start = 6.dp)
+                                .size(LINE_ICON)
+                                .testTag("private-online-mark"),
+                            tint = Term.palette.warn,
                         )
                     }
                 }
@@ -263,6 +278,9 @@ internal fun ScriptCard(
 /** What a card and a library row say of a script with a screen of its own while home is in the gui style. */
 internal const val TTY_ONLY = "TTY style only"
 
+/** What a screen reader says of the mark on a card whose script has the internet together with private data. */
+internal const val PRIVATE_ONLINE_MARK = "Can read private data and use the internet"
+
 /** A pill on a card: what it says ([label], muted, may be null) and what a tap does ([action], with [icon]). */
 private class Pill(val label: String?, val action: String, val icon: Int, val onClick: () -> Unit)
 
@@ -309,6 +327,7 @@ private fun CardPill(pill: Pill) {
  *   edited, or the library has a newer version;
  * - lines with an icon in the gutter: when it runs (clock, with the event pills), its usage
  *   (terminal, commands only) and what it may use (shield, as pills). A tap on a pill switches it.
+ * - the line about the internet together with private data, when it has both ([ScriptAccess.warning]).
  * Secrets that are set don't show: the sheet has them.
  */
 @Composable
@@ -483,6 +502,12 @@ private fun ScriptDetails(
                         PILL_ICONS[item]
                     ) { onAccess(item, !allowed) }
                 }
+            }
+        }
+        // The internet together with private data, under the pills that switch either side off.
+        ScriptAccess.warning(info.privateOnline)?.let { text ->
+            Box(Modifier.testTag(PRIVATE_ONLINE_TAG)) {
+                ProblemLine(R.drawable.ic_privacy_tip, warn, AnnotatedString(text))
             }
         }
     }

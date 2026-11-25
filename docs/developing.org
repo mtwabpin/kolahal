@@ -143,6 +143,10 @@ TextEditorActivity (a task per file, in Recents) ── TextEditorViewModel ─�
   =secrets.get= returns a stand-in; =HostApi.fillSecrets= puts the value in a request only for the
   =@secret= line's sites, over https. Lines a script logs keep only =url=, =image=, =copy=, =mono=
   and =gap= from their context, and their buttons (=actions=).
+  Each access is in =ScriptAccess.PRIVATE= (it reads data about the person) or =NOT_PRIVATE=, with
+  why; =ScriptPrivacyTest= fails on one in neither. A script allowed the internet together with a
+  private item gets a warning wherever its access shows or is given (=privateWithInternet=,
+  =warning=, =warningHint=); nothing is blocked.
 - Run limits :: =HostApi= keeps the run's clock (=sleep= and requests never wait past it), refuses
   side effects once the run is over (=finish=), and caps what one run does: 500 log lines (256 K
   characters), 10 notifications, 20 status-line changes, 20 =widget.show= calls, a 100,000-character

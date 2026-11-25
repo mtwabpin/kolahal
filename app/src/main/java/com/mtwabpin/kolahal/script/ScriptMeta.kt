@@ -101,8 +101,9 @@ object ScriptMeta {
      * - its label and help ([ScriptAccess.label], [ScriptAccess.help]): the access and install dialogs show them,
      * - its calls in [ScriptCheck], so the editor says when the `@uses` line is missing,
      * - its short name and its pill icon (`USES_SHORT` and `PILL_ICONS`, in ui/),
-     * - its name in the `allowed` entry of [ApiDocs], and in the site's `@uses` table.
-     * ScriptUsesTest checks the first three.
+     * - its name in the `allowed` entry of [ApiDocs], and in the site's `@uses` table,
+     * - its place in [ScriptAccess.PRIVATE] or [ScriptAccess.NOT_PRIVATE]: whether it reads data about you.
+     * ScriptUsesTest checks the first three, ScriptPrivacyTest the last.
      */
     val USES = listOf(
         "notifications",

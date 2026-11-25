@@ -171,7 +171,8 @@ class ScriptCommands(
                 val s = changes.install(lib, entry)
                 info(
                     "Installed ${s.name}.${s.lang.ext}" + (if (entry.command) "\nRun it as '${s.name}'" else "") +
-                            (if (s.intervalMin > 0) "\nRuns every ${CommandParsing.formatInterval(s.intervalMin)}" else ""),
+                            (if (s.intervalMin > 0) "\nRuns every ${CommandParsing.formatInterval(s.intervalMin)}" else "") +
+                            ScriptAccess.warningHint(ScriptAccess.privateWithInternet(s.grants)),
                     scriptCtx(s) + copy(s.name.takeIf { entry.command }).values,
                 )
             }
@@ -265,9 +266,14 @@ class ScriptCommands(
                 val enabled = sub == "on" || sub == "enable"
                 // You typed this, so it also allows what the script declares. The next line says what that is.
                 changes.enabled(s, enabled)
-                info("${s.name}: ${if (enabled) "turned on" else "turned off"}", scriptCtx(s))
                 // Switching a script on allows what it declares that nobody has decided yet. Say what it may use.
                 val grants = scripts.byId(s.id)?.grants
+                // The internet together with private data is said under the line, as on the script's page.
+                val pair = grants?.takeIf { enabled }?.let { ScriptAccess.privateWithInternet(it) }.orEmpty()
+                info(
+                    "${s.name}: ${if (enabled) "turned on" else "turned off"}" + ScriptAccess.warningHint(pair),
+                    scriptCtx(s)
+                )
                 val uses = grants?.declared.orEmpty().filter { grants?.allows(it) == true }
                 if (enabled && uses.isNotEmpty()) {
                     info(
@@ -473,7 +479,8 @@ class ScriptCommands(
         }
         info("$installed\nIt is off", scriptCtx(s))
         info(
-            "${s.name} asks to use: ${asks.joinToString()}\nTap to switch it on and allow that\nOr run 'script on ${s.name}'",
+            "${s.name} asks to use: ${asks.joinToString()}\nTap to switch it on and allow that\nOr run 'script on ${s.name}'" +
+                    ScriptAccess.warningHint(ScriptAccess.privateWithInternet(asks)),
             LogContext.of(
                 LogContext.SCRIPT to s.name,
                 LogContext.RUN to "script on ${s.name}",
@@ -709,7 +716,11 @@ class ScriptCommands(
                 scriptCtx(s)
             )
         }
-        info("Access switches of ${s.name}.${s.lang.ext}\n'script allow|deny ${s.name} <what>' changes one", scriptCtx(s))
+        info(
+            "Access switches of ${s.name}.${s.lang.ext}\n'script allow|deny ${s.name} <what>' changes one" +
+                    ScriptAccess.warningHint(ScriptAccess.privateWithInternet(grants)),
+            scriptCtx(s)
+        )
         fun row(item: String) {
             val from = when (item) {
                 in ScriptMeta.USES -> " · @uses $item"
@@ -777,8 +788,11 @@ class ScriptCommands(
         if (ScriptAccess.HEADER in items) logs.onStatusChanged()
         // A card that a switch stopped is filled again at once.
         if (on) ScriptActions.accessAllowed(context, s.name)
+        // Allowing one side of the internet and private data, with the other on, says so under the line.
+        val pair = scripts.byId(s.id)?.grants?.takeIf { on }?.let { ScriptAccess.privateWithInternet(it) }.orEmpty()
+            .takeIf { p -> items.any { it == ScriptAccess.INTERNET || it in p } }.orEmpty()
         info(
-            "${s.name}: " + items.joinToString(", ") { "$it ${if (on) "on" else "off"}" },
+            "${s.name}: " + items.joinToString(", ") { "$it ${if (on) "on" else "off"}" } + ScriptAccess.warningHint(pair),
             scriptCtx(s)
         )
         if (on && "notify" in items && !Notifier.canPost(context)) ui.requestNotificationPermission()
@@ -809,8 +823,13 @@ class ScriptCommands(
             }
             // A script that is switched off says so in a tag after its name. An item each: the details beside it wrap.
             val off = if (s.enabled) "" else " " + StyledText.tag(StyledText.ColorRole.MUTED, "off")
+            // The internet together with private data, as the Scripts screen marks it: 'script access' says which.
+            val pair = if (ScriptAccess.privateWithInternet(s.grants).isEmpty()) "" else " " + StyledText.tag(
+                StyledText.ColorRole.WARN,
+                ScriptAccess.PAIR_NAME.lowercase()
+            )
             out(
-                "${s.name}.${s.lang.ext}$off",
+                "${s.name}.${s.lang.ext}$off$pair",
                 scriptCtx(s) + mapOf(LogContext.DESC to parts.joinToString(" · ")) + LogContext.ITEM
             )
         }

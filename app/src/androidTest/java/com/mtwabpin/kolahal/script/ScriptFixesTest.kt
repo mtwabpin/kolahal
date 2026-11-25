@@ -156,6 +156,34 @@ class ScriptFixesTest {
         }
     }
 
+    /**
+     * Code typed or pasted in the editor that gives the script the internet together with private
+     * data says so on the save that does it, and not again on the next save.
+     */
+    @Test
+    fun aSaveThatGivesTheInternetWithPrivateDataSaysSo() {
+        val name = "sfpair${System.nanoTime() % 1_000_000}"
+        val s = scripts.create(name, ScriptLang.LUA, "log(1)")
+        val vm = vms.terminal(app)
+        fun save(code: String): String? {
+            val done = java.util.concurrent.CompletableFuture<String?>()
+            instrumentation.runOnMainSync {
+                vm.saveScript(scripts.byId(s.id)!!, code) { _, changed -> done.complete(changed) }
+            }
+            return done.get(10, java.util.concurrent.TimeUnit.SECONDS)
+        }
+        val code = "-- @uses notes\nif false then log(http.get('https://example.com').body) end"
+        try {
+            assertEquals("it can read your notes and use the internet", save(code))
+            assertTrue(scripts.byId(s.id)!!.grants.allows("notes"))
+            assertNull(save("$code\nlog(2)"))
+            assertNull(save("log(3)"))
+        } finally {
+            ScriptScheduler.cancel(app, s.id)
+            scripts.delete(s.id)
+        }
+    }
+
     /** Closing the editor with unsaved text saves it as Save does, timers and all. */
     @Test
     fun closingTheEditorAppliesItsTimers() {

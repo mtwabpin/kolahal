@@ -1199,8 +1199,16 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             scripts.setAtTimes(script.id, times)
             notes += if (times.isEmpty()) "no daily times" else "daily at ${times.joinToString(", ")}"
         }
-        scripts.byId(script.id)?.let { ScriptScheduler.sync(context, it) }
+        val after = scripts.byId(script.id)
+        after?.let { ScriptScheduler.sync(context, it) }
         if (notes.isNotEmpty() && !before.enabled) notes += "once it's on"
+        // Saving allows what the code newly declares (pasted code too). When that gives it the
+        // internet together with private data it didn't have, the message says what it can now do.
+        val pair = after?.let { ScriptAccess.privateWithInternet(it.grants) }.orEmpty()
+        val had = ScriptAccess.privateWithInternet(before.grants)
+        if (pair.any { it !in had }) {
+            notes += "it " + ScriptAccess.canRead(pair)
+        }
         return notes.joinToString(" · ").ifEmpty { null }
     }
 

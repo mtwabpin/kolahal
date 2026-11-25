@@ -169,7 +169,7 @@ See [Productivity](/guides/productivity/), and [Text editor](/guides/text-editor
 | `script notify <name> on\|off` | allow `notify()` for this script, or not |
 | `script on\|off <name>` | turn a script on or off (aliases `enable`, `disable`) |
 | `script triggers` | list scripts with `@on` lines and the events they run on (alias `events`) |
-| `script access <name>` | show each [access switch](/scripting/overview/#switching-access-off), on or off; tap one to put the command that changes it in the prompt |
+| `script access <name>` | show each [access switch](/scripting/overview/#switching-access-off), on or off; tap one to put the command that changes it in the prompt. It also says when the script has [internet and private data](/scripting/overview/#internet-and-private-data) |
 | `script allow\|deny <name> <what…>` | turn access on or off: `internet`, `header` (pinned at the top), an `@uses` item, an `@on` event, or `notify` |
 | `script pin\|unpin <name>` | show the script's status line in the [pinned header](/getting-started/basics/#the-pinned-header), or stop showing it |
 | `script secret <name> [<NAME> [--clear]]` | list the script's [secrets](/scripting/overview/#api-keys-and-other-secrets) and whether each is set. With a secret's name, open a box to set it (`--clear` deletes it) |

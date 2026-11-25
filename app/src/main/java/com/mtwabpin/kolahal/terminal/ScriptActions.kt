@@ -268,7 +268,11 @@ class ScriptActions(
                 ?.let { return@fileOp restoreNow(listOf(Restore(it, library = entry))) }
             val s = changes.install(library, entry)
             refreshScriptCaches()
-            notice("Installed ${s.name}.${s.lang.ext}" + if (entry.command) "\nRun it as '${s.name}'" else "")
+            // It may use what it declares: the internet together with private data is said under the line.
+            notice(
+                "Installed ${s.name}.${s.lang.ext}" + (if (entry.command) "\nRun it as '${s.name}'" else "") +
+                        ScriptAccess.warningHint(ScriptAccess.privateWithInternet(s.grants))
+            )
         }
     }
 

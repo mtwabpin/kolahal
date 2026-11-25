@@ -88,7 +88,8 @@ Daily times are alarms:
 - It waits for a network only if the script makes requests and there is no network.
 
 `script ls` shows every script with its timers, whether it is a command, its notification setting
-and the result of its last run.
+and the result of its last run. A tag after a script's name says when it is off, and when it has
+[internet and private data](#internet-and-private-data).
 
 The script manager (`scripts`, or the **Scripts** tab in Settings;
 [its parts, numbered](/getting-started/parts/#scripts-tab)) shows one card per script. A card
@@ -104,6 +105,8 @@ shows:
   - **Edited · Reset**: you edited a library or shared script, and nothing newer exists.
   - **Add key**: it needs a key ([`@secret`](#api-keys-and-other-secrets)) that has no value yet.
     The pill opens the box for the key.
+- a small shield mark after its file, when it has internet access together with access to
+  private data ([what that means](#internet-and-private-data)).
 
 A card is tinted in the theme's color when its script is on, and faded when it is off.
 
@@ -128,6 +131,7 @@ details are, from the top:
   - terminal: how to call it (commands only).
   - shield: a pill for each thing it may do (internet, pinned at the top, notifications, what it
     declares).
+- the line about [internet and private data](#internet-and-private-data), when it has both.
 
 A pill is filled in the theme's color when it is on and faded when it is off. Tap a pill to switch
 it. While the details are open, the pill next to the summary is hidden: the lines have the buttons.
@@ -140,6 +144,8 @@ Above the cards:
   - How it runs: Command, Timer, Event, Pinned.
   - Source: Library, Shared (from Get more scripts), Yours.
   - Library version: Up to date, New version, Edited. For library and shared scripts.
+  - Access: Internet and private data, for scripts that have both
+    ([why](#internet-and-private-data)).
   - Uses: what scripts declare with `@uses`.
   - Language: Lua, JavaScript.
 
@@ -503,6 +509,34 @@ Imported scripts and updates:
 Links on a line (`url`, `image`, or a notification's link) must be web links. Kolahal drops any
 other kind (`tel:`, `upi:`, an app's own link). A line's `copy` must be the text the line shows,
 part of it, or its link.
+
+### Internet and private data
+
+Private data here is what a script can read about you: your notifications, the clipboard, your app
+list, your to-dos, notes, reminders, calendar and feeds, your app usage, and the status of the work
+profile. A script that can read any of these and can also use the internet is able to send what it
+reads off the phone. Kolahal can't tell where it goes: internet access covers every address.
+
+So when a script has internet access together with any of these, its sheet says so under its
+access switches, and names what it can read:
+
+> This script can read your notifications and use the internet. Only allow both for a script you
+> trust.
+
+- The line goes as soon as you switch either side off. What counts is what is switched on, not
+  what the script declares.
+- The same line shows where access is given: when you switch a script on, when you install one
+  from Get more scripts, and on a library script's page. An install from the library says it in
+  its message. In the editor, a save that gives your script both says what it can now do.
+- Its card has a small shield mark after its file, and the card's details have the line. The
+  **Access** filter, **Internet and private data**, shows only these scripts.
+- In the terminal, `script ls` tags these scripts. `script access`, `script on`, `script allow`,
+  `script install` and `script get` say it under their first line.
+- It is a warning only: nothing stops working, and nothing asks again.
+
+Running commands, Do Not Disturb, a full-screen screen, effects, events, pinning, widgets and
+posting notifications don't count: they read nothing about you. `launcher.run` returns only true or
+false, never what a command shows.
 
 ## API keys and other secrets
 

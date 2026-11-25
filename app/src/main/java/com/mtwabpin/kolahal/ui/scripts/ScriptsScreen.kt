@@ -215,6 +215,9 @@ internal class ScriptInfo(val script: Script, private val code: ScriptCode) {
     val notifies = code.notifies
     val grants = script.grants
     val accessItems = code.accessItems
+
+    /** The private items it may read while it may use the internet too: its card is marked and its sheet warns ([ScriptAccess.privateWithInternet]). */
+    val privateOnline = ScriptAccess.privateWithInternet(grants)
 }
 
 /** A script's `@secret` names, split into those with no value yet and those that are set. Both keep the declared order. */
@@ -599,10 +602,13 @@ fun ScriptsScreen(vm: TerminalViewModel) {
         }
 
         consentFor?.let { s ->
+            val grants = s.grants
             AccessDialog(
                 "Turn on ${s.name}.${s.lang.ext}?",
-                s.grants.undecided,
+                grants.undecided,
                 "Turn on",
+                // The internet and the private items it has on already count with the dialog's switches.
+                has = (ScriptAccess.PRIVATE.keys + ScriptAccess.INTERNET).filter(grants::allows),
                 onDismiss = { consentFor = null }) { choices ->
                 consentFor = null
                 vm.scriptActions.enableScript(s, choices)
