@@ -30,7 +30,8 @@ for good rather than risk the declaration.
 
 Display over other apps (=SYSTEM_ALERT_WINDOW=) is in both builds: the maintainer chose (25 November 2026)
 to have it in the Play build too, with the setting =screen.shader-over-apps=, =allow overlay= and the
-window that plays a one-off shader over the app in front. No rule of Play's forbids it and it has no
+window that plays a one-off shader over the app in front. Google's review approved 0.5.17, the first
+build with it and with the live wallpaper, on the day it was sent (25 November 2026). No rule of Play's forbids it and it has no
 declaration form; Play's permission rules ask that the feature be in the store listing (it is, under A
 SCENE BEHIND IT), that the access be asked for in context after an explanation, and that the app work
 without it. So the setting is off until the user turns it on, on the Shaders tab; before Android's page
