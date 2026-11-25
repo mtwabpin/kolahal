@@ -10,7 +10,7 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptSources
 
-/** One shader in a source's list (Settings → Shaders → Get more shaders, and `shader get`). */
+/** One shader in a source's list (Shaders → Get more shaders, and `shader get`). */
 data class SharedShader(
     override val name: String,
     val path: String,

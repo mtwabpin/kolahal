@@ -714,6 +714,29 @@ class TerminalViewModelTest {
         assertEquals(Screen.TERMINAL, vm.screen.value)
     }
 
+    /**
+     * Shaders opened from a Settings page (Look & feel's wallpaper) returns there on Back; after a switch
+     * to another tab, Back goes home, as from any tab.
+     */
+    @Test
+    fun shadersFromAPageReturnsThereUntilATabSwitch() {
+        val vm = home()
+        main {
+            vm.openScreen(Screen.SETTINGS)
+            vm.settingsCategory.value = "look"
+            vm.openScreen(Screen.SHADERS)
+            vm.closeScreen()
+        }
+        assertEquals(Screen.SETTINGS, vm.screen.value)
+        assertEquals("look", vm.settingsCategory.value)
+        main {
+            vm.openScreen(Screen.SHADERS)
+            vm.switchTab(Screen.SCRIPTS)
+            vm.closeScreen()
+        }
+        assertEquals(Screen.TERMINAL, vm.screen.value)
+    }
+
     /** What commands ask of the screen (a permission, a picker) goes to it as the matching event. */
     @Test
     fun requestsGoToTheScreen() {

@@ -112,7 +112,7 @@ class ShaderFolderTest {
         assertEquals(code, Shaders.source(context, "zz-picked"))
     }
 
-    /** Settings → Shaders → Import a file takes shaders only: a script stays out, and is said. */
+    /** Shaders → Import a file takes shaders only: a script stays out, and is said. */
     @Test
     fun theShadersScreenImportsShadersOnly() {
         val file = File(dir, "zz picked.agsl").apply { writeText(code) }

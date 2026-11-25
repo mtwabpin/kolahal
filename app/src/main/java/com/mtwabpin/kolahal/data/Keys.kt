@@ -486,7 +486,7 @@ object Keys {
             "tty" to "A box on the character grid, without icons",
         ),
     )
-    /** Over home in both styles and over the full-screen screens, drawn by the GPU on Android 13 and newer (ui/tty/TtyShader.kt). The user's own files come and go ([Shaders.userNames]). Settings → Shaders sets it. */
+    /** Over home in both styles and over the full-screen screens, drawn by the GPU on Android 13 and newer (ui/tty/TtyShader.kt). The user's own files come and go ([Shaders.userNames]). The Shaders tab sets it. */
     val SCREEN_SHADER = ConfigKey.Choice(
         "screen.shader",
         ShaderCatalog.OFF,
@@ -536,7 +536,7 @@ object Keys {
             "pulse" to "A one-off: light runs in around the screen's edges once",
         ),
     )
-    /** A one-off shader that a notification's word plays is drawn over the app in front (shader/ShaderOverApps.kt). Not in the Play build ([ALL]). Settings → Shaders sets it. */
+    /** A one-off shader that a notification's word plays is drawn over the app in front (shader/ShaderOverApps.kt). Not in the Play build ([ALL]). The Shaders tab sets it. */
     val SHADER_OVER_APPS = ConfigKey.Bool(
         "screen.shader-over-apps",
         false,
@@ -894,7 +894,7 @@ object Keys {
     /**
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
      * of their own (the header's sides: Settings → Header → Arrange the header; the shader and where a one-off
-     * plays: Settings → Shaders).
+     * plays: the Shaders tab).
      */
     val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(
         LOG_KEEP_LINES,

@@ -717,6 +717,13 @@ object CommandCatalog {
             sensitive = true
         ),
         CommandSpec(
+            "shaders",
+            "shaders",
+            "Shaders screen (use one, add your own, get more)",
+            short = "Shaders screen",
+            sensitive = true
+        ),
+        CommandSpec(
             "shader",
             "shader [<name>|ls|use|on|off|set|reset|follow|values|play|words|get|check|reload|edit|save|rm] [<name>]",
             "A shader over home and the full-screen screens: crt, paper, aurora and others, or your own .agsl file (screen.shader). Needs Android 13 or newer",
@@ -1059,6 +1066,7 @@ object CommandCatalog {
             "theme",
             "font",
             "shader",
+            "shaders",
             "wallpaper",
         ),
         "widgets" to listOf(

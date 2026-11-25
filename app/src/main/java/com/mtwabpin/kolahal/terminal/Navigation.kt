@@ -47,12 +47,14 @@ class Navigation(private val scripts: ScriptActions, private val host: Host) {
         if (screen == Screen.SETUP || screen == Screen.ONBOARDING) host.refreshSetup()
     }
 
-    /** Settings, Feeds and Scripts are tabs of one place. Switching replaces the screen, so Back leaves all of them. */
+    /** Settings, Scripts, Shaders and Feeds are tabs of one place. Switching replaces the screen, so Back leaves all of them. */
     fun switchTab(screen: Screen) {
         host.clearNotice()
         host.clearPeek()
         // Next time, Settings opens on its main page, not on the category that was open when the tab changed.
         settingsCategory.value = null
+        // A tab opened from a page (Settings → Look & feel → Wallpaper → Shader) leaves that page behind it.
+        synchronized(backStack) { backStack.clear() }
         _screen.value = screen
         if (screen == Screen.SCRIPTS) scripts.refreshScripts()
     }

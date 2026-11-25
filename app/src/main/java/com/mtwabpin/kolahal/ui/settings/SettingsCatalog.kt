@@ -111,7 +111,7 @@ internal val NEEDS_ACCESS: Map<ConfigKey<*>, List<String>> = buildMap {
     put(Keys.USAGE_SCREEN_TIME_LIMIT, listOf(Accesses.USAGE))
     put(Keys.USAGE_UNLOCK_LIMIT, listOf(Accesses.USAGE))
     // No word plays a one-off shader without notification access, and none plays over an app without
-    // Display over other apps. Settings → Shaders shows its switch. The Play build has neither the setting nor that access.
+    // Display over other apps. The Shaders tab shows its switch. The Play build has neither the setting nor that access.
     if (BuildConfig.SHADER_OVER_APPS) put(Keys.SHADER_OVER_APPS, listOf(Accesses.READ_NOTIFICATIONS, Accesses.OVERLAY))
 }
 
@@ -335,15 +335,15 @@ private val CATEGORIES = listOf(
 )
 
 /**
- * A screen with a row of its own on Settings' main page, after the category [after]. The search finds
- * it by its [title], its [subtitle] and [words].
+ * A screen that Settings search finds by its [title], its [subtitle] and [words]. With [after], it also
+ * has a row of its own on Settings' main page, after that category. A tab has none: the tab row shows it.
  */
 internal class ScreenRow(
     val title: String,
     val subtitle: String,
     val icon: Int,
     val screen: Screen,
-    val after: String,
+    val after: String?,
     val words: String,
 ) {
     /** Whether the search for [q] finds it: each word of [q], in any order ([SearchWords.allIn]). */
@@ -351,15 +351,15 @@ internal class ScreenRow(
         SearchWords.allIn(SearchWords.of(q), listOf(title, subtitle, words))
 }
 
-/** The screens with a row on Settings' main page. */
+/** The screens Settings search finds besides the settings. The Shaders row is found by the names of its settings too. */
 internal val SCREEN_ROWS = listOf(
     ScreenRow(
         "Shaders",
         "Effects over home: CRT, paper, your own",
         R.drawable.ic_shader,
         Screen.SHADERS,
-        after = "look",
-        words = "${Keys.SCREEN_SHADER.key} shader effect crt rain paper scanlines glow agsl glsl",
+        after = null,
+        words = "${Keys.SCREEN_SHADER.key} ${Keys.SHADER_OVER_APPS.key} shader effect crt rain paper scanlines glow agsl glsl one-off play over other apps",
     ),
 )
 

@@ -40,7 +40,7 @@ class TtyCommandsTest {
         val shown = TtyCommands.offered(tty = false).map { it.name }
         assertEquals(emptyList<String>(), CommandCatalog.HELP_SECTIONS.getValue("screens").filter { it in shown })
         // What is drawn over home and behind it is in Look, in both styles.
-        assertEquals(listOf("theme", "font", "shader", "wallpaper"), CommandCatalog.HELP_SECTIONS.getValue("look").filter { it in shown })
+        assertEquals(listOf("theme", "font", "shader", "shaders", "wallpaper"), CommandCatalog.HELP_SECTIONS.getValue("look").filter { it in shown })
         assertEquals(
             CommandCatalog.HELP_SECTIONS.getValue("screens"),
             CommandCatalog.HELP_SECTIONS.getValue("screens").filter { it in TtyCommands.offeredNames(tty = true) },

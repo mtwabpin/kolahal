@@ -65,7 +65,7 @@ object WallpaperStatus {
     /** What can become the wallpaper, less the theme's color when the home screen has it already ([home]). */
     fun choices(home: Kind): List<Choice> = listOfNotNull(
         Choice(THEME, "A plain wallpaper in your theme's color", WHY, run = "wallpaper theme").takeIf { home != Kind.THEME },
-        Choice(SHADER, "A shader as your live wallpaper", "type its name, or Set as wallpaper in Settings → Shaders", fill = "wallpaper shader "),
+        Choice(SHADER, "A shader as your live wallpaper", "type its name, or Set as wallpaper in Shaders", fill = "wallpaper shader "),
         Choice(LIVE, "Android's own list of live wallpapers", "for a phone whose wallpaper settings don't link to it", run = "wallpaper live"),
     )
 

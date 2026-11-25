@@ -726,6 +726,15 @@ class BuiltInCommandsTest {
         assertEquals(3, screens.size)
     }
 
+    /** `shaders` alone opens the Shaders tab, as `scripts` and `feeds` open theirs; with more, it is `shader`. */
+    @Test
+    fun shadersOpensItsTab() {
+        assertEquals(emptyList<String>(), run("shaders"))
+        assertEquals(listOf(Screen.SHADERS), screens.toList())
+        assertEquals(run("shader ls"), run("shaders ls"))
+        assertEquals(1, screens.size)
+    }
+
     /**
      * `widget page` (and `widgets page`) turns home to the widgets page and opens no screen. With the
      * page off, it says so, and a tap on the line puts the page on the left.

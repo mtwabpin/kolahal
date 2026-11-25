@@ -11,5 +11,5 @@
     <string name="channel_running">Scheduled scripts</string>
     <string name="channel_running_desc">Shown while a script runs at one of its daily times; most finish before it appears</string>
     <string name="shader_wallpaper_label">Kolahal shader</string>
-    <string name="shader_wallpaper_description">A shader from Kolahal as a live wallpaper. Pick another in Kolahal: Settings → Shaders.</string>
+    <string name="shader_wallpaper_description">A shader from Kolahal as a live wallpaper. Pick another in Kolahal\'s Shaders tab.</string>
 </resources>

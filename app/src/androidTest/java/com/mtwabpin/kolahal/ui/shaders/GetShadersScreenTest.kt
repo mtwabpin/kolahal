@@ -40,7 +40,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Settings → Shaders → Get more shaders, from a list kept from the last download and code handed to the
+ * Shaders → Get more shaders, from a list kept from the last download and code handed to the
  * screen as if downloaded ([com.mtwabpin.kolahal.ui.scripts.GetScriptsScreenTest] does the same for scripts). Nothing goes online.
  */
 @RunWith(AndroidJUnit4::class)

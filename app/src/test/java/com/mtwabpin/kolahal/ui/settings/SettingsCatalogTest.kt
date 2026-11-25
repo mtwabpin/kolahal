@@ -8,14 +8,15 @@ import com.mtwabpin.kolahal.ui.FEATURE_TABS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The Settings pages and the look settings that show home through them. */
 class SettingsCatalogTest {
     @Test
-    fun scriptsComeBeforeFeedsInTheTabs() {
-        assertEquals(listOf(Screen.SETTINGS, Screen.SCRIPTS, Screen.FEEDS), FEATURE_TABS)
+    fun theTabsAreSettingsScriptsShadersFeeds() {
+        assertEquals(listOf(Screen.SETTINGS, Screen.SCRIPTS, Screen.SHADERS, Screen.FEEDS), FEATURE_TABS)
     }
 
     @Test
@@ -93,13 +94,16 @@ class SettingsCatalogTest {
         assertTrue(matches(Keys.USAGE_UNLOCK_LIMIT, "unlocks"))
     }
 
-    /** Shaders is a row on the main page, after a real category, and the search finds it by what it does. */
+    /** Shaders is a tab, with no row on the main page; the search finds it by what it does and by its settings. */
     @Test
-    fun shadersHasARowTheSearchFinds() {
+    fun shadersIsATabTheSearchFinds() {
         val row = SCREEN_ROWS.single { it.screen == Screen.SHADERS }
         assertEquals("Shaders", row.title)
-        assertTrue(allCategories().any { it.id == row.after })
-        for (q in listOf("shader", "CRT", "effect", "paper effect", "screen.shader")) assertTrue(q, row.matches(q))
+        assertTrue(Screen.SHADERS in FEATURE_TABS)
+        assertNull(row.after)
+        for (q in listOf("shaders", "shader", "CRT", "effect", "paper effect", "screen.shader", "screen.shader-over-apps", "over other apps")) {
+            assertTrue(q, row.matches(q))
+        }
         assertFalse(row.matches("weather"))
         // The screen sets it, so no page has it.
         assertTrue(Keys.SCREEN_SHADER in Keys.CONFIG_ONLY)

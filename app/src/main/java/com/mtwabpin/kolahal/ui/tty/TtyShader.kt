@@ -235,7 +235,7 @@ private fun Modifier.shaderEffect(
     }
 
 /**
- * A shader's [code] over a small sample in Settings, drawn as [rememberTtyShader] draws it. Null until
+ * A shader's [code] over a small sample in the Shaders tab, drawn as [rememberTtyShader] draws it. Null until
  * it is compiled, and when it can't be drawn (it doesn't compile, a screen reader is on, or Android is
  * older than 13).
  *

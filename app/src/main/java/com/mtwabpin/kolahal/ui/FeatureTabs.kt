@@ -23,6 +23,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -39,16 +40,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** The screens behind the gear, in tab order. */
-internal val FEATURE_TABS = listOf(Screen.SETTINGS, Screen.SCRIPTS, Screen.FEEDS)
+internal val FEATURE_TABS = listOf(Screen.SETTINGS, Screen.SCRIPTS, Screen.SHADERS, Screen.FEEDS)
 
 /**
- * The Settings | Scripts | Feeds tab row at the top of each of these three screens.
+ * The Settings | Scripts | Shaders | Feeds tab row at the top of each of these four screens.
  * - A connected button group, as [ConnectedChoices]: the open screen's button is filled with the
  *   accent and fully round; the others are in the rows' color.
- * - Each button is a tab to a screen reader: "Selected" on the open one, "1 of 3" and so on.
- * - Switching tabs replaces the screen ([TerminalViewModel.switchTab]), so one Back leaves all three.
+ * - Each button is a tab to a screen reader: "Selected" on the open one, "1 of 4" and so on.
+ * - Switching tabs replaces the screen ([TerminalViewModel.switchTab]), so one Back leaves all four.
  * - The Feeds tab shows the unread count.
- * - At a large font size, a word that doesn't fit shrinks to fit its button, then ends in "…".
+ * - At a large font size, a word that doesn't fit shrinks to fit its button, down to the usual font
+ *   size's 10 sp, then ends in "…".
  */
 @Composable
 internal fun FeatureTabs(vm: TerminalViewModel, current: Screen, modifier: Modifier = Modifier) {
@@ -64,7 +66,9 @@ internal fun FeatureTabs(vm: TerminalViewModel, current: Screen, modifier: Modif
     }
     val colors = MaterialTheme.colorScheme
     val style = MaterialTheme.typography.labelLarge
-    val autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize, stepSize = 1.sp)
+    // The smallest size is 10 sp at the usual font size, at every font size: four words fit a narrow phone at 2×.
+    val smallest = (10f / LocalDensity.current.fontScale).sp
+    val autoSize = TextAutoSize.StepBased(minFontSize = smallest, maxFontSize = style.fontSize, stepSize = 1.sp)
     Row(
         modifier
             .fillMaxWidth()
@@ -78,6 +82,7 @@ internal fun FeatureTabs(vm: TerminalViewModel, current: Screen, modifier: Modif
             val label = when (screen) {
                 Screen.FEEDS -> if (unread > 0) "Feeds · $unread" else "Feeds"
                 Screen.SCRIPTS -> "Scripts"
+                Screen.SHADERS -> "Shaders"
                 else -> "Settings"
             }
             val shapes = when (i) {

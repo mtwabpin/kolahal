@@ -159,6 +159,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 else scriptCommands.runCommand(name, args) ?: fallbackLaunch(trimmed)
                 "screen" -> systemCommands.screen(args)
                 "shader" -> shaderCommands.run(args)
+                "shaders" -> if (args.isEmpty()) ui.openScreen(Screen.SHADERS) else shaderCommands.run(args)
                 "clear", "cls" -> logCommands.clear(args)
                 "backup" -> systemCommands.backup(args)
                 "log" -> logCommands.logFilter(args)

@@ -49,6 +49,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.AccessNeeded
 import com.mtwabpin.kolahal.ui.Action
 import com.mtwabpin.kolahal.ui.ActionGroup
+import com.mtwabpin.kolahal.ui.FEATURE_TABS
 import com.mtwabpin.kolahal.ui.FeatureTabs
 import com.mtwabpin.kolahal.ui.GroupHeader
 import com.mtwabpin.kolahal.ui.GuiListPage
@@ -78,12 +79,14 @@ fun SettingsOverHome(vm: TerminalViewModel) {
     }
 }
 
-/** The Shaders screen, with home drawn underneath while its eye button is held. */
+/** The Shaders tab, with home drawn underneath while its eye button is held. */
 @Composable
 fun ShadersOverHome(vm: TerminalViewModel) {
     Box(Modifier.fillMaxSize()) {
         HomeUnder(vm)
-        ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, vm.peek, vm::peek, vm::askNotificationAccess, vm::openShaderEditor)
+        ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen, vm.peek, vm::peek, vm::askNotificationAccess, vm::openShaderEditor, tabs = {
+            FeatureTabs(vm, Screen.SHADERS)
+        })
     }
 }
 
@@ -441,7 +444,8 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     if (screens.isNotEmpty()) item(key = "hit:screens") {
                         PeekFade(peek) {
                             Column(Modifier.padding(top = 12.dp)) {
-                                ActionGroup(screens.map { it.action(vm::openScreen) })
+                                // A tab (Shaders) is switched to, as its tab does; another screen opens over Settings.
+                                ActionGroup(screens.map { it.action { s -> if (s in FEATURE_TABS) vm.switchTab(s) else vm.openScreen(s) } })
                             }
                         }
                     }

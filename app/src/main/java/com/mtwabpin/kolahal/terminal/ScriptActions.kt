@@ -234,7 +234,7 @@ class ScriptActions(
                 if (r.created.isNotEmpty()) add("Added ${r.created.joinToString()}")
                 if (r.updated.isNotEmpty()) add("Updated ${r.updated.joinToString()}")
                 offUntilOn(came)?.let { add(it) }
-                if (r.shaders.isNotEmpty()) add("Shaders ${r.shaders.joinToString()}, under Settings → Shaders")
+                if (r.shaders.isNotEmpty()) add("Shaders ${r.shaders.joinToString()}, in Shaders")
                 if (r.skipped.isNotEmpty()) add("Skipped ${r.skipped.joinToString()}")
             }.joinToString("\n").ifEmpty { "Nothing imported" }
             val turnOn = turnOnCommand(came)

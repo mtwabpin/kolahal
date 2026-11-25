@@ -103,7 +103,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Settings → Shaders: the shader over home and the full-screen screens (`screen.shader`).
+ * The Shaders tab: the shader over home and the full-screen screens (`screen.shader`).
  * - None, the shaders that come with Kolahal, then the user's own. A tap turns one on, if it compiles:
  *   otherwise the one that is on stays, and the row says why. The one in use is selected.
  * - Details, on each row, opens its sheet ([ShaderSheet]). Its Edit opens the shader's code in the editor ([onEdit]).
@@ -115,7 +115,7 @@ import kotlinx.coroutines.launch
  *   so its details and previews show them even when it isn't in use.
  *
  * Without the view model: it needs its [actions], the page's [notice], and the way to other screens
- * ([open]) and [onBack].
+ * ([open]) and [onBack]. [tabs] is the tab row above the list (com.mtwabpin.kolahal.ui.FeatureTabs).
  */
 @Composable
 fun ShadersScreen(
@@ -127,6 +127,7 @@ fun ShadersScreen(
     onPeek: (TerminalViewModel.Peek?) -> Unit = {},
     onAskNotifications: () -> Unit = {},
     onEdit: (String) -> Unit = {},
+    tabs: (@Composable () -> Unit)? = null,
 ) {
     val files by Shaders.version.collectAsStateWithLifecycle()
     val trips by actions.trips.collectAsStateWithLifecycle()
@@ -213,8 +214,10 @@ fun ShadersScreen(
                     text = { Text("Add shader") },
                 )
             },
+            top = 0.dp,
             bottom = 96.dp,
         ) {
+            if (tabs != null) item(key = "tabs") { tabs() }
             if (!Shaders.supported) item(key = "needs") {
                 Text(
                     "${Shaders.NEEDS}. This phone has Android ${Build.VERSION.RELEASE}, so no shader is drawn.",

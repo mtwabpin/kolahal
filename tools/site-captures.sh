@@ -759,21 +759,21 @@ play_scramble() {
 
 # raw/script-sheet-switches.png, shader-details-follows.png, shader-details-slider.png: sheets in
 # Settings (they once brought the status bar back): weather.lua's sheet (its switches and its
-# city), then Shaders with "screen time" searched and Candle's ⓘ, then "mountains" and its ⓘ.
+# city), then the Shaders tab (`shaders`) with "screen time" searched and Candle's ⓘ, then
+# "mountains" and its ⓘ.
 play_sheets() {
   home; kbup; t scripts 3
   tap 540 735; sleep 1; ty weather; sleep 1.5; key KEYCODE_BACK; sleep 1   # the search
   tap 300 1010; sleep 2.5   # Weather, the one row
   cap script-sheet-switches; site_shot script-sheet-switches shots/access/switches.png
   key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 1
-  home; kbup; t settings 3
-  tap 540 1162; sleep 2.5   # Shaders
-  tap 540 620; sleep 1; ty "screen time"; sleep 2; key KEYCODE_BACK; sleep 1.5
-  tap 942 1362; sleep 3     # ⓘ on Candle, the second row
+  home; kbup; t shaders 3
+  tap 540 772; sleep 1; ty "screen time"; sleep 2; key KEYCODE_BACK; sleep 1.5
+  tap 942 1514; sleep 3     # ⓘ on Candle, the second row
   cap shader-details-follows; site_shot shader-details-follows shots/shader-parameters/follow.png
   key KEYCODE_BACK; sleep 1.5
-  tap 975 620; sleep 1; tap 540 620; sleep 1; ty mountains; sleep 2; key KEYCODE_BACK; sleep 1.5
-  tap 942 945; sleep 3      # ⓘ on Mountains
+  tap 975 772; sleep 1; tap 540 772; sleep 1; ty mountains; sleep 2; key KEYCODE_BACK; sleep 1.5
+  tap 942 1097; sleep 3     # ⓘ on Mountains
   cap shader-details-slider; site_shot shader-details-slider shots/shader-parameters/sliders.png
   key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 1; home
 }

@@ -74,7 +74,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Settings → Shaders: the list, turning one on with one tap, a shader's sheet, and removing one. */
+/** The Shaders tab: the list, turning one on with one tap, a shader's sheet, and removing one. */
 @RunWith(AndroidJUnit4::class)
 class ShadersScreenTest {
     @get:Rule

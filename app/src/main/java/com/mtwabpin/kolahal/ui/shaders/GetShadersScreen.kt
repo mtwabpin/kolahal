@@ -73,7 +73,7 @@ private val SharedShader.key get() = "$source/$name"
 private data class ShaderState(val shared: SharedState, val taken: String?)
 
 /**
- * Settings → Shaders → Get more shaders: the shaders shared in kolahal-scripts and in the sources the
+ * Shaders → Get more shaders: the shaders shared in kolahal-scripts and in the sources the
  * user added, as Get more scripts does for scripts ([com.mtwabpin.kolahal.ui.scripts.GetScriptsScreen]): the same lists, the same
  * search, Refresh and Sources. Each shader's sheet shows its code before Install; installing doesn't
  * turn it on, and the sheet then offers Use.

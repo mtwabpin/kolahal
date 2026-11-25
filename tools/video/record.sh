@@ -633,7 +633,7 @@ p_10-widget-options() {
   home
 }
 
-# 11-shaders: `settings`, Shaders, the list scrolled slowly down to Mountains, chosen; Back to home
+# 11-shaders: `settings`, the Shaders tab, the list scrolled slowly down to Mountains, chosen; Back to home
 # over the ridges; `shader aurora`; `shader rain` and a touch circling slowly, which the rain keeps
 # away from (held still it is a long-press, which puts the last command back in the prompt;
 # sideways it turns to the widgets page);
@@ -645,12 +645,12 @@ p_11-shaders() {
   rec 11-shaders
   m "tap the log"; tap 540 700; sleep 0.8
   m "type settings"; say settings 2
-  m shaders; tap 540 1162; sleep 2
+  m shaders; tap 665 527; sleep 2   # the Shaders tab
   m scroll; local i; for i in 1 2 3; do drag 540 1900 540 900 1; sleep 0.3; done
-  drag 540 1900 540 1400 0.7; sleep 0.8
+  drag 540 1900 540 1248 0.7; sleep 0.8
   m mountains; tap_at Mountains; sleep 1.6
-  m back; key KEYCODE_BACK; sleep 0.8; key KEYCODE_BACK; sleep 1
-  m "keyboard down"; kbdown_if; sleep 2.5   # coming back from Settings opens it
+  m back; key KEYCODE_BACK; sleep 1
+  m "keyboard down"; kbdown_if; sleep 2.5   # coming back from the Shaders tab opens it
   m "tap the log"; tap 540 700; sleep 0.8
   m "type aurora"; say "shader aurora" 1
   m "keyboard down"; kbdown; sleep 3.5
@@ -664,15 +664,15 @@ p_11-shaders() {
   stop
 }
 
-# shaders_scroll: Settings → Shaders scrolled slowly down to Snowfall's row (Mountains is above it).
+# shaders_scroll: the Shaders tab scrolled slowly down to Snowfall's row (Mountains is above it).
 shaders_scroll() {
   local i; for i in 1 2 3; do drag 540 1900 540 900 1; sleep 0.3; done
-  drag 540 1900 540 1400 0.7; sleep 0.3; drag 540 1900 540 1300 0.7; sleep 0.8
+  drag 540 1900 540 1400 0.7; sleep 0.3; drag 540 1900 540 1148 0.7; sleep 0.8
 }
 # info <name>: a touch on the ⓘ of a row of the Shaders list (found off camera: a second's pause).
 info() { local p y; p=$(at "$1"); y=${p#* }; tap 942 $((y - 20)); }
 
-# 12-parameters: Settings → Shaders, ⓘ on Snowfall: its preview, and its two sliders dragged
+# 12-parameters: `settings`, the Shaders tab, ⓘ on Snowfall: its preview, and its two sliders dragged
 # (Amount of snow 1 → 2, Size of the flakes 1 → 1.5) as the preview follows; ⓘ on Dunes: Follow →
 # Battery (at 100%: 7 camels), Use, home over the dunes; then the battery set to 30% from the
 # emulator's console: 2 camels.
@@ -683,7 +683,7 @@ p_12-parameters() {
   rec 12-parameters
   m "tap the log"; tap 540 700; sleep 0.8
   m "type settings"; say settings 2
-  m shaders; tap 540 1162; sleep 2
+  m shaders; tap 665 527; sleep 2   # the Shaders tab
   m scroll; shaders_scroll
   m snowfall; info Snowfall; sleep 2.6
   m "amount"; drag 510 1447 944 1447 1.6; sleep 1.2
@@ -693,7 +693,7 @@ p_12-parameters() {
   m follow; tap 254 1762; sleep 1.4
   m battery; tap 256 371; sleep 2
   m use; tap 540 2231; sleep 1.4
-  m home; key KEYCODE_BACK; sleep 0.8; key KEYCODE_BACK; sleep 0.8; key KEYCODE_BACK; sleep 1
+  m home; key KEYCODE_BACK; sleep 0.8; key KEYCODE_BACK; sleep 1
   kbdown_if; sleep 3.5
   m "30%"; emu power capacity 30; sleep 6
   stop

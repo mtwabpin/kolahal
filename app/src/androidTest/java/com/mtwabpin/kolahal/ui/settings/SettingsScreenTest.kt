@@ -466,14 +466,26 @@ class SettingsScreenTest {
         compose.onNode(row, useUnmergedTree = true).assertExists()
     }
 
-    /** Shaders is a row on the main page that opens its screen; the search finds it by what it does. */
+    /**
+     * Shaders is a tab, not a row of the main page. A search for it, for what it does or for one of its
+     * settings offers a row that switches to the tab.
+     */
     @Test
-    fun shadersOpensFromTheMainPageAndTheSearch() {
+    fun shadersIsATabTheSearchFinds() {
         show(null)
-        compose.onNode(hasSetTextAction()).performTextInput("crt")
         val row = hasText("Shaders") and hasText("Effects over home", substring = true)
+        // The categories are one item: once it is there, every row of the list is.
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("categories")
+        compose.onNodeWithText("Look & feel").assertExists()
+        compose.onNodeWithText("Effects over home", substring = true).assertDoesNotExist()
+        compose.onNode(hasScrollToKeyAction()).performScrollToIndex(0)
+        for (q in listOf("crt", Keys.SHADER_OVER_APPS.key, "over other apps")) {
+            compose.onNode(hasSetTextAction()).performTextReplacement(q)
+            compose.onNode(row).assertExists()
+        }
+        compose.onNode(hasSetTextAction()).performTextReplacement("shaders")
         compose.onNode(row).performClick()
-        compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.SHADERS }
+        compose.waitUntil(5_000) { vm.screen.value == Screen.SHADERS }
     }
 
     /** Backup has its own page: automatic backups, their folder and Back up now; search finds backup.auto from the main page. */

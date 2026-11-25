@@ -405,7 +405,7 @@ class ScriptActionsTest {
                 )
             )
             assertEquals(
-                RecordingHost.Notice("Shaders sa-glow, under Settings → Shaders", false),
+                RecordingHost.Notice("Shaders sa-glow, in Shaders", false),
                 host.lastNotice()
             )
         } finally {
