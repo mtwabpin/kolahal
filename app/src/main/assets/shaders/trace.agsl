@@ -1,0 +1,113 @@
+// @name Trace
+// @description A heartbeat line runs across the bottom of the screen once, two beats behind a bright head, and fades after it
+// @suits dark good, light good, wallpaper good, apps fair
+// @param colors twilight|theme|accent = twilight Colors
+// @once 3
+//
+// The line of a heart monitor, drawn once across the bottom of the screen, driven by progress alone.
+// A bright head runs from left to right and draws two beats behind it; the line fades as it falls
+// behind. Like every one-off it draws over everything on the screen: the page, text, pictures and a
+// scene. Pixels above or below the line's band return at once.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float progress;
+uniform float dark;
+layout(color) uniform half4 accent;
+layout(color) uniform half4 link;
+layout(color) uniform half4 info;
+layout(color) uniform half4 warn;
+uniform float colors;
+
+// One beat at d = 0, d in screen widths: the small bumps and dips around one tall peak, 1 high.
+float beat(float d) {
+    float p = (d + 0.09) / 0.025;
+    float q = (d + 0.018) / 0.008;
+    float r = d / 0.011;
+    float s = (d - 0.018) / 0.009;
+    float t = (d - 0.11) / 0.035;
+    return 0.12 * exp(-p * p) - 0.12 * exp(-q * q) + exp(-r * r) - 0.28 * exp(-s * s) + 0.22 * exp(-t * t);
+}
+
+// The height of the line at x, in screen widths across: two beats, at a third and two thirds.
+float heights(float x) {
+    return beat(x - 0.36) + beat(x - 0.72);
+}
+
+// How much of each of four colors there is at x. Each color has its place, a quarter after the one
+// before, and blends smoothly into the next.
+float4 shares(float x) {
+    float4 w = clamp(1.0 - 4.0 * abs(fract(x - float4(0.0, 0.25, 0.5, 0.75) + 0.5) - 0.5), 0.0, 1.0);
+    return w * w * (3.0 - 2.0 * w);
+}
+
+// A color as bright as it can be, so it reads as light on a light page too, not as a gray.
+float3 vivid(float3 col) {
+    return col / max(max(col.r, col.g), max(col.b, 0.001));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float W = resolution.x;
+    float H = resolution.y;
+    float small = min(W, H);
+    // The flat line, how high a beat reaches above it, and how far the glow spreads.
+    float base = H - small * 0.17;
+    float tall = small * 0.2;
+    float glow = small * 0.03;
+    if (xy.y < base - 1.1 * tall - 3.0 * glow || xy.y > base + 0.4 * tall + 3.0 * glow) return half4(here);
+    // The head runs across almost steadily, easing in and out.
+    float s = clamp((progress - 0.03) / 0.8, 0.0, 1.0);
+    float head = mix(-0.04, 1.06, 0.55 * s + 0.45 * s * s * (3.0 - 2.0 * s));
+    float x = xy.x / W;
+    float behind = head - x;
+    if (behind < -0.03) return half4(here);
+
+    // The distance to the line, measured square to it, so it is as thick where it climbs.
+    float e = 0.002;
+    float y = base - tall * heights(x);
+    float slope = tall * (heights(x + e) - heights(x - e)) / (2.0 * e * W);
+    float dist = abs(xy.y - y) / sqrt(1.0 + slope * slope);
+    float thin = dist / (small * 0.006);
+    float stroke = exp(-thin * thin) + 0.4 * exp(-dist * dist / (glow * glow));
+    // Drawn up to the head, and fainter the longer ago.
+    float drawn = smoothstep(-0.006, 0.0, behind) * exp(-max(behind, 0.0) / 0.4);
+    // The head is a bright dot.
+    float2 at = float2(head * W, base - tall * heights(head));
+    float tip = exp(-dot(xy - at, xy - at) / (small * small * 0.0006));
+    float power = (stroke * drawn + 1.2 * tip) * smoothstep(0.0, 0.05, progress) * (1.0 - smoothstep(0.8, 1.0, progress));
+    if (power <= 0.002) return half4(here);
+
+    // Four colors that follow each other: the accent alone, richer and paler in turn;
+    // or twilight's own; or the theme's.
+    float3 a = float3(accent.rgb);
+    float3 b = float3(accent.rgb) * float3(accent.rgb);
+    float3 c = float3(accent.rgb);
+    float3 d = mix(float3(accent.rgb), float3(1.0), 0.3);
+    if (colors < 0.5) {
+        // Twilight: blue, violet, rose and apricot.
+        a = float3(0.26, 0.50, 1.00);
+        b = float3(0.56, 0.38, 1.00);
+        c = float3(1.00, 0.36, 0.60);
+        d = float3(1.00, 0.62, 0.36);
+    } else if (colors < 1.5) {
+        a = float3(link.rgb);
+        b = float3(accent.rgb);
+        c = float3(info.rgb);
+        d = float3(warn.rgb);
+    }
+    // The colors follow each other from left to right.
+    float4 w = shares(0.8 * x + 0.2 * progress);
+    float3 light = vivid(a * w.x + b * w.y + c * w.z + d * w.w) * power;
+
+    // The light is laid over the page as a layer of its own color, as much as it is bright: on a
+    // dark page that adds light, on a light page it tints. Where it is brightest, on a dark page,
+    // it goes toward white.
+    float amount = max(max(light.r, light.g), light.b);
+    if (amount <= 0.0) return half4(here);
+    float cover = clamp(amount * mix(0.65, 1.0, dark), 0.0, mix(0.7, 1.0, dark));
+    float3 color = mix(light / max(amount, 0.001), float3(1.0), clamp(amount - 1.0, 0.0, 0.5) * dark);
+    return half4(here * (1.0 - cover) + float4(color * cover, cover));
+}

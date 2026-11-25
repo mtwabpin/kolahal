@@ -75,7 +75,7 @@ class ShaderOverAppsTest {
         // Of the shaders that come with Kolahal, every one-off.
         val rated = ShaderCatalog.BUNDLED.filter { ShaderOverApps.fit(ShaderMeta.parse(asset(it))) != null }
         assertEquals(
-            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse"),
+            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse", "comet", "breath", "scan-line", "spill", "trace", "northern-lights"),
             rated,
         )
         assertEquals(ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(asset(it)).once != null }, rated)

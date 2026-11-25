@@ -534,6 +534,12 @@ object Keys {
             "hearts-fireworks" to "A one-off: three fireworks open into hearts of sparks, once",
             "hearts-bounce" to "A one-off: hearts drop, bounce, settle in a row and hop away, once",
             "pulse" to "A one-off: light runs in around the screen's edges once",
+            "comet" to "A one-off: a comet of light runs once around the screen's edges",
+            "breath" to "A one-off: the screen's edges glow in and out twice",
+            "scan-line" to "A one-off: a line of light runs down the screen once",
+            "spill" to "A one-off: light runs down both sides from the top, once",
+            "trace" to "A one-off: a heartbeat line runs across the bottom once",
+            "northern-lights" to "A one-off: a curtain of colored light falls from the top, once",
         ),
     )
     /** A one-off shader that a notification's word plays is drawn over the app in front (shader/ShaderOverApps.kt). Not in the Play build ([ALL]). The Shaders tab sets it. */

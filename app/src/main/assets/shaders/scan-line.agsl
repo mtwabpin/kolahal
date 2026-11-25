@@ -1,0 +1,91 @@
+// @name Scan line
+// @description One bright line travels down the screen with a short afterglow in rows behind it, as on an old tube
+// @suits dark good, light good, wallpaper good, apps fair
+// @param colors twilight|theme|accent = twilight Colors
+// @once 2.5
+//
+// A line of light that runs down the screen once, driven by progress alone, as the beam of an old
+// tube does. It goes almost steadily, easing in at the top and out at the bottom. The rows it has
+// just lit glow for a moment behind it. Like every one-off it draws over everything on the screen:
+// the page, text, pictures and a scene. Pixels away from the line return at once.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float progress;
+uniform float dark;
+layout(color) uniform half4 accent;
+layout(color) uniform half4 link;
+layout(color) uniform half4 info;
+layout(color) uniform half4 warn;
+uniform float colors;
+
+// How much of each of four colors there is at x. Each color has its place, a quarter after the one
+// before, and blends smoothly into the next.
+float4 shares(float x) {
+    float4 w = clamp(1.0 - 4.0 * abs(fract(x - float4(0.0, 0.25, 0.5, 0.75) + 0.5) - 0.5), 0.0, 1.0);
+    return w * w * (3.0 - 2.0 * w);
+}
+
+// A color as bright as it can be, so it reads as light on a light page too, not as a gray.
+float3 vivid(float3 col) {
+    return col / max(max(col.r, col.g), max(col.b, 0.001));
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float W = resolution.x;
+    float H = resolution.y;
+    float small = min(W, H);
+    // Where the line is: from just above the top to just below the bottom.
+    float s = clamp((progress - 0.03) / 0.88, 0.0, 1.0);
+    float y = H * mix(-0.02, 1.03, 0.6 * s + 0.4 * s * s * (3.0 - 2.0 * s));
+    float dy = xy.y - y;
+    float glow = small * 0.014;
+    float after = H * 0.1;
+    if (dy > 4.0 * glow || dy < -4.0 * after) return half4(here);
+    // A thin bright line in a softer glow.
+    float thin = dy / (small * 0.0045);
+    float beam = exp(-thin * thin) + 0.45 * exp(-dy * dy / (glow * glow));
+    // Above it the rows it has lit fade out.
+    float rows = 0.7 + 0.3 * cos(6.2831853 * xy.y / max(small * 0.012, 2.0));
+    float trail = dy < 0.0 ? exp(dy / after) * rows * 0.4 : 0.0;
+    // A little fainter toward the sides.
+    float side = abs(xy.x / W - 0.5) * 2.0;
+    float power = smoothstep(0.0, 0.05, progress) * (1.0 - smoothstep(0.86, 1.0, progress)) * (1.0 - 0.35 * side * side * side);
+
+    // Four colors that follow each other: the accent alone, richer and paler in turn;
+    // or twilight's own; or the theme's.
+    float3 a = float3(accent.rgb);
+    float3 b = float3(accent.rgb) * float3(accent.rgb);
+    float3 c = float3(accent.rgb);
+    float3 d = mix(float3(accent.rgb), float3(1.0), 0.3);
+    if (colors < 0.5) {
+        // Twilight: blue, violet, rose and apricot.
+        a = float3(0.26, 0.50, 1.00);
+        b = float3(0.56, 0.38, 1.00);
+        c = float3(1.00, 0.36, 0.60);
+        d = float3(1.00, 0.62, 0.36);
+    } else if (colors < 1.5) {
+        a = float3(link.rgb);
+        b = float3(accent.rgb);
+        c = float3(info.rgb);
+        d = float3(warn.rgb);
+    }
+    // The colors follow each other out from the middle, the same on both sides. The afterglow
+    // leans toward the first two, so it fades into a cool light.
+    float4 w = shares(0.6 * side + 0.3 * progress);
+    float3 front = vivid(a * w.x + b * w.y + c * w.z + d * w.w);
+    float3 back = vivid(mix(front, 0.5 * (a + b), 0.45));
+    float3 light = (front * beam + back * trail) * power;
+
+    // The light is laid over the page as a layer of its own color, as much as it is bright: on a
+    // dark page that adds light, on a light page it tints. Where it is brightest, on a dark page,
+    // it goes toward white.
+    float amount = max(max(light.r, light.g), light.b);
+    if (amount <= 0.0) return half4(here);
+    float cover = clamp(amount * mix(0.65, 1.0, dark), 0.0, mix(0.7, 1.0, dark));
+    float3 color = mix(light / max(amount, 0.001), float3(1.0), clamp(amount - 1.0, 0.0, 0.5) * dark);
+    return half4(here * (1.0 - cover) + float4(color * cover, cover));
+}

@@ -19,7 +19,7 @@ object StatScenes {
     /** The bundled shaders that are no scene: they work on text, or play once. A test reads their headers. */
     val NOT_SCENES = listOf(
         "crt", "lcd", "eink", "riso", "foil", "hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers",
-        "hearts-fireworks", "hearts-bounce", "pulse",
+        "hearts-fireworks", "hearts-bounce", "pulse", "comet", "breath", "scan-line", "spill", "trace", "northern-lights",
     )
 
     /** The scenes the guide names for a weather card, as the words for what the sky does. */

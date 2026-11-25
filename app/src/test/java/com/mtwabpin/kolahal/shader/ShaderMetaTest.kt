@@ -243,7 +243,7 @@ class ShaderMetaTest {
         // Only the ones that say they move are drawn over and over.
         assertEquals(
             listOf("mountains", "pond", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies", "contour", "ink", "aura", "lanterns", "record", "candle", "hearts",
-                "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse"),
+                "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse", "comet", "breath", "scan-line", "spill", "trace", "northern-lights"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).animated },
         )
     }
@@ -289,7 +289,7 @@ class ShaderMetaTest {
         assertTrue(ShaderMeta.PROGRESS in ShaderMeta.KNOWN)
         assertTrue("must be a float" in ShaderMeta.problems("uniform shader content; uniform float2 progress;").single())
         assertEquals(
-            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse"),
+            listOf("hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks", "hearts-bounce", "pulse", "comet", "breath", "scan-line", "spill", "trace", "northern-lights"),
             ShaderCatalog.BUNDLED.filter { ShaderMeta.parse(sourceFile("src/main/assets/shaders/$it.agsl").readText()).once != null },
         )
     }

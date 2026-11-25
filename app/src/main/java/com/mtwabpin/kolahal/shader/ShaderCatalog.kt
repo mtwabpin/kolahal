@@ -20,7 +20,7 @@ object ShaderCatalog {
         "mountains", "pond", "dunes", "rain", "snowfall", "grove-snow", "grove-autumn", "aurora", "night", "fireflies",
         "contour", "ink", "aura", "day-ring", "lanterns", "kintsugi", "record", "candle", "hourglass", "windows",
         "seismograph", "hearts", "hearts-fountain", "hearts-falling", "hearts-stream", "hearts-poppers", "hearts-fireworks",
-        "hearts-bounce", "pulse",
+        "hearts-bounce", "pulse", "comet", "breath", "scan-line", "spill", "trace", "northern-lights",
     )
 
     /**

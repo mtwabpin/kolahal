@@ -1,0 +1,142 @@
+// @name Spill
+// @description Light gathers at the top middle, where notifications come from, runs down both sides and drains away at the bottom
+// @suits dark good, light good, wallpaper good, apps fair
+// @param colors twilight|theme|accent = twilight Colors
+// @once 3
+//
+// Pulse's edge light poured from the top, driven by progress alone. A bead of light gathers at the
+// top middle and runs down both sides. The top drains after it, faster and faster, and the light
+// pools at the bottom before it is gone. Like every one-off it draws over everything on the screen:
+// the page, text, pictures and a scene. Pixels farther in than the light reaches return at once.
+
+uniform shader content;
+uniform float2 resolution;
+uniform float corner;
+uniform float progress;
+uniform float dark;
+layout(color) uniform half4 accent;
+layout(color) uniform half4 link;
+layout(color) uniform half4 info;
+layout(color) uniform half4 warn;
+uniform float colors;
+
+// How far p is inside a box of half size b with corners of radius r, centered at 0 (negative outside).
+float inside(float2 p, float2 b, float r) {
+    float2 q = abs(p) - b + r;
+    return r - length(max(q, float2(0.0))) - min(max(q.x, q.y), 0.0);
+}
+
+// Where p is along the outline of that box, from 0 to 1: 0 at the top middle, growing clockwise.
+float along(float2 p, float2 b, float r) {
+    float top = b.x - r;
+    float side = b.y - r;
+    float arc = 1.5707963 * r;
+    float quarter = top + arc + side;
+    float2 q = abs(p) - float2(top, side);
+    float s;
+    if (q.x > 0.0 && q.y > 0.0) {
+        s = top + r * atan(q.x, q.y);
+    } else if (q.y > q.x) {
+        s = abs(p.x);
+    } else {
+        s = quarter - abs(p.y);
+    }
+    // s is measured in the top right quarter; the others are its mirror images.
+    if (p.x >= 0.0) {
+        s = p.y < 0.0 ? s : 2.0 * quarter - s;
+    } else {
+        s = p.y > 0.0 ? 2.0 * quarter + s : 4.0 * quarter - s;
+    }
+    return s / (4.0 * quarter);
+}
+
+// How much of each of four colors there is at x. Each color has its place, a quarter after the one
+// before, and blends smoothly into the next.
+float4 shares(float x) {
+    float4 w = clamp(1.0 - 4.0 * abs(fract(x - float4(0.0, 0.25, 0.5, 0.75) + 0.5) - 0.5), 0.0, 1.0);
+    return w * w * (3.0 - 2.0 * w);
+}
+
+// A color as bright as it can be, so it reads as light on a light page too, not as a gray.
+float3 vivid(float3 col) {
+    return col / max(max(col.r, col.g), max(col.b, 0.001));
+}
+
+// Pulse's edge light, reach pixels wide. x is its line and glow, y its haze, z where it is along the
+// outline (0 at the top middle, clockwise) and w how far in. w is -1 where the light can't reach.
+float4 edge(float2 xy, float reach) {
+    float2 mid = 0.5 * resolution;
+    float2 p = xy - mid;
+    float small = min(resolution.x, resolution.y);
+    float r = clamp(corner, 0.0, small * 0.5);
+    float limit = reach * 1.25;
+    float depth = max(inside(p, mid, r), 0.0);
+    if (depth > limit) return float4(0.0, 0.0, 0.0, -1.0);
+    float curve = max(r, small * 0.15);
+    float soft = max(inside(p, mid, curve), 0.0);
+    float rim = exp(-depth / (small * 0.005));
+    float close = soft / (reach * 0.4);
+    float spread = soft / (reach * 0.6);
+    float haze = exp(-spread * spread) * (1.0 - smoothstep(0.6, 1.0, depth / limit));
+    return float4(0.45 * rim + 0.5 * exp(-close * close), 0.6 * haze, along(p, mid, curve), depth);
+}
+
+half4 main(float2 xy) {
+    float4 here = float4(content.eval(xy));
+    if (progress <= 0.0 || progress >= 1.0) return half4(here);
+
+    float small = min(resolution.x, resolution.y);
+    float outline = 2.0 * (resolution.x + resolution.y);
+    float4 e = edge(xy, small * 0.09);
+    if (e.w < 0.0) return half4(here);
+    // How far this pixel is from the top middle, from 0 to 0.5 either way.
+    float gap = min(e.z, 1.0 - e.z);
+    // The light runs down to head. The top drains after it, down to tail, faster and faster.
+    float s = clamp((progress - 0.1) / 0.5, 0.0, 1.0);
+    float head = 0.53 * smoothstep(0.0, 1.0, s);
+    float t = clamp((progress - 0.48) / 0.44, 0.0, 1.0);
+    float tail = 0.51 * t * t;
+    float lit = (1.0 - smoothstep(head - 0.03, head + 0.005, gap)) * smoothstep(tail - 0.005, tail + 0.03, gap);
+    // A bright bead at each front, while they run.
+    float x = (gap - head) * outline / (small * 0.1);
+    float bead = exp(-x * x) * smoothstep(0.0, 0.1, progress) * (1.0 - smoothstep(0.45, 0.62, progress));
+    // A pool of light at the bottom middle once the fronts have met there.
+    float y = (0.5 - gap) * outline / (small * 0.35);
+    float pool = exp(-y * y) * smoothstep(0.5, 0.66, progress);
+    float power = (lit * (0.8 + 0.6 * pool) + bead) * (1.0 - smoothstep(0.84, 1.0, progress));
+    if (power <= 0.002) return half4(here);
+
+    // Four colors that follow each other: the accent alone, richer and paler in turn;
+    // or twilight's own; or the theme's.
+    float3 a = float3(accent.rgb);
+    float3 b = float3(accent.rgb) * float3(accent.rgb);
+    float3 c = float3(accent.rgb);
+    float3 d = mix(float3(accent.rgb), float3(1.0), 0.3);
+    if (colors < 0.5) {
+        // Twilight: blue, violet, rose and apricot.
+        a = float3(0.26, 0.50, 1.00);
+        b = float3(0.56, 0.38, 1.00);
+        c = float3(1.00, 0.36, 0.60);
+        d = float3(1.00, 0.62, 0.36);
+    } else if (colors < 1.5) {
+        a = float3(link.rgb);
+        b = float3(accent.rgb);
+        c = float3(info.rgb);
+        d = float3(warn.rgb);
+    }
+    // The colors follow each other down from the top, the same on both sides. The haze leans
+    // toward the first two, so it fades into a cool light.
+    float4 w = shares(1.2 * gap + 0.15 * progress);
+    float3 front = vivid(a * w.x + b * w.y + c * w.z + d * w.w);
+    float3 back = vivid(mix(front, 0.5 * (a + b), 0.45));
+    float3 light = (front * e.x + back * e.y) * power;
+
+    // The light is laid over the page as a layer of its own color, as much as it is bright: on a
+    // dark page that adds light, on a light page it tints. Where it is brightest, on a dark page,
+    // it goes toward white.
+    float amount = max(max(light.r, light.g), light.b);
+    if (amount <= 0.0) return half4(here);
+    float cover = clamp(amount * mix(0.65, 1.0, dark), 0.0, mix(0.7, 1.0, dark));
+    float3 color = mix(light / max(amount, 0.001), float3(1.0), clamp(amount - 1.0, 0.0, 0.5) * dark);
+    return half4(here * (1.0 - cover) + float4(color * cover, cover));
+}
