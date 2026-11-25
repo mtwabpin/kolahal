@@ -94,7 +94,7 @@ nothing while the screen is still.
 | `seismograph` | today's screen time drawn by a recording instrument on a desk: a pen on a long arm writes the day on a strip of paper from midnight to midnight, level while the phone rested and shaking as hard as each three hours were busy, and stops at now, marked on the frame in the accent color. It follows the hour and your [screen time](#values-to-follow) |
 | `kintsugi` | the week's unlocks as a dark tea bowl mended with gold, on a table by a window: a seam for each day from left to right, the oldest first, each as long and branched as that day's unlocks, today's the brightest. On a light theme the bowl is pale over the log. It follows the hour and your [unlocks](#values-to-follow) |
 | `hourglass` | today's screen time as an hourglass on a table: the top holds what is left of a usual day, and the sand stands at a mark in the accent color when it is spent; past that it spills in a heap at the foot of the stand. It follows the hour and your [screen time](#values-to-follow) |
-| `pulse` | a [one-off](#one-off-shaders): light runs in around the edges of the screen from one point, swells once and is gone. Its colors and where it starts can be changed |
+| `pulse` | a [one-off](#one-off-shaders): light runs in around the edges of the screen from one point, swells once and is gone. Its colors and where it starts can be changed. It can play [over other apps](#over-other-apps) |
 
 In **Settings → Shaders**, a tap turns one on. Its details (ⓘ) have a preview: swipe left or right for the
 others, and hold the eye to see your own home with it, without turning it on.
@@ -144,8 +144,9 @@ To see it behind the log, use [`log.wallpaper`](/reference/config/#log).
 
 ## One-off shaders
 
-A one-off shader runs once for some seconds, over the shader that is on, and goes. Tap one under **One-off** in
-**Settings → Shaders**, or type `shader play hearts`. It can't be turned on to stay.
+A one-off shader runs once for some seconds, over the shader that is on, and goes. It draws over everything on the
+screen, text and the shader that is on included. Tap one under **One-off** in **Settings → Shaders**, or type
+`shader play hearts`. It can't be turned on to stay.
 
 **On a notification.** In its details, under **Plays on a notification**, type words with commas between, such as a name. It
 plays when a notification's title or text has one of them: whole words, in any case. Kolahal needs notification access for
@@ -184,8 +185,7 @@ A one-off can play over the app you are in, so you see it without going home. It
 
 Then a notification with one of a shader's words plays it at once over the app in front, when all of these hold:
 
-- The shader is rated good or fair for other apps in its [header](#the-header), as `hearts` is. `pulse` bends the
-  page under it, which it can't read over an app, so it isn't rated.
+- The shader is rated good or fair for other apps in its [header](#the-header), as `hearts` and `pulse` are.
 - Home isn't in front, the screen is on and the phone is unlocked.
 - Do Not Disturb doesn't hold the notification back.
 - No full-screen app, such as a video or a game, is in front.
