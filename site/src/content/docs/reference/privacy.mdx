@@ -126,16 +126,16 @@ And a recording still shows:
 
 <Downloads>
 
-The Play build (the Google Play version, also available as an APK on GitHub) doesn't have four of these:
-`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES` and the accessibility service. So calls
-in the log, `update` and the screen lock are only in the full build.
+The Play build (the Google Play version, also available as an APK on GitHub) doesn't have five of these:
+`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES`, `SYSTEM_ALERT_WINDOW` and the accessibility service. So calls
+in the log, `update`, the screen lock and one-off shaders over other apps are only in the full build.
 
 </Downloads>
 <Downloads off>
 
-The Play build (the Google Play version) doesn't have four of these:
-`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES` and the accessibility service. So calls
-in the log, `update` and the screen lock are only in the full build.
+The Play build (the Google Play version) doesn't have five of these:
+`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES`, `SYSTEM_ALERT_WINDOW` and the accessibility service. So calls
+in the log, `update`, the screen lock and one-off shaders over other apps are only in the full build.
 
 </Downloads>
 
@@ -164,6 +164,7 @@ Permissions declared in the manifest:
 | `PACKAGE_USAGE_STATS` | Usage Access, which you grant in Settings: accurate unlock counts, `usage` screen time, the screen time that [shaders can follow](/scripting/shaders/#values-to-follow) and `top` |
 | `ACCESS_NOTIFICATION_POLICY` | lists Kolahal on the Do Not Disturb access page, for `dnd`, `ring silent` and scripts with `@uses dnd`. You still have to grant it |
 | `WRITE_SETTINGS` | "Modify system settings", which you grant in Settings: `brightness`, `rotate`, `screen-timeout` |
+| `SYSTEM_ALERT_WINDOW` | "Display over other apps", which you grant in Settings: a [one-off shader](/scripting/shaders/#over-other-apps) plays over the app in front when a notification has one of its words. Its window takes no touches, and Kolahal reads nothing of the app under it. Optional. Not in the Play build |
 | `ACCESS_WIFI_STATE` | whether Wi-Fi is on, for `toggles` |
 | `WAKE_LOCK` | keeps the phone awake while a script runs at its daily time. Android's work scheduler also uses it |
 | `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | added by AndroidX, private to Kolahal. It stops other apps from receiving Kolahal's own broadcasts |
@@ -196,6 +197,7 @@ These are off until you turn them on, usually from the [setup checklist](/gettin
 | Notification access | notifications in the log, `notifs`, `notifications.recent()`, `media` and the header's now-playing line (reading media sessions), and the words that play a [one-off shader](/scripting/shaders/#one-off-shaders) | none of these |
 | Do Not Disturb access | `dnd`, `ring silent`, scripts with `@uses dnd` | those commands print a line you can tap to grant it; scripts can't change Do Not Disturb |
 | Modify system settings | `brightness`, `rotate`, `screen-timeout` | those commands print a line you can tap to grant it |
+| Display over other apps (full build, Android 13+) | a [one-off shader](/scripting/shaders/#over-other-apps) plays over the app in front when a notification has one of its words | the shader waits for home |
 | Accessibility service **Kolahal screen lock** | double-tap and `lock` lock the screen. It can't read window content and receives no events | no lock gesture |
 | Alarms & reminders (Android 12+) | `remind` and scripts' daily times run on the minute | up to an hour late; a script can't pause the work profile at night |
 | Unrestricted battery | timers and feeds run on time | Android may delay them |

@@ -15,7 +15,7 @@ before day 14 don't count.
 
 * On Play: the Play build, and why it has less
 
-Google Play gets the Play build, the full app without four things, packaged as a bundle:
+Google Play gets the Play build, the full app without five things, packaged as a bundle:
 =./gradlew :app:bundlePlay= (the Release workflow too). What it leaves out:
 
 | Left out                                  | What goes with it                                  | Play's rule                                                                                                                                            |
@@ -27,6 +27,10 @@ Google Play gets the Play build, the full app without four things, packaged as a
 
 The maintainer chose (26 October 2026) to leave the call log and the accessibility service out
 for good rather than risk the declaration.
+
+The fifth is =SYSTEM_ALERT_WINDOW= (Display over other apps), with the setting =screen.shader-over-apps=,
+=allow overlay= and the window that plays a one-off shader over the app in front. No rule of Play's
+names it: the maintainer chose (25 November 2026) to have it in the full build only for now.
 
 Neither build has =ACCESS_LOCAL_NETWORK=. The maintainer removed it (1 November 2026), with
 =@uses lan= and =local-network=: from 25 August 2027, Play lets an app targeting Android 17 ask for
@@ -67,7 +71,7 @@ seconds, started by an exact alarm the user allowed.
 
 =tools/check-play-build.sh= checks the Play APK: it fails if any of these appear: the
 call log, SMS or contacts permissions, =QUERY_ALL_PACKAGES=, =USE_EXACT_ALARM=, =REQUEST_INSTALL_PACKAGES=,
-=MANAGE_EXTERNAL_STORAGE=, =ACCESS_BACKGROUND_LOCATION=, =ACCESS_LOCAL_NETWORK=, an accessibility service, or the self-updater (its address in the code, its file provider or its receiver). Both
+=MANAGE_EXTERNAL_STORAGE=, =ACCESS_BACKGROUND_LOCATION=, =ACCESS_LOCAL_NETWORK=, =SYSTEM_ALERT_WINDOW=, an accessibility service, the self-updater (its address in the code, its file provider or its receiver), or the window for shaders over other apps (its name in the code). Both
 workflows run it, so a library that adds one is caught.
 
 Policy pages (opened 22 October 2026):
@@ -174,7 +178,7 @@ SCRIPTS IN LUA OR JAVASCRIPT
 • Each script has a switch for each thing it uses, and runs sandboxed in a separate process.
 
 A SCENE BEHIND IT
-• On Android 13 and newer, 33 shaders draw behind the log: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
+• On Android 13 and newer, 39 shaders draw behind the log: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
 • Some are drawn from your screen time and unlocks, such as a candle that burns down through the day. Those numbers stay on the phone.
 • Sliders change a shader, and a slider can follow the battery, the time of day or a value from a script.
 • A scene can also be your phone's live wallpaper, and you can write shaders of your own.

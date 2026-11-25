@@ -726,6 +726,13 @@ The facts are in =shader/=, part of the Model and plain Kotlin where it can be:
   scripts' values, so the live wallpaper gets them in its state.
 - =ShaderPlay=: one-off shaders (=@once=) that play for some seconds over home (=shader play=, a
   script's =shader.play=); =ShaderWords= plays one when a notification has its words.
+- [[src:shader/ShaderOverApps.kt::object ShaderOverApps][ShaderOverApps]]: a word's one-off over the app in front (=screen.shader-over-apps=), in the full
+  build only. =plays= is the one rule (pure): the setting, the access, the shader's rating for =apps=
+  (=@suits=), home not in front, the screen on and unlocked, no Do Not Disturb, no full-screen app,
+  and what stops a one-off on home. Where it says no, =ShaderPlay= has the shader wait for home. It
+  reads and compiles the shader off the main thread, under a mark of its own in =ShaderSafety=
+  (=overBegin=), and hands it to the window, [[src:ui/shaders/ShaderOverlay.kt::internal object ShaderOverlay][ShaderOverlay]] in =ui/shaders/=: one overlay window
+  that takes no touch, set as home is made (=MainActivity=), gone when the shader has run.
 - [[src:shader/ShaderSafety.kt::class ShaderSafety][ShaderSafety]]: a shader is armed in a store before its first frame; if Kolahal dies with it on
   screen, it is off at the next start. =ShaderClock= says when an animated shader's time may move
   (not in battery saver, when hot, or long untouched).
@@ -1003,7 +1010,7 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =terminal/=                   | the ViewModel and its helpers, suggestions, log row building, the line model, the widgets' own data                                                                                      | [[src:terminal/TerminalViewModel.kt::class TerminalViewModel][TerminalViewModel.kt]]            |
 | =terminal/commands/=          | command parsing and dispatch (=CommandProcessor=), the command groups, =Aliases=, =Fetch=                                                                                                | [[src:terminal/commands/CommandProcessor.kt::class CommandProcessor][CommandProcessor.kt]]             |
 | =terminal/tty/=               | the character grid, plain Kotlin: cells, widths, layout of each part of home; =screens/=: the full-screen screens                                                                        | [[src:terminal/tty/LineLayout.kt::object LineLayout][LineLayout.kt]]                   |
-| =ui/=                         | what several features share (=GuiComponents=, =ActionSheet=, =LabeledIconButtons=, =FeatureTabs=, =TypeValueDialog=), =TextEditorActivity=                                                                         | [[src:ui/GuiComponents.kt::fun GuiListPage][GuiComponents.kt]]                |
+| =ui/=                         | what several features share (=GuiComponents=, =ActionSheet=, =LabeledIconButtons=, =FeatureTabs=, =TypeValueDialog=, =AccessNeeded=), =TextEditorActivity=                                                         | [[src:ui/GuiComponents.kt::fun GuiListPage][GuiComponents.kt]]                |
 | =ui/theme/=                   | =Theme= (the =Term= object), =GuiTheme=, =TermFonts=, =MaterialYouPalettes=, =ScreenCorners= (the screen's rounded corners)                                                              | [[src:ui/theme/Theme.kt::object Term][Theme.kt]]                        |
 | =ui/home/=                    | home in the GUI style and what both styles share: =TerminalScreen=, =GuiHome=, =HomeState=, the log, the prompt, the key bar, suggestions, the app selector, the headers, home's dialogs | [[src:ui/home/HomeState.kt::internal class HomeState(][HomeState.kt]]                    |
 | =ui/tty/=                     | home in the TTY style: the grid's painter and its Compose pieces; the shader layer (=TtyShader=)                                                                                         | [[src:ui/tty/TtyHome.kt::internal fun TtyHome(][TtyHome.kt]]                      |
@@ -1106,13 +1113,15 @@ included. [[file:developing.org][docs/developing.org]] has the rest of the build
 |------------+----------------+----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | =debug=    | =.debug=       | no       | installs beside a release build; =-Pcoverage= turns on test coverage                                                                                                                                                      |
 | =release=  | none           | yes      | =isMinifyEnabled= and =isShrinkResources=                                                                                                                                                                                 |
-| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.LOCK_SERVICE=, =CALL_LOG=, =CONTACTS= and =SELF_UPDATE= are false; the manifest drops the accessibility service, the call log, contacts and the updater |
+| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.LOCK_SERVICE=, =CALL_LOG=, =CONTACTS=, =SELF_UPDATE= and =SHADER_OVER_APPS= are false; the manifest drops the accessibility service, the call log, contacts, the updater and =SYSTEM_ALERT_WINDOW= |
 
 Code checks =BuildConfig.LOCK_SERVICE= / =CALL_LOG= / =CONTACTS= / =SELF_UPDATE= wherever
 behavior differs in =play=. Without =CONTACTS=, =ContactsRepository.picker= is on: names come from
 the contacts picked with Android's contact picker (=ContactPicker=), remembered on the phone.
 Without =SELF_UPDATE=, =update= is never built, so R8 drops the updater
-(=tools/check-play-build.sh= checks the APK).
+(=tools/check-play-build.sh= checks the APK). Without =SHADER_OVER_APPS=, a word's one-off never
+reaches =ShaderOverApps= and home never sets its window, so R8 drops =ShaderOverlay= (the script
+checks for its window's name); the setting isn't in =Keys.ALL=, and =allow overlay= isn't offered.
 
 ** How the tests are organized
 
@@ -1202,6 +1211,9 @@ Then find a command that /opens a page/ (=settings=) and one that /asks a permis
 3. Put it on a Settings page: add it to a category in [[src:ui/settings/SettingsCatalog.kt::private val CATEGORIES][ui/settings/SettingsCatalog.kt]] and give it a
    human title in [[src:data/SettingTitles.kt::object SettingTitles][data/SettingTitles.kt]]. A key on no page must be in =Keys.CONFIG_ONLY=, or
    =SettingsCatalogTest= fails.
+   If it needs another setting to be on, add it to =SHOWN_WHEN= there; if it needs an access Android gives
+   (=allow <word>=), add it to =NEEDS_ACCESS=: without the access, its group shows a line and a button that
+   asks for it ([[src:ui/AccessNeeded.kt::internal fun AccessNeeded][ui/AccessNeeded.kt]]).
 4. =config set your.key on= at the prompt works too, with no extra code. Why? Follow
    =ConfigCommands=.
 

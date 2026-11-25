@@ -77,7 +77,13 @@ nothing while the screen is still.
 | `night` | stars that twinkle slowly and shift a little as the phone leans, and a meteor now and then; on a light theme, an engraved star chart. Their number can be changed. It moves |
 | `fireflies` | small lights wander behind the text, and a touch draws them near; on a light theme, soft motes in the sun. It moves |
 | `contour` | the contour lines of a map, slowly changing; a touch raises a hill. It moves |
-| `hearts` | a [one-off](#one-off-shaders): hearts rise from the bottom of the screen, sway and fade. Their number can be changed |
+| `hearts` | a [one-off](#one-off-shaders): hearts rise from the bottom of the screen, sway and fade. Their number can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-fountain` | a [one-off](#one-off-shaders): hearts burst from one point at the bottom, fan up and out, slow under gravity and fade near the top of their arcs. Their number can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-falling` | a [one-off](#one-off-shaders): hearts drift down from the top like petals, swaying and turning, in three depths. Their number can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-stream` | a [one-off](#one-off-shaders): small hearts rise along the right edge on a wavy path, and the middle of the screen stays clear. Their number can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-poppers` | a [one-off](#one-off-shaders): two bursts of hearts from the bottom corners cross in the middle, then fall back and fade. Their number can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-fireworks` | a [one-off](#one-off-shaders): a spark rises and opens into a heart of sparks, which widens, twinkles and sinks, three times. It can play [over other apps](#over-other-apps) |
+| `hearts-bounce` | a [one-off](#one-off-shaders): hearts drop from the top, bounce on the bottom edge and settle in a row, then hop and fall away. Their number can be changed. It can play [over other apps](#over-other-apps) |
 | `ink` | a touch drops a faint cloud of ink that spreads behind the text and fades. It moves |
 | `aura` | a soft light along the edges of the screen, rounded like its corners, whose colors drift slowly around it; a touch gathers it on the nearest edge. Its width, brightness, colors and speed can be changed. It moves |
 | `day-ring` | the day as a dial around the edge of the screen, midnight at the top: a thin line, a point of light for now, and a glow over the hours gone by, as wide and bright as the screen was on in each three hours. It follows your [screen time](#values-to-follow) |
@@ -105,6 +111,9 @@ A shader's details rate it for a dark theme, a light theme and a wallpaper that 
 If more than 20% of your wallpaper shows, turning on a shader that is poor over one gives a warning. It is turned on all
 the same. A scene gets none, since it hides the wallpaper while it is on (below). The author rates a shader in its
 [header](#the-header), and one without a rating shows none.
+
+A [one-off shader](#one-off-shaders) can have a fourth rating, for **other apps**: only one that is good or fair
+there plays [over the app in front](#over-other-apps). The full build shows it.
 
 A scene, a shader that can be your [live wallpaper](#as-a-live-wallpaper), brings its own ground: while it is on over
 home, your wallpaper doesn't show behind the log, whatever `log.wallpaper` says. The setting keeps its value, and the
@@ -140,8 +149,9 @@ A one-off shader runs once for some seconds, over the shader that is on, and goe
 
 **On a notification.** In its details, under **Plays on a notification**, type words with commas between, such as a name. It
 plays when a notification's title or text has one of them: whole words, in any case. Kolahal needs notification access for
-this, and asks if it has none. Notifications from the private space don't count. `shader words hearts Alex, picnic` does the same, and
-`shader words hearts off` ends it.
+this: without it, the field is "Needs notification access" and an **Allow notification access** button, and the words you
+typed come back once it is allowed. Notifications from the private space don't count. `shader words hearts Alex, picnic` does the same, and
+`shader words hearts off` ends it. In the full build it can play [over the app you are in](#over-other-apps).
 
 A script can play one too, with [`shader.play`](/scripting/api/#shaderplayname-seconds).
 
@@ -152,6 +162,44 @@ A script can play one too, with [`shader.play`](/scripting/api/#shaderplayname-s
 
 To write one, say for how many seconds it runs, from 1 to 10, with `// @once 6`. Its `progress` uniform goes from 0 to 1
 meanwhile: start and end with nothing.
+
+### Over other apps
+
+Full build only (the one from GitHub): the Play build has no such setting, and doesn't ask for the access.
+
+A one-off can play over the app you are in, so you see it without going home. It is off until you turn it on:
+
+1. In **Settings → Shaders**, under the one-off shaders, **Play over other apps** says what it needs first:
+   "Needs display over other apps", and "Needs notification access" while Kolahal can't see your notifications.
+   Tap **Allow display over other apps**. Android's **Display over other apps** page opens: turn Kolahal on
+   there. `allow overlay` opens the page too.
+2. Back in Kolahal, turn on **Play over other apps**. `config set screen.shader-over-apps on` does the same.
+
+Then a notification with one of a shader's words plays it at once over the app in front, when all of these hold:
+
+- The shader is rated good or fair for other apps in its [header](#the-header), as `hearts` is. `pulse` bends the
+  page under it, which it can't read over an app, so it isn't rated.
+- Home isn't in front, the screen is on and the phone is unlocked.
+- Do Not Disturb doesn't hold the notification back.
+- No full-screen app, such as a video or a game, is in front.
+- Nothing keeps a one-off from playing on home: battery saver, **Remove animations**, a hot phone, a nearly empty
+  battery or a screen reader.
+
+Otherwise it waits for home, as before. One that played over an app doesn't play again on home.
+
+- The shader is drawn in a window that takes no touches, so the app under it works as before. Android passes
+  touches only through a window that is partly see-through, so a shader is a little fainter there than on home.
+- Kolahal reads nothing of the app under it, and keeps nothing about it.
+- If you turn Display over other apps off later, the setting says that it needs it, and one-offs wait for home.
+- Some screens hide the windows of other apps, as Android's own Settings and Files do. Nothing shows over them.
+- After Kolahal starts again in the background, as after an update, one-offs wait for home until home has been in
+  front once.
+- `shader play` and a script's `shader.play` play over home only.
+
+To let a shader of yours play there, add `apps good` (or `apps fair`) to its `@suits` line, and draw on a clear ground:
+over another app there is nothing to read, so `content.eval` gives 0 everywhere, and what the shader returns is laid over
+the app as premultiplied color. Return only what you draw: no color for the page, and no veil over the app. The template
+`template-once` does.
 
 ## If something goes wrong
 
@@ -170,7 +218,8 @@ Shaders also stop on their own:
   the shader is turned off at the next start.
 
 A shader that was turned off stays off until its file changes or you turn it on again; a one-off, until
-you turn a shader on. After three times in a row, `screen.shader` is set to `off`.
+you turn a shader on. One that was playing [over another app](#over-other-apps) stays away from other apps until then,
+too. After three times in a row, `screen.shader` is set to `off`.
 
 Shaders are off while TalkBack or another screen reader is on. Moving shaders stand still in battery
 saver, with **Remove animations** on, when the phone is hot or nearly out of battery, and after a
@@ -331,7 +380,7 @@ Comments at the top say what the shader is. All are optional:
 | `// @name Tint` | its name for people |
 | `// @description …` | what it looks like. `shader` shows it |
 | `// @param amount 0.0..2.0 = 1.0 …` | something people can change. See [Parameters](#parameters) |
-| `// @suits dark good, light fair, wallpaper poor` | [what it works well over](#what-it-works-well-over): `good`, `fair` or `poor` |
+| `// @suits dark good, light fair, wallpaper poor` | [what it works well over](#what-it-works-well-over): `good`, `fair` or `poor`. A one-off can add `apps good`, to play [over other apps](#over-other-apps) |
 | `// @text` | it works on text, so it can't be a [live wallpaper](#as-a-live-wallpaper) |
 | `// @once 6` | it is a [one-off](#one-off-shaders), and runs for this many seconds |
 | `// @animated` | it changes on its own, so it is drawn up to 30 times a second. Without it a shader is only drawn when the screen changes, so it uses no power while the screen is still |
@@ -389,7 +438,9 @@ the **Follow** menu: use them with `shader follow` or in a header's `@follow`, a
 | `screen.h1` … `screen.h8` | each three hours of today, `h1` from midnight, from 0 to 1: how much of those three hours the screen was on. Hours still to come are 0 |
 
 Screen time and `away` need usage access (type `allow usage`). Without it they have no value. Unlocks are counted
-without it too, but only those Kolahal sees while it runs. A `usual` value needs a day before today. Kolahal works these
+without it too, but only those Kolahal sees while it runs. So without usage access, a shader that follows any of these
+says "Needs usage access" in **Settings → Shaders** and has an **Allow usage access** button in its details, and the
+**Follow** menu says "needs usage access" beside these values. The shader still draws, on the values it was set to. A `usual` value needs a day before today. Kolahal works these
 values out only while a shader on home or the live wallpaper follows one, or while **Settings → Shaders** is open for the
 shaders it lists: after you unlock the phone, when home comes back after five minutes or more, and every five minutes
 while home stays in front.

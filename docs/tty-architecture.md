@@ -1139,11 +1139,12 @@ tty.screen({
   `ShaderSafety` are there, and the Android side is `shader/Shaders.kt` (compiling, the user's
   files, turning one on and off, the log lines). The user's files are in `files/shaders/`, kept in
   step with the script folder by `script import` / `script export` and `shader reload` /
-  `shader save`, so a shader is found by name without the folder. Bundled: the 33 of
+  `shader save`, so a shader is found by name without the folder. Bundled: the 39 of
   `ShaderCatalog.BUNDLED`, in `assets/shaders/`: `crt`, `lcd`, `eink`, `paper`, `riso`, `graph`,
   `foil`, `lamp`, `dusk`, `frost`, `mountains`, `pond`, `dunes`, `rain`, `snowfall`, `grove-snow`,
   `grove-autumn`, `aurora`, `night`, `fireflies`, `contour`, `ink`, `aura`, `day-ring`, `lanterns`,
-  `kintsugi`, `record`, `candle`, `hourglass`, `windows`, `seismograph`, `hearts` and `pulse` (no `scanlines`,
+  `kintsugi`, `record`, `candle`, `hourglass`, `windows`, `seismograph`, `hearts`, `hearts-fountain`, `hearts-falling`, `hearts-stream`, `hearts-poppers`,
+  `hearts-fireworks`, `hearts-bounce` and `pulse` (no `scanlines`,
   `bloom` or `aberration`; `crt` has scanlines and a color fringe). A file of the user's with a
   bundled name is used instead of the bundled one.
 - *Commands* (`terminal/commands/ShaderCommands.kt`): `shader` or `shader ls`, `shader <name>`
@@ -1402,7 +1403,7 @@ refused.
   `ArmWhileShown`): one that was playing when Kolahal crashed or hung is turned off at the next start
   and isn't played until its file changes or a shader is turned on. It is not
   played in battery saver, with Remove animations on, when hot or low on battery, or with a screen
-  reader on. `hearts` is the bundled one.
+  reader on. `hearts`, its six variations (`hearts-fountain` … `hearts-bounce`) and `pulse` are the bundled ones.
 - Words that play one: `shader/ShaderWords.kt` keeps, per shader, words with commas between (at most
   200 characters), set in its details or with `shader words <name> <words>|off`. Kolahal's own
   notification listener asks it for each notification (whole words, any case, in the title or
