@@ -106,7 +106,10 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
    on one or two emulators), the coverage figure in README.org → Tests (=./gradlew -Pcoverage
    :app:createDebugUnitTestCoverageReport :app:createDebugAndroidTestCoverageReport=, then
    =perl tools/coverage.pl=), and =tools/check-play-build.sh= after =./gradlew :app:assemblePlay=.
-4. Commit =Version X.Y.Z (versionCode N)= with the notes and the coverage figure.
+4. Commit =Version X.Y.Z (versionCode N)= with the notes and the coverage figure. First check that
+   GitHub's master is in the branch (=git fetch origin master && git merge-base --is-ancestor
+   FETCH_HEAD HEAD=): a commit made on master since the branch left it makes the push of step 5
+   fail as a whole. Merge master into the branch then, never force the push.
 5. Tag it and push the branch, master and the tag together:
    =git tag -s vX.Y.Z -m "Version X.Y.Z"= and =git push --atomic origin X.Y.Z X.Y.Z:master vX.Y.Z=.
    One push lets the Build workflow see the Release run and skip the same build. Watch the run:
@@ -121,6 +124,11 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
    =main=. Kolahal X.Y.Z reads the site's =X.Y.Z/= folder, built from that branch; =main= is the root,
    which every Kolahal up to 0.5.16 reads, and which a newer one reads when a source has no folder
    for its version. The branch stays, for fixes to that version's scripts.
+9. The post, when there is one: a page of the website, =site/src/content/docs/blog/X-Y-Z.mdx= (dashes:
+   the site drops dots from addresses), with a =date= in its front matter, its pictures under
+   =site/src/assets/blog/X-Y-Z/= shown with =Shots=, and a line in the Blog group of the sidebar
+   (=site/astro.config.mjs=). It goes out with a push of the branch to master, after the tag: that
+   push carries the website and the docs only.
 
 Between releases the library, the script header and the shader rules change with the app. The same
 piece of work brings =kolahal-scripts= in line, on its branch named after the next Kolahal (made from
