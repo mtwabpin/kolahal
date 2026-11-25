@@ -172,7 +172,7 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
   - [ ] Left: =cells= and =scroll= uniforms, =@warp= and =@bloom= (with step 7's grid data or a
     Settings slider), the app shortcut for safe mode, and nothing measured on a phone yet.
 - Also built, beyond the plan (design §7.6–7.10):
-  - [X] Parameters: =// @param= lines (up to 8, a range or 2 to 4 words), each a =float= uniform of its
+  - [X] Parameters: =// @param= lines (up to 8, a range or 2 to 8 words), each a =float= uniform of its
     name; sliders and buttons in a shader's details, =shader set= and =shader reset=
     (=shader/ShaderParam.kt=, =shader/ShaderParams.kt=).
   - [X] Values a parameter follows: =battery=, =charging=, =day=, =night=, and scripts' own through

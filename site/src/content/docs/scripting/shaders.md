@@ -77,13 +77,13 @@ nothing while the screen is still.
 | `night` | stars that twinkle slowly and shift a little as the phone leans, and a meteor now and then; on a light theme, an engraved star chart. Their number can be changed. It moves |
 | `fireflies` | small lights wander behind the text, and a touch draws them near; on a light theme, soft motes in the sun. It moves |
 | `contour` | the contour lines of a map, slowly changing; a touch raises a hill. It moves |
-| `hearts` | a [one-off](#one-off-shaders): hearts rise from the bottom of the screen, sway and fade. Their number can be changed. It can play [over other apps](#over-other-apps) |
-| `hearts-fountain` | a [one-off](#one-off-shaders): hearts burst from one point at the bottom, fan up and out, slow under gravity and fade near the top of their arcs. Their number can be changed. It can play [over other apps](#over-other-apps) |
-| `hearts-falling` | a [one-off](#one-off-shaders): hearts drift down from the top like petals, swaying and turning, in three depths. Their number can be changed. It can play [over other apps](#over-other-apps) |
-| `hearts-stream` | a [one-off](#one-off-shaders): small hearts rise along the right edge on a wavy path, and the middle of the screen stays clear. Their number can be changed. It can play [over other apps](#over-other-apps) |
-| `hearts-poppers` | a [one-off](#one-off-shaders): two bursts of hearts from the bottom corners cross in the middle, then fall back and fade. Their number can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts` | a [one-off](#one-off-shaders): hearts rise from the bottom of the screen, sway and fade. Their number and the [style of the heart](#the-hearts-style) can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-fountain` | a [one-off](#one-off-shaders): hearts burst from one point at the bottom, fan up and out, slow under gravity and fade near the top of their arcs. Their number and the [style of the heart](#the-hearts-style) can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-falling` | a [one-off](#one-off-shaders): hearts drift down from the top like petals, swaying and turning, in three depths. Their number and the [style of the heart](#the-hearts-style) can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-stream` | a [one-off](#one-off-shaders): small hearts rise along the right edge on a wavy path, and the middle of the screen stays clear. Their number and the [style of the heart](#the-hearts-style) can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-poppers` | a [one-off](#one-off-shaders): two bursts of hearts from the bottom corners cross in the middle, then fall back and fade. Their number and the [style of the heart](#the-hearts-style) can be changed. It can play [over other apps](#over-other-apps) |
 | `hearts-fireworks` | a [one-off](#one-off-shaders): a spark rises and opens into a heart of sparks, which widens, twinkles and sinks, three times. It can play [over other apps](#over-other-apps) |
-| `hearts-bounce` | a [one-off](#one-off-shaders): hearts drop from the top, bounce on the bottom edge and settle in a row, then hop and fall away. Their number can be changed. It can play [over other apps](#over-other-apps) |
+| `hearts-bounce` | a [one-off](#one-off-shaders): hearts drop from the top, bounce on the bottom edge and settle in a row, then hop and fall away. Their number and the [style of the heart](#the-hearts-style) can be changed. It can play [over other apps](#over-other-apps) |
 | `ink` | a touch drops a faint cloud of ink that spreads behind the text and fades. It moves |
 | `aura` | a soft light along the edges of the screen, rounded like its corners, whose colors drift slowly around it; a touch gathers it on the nearest edge. Its width, brightness, colors and speed can be changed. It moves |
 | `day-ring` | the day as a dial around the edge of the screen, midnight at the top: a thin line, a point of light for now, and a glow over the hours gone by, as wide and bright as the screen was on in each three hours. It follows your [screen time](#values-to-follow) |
@@ -162,6 +162,13 @@ A script can play one too, with [`shader.play`](/scripting/api/#shaderplayname-s
 
 To write one, say for how many seconds it runs, from 1 to 10, with `// @once 6`. Its `progress` uniform goes from 0 to 1
 meanwhile: start and end with nothing.
+
+### The heart's style
+
+`hearts`, `hearts-fountain`, `hearts-falling`, `hearts-stream`, `hearts-poppers` and `hearts-bounce` draw their hearts
+in the style you choose under **Heart** in their details: **Glossy** (the default), **Flat**, **Gradient**, **Outline**,
+**Double**, **Neon**, **Cartoon** or **Halftone**. Each of them keeps its own. `shader set hearts style neon` does the
+same.
 
 ### Over other apps
 
@@ -406,7 +413,8 @@ uniform float shape;
 ```
 
 - **A range** is a slider. If nothing in it has a decimal point (`1..8 = 3`), it goes in whole numbers.
-- **Words**, two to four of them, are buttons. The uniform gets the word's place: 0 for the first, 1 for the second.
+- **Words**, two to eight of them, are buttons: up to four in one row, more in two. The uniform gets the word's place: 0
+  for the first, 1 for the second.
 - A shader can have up to 8. Their names can't be those of the uniforms below.
 - Values are kept for each shader, in the [backup file](/guides/backup/) too, and when the shader is updated. One that
   the new version can't have becomes the default again.

@@ -1356,7 +1356,7 @@ the built-in look. User `.agsl` files are listed but marked unavailable.
 
 A shader can have up to 8 parameters (`ShaderParam.MAX`), each a header line
 `// @param amount 0.0..2.0 = 1.0 Amount of snow` (a range: a slider, whole numbers when no value
-has a decimal point) or `// @param shape round|star = round Shape` (2 to 4 words: buttons; the
+has a decimal point) or `// @param shape round|star = round Shape` (2 to 8 words: buttons, up to four in a row; the
 uniform gets the word's place). Its value is a `float` uniform of its name; a name of `KNOWN` is
 refused.
 
