@@ -141,6 +141,7 @@ See [Productivity](/guides/productivity/), and [Text editor](/guides/text-editor
 | Usage | Description |
 | --- | --- |
 | `scripts` | open the script manager (the Scripts tab in Settings); `scripts <sub>` works like `script <sub>` |
+| `shaders` | open the Shaders tab; `shaders <sub>` works like `shader <sub>` |
 | `script <sub> <name>` | manage scripts; see the subcommands below |
 | `lua <code>` | run Lua 5.4 code |
 | `js <code>` | run JavaScript code (QuickJS) |
@@ -224,7 +225,7 @@ How home looks: its colors, its font, what is drawn over it and what is behind i
 
 With `shader crt` (or [another, or one of yours](/scripting/shaders/)), the phone's
 graphics chip draws an effect over home and the screens, on Android 13 and newer. `shader off` turns it off.
-They are in **Settings → Shaders** too.
+They are in the **Shaders** tab too.
 
 ## Widgets
 

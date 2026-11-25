@@ -12,7 +12,7 @@ Shaders need **Android 13 or newer**.
 
 ## Turning a shader on
 
-Open **Settings → Shaders** and tap a shader. It is checked first: if it doesn't compile, the one that is
+Open the **Shaders** tab and tap a shader. It is checked first: if it doesn't compile, the one that is
 on stays, and its row says why. **None** turns shaders off.
 
 The search looks in names, descriptions and tags. The chips under it keep the shaders that work well in a
@@ -96,7 +96,7 @@ nothing while the screen is still.
 | `hourglass` | today's screen time as an hourglass on a table: the top holds what is left of a usual day, and the sand stands at a mark in the accent color when it is spent; past that it spills in a heap at the foot of the stand. It follows the hour and your [screen time](#values-to-follow) |
 | `pulse` | a [one-off](#one-off-shaders): light runs in around the edges of the screen from one point, swells once and is gone. Its colors and where it starts can be changed. It can play [over other apps](#over-other-apps) |
 
-In **Settings → Shaders**, a tap turns one on. Its details (ⓘ) have a preview: swipe left or right for the
+On the **Shaders** tab, a tap turns one on. Its details (ⓘ) have a preview: swipe left or right for the
 others, and hold the eye to see your own home with it, without turning it on.
 
 ## What it works well over
@@ -145,7 +145,7 @@ To see it behind the log, use [`log.wallpaper`](/reference/config/#log).
 ## One-off shaders
 
 A one-off shader runs once for some seconds, over the shader that is on, and goes. It draws over everything on the
-screen, text and the shader that is on included. Tap one under **One-off** in **Settings → Shaders**, or type
+screen, text and the shader that is on included. Tap one under **One-off** in the **Shaders** tab, or type
 `shader play hearts`. It can't be turned on to stay.
 
 **On a notification.** In its details, under **Plays on a notification**, type words with commas between, such as a name. It
@@ -177,7 +177,7 @@ Full build only (the one from GitHub): the Play build has no such setting, and d
 
 A one-off can play over the app you are in, so you see it without going home. It is off until you turn it on:
 
-1. In **Settings → Shaders**, under the one-off shaders, **Play over other apps** says what it needs first:
+1. On the **Shaders** tab, under the one-off shaders, **Play over other apps** says what it needs first:
    "Needs display over other apps", and "Needs notification access" while Kolahal can't see your notifications.
    Tap **Allow display over other apps**. Android's **Display over other apps** page opens: turn Kolahal on
    there. `allow overlay` opens the page too.
@@ -214,7 +214,7 @@ A shader can make the screen hard to read. These always work:
 
 - Type `shader off`. The keyboard and the prompt work, even when you can't see them.
 - Hold two fingers still on the screen for a second.
-- **Settings → Shaders → None**. Settings has no shader over it.
+- **Shaders → None**. Settings has no shader over it.
 - `config set screen.shader off`.
 
 Shaders also stop on their own:
@@ -239,7 +239,7 @@ A shader is a text file that ends in `.agsl`. Its name is the file's name in low
 is `my-glow`. A file can have at most 64 KB. A few words that `shader` uses itself, such as `off` and
 `list`, can't be a shader's name.
 
-There are three ways to add one, all under **Settings → Shaders → Add shader**:
+There are three ways to add one, all under **Shaders → Add shader**:
 
 - **Import a file.** Pick one or more `.agsl` files. (**Add script → Import a file** in the Scripts screen
   takes them too.)
@@ -247,7 +247,7 @@ There are three ways to add one, all under **Settings → Shaders → Add shader
   in its `shaders` folder. [`script import`](/scripting/overview/#moving-scripts) reads it as well.
 - **Start from a template.** A short shader to edit, with comments. See [Writing one](#writing-one).
 
-Your shaders are listed under **Settings → Shaders → Your shaders**, and are part of the
+Your shaders are listed under **Shaders → Your shaders**, and are part of the
 [backup file](/guides/backup/).
 
 `script export` also writes your shaders into the folder's `shaders` folder, so you can keep them in
@@ -268,7 +268,7 @@ Kolahal is used instead of it, until you remove it.
 
 ### Editing one
 
-**Edit** in a shader's details (**Settings → Shaders**, then the details button of its row) opens its code
+**Edit** in a shader's details (**Shaders**, then the details button of its row) opens its code
 in the same editor as [scripts](/scripting/editor/). `shader edit <name>` does the same at the prompt.
 
 - The code is colored as AGSL: its types, the word of each [header](#the-header) line, such as `@name`, and
@@ -291,7 +291,7 @@ from you, and **Remove** brings Kolahal's back.
 
 ## Getting shaders from others
 
-**Settings → Shaders → Add shader → Get more shaders** lists the shaders that people share in
+**Shaders → Add shader → Get more shaders** lists the shaders that people share in
 [kolahal-scripts](https://github.com/mtwabpin/kolahal-scripts) on GitHub, beside its scripts. Each is
 reviewed before it is added.
 
@@ -322,7 +322,7 @@ in `shaders/<name>/<name>.agsl` with a full [header](#the-header).
 
 The quickest start is a template: a working shader of 30 to 50 lines whose comments say what each line is for.
 
-1. **Settings → Shaders → Add shader → Start from a template**, and pick one: each row shows a small picture of the
+1. **Shaders → Add shader → Start from a template**, and pick one: each row shows a small picture of the
    screen with it on. A copy becomes one of your shaders: `my-tint`, or `my-tint-2` when that name is taken. With a
    script folder (`script dir`), its file is written into the folder's `shaders` folder. Without one, Kolahal asks
    for a folder, and **Save to folder** in the shader's details writes the file there. `shader save template-tint` does the
@@ -447,9 +447,9 @@ the **Follow** menu: use them with `shader follow` or in a header's `@follow`, a
 
 Screen time and `away` need usage access (type `allow usage`). Without it they have no value. Unlocks are counted
 without it too, but only those Kolahal sees while it runs. So without usage access, a shader that follows any of these
-says "Needs usage access" in **Settings → Shaders** and has an **Allow usage access** button in its details, and the
+says "Needs usage access" on the **Shaders** tab and has an **Allow usage access** button in its details, and the
 **Follow** menu says "needs usage access" beside these values. The shader still draws, on the values it was set to. A `usual` value needs a day before today. Kolahal works these
-values out only while a shader on home or the live wallpaper follows one, or while **Settings → Shaders** is open for the
+values out only while a shader on home or the live wallpaper follows one, or while the **Shaders** tab is open for the
 shaders it lists: after you unlock the phone, when home comes back after five minutes or more, and every five minutes
 while home stays in front.
 

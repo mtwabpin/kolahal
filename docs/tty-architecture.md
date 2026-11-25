@@ -72,7 +72,7 @@ TTY gets both (§3.4, §2.7); the thumb should then be added to the GUI too, or 
   effect (§5.2, §7.5).
 - *Shipping*: TTY stays a config setting (`config set home.style tty`), never in Settings and with
   no page on the website: the maintainer's decision of 22 November, in [tty.org](tty.org).
-  Shaders are in Settings (Settings → Shaders).
+  Shaders have a tab of their own.
 - Neither the scroll thumb nor selection mode was built, in either style (§2.7, §3.4).
 
 ## 1. The seam
@@ -1164,7 +1164,7 @@ tty.screen({
   `Shaders.check`: the message line has its problem, with the compiler's line (`Shaders.Check.line`) to go to. A
   shader that fails is saved all the same. One that comes with Kolahal (`ShaderCatalog.Edit.COPY`) is saved as
   the user's file of its name, used instead of it.
-- *Settings*: Settings → Shaders (`ui/shaders/ShadersScreen.kt`, a shader's sheet in `ui/shaders/ShaderSheet.kt`,
+- *Shaders tab*: `ui/shaders/ShadersScreen.kt` (a shader's sheet in `ui/shaders/ShaderSheet.kt`,
   what a row says in `ui/shaders/ShaderPage.kt`, Get more shaders in `ui/shaders/GetShadersScreen.kt`), by the maintainer's
   request of 22 November. The key itself is in `Keys.CONFIG_ONLY`, on no settings page.
 - *Uniforms*: see the **As built** note in §7.2. Not built: `cells`, `scroll`, `@warp`, `@bloom`.
@@ -1199,7 +1199,7 @@ tty.screen({
   There is no `screen.shader-tripped` key: what is tripped is in the crash preferences, which stay
   on this phone. A compile error, or a uniform Android refuses, is one log line (once per shader and
   problem) whose tap runs `shader check <name>`; home goes on without the effect.
-- *Off*: `shader off`, `config set screen.shader off`, Settings → Shaders → None, and two fingers
+- *Off*: `shader off`, `config set screen.shader off`, Shaders → None, and two fingers
   held still for a second (observed on the layer itself, nothing consumed). No app shortcut. The
   screen reader rule is as designed; with **Remove animations** a moving shader stands still rather
   than going off.
@@ -1310,7 +1310,7 @@ types.
   handled below. No `@uses` is needed.
 
 **As built.** Files as above, with the bundled set and commands of the **As built** note at the top
-of §7, and Settings → Shaders instead of Settings → TTY → Shader. The header comments read by
+of §7, and Shaders instead of Settings → TTY → Shader. The header comments read by
 `ShaderMeta.parse`: `@name` (or `@title`), `@description` (or `@desc`), `@animated`, `@param`
 (§7.6), `@once` (§7.7), `@suits` and `@text` (§7.8), `@fps` and `@settles` (§7.4 As built), and
 for shared shaders `@author`, `@version`, `@license`, `@requires` (the oldest Kolahal) and `@tags`.
@@ -1337,7 +1337,7 @@ fails to turn on keeps the one that was on.
 |---|---|
 | Frame-time watchdog | Built and removed on 22 November (the *Watchdog* note at the top of §7). |
 | Crash / hang at start | As designed, with the mark written before compiling and a shader proven after 10 s in front (*Safe mode* at the top of §7; `shader/ShaderSafety.kt`). |
-| Always-available off | (1) Settings → Shaders → None; (2) `shader off`; (3) two fingers held still for a second. Not built: the app shortcut "Safe mode". |
+| Always-available off | (1) Shaders → None; (2) `shader off`; (3) two fingers held still for a second. Not built: the app shortcut "Safe mode". |
 | Battery | `ShaderClock.moves`: an `@animated` shader's time stands still in battery saver, with Remove animations on, at thermal status MODERATE or more, below 15 % (`LOW_BATTERY`) unless charging, and after 60 s without a touch (`IDLE_MS`) unless charging. It never turns off for these; there is no `screen.shader-battery`. |
 | Idle | The frame loop (30 frames a second, `ShaderClock.FPS`, or as the header asks, below) runs only while home is in front, and home's own loop stops under a full-screen screen, which has its own. The phone's state is checked every 2 s while a shader moves and every second while it stands still, and not while its touch has settled (it waits for the next touch). A shader that was in front for 10 s is kept compiled (`ShaderCache`), so home shows it at once when it is composed again. |
 | Accessibility | Shaders and one-off shaders are off while a screen reader is on, with no opt-in. With Remove animations on, a moving shader stands still. |

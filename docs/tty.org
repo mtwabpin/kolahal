@@ -11,7 +11,7 @@ override the rest. Internal: nothing here is published. Checked against the code
 How a user reaches TTY today: =config set home.style tty= (values =gui=, the default, and =tty=). The
 key is in =Keys.CONFIG_ONLY=, so it is on no Settings page and nothing in Settings switches it; the
 part keys (=tty.suggestions=, =tty.selector=, =tty.keybar=, =tty.quick-actions=, =tty.menu=) are config
-only too. Shaders (Settings → Shaders) work in both styles. The full-screen screens are commands of
+only too. Shaders (the Shaders tab) work in both styles. The full-screen screens are commands of
 the TTY style (=clock=, =top=…); in the GUI style only =screen <name>= typed in full opens one, and the
 screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
 
@@ -146,7 +146,7 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
 
 ** DONE Step 6: shaders  :shaders:
 - Size M–L. Design §7. Android 13 and newer.
-- State: built, in Settings → Shaders and the =shader= command, over home in both styles, the screens
+- State: built, in the Shaders tab and the =shader= command, over home in both styles, the screens
   and the live wallpaper. Left, from the design: the =cells= and =scroll= uniforms, =@warp=, =@bloom=
   and the app shortcut for safe mode (each under "Left" below).
 - AGSL files loaded like scripts, a =RenderEffect= on the TTY layer, uniforms (time, size, theme
@@ -188,7 +188,7 @@ screensaver (Settings → Look & feel → Screensaver) offers =decode= alone.
     from what home hands over in a file; the =wallpaper= uniform (=ui/wallpaper/=,
     =shader/WallpaperChoice.kt=).
 - The Shaders screen and its store (22 November):
-  - [X] Settings → Shaders, in Settings by the maintainer's request of 22 November (the rest of TTY
+  - [X] Shaders tab, by the maintainer's request of 22 November (the rest of TTY
     stays config only): None, the bundled ones and the user's own; one tap turns one on, if it compiles.
     Each has a sheet: preview, check, code, copy, share, update, remove with undo.
   - [X] Get more shaders: an optional =shaders= array beside =scripts= in the sources' =index.json=

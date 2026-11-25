@@ -721,7 +721,7 @@ The facts are in =shader/=, part of the Model and plain Kotlin where it can be:
   (the battery, ...) and a script's, given with =shader.give= under its =@gives= line.
 - =UsageValues= (pure) are Kolahal's values from the phone's use: unlocks, screen time and the time
   away. =UsageWatch= works them out in the main process, only while a shader in use follows one, or
-  one that Settings → Shaders lists while it is open (=UsageWatch.list=) (after an unlock, and at
+  one that the Shaders tab lists while it is open (=UsageWatch.list=) (after an unlock, and at
   most every five minutes while home is in front), and keeps them with the
   scripts' values, so the live wallpaper gets them in its state.
 - =ShaderPlay=: one-off shaders (=@once=) that play for some seconds over home (=shader play=, a
@@ -744,7 +744,7 @@ the uniforms it declares, draws a still one only when something changes, and dra
 screen reader on. =corner= is the window's rounded corner and =cutout= the camera's cutout at its
 top when the surface fills the window. Two fingers held still for a second turn it off.
 
-The screens: Settings → Shaders (=ShadersScreen=, =ShaderPage=, =ShaderSheet=), shown over home so
+The screens: the Shaders tab (=ShadersScreen=, =ShaderPage=, =ShaderSheet=), shown over home so
 the shader is seen as you change it, and Get more shaders; =ShaderActions= is their helper and
 =ShaderCommands= the =shader= command. The live wallpaper is [[src:ui/wallpaper/ShaderWallpaper.kt::class ShaderWallpaper][ShaderWallpaper]], in a process of its
 own (see [[*Three processes][Three processes]]); =WallpaperChoice= is the shader it draws.
@@ -783,7 +783,7 @@ the page and the picker adds to it. The design record is [[file:widgets-design.o
 - [[src:terminal/TerminalUi.kt::enum class Screen][Screen]] is an enum of pages; =TerminalViewModel.screen= (from =Navigation=) says which one is
   showing.
 - =openScreen(x)= pushes the current page on a small =backStack=; =closeScreen()= pops it.
-  Settings, Feeds and Scripts are tabs of one place: =switchTab= replaces the page instead.
+  Settings, Scripts, Shaders and Feeds are tabs of one place: =switchTab= replaces the page instead.
 - Each page installs a =BackHandler= that calls =vm.closeScreen()=. On the terminal, Back
   does nothing: a launcher never "goes back" off home.
 - The script editor isn't a =Screen=: it's an overlay shown whenever =vm.editing= is non-null. The

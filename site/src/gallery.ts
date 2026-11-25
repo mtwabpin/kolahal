@@ -156,7 +156,7 @@ export const PICTURES: Picture[] = [
 	{ section: 'scripts', file: 'widgets/example-sky-2x2.png', caption: 'The sky', alt: 'A 2×2 sky card in the Shape look: the sun on its arc, and the time of sunset', href: '/scripting/api/#kinds-and-their-fields' },
 
 	// Shaders: captures, then the scenes as the shader files draw them
-	{ section: 'shaders', file: 'shots/shaders/list.png', caption: 'Settings → Shaders', alt: 'Settings, Shaders, searched for screen time: Record, Candle and Hourglass, each with what it draws', href: '/scripting/shaders/#turning-a-shader-on' },
+	{ section: 'shaders', file: 'shots/shaders/list.png', caption: 'Shaders', alt: 'Settings, Shaders, searched for screen time: Record, Candle and Hourglass, each with what it draws', href: '/scripting/shaders/#turning-a-shader-on' },
 	{ section: 'shaders', file: 'shots/shader-parameters/sliders.png', caption: 'A shader’s details', alt: 'The details of the mountains shader: its preview, what it draws, and a slider for the number of birds', href: '/scripting/shaders/#turning-a-shader-on' },
 	{ section: 'shaders', file: 'shots/shader-parameters/follow.png', caption: 'A parameter that follows a value', alt: 'The details of the candle shader: its parameter following screen time, today against a usual day', href: '/scripting/shaders/#values-to-follow' },
 	{ section: 'shaders', file: 'shots/shaders/lanterns.png', caption: 'shader lanterns', alt: 'Home over the lanterns scene, a lantern for each day’s unlocks over dark water', href: '/scripting/shaders/#turning-a-shader-on' },
