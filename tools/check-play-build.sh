@@ -23,10 +23,9 @@ problems=0
 
 # Permissions Play keeps for default phone, SMS or assistant apps, or for a few declared uses
 # (contacts: where Android's contact picker won't do; the local network: where a device picker won't).
-# SYSTEM_ALERT_WINDOW too: only the full build draws a one-off shader over other apps.
 for p in READ_CALL_LOG WRITE_CALL_LOG PROCESS_OUTGOING_CALLS READ_SMS SEND_SMS RECEIVE_SMS RECEIVE_MMS \
          READ_CONTACTS WRITE_CONTACTS QUERY_ALL_PACKAGES USE_EXACT_ALARM REQUEST_INSTALL_PACKAGES MANAGE_EXTERNAL_STORAGE \
-         ACCESS_BACKGROUND_LOCATION ACCESS_LOCAL_NETWORK SYSTEM_ALERT_WINDOW; do
+         ACCESS_BACKGROUND_LOCATION ACCESS_LOCAL_NETWORK; do
     if grep -q "name='android.permission.$p'" <<<"$permissions"; then
         echo "$(basename "$apk") asks for $p."
         problems=1
@@ -58,10 +57,20 @@ elif grep -aq 'repos/mtwabpin/kolahal/releases' "$dex"; then
     echo "$(basename "$apk") has the self-updater's code in it."
     problems=1
 fi
-# The window that draws a shader over other apps (ui/shaders/ShaderOverlay.kt), by its name: gone with its code.
-if [ -s "$dex" ] && grep -aq 'Kolahal one-off shader' "$dex"; then
-    echo "$(basename "$apk") has the window for shaders over other apps in it."
-    problems=1
+# A one-off shader over other apps: SYSTEM_ALERT_WINDOW and the window that uses it (ui/shaders/ShaderOverlay.kt,
+# found by its name) come together or not at all. The Play build has both; SHADER_OVER_APPS in app/build.gradle.kts
+# says how to take both out if Google refuses it. One without the other means the switch and the manifest disagree.
+if [ -s "$dex" ]; then
+    asks=0; window=0
+    if grep -q "name='android.permission.SYSTEM_ALERT_WINDOW'" <<<"$permissions"; then asks=1; fi
+    if grep -aq 'Kolahal one-off shader' "$dex"; then window=1; fi
+    if [ "$asks" != "$window" ]; then
+        if [ "$asks" = 1 ]; then echo "$(basename "$apk") asks for SYSTEM_ALERT_WINDOW but has no window for shaders over other apps.";
+        else echo "$(basename "$apk") has the window for shaders over other apps but doesn't ask for SYSTEM_ALERT_WINDOW."; fi
+        problems=1
+    elif [ "$asks" = 1 ]; then
+        echo "$(basename "$apk") asks for SYSTEM_ALERT_WINDOW, for one-off shaders over other apps (off until turned on)."
+    fi
 fi
 
 if [ "$problems" = 0 ]; then echo "$(basename "$apk") leaves out every restricted permission and service."; fi

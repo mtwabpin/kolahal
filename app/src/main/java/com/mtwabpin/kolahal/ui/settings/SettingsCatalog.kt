@@ -111,7 +111,7 @@ internal val NEEDS_ACCESS: Map<ConfigKey<*>, List<String>> = buildMap {
     put(Keys.USAGE_SCREEN_TIME_LIMIT, listOf(Accesses.USAGE))
     put(Keys.USAGE_UNLOCK_LIMIT, listOf(Accesses.USAGE))
     // No word plays a one-off shader without notification access, and none plays over an app without
-    // Display over other apps. The Shaders tab shows its switch. The Play build has neither the setting nor that access.
+    // Display over other apps. The Shaders tab shows its switch. A build without it (BuildConfig.SHADER_OVER_APPS) has neither the setting nor that access.
     if (BuildConfig.SHADER_OVER_APPS) put(Keys.SHADER_OVER_APPS, listOf(Accesses.READ_NOTIFICATIONS, Accesses.OVERLAY))
 }
 

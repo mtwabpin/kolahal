@@ -542,7 +542,7 @@ object Keys {
             "northern-lights" to "A one-off: a curtain of colored light falls from the top, once",
         ),
     )
-    /** A one-off shader that a notification's word plays is drawn over the app in front (shader/ShaderOverApps.kt). Not in the Play build ([ALL]). The Shaders tab sets it. */
+    /** A one-off shader that a notification's word plays is drawn over the app in front (shader/ShaderOverApps.kt). Only in a build that has it ([ALL]). The Shaders tab sets it. */
     val SHADER_OVER_APPS = ConfigKey.Bool(
         "screen.shader-over-apps",
         false,
@@ -848,7 +848,7 @@ object Keys {
         LOG_DIM,
         HOME_STYLE,
         SCREEN_SHADER,
-        // The Play build can't draw over other apps, so it has no setting for it.
+        // A build without drawing over other apps (BuildConfig.SHADER_OVER_APPS) has no setting for it.
         *listOfNotNull(SHADER_OVER_APPS.takeIf { com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS }).toTypedArray(),
         LOG_SPACING,
         LOG_ITEM_SPACING,

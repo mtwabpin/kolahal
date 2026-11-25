@@ -422,7 +422,7 @@ private fun ShaderWordsField(name: String, actions: ShaderActions, onAskNotifica
 @Composable
 private fun SuitsRow(suits: Map<ShaderSurface, ShaderFit>, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    // The Play build plays nothing over other apps, so it shows no rating for them.
+    // A build without drawing over other apps (BuildConfig.SHADER_OVER_APPS) shows no rating for them.
     val all = ShaderSurface.entries.filter { it in suits && (it != ShaderSurface.APPS || BuildConfig.SHADER_OVER_APPS) }
     // Four don't fit side by side with their words on a phone: two rows of two then.
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {

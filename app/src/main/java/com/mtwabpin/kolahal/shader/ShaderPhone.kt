@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.shader
 
 import android.animation.ValueAnimator
+import android.app.ActivityManager
 import android.content.Context
 import android.os.BatteryManager
 import android.os.Build
@@ -24,4 +25,8 @@ object ShaderPhone {
                 ?.takeIf { it in 0..100 } ?: 100,
         )
     }
+
+    /** Whether this is a low-memory phone, such as one with Android Go: it can't give Display over other apps ([ShaderOverApps.phoneGives]). */
+    fun lowRam(context: Context): Boolean =
+        runCatching { context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true }.getOrDefault(false)
 }

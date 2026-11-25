@@ -34,7 +34,7 @@
     <uses-permission
         android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
-    <!-- A one-off shader over the app in front (user allows "Display over other apps"). Not in the Play build. -->
+    <!-- A one-off shader over the app in front (user allows "Display over other apps"). In both builds. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Lets the home screen show an accurate unlock count (user grants it in Settings). -->
     <uses-permission

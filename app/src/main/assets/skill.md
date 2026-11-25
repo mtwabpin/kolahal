@@ -330,7 +330,7 @@ Comments at the top, all optional:
 | `// @name Tint` | Its name for people (`@title` also works). |
 | `// @description …` | What it looks like (`@desc` also works). |
 | `// @param amount 0.0..2.0 = 1.0 Amount` | Something people change: see "Parameters". |
-| `// @suits dark good, light fair, wallpaper poor` | How it looks over a dark theme, a light theme and a wallpaper behind the log: `good`, `fair` or `poor`. A one-off adds `apps good` to play over other apps (GitHub build), on a clear `content`. |
+| `// @suits dark good, light fair, wallpaper poor` | How it looks over a dark theme, a light theme and a wallpaper behind the log: `good`, `fair` or `poor`. A one-off adds `apps good` to play over other apps, on a clear `content`. |
 | `// @text` | It works on text, so it can't be a live wallpaper. |
 | `// @animated` | It changes by itself: drawn up to 30 times a second, and `time` moves. Without it, it is drawn only when the screen changes, and costs nothing while it is still. |
 | `// @fps 10` | An animated shader's frames a second, 1 to 30. Use it for slow scenes. |

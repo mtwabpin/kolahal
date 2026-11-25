@@ -333,6 +333,49 @@ class ShadersScreenTest {
     }
 
     /**
+     * Allow display over other apps first says what is drawn, when and for how long, that touches go through and
+     * that nothing of the app is read, and asks. Not now closes it and leaves the line and button as they were.
+     */
+    @Test
+    fun allowDisplayOverOtherAppsExplainsFirst() {
+        needsAndroid13()
+        assumeTrue("this build plays nothing over other apps", BuildConfig.SHADER_OVER_APPS)
+        access.set(true)
+        withOverlayAccess("ignore") {
+            showOverApps()
+            compose.onNode(hasText("Allow display over other apps") and hasClickAction()).performClick()
+            compose.waitForNode(hasTestTag("overlay-access-dialog"))
+            compose.onNodeWithText("Let Kolahal display over other apps?").assertExists()
+            compose.onNodeWithText("10 at most", substring = true).assertExists()
+            compose.onNodeWithText("Touches go through it to the app", substring = true).assertExists()
+            compose.onNodeWithText("Kolahal reads nothing of that app", substring = true).assertExists()
+            compose.onNodeWithText("Allow").assertExists()
+            compose.onNodeWithText("Not now").performClick()
+            compose.onNodeWithTag("overlay-access-dialog").assertDoesNotExist()
+            compose.onNodeWithTag("needs-access ${Accesses.OVERLAY}").assertExists()
+            assertFalse(config[Keys.SHADER_OVER_APPS])
+        }
+    }
+
+    /** `allow overlay` without the access asks before anything opens; Not now leaves a line to ask again. */
+    @Test
+    fun allowOverlayAsksFirst() {
+        needsAndroid13()
+        assumeTrue("this build plays nothing over other apps", BuildConfig.SHADER_OVER_APPS)
+        withOverlayAccess("ignore") {
+            val vm = vms.terminal(app)
+            compose.runOnUiThread { vm.runCommand("allow overlay") }
+            compose.waitFor("allow overlay didn't ask") { vm.overlayAccessAsk.value }
+            compose.runOnUiThread { vm.answerOverlayAccess(false) }
+            assertFalse(vm.overlayAccessAsk.value)
+            val logs = com.mtwabpin.kolahal.data.LogRepository.get(app)
+            compose.waitFor("no line to ask again") {
+                logs.recent(50).any { it.id > lines.start && it.text.startsWith("Display over other apps is off") }
+            }
+        }
+    }
+
+    /**
      * Without usage access, a scene of the phone's use stays in the list and says that it needs it, in its row and
      * on its sheet, with the button that asks for it. With it, neither says so.
      */

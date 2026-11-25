@@ -1666,6 +1666,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val notificationAccessAsk: StateFlow<Boolean> get() = requests.notificationAccessAsk
     override fun askNotificationAccess() = requests.askNotificationAccess()
     fun answerNotificationAccess(allow: Boolean) = requests.answerNotificationAccess(allow)
+    val overlayAccessAsk: StateFlow<Boolean> get() = requests.overlayAccessAsk
+    override fun askOverlayAccess() = requests.askOverlayAccess()
+    fun answerOverlayAccess(allow: Boolean) = requests.answerOverlayAccess(allow)
     override fun requestCalendarPermission() = requests.requestCalendarPermission()
     fun onCalendarPermission(granted: Boolean) {
         requests.onCalendarPermission(granted)

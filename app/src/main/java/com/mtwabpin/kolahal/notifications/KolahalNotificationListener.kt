@@ -152,7 +152,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         // Scripts can't see notifications from the private space, just as they can't see its apps (apps.list).
         if (isPrivate(sbn.user)) return
         // Neither do they play a one-off shader.
-        // In the full build it may play over the app in front, unless Do Not Disturb holds this notification back.
+        // It may play over the app in front, unless Do Not Disturb holds this notification back.
         val held = com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS && heldBack(sbn, rankingMap)
         com.mtwabpin.kolahal.shader.ShaderWords.onNotification(n.title.orEmpty(), n.text.orEmpty(), this, held)
         com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).fire(

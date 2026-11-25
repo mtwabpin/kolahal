@@ -3,13 +3,15 @@
  */
 package com.mtwabpin.kolahal.commands
 
+import com.mtwabpin.kolahal.shader.ShaderOverApps
+
 /**
  * One access that Kolahal can ask Android for: `allow <word>`.
  * - [word]: the word after `allow`.
  * - [title]: Android's name for it, as the `allow` list and the setup checklist show it.
  * - [short]: what it is for, in a few words, for the `allow` list and suggestions.
  * - [detail]: what it is for, in a sentence, for the setup checklist.
- * - [needs]: the part of the build it is for, which the Play build leaves out; null when every build has it.
+ * - [needs]: the part of the build it is for, which a build can leave out ([BuildFeature]); null when every build has it.
  * - [minSdk]: the first Android version that asks for it. Before that, it is always given, or has no use.
  */
 data class Access(
@@ -21,7 +23,10 @@ data class Access(
     val minSdk: Int = 0,
 )
 
-/** The parts of Kolahal that the Play build leaves out, which some accesses are for. */
+/**
+ * The parts of Kolahal that a build can leave out, which some accesses are for. The Play build leaves out the
+ * first three. It has [SHADER_OVER_APPS], whose switch stays so that it can leave it out again (app/build.gradle.kts).
+ */
 enum class BuildFeature { LOCK_SERVICE, CONTACTS, CALL_LOG, SHADER_OVER_APPS }
 
 /**
@@ -120,7 +125,8 @@ object Accesses {
             "script timers on schedule",
             "Timer scripts run on schedule instead of being deferred",
         ),
-        // Shaders need Android 13: before that there is nothing to play over an app.
+        // Shaders need Android 13: before that there is nothing to play over an app. A low-memory phone can't
+        // give it at all ([offered]).
         Access(
             OVERLAY,
             "Display over other apps",
@@ -148,10 +154,11 @@ object Accesses {
 
     /**
      * The accesses in a build that has the features [has] says yes to, which Android version [sdk]
-     * asks for: what `allow` lists and the setup checklist shows.
+     * asks for and the phone can give: what `allow` lists and the setup checklist shows. A low-memory phone
+     * ([lowRam]) can't give Display over other apps ([ShaderOverApps.phoneGives]).
      */
-    fun offered(sdk: Int, has: (BuildFeature) -> Boolean = { inThisBuild(it) }): List<Access> =
-        ALL.filter { inBuild(it, has) && sdk >= it.minSdk }
+    fun offered(sdk: Int, lowRam: Boolean = false, has: (BuildFeature) -> Boolean = { inThisBuild(it) }): List<Access> =
+        ALL.filter { inBuild(it, has) && sdk >= it.minSdk && (it.word != OVERLAY || ShaderOverApps.phoneGives(lowRam)) }
 
     /** One line of the `allow` list: an access, whether Android gives it now, and what a tap on it runs. */
     data class Listed(val access: Access, val allowed: Boolean) {

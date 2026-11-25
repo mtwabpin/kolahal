@@ -57,13 +57,22 @@ class AccessesTest {
         assertEquals(words, Accesses.offered(34) { true }.map { it.word })
     }
 
-    /** The Play build has no screen lock service, no call log, no contacts permission and no drawing over other apps. */
+    /**
+     * The Play build has no screen lock service, no call log and no contacts permission. It draws over other apps, behind
+     * a switch of its own that can take it out again (BuildFeature.SHADER_OVER_APPS): without it, it leaves four out.
+     */
     @Test
-    fun thePlayBuildLeavesFourOut() {
+    fun thePlayBuildLeavesThreeOut() {
+        val play = { f: BuildFeature -> f == BuildFeature.SHADER_OVER_APPS }
+        assertEquals(
+            listOf("usage", "send-notifications", "read-notifications", "dnd", "settings", "calendar", "alarms", "battery", "overlay"),
+            Accesses.offered(34, has = play).map { it.word },
+        )
         assertEquals(
             listOf("usage", "send-notifications", "read-notifications", "dnd", "settings", "calendar", "alarms", "battery"),
             Accesses.offered(34) { false }.map { it.word },
         )
+        assertTrue(Accesses.inBuild(Accesses.find("overlay")!!, play))
         val lock = Accesses.find("lock")!!
         assertFalse(Accesses.inBuild(lock) { false })
         assertTrue(Accesses.inBuild(lock) { true })
@@ -208,5 +217,7 @@ class AccessesTest {
             .substringAfter("private fun notifications()").substringBefore("private fun appSettings")
         assertTrue(notify.contains("ui.requestNotificationPermission()"))
         assertTrue(notify.contains("Settings.ACTION_APP_NOTIFICATION_SETTINGS"))
+        // `overlay` opens Android's page once it is given; before that Kolahal says what it is for and asks, as for `read-notifications`.
+        assertTrue(asks.getValue("overlay").contains("ui.askOverlayAccess()"))
     }
 }

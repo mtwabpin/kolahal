@@ -184,8 +184,8 @@ class ShaderActions(
     /** Whether Kolahal may see notifications. */
     fun seesNotifications(): Boolean = NotificationActions.isEnabled(context)
 
-    /** Whether this build and this Android can play a one-off shader over other apps ([ShaderOverApps]). */
-    val overAppsOffered: Boolean get() = ShaderOverApps.offered
+    /** Whether this build, this Android and this phone can play a one-off shader over other apps ([ShaderOverApps.offered]). */
+    val overAppsOffered: Boolean get() = ShaderOverApps.offered(context)
 
     /** Whether a word's one-off shader plays over the app in front (`screen.shader-over-apps`). */
     fun overApps(): Boolean = config[Keys.SHADER_OVER_APPS]

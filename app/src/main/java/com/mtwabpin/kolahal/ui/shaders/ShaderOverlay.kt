@@ -44,8 +44,8 @@ import com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter
 import java.time.LocalTime
 
 /**
- * The window that plays a one-off shader over the app in front ([ShaderOverApps.Stage]). The Play build has
- * none: nothing there calls [install].
+ * The window that plays a one-off shader over the app in front ([ShaderOverApps.Stage]). A build without it
+ * (`BuildConfig.SHADER_OVER_APPS` false) has none: nothing there calls [install], and R8 drops its code.
  * - One window over other apps (`TYPE_APPLICATION_OVERLAY`), added by the application's own window manager: no
  *   activity, no service and no notification. It takes no touch and no focus ([ShaderOverApps.WINDOW_FLAGS]) and
  *   is no more opaque than Android passes touches through ([ShaderOverApps.alpha]), so the app under it works
@@ -280,7 +280,7 @@ private class OverlayWindow(
     }
 
     private companion object {
-        /** The window's name, as Android's tools show it. */
+        /** The window's name, as Android's tools show it. tools/check-play-build.sh looks for it in the Play build's code. */
         const val TITLE = "Kolahal one-off shader"
 
         val CORNERS = intArrayOf(

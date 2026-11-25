@@ -27,8 +27,9 @@ import kotlinx.coroutines.launch
 
 /**
  * A one-off shader ([ShaderPlay]) over the app in front, when a notification's word plays it
- * ([ShaderWords.onNotification]) while Kolahal is in the background (`screen.shader-over-apps`). The Play
- * build has none of it.
+ * ([ShaderWords.onNotification]) while Kolahal is in the background (`screen.shader-over-apps`). Both builds
+ * have it; `BuildConfig.SHADER_OVER_APPS` takes it out of one (app/build.gradle.kts says when). A phone that
+ * can't give the access ([phoneGives]) isn't offered it.
  * - [plays] decides. Where it says no, the shader waits for home, as without this ([ShaderPlay.play]).
  * - The shader is read, rated and compiled here, off the main thread ([load]). The screen's code draws it in a
  *   window of its own ([Stage]), which it sets as home is made in this process: before that, a shader waits for home.
@@ -44,10 +45,12 @@ object ShaderOverApps {
     data class Now(
         /** `screen.shader-over-apps` is on. */
         val setting: Boolean,
-        /** This build can draw over other apps: the Play build can't. */
+        /** This build can draw over other apps (`BuildConfig.SHADER_OVER_APPS`). */
         val build: Boolean,
         /** Android's Display over other apps access is given. */
         val access: Boolean,
+        /** A low-memory phone, such as one with Android Go ([phoneGives]). */
+        val lowRam: Boolean,
         /** The phone's Android version: shaders need 13 ([Shaders.MIN_SDK]). */
         val sdk: Int,
         /** How the shader's header rates it for other apps ([fit]); null when it doesn't. */
@@ -71,7 +74,7 @@ object ShaderOverApps {
      * waits for home, where what stops a one-off stops it as before (a screen reader, battery saver, Remove
      * animations, a hot phone or a nearly empty battery).
      */
-    fun plays(now: Now): Boolean = now.setting && now.build && now.access && now.sdk >= Shaders.MIN_SDK &&
+    fun plays(now: Now): Boolean = now.setting && now.build && now.access && phoneGives(now.lowRam) && now.sdk >= Shaders.MIN_SDK &&
         (now.fit == ShaderFit.GOOD || now.fit == ShaderFit.FAIR) &&
         !now.kolahalInFront && now.screenOn && !now.locked && !now.heldBack && now.statusBar &&
         !now.screenReader && ShaderClock.moves(now.phone, 0L)
@@ -104,11 +107,16 @@ object ShaderOverApps {
      */
     const val LIMIT_MS = 12_000L
 
-    /** What Settings says over Android's page when it asks for the access: short, as a toast shows two lines. */
-    const val WHY = "Allow Kolahal here, so a shader can play over other apps"
+    /**
+     * Whether the phone can give Display over other apps at all. Android Go and other low-memory phones
+     * ([lowRam], as [ShaderPhone.lowRam] reads it) never do: Android refuses it there, as drawing over apps takes
+     * too much memory. On such a phone nothing offers it: no switch on the Shaders tab, no line in `allow` and the
+     * setup checklist, and `allow overlay` says the phone can't give it.
+     */
+    fun phoneGives(lowRam: Boolean): Boolean = !lowRam
 
-    /** Whether this build and this Android can play one over other apps at all: Settings shows its switch then. */
-    val offered: Boolean get() = BuildConfig.SHADER_OVER_APPS && Shaders.supported
+    /** Whether this build, this Android and this phone can play one over other apps at all: the Shaders tab shows its switch then. */
+    fun offered(context: Context): Boolean = BuildConfig.SHADER_OVER_APPS && Shaders.supported && phoneGives(ShaderPhone.lowRam(context))
 
     /** Whether Android's Display over other apps access is given. */
     fun granted(context: Context): Boolean = runCatching { Settings.canDrawOverlays(context) }.getOrDefault(false)
@@ -136,7 +144,7 @@ object ShaderOverApps {
         fun show(context: Context, ready: Ready, now: Now, ended: (played: Boolean) -> Unit): Boolean
     }
 
-    /** The screen's window; null until home is made in this process, and always in the Play build. */
+    /** The screen's window; null until home is made in this process, and always in a build without it. */
     @Volatile
     var stage: Stage? = null
         private set
@@ -205,6 +213,7 @@ object ShaderOverApps {
         setting = Config.get(context)[Keys.SHADER_OVER_APPS],
         build = BuildConfig.SHADER_OVER_APPS,
         access = granted(context),
+        lowRam = ShaderPhone.lowRam(context),
         sdk = Build.VERSION.SDK_INT,
         fit = fit,
         kolahalInFront = window.inFront,

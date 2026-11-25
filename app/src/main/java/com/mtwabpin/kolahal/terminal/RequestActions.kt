@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 /**
  * What Kolahal asks Android or the user for, and what it does with the answer:
  * - permissions: contacts, notifications, calendar and call log;
- * - notification access, which Kolahal explains first;
+ * - notification access and Display over other apps, which Kolahal explains first;
  * - pickers: a contact, the script folder, a font, and a theme file to import or export;
  * - the file pickers of the GUI pages: a backup to export or import, script files to import, and
  *   where to save a script. The activity opens them and gives the answer to [BackupActions] or [ScriptActions].
@@ -271,6 +271,31 @@ class RequestActions(private val context: Context, private val host: Host) {
                     LogKind.INFO,
                     "Notification access is off\nTap to turn it on",
                     ctx = LogContext.of(LogContext.RUN to "allow read-notifications")
+                )
+            }
+        }
+    }
+
+    private val _overlayAccessAsk = MutableStateFlow(false)
+
+    /** True while Kolahal asks before Android's Display over other apps page opens ([askOverlayAccess]). */
+    val overlayAccessAsk: StateFlow<Boolean> = _overlayAccessAsk.asStateFlow()
+
+    fun askOverlayAccess() {
+        _overlayAccessAsk.value = true
+    }
+
+    /** The user's answer. Allow opens Android's page. Not now opens nothing and leaves a line to ask again. */
+    fun answerOverlayAccess(allow: Boolean) {
+        _overlayAccessAsk.value = false
+        if (allow) {
+            host.startActivity(com.mtwabpin.kolahal.shader.ShaderOverApps.accessIntent(context))
+        } else {
+            io {
+                logs.add(
+                    LogKind.INFO,
+                    "Display over other apps is off\nTap to turn it on",
+                    ctx = LogContext.of(LogContext.RUN to "allow overlay")
                 )
             }
         }

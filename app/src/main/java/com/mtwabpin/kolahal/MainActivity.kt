@@ -60,6 +60,7 @@ import com.mtwabpin.kolahal.ui.home.HomeClock
 import com.mtwabpin.kolahal.ui.home.HomeScreenOverlay
 import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
 import com.mtwabpin.kolahal.ui.home.NotificationAccessDialog
+import com.mtwabpin.kolahal.ui.home.OverlayAccessDialog
 import com.mtwabpin.kolahal.ui.home.ResumeProfileDialog
 import com.mtwabpin.kolahal.ui.home.TerminalScreen
 import com.mtwabpin.kolahal.ui.onboarding.OnboardingScreen
@@ -291,7 +292,7 @@ class MainActivity : ComponentActivity(), HidesBars {
         if (Shaders.supported) lifecycleScope.launch {
             UsageWatch.run(applicationContext, lifecycle)
         }
-        // The window for a one-off shader over another app. The Play build has none.
+        // The window for a one-off shader over another app, in a build that has it (app/build.gradle.kts).
         if (BuildConfig.SHADER_OVER_APPS) com.mtwabpin.kolahal.ui.shaders.ShaderOverlay.install(application)
         lifecycleScope.launch {
             androidx.compose.runtime.snapshotFlow { vm.previewed }.collect { applyTheme() }
@@ -482,6 +483,12 @@ class MainActivity : ComponentActivity(), HidesBars {
                 if (askingNotifications) NotificationAccessDialog(
                     onAllow = { vm.answerNotificationAccess(true) },
                     onDismiss = { vm.answerNotificationAccess(false) },
+                )
+                // `allow overlay` from the prompt, Setup or the tour, when Display over other apps isn't given.
+                val askingOverlay by vm.overlayAccessAsk.collectAsStateWithLifecycle()
+                if (askingOverlay) OverlayAccessDialog(
+                    onAllow = { vm.answerOverlayAccess(true) },
+                    onDismiss = { vm.answerOverlayAccess(false) },
                 )
                 // A tap on an app whose profile is paused or locked, on any page of home: resume it and open the app?
                 val resuming by vm.resumeAsk.collectAsStateWithLifecycle()

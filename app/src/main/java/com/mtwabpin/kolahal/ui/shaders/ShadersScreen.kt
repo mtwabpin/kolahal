@@ -4,7 +4,6 @@
 package com.mtwabpin.kolahal.ui.shaders
 
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -64,7 +63,6 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderMeta
-import com.mtwabpin.kolahal.shader.ShaderOverApps
 import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
@@ -85,6 +83,7 @@ import com.mtwabpin.kolahal.ui.GuiListPage
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.PageHint
 import com.mtwabpin.kolahal.ui.SearchField
+import com.mtwabpin.kolahal.ui.home.OverlayAccessDialog
 import com.mtwabpin.kolahal.ui.home.rememberScreenReader
 import com.mtwabpin.kolahal.ui.produceIo
 import com.mtwabpin.kolahal.ui.rememberMissing
@@ -415,7 +414,8 @@ private fun ShaderChoice(
  * - It needs notification access, as no word plays a shader without it, and Android's Display over other apps
  *   access ([NEEDS_ACCESS]). While one is missing, its name stands over a line and a button for each missing
  *   access in the switch's place ([AccessNeeded]), as in Settings. What is stored stays, and nothing plays over apps.
- * - The button for Display over other apps says what the access is for, then opens Android's page for it.
+ * - The button for Display over other apps first says what the access is for and asks ([OverlayAccessDialog]),
+ *   as `allow overlay` does. Only Allow opens Android's page; Not now leaves everything as it was.
  */
 @Composable
 private fun OverAppsSwitch(actions: ShaderActions, onAskNotifications: () -> Unit) {
@@ -423,13 +423,9 @@ private fun OverAppsSwitch(actions: ShaderActions, onAskNotifications: () -> Uni
     val title = SettingTitles[key.key] ?: key.key
     val shows = groupShows(listOf(key), rememberMissing(remember { NEEDS_ACCESS[key].orEmpty().toSet() }))
     if (key !in shows.keys) {
-        val context = LocalContext.current
+        var asking by remember { mutableStateOf(false) }
         val ask = { access: Access ->
-            if (access.word == Accesses.OVERLAY) {
-                // Android's page covers this one: a toast shows over it.
-                Toast.makeText(context, ShaderOverApps.WHY, Toast.LENGTH_LONG).show()
-                actions.askOverApps()
-            } else onAskNotifications()
+            if (access.word == Accesses.OVERLAY) asking = true else onAskNotifications()
         }
         Column(Modifier.testTag("shader-over-apps")) {
             GroupHeader(title)
@@ -437,6 +433,13 @@ private fun OverAppsSwitch(actions: ShaderActions, onAskNotifications: () -> Uni
                 AccessNeeded(word, ask, Modifier.padding(start = 16.dp, end = 16.dp, top = if (i == 0) 0.dp else 8.dp))
             }
         }
+        if (asking) OverlayAccessDialog(
+            onAllow = {
+                asking = false
+                actions.askOverApps()
+            },
+            onDismiss = { asking = false },
+        )
         return
     }
     val settings by actions.settings.collectAsStateWithLifecycle()

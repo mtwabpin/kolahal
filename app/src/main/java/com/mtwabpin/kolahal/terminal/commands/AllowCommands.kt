@@ -14,6 +14,8 @@ import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.notify.Notifier
+import com.mtwabpin.kolahal.shader.ShaderOverApps
+import com.mtwabpin.kolahal.shader.ShaderPhone
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalUi
 import java.util.concurrent.ConcurrentHashMap
@@ -30,6 +32,9 @@ class AllowCommands(context: Context, private val ui: TerminalUi) : CommandGroup
         if (args.size > 1) return usage("allow")
         val access = Accesses.find(word) ?: return error("Unknown access: $word\n'allow' lists them", LogContext.of(LogContext.COPY to "allow"))
         if (!Accesses.inBuild(access)) return missing(access)
+        if (access.word == Accesses.OVERLAY && !ShaderOverApps.phoneGives(ShaderPhone.lowRam(context))) {
+            return error(NO_OVERLAY)
+        }
         ask(access)
     }
 
@@ -92,10 +97,11 @@ class AllowCommands(context: Context, private val ui: TerminalUi) : CommandGroup
             )
 
             Accesses.BATTERY -> startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-            Accesses.OVERLAY -> open(
+            // As for notification access: when it isn't given, Kolahal first says what it draws and when, and asks.
+            Accesses.OVERLAY -> if (ShaderOverApps.granted(context)) open(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName)),
                 "display over other apps",
-            )
+            ) else ui.askOverlayAccess()
         }
     }
 
@@ -145,6 +151,9 @@ class AllowCommands(context: Context, private val ui: TerminalUi) : CommandGroup
     companion object {
         /** What `lock` and `allow lock` say in a build without the accessibility service. */
         const val NO_LOCK = "This build can't lock the screen\nIt has no accessibility service"
+
+        /** What `allow overlay` says on a phone that can't give it ([ShaderOverApps.phoneGives]). */
+        const val NO_OVERLAY = "This phone can't display over other apps\nAndroid doesn't allow it on low-memory phones"
 
         /** The runtime permissions Android said no to since Kolahal started: `allow <word>` opens their page in settings. */
         private val refusedWords: MutableSet<String> = ConcurrentHashMap.newKeySet<String>()

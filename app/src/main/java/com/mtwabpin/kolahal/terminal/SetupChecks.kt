@@ -14,6 +14,7 @@ import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.commands.Access
 import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.notify.Notifier
+import com.mtwabpin.kolahal.shader.ShaderPhone
 
 /** One item of the setup checklist. [fix] is a terminal command that opens the matching system page (`allow <word>` for an access). */
 data class SetupCheck(
@@ -46,9 +47,9 @@ object SetupChecks {
         )
     }
 
-    /** The accesses this build and this Android version have ([Accesses.offered]), each with whether it is given now. */
+    /** The accesses this build, this Android version and this phone have ([Accesses.offered]), each with whether it is given now. */
     fun accesses(context: Context): List<Accesses.Listed> =
-        Accesses.listing(Accesses.offered(Build.VERSION.SDK_INT)) { given(context, it) }
+        Accesses.listing(Accesses.offered(Build.VERSION.SDK_INT, lowRam = ShaderPhone.lowRam(context))) { given(context, it) }
 
     /** Whether Android gives Kolahal [access] now. */
     fun given(context: Context, access: Access): Boolean = when (access.word) {

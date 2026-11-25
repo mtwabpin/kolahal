@@ -48,7 +48,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // The accessibility service (double-tap / `lock`), the call log, READ_CONTACTS and
         // REQUEST_INSTALL_PACKAGES (`update`) are in the manifest; the play build leaves them out.
-        // The same for SYSTEM_ALERT_WINDOW, which lets a one-off shader play over other apps.
+        // SYSTEM_ALERT_WINDOW (a one-off shader over other apps) is in both builds: see SHADER_OVER_APPS under play.
         buildConfigField("boolean", "LOCK_SERVICE", "true")
         buildConfigField("boolean", "CALL_LOG", "true")
         buildConfigField("boolean", "CONTACTS", "true")
@@ -104,7 +104,6 @@ android {
         // `-PplayApk` signs with the release key instead, as the full build: the Play build's APK on
         // GitHub (`assemblePlay -PplayApk`), for phones where Play Protect blocks the full one.
         // The bundle must stay on the upload key: one run can't build it and the release-signed APK.
-        // No one-off shader over other apps either: no SYSTEM_ALERT_WINDOW, no setting, no `allow overlay`.
         if (providers.gradleProperty("playApk").isPresent && gradle.startParameter.taskNames.any { "bundle" in it.lowercase() }) {
             throw GradleException("-PplayApk signs the Play build with the release key: build the bundle in a run of its own")
         }
@@ -116,7 +115,12 @@ android {
             buildConfigField("boolean", "CALL_LOG", "false")
             buildConfigField("boolean", "CONTACTS", "false")
             buildConfigField("boolean", "SELF_UPDATE", "false")
-            buildConfigField("boolean", "SHADER_OVER_APPS", "false")
+            // A one-off shader over other apps (SYSTEM_ALERT_WINDOW) is in the Play build too. The switch
+            // stays so it can be taken out again if Google refuses it: set this to "false" and add to
+            // src/play/AndroidManifest.xml <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"
+            // tools:node="remove" />. Nothing else: every place that reads the switch hides the setting, `allow
+            // overlay` and the window, and R8 drops the window's code.
+            buildConfigField("boolean", "SHADER_OVER_APPS", "true")
         }
     }
 

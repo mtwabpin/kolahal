@@ -20,7 +20,7 @@ class ShaderOverAppsTest {
 
     /** Everything says yes. */
     private val yes = ShaderOverApps.Now(
-        setting = true, build = true, access = true, sdk = 33, fit = ShaderFit.GOOD, kolahalInFront = false,
+        setting = true, build = true, access = true, lowRam = false, sdk = 33, fit = ShaderFit.GOOD, kolahalInFront = false,
         screenOn = true, locked = false, heldBack = false, statusBar = true, screenReader = false, phone = phone,
     )
 
@@ -37,6 +37,7 @@ class ShaderOverAppsTest {
             "the setting is off" to yes.copy(setting = false),
             "the build has none" to yes.copy(build = false),
             "no access" to yes.copy(access = false),
+            "a low-memory phone" to yes.copy(lowRam = true),
             "Android 12" to yes.copy(sdk = 32),
             "not rated" to yes.copy(fit = null),
             "rated poor" to yes.copy(fit = ShaderFit.POOR),
@@ -175,29 +176,33 @@ class ShaderOverAppsTest {
     }
 
     /**
-     * The Play build has none of it: its switch is off, its manifest removes the permission, and with the switch
-     * off there is no setting, no `allow` word, and no way into the code.
+     * Both builds have it, behind a switch that can take it out of the Play build again: the Play build's switch and
+     * its manifest agree (on and the permission kept, or off and the permission removed), so changing those two is
+     * all it takes. With the switch off there is no setting, no `allow` word, and no way into the code.
      */
     @Test
-    fun thePlayBuildLeavesItOut() {
+    fun thePlayBuildHasItBehindItsSwitch() {
         // The app's own folder: the repository's root has a build file of the same name.
         val app = sourceFile("src/main").absoluteFile.parentFile.parentFile
         val gradle = File(app, "build.gradle.kts").readText()
-        val on = """buildConfigField("boolean", "SHADER_OVER_APPS", "true")"""
-        val off = """buildConfigField("boolean", "SHADER_OVER_APPS", "false")"""
-        assertTrue(on in gradle.substringAfter("defaultConfig {").substringBefore("signingConfigs {"))
-        assertTrue(off in gradle.substringAfter("""create("play") {"""))
-        assertFalse(off in gradle.substringBefore("""create("play") {"""))
+        fun switch(on: Boolean) = """buildConfigField("boolean", "SHADER_OVER_APPS", "$on")"""
+        assertTrue(switch(true) in gradle.substringAfter("defaultConfig {").substringBefore("signingConfigs {"))
+        assertFalse(switch(false) in gradle.substringBefore("""create("play") {"""))
+        val play = gradle.substringAfter("""create("play") {""").substringBefore("\n        }\n")
+        val playHas = switch(true) in play
+        assertTrue("the play build type sets the switch", playHas || switch(false) in play)
 
         val permission = "android.permission.SYSTEM_ALERT_WINDOW"
         assertTrue("""<uses-permission android:name="$permission" />""" in sourceFile("src/main/AndroidManifest.xml").readText())
-        assertTrue("""<uses-permission android:name="$permission" tools:node="remove" />""" in sourceFile("src/play/AndroidManifest.xml").readText())
+        val removed = """<uses-permission android:name="$permission" tools:node="remove" />""" in sourceFile("src/play/AndroidManifest.xml").readText()
+        assertEquals("the Play build's switch and its manifest agree", playHas, !removed)
 
         // The `allow` word and the setup checklist's row.
         val access = Accesses.find("overlay")!!
         assertEquals("Display over other apps", access.title)
         assertEquals(BuildFeature.SHADER_OVER_APPS, access.needs)
         assertFalse(Accesses.inBuild(access) { false })
+        assertTrue(Accesses.inBuild(access) { true })
         assertFalse(Accesses.offered(36) { it != BuildFeature.SHADER_OVER_APPS }.any { it.word == "overlay" })
         assertEquals(BuildConfig.SHADER_OVER_APPS, Accesses.OFFERED.any { it.word == "overlay" })
         // Shaders need Android 13: before that there is nothing to ask for.
@@ -214,7 +219,7 @@ class ShaderOverAppsTest {
         assertTrue(key in Keys.CONFIG_ONLY)
         assertTrue(""".takeIf { com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS }""" in sourceFile("src/main/java/com/mtwabpin/kolahal/data/Keys.kt").readText())
         assertTrue("if (actions.overAppsOffered && once.isNotEmpty())" in sourceFile("src/main/java/com/mtwabpin/kolahal/ui/shaders/ShadersScreen.kt").readText())
-        assertTrue("val offered: Boolean get() = BuildConfig.SHADER_OVER_APPS && Shaders.supported" in model)
+        assertTrue("fun offered(context: Context): Boolean = BuildConfig.SHADER_OVER_APPS && Shaders.supported && phoneGives(ShaderPhone.lowRam(context))" in model)
 
         // The two ways in, each behind the switch: a word's shader, and the window that home sets.
         val words = sourceFile("src/main/java/com/mtwabpin/kolahal/shader/ShaderWords.kt").readText()
@@ -223,8 +228,68 @@ class ShaderOverAppsTest {
         val home = sourceFile("src/main/java/com/mtwabpin/kolahal/MainActivity.kt").readText()
         assertTrue("if (BuildConfig.SHADER_OVER_APPS) com.mtwabpin.kolahal.ui.shaders.ShaderOverlay.install(application)" in home)
         assertEquals(1, Regex("""ShaderOverlay\b""").findAll(home).count())
-        // What the full build's check script looks for in the Play build's code is the window's name.
+        // The Play build's check script knows the window by its name, and that it goes with the permission.
         assertTrue("""const val TITLE = "Kolahal one-off shader"""" in overlay)
-        assertTrue("Kolahal one-off shader" in File(app.parentFile, "tools/check-play-build.sh").readText())
+        val check = File(app.parentFile, "tools/check-play-build.sh").readText()
+        assertTrue("Kolahal one-off shader" in check)
+        assertTrue("SYSTEM_ALERT_WINDOW" in check)
+    }
+
+    /**
+     * Android Go and other low-memory phones can't give Display over other apps: there it is offered nowhere, and
+     * nothing plays over an app. One rule says so ([ShaderOverApps.phoneGives]), and each place asks it.
+     */
+    @Test
+    fun aLowMemoryPhoneIsNotOfferedIt() {
+        assertTrue(ShaderOverApps.phoneGives(lowRam = false))
+        assertFalse(ShaderOverApps.phoneGives(lowRam = true))
+        // Whatever else says yes.
+        assertFalse(ShaderOverApps.plays(yes.copy(lowRam = true)))
+        // `allow` and the setup checklist list everything else, and not it.
+        val all = Accesses.offered(36) { true }.map { it.word }
+        assertEquals(all - "overlay", Accesses.offered(36, lowRam = true) { true }.map { it.word })
+        assertTrue("overlay" in all)
+        assertEquals(Accesses.offered(36) { false }, Accesses.offered(36, lowRam = true) { false })
+
+        // Each place reads the phone and asks the rule: the Shaders tab's switch, the checklist and `allow`, the window.
+        assertTrue("phoneGives(ShaderPhone.lowRam(context))" in model)
+        assertTrue("lowRam = ShaderPhone.lowRam(context)," in model)
+        assertTrue("phoneGives(now.lowRam)" in model)
+        assertTrue("isLowRamDevice" in sourceFile("src/main/java/com/mtwabpin/kolahal/shader/ShaderPhone.kt").readText())
+        assertTrue(
+            "Accesses.offered(Build.VERSION.SDK_INT, lowRam = ShaderPhone.lowRam(context))" in
+                sourceFile("src/main/java/com/mtwabpin/kolahal/terminal/SetupChecks.kt").readText()
+        )
+        val allow = sourceFile("src/main/java/com/mtwabpin/kolahal/terminal/commands/AllowCommands.kt").readText()
+        assertTrue("!ShaderOverApps.phoneGives(ShaderPhone.lowRam(context))" in allow)
+        assertTrue("return error(NO_OVERLAY)" in allow)
+    }
+
+    /**
+     * Before Android's page opens, Kolahal says what is drawn, when and for how long, that touches go through, and
+     * that nothing of the app in front is read; the Shaders tab's button and `allow overlay` both ask so first.
+     */
+    @Test
+    fun theAccessIsExplainedBeforeAndroidsPage() {
+        val dialog = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/home/OverlayAccessDialog.kt").readText()
+        assertTrue("Let Kolahal display over other apps?" in dialog)
+        assertTrue("\"Allow\"" in dialog && "\"Not now\"" in dialog)
+        assertTrue("one of its words" in com.mtwabpin.kolahal.ui.home.OVERLAY_ACCESS_WHAT)
+        val points = com.mtwabpin.kolahal.ui.home.OVERLAY_ACCESS_POINTS
+        assertTrue(points, "${ShaderPlay.MAX_SECONDS.toInt()} at most" in points)
+        assertTrue(points, "Touches go through" in points)
+        assertTrue(points, "reads nothing of that app" in points)
+        assertTrue("sent nowhere" in com.mtwabpin.kolahal.ui.home.OVERLAY_ACCESS_DATA)
+        // The switch's button shows it and opens Android's page only from Allow.
+        val screen = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/shaders/ShadersScreen.kt").readText()
+        assertTrue("if (access.word == Accesses.OVERLAY) asking = true else onAskNotifications()" in screen)
+        assertEquals(1, Regex("""actions\.askOverApps\(\)""").findAll(screen).count())
+        assertTrue(Regex("""onAllow = \{\s*asking = false\s*actions\.askOverApps\(\)""").containsMatchIn(screen))
+        assertFalse("Toast" in screen)
+        // `allow overlay` asks first while the access isn't given.
+        val allow = sourceFile("src/main/java/com/mtwabpin/kolahal/terminal/commands/AllowCommands.kt").readText()
+        assertTrue("else ui.askOverlayAccess()" in allow)
+        val home = sourceFile("src/main/java/com/mtwabpin/kolahal/MainActivity.kt").readText()
+        assertTrue("if (askingOverlay) OverlayAccessDialog(" in home)
     }
 }

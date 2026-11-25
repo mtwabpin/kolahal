@@ -94,8 +94,8 @@ class SettingsAccessTest {
 
     /**
      * Play over other apps needs notification access, as no word plays a shader without it, and Display over
-     * other apps: its switch shows with both, and each missing one is asked for. A build without the feature
-     * has neither the setting nor a rule for it.
+     * other apps: its switch shows with both, and each missing one is asked for. Both builds have it; a build
+     * whose switch is off (BuildConfig.SHADER_OVER_APPS) has neither the setting nor a rule for it.
      */
     @Test
     fun playOverOtherAppsNeedsTwoAccesses() {

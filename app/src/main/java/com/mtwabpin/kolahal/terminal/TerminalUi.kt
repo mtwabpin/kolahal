@@ -49,6 +49,12 @@ interface TerminalUi {
      */
     fun askNotificationAccess()
 
+    /**
+     * For `allow overlay` when Display over other apps isn't given. Explains what a shader over other apps draws
+     * and when, and lets the user choose, before Android's Display over other apps page opens.
+     */
+    fun askOverlayAccess()
+
     /** Sets the lines the log shows: `log only …` ([filter]) or `log all` (null). */
     fun filterLog(filter: LogFilter?)
 
