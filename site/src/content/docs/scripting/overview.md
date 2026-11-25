@@ -359,7 +359,8 @@ other events can follow:
   notification.
 - A package name is letters, digits, `_` and dots, such as `com.example.chat`. Saving points out a
   word that isn't one; until it is fixed, that line runs the script for no app.
-- The script's sheet shows the apps under **Events**, by their names.
+- The script's sheet shows the apps under **Events**, by their names, with each installed app's
+  icon.
 - **Run with…** in the editor simulates a notification from the first app on the line.
 
 To find an app's package name, long-press the app in the [apps grid](/guides/apps/) and choose

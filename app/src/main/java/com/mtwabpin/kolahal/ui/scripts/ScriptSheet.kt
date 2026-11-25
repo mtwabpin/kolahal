@@ -11,13 +11,16 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
@@ -50,6 +53,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -58,7 +64,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppNames
+import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
@@ -78,6 +87,7 @@ import com.mtwabpin.kolahal.ui.ValueRow
 import com.mtwabpin.kolahal.ui.editor.EditorLogic
 import com.mtwabpin.kolahal.ui.editor.RunWithDialog
 import com.mtwabpin.kolahal.ui.fieldColors
+import com.mtwabpin.kolahal.ui.home.AppIcon
 import com.mtwabpin.kolahal.ui.home.scriptColor
 import com.mtwabpin.kolahal.ui.produceIo
 import com.mtwabpin.kolahal.ui.relative
@@ -197,10 +207,20 @@ internal fun ScriptSheet(
     }
     var editingOption by remember(s.id) { mutableStateOf<ScriptMeta.Option?>(null) }
     // The apps its `@on notification` line names, by their names when installed, else by package.
+    // A package means the personal profile's app: that one's icon shows beside its name.
     val notificationApps = remember(s.code) { ScriptMeta.parse(s.code).notificationApps }
     val context = LocalContext.current.applicationContext
-    val appNames by produceIo(notificationApps.orEmpty(), notificationApps, what = "Reading the names of a script's apps") {
-        notificationApps.orEmpty().map { AppNames.label(context, it) ?: it }
+    val installed by remember(context) { AppRepository.get(context).apps }.collectAsStateWithLifecycle()
+    val eventApps by produceIo(
+        notificationApps.orEmpty().map { EventApp(it, null) },
+        notificationApps,
+        installed,
+        what = "Reading the names of a script's apps"
+    ) {
+        notificationApps.orEmpty().map { pkg ->
+            val app = installed.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }
+            EventApp(AppNames.label(context, pkg, app?.profile?.serial) ?: pkg, app)
+        }
     }
     val grants = info.grants
     var renaming by remember(s.id) { mutableStateOf(false) }
@@ -305,10 +325,12 @@ internal fun ScriptSheet(
             SectionTitle("Events")
             Spacer(Modifier.height(4.dp))
             events.forEach { item ->
-                SwitchRow(
+                if (item == "notification" && eventApps.any { it.app != null }) {
+                    NotificationAppsRow(eventApps, grants.allows(item)) { vm.scriptActions.setScriptAccess(s, item, it) }
+                } else SwitchRow(
                     ScriptAccess.label(item),
                     if (item == "notification" && notificationApps != null) {
-                        ScriptAccess.notificationHelp(appNames)
+                        ScriptAccess.notificationHelp(eventApps.map { it.name })
                     } else ScriptAccess.help(item),
                     grants.allows(item)
                 ) { vm.scriptActions.setScriptAccess(s, item, it) }
@@ -556,6 +578,45 @@ private fun SecretRow(secret: ScriptMeta.Secret, isSet: Boolean, onClick: () -> 
         onClick = onClick,
     )
 }
+
+/** An app a script's `@on notification` line names: its [name] (its package when not installed), and the personal profile's [app] when installed. */
+private class EventApp(val name: String, val app: AppEntry?)
+
+/**
+ * The notification event's switch, when its `@on notification` names an installed app: each such
+ * app's icon shows before its name, in the help's own text. An app that is not installed is its
+ * package alone.
+ * - The icon is half again the text's size, as the app chips' icons are, so it grows with the font
+ *   size. A no-break space holds its place in the text, so it never ends a line without its name.
+ * - A screen reader hears the row as before: the icons say nothing, their names are in the text.
+ */
+@Composable
+private fun NotificationAppsRow(apps: List<EventApp>, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val icon = MaterialTheme.typography.bodySmall.fontSize * 1.5f
+    val iconDp = with(LocalDensity.current) { icon.toDp() }
+    val help = buildAnnotatedString {
+        append(ScriptAccess.NOTIFICATIONS_FROM)
+        apps.forEachIndexed { i, a ->
+            if (i > 0) append(", ")
+            if (a.app != null) appendInlineContent("$i", "\u00A0")
+            append(a.name)
+        }
+        append(ScriptAccess.NOTIFICATIONS_LINE)
+    }
+    // Its room is a quarter wider than the icon: the gap before the name.
+    val icons = apps.withIndex().mapNotNull { (i, a) ->
+        val app = a.app ?: return@mapNotNull null
+        "$i" to InlineTextContent(Placeholder(icon * 1.25f, icon, PlaceholderVerticalAlign.TextCenter)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                AppIcon(app, iconDp, Modifier.testTag("$EVENT_APP_ICON_TAG ${app.pkg}"))
+            }
+        }
+    }.toMap()
+    SwitchRow(ScriptAccess.label("notification"), help, checked, inlineContent = icons, onChange = onChange)
+}
+
+/** The test tag of an app's icon on the notification event's switch ([NotificationAppsRow]), before a space and its package. */
+internal const val EVENT_APP_ICON_TAG = "event-app-icon"
 
 /** One of the main things to do with a script, on its sheet. [filled]: Run, in the theme's color. */
 private class SheetAction(val label: String, val icon: Int, val filled: Boolean = false, val run: () -> Unit)

@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -80,6 +81,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -508,6 +510,17 @@ internal fun SwitchRow(
     checked: Boolean,
     color: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     onChange: (Boolean) -> Unit,
+) = SwitchRow(title, AnnotatedString(subtitle), checked, color, onChange = onChange)
+
+/** A [SwitchRow] whose [subtitle] has pictures in its text ([inlineContent]), such as an app's icon beside its name. */
+@Composable
+internal fun SwitchRow(
+    title: String,
+    subtitle: AnnotatedString,
+    checked: Boolean,
+    color: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    inlineContent: Map<String, InlineTextContent> = emptyMap(),
+    onChange: (Boolean) -> Unit,
 ) {
     SegmentedListItem(
         checked = checked,
@@ -519,7 +532,8 @@ internal fun SwitchRow(
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                inlineContent = inlineContent,
             )
         },
         trailingContent = { Switch(checked = checked, onCheckedChange = null) },

@@ -1,7 +1,11 @@
 package com.mtwabpin.kolahal.ui.scripts
 
 import android.app.Application
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.filterToOne
@@ -29,6 +33,9 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.apps.AppNames
+import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
@@ -253,6 +260,49 @@ class ScriptSheetTest {
         openSheet()
         compose.onNodeWithText("Clipboard").performScrollTo().assertExists()
         compose.onNodeWithTag("private-online").assertDoesNotExist()
+    }
+
+    /** An app's icon on the notification event's switch: [pkg]'s, or any app's when null. */
+    private fun appIcons(pkg: String? = null) = compose.onAllNodes(
+        SemanticsMatcher("${pkg ?: "an app"}'s icon") {
+            val tag = it.config.getOrNull(SemanticsProperties.TestTag).orEmpty()
+            if (pkg == null) tag.startsWith(EVENT_APP_ICON_TAG) else tag == "$EVENT_APP_ICON_TAG $pkg"
+        },
+        useUnmergedTree = true,
+    )
+
+    /**
+     * The apps an `@on notification` line names: an installed one (Settings) shows its icon beside its
+     * name, and one that isn't shows its package alone, in the same line of the switch.
+     */
+    @Test
+    fun theNotificationEventShowsTheIconsOfInstalledApps() {
+        val settings = "com.android.settings"
+        val apps = AppRepository.get(app)
+        apps.awaitLoaded(10_000)
+        assertTrue(
+            "Settings is in the app list",
+            apps.apps.value.any { it.pkg == settings && it.profile.kind == ProfileKind.PERSONAL })
+        val name = AppNames.label(app, settings) ?: settings
+        create("-- @uses notifications\n-- @on notification $settings com.example.chat\nlog(1)")
+        openSheet()
+        compose.waitFor("Settings' icon shows") { appIcons(settings).fetchSemanticsNodes().size == 1 }
+        compose.onNode(
+            hasText("Runs on notifications from", substring = true) and
+                    hasText(name, substring = true) and
+                    hasText("com.example.chat", substring = true)
+        ).performScrollTo().assertExists()
+        appIcons("com.example.chat").assertCountEquals(0)
+        appIcons().assertCountEquals(1)
+    }
+
+    /** A notification event that names no app has no icon. */
+    @Test
+    fun theNotificationEventWithoutAppsHasNoIcon() {
+        create("-- @uses notifications\n-- @on notification\nlog(1)")
+        openSheet()
+        compose.onNodeWithText("Runs when this happens (@on notification)").performScrollTo().assertExists()
+        stays("no icon") { appIcons().fetchSemanticsNodes().isEmpty() }
     }
 
     /**
