@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import androidx.compose.ui.graphics.lerp
+import com.mtwabpin.kolahal.sourceFile
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.ui.theme.Palettes
 import com.mtwabpin.kolahal.ui.theme.accents
@@ -16,7 +17,8 @@ class ValueInkTest {
     /**
      * For every built-in theme, dark and light, and every color a card can have, the value reaches
      * 3:1 on each look's ground: the card's surface (Plain, Bold, Poster, Split's tile) and Tonal's
-     * container of that color. A color that reads already is kept as it is.
+     * container of that color. Bold's score, sky and day countdowns are drawn on that surface too.
+     * A color that reads already is kept as it is.
      */
     @Test
     fun aValueReachesThreeToOneOnEveryGround() {
@@ -35,6 +37,52 @@ class ValueInkTest {
                     if (contrast(color, ground) >= INK_MIN) assertEquals(what, color, ink)
                 }
             }
+        }
+    }
+
+    /**
+     * The big values in Bold's type on a versus card (the score), a sky card and a day countdown
+     * are in the card's color only through [valueInk] on Bold's card, the ground the test above
+     * checks; else in the text color. The calls are read from the sources.
+     */
+    @Test
+    fun boldsScoreSkyAndDaysGoThroughTheFloor() {
+        val dir = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/widgets")
+        for (name in listOf("WidgetVersus.kt", "WidgetSky.kt", "WidgetCountdownDays.kt")) {
+            val text = java.io.File(dir, name).readText()
+            val calls = Regex("""\bBold(Text|Value)\(""").findAll(text).map { m ->
+                // The call up to its closing bracket, also over several lines.
+                var depth = 0
+                var end = m.range.last
+                while (end < text.length) {
+                    if (text[end] == '(') depth++
+                    if (text[end] == ')') depth--
+                    if (depth == 0) break
+                    end++
+                }
+                text.substring(m.range.first, end + 1)
+            }.toList()
+            assertTrue(name, calls.isNotEmpty())
+            calls.forEach { assertTrue("$name: $it", "valueInk(" in it || "c.content" in it) }
+        }
+    }
+
+    /**
+     * The Next look's check and the Stack look's + are icons in the card's color on its container
+     * ([roleContainer], the "tonal" ground above). The color itself can be under 3:1 there (Rosé
+     * Pine's good), so both icons are tinted through [valueInk].
+     */
+    @Test
+    fun theCheckAndThePlusReadOnTheirContainer() {
+        val p = Palettes.named("rose-pine", true)
+        val container = lerp(schemeFrom(p).surface, p.good, 0.30f)
+        assertTrue(contrast(p.good, container) < INK_MIN)
+        assertTrue(contrast(valueInk(p.good, container), container) >= INK_MIN)
+        val dir = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/widgets")
+        for (name in listOf("OwnNextTodos.kt", "OwnStack.kt")) {
+            val text = java.io.File(dir, name).readText()
+            assertTrue(name, "tint = valueInk(role, roleContainer(role))" in text)
+            assertTrue(name, "tint = role," !in text)
         }
     }
 

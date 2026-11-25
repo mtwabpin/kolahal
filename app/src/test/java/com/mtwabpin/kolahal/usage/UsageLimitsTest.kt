@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.usage
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.usage.UsageLimits.Level
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -75,14 +76,18 @@ class UsageLimitsTest {
         assertTrue(UsageLimits.screenTimeWords(1_440 * minute, 1_439)!!.length <= 43)
     }
 
+    /** A limit, a time over it and the time spent are said in one form in the terminal ([TimeFormats.duration]). */
     @Test
-    fun minutesAsPeopleSayThem() {
-        assertEquals("0m", UsageLimits.minutes(0))
-        assertEquals("45m", UsageLimits.minutes(45))
-        assertEquals("1h", UsageLimits.minutes(60))
-        assertEquals("3h", UsageLimits.minutes(180))
-        assertEquals("2h 30m", UsageLimits.minutes(150))
-        assertEquals("24h", UsageLimits.minutes(1_440))
+    fun spansAreSaidOneWay() {
+        val minute = 60_000L
+        assertEquals("0m", TimeFormats.duration(0))
+        assertEquals("0m", TimeFormats.duration(59_999))
+        assertEquals("45m", TimeFormats.duration(45 * minute))
+        assertEquals("1h", TimeFormats.duration(60 * minute))
+        assertEquals("3h", TimeFormats.duration(180 * minute + 59_999))
+        assertEquals("2h 30m", TimeFormats.duration(150 * minute))
+        assertEquals("4h 12m", TimeFormats.duration(252 * minute))
+        assertEquals("24h", TimeFormats.duration(1_440 * minute))
     }
 
     /**

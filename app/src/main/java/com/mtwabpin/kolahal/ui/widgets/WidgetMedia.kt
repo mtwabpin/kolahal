@@ -62,7 +62,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -207,7 +206,7 @@ internal fun MediaBody(
                     if (spec.lastPlayed && tall >= labelHeight + texts) LastPlayed(muted)
                     Text(
                         title,
-                        style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        style = type.titleSmallEmphasized,
                         color = scheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -261,7 +260,7 @@ internal fun MediaBody(
                     if (label) LastPlayed(muted)
                     Text(
                         title,
-                        style = type.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = type.titleMediumEmphasized,
                         color = scheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -852,7 +851,7 @@ private fun SplitMedia(
                         )
                         Text(
                             title,
-                            style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            style = type.titleSmallEmphasized,
                             color = looks.content,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -953,7 +952,7 @@ private fun SplitMedia(
                         LocalUntitled.current?.let {
                             Text(
                                 it,
-                                style = type.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                style = type.labelSmallEmphasized,
                                 color = looks.muted,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -970,7 +969,7 @@ private fun SplitMedia(
                     }
                     Text(
                         title,
-                        style = type.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = type.titleMediumEmphasized,
                         color = looks.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1107,7 +1106,7 @@ private fun ShapeMedia(
         }
         // With nothing playing, "Last played" takes the card's title's place over the song.
         val untitled = if (spec.lastPlayed) WidgetWords.LAST_PLAYED else LocalUntitled.current
-        val songTitle = type.titleMedium.copy(fontWeight = FontWeight.Bold)
+        val songTitle = type.titleMediumEmphasized
         when {
             box == WidgetSizes.Box.WIDE -> Row(
                 Modifier.fillMaxSize(),
@@ -1127,7 +1126,7 @@ private fun ShapeMedia(
                     )
                     Text(
                         title,
-                        style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        style = type.titleSmallEmphasized,
                         color = looks.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1166,7 +1165,7 @@ private fun ShapeMedia(
                     Column {
                         if (untitled != null) Text(
                             untitled,
-                            style = type.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            style = type.labelSmallEmphasized,
                             color = looks.muted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1228,7 +1227,7 @@ private fun ShapeMedia(
                         if (spec.lastPlayed) LastPlayed(looks.muted)
                         Text(
                             title,
-                            style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            style = type.titleSmallEmphasized,
                             color = looks.content,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis

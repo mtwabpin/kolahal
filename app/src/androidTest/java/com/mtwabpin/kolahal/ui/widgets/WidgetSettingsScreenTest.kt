@@ -38,7 +38,9 @@ import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.widgets.TestScriptWidgets
+import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetPages
 import com.mtwabpin.kolahal.widgets.WidgetParts
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetShape
@@ -47,6 +49,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -220,7 +223,8 @@ class WidgetSettingsScreenTest {
 
     /**
      * A tap on a color, on a shape (in the Shape look) and on a part's switch keeps it for that card
-     * at once; Reset to the card's own takes them all away and leaves the look.
+     * at once; Reset to the card's own takes them all away and leaves the look. Undo, in the snackbar
+     * that follows, puts them all back.
      */
     @Test
     fun colorShapeAndWhatShowsAreKeptAndReset() {
@@ -265,6 +269,48 @@ class WidgetSettingsScreenTest {
         }
         assertEquals(WidgetLook.SHAPE, t.entry(s.name)?.look)
         compose.onNodeWithTag("color own").assertIsSelected()
+
+        compose.waitForText(WidgetSettingsWords.resetDone("Wopts Air"))
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitFor("Undo didn't put back the color, the shape and the hidden parts") {
+            t.entry(s.name)?.let {
+                it.color == ColorRole.LINK && it.shape == WidgetShape.CLOVER8 &&
+                    it.hidden == setOf(WidgetParts.ICON, WidgetParts.NAME)
+            } == true
+        }
+        compose.onNodeWithTag("color link").performScrollTo().assertIsSelected()
+    }
+
+    /**
+     * A page just added in Arrange widgets, still empty, stays while a card's settings page is open:
+     * the person hasn't left Arrange widgets, and Back finds the page there.
+     */
+    @Test
+    fun anEmptyPageStaysWhileACardsPageIsOpen() {
+        val before = t.host.pages.value.size
+        assumeTrue("there are as many pages as there may be", before < WidgetPages.MAX)
+        t.host.addTo = WidgetLocation.PANEL
+        val s = t.place(
+            t.create("-pages", "-- @title Wopts Pages\n-- @widget stat 2x1\nwidget.show{ value = 4 }")
+        )
+        val vm = show(s)
+        try {
+            compose.waitForNode(hasClickLabel("change Wopts Pages"))
+            compose.onNodeWithTag("page-add").performClick()
+            compose.waitFor("no page was added") { t.host.pages.value.size == before + 1 }
+            val added = WidgetPages.title(t.host.pages.value, before)
+            compose.onNodeWithTag("page-tab ${WidgetPages.title(t.host.pages.value, 0)}").performClick()
+
+            open(vm, "Wopts Pages")
+            assertEquals(before + 1, t.host.pages.value.size)
+            back()
+            compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+            assertEquals(before + 1, t.host.pages.value.size)
+            compose.onNodeWithTag("page-tab $added").assertExists()
+        } finally {
+            t.host.addTo = WidgetLocation.PANEL
+            t.host.pages.value.drop(before).forEach { t.host.removePage(it.location) }
+        }
     }
 
     /** Out of the Shape look, the page has no shapes; Back returns to Arrange widgets. */

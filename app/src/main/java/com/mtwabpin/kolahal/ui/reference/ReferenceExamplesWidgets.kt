@@ -502,7 +502,7 @@ internal object ReferenceExamplesWidgets {
                   text = "42%",
                 },
               },
-              line = "64' Goal",
+              caption = "64' Goal",
             }
             """,
             js = """
@@ -523,7 +523,7 @@ internal object ReferenceExamplesWidgets {
                   text: "42%",
                 },
               ],
-              line: "64' Goal",
+              caption: "64' Goal",
             });
             """,
         ) { _, _ ->

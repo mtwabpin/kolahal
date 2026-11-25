@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -169,7 +170,7 @@ private fun PlainDots(
             Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
                 if (dots != null) DayDots(dots, c.accent, c.content, Modifier.fillMaxSize())
             }
-            if (bold) BoldValue(value, count.unit, 56.sp, c.accent, c.content)
+            if (bold) BoldValue(value, count.unit, 56.sp, valueInk(c.accent, c.card), c.content)
             else DaysCount(count, type.displaySmall, c.content)
             under?.let {
                 Text(it, style = type.bodySmall, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -184,7 +185,7 @@ private fun PlainDots(
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     SmallTitle(title, c.content)
-                    if (bold) BoldValue(value, null, 44.sp, c.accent)
+                    if (bold) BoldValue(value, null, 44.sp, valueInk(c.accent, c.card))
                     else BigText(value, type.headlineMedium, color = c.content)
                     UnitAndLabel(count.unit, under, c.muted)
                 }
@@ -205,7 +206,7 @@ private fun PlainDots(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (bold) BoldValue(value, null, 40.sp, c.accent)
+            if (bold) BoldValue(value, null, 40.sp, valueInk(c.accent, c.card))
             else BigText(value, type.titleLarge, color = c.content)
             count.unit?.let { Text(it, style = type.labelSmall, color = c.muted, maxLines = 1) }
         }
@@ -347,18 +348,19 @@ private fun DotsRing(
 /**
  * The dots in a grid as large as fits ([CountdownDays.grid]), centered: a dot still to come in
  * [color], one that went out small and faint, today's ringed in [ring]. Nothing when they would be
- * too small to see. A screen reader hears the card's words, not the dots.
+ * too small to see. Right to left the days go from the right ([CountdownDays.dotX]). A screen
+ * reader hears the card's words, not the dots.
  */
 @Composable
 private fun DayDots(dots: CountdownDays.Dots, color: Color, ring: Color, modifier: Modifier) {
     Canvas(modifier.clearAndSetSemantics {}) {
         val grid = CountdownDays.grid(dots.count, size.width, size.height, DOT_PITCH_MOST.dp.toPx())
         if (grid.pitch < DOT_PITCH_LEAST.dp.toPx()) return@Canvas
-        val left = (size.width - grid.columns * grid.pitch) / 2
         val top = (size.height - grid.rows * grid.pitch) / 2
+        val rtl = layoutDirection == LayoutDirection.Rtl
         for (i in 0 until dots.count) {
             val at = Offset(
-                left + (i % grid.columns + 0.5f) * grid.pitch,
+                CountdownDays.dotX(i, grid, size.width, rtl),
                 top + (i / grid.columns + 0.5f) * grid.pitch
             )
             dot(dots, i, at, grid.pitch, color, ring)
@@ -383,12 +385,12 @@ private fun DaysCount(
     stacked: Boolean = false
 ) {
     val type = MaterialTheme.typography
-    val unitStyle = type.titleSmall.copy(fontWeight = FontWeight.Bold)
+    val unitStyle = type.titleSmallEmphasized
     val value = StyledText.capitalized(count.value)
     if (stacked) {
         Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
             BigText(value, style, color = color)
-            count.unit?.let { Text(it, style = type.labelSmall.copy(fontWeight = FontWeight.Bold), color = color, maxLines = 1) }
+            count.unit?.let { Text(it, style = type.labelSmallEmphasized, color = color, maxLines = 1) }
         }
     } else {
         Row(modifier) {
@@ -446,7 +448,7 @@ private fun PageCountdown(page: CountdownDays.Page, bar: Float?, box: WidgetSize
             CalendarPage(page, c, paper, RoundedCornerShape(14.dp), Modifier.weight(1f).fillMaxWidth(0.8f), bold = bold)
             Text(
                 page.left,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.labelSmallEmphasized,
                 color = c.accent,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -494,7 +496,7 @@ private fun PageWords(page: CountdownDays.Page, title: String?, c: LookColors, b
     title?.let {
         Text(
             it,
-            style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+            style = type.titleSmallEmphasized,
             color = c.content,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -635,7 +637,7 @@ private fun CalendarPage(
             foot?.let {
                 Text(
                     it,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.labelSmallEmphasized,
                     color = c.content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

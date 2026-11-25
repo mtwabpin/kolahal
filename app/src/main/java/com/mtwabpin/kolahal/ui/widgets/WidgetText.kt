@@ -12,7 +12,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.widgets.WidgetSizes
@@ -34,7 +33,7 @@ internal fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val style = when (box) {
         WidgetSizes.Box.SMALL -> type.bodySmall
         WidgetSizes.Box.WIDE -> type.bodyMedium
-        WidgetSizes.Box.LARGE -> type.titleMedium.copy(fontWeight = FontWeight.Bold)
+        WidgetSizes.Box.LARGE -> type.titleMediumEmphasized
     }
     Column(Modifier.fillMaxSize()) {
         if (box == WidgetSizes.Box.LARGE) CardName(Modifier.padding(bottom = 4.dp))

@@ -156,6 +156,8 @@ class TestScriptWidgets(private val prefix: String) {
             .filter { w -> WidgetSource.scriptRef(w.source)?.script?.startsWith(prefix) == true || (had != null && w.key !in had) }
             .forEach { host.remove(it.key) }
         host.settle()
+        // The next run makes scripts of the same names: their widgets' ids start at 2 again.
+        host.forgetGiven(prefix)
         Stores.WIDGETS.open(context).edit().commit()
         val worker = KvStore(context, Stores.WORKER)
         mine.forEach { s ->

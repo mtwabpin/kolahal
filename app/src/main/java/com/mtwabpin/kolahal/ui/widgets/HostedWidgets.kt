@@ -453,7 +453,7 @@ private fun WidgetPanelContent(
 
 /**
  * A widgets page's title row: its [title], the page dots when there is more than one page
- * ([pageCount], the [current] one from 0, [PageDots]), then + ([onAdd]: the picker) and the pencil
+ * ([pageCount], the [current] one from 0, [WidgetPageDots]), then + ([onAdd]: the picker) and the pencil
  * ([onEdit]: Arrange widgets).
  */
 @Composable
@@ -477,7 +477,7 @@ internal fun WidgetsTitleRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false)
         )
-        if (pageCount > 1) PageDots(pageCount, current, Modifier.padding(start = 8.dp))
+        if (pageCount > 1) WidgetPageDots(pageCount, current, Modifier.padding(start = 8.dp))
         Spacer(Modifier.weight(1f))
         LabeledIconButton(R.drawable.ic_add, "Add a widget", onClick = onAdd, tint = Term.prompt)
         LabeledIconButton(R.drawable.ic_edit, "Edit widgets", onClick = onEdit, tint = Term.fg)

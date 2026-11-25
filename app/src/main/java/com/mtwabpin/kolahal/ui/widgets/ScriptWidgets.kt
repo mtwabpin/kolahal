@@ -47,7 +47,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -264,17 +263,14 @@ internal fun WidgetCard(
         // A built-in card's look of its own ([body]) is drawn on a Plain card.
         val look = if (body != null) WidgetLook.PLAIN else drawnLook(LocalWidgetLook.current, shown, note, footer)
         val colors = lookColors(look, roleColor(shown?.base))
-        // In the Shape look, a card with a choice of shape takes the one chosen for it, else the one its script names.
+        // In the Shape look, the card's shape at this size: the one chosen for it, else the one its
+        // script names, else its own ([cardShapeOf]). The settings page and the toolbar show the same.
         val chosenShape = LocalChosenShape.current
-        val taken = remember(look, shown, chosenShape, battery) {
-            if (look == WidgetLook.SHAPE) takenShape(shown, chosenShape, battery) else null
+        val shape = remember(look, shown, chosenShape, battery, widthDp, heightDp) {
+            cardShapeOf(look, shown, chosenShape, battery, widthDp, heightDp)
         }
         // The Shape look in a square box: the card is one Material shape, and the body sits in it.
-        val polygon = if (look == WidgetLook.SHAPE && squareBox(
-                widthDp,
-                heightDp
-            )
-        ) cardPolygon(shown)?.let { own -> taken?.let(::polygonOf) ?: own } else null
+        val polygon = if (shape != null && squareBox(widthDp, heightDp)) cardPolygon(shown, shape) else null
         // Split's tiles and Shape's shape are the card: the frame itself draws nothing there.
         val bare = look == WidgetLook.SPLIT || polygon != null
         val side = min(maxWidth, maxHeight)
@@ -297,7 +293,7 @@ internal fun WidgetCard(
                 CompositionLocalProvider(
                     LocalCardLongPress provides onLongClick,
                     LocalWidgetLook provides look,
-                    LocalCardShape provides taken,
+                    LocalCardShape provides shape,
                     LocalCardColor provides shown?.base?.color
                 ) {
                     if (body != null && note == null && shown != null) {
@@ -602,7 +598,7 @@ private fun BleedImageCard(
             caption?.let {
                 Text(
                     cardText(it),
-                    style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    style = type.labelLargeEmphasized,
                     color = scheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

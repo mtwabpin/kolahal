@@ -171,7 +171,7 @@ private fun PlainStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
             ) {
                 Text(
                     name,
-                    style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    style = type.titleSmallEmphasized,
                     color = c.content,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -188,7 +188,7 @@ private fun PlainStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
 private fun StageTitle(title: String, c: LookColors, modifier: Modifier = Modifier) {
     Text(
         cardText(title),
-        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.titleSmallEmphasized,
         color = c.content,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -299,7 +299,7 @@ private fun SplitStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
                 SmallTitle(title, c.content, Modifier.weight(1f, fill = false), lines = 2)
                 Text(
                     name,
-                    style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    style = type.titleSmallEmphasized,
                     color = color,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -339,7 +339,7 @@ private fun SplitStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
             ) {
                 Text(
                     name,
-                    style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    style = type.titleSmallEmphasized,
                     color = c.content,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -388,7 +388,7 @@ private fun ShapedStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color:
     ShapeLines {
         Text(
             currentName(spec),
-            style = (if (large) type.titleMedium else type.labelLarge).copy(fontWeight = FontWeight.Bold),
+            style = if (large) type.titleMediumEmphasized else type.labelLargeEmphasized,
             color = c.content,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -430,7 +430,7 @@ private fun ShapeBesideStages(spec: WidgetSpec.Progress, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
     BesideShape(
-        cardShape(MaterialShapes.Cookie9Sided),
+        cardShape(),
         c.shapeFill,
         inShape = { side ->
             BigText(
@@ -443,7 +443,7 @@ private fun ShapeBesideStages(spec: WidgetSpec.Progress, color: Color) {
         beside = {
             Text(
                 currentName(spec),
-                style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                style = type.titleSmallEmphasized,
                 color = c.content,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -595,7 +595,7 @@ private fun StagesTrack(
                     key(i) {
                         Text(
                             stage,
-                            style = if (i == at) type.labelMedium.copy(fontWeight = FontWeight.Bold) else type.labelMedium,
+                            style = if (i == at) type.labelMediumEmphasized else type.labelMedium,
                             color = if (i == at) c.content else c.muted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

@@ -280,8 +280,16 @@ object WidgetPlacement {
         if (w.location == location || !WidgetPages.isPage(location)) return all
         val moved = w.copy(location = location, column = UNPLACED, topDp = UNPLACED)
         val rest = all.filterNot { it.key == key }
-        return if (w.pending) renumber(rest + moved) else add(rest, moved)
+        return if (w.pending) renumber(rest + moved.copy(order = pendingOrder(rest, location))) else add(rest, moved)
     }
+
+    /**
+     * The order for one more widget waiting to be added again on the page [location]: after those
+     * waiting there in [all]. Its key holds its page and its order ([PlacedWidget.key]), so two must
+     * never share both.
+     */
+    private fun pendingOrder(all: List<PlacedWidget>, location: String): Int =
+        WidgetOrder.nextOrder(all.filter { it.pending && it.location == location })
 
     /**
      * Every widget of the page [from] moved onto the page [to], under what is there: they keep how
@@ -297,12 +305,16 @@ object WidgetPlacement {
         val under = pageHeightDp(all, to).let { if (it > 0) it + GAP else 0 }
         val moving = all.filter { it.location == from && onPage(it) && it.positioned }
         val top = moving.minOfOrNull { it.topDp } ?: 0
+        // Those waiting to be added again come after the ones waiting on [to] ([pendingOrder]).
+        val first = pendingOrder(all, to)
+        val orders = WidgetOrder.sorted(all.filter { it.pending && it.location == from })
+            .mapIndexed { i, w -> w.key to first + i }.toMap()
         val merged = all.map { w ->
             when {
                 w.location != from -> w
                 w in moving -> w.copy(location = to, topDp = (w.topDp - top + under).coerceAtMost(MAX_TOP_DP))
-                // A widget waiting to be added again keeps its numbers, as on its page.
-                else -> w.copy(location = to)
+                // A widget waiting to be added again keeps its place, as on its page.
+                else -> w.copy(location = to, order = orders[w.key] ?: w.order)
             }
         }
         // One that had no place yet gets one under the rest.

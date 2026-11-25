@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
@@ -30,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.graphics.shapes.RoundedPolygon
 import com.mtwabpin.kolahal.ui.home.LogImages
 import com.mtwabpin.kolahal.ui.home.pictureBackdrop
 import com.mtwabpin.kolahal.ui.home.rememberWebImage
@@ -66,16 +64,12 @@ internal fun ShapedImage(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
                 (box == WidgetSizes.Box.LARGE && maxWidth >= maxHeight * BESIDE_FROM)
         when {
             box == WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                PictureInShape(spec, MaterialShapes.Cookie12Sided, minOf(boxWidth, boxHeight), small = true)
+                PictureInShape(spec, minOf(boxWidth, boxHeight), small = true)
             }
 
             wide -> Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 val side = minOf(boxHeight, boxWidth / 2)
-                PictureInShape(
-                    spec,
-                    if (box == WidgetSizes.Box.WIDE) MaterialShapes.Clover4Leaf else MaterialShapes.Cookie12Sided,
-                    side
-                )
+                PictureInShape(spec, side)
                 Column(
                     Modifier
                         .padding(start = 14.dp)
@@ -111,7 +105,7 @@ internal fun ShapedImage(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    PictureInShape(spec, MaterialShapes.Cookie12Sided, minOf(maxWidth, maxHeight))
+                    PictureInShape(spec, minOf(maxWidth, maxHeight))
                 }
                 spec.caption?.let {
                     Text(
@@ -143,7 +137,7 @@ internal fun ShapedImage(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
 }
 
 /**
- * [spec]'s picture cut to [polygon] (or the shape chosen for the card, [cardShape]), [side] across,
+ * [spec]'s picture cut to the card's shape ([cardShape]: its own at its size, or the one chosen), [side] across,
  * covering it. Without the picture, the shape in the card's color, with the card's icon in its
  * role's color, or else the words the card says in the picture's place. [small] makes those words
  * smaller.
@@ -152,7 +146,6 @@ internal fun ShapedImage(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
 @Composable
 private fun PictureInShape(
     spec: WidgetSpec.Image,
-    polygon: RoundedPolygon,
     side: Dp,
     small: Boolean = false
 ) {
@@ -162,7 +155,7 @@ private fun PictureInShape(
     BoxWithConstraints(
         Modifier
             .size(side)
-            .clip(cardShape(polygon).toShape())
+            .clip(cardShape().toShape())
             .background(c.shapeFill),
         contentAlignment = Alignment.Center
     ) {

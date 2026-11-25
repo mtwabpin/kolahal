@@ -61,23 +61,87 @@ class WidgetRefTest {
     }
 
     @Test
-    fun theNextIdIsTheSmallestFreeOne() {
-        assertEquals("2", WidgetRef.nextId(listOf("")))
-        assertEquals("3", WidgetRef.nextId(listOf("", "2")))
-        // An id that was given up is used again.
-        assertEquals("2", WidgetRef.nextId(listOf("", "3", "4")))
+    fun theNextIdIsOneTheScriptNeverHad() {
+        assertEquals("2", WidgetRef.nextId(listOf(""), 0))
+        assertEquals("3", WidgetRef.nextId(listOf("", "2"), 0))
+        // An id that was given up is not used again: the number goes on from the highest given.
+        assertEquals("5", WidgetRef.nextId(listOf("", "3", "4"), 0))
+        assertEquals("4", WidgetRef.nextId(listOf(""), 3))
+        assertEquals("10", WidgetRef.nextId(listOf("", "2"), 9))
         // The first widget may be gone while further ones stay.
-        assertEquals("3", WidgetRef.nextId(listOf("2")))
-        assertEquals("2", WidgetRef.nextId(emptyList()))
+        assertEquals("3", WidgetRef.nextId(listOf("2"), 0))
+        assertEquals("2", WidgetRef.nextId(emptyList(), 0))
+        // An id that is no number (a list written by hand) doesn't count.
+        assertEquals("2", WidgetRef.nextId(listOf("", "abc"), 0))
+        // The number must still be an id.
+        assertEquals("99999999", WidgetRef.nextId(listOf(""), 99_999_998))
+        assertNull(WidgetRef.nextId(listOf(""), 99_999_999))
         // No more than six widgets of one script.
-        assertEquals("6", WidgetRef.nextId(listOf("", "2", "3", "4", "5")))
-        assertNull(WidgetRef.nextId(listOf("", "2", "3", "4", "5", "6")))
-        assertNull(WidgetRef.nextId(listOf("2", "3", "4", "5", "6", "7")))
+        assertEquals("6", WidgetRef.nextId(listOf("", "2", "3", "4", "5"), 0))
+        assertEquals("12", WidgetRef.nextId(listOf("", "2", "3", "4", "5"), 11))
+        assertNull(WidgetRef.nextId(listOf("", "2", "3", "4", "5", "6"), 0))
+        assertNull(WidgetRef.nextId(listOf("2", "3", "4", "5", "6", "7"), 0))
         assertEquals(6, WidgetRef.MAX_PER_SCRIPT)
         // The limit is on how many there are, the first widget included.
         assertTrue(WidgetRef.roomFor(listOf("", "2", "3", "4", "5")))
         assertFalse(WidgetRef.roomFor(listOf("", "2", "3", "4", "5", "6")))
         assertFalse(WidgetRef.roomFor(listOf("2", "3", "4", "5", "6", "7")))
+    }
+
+    /**
+     * Two widgets of a habit placed, the second removed, one more placed: it is #3, not #2, so it
+     * doesn't find the days the script stored for #2 (`days2`). As [WidgetHost] does it: every list
+     * it saves counts in [GivenIds], and the next id goes on from there.
+     */
+    @Test
+    fun aRemovedWidgetsIdDoesNotComeBack() {
+        var all = listOf(placed("script:habit"))
+        var given = GivenIds.noted(emptyMap(), all)
+        fun placeAnother(): String {
+            val id = WidgetRef.nextId(PlacedIds.of(all)["habit"].orEmpty(), given["habit"] ?: 0)!!
+            all = all + placed(WidgetSource.script(WidgetRef("habit", id)))
+            given = GivenIds.noted(given, all)
+            return id
+        }
+        fun remove(id: String) {
+            all = all.filterNot { it.source == WidgetSource.script(WidgetRef("habit", id)) }
+            given = GivenIds.noted(given, all)
+        }
+        assertEquals("2", placeAnother())
+        remove("2")
+        assertEquals("3", placeAnother())
+        assertEquals("4", placeAnother())
+        remove("3")
+        remove("4")
+        assertEquals("5", placeAnother())
+        assertEquals(mapOf("habit" to 5), given)
+    }
+
+    /**
+     * The ids given are kept as a JSON object and come back; a backup's are added to these, the higher
+     * one for each name; a rename takes them to the new name. A name or a number that can't be one is skipped.
+     */
+    @Test
+    fun theIdsGivenAreKept() {
+        val given = mapOf("habit" to 3, "football" to 2)
+        assertEquals(given, GivenIds.parse(GivenIds.encode(given)))
+        assertEquals(emptyMap<String, Int>(), GivenIds.parse(null))
+        assertEquals(emptyMap<String, Int>(), GivenIds.parse("[1, 2]"))
+        assertEquals(
+            mapOf("habit" to 4),
+            GivenIds.of(mapOf("habit" to 4.0, "a b" to 3, "cricket" to "5", "chess" to 1, "sun" to 2.5)),
+        )
+        assertEquals(mapOf("habit" to 5, "football" to 2, "chess" to 2), GivenIds.merged(given, mapOf("habit" to 5, "chess" to 2)))
+        assertEquals(given, GivenIds.merged(given, mapOf("habit" to 2)))
+        assertEquals(mapOf("habits" to 3, "football" to 2), GivenIds.renamed(given, "habit", "habits"))
+        // Onto a name that had ids of its own: the higher stays.
+        assertEquals(mapOf("football" to 3), GivenIds.renamed(given, "habit", "football"))
+        assertEquals(given, GivenIds.renamed(given, "sun", "moon"))
+        // A widget that came in another way counts as given, a first widget and an id that is no number don't.
+        assertEquals(
+            mapOf("habit" to 7, "football" to 2, "sun" to 4),
+            GivenIds.noted(given, listOf(placed("script:habit#7"), placed("script:sun#4"), placed("script:moon"), placed("script:sky#ab"))),
+        )
     }
 
     private fun placed(source: String) = PlacedWidget(null, source, 0L, 96, 0)

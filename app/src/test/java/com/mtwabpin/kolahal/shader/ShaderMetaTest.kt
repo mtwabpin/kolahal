@@ -405,7 +405,10 @@ class ShaderMetaTest {
      * Every shader that comes with Kolahal and tells the page from text (not one for text, which works on all of
      * it) takes a pixel at full alpha as covered: text and pictures are opaque and the page under them is a step
      * under ([ShaderMeta.PAGE_ALPHA]), so an icon, a photo or an emoji keeps its colors under a scene. One that gives
-     * faint text more contrast gives it to text only, not to a picture.
+     * faint text more contrast gives it to text only, not to a picture. And it tests the pixel as it read it: nothing
+     * is written to `here` after it is read, so no step before the test can change a picture (Paper's soak mixes a
+     * neighbour into a copy, and only on the page). What this lets through: a shader that changes a copy of `here` and
+     * draws the copy over a covered pixel, and one that changes covered pixels after the test, as Lamp's light does.
      */
     @Test
     fun theScenesKeepPicturesAsTheyAre() {
@@ -417,6 +420,8 @@ class ShaderMetaTest {
             val pageTest = "length(here.rgb - " in code || "ink2(here)" in code
             if (!pageTest || ShaderMeta.parse(file.readText()).text) return@filter false
             assertTrue("${file.name} doesn't take full alpha as covered", "step(0.999, here.a)" in code)
+            val written = code.replace(Regex("""\b(float4|half4)\s+here\s*="""), "")
+            assertFalse("${file.name} changes here before it tests it", Regex("""\bhere(\.[rgba]+)?\s*[-+*/]?=(?!=)""").containsMatchIn(written))
             if ("float gain" in code) assertTrue("${file.name} gives pictures more contrast", "picture(here.rgb" in code)
             true
         }.map { it.nameWithoutExtension }
@@ -430,7 +435,7 @@ class ShaderMetaTest {
     @Test
     fun everySurfaceThatHandsItsPageToAShaderMarksIt() {
         val calls = listOf(
-            "rememberTtyShader(", "rememberShaderPreview(", "rememberPeekShader(", "rememberPlayedShader(",
+            "rememberTtyShader(", "rememberShaderPreview(", "rememberShaderStill(", "rememberPeekShader(", "rememberPlayedShader(",
             "rememberPlayedOnHome(", "setInputShader(ShaderMeta.INPUT",
         )
         val surfaces = sourceFile("src/main/java").walkTopDown()

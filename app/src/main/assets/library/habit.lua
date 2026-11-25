@@ -4,7 +4,7 @@
 -- @usage [done|undo]
 -- @title Habit streak
 -- @author Kolahal
--- @version 1.4
+-- @version 1.5
 -- @widget chart 2x2
 -- @at 00:01
 -- @option name Exercise What you count
@@ -112,6 +112,9 @@ if widget then
   for back = DAYS - 1, 0, -1 do
     if day(back) >= since then points[#points + 1] = done[day(back)] and 1 or 0 end
   end
+  -- Only the first widget gets the run at 00:01. Each widget's content is old at midnight, so the
+  -- widgets page runs it for the new day as soon as it is seen.
+  local midnight = os.time({ year = now.year, month = now.month, day = now.day + 1, hour = 0 })
   widget.show{
     title = name, icon = "check",
     value = streak,
@@ -121,6 +124,7 @@ if widget then
     color = done[day(0)] and "good" or nil,
     note = done[day(0)] and "Done today" or nil,
     tap = done[day(0)] and { args = "undo", label = "Undo" } or { args = "done", label = "Done today" },
+    staleAfter = math.max(60, midnight - os.time()),
   }
 end
 

@@ -94,6 +94,9 @@ class BuiltInCommandsTest {
     private var notificationsAsked = 0
     private var widgetsPageTurns = 0
 
+    /** The pages `widget page <n>` turned to, from 1. */
+    private val widgetsPagesShown = CopyOnWriteArrayList<Int>()
+
     private val ui = object : TerminalUiStub() {
         override fun openScreen(screen: Screen) {
             screens += screen
@@ -109,6 +112,11 @@ class BuiltInCommandsTest {
 
         override fun showWidgetsPage() {
             widgetsPageTurns++
+        }
+
+        override fun showWidgetsPage(page: Int) {
+            widgetsPageTurns++
+            widgetsPagesShown += page
         }
     }
     private val commands = CommandRunner(context, ui)
@@ -730,13 +738,17 @@ class BuiltInCommandsTest {
             assertEquals(1, widgetsPageTurns)
             assertEquals(emptyList<String>(), run("widgets page"))
             assertEquals(2, widgetsPageTurns)
+            // A page by its place: the host is asked for that page.
+            assertEquals(emptyList<String>(), run("widget page 1"))
+            assertEquals(listOf(1), widgetsPagesShown.toList())
+            assertEquals(3, widgetsPageTurns)
             config.set(Keys.WIDGETS_PAGE, "off")
             assertEquals(listOf("The widgets page is off\nTap to turn it on"), run("widget page"))
             with(logs.recent(1).single()) {
                 assertEquals(LogKind.ERROR, kind)
                 assertEquals("config set widgets.page left", ctx.values[LogContext.RUN])
             }
-            assertEquals(2, widgetsPageTurns)
+            assertEquals(3, widgetsPageTurns)
             assertEquals(emptyList<Screen>(), screens.toList())
         } finally {
             config.reset(Keys.WIDGETS_PAGE)

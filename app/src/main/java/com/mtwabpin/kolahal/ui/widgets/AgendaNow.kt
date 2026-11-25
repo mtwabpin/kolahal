@@ -53,8 +53,10 @@ import java.time.ZoneId
 /** From this width a wide card has now, the free time and next side by side; a narrower one has them one under the other. */
 private val NOW_SIDE = 260.dp
 
-/** The least height of a line of the day: an event that can be tapped, one that can't, free time, and a later day's heading. */
-private const val NOW_TAP_DP = 42
+/**
+ * The least height of a line of the day: an event that can't be tapped, free time, and a later
+ * day's heading. One that can is as tall as a list's row to tap ([TAP_ROW_DP]).
+ */
 private const val NOW_EVENT_DP = 32
 private const val NOW_FREE_DP = 20
 private const val NOW_HEAD_DP = 24
@@ -66,15 +68,15 @@ private val DOT_COLUMN = 16.dp
 /**
  * The Now look of an agenda ([WidgetLook.NOW]), for Kolahal's Agenda card and the `agenda` kind:
  * - A wide card: what is on now, how far along it is as a bar, and when it ends ("Now · until
- *   11:30"); a chip with the free time until the next event ("free 1h 30"); and the next event with
- *   its time and its place. With nothing on now, the free time takes the first place ("Free ·
- *   until 13:00", "1h 30"). When today has nothing more, it says so, or names today's all-day
+ *   11:30"); a chip with the free time until the next event ("free 1 h 30 min"); and the next
+ *   event with its time and its place. With nothing on now, the free time takes the first place ("Free ·
+ *   until 13:00", "1 h 30 min"). When today has nothing more, it says so, or names today's all-day
  *   event, and the next event is on a later day ("Tomorrow · 09:00"). A narrow wide card has the
  *   first place over a line with the next event.
  * - A small card: the first place alone.
- * - A large card: the day, under its heading ("Today · Tue 24 Nov", "3h free"), with each event's
+ * - A large card: the day, under its heading ("Today · Tue 24 Nov", "3 h free"), with each event's
  *   time in a chip and its length at the end, and the free time between two events said on a line
- *   of its own ("free · 1h 30"). Later days follow under their headings, as many lines as fit,
+ *   of its own ("free · 1 h 30 min"). Later days follow under their headings, as many lines as fit,
  *   then "+3 more".
  * - It moves with the minute's tick ([AgendaBody] reads it): the bar fills, the free time shrinks,
  *   an event that ends leaves. All-day events are never on now.
@@ -213,14 +215,14 @@ private fun FirstPlace(moment: AgendaFree.Moment, c: LookColors, onTap: ((Widget
 private fun EventTitle(title: String, color: Color) {
     Text(
         title,
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.titleMediumEmphasized,
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
 }
 
-/** The free time between now's event and the next: "free" over "1h 30", in a dashed pill. */
+/** The free time between now's event and the next: "free" over "1 h 30 min", in a dashed pill. */
 @Composable
 private fun FreeChip(seconds: Long, c: LookColors, modifier: Modifier) {
     val type = MaterialTheme.typography
@@ -248,7 +250,7 @@ private fun FreeChip(seconds: Long, c: LookColors, modifier: Modifier) {
             Text("free", style = type.labelMedium, color = c.content, maxLines = 1)
             Text(
                 AgendaFree.span(seconds),
-                style = type.labelLarge.copy(fontWeight = FontWeight.Bold).asValue(),
+                style = type.labelLargeEmphasized.asValue(),
                 color = c.content,
                 maxLines = 1,
                 textAlign = TextAlign.Center
@@ -281,7 +283,7 @@ private fun NowDay(
     val firstHeadDp = WidgetWords.textRowDp(NOW_HEAD_DP, linesDp(type.titleSmall))
     val headDp = WidgetWords.textRowDp(NOW_HEAD_DP, linesDp(type.labelMedium))
     val taps = spec.events.any { it.tap != null }
-    val eventDp = WidgetWords.textRowDp(if (taps) NOW_TAP_DP else NOW_EVENT_DP, linesDp(type.bodyLarge))
+    val eventDp = WidgetWords.textRowDp(if (taps) TAP_ROW_DP else NOW_EVENT_DP, linesDp(type.bodyLarge))
     val freeDp = WidgetWords.textRowDp(NOW_FREE_DP, linesDp(type.labelMedium))
     val moreDp = WidgetWords.textRowDp(NOW_MORE_DP, linesDp(type.labelMedium))
     // With a larger font the first heading can be taller: it counts as a heading and the room it has over the others.
@@ -301,7 +303,7 @@ private fun NowDay(
                     ) {
                         Text(
                             line.label,
-                            style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            style = type.titleSmallEmphasized,
                             color = c.content,
                             maxLines = 1
                         )
@@ -322,7 +324,7 @@ private fun NowDay(
                         )
                     } else Text(
                         "${line.label} · ${line.date}",
-                        style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        style = type.labelMediumEmphasized,
                         color = c.muted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -382,7 +384,7 @@ private fun DayEvent(
         }
         Text(
             line.line.time,
-            style = type.labelLarge.copy(fontWeight = FontWeight.Bold).asValue(),
+            style = type.labelLargeEmphasized.asValue(),
             color = c.content,
             maxLines = 1,
             softWrap = false,
@@ -409,7 +411,7 @@ private fun DayEvent(
     }
 }
 
-/** Free time between two events: a dashed line under the dots, and "free · 1h 30" in the card's color. */
+/** Free time between two events: a dashed line under the dots, and "free · 1 h 30 min" in the card's color. */
 @Composable
 private fun FreeLine(seconds: Long, height: Dp, c: LookColors) {
     val dash = c.muted.copy(alpha = 0.6f)

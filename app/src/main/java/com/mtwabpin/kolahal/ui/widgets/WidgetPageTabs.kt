@@ -17,11 +17,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialShapes
@@ -31,7 +35,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonColors
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -53,17 +58,20 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.takeWhole
 import com.mtwabpin.kolahal.ui.ConfirmDialog
 import com.mtwabpin.kolahal.ui.DialogBars
 import com.mtwabpin.kolahal.ui.ErrorTextButton
+import com.mtwabpin.kolahal.ui.IconLabel
 import com.mtwabpin.kolahal.ui.fieldColors
 import com.mtwabpin.kolahal.widgets.WidgetPage
 import com.mtwabpin.kolahal.widgets.WidgetPages
@@ -71,9 +79,12 @@ import kotlinx.coroutines.delay
 
 /**
  * The tabs of Arrange widgets, under its title: one for each widgets page ([pages]), the one being
- * arranged ([current], from 0) checked, then + that adds a page ([onAdd]) while there are fewer than
+ * arranged ([current], from 0) selected, then + that adds a page ([onAdd]) while there are fewer than
  * [WidgetPages.MAX]. A tap arranges that page ([onPick]); a long-press, or a screen reader's action,
  * opens the page's name and its removal ([onLongPress]).
+ * - Built as the Settings tabs are ([com.mtwabpin.kolahal.ui.FeatureTabs]): each tab is a tab to a
+ *   screen reader, "Selected" on the one being arranged, and + is a button.
+ * - At a large font size, a name that doesn't fit shrinks to fit its tab, then ends in "…".
  */
 @Composable
 internal fun PageTabs(
@@ -87,31 +98,47 @@ internal fun PageTabs(
     val more = pages.size < WidgetPages.MAX
     // The buttons are one connected group: the first and the last have the round outer ends.
     val last = if (more) pages.size else pages.lastIndex
+    // The toggle button's colors: the tab being arranged in the accent, the others in a container.
+    val colors = ToggleButtonDefaults.colors()
     Row(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         modifier = modifier.fillMaxWidth(),
     ) {
-        pages.indices.forEach { i ->
-            PageTab(
-                WidgetPages.title(pages, i),
-                checked = i == current,
-                shapes = when (i) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    last -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                onClick = { onPick(i) },
-                onLongPress = { onLongPress(i) },
-                modifier = Modifier.weight(1f),
-            )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+            modifier = Modifier
+                .weight(1f)
+                .selectableGroup(),
+        ) {
+            pages.indices.forEach { i ->
+                PageTab(
+                    WidgetPages.title(pages, i),
+                    on = i == current,
+                    shapes = when (i) {
+                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        last -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                    },
+                    colors = colors,
+                    onClick = { onPick(i) },
+                    onLongPress = { onLongPress(i) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         if (more) {
-            ToggleButton(
-                checked = false,
-                onCheckedChange = { onAdd() },
-                shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+            val shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+            // A plain button: it adds a page, where a toggle button would be read as a checkbox.
+            Button(
+                onClick = onAdd,
+                shapes = ButtonShapes(shape = shapes.shape, pressedShape = shapes.pressedShape),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.containerColor,
+                    contentColor = colors.contentColor,
+                ),
                 contentPadding = PaddingValues(horizontal = 12.dp),
                 modifier = Modifier
+                    .widthIn(min = 48.dp)
                     .heightIn(min = 48.dp)
                     .testTag("page-add"),
             ) { Icon(painterResource(R.drawable.ic_add), "Add a page") }
@@ -126,8 +153,9 @@ internal fun PageTabs(
 @Composable
 private fun PageTab(
     label: String,
-    checked: Boolean,
+    on: Boolean,
     shapes: ToggleButtonShapes,
+    colors: ToggleButtonColors,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier,
@@ -146,24 +174,40 @@ private fun PageTab(
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         held()
     }
-    ToggleButton(
-        checked = checked,
-        onCheckedChange = {
+    val style = MaterialTheme.typography.labelLarge
+    // A button, not a toggle button: a toggle button tells a screen reader "Checked" or "Not
+    // checked", where a tab is "Selected". The selected tab has the toggle button's checked shape.
+    Button(
+        onClick = {
             if (!longPressed) onClick()
             longPressed = false
         },
-        shapes = shapes,
+        shapes = ButtonShapes(
+            shape = if (on) shapes.checkedShape else shapes.shape,
+            pressedShape = shapes.pressedShape,
+        ),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (on) colors.checkedContainerColor else colors.containerColor,
+            contentColor = if (on) colors.checkedContentColor else colors.contentColor,
+        ),
         contentPadding = PaddingValues(horizontal = 4.dp),
         interactionSource = interaction,
         modifier = modifier
             .heightIn(min = 48.dp)
             .semantics {
                 role = Role.Tab
+                selected = on
                 onLongClick(label = "Rename or remove") { held(); true }
             }
             .testTag("page-tab $label"),
     ) {
-        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            label,
+            style = style,
+            autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize, stepSize = 1.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -231,9 +275,7 @@ internal fun PageDialog(
                 )
                 if (index > 0) {
                     ErrorTextButton(onClick = { if (count > 0) confirm = true else onRemove() }) {
-                        Icon(painterResource(R.drawable.ic_delete), null)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Remove page")
+                        IconLabel(R.drawable.ic_delete, "Remove page")
                     }
                 }
             }

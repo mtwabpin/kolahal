@@ -82,7 +82,7 @@ private fun BoldTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
         if (box == WidgetSizes.Box.LARGE && chip != null) {
             Text(
                 cardText(chip),
-                style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                style = type.labelMediumEmphasized,
                 color = c.content,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -163,7 +163,7 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
                         LetterCookie(who, role, 30.dp)
                         Text(
                             cardText(who),
-                            style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            style = type.labelLargeEmphasized,
                             color = c.content,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -216,7 +216,7 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
             ) {
                 Text(
                     cardText(who),
-                    style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    style = type.labelMediumEmphasized,
                     color = c.content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -248,7 +248,7 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TextMark(icon: String?, title: String?, role: Color, side: Dp) {
-    ShapedBox(cardShape(MaterialShapes.Clover4Leaf), roleContainer(role), side) {
+    ShapedBox(cardShape(), roleContainer(role), side) {
         if (icon != null) WidgetIconText(
             icon,
             MaterialTheme.typography.titleMedium,

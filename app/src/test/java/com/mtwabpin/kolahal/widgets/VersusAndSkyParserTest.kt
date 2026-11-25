@@ -48,7 +48,7 @@ class VersusAndSkyParserTest {
                 "score" to "2–1",
                 "turn" to 2,
                 "moving" to true,
-                "line" to "64' Goal",
+                "caption" to "64' Goal",
                 "badge" to "67'",
             ),
             WidgetKind.STAT
@@ -138,28 +138,37 @@ class VersusAndSkyParserTest {
         assertEquals("widget: turn must be 1 or 2, the side to move, not 'white'", noVersus("turn" to "white"))
     }
 
-    /** Texts are cut at their limits: the name and the score at 24, a figure at 12, the badge at 8, the line at 60. */
+    /** Texts are cut at their limits: the name and the score at 24, a figure at 12, the badge at 8, the caption at 60. */
     @Test
     fun aVersusTextIsCutAtItsLimit() {
         val long = "x".repeat(100)
         val spec = versus(
             "sides" to listOf(mapOf("name" to long, "text" to long), mapOf("name" to "B")),
             "badge" to long,
-            "line" to long,
+            "caption" to long,
             "score" to long,
         )
         assertEquals(WidgetParser.MAX_SHORT, spec.sides[0].name.length)
         assertEquals(WidgetParser.MAX_UNIT, spec.sides[0].text!!.length)
         assertEquals(WidgetParser.MAX_BADGE, spec.badge!!.length)
-        assertEquals(WidgetParser.MAX_LABEL, spec.line!!.length)
+        assertEquals(WidgetParser.MAX_CAPTION, spec.line!!.length)
         assertEquals(WidgetParser.MAX_SHORT, spec.score.length)
     }
 
-    /** The last line keeps the styles a card draws, and starts with a capital as a label does. */
+    /** The last line is `caption`, as on a text or a picture card: `line` is no field. */
     @Test
-    fun theLastLineKeepsItsStyles() {
+    fun theLastLineIsTheCaption() {
+        assertEquals(
+            "widget: a versus widget has no field 'line'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, sides, score, turn, moving, caption, badge",
+            noVersus("line" to "64' Goal")
+        )
+    }
+
+    /** The caption keeps the styles a card draws, and starts with a capital as a label does. */
+    @Test
+    fun theCaptionKeepsItsStyles() {
         val line = StyledText.color(StyledText.ColorRole.ACCENT, "goal") + " · possession"
-        val kept = versus("line" to line).line!!
+        val kept = versus("caption" to line).line!!
         assertEquals("Goal · possession", StyledText.plain(kept))
         assertEquals(StyledText.inline(kept), kept)
         // Every other text is plain.

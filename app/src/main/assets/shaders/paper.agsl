@@ -47,7 +47,8 @@ half4 main(float2 xy) {
     // One grain of the paper, in pixels: bigger on a denser screen.
     float u = max(1.0, floor(cell.y / 24.0 + 0.5));
 
-    // The ink soaks in: a pixel takes a little of the inkiest pixel beside it.
+    // The ink soaks in: a pixel of the page takes a little of the inkiest pixel beside it. A covered
+    // pixel (full alpha: text or a picture) stays as it is.
     float most = ink2(here);
     float4 soaked = here;
     for (int i = 0; i < 4; i++) {
@@ -60,14 +61,14 @@ half4 main(float2 xy) {
             soaked = beside;
         }
     }
-    here = mix(here, soaked, 0.22);
+    float4 inked = here.a < 0.999 ? mix(here, soaked, 0.22) : here;
 
     // The page shows as much as the pixel is close to it. Text and lines show none of it.
     // Text and pictures (icons, photos, emoji) are opaque, and Kolahal draws the page a step under
     // opaque: a pixel at full alpha is covered, whatever its color, and the scene stays behind it.
-    float page = (1.0 - clamp(sqrt(ink2(here)) * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
+    float page = (1.0 - clamp(sqrt(ink2(inked)) * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));
     if (page <= 0.0) {
-        return half4(here);
+        return half4(inked);
     }
 
     // The page: grains, long thin fibres lying two ways, and a slow unevenness.
@@ -80,5 +81,5 @@ half4 main(float2 xy) {
     // It is the color of the dim text with a little warmth, only where the page shows.
     float amount = tone * page;
     float3 color = mix(float3(dim.rgb), float3(warn.rgb), 0.3);
-    return half4(here * (1.0 - amount) + float4(color * amount, amount));
+    return half4(inked * (1.0 - amount) + float4(color * amount, amount));
 }

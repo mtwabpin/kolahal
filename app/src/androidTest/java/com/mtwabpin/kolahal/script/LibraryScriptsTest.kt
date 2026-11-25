@@ -1069,6 +1069,23 @@ class LibraryScriptsTest {
         assertEquals("10h 59m Of daylight today", length(39_569))
     }
 
+    /**
+     * Under the midnight sun, Open-Meteo gives sunrise at 00:00 and sunset at 00:00 the next day: a
+     * whole day, which a sky card refuses. The widget is then the day's length, as in the polar
+     * night, and the run logs the times, not an error.
+     */
+    @Test
+    fun sunUnderTheMidnightSunShowsTheDaysLength() {
+        run(
+            "sun.js",
+            "69.65 18.96",
+            before = standIns("""{"daily":{"sunrise":["2026-06-21T00:00"],"sunset":["2026-06-22T00:00"],"daylight_duration":[86400]}}""") + jsKeepsShown
+        )
+        val card = shown() as Map<*, *>
+        assertEquals(listOf("stat", "24h 0m", "Of daylight"), listOf(card["kind"], card["value"], card["label"]))
+        assertEquals("69.65, 18.96", only().first)
+    }
+
     @Test
     fun releasesWatchesAndListsRepos() {
         run("releases.lua", "list")
@@ -1303,6 +1320,7 @@ class LibraryScriptsTest {
         store.set("days", days(4, 2, 1))
         run("habit.lua", event = forWidget, before = luaKeepsShown)
         assertEquals(emptyList<LogEntry>(), lines())
+        val shownCard = card()
         assertEquals(
             mapOf(
                 "title" to "Exercise",
@@ -1313,8 +1331,12 @@ class LibraryScriptsTest {
                 "style" to "dots",
                 "tap" to mapOf("args" to "done", "label" to "Done today"),
             ),
-            card(),
+            shownCard - "staleAfter",
         )
+        // Its content is old at midnight: a second card gets no run at 00:01, so the widgets page
+        // runs it for the new day when it is next seen, not up to an hour later.
+        val toMidnight = java.time.Duration.between(java.time.LocalDateTime.now(), today.plusDays(1).atStartOfDay()).seconds
+        assertEquals(maxOf(60L, toMidnight).toDouble(), shownCard["staleAfter"] as Double, 5.0)
         assertEquals(days(4), store.get("since"))
 
         // The tap marks today done: the streak is 3, in the good color, and nothing is logged.
@@ -1381,7 +1403,8 @@ class LibraryScriptsTest {
         fun points(first: Long, vararg done: Long) =
             (first downTo 0L).map { if (it in done) 1.0 else 0.0 }
 
-        fun card() = shown() as Map<*, *>
+        // Without staleAfter, the seconds to midnight, which go down from run to run (habitCountsTheDaysInARow checks it).
+        fun card() = (shown() as Map<*, *>) - "staleAfter"
         fun parts(card: Map<*, *>) =
             listOf(card["value"], card["points"], card["color"], card["note"], card["tap"])
 

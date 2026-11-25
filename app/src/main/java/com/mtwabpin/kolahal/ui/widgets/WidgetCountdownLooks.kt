@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -251,7 +250,7 @@ private fun SplitCountdown(
     val c = lookColors(WidgetLook.SPLIT, role)
     val title = LocalUntitled.current
     val gap = SplitCorners.GAP
-    val unitStyle = type.labelLarge.copy(fontWeight = FontWeight.Bold)
+    val unitStyle = type.labelLargeEmphasized
     when (box) {
         WidgetSizes.Box.LARGE -> {
             // With days left: the hours and the minutes after them. They change with the minute.
@@ -402,7 +401,7 @@ private fun SplitCountdown(
                 CountWords(
                     count,
                     type.titleLarge,
-                    type.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    type.labelSmallEmphasized,
                     c.content,
                     stacked = true,
                     modifier = Modifier
@@ -418,7 +417,7 @@ private fun SplitCountdown(
                 ) {
                     Text(
                         it,
-                        style = type.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        style = type.labelSmallEmphasized,
                         color = c.content,
                         maxLines = 1,
                         modifier = Modifier.align(Alignment.Center)
@@ -465,7 +464,7 @@ private fun ShapedCountdown(
             CountWords(
                 count,
                 if (small) type.titleLarge else type.displayMedium.copy(fontSize = 50.sp),
-                (if (small) type.labelSmall else type.labelLarge).copy(fontWeight = FontWeight.Bold),
+                if (small) type.labelSmallEmphasized else type.labelLargeEmphasized,
                 c.content,
                 stacked = true
             )
@@ -500,7 +499,7 @@ private fun ShapeBesideCountdown(
         CountWords(
             count,
             shapeValueStyle(side, 0.3f),
-            type.labelSmall.copy(fontWeight = FontWeight.Bold),
+            type.labelSmallEmphasized,
             c.content,
             stacked = true,
             modifier = Modifier.padding(horizontal = side / 6)

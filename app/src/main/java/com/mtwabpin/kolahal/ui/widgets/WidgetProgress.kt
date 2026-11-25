@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -157,7 +156,7 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Col
                     ) {
                         Text(
                             cardText(untitled),
-                            style = type.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = type.titleMediumEmphasized,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -197,7 +196,7 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Col
                     RingLabel(
                         label,
                         spec.labelIcon,
-                        type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        type.titleSmallEmphasized,
                         if (tonal) MaterialTheme.colorScheme.onSurface else color,
                         Modifier
                             .height(labelRoom)

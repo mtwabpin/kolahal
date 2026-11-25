@@ -260,15 +260,19 @@ class ShadersScreenTest {
         }
     }
 
-    /** Its details say what it works well over, and warn while too much of a wallpaper shows. */
+    /**
+     * Its details say what it works well over, and warn while too much of a wallpaper shows. CRT works on
+     * the text and is poor over a wallpaper. A scene such as Pond hides the wallpaper while it is on, so it
+     * gets no warning (ShaderPageTest.theWallpaperWarning).
+     */
     @Test
     fun theDetailsRateItAndWarn() {
         needsAndroid13()
         config.set(Keys.LOG_WALLPAPER, "40")
         show()
-        compose.onNodeWithTag("shader-search").performTextInput("pond")
-        compose.waitForNode(hasTestTag("shader pond"))
-        openSheet("pond", "Pond")
+        compose.onNodeWithTag("shader-search").performTextInput("crt")
+        compose.waitForNode(hasTestTag("shader crt"))
+        openSheet("crt", "CRT")
         for (surface in listOf("dark", "light", "wallpaper")) compose.onNodeWithTag("suits $surface").assertExists()
         compose.waitForText("Yours shows at 40%", substring = true)
     }

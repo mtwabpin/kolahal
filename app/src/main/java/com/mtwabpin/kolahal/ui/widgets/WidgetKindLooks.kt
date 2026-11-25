@@ -212,7 +212,7 @@ internal fun TitleAndIcon(title: String?, icon: String?, color: Color, role: Col
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             title.orEmpty(),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.labelMediumEmphasized,
             color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

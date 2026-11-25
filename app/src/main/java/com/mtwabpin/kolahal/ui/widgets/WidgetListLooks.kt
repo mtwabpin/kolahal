@@ -83,7 +83,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
     val first = if (lead == null) spec.items.firstOrNull() else null
     val rest = if (first != null) spec.items.drop(1) else spec.items
     val lineStyle = type.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-    val endStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val endStyle = type.labelMediumEmphasized
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // The lead row gets room for two lines and its second line: the rows fit under that.
         val lines =
@@ -132,7 +132,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     title.orEmpty(),
-                    style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    style = type.labelMediumEmphasized,
                     color = role,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -389,7 +389,7 @@ private fun RowWords(
     under: Color = Color.Unspecified,
 ) {
     val type = MaterialTheme.typography
-    val end = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val end = type.labelMediumEmphasized
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(
@@ -472,7 +472,7 @@ private fun lookBars(
                 type.bodySmall)),
         trailing = widestText(
             rows.mapNotNull { it.trailing },
-            type.labelMedium.copy(fontWeight = FontWeight.Bold)
+            type.labelMediumEmphasized
         ),
         mark = rows.maxOf { marked(it) } - bare,
     )
@@ -555,7 +555,7 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                         ) {
                             Text(
                                 title.orEmpty(),
-                                style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                style = type.labelLargeEmphasized,
                                 color = c.content,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -664,7 +664,7 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                         ) {
                             Text(
                                 title.orEmpty(),
-                                style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                style = type.labelMediumEmphasized,
                                 color = c.content,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
@@ -853,7 +853,7 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                 ) {
                     Text(
                         title.orEmpty(),
-                        style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        style = type.labelLargeEmphasized,
                         color = c.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -897,7 +897,7 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                         lead.unit?.let {
                             Text(
                                 it,
-                                style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                style = type.titleSmallEmphasized,
                                 color = c.content,
                                 maxLines = 1
                             )

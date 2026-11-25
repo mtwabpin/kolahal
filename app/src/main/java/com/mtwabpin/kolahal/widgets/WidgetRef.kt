@@ -62,12 +62,16 @@ data class WidgetRef(val script: String, val id: String = "") {
         fun roomFor(taken: Collection<String>): Boolean = taken.size < MAX_PER_SCRIPT
 
         /**
-         * The id for one more further widget of a script whose placed widgets have the ids [taken]:
-         * the smallest free one of "2", "3", … Null when the script has no room for one ([roomFor]).
+         * The id for one more further widget of a script whose placed widgets have the ids [taken],
+         * and that was given the further ids up to [given] before (0 when none, [GivenIds]): the
+         * number after both, "2" at the least. An id is never given twice to one script, so a new
+         * widget never finds what the script stored for a removed one (a habit's days, a match).
+         * Null when the script has no room for one ([roomFor]), or when the number is too long for an [ID].
          */
-        fun nextId(taken: Collection<String>): String? {
+        fun nextId(taken: Collection<String>, given: Int): String? {
             if (!roomFor(taken)) return null
-            return generateSequence(2) { it + 1 }.map { it.toString() }.first { it !in taken }
+            val highest = maxOf(given, taken.maxOfOrNull { it.toIntOrNull() ?: 0 } ?: 0, 1)
+            return (highest.toLong() + 1).toString().takeIf { ID.matches(it) }
         }
     }
 }
@@ -103,4 +107,43 @@ object PlacedIds {
      * The script's `widget` access must be on as well: the caller checks that.
      */
     fun holds(ids: Set<String>?, id: String): Boolean = ids?.contains(id) ?: id.isEmpty()
+}
+
+/**
+ * The highest further id each script was given ([WidgetRef.nextId]), by script name. What a script
+ * stores for one of its widgets (`days2`) stays when the widget is removed, so a removed widget's id
+ * must not come back. Kept beside the placed list, and in a backup, which brings the scripts' stores
+ * back with it. A widget that comes in another way (a backup, a rename) counts as given ([noted]).
+ */
+object GivenIds {
+    /** The stored and backup form: a JSON object of names and numbers. */
+    fun encode(given: Map<String, Int>): String = Json.stringify(given)
+
+    /** What [encode] wrote. A name or a number that can't be one is skipped. */
+    fun parse(text: String?): Map<String, Int> =
+        of(text?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() })
+
+    /** The ids in a backup's object ([encode]'s form): whole numbers from 2, by a script's name. */
+    fun of(raw: Map<*, *>?): Map<String, Int> = raw.orEmpty().mapNotNull { (k, v) ->
+        val name = (k as? String)?.takeIf { ScriptNames.NAME.matches(it) } ?: return@mapNotNull null
+        val n = (v as? Number)?.toDouble()?.takeIf { it >= 2 && it < 1e8 && it % 1.0 == 0.0 } ?: return@mapNotNull null
+        name to n.toInt()
+    }.toMap()
+
+    /** [given] with each further widget in [all] counted as given. */
+    fun noted(given: Map<String, Int>, all: List<PlacedWidget>): Map<String, Int> =
+        merged(given, all.mapNotNull { WidgetSource.scriptRef(it.source) }
+            .mapNotNull { ref -> ref.id.toIntOrNull()?.let { ref.script to it } }
+            .groupBy({ it.first }, { it.second }).mapValues { it.value.max() })
+
+    /** The higher of the two for each name. */
+    fun merged(a: Map<String, Int>, b: Map<String, Int>): Map<String, Int> =
+        b.entries.fold(a) { out, (name, n) -> if ((out[name] ?: 0) >= n) out else out + (name to n) }
+
+    /** [given] after the script [from] was renamed to [to]: its widgets, and what it stored, go with it. */
+    fun renamed(given: Map<String, Int>, from: String, to: String): Map<String, Int> {
+        val n = given[from] ?: return given
+        if (from == to) return given
+        return merged(given - from, mapOf(to to n))
+    }
 }

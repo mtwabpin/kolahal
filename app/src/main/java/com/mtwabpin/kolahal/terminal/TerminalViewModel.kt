@@ -390,7 +390,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /**
      * The widget whose options the Widgets screen should show: a further widget of a script that
      * the picker just placed, so you can set what differs from the script's own options. Null when
-     * nothing is asked. The Widgets screen opens the sheet, then calls [widgetOptionsOpened].
+     * nothing is asked. The Widgets screen opens its settings page, then calls [widgetOptionsOpened].
      */
     val widgetOptionsAsked: StateFlow<com.mtwabpin.kolahal.widgets.WidgetRef?> =
         _widgetOptionsAsked.asStateFlow()

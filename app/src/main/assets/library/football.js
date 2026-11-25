@@ -1,7 +1,7 @@
 // @title Live football
 // @desc Live football scores from one league: the team option's live match as its status line, to pin at the top of home; football live lists them all
 // @author Kolahal
-// @version 1.8
+// @version 1.9
 // @command
 // @usage [live|<team>]
 // @widget versus 4x1
@@ -157,7 +157,7 @@ function card(event, live, every) {
   };
   if (clock) d.badge = clock;
   const goal = lastGoal(event);
-  if (goal) d.line = goal;
+  if (goal) d.caption = goal;
   if (!live) return d;
   d.color = "good";
   d.refresh = every;

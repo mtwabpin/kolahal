@@ -47,9 +47,9 @@ class ScriptOptions(private val context: Context) {
         store(script, widget).set(option, value)
 
     /**
-     * Forgets everything you set for the further widget [widget]: it is taken off the page, and the
-     * next widget with its id starts clean. The script's own values are not a widget's: with ""
-     * this changes nothing.
+     * Forgets everything you set for the further widget [widget]: it is taken off the page, and its
+     * id is never given again ([com.mtwabpin.kolahal.widgets.GivenIds]). The script's own values are
+     * not a widget's: with "" this changes nothing.
      */
     fun clear(script: String, widget: String) {
         if (widget.isEmpty()) return

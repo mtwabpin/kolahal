@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.usage
 
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.TimeFormats
 
 /**
  * The daily limits for screen time and unlocks (`usage.screen-time-limit`, `usage.unlock-limit`), and
@@ -50,8 +51,8 @@ object UsageLimits {
     fun screenTimeWords(ms: Long, limitMinutes: Int): String? {
         if (screenTime(ms, limitMinutes) == Level.NONE) return null
         val over = ms / 60_000 - limitMinutes
-        val limit = minutes(limitMinutes.toLong())
-        return if (over == 0L) "at your limit of $limit" else "${minutes(over)} over your limit of $limit"
+        val limit = TimeFormats.duration(limitMinutes * 60_000L)
+        return if (over == 0L) "at your limit of $limit" else "${TimeFormats.duration(over * 60_000)} over your limit of $limit"
     }
 
     /** Today's unlocks against their limit in words, from a small letter: "11 over your limit of 30", "at your limit of 30". Null under it or with none. */
@@ -59,16 +60,5 @@ object UsageLimits {
         if (unlocks(count, limit) == Level.NONE) return null
         val over = count - limit
         return if (over == 0) "at your limit of $limit" else "$over over your limit of $limit"
-    }
-
-    /** A limit or an amount over it, as people say it: "3h", "2h 30m", "45m". */
-    fun minutes(minutes: Long): String {
-        val h = minutes / 60
-        val m = minutes % 60
-        return when {
-            h == 0L -> "${m}m"
-            m == 0L -> "${h}h"
-            else -> "${h}h ${m}m"
-        }
     }
 }

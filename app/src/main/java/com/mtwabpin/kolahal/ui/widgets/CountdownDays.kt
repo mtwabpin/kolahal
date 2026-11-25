@@ -169,4 +169,14 @@ internal object CountdownDays {
         }
         return best
     }
+
+    /**
+     * How far across a box [width] wide dot [i] of [grid] sits, at its middle: the grid centered,
+     * the days in reading order. Right to left ([rtl]) the first day is at the right, as the habit's
+     * dots, the sky and the timeline go.
+     */
+    fun dotX(i: Int, grid: Grid, width: Float, rtl: Boolean): Float {
+        val x = (width - grid.columns * grid.pitch) / 2 + (i % grid.columns + 0.5f) * grid.pitch
+        return if (rtl) width - x else x
+    }
 }

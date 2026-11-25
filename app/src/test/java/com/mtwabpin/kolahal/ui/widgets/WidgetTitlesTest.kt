@@ -51,9 +51,9 @@ class WidgetTitlesTest {
         assertEquals("weather#Two", sourceTitle("script:weather#Two", scripts))
     }
 
-    /** The options sheet says whose options it shows: the script's own, or one further widget's. */
+    /** The settings page says whose options it shows: the script's own, or one further widget's. */
     @Test
-    fun theOptionsSheetSaysWhoseOptionsTheyAre() {
+    fun theSettingsPageSaysWhoseOptionsItShows() {
         val first = com.mtwabpin.kolahal.widgets.WidgetRef("weather")
         val second = com.mtwabpin.kolahal.widgets.WidgetRef("weather", "2")
         assertEquals(

@@ -25,7 +25,7 @@ Commands are typed at Kolahal's prompt.
 3. Run it: a command by its name (`<name> args…`), any script with `script run <name> [args…]`.
 4. As needed: `script notify <name> on` lets `notify` post; `script pin <name>` shows its status line at the top of home; for a widget, tap **+** on the widgets page (or type `widget add`) and pick it in the **Kolahal** group. A script can't do any of these itself.
 
-**A script as a file**: save it as `<name>.lua` or `<name>.js` (the file name is the script's name, not a built-in command's), then **Scripts → Add script → Import a file**, or put it in the folder picked with `script dir` and type `script import`. A script from a file arrives switched off: `script on <name>` switches it on and allows what it declares.
+**A script as a file**: save it as `<name>.lua` or `<name>.js` (the file name is its name, with the rules above), then **Scripts → Add script → Import a file**, or put it in the folder picked with `script dir` and type `script import`. A script from a file arrives switched off: `script on <name>` switches it on and allows what it declares.
 
 **A shader**, on the phone:
 
@@ -48,7 +48,7 @@ return "hello, " .. (argline ~= "" and argline or "world")
 
 In JavaScript the last line is ``return `hello, ${argline || "world"}`;`` with `//` comments. Saved as `hello`, `hello Asha` prints the line. What a run returns is printed (tables and objects as JSON). An error stops the run with a red line; a tap on it opens the editor at the failing line.
 
-Lua and JavaScript have the same API. In Lua every call blocks (scripts never run on the UI thread). In JavaScript the code runs inside an async function, so top-level `await` and `return` work; `await` the network calls and `sleep`, and `Promise.all` runs requests side by side. Lua has `json`; JavaScript has its own `JSON`. There is no `require`, and no file, process or network access but the API below.
+Lua and JavaScript have the same API. In Lua every call blocks (scripts never run on the UI thread). In JavaScript the code runs inside an async function, so top-level `await` and `return` work, and `Promise.all` runs requests side by side. There is no `require`, and no file, process or network access but the API below.
 
 ### Script header
 
@@ -157,7 +157,7 @@ Each returns text with styles, to join with other text in a title or body. Roles
 | `store.get(key)` | → string or nil/null. This script's own store, kept between runs. |
 | `store.set(key, value)` | Stores a string; nil/null deletes it. Up to 1 MB a value, 1,000 keys and 16 MB a script. |
 | `secrets.get(name)` | → a placeholder for the key named on an `@secret` line, or nil/null until set. Put it in a URL, header or body; Kolahal fills in the value only in https requests to that line's site. |
-| `json.encode(value)` | Lua only: a table to JSON text. |
+| `json.encode(value)` | Lua only (JavaScript has its own `JSON`): a table to JSON text. |
 | `json.decode(text)` | Lua only: JSON to tables (arrays start at 1); an error on bad JSON, so use `pcall` for web text. |
 | `sleep(ms)` | Waits, up to 5000 ms a call. |
 
@@ -235,7 +235,7 @@ Internet has no `@uses` line: a script whose code mentions `http`, `rss`, `url`,
 | `effects` | `shader.play` | |
 | `work` | `device.work`, `device.setWork` | a work profile |
 
-Write them on one line: `-- @uses notifications, effects`. Posting notifications is a switch too (`script notify <name> on`), and the status line shows at the top of home only after `script pin <name>`.
+Write them on one line: `-- @uses notifications, effects`.
 
 ### Widgets
 
@@ -259,14 +259,14 @@ A script fills a card on the widgets page with a kind and its fields; Kolahal dr
 | `versus` | two sides and a score | `4x1` |
 | `sky` | the sun's or moon's path | `2x2` |
 
-Fields of every kind, all optional (lengths in characters; longer text is cut): `kind` (else the `@widget` line's), `title` (40), `icon` (a name below, or up to 4 characters such as an emoji), `color` (a role), `shape` (Shape look: `cookie` + 4, 6, 9 or 12, `clover` + 4 or 8, `sun`, `burst`, `circle`, `pixel`, `gem`, `slanted`, `arch`, `ghost`, `pill`), `tap` (an action), `staleAfter` (60 to 604800 s; default 1 h, 1 min for toggles), `refresh` (10 to 3600 s, while on screen), `note` (16: a large card's last line).
+Fields of every kind, all optional (lengths in characters; longer text is cut): `kind` (else the `@widget` line's), `title` (40), `icon` (a name below, or up to 4 characters such as an emoji), `color` (a role), `shape` (Shape look: `cookie4`, `cookie6`, `cookie9`, `cookie12`, `clover4`, `clover8`, `sun`, `burst`, `circle`, `pixel`, `gem`, `slanted`, `arch`, `ghost`, `pill`; without it, the card's own for its kind and size), `tap` (an action), `staleAfter` (60 to 604800 s; default 1 h, 1 min for toggles), `refresh` (10 to 3600 s, while on screen), `note` (16: a large card's last line).
 
 Fields of each kind:
 
-- `stat`: `value` (needed, 40), `label` (60), `unit` (12), `delta` (16), `trend` (`up`, `down`, `flat`), `more` (up to 3 `{ value, label }`, 24 each), `progress` (0 to 1), `moving` (bool: a wave), `points` (numbers: a line behind), `scene` (a shader as ground: `pond`, `rain`, `snowfall`, `dunes`, `mountains`).
+- `stat`: `value` (needed, 40), `label` (60), `unit` (12), `delta` (16), `trend` (`up`, `down`, `flat`), `more` (up to 3 `{ value, label }`, 24 each), `progress` (0 to 1), `moving` (bool: a wave), `points` (numbers: a line behind), `scene` (a shader as ground, such as `pond`, `rain`, `snowfall`, `dunes`, `mountains`).
 - `text`: `text` (needed, 500, keeps line breaks), `caption` (60).
 - `list`: `items` (needed, may be empty, 12 kept), `empty` (60), `lead` (`{ value, unit, label }`: a big line over the rows). A row: `title` (needed, 80), `detail` (120), `trailing` (24), `icon`, `color`, `tap`, `done` (bool: a checkbox), `range` (`{ low, high, value }`: a bar; give the numbers in `trailing` too).
-- `progress`: `value` and `max` (1), `text` (24, the ring's middle), `label` (60), `style` (`ring`, `bar`, `gauge`, `rings`), `moving`; or `items`, up to 4 bars `{ label, value, max, text, color, unit, moving }`; or `stages` (2 to 6 names) with `stage` (from 1; `value`: the way to the next). Gauge: `min`, `unit`, `zones` (up to 5 `{ from, color }`).
+- `progress`: `value` and `max` (1), `text` (24, the ring's middle), `label` (60), `style` (`ring`, `bar`, `gauge`: with `value`; `rings`: draws `items`), `moving`; or `items`, up to 4 bars `{ label, value, max, text, color, unit, moving }` (`unit`, `moving`: rings only); or `stages` (2 to 6 names) with `stage` (from 1; `value`: the way to the next). Only a gauge: `min`, `unit`, `zones` (up to 5 `{ from, color }`, `from` rising).
 - `chart`: `points` (needed, the oldest first, last 60 kept), `style` (`line`, `bars`, `dots`: a dot a day, the last point today), `min`, `max`, `value` (40), `label` (60), `labels` (2 texts of 16, under the first and last point), `summary` (200, for a screen reader).
 - `countdown`: `to` (needed, seconds), `from` (seconds, adds a bar), `label` (60), `style` (`days`, `clock`, `dots`: a dot a day, `page`: calendar page), `reached` (60). Milliseconds are an error.
 - `buttons`: `items`, 1 to 8 `{ label, icon, color, tap }`; `label` (24) and `tap` needed.
@@ -274,16 +274,16 @@ Fields of each kind:
 - `clock`: `zones` (needed, 1 to 4 `{ zone, label }`, zone like `Asia/Kolkata`, `UTC`), `seconds` (bool). Give `staleAfter = 604800`.
 - `agenda`: `events` (needed, 20 kept, may be empty) `{ title, starts, ends, allDay, where, color, tap }` with `title` and `starts` needed; `days` (1 to 14, 3), `empty` (60). An all-day event starts at local midnight.
 - `image`: `image` (needed, an `https://` link), `alt` (needed, 200: what it shows), `caption` (60), `fit` (`crop`, `fit`).
-- `versus`: `sides` (needed, 2 `{ name, mark, color, value, text }`), `score` (needed), `turn` (1, 2), `moving`, `line`, `badge`.
-- `sky`: `rises`, `sets` (needed, seconds), `phase` (0 to 1: the moon), `waxing`, `phases` (4 `{ phase, waxing, at }`).
+- `versus`: `sides` (needed, 2 `{ name, mark, color, value, text }`, `name` needed, `value` ≥ 0), `score` (needed), `turn` (1, 2), `moving`, `caption` (60), `badge` (8).
+- `sky`: `rises`, `sets` (needed, seconds; `sets` after `rises`, under a day later: the moon's next set after its rise), `phase` (0 to 1: the moon), `waxing`, `phases` (with `phase`, up to 4 `{ phase, waxing, at }`).
 
 A tap is a table / object with one of: `{ args = "add 1" }` runs this script again with those words (`event.name` is `"action"`); `{ url = "https://…" }` opens a link. It may add `label` (24, for a screen reader) and, with `args`, `page = "log"` to show the log. A card without `tap` refreshes on a tap.
 
-Rules: an unknown field, a wrong type or too many buttons is an error naming it; Kolahal capitalizes labels; a text keeps only `fmt.bold`, `.italic`, `.underline`, `.strike` and `.color` (in `text`, `caption`, a row's `title`, `detail` and `trailing`, a stat's `label`); Markdown isn't read. A description is at most 32 KB; a run calls `widget.show` and `widget.clear` up to 20 times. In Lua, a list has no `nil` in the middle.
+Rules: an unknown field, another style's field, a wrong type, or too many buttons or stages is an error naming it; Kolahal capitalizes labels; a text keeps only `fmt.bold`, `.italic`, `.underline`, `.strike` and `.color` (in `text`, `caption`, a row's `title`, `detail` and `trailing`, a stat's `label`); Markdown isn't read. A description is at most 32 KB; a run calls `widget.show` and `widget.clear` up to 20 times. In Lua, a list must not have `nil` in the middle.
 
 Icon names: sun, moon, cloud, rain, snow, storm, wind, fog, temp, drop, alarm, timer, clock, calendar, bell, home, work, lock, unlock, wifi, battery, bolt, torch, phone, dnd, person, people, mail, chat, quote, music, play, pause, news, book, feed, heart, star, check, flag, fire, leaf, trophy, ball, cricket, money, cart, chart, up, down, parcel, gift, car, bus, train, plane, walk, pin, globe, coffee, code, bug, link. Another lowercase word over 4 letters is an error.
 
-Runs for a widget: its own timers and events, and `"widget"` runs (see "Runs"). A `"widget"` run's return value isn't logged: skip `log` in it. A failed run leaves the content, with "Failed 10:42". Best with no timer: it then runs only when seen or tapped. A widget can be placed up to 6 times, each with its own options.
+Runs for a widget: its own timers and events, and `"widget"` runs (see "Runs"). A `"widget"` run's return value isn't logged: skip `log` in it. A failed run leaves the content, with "Failed 10:42". With no timer it runs only when seen or tapped. A widget can be placed up to 6 times, each with its own options.
 
 ### Screens
 
@@ -295,11 +295,10 @@ The grid `g`: `g.cols`, `g.rows` (cells, counted from 0); `g.put(col, row, text,
 
 - Anything outside this API: no location, contacts, messages, calls, files, camera, sensors, Bluetooth, other libraries, or drawing of its own outside a widget's kinds and a screen's grid.
 - Running more often than every 15 minutes in the background; reacting to events other than the eight `@on` events.
-- Placing its own widget, pinning its status line, turning its notifications on, or putting a terminal command behind a tap.
-- `launcher.run` from a timer or event run, or for commands that change things.
+- Putting a terminal command behind a tap; placing its widget, pinning, or switching its notifications on.
 - Reading a secret's value, or sending it to another site.
 - Links other than http and https (`tel:`, an app's own links).
-- A run over 60 seconds or 64 MB; `sleep` over 5 s a call.
+- A run over 60 seconds or 64 MB.
 
 ## Shaders
 

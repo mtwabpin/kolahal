@@ -211,9 +211,10 @@ private fun Sheet(color: Color, modifier: Modifier) {
 
 /**
  * The + that starts a new note: a sun in the card's color's container with + in that color (the
- * accent unless one was chosen, [cardRoleColor]), [side] across. A tap puts `note ` in the prompt
- * ([OwnDesigns.NEW_NOTE]); a long-press arranges the widgets, as on the rest of the card. A screen
- * reader hears "New note".
+ * accent unless one was chosen, [cardRoleColor]), moved just far enough to read on it
+ * ([valueInk]), [side] across. A tap puts `note ` in the prompt ([OwnDesigns.NEW_NOTE]); a
+ * long-press arranges the widgets, as on the rest of the card. A screen reader hears "New note".
+ * Smaller than 48 dp, its touches still reach 48 dp (Compose's minimum), as [opensList]'s do.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -232,7 +233,7 @@ private fun NewNoteShape(side: Dp, onTap: ((WidgetTap) -> Unit)?, modifier: Modi
         Icon(
             painterResource(R.drawable.ic_add),
             contentDescription = null,
-            tint = role,
+            tint = valueInk(role, roleContainer(role)),
             modifier = Modifier.size(side * 0.5f)
         )
     }

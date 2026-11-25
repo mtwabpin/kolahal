@@ -958,11 +958,11 @@ class WidgetParserTest {
     fun whatAProgressRefuses() {
         fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.PROGRESS)
         assertEquals(
-            "widget: value, items or stages is needed\nvalue: how far along it is, from 0 to max\nitems: up to 4 bars or rings\nstages: 2 to 6 names, with stage",
+            "widget: value, items or stages is needed: a value from 0 to max, up to 4 bars or rings, or 2 to 6 stages with stage",
             no("label" to "x")
         )
         assertEquals(
-            "widget: value, items or stages is needed\nvalue: how far along it is, from 0 to max\nitems: up to 4 bars or rings\nstages: 2 to 6 names, with stage",
+            "widget: value, items or stages is needed: a value from 0 to max, up to 4 bars or rings, or 2 to 6 stages with stage",
             no("items" to emptyMap<String, Any?>())
         )
         assertEquals("widget: value must be a number, not '68%'", no("value" to "68%"))
@@ -1880,7 +1880,7 @@ class WidgetParserTest {
                 "list.items.trailing",
                 "stat.label",
                 "image.caption",
-                "versus.line"
+                "versus.caption"
             ),
             WidgetParser.STYLED,
         )

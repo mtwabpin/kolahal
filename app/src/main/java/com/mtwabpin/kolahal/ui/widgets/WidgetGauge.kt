@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -208,7 +207,7 @@ private fun GaugeWords(
         title?.let {
             Text(
                 cardText(it),
-                style = (if (large) type.titleMedium else type.titleSmall).copy(fontWeight = FontWeight.Bold),
+                style = if (large) type.titleMediumEmphasized else type.titleSmallEmphasized,
                 color = c.content,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -450,7 +449,7 @@ private fun ShapeBesideGauge(spec: WidgetSpec.Progress, color: Color) {
     val fill = MaterialTheme.colorScheme.surfaceContainerHighest
     val title = LocalUntitled.current
     BesideShape(
-        cardShape(MaterialShapes.Clover4Leaf),
+        cardShape(),
         fill,
         inShape = { side ->
             GaugeDial(

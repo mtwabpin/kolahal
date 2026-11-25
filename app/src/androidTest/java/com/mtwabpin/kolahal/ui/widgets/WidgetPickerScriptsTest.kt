@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -90,6 +91,9 @@ class WidgetPickerScriptsTest {
 
     private fun hasClickLabel(label: String) =
         SemanticsMatcher("click label \"$label\"") { it.config.getOrNull(SemanticsActions.OnClick)?.label == label }
+
+    /** A chosen card: selected, and no tab. The tab of the page being arranged is selected too. */
+    private fun isChosen() = isSelected() and !SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
 
     /** Scrolls the picker's list to [matcher]. */
     private fun scrollTo(matcher: SemanticsMatcher) {
@@ -311,11 +315,11 @@ class WidgetPickerScriptsTest {
         compose.onAllNodes(hasTestTag("widget:${s.name}")).assertCountEquals(0)
         compose.onAllNodes(hasClickLabel("change $title")).assertCountEquals(1)
         compose.onAllNodes(inCard and hasClickAction()).assertCountEquals(0)
-        compose.onAllNodes(isSelected()).assertCountEquals(0)
+        compose.onAllNodes(isChosen()).assertCountEquals(0)
 
         // It is named by its script's title.
         compose.onNode(hasClickLabel("change $title")).performClick()
-        compose.onNode(isSelected()).assertExists()
+        compose.onNode(isChosen()).assertExists()
         compose.onNodeWithText(title).assertExists()
         compose.onNodeWithText("2×1 · Plain").assertExists()
         assertEquals(6, t.entry(s.name)!!.span)
@@ -344,6 +348,6 @@ class WidgetPickerScriptsTest {
         assertFalse(t.scripts.byId(s.id)!!.grants.allows(ScriptAccess.WIDGET))
         assertEquals(WidgetState(null, false), t.stored(s.name))
         compose.onAllNodes(hasClickLabel("change $title")).assertCountEquals(0)
-        compose.onAllNodes(isSelected()).assertCountEquals(0)
+        compose.onAllNodes(isChosen()).assertCountEquals(0)
     }
 }

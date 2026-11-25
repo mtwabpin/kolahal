@@ -9,6 +9,8 @@ import com.mtwabpin.kolahal.shader.ShaderMeta
 import com.mtwabpin.kolahal.shader.ShaderParam
 import com.mtwabpin.kolahal.shader.ShaderSuits
 import com.mtwabpin.kolahal.sourceFile
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetShape
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -54,6 +56,17 @@ class SkillTextTest {
     @Test
     fun anAssistantReadsItInOneGo() {
         assertTrue("${text.length} characters", text.length <= SkillText.MAX_CHARS)
+    }
+
+    /**
+     * Every kind a script can fill and every shape id is a code span under Widgets, as `widget.show`
+     * takes it: `cookie4`, never "`cookie` + 4", which an assistant writes as `cookie` or `cookie-4`.
+     */
+    @Test
+    fun theWidgetKindsAndShapeIdsAreWrittenOut() {
+        val widgets = spans(section("### Widgets")).toSet()
+        for (kind in WidgetKind.forScripts) assertTrue("kind ${kind.id}", kind.id in widgets)
+        for (id in WidgetShape.ids) assertTrue("shape $id", id in widgets)
     }
 
     /** Each function of [ApiDocs] has its row: a code span that starts with its name (`http.get(url, …)`, `args`). */

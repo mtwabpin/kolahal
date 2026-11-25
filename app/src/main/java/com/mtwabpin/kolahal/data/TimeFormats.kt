@@ -86,9 +86,18 @@ object TimeFormats {
         else -> day.format(dayFormat(locale))
     }
 
-    /** A time span as people say it: `4h 12m`, or `38m`. Under a minute is `0m`. */
+    /**
+     * A time span as people say it: `4h 12m`, `3h` for a whole hour, or `38m`. Under a minute is `0m`.
+     * The one form the terminal writes a span of screen time in: `usage`, `top` and the daily limit.
+     */
     fun duration(ms: Long): String {
         val minutes = ms / 60_000
-        return if (minutes >= 60) "${minutes / 60}h ${minutes % 60}m" else "${minutes}m"
+        val h = minutes / 60
+        val m = minutes % 60
+        return when {
+            h == 0L -> "${m}m"
+            m == 0L -> "${h}h"
+            else -> "${h}h ${m}m"
+        }
     }
 }

@@ -24,27 +24,18 @@ internal object AgendaFree {
     /** Less free time than this between two events is not said: they follow each other. */
     const val LEAST_FREE = 15 * 60L
 
-    /** A length of time as the card writes it: "45 min", "1h", "1h 30", "12h". Under a minute is "1 min". */
-    fun span(seconds: Long): String {
-        val minutes = maxOf(1L, (seconds + 30) / 60)
-        val hours = minutes / 60
-        val rest = minutes % 60
-        return when {
-            hours == 0L -> "$rest min"
-            rest == 0L -> "${hours}h"
-            else -> "${hours}h $rest"
-        }
-    }
+    /** [seconds] in whole minutes, to the nearest: under a minute is 1. */
+    private fun minutesOf(seconds: Long): Int =
+        maxOf(1L, (seconds + 30) / 60).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
-    /** The same for a screen reader: "45 minutes", "1 hour", "1 hour 30 minutes". */
-    fun spanSaid(seconds: Long): String {
-        val minutes = maxOf(1L, (seconds + 30) / 60)
-        val hours = minutes / 60
-        val rest = minutes % 60
-        fun unit(n: Long, one: String) = if (n == 1L) "1 $one" else "$n ${one}s"
-        return listOfNotNull(unit(hours, "hour").takeIf { hours > 0 }, unit(rest, "minute").takeIf { rest > 0 })
-            .joinToString(" ")
-    }
+    /**
+     * A length of time as the card writes it, as every card does ([WidgetWords.hoursAndMinutes]):
+     * "45 min", "1 h", "1 h 30 min", "12 h". Under a minute is "1 min".
+     */
+    fun span(seconds: Long): String = WidgetWords.hoursAndMinutes(minutesOf(seconds))
+
+    /** The same for a screen reader ([WidgetWords.hoursAndMinutesSaid]): "45 minutes", "1 hour", "1 hour 30 minutes". */
+    fun spanSaid(seconds: Long): String = WidgetWords.hoursAndMinutesSaid(minutesOf(seconds))
 
     /** The event on now: [event], from 0 to 1 of the way through ([fraction]), and the time it ends ([until], "11:30"). */
     data class Now(val event: WidgetSpec.Event, val fraction: Float, val until: String)
@@ -119,7 +110,7 @@ internal object AgendaFree {
         /** A day's heading: [label] ("Today") and its date ("Tue 24 Nov"). */
         data class Head(val label: String, val date: String) : Line
 
-        /** An event as the card writes it, and its [length] ("1h 30"), or null without one. */
+        /** An event as the card writes it, and its [length] ("1 h 30 min"), or null without one. */
         data class Event(val line: WidgetWords.AgendaLine, val length: String?) : Line
 
         /** Free time between two events, or from now to the first. */

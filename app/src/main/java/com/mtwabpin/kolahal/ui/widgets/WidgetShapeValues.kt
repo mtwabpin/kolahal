@@ -283,7 +283,7 @@ internal fun HabitFlower(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Co
             // "this week" may take two lines; a small flower has room for "of 7" only.
             Text(
                 ShapeSteps.weekWords(done, room = words),
-                style = (if (words) type.labelMedium else type.labelSmall).copy(fontWeight = FontWeight.Bold),
+                style = if (words) type.labelMediumEmphasized else type.labelSmallEmphasized,
                 color = c.content,
                 textAlign = TextAlign.Center,
                 maxLines = 2,

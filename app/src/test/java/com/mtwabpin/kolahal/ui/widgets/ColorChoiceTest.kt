@@ -82,4 +82,50 @@ class ColorChoiceTest {
         // Nord's bad, Rosé Pine's good, Solarized's bad: a few dots need their outline.
         assertTrue(outlined > 0)
     }
+
+    /**
+     * The grids keep 5 colors and 6 shapes to a row at the usual text size, and take fewer with a
+     * larger font, so "Slanted" and "Warning" keep their room. The width is a phone 411 dp wide
+     * inside the page's margins and the grid's own (363 dp); a narrower phone takes fewer.
+     */
+    @Test
+    fun aLargerFontTakesFewerCellsToARow() {
+        assertEquals(5, gridColumns(363, 1f, 5))
+        assertEquals(6, gridColumns(363, 1f, 6))
+        assertEquals(5, gridColumns(363, 1.3f, 6))
+        assertEquals(3, gridColumns(363, 2f, 6))
+        assertEquals(3, gridColumns(363, 2f, 5))
+        // A cell is never under 48 dp, at any font size.
+        for (scale in listOf(0.85f, 1f, 1.15f, 1.3f, 1.5f, 1.8f, 2f)) for (width in 200..600 step 10) {
+            val columns = gridColumns(width, scale, 6)
+            val cell = (width - (columns - 1) * GRID_GAP_DP) / columns.toFloat()
+            assertTrue("$width dp at $scale: $columns", cell >= GRID_CELL_DP * maxOf(1f, scale) || columns == 1)
+        }
+        assertEquals(1, gridColumns(40, 2f, 6))
+    }
+
+    /**
+     * Both grids mark a chosen cell one way ([cellMarks]): the primary container, with the ring around
+     * the chosen color and the chosen shape in the color on it. In every built-in theme, dark and
+     * light, that mark has 3:1 with the cell, and a shape not chosen 3:1 with the grid's ground.
+     * The theme's primary on its container, as the chosen shape had it, falls under 3:1 in Solarized's
+     * and Gruvbox Material's light versions.
+     */
+    @Test
+    fun theChosenCellIsMarkedOneWayThatReads() {
+        var faint = 0
+        for (name in themes) for (dark in listOf(true, false)) {
+            val scheme = schemeFrom(Palettes.named(name, dark))
+            val chosen = cellMarks(scheme, true)
+            assertEquals(scheme.primaryContainer, chosen.fill)
+            assertTrue("$name dark=$dark: chosen", inkContrast(chosen.ink, chosen.fill) >= DOT_CONTRAST)
+            val other = cellMarks(scheme, false)
+            assertTrue(
+                "$name dark=$dark: not chosen",
+                inkContrast(other.ink, scheme.surfaceContainerHigh) >= DOT_CONTRAST
+            )
+            if (inkContrast(scheme.primary, scheme.primaryContainer) < DOT_CONTRAST) faint++
+        }
+        assertTrue(faint >= 2)
+    }
 }

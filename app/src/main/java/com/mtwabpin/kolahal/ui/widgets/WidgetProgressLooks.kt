@@ -381,7 +381,7 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
         if (!small) line?.let {
             Text(
                 it,
-                style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                style = type.labelLargeEmphasized,
                 color = c.content,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -421,7 +421,7 @@ private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
     val fraction = WidgetWords.fraction(spec.value, spec.max)
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
     val title = LocalUntitled.current
-    val own = cardShape(MaterialShapes.Clover4Leaf)
+    val own = cardShape()
     val extra = cardInset()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = minOf(maxHeight, 140.dp, maxWidth / 2)
@@ -491,7 +491,7 @@ private fun ShapeBars(spec: WidgetSpec.Progress, color: Color) {
                         )
                         Text(
                             bar.text ?: WidgetWords.percent(bar.value, bar.max),
-                            style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            style = type.labelMediumEmphasized,
                             color = c.content,
                             maxLines = 1,
                             modifier = Modifier.padding(start = 8.dp)

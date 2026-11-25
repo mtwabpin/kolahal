@@ -16,7 +16,7 @@ import com.mtwabpin.kolahal.script.Json
  *   pass unseen.
  * - Bounded. Text is cut with "…" at its limit, an icon without one. A list keeps its first items. Buttons and switches
  *   are the exception: more than their limit is an error, because one that is cut is a tap the
- *   user can't make.
+ *   user can't make. So are stages, whose last one is the goal.
  * - A field with no value (`nil`, `null`, `undefined`) counts as left out.
  * - Plain, with a few exceptions. A text loses its styles (`fmt.bold`, `fmt.color`, …). Only the
  *   fields of [STYLED] keep them, and only bold, italic, underline, strike and the color roles.
@@ -97,7 +97,7 @@ object WidgetParser {
     const val MAX_BARS = 4
     const val MAX_POINTS = 60
 
-    /** A gauge keeps its first [MAX_GAUGE_ZONES] zones. Stages keep their first [MAX_STAGES] names, and need 2 at least. */
+    /** A gauge keeps its first [MAX_GAUGE_ZONES] zones. Stages have 2 to [MAX_STAGES] names: more is an error, as the last is the goal. */
     const val MAX_GAUGE_ZONES = 5
     const val MAX_STAGES = 6
 
@@ -163,7 +163,7 @@ object WidgetParser {
      */
     private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap", "id")
     private val IMAGE = listOf("image", "alt", "caption", "fit")
-    private val VERSUS = listOf("sides", "score", "turn", "moving", "line", "badge")
+    private val VERSUS = listOf("sides", "score", "turn", "moving", "caption", "badge")
     private val SIDE = listOf("name", "mark", "color", "value", "text")
     private val SKY = listOf("rises", "sets", "phase", "waxing", "phases")
     private val PHASE = listOf("phase", "waxing", "at")
@@ -197,7 +197,7 @@ object WidgetParser {
         "list.items.trailing",
         "stat.label",
         "image.caption",
-        "versus.line"
+        "versus.caption"
     )
 
     /** The fields of a [kind] widget, after the common ones. */
@@ -306,7 +306,7 @@ object WidgetParser {
             score = t.need("score", MAX_SHORT, SCORE_IS).ifEmpty { t.fail("score is needed: $SCORE_IS") },
             turn = turn,
             moving = t.flag("moving"),
-            line = t.label("line", MAX_LABEL, styled = true),
+            line = t.label("caption", MAX_CAPTION, styled = true),
             badge = t.text("badge", MAX_BADGE),
         )
     }
@@ -535,10 +535,13 @@ object WidgetParser {
      * `stages`. One of the three is needed. A value is held between 0 and its max.
      * - `style = "gauge"`: an arc from `min` to `max`, with up to [MAX_GAUGE_ZONES] `zones`, each
      *   `{ from, color }`. Zones go up: each starts above the one before. The value is held between
-     *   `min` and `max`. Only a gauge takes `min` and `zones`.
-     * - `style = "rings"`: the bars of `items` as rings, so it needs them.
+     *   `min` and `max`. Only a gauge takes `min`, `unit` and `zones`.
+     * - `style = "rings"`: the bars of `items` as rings, so it needs them. Only rings take an item's
+     *   `unit` and `moving`. `ring` takes no items: one letter from `rings`, it would draw bars.
      * - `stages`: 2 to [MAX_STAGES] names, and `stage`, the one it is at (1 to their number). `value`
      *   of `max` is then how far along the way to the next one. They take no `items` and no `style`.
+     *   More names is an error, not a cut: the last stage is the goal.
+     * A field that only another style draws is an error, so it doesn't pass unseen.
      */
     private fun progress(t: Table, base: WidgetBase): WidgetSpec.Progress {
         val max = t.above0("max")
@@ -550,6 +553,7 @@ object WidgetParser {
                 b.above0("max")
             )
         }
+        t.list("stages", "texts")?.let { if (it.size > MAX_STAGES) t.fail("stages has ${it.size} names: give $MAX_STAGES at most") }
         val stages = t.texts("stages", MAX_STAGES, MAX_SHORT).map(StyledText::capitalized)
         val style = t.choice("style", PROGRESS_STYLES)
         val gauge = style == "gauge"
@@ -558,16 +562,23 @@ object WidgetParser {
             if (bars.isNotEmpty()) t.fail("give items or stages, not both")
             if (style != null) t.fail("style goes with value or items, not with stages")
         }
-        if (!t.has("value") && bars.isEmpty() && stages.isEmpty()) t.fail("value, items or stages is needed\nvalue: how far along it is, from 0 to max\nitems: up to $MAX_BARS bars or rings\nstages: 2 to $MAX_STAGES names, with stage")
+        if (!t.has("value") && bars.isEmpty() && stages.isEmpty()) t.fail("value, items or stages is needed: a value from 0 to max, up to $MAX_BARS bars or rings, or 2 to $MAX_STAGES stages with stage")
         if (style == "rings" && bars.isEmpty()) t.fail("style 'rings' needs items: up to $MAX_BARS rings, each { ${BAR.joinToString()} }")
         if (gauge && bars.isNotEmpty()) t.fail("style 'gauge' goes with value, not with items")
+        if (style == "ring" && bars.isNotEmpty()) t.fail("style 'ring' goes with value, not with items: 'rings' draws items as rings")
+        if (style != "rings") bars.forEach { (b) ->
+            if (b.has("unit")) b.fail("unit goes with style 'rings'")
+            if (b.has("moving")) b.fail("moving goes with style 'rings'")
+        }
         // Bars are on one scale: the widget's max, or else the largest value among them.
         val scale = max ?: bars.maxOfOrNull { it.second }?.takeIf { it > 0 } ?: 1.0
         val top = max ?: 1.0
         val low = t.number("min", "a number")?.also {
             if (!gauge) t.fail("min goes with style 'gauge'")
-            if (it >= top) t.fail("min must be below max")
+            // As floats, as they are kept: two numbers that are one float would make a scale of no length.
+            if (float(it) >= float(top)) t.fail("min must be below max")
         } ?: 0.0
+        if (t.has("unit") && !gauge) t.fail("unit goes with style 'gauge'")
         return WidgetSpec.Progress(
             base,
             value = float((t.number("value", "a number") ?: 0.0).coerceIn(low, top)),

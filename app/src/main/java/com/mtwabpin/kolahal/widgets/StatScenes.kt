@@ -10,9 +10,9 @@ import com.mtwabpin.kolahal.shader.ShaderCatalog
  * draws one still frame of it as its ground, with the figures over it on a scrim.
  * - A shader that works on the text itself (`crt`, `lcd` …) or plays once (`hearts`, `pulse`) is no
  *   scene: those are the ones that can't be a wallpaper ([com.mtwabpin.kolahal.shader.WallpaperChoice.suits]).
- * - `widget.show` refuses the bundled ones of them by name ([NOT_SCENES]). A user's own shader is only
- *   known on the phone: the card reads its header when it draws, and draws the plain stat for one
- *   that is no scene, or that is missing or doesn't compile.
+ * - `widget.show` refuses the bundled ones of them by name ([NOT_SCENES]).
+ * - Only Kolahal's own shaders are drawn on a card, as they come with it. For a user's own shader the
+ *   card draws the plain stat: a card's shader can't be turned off after a crash as home's can.
  * Pure: the parser and the stored form ask here.
  */
 object StatScenes {
@@ -21,6 +21,9 @@ object StatScenes {
 
     /** The scenes the guide names for a weather card, as the words for what the sky does. */
     val WEATHER = listOf("pond", "rain", "snowfall", "dunes", "mountains")
+
+    /** Whether a card draws the scene [name]: one of Kolahal's own shaders ([ShaderCatalog.BUNDLED]) that is a scene. */
+    fun drawn(name: String): Boolean = name in ShaderCatalog.BUNDLED && name !in NOT_SCENES
 
     /** The longest name read for a scene: longer than any shader's name may be, so a long one is an error, never cut. */
     const val MAX_NAME = 64

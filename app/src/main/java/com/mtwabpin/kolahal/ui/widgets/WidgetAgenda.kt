@@ -596,7 +596,7 @@ private fun DatedRows(
 ) {
     val type = MaterialTheme.typography
     val titleStyle =
-        if (bold) type.titleSmall.copy(fontWeight = FontWeight.Bold) else type.bodyMedium.copy(
+        if (bold) type.titleSmallEmphasized else type.bodyMedium.copy(
             fontWeight = FontWeight.SemiBold
         )
     val timeStyle = (if (bold) type.titleSmall else type.labelLarge).asValue()
@@ -660,7 +660,7 @@ private fun SplitAgenda(
 ) {
     val gap = SplitCorners.GAP
     val type = MaterialTheme.typography
-    val dim = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val dim = type.labelMediumEmphasized
     if (side) {
         val count = ((heightDp + 4) / (DATED_ROW_DP + 4)).coerceIn(1, maxOf(1, lines.size))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {

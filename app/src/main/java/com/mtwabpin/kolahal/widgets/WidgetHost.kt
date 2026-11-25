@@ -244,6 +244,9 @@ class WidgetHost private constructor(context: Context) {
     /** Every placed widget, including pending re-adds. */
     val widgets: StateFlow<List<PlacedWidget>> = _widgets.asStateFlow()
 
+    /** The highest further id each script was given ([GivenIds]). Every placed list that is saved counts in it. */
+    private var given: Map<String, Int> = GivenIds.parse(prefs.getString(KEY_GIVEN, null))
+
     private val _pages = MutableStateFlow(
         WidgetPages.of(WidgetPages.decode(prefs.getString(KEY_PAGES, null)), _widgets.value)
     )
@@ -259,6 +262,8 @@ class WidgetHost private constructor(context: Context) {
             _widgets.value = fixed
             prefs.edit { putString(KEY, WidgetCodec.encode(fixed)) }
         }
+        // Ids placed before they were counted.
+        noteGiven(_widgets.value)
     }
 
     /**
@@ -357,7 +362,17 @@ class WidgetHost private constructor(context: Context) {
     private fun save(list: List<PlacedWidget>) {
         _widgets.value = list
         prefs.edit { putString(KEY, WidgetCodec.encode(list)) }
+        noteGiven(list)
         if (list.isNotEmpty() && !listening && shown) main.post { listenIfNeeded() }
+    }
+
+    /** Counts every further widget in [list] as given ([GivenIds.noted]), and saves that when it changed. */
+    private fun noteGiven(list: List<PlacedWidget>) = setGiven(GivenIds.noted(given, list))
+
+    private fun setGiven(now: Map<String, Int>) {
+        if (now == given) return
+        given = now
+        prefs.edit { putString(KEY_GIVEN, GivenIds.encode(now)) }
     }
 
     private fun update(change: (List<PlacedWidget>) -> List<PlacedWidget>) =
@@ -446,7 +461,8 @@ class WidgetHost private constructor(context: Context) {
      * or null when no script has its name.
      * - What it showed, and when.
      * - For a further widget also what was its own: the options set for it, and the error of its
-     *   last quiet run ([ScriptRun.errorKey]). So the next widget that gets its id starts clean.
+     *   last quiet run ([ScriptRun.errorKey]). Its id is not given again ([GivenIds]), and what the
+     *   script stored for it stays the script's.
      * - The first widget's options are the script's own, and they stay. Its error key is the one
      *   the script's pinned line shares, and it stays too.
      */
@@ -480,14 +496,14 @@ class WidgetHost private constructor(context: Context) {
 
     /**
      * Places one more widget of [script] at the end of the page, at [size]: a further widget, with
-     * the smallest free id ([WidgetRef.nextId]). It follows the script's options until you set one
-     * for it. Returns which widget it is, or null when the script has all the widgets it may have;
-     * nothing changes then.
+     * an id the script never had ([WidgetRef.nextId], [GivenIds]). It follows the script's options
+     * until you set one for it. Returns which widget it is, or null when the script has all the
+     * widgets it may have; nothing changes then.
      *
      * What follows is as for [placeScript]: the copies, then a run for this widget only.
      */
     fun placeAnother(script: Script, size: WidgetSize): WidgetRef? =
-        placeWidget(script, size) { taken -> WidgetRef.nextId(taken) }
+        placeWidget(script, size) { taken -> WidgetRef.nextId(taken, given[script.name] ?: 0) }
 
     /**
      * Places one widget of [script] at the end of the page, at [size]. [id] picks which one, from
@@ -632,6 +648,8 @@ class WidgetHost private constructor(context: Context) {
      * Either way the database's copies follow the list, for both names ([follow]).
      */
     fun renameScript(from: String, to: String) {
+        // What the script stored for its removed widgets goes with it too.
+        synchronized(this) { setGiven(GivenIds.renamed(given, from, to)) }
         val moved = placedOf(from).isNotEmpty()
         if (moved) {
             update { WidgetSource.renamed(it, from, to) }
@@ -685,10 +703,9 @@ class WidgetHost private constructor(context: Context) {
      */
     fun removePage(location: String) {
         synchronized(this) {
-            val index = WidgetPages.indexOf(_pages.value, location)
-            if (index <= 0) return
-            save(WidgetPlacement.mergeInto(_widgets.value, location))
-            savePages(WidgetPages.removed(_pages.value, index))
+            val (pages, widgets) = WidgetPages.withoutPage(_pages.value, _widgets.value, location) ?: return
+            save(widgets)
+            savePages(pages)
         }
     }
 
@@ -1101,20 +1118,37 @@ class WidgetHost private constructor(context: Context) {
      *
      * [pages] are the backup's pages ([exportPages]); a backup from before pages has none, and all
      * its widgets are on page 1. Each of its pages joins the page in the same place here, which takes
-     * its name if it has none ([WidgetPages.merge]).
+     * its name if it has none ([WidgetPages.imported]).
      */
     fun importWidgets(list: List<Map<String, Any?>>, pages: List<Map<String, Any?>> = emptyList()) {
         synchronized(this) {
-            val (merged, into) = WidgetPages.merge(_pages.value, WidgetPages.fromExport(pages))
+            val (merged, widgets) = WidgetPages.imported(
+                _pages.value,
+                _widgets.value,
+                WidgetPages.fromExport(pages),
+                WidgetCodec.fromExport(list),
+            )
             savePages(merged)
-            val imported = WidgetOrder.onePage(WidgetCodec.fromExport(list))
-                .map { it.copy(location = into[it.location] ?: WidgetLocation.PANEL) }
-            // Imported widgets without a place, or whose place is taken, go into the first free space.
-            update { all ->
-                WidgetPlacement.placeImported(all, WidgetCodec.mergePending(all, imported))
-            }
+            save(widgets)
         }
         syncAccess()
+    }
+
+    /** For Backup: the highest further id each script was given ([GivenIds]). */
+    fun exportGiven(): Map<String, Int> = given
+
+    /**
+     * For Backup: the ids a backup's scripts were given ([exportGiven]) count here too. The backup
+     * brings back what the scripts stored for those widgets, so their ids must not be given again.
+     */
+    fun importGiven(raw: Map<*, *>?) {
+        synchronized(this) { setGiven(GivenIds.merged(given, GivenIds.of(raw))) }
+    }
+
+    /** Forgets the ids given to the scripts whose names start with [prefix]: a test's scripts come again in the next run. */
+    @androidx.annotation.VisibleForTesting
+    internal fun forgetGiven(prefix: String) {
+        synchronized(this) { setGiven(given.filterKeys { !it.startsWith(prefix) }) }
     }
 
     companion object : Singleton<WidgetHost>(::WidgetHost) {
@@ -1127,6 +1161,9 @@ class WidgetHost private constructor(context: Context) {
 
         /** The install ([ThisInstall.id]) that wrote [KEY]. */
         private const val KEY_INSTALL = "install"
+
+        /** The highest further id each script was given ([GivenIds.encode]). */
+        private const val KEY_GIVEN = "given"
     }
 }
 

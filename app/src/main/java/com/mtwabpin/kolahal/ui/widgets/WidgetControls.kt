@@ -345,7 +345,7 @@ private fun ControlLabel(
     Text(
         label,
         modifier = modifier,
-        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.labelLargeEmphasized,
         autoSize = LABEL_SIZE,
         maxLines = lines,
         softWrap = lines > 1,
@@ -994,7 +994,7 @@ private fun RowScope.SplitToggleContent(
         }
         Text(
             toggle.label,
-            style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+            style = type.labelLargeEmphasized,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -1045,7 +1045,7 @@ private fun ShapeToggle(
     )
     val beside = width >= CONTROL_MIN + SHAPE_LABEL_MIN
     val under = !beside && height >= CONTROL_MIN + LABEL_UNDER
-    val label = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val label = MaterialTheme.typography.labelMediumEmphasized
     ToggleButton(
         checked = toggle.on,
         onCheckedChange = { press.click { onClick?.invoke() } },
@@ -1088,7 +1088,7 @@ private fun ShapeToggle(
 
                     else -> Text(
                         WidgetWords.badgeLetter(toggle.label).orEmpty(),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMediumEmphasized,
                         color = tint,
                         modifier = Modifier.clearAndSetSemantics {})
                 }

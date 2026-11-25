@@ -181,7 +181,7 @@ class WidgetInstancesTest {
         assertNull(worker.get("refresh-error:${s.id}"))
         assertTrue(worker.get("refresh-error:${s.id}#2").orEmpty().contains("no second"))
 
-        // Removed, the widget leaves nothing behind. The next widget with its id says its own first error.
+        // Removed, the widget leaves nothing behind.
         host.remove(t.entry(second)!!.key)
         host.settle()
         assertEquals(nothing, t.stored(second))
@@ -214,24 +214,25 @@ class WidgetInstancesTest {
         t.run(s, widget = true, id = "2")
         assertEquals(nothing, t.stored(second))
 
-        // The next widget gets the free id, and starts clean: it follows the script.
+        // The next widget gets an id the script never had: what the script stored for the removed one
+        // is not its. It starts clean: it follows the script.
         val again = t.placeAnother(s)
-        assertEquals(second, again)
-        assertEquals("Paris" to "2", shown(again))
+        assertEquals(WidgetRef(s.name, "3"), again)
+        assertEquals("Paris" to "3", shown(again))
 
         // Now the first one goes, and the second stays. The script still has a widget, so its access stays on.
         host.remove(t.entry(first)!!.key)
         host.settle()
         assertNull(t.entry(first))
         assertEquals(nothing, t.stored(first))
-        assertEquals(setOf("2"), WidgetStates.placedIds(context, s.name))
+        assertEquals(setOf("3"), WidgetStates.placedIds(context, s.name))
         assertTrue(on(s))
         assertEquals(mapOf("city" to "Paris"), scope(first))
         // A timer's run is for the first widget, which is not there: nothing is kept for it.
         t.run(s)
         assertEquals(nothing, t.stored(first))
         t.refresh(s, again)
-        assertEquals("Paris" to "2", shown(again))
+        assertEquals("Paris" to "3", shown(again))
 
         // The last one goes: the access goes off, and the name has no row.
         host.remove(t.entry(again)!!.key)
@@ -255,13 +256,13 @@ class WidgetInstancesTest {
         assertEquals(
             listOf("First", "2", "3", "4", "5", "6"),
             host.placedOf(s.name).map { shown(it)?.second })
-        // One is removed: its id is free again.
+        // One is removed: there is room again, and the next one gets an id the script never had.
         host.remove(t.entry(WidgetRef(s.name, "4"))!!.key)
-        assertEquals(WidgetRef(s.name, "4"), host.placeAnother(s, WidgetSize.S2X1))
+        assertEquals(WidgetRef(s.name, "7"), host.placeAnother(s, WidgetSize.S2X1))
         // The limit counts the first widget too: with six further ones there is no room for it.
         assertFalse("the first widget is on the page", host.placeScript(s, WidgetSize.S2X1))
         host.remove(t.entry(WidgetRef(s.name))!!.key)
-        assertEquals(WidgetRef(s.name, "7"), host.placeAnother(s, WidgetSize.S2X1))
+        assertEquals(WidgetRef(s.name, "8"), host.placeAnother(s, WidgetSize.S2X1))
         assertFalse("six widgets are on the page", host.placeScript(s, WidgetSize.S2X1))
         assertEquals(6, host.placedOf(s.name).size)
         t.placed(s)

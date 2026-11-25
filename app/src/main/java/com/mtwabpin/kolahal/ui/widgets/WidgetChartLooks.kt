@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +30,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -79,7 +77,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
     val title = LocalUntitled.current
     val bars = spec.style == "bars"
     val rest = MaterialTheme.colorScheme.surfaceContainerHighest
-    val labelStyle = type.labelLarge.copy(fontWeight = FontWeight.Bold)
+    val labelStyle = type.labelLargeEmphasized
     val plot: @Composable (List<String>, Dp, Dp, Modifier) -> Unit =
         { labels, thick, gap, modifier ->
             if (spec.style == "dots") Dots(
@@ -239,7 +237,7 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Colo
                 if (!small) {
                     Text(
                         title.orEmpty(),
-                        style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        style = type.labelMediumEmphasized,
                         color = c.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -411,7 +409,7 @@ private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Col
             if (!small) spec.label?.let {
                 Text(
                     it,
-                    style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    style = type.labelMediumEmphasized,
                     color = c.content,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -451,7 +449,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
     val large = box == WidgetSizes.Box.LARGE
-    BesideShape(cardShape(MaterialShapes.Cookie12Sided), c.shapeFill, inShape = { side ->
+    BesideShape(cardShape(), c.shapeFill, inShape = { side ->
         Column(
             Modifier.padding(horizontal = side / 7),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -460,7 +458,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color
             if (large) spec.label?.let {
                 Text(
                     it,
-                    style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    style = type.labelMediumEmphasized,
                     color = c.content,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -473,7 +471,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color
         if (!large) (spec.label ?: LocalUntitled.current)?.let {
             Text(
                 it,
-                style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+                style = type.labelMediumEmphasized,
                 color = c.content,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -603,7 +601,7 @@ private fun PillChart(
                 Spacer(Modifier.weight(1f))
                 if (labels.size > 1) Text(
                     labels.last(),
-                    style = type.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    style = type.labelSmallEmphasized,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     softWrap = false,

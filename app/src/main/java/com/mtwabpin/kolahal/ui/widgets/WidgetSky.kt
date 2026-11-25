@@ -45,7 +45,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -139,7 +138,7 @@ private const val MOON_SHARE = 0.36f
 /** The type of the times at the arc's ends. */
 @Composable
 private fun timeStyle(): TextStyle =
-    MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+    MaterialTheme.typography.titleSmallEmphasized.copy(fontFeatureSettings = "tnum")
 
 /** The place's name, in bold: a sky card's title. */
 @Composable
@@ -147,7 +146,7 @@ private fun SkyTitle(title: String?, color: Color, modifier: Modifier = Modifier
     if (title == null) return
     Text(
         title,
-        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.labelLargeEmphasized,
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -155,10 +154,14 @@ private fun SkyTitle(title: String?, color: Color, modifier: Modifier = Modifier
     )
 }
 
-/** The big text: as a value ([BigText]), or in Bold's type and the card's [role] color. */
+/**
+ * The big text: as a value ([BigText]), or in Bold's type and the card's [role] color, moved just
+ * far enough to read on Bold's card ([valueInk]).
+ */
 @Composable
 private fun SkyMain(text: String, style: TextStyle, bold: Boolean, role: Color, boldSize: Float) {
-    if (bold) BoldText(text, boldSize.sp, role) else BigText(text, style)
+    if (bold) BoldText(text, boldSize.sp, valueInk(role, lookColors(WidgetLook.BOLD, role).card))
+    else BigText(text, style)
 }
 
 /**

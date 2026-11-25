@@ -116,28 +116,11 @@ internal object SkyWords {
     private fun minutesLeft(seconds: Long): Int =
         ((seconds.coerceAtLeast(1) + 59) / 60).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
-    /** A time to go, as a card writes it: "2 h 10 min", "3 h", "45 min". */
-    fun span(seconds: Long): String {
-        val minutes = minutesLeft(seconds)
-        val h = minutes / 60
-        val m = minutes % 60
-        return when {
-            h == 0 -> "$m min"
-            m == 0 -> "$h h"
-            else -> "$h h $m min"
-        }
-    }
+    /** A time to go, as a card writes it ([WidgetWords.hoursAndMinutes]): "2 h 10 min", "3 h", "45 min". */
+    fun span(seconds: Long): String = WidgetWords.hoursAndMinutes(minutesLeft(seconds))
 
-    /** [span] for a screen reader, in whole words: "2 hours 10 minutes", "1 hour", "1 minute". */
-    fun spanSaid(seconds: Long): String {
-        val minutes = minutesLeft(seconds)
-        fun count(n: Int, unit: String) = if (n == 1) "1 $unit" else "$n ${unit}s"
-        val h = minutes / 60
-        val m = minutes % 60
-        return listOfNotNull(
-            count(h, "hour").takeIf { h > 0 },
-            count(m, "minute").takeIf { m > 0 }).joinToString(" ")
-    }
+    /** [span] for a screen reader ([WidgetWords.hoursAndMinutesSaid]): "2 hours 10 minutes", "1 hour", "1 minute". */
+    fun spanSaid(seconds: Long): String = WidgetWords.hoursAndMinutesSaid(minutesLeft(seconds))
 
     /**
      * What comes next at [now], from the longest to the shortest, for a card to write the first

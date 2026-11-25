@@ -207,7 +207,8 @@ sealed interface WidgetSpec {
 
     /**
      * One bar of a [Progress] with several, or one of its rings. [unit] follows a ring's scale
-     * ("of 8 glasses"). A [moving] bar or ring is a wave on its own, for the one still in progress.
+     * ("of 8 glasses"). A [moving] ring is a wave on its own, for the one still in progress. Only
+     * rings take the two: `widget.show` refuses them on bars.
      */
     data class Bar(
         val label: String?,
@@ -225,8 +226,8 @@ sealed interface WidgetSpec {
     /**
      * Kind `progress`: a ring, bars, a gauge, rings or stages.
      * - [style] is `ring`, `bar`, `gauge` or `rings`; without it the box decides between a ring
-     *   and a bar. With [items], `rings` draws them as rings inside each other, and any other
-     *   style as bars.
+     *   and a bar. With [items], `rings` draws them as rings inside each other, and no style or
+     *   `bar` as bars. `widget.show` refuses `ring` and `gauge` with items.
      * - A gauge is an arc from [min] to [max], in its [zones]' colors, filled to [value]. Its
      *   [unit] is written with the value. Only a gauge has a [min] other than 0, and [zones].
      * - With [stages], it is a path of named steps: [stage] (1 to their number) is the one it is
@@ -374,8 +375,8 @@ sealed interface WidgetSpec {
      * Kind `versus`: two [sides] and the [score] between them, for a match or a game.
      * - [turn] is 1 or 2: the side to move, or the side with the ball. A dot marks it.
      * - With [moving], the turn's part of the bar is a wave that moves: its clock runs.
-     * - [line] is a last line, such as the last move ("17. b3 · Berlin"), and [badge] a small text
-     *   at the top ("67'", "LIVE").
+     * - [line] is a last line, such as the last move ("17. b3 · Berlin"): the script's `caption`.
+     *   [badge] is a small text at the top ("67'", "LIVE").
      * - The bar shows only when both sides have a [Side.value], and they are not both 0.
      */
     data class Versus(
@@ -734,7 +735,7 @@ object WidgetJson {
                 "score" to spec.score,
                 "turn" to spec.turn,
                 "moving" to flag(spec.moving),
-                "line" to spec.line,
+                "caption" to spec.line,
                 "badge" to spec.badge,
             )
 
@@ -1065,7 +1066,7 @@ object WidgetJson {
                 score = m.needText("score"),
                 turn = m.number("turn")?.toInt()?.also { if (it !in 1..WidgetParser.SIDES) odd() },
                 moving = m.flag("moving"),
-                line = m.styled("line")?.let(StyledText::capitalized),
+                line = m.styled("caption")?.let(StyledText::capitalized),
                 badge = m.text("badge"),
             )
 

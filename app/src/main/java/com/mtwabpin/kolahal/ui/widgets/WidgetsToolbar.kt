@@ -52,7 +52,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -193,12 +192,6 @@ internal fun WidgetToolbar(
                         ) { onAgendaDays(choices[it]) }
                     }
                 }
-                Text(
-                    "Drag to move. Drag an edge to resize.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
             } else {
                 // Side by side if they fit. On a narrow screen or with large text, one below the other.
                 FlowRow(
@@ -245,6 +238,15 @@ internal fun WidgetToolbar(
                 NamedRow("Page") {
                     ChoiceRow(pageNames, pageNames.getOrNull(page), "page ") { onPage(it) }
                 }
+            }
+            // Under the rows of buttons, so it splits none of them.
+            if (own) {
+                Text(
+                    "Drag to move. Drag an edge to resize.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }
@@ -321,6 +323,8 @@ private fun ToolbarLabel(text: String) {
 /**
  * [choices] as one row of connected buttons, [selected] checked (none when it is not among them).
  * A tap picks one ([onPick] with its index). Each is tagged [tagPrefix] and its text.
+ * The buttons share the row's width. At a large font size, where their words don't fit in one row,
+ * they wrap to a second, as the library's connected button group does: each stays whole, one tap.
  */
 @Composable
 private fun ChoiceRow(
@@ -329,8 +333,9 @@ private fun ChoiceRow(
     tagPrefix: String,
     onPick: (Int) -> Unit
 ) {
-    Row(
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         choices.forEachIndexed { i, choice ->

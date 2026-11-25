@@ -5,8 +5,10 @@ package com.mtwabpin.kolahal.ui.widgets
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,6 +53,40 @@ internal const val DOT_CONTRAST = 3f
 
 /** Whether a dot in [dot] on [ground] needs an outline to be seen ([DOT_CONTRAST]). */
 internal fun dotNeedsOutline(dot: Color, ground: Color): Boolean = inkContrast(dot, ground) < DOT_CONTRAST
+
+/**
+ * How a cell of the Color and Shape grids of a card's settings page is marked, one way in both: a
+ * chosen cell has a [fill] of the primary container, with its mark and its name in [ink], the color
+ * on that container (the ring around the chosen color, the chosen shape). A cell not chosen has no
+ * fill, and its name and its shape in the muted text color. Each reads at 3:1 ([DOT_CONTRAST]) on
+ * its ground in every built-in theme.
+ */
+@Immutable
+internal data class CellMarks(val fill: Color, val ink: Color)
+
+/**
+ * The least width of a cell of the Color and Shape grids at the usual text size, in dp: its longest
+ * word ("Slanted", "Warning") in its small type, and the cell's own room. It grows with the font.
+ */
+internal const val GRID_CELL_DP = 48
+
+/** The room between two cells of the grids, in dp. */
+internal const val GRID_GAP_DP = 4
+
+/**
+ * How many cells of the Color or Shape grid go in a row [widthDp] wide at the font size
+ * [fontScale]: [most] at the usual size on a phone, fewer with a larger font, so a cell is at
+ * least [GRID_CELL_DP] times [fontScale] wide and its words are not cut. At least one.
+ */
+internal fun gridColumns(widthDp: Int, fontScale: Float, most: Int): Int {
+    val cell = GRID_CELL_DP * maxOf(1f, fontScale) + GRID_GAP_DP
+    return ((widthDp + GRID_GAP_DP) / cell).toInt().coerceIn(1, maxOf(1, most))
+}
+
+/** The [CellMarks] of a cell of the grids in [scheme], [selected] or not. */
+internal fun cellMarks(scheme: ColorScheme, selected: Boolean): CellMarks =
+    if (selected) CellMarks(scheme.primaryContainer, scheme.onPrimaryContainer)
+    else CellMarks(Color.Transparent, scheme.onSurfaceVariant)
 
 /**
  * A dot of a color, [size] across, on [ground] (what is behind it).

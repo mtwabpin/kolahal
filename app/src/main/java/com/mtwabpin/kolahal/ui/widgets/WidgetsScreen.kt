@@ -41,7 +41,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -50,7 +49,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -61,7 +59,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -144,6 +141,14 @@ internal fun offersWidgetSettings(w: PlacedWidget, running: Boolean, setUpAgain:
     w.source == null && w.id != null && running && setUpAgain
 
 /**
+ * Whether Arrange widgets keeps its empty pages as it gives way to the screen [next]. The picker and
+ * a card's settings page return to it, so the person has not left it. Any other screen leaves it,
+ * and every empty page but page 1 goes ([WidgetHost.removeEmptyPages]).
+ */
+internal fun keepsEmptyPages(next: Screen): Boolean =
+    next == Screen.WIDGETS || next == Screen.WIDGET_PICKER || next == Screen.WIDGET_SETTINGS
+
+/**
  * The Widgets screen (Material 3 Expressive). It shows the widgets page as it is, live, each widget
  * where it was put ([WidgetGrid]), to arrange it.
  * - A tap chooses a widget: an outline, handles on its end and bottom edges, and its toolbar at the
@@ -190,11 +195,10 @@ fun WidgetsScreen(
     val location = pages[pageIndex].location
     // A widget added now goes on this page.
     LaunchedEffect(location) { widgets.addTo = location }
-    // An empty page other than page 1 goes when the screen is left. Not for the picker, which comes back here.
+    // An empty page other than page 1 goes when the screen is left ([keepsEmptyPages]).
     DisposableEffect(Unit) {
         onDispose {
-            val next = vm.screen.value
-            if (next != Screen.WIDGETS && next != Screen.WIDGET_PICKER) widgets.removeEmptyPages()
+            if (!keepsEmptyPages(vm.screen.value)) widgets.removeEmptyPages()
         }
     }
     // A widget just placed, or long-pressed on the widgets page, is chosen as the screen shows, on its page.
@@ -423,7 +427,7 @@ fun WidgetsScreen(
                         onLook = { widgets.setLook(chosen.key, it) },
                         // What the Settings button shows: the card's color, and its shape in the Shape look.
                         settingsColor = chosen.color ?: chosenSpec?.base?.color,
-                        settingsShape = shapeChoicesFor(chosen, chosenKind, chosenSpec)?.shown?.takeIf {
+                        settingsShape = shapeChoicesFor(chosen, chosenKind, chosenSpec, widgets.measuredPageDp)?.shown?.takeIf {
                             val builtin = WidgetSource.builtinId(chosen.source)
                             chosen.look.drawnFor(chosenKind, builtin) == WidgetLook.SHAPE
                         },

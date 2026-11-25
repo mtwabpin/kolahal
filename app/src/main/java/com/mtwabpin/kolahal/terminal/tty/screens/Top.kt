@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.terminal.tty.screens
 
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
@@ -140,7 +141,7 @@ class TopScreen : TtyScreen {
             val level = if (d.screenTimeMs < 0) UsageLimits.Level.NONE else UsageLimits.screenTime(d.screenTimeMs, d.screenTimeLimitMin)
             val ink = inkOf(level) ?: Ink.SCRIPT
             val text = if (level == UsageLimits.Level.NONE) today(d)
-            else "${duration(d.screenTimeMs)}, limit ${UsageLimits.minutes(d.screenTimeLimitMin.toLong())}"
+            else "${duration(d.screenTimeMs)}, limit ${duration(d.screenTimeLimitMin * 60_000L)}"
             meter(grid, row, "Today", text, fraction(d.screenTimeMs, sinceMidnight), ink, bar, inkOf(level)?.let { CellStyle.of(it) } ?: PLAIN)
         } else {
             grid.put(0, row, "Today", LABEL_STYLE)
@@ -421,11 +422,8 @@ class TopScreen : TtyScreen {
             }
         }
 
-        /** Screen time as `usage` says it: 3h 12m, 45m. */
-        fun duration(ms: Long): String {
-            val minutes = (ms / 60_000L).coerceAtLeast(0L)
-            return if (minutes >= 60) "${minutes / 60}h ${minutes % 60}m" else "${minutes}m"
-        }
+        /** Screen time as `usage` says it ([TimeFormats.duration]): 3h 12m, 2h, 45m. */
+        fun duration(ms: Long): String = TimeFormats.duration(ms.coerceAtLeast(0L))
 
         /** Bytes in the units top uses: 512K, 182M, 7.6G. */
         fun bytes(n: Long): String {

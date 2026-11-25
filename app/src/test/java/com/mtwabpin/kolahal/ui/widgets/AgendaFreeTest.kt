@@ -30,13 +30,19 @@ class AgendaFreeTest {
 
     private fun moment(now: Long) = AgendaFree.moment(agenda, now, utc, clock24 = true, locale = Locale.UK)
 
+    /** A length is written as every card writes one ([WidgetWords.hoursAndMinutes]), to the nearest minute. */
     @Test
     fun aLengthIsWrittenInHoursAndMinutes() {
         assertEquals("45 min", AgendaFree.span(45 * 60))
-        assertEquals("1h", AgendaFree.span(3600))
-        assertEquals("1h 30", AgendaFree.span(5400))
-        assertEquals("12h", AgendaFree.span(12 * 3600))
+        assertEquals("1 h", AgendaFree.span(3600))
+        assertEquals("1 h 30 min", AgendaFree.span(5400))
+        assertEquals("12 h", AgendaFree.span(12 * 3600))
         assertEquals("1 min", AgendaFree.span(20))
+        assertEquals("2 min", AgendaFree.span(90))
+        // The sky's and a clock's are the same words.
+        assertEquals(SkyWords.span(5400), AgendaFree.span(5400))
+        assertEquals(SkyWords.spanSaid(5400), AgendaFree.spanSaid(5400))
+        assertEquals("1 h 30 min ahead", WidgetWords.difference(90, here = false))
         assertEquals("1 hour 30 minutes", AgendaFree.spanSaid(5400))
         assertEquals("2 hours", AgendaFree.spanSaid(7200))
         assertEquals("1 minute", AgendaFree.spanSaid(60))
@@ -118,21 +124,21 @@ class AgendaFreeTest {
         assertEquals(
             listOf(
                 "Today · Tue 24 Nov",
-                "now Team call 1h 30",
-                "free 1h 30",
-                "13:00 Lunch 1h",
-                "free 1h 30",
+                "now Team call 1 h 30 min",
+                "free 1 h 30 min",
+                "13:00 Lunch 1 h",
+                "free 1 h 30 min",
                 "15:30 Dentist 45 min",
                 "Tomorrow · Wed 25 Nov",
                 "all day Birthday",
-                "09:00 Gym 1h",
+                "09:00 Gym 1 h",
             ),
             lines.map(::said)
         )
         assertEquals(3 * 3600L, AgendaFree.freeToday(lines))
         // Early in the day, the free time until the first event counts from now.
         val early = AgendaFree.day(agenda, at(8), utc, clock24 = true, locale = Locale.UK)
-        assertEquals("free 2h", said(early[1]))
+        assertEquals("free 2 h", said(early[1]))
         // Less than 15 minutes between two events is not free time.
         val close = WidgetSpec.Agenda(
             WidgetBase(),
@@ -140,7 +146,7 @@ class AgendaFreeTest {
             days = 1
         )
         assertEquals(
-            listOf("Today · Tue 24 Nov", "09:00 A 1h", "10:10 B 50 min"),
+            listOf("Today · Tue 24 Nov", "09:00 A 1 h", "10:10 B 50 min"),
             AgendaFree.day(close, at(8, 55), utc, clock24 = true, locale = Locale.UK).map(::said)
         )
     }
@@ -155,7 +161,7 @@ class AgendaFreeTest {
         )
         val lines = AgendaFree.day(spec, at(17, 30), utc, clock24 = true, locale = Locale.UK)
         assertEquals(
-            listOf<Any?>(null, 1800L, null, 3600L, "2h"),
+            listOf<Any?>(null, 1800L, null, 3600L, "2 h"),
             lines.map {
                 when (it) {
                     is Line.Head -> null
@@ -171,11 +177,11 @@ class AgendaFreeTest {
     fun theDayShowsTheLinesThatFit() {
         val lines = AgendaFree.day(agenda, at(10, 54), utc, clock24 = true, locale = Locale.UK)
         // A 4×2 card: the heading, the call, its free time and lunch, then "+3 more".
-        assertEquals(4, AgendaFree.shown(lines, 152, 24, 42, 20, 20))
-        assertEquals(lines.size, AgendaFree.shown(lines, 400, 24, 42, 20, 20))
-        assertEquals("the first event however low", 2, AgendaFree.shown(lines, 30, 24, 42, 20, 20))
+        assertEquals(4, AgendaFree.shown(lines, 152, 24, TAP_ROW_DP, 20, 20))
+        assertEquals(lines.size, AgendaFree.shown(lines, 400, 24, TAP_ROW_DP, 20, 20))
+        assertEquals("the first event however low", 2, AgendaFree.shown(lines, 30, 24, TAP_ROW_DP, 20, 20))
         // Room for lunch's free time but not for the dentist: the lines end at lunch.
-        assertEquals(4, AgendaFree.shown(lines, 175, 24, 42, 20, 20))
+        assertEquals(4, AgendaFree.shown(lines, 175, 24, TAP_ROW_DP, 20, 20))
         // The drawn 4×2 card (25 Nov): 163 dp inside, events with no tap (32 dp). Today's three
         // events and the free time between them take 160 dp: all of them, no "+1 more".
         val today = AgendaFree.day(agenda.copy(days = 1), at(10, 54), utc, clock24 = true, locale = Locale.UK)

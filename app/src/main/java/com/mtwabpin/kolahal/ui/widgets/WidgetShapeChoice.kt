@@ -11,7 +11,10 @@ import androidx.graphics.shapes.RoundedPolygon
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetLayout
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetShape
+import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 
@@ -27,9 +30,9 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
 val LocalChosenShape = staticCompositionLocalOf<WidgetShape?> { null }
 
 /**
- * The shape the card being drawn takes in place of its own in the Shape look: the one chosen for
- * it, else the one its script names. Null where the card has no choice ([hasShapeChoice]) or keeps
- * its own: each part then draws the shape it always has. [WidgetCard] provides it.
+ * The shape of the card being drawn in the Shape look ([cardShapeOf]): the one chosen for it, else
+ * the one its script names, else its own at its size. Null in the other looks. [WidgetCard]
+ * provides it; the bodies draw it ([cardShape]).
  */
 internal val LocalCardShape = staticCompositionLocalOf<WidgetShape?> { null }
 
@@ -86,18 +89,35 @@ internal fun shapesFor(kind: WidgetKind?, spec: WidgetSpec?): List<WidgetShape> 
 }
 
 /**
- * The shape a card has of its own, as a square card draws it ([cardPolygon]): the one its script
- * names, else its kind's. A 12-sided cookie for a number, a chart, a picture and rings; a 4-leaf
- * clover for a level and a text's mark; a 9-sided cookie for a clock's dial. A script's shape the
- * card may not take ([shapesFor]) counts as none.
+ * The shape a card of [kind] showing [spec] has of its own in the Shape look, in a box [widthDp] by
+ * [heightDp]. It is the only answer: the card frame draws it ([cardShapeOf]), and the settings
+ * page's first shape and the toolbar's Settings button show it ([shapeChoicesFor]).
+ * - The one its script names, where the card has a choice ([hasShapeChoice]) and may take it
+ *   ([shapesFor]); else its kind's.
+ * - A 12-sided cookie for a number, a chart, rings and a picture, but a 4-leaf clover for a picture
+ *   in a 1-row card ([WidgetSizes.Box.WIDE]).
+ * - A 4-leaf clover for a level, a gauge and a text's mark; for stages too in a square box, where
+ *   the card is the shape, and a 9-sided cookie beside the words in any other box.
+ * - A 9-sided cookie for a clock's dial.
+ * - A countdown's and the sky's sun, and a circle for the moon: shapes that carry what they show,
+ *   with no choice.
  */
-internal fun ownShape(kind: WidgetKind?, spec: WidgetSpec?): WidgetShape {
-    spec?.base?.shape?.takeIf { it in shapesFor(kind, spec) }?.let { return it }
-    if (spec is WidgetSpec.Progress && ProgressStyles.isRings(spec)) return WidgetShape.COOKIE12
-    return when (spec?.let(WidgetJson::kindOf) ?: kind) {
-        WidgetKind.PROGRESS, WidgetKind.TEXT -> WidgetShape.CLOVER4
-        WidgetKind.CLOCK -> WidgetShape.COOKIE9
-        else -> WidgetShape.COOKIE12
+internal fun ownShape(kind: WidgetKind?, spec: WidgetSpec?, widthDp: Int, heightDp: Int): WidgetShape {
+    if (hasShapeChoice(kind, spec)) spec?.base?.shape?.takeIf { it in shapesFor(kind, spec) }?.let { return it }
+    return when {
+        spec is WidgetSpec.Progress && ProgressStyles.isRings(spec) -> WidgetShape.COOKIE12
+        spec is WidgetSpec.Progress && ProgressStyles.isStages(spec) ->
+            if (squareBox(widthDp, heightDp)) WidgetShape.CLOVER4 else WidgetShape.COOKIE9
+        spec is WidgetSpec.Countdown -> WidgetShape.SUN
+        spec is WidgetSpec.Sky -> if (spec.phase == null) WidgetShape.SUN else WidgetShape.CIRCLE
+        else -> when (spec?.let(WidgetJson::kindOf) ?: kind) {
+            WidgetKind.PROGRESS, WidgetKind.TEXT -> WidgetShape.CLOVER4
+            WidgetKind.CLOCK -> WidgetShape.COOKIE9
+            WidgetKind.IMAGE ->
+                if (WidgetSizes.box(widthDp, heightDp) == WidgetSizes.Box.WIDE) WidgetShape.CLOVER4
+                else WidgetShape.COOKIE12
+            else -> WidgetShape.COOKIE12
+        }
     }
 }
 
@@ -109,6 +129,25 @@ internal fun ownShape(kind: WidgetKind?, spec: WidgetSpec?): WidgetShape {
 internal fun takenShape(spec: WidgetSpec?, chosen: WidgetShape?, battery: Boolean): WidgetShape? {
     if (!hasShapeChoice(null, spec, battery)) return null
     return (chosen ?: spec?.base?.shape)?.takeIf { it in shapesFor(null, spec) }
+}
+
+/**
+ * The shape the card frame ([WidgetCard]) gives the card showing [spec] in [look], in a box [widthDp]
+ * by [heightDp]: in the Shape look, the one [chosen] for it or named by its script ([takenShape]),
+ * else its own ([ownShape]). Null in every other look. The frame draws it where the card is the
+ * shape ([cardPolygon]); everywhere else the body draws it ([cardShape]). [battery]: the built-in
+ * Battery and network card, whose shape shows its level.
+ */
+internal fun cardShapeOf(
+    look: WidgetLook,
+    spec: WidgetSpec?,
+    chosen: WidgetShape?,
+    battery: Boolean,
+    widthDp: Int,
+    heightDp: Int
+): WidgetShape? {
+    if (look != WidgetLook.SHAPE) return null
+    return takenShape(spec, chosen, battery) ?: ownShape(null, spec, widthDp, heightDp)
 }
 
 /**
@@ -131,14 +170,16 @@ internal data class ShapeChoices(
 }
 
 /**
- * The Shape group of the placed widget [w], of [kind], showing [spec] (null when not known yet).
+ * The Shape group of the placed widget [w], of [kind], showing [spec] (null when not known yet), on
+ * a page [pageDp] wide: its own shape is the one it has at its size ([ownShape]).
  * Null when it has no choice ([hasShapeChoice]), and for an app's widget, which draws itself.
  */
-internal fun shapeChoicesFor(w: PlacedWidget, kind: WidgetKind?, spec: WidgetSpec?): ShapeChoices? {
+internal fun shapeChoicesFor(w: PlacedWidget, kind: WidgetKind?, spec: WidgetSpec?, pageDp: Int): ShapeChoices? {
     val source = w.source ?: return null
     val battery = WidgetSource.builtinId(source) == WidgetSource.BATTERY
     if (!hasShapeChoice(kind, spec, battery)) return null
-    return ShapeChoices(ownShape(kind, spec), w.shape, shapesFor(kind, spec))
+    val own = ownShape(kind, spec, WidgetLayout.widthDp(pageDp, w.span), w.heightDp)
+    return ShapeChoices(own, w.shape, shapesFor(kind, spec))
 }
 
 /**
@@ -168,10 +209,13 @@ internal fun polygonOf(shape: WidgetShape): RoundedPolygon = when (shape) {
     WidgetShape.PILL -> MaterialShapes.Pill
 }
 
-/** [own], or the shape the card being drawn takes in its place ([LocalCardShape]). */
+/**
+ * The shape of the card being drawn in the Shape look, as the card frame resolved it
+ * ([LocalCardShape]): the one chosen for it, else its own at its size. A body draws this, never a
+ * shape of its own, so the card, its settings page and the toolbar show the same shape.
+ */
 @Composable
-internal fun cardShape(own: RoundedPolygon): RoundedPolygon =
-    LocalCardShape.current?.let(::polygonOf) ?: own
+internal fun cardShape(): RoundedPolygon = polygonOf(LocalCardShape.current ?: WidgetShape.COOKIE12)
 
 /** The [extraInset] of the shape the card being drawn takes: 0 for its own. */
 @Composable

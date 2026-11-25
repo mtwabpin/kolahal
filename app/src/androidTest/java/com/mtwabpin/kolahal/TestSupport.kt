@@ -118,6 +118,7 @@ open class TerminalUiStub : TerminalUi {
     override fun openTextFile(uri: String) = Unit
     override fun askResume(app: com.mtwabpin.kolahal.apps.AppEntry) = Unit
     override fun showWidgetsPage() = Unit
+    override fun showWidgetsPage(page: Int) = Unit
     override fun showTtyScreen(name: String) = Unit
 }
 

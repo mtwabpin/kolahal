@@ -7,15 +7,20 @@ import android.os.UserManager
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
@@ -118,8 +123,11 @@ class WidgetsScreenTest {
         compose.onNodeWithContentDescription("Done").assertExists()
     }
 
+    /** A chosen card: selected, and no tab. The tab of the page being arranged is selected too. */
+    private fun isChosen() = isSelected() and !SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+
     /** The chosen widget as drawn, in dp. */
-    private fun chosenCard() = compose.onNode(isSelected()).getUnclippedBoundsInRoot()
+    private fun chosenCard() = compose.onNode(isChosen()).getUnclippedBoundsInRoot()
 
     private fun panel() = WidgetOrder.inLocation(widgets.widgets.value, WidgetLocation.PANEL)
 
@@ -520,7 +528,7 @@ class WidgetsScreenTest {
         card(label).performTouchInput { up() }
         compose.waitForIdle()
         assertEquals(6, t.get(w.key)!!.column)
-        compose.onNode(isSelected()).assertExists()
+        compose.onNode(isChosen()).assertExists()
         compose.onNodeWithText("Remove").assertDoesNotExist()
     }
 
@@ -547,7 +555,7 @@ class WidgetsScreenTest {
         compose.waitForIdle()
         // 40 dp down, to the nearest 8 dp step.
         assertEquals((h + 40).toFloat(), t.get(w.key)!!.heightDp.toFloat(), 4f)
-        compose.onNode(isSelected()).assertExists()
+        compose.onNode(isChosen()).assertExists()
     }
 
     /**
@@ -568,7 +576,7 @@ class WidgetsScreenTest {
         compose.waitForIdle()
         val screen = compose.onRoot().getUnclippedBoundsInRoot()
         repeat(placed.size - 1) { step ->
-            compose.onNode(isSelected()).act("Move down")
+            compose.onNode(isChosen()).act("Move down")
             compose.waitForIdle()
             val card = chosenCard()
             val bar = compose.onNodeWithContentDescription("Done").getUnclippedBoundsInRoot()
@@ -602,7 +610,8 @@ class WidgetsScreenTest {
 
     /**
      * With two pages: a tab for each, the chosen widget's Page row moves it to the other page in one
-     * tap, the screen goes with it, and the first tab no longer shows it.
+     * tap, the screen goes with it, and the first tab no longer shows it. To a screen reader each tab
+     * is a tab, "Selected" on the page being arranged, and + is a button, neither checked nor not.
      */
     @Test
     fun thePageRowMovesAWidgetToAnotherPage() {
@@ -612,11 +621,17 @@ class WidgetsScreenTest {
         val second = widgets.addPage()
         assertNotNull(second)
         show()
-        compose.onNodeWithTag("page-tab Page 1").assertIsOn()
+        compose.onNodeWithTag("page-tab Page 1").assertIsSelected()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ToggleableState))
+        compose.onNodeWithTag("page-tab Page 2").assertIsNotSelected()
+        compose.onNodeWithTag("page-add")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ToggleableState))
         choose(label)
         compose.onNodeWithTag("page Page 2").performClick()
         compose.waitUntil(5_000) { t.get(w.key)?.location == second }
-        compose.onNodeWithTag("page-tab Page 2").assertIsOn()
+        compose.onNodeWithTag("page-tab Page 2").assertIsSelected()
         card(label).assertExists()
         compose.onNodeWithTag("page-tab Page 1").performClick()
         card(label).assertDoesNotExist()
@@ -631,7 +646,7 @@ class WidgetsScreenTest {
         compose.onNodeWithContentDescription("Increase height").assertExists()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithContentDescription("Increase height").assertDoesNotExist()
-        compose.onNode(isSelected()).assertDoesNotExist()
+        compose.onNode(isChosen()).assertDoesNotExist()
         compose.onNodeWithContentDescription("Add widget").assertExists()
         assertEquals(Screen.WIDGETS, vm.screen.value)
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }

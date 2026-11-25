@@ -1298,7 +1298,7 @@ internal object ReferenceExamplesVariants {
                   text = "58:10",
                 },
               },
-              line = "17. b3",
+              caption = "17. b3",
             }
             """,
             js = """
@@ -1322,7 +1322,7 @@ internal object ReferenceExamplesVariants {
                   text: "58:10",
                 },
               ],
-              line: "17. b3",
+              caption: "17. b3",
             });
             """,
             of = "versus", variant = "A game of chess",

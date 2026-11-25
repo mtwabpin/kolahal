@@ -90,6 +90,14 @@ class ProgressStylesParserTest {
             "widget: min must be below max",
             no("value" to 1, "min" to 5, "max" to 5, "style" to "gauge")
         )
+        // Below as numbers, the same as floats: the stored card would read back as nothing.
+        assertEquals(
+            "widget: min must be below max",
+            no("value" to 1, "min" to 0.99999999, "max" to 1, "style" to "gauge")
+        )
+        // A unit is written only by a gauge, so on any other style it is an error, as min is.
+        assertEquals("widget: unit goes with style 'gauge'", no("value" to 1, "unit" to "km/h"))
+        assertEquals("widget: unit goes with style 'gauge'", no("value" to 1, "style" to "ring", "unit" to "km/h"))
         assertEquals(
             "widget: style 'gauge' goes with value, not with items",
             no("style" to "gauge", "items" to listOf(mapOf("value" to 1)))
@@ -140,6 +148,30 @@ class ProgressStylesParserTest {
         )
     }
 
+    /** `ring` is one letter from `rings`: with items it is an error, not bars. */
+    @Test
+    fun ringWithItemsNamesRings() {
+        assertEquals(
+            "widget: style 'ring' goes with value, not with items: 'rings' draws items as rings",
+            no("style" to "ring", "items" to listOf(mapOf("value" to 1)))
+        )
+    }
+
+    /** An item's unit and moving are drawn only by rings: on bars they are an error. */
+    @Test
+    fun anItemsUnitAndMovingGoWithRings() {
+        assertEquals(
+            "widget: item 2 of items: unit goes with style 'rings'",
+            no("items" to listOf(mapOf("value" to 1), mapOf("value" to 5, "unit" to "glasses")))
+        )
+        assertEquals(
+            "widget: item 1 of items: moving goes with style 'rings'",
+            no("style" to "bar", "items" to listOf(mapOf("value" to 1, "moving" to true)))
+        )
+        // The card's own moving makes every bar a wave: that one goes with bars too.
+        assertEquals(true, progress("moving" to true, "items" to listOf(mapOf("value" to 1))).moving)
+    }
+
     // ---- stages ------------------------------------------------------------------------------
 
     @Test
@@ -165,8 +197,8 @@ class ProgressStylesParserTest {
         )
         // Stages need no value: the way to the next one is then just begun.
         assertEquals(0f, progress("stages" to listOf("A", "B"), "stage" to 1).value)
-        // The first 6 are kept, each cut at 24 characters.
-        val long = progress("stages" to (1..8).map { "Stage $it of a long and winding road" }, "stage" to 6)
+        // Up to 6, each cut at 24 characters.
+        val long = progress("stages" to (1..6).map { "Stage $it of a long and winding road" }, "stage" to 6)
         assertEquals(6, long.stages.size)
         assertEquals(24, long.stages[0].length)
     }
@@ -208,6 +240,11 @@ class ProgressStylesParserTest {
         assertEquals(
             "widget: stages must be a list of texts, not 'A, B'",
             no("stages" to "A, B", "stage" to 1)
+        )
+        // More than 6 is an error, not a cut: the last stage is the goal, such as Delivered.
+        assertEquals(
+            "widget: stages has 7 names: give 6 at most",
+            no("stages" to (1..7).map { "Stage $it" }, "stage" to 1)
         )
     }
 

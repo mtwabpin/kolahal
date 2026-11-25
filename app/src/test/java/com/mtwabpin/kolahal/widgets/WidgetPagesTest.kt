@@ -184,6 +184,111 @@ class WidgetPagesTest {
         assertEquals(0, named(WidgetPlacement.mergeInto(all.drop(1), two), "b").topDp)
     }
 
+    /** An app's widget waiting to be added again ([PlacedWidget.pending]): its key holds its page and its order. */
+    private fun waiting(location: String, order: Int = 0) =
+        PlacedWidget(null, "com.example/.Clock", 0L, 96, order, location = location, span = 12, column = 0, topDp = 0)
+
+    /**
+     * Removing a page that has cards: its cards land under page 1's, the pages after it move up a
+     * place, and page 1 or a page that isn't there can't be removed.
+     */
+    @Test
+    fun aPageWithCardsIsRemoved() {
+        val pages = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(two, "Work"), WidgetPage(three))
+        val all = listOf(
+            script("a", column = 0, top = 0, height = 120),
+            script("b", two, span = 12, column = 0, top = 0),
+            script("c", three, column = 0, top = 0),
+        )
+        val (left, widgets) = WidgetPages.withoutPage(pages, all, two)!!
+        assertEquals(listOf(WidgetLocation.PANEL, three), left.map { it.location })
+        assertEquals("Page 2", WidgetPages.title(left, 1))
+        assertEquals(WidgetLocation.PANEL to 120 + WidgetLayout.GAP_DP, named(widgets, "b").let { it.location to it.topDp })
+        assertEquals(three, named(widgets, "c").location)
+        assertNull(WidgetPages.withoutPage(pages, all, WidgetLocation.PANEL))
+        assertNull(WidgetPages.withoutPage(pages, all, WidgetPages.locationOf(4)))
+    }
+
+    /**
+     * Two widgets of one app wait to be added again, each the first on its page. When one's page is
+     * removed, or it is moved to the other's page, the two stay two: each keeps a key of its own, so
+     * Add again and Dismiss act on one of them.
+     */
+    @Test
+    fun twoWaitingWidgetsOfOneAppStayTwo() {
+        val pages = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(two))
+        val all = listOf(waiting(WidgetLocation.PANEL), waiting(two))
+        assertEquals(2, all.map { it.key }.distinct().size)
+        val (_, merged) = WidgetPages.withoutPage(pages, all, two)!!
+        assertEquals(listOf(WidgetLocation.PANEL, WidgetLocation.PANEL), merged.map { it.location })
+        assertEquals(2, merged.map { it.key }.distinct().size)
+        // It keeps its place for when it is added again.
+        assertEquals(0 to 0, merged[1].let { it.column to it.topDp })
+        val moved = WidgetPlacement.moveToPage(all, all[1].key, WidgetLocation.PANEL)
+        assertEquals(2, moved.map { it.key }.distinct().size)
+        // Only those waiting on the page it goes to count.
+        assertEquals(listOf(0, 1), WidgetPlacement.mergeInto(all + waiting(three, 1), two).filter { it.location == WidgetLocation.PANEL }.map { it.order })
+    }
+
+    /**
+     * A backup with pages onto a phone that has page 1 only: its pages are added, with their names,
+     * and each widget goes on its page, where it was.
+     */
+    @Test
+    fun aBackupsWidgetsComeOntoItsPages() {
+        val backupPages = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(three, "Work"))
+        val backup = listOf(
+            script("a", column = 0, top = 0),
+            script("b", three, column = 6, top = 96),
+            waiting(three),
+        )
+        val (pages, all) = WidgetPages.imported(WidgetPages.ONE, emptyList(), backupPages, backup)
+        assertEquals(listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(two, "Work")), pages)
+        assertEquals(WidgetLocation.PANEL, named(all, "a").location)
+        assertEquals(two to (6 to 96), named(all, "b").let { it.location to (it.column to it.topDp) })
+        assertEquals(two, all.single { it.pending }.location)
+    }
+
+    /**
+     * Onto a phone with five pages, a backup's pages join them by place and none is added. Its
+     * widgets keep their places where those are free and go to the first free one where they aren't.
+     */
+    @Test
+    fun aBackupOntoFivePagesJoinsThemByPlace() {
+        var five = WidgetPages.ONE
+        repeat(4) { five = WidgetPages.added(five)!! }
+        val here = listOf(script("x", two, span = 12, column = 0, top = 0))
+        val backupPages = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(WidgetPages.locationOf(7), "Travel"))
+        val backup = listOf(
+            script("a", WidgetPages.locationOf(7), span = 12, column = 0, top = 0),
+            script("b", column = 0, top = 0),
+        )
+        val (pages, all) = WidgetPages.imported(five, here, backupPages, backup)
+        assertEquals(five.map { it.location }, pages.map { it.location })
+        assertEquals("Travel", WidgetPages.title(pages, 1))
+        assertEquals(two to 88 + WidgetLayout.GAP_DP, named(all, "a").let { it.location to it.topDp })
+        assertEquals(two to 0, named(all, "x").let { it.location to it.topDp })
+        assertEquals(WidgetLocation.PANEL, named(all, "b").location)
+    }
+
+    /**
+     * A backup made with two pages, imported after page 2 was removed: page 2's widgets are on page
+     * 1 now, and none of them comes again. So the page the import would add stays out: home shows
+     * no empty page.
+     */
+    @Test
+    fun anImportAddsNoEmptyPage() {
+        val backupPages = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(two))
+        val backup = listOf(script("a", column = 0, top = 0), script("b", two, column = 0, top = 0))
+        val here = listOf(script("a", column = 0, top = 0), script("b", column = 6, top = 0))
+        val (pages, all) = WidgetPages.imported(WidgetPages.ONE, here, backupPages, backup)
+        assertEquals(WidgetPages.ONE, pages)
+        assertEquals(WidgetPlacement.renumber(here), all)
+        // A page that was here stays, with or without widgets.
+        val mine = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(three, "Empty"))
+        assertEquals(mine, WidgetPages.imported(mine, here, backupPages, backup).first)
+    }
+
     // ---- placed per page ------------------------------------------------------------------
 
     /** Each page is laid out on its own: a new widget goes into the first free place of its page, whatever the others hold. */

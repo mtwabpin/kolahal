@@ -83,6 +83,25 @@ internal object OwnDesigns {
         return "then ${after.text}" + if (more > 0) " · +$more" else ""
     }
 
+    /** The height of the line with Undo and "+3 more" under the todos, in dp. */
+    const val FOOT_DP = 20
+
+    /**
+     * The height of a todo's row under the next one, in dp: a row to tap, as tall as a list's
+     * ([TAP_ROW_DP]), or as its line of [lineDp] where a larger font makes that taller.
+     */
+    fun followRowDp(lineDp: Int): Int = WidgetWords.textRowDp(TAP_ROW_DP, lineDp)
+
+    /**
+     * How many of the [count] todos after the next one a tall card shows in the [roomDp] under its
+     * top row, each [followRowDp] tall with [ROW_GAP_DP] between two. The foot line ([FOOT_DP]) is kept
+     * for "+3 more" when rows are left out, and for Undo while there is one ([undo]), also when every row fits.
+     */
+    fun followShown(count: Int, roomDp: Int, lineDp: Int, undo: Boolean): Int {
+        val room = roomDp - if (undo) FOOT_DP + ROW_GAP_DP else 0
+        return WidgetWords.rowsShown(count, room, followRowDp(lineDp), FOOT_DP, ROW_GAP_DP)
+    }
+
     /**
      * The card for a screen reader: "Todos: 4 open, 3 of 7 done. Next: Book the dentist". The
      * check and Undo are items of their own.

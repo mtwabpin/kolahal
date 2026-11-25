@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.WavyProgressIndicatorDefaults
@@ -270,7 +269,7 @@ private fun SplitRings(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
 @Composable
 private fun RingsIn(spec: WidgetSpec.Progress, color: Color, side: Dp, shaped: Boolean) {
     if (shaped) {
-        ShapedBox(cardShape(MaterialShapes.Cookie12Sided), MaterialTheme.colorScheme.surfaceContainerHighest, side) {
+        ShapedBox(cardShape(), MaterialTheme.colorScheme.surfaceContainerHighest, side) {
             NestedRings(spec, color, side * 0.74f)
         }
     } else NestedRings(spec, color, side)
@@ -366,7 +365,7 @@ private fun RingLegend(
                     if (how.bold) BoldText(value, 18.sp, tint, Modifier.padding(start = 5.dp))
                     else Text(
                         value,
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.labelLargeEmphasized,
                         color = c.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -417,7 +416,7 @@ private fun RingList(
                         if (how.bold) BoldText(value, 16.sp, tint, Modifier.padding(start = 6.dp))
                         else Text(
                             value,
-                            style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            style = type.labelLargeEmphasized,
                             color = c.content,
                             maxLines = 1,
                             modifier = Modifier.padding(start = 6.dp)

@@ -60,6 +60,26 @@ class OwnDesignsTest {
         assertEquals("mark as not done", OwnDesigns.undoTap(next).label)
     }
 
+    /**
+     * The todos under the next one are rows to tap, as tall as a list's ([TAP_ROW_DP]), so fewer fit.
+     * The rooms are a 4×2's and a 4×4's on a phone 411 dp wide (192 and 392 dp, 28 of them its
+     * margins, 76 its top row), with the text at its usual size (a line of 20 dp).
+     */
+    @Test
+    fun theRowsAfterTheNextAreRowsToTap() {
+        assertEquals(TAP_ROW_DP, OwnDesigns.followRowDp(20))
+        assertEquals("a larger font", 50, OwnDesigns.followRowDp(50))
+        // A 4×2: one of two, then "+1 more".
+        assertEquals(1, OwnDesigns.followShown(2, 88, 20, undo = false))
+        assertEquals(1, OwnDesigns.followShown(1, 88, 20, undo = false))
+        // Undo keeps its line also when every row fits.
+        assertEquals(1, OwnDesigns.followShown(1, 88, 20, undo = true))
+        // A 4×4: six when they all fit, else five and "+3 more".
+        assertEquals(6, OwnDesigns.followShown(6, 288, 20, undo = false))
+        assertEquals(5, OwnDesigns.followShown(8, 288, 20, undo = false))
+        assertEquals(5, OwnDesigns.followShown(8, 288, 20, undo = true))
+    }
+
     /** A tick brings the one after; Undo stays for the ticked one while it is done. */
     @Test
     fun aTickBringsTheNextAndKeepsAnUndo() {

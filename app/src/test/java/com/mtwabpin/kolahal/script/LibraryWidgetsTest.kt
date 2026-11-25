@@ -1025,7 +1025,7 @@ class LibraryWidgetsTest {
                 "badge" to "LIVE",
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
-                "line" to "India require 63 runs with 60 balls remaining",
+                "caption" to "India require 63 runs with 60 balls remaining",
                 "turn" to 1L,
                 "moving" to true,
                 "color" to "good",
@@ -1064,7 +1064,7 @@ class LibraryWidgetsTest {
                 "badge" to "LIVE",
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
-                "line" to "New Zealand chose to bat",
+                "caption" to "New Zealand chose to bat",
                 "turn" to 2L,
                 "moving" to true,
                 "color" to "good",
@@ -1086,7 +1086,7 @@ class LibraryWidgetsTest {
                 "badge" to "RESULT",
                 "tap" to jsLiveTap,
                 "staleAfter" to 900L,
-                "line" to "India won by 4 wickets",
+                "caption" to "India won by 4 wickets",
             )
         )
         assertEquals(
@@ -1139,7 +1139,7 @@ class LibraryWidgetsTest {
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
                 "badge" to "67'",
-                "line" to "64' Goal, B. Saka",
+                "caption" to "64' Goal, B. Saka",
                 "color" to "good",
                 "refresh" to 30L,
             ),
@@ -1190,7 +1190,7 @@ class LibraryWidgetsTest {
                 "tap" to jsLiveTap,
                 "staleAfter" to 900L,
                 "badge" to "FT",
-                "line" to "64' Goal, B. Saka",
+                "caption" to "64' Goal, B. Saka",
             ),
         ) as WidgetSpec.Versus
         assertEquals(WidgetBase(icon = "ball", tap = liveTap, staleAfter = 900), ended.base)

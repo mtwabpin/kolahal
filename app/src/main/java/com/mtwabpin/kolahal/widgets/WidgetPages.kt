@@ -105,6 +105,43 @@ object WidgetPages {
     fun removed(pages: List<WidgetPage>, index: Int): List<WidgetPage> =
         if (index <= 0 || index >= pages.size) pages else pages.filterIndexed { i, _ -> i != index }
 
+    /**
+     * The pages and the widgets after the page at [location] is removed from [pages]. Its widgets in
+     * [widgets] go to page 1, under what is there ([WidgetPlacement.mergeInto]); the pages after it
+     * move up one place. Null for page 1, which stays, and for a page that isn't there.
+     */
+    fun withoutPage(
+        pages: List<WidgetPage>,
+        widgets: List<PlacedWidget>,
+        location: String,
+    ): Pair<List<WidgetPage>, List<PlacedWidget>>? {
+        val index = indexOf(pages, location)
+        if (index <= 0) return null
+        return removed(pages, index) to WidgetPlacement.mergeInto(widgets, location)
+    }
+
+    /**
+     * The pages and the widgets after a backup is imported onto [pages] and [widgets]:
+     * - The backup's pages ([backupPages]) join these by place ([merge]).
+     * - Its widgets ([backup], as [WidgetCodec.fromExport] reads them) are added
+     *   ([WidgetCodec.mergePending]), each on the page its own page joined, or on page 1 when that
+     *   page found no room. Each keeps its place when it is free ([WidgetPlacement.placeImported]).
+     * - A page the backup added that got no widget is left out again: its widgets were all here.
+     */
+    fun imported(
+        pages: List<WidgetPage>,
+        widgets: List<PlacedWidget>,
+        backupPages: List<WidgetPage>,
+        backup: List<PlacedWidget>,
+    ): Pair<List<WidgetPage>, List<PlacedWidget>> {
+        val (merged, into) = merge(pages, backupPages)
+        val incoming = WidgetOrder.onePage(backup)
+            .map { it.copy(location = into[it.location] ?: WidgetLocation.PANEL) }
+        val all = WidgetPlacement.placeImported(widgets, WidgetCodec.mergePending(widgets, incoming))
+        val used = all.map { it.location }.toSet()
+        return merged.filterIndexed { i, p -> i < pages.size || p.location in used } to all
+    }
+
     /** [pages] with the page at [index] called [name] ([clean]); an empty name takes its name away. */
     fun renamed(pages: List<WidgetPage>, index: Int, name: String): List<WidgetPage> =
         pages.mapIndexed { i, p -> if (i == index) p.copy(name = clean(name).ifEmpty { null }) else p }

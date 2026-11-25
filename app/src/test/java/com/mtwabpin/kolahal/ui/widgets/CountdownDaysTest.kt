@@ -167,4 +167,17 @@ class CountdownDaysTest {
         assertTrue(many.columns * many.pitch <= 70f && many.rows * many.pitch <= 68f)
         assertEquals(CountdownDays.Grid(0, 0, 0f), CountdownDays.grid(0, 160f, 68f, 18f))
     }
+
+    /** The days go in reading order: from the left, and right to left from the right, in a centered grid. */
+    @Test
+    fun theDotsMirrorRightToLeft() {
+        val grid = CountdownDays.Grid(columns = 7, rows = 2, pitch = 10f)
+        // 70 of 100 wide: 15 on each side.
+        assertEquals(20f, CountdownDays.dotX(0, grid, 100f, rtl = false), 0.001f)
+        assertEquals(80f, CountdownDays.dotX(6, grid, 100f, rtl = false), 0.001f)
+        assertEquals(80f, CountdownDays.dotX(0, grid, 100f, rtl = true), 0.001f)
+        assertEquals(20f, CountdownDays.dotX(6, grid, 100f, rtl = true), 0.001f)
+        // The second row starts again at the start.
+        assertEquals(80f, CountdownDays.dotX(7, grid, 100f, rtl = true), 0.001f)
+    }
 }

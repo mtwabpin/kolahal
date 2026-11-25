@@ -256,6 +256,8 @@ class TopScreenTest {
         assertEquals("7.6G", TopScreen.bytes((7.6 * gb).toLong()))
         assertEquals("3h 12m", TopScreen.duration(3 * hour + 12 * minute))
         assertEquals("45m", TopScreen.duration(45 * minute))
+        // A whole hour, as `usage` says it.
+        assertEquals("2h", TopScreen.duration(2 * hour))
         assertEquals("ok", TopScreen.resultWord("ok", true))
         assertEquals("error", TopScreen.resultWord("error: boom", true))
         assertEquals("stopped", TopScreen.resultWord("stopped: location off", true))

@@ -114,8 +114,8 @@ private data class Drop(val w: PlacedWidget, val column: Int, val topDp: Int)
  *   finger is near the top or bottom of [shown]. When it is let go, it moves there
  *   ([WidgetHost.moveTo]), or on the Remove target ([overRemove]) [onRemove] asks first.
  * - Each widget has actions for a screen reader: Move up, Move down, Move left, Move right, Wider,
- *   Narrower, Taller, Shorter, what the widget itself holds ([editOf]: Options, Edit shortcuts or
- *   Widget settings, as in its toolbar) and Remove.
+ *   Narrower, Taller, Shorter, what the widget itself holds ([editOf]: Settings or Widget settings,
+ *   as in its toolbar) and Remove.
  * - The chosen widget is scrolled into view, clear of the bars ([topRoom], [bottomRoom]), when it is
  *   chosen, when the screen comes back to it, and each time it moves or changes size.
  * - With [onEdge] (more than one page), a widget held at the screen's start or end edge asks for the

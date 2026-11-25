@@ -22,7 +22,7 @@ import com.mtwabpin.kolahal.ui.theme.Term
  * [current] one (from 0) a longer dash in the prompt's color. A screen reader hears "Page 2 of 3".
  */
 @Composable
-internal fun PageDots(count: Int, current: Int, modifier: Modifier = Modifier) {
+internal fun WidgetPageDots(count: Int, current: Int, modifier: Modifier = Modifier) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,

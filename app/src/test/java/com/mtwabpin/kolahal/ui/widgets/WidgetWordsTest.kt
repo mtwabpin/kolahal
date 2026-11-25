@@ -33,6 +33,14 @@ class WidgetWordsTest {
         assertEquals("–", WidgetWords.num(Float.NaN))
     }
 
+    /** A very large number is written in digits, not as "1.0E20" or a long that ran over (9.223372036854776E16). */
+    @Test
+    fun aVeryLargeNumberIsWrittenInDigits() {
+        assertEquals("1000000000000000", WidgetWords.num(1e15f))
+        assertEquals("100000000000000000000", WidgetWords.num(1e20f))
+        assertEquals("-2500000000000000", WidgetWords.num(-2.5e15f))
+    }
+
     @Test
     fun aUnitThatStartsWithALetterGetsASpace() {
         assertEquals("24°C", WidgetWords.joined("24", "°C"))

@@ -1,7 +1,7 @@
 // @title Live cricket
 // @desc Live cricket scores: the team option's live match as its status line, to pin at the top of home; cricket live lists them all
 // @author Kolahal
-// @version 1.8
+// @version 1.9
 // @command
 // @usage [live|<team>]
 // @widget versus 4x1
@@ -203,7 +203,7 @@ function card(event, live, every) {
     // A result changes no more. A live score is old after a minute out of view.
     staleAfter: live ? 60 : 900,
   };
-  if (said) d.line = said;
+  if (said) d.caption = said;
   if (!live) return d;
   const at = batting(event);
   if (at != null && at < 2) {

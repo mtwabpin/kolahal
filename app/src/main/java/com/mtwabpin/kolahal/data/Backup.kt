@@ -40,6 +40,7 @@ import com.mtwabpin.kolahal.widgets.Shortcuts
  *   "font":    { "name": "...", "base64": "..." },          // an imported terminal font
  *   "widgets": [ ... ],                                     // so the app can offer to add them again
  *   "widgetPages": [ { "page": "panel:2", "name": "Work" } ],          // the widgets pages, in order
+ *   "widgetIds": { "habit": 3 },                                       // the highest further widget id each script had
  *   "themes":  { "mine": { "background": "#0B0D0B", ... } },    // made in the theme builder
  *   "scriptSources": [ "https://owner.github.io/name/index.json" ],    // added to Get more scripts
  *   "shaders": [ { "name": "glow", "code": "..." } ] }                 // the user's own .agsl files
@@ -102,6 +103,10 @@ class Backup(private val context: Context) {
             "widgetPages" to runCatching {
                 com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportPages()
             }.getOrDefault(emptyList()),
+            // The highest further widget id each script had: what a script stored for a removed one comes back in "data".
+            "widgetIds" to runCatching {
+                com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportGiven()
+            }.getOrDefault(emptyMap()),
             // Themes made in the theme builder: the name, mapped to colors by role as "#RRGGBB".
             "themes" to CustomThemes.themes.value.mapValues { (_, colors) ->
                 colors.mapValues {
@@ -282,6 +287,7 @@ class Backup(private val context: Context) {
         (root["scriptSources"] as? List<*>)?.let { catalog.restore(it, skipped) }
         val newSources =
             (catalog.added() - sourcesBefore).map { "script source ${ScriptSources.nameOf(it)}" }
+        runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).importGiven(root["widgetIds"] as? Map<*, *>) }
         (root["widgets"] as? List<*>)?.let { list ->
             @Suppress("UNCHECKED_CAST")
             runCatching {

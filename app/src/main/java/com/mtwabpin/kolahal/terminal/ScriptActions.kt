@@ -66,7 +66,7 @@ class ScriptActions(
         fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null)
 
         /** As [notice], and Copy on the logged line gives [copy]: the one command that [text] suggests. */
-        fun notice(text: String, copy: String) = notice(text)
+        fun notice(text: String, copy: String)
         fun show(text: String)
         fun emit(event: UiEvent)
         fun openEditor(script: Script)
@@ -456,7 +456,7 @@ class ScriptActions(
         setWidgetOption(WidgetRef(script), option, value)
 
     /**
-     * Sets [option] for the widget [ref], from its options sheet on the Widgets screen. Then it asks
+     * Sets [option] for the widget [ref], from its settings page (from Arrange widgets). Then it asks
      * for one quiet run of each placed widget that reads the new value, so its card shows what the
      * value gives ([ScriptOptions.readers]).
      * - A further widget's value is for that widget only, and only that widget runs. A null value

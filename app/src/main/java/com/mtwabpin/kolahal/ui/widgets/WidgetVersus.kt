@@ -97,7 +97,7 @@ internal fun VersusBody(spec: WidgetSpec.Versus, box: WidgetSizes.Box) {
                 LocalUntitled.current?.let {
                     Text(
                         it,
-                        style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        style = type.labelLargeEmphasized,
                         color = c.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -171,9 +171,9 @@ private fun VersusRow(
     val barDp = if (VersusWords.shares(spec) != null) maxOf(linesDp(rowFigureStyle()), BAR_LINE_DP) + BAR_GAP else 0
     val plan = VersusWords.rowPlan(height.value.toInt(), scoreHeights, lineDp, barDp)
     val scoreStyle = styles[plan.score]
-    val nameStyle = type.titleSmall.copy(fontWeight = FontWeight.Bold)
+    val nameStyle = type.titleSmallEmphasized
     val lineStyle = type.labelMedium
-    val badgeStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val badgeStyle = type.labelMediumEmphasized
     val showLine = plan.line && hasLine
     val middle = remember(spec, width, scoreStyle, nameStyle, lineStyle, showLine, density, measurer) {
         fun dp(text: String, style: TextStyle): Float = with(density) {
@@ -392,10 +392,14 @@ private fun SplitNarrow(spec: WidgetSpec.Versus, roles: List<Color>, c: LookColo
     }
 }
 
-/** The score: as a value ([BigText]) in [style], or with [bold] in Bold's type, [boldSize] at most, in the card's color. */
+/**
+ * The score: as a value ([BigText]) in [style], or with [bold] in Bold's type, [boldSize] at most,
+ * in the card's color moved just far enough to read on Bold's card ([valueInk]).
+ */
 @Composable
 private fun Score(spec: WidgetSpec.Versus, style: TextStyle, bold: Boolean, boldSize: Float) {
-    if (bold) BoldText(spec.score, boldSize.sp, roleColor(spec.base))
+    val role = roleColor(spec.base)
+    if (bold) BoldText(spec.score, boldSize.sp, valueInk(role, lookColors(WidgetLook.BOLD, role).card))
     else BigText(spec.score, style)
 }
 
@@ -476,7 +480,7 @@ private fun TurnDot(color: Color, modifier: Modifier = Modifier) {
 private fun Badge(text: String, role: Color, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.labelMediumEmphasized,
         color = role,
         maxLines = 1,
         softWrap = false,
@@ -504,12 +508,12 @@ private fun LastLine(text: String, muted: Color, modifier: Modifier = Modifier, 
 /** The type of a side's figure at the bar's end: digits of one width, so a clock that ticks does not shake. */
 @Composable
 private fun figureStyle(): TextStyle =
-    MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+    MaterialTheme.typography.labelLargeEmphasized.copy(fontFeatureSettings = "tnum")
 
 /** A side's figure in a one-row card, a size smaller: the row has little height. */
 @Composable
 private fun rowFigureStyle(): TextStyle =
-    MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+    MaterialTheme.typography.labelMediumEmphasized.copy(fontFeatureSettings = "tnum")
 
 /** The height of the bar's line without its figures, in dp: a wave's container. */
 private const val BAR_LINE_DP = 10

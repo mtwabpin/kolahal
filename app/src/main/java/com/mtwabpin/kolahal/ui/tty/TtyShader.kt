@@ -59,11 +59,13 @@ import com.mtwabpin.kolahal.shader.ShaderSafety
 import com.mtwabpin.kolahal.shader.ShaderUniforms
 import com.mtwabpin.kolahal.shader.ShaderValues
 import com.mtwabpin.kolahal.shader.Shaders
+import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
 import com.mtwabpin.kolahal.ui.home.rememberScreenReader
+import com.mtwabpin.kolahal.widgets.StatScenes
 import java.time.LocalTime
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
@@ -304,6 +306,55 @@ private fun previewLayer(
     if (minute != null) SideEffect { day.minute = minute.toInt() }
     if (over != null) DrawOverShader(over, shader.meta)
     return (over?.surface ?: Modifier).shaderEffect(inputs, clock, touch, battery, corner, day.takeIf { minute != null })
+}
+
+/** Kolahal's own shaders compiled for cards ([rememberShaderStill]), kept apart so a card never pushes home's out of [loadedShaders]. */
+private val stillShaders = ShaderCache<LoadedShader>(max = 4)
+
+/**
+ * A still of Kolahal's own shader [name], as a card's ground on home's widgets pages
+ * ([com.mtwabpin.kolahal.ui.widgets.StatScene]): drawn as [rememberTtyShader] draws it, with its clock at 0.
+ * Null until it is compiled, and when it can't be drawn: it isn't one of Kolahal's own ([ShaderCatalog.BUNDLED]),
+ * it is no scene ([WallpaperChoice.suits]), it was turned off ([ShaderSafety.isTripped]), a screen reader is
+ * on, or Android is older than 13.
+ *
+ * Only Kolahal's own, as they come with it (a shader of the user's with the same name isn't read): those are
+ * tested with each release. A card's shader is drawn beside home's, and [ShaderSafety] keeps one mark at a time,
+ * for home's, so a user's own shader on a card could be neither marked nor turned off after a crash.
+ * - It is compiled once for every card: home's own is used when it is the same code, else one kept for cards
+ *   ([stillShaders]). Nothing is marked or logged.
+ * - No touches, and no lean or clock of its own. [minute]: a count that changes each minute (the cards' clock
+ *   tick); a scene that declares `date` is drawn again when it changes, so it follows the hour as on home.
+ */
+@Composable
+internal fun rememberShaderStill(name: String, grid: TtyGrid, minute: Long): Modifier? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+    return stillLayer(name, grid, minute)
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun stillLayer(name: String, grid: TtyGrid, minute: Long): Modifier? {
+    if (rememberScreenReader()) return null
+    val context = LocalContext.current.applicationContext
+    val safety = remember { ShaderSafety.get(context) }
+    // Read again when a file changes, or a shader is turned off or on again.
+    val files by Shaders.version.collectAsStateWithLifecycle()
+    val trips by safety.version.collectAsStateWithLifecycle()
+    val loaded by produceState<LoadedShader?>(null, name, files, trips) {
+        value = withContext(Dispatchers.IO) { LoadedShader.still(context, name, files, trips) }
+    }
+    val shader = loaded ?: return null
+    val touch = remember(shader) { ShaderTouch() }
+    val clock = remember(shader) { ShaderTime() }
+    val battery = rememberShaderBattery(shader)
+    val params = rememberLiveParams(shader)
+    val corner = rememberWindowCorner()
+    val inputs = remember(shader, grid) { ShaderInputs(shader, grid, 0, 0, params, shader.meta.once) { } }
+    // A still that follows the day reads the minute as it draws ([ShaderInputs.effect]): a new minute draws it again.
+    val day = remember(shader) { ShaderDay() }
+    SideEffect { day.minute = minute.toInt() }
+    return Modifier.shaderEffect(inputs, clock, touch, battery, corner, day)
 }
 
 /**
@@ -840,6 +891,24 @@ private class LoadedShader(val id: String, val name: String, val meta: ShaderMet
                 return null
             }
             return LoadedShader(ShaderSafety.id(name, code), name, ShaderMeta.parse(code), runtime)
+        }
+
+        /**
+         * Kolahal's own shader [name] for a card ([rememberShaderStill]), as it comes with Kolahal, at the
+         * versions [files] and [trips]: home's when it is loaded with the same code, else one compiled once and
+         * kept ([stillShaders]). Nothing is marked or logged. Null when it isn't one of Kolahal's own, is no
+         * scene, can't be drawn or was turned off. Not on the main thread.
+         */
+        fun still(context: Context, name: String, files: Int, trips: Int): LoadedShader? {
+            if (!StatScenes.drawn(name)) return null
+            val code = runCatching { Shaders.bundled(context, name) }.getOrNull() ?: return null
+            val id = ShaderSafety.id(name, code)
+            if (ShaderSafety.get(context).isTripped(id)) return null
+            val kept = loadedShaders.get(name, files, trips)?.takeIf { it.id == id }
+                ?: stillShaders.get(name, files, trips)
+            if (kept != null) return kept.takeIf { WallpaperChoice.suits(it.meta) }
+            if (!WallpaperChoice.suits(ShaderMeta.parse(code))) return null
+            return compile(name, code)?.also { stillShaders.put(name, files, trips, it) }
         }
     }
 }

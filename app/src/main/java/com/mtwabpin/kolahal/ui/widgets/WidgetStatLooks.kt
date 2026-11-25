@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -103,7 +102,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 val label = spec.label
                 if (label != null) Text(
                     cardText(label),
-                    style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    style = type.titleSmallEmphasized,
                     color = c.content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -156,7 +155,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     spec.label?.let {
                         Text(
                             cardText(it),
-                            style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            style = type.labelLargeEmphasized,
                             color = c.content,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -494,7 +493,7 @@ private fun ShapeBesideStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val head = labelAndTitle(spec.label, LocalUntitled.current)
     val more = spec.more.joinToString(" · ") { smallLine(it) }
     val large = box == WidgetSizes.Box.LARGE
-    BesideShape(cardShape(MaterialShapes.Cookie12Sided), c.shapeFill, inShape = { side ->
+    BesideShape(cardShape(), c.shapeFill, inShape = { side ->
         RollingBigText(
             WidgetWords.joined(spec.value, spec.unit),
             shapeValueStyle(side),
@@ -504,7 +503,7 @@ private fun ShapeBesideStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
         head?.let {
             Text(
                 it,
-                style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                style = type.titleSmallEmphasized,
                 color = c.content,
                 maxLines = if (large || more.isEmpty()) 2 else 1,
                 overflow = TextOverflow.Ellipsis

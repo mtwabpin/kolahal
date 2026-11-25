@@ -394,9 +394,14 @@ class ShaderActions(
             return wallpaperWarning(meta, name, shows)
         }
 
-        /** The same for a shader with [meta], while [shows] percent of the wallpaper does. */
+        /**
+         * The same for a shader with [meta], while [shows] percent of the wallpaper does. A scene hides
+         * the wallpaper while it is on ([WallpaperChoice.homeShare]): it gets no warning.
+         */
         fun wallpaperWarning(meta: ShaderMeta, name: String, shows: Int): String? =
-            if (shows <= ShaderSuits.WALLPAPER_SHOWS || meta.suits[ShaderSurface.WALLPAPER] != ShaderFit.POOR) null
+            if (WallpaperChoice.homeShare(shows, meta) <= ShaderSuits.WALLPAPER_SHOWS ||
+                meta.suits[ShaderSurface.WALLPAPER] != ShaderFit.POOR
+            ) null
             else "${meta.title ?: name} doesn't work well with a wallpaper\nYours shows at $shows%"
 
         fun phone(context: Context): ShaderValues.Phone {

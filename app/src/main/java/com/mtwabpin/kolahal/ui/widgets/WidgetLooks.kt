@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.graphics.shapes.RoundedPolygon
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetShape
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 
 /**
@@ -246,18 +247,14 @@ object SplitCorners {
 }
 
 /**
- * The Material shape of a card that is one shape: the Shape look in a square box ([squareBox]).
- * Null for a kind that keeps its card there, and for a progress with several bars. This is the
- * card's own; a shape chosen for it takes its place ([LocalCardShape]).
+ * The Material shape of a card that is one shape: the Shape look in a square box ([squareBox]),
+ * drawn as [shape], the one the frame resolved for it ([cardShapeOf]). Null for a kind that keeps its
+ * card there, and for a progress with several bars: its body draws the shape inside ([cardShape]).
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-fun cardPolygon(spec: WidgetSpec?): RoundedPolygon? = when (spec) {
-    is WidgetSpec.Stat -> MaterialShapes.Cookie12Sided
-    is WidgetSpec.Countdown -> MaterialShapes.Sunny
-    is WidgetSpec.Progress -> if (spec.items.isEmpty()) MaterialShapes.Clover4Leaf else null
-    is WidgetSpec.Clock -> MaterialShapes.Cookie9Sided
-    is WidgetSpec.Chart -> MaterialShapes.Cookie12Sided
-    is WidgetSpec.Sky -> if (spec.phase == null) MaterialShapes.Sunny else MaterialShapes.Circle
+internal fun cardPolygon(spec: WidgetSpec?, shape: WidgetShape): RoundedPolygon? = when (spec) {
+    is WidgetSpec.Stat, is WidgetSpec.Countdown, is WidgetSpec.Clock, is WidgetSpec.Chart, is WidgetSpec.Sky ->
+        polygonOf(shape)
+    is WidgetSpec.Progress -> if (spec.items.isEmpty()) polygonOf(shape) else null
     else -> null
 }
 

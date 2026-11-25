@@ -78,16 +78,23 @@ class ShaderPageTest {
         assertTrue(ShaderPage.matches(mine, "glow", setOf(ShaderPage.Filter.YOURS, ShaderPage.Filter.STILL)))
     }
 
-    /** A shader that is poor over a wallpaper is worth a warning once enough of one shows. */
+    /**
+     * A shader that is poor over a wallpaper is worth a warning once enough of one shows. A scene hides
+     * the wallpaper while it is on, so none of it shows under one: no warning.
+     */
     @Test
     fun theWallpaperWarning() {
-        fun warning(suits: String, shows: Int) =
-            ShaderActions.wallpaperWarning(ShaderMeta.parse("// @name Pond\n// @suits $suits\nuniform shader content;"), "pond", shows)
-        assertEquals("Pond doesn't work well with a wallpaper\nYours shows at 40%", warning("wallpaper poor", 40))
+        fun warning(suits: String, shows: Int, tags: String = "// @text\n") =
+            ShaderActions.wallpaperWarning(ShaderMeta.parse("// @name CRT\n// @suits $suits\n$tags uniform shader content;"), "crt", shows)
+        assertEquals("CRT doesn't work well with a wallpaper\nYours shows at 40%", warning("wallpaper poor", 40))
+        assertEquals("CRT doesn't work well with a wallpaper\nYours shows at 40%", warning("wallpaper poor", 40, "// @once 3\n"))
         assertNull(warning("wallpaper poor", ShaderSuits.WALLPAPER_SHOWS))
         assertNull(warning("wallpaper poor", 0))
         assertNull(warning("wallpaper fair", 40))
         assertNull(warning("dark poor", 40))
+        // A scene: pond is rated poor over a wallpaper, and hides it.
+        assertNull(warning("wallpaper poor", 40, ""))
+        assertNull(warning("wallpaper poor", 100, ""))
     }
 
     /** One that was turned off isn't in use, even while it is the one set; the reason shows when it is known. */

@@ -236,7 +236,7 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                             // Over a smaller value the label is the column's heading. Alone it is a quiet note, on up to two lines.
                             if (first != null) Text(
                                 cardText(it),
-                                style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                style = type.labelLargeEmphasized,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -359,7 +359,9 @@ internal fun smallLine(small: WidgetSpec.Small): String =
  * [color] as it is where it reads there at 3:1 ([INK_MIN]), else the same hue moved toward white or
  * black just far enough ([inkOn]). A color a person chooses, or a theme's dim role such as Rosé
  * Pine's good, keeps its hue and still reads. Only for a value as text: fills, bars, rings and
- * shapes are areas and keep the theme's color. Bold's and Poster's values and Bold's chart use it.
+ * shapes are areas and keep the theme's color. Bold's and Poster's values, Bold's chart, and Bold's
+ * score, sky and day countdowns use it; so do the Next look's check and the Stack look's +, icons
+ * in the role's color on its container.
  */
 internal fun valueInk(color: Color, ground: Color): Color = inkOn(ground, color, color)
 
@@ -381,7 +383,7 @@ internal fun SmallValue(
     ) {
         Text(
             small.value,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleSmallEmphasized,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis

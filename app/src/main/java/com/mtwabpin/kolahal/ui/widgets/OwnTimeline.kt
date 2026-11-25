@@ -93,7 +93,7 @@ private fun TimelineBody(t: OwnDesigns.Timeline, box: WidgetSizes.Box) {
                 ) {
                     Text(
                         cardText(t.next.text),
-                        style = type.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = type.titleMediumEmphasized,
                         color = content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -112,7 +112,7 @@ private fun TimelineBody(t: OwnDesigns.Timeline, box: WidgetSizes.Box) {
                 CountdownPill(t.next, 28.dp, type.labelLarge, Modifier.widthIn(min = 96.dp))
                 Text(
                     cardText(t.next.text),
-                    style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    style = type.titleSmallEmphasized,
                     color = content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -165,7 +165,7 @@ private fun TimelineLine(t: OwnDesigns.Timeline, height: Dp) {
                 CountdownPill(t.next, 28.dp, type.labelLarge, Modifier.widthIn(min = 110.dp))
                 Text(
                     cardText(t.next.text),
-                    style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    style = type.titleSmallEmphasized,
                     color = content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

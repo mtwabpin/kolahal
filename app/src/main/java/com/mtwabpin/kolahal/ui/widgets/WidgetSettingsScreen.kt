@@ -32,6 +32,8 @@ import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
@@ -42,11 +44,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -65,6 +69,8 @@ import com.mtwabpin.kolahal.ui.BackButton
 import com.mtwabpin.kolahal.ui.GroupHeader
 import com.mtwabpin.kolahal.ui.home.colorOf
 import com.mtwabpin.kolahal.ui.scripts.OptionDialog
+import com.mtwabpin.kolahal.ui.settings.UndoMessage
+import com.mtwabpin.kolahal.ui.settings.undoMessage
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.navigationBarScrim
 import com.mtwabpin.kolahal.ui.theme.segColors
@@ -110,6 +116,9 @@ internal object WidgetSettingsWords {
     const val PREVIEW = "As on the widgets page"
     const val RESET = "Reset to the card's own"
 
+    /** What the snackbar says after Reset, with Undo: as Settings says it of a setting. */
+    fun resetDone(title: String): String = "Reset “$title”"
+
     /** The line under Reset: what it clears, and, for a script with options, what it leaves. */
     fun resetLine(options: Boolean): String =
         if (options) "Color, shape and what shows. The script's options keep their values."
@@ -139,6 +148,7 @@ private const val PINNED_SHARE = 0.4f
  *   then the shapes it may take ([shapesFor]).
  * - What shows: a switch for each part the card has to hide ([WidgetParts.offered]).
  * - Reset to the card's own: color, shape and what shows. A script's options keep their values.
+ *   The snackbar offers Undo, as Settings does after a reset.
  * An app's widget has no page: its button opens the app's own setup.
  */
 @Composable
@@ -174,10 +184,14 @@ fun WidgetSettingsScreen(vm: TerminalViewModel) {
     val size = widgets.sizeOf(w)?.label ?: WidgetLayout.sizeLine(w.span, w.heightDp)
     val hasOptions = ref != null && scripts?.get(ref.script)?.hasOptions == true
     var shortcutsEditor by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    // "Reset …" with Undo, after Reset to the card's own.
+    val undo = undoMessage(rememberCoroutineScope(), snackbar)
 
     GuiTheme {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.surface,
+            snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 MediumFlexibleTopAppBar(
                     title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -210,10 +224,10 @@ fun WidgetSettingsScreen(vm: TerminalViewModel) {
                             ThisCard(vm, w, ref) { shortcutsEditor = true }
                             ColorGroup(widgets, w, spec, battery = builtin == WidgetSource.BATTERY)
                             if (look == WidgetLook.SHAPE) {
-                                shapeChoicesFor(w, kind, spec)?.let { ShapeGroup(widgets, w, it) }
+                                shapeChoicesFor(w, kind, spec, pageDp)?.let { ShapeGroup(widgets, w, it) }
                             }
                             PartsGroup(widgets, w, WidgetParts.offered(kind, spec, look))
-                            ResetOwn(widgets, w, hasOptions)
+                            ResetOwn(widgets, w, hasOptions, title, undo)
                         }
                     }
                 }
@@ -363,26 +377,34 @@ private fun ScriptOptions(vm: TerminalViewModel, ref: WidgetRef) {
 private fun gridGround(): Color = MaterialTheme.colorScheme.surfaceContainerHigh
 
 /**
- * A grid of [count] cells, [columns] to a row, on a group's ground, as one choice for a screen
- * reader ([selectableGroup]). [cell] draws cell [i].
+ * A grid of [count] cells, [most] to a row, on a group's ground, as one choice for a screen
+ * reader ([selectableGroup]). [cell] draws cell [i]. With a larger font, fewer to a row
+ * ([gridColumns]), so a cell's words keep their room.
  */
 @Composable
-private fun ChoiceGrid(count: Int, columns: Int, tag: String, cell: @Composable (i: Int, modifier: Modifier) -> Unit) {
-    Column(
+private fun ChoiceGrid(count: Int, most: Int, tag: String, cell: @Composable (i: Int, modifier: Modifier) -> Unit) {
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(gridGround())
             .padding(8.dp)
-            .selectableGroup()
-            .testTag(tag),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        (0 until count).chunked(columns).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                row.forEach { i -> cell(i, Modifier.weight(1f)) }
-                // The last row keeps the others' cell widths.
-                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+        val columns = gridColumns(maxWidth.value.toInt(), fontScale, most)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .selectableGroup()
+                .testTag(tag),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            (0 until count).chunked(columns).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    row.forEach { i -> cell(i, Modifier.weight(1f)) }
+                    // The last row keeps the others' cell widths.
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
     }
@@ -407,7 +429,7 @@ private fun GridCell(
         modifier
             .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) scheme.primaryContainer else Color.Transparent)
+            .background(cellMarks(scheme, selected).fill)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .semantics { contentDescription = description }
             .padding(vertical = 8.dp, horizontal = 2.dp)
@@ -419,7 +441,7 @@ private fun GridCell(
         Text(
             name,
             style = MaterialTheme.typography.labelSmall,
-            color = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+            color = cellMarks(scheme, selected).ink,
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -457,7 +479,7 @@ private fun ColorGroup(widgets: WidgetHost, w: PlacedWidget, spec: WidgetSpec?, 
                 ground,
                 28.dp,
                 own = role == null,
-                ring = if (selected) scheme.onPrimaryContainer else null,
+                ring = if (selected) cellMarks(scheme, true).ink else null,
             )
         }
     }
@@ -494,7 +516,7 @@ private fun ShapeGroup(widgets: WidgetHost, w: PlacedWidget, choices: ShapeChoic
             Box(
                 Modifier
                     .size(30.dp)
-                    .background(if (selected) scheme.primary else scheme.onSurfaceVariant, drawn)
+                    .background(cellMarks(scheme, selected).ink, drawn)
             )
         }
     }
@@ -521,13 +543,24 @@ private fun PartsGroup(widgets: WidgetHost, w: PlacedWidget, offered: List<Strin
     }
 }
 
-/** Reset to the card's own: its color, its shape and what shows. Only when one of them is set. */
+/**
+ * Reset to the card's own: its color, its shape and what shows. Only when one of them is set. Then
+ * [undo] shows "Reset “[title]”" with Undo, which puts the three back as they were.
+ */
 @Composable
-private fun ResetOwn(widgets: WidgetHost, w: PlacedWidget, hasOptions: Boolean) {
+private fun ResetOwn(widgets: WidgetHost, w: PlacedWidget, hasOptions: Boolean, title: String, undo: UndoMessage) {
     Spacer(Modifier.height(24.dp))
     OutlinedButton(
         shapes = ButtonDefaults.shapes(),
-        onClick = { widgets.resetOwn(w.key) },
+        onClick = {
+            val before = w
+            widgets.resetOwn(w.key)
+            undo(WidgetSettingsWords.resetDone(title)) {
+                widgets.setColor(before.key, before.color)
+                widgets.setShape(before.key, before.shape)
+                before.hidden.forEach { widgets.setShown(before.key, it, false) }
+            }
+        },
         enabled = w.color != null || w.shape != null || w.hidden.isNotEmpty(),
         modifier = Modifier
             .fillMaxWidth()

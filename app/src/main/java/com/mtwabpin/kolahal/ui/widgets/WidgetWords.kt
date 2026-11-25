@@ -36,9 +36,13 @@ internal object WidgetWords {
     /** What a card says when its script's code has no `@widget` line any more. */
     const val NO_WIDGET = "Script has no widget now"
 
-    /** A number without a needless ".0": 9, 2.5, 3.14. At most two decimals. */
+    /**
+     * A number without a needless ".0": 9, 2.5, 3.14. At most two decimals. One from 10^15 is
+     * written out in digits, never as "1.0E20": it has no decimals a float could hold.
+     */
     fun num(v: Float): String {
         if (v.isNaN() || v.isInfinite()) return "–"
+        if (abs(v) >= 1e15f) return java.math.BigDecimal(v.toString()).toPlainString()
         val r = (v * 100.0).roundToLong() / 100.0
         return if (r == floor(r) && abs(r) < 1e15) r.toLong().toString() else r.toString()
     }
@@ -552,8 +556,11 @@ internal object WidgetWords {
     /** The minus sign of a short difference and of a day: "−5:30", "−1". */
     private const val MINUS = "−"
 
-    /** [minutes], 1 or more, in hours and minutes: "5 h 30 min", "3 h", "45 min". */
-    private fun hoursAndMinutes(minutes: Int): String {
+    /**
+     * [minutes], 1 or more, in hours and minutes: "5 h 30 min", "3 h", "45 min". The one form a card
+     * writes a length of time in: a clock's difference, the sky's time to go, an agenda's free time.
+     */
+    fun hoursAndMinutes(minutes: Int): String {
         val h = minutes / 60
         val m = minutes % 60
         return when {
@@ -561,6 +568,17 @@ internal object WidgetWords {
             m == 0 -> "$h h"
             else -> "$h h $m min"
         }
+    }
+
+    /** [hoursAndMinutes] for a screen reader, in whole words: "5 hours 30 minutes", "1 hour", "1 minute". */
+    fun hoursAndMinutesSaid(minutes: Int): String {
+        fun count(n: Int, unit: String) = if (n == 1) "1 $unit" else "$n ${unit}s"
+        val h = minutes / 60
+        val m = minutes % 60
+        return listOfNotNull(
+            count(h, "hour").takeIf { h > 0 },
+            count(m, "minute").takeIf { m > 0 }
+        ).joinToString(" ")
     }
 
     /**

@@ -46,12 +46,6 @@ import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
 
-/** The height of the line with Undo and "+3 more" under the todos, in dp. */
-private const val FOOT_DP = 20
-
-/** The least height of a todo's row under the next one, in dp. A larger font makes it as tall as its text. */
-private const val FOLLOW_DP = 36
-
 /** The Todos card's Next look of [t], as a card draws it in place of its list ([WidgetCard]'s `body`). */
 internal fun nextTodosBody(t: OwnDesigns.NextTodos): OwnBody = { box, onTap -> NextTodosBody(t, box, onTap) }
 
@@ -180,12 +174,11 @@ private fun NextSquare(t: OwnDesigns.NextTodos, role: Color, onTap: ((WidgetTap)
 private fun NextTall(t: OwnDesigns.NextTodos, role: Color, height: Dp, onTap: ((WidgetTap) -> Unit)?) {
     val type = MaterialTheme.typography
     val rows = t.open.drop(1)
-    val rowDp = WidgetWords.textRowDp(FOLLOW_DP, linesDp(type.bodyMedium))
+    val lineDp = linesDp(type.bodyMedium)
+    val rowDp = OwnDesigns.followRowDp(lineDp)
     // The row at the top, with its todo in two lines and the line under it, and the room after it.
     val topDp = maxOf(56, 2 * linesDp(type.titleMedium) + linesDp(type.bodyMedium)) + 8
-    // Undo needs the foot line even when every row fits.
-    val room = height.value.toInt() - topDp - if (t.undo != null) FOOT_DP + ROW_GAP_DP else 0
-    val shown = WidgetWords.rowsShown(rows.size, room, rowDp, FOOT_DP, ROW_GAP_DP)
+    val shown = OwnDesigns.followShown(rows.size, height.value.toInt() - topDp, lineDp, undo = t.undo != null)
     val more = t.left - 1 - shown
     Column(Modifier.fillMaxSize()) {
         NextRow(t, role, 56.dp, ring = true, onTap, lines = 2)
@@ -194,7 +187,7 @@ private fun NextTall(t: OwnDesigns.NextTodos, role: Color, height: Dp, onTap: ((
             rows.take(shown).forEachIndexed { i, todo ->
                 key(todo.id) { FollowRow(todo, rowDp.dp, segmentShape(i, shown), role, onTap) }
             }
-            NextFoot(t, more, role, onTap, Modifier.height(FOOT_DP.dp))
+            NextFoot(t, more, role, onTap, Modifier.height(OwnDesigns.FOOT_DP.dp))
         }
     }
 }
@@ -222,7 +215,7 @@ private fun NextRow(
         Column(Modifier.weight(1f)) {
             Text(
                 if (next != null) cardText(next.text) else cardText("Nothing open"),
-                style = if (next != null) type.titleMedium.copy(fontWeight = FontWeight.Bold) else type.titleMedium,
+                style = if (next != null) type.titleMediumEmphasized else type.titleMedium,
                 color = if (next != null) MaterialTheme.colorScheme.onSurface else muted,
                 maxLines = lines,
                 overflow = TextOverflow.Ellipsis
@@ -264,10 +257,12 @@ private fun RingCount(t: OwnDesigns.NextTodos, role: Color, side: Dp) {
 }
 
 /**
- * The next todo's check: a Material shape in the role's container with a check in the role's color.
+ * The next todo's check: a Material shape in the role's container with a check in the role's color,
+ * moved just far enough to read on it ([valueInk]).
  * A tap marks [todo] done, as a tap on its row does in the other looks: it is a checkbox for a
  * screen reader, named by the todo. The shape is the next in turn after each tick ([rankPolygon] by
- * [done]), and settles into it.
+ * [done]), and settles into it. Smaller than 48 dp (a low 2×1), its touches still reach 48 dp
+ * (Compose's minimum), as [opensList]'s do.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -297,7 +292,7 @@ private fun CheckShape(
         Icon(
             painterResource(R.drawable.wi_check),
             contentDescription = null,
-            tint = role,
+            tint = valueInk(role, roleContainer(role)),
             modifier = Modifier.size(side * 0.46f)
         )
     }
@@ -359,13 +354,16 @@ private fun NextFoot(
     }
 }
 
-/** Undo, in the role's color: a tap opens [todo] again. A screen reader hears which todo. */
+/**
+ * Undo, in the role's color: a tap opens [todo] again. A screen reader hears which todo. Its
+ * touches reach 48 dp (Compose's minimum), more than its line is tall, as [opensList]'s do.
+ */
 @Composable
 private fun UndoText(todo: Todo, role: Color, onTap: ((WidgetTap) -> Unit)?, modifier: Modifier = Modifier) {
     val tap = remember(todo.id) { OwnDesigns.undoTap(todo) }
     Text(
         "Undo",
-        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.labelLargeEmphasized,
         color = role,
         maxLines = 1,
         modifier = modifier

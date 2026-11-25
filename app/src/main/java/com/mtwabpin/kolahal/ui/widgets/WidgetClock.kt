@@ -24,7 +24,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
@@ -177,7 +176,7 @@ internal fun ClockBody(
     }
     val tile = lookColors().tile
     val type = MaterialTheme.typography
-    val nameStyle = type.titleMedium.copy(fontWeight = FontWeight.Bold)
+    val nameStyle = type.titleMediumEmphasized
     // A row this tall has the place's name over its difference, at the phone's font size.
     val twoLines = linesDp(nameStyle, type.bodySmall)
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -260,7 +259,7 @@ internal fun ClockBody(
                                     )
                                     else PlaceLabel(
                                         time,
-                                        style = type.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        style = type.labelLargeEmphasized,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
@@ -376,7 +375,7 @@ private fun ClockStrips(
     }
 
     val type = MaterialTheme.typography
-    val nameStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val nameStyle = type.labelMediumEmphasized
     val lineStyle = type.labelSmall
     val markStyle = type.labelSmall
     val gap = ROW_GAP_DP
@@ -481,7 +480,7 @@ private fun PickedHour(at: String, heightDp: Int, role: Color, onNow: () -> Unit
             ) {
                 Text(
                     "Now",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.labelSmallEmphasized,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -804,7 +803,7 @@ private fun PlaceAndDate(time: WidgetWords.ZoneTime, zone: ZoneId, now: State<Lo
     Row {
         Text(
             time.label,
-            style = type.labelMedium.copy(fontWeight = FontWeight.Bold),
+            style = type.labelMediumEmphasized,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -881,7 +880,7 @@ private fun SplitClock(
                     ) {
                         Text(
                             times[0].label,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.labelMediumEmphasized,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1036,7 +1035,7 @@ private fun ShapeClock(
                     val first = time(0)
                     Text(
                         "${times[0].label} ${first()}",
-                        style = type.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        style = type.titleSmallEmphasized,
                         color = looks.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1067,10 +1066,6 @@ private fun ShapeClock(
     }
 }
 
-/** The shape a Shape clock's dial is drawn in when the card is not the shape itself. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private val DIAL_SHAPE get() = MaterialShapes.Cookie9Sided
-
 /**
  * An analog dial at the time [now] in [zone], as the mockup draws it in a 100-unit square: four dots
  * for 12, 3, 6 and 9, the hour hand in the text color, the minute hand in the accent, a dot in
@@ -1098,7 +1093,7 @@ private fun ClockDial(
     val hour = looks.content
     val minute = looks.accent
     val dots = looks.muted
-    val fill = if (filled) Modifier.background(looks.shapeFill, cardShape(DIAL_SHAPE).toShape()) else Modifier
+    val fill = if (filled) Modifier.background(looks.shapeFill, cardShape().toShape()) else Modifier
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth, maxHeight)
         Box(
@@ -1146,7 +1141,7 @@ private fun ClockDial(
                 }
                 .clearAndSetSemantics {})
         if (name != null && side >= 96.dp) {
-            val style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+            val style = MaterialTheme.typography.labelMediumEmphasized
             val ring = with(LocalDensity.current) { 3.dp.toPx() }
             val ringStyle = remember(style, ring) {
                 style.copy(drawStyle = Stroke(width = ring, join = StrokeJoin.Round))

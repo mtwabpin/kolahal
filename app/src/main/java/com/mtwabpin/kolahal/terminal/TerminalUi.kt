@@ -80,7 +80,7 @@ interface TerminalUi {
     fun showWidgetsPage()
 
     /** For `widget page 2`: turns home to the widgets page at [page], from 1, and hides the keyboard. */
-    fun showWidgetsPage(page: Int) = showWidgetsPage()
+    fun showWidgetsPage(page: Int)
 
     /**
      * For `screen <name>` and the screens' own commands (`matrix`, `clock`…): shows that full-screen screen over home

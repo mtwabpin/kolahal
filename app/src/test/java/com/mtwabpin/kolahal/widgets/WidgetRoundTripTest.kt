@@ -183,7 +183,7 @@ class WidgetRoundTripTest {
             "score" to "1½–½",
             "turn" to 1,
             "moving" to true,
-            "line" to "17. b3 · Berlin",
+            "caption" to "17. b3 · Berlin",
             "badge" to "LIVE",
         ),
     )

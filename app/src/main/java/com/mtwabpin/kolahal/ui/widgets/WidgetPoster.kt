@@ -174,7 +174,7 @@ internal fun PosterCard(
     val measurer = rememberTextMeasurer()
     val style = posterStyle()
     val digitInk = rememberDigitInk(style)
-    val titleStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val titleStyle = type.labelMediumEmphasized
     val noteStyle = type.labelMedium
     val templates = lines.map(PosterFit::template)
     val measured = remember(templates, style, density, measurer) {

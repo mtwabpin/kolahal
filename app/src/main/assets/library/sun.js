@@ -4,7 +4,7 @@
 // @usage [<city>|<lat> <lng>]
 // @title Sunrise and sunset
 // @author Kolahal
-// @version 1.1
+// @version 1.2
 // @requires 0.5.17
 // @widget sky 2x2
 // @at 05:00
@@ -99,11 +99,13 @@ try {
   else first = day ? [day, "of daylight today"] : null;
 
   // Its widget: the sun's path from today's sunrise to sunset, as times in seconds (the place's
-  // times moved back by its offset). Where the sun doesn't rise or set today, the day's length.
+  // times moved back by its offset). Where the sun doesn't rise or set today, the day's length: in
+  // the polar night both times are the same, and under the midnight sun they are a whole day apart
+  // (00:00 to 00:00 the next day), which a sky card refuses.
   const place = store.get("place") || `${lat}, ${lng}`;
   const tap = { args: "", page: "log" };
   const offset = (data.utc_offset_seconds || 0) * 1000;
-  if (to > from) {
+  if (to > from && to - from < 86400000) {
     widget.show({ kind: "sky", title: place, icon: "sun", color: "warn", rises: Math.floor((from - offset) / 1000),
       sets: Math.floor((to - offset) / 1000), staleAfter: 86400, tap });
   } else {
