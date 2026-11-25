@@ -399,7 +399,7 @@ script stops on a half-hour one.
    | =scripts-list=, =library=     | =scripts=; then Add script → From the library                                                                                                            |
    | =script-sheet-switches=       | =scripts=, a tap on Weather                                                                                                                              |
    | =editor-script=               | =scripts=, Unlocks, the pencil; keyboard down. Not =world-clocks= or =weather=: their comments name places                                               |
-   | =settings=, =shaders-list=    | =settings=; Shaders, "screen time" typed in its search                                                                                                   |
+   | =settings=, =shaders-list=    | =settings=; the Shaders tab, "screen time" typed in its search                                                                                           |
    | =shader-details-follows=      | in that list, ⓘ on Candle                                                                                                                                |
    | =shader-details-slider=       | "mountains" in the search, ⓘ on Mountains                                                                                                                |
    | =scene-candle-screen-time=    | =shader candle=, =clear=, =usage 1=                                                                                                                      |

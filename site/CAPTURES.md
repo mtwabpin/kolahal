@@ -42,6 +42,9 @@ were taken again on 25 November 2026, after the widgets' settings pages, pages a
 came in, with `ZONE=America/Argentina/Buenos_Aires` and the clocks in `Asia/Dhaka` (Lisbon then on
 the day before: "−1"). In Arrange widgets the script finds a button by what it says (`tap_ui`,
 through uiautomator): the Look row offers only the looks that change the card, so its buttons move.
+Settings (its four tabs since Shaders became one), the Scripts tab, the script manager, the library,
+the Shaders tab, weather.lua's sheet and the setup checklist were taken again on the evening of 25
+November 2026, in `Asia/Dhaka`.
 
 ## The hero's phone (home page)
 
@@ -83,7 +86,8 @@ through uiautomator): the Look row offers only the looks that change the card, s
 | `shots/scripts/editor.png` | the editor | (Play captures) | `editor-script` |
 | `shots/scripts/forecast.png` | `forecast lisbon` | `forecast` | `scripts-forecast` |
 | `shots/access/switches.png` | weather.lua's sheet: its switches and its city | `play_sheets` | `script-sheet-switches` |
-| `shots/access/library.png`, `cards.png` | the library, the script manager | (Play captures) | `library`, `scripts-list` |
+| `shots/access/library.png` | the library: its chips with their counts, setup's scripts Installed | `library` | `library` |
+| `shots/access/cards.png` | the Scripts tab as it opens: a card for each of setup's scripts | `parts_scripts` | `scripts-list` |
 | `shots/schedule/times.png` | night-dnd's sheet: Runs every, Daily at 07:00, 23:00 | `schedule_times` | `schedule-times` |
 | `shots/schedule/charger.png` | charge-reminder on unplugging: 62%, +12%, a bar | `schedule_charger` | `schedule-charger` |
 | `shots/pinning/pin.png` | weather's action sheet with *Pin weather to the top* | `pinning` | `pinning-pin` |
@@ -102,7 +106,9 @@ through uiautomator): the Look row offers only the looks that change the card, s
 | `shots/usage/limits.png` | a daily limit of 10 unlocks: the header's unlocks and `unlocks 7` in the warning color | `limits` | `limits-unlocks` |
 | `shots/shaders/candle.png`, `lanterns.png`, `hourglass.png` | three scenes behind home | `play_scenes` | `scene-*` |
 | `shots/shader-parameters/follow.png`, `sliders.png` | Candle's and Mountains' details | `play_sheets` | `shader-details-follows`, `-slider` |
-| `shots/shaders/list.png`, `shots/themes/*` | the list of shaders, Settings | (Play captures) | `shaders-list`, `settings`, `theme-picker` |
+| `shots/shaders/list.png` | the Shaders tab, searched for screen time: Record, Candle, Hourglass, Add shader | `play_sheets` | `shaders-list` |
+| `shots/themes/settings.png` | Settings: its four tabs and the first pages | `parts_settings` | `parts-settings` |
+| `shots/themes/theme-picker.png` | Look & feel's theme picker | (Play captures) | `theme-picker` |
 | `shots/wallpaper/preview.png` | Android's wallpaper preview with `pond` | `wallpaper` | `wallpaper-preview` |
 | `shots/wallpaper/lock.png` | the lock screen with `pond` behind the clock | `wallpaper` | `wallpaper-lock` |
 | `shots/wallpaper/log.png` | the log with the pond through it (`log.wallpaper 60`) | `wallpaper` | `wallpaper-log` |
@@ -124,10 +130,10 @@ the `parts/` pictures: after taking one again, check each mark still sits on wha
 | `parts/action-sheet.png` | the todo line's action sheet | `parts_action_sheet` | `action-sheet-todo` |
 | `parts/quick-actions.png` | quick actions | `parts_quick_actions` | `quick-actions` |
 | `parts/widgets-page.png` | the widgets page | `tools/site-pictures.sh` (`WidgetGalleryTest#thePageIsDrawnAndSaved`) | |
-| `parts/settings.png` | Settings | `parts_settings` | `parts-settings` |
+| `parts/settings.png` | Settings: the tabs Settings, Scripts, Shaders and Feeds, the search, the pages | `parts_settings` | `parts-settings` |
 | `parts/scripts-tab.png` | the Scripts tab: Countdowns' details open, Focus off | `parts_scripts` | `parts-scripts` |
 | `parts/editor.png` | the editor with the symbol bar | `parts_editor` | `parts-editor` |
-| `setup.png` | the setup checklist | `setup_checklist` | `setup` |
+| `setup.png` | the setup checklist, 7 of 14 done (the full build) | `setup_checklist` | `setup` |
 | `app-grid.png` | `apps` over a short log: personal and work apps in three columns, a count in each heading, "+8 more" | `profiles` | `app-grid` |
 | `terminal-feeds.png` | countdown pinned, the feed list and a conversion | `terminal_feeds` | `terminal-feeds` |
 
@@ -143,7 +149,10 @@ test's own cards in one look: a site file named `widgets/<look>-<card>-<size>.pn
 (`bold-kind-gauge-2x2.png`) makes the script draw that card in that look
 (`WidgetGalleryTest#everyLookIsDrawnAndSaved`, `looks` and `names`) and copy it over. Drawn with
 `ZONE=Pacific/Pitcairn` on 25 November 2026, in the afternoon there, so the sky and the clocks read
-as by day; the places on the cards keep their own time.
+as by day; the places on the cards keep their own time. `todos-next-4x2.png` and
+`now-kind-agenda-now-4x1.png` were drawn again that evening in `Africa/Johannesburg` (the afternoon
+there), after the Todos card's Next look and the Now look's lengths ("1 h 30 min") changed; the run
+drew every card, and only those two were kept.
 
 | Files | What they show | Test |
 | --- | --- | --- |
@@ -167,3 +176,7 @@ suggestions bar" off (`gboard_chip`), `restore` on again.
 | `typing-tty-parts`, `typing-gui-parts` | `ca` typed over the same log with the suggestions and the key bar: the TTY style with every part on the grid (`tty.suggestions`, `tty.selector`, `tty.keybar`, `tty.quick-actions`, `tty.menu` set to `tty`), then the default style | `typing_styles` |
 | `reference-table-tty` | the editor's reference, Log lines → `fmt.table`, its Home style set to TTY | `reference_tty` |
 | `app-grid-more` | `apps` as in `app-grid.png`, after a tap on the personal group's "+8 more": the whole group and "Show less" | `profiles` |
+| `shaders-list` | the Shaders tab (as `shots/shaders/list.png`), beside the editor | `play_sheets` |
+| `oneoff-hearts-fountain`, `oneoff-pulse` | one-offs in mid-play over home: the hearts fanning up over the log; the light partway up the edges | `one_offs` |
+| `shaders-over-apps`, `oneoff-over-app` | the Shaders tab at its one-offs with Play over other apps on; `hearts` over Clock's stopwatch after a notification with its word | `over_apps` |
+| `daily-limits` | Settings → Header at Daily limits: 180 minutes of screen time, 60 unlocks | `daily_limits` |

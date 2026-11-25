@@ -32,7 +32,7 @@ export const PICTURES: Picture[] = [
 	{ section: 'home', file: 'parts/typing.png', caption: 'While you type', alt: 'Typing ma at the prompt: the header, the log, the suggestion list with Maps highlighted at the bottom, the prompt and the key bar', href: '/getting-started/parts/#while-you-type' },
 	{ section: 'home', file: 'parts/action-sheet.png', caption: 'A line’s action sheet', alt: 'The action sheet for a to-do line: the line, when it arrived, its actions and two delete actions in red', href: '/getting-started/parts/#action-sheet-and-quick-actions' },
 	{ section: 'home', file: 'parts/quick-actions.png', caption: 'Quick actions', alt: 'Quick actions: Settings, Notifications, Alarms and clock, Battery, Network, Unlocks this week, Apps, Widgets, Widgets page, Feeds, Scripts and Lock screen', href: '/getting-started/parts/#action-sheet-and-quick-actions' },
-	{ section: 'home', file: 'setup.png', caption: 'The setup checklist', alt: 'The setup checklist, 7 of 13 done: default home app, usage access, notifications, notification access and Do Not Disturb access done; double-tap to lock, system settings and contacts with Fix buttons', href: '/getting-started/setup/#the-setup-checklist' },
+	{ section: 'home', file: 'setup.png', caption: 'The setup checklist', alt: 'The setup checklist, 7 of 14 done: default home app, usage access, notifications, notification access and Do Not Disturb access done; double-tap to lock, system settings and contacts with Fix buttons', href: '/getting-started/setup/#the-setup-checklist' },
 
 	// The app selector
 	{ section: 'selector', file: 'shots/selector/slide.png', caption: 'At G on the edge', alt: 'The thumb on the right edge at G: the list of apps over the log, the apps at G magnified, and the G bubble beside the thumb', href: '/getting-started/basics/#app-selector' },
@@ -93,10 +93,10 @@ export const PICTURES: Picture[] = [
 	{ section: 'widgets', file: 'widgets/todos-2x2.png', caption: 'Todos', alt: 'The Todos card: three open todos, each with an empty checkbox, and +2 more', href: '/guides/widgets/#kolahals-own-widgets' },
 	{ section: 'widgets', file: 'widgets/reminders-2x2.png', caption: 'Reminders', alt: 'The Reminders card: 42 min to the next one, Call the bank, then Water plants on Wednesday and +1 more', href: '/guides/widgets/#kolahals-own-widgets' },
 	{ section: 'widgets', file: 'widgets/agenda-4x2.png', caption: 'Agenda', alt: 'The Agenda card: two events today and one all-day event tomorrow', href: '/guides/widgets/#kolahals-own-widgets' },
-	{ section: 'widgets', file: 'widgets/todos-next-4x2.png', caption: 'Todos, Next', alt: 'Todos in the Next look: Book the dentist large with a check to tap, a ring at 3/7, and the next todo as a row under it', href: '/guides/widgets/#looks' },
+	{ section: 'widgets', file: 'widgets/todos-next-4x2.png', caption: 'Todos, Next', alt: 'Todos in the Next look: Book the dentist large with a check to tap, a ring at 3/7, and the todos after it as rows under it', href: '/guides/widgets/#looks' },
 	{ section: 'widgets', file: 'widgets/reminders-next-2x2.png', caption: 'Reminders, Next', alt: 'Reminders in the Next look: in 42 min in a pill for Call the bank, then the later reminders as points on a line', href: '/guides/widgets/#looks' },
 	{ section: 'widgets', file: 'widgets/notes-stack-2x2.png', caption: 'Notes, Stack', alt: 'Notes in the Stack look: the newest note on a stack of sheets, 3 notes, and + for a new note', href: '/guides/widgets/#looks' },
-	{ section: 'widgets', file: 'widgets/now-kind-agenda-now-4x1.png', caption: 'Agenda, Now', alt: 'The agenda in the Now look: Team call now with a bar that fills as it goes, free 1h 30, and Lunch next', href: '/guides/widgets/#looks' },
+	{ section: 'widgets', file: 'widgets/now-kind-agenda-now-4x1.png', caption: 'Agenda, Now', alt: 'The agenda in the Now look: Team call now with a bar that fills as it goes, free 1 h 30 min, and Lunch next', href: '/guides/widgets/#looks' },
 	{ section: 'widgets', file: 'widgets/poster-kind-poster-clock-2x2.png', caption: 'Poster', alt: 'A clock in the Poster look: the hour and the minutes so large that the card crops them', href: '/guides/widgets/#looks' },
 	{ section: 'widgets', file: 'widgets/poster-kind-poster-stat-2x1.png', caption: 'Poster', alt: 'A number in the Poster look: 118 cropped by the card’s bottom edge, with AQI small in the corner', href: '/guides/widgets/#looks' },
 	{ section: 'widgets', file: 'widgets/shape-kind-dots-week-2x2.png', caption: 'A week as a flower', alt: 'The habit’s week in the Shape look: a flower with a leaf for each day done this week', href: '/guides/widgets/#looks' },
@@ -124,7 +124,7 @@ export const PICTURES: Picture[] = [
 	// Scripts and the editor
 	{ section: 'scripts', file: 'shots/access/cards.png', caption: 'The script manager', alt: 'The script manager: a card for each script, with its file name, how it runs, a Run button and a switch', href: '/getting-started/parts/#scripts-tab' },
 	{ section: 'scripts', file: 'shots/access/switches.png', caption: 'A script’s sheet', alt: 'The weather script’s sheet: run, options, edit and share buttons, then Access with a switch for the internet and one for Pinned at the top, its options and its timer', href: '/scripting/overview/#what-a-script-may-use' },
-	{ section: 'scripts', file: 'shots/access/library.png', caption: 'The library', alt: 'The library: a search box, chips for templates, widgets and commands, and each script with what it is, a code button and Install', href: '/scripting/library/' },
+	{ section: 'scripts', file: 'shots/access/library.png', caption: 'The library', alt: 'The library: a search box, chips for templates, widgets and commands, and each script with what it is, a code button and Install, or Installed for the ones you have', href: '/scripting/library/' },
 	{ section: 'scripts', file: 'shots/scripts/editor.png', caption: 'The editor', alt: 'The script editor on unlock-chart.lua: line numbers, colored Lua and the symbol bar', href: '/scripting/editor/' },
 	{ section: 'scripts', file: 'shots/scripts/weather.png', caption: 'A script as a command', alt: 'The weather script’s answer in the log: Tokyo, 16 °C and moderate rain, humidity, wind and UV', href: '/scripting/overview/#command-scripts' },
 	{ section: 'scripts', file: 'shots/scripts/forecast.png', caption: 'forecast lisbon', alt: 'The forecast script’s answer: three days in Lisbon, each with its low and its high', href: '/scripting/library/' },
@@ -156,7 +156,7 @@ export const PICTURES: Picture[] = [
 	{ section: 'scripts', file: 'widgets/example-sky-2x2.png', caption: 'The sky', alt: 'A 2×2 sky card in the Shape look: the sun on its arc, and the time of sunset', href: '/scripting/api/#kinds-and-their-fields' },
 
 	// Shaders: captures, then the scenes as the shader files draw them
-	{ section: 'shaders', file: 'shots/shaders/list.png', caption: 'Shaders', alt: 'Settings, Shaders, searched for screen time: Record, Candle and Hourglass, each with what it draws', href: '/scripting/shaders/#turning-a-shader-on' },
+	{ section: 'shaders', file: 'shots/shaders/list.png', caption: 'Shaders', alt: 'The Shaders tab, searched for screen time: Record, Candle and Hourglass, each with what it draws, and the Add shader button', href: '/scripting/shaders/#turning-a-shader-on' },
 	{ section: 'shaders', file: 'shots/shader-parameters/sliders.png', caption: 'A shader’s details', alt: 'The details of the mountains shader: its preview, what it draws, and a slider for the number of birds', href: '/scripting/shaders/#turning-a-shader-on' },
 	{ section: 'shaders', file: 'shots/shader-parameters/follow.png', caption: 'A parameter that follows a value', alt: 'The details of the candle shader: its parameter following screen time, today against a usual day', href: '/scripting/shaders/#values-to-follow' },
 	{ section: 'shaders', file: 'shots/shaders/lanterns.png', caption: 'shader lanterns', alt: 'Home over the lanterns scene, a lantern for each day’s unlocks over dark water', href: '/scripting/shaders/#turning-a-shader-on' },
@@ -172,9 +172,9 @@ export const PICTURES: Picture[] = [
 	{ section: 'shaders', file: 'scenes/candle.webp', caption: 'shader candle', alt: 'A lit candle in a brass dish on a dark table', href: '/scripting/shaders/#turning-a-shader-on' },
 
 	// Themes and settings
-	{ section: 'themes', file: 'shots/themes/settings.png', caption: 'Settings', alt: 'Settings: the Settings, Scripts and Feeds tabs, a search box, and the pages Look and feel, Shaders, Header, Widgets, Log, Suggestions, Keyboard and App selector', href: '/guides/themes-and-settings/#settings-screen' },
+	{ section: 'themes', file: 'shots/themes/settings.png', caption: 'Settings', alt: 'Settings: the Settings, Scripts, Shaders and Feeds tabs, a search box, and the pages Look and feel, Header, Widgets, Log, Suggestions, Keyboard, App selector and Launching and search', href: '/guides/themes-and-settings/#settings-screen' },
 	{ section: 'themes', file: 'shots/themes/theme-picker.png', caption: 'Choosing a theme', alt: 'Look and feel: the theme picker with a card for each theme, Always dark, and the fonts', href: '/guides/themes-and-settings/#themes' },
-	{ section: 'themes', file: 'parts/settings.png', caption: 'Settings', alt: 'The Settings screen: Settings, Scripts and Feeds tabs, a search box and the pages Look and feel, Shaders, Header, Widgets, Log, Suggestions, Keyboard and App selector', href: '/getting-started/parts/#settings' },
+	{ section: 'themes', file: 'parts/settings.png', caption: 'Settings', alt: 'The Settings screen: Settings, Scripts, Shaders and Feeds tabs, a search box and the pages Look and feel, Header, Widgets, Log, Suggestions, Keyboard, App selector and Launching and search', href: '/getting-started/parts/#settings' },
 
 	// Work profile and private space
 	{ section: 'profiles', file: 'shots/profiles/resume.png', caption: 'Opening an app of a paused profile', alt: 'A faded work app tapped while the work profile is paused, and Kolahal asking Resume work apps?', href: '/guides/profiles/#pausing-and-resuming' },

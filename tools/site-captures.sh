@@ -15,7 +15,7 @@
 #   Gboard with its number row, animations off. Another screen needs them measured again.
 # - Each picture is kept at full size in docs/release/graphics/raw/<name>.png and put on the site
 #   540 pixels wide, stripped and quantized (`site_shot`); widget cards are cut at full size.
-# - Invented, neutral content only: big cities, the invented name Maya, public feeds. A weather
+# - Invented, neutral content only: big cities, the invented names Maya and Alex, public feeds. A weather
 #   script's city is set before its first run, or it reports the machine's own location.
 # - Needs adb, ImageMagick (magick) and pngquant on the PATH (nix shell nixpkgs#imagemagick
 #   nixpkgs#pngquant).
@@ -584,22 +584,35 @@ parts_typing() {
   tap 928 1360; sleep 1; t "config set keybar.show off" 2; kbdown
 }
 
-# parts/settings.png: `settings`.
+# parts/settings.png and shots/themes/settings.png: `settings`, its four tabs (Settings, Scripts,
+# Shaders, Feeds) and the first pages.
 parts_settings() {
   home; kbup; t settings 3
   cap parts-settings; site_shot parts-settings parts/settings.png
+  site_shot parts-settings shots/themes/settings.png
 }
 
-# parts/scripts-tab.png: the Scripts tab (after parts_settings), Focus turned off, Countdowns'
-# details open. Turns Focus on again after.
+# shots/access/cards.png: the Scripts tab as it opens (after parts_settings, and after parts_home,
+# whose countdown gives Countdowns its status line); parts/scripts-tab.png: Focus turned off,
+# Countdowns' details open. Turns Focus on again after.
 parts_scripts() {
-  tap 540 527; sleep 2.5        # the Scripts tab
+  tap 415 527; sleep 2.5        # the Scripts tab, the second of four
+  cap scripts-list; site_shot scripts-list shots/access/cards.png
   tap 937 1757; sleep 1.5       # Focus's switch: off
   tap 803 1513; sleep 2         # Countdowns' details arrow
   cap parts-scripts; site_shot parts-scripts parts/scripts-tab.png
   tap 803 1513; sleep 1.5
   tap 937 1757; sleep 1.5       # Focus on again
   key KEYCODE_BACK; sleep 1; home
+}
+
+# shots/access/library.png: the library, from the Scripts tab's Add script: the search, the chips
+# with their counts, and the scripts from Air quality on (setup's are Installed).
+library() {
+  home; kbup; t scripts 3
+  tap 850 2220; sleep 2; tap_ui "From the library"; sleep 3   # Add script (uiautomator misses it)
+  cap library; site_shot library shots/access/library.png
+  key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 1; home
 }
 
 # parts/editor.png: unlock-chart.lua in the editor with the keyboard up, from above its top bar to
@@ -757,10 +770,11 @@ play_scramble() {
   kbup; t "scramble off" 2; t "shader off" 2; kbdown
 }
 
-# raw/script-sheet-switches.png, shader-details-follows.png, shader-details-slider.png: sheets in
-# Settings (they once brought the status bar back): weather.lua's sheet (its switches and its
-# city), then the Shaders tab (`shaders`) with "screen time" searched and Candle's ⓘ, then
-# "mountains" and its ⓘ.
+# raw/script-sheet-switches.png, shaders-list.png, shader-details-follows.png,
+# shader-details-slider.png: sheets in Settings (they once brought the status bar back):
+# weather.lua's sheet (its switches and its city), then the Shaders tab (`shaders`) with "screen
+# time" searched (its four tabs, the chips, Record, Candle and Hourglass, Add shader) and Candle's
+# ⓘ, then "mountains" and its ⓘ.
 play_sheets() {
   home; kbup; t scripts 3
   tap 540 735; sleep 1; ty weather; sleep 1.5; key KEYCODE_BACK; sleep 1   # the search
@@ -769,6 +783,7 @@ play_sheets() {
   key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 1
   home; kbup; t shaders 3
   tap 540 772; sleep 1; ty "screen time"; sleep 2; key KEYCODE_BACK; sleep 1.5
+  cap shaders-list; site_shot shaders-list shots/shaders/list.png
   tap 942 1514; sleep 3     # ⓘ on Candle, the second row
   cap shader-details-follows; site_shot shader-details-follows shots/shader-parameters/follow.png
   key KEYCODE_BACK; sleep 1.5
@@ -833,6 +848,74 @@ reference_tty() {
   tap 1017 191; sleep 2; home   # ✕ closes the editor
 }
 
+# burst <name> <wait> [first command]: Enter (with the command typed first, if given), then after
+# <wait> seconds eight screenshots one after another, taken on the device so none is late:
+# $TMP/<name>-1.png … -8.png. For a one-off caught in mid-play: look at them and keep the one that
+# shows it best.
+burst() {
+  local i
+  sh_ "${3:-true}; sleep $2; for i in 1 2 3 4 5 6 7 8; do screencap -p /sdcard/burst-\$i.png; done"
+  for i in 1 2 3 4 5 6 7 8; do "${A[@]}" pull "/sdcard/burst-$i.png" "$TMP/$1-$i.png" > /dev/null; done
+  sh_ rm /sdcard/burst-{1,2,3,4,5,6,7,8}.png
+}
+
+# raw/oneoff-hearts-fountain.png, oneoff-pulse.png: one-offs caught in mid-play over home (the
+# weather, a conversion and a reminder, no scene), about a third of the way through their seconds:
+# hearts-fountain (6 s) with its hearts fanning up over the log, pulse (3 s) with the light partway
+# up both sides of the screen. `shader play`, Enter and the keyboard's ˅ at once, then a burst; the
+# frame kept is the one that showed it best on 25 November 2026 (the others stay in $TMP).
+one_offs() {
+  local s keep
+  for s in hearts-fountain:5 pulse:1; do
+    keep=${s#*:}; s=${s%:*}
+    home; kbup; t "shader off" 2; t clear 1; t weather 5; t "= 5 km in mi" 2
+    t "remind 8pm pick up the bike" 2; kbdown; wait_cleared
+    kbup; ty "shader play $s"; sleep 0.8
+    burst "oneoff-$s" 0.5 "input keyevent 66; input tap 163 2337"
+    cp "$TMP/oneoff-$s-$keep.png" "$RAW/oneoff-$s.png"; echo "$RAW/oneoff-$s.png"
+  done
+}
+
+# raw/shaders-over-apps.png, oneoff-over-app.png: the Shaders tab scrolled to its one-off shaders,
+# Play over other apps turned on (Display over other apps allowed by appops, as Android's page
+# would); then `hearts` given the word "picnic", Android's Clock on its Stopwatch tab (its Clock tab
+# shows the machine's home zone: never that one), and a notification from Alex with the word in it:
+# hearts plays over Clock. The switch, the access and the word go back after; `restore`'s
+# `notifs clear` takes the notification away.
+over_apps() {
+  local i
+  home; kbup; t "config set screen.shader-over-apps off" 2; t "shader words hearts picnic" 2
+  sh_ appops set "$APP" SYSTEM_ALERT_WINDOW allow
+  t shaders 3
+  for i in $(seq 20); do
+    sh_ uiautomator dump /sdcard/ui.xml > /dev/null
+    sh_ grep -q 'text=\"Play over other apps\"' /sdcard/ui.xml && break
+    sh_ input swipe 540 2000 540 700 300; sleep 1
+  done
+  sh_ input swipe 540 1800 540 1300 400; sleep 1.5   # the switch's card whole, above Add shader
+  tap_ui "Play over other apps"; sleep 2
+  cap shaders-over-apps
+  home
+  sh_ monkey -p com.google.android.deskclock -c android.intent.category.LAUNCHER 1 > /dev/null; sleep 3
+  tap 757 2225; sleep 2   # the Stopwatch tab
+  burst oneoff-over-app 0.8 "cmd notification post -t Alex kolahal-test 'Picnic at noon on Saturday?' > /dev/null"
+  cp "$TMP/oneoff-over-app-5.png" "$RAW/oneoff-over-app.png"; echo "$RAW/oneoff-over-app.png"
+  home; kbup; t "config set screen.shader-over-apps off" 2; t "shader words hearts off" 2; kbdown
+  sh_ appops set "$APP" SYSTEM_ALERT_WINDOW default
+}
+
+# raw/daily-limits.png: Settings → Header, scrolled to Daily limits, with both set: 180 minutes of
+# screen time and 60 unlocks. Both off again after.
+daily_limits() {
+  local i
+  home; kbup; t "config set usage.screen-time-limit 180" 2; t "config set usage.unlock-limit 60" 2
+  t settings 3; tap_ui Header; sleep 2.5
+  for i in 1 2 3; do sh_ input swipe 540 2000 540 800 400; sleep 1.2; done
+  cap daily-limits
+  key KEYCODE_BACK; sleep 1; key KEYCODE_BACK; sleep 1
+  home; kbup; t "config set usage.screen-time-limit 0" 2; t "config set usage.unlock-limit 0" 2; kbdown
+}
+
 # ---- running it -------------------------------------------------------------------------------
 
 # The pictures in an order that works from `setup`'s state: each leaves home in front.
@@ -840,8 +923,8 @@ PICTURES=(widgets_add hero_dunes_dark hero_mountains_dark hero_pond_light
   play_home play_answers play_typing play_selector play_scenes play_log play_scramble play_sheets
   typing_home suggestions forecast fresh pinning schedule_times schedule_charger widgets_pages
   widget_options widget_looks home_cards widget_settings widget_pages limits wallpaper selector parts_home parts_action_sheet parts_quick_actions
-  parts_typing parts_settings parts_scripts parts_editor setup_checklist terminal_feeds profiles
-  tty tty_top scramble_pair typing_styles reference_tty)
+  parts_typing parts_settings parts_scripts library parts_editor setup_checklist terminal_feeds profiles
+  tty tty_top scramble_pair typing_styles reference_tty one_offs over_apps daily_limits)
 
 [ $# -gt 0 ] || { sed -n '2,24p' "$0"; exit 2; }
 mkdir -p "$RAW"
