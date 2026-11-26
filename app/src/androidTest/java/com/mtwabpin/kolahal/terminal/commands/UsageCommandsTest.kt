@@ -61,7 +61,10 @@ class UsageCommandsTest {
         }
     }
 
-    /** `data today`: the day's Wi-Fi (and mobile) data, large, then a table of the apps, or that none was used. */
+    /**
+     * `data today`: the day's Wi-Fi (and mobile) data, large, then a table of the apps, or that none
+     * was used, or that every app used under 1 MB (a phone, or an emulator, just started).
+     */
     @Test
     fun dataToday() = withUsageAccess("allow") {
         val shown = lines("data today")
@@ -70,8 +73,8 @@ class UsageCommandsTest {
         val rest = shown.drop(1).map { StyledText.plain(it.text) }
         assertTrue(
             rest.toString(),
-            rest.firstOrNull() == "No data used" || rest.firstOrNull()
-                ?.startsWith("App\tMobile\tWi-Fi") == true
+            rest.firstOrNull() == "No data used" || rest.firstOrNull() == "Every app used under 1 MB so far" ||
+                rest.firstOrNull()?.startsWith("App\tMobile\tWi-Fi") == true
         )
     }
 
