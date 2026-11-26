@@ -139,7 +139,7 @@ the back gesture works as usual. After your thumb is down, you can slide over th
   - Each app's icon (the selector's **Show app icons**, `selector.icons`, on by default).
   - **Row height** (`selector.row-height`, 50 dp) sets the space between apps.
   - **System font** (`selector.system-font`, on by default) shows the list and the letters in the system font instead of the terminal font.
-  - Hidden apps are left out. Work and private apps show the system's badge on their icon, or their `[W]` / `[S]` tag without icons. Apps in paused profiles are faded.
+  - Hidden apps are left out. Work and private apps show the system's badge on their icon, or their `[W]` / `[S]` tag without icons. Apps in a paused work profile are faded; a locked private space's apps are left out.
   - About 15 apps fit on the screen at once.
   - When the selector is at the bottom of the edge (the default), your favorites come last, at the bottom where your thumb rests.
     When it is at the middle or the top, they come first.
@@ -366,7 +366,7 @@ Rules:
 ### One-handed use
 
 - **Quick actions:** tap the `$` at the start of the prompt. You get everything the header offers: settings, notifications, alarms,
-  battery, network, unlocks, apps, widgets, feeds, scripts, lock, and pause / resume for the work or private profile. They have the header's
+  battery, network, unlocks, apps, widgets, feeds, scripts, lock, pause / resume for the work profile and lock / unlock for the private space. They have the header's
   icons (battery and network show their current state). You can also set any gesture to open quick actions (`quick`).
 - **Swipe a log line:** swipe right to copy it ("Copied" shows above the prompt). Swipe left to delete it (with Undo for a few seconds). With the widgets page on the right, the two trade places. Deleting a notification's line [dismisses the notification](/guides/notifications/#deleting-a-line-dismisses-its-notification) too, once Undo is gone.
 - **Long-press output** to run or edit the command that printed it.
@@ -403,7 +403,7 @@ From the terminal, list each side's parts in order, separated by commas: `config
 | `network` | Wi-Fi, mobile or offline (in red) | network settings |
 | `unlocks` | today's unlock count, in the warning or error color from your [daily limit](/guides/apps/#daily-limits) | runs `unlocks 7` |
 | `settings` | ⚙︎ | the [settings screen](/guides/themes-and-settings/) |
-| `profiles` | the work and private profiles, dimmed while paused | resumes a paused profile; to pause, you tap a second time |
+| `profiles` | the work profile and the private space, dimmed while paused or locked | resumes or unlocks it; to pause or lock, you tap a second time |
 
 If the parts don't fit, Kolahal leaves some out, starting from the middle: first the left side's last part, then the right side's
 first part. So the outermost parts (by default, the time and the battery) stay longest.
