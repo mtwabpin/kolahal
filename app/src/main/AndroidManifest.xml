@@ -55,8 +55,6 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
-        <!-- Kolahal Extras: whether it is installed, with which key, and its provider. -->
-        <package android:name="${extrasPackage}" />
     </queries>
 
     <application

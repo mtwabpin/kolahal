@@ -1,5 +1,0 @@
-<resources>
-    <string name="app_name">Kolahal Extras</string>
-    <string name="lock_service_label">Kolahal Extras screen lock</string>
-    <string name="lock_service_description">Lets Kolahal lock the screen when you double-tap the home screen or run the lock command. It does not observe or read anything on screen.</string>
-</resources>

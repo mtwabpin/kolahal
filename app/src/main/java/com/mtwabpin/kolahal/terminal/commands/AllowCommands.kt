@@ -13,9 +13,6 @@ import com.mtwabpin.kolahal.commands.Access
 import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.extras.ExtrasLink
-import com.mtwabpin.kolahal.extras.ExtrasStatus
-import com.mtwabpin.kolahal.extras.ExtrasWords
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.shader.ShaderOverApps
 import com.mtwabpin.kolahal.shader.ShaderPhone
@@ -34,7 +31,7 @@ class AllowCommands(context: Context, private val ui: TerminalUi) : CommandGroup
         val word = args.firstOrNull() ?: return list()
         if (args.size > 1) return usage("allow")
         val access = Accesses.find(word) ?: return error("Unknown access: $word\n'allow' lists them", LogContext.of(LogContext.COPY to "allow"))
-        if (!Accesses.inBuild(access)) return if (viaExtras(access)) extras(access) else missing(access)
+        if (!Accesses.inBuild(access)) return missing(access)
         if (access.word == Accesses.OVERLAY && !ShaderOverApps.phoneGives(ShaderPhone.lowRam(context))) {
             return error(NO_OVERLAY)
         }
@@ -66,31 +63,10 @@ class AllowCommands(context: Context, private val ui: TerminalUi) : CommandGroup
 
     /** What an access this build leaves out says. */
     private fun missing(access: Access) = when (access.word) {
+        Accesses.CONTACTS -> info("This build doesn't read your contacts\ncall, sms and contacts open Android's contact picker\nThey remember who you pick")
         Accesses.LOCK -> error(NO_LOCK)
+        Accesses.CALLS -> error("This build can't read the call log")
         else -> error("This build can't use ${access.title}")
-    }
-
-    /** Whether this build gets [access] through Kolahal Extras: the screen lock, the call log and the contacts. */
-    private fun viaExtras(access: Access) = access.word in setOf(Accesses.LOCK, Accesses.CONTACTS, Accesses.CALLS)
-
-    /**
-     * `allow lock`, `allow contacts` or `allow calls` in a build that gets them through Kolahal Extras (the Play
-     * build): opens Extras' screen, where Android gives them to Extras, or, while Extras isn't installed (or is too old,
-     * or has another key), its page in the guide. Kolahal never installs Extras itself.
-     */
-    private fun extras(access: Access) {
-        val feature = access.needs ?: return
-        val link = ExtrasLink.get(context).also { it.refreshNow() }
-        val status = link.status(feature)
-        val opened = runCatching { startActivity(link.intent(status)) }.isSuccess
-        val lines = buildList {
-            if (status != ExtrasStatus.READY) add(ExtrasWords.problem(status, feature))
-            if (opened) add(ExtrasWords.opened(status))
-            if (access.word == Accesses.CONTACTS && status != ExtrasStatus.READY) {
-                add("Until then, call, sms and contacts open Android's contact picker")
-            }
-        }
-        if (lines.isNotEmpty()) info(lines.joinToString("\n"))
     }
 
     private fun ask(access: Access) {

@@ -10,8 +10,6 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.provider.CallLog
-import com.mtwabpin.kolahal.BuildConfig
-import com.mtwabpin.kolahal.commands.BuildFeature
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
@@ -21,8 +19,6 @@ import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.shortTime
-import com.mtwabpin.kolahal.extras.ExtrasContract
-import com.mtwabpin.kolahal.extras.ExtrasLink
 import com.mtwabpin.kolahal.productivity.TimeSpec
 import java.util.concurrent.Executors
 
@@ -36,8 +32,6 @@ import java.util.concurrent.Executors
  * - A tap on the line dials back.
  * - The newest call seen is saved. So calls made while the launcher wasn't running show up on the
  *   next start, and calls from before the permission was granted are never logged.
- * - The Play build has no call log of its own: it reads the calls from Kolahal Extras ([ExtrasLink]), which says
- *   when they change while it runs. Home coming to the front ([check]) catches up on what it missed.
  */
 class CallEvents private constructor(private val context: Context) {
     private val store = KvStore(context, Stores.CALLS)
@@ -66,20 +60,16 @@ class CallEvents private constructor(private val context: Context) {
         val photoUri: String? = null,
     )
 
-    init {
-        // The Play build: Kolahal Extras installed, allowed or removed.
-        if (!BuildConfig.CALL_LOG) ExtrasLink.get(context).listen { old, new ->
-            if (old.status(ExtrasContract.CALLS) != new.status(ExtrasContract.CALLS)) check()
-        }
-    }
-
     /** Starts watching if the permission is granted. Call it again after the permission is granted. */
     fun start() {
         if (!hasPermission(context)) return
         if (!observing) {
-            val uri = if (BuildConfig.CALL_LOG) CallLog.Calls.CONTENT_URI else ExtrasLink.get(context).callsUri
-            observing = runCatching { context.contentResolver.registerContentObserver(uri, true, observer) }.isSuccess
-            if (!observing) return
+            observing = true
+            context.contentResolver.registerContentObserver(
+                CallLog.Calls.CONTENT_URI,
+                true,
+                observer
+            )
         }
         check()
     }
@@ -138,36 +128,35 @@ class CallEvents private constructor(private val context: Context) {
         /** After a long time away, only this many of the newest calls get a line. */
         private const val MAX_LINES = 30
 
-        /** Whether the calls can be read: READ_CALL_LOG, or in the Play build Kolahal Extras' (as last read). */
         fun hasPermission(context: Context) =
-            if (BuildConfig.CALL_LOG) context.checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
-            else ExtrasLink.get(context).ready(BuildFeature.CALL_LOG)
+            context.checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
 
-        /**
-         * Returns at most [limit] calls, newest first. When [afterId] is given, only calls with a higher id. Off the main
-         * thread: in the Play build it asks Kolahal Extras, which reads the same columns and adds the photos.
-         */
+        /** Returns at most [limit] calls, newest first. When [afterId] is given, only calls with a higher id. */
         fun recent(context: Context, limit: Int, afterId: Long? = null): List<Call> {
             if (!hasPermission(context)) return emptyList()
-            val rows: () -> android.database.Cursor? = if (BuildConfig.CALL_LOG) {
-                {
-                    val uri = CallLog.Calls.CONTENT_URI.buildUpon()
-                        .appendQueryParameter(CallLog.Calls.LIMIT_PARAM_KEY, limit.toString()).build()
-                    val selection = afterId?.let { "${CallLog.Calls._ID} > ?" }
-                    val args = afterId?.let { arrayOf(it.toString()) }
-                    context.contentResolver.query(uri, ExtrasContract.CALL_COLUMNS, selection, args, "${CallLog.Calls._ID} DESC")
-                }
-            } else {
-                {
-                    val extras = ExtrasLink.get(context)
-                    val uri = extras.callsUri.buildUpon()
-                        .appendQueryParameter(ExtrasContract.PARAM_LIMIT, limit.toString())
-                        .apply { afterId?.let { appendQueryParameter(ExtrasContract.PARAM_AFTER, it.toString()) } }.build()
-                    extras.query(uri)
-                }
-            }
+            val uri = CallLog.Calls.CONTENT_URI.buildUpon()
+                .appendQueryParameter(CallLog.Calls.LIMIT_PARAM_KEY, limit.toString()).build()
+            val projection = arrayOf(
+                CallLog.Calls._ID,
+                CallLog.Calls.NUMBER,
+                CallLog.Calls.CACHED_NAME,
+                CallLog.Calls.TYPE,
+                CallLog.Calls.DATE,
+                CallLog.Calls.DURATION,
+                CallLog.Calls.NUMBER_PRESENTATION,
+                CallLog.Calls.CACHED_LOOKUP_URI,
+                CallLog.Calls.CACHED_PHOTO_URI,
+            )
+            val selection = afterId?.let { "${CallLog.Calls._ID} > ?" }
+            val args = afterId?.let { arrayOf(it.toString()) }
             return runCatching {
-                rows()?.use { c ->
+                context.contentResolver.query(
+                    uri,
+                    projection,
+                    selection,
+                    args,
+                    "${CallLog.Calls._ID} DESC"
+                )?.use { c ->
                     buildList {
                         while (c.moveToNext() && size < limit) {
                             add(
@@ -187,8 +176,6 @@ class CallEvents private constructor(private val context: Context) {
                     }
                 }
             }.getOrNull().orEmpty().map { call ->
-                // Kolahal Extras has done this already.
-                if (!BuildConfig.CALL_LOG) return@map call
                 // The phone app fills the call log's copy of the contact (name, photo) when it gets to it,
                 // and some never copy the photo. A call read right after it ended may have none yet: then
                 // the photo comes from the contact itself.

@@ -13,8 +13,6 @@ import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.commands.Access
 import com.mtwabpin.kolahal.commands.Accesses
-import com.mtwabpin.kolahal.extras.ExtrasLink
-import com.mtwabpin.kolahal.extras.ExtrasWords
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.shader.ShaderPhone
 
@@ -39,7 +37,7 @@ object SetupChecks {
                 "home",
             ),
         ) + accesses(context).map {
-            SetupCheck(it.access.title, detail(context, it), it.allowed, it.run)
+            SetupCheck(it.access.title, it.access.detail, it.allowed, it.run)
         } + SetupCheck(
             "Work / private profiles",
             if (profiles.isEmpty()) "None found on this device"
@@ -49,37 +47,22 @@ object SetupChecks {
         )
     }
 
-    /**
-     * The accesses this build, this Android version and this phone have ([Accesses.offered]), each with whether it is
-     * given now. A build without the screen lock, the call log or the contacts (the Play build) has them while Kolahal
-     * Extras is installed, given when Extras can do them. Off the main thread: it asks Extras first.
-     */
-    fun accesses(context: Context): List<Accesses.Listed> {
-        val extras = ExtrasLink.get(context).also { it.refreshNow() }
-        val offered = Accesses.offered(Build.VERSION.SDK_INT, lowRam = ShaderPhone.lowRam(context)) {
-            Accesses.inThisBuild(it) || extras.offers(it)
-        }
-        return Accesses.listing(offered) { given(context, it) }
-    }
-
-    /** What a row says: what the access is for, or, for one Kolahal Extras can't give now, what's missing. */
-    private fun detail(context: Context, row: Accesses.Listed): String {
-        val feature = row.access.needs
-        if (row.allowed || feature == null || Accesses.inThisBuild(feature)) return row.access.detail
-        return ExtrasWords.problem(ExtrasLink.get(context).status(feature), feature)
-    }
+    /** The accesses this build, this Android version and this phone have ([Accesses.offered]), each with whether it is given now. */
+    fun accesses(context: Context): List<Accesses.Listed> =
+        Accesses.listing(Accesses.offered(Build.VERSION.SDK_INT, lowRam = ShaderPhone.lowRam(context))) { given(context, it) }
 
     /** Whether Android gives Kolahal [access] now. */
     fun given(context: Context, access: Access): Boolean = when (access.word) {
         Accesses.USAGE -> com.mtwabpin.kolahal.usage.UsageAccess.granted(context)
         Accesses.SEND_NOTIFICATIONS -> Notifier.canPost(context)
         Accesses.READ_NOTIFICATIONS -> com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context)
-        Accesses.LOCK -> com.mtwabpin.kolahal.gesture.ScreenLock.isEnabled(context)
+        Accesses.LOCK -> com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE && com.mtwabpin.kolahal.gesture.LockService.isEnabled(context)
         Accesses.DND -> context.getSystemService(android.app.NotificationManager::class.java).isNotificationPolicyAccessGranted
         Accesses.SETTINGS -> android.provider.Settings.System.canWrite(context)
-        Accesses.CONTACTS -> com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).hasPermission()
+        Accesses.CONTACTS -> com.mtwabpin.kolahal.BuildConfig.CONTACTS &&
+                com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).hasPermission()
         Accesses.CALENDAR -> com.mtwabpin.kolahal.productivity.Agenda.hasPermission(context)
-        Accesses.CALLS -> com.mtwabpin.kolahal.calls.CallEvents.hasPermission(context)
+        Accesses.CALLS -> com.mtwabpin.kolahal.BuildConfig.CALL_LOG && com.mtwabpin.kolahal.calls.CallEvents.hasPermission(context)
         Accesses.ALARMS -> com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
         Accesses.BATTERY -> context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
         Accesses.OVERLAY -> com.mtwabpin.kolahal.BuildConfig.SHADER_OVER_APPS && android.provider.Settings.canDrawOverlays(context)

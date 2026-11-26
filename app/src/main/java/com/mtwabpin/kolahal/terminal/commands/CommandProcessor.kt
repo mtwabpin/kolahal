@@ -223,12 +223,13 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "settings", "prefs" -> ui.openScreen(Screen.SETTINGS)
                 "system" -> startSettings(Settings.ACTION_SETTINGS)
                 "home" -> startSettings(Settings.ACTION_HOME_SETTINGS)
-                // The Play build locks through Kolahal Extras: this runs off the main thread, so it can ask.
-                "lock" -> if (!com.mtwabpin.kolahal.gesture.ScreenLock.lockNow(context)) {
-                    if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) fix(
+                "lock" -> if (!com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {
+                    error(AllowCommands.NO_LOCK)
+                } else if (!com.mtwabpin.kolahal.gesture.LockService.lock()) {
+                    fix(
                         "Locking needs an accessibility service\nTap to allow Kolahal screen lock",
                         "allow lock"
-                    ) else extrasNeeded("Can't lock the screen", com.mtwabpin.kolahal.commands.Accesses.LOCK)
+                    )
                 }
 
                 "shade" -> com.mtwabpin.kolahal.gesture.Gestures.expandShade(context)

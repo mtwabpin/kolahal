@@ -22,5 +22,3 @@ dependencyResolutionManagement {
 rootProject.name = "Kolahal"
 include(":app")
 include(":baselineprofile")
-// Kolahal Extras: the optional second app that gives the Play build what Play keeps out of it.
-include(":extras")

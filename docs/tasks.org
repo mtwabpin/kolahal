@@ -851,23 +851,21 @@ maintainer, or need a choice first:
   Settings.
 - Remark:
 
-** WAITING [#C] A companion app for what Play rules out (Kolahal Extras)  :build:project:
-- The idea, as Termux does with Termux:API: one Kolahal for everyone (today's Play build), and a small
-  optional app from GitHub, signed with the same release key, that holds the accessibility service for
-  =lock=, the call log and contacts. Kolahal asks it through one interface that only apps with the
-  release key may call (Play installs carry that key too: =docs/release/signing.org=). The full build
-  and its switches (=LOCK_SERVICE=, =CALL_LOG=, =CONTACTS=, =SELF_UPDATE= in =app/build.gradle.kts=)
-  would go.
-- What you'd see: without the companion, today's Play app; rows that need it say so and link to the
-  guide (Kolahal never downloads or installs it). The companion is one screen of permissions, and has
-  no internet permission.
-- Steps planned: read Play's policy text first (receiving call-log data from a sideloaded helper may be
-  read as going around the rule; nothing found either way on 26 November 2026); the companion with
-  the lock only, the interface and a version handshake; contacts and the call log; one app build and
-  the companion's APK in the Release run; docs and tests with both apps installed.
-- To settle: its name, whether it has no internet (then it is updated by hand), whether the call log
-  is worth the risk.
-- Why it waits: the maintainer asked for the plan and then said to hold it (26 November 2026).
+** CANCELLED [#C] A companion app for what Play rules out (Kolahal Extras)  :build:project:
+- The idea, as Termux does with Termux:API: one Kolahal for everyone (the Play build) and a small
+  optional app from GitHub, signed with the same key, holding the accessibility service for =lock=,
+  the call log and contacts, which Kolahal would ask through a private interface.
+- Built and tried on a phone on 26 November 2026 (it worked), then dropped the same day by the
+  maintainer: "This defeats the whole point of extra app, just drop the extra app idea then keep these
+  stuff in the full build". The commit and its revert are in the history of the 0.5.19 branch.
+- Why: Google Play's rules as read that day. The call log is ruled out by name ("calls appearing in
+  … launcher" is a listed invalid use, and an app "may not use alternative methods (including other
+  permissions, APIs, or third-party sources)" to get call-log data); contacts through another app are
+  not addressed; the lock is probably allowed, but Play Protect blocks an app with an accessibility
+  service that is installed from a file in some countries, India among them.
+- What stays: the full build keeps the lock, the call log and contacts; the Play build has none of
+  them. A launcher may declare an accessibility service on Play itself, with a declaration and a
+  disclosure: that is the other way to the lock, not looked into.
 - Remark:
 
 ** WAITING [#C] Rich responses from scripts with A2UI  :scripts:project:

@@ -45,12 +45,6 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
 
         /** Turns home to the widgets page. */
         fun showWidgetsPage()
-
-        /** Whether Kolahal can lock the screen: the build's own service, or Kolahal Extras ([com.mtwabpin.kolahal.gesture.ScreenLock]). */
-        val canLock: Boolean
-
-        /** Locks the screen; when it can't, runs `lock`, which says why. */
-        fun lockScreen()
     }
 
     fun onHeaderTap(target: HeaderTarget) {
@@ -140,8 +134,12 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
                 "Scripts",
                 icon = icon(R.drawable.ic_code)
             ) { host.openScreen(Screen.SCRIPTS) })
-        if (host.canLock) {
-            add(LogAction("Lock screen", icon = icon(R.drawable.ic_lock)) { host.lockScreen() })
+        if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {
+            add(
+                LogAction(
+                    "Lock screen",
+                    icon = icon(R.drawable.ic_lock)
+                ) { if (!com.mtwabpin.kolahal.gesture.LockService.lock()) host.runCommand("lock") })
         }
     }
 

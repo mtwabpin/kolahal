@@ -36,7 +36,6 @@ class LayersTest {
         "documents",
         "usage",
         "assistant",
-        "extras",
     )
 
     /** Lines in [packages] that name something matching [above], outside comments. */

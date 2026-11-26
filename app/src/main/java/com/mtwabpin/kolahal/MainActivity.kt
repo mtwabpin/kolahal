@@ -512,8 +512,6 @@ class MainActivity : ComponentActivity(), HidesBars {
         vm.onResume()
         if (hasWindowFocus()) vm.onWindowFocused()
         PackageEvents.get(this).recheck()
-        // What Kolahal Extras can do now (allowed or turned off in its screen meanwhile): a build without them of its own.
-        com.mtwabpin.kolahal.extras.ExtrasLink.get(this).refresh()
         CallEvents.get(this).check()
     }
 
