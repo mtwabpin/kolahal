@@ -83,7 +83,9 @@ import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetDrag
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
+import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -718,4 +720,8 @@ internal const val EDGE_HOLD_MS = 700L
  * else 28 dp, as an app's widget always has.
  */
 private fun arrangedCorner(w: PlacedWidget, corners: CardCorners?): Dp =
-    (if (w.source != null && CardCorners.takenIn(w.look)) CardCorners.dp(corners, small = false) else 28).dp
+    (if (w.source != null && CardCorners.takenIn(drawnLookOf(w))) CardCorners.dp(corners, small = false) else 28).dp
+
+/** The look [w] is drawn in, as far as its place tells: a built-in card draws a look it doesn't offer as Plain ([WidgetLook.drawnFor]). */
+private fun drawnLookOf(w: PlacedWidget): WidgetLook =
+    WidgetSource.builtinId(w.source)?.let { w.look.drawnFor(WidgetSource.builtinKind(it), it) } ?: w.look

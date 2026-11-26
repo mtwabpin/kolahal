@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.min
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.ui.home.colorOf
+import com.mtwabpin.kolahal.widgets.CardCorners
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -49,8 +51,18 @@ import com.mtwabpin.kolahal.widgets.WidgetTap
 /** The Notes card's Stack look of [s], as a card draws it in place of its text ([WidgetCard]'s `body`). */
 internal fun noteStackBody(s: OwnDesigns.NoteStack): OwnBody = { box, onTap -> NoteStackBody(s, box, onTap) }
 
-/** The corners of a sheet of the stack. */
-private val SHEET = RoundedCornerShape(18.dp)
+/** The corners of a sheet of the stack with the cards' own corners. */
+private const val SHEET_DP = 18
+
+/** How far in from the card's edge the sheets are: the card's room ([ownRoom]) and the stack's own 4 dp. */
+private const val SHEET_INSET_DP = 16
+
+/**
+ * The corners of a sheet: [SHEET_DP], or with widgets.corners set, the card's corner less the room
+ * around the sheets ([CardCorners.inner]). A sheet is the card in another form: Square is square here too.
+ */
+@Composable
+private fun sheetShape(): Shape = RoundedCornerShape(CardCorners.inner(LocalCardCorners.current, SHEET_INSET_DP, SHEET_DP).dp)
 
 /** How far the sheets behind are turned, in degrees, on a sheet about 160 dp wide; a wider one is turned less. */
 private const val TURN_BACK = -8f
@@ -154,8 +166,10 @@ private fun Stack(
     val dark = scheme.surface.luminance() < 0.5f
     // A wide sheet turned as far would stand out of the card at its ends.
     val turn = (160.dp / width).coerceAtMost(1f)
+    val sheet = sheetShape()
     Box(modifier.padding(4.dp)) {
         if (s.behind >= 2) Sheet(
+            sheet,
             lerp(c.card, colorOf(StyledText.ColorRole.ACCENT), if (dark) 0.16f else 0.2f),
             Modifier
                 .matchParentSize()
@@ -163,6 +177,7 @@ private fun Stack(
                 .rotate(TURN_BACK * turn)
         )
         if (s.behind >= 1) Sheet(
+            sheet,
             lerp(c.card, colorOf(StyledText.ColorRole.LINK), if (dark) 0.16f else 0.2f),
             Modifier
                 .matchParentSize()
@@ -172,8 +187,8 @@ private fun Stack(
         Column(
             Modifier
                 .matchParentSize()
-                .shadow(2.dp, SHEET)
-                .clip(SHEET)
+                .shadow(2.dp, sheet)
+                .clip(sheet)
                 .background(lerp(c.card, scheme.onSurface, if (dark) 0.13f else 0.16f))
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
@@ -198,13 +213,13 @@ private fun Stack(
     }
 }
 
-/** One sheet behind the top one, in [color]. */
+/** One sheet behind the top one, in [color], cut to [shape]. */
 @Composable
-private fun Sheet(color: Color, modifier: Modifier) {
+private fun Sheet(shape: Shape, color: Color, modifier: Modifier) {
     Box(
         modifier
-            .shadow(1.dp, SHEET)
-            .clip(SHEET)
+            .shadow(1.dp, shape)
+            .clip(shape)
             .background(color)
     )
 }

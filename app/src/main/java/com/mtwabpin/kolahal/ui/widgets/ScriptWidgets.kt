@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -177,6 +178,12 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
     script.widget == null -> CardNote.NO_WIDGET
     else -> null
 }
+
+/**
+ * The corners widgets.corners gives the card being drawn, in a look that takes them ([CardCorners.takenIn]);
+ * null for the cards' own. [WidgetCard] provides it, for a surface inside that fills the card ([CardCorners.inner]).
+ */
+internal val LocalCardCorners = staticCompositionLocalOf<CardCorners?> { null }
 
 /**
  * The corners of every card, from `widgets.corners` ([CardCorners]): null for the cards' own. A card is
@@ -323,6 +330,7 @@ internal fun WidgetCard(
                     LocalCardLongPress provides onLongClick,
                     LocalWidgetLook provides look,
                     LocalCardShape provides shape,
+                    LocalCardCorners provides corners,
                     LocalCardColor provides shown?.base?.color
                 ) {
                     if (body != null && note == null && shown != null) {

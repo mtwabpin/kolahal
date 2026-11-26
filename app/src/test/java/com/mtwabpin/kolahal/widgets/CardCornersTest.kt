@@ -38,4 +38,27 @@ class CardCornersTest {
             WidgetLook.entries.filter(CardCorners::takenIn)
         )
     }
+
+    /**
+     * Every look of every built-in card either follows the setting or is named in its description as
+     * keeping its own: a new look can't fall out of it unseen.
+     */
+    @Test
+    fun everyBuiltInLookFollowsOrIsNamed() {
+        val builtins = listOf(
+            WidgetSource.BATTERY, WidgetSource.SHORTCUTS, WidgetSource.MEDIA, WidgetSource.TODOS,
+            WidgetSource.AGENDA, WidgetSource.REMINDERS, WidgetSource.NOTES,
+        )
+        for (id in builtins) for (look in WidgetLook.offeredFor(WidgetSource.builtinKind(id), id)) {
+            val named = Regex("\\b${look.label}\\b").containsMatchIn(Keys.WIDGET_CORNERS.help)
+            assertEquals("$id ${look.id}", !CardCorners.takenIn(look), named)
+        }
+    }
+
+    /** A surface that fills the card (Stack's sheets) keeps its own corner, or takes the card's less the room around it, never below 0. */
+    @Test
+    fun anInnerSurfaceFitsTheCard() {
+        assertEquals(18, CardCorners.inner(null, inset = 16, own = 18))
+        assertEquals(listOf(0, 0, 0, 24), CardCorners.entries.map { CardCorners.inner(it, inset = 16, own = 18) })
+    }
 }

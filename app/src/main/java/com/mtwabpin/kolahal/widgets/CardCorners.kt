@@ -26,6 +26,13 @@ enum class CardCorners(val id: String, val dp: Int) {
         /** The corners a card has, in dp: the [chosen] ones, else its own ([own]). */
         fun dp(chosen: CardCorners?, small: Boolean): Int = chosen?.dp ?: own(small)
 
+        /**
+         * The corner, in dp, of a surface inside a card that fills it [inset] dp in from its edge (a
+         * look's sheet): [own] with the cards' own corners, else the chosen corner less [inset], so it
+         * fits the card's: square in a square card, never a small one in a very round card.
+         */
+        fun inner(chosen: CardCorners?, inset: Int, own: Int): Int = chosen?.let { (it.dp - inset).coerceAtLeast(0) } ?: own
+
         /** Whether a card in [look] takes the setting: every look but Split and Shape, whose outline is their own. */
         fun takenIn(look: WidgetLook): Boolean = look != WidgetLook.SPLIT && look != WidgetLook.SHAPE
 
