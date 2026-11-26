@@ -760,6 +760,13 @@ internal object WidgetWords {
         return ((if (rtl) 1f - along else along) * 24).roundToInt()
     }
 
+    /**
+     * The hour a tap, or a sideways drag at [x], picks on a day strip [width] wide: the nearest whole
+     * hour ([hourAt]), from 0 (00:00) to 23 (23:00) of the day shown.
+     */
+    fun pickedHourAt(x: Float, width: Float, rtl: Boolean): Int =
+        hourAt(x, width, rtl).coerceAtMost(23)
+
     /** The moment of [hour] (0 to 24) on [day] in [here], in milliseconds. Hour 24 is 00:00 of the next day. */
     fun hourMoment(day: LocalDate, hour: Int, here: ZoneId): Long =
         day.atStartOfDay().plusHours(hour.coerceIn(0, 24).toLong()).atZone(here).toInstant()

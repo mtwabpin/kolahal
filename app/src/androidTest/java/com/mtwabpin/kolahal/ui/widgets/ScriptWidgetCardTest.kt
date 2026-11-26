@@ -2,7 +2,12 @@ package com.mtwabpin.kolahal.ui.widgets
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -37,6 +42,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -1525,6 +1531,127 @@ class ScriptWidgetCardTest {
             assertEquals(
                 emptyList<String>(),
                 asked.all.filter { it.startsWith("tap") })
+        }
+    }
+
+    /**
+     * A 4×2 clock on a page of a pager, in a page that scrolls: a sideways drag that starts on the
+     * strips moves the line with the finger, hour by hour, and the page doesn't turn. A drag up the
+     * strips scrolls the page, a long-press on them is the card's, and a sideways swipe beside the
+     * strips still turns the page.
+     */
+    @Test
+    fun aSidewaysDragOnTheStripsMovesTheLineNotThePage() {
+        val asked = Asked()
+        val here = ZoneId.systemDefault()
+        val zones = listOf(
+            WidgetSpec.Zone(here.id, "Home"),
+            WidgetSpec.Zone("Asia/Kathmandu"),
+            WidgetSpec.Zone("America/New_York")
+        )
+        val world = kept("clock-drag", WidgetSpec.Clock(WidgetBase(title = "World"), zones))
+        val feed = scriptsOf(WidgetSource.script(world))
+        val scroll = ScrollState(0)
+        lateinit var pager: PagerState
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalWidgetsShown provides true) {
+                    pager = rememberPagerState { 2 }
+                    HorizontalPager(pager, Modifier.fillMaxSize()) { page ->
+                        if (page == 0) Column(
+                            Modifier
+                                .fillMaxSize()
+                                .verticalScroll(scroll)
+                        ) {
+                            Box(Modifier.width(380.dp)) {
+                                SourceWidget(
+                                    PlacedWidget(null, WidgetSource.script(world), 0L, 192, 0),
+                                    192.dp, asked, feed
+                                )
+                            }
+                            Spacer(Modifier.height(3000.dp))
+                        } else Box(Modifier.fillMaxSize())
+                    }
+                }
+            }
+        }
+        draws(world, "Home", "Kathmandu", "New York")
+        val rtl =
+            compose.activity.resources.configuration.layoutDirection == android.view.View.LAYOUT_DIRECTION_RTL
+        val strips =
+            compose.onNode(inCard(world) and hasTestTag("clock-strips"), useUnmergedTree = true)
+        val today = LocalDate.now(here)
+        fun at(hour: Int) =
+            "At ${Instant.ofEpochMilli(WidgetWords.hourMoment(today, hour, here)).atZone(here).format(clock)}"
+
+        fun times(hour: Int) =
+            WidgetWords.zoneTimes(zones, WidgetWords.hourMoment(today, hour, here), here, clock)
+                .map { it.time }
+
+        // How the drag feels: the touch slop, and how far an hour is on the strip.
+        strips.performTouchInput {
+            android.util.Log.i(
+                "ClockStrips",
+                "slop ${viewConfiguration.touchSlop / density} dp, an hour ${width / 24f / density} dp of $width px"
+            )
+        }
+
+        // A slow drag from 06:00 to 10:00 and on to 18:00, the finger held between: the line, the
+        // hour and every place's time follow the finger.
+        fun xAt(hour: Float, width: Int) = width * (if (rtl) 24 - hour else hour) / 24f
+        strips.performTouchInput {
+            down(Offset(xAt(6f, width), height / 2f))
+            for (i in 1..40) moveTo(Offset(xAt(6f + 4f * i / 40, width), height / 2f))
+        }
+        draws(world, at(10), *times(10).toTypedArray())
+        strips.performTouchInput {
+            for (i in 1..80) moveTo(Offset(xAt(10f + 8f * i / 80, width), height / 2f))
+            up()
+        }
+        // Lifting the finger keeps the hour, as a tap does, and the page didn't turn.
+        draws(world, at(18), "Now", *times(18).toTypedArray())
+        compose.runOnIdle {
+            assertEquals(0, pager.currentPage)
+            assertEquals(0f, pager.currentPageOffsetFraction)
+            assertEquals(0, scroll.value)
+        }
+        // Right to left along the strips, the hours go back.
+        strips.performTouchInput {
+            swipe(
+                Offset(xAt(18f, width), height / 2f),
+                Offset(xAt(3f, width), height / 2f),
+                600
+            )
+        }
+        draws(world, at(3), *times(3).toTypedArray())
+
+        // A drag up the strips scrolls the page, and picks nothing.
+        strips.performTouchInput {
+            swipe(Offset(centerX, height - 2f), Offset(centerX + 4f, 2f), 400)
+        }
+        compose.runOnIdle {
+            assertTrue("the page didn't scroll", scroll.value > 0)
+            assertEquals(0, pager.currentPage)
+        }
+        draws(world, at(3))
+        compose.runOnIdle { scroll.dispatchRawDelta(-scroll.value.toFloat()) }
+
+        // A long-press on the strips is the card's.
+        strips.performTouchInput { longClick(Offset(xAt(12f, width), height / 2f)) }
+        compose.runOnIdle { assertEquals(listOf("arrange"), asked.all.filter { it == "arrange" }) }
+        draws(world, at(3))
+
+        // A sideways swipe beside the strips, over the places' names, turns the page.
+        compose.onNode(hasTestTag("widget:$world")).performTouchInput {
+            val from = if (rtl) width * 0.6f else width * 0.4f
+            val to = if (rtl) width * 0.98f else width * 0.02f
+            swipe(Offset(from, centerY), Offset(to, centerY), 200)
+        }
+        compose.waitFor("a swipe beside the strips didn't turn the page") {
+            pager.currentPage == 1
+        }
+        compose.runOnIdle {
+            assertTrue(asked.all.toString(), asked.all.none { it.startsWith("tap") })
         }
     }
 

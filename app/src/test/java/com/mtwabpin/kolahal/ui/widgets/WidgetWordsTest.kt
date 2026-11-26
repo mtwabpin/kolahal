@@ -1557,6 +1557,28 @@ class WidgetWordsTest {
         assertEquals("no strip", 0, WidgetWords.hourAt(10f, 0f, rtl = false))
     }
 
+    /**
+     * A sideways drag over a strip picks hour by hour, none skipped, from 00 to 23 (24:00 is not an
+     * hour to pick), and in a right-to-left page the hours run from the right.
+     */
+    @Test
+    fun aDragAlongAStripPicksHourByHour() {
+        // The hours a finger passes, each once, as it moves a pixel at a time from [from] to [to].
+        fun passed(from: Int, to: Int, rtl: Boolean): List<Int> {
+            val out = mutableListOf<Int>()
+            for (x in if (to >= from) from..to else from downTo to) WidgetWords.pickedHourAt(x.toFloat(), 240f, rtl)
+                .let { if (out.lastOrNull() != it) out += it }
+            return out
+        }
+        assertEquals((3..8).toList(), passed(30, 80, rtl = false))
+        assertEquals((8 downTo 3).toList(), passed(80, 30, rtl = false))
+        assertEquals((21 downTo 16).toList(), passed(30, 80, rtl = true))
+        assertEquals("past the end", (20..23).toList(), passed(200, 300, rtl = false))
+        assertEquals("past the start", (2 downTo 0).toList(), passed(20, -40, rtl = false))
+        assertEquals("past the end, right to left", (2 downTo 0).toList(), passed(220, 300, rtl = true))
+        assertEquals("from the right edge, right to left", (0..3).toList(), passed(240, 210, rtl = true))
+    }
+
     /** The hour picked is a moment of the phone's day, and the line stands where that moment is on the strip. */
     @Test
     fun anHourPickedIsAMomentOfTheDayHere() {

@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -308,9 +309,11 @@ private const val MARKS_GAP_DP = 2
  * under the strips ([HourMarks]).
  * - One line crosses all the strips at the moment shown ([DayStrips]).
  * - A tap on a strip moves the line to the nearest hour, and every place's time and difference
- *   follow. The line under the strips then has that hour and a Now button ([PickedHour]) in place
- *   of the hours. Now, a second tap on the line, or leaving the page or home brings back now.
- * - Taps only: a sideways drag turns the page. [tappable] false takes no tap at all.
+ *   follow. A sideways drag that starts on the strips moves the line with the finger, hour by hour.
+ *   The line under the strips then has that hour and a Now button ([PickedHour]) in place of the
+ *   hours. Now, a second tap on the line, or leaving the page or home brings back now.
+ * - The page turns by a sideways swipe beside or below the strips; one that goes mostly up or
+ *   down scrolls it. [tappable] false takes no tap and no drag at all.
  * - A row too low for two lines has the difference beside the name, in the form that fits.
  * - A screen reader hears the card's description: each place, its time now and its difference.
  */
@@ -496,7 +499,10 @@ private fun PickedHour(at: String, heightDp: Int, role: Color, onNow: () -> Unit
  *   tones of the card's [role] color ([stripShades]). It runs from the right in a right-to-left page.
  * - The line is in the text color with a ring of the card's color, so it shows on every part.
  *   [at] is read while drawing: the minute's tick draws the line again and composes nothing.
- * - With [onPick], a tap picks the nearest hour ([WidgetWords.hourAt]), and a long-press is the card's.
+ * - With [onPick], a tap picks the nearest hour ([WidgetWords.pickedHourAt]), and a long-press is the card's.
+ *   A drag that goes sideways past the touch slop is the strips' (the page doesn't turn): the line
+ *   follows the finger hour by hour, with a light tick at each hour. One that goes up or down first
+ *   is left to the page, as Compose's own horizontal drag does.
  * - It is no item for a screen reader: the card's description says what it shows.
  */
 @Composable
@@ -544,11 +550,28 @@ private fun DayStrips(
                 val along = lineAt().coerceIn(0f, 1f)
                 val lineX = size.width * if (rtl) 1f - along else along
                 if (picked && abs(tap.x - lineX) <= 12.dp.toPx()) pick?.invoke(null)
-                else pick?.invoke(
-                    WidgetWords.hourAt(tap.x, size.width.toFloat(), rtl).coerceAtMost(23)
-                )
+                else pick?.invoke(WidgetWords.pickedHourAt(tap.x, size.width.toFloat(), rtl))
             },
         )
+    }.pointerInput(rtl) {
+        // The hour the drag shows, to tick only when it changes.
+        var shown = -1
+        fun follow(x: Float) {
+            val h = WidgetWords.pickedHourAt(x, size.width.toFloat(), rtl)
+            if (h == shown) return
+            shown = h
+            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            pick?.invoke(h)
+        }
+        detectHorizontalDragGestures(
+            onDragStart = { at ->
+                shown = -1
+                follow(at.x)
+            },
+        ) { change, _ ->
+            change.consume()
+            follow(change.position.x)
+        }
     }
     val height = (rowDp * strips.size + gapDp * (strips.size - 1)).dp
     Spacer(
