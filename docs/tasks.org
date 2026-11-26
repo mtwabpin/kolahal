@@ -630,6 +630,40 @@ was seen to go wrong on a device.
 - Fix: drop entries older than the window when one is added.
 - Remark:
 
+** TODO [#B] A locked private space still shows every app's name  :apps:profiles:
+- Checked on a real private space (emulator, Android 16, 26 November 2026). =apps/AppRepository.kt=
+  (=reload=), =listApps= in =terminal/commands/AppCommands.kt= and the app selector put no filter on
+  the apps of a private profile that is locked; Android's own setting "Hide private space when it's
+  locked" is never read.
+- What you'd see: with the space locked, =apps= lists all 16 private apps faded, the selector shows
+  them too, and a pinned private Maps keeps its star. The stock launcher shows only "Private, locked".
+- Fix: decide what a locked space shows (nothing, or one line that it is locked), and follow
+  Android's hide setting. The guide says "faded" today, so it changes with it.
+- Remark:
+
+** TODO [#B] Instant launch opens the locked copy of an app  :apps:profiles:
+- =commands/InstantRun.kt= (about line 109): =copies.filter(isOn).takeIf { it.size > 1 } ?:
+  listOf(copies.first())= takes the first copy when only one is on, not the one that is on.
+- What you'd see: with the private space locked and YouTube in both, typing "yo" picks the private
+  YouTube (used last) and "Unlock the private space?" comes up, though the personal one could open.
+- Fix: when one copy is on, take that one.
+- Remark:
+
+** TODO [#C] Private space: messages that give the wrong reason, and its name  :apps:profiles:
+- =terminal/commands/AppCommands.kt=. A shortcut to an app of a locked space (=open maps:home -s=)
+  says "Maps has no shortcut matching 'home'", then =shortcuts maps -s= says "Maps has no shortcuts":
+  the space is locked, and neither says so (=AppRepository.shortcuts= answers an empty list).
+- While Kolahal isn't the home app, Android hides the space from it: =private= says "No private
+  profile on this device", =apps private= "No apps in private profile", and older app grids in the
+  log turn into "(apps no longer installed)" (=ui/home/LogView.kt=). The banner does say Kolahal
+  isn't the home app; these lines should say that is why.
+- The words differ: "Private profile: paused / on", "is paused · Tap to resume it", "the private
+  profile's PIN" in the commands, against "private space", "locked / unlocked" in the guide and in
+  the dialog. Typed suggestions show the badge and the =[S]= tag together, though the guide says the
+  tag is left out where the icon shows.
+- Not checked: a widget of a private app (Android listed no widget providers for the space).
+- Remark:
+
 ** TODO [#C] Three shader loaders set their result from the IO thread  :shaders:tests:
 - =ui/tty/TtyShader.kt=: =rememberShaderMeta=, =previewLayer= with =rememberPeekShader=, and =stillLayer=
   set a Compose state from =Dispatchers.IO=. =produceIo= in =ui/GuiComponents.kt= did the same until
