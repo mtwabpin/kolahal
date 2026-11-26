@@ -466,9 +466,11 @@ internal fun WidgetsTitleRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        // No padding at the end: the pencil's own touch area (12 dp beside its icon) is the margin,
+        // so its icon ends 12 dp from the edge, as the title starts 12 dp from the other.
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
+            .padding(start = 12.dp)
     ) {
         Text(
             title,
