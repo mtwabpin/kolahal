@@ -1,0 +1,4 @@
+What's new:
+• Lock the screen from Kolahal: the lock command, a double-tap or the Lock screen quick action. It uses an accessibility service that only locks the screen; Kolahal explains it and asks first.
+• A locked private space shows nothing of what is in it.
+• Fixed: typing an app's name opens the copy you can use, not one in a locked private space.
