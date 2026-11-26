@@ -33,8 +33,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -84,6 +86,7 @@ import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.navigationBarScrim
 import com.mtwabpin.kolahal.ui.theme.segColors
 import com.mtwabpin.kolahal.ui.theme.segShapes
+import com.mtwabpin.kolahal.widgets.ArrangeUndo
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -163,7 +166,9 @@ internal fun keepsEmptyPages(next: Screen): Boolean =
  * - The toolbar of one of Kolahal's own widgets has Settings, which opens its settings page
  *   ([WidgetSettingsScreen]): its options, color, shape and what shows. An app's widget's toolbar
  *   has Widget settings when its setup can run again ([onSettings]).
- * - The top bar has Close gaps and Add widget. A screen reader has actions on each widget: move it,
+ * - The top bar has Close gaps and Add widget. After Close gaps, a drop that moved a widget and a
+ *   resize, the snackbar offers Undo, which puts the page back as it was ([ArrangeUndo]).
+ * - A screen reader has actions on each widget: move it,
  *   resize it, the toolbar's Settings or Widget settings, remove it.
  * - Under the title, a tab for each widgets page and + for another ([PageTabs]). The screen arranges
  *   the tab's page, and opens on the page the person came from ([WidgetHost.addTo]) or on the page
@@ -289,9 +294,18 @@ fun WidgetsScreen(
         }
     }
 
+    // Each app widget's profile: paused or locked, and its kind. Android is asked only for a profile
+    // the list misses, which may be a private space it hides while it is locked.
+    val pausedKinds = remember(profiles, placed) {
+        all.filter { it.source == null }.associate { it.key to profiles.pausedKind(it.profileSerial, widgets::isLockedPrivate) }
+    }
+    val kinds = remember(profiles, placed) {
+        all.filter { it.source == null }.associate { it.key to profiles.kindOf(it.profileSerial, widgets::isLockedPrivate) }
+    }
+
     // A locked private space hides its apps: its widget is named by what the page says of it, not by its app.
     fun lockedPrivate(w: PlacedWidget): Boolean =
-        w.source == null && profiles.pausedKind(w.profileSerial) == ProfileKind.PRIVATE
+        w.source == null && pausedKinds[w.key] == ProfileKind.PRIVATE
 
     // What opens what the widget itself holds, for the toolbar and a screen reader:
     // - one of Kolahal's own widgets: its settings page, with its options (a script's), its list of
@@ -314,8 +328,10 @@ fun WidgetsScreen(
         }
     }
 
-    fun labelOf(w: PlacedWidget): String? =
-        if (lockedPrivate(w)) "Private space locked" else titles[w.key] ?: labels[w.key]
+    fun labelOf(w: PlacedWidget): String? = when {
+        lockedPrivate(w) -> "Private space locked"
+        else -> titles[w.key] ?: labels[w.key]
+    }
 
     // The widget held after a long-press, and the one whose handle is held. Neither outlives the screen.
     var dragged by remember { mutableStateOf<Dragged?>(null) }
@@ -323,6 +339,43 @@ fun WidgetsScreen(
     val chosen = panel.firstOrNull { it.key == selected }
     val page = rememberScrollState()
     val scope = rememberCoroutineScope()
+
+    // Undo after Close gaps, a drop that moved a widget, and a resize ([ArrangeUndo]): in the page's
+    // snackbar, for as long as Settings offers it after a reset. Only the last change goes back.
+    val undo = remember { ArrangeUndo() }
+
+    // A change that can't be taken back: an Undo still showing would take it back too, so it goes.
+    fun noUndo() {
+        undo.forget()
+        snackbar.currentSnackbarData?.takeIf { it.visuals.actionLabel == "Undo" }?.dismiss()
+    }
+
+    // The [change] to the widget [key] (null for Close gaps) is done; [before] is the page before it.
+    fun arranged(change: ArrangeUndo.Change, key: String?, before: List<PlacedWidget>) {
+        val now = widgets.widgets.value
+        val step = undo.record(change, key, before, now)
+        if (step == null) {
+            if (before != now) noUndo()
+            return
+        }
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val r = snackbar.showSnackbar(change.done, actionLabel = "Undo", duration = SnackbarDuration.Long)
+            if (r != SnackbarResult.ActionPerformed) undo.expire(step)
+            else if (undo.take(step)) {
+                widgets.putBack(step.before)
+                // A drag to the screen's edge may have taken the widget to another page: the screen goes back with it.
+                step.key?.let { k -> widgets.widgets.value.firstOrNull { it.key == k } }?.let { arranging = it.location }
+            }
+        }
+    }
+
+    // A resize from the toolbar: its size, a step of width or height, Square.
+    fun resized(key: String, change: () -> Unit) {
+        val before = widgets.widgets.value
+        change()
+        arranged(ArrangeUndo.Change.RESIZE, key, before)
+    }
 
     // A widget held at the screen's edge ([ArrangedPage]): it moves to the page [step] from this one,
     // and the screen shows that page while the drag goes on.
@@ -373,7 +426,11 @@ fun WidgetsScreen(
                             if (panel.isNotEmpty()) LabeledIconButton(
                                 R.drawable.ic_vertical_align_top,
                                 "Close gaps",
-                                onClick = { widgets.closeGaps(location) })
+                                onClick = {
+                                    val before = widgets.widgets.value
+                                    widgets.closeGaps(location)
+                                    arranged(ArrangeUndo.Change.CLOSE_GAPS, null, before)
+                                })
                             LabeledIconButton(
                                 R.drawable.ic_add,
                                 "Add widget",
@@ -434,10 +491,10 @@ fun WidgetsScreen(
                             val builtin = WidgetSource.builtinId(chosen.source)
                             chosen.look.drawnFor(chosenKind, builtin) == WidgetLook.SHAPE
                         },
-                        onSize = { widgets.setSize(chosen.key, it) },
-                        onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
-                        onWidth = { widgets.resizeWidth(chosen.key, it) },
-                        onSquare = { widgets.square(chosen.key) },
+                        onSize = { resized(chosen.key) { widgets.setSize(chosen.key, it) } },
+                        onHeight = { resized(chosen.key) { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) } },
+                        onWidth = { resized(chosen.key) { widgets.resizeWidth(chosen.key, it) } },
+                        onSquare = { resized(chosen.key) { widgets.square(chosen.key) } },
                         edit = editOf(chosen),
                         onRemove = { confirmRemove = chosen },
                         onDone = { selected = null },
@@ -450,6 +507,7 @@ fun WidgetsScreen(
                         onPage = { i ->
                             pages.getOrNull(i)?.location?.let { to ->
                                 widgets.moveToPage(chosen.key, to)
+                                noUndo()
                                 arranging = to
                             }
                         },
@@ -549,7 +607,7 @@ fun WidgetsScreen(
                         },
                         overRemove = { overRemove },
                         labelOf = { labelOf(it) ?: it.provider },
-                        profiles = { profiles.pausedKind(it.profileSerial) },
+                        profiles = { pausedKinds[it.key] },
                         feed = vm.widgetFeed,
                         providersVersion = providersVersion,
                         topRoom = padding.calculateTopPadding(),
@@ -561,6 +619,7 @@ fun WidgetsScreen(
                         // The scroll that brings the chosen card into view takes the top bar part of the way with
                         // it, and no drag ends there to settle the bar: its small title would stay half faded in
                         // over the large one. So the bar closes the rest of the way.
+                        onArranged = { change, key, before -> arranged(change, key, before) },
                         onBrought = {
                             val bar = scroll.state
                             if (bar.collapsedFraction > 0.01f && bar.collapsedFraction < 0.99f) {
@@ -588,6 +647,7 @@ fun WidgetsScreen(
                                 i,
                                 pending.size,
                                 providersVersion,
+                                kind = kinds[w.key],
                                 onReAdd = onReAdd,
                                 onDismiss = { widgets.remove(w.key) })
                         }
@@ -612,7 +672,7 @@ fun WidgetsScreen(
                 "Remove",
                 icon = R.drawable.ic_delete,
                 onDismiss = { confirmRemove = null },
-            ) { confirmRemove = null; selected = null; widgets.remove(w.key) }
+            ) { confirmRemove = null; selected = null; widgets.remove(w.key); noUndo() }
         }
 
         if (shortcutsEditor) ShortcutsEditor(vm) { shortcutsEditor = false }
@@ -686,12 +746,17 @@ private fun RemoveTarget(over: Boolean, modifier: Modifier, onPlaced: (Rect) -> 
     }
 }
 
+/**
+ * A widget restored from a backup, to add again in one tap. Its package and name show only where
+ * [kind], its profile's kind ([kindOf]), allows it ([namesApp]); else [pendingTitle] says what holds it.
+ */
 @Composable
 private fun PendingRow(
     w: PlacedWidget,
     index: Int,
     count: Int,
     providersVersion: Int,
+    kind: ProfileKind?,
     onReAdd: (ProviderEntry, PlacedWidget) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -701,6 +766,7 @@ private fun PendingRow(
         value = withContext(Dispatchers.IO) { widgets.findProvider(w.provider, w.profileSerial) }
     }
     val found = entry
+    val names = namesApp(kind)
     // Loading a label reads the other app's resources: off the main thread, once per provider.
     val label by produceState(w.provider.substringAfterLast('.'), found) {
         found?.let { f ->
@@ -718,13 +784,15 @@ private fun PendingRow(
                 tint = MaterialTheme.colorScheme.primary
             )
         },
-        overlineContent = {
-            Text(
-                w.packageName,
-                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        overlineContent = if (!names) null else {
+            {
+                Text(
+                    w.packageName,
+                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         },
         supportingContent = {
             Text(
@@ -744,5 +812,5 @@ private fun PendingRow(
                 LabeledIconButton(R.drawable.ic_delete, "Forget", onClick = onDismiss)
             }
         },
-    ) { Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+    ) { Text(pendingTitle(label, kind), maxLines = 2, overflow = TextOverflow.Ellipsis) }
 }

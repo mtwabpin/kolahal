@@ -676,6 +676,13 @@ class WidgetHost private constructor(context: Context) {
     fun closeGaps(location: String = WidgetLocation.PANEL) =
         update { WidgetPlacement.closeGaps(it, location) }
 
+    /**
+     * Puts every widget still placed back where [before] had it, at its size then: Undo in Arrange
+     * widgets ([ArrangeUndo.restored]). An app's widget is told its size again by its view.
+     */
+    fun putBack(before: List<PlacedWidget>) =
+        update { ArrangeUndo.restored(it, before) }
+
     // ---- pages ----------------------------------------------------------------------------
 
     /**

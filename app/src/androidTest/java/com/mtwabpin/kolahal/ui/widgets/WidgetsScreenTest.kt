@@ -45,6 +45,8 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitFor
+import com.mtwabpin.kolahal.waitForText
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.TestWidgets
@@ -489,6 +491,118 @@ class WidgetsScreenTest {
         assertFalse(listOf(personal.copy(quiet = true)).isRunning(serial))
         assertFalse("not listed", listOf(personal).isRunning(serial + 1))
         assertFalse("not read yet", emptyList<Profile>().isRunning(serial))
+    }
+
+    /**
+     * A widget's profile: paused or locked ([pausedKind]) and its kind ([kindOf]) as listed. A profile
+     * the list misses is a locked private space only when Android says so (`lockedPrivate`, asked of
+     * [com.mtwabpin.kolahal.widgets.WidgetHost.isLockedPrivate]), and only then is Android asked.
+     */
+    @Test
+    fun aProfileTheListMissesIsAskedOfAndroid() {
+        val me = Process.myUserHandle()
+        val serial = app.getSystemService(UserManager::class.java).getSerialNumberForUser(me)
+        val personal = Profile(me, serial, ProfileKind.PERSONAL, quiet = false)
+        val space = Profile(me, serial + 7, ProfileKind.PRIVATE, quiet = true)
+        val asked = mutableListOf<Long>()
+        val hidden: (Long) -> Boolean = { asked += it; it == serial + 9 }
+        val listed = listOf(personal, space)
+        assertEquals(null, listed.pausedKind(serial, hidden))
+        assertEquals(ProfileKind.PRIVATE, listed.pausedKind(serial + 7, hidden))
+        assertEquals(ProfileKind.WORK, listOf(personal.copy(kind = ProfileKind.WORK, quiet = true)).pausedKind(serial, hidden))
+        assertTrue("Android isn't asked for a listed profile", asked.isEmpty())
+        assertEquals("hidden while locked", ProfileKind.PRIVATE, listed.pausedKind(serial + 9, hidden))
+        assertEquals(null, listed.pausedKind(serial + 8, hidden))
+        assertEquals(ProfileKind.PERSONAL, listed.kindOf(serial, hidden))
+        assertEquals(ProfileKind.PRIVATE, listed.kindOf(serial + 9, hidden))
+        assertEquals("can't be found", null, listed.kindOf(serial + 8, hidden))
+        // The widget's name then: none in a hidden private space; kept where the profile can't be found.
+        assertFalse(namesApp(listed.kindOf(serial + 9, hidden)))
+        assertTrue(namesApp(listed.kindOf(serial + 8, hidden)))
+    }
+
+    /**
+     * A row under "Restored from backup" whose profile is a private space shows neither the app's
+     * package nor its name, and still adds the widget again in one tap.
+     */
+    @Test
+    fun aRestoredPrivateSpaceWidgetIsNotNamed() {
+        val clock = t.clocks().first()
+        val repo = com.mtwabpin.kolahal.apps.AppRepository.get(app)
+        val listed = repo.profiles.value.ifEmpty {
+            listOf(Profile(Process.myUserHandle(), clock.serial, ProfileKind.PERSONAL, quiet = false))
+        }
+        val space = Profile(Process.myUserHandle(), 4247, ProfileKind.PRIVATE, quiet = true)
+        try {
+            repo.standInForTests(emptyList(), listed + space)
+            t.restore(clock.flat, 4247, height = 160)
+            show()
+            compose.onNodeWithText("Restored from backup").performScrollTo()
+            compose.waitForText("Private space widget")
+            compose.onNodeWithText(t.label(clock)).assertDoesNotExist()
+            compose.onAllNodesWithText(clock.packageName, substring = true).assertCountEquals(0)
+            compose.onNodeWithText("Add again").assertIsEnabled()
+        } finally {
+            repo.standInForTests(null)
+        }
+    }
+
+    /**
+     * A row whose profile isn't on this phone (a work profile on the phone the backup came from, say)
+     * keeps its package and name: Android doesn't know the profile, so nothing says it was a private space.
+     */
+    @Test
+    fun aRestoredWidgetOfAProfileNotHereKeepsItsName() {
+        val clock = t.clocks().first()
+        t.restore(clock.flat, 4249, height = 160)
+        show()
+        compose.onNodeWithText("Restored from backup").performScrollTo()
+        compose.waitForText(t.label(clock))
+        compose.onAllNodesWithText(clock.packageName, substring = true).assertCountEquals(1)
+        compose.onNodeWithText("Private space widget").assertDoesNotExist()
+    }
+
+    /** After Close gaps the snackbar offers Undo, which puts every widget back where it was. */
+    @Test
+    fun undoAfterCloseGapsPutsThePageBack() {
+        val (w, _) = placeBuiltin(WidgetSource.BATTERY)
+        val (o, _) = placeBuiltin(WidgetSource.TODOS)
+        widgets.moveTo(w.key, 0, 0)
+        widgets.moveTo(o.key, 6, t.get(w.key)!!.heightDp + 200)
+        show()
+        val before = panel().map { it.key to it.topDp }
+        compose.onNodeWithContentDescription("Close gaps").performClick()
+        compose.waitForText("Gaps closed")
+        assertNotEquals(before, panel().map { it.key to it.topDp })
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitFor("Undo didn't put the page back") { panel().map { it.key to it.topDp } == before }
+        compose.onNodeWithText("Gaps closed").assertDoesNotExist()
+    }
+
+    /**
+     * After a drop that moved a widget the snackbar offers Undo: the widget, and the ones it pushed,
+     * go back. A second change takes the first one's place: only it goes back.
+     */
+    @Test
+    fun undoAfterAMoveTakesBackThatMoveOnly() {
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        // A gap above it, for Close gaps to close.
+        widgets.moveTo(w.key, 0, 200)
+        show()
+        compose.onNodeWithContentDescription("Close gaps").performClick()
+        compose.waitForText("Gaps closed")
+        val packed = panel().map { it.key to (it.column to it.topDp) }
+        card(label).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            repeat(10) { moveBy(Offset(width / 10f, 0f)) }
+            up()
+        }
+        compose.waitForText("Widget moved")
+        assertEquals(6, t.get(w.key)!!.column)
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitFor("Undo didn't move the widget back") { t.get(w.key)!!.column == 0 }
+        assertEquals(packed, panel().map { it.key to (it.column to it.topDp) })
     }
 
     /** Close gaps moves every widget up as far as it goes. */

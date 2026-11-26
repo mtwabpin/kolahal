@@ -84,9 +84,44 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-/** Returns the kind of the profile with [serial] if it is paused/locked, else null. A paused/locked profile's widget shows a placeholder instead. */
-internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? =
-    firstOrNull { it.serial == serial }?.takeIf { it.quiet }?.kind
+/**
+ * Returns the kind of the profile with [serial] if it is paused/locked, else null. A paused/locked
+ * profile's widget shows a placeholder instead. A private space that Android hides while it is
+ * locked isn't listed: for a profile the list misses, [lockedPrivate] asks Android
+ * ([WidgetHost.isLockedPrivate]).
+ */
+internal fun List<Profile>.pausedKind(serial: Long, lockedPrivate: (Long) -> Boolean): ProfileKind? {
+    val p = firstOrNull { it.serial == serial }
+        ?: return ProfileKind.PRIVATE.takeIf { lockedPrivate(serial) }
+    return p.kind.takeIf { p.quiet }
+}
+
+/**
+ * The kind of the profile with [serial]: as listed, else a private space when [lockedPrivate] says
+ * it is one Android hides while it is locked. Null when it can't be found.
+ */
+internal fun List<Profile>.kindOf(serial: Long, lockedPrivate: (Long) -> Boolean): ProfileKind? =
+    firstOrNull { it.serial == serial }?.kind ?: ProfileKind.PRIVATE.takeIf { lockedPrivate(serial) }
+
+/**
+ * Whether what stands for an app's widget names the app (its package, class or label), by its
+ * profile's [kind] ([kindOf]): not in a private space, whether listed or hidden while it is locked.
+ * A profile that can't be found (null), such as a work profile not on this phone, keeps the name.
+ */
+internal fun namesApp(kind: ProfileKind?): Boolean = kind != ProfileKind.PRIVATE
+
+/** The widgets page's line for an app's widget that can't show: "[why]", then its package when it [names] the app. */
+internal fun placeholderLine(why: String, packageName: String, names: Boolean): String =
+    if (names) "[$why] $packageName" else "[$why]"
+
+/**
+ * What a row under "Restored from backup" calls its widget, by its profile's [kind] ([kindOf]): the
+ * provider's [label], or "Private space widget" where it doesn't name the app ([namesApp]).
+ */
+internal fun pendingTitle(label: String, kind: ProfileKind?): String = when {
+    namesApp(kind) -> label
+    else -> "Private space widget"
+}
 
 /**
  * True when the profile with [serial] is listed and neither paused nor locked. A private space that
@@ -414,7 +449,9 @@ private fun WidgetPanelContent(
                                 vm.widgetFeed
                             )
                             else {
-                                val paused = profiles.pausedKind(w.profileSerial)
+                                // Android is asked only for a profile the list misses.
+                                val kind = remember(profiles, w.profileSerial) { profiles.kindOf(w.profileSerial, widgets::isLockedPrivate) }
+                                val paused = remember(profiles, w.profileSerial) { profiles.pausedKind(w.profileSerial, widgets::isLockedPrivate) }
                                 val haptics = LocalHapticFeedback.current
                                 HostedWidget(
                                     w = w,
@@ -422,11 +459,12 @@ private fun WidgetPanelContent(
                                     pausedKind = paused,
                                     onLongPress = arrange,
                                 ) { why ->
-                                    // A locked private space hides its apps: its widget doesn't name one.
+                                    // A private space hides its apps: its widget doesn't name one, also
+                                    // where Android hides the space while it is locked ([namesApp]).
                                     // A long-press opens Arrange widgets, as on a card: the only way there
                                     // when the page has no title row. A tap does nothing.
                                     Text(
-                                        if (paused == ProfileKind.PRIVATE) "[$why]" else "[$why] ${w.packageName}",
+                                        placeholderLine(why, w.packageName, namesApp(kind)),
                                         style = Term.text.copy(color = Term.dim),
                                         modifier = Modifier
                                             .fillMaxWidth()

@@ -18,6 +18,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitForText
 import com.mtwabpin.kolahal.widgets.KolahalWidgetView
 import com.mtwabpin.kolahal.widgets.TestWidgets
 import org.junit.After
@@ -68,6 +69,8 @@ class WidgetPanelTest {
         val id = widgets.allocate()
         widgets.place(id, clock.info)
         val vm = show()
+        // Named once the profiles are read: its profile is listed, and not a private space.
+        compose.waitForText("[${WidgetWords.UNAVAILABLE}] ${clock.packageName}")
         val line = compose.onNodeWithText("[${WidgetWords.UNAVAILABLE}] ${clock.packageName}")
         line.performScrollTo()
         line.assert(SemanticsMatcher("long-click label \"arrange widgets\"") {

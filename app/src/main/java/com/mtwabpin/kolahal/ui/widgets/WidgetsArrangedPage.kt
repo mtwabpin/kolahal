@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.terminal.WidgetFeed
+import com.mtwabpin.kolahal.widgets.ArrangeUndo
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetDrag
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -118,6 +119,8 @@ private data class Drop(val w: PlacedWidget, val column: Int, val topDp: Int)
  *   as in its toolbar) and Remove.
  * - The chosen widget is scrolled into view, clear of the bars ([topRoom], [bottomRoom]), when it is
  *   chosen, when the screen comes back to it, and each time it moves or changes size. [onBrought] runs after.
+ * - After a drop that moved a widget, and after a handle drag, [onArranged] gets the widgets as they
+ *   were before, for Undo ([ArrangeUndo]).
  * - With [onEdge] (more than one page), a widget held at the screen's start or end edge asks for the
  *   page before or after, one each [EDGE_HOLD_MS] while it stays there. [onEdge] moves it there and
  *   shows that page; the drag goes on, and the widget lands where it is let go.
@@ -146,6 +149,7 @@ internal fun ArrangedPage(
     editOf: (PlacedWidget) -> ToolbarEdit?,
     onEdge: ((key: String, step: Int) -> Unit)? = null,
     onBrought: suspend () -> Unit = {},
+    onArranged: (change: ArrangeUndo.Change, key: String, before: List<PlacedWidget>) -> Unit = { _, _, _ -> },
 ) {
     val density = LocalDensity.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -258,6 +262,7 @@ internal fun ArrangedPage(
     val latestGrid by rememberUpdatedState(grid)
     val latestDropAt by rememberUpdatedState { d: Dragged, w: PlacedWidget -> dropAt(d, w, grid) }
     val latestSelected by rememberUpdatedState(selected)
+    val latestArranged by rememberUpdatedState(onArranged)
     val touch = with(density) { 48.dp.toPx() }
     val guides = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
     val screenPx = LocalWindowInfo.current.containerSize.height.toFloat()
@@ -287,6 +292,7 @@ internal fun ArrangedPage(
                     if (chosenNow != null && handle != null) {
                         down.consume()
                         onResize(chosenNow.key)
+                        val before = widgets.widgets.value
                         widgets.startResize()
                         try {
                             val minSpan = widgets.minSpanOf(chosenNow)
@@ -320,6 +326,7 @@ internal fun ArrangedPage(
                             }
                         } finally {
                             widgets.endResize()
+                            latestArranged(ArrangeUndo.Change.RESIZE, chosenNow.key, before)
                             onResize(null)
                         }
                         return@awaitEachGesture
@@ -349,6 +356,8 @@ internal fun ArrangedPage(
                         page.value
                     )
                     d.window = coords?.localToWindow(down.position) ?: Offset.Zero
+                    // The page as it was, for Undo: the drag may have taken the widget to another page too.
+                    val before = widgets.widgets.value
                     onDrag(d)
                     var dropped = false
                     try {
@@ -372,6 +381,7 @@ internal fun ArrangedPage(
                             } else {
                                 val p = latestDropAt(d, w)
                                 widgets.moveTo(w.key, p.column, p.topDp)
+                                latestArranged(ArrangeUndo.Change.MOVE, w.key, before)
                             }
                             onSelect(w.key)
                         }
