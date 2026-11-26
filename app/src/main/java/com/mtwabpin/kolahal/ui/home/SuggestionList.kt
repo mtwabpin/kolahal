@@ -48,10 +48,15 @@ import com.mtwabpin.kolahal.ui.theme.Term
 /** Matches a profile tag at the end of a completion's label (`Maps [W]`), the same tag app rows show. */
 private val LABEL_TAG = Regex(" \\[([PWSC])]$")
 
-/** Returns [label] with its trailing profile tag drawn small, bold and in the profile's color, like app rows draw it. */
+/**
+ * Returns [label] with its trailing profile tag drawn small, bold and in the profile's color, like app
+ * rows draw it. [badged]: the app's icon shows beside it, whose badge marks the profile: no tag then.
+ */
 @Composable
-private fun taggedLabel(label: String): androidx.compose.ui.text.AnnotatedString {
+private fun taggedLabel(label: String, badged: Boolean = false): androidx.compose.ui.text.AnnotatedString {
     val tag = androidx.compose.runtime.remember(label) { LABEL_TAG.find(label) }
+        // A personal copy has no badge: its [P] stays.
+        ?.also { if (badged && it.groupValues[1] != ProfileKind.PERSONAL.tag) return androidx.compose.ui.text.AnnotatedString(label.substring(0, it.range.first)) }
         ?: return androidx.compose.ui.text.AnnotatedString(label)
     val kind = ProfileKind.entries.first { it.tag == tag.groupValues[1] }
     val color = Term.profileColor(kind)
@@ -169,10 +174,11 @@ private fun SuggestionRow(
                 // The profile tag goes after the name, so all names start in the same column.
                 val fontSize = Term.fontSize
                 Text(
-                    androidx.compose.runtime.remember(s.label, kind, color, fontSize) {
+                    // With the icon, its badge marks the profile, and the tag is left out (as in the selector).
+                    androidx.compose.runtime.remember(s.label, kind, color, fontSize, icons) {
                         androidx.compose.ui.text.buildAnnotatedString {
                             append(s.label)
-                            if (kind != ProfileKind.PERSONAL) {
+                            if (kind != ProfileKind.PERSONAL && !icons) {
                                 withStyle(
                                     androidx.compose.ui.text.SpanStyle(
                                         color = color,
@@ -231,7 +237,7 @@ private fun SuggestionRow(
                     )
                 } else {
                     Text(
-                        taggedLabel(s.label),
+                        taggedLabel(s.label, badged = icons && s.app != null),
                         style = Term.text.copy(
                             color = Term.fg,
                             fontWeight = if (first) FontWeight.Bold else FontWeight.Normal
@@ -373,11 +379,11 @@ private fun SuggestionChip(s: Suggestion, onPick: (Suggestion) -> Unit, icons: B
                 )
             }
             Text(
-                taggedLabel(s.label),
+                taggedLabel(s.label, badged = icons && (s as? Suggestion.Completion)?.app != null),
                 style = Term.text.copy(color = if (s is Suggestion.App) Term.fg else Term.dim)
             )
             // The profile tag goes after the name, as in the log.
-            if (tag != null && tag != ProfileKind.PERSONAL.tag) {
+            if (tag != null && tag != ProfileKind.PERSONAL.tag && !icons) {
                 Spacer(Modifier.width(6.dp))
                 Text(
                     tag,

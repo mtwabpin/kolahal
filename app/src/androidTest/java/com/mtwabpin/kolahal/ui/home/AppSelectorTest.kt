@@ -342,7 +342,7 @@ class AppSelectorTest {
         }
         row("Maps").assert(hasContentDescription("Maps, work"))
         row("Mail").assert(hasContentDescription("Mail, work, paused"))
-        row("Photos").assert(hasContentDescription("Photos, private"))
+        row("Photos").assert(hasContentDescription("Photos, private space"))
     }
 
     /** Without icons, a work or private app's row has its tag, and a screen reader still hears the profile. */
@@ -355,7 +355,7 @@ class AppSelectorTest {
         assertTrue("Photos: ${rowTexts("Photos")}", "[S]" in rowTexts("Photos"))
         row("Maps").assert(hasContentDescription("Maps, work"))
         row("Mail").assert(hasContentDescription("Mail, work, paused"))
-        row("Photos").assert(hasContentDescription("Photos, private"))
+        row("Photos").assert(hasContentDescription("Photos, private space"))
     }
 
     /** Plan B: holding still while picking launches the app once its row has filled, without lifting. */

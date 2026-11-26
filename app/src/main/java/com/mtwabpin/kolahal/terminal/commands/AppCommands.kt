@@ -8,7 +8,9 @@ import android.os.Build
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.PrivateSpace
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.apps.ProfileWords
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -21,7 +23,7 @@ import java.util.Date
  * - listing, opening and launching apps and their shortcuts;
  * - opening any activity of an app (`activity`, in [ActivityCommands]);
  * - pins, hiding and renaming;
- * - work and private profiles;
+ * - the work profile and the private space;
  * - screen time and install history.
  *
  * [CommandProcessor] also launches apps through this class when the typed text names an app.
@@ -183,37 +185,82 @@ class AppCommands(
             else -> null
         }
         val showHidden = "-a" in args || "hidden" in args
+        // A locked private space lists none of its apps (PrivateSpace): asked for alone, it says it is
+        // locked, or that Kolahal can't see it while it isn't the home app.
+        if (kind != null) apps.profiles.value.firstOrNull { it.kind == kind }.let { profile ->
+            if (profile == null && kind == ProfileKind.PRIVATE) return noProfile(kind)
+            if (profile != null && PrivateSpace.locked(profile)) return offLine(profile)
+        }
         val list = apps.apps.value.filter {
             (kind == null || it.profile.kind == kind) && (if ("hidden" in args) it.hidden else showHidden || !it.hidden)
         }
-        if (list.isEmpty()) {
-            info("No apps" + (kind?.let { " in ${it.label} profile" } ?: ""))
+        // In the place of its heading and apps, one line: it is locked, and a tap unlocks it. None
+        // while Android hides the space when it is locked.
+        val locked = apps.profiles.value.firstOrNull { PrivateSpace.locked(it) && PrivateSpace.shows(it) }
+            ?.takeIf { kind == null && "hidden" !in args }
+        if (list.isEmpty() && locked == null) {
+            info(kind?.let(ProfileMessages::noApps) ?: "No apps")
             return
         }
-        val kinds = list.map { it.profile.kind }.distinct().sortedBy { it.ordinal }
+        val kinds = (list.map { it.profile.kind } + listOfNotNull(locked?.kind)).distinct().sortedBy { it.ordinal }
         // One profile: a line counts its apps. Several: each has a divider with its count, so an
-        // app and its work copy are not mixed together.
-        if (kinds.size == 1) info(AppListing.count(list.size, kind, hidden = "hidden" in args))
+        // app and its work copy are not mixed together. The private space's lines are marked with
+        // it, so they hide while it is locked.
+        if (kinds.size == 1 && list.isNotEmpty()) info(AppListing.count(list.size, kind, hidden = "hidden" in args), spaceOf(list))
         // A grid shows the pinned and most-used apps first, then "+N more" ([AppListing.firstShown]).
         val cells = AppListing.rows(kinds.size) * AppListing.COLUMNS
         val pins = prefs.pinned().withIndex().associate { (i, key) -> key to i }
         val now = System.currentTimeMillis()
         for (k in kinds) {
+            if (k == locked?.kind) {
+                offLine(locked)
+                continue
+            }
             val group = list.filter { it.profile.kind == k }
-            if (kinds.size > 1) info(AppListing.divider(k, group.size), LogContext(LogContext.ITEM))
+            if (kinds.size > 1) info(AppListing.divider(k, group.size), LogContext(LogContext.ITEM) + spaceOf(group).values)
             if ("-l" in args) group.forEach { out(appLine(it), appContext(it)) }
             else appGrid(group, AppListing.firstShown(group, cells, { pins[it.key] }, { prefs.frecency(it.key, now) }))
         }
     }
 
+    /** A line's context that marks it as the private space's when all of [list] is in one, so it hides while that is locked. */
+    private fun spaceOf(list: List<AppEntry>): LogContext =
+        list.map { it.profile }.distinct().singleOrNull()?.takeIf { it.kind == ProfileKind.PRIVATE }
+            ?.let { LogContext.of(LogContext.USER to it.serial.toString()) } ?: LogContext.EMPTY
+
+    /** [profile] is paused or locked: the line says so, and its tap turns it on (`private on`). */
+    private fun offLine(profile: com.mtwabpin.kolahal.apps.Profile) =
+        info(ProfileMessages.off(profile.kind), LogContext.of(LogContext.RUN to ProfileMessages.onCommand(profile.kind)))
+
+    /** No profile of [kind]: perhaps because Android hides the private space from Kolahal, which isn't the home app. */
+    private fun noProfile(kind: ProfileKind) {
+        val hidden = kind == ProfileKind.PRIVATE && apps.privateHidden()
+        info(ProfileMessages.none(kind, hidden), if (hidden) copying("home") else LogContext.EMPTY)
+    }
+
     private fun resolveApp(args: List<String>, includeHidden: Boolean = false): List<AppEntry> =
         apps.search(CommandParsing.withoutFlags(args), ProfileKind.fromFlags(args), includeHidden)
+
+    /**
+     * No app matches [name]. Asked for in the private space ([kind]), that may be why: it is locked
+     * (its apps aren't searched), or hidden from Kolahal. Otherwise, as for any name: no app matches.
+     */
+    private fun noMatch(name: String, kind: ProfileKind?) {
+        if (kind == ProfileKind.PRIVATE) {
+            val space = apps.profiles.value.firstOrNull { it.kind == ProfileKind.PRIVATE }
+            if (space == null && apps.privateHidden()) return noProfile(ProfileKind.PRIVATE)
+            if (space != null && PrivateSpace.locked(space)) return offLine(space)
+        }
+        error("No app matches '$name'")
+    }
+
+    private fun noMatch(args: List<String>) = noMatch(CommandParsing.withoutFlags(args), ProfileKind.fromFlags(args))
 
     /** Runs [action] on the best match for [args] (an app name and profile flags). If nothing matches, prints an error. */
     fun withApp(args: List<String>, includeHidden: Boolean = false, action: (AppEntry) -> Unit) {
         val matches = resolveApp(args, includeHidden)
         when {
-            matches.isEmpty() -> error("No app matches '${CommandParsing.withoutFlags(args)}'")
+            matches.isEmpty() -> noMatch(args)
             else -> action(matches.first())
         }
     }
@@ -228,7 +275,7 @@ class AppCommands(
         action: (AppEntry) -> Unit
     ) {
         val matches = resolveApp(args, includeHidden = true)
-        if (matches.isEmpty()) return error("No app matches '${CommandParsing.withoutFlags(args)}'")
+        if (matches.isEmpty()) return noMatch(args)
         action(matches.firstOrNull(can) ?: matches.first())
     }
 
@@ -241,7 +288,9 @@ class AppCommands(
         ) {
             val app =
                 apps.search(joined.substringBefore(':'), ProfileKind.fromFlags(args)).firstOrNull()
-                    ?: return error("No app matches '${joined.substringBefore(':')}'")
+                    ?: return noMatch(joined.substringBefore(':'), ProfileKind.fromFlags(args))
+            // A paused work profile's app has its shortcuts, but Android gives none while it is off.
+            if (app.profile.quiet) return offLine(app.profile)
             val wanted = joined.substringAfter(':').trim().lowercase()
             val shortcut = apps.shortcuts(app).minByOrNull { s ->
                 val label = (s.shortLabel ?: s.longLabel ?: "").toString().lowercase()
@@ -264,7 +313,21 @@ class AppCommands(
         }
         val matches = resolveApp(args)
         if (matches.isEmpty()) {
-            error("No app matches '${CommandParsing.withoutFlags(args)}'")
+            // `open maps -s` while the private space is locked: its apps aren't searched, so the line
+            // offers to unlock it first, then to open what was asked (an alias for a private app).
+            val space = apps.profiles.value.firstOrNull { it.kind == ProfileKind.PRIVATE }
+                ?.takeIf { PrivateSpace.locked(it) && ProfileKind.fromFlags(args) == ProfileKind.PRIVATE }
+            when {
+                space == null -> noMatch(args)
+                "--resume" in args -> resumeThen(space) {
+                    resolveApp(args).firstOrNull()?.let(::launch) ?: noMatch(args)
+                }
+
+                else -> info(
+                    ProfileMessages.offOpen(space.kind, joined),
+                    LogContext.of(LogContext.RUN to "open $joined ${space.kind.flag} --resume"),
+                )
+            }
             return
         }
         val app = matches.first()
@@ -277,7 +340,7 @@ class AppCommands(
             val flag = app.profile.kind.flag
             logs.add(
                 LogKind.INFO,
-                "${app.profile.kind.title} profile is paused\nTap to resume it and open ${app.label}",
+                ProfileMessages.offOpen(app.profile.kind, app.label),
                 ctx = LogContext.of(LogContext.RUN to "open ${app.label} $flag --resume"),
             )
             return
@@ -295,35 +358,40 @@ class AppCommands(
     }
 
     /** Turns the paused profile back on, waits until it is available, then opens [app]. */
-    fun resumeAndLaunch(app: AppEntry) {
-        val result = apps.setQuietMode(app.profile, false)
+    fun resumeAndLaunch(app: AppEntry) = resumeThen(app.profile) {
+        launch(apps.find(app.pkg, app.component.className, app.profile.serial) ?: app)
+    }
+
+    /** Turns [profile] back on (resumes or unlocks it), waits until it is available, then runs [then]. */
+    private fun resumeThen(profile: com.mtwabpin.kolahal.apps.Profile, then: () -> Unit) {
+        val kind = profile.kind
+        val result = apps.setQuietMode(profile, false)
         if (result == com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED) {
-            error("Couldn't resume the ${app.profile.kind.label} profile\n$NOT_HOME", copying("home"))
+            error(ProfileMessages.refused(kind, on = true), copying("home"))
             return
         }
         // With a PIN, Android asks for it first: there is more time to type it.
         val pin = result == com.mtwabpin.kolahal.apps.ProfileQuiet.Result.NEEDS_PIN
-        info(if (pin) "Enter the ${app.profile.kind.label} profile's PIN to resume it…" else "Resuming ${app.profile.kind.label} profile…")
+        info(if (pin) ProfileMessages.needsLock(kind) else ProfileMessages.changing(kind, on = true))
         background("resume") {
             val deadline = System.currentTimeMillis() + if (pin) 60_000 else 20_000
             while (System.currentTimeMillis() < deadline) {
                 apps.refresh()
                 Thread.sleep(500)
-                val profile = apps.profileBySerial(app.profile.serial)
-                if (profile != null && !profile.quiet) {
-                    val fresh =
-                        apps.find(app.pkg, app.component.className, app.profile.serial) ?: app
-                    launch(fresh)
+                val now = apps.profileBySerial(profile.serial)
+                if (now != null && !now.quiet) {
+                    then()
                     return@background
                 }
             }
-            error("${app.profile.kind.title} profile didn't resume in time\nTry again")
+            error(ProfileMessages.late(kind))
         }
     }
 
     /**
      * Prints one log line shown as tappable app chips. Long-press a chip for its actions. [first]:
-     * the places in [list] of the apps it shows until "+N more" opens it; null shows them all.
+     * the places in [list] of the apps it shows until "+N more" opens it; null shows them all. A
+     * grid of the private space's apps alone hides while it is locked.
      */
     fun appGrid(list: List<AppEntry>, first: List<Int>? = null) {
         val refs = list.map {
@@ -338,44 +406,43 @@ class AppCommands(
             LogContext.of(
                 LogContext.APPS to Json.stringify(refs),
                 LogContext.COPY to list.joinToString("\n") { appLine(it) }) +
-                    (first?.let { mapOf(LogContext.APPS_FIRST to it.joinToString(",")) } ?: emptyMap()),
+                    (first?.let { mapOf(LogContext.APPS_FIRST to it.joinToString(",")) } ?: emptyMap()) +
+                    spaceOf(list).values,
         )
     }
 
     private fun profileToggle(kind: ProfileKind, args: List<String>) {
-        val profile = apps.profiles.value.firstOrNull { it.kind == kind }
-        if (profile == null) {
-            info("No ${kind.label} profile on this device")
-            return
-        }
+        val profile = apps.profiles.value.firstOrNull { it.kind == kind } ?: return noProfile(kind)
         when (args.firstOrNull()) {
-            // On or paused as a tag, as toggles shows on and off.
+            // Locked or unlocked (paused or on) as a tag, as toggles shows on and off.
             null, "status" -> info(
-                "${kind.title} profile: " + if (profile.quiet) com.mtwabpin.kolahal.data.StyledText.tag(
+                ProfileMessages.statusName(kind) + if (profile.quiet) com.mtwabpin.kolahal.data.StyledText.tag(
                     com.mtwabpin.kolahal.data.StyledText.ColorRole.MUTED,
-                    "paused"
+                    ProfileWords.off(kind)
                 ) else com.mtwabpin.kolahal.data.StyledText.tag(
                     com.mtwabpin.kolahal.data.StyledText.ColorRole.GOOD,
-                    "on"
+                    ProfileWords.on(kind)
                 )
             )
 
             "on", "off" -> {
-                val quiet = args[0] == "off"
+                val on = args[0] == "on"
                 if (Build.VERSION.SDK_INT < 29) {
                     error("Toggling profiles needs Android 10+")
-                } else when (apps.setQuietMode(profile, quiet)) {
-                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.DONE -> info("${kind.title} profile turning ${args[0]}…")
-                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.NEEDS_PIN -> info("Enter the ${kind.label} profile's PIN to turn it on")
-                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED -> error("Couldn't change ${kind.label} profile\n$NOT_HOME", copying("home"))
+                } else when (apps.setQuietMode(profile, !on)) {
+                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.DONE -> info(ProfileMessages.changing(kind, on))
+                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.NEEDS_PIN -> info(ProfileMessages.needsLock(kind))
+                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED -> error(ProfileMessages.refused(kind, on), copying("home"))
                 }
             }
 
-            else -> error("Usage: ${kind.name.lowercase()} [on|off|status]")
+            else -> error("Usage: ${ProfileMessages.command(kind)} [on|off|status]")
         }
     }
 
     private fun listShortcuts(app: AppEntry) {
+        // Android gives no shortcuts of a paused or locked profile's app: say so, not "no shortcuts".
+        if (app.profile.quiet) return offLine(app.profile)
         val list = apps.shortcuts(app)
         if (list.isEmpty()) {
             return if (SetupChecks.isDefaultLauncher(context)) info("${app.label} has no shortcuts")
@@ -392,16 +459,10 @@ class AppCommands(
         }
     }
 
-    /** The profile's name with a capital first letter, for the start of a sentence. */
-    private val ProfileKind.title get() = label.replaceFirstChar { it.uppercase() }
-
     companion object {
         /** Where pinned apps show when no setting shows them. */
         private const val PINNED_NOWHERE =
             "Pinned apps come first on an empty prompt with 'config set suggestions.idle on'"
-
-        /** Why Android may refuse to pause or resume a profile, and the command that fixes it. */
-        private const val NOT_HOME = "Is Kolahal the default launcher?\n'home' chooses the default launcher"
 
         /** Commands handled by [run]. */
         val NAMES = setOf(

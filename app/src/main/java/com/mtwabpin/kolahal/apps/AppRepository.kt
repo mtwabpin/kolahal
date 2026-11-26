@@ -64,6 +64,11 @@ data class Profile(
     val kind: ProfileKind,
     /** True when the profile is paused ("work apps off") or the private space is locked. */
     val quiet: Boolean,
+    /**
+     * A private space only: Android's "Hide private space when it's locked" is on (Android 16+, read
+     * through [LauncherUserInfo.getUserConfig][android.content.pm.LauncherUserInfo.getUserConfig]).
+     */
+    val hiddenWhenLocked: Boolean = false,
 )
 
 @androidx.compose.runtime.Immutable
@@ -102,6 +107,13 @@ class AppRepository private constructor(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val prefs = AppPrefs.get(context)
 
+    /** Every app, those of a locked private space too: what [find] looks in. */
+    private val _all = MutableStateFlow<List<AppEntry>>(emptyList())
+
+    /**
+     * The apps that show: every list, the selector, the suggestions and the searches read these.
+     * A locked private space's apps aren't in it ([PrivateSpace.shown]).
+     */
     private val _apps = MutableStateFlow<List<AppEntry>>(emptyList())
     val apps: StateFlow<List<AppEntry>> = _apps.asStateFlow()
 
@@ -158,6 +170,9 @@ class AppRepository private constructor(private val context: Context) {
                 user: UserHandle,
                 replacing: Boolean
             ) = refreshSoon(names.asList())
+
+            // Android 16+: "Hide private space when it's locked" was turned on or off.
+            override fun onUserConfigChanged(info: android.content.pm.LauncherUserInfo) = refresh()
         })
         // This receiver stays registered between visits to home, and each of these events reloads the
         // list. App names depend on the language.
@@ -185,7 +200,12 @@ class AppRepository private constructor(private val context: Context) {
         // every app's name). Before, app names were "not found" and suggested nothing meanwhile.
         scope.launch {
             val kept = runCatching { saved() }.getOrDefault(emptyList())
-            if (kept.isNotEmpty()) synchronized(loadLock) { if (!loaded) _apps.value = kept }
+            if (kept.isNotEmpty()) synchronized(loadLock) {
+                if (!loaded) {
+                    _all.value = kept
+                    _apps.value = kept
+                }
+            }
         }
         refresh()
     }
@@ -219,7 +239,34 @@ class AppRepository private constructor(private val context: Context) {
         }
     }
 
+    /** Set while a test shows stand-in apps ([standInForTests]): a reload then waits. */
+    @Volatile
+    private var standIn = false
+
+    /**
+     * For device tests: shows [apps] and [profiles] as if Android had listed them, until called with
+     * null, which loads the real list again.
+     */
+    @androidx.annotation.VisibleForTesting
+    fun standInForTests(apps: List<AppEntry>?, profiles: List<Profile> = emptyList()) {
+        if (apps == null) {
+            standIn = false
+            refresh()
+            return
+        }
+        standIn = true
+        synchronized(loadLock) { show(sorted(apps), profiles) }
+    }
+
+    /** Shows [all] and its [profiles]: what lists show leaves a locked private space's apps out. */
+    private fun show(all: List<AppEntry>, profiles: List<Profile>) {
+        _profiles.value = profiles
+        _all.value = all
+        _apps.value = PrivateSpace.shown(all)
+    }
+
     private fun reload() {
+        if (standIn) return
         run {
             val profiles = loadProfiles()
             val apps = profiles.flatMap { profile ->
@@ -240,9 +287,9 @@ class AppRepository private constructor(private val context: Context) {
                     }
             }.let(::sorted)
             synchronized(loadLock) {
+                if (standIn) return
                 loaded = true
-                _profiles.value = profiles
-                _apps.value = apps
+                show(apps, profiles)
             }
             firstLoad.countDown()
             runCatching { save(apps) }
@@ -315,15 +362,48 @@ class AppRepository private constructor(private val context: Context) {
     private fun loadProfiles(): List<Profile> {
         val me = Process.myUserHandle()
         return launcherApps.profiles.map { user ->
+            val kind = kindOf(context, launcherApps, user, me)
             Profile(
                 user = user,
                 serial = userManager.getSerialNumberForUser(user),
-                kind = kindOf(context, launcherApps, user, me),
+                kind = kind,
                 quiet = user != me && runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(
                     false
                 ),
+                hiddenWhenLocked = kind == ProfileKind.PRIVATE && hiddenWhenLocked(user),
             )
         }.sortedBy { it.kind.ordinal }
+    }
+
+    /**
+     * Whether Android's "Hide private space when it's locked" is on for the private space [user].
+     * Android 16 gives it to the home app ([android.content.pm.LauncherUserInfo.getUserConfig]); the
+     * secure setting behind it can't be read by an app that isn't part of the system. False before.
+     */
+    @SuppressLint("NewApi")
+    private fun hiddenWhenLocked(user: UserHandle): Boolean = Build.VERSION.SDK_INT >= 36 && runCatching {
+        launcherApps.getLauncherUserInfo(user)?.userConfig
+            ?.getBoolean(android.content.pm.LauncherUserInfo.PRIVATE_SPACE_ENTRYPOINT_HIDDEN, false) == true
+    }.getOrDefault(false)
+
+    /**
+     * Whether Android hides the private space from Kolahal: from Android 15, only the home app sees
+     * it, and Kolahal isn't the home app.
+     */
+    fun privateHidden(): Boolean = Build.VERSION.SDK_INT >= 35 && runCatching {
+        !context.getSystemService(android.app.role.RoleManager::class.java)
+            .isRoleHeld(android.app.role.RoleManager.ROLE_HOME)
+    }.getOrDefault(false)
+
+    /** What an apps grid in the log says when none of the apps of [serials] (its chips' profiles) are found ([PrivateSpace.gridGone]). */
+    fun gridGone(serials: Collection<Long?>): String {
+        val profiles = _profiles.value
+        val known = profiles.mapTo(HashSet()) { it.serial }
+        return PrivateSpace.gridGone(
+            serials,
+            profiles.filter(PrivateSpace::locked).mapTo(HashSet()) { it.serial },
+            privateHidden(),
+        ) { it in known }
     }
 
     fun profileBySerial(serial: Long): Profile? =
@@ -338,7 +418,11 @@ class AppRepository private constructor(private val context: Context) {
             list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first()
         }
 
-    fun find(pkg: String, cls: String?, serial: Long?): AppEntry? = _apps.value.firstOrNull {
+    /**
+     * The app [pkg] (its activity [cls], in the profile [serial]), among all apps: an app of a locked
+     * private space too, so a line, a pinned key or a widget that points at one offers to unlock it.
+     */
+    fun find(pkg: String, cls: String?, serial: Long?): AppEntry? = _all.value.firstOrNull {
         it.pkg == pkg && (cls == null || it.component.className == cls) &&
                 (serial == null || it.profile.serial == serial)
     }
@@ -407,6 +491,7 @@ class AppRepository private constructor(private val context: Context) {
                     .thenBy { it.app.profile.kind.ordinal }
             )
             .map { it.app to it.tier }
+            .let { ranked -> onCopiesFirst(ranked, { it.lower }, { !it.profile.quiet }) }
     }
 
     /** Pinned apps (in pin order), then the visible apps with the highest frecency. For the idle suggestion strip. */
@@ -531,6 +616,27 @@ class AppRepository private constructor(private val context: Context) {
             var i = 0
             for (ch in s) if (i < q.length && ch == q[i]) i++
             return i == q.length
+        }
+
+        /**
+         * [ranked] with the copies of one app (the same [name]) that are on ([isOn]) before those
+         * whose profile is paused or locked, in the places the copies had. So Enter, the first
+         * suggestion and instant launch take the copy that can open, whichever was used last.
+         */
+        internal fun <A> onCopiesFirst(
+            ranked: List<Pair<A, Int>>,
+            name: (A) -> String,
+            isOn: (A) -> Boolean,
+        ): List<Pair<A, Int>> {
+            val groups = ranked.indices.groupBy { name(ranked[it].first) }.values
+                .filter { places -> places.size > 1 && places.any { isOn(ranked[it].first) } && places.any { !isOn(ranked[it].first) } }
+            if (groups.isEmpty()) return ranked
+            val out = ranked.toMutableList()
+            for (places in groups) {
+                val copies = places.map { ranked[it] }.sortedBy { !isOn(it.first) }
+                places.forEachIndexed { i, place -> out[place] = copies[i] }
+            }
+            return out
         }
 
         /** The tier of a match that is only a typing mistake ([Fuzzy.slip]). */

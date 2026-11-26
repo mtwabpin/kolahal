@@ -330,7 +330,7 @@ private fun TtyList(
                         val appsGrid = LogContext.APPS in row.entry.ctx.values
                         val key = LineKey(row, look, options, open, marks, Same(timeFormat), if (appsGrid) Same(installed) else null)
                         val line = remember(key) {
-                            cache.get(key) { layoutLine(row, options, look, open, marks, timeFormat, apps, search != null) }
+                            cache.get(key) { layoutLine(row, options, look, open, marks, timeFormat, apps, search != null, AppRepository.get(context)::gridGone) }
                         }
                         val id = row.entry.id
                         TtyLineRow(
@@ -449,6 +449,8 @@ internal fun layoutLine(
     format: SimpleDateFormat,
     apps: (LogEntry) -> List<AppEntry>,
     found: Boolean,
+    /** What an apps grid says when none of its apps are found, from its chips' profiles ([AppRepository.gridGone]). */
+    gone: (List<Long?>) -> String = { com.mtwabpin.kolahal.apps.PrivateSpace.GRID_GONE },
 ): TtyLine {
     // No icons on the grid: a notification's line ends with its app's name.
     val model = lineModel(row, options)
@@ -464,6 +466,7 @@ internal fun layoutLine(
         time = time,
         foldOpen = open,
         marks = marks,
+        gone = if (grid != null && shown.isEmpty()) gone(grid.apps.map { it.user }) else com.mtwabpin.kolahal.apps.PrivateSpace.GRID_GONE,
         apps = shown.mapIndexed { i, app ->
             val kind = app.profile.kind
             GridApp(

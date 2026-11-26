@@ -514,6 +514,21 @@ class LogLineTest {
         compose.onNodeWithText("(apps no longer installed)").assertExists()
     }
 
+    /** An apps line of a locked private space's apps says it is locked, not that they are gone. */
+    @Test
+    fun anAppsLineOfALockedSpaceSaysSo() {
+        val repo = com.mtwabpin.kolahal.apps.AppRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
+        val space = Profile(Process.myUserHandle(), 4243, ProfileKind.PRIVATE, quiet = true)
+        try {
+            repo.standInForTests(emptyList(), listOf(space))
+            val refs = "[{\"pkg\":\"com.example.maps\",\"cls\":\"Maps.Main\",\"user\":4243}]"
+            show { Line(row(entry("apps", ctx = mapOf(LogContext.APPS to refs)))) }
+            compose.onNodeWithText(com.mtwabpin.kolahal.apps.PrivateSpace.GRID_LOCKED).assertExists()
+        } finally {
+            repo.standInForTests(null)
+        }
+    }
+
     /** Where [LogImages] keeps [url]'s download: put there, nothing is fetched. */
     private fun download(url: String): File {
         val name = MessageDigest.getInstance("SHA-256").digest(url.toByteArray())

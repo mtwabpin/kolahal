@@ -197,7 +197,8 @@ private fun partsOf(
     )
 
     // The work profile and the private space have a part each; the personal and clone profiles have none.
-    "profiles" -> profiles.filter { it.kind != ProfileKind.PERSONAL && it.kind != ProfileKind.CLONE }
+    // A locked private space that Android hides when it is locked ([PrivateSpace.shows]) has none.
+    "profiles" -> profiles.filter { it.kind != ProfileKind.PERSONAL && it.kind != ProfileKind.CLONE && com.mtwabpin.kolahal.apps.PrivateSpace.shows(it) }
         .map { p ->
             HeaderPart(
                 HeaderPart.Kind.PROFILE,
@@ -205,7 +206,7 @@ private fun partsOf(
                 if (p.quiet) Ink.DIM else Ink.of(p.kind),
                 "profile-${p.kind.label}",
                 p.kind.label,
-                description = "${p.kind.label} ${if (p.quiet) "off" else "on"}",
+                description = "${com.mtwabpin.kolahal.apps.ProfileWords.name(p.kind)} ${if (p.quiet) com.mtwabpin.kolahal.apps.ProfileWords.off(p.kind) else com.mtwabpin.kolahal.apps.ProfileWords.on(p.kind)}",
                 profile = p,
             )
         }

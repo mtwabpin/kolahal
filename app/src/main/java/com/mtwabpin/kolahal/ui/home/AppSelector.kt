@@ -1297,11 +1297,16 @@ fun AppSelector(
 
 /**
  * What a screen reader hears for a row of an app that isn't in the personal profile: its name, its
- * profile, and "paused" when the profile is paused ("Maps, work, paused"). Null for a personal app.
+ * profile, and "paused" when the profile is paused ("Maps, work, paused"); "private space" for the
+ * private space, "locked" while it is locked. Null for a personal app.
  */
 private fun spokenWithProfile(app: AppEntry): String? =
     if (app.profile.kind == ProfileKind.PERSONAL) null
-    else listOfNotNull(app.label, app.profile.kind.label, "paused".takeIf { app.profile.quiet }).joinToString(", ")
+    else listOfNotNull(
+        app.label,
+        if (app.profile.kind == ProfileKind.PRIVATE) com.mtwabpin.kolahal.apps.ProfileWords.name(app.profile.kind) else app.profile.kind.label,
+        com.mtwabpin.kolahal.apps.ProfileWords.off(app.profile.kind).takeIf { app.profile.quiet },
+    ).joinToString(", ")
 
 /**
  * One list row: the section letter in the gutter, the icon, the profile tag in its color, ★, and the label.

@@ -441,6 +441,9 @@ class LineLayoutTest {
         assertEquals(listOf(Target.App(0), Target.App(1)), block.targets.map { it.target })
         val none = LineLayout.layout(model(LogCorpus.apps), LogLook(40))
         assertTrue(none.dump().contains("(apps no longer installed)"))
+        // Or why they can't be found: a private space that is locked.
+        val locked = LineLayout.layout(model(LogCorpus.apps), LogLook(40), gone = com.mtwabpin.kolahal.apps.PrivateSpace.GRID_LOCKED)
+        assertTrue(locked.dump().contains("(private space locked)"))
     }
 
     /**

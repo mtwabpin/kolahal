@@ -157,15 +157,113 @@ class AppCommandsTest {
     fun aProfileThePhoneLacksIsSaidToBeMissing() {
         val kinds = apps.profiles.value.map { it.kind }.toSet()
         assumeTrue("no work, private or clone profile", kinds == setOf(ProfileKind.PERSONAL))
-        assertEquals(listOf("No apps in work profile"), run("apps work"))
-        assertEquals(listOf("No apps in work profile"), run("apps -w"))
-        assertEquals(listOf("No apps in private profile"), run("apps private"))
-        assertEquals(listOf("No apps in private profile"), run("apps --private"))
-        assertEquals(listOf("No apps in clone profile"), run("apps -c"))
+        assertEquals(listOf("No apps in the work profile"), run("apps work"))
+        assertEquals(listOf("No apps in the work profile"), run("apps -w"))
+        assertEquals(listOf("No apps in the clone profile"), run("apps -c"))
         assertEquals(listOf("No work profile on this device"), run("work"))
         assertEquals(listOf("No work profile on this device"), run("work off"))
-        assertEquals(listOf("No private profile on this device"), run("private status"))
+        // Android hides a private space from a launcher that isn't the home app: then it may be there.
+        val none = ProfileMessages.none(ProfileKind.PRIVATE, hidden = apps.privateHidden())
+        assertEquals(listOf(none), run("apps private"))
+        assertEquals(listOf(none), run("apps --private"))
+        assertEquals(listOf(none), run("private status"))
+        assertEquals(listOf(if (apps.privateHidden()) none else "No app matches 'Settings'"), run("open Settings -s"))
+        if (apps.privateHidden()) assertEquals("home", lines("private").single().ctx.copy)
+        else assertEquals("No private space on this device", none)
         assertEquals(listOf("No app matches 'Settings'"), run("open Settings -w"))
+    }
+
+    /**
+     * Shows the phone's apps with a copy of Settings in a stand-in profile of [kind] ([serial]), paused
+     * or locked when [quiet], runs [block] with that copy, then loads the real list again.
+     */
+    private fun withCopyIn(
+        kind: ProfileKind,
+        quiet: Boolean,
+        hiddenWhenLocked: Boolean = false,
+        block: (AppEntry) -> Unit,
+    ) {
+        val s = settings()
+        val serial = 4243L
+        val copy = s.copy(profile = Profile(s.profile.user, serial, kind, quiet, hiddenWhenLocked))
+        val real = apps.apps.value
+        try {
+            apps.standInForTests(real + copy, apps.profiles.value + copy.profile)
+            block(copy)
+        } finally {
+            apps.standInForTests(null)
+            waitUntil("the real list") { apps.profiles.value.none { it.serial == serial } }
+        }
+    }
+
+    /** A locked private space shows none of its apps: `apps` has one line in their place, with a tap that unlocks it. */
+    @Test
+    fun aLockedPrivateSpaceShowsOneLine() = withCopyIn(ProfileKind.PRIVATE, quiet = true) { copy ->
+        assertTrue(apps.apps.value.none { it.key == copy.key })
+        assertTrue(apps.search("Settings").none { it.key == copy.key })
+        assertTrue(apps.top(50).none { it.key == copy.key })
+        // A line or a pinned key that points at it still finds it, and offers to unlock.
+        assertEquals(copy.key, apps.find(copy.pkg, copy.component.className, copy.profile.serial)?.key)
+        val listed = lines("apps")
+        val locked = listed.single { it.text == "Private space is locked\nTap to unlock it" }
+        assertEquals("private on", locked.ctx.values[LogContext.RUN])
+        assertTrue(listed.filter { LogContext.APPS in it.ctx.values }.flatMap(::gridPackages).isNotEmpty())
+        assertTrue(listed.none { "4243" in it.ctx.values[LogContext.APPS].orEmpty() })
+        assertTrue(listed.none { it.text.startsWith("── private") })
+        for (asked in listOf("apps private", "apps -s", "shortcuts Settings -s", "open Settings:home -s", "pin Settings -s")) {
+            val line = lines(asked).single()
+            assertEquals(asked, "Private space is locked\nTap to unlock it", line.text)
+            assertEquals(asked, "private on", line.ctx.values[LogContext.RUN])
+        }
+        // Opening it unlocks the space first, then opens what was asked: an alias for a private app.
+        val open = lines("open settings -s").single()
+        assertEquals("Private space is locked\nTap to unlock it and open settings", open.text)
+        assertEquals("open settings -s --resume", open.ctx.values[LogContext.RUN])
+        assertEquals("Private space: locked", com.mtwabpin.kolahal.data.StyledText.strip(run("private").single()))
+        // Typed without -s, nothing says the private space has it.
+        assertEquals(listOf("No app matches 'zzqqxx'"), run("open zzqqxx"))
+    }
+
+    /** With Android's "Hide private space when it's locked" on, `apps` shows no trace of it. */
+    @Test
+    fun aHiddenLockedSpaceLeavesNoLine() = withCopyIn(ProfileKind.PRIVATE, quiet = true, hiddenWhenLocked = true) {
+        assertTrue(run("apps").none { "rivate" in it })
+        // Typed in full, it still answers.
+        assertEquals(listOf("Private space is locked\nTap to unlock it"), run("apps private"))
+    }
+
+    /** An unlocked private space's lines in `apps` are marked with it, so the log hides them when it locks. */
+    @Test
+    fun anUnlockedSpacesLinesAreMarked() = withCopyIn(ProfileKind.PRIVATE, quiet = false) { copy ->
+        val listed = lines("apps private")
+        assertEquals(listOf("1 private app", "Settings"), listed.map { it.text })
+        assertTrue(listed.all { it.ctx.values[LogContext.USER] == copy.profile.serial.toString() })
+        val all = lines("apps")
+        assertEquals(copy.profile.serial.toString(), all.single { it.text == "── private · 1 ──" }.ctx.values[LogContext.USER])
+        assertEquals(null, all.first().ctx.values[LogContext.USER])
+    }
+
+    /** A paused work profile's app has no shortcuts while it is paused: that is what `shortcuts` says. */
+    @Test
+    fun aPausedProfilesShortcutsSaySo() = withCopyIn(ProfileKind.WORK, quiet = true) {
+        for (asked in listOf("shortcuts Settings -w", "open Settings:home -w")) {
+            val line = lines(asked).single()
+            assertEquals(asked, "Work profile is paused\nTap to resume it", line.text)
+            assertEquals(asked, "work on", line.ctx.values[LogContext.RUN])
+        }
+    }
+
+    /** Typed, the copy that is on comes first, though the locked or paused one was used last. */
+    @Test
+    fun theCopyThatIsOnComesFirst() = withCopyIn(ProfileKind.WORK, quiet = true) { copy ->
+        val usage = context.getSharedPreferences("usage", android.content.Context.MODE_PRIVATE)
+        repeat(5) { prefs.recordLaunch(copy.key) }
+        try {
+            val ranked = apps.search("Settings")
+            assertEquals(ProfileKind.PERSONAL, ranked.first { it.pkg == SETTINGS }.profile.kind)
+        } finally {
+            usage.edit().remove("launch:${copy.key}").commit()
+        }
     }
 
     /**
@@ -412,7 +510,7 @@ class AppCommandsTest {
             )
         )
         assertEquals(
-            "Private profile is paused\nTap to resume it and open Llat Private",
+            "Private space is locked\nTap to unlock it and open Llat Private",
             private.text
         )
         assertEquals("open Llat Private -s --resume", private.ctx.values[LogContext.RUN])

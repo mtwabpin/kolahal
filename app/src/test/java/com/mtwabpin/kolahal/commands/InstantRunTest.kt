@@ -253,6 +253,24 @@ class InstantRunTest {
         )
     }
 
+    /** The copy that is on opens, though a locked or paused copy was used last and ranks first. */
+    @Test
+    fun theCopyThatIsOnOpens() {
+        data class App(val label: String, val on: Boolean)
+
+        val personal = App("YouTube", on = true)
+        val locked = App("YouTube", on = false)
+        fun target(vararg ranked: App) = InstantRun.target(
+            "yo", InstantRun.ALL, 2, { ranked.map { it to 1 } }, { it.label }, commands, emptyMap(), emptyList(),
+            isOn = { it.on },
+        )
+        assertEquals(Target.App(personal), target(locked, personal))
+        assertEquals(Target.App(personal), target(personal, locked))
+        // None is on: the first, which asks to resume or unlock its profile.
+        assertEquals(Target.App(locked), target(locked, App("YouTube", on = false)))
+        assertEquals(listOf(personal), InstantRun.pickCopy(listOf(locked, personal)) { it.on })
+    }
+
     /** `help` takes a command (`help todo`): it waits for Enter, and so does `help t` on the way to `help todo`. */
     @Test
     fun helpWaitsForItsWord() {

@@ -100,14 +100,13 @@ object InstantRun {
         // A command offered to nobody (CommandCatalog.HIDDEN) waits for Enter, so no prefix of its name runs it.
         val names = commands.keys - CommandCatalog.HIDDEN + aliases.keys + scriptCommands
         val nameMatches = names.filter { it.startsWith(q) }.distinct()
-        // The same app in several profiles counts once: the copy ranked first (frecency), which Enter
-        // would launch. But if copies are in two profiles that are on (personal and a running work
-        // profile), the user must choose. Nothing launches, and the suggestions show both.
+        // The same app in several profiles counts once: the copy that is on, whichever was used last
+        // (a paused or locked copy would only ask to resume), else the copy ranked first. But if copies
+        // are in two profiles that are on (personal and a running work profile), the user must choose.
+        // Nothing launches, and the suggestions show both.
         val apps = rankedApps(q).filter { it.second <= 2 }.map { it.first }
             .groupBy { appLabel(it).lowercase() }.values
-            .flatMap { copies ->
-                copies.filter(isOn).takeIf { it.size > 1 } ?: listOf(copies.first())
-            }
+            .flatMap { copies -> pickCopy(copies, isOn) }
         if (mode == APPS) {
             // Typing a command must never launch an app that has the same prefix.
             if (nameMatches.isNotEmpty()) return null
@@ -123,6 +122,15 @@ object InstantRun {
 
             else -> null
         }
+    }
+
+    /**
+     * The copies of one app that typing may launch, from [copies] (best first): the one that is on
+     * ([isOn]); every one that is on, when several are (the user must choose); the first when none is.
+     */
+    internal fun <A> pickCopy(copies: List<A>, isOn: (A) -> Boolean): List<A> {
+        val on = copies.filter(isOn)
+        return if (on.isEmpty()) listOf(copies.first()) else on
     }
 
     /**

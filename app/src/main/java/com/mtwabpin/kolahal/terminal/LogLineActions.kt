@@ -395,7 +395,7 @@ class LogLineActions(
         }
         appsRepo.apps.value.firstOrNull { it.pkg == app.pkg && it.profile.serial != app.profile.serial }
             ?.let { twin ->
-                add(LogAction("Launch in ${twin.profile.kind.label} profile") {
+                add(LogAction("Launch in ${com.mtwabpin.kolahal.apps.ProfileWords.name(twin.profile.kind)}") {
                     host.io {
                         processor.launch(
                             twin
@@ -477,6 +477,8 @@ class LogLineActions(
         return list.filterIsInstance<Map<*, *>>().mapNotNull { m ->
             val pkg = m["pkg"]?.toString() ?: return@mapNotNull null
             appsRepo.find(pkg, m["cls"]?.toString(), m["user"]?.toString()?.toLongOrNull())
+                // A locked private space shows none of its apps, in a grid of several profiles (`pins`) too.
+                ?.takeUnless { com.mtwabpin.kolahal.apps.PrivateSpace.locked(it.profile) }
         }
     }
 

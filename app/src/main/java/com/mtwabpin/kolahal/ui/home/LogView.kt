@@ -806,7 +806,10 @@ private fun AppGrid(
     id: Long,
 ) {
     if (apps.isEmpty()) {
-        LogText("(apps no longer installed)", style = Term.text.copy(color = Term.dim))
+        val context = LocalContext.current
+        // Why: uninstalled, or a private space that is locked or hidden from Kolahal.
+        val gone = com.mtwabpin.kolahal.apps.AppRepository.get(context).gridGone(grid.apps.map { it.user })
+        LogText(gone, style = Term.text.copy(color = Term.dim))
         return
     }
     // Places in [apps], so a chip's tap is its app's, folded or not.
@@ -873,7 +876,11 @@ private fun AppChip(
     val quiet = app.profile.quiet
     val color = Term.profileColor(kind)
     val spoken = if (kind == ProfileKind.PERSONAL) null
-    else listOfNotNull(label, kind.label, "paused".takeIf { quiet }).joinToString(", ")
+    else listOfNotNull(
+        label,
+        if (kind == ProfileKind.PRIVATE) com.mtwabpin.kolahal.apps.ProfileWords.name(kind) else kind.label,
+        com.mtwabpin.kolahal.apps.ProfileWords.off(kind).takeIf { quiet },
+    ).joinToString(", ")
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier

@@ -83,6 +83,8 @@ object LineLayout {
         foldOpen: Boolean = false,
         marks: List<String> = emptyList(),
         apps: List<GridApp> = emptyList(),
+        /** What an apps grid says when [apps] is empty. */
+        gone: String = com.mtwabpin.kolahal.apps.PrivateSpace.GRID_GONE,
         initials: String? = null,
         footer: String? = null,
     ): CellBlock {
@@ -113,7 +115,7 @@ object LineLayout {
             is LineModel.Body.Words -> words(w, model, body, top, textLeft, marks)
             is LineModel.Body.TwoColumns -> twoColumns(w, model, body, top, textLeft, marks)
             is LineModel.Body.NameColumns -> nameColumns(w, body, top, textLeft, marks)
-            is LineModel.Body.AppGrid -> appGrid(w, apps, top, textLeft, appsOpen)
+            is LineModel.Body.AppGrid -> appGrid(w, apps, top, textLeft, appsOpen, gone)
         }
         val blockLeft = textLeft + if (model.unread) 2 else 0
         for (block in model.blocks) row = Blocks.layout(w, block, row, blockLeft, cols, look.boxedTables, marks)
@@ -278,9 +280,9 @@ object LineLayout {
      * A capped grid (some apps not [GridApp.shownFolded]) shows its first apps, then a row
      * "+N more" that opens it in place; [open], it shows them all, then "▴ Show less".
      */
-    private fun appGrid(w: BlockWriter, apps: List<GridApp>, top: Int, textLeft: Int, open: Boolean): Int {
+    private fun appGrid(w: BlockWriter, apps: List<GridApp>, top: Int, textLeft: Int, open: Boolean, gone: String): Int {
         if (apps.isEmpty()) {
-            w.put(textLeft, top, "(apps no longer installed)", DIM)
+            w.put(textLeft, top, gone, DIM)
             return top + 1
         }
         val capped = apps.any { !it.shownFolded }

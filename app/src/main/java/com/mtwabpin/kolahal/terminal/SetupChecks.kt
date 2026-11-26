@@ -28,7 +28,7 @@ data class SetupCheck(
 object SetupChecks {
     fun run(context: Context): List<SetupCheck> {
         val profiles =
-            AppRepository.get(context).profiles.value.filter { it.kind != ProfileKind.PERSONAL }
+            AppRepository.get(context).profiles.value.filter { it.kind != ProfileKind.PERSONAL && com.mtwabpin.kolahal.apps.PrivateSpace.shows(it) }
         return listOf(
             SetupCheck(
                 "Default home app",
@@ -39,9 +39,12 @@ object SetupChecks {
         ) + accesses(context).map {
             SetupCheck(it.access.title, it.access.detail, it.allowed, it.run)
         } + SetupCheck(
-            "Work / private profiles",
+            "Work profile / private space",
             if (profiles.isEmpty()) "None found on this device"
-            else profiles.joinToString { "${it.kind.label} (${if (it.quiet) "paused" else "on"})" },
+            else profiles.joinToString { p ->
+                val words = com.mtwabpin.kolahal.apps.ProfileWords
+                "${words.name(p.kind)} (${if (p.quiet) words.off(p.kind) else words.on(p.kind)})"
+            },
             profiles.isNotEmpty(),
             null,
         )

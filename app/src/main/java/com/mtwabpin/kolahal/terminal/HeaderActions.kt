@@ -9,6 +9,7 @@ import android.provider.Settings
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.apps.ProfileWords
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.status.Status
 
@@ -102,14 +103,14 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
                 HeaderTarget.UNLOCKS
             )
         })
-        host.profiles.filter { it.kind == ProfileKind.WORK || it.kind == ProfileKind.PRIVATE }
+        host.profiles.filter { (it.kind == ProfileKind.WORK || it.kind == ProfileKind.PRIVATE) && com.mtwabpin.kolahal.apps.PrivateSpace.shows(it) }
             .forEach { p ->
                 val cmd = if (p.kind == ProfileKind.PRIVATE) "private" else "work"
                 // As in the header: the profile's color while it runs, dim while it is paused.
                 val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
                 add(
                     LogAction(
-                        if (p.quiet) "Resume ${p.kind.label} profile" else "Pause ${p.kind.label} profile",
+                        (if (p.quiet) ProfileWords.resume(p.kind) else ProfileWords.pause(p.kind)).replaceFirstChar { it.uppercase() } + " " + ProfileWords.name(p.kind),
                         icon = ActionIcon.Drawable(res, profile = p.kind.takeUnless { p.quiet }),
                     ) {
                         host.runCommand("$cmd ${if (p.quiet) "on" else "off"}")
@@ -149,7 +150,7 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
         val cmd = if (profile.kind == ProfileKind.PRIVATE) "private" else "work"
         if (profile.quiet) host.runCommand("$cmd on")
         else host.logInfo(
-            "Tap to pause the ${profile.kind.label} profile",
+            com.mtwabpin.kolahal.terminal.commands.ProfileMessages.tapToPause(profile.kind),
             LogContext.of(LogContext.RUN to "$cmd off")
         )
     }
