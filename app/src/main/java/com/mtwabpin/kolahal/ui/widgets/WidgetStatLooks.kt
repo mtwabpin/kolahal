@@ -67,7 +67,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val spark = spec.points.size >= 2
     val rest = spec.more.joinToString(" · ") { it.value }
     val end: @Composable () -> Unit = {
-        if (hasChange) ChangeText(spec.trend, spec.delta, role, type.labelLarge)
+        if (hasChange) ChangeText(spec.trend, spec.delta, role, type.labelLarge, ground = c.card)
         else if (rest.isNotEmpty()) Text(
             rest,
             style = type.labelMedium,

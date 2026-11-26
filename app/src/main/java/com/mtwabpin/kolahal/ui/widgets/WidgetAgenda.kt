@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -97,10 +98,11 @@ private val AGENDA_PLACES = 200.dp
  * - An event is one line: its time, a dot in its color if it has one, its title, and its place at its end in a
  *   box that has room. An event that can be tapped is 44 dp tall ([TAP_ROW_DP]), others 32 dp.
  *   With a larger font, rows and headings are as tall as their text ([WidgetWords.textRowDp]).
- * - A day's heading ("TODAY") is at the top of its first event's row, in the card's color. That
- *   row is as tall as a tap row needs, or as the heading and the event's line need, whichever is
- *   more: 44 dp. So a 4x2 card has two events of today and one of tomorrow, as the mockup has
- *   them, and every event keeps a 44 dp tap. A tap on the heading is a tap on that event.
+ * - A day's heading ("TODAY") is at the top of its first event's row, in the card's color, darker
+ *   where that would be faint ([smallInk]). That row is as tall as a tap row needs, or as the
+ *   heading and the event's line need, whichever is more: 44 dp. So a 4x2 card has two events
+ *   of today and one of tomorrow, as the mockup has them, and every event keeps a 44 dp tap. A
+ *   tap on the heading is a tap on that event.
  * - "+3 more" is the line under the events.
  * - With nothing to show it says the description's `empty` text.
  * - The Now look draws what is on now, the free time and what is next ([NowAgenda]), for [box].
@@ -135,6 +137,10 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?, 
     val muted = lookColors().muted
     // Tonal puts each event on a tile of its own, 2 dp from the next, as a list's rows are.
     val tile = if (look == WidgetLook.TONAL) lookColors().tile else null
+    // A day's heading is small text: in the card's color, darker where it would be faint on the
+    // card or its tile ([smallInk]).
+    val card = lookColors(look, color).card
+    val heading = smallInk(color, tile?.compositeOver(card) ?: card)
     val gapDp = if (tile != null) ROW_GAP_DP else 0
     val type = MaterialTheme.typography
     // An event's text at the phone's font size: its title over its time when narrow, else one line.
@@ -192,7 +198,7 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?, 
                                 timeWidth,
                                 onTap,
                                 back
-                            ) { DayHeading(day.label, color, headDp) }
+                            ) { DayHeading(day.label, heading, headDp) }
                             else AgendaRow(line, rowDp.dp, places, narrow, timeWidth, onTap, back)
                         }
                     }

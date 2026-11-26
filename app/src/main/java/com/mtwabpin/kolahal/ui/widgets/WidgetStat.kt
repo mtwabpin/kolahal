@@ -114,7 +114,8 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 type.labelLarge,
                 Modifier
                     .padding(start = 8.dp)
-                    .alignByBaseline()
+                    .alignByBaseline(),
+                ground = lookColors(look, color).card
             )
         }
     }
@@ -137,7 +138,8 @@ internal fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     spec.delta,
                     color,
                     type.titleSmall,
-                    Modifier.padding(start = if (label != null) 8.dp else 0.dp)
+                    Modifier.padding(start = if (label != null) 8.dp else 0.dp),
+                    ground = lookColors(look, color).card
                 )
             }
             if (spark) Sparkline(
@@ -311,7 +313,8 @@ internal object StatWide {
 
 /**
  * A stat's change in [color]: a drawn arrow for up or down (a text arrow for flat), then the
- * delta in bold. The arrow is as tall as the text.
+ * delta in bold. The arrow is as tall as the text. With [ground] (what the change is drawn on), the
+ * color is taken just far enough to read there as small text ([smallInk]).
  */
 @Composable
 internal fun ChangeText(
@@ -319,8 +322,10 @@ internal fun ChangeText(
     delta: String?,
     color: Color,
     style: TextStyle,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    ground: Color? = null
 ) {
+    val ink = ground?.let { smallInk(color, it) } ?: color
     val drawn = when (trend) {
         "up" -> R.drawable.ic_arrow_up
         "down" -> R.drawable.ic_arrow_down
@@ -330,15 +335,15 @@ internal fun ChangeText(
         if (drawn != null) Icon(
             painterResource(drawn),
             null,
-            tint = color,
+            tint = ink,
             modifier = Modifier.size(with(LocalDensity.current) { style.fontSize.toDp() })
         )
-        else WidgetWords.arrow(trend)?.let { Text(it, style = style, color = color, maxLines = 1) }
+        else WidgetWords.arrow(trend)?.let { Text(it, style = style, color = ink, maxLines = 1) }
         delta?.let {
             Text(
                 it,
                 style = style.copy(fontWeight = FontWeight.Bold),
-                color = color,
+                color = ink,
                 maxLines = 1,
                 modifier = Modifier.padding(start = 2.dp)
             )
@@ -364,6 +369,13 @@ internal fun smallLine(small: WidgetSpec.Small): String =
  * in the role's color on its container.
  */
 internal fun valueInk(color: Color, ground: Color): Color = inkOn(ground, color, color)
+
+/**
+ * The color of small words in a card's [color] on [ground]: [color] where it reads there at 4.5:1
+ * ([TEXT_MIN]), else the same hue darker (or lighter on a dark card) just far enough ([inkOn]). A
+ * stat's change, an agenda's day headings and Bold's list title use it.
+ */
+internal fun smallInk(color: Color, ground: Color): Color = inkOn(ground, color, color, TEXT_MIN)
 
 /**
  * One of a stat's smaller values, over its label in [muted]. With [centered], both are centered.

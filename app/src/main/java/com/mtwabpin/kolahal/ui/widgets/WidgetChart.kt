@@ -159,6 +159,12 @@ internal fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
 }
 
 /**
+ * The color of a chart's older bars, or older pills, in [role]: lighter, so the latest, in full
+ * color, is the news. Plain's and Tonal's bars, and Bold's and Shape's pills ([PillChart]).
+ */
+internal fun olderBars(role: Color): Color = role.copy(alpha = 0.4f)
+
+/**
  * The plot of a chart, on a Canvas, in [color]. There is no chart library.
  * - A line is 2 dp, with a wash under it. A dot marks the latest point. The dot has a ring in
  *   the card's color, so it stays clear of the line.
@@ -214,7 +220,7 @@ internal fun Plot(
                     )
                 )
             }
-            drawPath(before, color.copy(alpha = 0.4f))
+            drawPath(before, olderBars(color))
             drawPath(latest, color)
             drawLine(
                 hairline,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -63,8 +64,8 @@ internal fun RowsLook(
     }
 }
 
-/** The height of one of Bold's lines under its lead row. */
-private val BOLD_LINE = 42.dp
+/** The height of one of Bold's lines under its lead row: a tap's least height, as the lines touch. */
+private val BOLD_LINE = 44.dp
 
 /**
  * Bold's list: the title small in the role's color with "+3 more" at its end, the first row (or
@@ -133,7 +134,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                 Text(
                     title.orEmpty(),
                     style = type.labelMediumEmphasized,
-                    color = role,
+                    color = smallInk(role, c.card),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -824,7 +825,12 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
         val head = if (large) 30.dp else 0.dp
         // A small or a wide card with a lead has room for the lead alone.
         val leadRoom = if (lead == null) 0.dp else if (large) 64.dp else maxHeight
-        val fit = ((maxHeight - head - leadRoom) / rowHeight).toInt().coerceIn(0, items.size)
+        val fits = ((maxHeight - head - leadRoom) / rowHeight).toInt().coerceIn(0, items.size)
+        // A small or a wide card spreads its rows over its height and into its padding ([spreadRows]).
+        val spread = !large && lead == null
+        val (fit, slot) =
+            if (spread) spreadRows(maxHeight.value, SHAPE_ROW_REACH.value, fits).let { (n, h) -> n to h.dp }
+            else fits to rowHeight
         val more = items.size - fit
         val details = large && maxWidth >= 200.dp
         val leadHeight = minOf(leadRoom, maxHeight)
@@ -914,38 +920,59 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                     }
                 }
             }
-            items.take(fit).forEachIndexed { i, row ->
-                key(i) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(rowHeight)
-                            .then(rowPress(row, onTap)),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val marked = bars?.marks != false || row.done != null
-                        if (marked) RowMark(
-                            i,
-                            row,
-                            role,
-                            rankPolygon(i).toShape(),
-                            mark,
-                            inShape = true
-                        )
-                        RowWords(
-                            row,
-                            details,
-                            c.content,
-                            c.muted,
-                            style,
-                            Modifier.padding(start = if (marked) 10.dp else 0.dp),
-                            bars,
-                            role,
-                            c.card
-                        )
+            Column(if (spread) Modifier.fillMaxWidth().requiredHeight(slot * fit) else Modifier) {
+                items.take(fit).forEachIndexed { i, row ->
+                    key(i) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(slot)
+                                .then(rowPress(row, onTap)),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val marked = bars?.marks != false || row.done != null
+                            if (marked) RowMark(
+                                i,
+                                row,
+                                role,
+                                rankPolygon(i).toShape(),
+                                mark,
+                                inShape = true
+                            )
+                            RowWords(
+                                row,
+                                details,
+                                c.content,
+                                c.muted,
+                                style,
+                                Modifier.padding(start = if (marked) 10.dp else 0.dp),
+                                bars,
+                                role,
+                                c.card
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * How far Shape's rows reach into the card's padding above and below in a small or a wide card:
+ * the padding there ([UntitledLayout]'s room), so the first and the last row's taps reach the
+ * card's edge.
+ */
+private val SHAPE_ROW_REACH = 8.dp
+
+/**
+ * Shape's rows in a small or a wide card: [fit] rows spread over the card's [boxDp] height and
+ * [reachDp] of its padding above and below, each one tappable across its share. Fewer rows when a
+ * share would be under a tap's least height ([TAP_ROW_DP]). Returns how many rows and each one's
+ * height, in dp.
+ */
+internal fun spreadRows(boxDp: Float, reachDp: Float, fit: Int): Pair<Int, Float> {
+    val room = boxDp + 2 * reachDp
+    val rows = minOf(fit, (room / TAP_ROW_DP).toInt()).coerceAtLeast(0)
+    return rows to if (rows > 0) room / rows else 0f
 }

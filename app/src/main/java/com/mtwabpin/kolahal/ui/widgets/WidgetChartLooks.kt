@@ -76,7 +76,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
     val ink = valueInk(color, c.card)
     val title = LocalUntitled.current
     val bars = spec.style == "bars"
-    val rest = MaterialTheme.colorScheme.surfaceContainerHighest
+    val rest = olderBars(color)
     val labelStyle = type.labelLargeEmphasized
     val plot: @Composable (List<String>, Dp, Dp, Modifier) -> Unit =
         { labels, thick, gap, modifier ->
@@ -485,7 +485,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color
                 spec.min,
                 spec.max,
                 color,
-                MaterialTheme.colorScheme.surfaceContainerHighest,
+                olderBars(color),
                 if (large) spec.labels else emptyList(),
                 14.dp,
                 8.dp,
@@ -611,3 +611,4 @@ private fun PillChart(
         }
     }
 }
+

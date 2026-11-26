@@ -162,20 +162,24 @@ internal fun inkContrast(a: Color, b: Color): Float {
 /** The least contrast of a big number with what is behind it: WCAG's for large text. */
 internal const val INK_MIN = 3f
 
+/** The least contrast of small text with what is behind it: WCAG's for text under 18 sp. */
+internal const val TEXT_MIN = 4.5f
+
 /**
  * The one of [first] and [second] that reads better on [background]: [first] unless [second] has
  * more contrast with it. A number drawn across a level's line is in this on each side of it.
  * Where neither reaches [INK_MIN] (a fill of middle lightness), the better one is taken toward
- * black or white, whichever is further from [background], just far enough to reach it.
+ * black or white, whichever is further from [background], just far enough to reach it. With
+ * [least], it reaches that contrast instead: [TEXT_MIN] for small text.
  */
-internal fun inkOn(background: Color, first: Color, second: Color): Color {
+internal fun inkOn(background: Color, first: Color, second: Color, least: Float = INK_MIN): Color {
     val best = if (inkContrast(second, background) > inkContrast(first, background)) second else first
-    if (inkContrast(best, background) >= INK_MIN) return best
+    if (inkContrast(best, background) >= least) return best
     val toward =
         if (inkContrast(Color.Black, background) >= inkContrast(Color.White, background)) Color.Black else Color.White
     for (step in 1..10) {
         val ink = lerp(best, toward, step / 10f)
-        if (inkContrast(ink, background) >= INK_MIN) return ink
+        if (inkContrast(ink, background) >= least) return ink
     }
     return toward
 }
