@@ -549,6 +549,7 @@ widget needs an Activity.
 | Text editor               | [[src:ui/TextEditorActivity.kt::class TextEditorActivity][ui/TextEditorActivity.kt]], [[src:ui/editor/TextEditorScreen.kt::fun TextEditorScreen][ui/editor/TextEditorScreen.kt]]                                                       | a window of its own; shares =CodeEditor= with the script editor          |
 | Feeds, Widgets, setup, …  | =FeedsScreen.kt=, =WidgetsScreen.kt=, =WidgetPickerScreen.kt=, =SetupScreen.kt=, =OnboardingScreen.kt= |                                                                          |
 | A card's settings page    | =ui/widgets/WidgetSettingsScreen.kt= | =Screen.WIDGET_SETTINGS=, from Settings in Arrange widgets; a card's color, shape and hidden parts, and Now playing's album art as background, are kept in its stored line (=PlacedWidget.color=, =shape=, =hidden=, =artBackground=) |
+| Assistant                 | [[src:ui/assistant/AssistantPage.kt::fun AssistantPage(][ui/assistant/AssistantPage.kt]] | beside home after the widgets pages (=HomePager=), full build only; see [[*The Assistant][The Assistant]] |
 
 *** The text editor: a second window
 
@@ -778,6 +779,28 @@ has a file (=WidgetStat.kt=, =WidgetList.kt=, ...) and its looks beside it (=Wid
 ...), chosen per card ([[src:widgets/WidgetLook.kt::enum class WidgetLook][WidgetLook]]: Plain, Tonal, Bold, Split, Shape, Poster, Next on Todos and
 Reminders and Stack on Notes, drawn in =OwnNextTodos.kt=, =OwnTimeline.kt= and =OwnStack.kt= from =OwnDesigns.kt=, and Now on an agenda in =AgendaNow.kt=). The Widgets screen arranges
 the page and the picker adds to it. The design record is [[file:widgets-design.org][docs/widgets-design.org]].
+
+** The Assistant
+
+A page beside home, after the widgets pages (=assistant.page=, full build only: =BuildConfig.ASSISTANT=), where the
+user chats with Claude, Gemini or ChatGPT with their own API key. It is split as the layers are:
+
+- =assistant/= (Model, no Compose): [[src:assistant/Services.kt::object Services][Services.ALL]], the one list of services, each a [[src:assistant/Service.kt::abstract class Service(][Service]]
+  object (=Anthropic=, =Google=, =OpenAi=) that makes its request as a =Call= (address, headers, body; pure, so
+  tested without a network) and reads the reply or its error into plain words (=Problem=). [[src:assistant/Asker.kt::class HttpAsker(][HttpAsker]] sends a
+  =Call= with the app's OkHttp client, after =KeyRule= checks the key goes only to its own host. [[src:assistant/AssistantKeys.kt::class AssistantKeys(][AssistantKeys]]
+  keeps the keys in =SecretStore=; [[src:assistant/Conversations.kt::class ConversationStore(][ConversationStore]] keeps the newest fifty conversations in the
+  =Stores.ASSISTANT= scope (this phone only); [[src:assistant/Prompts.kt::object Prompts][Prompts]] holds the system prompt and takes the A2UI messages out
+  of an answer.
+- =ui/assistant/= (View): [[src:ui/assistant/AssistantPage.kt::fun AssistantPage(][AssistantPage]] and its state, =AssistantSession= (the thread, the A2UI processor);
+  =AnswerCatalog= gives Google's Material 3 A2UI catalog Kolahal's look and draws lists whole, never lazily;
+  =AssistantSettings= is Settings → Assistant. The page takes an =Asker=, so device tests give it a fake service.
+
+Everything that offers a service or a model reads =Services.ALL=: the setting's choices, the page's rows, the key
+rows, =KeyRule= and the tests. *To add a model*, add one =Model(name, id)= line to its service's =models=; a model
+not in the list already works by its name typed in Settings. *To add a service*, add an object beside the others
+(its host, its key's name, its models and default, =call= and =answer=) and put it in =Services.ALL=;
+=ServicesTest= checks every entry is complete and its own.
 
 ** Navigation without a navigation library
 
@@ -1016,6 +1039,7 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =ui/home/=                    | home in the GUI style and what both styles share: =TerminalScreen=, =GuiHome=, =HomeState=, the log, the prompt, the key bar, suggestions, the app selector, the headers, home's dialogs | [[src:ui/home/HomeState.kt::internal class HomeState(][HomeState.kt]]                    |
 | =ui/tty/=                     | home in the TTY style: the grid's painter and its Compose pieces; the shader layer (=TtyShader=)                                                                                         | [[src:ui/tty/TtyHome.kt::internal fun TtyHome(][TtyHome.kt]]                      |
 | =ui/widgets/=                 | the widgets page, the cards of every kind and look, the picker                                                                                                                           | [[src:ui/widgets/ScriptWidgets.kt::internal fun WidgetCard(][ScriptWidgets.kt]]                |
+| =ui/assistant/=              | the Assistant's page, its thread and A2UI drawing, Settings → Assistant                                                                                                                   | [[src:ui/assistant/AssistantPage.kt::fun AssistantPage(][AssistantPage.kt]]                |
 | =ui/scripts/=                 | the Scripts screens, the library, Get more scripts                                                                                                                                       | [[src:ui/scripts/ScriptsScreen.kt::fun ScriptsScreen][ScriptsScreen.kt]]                |
 | =ui/shaders/=                 | the Shaders screen, a shader's details, Get more shaders                                                                                                                                 | [[src:ui/shaders/ShadersScreen.kt::fun ShadersScreen(][ShadersScreen.kt]]                |
 | =ui/editor/=                  | =CodeEditor= and what both editors share, =ScriptEditor=, =TextEditorScreen=, =TextEditorViewModel=                                                                                      | [[src:ui/editor/CodeEditor.kt::internal fun CodeEditor][CodeEditor.kt]]                   |
@@ -1029,6 +1053,7 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =shader/=                     | the shaders: files, what they declare, parameters and values, one-off plays, safety, the wallpaper's choice                                                                              | [[src:shader/Shaders.kt::object Shaders][Shaders.kt]]                      |
 | =feeds/=                      | RSS/Atom: database, fetcher, worker, scheduler, OPML                                                                                                                                     | [[src:feeds/FeedRepository.kt::class FeedRepository][FeedRepository.kt]]               |
 | =widgets/=                    | other apps' widgets and the placed list; a script widget's description, parser and stored state                                                                                          | [[src:widgets/WidgetModel.kt::object WidgetLocation][WidgetModel.kt]] (pure, tested)   |
+| =assistant/=                  | the Assistant's services (one list), their requests and replies, the keys, the conversations kept, the system prompt                                                                    | [[src:assistant/Services.kt::object Services][Services.kt]] (pure, tested)      |
 | =notifications/=              | the notification listener and its in-memory store                                                                                                                                        | [[src:notifications/KolahalNotificationListener.kt::class KolahalNotificationListener][KolahalNotificationListener.kt]]  |
 | =commands/=                   | the command facts: the catalog, sensitivity, =log only=, pipes, usage lines, the calculator and units                                                                                    | [[src:commands/CommandCatalog.kt::object CommandCatalog][CommandCatalog.kt]]               |
 | =control/=                    | media playback, Do Not Disturb, the wallpaper color; the device commands' handler is in =terminal/commands/=                                                                             | [[src:control/MediaRepository.kt::class MediaRepository][MediaRepository.kt]]              |

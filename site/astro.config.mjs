@@ -154,6 +154,7 @@ export default defineConfig({
 						{ slug: 'guides/text-editor' },
 						{ slug: 'guides/web-and-calculator' },
 						{ slug: 'guides/widgets' },
+						{ slug: 'guides/assistant' },
 						{ slug: 'guides/gestures' },
 						{ slug: 'guides/themes-and-settings' },
 						{ slug: 'guides/backup' },

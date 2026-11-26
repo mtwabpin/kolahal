@@ -17,7 +17,7 @@ private storage. Android's cloud backup leaves both out.
 
 ## What leaves the device
 
-Kolahal itself makes network requests in exactly five cases:
+Kolahal itself makes network requests in exactly six cases:
 
 1. **Scripts** that you write or install. They make requests through `http.*` and `rss.*`. If a log line links to an image (`image`),
    the home screen downloads the image when the line appears. If a script's [widget](/scripting/api/#widgets) is a picture
@@ -38,11 +38,38 @@ Kolahal itself makes network requests in exactly five cases:
    It also downloads the file of a script or shader you look at or install.
 5. **Updates**, in the full build only, and only when you run them. `update` asks GitHub for the
    latest release, and `update install` downloads its APK from GitHub. Nothing checks in the background.
+6. **The [Assistant](/guides/assistant/)**, in the full build only, and only when you ask it something: a request to
+   the service you chose, with your own API key ([the Assistant](#the-assistant)).
 
 Commands like `search`, `yt`, `wiki`, `maps`, `play` and `url` don't make requests themselves. They
 pass a link to your browser or the matching app.
 
 Plain `http://` is allowed, because many feeds are still served without TLS.
+
+## The Assistant
+
+The [Assistant](/guides/assistant/) is in the full build only, and off until you turn it on. When you ask it something:
+
+- **What is sent:** your question, the conversation so far (your questions, the answers, and the buttons you tapped
+  in an answer), your custom instructions, and the instructions Kolahal gives the model about the answer's form.
+  Nothing else from the phone is in the request: not the log, notifications, apps, files, your lists or anything a
+  script wrote.
+- **Where it goes:** only to the service you chose, over https:
+
+  | Service | Host | The key goes in |
+  | --- | --- | --- |
+  | Claude | `api.anthropic.com` | the `x-api-key` header |
+  | Gemini | `generativelanguage.googleapis.com` | the `x-goog-api-key` header |
+  | ChatGPT | `api.openai.com` | the `Authorization` header |
+
+  A key is never in the address, and never goes to another service's host. Each service handles what you send under
+  its own terms. Kolahal asks OpenAI not to keep the conversation (`store: false`).
+- **Your API keys** are encrypted with a key kept in Android's Keystore, as scripts' [secrets](/scripting/overview/#api-keys-and-other-secrets) are, and each
+  is saved for its own service's host. They are never shown again, never logged, and never in a backup.
+- **Conversations** are kept in the app's private storage, the newest 50, while **Keep history** is on. They aren't
+  in Kolahal's backup file or in Android's cloud backup. **Delete all conversations** removes them.
+- **What an answer can do:** nothing on the phone. It can't run a command, open a link or an app, or load a picture,
+  a video or a sound. A button in an answer only sends your tap back to the model.
 
 ## Crash reports
 

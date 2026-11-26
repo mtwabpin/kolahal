@@ -209,6 +209,20 @@ See [Widgets](/guides/widgets/).
 | `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent. `0` is none. A higher number shows less of the theme's color |
 | `widgets.agenda-days` | choice: `auto` `1` `3` `7` `14` | `auto` | the days the Agenda widget shows from today. `auto` looks up to 14 days ahead and shows as many events as the card fits |
 
+## Assistant
+
+In the full build only. See [Assistant](/guides/assistant/). The API keys aren't settings: you enter them in
+Settings → Assistant or on the page, and `config` neither shows nor changes them.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `assistant.page` | bool | `off` | show the Assistant's page after the widgets pages, to chat with Claude, Gemini or ChatGPT. Needs your own API key for the service |
+| `assistant.service` | choice: `anthropic` `google` `openai` | `anthropic` | the service the Assistant asks: Claude, Gemini or ChatGPT. Each needs its own API key |
+| `assistant.model` | text | empty | the model the Assistant asks: one the service offers, or another of its models by name (letters, digits, `.` `_` `:` `-`). Empty: the service's default. Changing the service in Settings or on the page empties it |
+| `assistant.rich` | bool | `on` | answers drawn as cards, lists and rows (A2UI). Off: answers in plain text |
+| `assistant.instructions` | text | empty | your own instructions, added to every conversation, up to 2000 characters. For example: answer in Spanish |
+| `assistant.history` | bool | `on` | keep conversations on this phone, the newest 50, to open them again. Off: new ones aren't kept and the list is hidden. They're never in a backup |
+
 ## Keyboard and key bar
 
 | Key | Type | Default | Description |
