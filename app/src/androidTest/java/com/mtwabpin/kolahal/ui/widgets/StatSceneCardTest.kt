@@ -35,7 +35,7 @@ import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** A stat with a `scene` has a still of that shader as its ground ([StatScene]), from Android 13. */
+/** A stat with a `scene` has a still of that shader as its ground ([CardScene]), from Android 13. */
 @RunWith(AndroidJUnit4::class)
 class StatSceneCardTest {
     @get:Rule

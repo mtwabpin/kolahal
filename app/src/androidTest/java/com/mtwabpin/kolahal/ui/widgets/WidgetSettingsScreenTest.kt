@@ -25,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -38,6 +39,8 @@ import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import com.mtwabpin.kolahal.waitUntil
+import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.widgets.CardScenes
 import com.mtwabpin.kolahal.widgets.MediaArt
 import com.mtwabpin.kolahal.widgets.TestScriptWidgets
 import com.mtwabpin.kolahal.widgets.WidgetLocation
@@ -403,7 +406,73 @@ class WidgetSettingsScreenTest {
         assertNull(t.entry(s.name)?.shape)
         // Album art as background is the Now playing card's alone.
         compose.onNodeWithTag(ART_BACKGROUND_TAG).assertDoesNotExist()
+        // The Agenda's days are its own.
+        compose.onNodeWithTag("days Auto").assertDoesNotExist()
         back()
         compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+    }
+
+    /**
+     * Scene, last under What shows: None at first. A tap opens the choice, with each scene; a tap on
+     * one keeps it for that card and closes it. In the Split look the row says why no scene shows.
+     * Reset takes it away, and Undo puts it back.
+     */
+    @Test
+    fun aCardHasAScene() {
+        val s = t.place(
+            t.create("-scene", "-- @title Wopts Scene\n-- @widget list 4x2\nwidget.show{ kind = \"list\", items = { { title = \"Keyboard\", trailing = \"Today\" }, { title = \"Books\", trailing = \"Mon\" } } }")
+        )
+        val key = t.key(s.name)
+        val vm = show(s)
+        open(vm, "Wopts Scene")
+        compose.onNodeWithTag(SCENE_ROW_TAG).performScrollTo().assertExists()
+        compose.onNode(hasTestTag(SCENE_ROW_TAG) and hasText(CardScenes.NONE_LABEL, substring = true)).assertExists()
+
+        compose.onNodeWithTag(SCENE_ROW_TAG).performClick()
+        compose.onNodeWithTag("scene own").assertIsSelected()
+        // Each of Kolahal's scenes is a choice; the first few are in view.
+        compose.onNodeWithTag("scene ${CardScenes.names.first()}").assertExists()
+        compose.onNodeWithTag("scene-choices").performScrollToNode(hasTestTag("scene pond"))
+        compose.onNodeWithTag("scene pond").performClick()
+        compose.waitFor("the scene isn't kept") { t.entry(s.name)?.scene == "pond" }
+        compose.onNodeWithTag("scene-choices").assertDoesNotExist()
+        compose.onNode(hasTestTag(SCENE_ROW_TAG) and hasText("Pond", substring = true)).assertExists()
+
+        // Split keeps its tiles: the rows say why.
+        compose.runOnUiThread { t.host.setLook(key, WidgetLook.SPLIT) }
+        compose.waitForNode(hasText(CardScenes.why(WidgetLook.SPLIT)!!, substring = true))
+
+        compose.onNodeWithTag("reset-own").performScrollTo().assertIsEnabled().performClick()
+        compose.waitFor("Reset didn't take the scene away") {
+            t.entry(s.name)?.scene == null
+        }
+        compose.waitForText(WidgetSettingsWords.resetDone("Wopts Scene"))
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitFor("Undo didn't put the scene back") {
+            t.entry(s.name)?.scene == "pond"
+        }
+    }
+
+    /** The Agenda card's page has its days, Auto at first; a tap saves another count. Other cards have none. */
+    @Test
+    fun theAgendaHasItsDaysOnItsPage() {
+        assumeTrue(
+            "the Agenda was on the widgets page before the test",
+            t.host.placeBuiltin(WidgetSource.AGENDA, WidgetSize.S4X2)
+        )
+        val config = com.mtwabpin.kolahal.data.Config.get(app)
+        try {
+            val vm = show()
+            open(vm, WidgetSource.builtinTitle(WidgetSource.AGENDA)!!)
+            listOf("Auto", "1", "3", "7", "14").forEach { compose.onNodeWithTag("days $it").performScrollTo().assertExists() }
+            compose.onNodeWithTag("days Auto").assertIsSelected()
+            compose.onNodeWithTag("days 7").performClick()
+            compose.waitFor("the days aren't kept") { config[Keys.AGENDA_WIDGET_DAYS] == "7" }
+            compose.onNodeWithTag("days 7").assertIsSelected()
+            // A scene as on every card.
+            compose.onNodeWithTag(SCENE_ROW_TAG).performScrollTo().assertExists()
+        } finally {
+            config.reset(Keys.AGENDA_WIDGET_DAYS)
+        }
     }
 }

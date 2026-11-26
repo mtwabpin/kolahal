@@ -63,7 +63,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.ui.Labeled
 import com.mtwabpin.kolahal.ui.LabeledIconButton
@@ -83,9 +82,9 @@ internal class ToolbarEdit(val label: String, val icon: Int, val onClick: () -> 
 
 /**
  * The controls for the chosen widget, docked at the bottom: its name and size, and Remove and Done.
- * - One of Kolahal's own widgets: its look and its size, one tap each, and for the agenda its days.
- *   Look has its name over it, as its buttons take the whole width; Size and Days have it at their
- *   start, which keeps the toolbar low. [edit] is Settings: a button that opens the card's settings
+ * - One of Kolahal's own widgets: its look and its size, one tap each. Look has its name over it,
+ *   as its buttons take the whole width; Size has it at its start, which keeps the toolbar low.
+ *   The Agenda's days are on its settings page. [edit] is Settings: a button that opens the card's settings
  *   page, with a dot in the card's color ([settingsColor]) and, in the Shape look, a small copy of
  *   its shape ([settingsShape]) in front of the word.
  * - An app's widget: width and height in steps, and Square. It draws itself, so it has no look.
@@ -110,8 +109,6 @@ internal fun WidgetToolbar(
     edit: ToolbarEdit?,
     onRemove: () -> Unit,
     onDone: () -> Unit,
-    agendaDays: String? = null,
-    onAgendaDays: (String) -> Unit = {},
     pageNames: List<String> = emptyList(),
     page: Int = 0,
     onPage: (Int) -> Unit = {},
@@ -185,17 +182,6 @@ internal fun WidgetToolbar(
                         onSize(
                             WidgetSize.entries[it]
                         )
-                    }
-                }
-                if (agendaDays != null) {
-                    val choices = Keys.AGENDA_WIDGET_DAYS.choices
-                    val labels = choices.map { it.replaceFirstChar(Char::titlecase) }
-                    NamedRow("Days") {
-                        ChoiceRow(
-                            labels,
-                            labels.getOrNull(choices.indexOf(agendaDays)),
-                            "days "
-                        ) { onAgendaDays(choices[it]) }
                     }
                 }
             } else {

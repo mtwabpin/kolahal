@@ -1605,7 +1605,7 @@ them.
 - Data :: Built-in (=builtin:agenda=, placed at 4×2). =Agenda.query=, which the =agenda= command
   uses. Needs the calendar permission; without it the card says "Allow calendar access", and a tap
   asks for it. It shows Auto (as many days as fit, up to 14) or 1, 3, 7 or 14 days
-  (=widgets.agenda-days=, also in the toolbar on Arrange widgets).
+  (=widgets.agenda-days=, also under Days on the card's settings page).
 - Refresh :: When the page shows, and every 15 minutes while it does, at most once a minute
   ([[src:terminal/OwnWidgets.kt::internal object AgendaTurns][AgendaTurns]]). Ended events drop
   out by themselves.

@@ -78,6 +78,7 @@ import androidx.compose.ui.zIndex
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.terminal.WidgetFeed
 import com.mtwabpin.kolahal.widgets.ArrangeUndo
+import com.mtwabpin.kolahal.widgets.CardCorners
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetDrag
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -390,6 +391,8 @@ internal fun ArrangedPage(
                 }
             },
     ) {
+        // The cards' corners (widgets.corners): the held card's shadow and where it lands follow them.
+        val corners = rememberCardCorners()
         // Room under the lowest widget, for the lower half of its bottom handle.
         WidgetGrid(
             WidgetLayout.GAP_DP.dp, Modifier
@@ -443,7 +446,8 @@ internal fun ArrangedPage(
                             .then(
                                 if (lifted && dragged != null) Modifier.lifted(
                                     dragged,
-                                    page
+                                    page,
+                                    arrangedCorner(w, corners)
                                 ) else Modifier
                             )
                             .bringIntoViewRequester(bring)
@@ -474,9 +478,9 @@ internal fun ArrangedPage(
                         .height(d.w.heightDp.dp)
                         .background(
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            RoundedCornerShape(28.dp)
+                            RoundedCornerShape(arrangedCorner(d.w, corners))
                         )
-                        .dashedBorder(MaterialTheme.colorScheme.primary, 2.dp, 28.dp),
+                        .dashedBorder(MaterialTheme.colorScheme.primary, 2.dp, arrangedCorner(d.w, corners)),
                 )
             }
         }
@@ -490,12 +494,12 @@ internal fun ArrangedPage(
 }
 
 /** A held widget: it follows the finger, raised above the page with a shadow. */
-private fun Modifier.lifted(d: Dragged, page: ScrollState): Modifier = graphicsLayer {
+private fun Modifier.lifted(d: Dragged, page: ScrollState, corner: Dp): Modifier = graphicsLayer {
     val moved = d.moved(page.value)
     translationX = moved.x
     translationY = moved.y
     shadowElevation = 16.dp.toPx()
-    shape = RoundedCornerShape(28.dp)
+    shape = RoundedCornerShape(corner)
     clip = false
 }
 
@@ -635,7 +639,7 @@ private fun ArrangedCard(
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(arrangedCorner(w, rememberCardCorners()))
     Box(
         modifier
             .fillMaxWidth()
@@ -707,3 +711,11 @@ private fun ArrangedCard(
 
 /** How long a held widget stays at the screen's edge before the next page shows ([ArrangedPage]'s onEdge). */
 internal const val EDGE_HOLD_MS = 700L
+
+/**
+ * The corner of [w]'s outline in Arrange widgets (its shadow while held, where it lands, its border):
+ * one of Kolahal's cards has the corners widgets.corners gives ([corners]) in a look that takes them,
+ * else 28 dp, as an app's widget always has.
+ */
+private fun arrangedCorner(w: PlacedWidget, corners: CardCorners?): Dp =
+    (if (w.source != null && CardCorners.takenIn(w.look)) CardCorners.dp(corners, small = false) else 28).dp

@@ -211,6 +211,8 @@ internal fun SettingItem(
                                     chosen,
                                     label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
                             }
+                            // Widget corners: widgets page 1 under the choice, so a pick shows on the cards at once.
+                            if (key == Keys.WIDGET_CORNERS) com.mtwabpin.kolahal.ui.widgets.WidgetsPagePreview(vm)
                         }
                     }
                 },

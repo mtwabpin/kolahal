@@ -313,7 +313,7 @@ private val stillShaders = ShaderCache<LoadedShader>(max = 4)
 
 /**
  * A still of Kolahal's own shader [name], as a card's ground on home's widgets pages
- * ([com.mtwabpin.kolahal.ui.widgets.StatScene]): drawn as [rememberTtyShader] draws it, with its clock at 0.
+ * ([com.mtwabpin.kolahal.ui.widgets.CardScene]): drawn as [rememberTtyShader] draws it, with its clock at 0.
  * Null until it is compiled, and when it can't be drawn: it isn't one of Kolahal's own ([ShaderCatalog.BUNDLED]),
  * it is no scene ([WallpaperChoice.suits]), it was turned off ([ShaderSafety.isTripped]), a screen reader is
  * on, or Android is older than 13.

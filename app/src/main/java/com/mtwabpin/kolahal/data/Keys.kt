@@ -771,6 +771,19 @@ object Keys {
         0..100,
         "How much of the phone's wallpaper shows behind the widgets page (%).\n0 is none. Higher shows less of the theme's color"
     )
+    val WIDGET_CORNERS = ConfigKey.Choice(
+        "widgets.corners",
+        "own",
+        listOf("own", "square", "slight", "rounded", "very"),
+        "How round the corners of Kolahal's widgets are.\nSplit's tiles and Shape's shapes keep their own",
+        notes = mapOf(
+            "own" to "As each widget has them: 24 dp on a 1×1, 28 dp on a larger one",
+            "square" to "No rounding",
+            "slight" to "8 dp",
+            "rounded" to "16 dp",
+            "very" to "40 dp",
+        ),
+    )
     // The Assistant (assistant/, ui/assistant): only in a build that has it (BuildConfig.ASSISTANT, [ALL]).
     // Getters, not fields: the keys live in [AssistantConfig], built only when something reads them, so
     // a build without the Assistant names nothing of it here and R8 leaves it all out.
@@ -907,6 +920,7 @@ object Keys {
         WIDGETS_START,
         WIDGETS_WALLPAPER,
         AGENDA_WIDGET_DAYS,
+        WIDGET_CORNERS,
         *(if (com.mtwabpin.kolahal.BuildConfig.ASSISTANT) AssistantConfig.all() else emptyArray()),
         // Last, so they never take the place of another setting when the prompt suggests settings by what
         // they do (Completer): these matter only with home.style tty.

@@ -167,4 +167,16 @@ class WidgetTitlesTest {
         // A Status card, from before 0.5.9, is no widget Kolahal draws.
         assertNull(sourceTitle("status:weather", scripts))
     }
+
+    /** The Agenda's days on its settings page: each of widgets.agenda-days, large, with a line under it and words for TalkBack. */
+    @Test
+    fun theAgendasDaysSayWhatTheyShow() {
+        val choices = com.mtwabpin.kolahal.data.Keys.AGENDA_WIDGET_DAYS.choices
+        assertEquals(listOf("Auto", "1", "3", "7", "14"), choices.map(WidgetSettingsWords::daysMark))
+        assertEquals(listOf("As many as fit", "Today", "3 days", "A week", "Two weeks"), choices.map(WidgetSettingsWords::daysLine))
+        assertEquals(
+            listOf("Auto: as many days as fit", "1 day: today", "3 days", "7 days: a week", "14 days: two weeks"),
+            choices.map(WidgetSettingsWords::daysSaid)
+        )
+    }
 }

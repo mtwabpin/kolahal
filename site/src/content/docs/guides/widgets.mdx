@@ -63,6 +63,13 @@ The page can show your phone's wallpaper (the one you set in Android) behind the
 The log has its own setting for this (`log.wallpaper`, under **Settings → Log**). So each page can show
 more or less of the wallpaper.
 
+**Settings → Widgets → Widget corners** (`widgets.corners`) sets how round the corners of Kolahal's
+widgets and scripts' widgets are: **Its own** (24 dp on a 1×1, 28 dp on a larger one, the default),
+**Square**, **Slightly rounded** (8 dp), **Rounded** (16 dp) or **Very rounded** (40 dp). Your widgets
+page shows under the choice and changes as you pick. The rows, tiles and pills inside a widget keep
+their corners, and so do the **Split** and **Shape** looks, whose outline is their own. Another app's
+widget draws itself, and keeps its own corners.
+
 When the [app selector](/getting-started/parts/#app-selector) is on (`selector.rail`), it is on the widgets page
 too. Its strip is in the same place and uses the same settings as on the log. Its list uses the whole page,
 and while it is open, the widgets fade out behind it.
@@ -248,8 +255,8 @@ readable. A track without a cover shows the card as usual.
 
 The card shows the events of your phone's calendar from today, under "Today", "Tomorrow" and the
 date. By default (Auto) it looks up to 14 days ahead and shows as many events as the card fits.
-To show only a few days, choose 1, 3, 7 or 14 under **Days** when you tap the card in **Arrange
-widgets**, or in **Settings → Widgets → Agenda days**. The [`agenda`](/guides/productivity/#agenda)
+To show only a few days, choose 1, 3, 7 or 14 under **Days** on the card's
+[settings page](#a-widgets-settings-page), or in **Settings → Widgets → Agenda days**. The [`agenda`](/guides/productivity/#agenda)
 command reads the same calendar.
 
 - Each event has its time in front. An all-day event says "all day" and comes first in its day.
@@ -377,7 +384,6 @@ For one of Kolahal's widgets or a script's widget, the toolbar has:
 | --- | --- |
 | Look | Plain, Tonal, Bold, Split, Shape, Poster, and for some widgets a look of their own: Now, Next or Stack ([below](#looks)) |
 | Size | 1×1, 2×1, 2×2, 4×1, 4×2, 4×4 |
-| Days (Agenda only) | Auto, 1, 3, 7, 14 |
 | Page (with more than one page) | one for each page: a tap moves the widget there |
 
 It also has **Settings**, which opens the widget's settings page ([below](#a-widgets-settings-page)), and
@@ -413,12 +419,23 @@ the rest. Back returns to Arrange widgets, with the widget still chosen.
 
 - **This card**: a script's options, as in the script's sheet ([below](#the-same-widget-more-than-once)).
   A change runs the widget again at once. For Shortcuts, **Edit shortcuts**.
+- **Days**: on the Agenda card, how many days it shows: Auto, 1, 3, 7 or 14 ([above](#agenda)).
 - **Color**: the theme's colors, the widget's own first ([below](#looks)).
 - **Shape**: in the Shape look, for a widget that is one shape, its shapes ([below](#looks)).
 - **What shows**: switches for the widget's **Name**, wherever its look writes it, and its **Icon**,
   where its look draws one. Each shows only for a widget that has that part.
   Now playing also has **Album art as background**, off at first.
-- **Reset to the card's own**: its own color, shape, name and icon again, and album art off. A
+- **Scene**, under What shows: a still of one of Kolahal's [scene shaders](/scripting/shaders/)
+  behind the card, such as the pond, the dunes or rain. **None** at first; tap the row to choose one.
+  The card's words and marks sit over it on a scrim of the card's color, so they still read. It
+  shows in **Plain**, **Tonal** and **Bold**, and in **Next**, **Stack** and **Now**; **Split**, **Shape**
+  and **Poster** keep their own, and the row says so. It is one still frame: it never moves and
+  costs nothing while the card sits there. On Now playing with album art as background, the cover
+  shows while there is one, and the scene when there isn't. A script's number card that names its
+  own scene has **As the script sets** first; your choice, **None** too, takes its place. Without it
+  the card is plain: on Android 12 and older, and with TalkBack on.
+- **Reset to the card's own**: its own color, shape, name and icon again, album art off
+  and its own scene. A
   script's options keep their values; its look and size stay. **Undo** in the message that follows
   puts them back.
 

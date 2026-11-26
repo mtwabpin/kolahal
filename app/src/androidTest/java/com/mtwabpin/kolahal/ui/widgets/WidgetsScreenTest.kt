@@ -220,23 +220,14 @@ class WidgetsScreenTest {
         assertNull(widgets.toChoose.value)
     }
 
-    /** The Agenda has the Now look, and a Days row: Auto at first, and a tap saves another count. Other widgets have none. */
+    /** The Agenda has the Now look. Its days are on its settings page, not in the toolbar. */
     @Test
-    fun theAgendaHasADaysRow() {
+    fun theAgendaHasTheNowLookAndItsDaysOnItsPage() {
         val (_, agenda) = placeBuiltin(WidgetSource.AGENDA)
-        val (_, battery) = placeBuiltin(WidgetSource.BATTERY)
         show()
         choose(agenda)
         // An agenda's own look, beside the five it shares.
         compose.onNodeWithTag("look Now").assertExists()
-        listOf("Auto", "1", "3", "7", "14").forEach {
-            compose.onNodeWithTag("days $it").assertExists()
-        }
-        compose.onNodeWithTag("days Auto").assertIsOn()
-        compose.onNodeWithTag("days 7").performClick()
-        compose.onNodeWithTag("days 7").assertIsOn()
-        assertEquals("7", config[Keys.AGENDA_WIDGET_DAYS])
-        choose(battery)
         compose.onNodeWithTag("days Auto").assertDoesNotExist()
     }
 

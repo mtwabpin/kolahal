@@ -204,6 +204,7 @@ private val CATEGORIES = listOf(
                 Keys.WIDGETS_START,
                 Keys.WIDGETS_WALLPAPER,
                 Keys.AGENDA_WIDGET_DAYS,
+                Keys.WIDGET_CORNERS,
             ),
         ),
         manage = Triple("Arrange widgets", "Add, resize and reorder widgets", Screen.WIDGETS),

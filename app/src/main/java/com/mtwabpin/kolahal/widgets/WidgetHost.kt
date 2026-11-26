@@ -759,9 +759,14 @@ class WidgetHost private constructor(context: Context) {
         all.map { if (it.key == key && it.source != null && it.artBackground != on) it.copy(artBackground = on) else it }
     }
 
-    /** Gives the widget [key] its own color, shape and parts again, and album art off: what its settings page's Reset does. Its look and size stay. */
+    /** Sets the scene drawn behind the widget [key] ([CardScenes]): a scene's name, [CardScenes.NONE], or null for its own. Only a widget Kolahal draws has one. */
+    fun setScene(key: String, scene: String?) = update { all ->
+        all.map { if (it.key == key && it.source != null && it.scene != scene) it.copy(scene = scene) else it }
+    }
+
+    /** Gives the widget [key] its own color, shape and parts again, and album art off and its own scene: what its settings page's Reset does. Its look and size stay. */
     fun resetOwn(key: String) = update { all ->
-        all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet(), artBackground = false) else it }
+        all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet(), artBackground = false, scene = null) else it }
     }
 
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */

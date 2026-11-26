@@ -34,6 +34,7 @@ object SettingTitles {
         "widgets.start" to "Start on the widgets page",
         "widgets.wallpaper" to "Transparency (%)",
         "widgets.agenda-days" to "Agenda days",
+        "widgets.corners" to "Widget corners",
         "assistant.page" to "Show the Assistant page",
         "assistant.service" to "Service",
         "assistant.model" to "Model",

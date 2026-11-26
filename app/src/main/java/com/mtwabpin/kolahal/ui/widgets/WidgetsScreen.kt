@@ -193,7 +193,6 @@ fun WidgetsScreen(
     val version by vm.config.version.collectAsStateWithLifecycle()
     // With widgets.page off, no page next to the terminal shows the widgets, so this screen says so.
     val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
-    val agendaDays = remember(version) { vm.config[Keys.AGENDA_WIDGET_DAYS] }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     // The page being arranged, by its location: at first the page the person came from.
     val pages by widgets.pages.collectAsStateWithLifecycle()
@@ -498,9 +497,6 @@ fun WidgetsScreen(
                         edit = editOf(chosen),
                         onRemove = { confirmRemove = chosen },
                         onDone = { selected = null },
-                        // The Agenda card: how many days it shows (widgets.agenda-days).
-                        agendaDays = if (chosen.source == WidgetSource.builtin(WidgetSource.AGENDA)) agendaDays else null,
-                        onAgendaDays = { vm.setConfig(Keys.AGENDA_WIDGET_DAYS, it) },
                         pageNames = pages.indices.map { WidgetPages.title(pages, it) },
                         page = pageIndex,
                         // The widget moves, and the screen goes with it to that page, still chosen.

@@ -56,6 +56,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
@@ -66,6 +68,9 @@ import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.ui.home.networkIcon
 import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
+import com.mtwabpin.kolahal.widgets.CardCorners
+import com.mtwabpin.kolahal.widgets.CardScenes
+import com.mtwabpin.kolahal.widgets.MediaArt
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetColors
@@ -174,6 +179,19 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
 }
 
 /**
+ * The corners of every card, from `widgets.corners` ([CardCorners]): null for the cards' own. A card is
+ * drawn again only when the setting changes, not at every change of another setting.
+ */
+@Composable
+internal fun rememberCardCorners(): CardCorners? {
+    val context = LocalContext.current.applicationContext
+    val config = remember(context) { Config.get(context) }
+    val read = { CardCorners.named(config[Keys.WIDGET_CORNERS]) }
+    val changes = remember(config) { config.version.map { read() }.distinctUntilChanged() }
+    return changes.collectAsStateWithLifecycle(remember(config) { read() }).value
+}
+
+/**
  * The card of a script widget, [height] tall and as wide as it is given. Call it inside [GuiTheme].
  * - It has its own opaque surface, so its text reads over any wallpaper.
  * - It draws [spec] for the box it gets ([WidgetSizes.box]), with no title line ([CardLayout]):
@@ -274,10 +292,17 @@ internal fun WidgetCard(
         // Split's tiles and Shape's shape are the card: the frame itself draws nothing there.
         val bare = look == WidgetLook.SPLIT || polygon != null
         val side = min(maxWidth, maxHeight)
+        // The corners widgets.corners gives every card, where its look takes them ([CardCorners]); else its own.
+        val corners = rememberCardCorners()?.takeIf { CardCorners.takenIn(look) }
+        val small = box == WidgetSizes.Box.SMALL
+        // The scene chosen on its settings page, else a stat's own ([CardScenes.shown]).
+        val scene = CardScenes.shown(LocalChosenScene.current, (shown as? WidgetSpec.Stat)?.scene)
+        // On Now playing the cover wins while there is one: album art and a scene are one choice ([CardScenes.overArt]).
+        val art = shown is WidgetSpec.Media && MediaArt.ground(LocalArtBackground.current, shown.cover != null, look, box)
         Surface(
             color = if (bare) Color.Transparent else colors.card,
             contentColor = colors.content,
-            shape = if (bare) RectangleShape else RoundedCornerShape(if (box == WidgetSizes.Box.SMALL) 24.dp else 28.dp),
+            shape = if (bare) RectangleShape else RoundedCornerShape(CardCorners.dp(corners, small).dp),
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("widget-card"),
@@ -287,8 +312,10 @@ internal fun WidgetCard(
                     .fillMaxSize()
                     .then(press)
                     .semantics { contentDescription = description }) {
-                // A stat's scene is the card's ground, under its body ([StatScene]).
-                if (shown is WidgetSpec.Stat && note == null && polygon == null) StatScene(shown, look, colors.card)
+                // A scene is the card's ground, under its body ([CardScene]).
+                if (scene != null && shown != null && note == null && polygon == null && CardScenes.overArt(art)) {
+                    CardScene(scene, look, WidgetJson.kindOf(shown), colors.card)
+                }
                 // With album art as background, the track's cover is the Now playing card's ground ([MediaArtGround]).
                 if (shown is WidgetSpec.Media && note == null && polygon == null) MediaArtGround(shown, look, box, colors.card)
                 // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
@@ -765,7 +792,8 @@ internal fun SourceWidget(
             LocalChosenShape provides w.shape,
             LocalChosenColor provides w.color,
             LocalHiddenParts provides w.hidden,
-            LocalArtBackground provides w.artBackground
+            LocalArtBackground provides w.artBackground,
+            LocalChosenScene provides w.scene
         ) {
             if (ref != null) {
                 ScriptWidget(ref, height, actions, feed)
