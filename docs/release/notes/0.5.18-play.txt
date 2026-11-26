@@ -1,0 +1,6 @@
+What's new:
+• Deleting a notification's line from the log dismisses the notification too, once Undo has passed.
+• Scripts: @on notification can name the apps it runs for, such as com.example.chat.
+• A warning when a script has the internet together with private data, such as your notifications.
+• Now playing card: the album art can fill the whole card.
+• Fixed: the + and the pencil on the widgets page sit at the end of their row.
