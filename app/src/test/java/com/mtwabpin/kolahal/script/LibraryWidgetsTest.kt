@@ -442,6 +442,92 @@ class LibraryWidgetsTest {
         assertTrue(sourceFile("src/main/assets/library/screen-time.lua").readText().contains("color = today.color,"))
     }
 
+    /** Screen time, as the script describes it with today's total, the daily limit and the top app. */
+    private fun screenTimeCard(label: String, note: String?, summary: String, color: String? = null) =
+        fromLua(
+            "screen-time.lua",
+            luaTable(
+                "title" to "Screen time",
+                "icon" to "timer",
+                "value" to "1h 48m",
+                "label" to label,
+                "note" to note,
+                "points" to luaList(200.0, 150.0, 108.0),
+                "style" to "bars",
+                "min" to 0.0,
+                "labels" to luaList("Tue", "Today"),
+                "summary" to summary,
+                "color" to color,
+                "staleAfter" to 900.0,
+                "tap" to luaTable("args" to "today", "page" to "log", "label" to "Show today's apps"),
+            ),
+        ) as WidgetSpec.Chart
+
+    /**
+     * Against the daily limit, the label says the time left, or the time over it; without a limit,
+     * what the value is. A screen reader hears the limit first.
+     */
+    @Test
+    fun screenTimeAgainstTheLimit() {
+        val code = sourceFile("src/main/assets/library/screen-time.lua").readText()
+        assertTrue(code.contains("label = label,"))
+        assertTrue(code.contains("duration(left) .. \" left\""))
+        assertTrue(code.contains("duration(-left) .. \" over\""))
+
+        // 3h limit, 1h 48m used.
+        val under = screenTimeCard(
+            "1h 12m left", "Maps 48m",
+            "1h 12m left of your 3h 0m limit. Most used: Maps 48m. Tue 3h 20m, Wed 2h 30m, Today 1h 48m"
+        )
+        assertEquals("1h 12m left", under.label)
+        assertEquals(null, under.base.color)
+        // 3h limit, 3h 22m used: the warning color too.
+        val over = screenTimeCard(
+            "22m over", "Maps 1h 15m",
+            "22m over your 3h 0m limit. Most used: Maps 1h 15m. Tue 3h 20m, Wed 2h 30m, Today 3h 22m",
+            color = "warn"
+        )
+        assertEquals("22m over", over.label)
+        assertEquals(StyledText.ColorRole.WARN, over.base.color)
+        assertTrue(
+            WidgetWords.description("Screen time", over, 0, java.time.ZoneOffset.UTC)
+                .contains("22m over your 3h 0m limit")
+        )
+        // No limit: the label it always had, and the days alone after the top app.
+        val none = screenTimeCard(
+            "Screen time today", "Maps 48m",
+            "Most used: Maps 48m. Tue 3h 20m, Wed 2h 30m, Today 1h 48m"
+        )
+        assertEquals("Screen time today", none.label)
+        // Each label fits a 2x1 card's 120 dp beside the chart, as "Screen time today" did.
+        listOf(under, over, none).forEach { assertTrue(it.label!!.length <= "Screen time today".length) }
+    }
+
+    /**
+     * The app used most today and its time, as the note on a large card's last line; none until an
+     * app has a minute. A long name is cut in the script, so the time stays within the note's 16.
+     */
+    @Test
+    fun screenTimeTopApp() {
+        val code = sourceFile("src/main/assets/library/screen-time.lua").readText()
+        assertTrue(code.contains("note = note,"))
+        assertTrue(code.contains("local room = 16 - #time - 1"))
+
+        val maps = screenTimeCard("1h 12m left", "Maps 48m", "Most used: Maps 48m. Today 1h 48m")
+        assertEquals("Maps 48m", maps.base.note)
+        assertEquals(
+            "Screen time, Maps 48m: 1h 48m, 1h 12m left, Most used: Maps 48m. Today 1h 48m",
+            WidgetWords.description("Screen time", maps, 0, java.time.ZoneOffset.UTC)
+        )
+        // "A very long application name", 10h 15m: cut to 16 with the time whole.
+        val long = screenTimeCard("Screen time today", "A very… 10h 15m", "Today 10h 15m")
+        assertEquals("A very… 10h 15m", long.base.note)
+        assertTrue(long.base.note!!.length <= 16)
+        // No app has a minute yet: no note.
+        val first = screenTimeCard("2h 0m left", null, "2h 0m left of your 2h 0m limit. Today 0m")
+        assertEquals(null, first.base.note)
+    }
+
     /** Screen time by month: the time a day large, a bar a month, the oldest first, the newest called "now". */
     @Test
     fun screenTimeMonths() {
