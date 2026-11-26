@@ -4,9 +4,12 @@
 package com.mtwabpin.kolahal.terminal.commands
 
 import android.content.Context
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.FontFiles
+import com.mtwabpin.kolahal.data.HomeEntry
+import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
@@ -16,6 +19,7 @@ import com.mtwabpin.kolahal.shader.ShaderSafety
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.terminal.ScreenSaver
 import com.mtwabpin.kolahal.terminal.TerminalUi
+import com.mtwabpin.kolahal.widgets.WidgetHost
 
 /** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
 class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
@@ -132,6 +136,14 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 "widgets.start needs the app selector\n'config set selector.rail on' turns it on",
                 LogContext.of(LogContext.COPY to "config set selector.rail on"),
             )
+        }
+        // home.pages names pages there are: an id of none is refused, with the ids there are.
+        if (key == Keys.HOME_PAGES) {
+            val there = listOf(HomeEntry.Log.id) +
+                    WidgetHost.get(context).pages.value.map { HomeOrder.idOf(it.location) } +
+                    listOfNotNull(HomeEntry.Assistant.id.takeIf { BuildConfig.ASSISTANT })
+            val ids = HomeOrder.parse(value)?.let(HomeOrder::listed)
+            if (ids == null || ids.any { it !in there }) return error("Invalid value for ${key.key}: ${there.joinToString(", ")}")
         }
         if (conf.set(key, value)) {
             info("${key.key} = ${shown(key)}")

@@ -10,6 +10,7 @@ It uses your own API key from the service you choose, and it's in the full build
 
 1. Open **Settings → Assistant** and turn on **Show the Assistant page**, or run `config set assistant.page on`.
 2. Swipe sideways on the home screen past the widgets pages. The Assistant is the outermost page.
+   To put it elsewhere, use [Page order](/guides/widgets/#page-order).
 3. Enter an API key for the service you want. The page asks for one when the service has none.
 
 You get an API key from the service's own developer console:

@@ -266,18 +266,19 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     return@GuiListPage
                 }
                 if (open != null) {
-                    open.manage?.let { (title, subtitle, screen) ->
+                    if (open.manage.isNotEmpty()) {
                         item(key = "manage:${open.id}") {
                             PeekFade(peek) {
                                 Spacer(Modifier.height(8.dp))
                                 ActionGroup(
-                                    listOf(
+                                    open.manage.map { m ->
                                         Action(
-                                            open.icon,
-                                            title,
-                                            subtitle,
+                                            m.icon ?: open.icon,
+                                            m.title,
+                                            m.subtitle,
                                             chevron = true
-                                        ) { vm.openScreen(screen) })
+                                        ) { vm.openScreen(m.screen) }
+                                    }
                                 )
                             }
                         }

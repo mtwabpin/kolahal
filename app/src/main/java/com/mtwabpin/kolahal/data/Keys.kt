@@ -744,12 +744,18 @@ object Keys {
         "widgets.page",
         "left",
         listOf("left", "right", "off"),
-        "Widgets pages beside the terminal: swipe sideways on the home screen to reach them, a page at a time",
+        "Widgets pages beside the terminal: swipe sideways on the home screen to reach them, a page at a time.\nWith a page order (home.pages), only pages it doesn't list follow this side",
         notes = mapOf(
             "left" to "The widgets pages to the left of the log",
             "right" to "The widgets pages to the right of the log",
             "off" to "No widgets pages",
         ),
+    )
+    val HOME_PAGES = ConfigKey.Text(
+        "home.pages",
+        "",
+        "The order of home's pages from the left: log, widgets (page 1), widgets:2 and on (later pages) and assistant, separated by commas.\nEmpty: the log at one end, the widgets pages on widgets.page's side.\nA page left out goes at that side's end",
+        HomeOrder::parse,
     )
     val WIDGETS_START = ConfigKey.Bool(
         "widgets.start",
@@ -917,6 +923,7 @@ object Keys {
         FEEDS_NOTIFY,
         FEEDS_WIFI,
         WIDGETS_PAGE,
+        HOME_PAGES,
         WIDGETS_START,
         WIDGETS_WALLPAPER,
         AGENDA_WIDGET_DAYS,
@@ -933,8 +940,8 @@ object Keys {
 
     /**
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
-     * of their own (the header's sides: Settings → Header → Arrange the header; the shader and where a one-off
-     * plays: the Shaders tab).
+     * of their own (the header's sides: Settings → Header → Arrange the header; the order of home's pages:
+     * Settings → Widgets → Page order; the shader and where a one-off plays: the Shaders tab).
      */
     val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(
         LOG_KEEP_LINES,
@@ -952,6 +959,7 @@ object Keys {
         HEADER_PINNED_BAR_BELOW,
         HEADER_LEFT,
         HEADER_RIGHT,
+        HOME_PAGES,
         COMMANDS_OFF,
         HOME_STYLE,
         TTY_SUGGESTIONS,

@@ -152,11 +152,14 @@ internal class Category(
     val subtitle: String,
     val icon: Int,
     val groups: List<Pair<String?, List<ConfigKey<*>>>>,
-    /** A manager screen this page links to, shown at the top: title, subtitle, screen. */
-    val manage: Triple<String, String, Screen>? = null,
+    /** The manager screens this page links to, shown at the top. */
+    val manage: List<Manage> = emptyList(),
 ) {
     val keys get() = groups.flatMap { it.second }
 }
+
+/** A manager screen a Settings page links to: its row's title, subtitle and icon (null: the page's own). */
+internal class Manage(val title: String, val subtitle: String, val screen: Screen, val icon: Int? = null)
 
 private val CATEGORIES = listOf(
     Category(
@@ -190,10 +193,12 @@ private val CATEGORIES = listOf(
                 Keys.USAGE_UNLOCK_LIMIT,
             ),
         ),
-        manage = Triple(
-            "Arrange the header",
-            "The parts on each side and their order",
-            Screen.HEADER_PARTS
+        manage = listOf(
+            Manage(
+                "Arrange the header",
+                "The parts on each side and their order",
+                Screen.HEADER_PARTS
+            )
         ),
     ),
     Category(
@@ -207,7 +212,11 @@ private val CATEGORIES = listOf(
                 Keys.WIDGET_CORNERS,
             ),
         ),
-        manage = Triple("Arrange widgets", "Add, resize and reorder widgets", Screen.WIDGETS),
+        manage = listOf(
+            Manage("Arrange widgets", "Add, resize and reorder widgets", Screen.WIDGETS),
+            // home.pages: the order of the log, the widgets pages and the Assistant.
+            Manage("Page order", "The order of home's pages", Screen.HOME_PAGES, R.drawable.ic_sort),
+        ),
     ),
     Category(
         "log", "Log", "Times, spacing, line height, history", R.drawable.ic_stat_terminal,

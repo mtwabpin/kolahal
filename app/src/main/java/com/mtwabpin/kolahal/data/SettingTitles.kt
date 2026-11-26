@@ -31,6 +31,7 @@ object SettingTitles {
         "clock.24h" to "24-hour clock",
         "user.name" to "Your name",
         "widgets.page" to "Widgets page (swipe sideways)",
+        "home.pages" to "Page order",
         "widgets.start" to "Start on the widgets page",
         "widgets.wallpaper" to "Transparency (%)",
         "widgets.agenda-days" to "Agenda days",

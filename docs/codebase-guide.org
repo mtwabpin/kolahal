@@ -816,6 +816,10 @@ not in the list already works by its name typed in Settings. *To add a service*,
 - The text editor isn't a page of home at all: it is another activity, in a task of its own
   (see [[*The text editor: a second window][The text editor]]).
 - =HomePager= (bottom of =MainActivity.kt=) puts the optional widgets pages beside the terminal.
+  Every place on it (the log's, a widgets page's, the Assistant's, the neighbors' names) comes from
+  one ordered list, [[src:data/HomeOrder.kt::class HomeOrder][HomeOrder]]: =widgets.page='s rule while =home.pages= is empty, that
+  setting's order when it isn't (Settings → Widgets → Page order, =ui/settings/HomePagesScreen.kt=).
+  A new kind of page is one more case of =HomeEntry=.
 - A full-screen screen isn't a =Screen= either: it runs over the log page (=vm.ttyScreen=).
 
 ** Three processes

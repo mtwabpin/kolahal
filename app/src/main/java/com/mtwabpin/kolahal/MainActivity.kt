@@ -38,6 +38,8 @@ import com.mtwabpin.kolahal.calls.CallEvents
 import com.mtwabpin.kolahal.contacts.ContactPicker
 import com.mtwabpin.kolahal.control.WallpaperMatch
 import com.mtwabpin.kolahal.data.Backup
+import com.mtwabpin.kolahal.data.HomeEntry
+import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.MaterialYou
 import com.mtwabpin.kolahal.data.Script
@@ -70,6 +72,7 @@ import com.mtwabpin.kolahal.ui.scripts.ScriptLibraryScreen
 import com.mtwabpin.kolahal.ui.scripts.ScriptSourcesScreen
 import com.mtwabpin.kolahal.ui.scripts.ScriptsScreen
 import com.mtwabpin.kolahal.ui.settings.HeaderPartsScreen
+import com.mtwabpin.kolahal.ui.settings.HomePagesScreen
 import com.mtwabpin.kolahal.ui.settings.SettingsOverHome
 import com.mtwabpin.kolahal.ui.settings.SetupScreen
 import com.mtwabpin.kolahal.ui.settings.ShadersOverHome
@@ -474,6 +477,7 @@ class MainActivity : ComponentActivity(), HidesBars {
                                 )
 
                                 Screen.HEADER_PARTS -> HeaderPartsScreen(vm)
+                                Screen.HOME_PAGES -> HomePagesScreen(vm)
                                 Screen.TERMINAL -> Unit
                             }
                         }
@@ -648,6 +652,8 @@ class MainActivity : ComponentActivity(), HidesBars {
  *   deleteRight).
  * - With `widgets.start`, page 1 is home's first page instead. Home opens on it, and Back and Home
  *   return to it. A key typed on a page brings up the log and shows the key in it.
+ * - `home.pages` puts the pages in an order of its own ([HomeOrder]). Every place below comes from
+ *   that one list, built by today's rule while the setting is empty.
  */
 @androidx.compose.runtime.Composable
 private fun HomePager(
@@ -666,46 +672,42 @@ private fun HomePager(
     val widgets = androidx.compose.runtime.remember { WidgetHost.get(context) }
     val widgetPages by widgets.pages.collectAsStateWithLifecycle()
     val pages = if (side == "off") emptyList() else widgetPages
-    // A page added or removed (a backup's) lays home out again: each page's place on the pager moves.
-    androidx.compose.runtime.key(pages.size, assistant) {
-        HomePages(vm, widgets, pages, if (side == "off") "right" else side, assistant, terminal)
+    val listed = androidx.compose.runtime.remember(version) { vm.config[Keys.HOME_PAGES] }
+    val order = HomeOrder.of(HomeOrder.listed(listed), pages, side, assistant)
+    // The page home shows, by its id: when home is laid out again here, it stays on that page.
+    val shownId = androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicReference<String?>(null) }
+    // A page added or removed (a backup's), or a new order, lays home out again: each page's place on the pager moves.
+    androidx.compose.runtime.key(pages.size, assistant, listed) {
+        HomePages(vm, widgets, pages, order, side, shownId, terminal)
     }
 }
 
-/** [HomePager] for [pages] on the [side] of the log (`widgets.page` left or right). */
+/** [HomePager] for [pages] in [order]. [side] is `widgets.page`'s: a change returns to home's first page. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // LocalBringIntoViewSpec
 @androidx.compose.runtime.Composable
 private fun HomePages(
     vm: TerminalViewModel,
     widgets: WidgetHost,
     pages: List<com.mtwabpin.kolahal.widgets.WidgetPage>,
+    order: HomeOrder,
     side: String,
-    assistant: Boolean,
+    shownId: java.util.concurrent.atomic.AtomicReference<String?>,
     terminal: @androidx.compose.runtime.Composable () -> Unit
 ) {
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // The Assistant's page is the outermost one ([ASSISTANT_PAGE] in pageAt).
-    val extra = if (assistant) 1 else 0
-    val count = pages.size + 1 + extra
-    val left = side == "left"
-    val shift = if (left) extra else 0
-    val assistantPlace = if (!assistant) -1 else if (left) 0 else count - 1
-    // The log sits at the end nearest home's side; page 1 is next to it, the others further out.
-    val terminalPage = if (left) pages.size + shift else 0
-    // The pager's place of the widgets page at [index] (from 0), and the other way round (null: the log).
-    fun placeOf(index: Int): Int = if (left) shift + pages.size - 1 - index else index + 1
-    fun pageAt(place: Int): Int? = when (place) {
-        terminalPage -> null
-        assistantPlace -> ASSISTANT_PAGE
-        else -> if (left) shift + pages.size - 1 - place else place - 1
-    }
+    val count = order.count
+    val assistantPlace = order.assistantPlace
+    val terminalPage = order.logPlace
+    // The pager's place of the widgets page at [index] (from 0).
+    fun placeOf(index: Int): Int = order.placeOf(index)
     val widgetsFirst = androidx.compose.runtime.remember(version) { Keys.widgetsFirst(vm.config) }
     // The page that home opens on, and that Home and Back return to.
     val homePage = if (widgetsFirst) placeOf(0) else terminalPage
     // Home is laid out again each time a screen closes. It opens on the page it showed before
     // (vm.homeOnWidgets, vm.widgetsPageShown): Back from Arrange widgets returns to that widgets page.
     val shown = com.mtwabpin.kolahal.widgets.WidgetPages.indexOf(pages, vm.widgetsPageShown).coerceAtLeast(0)
-    val startPage = when (vm.homeOnWidgets) {
+    // Laid out again for a new order or a page added: the page it showed, wherever that is now.
+    val startPage = shownId.get()?.let(order::placeOf)?.takeIf { it >= 0 } ?: when (vm.homeOnWidgets) {
         true -> placeOf(shown)
         false -> terminalPage
         null -> homePage
@@ -715,8 +717,9 @@ private fun HomePages(
         androidx.compose.runtime.snapshotFlow { pager.settledPage }
             .collect { place ->
                 vm.homeOnWidgets = place != terminalPage
+                shownId.set(order.at(place)?.id)
                 // The page shown last is where `widget add` puts a new widget.
-                pageAt(place)?.let { pages.getOrNull(it) }?.let {
+                (order.at(place) as? HomeEntry.Widgets)?.page?.let {
                     vm.widgetsPageShown = it.location
                     widgets.addTo = it.location
                 }
@@ -755,9 +758,7 @@ private fun HomePages(
     // Left is the page before, as on the pager's own actions; in a right-to-left layout, the page after.
     val rtl =
         androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
-    fun nameOf(place: Int): String = pageAt(place)?.let {
-        if (it == ASSISTANT_PAGE) "Assistant" else if (pages.size == 1) "Widgets" else com.mtwabpin.kolahal.widgets.WidgetPages.title(pages, it)
-    } ?: "Log"
+    fun nameOf(place: Int): String = HomeOrder.name(order.at(place) ?: HomeEntry.Log, pages)
     val before = (pager.currentPage - 1).takeIf { it >= 0 }
     val after = (pager.currentPage + 1).takeIf { it < count }
     val leftOf = if (rtl) after else before
@@ -841,13 +842,13 @@ private fun HomePages(
                 },
         ) { page ->
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
-                val index = pageAt(page)
-                if (BuildConfig.ASSISTANT && index == ASSISTANT_PAGE) {
+                val entry = order.at(page)
+                if (BuildConfig.ASSISTANT && entry == HomeEntry.Assistant) {
                     com.mtwabpin.kolahal.ui.assistant.AssistantPage(vm.config, onSettings = {
                         vm.settingsCategory.value = com.mtwabpin.kolahal.ui.settings.ASSISTANT_CATEGORY
                         vm.openScreen(com.mtwabpin.kolahal.terminal.Screen.SETTINGS)
                     })
-                } else if (index == null) {
+                } else if (entry == HomeEntry.Log) {
                     // The prompt and the header measure the screen's corners from where they are on this page,
                     // which slides while home turns, not from where they are in the window.
                     val homePage = androidx.compose.runtime.remember { HomePage() }
@@ -862,20 +863,17 @@ private fun HomePages(
                                 .onPlaced { homePage.coordinates = it },
                         ) { terminal() }
                     }
-                } else {
+                } else if (entry is HomeEntry.Widgets) {
                     // The pager keeps the pages next to the one shown composed. A page's cards move and ask
                     // for runs only while the pager has settled on it.
                     androidx.compose.runtime.CompositionLocalProvider(LocalWidgetsShown provides (pager.settledPage == page)) {
-                        WidgetPanel(vm, pages[index].location)
+                        WidgetPanel(vm, entry.page.location)
                     }
                 }
             }
         }
     }
 }
-
-/** HomePages' pageAt for the Assistant's page. */
-private const val ASSISTANT_PAGE = -1
 
 /** Home's pager never scrolls to bring something into view: it moves only when Kolahal turns it. */
 private object StayOnPage : androidx.compose.foundation.gestures.BringIntoViewSpec {

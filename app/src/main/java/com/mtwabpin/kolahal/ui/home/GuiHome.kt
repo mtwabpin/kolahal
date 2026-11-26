@@ -83,6 +83,7 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.shader.ShaderCatalog
@@ -281,7 +282,7 @@ internal fun GuiHome(
         // right-to-left layout the page set as "right" is on the left, so the sides swap with it.
         val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
         val deleteRight =
-            remember(configVersion, rtl) { (config[Keys.WIDGETS_PAGE] == "right") != rtl }
+            remember(configVersion, rtl) { HomeOrder.pagesRight(config) != rtl }
         // The log and the suggestions share the space the header, key bar and prompt leave. Those
         // are measured first, so a long suggestion list can't push the prompt off the screen.
         Column(

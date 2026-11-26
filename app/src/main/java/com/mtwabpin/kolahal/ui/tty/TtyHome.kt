@@ -63,6 +63,7 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.shader.WallpaperChoice
@@ -218,7 +219,7 @@ internal fun TtyHome(
             // With the widgets page on the right, a line swiped toward it is copied, not deleted; in a
             // right-to-left layout the sides swap with the page.
             val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-            val deleteRight = remember(configVersion, rtl) { (config[Keys.WIDGETS_PAGE] == "right") != rtl }
+            val deleteRight = remember(configVersion, rtl) { HomeOrder.pagesRight(config) != rtl }
             Column(
                 Modifier
                     .weight(1f)

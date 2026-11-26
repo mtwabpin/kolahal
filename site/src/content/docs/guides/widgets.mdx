@@ -51,6 +51,7 @@ Other ways to open it:
 - **+** (add a widget) and **✎** (edit your widgets) are at the top of the page.
 - Back or Home takes you back to the terminal.
 - `widgets.page` sets the side of the page: `left` (the default) or `right`. `off` turns the page off.
+  To put the pages in an order of your own, see [Page order](#page-order).
 
 <Cards items={[{ src: widgetsPage, alt: "The widgets page: the + and pencil buttons at the top, then weather and battery cards, todos and a habit streak, and a row of shortcuts", width: 380 }]} />
 
@@ -102,6 +103,20 @@ the **+** after the page tabs.
   a name is enough when only one page starts so.
 - A widget on a page you aren't looking at waits: it doesn't run or update until its page shows.
 - With TalkBack or Switch Access, the page actions on home are named after the page they turn to.
+
+### Page order
+
+**Settings → Widgets → Page order** lists home's pages from left to right: the log, each widgets
+page by its name, and the [Assistant](/guides/assistant/) when it is on. Drag a page by its handle
+to move it. The change applies at once. With TalkBack, each page has **Move up** and **Move down**.
+
+- Home still opens on the log, or on widgets page 1 with `widgets.start`, wherever that page now is.
+  Back and Home return to it.
+- `widget page 2` turns to page 2 wherever it is, and a widget's tap that prints in the log turns to the log.
+- While an order is set, `widgets.page` decides only where a page that isn't in it goes: a page you
+  add later, or the Assistant turned on later, goes at that side's end.
+- **Reset to default** puts the pages back on the side `widgets.page` sets.
+- In the terminal: `config set home.pages widgets,log,assistant` ([the ids](/reference/config/#widgets)).
 
 <Cards items={[
   { src: pagesOne, alt: "The first widgets page with three pages: its title row says Page 1, with three dots, the first longer, then the weather, battery, world clocks, forecast, unlocks and todos cards", width: 280, caption: "Page 1 of three" },
