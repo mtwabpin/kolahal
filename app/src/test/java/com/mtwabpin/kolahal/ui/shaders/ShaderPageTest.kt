@@ -133,4 +133,17 @@ class ShaderPageTest {
         assertEquals("Glow", mine.title)
         assertEquals("glow", mine.copy(code = "uniform shader content;").title)
     }
+
+    /** Play is on a one-off alone, and can be pressed where it can play; with a screen reader on there is none. */
+    @Test
+    fun playIsOnOneOffsThatCanPlay() {
+        val once = bundled.copy(name = "hearts", code = "// @once 6\n$code")
+        assertNull(ShaderPage.play(mine, null, supported = true, screenReader = false))
+        assertNull(ShaderPage.play(bundled, null, supported = true, screenReader = false))
+        assertEquals(true, ShaderPage.play(once, null, supported = true, screenReader = false))
+        assertEquals(false, ShaderPage.play(once, null, supported = false, screenReader = false))
+        assertEquals(false, ShaderPage.play(once, "it doesn't compile", supported = true, screenReader = false))
+        assertEquals(false, ShaderPage.play(once.copy(turnedOff = true), null, supported = true, screenReader = false))
+        assertNull(ShaderPage.play(once, null, supported = true, screenReader = true))
+    }
 }

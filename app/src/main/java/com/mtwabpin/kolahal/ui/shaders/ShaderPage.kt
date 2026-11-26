@@ -65,6 +65,16 @@ internal object ShaderPage {
     fun usesTilt(e: SharedShader, code: String?): Boolean =
         e.tilt || (code != null && ShaderMeta.parse(code).tilt)
 
+    /**
+     * Play, on a one-off's row and in its sheet: null where there is none (a shader that isn't a one-off, or a screen
+     * reader is on, as nothing plays then), else whether it can be pressed. It can't where shaders aren't drawn
+     * ([supported]), for one that was turned off, or one that couldn't be used ([problem]); the page says why.
+     */
+    fun play(row: ShaderRow, problem: String?, supported: Boolean, screenReader: Boolean): Boolean? = when {
+        row.meta.once == null || screenReader -> null
+        else -> supported && !row.turnedOff && problem == null
+    }
+
     /** That the safe mode turned it off, with the reason when it is known. */
     fun turnedOff(row: ShaderRow): String = row.why?.let { "Turned off: $it" } ?: "Turned off"
 

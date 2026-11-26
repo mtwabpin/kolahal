@@ -59,6 +59,12 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.editor.BUNDLED_NOTE
 import com.mtwabpin.kolahal.ui.editor.ShaderEditor
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.tty.ActiveShaders
+import com.mtwabpin.kolahal.ui.tty.LocalShaderSources
+import com.mtwabpin.kolahal.ui.tty.ShaderSources
+import com.mtwabpin.kolahal.shader.ShaderClock
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
@@ -196,6 +202,58 @@ class ShadersScreenTest {
             assertEquals(Screen.TERMINAL, vm.screen.value)
             assertEquals(ShaderCatalog.OFF, config[Keys.SCREEN_SHADER])
         } finally {
+            ShaderPlay.current.value?.let(ShaderPlay::done)
+        }
+    }
+
+    /** Play is on a one-off's row, and not on a shader that is turned on. */
+    @Test
+    fun aOneOffHasPlay() {
+        needsAndroid13()
+        show()
+        compose.onNodeWithTag("shader-search").performTextInput("hearts")
+        compose.waitForNode(hasTestTag("shader hearts"))
+        compose.onNodeWithContentDescription("Play Hearts").assertExists()
+        compose.onNodeWithTag("shader-search").performTextReplacement("crt")
+        compose.waitForNode(hasTestTag("shader crt"))
+        compose.onNodeWithContentDescription("Details of CRT").assertExists()
+        compose.onAllNodes(hasContentDescription("Play", substring = true)).assertCountEquals(0)
+    }
+
+    /** Play plays the one-off over this page, which stays, and it goes by itself; nothing is turned on. */
+    @Test
+    fun playPlaysItOverThisPage() {
+        needsAndroid13()
+        val vm = vms.terminal(app)
+        compose.setContent {
+            CompositionLocalProvider(LocalShaderSources provides ShaderSources(phone = { ShaderClock.Phone(false, false, false, true, 100) })) {
+                ShadersScreen(vm.shaderActions, vm.notice, vm::openScreen, vm::closeScreen)
+            }
+        }
+        compose.waitForNode(hasTestTag("shader off"))
+        val screen = vm.screen.value
+        compose.onNodeWithTag("shader-search").performTextInput("hearts")
+        compose.waitForNode(hasTestTag("shader hearts"))
+        try {
+            compose.onNodeWithContentDescription("Play Hearts").performClick()
+            compose.waitFor("hearts isn't played") { "hearts" in ActiveShaders.names.value }
+            row("hearts").assertExists()
+            assertEquals(screen, vm.screen.value)
+            assertEquals(ShaderCatalog.OFF, config[Keys.SCREEN_SHADER])
+            compose.waitFor("it doesn't end", 30_000) { ShaderPlay.current.value == null && "hearts" !in ActiveShaders.names.value }
+            row("hearts").assertExists()
+            // Pressed while another plays, it is left out and the page says so, as `shader play` does.
+            // The clock stands still, or waiting for the page to be idle would play the other to its end.
+            compose.mainClock.autoAdvance = false
+            assertTrue(ShaderPlay.play("pulse", ShaderPlay.MAX_SECONDS))
+            compose.onNodeWithContentDescription("Play Hearts").performClick()
+            val logs = com.mtwabpin.kolahal.data.LogRepository.get(app)
+            compose.waitFor("not said") {
+                logs.recent(20).any { it.id > lines.start && it.text == ShaderPlay.PLAYING }
+            }
+            assertEquals("pulse", ShaderPlay.current.value?.name)
+        } finally {
+            compose.mainClock.autoAdvance = true
             ShaderPlay.current.value?.let(ShaderPlay::done)
         }
     }

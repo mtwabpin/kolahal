@@ -97,6 +97,7 @@ import com.mtwabpin.kolahal.ui.settings.PeekHint
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.segColors
 import com.mtwabpin.kolahal.ui.theme.segShapes
+import com.mtwabpin.kolahal.ui.tty.rememberPlayedShader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -108,6 +109,8 @@ import kotlinx.coroutines.launch
  * - Details, on each row, opens its sheet ([ShaderSheet]). Its Edit opens the shader's code in the editor ([onEdit]).
  * - Add shader: Get more shaders, Import a file, Read the script folder again, Start from a template
  *   ([TemplateSheet]).
+ * - A one-off's Play, on its row and in its sheet, plays it over this screen, which stays ([ShaderActions.playHere]); a
+ *   tap on its row plays it on home.
  * - Under the one-off shaders, Play over other apps ([OverAppsSwitch]), in a build that has it.
  * - On Android 12 and older the shaders are listed, but can't be used.
  * - While it is open, the values from the phone's use that any listed shader follows are worked out ([UsageWatch.list]),
@@ -167,6 +170,7 @@ fun ShadersScreen(
         actions.play(it)
         open(Screen.TERMINAL)
     }
+    val screenReader = rememberScreenReader()
     var adding by rememberSaveable { mutableStateOf(false) }
     var templates by rememberSaveable { mutableStateOf(false) }
     // The shader whose sheet is open, by name. It survives rotation.
@@ -182,8 +186,11 @@ fun ShadersScreen(
     val shown = animateFloatAsState(if (peeking == null) 1f else 0f, tween(PEEK_FADE_MS), label = "peek")
     val scope = rememberCoroutineScope()
 
+    // A one-off that plays is drawn here, over everything on the page, as home draws one.
+    val played = rememberPlayedShader()
+
     GuiTheme {
-      Box(Modifier.fillMaxSize()) {
+      Box(Modifier.fillMaxSize().then(played)) {
         val snackbar = rememberNoticeSnackbar(notice)
         val sayHold: () -> Unit = {
             scope.launch {
@@ -295,6 +302,8 @@ fun ShadersScreen(
                     r, inUse, problems[r.name], i, once.size,
                     wallpaper = false,
                     onUse = { play(r.name) },
+                    play = ShaderPage.play(r, problems[r.name], Shaders.supported, screenReader),
+                    onPlay = { actions.playHere(r.name) },
                     onDetails = { details = r.name },
                 )
             }
@@ -313,7 +322,7 @@ fun ShadersScreen(
                 order, name, inUse, wallpaper, problems, actions,
                 shown = { shown.value },
                 onShow = { details = it },
-                onPlay = play,
+                onPlay = { actions.playHere(it) },
                 onAskNotifications = onAskNotifications,
                 onPeek = { shader -> onPeek(shader?.let { TerminalViewModel.Peek(null, false, it) }) },
                 onEdit = onEdit,
@@ -351,7 +360,9 @@ private fun ShaderChoice(
     count: Int,
     wallpaper: Boolean,
     onUse: () -> Unit,
-    onDetails: () -> Unit
+    onDetails: () -> Unit,
+    play: Boolean? = null,
+    onPlay: () -> Unit = {},
 ) {
     val selected = row.name == inUse
     val colors = MaterialTheme.colorScheme
@@ -397,12 +408,21 @@ private fun ShaderChoice(
             }
         },
         trailingContent = {
-            LabeledIconButton(
-                R.drawable.ic_info,
-                "Details of ${row.title}",
-                onClick = onDetails,
-                tint = colors.primary
-            )
+            Row {
+                if (play != null) LabeledIconButton(
+                    R.drawable.ic_play,
+                    "Play ${row.title}",
+                    onClick = onPlay,
+                    enabled = play,
+                    tint = colors.primary.takeIf { play },
+                )
+                LabeledIconButton(
+                    R.drawable.ic_info,
+                    "Details of ${row.title}",
+                    onClick = onDetails,
+                    tint = colors.primary
+                )
+            }
         },
         modifier = Modifier.testTag("shader ${row.name}"),
     ) { Text(row.title) }

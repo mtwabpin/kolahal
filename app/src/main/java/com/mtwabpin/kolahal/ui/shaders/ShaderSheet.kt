@@ -91,6 +91,7 @@ import com.mtwabpin.kolahal.ui.GuiSheet
 import com.mtwabpin.kolahal.ui.SectionTitle
 import com.mtwabpin.kolahal.ui.editor.Syntax
 import com.mtwabpin.kolahal.ui.fieldColors
+import com.mtwabpin.kolahal.ui.home.rememberScreenReader
 import com.mtwabpin.kolahal.ui.openUsageAccess
 import com.mtwabpin.kolahal.ui.rememberMissing
 import com.mtwabpin.kolahal.ui.scripts.Fact
@@ -101,7 +102,8 @@ import kotlinx.coroutines.launch
 /**
  * The sheet for one shader on the Shaders screen ([name] of [rows]). Left and right swipe to the others,
  * in the list's order, as the preview is what one looks for.
- * - A preview, which stays in place over the rest where there is room, then Use or Turn off, Edit (its code in the editor, [onEdit]), Check (does it
+ * - A preview, which stays in place over the rest where there is room, then Use or Turn off (Play for a one-off, which plays it over the
+ *   page: [ShaderPage.play]), Edit (its code in the editor, [onEdit]), Check (does it
  *   compile, and which uniforms Kolahal sets), Share, and Save to folder (a copy in the script folder). Holding the eye shows home with the shader, in
  *   use or not ([onPeek]).
  * - Its parameters, under the preview, which follows them ([ShaderParamRows]).
@@ -181,6 +183,7 @@ private fun ShaderDetails(
     val context = LocalContext.current
     val on = row.name == inUse && !row.turnedOff
     val drawable = Shaders.supported && !row.turnedOff && problem == null
+    val play = ShaderPage.play(row, problem, Shaders.supported, rememberScreenReader())
 
     // The preview stays in place while what is under it scrolls: what one changes there shows in it. Where the
     // sheet hasn't room for both, such as on a phone on its side, it scrolls too. The room without the keyboard
@@ -250,13 +253,18 @@ private fun ShaderDetails(
             val wide = Modifier
                 .weight(1f)
                 .heightIn(size)
-            if (row.meta.once != null) Button(
+            // The sheet closes, and it plays over the page. With a screen reader on, nothing plays: no Play.
+            if (row.meta.once != null) { if (play != null) Button(
                 onClick = { onDismiss(); onPlay(row.name) },
                 shapes = ButtonDefaults.shapesFor(size),
-                enabled = drawable,
+                enabled = play,
                 contentPadding = ButtonDefaults.contentPaddingFor(size),
                 modifier = wide,
-            ) { Text("Play", style = ButtonDefaults.textStyleFor(size)) }
+            ) {
+                Icon(painterResource(R.drawable.ic_play), null, Modifier.size(ButtonDefaults.iconSizeFor(size)))
+                Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(size)))
+                Text("Play", style = ButtonDefaults.textStyleFor(size))
+            } }
             else if (on) FilledTonalButton(
                 onClick = { actions.off() },
                 shapes = ButtonDefaults.shapesFor(size),

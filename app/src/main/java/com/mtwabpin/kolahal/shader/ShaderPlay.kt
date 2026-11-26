@@ -27,6 +27,9 @@ object ShaderPlay {
     const val MIN_SECONDS = 1f
     const val MAX_SECONDS = 10f
 
+    /** What is said when one comes while another plays, and is left out. */
+    const val PLAYING = "A shader is playing"
+
     /** How long one waits for home to be in front. */
     const val WAIT_MS = 30 * 60_000L
 

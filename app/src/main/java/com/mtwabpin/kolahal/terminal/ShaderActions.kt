@@ -142,12 +142,24 @@ class ShaderActions(
 
     /**
      * Plays the one-off shader [name] over home, once it is in front. One that was turned off is on again by
-     * this tap, as a shader over home is by the tap that uses it.
+     * this tap, as a shader over home is by the tap that uses it. False when another plays: this one is left out.
      */
-    fun play(name: String) {
+    fun play(name: String): Boolean {
         val safety = ShaderSafety.get(context)
         if (safety.tripped()?.let(ShaderSafety::nameOf) == name) safety.turnedOn()
-        ShaderPlay.play(name, null)
+        return ShaderPlay.play(name, null)
+    }
+
+    /**
+     * Play on the Shaders screen: [name] plays over the screen, which stays. As `shader play`: one that doesn't
+     * compile doesn't play, and the screen says why; while another plays, this one is left out, and the screen says so.
+     */
+    fun playHere(name: String) = host.io {
+        val why = Shaders.problem(context, name)
+        if (why != null) {
+            _problems.update { it + (name to why) }
+            host.notice(Shaders.problemLine(name, why), error = true)
+        } else if (!play(name)) host.notice(ShaderPlay.PLAYING)
     }
 
     /** Whether Kolahal's live wallpaper is the phone's. */

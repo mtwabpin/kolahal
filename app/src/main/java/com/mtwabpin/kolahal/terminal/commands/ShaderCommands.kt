@@ -155,7 +155,7 @@ class ShaderCommands(
         if (!Shaders.once(context, name)) return notOnce(name)
         Shaders.problem(context, name)?.let { return error(Shaders.problemLine(name, it)) }
         val seconds = time?.let { it.toFloatOrNull()?.takeIf { s -> s > 0f } ?: return usage("shader") }
-        if (!ShaderPlay.play(name, seconds)) info("A shader is playing")
+        if (!ShaderPlay.play(name, seconds)) info(ShaderPlay.PLAYING)
     }
 
     private fun on() {

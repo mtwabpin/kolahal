@@ -152,7 +152,7 @@ To see it behind the log, use [`log.wallpaper`](/reference/config/#log).
 
 A one-off shader runs once for some seconds, over the shader that is on, and goes. It draws over everything on the
 screen, text and the shader that is on included. Tap one under **One-off** in the **Shaders** tab, or type
-`shader play hearts`. It can't be turned on to stay.
+`shader play hearts`. It can't be turned on to stay. **Play** on its row or in its details plays it right there, over the **Shaders** tab.
 
 **On a notification.** In its details, under **Plays on a notification**, type words with commas between, such as a name. It
 plays when a notification's title or text has one of them: whole words, in any case. Kolahal needs notification access for
@@ -163,7 +163,7 @@ typed come back once it is allowed. Notifications from the private space don't c
 A script can play one too, with [`shader.play`](/scripting/api/#shaderplayname-seconds).
 
 - One plays at a time. Another that comes meanwhile is left out.
-- It waits for home to be in front, for half an hour at most.
+- It waits for home, or the Shaders screen, to be in front, for half an hour at most.
 - It isn't played in battery saver, with **Remove animations** on, when the phone is hot or nearly out of battery, or with a
   screen reader on.
 
