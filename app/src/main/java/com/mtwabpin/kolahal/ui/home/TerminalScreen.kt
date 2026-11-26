@@ -115,6 +115,12 @@ internal fun HomeAppSelector(
 val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
 
 /**
+ * Whether the page that is showing beside the terminal has text fields of its own (the A2UI trial's
+ * page): the on-screen keyboard is then that page's, and the terminal leaves it up.
+ */
+val LocalPageTypes = androidx.compose.runtime.compositionLocalOf { false }
+
+/**
  * Home. With [preview], it is drawn under Settings while the user changes a look setting
  * (TerminalViewModel.Peek). A preview takes no focus, keyboard or events. With `typing`, it looks as
  * if [PREVIEW_INPUT] were typed.
@@ -231,11 +237,13 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         if (hasHardwareKeyboard) runCatching { state.focus.requestFocus() }
     }
     // The widgets page has no prompt, so the on-screen keyboard is hidden over it. The prompt keeps
-    // the focus, so a hardware keyboard still types into it.
+    // the focus, so a hardware keyboard still types into it. A page with fields of its own
+    // ([LocalPageTypes]) keeps the keyboard: it is that page's.
     val terminalShown = LocalTerminalShown.current
+    val pageTypes = LocalPageTypes.current
     val imeUp = WindowInsets.isImeVisible
-    if (preview == null) LaunchedEffect(terminalShown, imeUp) {
-        if (!terminalShown && imeUp) currentKeyboard?.hide()
+    if (preview == null) LaunchedEffect(terminalShown, pageTypes, imeUp) {
+        if (!terminalShown && !pageTypes && imeUp) currentKeyboard?.hide()
     }
 
     // The prompt's text is read only where it shows ([PromptSuggestions], [Prompt]). If it were read

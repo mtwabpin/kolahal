@@ -843,6 +843,7 @@ private fun HomePages(
                     val homePage = androidx.compose.runtime.remember { HomePage() }
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalTerminalShown provides (pager.currentPage == terminalPage),
+                        com.mtwabpin.kolahal.ui.home.LocalPageTypes provides (pager.currentPage == a2uiPlace),
                         LocalHomePage provides homePage,
                     ) {
                         androidx.compose.foundation.layout.Box(

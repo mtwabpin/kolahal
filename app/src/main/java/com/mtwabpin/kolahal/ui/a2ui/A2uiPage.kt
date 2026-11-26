@@ -83,6 +83,9 @@ private const val SECRET_NAME = "gemini"
 /** Debug builds only: asking this draws [SAMPLE] without Gemini, and answers its button locally ([A2uiSession.send]). */
 private const val SAMPLE_WORD = "/sample"
 
+/** Asking this forgets the saved Gemini key and shows the key's field again, to enter another. */
+private const val KEY_WORD = "/key"
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class) // LoadingIndicator
 @Composable
 internal fun A2uiPage(model: String) {
@@ -253,6 +256,10 @@ private class A2uiSession(private val context: Context) {
     /** Sends [text] as the user's next turn (a question, or an action's JSON) and draws the answer. */
     fun send(scope: CoroutineScope, model: String, text: String) {
         if (busy) return
+        if (text.trim() == KEY_WORD) {
+            forgetKey(scope)
+            return
+        }
         if (BuildConfig.DEBUG && (text == SAMPLE_WORD || sample && text.startsWith("{\"action\""))) {
             sample = true
             apply(if (text == SAMPLE_WORD) SAMPLE else sampleReply(text))
