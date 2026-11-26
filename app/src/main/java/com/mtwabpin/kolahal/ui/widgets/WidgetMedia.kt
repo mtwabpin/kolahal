@@ -44,17 +44,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.platform.testTag
@@ -66,10 +71,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.ui.IconLabel
+import com.mtwabpin.kolahal.widgets.MediaArt
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -96,6 +103,87 @@ private val MEDIA_TIMES_FROM = 122.dp
 
 /** Over the track's cover on play or pause ([ArtFace]): dark enough for the white icon on any picture. */
 internal val ART_SCRIM = Color.Black.copy(alpha = 0.35f)
+
+/**
+ * Whether the placed widget being drawn has album art as background ([PlacedWidget.artBackground],
+ * [MediaArt]). [SourceWidget] provides it.
+ */
+val LocalArtBackground = staticCompositionLocalOf { false }
+
+/** True inside a media card whose ground is the track's cover ([MediaArtGround]): its texts and tiles take the colors that read over it ([mediaColors]). */
+private val LocalOverArt = staticCompositionLocalOf { false }
+
+/** The tag of the cover drawn as the card's ground ([MediaArtGround]), for tests. */
+internal const val MEDIA_ART_GROUND_TAG = "media-art-ground"
+
+/**
+ * The colors of a media card in [look] with the color [role], as [lookColors] has them. Over the
+ * track's cover ([LocalOverArt]), behind its scrim ([artScrim]):
+ * - The quieter texts (the artist, the times, "Last played") take the text color: the scrim keeps
+ *   the main text readable, not a dimmer one.
+ * - A tile is solid, as it looks on the card: Tonal's previous and next, which are a tint of the
+ *   text color, would otherwise show the picture through them.
+ */
+@Composable
+private fun mediaColors(
+    look: WidgetLook = LocalWidgetLook.current,
+    role: Color = MaterialTheme.colorScheme.primary
+): LookColors {
+    val looks = lookColors(look, role)
+    if (!LocalOverArt.current) return looks
+    return looks.copy(muted = looks.content, tile = looks.tile.compositeOver(looks.card))
+}
+
+/**
+ * The scrim over the track's cover, in [color] (the card's, or Split's tile's), as a stat's scene
+ * has it ([sceneScrim]): the card's own text colors read over the picture as over the card.
+ * - Small: play or pause alone, on a ground of its own: the scene's lighter end, [SCRIM_END], all over.
+ * - Wide: the scene's own, strong at the start where the track is, lighter toward the buttons at the end.
+ * - Large: the track's words, the bar and its times reach across the card: the strong part, [SCRIM_START], all over.
+ */
+@Composable
+private fun artScrim(color: Color, box: WidgetSizes.Box): Brush {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    return remember(color, box, rtl) {
+        when (box) {
+            WidgetSizes.Box.SMALL -> SolidColor(color.copy(alpha = SCRIM_END))
+            WidgetSizes.Box.WIDE -> sceneScrim(color, rtl)
+            WidgetSizes.Box.LARGE -> SolidColor(color.copy(alpha = SCRIM_START))
+        }
+    }
+}
+
+/**
+ * The track's cover as the card's ground, with album art as background ([MediaArt.ground]): cropped
+ * to fill, never stretched, under a scrim in the card's color [card] ([artScrim]). The card's frame
+ * draws it under the body ([WidgetCard]), so it reaches the card's edges and its corners cut it.
+ * - Split: under all the tiles, cut to the card's outer corners. Each tile with words takes the
+ *   scrim over its own part ([SplitMedia]); the buttons are tiles of their own.
+ * - Nothing without a cover: the card is as it is with the choice off.
+ * - The picture says nothing to a screen reader: the card's description says the track.
+ * The bitmap is the one the card has, wrapped once for it, never scaled or copied.
+ */
+@Composable
+internal fun MediaArtGround(spec: WidgetSpec.Media, look: WidgetLook, box: WidgetSizes.Box, card: Color) {
+    val cover = spec.cover ?: return
+    if (!MediaArt.ground(LocalArtBackground.current, cover = true, look, box)) return
+    val image = remember(cover) { cover.asImageBitmap() }
+    val split = look == WidgetLook.SPLIT
+    Image(
+        image,
+        contentDescription = null,
+        modifier = Modifier
+            .fillMaxSize()
+            .then(if (split) Modifier.clip(SplitCorners.inColumn(0, 1)) else Modifier)
+            .testTag(MEDIA_ART_GROUND_TAG),
+        contentScale = ContentScale.Crop,
+    )
+    if (!split) Box(
+        Modifier
+            .fillMaxSize()
+            .background(artScrim(card, box))
+    )
+}
 
 /** A bar that moves the track is this tall ([SeekBar]), so a finger finds it. */
 private val SEEK_HEIGHT = 48.dp
@@ -148,9 +236,25 @@ private const val SEEK_HOLD_MS = 3_000L
  *   seen ([LevelBar]); paused, it is flat.
  * - Tonal: play or pause in the card's color, the other two on the look's tile.
  * - Split and Shape have layouts of their own ([SplitMedia], [ShapeMedia]).
+ * - With album art as background ([MediaArt]) and a cover, the cover is the card's ground
+ *   ([MediaArtGround]) and play or pause has none of its own; the texts and tiles take the colors
+ *   that read over it ([mediaColors]).
  */
 @Composable
 internal fun MediaBody(
+    spec: WidgetSpec.Media,
+    box: WidgetSizes.Box,
+    onTap: ((WidgetTap) -> Unit)?
+) {
+    val overArt = MediaArt.ground(LocalArtBackground.current, spec.cover != null, LocalWidgetLook.current, box)
+    // The cover is behind the whole card: the same picture on play or pause too would read badly.
+    val shown = remember(spec, overArt) { if (overArt) spec.copy(cover = null) else spec }
+    CompositionLocalProvider(LocalOverArt provides overArt) { MediaContent(shown, box, onTap) }
+}
+
+/** [MediaBody]'s card, as it is drawn: a cover in [spec] is play or pause's face. */
+@Composable
+private fun MediaContent(
     spec: WidgetSpec.Media,
     box: WidgetSizes.Box,
     onTap: ((WidgetTap) -> Unit)?
@@ -175,7 +279,7 @@ internal fun MediaBody(
     }
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
-    val muted = lookColors().muted
+    val muted = mediaColors().muted
     val title = WidgetWords.mediaTitle(spec)
     val line = WidgetWords.mediaLine(spec)
     val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
@@ -456,7 +560,7 @@ private fun MediaButton(
         { ArtFace(art, glyph) }
     } else glyph
     val look = LocalWidgetLook.current
-    val looks = lookColors(look, role)
+    val looks = mediaColors(look, role)
     val own = look == WidgetLook.TONAL || look == WidgetLook.SPLIT || look == WidgetLook.SHAPE
     if (strong) {
         val colors = IconButtonDefaults.filledIconButtonColors().let {
@@ -520,7 +624,7 @@ private fun PlayWithWord(onTap: ((WidgetTap) -> Unit)?, role: Color) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val look = LocalWidgetLook.current
-    val looks = lookColors(look, role)
+    val looks = mediaColors(look, role)
     val colors = ButtonDefaults.buttonColors().let {
         if (look == WidgetLook.TONAL) it.copy(
             containerColor = looks.accent,
@@ -743,7 +847,7 @@ private fun MediaTimes(spec: WidgetSpec.Media, now: State<Long>, seek: Seek?) {
         Text(
             WidgetWords.mediaTime(spec.duration),
             style = MaterialTheme.typography.labelSmall,
-            color = lookColors().muted,
+            color = mediaColors().muted,
             maxLines = 1
         )
     }
@@ -755,7 +859,7 @@ private fun MediaPosition(spec: WidgetSpec.Media, now: State<Long>, seek: Seek?)
     Text(
         WidgetWords.mediaTime(positionAt(spec, now.value, seek)),
         style = MaterialTheme.typography.labelSmall,
-        color = lookColors().muted,
+        color = mediaColors().muted,
         maxLines = 1
     )
 }
@@ -789,6 +893,8 @@ private val SPLIT_MEDIA_ROW = 56.dp
  *   a slider: down to the tile's edge where the tile has room ([SeekBar]), else slim ([MediaBar]).
  * - With nothing playing, "Last played" is where the position is, or over the song, and Play is
  *   the one button tile.
+ * - Over the track's cover ([MediaArtGround]), the tile with the words is a scrim over its part of
+ *   the picture ([artScrim]); the button tiles keep their own grounds.
  */
 @Composable
 private fun SplitMedia(
@@ -798,7 +904,7 @@ private fun SplitMedia(
     onTap: ((WidgetTap) -> Unit)?
 ) {
     val type = MaterialTheme.typography
-    val looks = lookColors(WidgetLook.SPLIT, role)
+    val looks = mediaColors(WidgetLook.SPLIT, role)
     val gap = SplitCorners.GAP
     if (box == WidgetSizes.Box.SMALL) {
         MediaButton(
@@ -814,6 +920,9 @@ private fun SplitMedia(
         )
         return
     }
+    // Over the track's cover ([MediaArtGround]), a tile with words is the scrim over its part of the picture.
+    val wordsGround: Brush =
+        if (LocalOverArt.current) artScrim(looks.tile, box) else SolidColor(looks.tile)
     val title = WidgetWords.mediaTitle(spec)
     val line = WidgetWords.mediaLine(spec)
     val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
@@ -841,7 +950,7 @@ private fun SplitMedia(
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(SplitCorners.inRow(0, tiles))
-                        .background(looks.tile)
+                        .background(wordsGround)
                         .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -939,7 +1048,7 @@ private fun SplitMedia(
                             bottomStart = false
                         )
                     )
-                    .background(looks.tile)
+                    .background(wordsGround)
                     .padding(
                         start = 18.dp,
                         top = 14.dp,
@@ -1068,7 +1177,7 @@ private fun ShapeMedia(
     onTap: ((WidgetTap) -> Unit)?
 ) {
     val type = MaterialTheme.typography
-    val looks = lookColors(WidgetLook.SHAPE, role)
+    val looks = mediaColors(WidgetLook.SHAPE, role)
     val labelHeight = linesHeight(type.labelSmall)
     val lineHeight =
         if (WidgetWords.mediaLine(spec).isNotEmpty()) linesHeight(type.bodySmall) else 0.dp
@@ -1284,7 +1393,7 @@ private fun PlayShape(
 ) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
-    val looks = lookColors(WidgetLook.SHAPE, role)
+    val looks = mediaColors(WidgetLook.SHAPE, role)
     val paused = animateFloatAsState(if (playing) 0f else 1f, settleSpec(), label = "play")
     val side48 = side.coerceAtLeast(CONTROL_MIN)
     val image = remember(art) { art?.asImageBitmap() }

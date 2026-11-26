@@ -44,7 +44,9 @@ import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
+import com.mtwabpin.kolahal.widgets.MediaArt
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -122,6 +124,9 @@ class NowPlayingCardTest {
     private var actions by mutableStateOf<WidgetCardActions?>(null)
     private var look by mutableStateOf(WidgetLook.PLAIN)
 
+    /** Album art as background ([MediaArt]), as the placed card has it. */
+    private var artBackground by mutableStateOf(false)
+
     /** The card's width and height: 4×2 on a page 395 dp wide. */
     private var size by mutableStateOf(395.dp to 192.dp)
 
@@ -131,7 +136,10 @@ class NowPlayingCardTest {
         compose.setContent {
             KolahalTheme {
                 GuiTheme {
-                    CompositionLocalProvider(LocalWidgetLook provides look) {
+                    CompositionLocalProvider(
+                        LocalWidgetLook provides look,
+                        LocalArtBackground provides artBackground
+                    ) {
                         Box(Modifier.width(size.first)) {
                             OwnWidget(
                                 WidgetSource.MEDIA,
@@ -392,5 +400,96 @@ class NowPlayingCardTest {
                 )
             }
         }
+    }
+
+    /** A paused track of invented names, with a cover or without. */
+    private fun invented(cover: Bitmap?) = NowPlaying(
+        pkg = "com.example.music",
+        app = "Music",
+        title = "Quiet Orbit",
+        artist = "Example Ensemble",
+        state = PlaybackState.STATE_PAUSED,
+        position = 30_000,
+        positionAt = System.currentTimeMillis(),
+        speed = 1f,
+        duration = 200_000,
+        idleSince = 0,
+        canSeek = true,
+        cover = cover,
+    )
+
+    /** The covers drawn as the card's ground ([MediaArtGround]). */
+    private fun grounds(): Int =
+        compose.onAllNodes(hasTestTag(MEDIA_ART_GROUND_TAG), useUnmergedTree = true)
+            .fetchSemanticsNodes().size
+
+    /** What a screen reader hears for the card: the description on the node with its tap. */
+    private fun said(): String? =
+        compose.onNode(inCard and hasClickLabel("open Music")).fetchSemanticsNode()
+            .config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
+
+    /**
+     * With album art as background and a cover, in each look and at each size, the cover is behind
+     * the card and play or pause has none: but in a small Split card, which is play or pause alone,
+     * whose face stays the cover. Without a cover, or with the choice off, the card is as it was.
+     * The cover behind says nothing: what the card says is the same.
+     */
+    @Test
+    fun albumArtAsBackgroundFillsTheCard() {
+        show(Asked())
+        val art = art()
+        for (l in listOf(WidgetLook.PLAIN, WidgetLook.TONAL, WidgetLook.SPLIT, WidgetLook.SHAPE)) {
+            for (s in listOf(
+                395.dp to 192.dp,
+                395.dp to 120.dp,
+                395.dp to 92.dp,
+                193.dp to 92.dp,
+                92.dp to 92.dp
+            )) {
+                val where = "${l.id}, ${s.first} by ${s.second}"
+                val box = WidgetSizes.box(s.first.value.toInt(), s.second.value.toInt())
+                val behind = MediaArt.ground(on = true, cover = true, l, box)
+
+                // Off: the cover is play or pause's face, and nothing is behind the card.
+                compose.runOnIdle {
+                    look = l
+                    size = s
+                    last.value = null
+                    artBackground = false
+                    playing.value = invented(art)
+                }
+                compose.waitFor("$where: no art is drawn") { covers() == 1 }
+                assertEquals(where, 0, grounds())
+                val before = said()
+
+                // On: the cover is behind the card, and play or pause has none.
+                compose.runOnIdle { artBackground = true }
+                compose.waitFor("$where: the cover isn't where it should be") {
+                    grounds() == (if (behind) 1 else 0) && covers() == (if (behind) 0 else 1)
+                }
+                compose.onAllNodes(inCard and hasContentDescription("Play")).assertCountEquals(1)
+                if (behind) compose.onNode(hasTestTag(MEDIA_ART_GROUND_TAG), useUnmergedTree = true)
+                    .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+                assertEquals(where, before, said())
+
+                // On, without a cover: the card as it is with the choice off.
+                compose.runOnIdle { playing.value = invented(null) }
+                // A small card shows no words, so this waits for the pictures to go, not for the title.
+                compose.waitFor("$where: without a cover nothing of it is drawn") { grounds() == 0 && covers() == 0 }
+                compose.onAllNodes(inCard and hasContentDescription("Play")).assertCountEquals(1)
+            }
+        }
+    }
+
+    /** With nothing playing and no cover, "Last played" with the choice on is the card as it was. */
+    @Test
+    fun albumArtAsBackgroundWithoutACoverChangesNothing() {
+        artBackground = true
+        last.value = LastPlayer("com.example.music", "Music", "Quiet Orbit", "Example Ensemble")
+        show(Asked())
+        compose.waitForNode(inCard and hasText("Last played"))
+        compose.onNode(inCard and hasText("Quiet Orbit")).assertExists()
+        assertEquals(0, grounds())
+        assertEquals(0, covers())
     }
 }

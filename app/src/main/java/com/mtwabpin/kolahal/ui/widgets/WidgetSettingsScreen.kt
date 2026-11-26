@@ -75,6 +75,7 @@ import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.navigationBarScrim
 import com.mtwabpin.kolahal.ui.theme.segColors
 import com.mtwabpin.kolahal.ui.theme.segShapes
+import com.mtwabpin.kolahal.widgets.MediaArt
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetColors
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -147,6 +148,7 @@ private const val PINNED_SHARE = 0.4f
  * - Shape: in the Shape look, for a card with a choice of shape ([hasShapeChoice]), its own first,
  *   then the shapes it may take ([shapesFor]).
  * - What shows: a switch for each part the card has to hide ([WidgetParts.offered]).
+ *   The Now playing card has one more: album art as background ([MediaArt]).
  * - Reset to the card's own: color, shape and what shows. A script's options keep their values.
  *   The snackbar offers Undo, as Settings does after a reset.
  * An app's widget has no page: its button opens the app's own setup.
@@ -229,7 +231,7 @@ fun WidgetSettingsScreen(vm: TerminalViewModel) {
                             if (look == WidgetLook.SHAPE) {
                                 shapeChoicesFor(w, kind, spec, pageDp)?.let { ShapeGroup(widgets, w, it) }
                             }
-                            PartsGroup(widgets, w, WidgetParts.offered(kind, spec, look))
+                            PartsGroup(widgets, w, WidgetParts.offered(kind, spec, look), art = MediaArt.offered(builtin))
                             ResetOwn(widgets, w, hasOptions, title, undo)
                         }
                     }
@@ -525,10 +527,14 @@ private fun ShapeGroup(widgets: WidgetHost, w: PlacedWidget, choices: ShapeChoic
     }
 }
 
-/** What shows: a switch for each part of [offered], on while the card shows it. */
+/**
+ * What shows: a switch for each part of [offered], on while the card shows it. With [art] (the Now
+ * playing card, [MediaArt.offered]), a last switch for album art as background, off until turned on.
+ */
 @Composable
-private fun PartsGroup(widgets: WidgetHost, w: PlacedWidget, offered: List<String>) {
-    if (offered.isEmpty()) return
+private fun PartsGroup(widgets: WidgetHost, w: PlacedWidget, offered: List<String>, art: Boolean) {
+    if (offered.isEmpty() && !art) return
+    val rows = offered.size + (if (art) 1 else 0)
     GroupHeader("What shows")
     offered.forEachIndexed { i, part ->
         val shown = part !in w.hidden
@@ -537,18 +543,33 @@ private fun PartsGroup(widgets: WidgetHost, w: PlacedWidget, offered: List<Strin
                 checked = shown,
                 onCheckedChange = { widgets.setShown(w.key, part, it) },
                 colors = segColors(),
-                shapes = segShapes(i, offered.size),
+                shapes = segShapes(i, rows),
                 supportingContent = { Text(WidgetParts.detail(part)) },
                 trailingContent = { Switch(checked = shown, onCheckedChange = null) },
                 modifier = Modifier.testTag("part $part"),
             ) { Text(WidgetParts.label(part)) }
         }
     }
+    if (art) Box(Modifier.padding(bottom = ListItemDefaults.SegmentedGap)) {
+        SegmentedListItem(
+            checked = w.artBackground,
+            onCheckedChange = { widgets.setArtBackground(w.key, it) },
+            colors = segColors(),
+            shapes = segShapes(rows - 1, rows),
+            supportingContent = { Text(MediaArt.DETAIL) },
+            trailingContent = { Switch(checked = w.artBackground, onCheckedChange = null) },
+            modifier = Modifier.testTag(ART_BACKGROUND_TAG),
+        ) { Text(MediaArt.LABEL) }
+    }
 }
 
+/** The tag of album art as background's switch row ([PartsGroup]), for tests. */
+internal const val ART_BACKGROUND_TAG = "art-background"
+
 /**
- * Reset to the card's own: its color, its shape and what shows. Only when one of them is set. Then
- * [undo] shows "Reset “[title]”" with Undo, which puts the three back as they were.
+ * Reset to the card's own: its color, its shape and what shows, album art as background too. Only
+ * when one of them is set. Then [undo] shows "Reset “[title]”" with Undo, which puts them back as
+ * they were.
  */
 @Composable
 private fun ResetOwn(widgets: WidgetHost, w: PlacedWidget, hasOptions: Boolean, title: String, undo: UndoMessage) {
@@ -562,9 +583,10 @@ private fun ResetOwn(widgets: WidgetHost, w: PlacedWidget, hasOptions: Boolean, 
                 widgets.setColor(before.key, before.color)
                 widgets.setShape(before.key, before.shape)
                 before.hidden.forEach { widgets.setShown(before.key, it, false) }
+                widgets.setArtBackground(before.key, before.artBackground)
             }
         },
-        enabled = w.color != null || w.shape != null || w.hidden.isNotEmpty(),
+        enabled = w.color != null || w.shape != null || w.hidden.isNotEmpty() || w.artBackground,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)

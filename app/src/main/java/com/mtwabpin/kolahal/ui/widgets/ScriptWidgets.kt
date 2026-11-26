@@ -289,6 +289,8 @@ internal fun WidgetCard(
                     .semantics { contentDescription = description }) {
                 // A stat's scene is the card's ground, under its body ([StatScene]).
                 if (shown is WidgetSpec.Stat && note == null && polygon == null) StatScene(shown, look, colors.card)
+                // With album art as background, the track's cover is the Now playing card's ground ([MediaArtGround]).
+                if (shown is WidgetSpec.Media && note == null && polygon == null) MediaArtGround(shown, look, box, colors.card)
                 // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
                 CompositionLocalProvider(
                     LocalCardLongPress provides onLongClick,
@@ -762,7 +764,8 @@ internal fun SourceWidget(
             LocalWidgetLook provides look,
             LocalChosenShape provides w.shape,
             LocalChosenColor provides w.color,
-            LocalHiddenParts provides w.hidden
+            LocalHiddenParts provides w.hidden,
+            LocalArtBackground provides w.artBackground
         ) {
             if (ref != null) {
                 ScriptWidget(ref, height, actions, feed)

@@ -548,7 +548,7 @@ widget needs an Activity.
 | Shaders                   | [[src:ui/shaders/ShadersScreen.kt::fun ShadersScreen(][ui/shaders/ShadersScreen.kt]], =GetShadersScreen.kt=                                                             | shown over home, so a shader can be seen on it                           |
 | Text editor               | [[src:ui/TextEditorActivity.kt::class TextEditorActivity][ui/TextEditorActivity.kt]], [[src:ui/editor/TextEditorScreen.kt::fun TextEditorScreen][ui/editor/TextEditorScreen.kt]]                                                       | a window of its own; shares =CodeEditor= with the script editor          |
 | Feeds, Widgets, setup, …  | =FeedsScreen.kt=, =WidgetsScreen.kt=, =WidgetPickerScreen.kt=, =SetupScreen.kt=, =OnboardingScreen.kt= |                                                                          |
-| A card's settings page    | =ui/widgets/WidgetSettingsScreen.kt= | =Screen.WIDGET_SETTINGS=, from Settings in Arrange widgets; a card's color, shape and hidden parts are kept in its stored line (=PlacedWidget.color=, =shape=, =hidden=) |
+| A card's settings page    | =ui/widgets/WidgetSettingsScreen.kt= | =Screen.WIDGET_SETTINGS=, from Settings in Arrange widgets; a card's color, shape and hidden parts, and Now playing's album art as background, are kept in its stored line (=PlacedWidget.color=, =shape=, =hidden=, =artBackground=) |
 
 *** The text editor: a second window
 

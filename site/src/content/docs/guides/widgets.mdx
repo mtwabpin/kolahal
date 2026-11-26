@@ -224,6 +224,9 @@ Each change is saved at once, and the card follows.
 
 The card shows what plays in your music or podcast app: the title, the artist and the app, and a
 bar for the position. When the app gives the album's cover, it fills the play and pause button.
+With **Album art as background** on, on the card's [settings page](#a-widgets-settings-page), the
+cover fills the whole card instead, behind the track and the buttons, dimmed so the words stay
+readable. A track without a cover shows the card as usual.
 
 - The three buttons are previous, play or pause, and next. A narrow card has fewer buttons: play
   or pause is always there.
@@ -412,8 +415,10 @@ the rest. Back returns to Arrange widgets, with the widget still chosen.
 - **Shape**: in the Shape look, for a widget that is one shape, its shapes ([below](#looks)).
 - **What shows**: switches for the widget's **Name**, wherever its look writes it, and its **Icon**,
   where its look draws one. Each shows only for a widget that has that part.
-- **Reset to the card's own**: its own color, shape, name and icon again. A script's options keep
-  their values; its look and size stay. **Undo** in the message that follows puts them back.
+  Now playing also has **Album art as background**, off at first.
+- **Reset to the card's own**: its own color, shape, name and icon again, and album art off. A
+  script's options keep their values; its look and size stay. **Undo** in the message that follows
+  puts them back.
 
 <Cards items={[
   { src: cardPage, alt: "The Weather card's page: the card live at the top in the Shape look, 14°C in a 4-leaf clover in the link color, then This card with its city option, Tokyo, and Color with Link chosen", width: 280, caption: "The card live at the top, its options and Color" },

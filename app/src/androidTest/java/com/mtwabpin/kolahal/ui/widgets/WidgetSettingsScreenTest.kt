@@ -38,6 +38,7 @@ import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import com.mtwabpin.kolahal.waitUntil
+import com.mtwabpin.kolahal.widgets.MediaArt
 import com.mtwabpin.kolahal.widgets.TestScriptWidgets
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetLook
@@ -45,6 +46,8 @@ import com.mtwabpin.kolahal.widgets.WidgetPages
 import com.mtwabpin.kolahal.widgets.WidgetParts
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetShape
+import com.mtwabpin.kolahal.widgets.WidgetSize
+import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -349,6 +352,44 @@ class WidgetSettingsScreenTest {
         assertEquals(0f, scrolledBy())
     }
 
+    /**
+     * The Now playing card has album art as background under What shows, off at first. A tap turns
+     * it on and keeps it for that card; another turns it off. Reset turns it off, and Undo on again.
+     */
+    @Test
+    fun nowPlayingHasAlbumArtAsBackground() {
+        assumeTrue(
+            "Now playing was on the widgets page before the test",
+            t.host.placeBuiltin(WidgetSource.MEDIA, WidgetSize.S4X2)
+        )
+        val key = "s:" + WidgetSource.builtin(WidgetSource.MEDIA)
+        fun on() = t.host.widgets.value.firstOrNull { it.key == key }?.artBackground
+        val vm = show()
+        open(vm, WidgetSource.builtinTitle(WidgetSource.MEDIA)!!)
+        compose.onNodeWithText(MediaArt.LABEL).performScrollTo().assertExists()
+        compose.onNodeWithText(MediaArt.DETAIL).assertExists()
+        val row = compose.onNodeWithTag(ART_BACKGROUND_TAG)
+        row.performScrollTo().assertIsOff()
+        assertEquals(false, on())
+        compose.onNodeWithTag("reset-own").performScrollTo().assertIsNotEnabled()
+
+        compose.onNodeWithTag(ART_BACKGROUND_TAG).performScrollTo().performClick()
+        compose.waitFor("album art as background isn't kept") { on() == true }
+        compose.onNodeWithTag(ART_BACKGROUND_TAG).assertIsOn()
+        compose.onNodeWithTag(ART_BACKGROUND_TAG).performClick()
+        compose.waitFor("album art as background isn't off again") { on() == false }
+        compose.onNodeWithTag(ART_BACKGROUND_TAG).assertIsOff()
+
+        compose.onNodeWithTag(ART_BACKGROUND_TAG).performClick()
+        compose.waitFor("album art as background isn't kept") { on() == true }
+        compose.onNodeWithTag("reset-own").performScrollTo().assertIsEnabled().performClick()
+        compose.waitFor("Reset didn't turn album art as background off") { on() == false }
+        compose.onNodeWithTag(ART_BACKGROUND_TAG).performScrollTo().assertIsOff()
+        compose.waitForText(WidgetSettingsWords.resetDone(WidgetSource.builtinTitle(WidgetSource.MEDIA)!!))
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitFor("Undo didn't turn album art as background on again") { on() == true }
+    }
+
     /** Out of the Shape look, the page has no shapes; Back returns to Arrange widgets. */
     @Test
     fun noShapesOutOfTheShapeLook() {
@@ -360,6 +401,8 @@ class WidgetSettingsScreenTest {
         compose.onNodeWithTag("colors").assertExists()
         compose.onNodeWithTag("shapes").assertDoesNotExist()
         assertNull(t.entry(s.name)?.shape)
+        // Album art as background is the Now playing card's alone.
+        compose.onNodeWithTag(ART_BACKGROUND_TAG).assertDoesNotExist()
         back()
         compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
     }

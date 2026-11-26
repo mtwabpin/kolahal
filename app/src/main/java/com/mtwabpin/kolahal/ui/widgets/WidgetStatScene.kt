@@ -52,16 +52,7 @@ internal fun StatScene(spec: WidgetSpec.Stat, look: WidgetLook, card: Color) {
     val (now, _) = rememberNow()
     val ground = rememberShaderStill(name, rememberTtyGrid(), now.time / 60_000) ?: return
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val scrim = remember(card, rtl) {
-        val stops = arrayOf(
-            0f to card.copy(alpha = SCRIM_START),
-            SCRIM_HOLD to card.copy(alpha = SCRIM_START),
-            1f to card.copy(alpha = SCRIM_END),
-        )
-        // The strong part is at the start: the left, or the right in a right-to-left language.
-        if (rtl) Brush.horizontalGradient(*stops.map { (at, c) -> (1f - at) to c }.reversed().toTypedArray())
-        else Brush.horizontalGradient(*stops)
-    }
+    val scrim = remember(card, rtl) { sceneScrim(card, rtl) }
     Box(
         Modifier
             .fillMaxSize()
@@ -76,6 +67,21 @@ internal fun StatScene(spec: WidgetSpec.Stat, look: WidgetLook, card: Color) {
             .fillMaxSize()
             .background(scrim)
     )
+}
+
+/**
+ * The scrim over a scene, in [card]'s color: [SCRIM_START] up to [SCRIM_HOLD] of the width from the
+ * start, then lighter to [SCRIM_END] at the end. The start is the left, or the right in a
+ * right-to-left language ([rtl]). The Now playing card has it over the track's cover too ([MediaArtGround]).
+ */
+internal fun sceneScrim(card: Color, rtl: Boolean): Brush {
+    val stops = arrayOf(
+        0f to card.copy(alpha = SCRIM_START),
+        SCRIM_HOLD to card.copy(alpha = SCRIM_START),
+        1f to card.copy(alpha = SCRIM_END),
+    )
+    return if (rtl) Brush.horizontalGradient(*stops.map { (at, c) -> (1f - at) to c }.reversed().toTypedArray())
+    else Brush.horizontalGradient(*stops)
 }
 
 /** The tag of a scene that is drawn: the card has its picture. */

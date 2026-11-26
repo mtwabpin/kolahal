@@ -747,9 +747,14 @@ class WidgetHost private constructor(context: Context) {
         }
     }
 
-    /** Gives the widget [key] its own color, shape and parts again: what its settings page's Reset does. Its look and size stay. */
+    /** Draws the track's cover behind the whole Now playing card [key] ([MediaArt]), or on play or pause again ([on] false). Only a widget Kolahal draws has it. */
+    fun setArtBackground(key: String, on: Boolean) = update { all ->
+        all.map { if (it.key == key && it.source != null && it.artBackground != on) it.copy(artBackground = on) else it }
+    }
+
+    /** Gives the widget [key] its own color, shape and parts again, and album art off: what its settings page's Reset does. Its look and size stay. */
     fun resetOwn(key: String) = update { all ->
-        all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet()) else it }
+        all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet(), artBackground = false) else it }
     }
 
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */
