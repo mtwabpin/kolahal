@@ -9,7 +9,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -472,15 +471,19 @@ internal fun WidgetsTitleRow(
             .fillMaxWidth()
             .padding(start = 12.dp)
     ) {
-        Text(
-            title,
-            style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false)
-        )
-        if (pageCount > 1) WidgetPageDots(pageCount, current, Modifier.padding(start = 8.dp))
-        Spacer(Modifier.weight(1f))
+        // The title and the dots take all the room the buttons leave, so the buttons sit at the end. (A
+        // title weighted beside a weighted Spacer got half of that room, and what it didn't use was left
+        // empty after the buttons.) A long title is cut, not the buttons.
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                title,
+                style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            if (pageCount > 1) WidgetPageDots(pageCount, current, Modifier.padding(start = 8.dp))
+        }
         LabeledIconButton(R.drawable.ic_add, "Add a widget", onClick = onAdd, tint = Term.prompt)
         LabeledIconButton(R.drawable.ic_edit, "Edit widgets", onClick = onEdit, tint = Term.fg)
     }
