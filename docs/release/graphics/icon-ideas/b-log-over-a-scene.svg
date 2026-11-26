@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 108 108">
-  <!-- Idea B, "The log over a scene": the log's bar, two lines and the prompt, with a dusk scene behind them. The website's icon is this one. An idea for the launcher icon, kept on 24 November 2026 (see ../../README.org → graphics).
+  <!-- Idea B, "The log over a scene": the log's bar, two lines and the prompt, with a dusk scene behind them. It is the launcher icon since 0.5.20 (26 November 2026) and the website's icon (see ../../README.org → graphics).
        Drawn on the 108 × 108 square of an adaptive icon: a launcher shows the 72 × 72 middle (18 to 90),
        and everything that matters stays inside it. -->
   <rect x="0" y="0" width="108" height="108" fill="#3a3350"/>

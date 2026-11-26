@@ -1,4 +1,11 @@
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <!-- gruvbox-material's background -->
-    <solid android:color="#292828" />
-</shape>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- The scene behind the log, filling the whole 108 square so no launcher movement of the
+         layers shows an edge: a dusk sky, a low sun and a dark ridge. -->
+    <path android:fillColor="#3A3350" android:pathData="M0,0 H108 V108 H0 Z" />
+    <path android:fillColor="#F0A868"
+        android:pathData="M60,38 A10,10 0 1 1 80,38 A10,10 0 1 1 60,38 Z" />
+    <path android:fillColor="#231D2C"
+        android:pathData="M0,58 L28,48 L48,56 L70,46 L108,58 V108 H0 Z" />
+</vector>

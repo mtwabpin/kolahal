@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- The themed icon (Android 13+): the foreground's shapes in one color, no scene, the second
+         line lighter as in the foreground. The system tints it. -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="4.5" android:strokeLineCap="round"
+        android:pathData="M33,32 V46" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M44.25,31.5 H53.75 A3.25,3.25 0 0 1 57,34.75 A3.25,3.25 0 0 1 53.75,38 H44.25 A3.25,3.25 0 0 1 41,34.75 A3.25,3.25 0 0 1 44.25,31.5 Z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.6"
+        android:pathData="M43.25,41.5 H48.75 A2.25,2.25 0 0 1 51,43.75 A2.25,2.25 0 0 1 48.75,46 H43.25 A2.25,2.25 0 0 1 41,43.75 A2.25,2.25 0 0 1 43.25,41.5 Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="5.5" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M32,63 L39,69 L32,75" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M48,63 H52.5 A2,2 0 0 1 54.5,65 V73 A2,2 0 0 1 52.5,75 H48 A2,2 0 0 1 46,73 V65 A2,2 0 0 1 48,63 Z" />
+</vector>

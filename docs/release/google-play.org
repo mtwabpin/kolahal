@@ -331,7 +331,7 @@ tools/play-graphics.sh=).
 
 | Play asks for                                          | Upload                                       | Made from                                                                                  |
 |--------------------------------------------------------+----------------------------------------------+--------------------------------------------------------------------------------------------|
-| App icon: 512 × 512, 32-bit PNG, at most 1 MB          | =graphics/icon.png=                          | =icon.svg=: the launcher icon's two layers, full square (Play rounds the corners)          |
+| App icon: 512 × 512, 32-bit PNG, at most 1 MB          | =graphics/icon.png=                          | =icon.svg=: the launcher icon (idea B), the 72 × 72 middle, full square (Play rounds the corners) |
 | Feature graphic: 1024 × 500, JPEG or PNG, no alpha     | =graphics/feature-graphic.png=               | =feature-graphic.html=, one of its variants (=VARIANTS=), with a capture from =raw/=       |
 | Phone screenshots: 2 to 8, long side at most 2 × short | =graphics/screenshots/=, in their file order | =screenshot.html=: one capture from =raw/= in a phone under its caption, per draft (=SHOTS=) |
 
