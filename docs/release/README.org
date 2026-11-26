@@ -101,11 +101,22 @@ version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, mast
    the branch say what they are; =site/package.json= keeps the released one until the release.
    Scripts' =@requires= compares the numbers only, so =0.4.6-dev= counts as 0.4.6.
 2. Write =notes/X.Y.Z.md= (see [[file:notes/README.md][notes/README.md]]) and, for Play, =notes/X.Y.Z-play.txt=.
-3. Test on the computer: the unit tests, the on-device tests on the emulator (never on a phone
-   you use: they install a debug build and change its settings; =tools/device-tests.sh= runs them
-   on one or two emulators), the coverage figure in README.org → Tests (=./gradlew -Pcoverage
-   :app:createDebugUnitTestCoverageReport :app:createDebugAndroidTestCoverageReport=, then
-   =perl tools/coverage.pl=), and =tools/check-play-build.sh= after =./gradlew :app:assemblePlay=.
+3. Test on the computer, as much as the release needs. Never on a phone you use: the on-device
+   tests install a debug build and change its settings.
+   - *A small release* (a few features or fixes that keep away from startup, the log and the
+     shaders): the unit tests (=./gradlew :app:testDebugUnitTest=, the whole suite: it has the tests
+     that read every file) and the on-device tests of what changed (=tools/device-tests.sh --class
+     …=). The coverage figure and the baseline profile stay as they are.
+   - *A large release*, or one that changes startup, the log or the shaders: the whole on-device
+     suite, once, as the coverage run (=-Pcoverage :app:createDebugUnitTestCoverageReport= and the
+     device tests in two halves, =numShards=2=, with the emulator started again before each; then
+     =:app:createDebugAndroidTestCoverageReport -x connectedDebugAndroidTest= and =perl
+     tools/coverage.pl=): it gives the coverage figure for README.org → Tests and is the suite, so
+     there is no run of the suite before it. Then the baseline profile
+     (=:app:generateReleaseBaselineProfile=).
+   - Not here: the Play build's check (=tools/check-play-build.sh=) and the release build. The
+     Release run does both and publishes nothing when one fails. Run them here only after a
+     change to the build file, the manifests or what the Play build leaves out.
 4. Commit =Version X.Y.Z (versionCode N)= with the notes and the coverage figure. First check that
    GitHub's master is in the branch (=git fetch origin master && git merge-base --is-ancestor
    FETCH_HEAD HEAD=): a commit made on master since the branch left it makes the push of step 5
