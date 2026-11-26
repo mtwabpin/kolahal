@@ -109,9 +109,13 @@ Policy pages (opened 22 October 2026):
 The screen lock is an accessibility service (=gesture/LockService.kt=): Android lets an app lock the
 screen only through one (=performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)=). It is in the Play build
 since the maintainer's choice of 26 November 2026. A launcher is not an accessibility tool, so Play
-wants three things: the disclosure in the app, a line in the store listing (under BY TOUCH), and the
-declaration in Play Console with a video. Play Console asks for the declaration under App content
-once a bundle with the service is uploaded; the bundle can't go to review until it is filled in.
+wants two things: the disclosure in the app, and the declaration in Play Console with a video.
+Its [[https://support.google.com/googleplay/android-developer/answer/10964491][page on the AccessibilityService API]] asks for no line in the store listing from an app that is
+not an accessibility tool (the line under BY TOUCH is there because the lock is a feature). Play
+Console asks for the declaration once a bundle with the service is uploaded: the release's Preview
+step shows an error with a link, "Go to Sensitive app permissions", and the release can't be saved
+until the form is. The declaration went in with 0.5.19 (versionCode 46), sent for review on
+26 November 2026.
 
 What the service is, as built: off until the user turns it on in Android's accessibility settings;
 no events (no =accessibilityEventTypes=), =canRetrieveWindowContent= false, no flags, not marked
@@ -129,28 +133,35 @@ disclosure again. With the service on, =allow lock= opens Android's settings at 
 
 ** What to enter in Play Console
 
-- *Is the app an accessibility tool?* No.
-- *Why the app uses the AccessibilityService API:* App functionality. The purpose, ready to paste:
+The form (Accessibility services) has four things and no field for free text. It reads from the
+service's settings that the app is not an accessibility tool (no =isAccessibilityTool=).
+
+- *Why does your app need to use the AccessibilityServices API?* App functionality, and no other box.
+- *Do you collect and/or share any personal or sensitive user data using the API?* No.
+- *Prominent disclosure:* the link to the video (YouTube, unlisted: it must open without signing in).
+- *I acknowledge that my video meets the video requirements:* the maintainer's own tick.
+
+The purpose in words, for a reply to a reviewer:
 
 #+begin_example
 Kolahal is a home screen app. Its accessibility service does one thing: it locks the screen when the user asks, with the lock command or the gesture they set to lock, such as a double-tap on the home screen. Android allows an app to lock the screen only through an accessibility service (performGlobalAction with GLOBAL_ACTION_LOCK_SCREEN).
 #+end_example
 
-- *What it does not do* (for a field that asks, or a reply to review):
+What it does not do, for the same:
 
 #+begin_example
 The service receives no accessibility events and cannot retrieve window content. It does not read the screen, what the user types or other apps, performs no action other than locking the screen, and collects and sends nothing. It is off until the user turns it on, after an in-app disclosure that says this and asks for consent.
 #+end_example
 
-- *Is personal or sensitive data collected or shared through accessibility capabilities?* No.
-- *Video:* a link to the video below (YouTube, unlisted).
 
 ** The video
 
 About thirty seconds, on a phone or the emulator with the Play build, the service off at the start
-(turn it off in Android's accessibility settings). Play wants the full disclosure
-readable, the consent flow, the non-consent flow and how to reach the disclosure again, and the
-feature itself. Captions help where it isn't obvious.
+(turn it off in Android's accessibility settings). Play's page lists five things the video must
+have: the app opening on the device; the way to the disclosure, with all of its text readable; the
+flow when the user consents, with the permission being granted; the flow when the user does not, and
+how the disclosure is reached again; and a feature that uses the service. Captions or a voice help
+where it isn't obvious. The description in Android's settings does not count as the disclosure.
 
 1. Home: Kolahal is open. Type =allow lock= and press Enter. (0–4 s)
 2. The disclosure: hold still on it for a few seconds, all of it on screen. (4–9 s)
@@ -162,7 +173,8 @@ feature itself. Captions help where it isn't obvious.
 6. Unlock. Double-tap empty space on home: the screen locks again. (26–30 s)
 
 Record with =adb shell screenrecord= on the emulator (=-s emulator-5554=), or a phone's own screen
-recorder.
+recorder. On the emulator =screenrecord= captures nothing more once the screen has turned off: record
+up to each lock as a part of its own and join the parts.
 
 ** If Google refuses it
 
@@ -516,7 +528,13 @@ roll it out. The run's summary says which version code and track, and which of t
 step, after the GitHub release is out):
 
 1. The Release workflow keeps =kolahal-X.Y.Z-play.aab= with its run:
-   =gh run download <run id> -n kolahal-X.Y.Z-play=.
+   =gh run download <run id> -n kolahal-X.Y.Z-play=. Or build it where the upload key is:
+   =./gradlew :app:bundlePlay= gives =app/build/outputs/bundle/play/app-play.aab= (0.5.19 went this
+   way, before its tag, so that the declaration above could be filled in by hand: the version commit
+   on the branch, the bundle built from it, the tag and the GitHub release after Google's answer).
+   The Release run for that tag must not upload again: Play refuses a version code it has, and the
+   run would fail at its last step. Clear the variable =PLAY_WIF_PROVIDER= before the tag is pushed
+   and set it again after: the upload step is skipped without it.
 2. Play Console → the track → Create new release → upload the bundle, and the =mapping.txt= beside
    it if Play doesn't show readable crash traces on its own. From 0.4.6 the bundle carries the
    native libraries' symbols itself (=ndk.debugSymbolLevel=); 0.4.4 and 0.4.5 went without, and Play
