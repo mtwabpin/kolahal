@@ -37,6 +37,19 @@ abstract class CommandGroup(protected val context: Context) {
     protected fun fix(text: String, command: String) =
         error(text, LogContext.of(LogContext.RUN to command))
 
+    /**
+     * A line for a feature this build gets through Kolahal Extras ([com.mtwabpin.kolahal.extras.ExtrasLink]), which
+     * can't give it now: what happened ([first]), what's missing, and a tap that runs `allow <word>` (the access
+     * [word]), which opens Extras or its page in the guide. Off the main thread: it asks Extras first.
+     */
+    protected fun extrasNeeded(first: String, word: String) {
+        val feature = com.mtwabpin.kolahal.commands.Accesses.find(word)?.needs ?: return
+        val link = com.mtwabpin.kolahal.extras.ExtrasLink.get(context).also { it.refreshNow() }
+        val status = link.status(feature)
+        val words = com.mtwabpin.kolahal.extras.ExtrasWords
+        fix("$first\n${words.problem(status, feature)}\n${words.hint(status)}", "allow $word")
+    }
+
     protected fun startActivity(intent: Intent) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }

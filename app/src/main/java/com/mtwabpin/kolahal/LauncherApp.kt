@@ -151,6 +151,8 @@ class LauncherApp : Application(), Configuration.Provider {
             // Runtime receivers and a network callback for `@on` scripts. Charger and headset events need
             // these on Android 8+.
             TriggerDispatcher.get(this).start()
+            // Before contacts and calls: a build without them of its own gets them through Kolahal Extras.
+            com.mtwabpin.kolahal.extras.ExtrasLink.get(this).start()
             ContactsRepository.get(this).refresh()
             PackageEvents.get(this).start()
             CallEvents.get(this).start()

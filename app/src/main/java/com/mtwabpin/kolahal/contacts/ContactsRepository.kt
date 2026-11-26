@@ -14,7 +14,10 @@ import android.provider.ContactsContract
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.BuildConfig
+import com.mtwabpin.kolahal.commands.BuildFeature
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.extras.ExtrasContract
+import com.mtwabpin.kolahal.extras.ExtrasLink
 import com.mtwabpin.kolahal.data.Stores
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,9 +56,11 @@ data class Contact(
  * Contacts with phone numbers, cached in memory for instant `call` / `sms` suggestions.
  * The list is empty until READ_CONTACTS is granted. It refreshes when the contacts database changes.
  *
- * The Play build ([picker]) has no READ_CONTACTS. Its contacts are the ones the user picked with
- * Android's contact picker ([ContactPicker]). They are saved on the phone, so a name works again
- * without picking it again.
+ * The Play build has no READ_CONTACTS.
+ * - With Kolahal Extras that has contacts access ([ExtrasLink]), the contacts come from Extras: the whole list once,
+ *   and again when Extras says they changed, or when Extras restarted and may have missed a change.
+ * - Without it ([picker]), its contacts are the ones the user picked with Android's contact picker ([ContactPicker]).
+ *   They are saved on the phone, so a name works again without picking it again.
  */
 class ContactsRepository private constructor(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
@@ -92,18 +97,42 @@ class ContactsRepository private constructor(private val context: Context) {
         return _contacts.value
     }
 
-    /** True when contacts come from Android's contact picker, not READ_CONTACTS. This is the Play build. */
-    var picker = !BuildConfig.CONTACTS
+    private val extras by lazy { ExtrasLink.get(context) }
+
+    /** Set by tests: the picker on or off, whatever the build and Kolahal Extras say. */
+    @Volatile
+    private var pickerSet: Boolean? = null
+
+    /**
+     * True when contacts come from Android's contact picker, not READ_CONTACTS: the Play build, unless Kolahal Extras
+     * can read the contacts now.
+     */
+    var picker: Boolean
+        get() = pickerSet ?: (!BuildConfig.CONTACTS && !extras.ready(BuildFeature.CONTACTS))
         internal set(value) {
-            synchronized(this) { field = value; _contacts.value = emptyList() }
+            synchronized(this) { pickerSet = value; _contacts.value = emptyList() }
             refresh()
         }
 
     private val prefs by lazy { Stores.PICKED_CONTACTS.open(context) }
 
+    /** Whether the contacts can be read: READ_CONTACTS, or in the Play build Kolahal Extras' (as last read). */
     fun hasPermission() =
-        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+        if (BuildConfig.CONTACTS) ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
                 PackageManager.PERMISSION_GRANTED
+        else extras.ready(BuildFeature.CONTACTS)
+
+    init {
+        // The Play build: Kolahal Extras installed, allowed, removed, or restarted (it may have missed a change).
+        if (!BuildConfig.CONTACTS) ExtrasLink.get(context).listen { old, new ->
+            val was = old.status(ExtrasContract.CONTACTS)
+            val now = new.status(ExtrasContract.CONTACTS)
+            if (was != now || old.session != new.session) {
+                synchronized(this) { if (pickerSet == null) _contacts.value = emptyList() }
+                refresh()
+            }
+        }
+    }
 
     fun refresh() {
         if (picker) {
@@ -117,16 +146,19 @@ class ContactsRepository private constructor(private val context: Context) {
         }
         if (!hasPermission()) return
         if (!observing) {
-            observing = true
-            context.contentResolver.registerContentObserver(
-                ContactsContract.Contacts.CONTENT_URI, true,
-                object : ContentObserver(Handler(Looper.getMainLooper())) {
-                    // Sync adapters send bursts of changes. Combine them into one reload.
-                    override fun onChange(selfChange: Boolean) {
-                        if (active) reload(RELOAD_DEBOUNCE_MS) else stale = true
-                    }
-                },
-            )
+            // The phone's contacts, or in the Play build Kolahal Extras' signal that they changed.
+            val uri = if (BuildConfig.CONTACTS) ContactsContract.Contacts.CONTENT_URI else extras.contactsUri
+            observing = runCatching {
+                context.contentResolver.registerContentObserver(
+                    uri, true,
+                    object : ContentObserver(Handler(Looper.getMainLooper())) {
+                        // Sync adapters send bursts of changes. Combine them into one reload.
+                        override fun onChange(selfChange: Boolean) {
+                            if (active) reload(RELOAD_DEBOUNCE_MS) else stale = true
+                        }
+                    },
+                )
+            }.isSuccess
         }
         reload(0)
     }
@@ -162,20 +194,12 @@ class ContactsRepository private constructor(private val context: Context) {
     private fun load(): List<Contact> {
         val out = ArrayList<Contact>()
         val seen = HashSet<String>()
-        val projection = arrayOf(
-            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
-            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY,
-            ContactsContract.CommonDataKinds.Phone.NUMBER,
-            ContactsContract.CommonDataKinds.Phone.TYPE,
-            ContactsContract.CommonDataKinds.Phone.LABEL,
-            ContactsContract.CommonDataKinds.Phone.STARRED,
-            ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
-            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
-        )
-        context.contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI, projection, null, null,
+        // The same columns from the phone or, in the Play build, from Kolahal Extras (whose photos open through it).
+        val rows = if (BuildConfig.CONTACTS) context.contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI, ExtrasContract.CONTACT_COLUMNS, null, null,
             "${ContactsContract.CommonDataKinds.Phone.STARRED} DESC, ${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY}",
-        )?.use { c ->
+        ) else extras.query(extras.contactsUri)
+        rows?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
                 val name = c.getString(1) ?: continue

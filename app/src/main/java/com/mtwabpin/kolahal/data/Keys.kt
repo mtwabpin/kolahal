@@ -1126,9 +1126,9 @@ internal fun headerSide(value: String): List<String> =
 private const val DEFAULT_KEYBAR = "/,@,|,=,+,-,*,UP,DOWN"
 private const val DEFAULT_KEYBAR2 = ""
 
-// The Play build has no screen lock to offer.
+// The Play build has no screen lock of its own: it locks through Kolahal Extras.
 private val GESTURE_ACTIONS =
-    if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "a command, lock, shade" else "a command, shade"
+    if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "a command, lock, shade" else "a command, lock (with Kolahal Extras), shade"
 
 /**
  * The Assistant's settings, as [Keys.ASSISTANT_PAGE] and the others name them. Its services and their

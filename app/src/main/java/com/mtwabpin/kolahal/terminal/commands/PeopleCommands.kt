@@ -29,9 +29,11 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
 
     /** `calls [n]`: prints the newest calls from Android's call log, newest first, in the same form as the live call lines. */
     fun calls(args: List<String>) {
-        if (!com.mtwabpin.kolahal.BuildConfig.CALL_LOG) return error("calls isn't available in this build\nThis build can't read the call log")
+        if (!com.mtwabpin.kolahal.BuildConfig.CALL_LOG) com.mtwabpin.kolahal.extras.ExtrasLink.get(context).refreshNow()
         if (!CallEvents.hasPermission(context)) {
-            fix("Calls need call log access\nTap to allow it", "allow calls")
+            // The Play build reads the call log through Kolahal Extras.
+            if (com.mtwabpin.kolahal.BuildConfig.CALL_LOG) fix("Calls need call log access\nTap to allow it", "allow calls")
+            else extrasNeeded("Can't read the call log", com.mtwabpin.kolahal.commands.Accesses.CALLS)
             return
         }
         val n = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 200) ?: 20

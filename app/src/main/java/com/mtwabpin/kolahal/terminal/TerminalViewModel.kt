@@ -1242,6 +1242,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override val profiles get() = this@TerminalViewModel.profiles.value
         override val widgetsPage get() = config[Keys.WIDGETS_PAGE] != "off"
         override fun showWidgetsPage() = this@TerminalViewModel.showWidgetsPage()
+        override val canLock get() = com.mtwabpin.kolahal.gesture.ScreenLock.offered(context)
+        override fun lockScreen() = com.mtwabpin.kolahal.gesture.ScreenLock.lock(context) { runCommand("lock") }
     })
 
     fun onHeaderTap(target: HeaderTarget) = header.onHeaderTap(target)
@@ -1479,12 +1481,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             "", g.NONE -> Unit
             g.SHADE -> expandNotifications()
             "quick" -> _events.tryEmit(UiEvent.ShowQuick)
-            // Locking needs no log line. Report only when the accessibility service is off.
-            // Without the service, explain once per session, not on every accidental double-tap.
-            // This is behind the build switch, so the Play build also drops the service's code.
-            g.LOCK -> if (!(com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE && com.mtwabpin.kolahal.gesture.LockService.lock()) && !lockHintShown) {
-                lockHintShown = true
-                runCommand("lock")
+            // Locking needs no log line. Report only when the accessibility service is off (the build's, or
+            // Kolahal Extras'). Without the service, explain once per session, not on every accidental double-tap.
+            g.LOCK -> com.mtwabpin.kolahal.gesture.ScreenLock.lock(context) {
+                if (!lockHintShown) {
+                    lockHintShown = true
+                    runCommand("lock")
+                }
             }
             // Gesture actions may be aliases, so they expand like typed input.
             else -> runTyped(action)

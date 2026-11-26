@@ -56,7 +56,14 @@ android {
         buildConfigField("boolean", "SHADER_OVER_APPS", "true")
         // The Assistant (`assistant.page`, its settings page, its keys): full build only.
         buildConfigField("boolean", "ASSISTANT", "true")
+        // Kolahal Extras: the second app that a build without them gets the lock, the call log and the contacts from.
+        val extras = "com.mtwabpin.kolahal.extras"
+        buildConfigField("String", "EXTRAS_PACKAGE", "\"$extras\"")
+        manifestPlaceholders["extrasPackage"] = extras
     }
+
+    // The contract with Kolahal Extras: one file, shared with extras/.
+    sourceSets.getByName("main").kotlin.directories.add(rootProject.file("extras/contract").path)
 
     signingConfigs {
         releaseKey?.let { (file, storePass, alias, keyPass) ->
@@ -90,6 +97,16 @@ android {
         }
         debug {
             applicationIdSuffix = ".debug"
+            // The debug build pairs with Extras' debug build.
+            buildConfigField("String", "EXTRAS_PACKAGE", "\"com.mtwabpin.kolahal.extras.debug\"")
+            manifestPlaceholders["extrasPackage"] = "com.mtwabpin.kolahal.extras.debug"
+            // -PviaExtras: the debug build without the screen lock, the call log and the contacts of its own, as the
+            // Play build, so it gets them through Kolahal Extras (:extras:assembleDebug). Without it, as before.
+            if (providers.gradleProperty("viaExtras").isPresent) {
+                buildConfigField("boolean", "LOCK_SERVICE", "false")
+                buildConfigField("boolean", "CALL_LOG", "false")
+                buildConfigField("boolean", "CONTACTS", "false")
+            }
             // -Pcoverage: JaCoCo for the test runs (tools/coverage.pl reads the reports). Off by
             // default: it instruments the debug build and slows it down.
             val coverage = providers.gradleProperty("coverage").isPresent

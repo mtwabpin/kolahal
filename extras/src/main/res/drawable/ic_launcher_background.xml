@@ -1,0 +1,4 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <!-- gruvbox-material's background -->
+    <solid android:color="#292828" />
+</shape>
