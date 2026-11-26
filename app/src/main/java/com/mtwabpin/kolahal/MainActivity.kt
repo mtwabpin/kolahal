@@ -836,7 +836,7 @@ private fun HomePages(
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
                 val index = pageAt(page)
                 if (index == A2UI_PAGE) {
-                    com.mtwabpin.kolahal.ui.a2ui.A2uiPage(androidx.compose.runtime.remember(version) { vm.config[Keys.A2UI_MODEL] })
+                    com.mtwabpin.kolahal.ui.a2ui.A2uiPage(androidx.compose.runtime.remember(version) { vm.config[Keys.A2UI_MODEL] }) { vm.config.set(Keys.A2UI_MODEL, it) }
                 } else if (index == null) {
                     // The prompt and the header measure the screen's corners from where they are on this page,
                     // which slides while home turns, not from where they are in the window.

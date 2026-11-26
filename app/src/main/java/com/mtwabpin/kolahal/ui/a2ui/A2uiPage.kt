@@ -17,6 +17,8 @@ import androidx.a2ui.model.protocol.A2uiExecutionContext
 import androidx.a2ui.model.protocol.A2uiServerToClientMessage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +33,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.a2ui.A2uiSurface
 import androidx.compose.material3.a2ui.catalog.MaterialA2uiBasicCatalogV1Defaults
 import androidx.compose.material3.a2ui.catalog.materialA2uiBasicCatalogV1
@@ -70,25 +74,28 @@ import org.json.JSONObject
 import org.json.JSONTokener
 
 /*
- * The A2UI trial (`a2ui.page`, full build only): Gemini answers with A2UI v0.9 messages, and Google's
+ * The A2UI trial (`a2ui.page`, full build only): Claude answers with A2UI v0.9 messages, and Google's
  * renderer draws them with its Material 3 basic catalog. Nothing in an answer reaches the app: a
- * button's event goes back to Gemini as the next turn, local function calls (openUrl) are dropped,
+ * button's event goes back to Claude as the next turn, local function calls (openUrl) are dropped,
  * and pictures, video and sound are never loaded. The conversation lives as long as home does.
  */
 
-/** Where the Gemini key is kept: in SecretStore, under an owner name no script can have. */
+/** Where the Claude key is kept: in SecretStore, under an owner name no script can have. */
 private const val SECRET_OWNER = "/a2ui"
-private const val SECRET_NAME = "gemini"
+private const val SECRET_NAME = "anthropic"
 
-/** Debug builds only: asking this draws [SAMPLE] without Gemini, and answers its button locally ([A2uiSession.send]). */
+/** The name the trial's first key had, for Claude: removed when a key is saved or forgotten. */
+private const val OLD_SECRET_NAME = "gemini"
+
+/** Debug builds only: asking this draws [SAMPLE] without Claude, and answers its button locally ([A2uiSession.send]). */
 private const val SAMPLE_WORD = "/sample"
 
-/** Asking this forgets the saved Gemini key and shows the key's field again, to enter another. */
+/** Asking this forgets the saved Claude key and shows the key's field again, to enter another. */
 private const val KEY_WORD = "/key"
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class) // LoadingIndicator
 @Composable
-internal fun A2uiPage(model: String) {
+internal fun A2uiPage(model: String, onModel: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val session = remember { A2uiSession(context.applicationContext) }
@@ -112,10 +119,14 @@ internal fun A2uiPage(model: String) {
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // An answer may hold a list that scrolls by itself (the catalog's List is a lazy column). Inside
+                // this scrolling column it would be measured with no limit to its height, which Compose refuses
+                // with a crash: each surface gets the page's height as its most.
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val most = maxHeight
                 Column(
                     Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -124,12 +135,14 @@ internal fun A2uiPage(model: String) {
                     surfaces.forEach { surface ->
                         A2uiSurface(
                             surface,
-                            Modifier.fillMaxWidth(),
+                            Modifier.fillMaxWidth().heightIn(max = most),
                             errorContent = { e -> ErrorState("The renderer rejected the answer\n${e.message}", session.raw) {} },
                         )
                     }
                     if (session.busy) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { LoadingIndicator() }
                 }
+                }
+                ModelChoice(model, onModel)
                 AskBar(enabled = !session.busy) { session.send(scope, model, it) }
             }
         }
@@ -139,7 +152,7 @@ internal fun A2uiPage(model: String) {
 @Composable
 private fun KeyEntry(onSave: (String) -> Unit) {
     var key by remember { mutableStateOf("") }
-    Text("A Gemini API key from Google AI Studio is needed.", style = MaterialTheme.typography.bodyLarge)
+    Text("An Anthropic API key from the Claude Console is needed.", style = MaterialTheme.typography.bodyLarge)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextField(
             shape = TextFieldDefaults.roundedShape,
@@ -170,6 +183,25 @@ private fun ErrorState(message: String, raw: String?, onForgetKey: () -> Unit) {
             if ("HTTP 400" in message || "HTTP 403" in message) {
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onForgetKey) { Text("Enter another key") }
             }
+        }
+    }
+}
+
+/** The model the next question goes to, one tap to change (`a2ui.model`). A model typed in config shows none chosen. */
+@Composable
+private fun ModelChoice(model: String, onModel: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
+        Claude.MODELS.forEachIndexed { i, (name, id) ->
+            ToggleButton(
+                checked = model == id,
+                onCheckedChange = { onModel(id) },
+                shapes = when (i) {
+                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                    Claude.MODELS.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                },
+                modifier = Modifier.weight(1f),
+            ) { Text(name) }
         }
     }
 }
@@ -221,13 +253,13 @@ private class A2uiSession(private val context: Context) {
         functions = functions,
     )
 
-    // Only events go on (to Gemini); a local function call from an action is dropped.
+    // Only events go on (to Claude); a local function call from an action is dropped.
     val processor = A2uiMessageProcessor(listOf(catalog), listOf(A2uiActionInterceptor { it as? A2uiEventAction }))
     private val parser = A2uiMessageParser()
     private val system by lazy { systemInstruction(catalog) }
-    private val turns = mutableListOf<Gemini.Turn>()
+    private val turns = mutableListOf<Claude.Turn>()
 
-    /** The renderer's complaints since the last turn: they go to Gemini with the next one. */
+    /** The renderer's complaints since the last turn: they go to Claude with the next one. */
     private val pendingErrors = mutableListOf<String>()
     private var sample = false
 
@@ -237,13 +269,18 @@ private class A2uiSession(private val context: Context) {
     var raw by mutableStateOf<String?>(null)
 
     fun saveKey(scope: CoroutineScope, key: String) = scope.launch {
-        withContext(Dispatchers.IO) { secrets.set(SECRET_OWNER, SECRET_NAME, key, listOf(Gemini.HOST)) }
+        withContext(Dispatchers.IO) { secrets.set(SECRET_OWNER, SECRET_NAME, key, listOf(Claude.HOST))
+            secrets.set(SECRET_OWNER, OLD_SECRET_NAME, null, emptyList())
+        }
         hasKey = true
         error = null
     }
 
     fun forgetKey(scope: CoroutineScope) = scope.launch {
-        withContext(Dispatchers.IO) { secrets.set(SECRET_OWNER, SECRET_NAME, null, emptyList()) }
+        withContext(Dispatchers.IO) {
+            secrets.set(SECRET_OWNER, SECRET_NAME, null, emptyList())
+            secrets.set(SECRET_OWNER, OLD_SECRET_NAME, null, emptyList())
+        }
         hasKey = false
         error = null
     }
@@ -265,7 +302,7 @@ private class A2uiSession(private val context: Context) {
             apply(if (text == SAMPLE_WORD) SAMPLE else sampleReply(text))
             return
         }
-        // Debug builds: a hand-written answer typed in (starting with "[") is drawn as Gemini's would be.
+        // Debug builds: a hand-written answer typed in (starting with "[") is drawn as Claude's would be.
         if (BuildConfig.DEBUG && text.startsWith("[")) {
             apply(text)
             return
@@ -282,14 +319,14 @@ private class A2uiSession(private val context: Context) {
                 }
                 val turn = (pendingErrors + text).joinToString("\n")
                 pendingErrors.clear()
-                turns += Gemini.Turn("user", turn)
+                turns += Claude.Turn("user", turn)
                 val answer = try {
-                    withContext(Dispatchers.IO) { Gemini.generate(key, model, system, turns) }
+                    withContext(Dispatchers.IO) { Claude.generate(key, model, system, turns) }
                 } catch (e: Exception) {
                     turns.removeAt(turns.lastIndex)
                     throw e
                 }
-                turns += Gemini.Turn("model", answer)
+                turns += Claude.Turn("assistant", answer)
                 apply(answer)
             } catch (e: Exception) {
                 raw = null

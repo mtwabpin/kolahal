@@ -773,13 +773,13 @@ object Keys {
     val A2UI_PAGE = ConfigKey.Bool(
         "a2ui.page",
         false,
-        "A trial page after the widgets pages: ask Gemini, and its answer is drawn with A2UI.\nNeeds your own Gemini API key, typed on the page"
+        "A trial page after the widgets pages: ask Claude, and its answer is drawn with A2UI.\nNeeds your own Anthropic API key, typed on the page"
     )
     val A2UI_MODEL = ConfigKey.Text(
         "a2ui.model",
-        // A current Flash model of the free tier.
-        "gemini-3.8-flash",
-        "The Gemini model the A2UI trial page asks",
+        // The first of the page's choices (ui/a2ui/Claude.MODELS).
+        "claude-sonnet-5-5",
+        "The Claude model the A2UI trial page asks",
         { it.trim().takeIf { m -> Regex("[A-Za-z0-9.-]+").matches(m) } },
     )
     val AGENDA_WIDGET_DAYS = ConfigKey.Choice(
