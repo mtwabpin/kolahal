@@ -1072,7 +1072,7 @@ Outside =main=:
 |------------------------------------+----------------------------------------------------------------------------------------------------|
 | =app/src/test/=                    | about 1,800 JVM unit tests: fast, no phone needed                                                  |
 | =app/src/androidTest/=             | about 1,400 on-device tests (commands, script engines, backup, the screens)                        |
-| =app/src/play/AndroidManifest.xml= | removes the accessibility service, =READ_CALL_LOG=, =READ_CONTACTS= and the updater for =play=     |
+| =app/src/play/AndroidManifest.xml= | removes =READ_CALL_LOG=, =READ_CONTACTS= and the updater for =play= (the accessibility service stays) |
 | =app/src/release/generated/=       | baseline profiles (pre-compiled start-up code)                                                     |
 | =baselineprofile/=                 | the module that generates those profiles                                                           |
 | =app/src/main/assets/library/=     | the ready-made scripts of the script library; each describes itself (=@title=, =@every=…)          |
@@ -1126,7 +1126,7 @@ From the repository root:
 ./gradlew assembleDebug                 # debug APK (package com.mtwabpin.kolahal.debug)
 ./gradlew installDebug                  # build and install on the connected device
 ./gradlew assembleRelease               # R8-minified release, signed with the release key (the debug key without one)
-./gradlew bundlePlay                    # Google Play: release without accessibility service, call log, reading contacts, update
+./gradlew bundlePlay                    # Google Play: release without call log, reading contacts, update
 ./gradlew :app:testDebugUnitTest        # the JVM unit tests (fast)
 ANDROID_SERIAL=emulator-5554 ./gradlew connectedDebugAndroidTest   # on-device tests
 ./gradlew :app:lintRelease              # Android lint
@@ -1139,7 +1139,7 @@ included. [[file:developing.org][docs/developing.org]] has the rest of the build
 |------------+----------------+----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | =debug=    | =.debug=       | no       | installs beside a release build; =-Pcoverage= turns on test coverage                                                                                                                                                      |
 | =release=  | none           | yes      | =isMinifyEnabled= and =isShrinkResources=                                                                                                                                                                                 |
-| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.LOCK_SERVICE=, =CALL_LOG=, =CONTACTS=, =SELF_UPDATE= and =ASSISTANT= are false (=SHADER_OVER_APPS= stays true); the manifest drops the accessibility service, the call log, contacts and the updater |
+| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.CALL_LOG=, =CONTACTS=, =SELF_UPDATE= and =ASSISTANT= are false (=LOCK_SERVICE= and =SHADER_OVER_APPS= stay true); the manifest drops the call log, contacts and the updater |
 
 Code checks =BuildConfig.LOCK_SERVICE= / =CALL_LOG= / =CONTACTS= / =SELF_UPDATE= wherever
 behavior differs in =play=. Without =CONTACTS=, =ContactsRepository.picker= is on: names come from
@@ -1287,4 +1287,4 @@ functions is the quickest way to learn what they promise.
 | =:script=, =:wallpaper= | the processes where scripts and the live wallpaper run                                                    |
 | fresh screen            | =log.fresh=: home hides old output after a while away (hidden, not deleted)                               |
 | instant run             | =launch.instant=: run without Enter once the input can only mean one thing                                |
-| Play build              | the build for Google Play, without the accessibility service, the call log, reading contacts and =update= |
+| Play build              | the build for Google Play, without the call log, reading contacts and =update= |

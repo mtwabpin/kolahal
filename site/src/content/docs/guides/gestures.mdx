@@ -25,7 +25,7 @@ You can change three gestures in **Settings → Gestures** or with `config set`:
 
 | Gesture | Key | Default |
 | --- | --- | --- |
-| Double-tap empty log space | `gesture.double-tap` | `lock` (`none` in the Play build, which can't lock the screen) |
+| Double-tap empty log space | `gesture.double-tap` | `lock` |
 | Swipe down on the header | `gesture.swipe-down` | `shade` |
 | Swipe up on the prompt | `gesture.swipe-up` | `none` (off, because it's easy to do by accident) |
 
@@ -51,12 +51,18 @@ config set gesture.swipe-down none
 On Android, an app can only lock the screen through an accessibility service. Kolahal includes a small
 service called **Kolahal screen lock** that does only this:
 
-- It is declared with `canRetrieveWindowContent="false"`.
-- It is limited to a package that doesn't exist, so it gets no accessibility events and can't read the screen.
-- Its only job is to call the system "lock screen" action.
+- It is declared with `canRetrieveWindowContent="false"`, so it can't read the screen.
+- It asks for no accessibility events, so it doesn't see what you type or what other apps do.
+- Its only job is to call the system "lock screen" action. It collects nothing and sends nothing.
+- It isn't marked as an accessibility tool, because it isn't one.
 
-To turn it on, run `allow lock` or use **setup → Double-tap to lock**. Until you turn it on, `lock` shows a
-line you can tap to open the setting.
+Both builds have it, the full build and the Play build. It is off until you turn it on: run `allow lock` or use
+**setup → Double-tap to lock**. Before Android's accessibility settings open, Kolahal shows what the service is
+for and what it doesn't do, and opens them only if you tap **Allow**. There, find **Kolahal screen lock** and
+turn it on. **Not now** opens nothing.
+
+Until you turn it on, `lock`, a lock gesture and the Lock screen quick action show a line you can tap to
+ask again.
 
 ## Other touch gestures
 

@@ -267,7 +267,7 @@ instead. The [setup checklist](/getting-started/setup/) has the same list.
 | `allow usage` | Usage access | screen time, data use and accurate unlock counts |
 | `allow send-notifications` | Notifications | Kolahal sends you notifications: reminders, scripts, feeds |
 | `allow read-notifications` | Notification access | Kolahal reads your notifications: `notifs`, `media`, scripts with `@uses notifications` |
-| `allow lock` | Accessibility (Kolahal screen lock) | `lock` and double-tap to lock. Full build only |
+| `allow lock` | Accessibility (Kolahal screen lock) | `lock` and double-tap to lock. Kolahal first says what the service does and asks |
 | `allow dnd` | Do Not Disturb access | `dnd`, `ring silent` and scripts with `@uses dnd` |
 | `allow settings` | Modify system settings | `brightness`, `rotate` and `screen-timeout` |
 | `allow contacts` | Contacts | `call`, `sms` and `contacts` by name. Full build only: the Play build uses Android's contact picker |

@@ -44,11 +44,11 @@ mapping zip, and people install from Play. They are still built and checked.
 - *Full* is the app with everything: the screen lock (=lock=, double-tap), notifications in the
   log (=notifs=, media controls, scripts' notification triggers), calls in the log (=calls=),
   contacts read by name, and =update=.
-- *Play* leaves out the accessibility service, the call log, reading contacts and =update=: Google Play's
-  policy doesn't let a launcher read the call log at all, wants a declaration, consent screens and a
-  video for an accessibility service, wants the contact picker where it's enough, and lets an app
-  update only through Play. Leaving the first two out was decided on 22 October 2026, for good on
-  26 October.
+- *Play* leaves out the call log, reading contacts and =update=: Google Play's policy doesn't let a
+  launcher read the call log at all, wants the contact picker where it's enough, and lets an app
+  update only through Play. The screen lock's accessibility service was left out too (22 October
+  2026) and is in since 26 November 2026, by the maintainer's choice, with Play's declaration, a
+  video and a disclosure before Android's settings open.
   It has notification access since 0.4.6, asked for with an in-app disclosure first.
   [[file:google-play.org][google-play.org]] has the policy. The bundle is signed with the upload key, and Play turns it into
   APKs signed with the release key ([[file:signing.org][signing.org]]).
@@ -60,20 +60,24 @@ mapping zip, and people install from Play. They are still built and checked.
 - All three install as the same app, signed with the same key on the phone, so any one installs
   over another, keeping the data. (Until 0.3.0 the GitHub APK without the three was called lite.)
 
-How: =app/src/play/AndroidManifest.xml= removes the accessibility service, =READ_CALL_LOG=,
+How: =app/src/play/AndroidManifest.xml= removes =READ_CALL_LOG=,
 =READ_CONTACTS=, =REQUEST_INSTALL_PACKAGES= and the updater's file provider and receiver; the =play=
 build type starts from =release= (=app/build.gradle.kts=). The =BuildConfig= switches
-=LOCK_SERVICE=, =CALL_LOG= and =SELF_UPDATE= turn the features off: their commands aren't suggested
-or listed in =help=, and typed anyway they say why they're missing ("This build has no
-accessibility service …", "This build updates through Google Play …"). With =SELF_UPDATE= off the
+=CALL_LOG= and =SELF_UPDATE= turn the features off: their commands aren't suggested
+or listed in =help=, and typed anyway they say why they're missing ("This build can't
+read the call log", "This build updates through Google Play …"). With =SELF_UPDATE= off the
 updater's code is never reached, so R8 removes it. =CONTACTS= switches =call=, =sms= and =contacts=
 to Android's contact picker.
 =SHADER_OVER_APPS= stays on in the Play build: a one-off shader plays over other apps in both builds
 (=SYSTEM_ALERT_WINDOW=, off until the user turns it on). The switch stays so the Play build can drop it
 if Google refuses it: set it to false for =play= and remove the permission in its manifest
 ([[file:google-play.org][google-play.org]] says so in full).
+=LOCK_SERVICE= stays on in the Play build too, in the same way: the screen lock's accessibility service is in
+both builds; to drop it from the Play build, set it to false for =play= and remove the service in its manifest
+([[file:google-play.org][google-play.org]], The accessibility declaration).
 =tools/check-play-build.sh= checks the Play APK (=assemblePlay=; it has the bundle's manifest) and
-fails if it ever asks for a restricted permission again, carries the updater, or has
+fails if it ever asks for a restricted permission again, carries the updater, has an accessibility
+service other than the screen lock's (or the lock marked as a tool or able to read windows), or has
 =SYSTEM_ALERT_WINDOW= without the window for shaders over other apps or the window without it.
 
 * How a release travels

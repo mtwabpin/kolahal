@@ -153,16 +153,16 @@ And a recording still shows:
 
 <Downloads>
 
-The Play build (the Google Play version, also available as an APK on GitHub) doesn't have four of these:
-`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES` and the accessibility service. So calls
-in the log, `update` and the screen lock are only in the full build.
+The Play build (the Google Play version, also available as an APK on GitHub) doesn't have three of these:
+`READ_CALL_LOG`, `READ_CONTACTS` and `REQUEST_INSTALL_PACKAGES`. So calls in the log and `update` are
+only in the full build. Both builds have the screen lock's accessibility service.
 
 </Downloads>
 <Downloads off>
 
-The Play build (the Google Play version) doesn't have four of these:
-`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES` and the accessibility service. So calls
-in the log, `update` and the screen lock are only in the full build.
+The Play build (the Google Play version) doesn't have three of these:
+`READ_CALL_LOG`, `READ_CONTACTS` and `REQUEST_INSTALL_PACKAGES`. So calls in the log and `update` are
+only in the full build. Both builds have the screen lock's accessibility service.
 
 </Downloads>
 
@@ -225,7 +225,7 @@ These are off until you turn them on, usually from the [setup checklist](/gettin
 | Do Not Disturb access | `dnd`, `ring silent`, scripts with `@uses dnd` | those commands print a line you can tap to grant it; scripts can't change Do Not Disturb |
 | Modify system settings | `brightness`, `rotate`, `screen-timeout` | those commands print a line you can tap to grant it |
 | Display over other apps (Android 13+) | a [one-off shader](/scripting/shaders/#over-other-apps) plays over the app in front when a notification has one of its words | the shader waits for home |
-| Accessibility service **Kolahal screen lock** | double-tap and `lock` lock the screen. It can't read window content and receives no events | no lock gesture |
+| Accessibility service **Kolahal screen lock** | double-tap and `lock` lock the screen. It can't read window content, receives no events, and collects and sends nothing | no lock gesture |
 | Alarms & reminders (Android 12+) | `remind` and scripts' daily times run on the minute | up to an hour late; a script can't pause the work profile at night |
 | Unrestricted battery | timers and feeds run on time | Android may delay them |
 
@@ -242,6 +242,11 @@ A script could send what it reads somewhere else. So install only scripts you tr
 other people. For this reason, scripts imported from a file or a backup start switched off. Each script's access switches can
 take away what it may read. When a script has internet access together with access to private data, its sheet and its card
 say so ([internet and private data](/scripting/overview/#internet-and-private-data)).
+
+**The screen lock.** Before Android's accessibility settings open (from `allow lock`, Setup or the tour), Kolahal says
+that the service only locks the screen when you ask, that Android lets an app lock the screen only this way, and that it
+doesn't read the screen, what you type or other apps, or collect or send anything. It opens the settings only if you tap
+**Allow**. The service is in both builds; it isn't marked as an accessibility tool.
 
 **Your lists.** A script can read your todos, notes, reminders, calendar events and unread feed items
 ([your lists](/scripting/api/#your-lists)). It can read a list only if it asks for that list with an `@uses` line and you

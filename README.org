@@ -26,7 +26,7 @@ between versions, keep a [[https://mtwabpin.github.io/kolahal/guides/backup/][ba
 Install Kolahal from *Google Play*. It is in a closed test there until it is approved:
 [[https://mtwabpin.github.io/kolahal/getting-started/play-testing/][join the test]], then install it from the Play Store. Or [[https://mtwabpin.github.io/kolahal/getting-started/install/#build-from-source][build it from source]].
 
-The Google Play build leaves out the screen lock, which needs an accessibility declaration on Play, calls in the log, which Play's policy doesn't allow, and =update=, as apps on Play update only through Play.
+The Google Play build leaves out calls in the log, which Play's policy doesn't allow, and =update=, as apps on Play update only through Play. It has the screen lock, with Play's accessibility declaration: an accessibility service that only locks the screen, and that Kolahal explains before Android's settings open.
 
 * Documentation
 

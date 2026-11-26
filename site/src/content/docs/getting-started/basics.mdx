@@ -483,7 +483,7 @@ config reset keybar.row1      # back to the default row
 - Tap empty log space to open the keyboard. With `keyboard.on-home on`, the keyboard opens every time the home screen appears:
   when you press Home, come back from an app or unlock the phone.
 - Pinch the log to change the text size (`font.size`, 10–24). When you let go, a short message shows the new size.
-- Double-tap empty log space to lock the screen. The Play build has no screen lock, so there a double-tap does nothing until you set `gesture.double-tap`.
+- Double-tap empty log space to lock the screen, once you turn on the screen lock (`allow lock`). See [Gestures](/guides/gestures/#locking-needs-an-accessibility-service).
 - Swiping up on the prompt does nothing until you set it. For example, `config set gesture.swipe-up apps` opens the app grid.
   See [Gestures](/guides/gestures/).
 

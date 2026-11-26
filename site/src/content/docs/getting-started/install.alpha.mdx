@@ -37,14 +37,15 @@ The alpha test installs the Play build, the version of Kolahal for Google Play. 
 it is different from the full build in these ways:
 
 - **No call log.** Play doesn't let a launcher read the call log. So the Play build has no calls in the log and no `calls`.
-- **No accessibility service.** Play asks for a declaration and a video for an accessibility service. So the Play build has no `lock` and no double-tap to lock.
 - **No contacts permission.** Play requires apps to use Android's contact picker when the picker is enough. So `call`, `sms` and `contacts` open the picker and remember who you pick ([People](/guides/people/#in-the-play-build)).
 - **No `update`.** Apps on Play update only through Play.
 
-Everything else is the same, including notification access and [one-off shaders over other apps](/scripting/shaders/#over-other-apps).
-Before Android's Notification access screen opens, Kolahal explains what it reads and asks for your permission. Play
-requires this of apps that read notifications. Before Android's Display over other apps page opens, Kolahal says what it
-will draw and when.
+Everything else is the same, including notification access, [one-off shaders over other apps](/scripting/shaders/#over-other-apps)
+and the [screen lock](/guides/gestures/#locking-needs-an-accessibility-service). Before Android's Notification access screen
+opens, Kolahal explains what it reads and asks for your permission. Play requires this of apps that read notifications.
+Before Android's Display over other apps page opens, Kolahal says what it will draw and when. Before Android's
+accessibility settings open for the screen lock, Kolahal says that the service only locks the screen, reads nothing and
+sends nothing.
 
 Pages on this site mark the features above as full build only. You get the full build when you
 [build Kolahal from source](#build-from-source).

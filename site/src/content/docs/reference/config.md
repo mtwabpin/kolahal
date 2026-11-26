@@ -194,7 +194,7 @@ Each gesture takes a command, `lock`, `shade`, `quick` (quick actions) or `none`
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `gesture.double-tap` | text | `lock` (`none` in the Play build, which has no screen lock) | double-tap empty log space |
+| `gesture.double-tap` | text | `lock` | double-tap empty log space |
 | `gesture.swipe-down` | text | `shade` | swipe down on the header |
 | `gesture.swipe-up` | text | `none` | swipe up on the prompt. `none`, the default, turns it off, because it's easy to do by accident. `apps` opens the app grid |
 

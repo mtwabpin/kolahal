@@ -26,7 +26,8 @@ The last setup page offers the permissions most people want. Each one has an exa
 - the default home app
 - notifications
 - notification access
-- in the full build: double-tap to lock, and contacts
+- double-tap to lock
+- in the full build: contacts
 
 You can skip the tour on any page. To open it again, run `tour` or open **Settings → About → Tour**. You can also change
 everything the tour sets in Settings.
@@ -52,7 +53,7 @@ Every row is optional. Kolahal works without any of them, with the limits listed
 | **Usage access** | `allow usage` | Gives accurate unlock counts (from `KEYGUARD_HIDDEN` usage events), including unlocks while the launcher wasn't running. Also needed for `usage` screen time. Without it, Kolahal counts unlocks with an `ACTION_USER_PRESENT` receiver, which misses unlocks while the launcher isn't running. |
 | **Notifications** | `allow send-notifications` | Lets scripts and feeds post notifications. Android 13 and newer asks for this when the app runs. |
 | **Notification access** | `allow read-notifications` | Shows your notifications in the terminal (`notifs`) and gives scripts `notifications.recent()`. |
-| **Double-tap to lock** | `allow lock` | An optional accessibility service. Its only job is to lock the screen, for the double-tap gesture and the `lock` command. It receives no events and reads no window content. |
+| **Double-tap to lock** | `allow lock` | An optional accessibility service. Its only job is to lock the screen, for the double-tap gesture and the `lock` command. It receives no events and reads no window content. Before Android's settings open, Kolahal says what it is for and asks. |
 | **Do Not Disturb access** | `allow dnd` | Optional. Lets `dnd`, `ring silent` and scripts with `@uses dnd` (such as [night-dnd](/scripting/library/#night-dnd)) change Do Not Disturb. See [Media and device controls](/guides/media-and-controls/). |
 | **Modify system settings** | `allow settings` | Optional. Lets `brightness`, `rotate` and `screen-timeout` change system settings. |
 | **Contacts** | `allow contacts` | Optional. `call`, `sms` and `contacts` find people by name and suggest your contacts. Full build only. The Play build uses Android's contact picker and asks for no permission. See [People](/guides/people/). |

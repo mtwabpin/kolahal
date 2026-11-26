@@ -15,18 +15,20 @@ before day 14 don't count.
 
 * On Play: the Play build, and why it has less
 
-Google Play gets the Play build, the full app without four things, packaged as a bundle:
+Google Play gets the Play build, the full app without three things, packaged as a bundle:
 =./gradlew :app:bundlePlay= (the Release workflow too). What it leaves out:
 
 | Left out                                  | What goes with it                                  | Play's rule                                                                                                                                            |
 |-------------------------------------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | =READ_CALL_LOG=                           | calls in the log, =calls=                          | not allowed: Play's SMS and Call Log policy names "calls appearing in wallpaper, launcher, and other tools" as invalid, and launchers get no exception |
-| the accessibility service (=LockService=) | double-tap to lock, =lock=                         | Play says launchers are not accessibility tools, so it would need a declaration, an in-app disclosure with consent, and a video of it                  |
 | =REQUEST_INSTALL_PACKAGES=                | =update= and its code                              | Device and Network Abuse: an app updates only through Play                                                                                             |
 | =READ_CONTACTS=                           | contacts read by name; the picker instead (below)  | Play's Contacts policy (apps targeting Android 17, from 27 January 2027): broad access only where Android's contact picker can't do the job, with a declaration |
 
 The maintainer chose (26 October 2026) to leave the call log and the accessibility service out
-for good rather than risk the declaration.
+rather than risk the declaration. The call log stays out. The accessibility service (=LockService=,
+the screen lock) is in both builds since the maintainer's choice of 26 November 2026, with Play's
+accessibility declaration, the disclosure before Android's settings open, and a line in the store
+listing: see [[*The accessibility declaration][The accessibility declaration]] below.
 
 Display over other apps (=SYSTEM_ALERT_WINDOW=) is in both builds: the maintainer chose (25 November 2026)
 to have it in the Play build too, with the setting =screen.shader-over-apps=, =allow overlay= and the
@@ -93,7 +95,7 @@ seconds, started by an exact alarm the user allowed.
 
 =tools/check-play-build.sh= checks the Play APK: it fails if any of these appear: the
 call log, SMS or contacts permissions, =QUERY_ALL_PACKAGES=, =USE_EXACT_ALARM=, =REQUEST_INSTALL_PACKAGES=,
-=MANAGE_EXTERNAL_STORAGE=, =ACCESS_BACKGROUND_LOCATION=, =ACCESS_LOCAL_NETWORK=, an accessibility service, or the self-updater (its address in the code, its file provider or its receiver). It also fails if =SYSTEM_ALERT_WINDOW= and the window for shaders over other apps (its name in the code) don't come together: the Play build has both, and a build without the feature has neither. Both
+=MANAGE_EXTERNAL_STORAGE=, =ACCESS_BACKGROUND_LOCATION=, =ACCESS_LOCAL_NETWORK=, an accessibility service other than the screen lock's, a screen lock service marked =isAccessibilityTool= or able to retrieve window content, or the self-updater (its address in the code, its file provider or its receiver). It also fails if =SYSTEM_ALERT_WINDOW= and the window for shaders over other apps (its name in the code) don't come together: the Play build has both, and a build without the feature has neither. Both
 workflows run it, so a library that adds one is caught.
 
 Policy pages (opened 22 October 2026):
@@ -101,6 +103,80 @@ Policy pages (opened 22 October 2026):
 [[https://support.google.com/googleplay/android-developer/answer/10964491][AccessibilityService API]],
 [[https://support.google.com/googleplay/android-developer/answer/16558241][sensitive permissions]],
 [[https://support.google.com/googleplay/android-developer/answer/9888379][Device and Network Abuse]].
+
+* The accessibility declaration
+
+The screen lock is an accessibility service (=gesture/LockService.kt=): Android lets an app lock the
+screen only through one (=performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)=). It is in the Play build
+since the maintainer's choice of 26 November 2026. A launcher is not an accessibility tool, so Play
+wants three things: the disclosure in the app, a line in the store listing (under BY TOUCH), and the
+declaration in Play Console with a video. Play Console asks for the declaration under App content
+once a bundle with the service is uploaded; the bundle can't go to review until it is filled in.
+
+What the service is, as built: off until the user turns it on in Android's accessibility settings;
+no events (no =accessibilityEventTypes=), =canRetrieveWindowContent= false, no flags, not marked
+=isAccessibilityTool=; its code calls =performGlobalAction= once, to lock, and nothing else.
+=tools/check-play-build.sh= fails if the Play APK has another accessibility service, or this one can
+retrieve window content or is marked as a tool.
+
+The disclosure: =allow lock= (from the prompt, the setup checklist, the tour, or a tap on the line
+that =lock=, the Lock screen quick action or a lock gesture leaves while the service is off) first
+shows =LockAccessDialog=, "Let Kolahal lock the screen?": what the service is used for, that Android
+allows locking only this way, that it doesn't read the screen, what you type or other apps, that it
+collects and sends nothing, and that Android's Accessibility settings open next. Only *Allow* opens
+them; *Not now* opens nothing and leaves a line, "The screen lock is off", whose tap shows the
+disclosure again. With the service on, =allow lock= opens Android's settings at once, to turn it off.
+
+** What to enter in Play Console
+
+- *Is the app an accessibility tool?* No.
+- *Why the app uses the AccessibilityService API:* App functionality. The purpose, ready to paste:
+
+#+begin_example
+Kolahal is a home screen app. Its accessibility service does one thing: it locks the screen when the user asks, with the lock command or the gesture they set to lock, such as a double-tap on the home screen. Android allows an app to lock the screen only through an accessibility service (performGlobalAction with GLOBAL_ACTION_LOCK_SCREEN).
+#+end_example
+
+- *What it does not do* (for a field that asks, or a reply to review):
+
+#+begin_example
+The service receives no accessibility events and cannot retrieve window content. It does not read the screen, what the user types or other apps, performs no action other than locking the screen, and collects and sends nothing. It is off until the user turns it on, after an in-app disclosure that says this and asks for consent.
+#+end_example
+
+- *Is personal or sensitive data collected or shared through accessibility capabilities?* No.
+- *Video:* a link to the video below (YouTube, unlisted).
+
+** The video
+
+About thirty seconds, on a phone or the emulator with the Play build, the service off at the start
+(turn it off in Android's accessibility settings). Play wants the full disclosure
+readable, the consent flow, the non-consent flow and how to reach the disclosure again, and the
+feature itself. Captions help where it isn't obvious.
+
+1. Home: Kolahal is open. Type =allow lock= and press Enter. (0–4 s)
+2. The disclosure: hold still on it for a few seconds, all of it on screen. (4–9 s)
+3. Tap *Not now*: nothing opens; the log says "The screen lock is off / Tap to turn it on". Tap that
+   line: the disclosure is back. (9–14 s)
+4. Tap *Allow*: Android's Accessibility settings open. Tap Kolahal screen lock, turn it on and
+   confirm Android's dialog. (14–22 s)
+5. Back to home. Type =lock= and press Enter: the screen locks. (22–26 s)
+6. Unlock. Double-tap empty space on home: the screen locks again. (26–30 s)
+
+Record with =adb shell screenrecord= on the emulator (=-s emulator-5554=), or a phone's own screen
+recorder.
+
+** If Google refuses it
+
+The rejection comes by email and in Play Console's Policy status, citing the AccessibilityService
+API policy, usually with what was missing (the disclosure not seen in the video, the purpose not
+clear, or a use Play doesn't accept). Answer the first two by fixing the video or the text and
+sending the declaration again. If Play won't accept the use, take the lock out of the Play build
+with two changes and nothing else in the code: in =app/build.gradle.kts=, the =play= build type's
+=buildConfigField("boolean", "LOCK_SERVICE", "true")= becomes ="false"=, and
+=app/src/play/AndroidManifest.xml= gets back, inside =<application>=,
+=<service android:name=".gesture.LockService" tools:node="remove" />=. Every place that reads the
+switch then hides =lock=, the double-tap choice, the quick action, the setup row and =allow lock=,
+and R8 drops the service's code. Take the line out of the store listing and the declaration out
+of Play Console, and put the row back in the table above.
 
 * The first time in Play Console
 
@@ -127,8 +203,9 @@ Policy pages (opened 22 October 2026):
 * Store listing text
 
 Ready to paste into Play Console → Grow users → Store presence → Main store listing. It describes
-the Play build: no screen lock and no calls in the log, so neither is mentioned. Play allows 4000 characters;
-this is 3996. Keep it in step with the app when features change.
+the Play build: no calls in the log, so they aren't mentioned. The screen lock is, as Play wants for an
+accessibility service (the line under BY TOUCH). Play allows 4000 characters;
+this is 3999. Keep it in step with the app when features change.
 
 Since 24 November 2026 the descriptions present Kolahal as a home screen for touch and typing, with
 touch as much a part of it as typing. On 25 November 2026 the name, both descriptions and the new
@@ -136,6 +213,8 @@ pictures were pasted into Play Console and sent for review. Seven lines of the f
 were corrected after that, the same day (the widgets pages, the limits, the looks, where shaders draw,
 the badge on work and private apps, and American spelling): Play Console has the text as it was sent
 until this one is pasted again.
+On 26 November 2026 the screen lock's line went in under BY TOUCH, and six lines were made shorter
+to stay under 4000 (the feed reader, the widgets, the status line, the ready-made scripts, the shaders, the sliders).
 
 App name (30 characters at most; this is 27):
 
@@ -170,6 +249,7 @@ BY TOUCH
 • Swipe a line right to copy it, left to delete it.
 • Gestures that run any command: a double-tap, a swipe down on the header, a swipe up on the prompt.
 • Up to five widgets pages a swipe away, and a touch key bar while you type.
+• Double-tap to lock the screen, with an optional accessibility service that only locks it.
 
 BY TYPING
 • Type any part of an app's name: the closest match sits right above your thumb.
@@ -188,24 +268,24 @@ LITTLE TOOLS BUILT IN
 • To-dos, notes, reminders, timers and alarms, and your calendar's agenda
 • Screen time per app, unlocks and daily limits
 • Torch, volume, ring mode, Do Not Disturb, brightness and rotation from the prompt
-• An RSS and Atom reader with unread counts, notifications, and OPML import and export
+• An RSS and Atom reader with unread counts and OPML import and export
 
 WIDGETS
-• Kolahal's own widgets for to-dos, shortcuts, your agenda, reminders, notes and what's playing, and other apps' widgets.
+• Kolahal's own widgets for to-dos, shortcuts, your agenda, notes and what's playing, and other apps' widgets.
 • Scripts fill widgets too: weather, a countdown, a habit streak and more.
 • Each widget has its size, color and look, such as Bold, Shape or Poster.
 
 SCRIPTS IN LUA OR JAVASCRIPT
 • Run a script on a timer, at set times, or when something happens, such as an unlock or plugging in.
 • Make a script into a command of your own that takes arguments.
-• Keep a status line you can pin at the top, post a notification, fetch from the web.
-• Start from 57 ready-made scripts, such as weather and live scores, or ones people share, in an editor with completion.
+• Pin a status line at the top, post a notification, fetch from the web.
+• Start from 57 ready-made scripts, such as weather and live scores, in an editor with completion.
 • Each script has a switch for each thing it uses, and runs sandboxed in a separate process.
 
 A SCENE BEHIND IT
-• On Android 13 and newer, 45 shaders draw on home: rain, snowfall, mountains in mist, a pond, northern lights, an old CRT and more.
+• On Android 13 and newer, 45 shaders draw on home: rain, snowfall, mountains in mist, a pond, an old CRT and more.
 • Some are drawn from your screen time and unlocks, such as a candle that burns down through the day.
-• Sliders change a shader, and a slider can follow the battery, the time of day or a value from a script.
+• Sliders change a shader and can follow the battery, the time of day or a value from a script.
 • A scene can also be your phone's live wallpaper, and you can write shaders of your own.
 • Off by default: a word in a notification can play a shader over the app you're in. It needs "Display over other apps".
 
@@ -310,14 +390,15 @@ pixels all round hold nothing that must be seen.
 | =27-wallpaper=              | =wallpaper-preview=           | Android's wallpaper preview with =pond=                                  |
 
 =raw/= keeps every capture at full size (1080 × 2400), the website uses them too: =site/CAPTURES.md=
-says what each of the others shows. Of those, =quick-actions-full-build= and =quick-actions= must
-not go to Play: their last row is Lock screen, which the Play build doesn't have.
+says what each of the others shows. Of those, =quick-actions-full-build= and =quick-actions= end with
+Lock screen, which the Play build has since 26 November 2026: they can go to Play, unless the lock is
+taken out of the Play build again.
 
 ** Taking the captures again
 
 On the emulator only, never a phone, with =adb -s emulator-5554= for every command (a phone may be
 attached too). They were taken on 24 November 2026 with the debug build of 0.5.17 (the full build,
-package =com.mtwabpin.kolahal.debug=); what the Play build lacks (the screen lock, calls in the log,
+package =com.mtwabpin.kolahal.debug=); what the Play build lacked then (the screen lock, calls in the log,
 =update=) is kept out of them. With the Play build (=./gradlew -PplayApk :app:assemblePlay=) the
 steps are the same with its package name.
 
