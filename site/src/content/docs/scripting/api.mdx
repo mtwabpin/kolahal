@@ -2924,8 +2924,11 @@ Rules for a `"widget"` run:
 - The next `widget.show` clears the failure.
 - A script that is switched off isn't run.
 
-Content older than `staleAfter` stays on the card. A large card says its age under it: "2 h ago".
+Content older than `staleAfter` stays on the card. A large card says its age under it: "Updated 2 h ago".
 Switches (`toggles`) say it only after an hour, whatever `staleAfter` is.
+With **Last updated** on, on the card's [settings page](/guides/widgets/#a-widgets-settings-page),
+the user has the age shown always, "Updated 3 min ago", on smaller cards too where there is room.
+Nothing changes for the script: the age comes from its last `widget.show`.
 
 ### Several widgets from one script
 

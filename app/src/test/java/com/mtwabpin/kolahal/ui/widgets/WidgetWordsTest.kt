@@ -1756,7 +1756,7 @@ class WidgetWordsTest {
             )
         )
         assertEquals(
-            WidgetWords.Footer("2 h ago", "Updated 2 hours ago", failed = false),
+            WidgetWords.Footer("Updated 2 h ago", "Updated 2 hours ago", failed = false),
             WidgetWords.footer(
                 hasContent = true,
                 old = true,
@@ -1840,6 +1840,65 @@ class WidgetWordsTest {
                 )!!.text.replace('\u202F', ' ')
             )
         }
+    }
+
+    /**
+     * Last updated: when the content was set, as other software says it. The age under a day, the day
+     * after that (yesterday, then the day as Kolahal writes one, with its year once it is another).
+     */
+    @Test
+    fun updatedSaysWhenTheContentWasSet() {
+        val minute = 60_000L
+        val hour = 60 * minute
+        val now = ZonedDateTime.of(2026, 12, 20, 12, 0, 0, 0, utc).toInstant().toEpochMilli()
+        fun updated(ago: Long, whole: Boolean = false) =
+            WidgetWords.updated(now - ago, now, utc, whole, Locale.UK)
+        assertEquals("Updated just now", updated(20_000))
+        assertEquals("Updated just now", updated(-5 * minute))
+        assertEquals("Updated 1 min ago", updated(minute))
+        assertEquals("Updated 3 min ago", updated(3 * minute + 30_000))
+        assertEquals("Updated 59 min ago", updated(hour - 1))
+        assertEquals("Updated 2 h ago", updated(2 * hour + 5 * minute))
+        assertEquals("Updated 23 h ago", updated(23 * hour + 59 * minute))
+        assertEquals("Updated yesterday", updated(25 * hour))
+        assertEquals("Updated Wed 16 Dec", updated(4 * 24 * hour))
+        assertEquals("Updated Thu 20 Nov 2025", updated(395 * 24 * hour))
+        // For a screen reader, in whole words.
+        assertEquals("Updated just now", updated(20_000, whole = true))
+        assertEquals("Updated 1 minute ago", updated(minute, whole = true))
+        assertEquals("Updated 3 minutes ago", updated(3 * minute, whole = true))
+        assertEquals("Updated 1 hour ago", updated(hour, whole = true))
+        assertEquals("Updated yesterday", updated(30 * hour, whole = true))
+    }
+
+    /**
+     * With Last updated on ([WidgetWords.footer]'s always), current content has the line too, asked for
+     * wherever the card has room. Old content has one line, the same. A failure still wins, and
+     * nothing stored has no age.
+     */
+    @Test
+    fun lastUpdatedGivesCurrentContentItsLineAndOldContentOneLine() {
+        val minute = 60_000L
+        val now = ZonedDateTime.of(2026, 12, 20, 12, 0, 0, 0, utc).toInstant().toEpochMilli()
+        fun footer(setAt: Long, old: Boolean, always: Boolean, failed: Boolean = false, hasContent: Boolean = true) =
+            WidgetWords.footer(hasContent, old, setAt, setAt, failed, now, utc, clock24 = true, always = always)
+        assertNull("current content, off: no line", footer(now - 3 * minute, old = false, always = false))
+        assertEquals(
+            WidgetWords.Footer("Updated 3 min ago", "Updated 3 minutes ago", failed = false, asked = true),
+            footer(now - 3 * minute, old = false, always = true)
+        )
+        assertEquals(
+            WidgetWords.Footer("Updated just now", "Updated just now", failed = false, asked = true),
+            footer(now - 10_000, old = false, always = true)
+        )
+        // Old content says the same, once: the line asked for wherever there is room, or a large card's.
+        val old = footer(now - 125 * minute, old = true, always = true)
+        assertEquals(WidgetWords.Footer("Updated 2 h ago", "Updated 2 hours ago", failed = false, asked = true), old)
+        assertEquals(old!!.copy(asked = false), footer(now - 125 * minute, old = true, always = false))
+        // A failure wins, still asked for.
+        val failed = footer(now - 120 * minute, old = true, always = true, failed = true)
+        assertEquals(WidgetWords.Footer("Failed 10:00", "Failed at 10:00", failed = true, asked = true), failed)
+        assertNull("nothing stored", footer(0, old = true, always = true, hasContent = false))
     }
 
     @Test

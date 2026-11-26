@@ -34,6 +34,9 @@ val LocalChosenColor = staticCompositionLocalOf<ColorRole?> { null }
 /** The parts of the placed widget being drawn that it hides ([PlacedWidget.hidden], [WidgetParts]). [SourceWidget] provides them. */
 val LocalHiddenParts = staticCompositionLocalOf<Set<String>> { emptySet() }
 
+/** The parts off by default that the placed widget being drawn shows ([PlacedWidget.shown], [WidgetParts.OFF]). [SourceWidget] provides them. */
+val LocalShownParts = staticCompositionLocalOf<Set<String>> { emptySet() }
+
 /**
  * The color role the card being drawn uses card-wide, as it is drawn: the chosen one, else its
  * own ([WidgetColors.drawn]). Null for the accent. [WidgetCard] provides it.

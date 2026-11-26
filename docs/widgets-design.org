@@ -107,8 +107,8 @@ Built, and not in the design:
   the picker places a further widget of a script with options. The card is at the top, live and at
   its real size; one taller than 40% of the room scrolls away with the page. Then This card (a
   script's options, a value saved running the card again; Shortcuts' editor), Color, Shape (in the
-  Shape look, for a card with a choice), What shows (Name and Icon, where the card has them:
-  =WidgetParts.offered=) and Reset to the card's own (color, shape, what shows; not the options,
+  Shape look, for a card with a choice), What shows (Name and Icon, where the card has them, and
+  Last updated on a script's card: =WidgetParts.offered=) and Reset to the card's own (color, shape, what shows; not the options,
   the look or the size), with Undo in a snackbar. Back returns to Arrange widgets with the card
   still chosen. An app's widget has no page. The button that opens it shows a dot in the card's color and, in the Shape look, a
   small copy of its shape.
@@ -636,15 +636,21 @@ battery in the background.
 
 What the card shows in each state ([[src:ui/widgets/ScriptWidgets.kt::internal enum class CardNote][CardNote]]).
 A card says its name small over a note where there is room; a small card has the note alone. The
-footer ("2 h ago", "Failed 10:42") is a large card's last line; a wide or small card has no room
-for it, and a screen reader still hears it.
+footer ("Updated 2 h ago", "Failed 10:42") is a large card's last line; a wide or small card has no
+room for it, and a screen reader still hears it. With Last updated on (=WidgetParts.UPDATED=), the
+footer is there for current content too ("Updated 3 min ago"), one line however many reasons, and
+a card shows it wherever it has room ([[src:ui/widgets/UpdatedLine.kt::internal object UpdatedLine][UpdatedLine]]): a large card in Plain and Tonal; a wide one
+there whose content leaves a line free (a number, a text, a bar, a countdown in words; not a
+chart, a list, a clock, buttons, a gauge, a sparkline); a versus card from 4×1 in every look,
+with its last line. Never at 1×1 nor in Bold, Split, Shape and Poster otherwise: content is never
+made smaller for it.
 
 | State                          | What the card shows                                                                                     |
 |--------------------------------+---------------------------------------------------------------------------------------------------------|
 | Not read yet                   | Nothing, for the moment it takes to read the stored state.                                              |
 | No content yet                 | A =LoadingIndicator= (the Expressive shape that changes form), drawn only while the card can be seen. After 20 seconds with no run ended: "Nothing to show". |
 | Current                        | The content. No footer.                                                                                 |
-| Old (past =staleAfter=)        | The content stays readable. The footer says its age: "2 h ago". Nothing is dimmed. A =toggles= card says it only after an hour. |
+| Old (past =staleAfter=)        | The content stays readable. The footer says its age: "Updated 2 h ago". Nothing is dimmed. A =toggles= card says it only after an hour. |
 | Failed, with content           | The content stays. The footer says "Failed 10:42" (or "Failed 2 d ago" when not today) in the error color. |
 | Failed, no content             | The error's first line, with secrets masked and its line number as "(line 12)".                         |
 | Can't be read                  | "Widget unavailable": the stored description fails the checks, or a built-in widget this version doesn't have. |
@@ -871,7 +877,7 @@ a script can't run it.
 | Shape                    | In a square box (1×1, 2×2) the whole card is one =MaterialShapes= shape; in a wide one the main value sits in a shape. Buttons and switches each take a shape, and change shape when pressed or switched. Some shapes carry the value ([[src:ui/widgets/WidgetShapeValues.kt::internal fun carriesShape][WidgetShapeValues]]): a countdown is a sun of 12 rays that loses one as each step goes (a day, an hour or five minutes, by the wait), a week of a habit is a flower of 7 leaves, and the battery goes from a circle through cookies to a burst as it runs low. |
 | A chosen shape           | Where the Shape look draws one shape for the card or its main value ([[src:ui/widgets/WidgetShapeChoice.kt::internal fun hasShapeChoice][hasShapeChoice]]: a stat, a text's mark, a single progress, a gauge, stages, rings, a chart other than a habit's week, a clock, a picture), its page has a Shape group: fifteen =MaterialShapes= (=Cookie9Sided=, =Cookie12Sided=, =Clover4Leaf=, =Clover8Leaf=, =Sunny=, =SoftBurst=, =Circle=, =Cookie4Sided=, =Cookie6Sided=, =Gem=, =PixelCircle=, =Slanted=, =Arch=, =Ghostish=, =Pill=), the card's own first. Each keeps a three-digit number clear of its edge at 1×1 and 2×2. A clock, a gauge and rings draw a round dial in the shape, so they take only the shapes that are the same turned a half turn: not =Slanted=, =Arch=, =Ghostish= or =Pill= ([[src:ui/widgets/WidgetShapeChoice.kt::internal fun shapesFor][shapesFor]]). The choice is kept per placed card beside its look, and in backups; a script's =shape= is the card's own. The new shape settles as a shape that changes does. The words in the soft burst and the pill keep 4% more of the side from the edge. |
 | A chosen color           | Every card Kolahal draws has a Color group on its page: its own first as an open ring, then accent, link, info, good, warn, bad, muted and text, each whose color in the theme in use is not the twin of one before it ([[src:widgets/WidgetColors.kt::object WidgetColors][WidgetColors.offered]]: =info= is left out in Rosé Pine and Dracula, where it is the link's color). The choice is kept per placed card beside its look and shape, and in backups. It wins over the script's =color=, also one that changes with what the card shows, except the Battery card's warning colors. Parts with a color of their own (zones, sides, rings, rows, events, styled text) keep it. The card draws its description with the chosen color ([[src:widgets/WidgetColors.kt::fun recolored][recolored]]). |
-| What shows               | A card's page has a switch for each part it has to hide ([[src:widgets/WidgetParts.kt::object WidgetParts][WidgetParts]]): its Name, wherever its look writes it (every look but Next, Stack and Now), and its Icon, where it has one and its look draws it (a stat in Bold, Split and Shape, a countdown in Split, a text's and a picture's mark in Shape). The hidden parts are kept per placed card, by id, so a part a script names can join later. A hidden name is given to no body; a hidden icon leaves the description. Now playing has one more switch, Album art as background ([[src:widgets/MediaArt.kt::object MediaArt][MediaArt]]): the cover fills the card behind a scrim in the card's color, as a stat's scene has it, and leaves play or pause. |
+| What shows               | A card's page has a switch for each part it has to hide ([[src:widgets/WidgetParts.kt::object WidgetParts][WidgetParts]]): its Name, wherever its look writes it (every look but Next, Stack and Now), and its Icon, where it has one and its look draws it (a stat in Bold, Split and Shape, a countdown in Split, a text's and a picture's mark in Shape). The hidden parts are kept per placed card, by id, so a part a script names can join later. A script's card also has Last updated, off until turned on (=WidgetParts.OFF=, kept in =PlacedWidget.shown=): its footer always, where the card has room for it, and a line under the switch says why where it hasn't ("Not at 1×1", "Not in Bold"). A hidden name is given to no body; a hidden icon leaves the description. Now playing has one more switch, Album art as background ([[src:widgets/MediaArt.kt::object MediaArt][MediaArt]]): the cover fills the card behind a scrim in the card's color, as a stat's scene has it, and leaves play or pause. |
 | The large card's frame  | 16 dp at the sides and 14 dp at the top and bottom. No card has a title line since 21 November 2026: the content names the card small where it needs to, and the note and the age are the last line. |
 | List rows                | Each row in a lightly tinted container: 16 dp corners at the ends of the list, 4 dp between rows, 2 dp apart. A plain =Row=, so a row can be as low as 32 dp. A clock's rows in a large card too. |
 | Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. A held button widens by 15% and its neighbours in the row narrow, as in a =ButtonGroup=, on the fast spatial spring; the grid does it with its rows' weights, since a =ButtonGroup= is one row with an overflow menu. |

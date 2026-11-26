@@ -69,6 +69,7 @@ import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetParts
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -796,9 +797,9 @@ class ScriptWidgetCardTest {
         val current = kept("current", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
         setAgo(current, 40)
         show(old, quick, current)
-        draws(old, "Weather", "24", "2 h ago")
+        draws(old, "Weather", "24", "Updated 2 h ago")
         says(old, "Weather: 24. Updated 2 hours ago")
-        draws(quick, "Score", "136/8", "5 min ago")
+        draws(quick, "Score", "136/8", "Updated 5 min ago")
         says(quick, "Score: 136/8. Updated 5 minutes ago")
         draws(current, "Weather", "24")
         says(current, "Weather: 24")
@@ -894,6 +895,63 @@ class ScriptWidgetCardTest {
         }
     }
 
+    /**
+     * Last updated on: a versus card at 4×1 says when its content was set in each of its looks, inside
+     * the card, with the score and both names still there, and a screen reader hears it last. A
+     * current card with it off has no line. At 1×1 the line is left out, and still said.
+     */
+    @Test
+    fun lastUpdatedShowsOnAVersusCardAt4x1() {
+        val match = WidgetSpec.Versus(
+            WidgetBase(title = "League"),
+            listOf(WidgetSpec.Side("Harbor", value = 58f, text = "58%"), WidgetSpec.Side("Ridge", value = 42f, text = "42%")),
+            score = "2–1",
+            line = "54' Goal",
+            badge = "67'",
+        )
+        val looks = WidgetLook.offeredFor(WidgetKind.VERSUS)
+        val cards = looks.map { look -> kept("upd-${look.id}", match).also { setAgo(it, 3) } to look }
+        val off = kept("upd-off", match).also { setAgo(it, 3) }
+        val tiny = kept("upd-tiny", WidgetSpec.Stat(WidgetBase(title = "Air"), "42")).also { setAgo(it, 3) }
+        fun placed(name: String, look: WidgetLook, on: Boolean, height: Int) = PlacedWidget(
+            null, WidgetSource.script(name), 0L, height, 0, look = look,
+            shown = if (on) setOf(WidgetParts.UPDATED) else emptySet()
+        )
+        val known = scriptsOf(*(cards.map { it.first } + off + tiny).map(WidgetSource::script).toTypedArray())
+        compose.setContent {
+            KolahalTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    cards.forEach { (name, look) ->
+                        Box(Modifier.width(380.dp)) { SourceWidget(placed(name, look, on = true, 94), 94.dp, null, known) }
+                    }
+                    Box(Modifier.width(380.dp)) { SourceWidget(placed(off, WidgetLook.PLAIN, on = false, 94), 94.dp, null, known) }
+                    Box(Modifier.width(94.dp)) { SourceWidget(placed(tiny, WidgetLook.PLAIN, on = true, 94), 94.dp, null, known) }
+                }
+            }
+        }
+        for ((name, look) in cards) {
+            draws(name, "2–1", "Harbor", "Ridge", "Updated 3 min ago")
+            val card = compose.onNode(hasTestTag("widget:$name")).fetchSemanticsNode().boundsInRoot
+            val line = compose.onNode(inCard(name) and hasTestTag(FOOTER_TAG), useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            assertTrue("${look.id}: the line is outside the card", card.contains(line.topLeft) && card.contains(line.bottomRight))
+            for (word in listOf("2–1", "Harbor", "Ridge")) {
+                val b = compose.onNode(inCard(name) and hasText(word), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                assertTrue("${look.id}: $word is cut", card.contains(b.topLeft) && b.bottom <= card.bottom)
+                assertFalse("${look.id}: the line is over $word", b.overlaps(line))
+            }
+            compose.onNode(inCard(name) and hasDescription)
+                .assert(SemanticsMatcher("ends with the age") {
+                    it.config.getOrNull(SemanticsProperties.ContentDescription)?.singleOrNull()?.endsWith(". Updated 3 minutes ago") == true
+                })
+        }
+        draws(off, "2–1", "Harbor")
+        assertFalse(texts(off).any { it.startsWith("Updated") })
+        draws(tiny, "42")
+        assertFalse(texts(tiny).any { it.startsWith("Updated") })
+        says(tiny, "Air: 42. Updated 3 minutes ago")
+    }
+
     /** While the widgets page is in view, a card whose content is old asks for one run. Current content asks for none. */
     @Test
     fun inViewOldContentAsksForOneRun() {
@@ -902,7 +960,7 @@ class ScriptWidgetCardTest {
         setAgo(old, 125)
         val current = kept("not-due", WidgetSpec.Stat(WidgetBase(title = "Weather"), "25"))
         show(old, current, actions = asked, inView = true)
-        draws(old, "24", "2 h ago")
+        draws(old, "24", "Updated 2 h ago")
         draws(current, "25")
         compose.waitFor("the old card asked for no run") { asked.all.isNotEmpty() }
         compose.waitForIdle()
@@ -1171,7 +1229,7 @@ class ScriptWidgetCardTest {
             .assert(hasContentDescription("$bare: Script has no widget now"))
 
         // Only the card whose script can run asks, for its old content.
-        draws(there, "Weather", "24", "2 h ago")
+        draws(there, "Weather", "24", "Updated 2 h ago")
         compose.waitFor("the card with a script asked for no run") { asked.all.isNotEmpty() }
         compose.waitForIdle()
         assertEquals(listOf("refresh $there"), asked.all.toList())

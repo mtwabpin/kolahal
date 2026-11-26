@@ -101,6 +101,29 @@ class VersusWordsTest {
     }
 
     /**
+     * Last updated on a 4×1 card: the age joins the last line, so it shows with it and costs no
+     * height. With no last line it is alone under the score only when the score keeps its size; it
+     * never makes the score smaller.
+     */
+    @Test
+    fun theAgeJoinsTheLastLineAndNeverMakesTheScoreSmaller() {
+        val plain = listOf(36, 32, 28)
+        val bold = listOf(40, 36, 32, 28)
+        // A 96 dp card is 72 dp inside: with the line, as without the age.
+        assertEquals(VersusWords.RowPlan(0, line = true, age = true), VersusWords.rowPlan(72, plain, 18, 18, 16))
+        assertEquals(VersusWords.RowPlan(1, line = true, age = true), VersusWords.rowPlan(72, bold, 18, 18, 16))
+        // No last line: Plain's score keeps its size with the age under it; Bold's would not, so no age.
+        assertEquals(VersusWords.RowPlan(0, line = false, age = true), VersusWords.rowPlan(72, plain, 0, 18, 16))
+        assertEquals(VersusWords.RowPlan(0, line = false, age = false), VersusWords.rowPlan(72, bold, 0, 18, 16))
+        // 88 dp (64 inside): no room under Plain's largest score either.
+        assertEquals(VersusWords.RowPlan(0, line = false, age = false), VersusWords.rowPlan(64, plain, 0, 18, 16))
+        // Where the line gives way, the age goes with it.
+        assertEquals(VersusWords.RowPlan(1, line = false, age = false), VersusWords.rowPlan(68, listOf(46, 41, 36), 23, 23, 20))
+        // Without the age, the plan is as before.
+        assertEquals(VersusWords.rowPlan(68, plain, 18, 18), VersusWords.rowPlan(68, plain, 18, 18, 0))
+    }
+
+    /**
      * The names of a 4×1 card get the room they need, and the score what is left: a live score's
      * "New Zealand" fits whole beside "237/4 · 299/8", which gets narrower. A name is cut only
      * past the score's least width.

@@ -11,6 +11,9 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
  * the bar between the sides, and what a screen reader says. Pure, so it is unit tested.
  */
 internal object VersusWords {
+    /** From this width a wide versus card has its names beside the marks and the bar under them: a 4×1 card. */
+    const val ROW_FROM_DP = 260
+
     /** A side's mark: its own, or the first letter or digit of its name, as a capital. "" for a name with none. */
     fun mark(side: WidgetSpec.Side): String = side.mark ?: WidgetWords.badgeLetter(side.name).orEmpty()
 
@@ -36,23 +39,29 @@ internal object VersusWords {
 
     /**
      * What a one-row card (4×1) holds, [heightDp] high: [score] is the place in [scoreDp] (the
-     * heights of the score's sizes, the largest first) of the size it takes, and [line] whether the
-     * last line and the badge fit under it.
+     * heights of the score's sizes, the largest first) of the size it takes, [line] whether the
+     * last line and the badge fit under it, and [age] whether the card's "Updated 3 min ago" does.
      */
-    data class RowPlan(val score: Int, val line: Boolean)
+    data class RowPlan(val score: Int, val line: Boolean, val age: Boolean = false)
 
     /**
      * The plan of a one-row card [heightDp] high ([RowPlan]). The bar and its figures ([barDp], 0
      * without a bar) always have their room. Over it, the largest score that fits with the last line
      * ([lineDp], 0 without one); else the largest that fits alone, and the line gives way; else the
      * smallest.
+     * - The card's age ([ageDp], 0 without it) joins the last line, so it shows with it. A card with no
+     *   last line has the age alone under the score only when the score keeps the size it has
+     *   without it: the age never makes the score smaller.
      */
-    fun rowPlan(heightDp: Int, scoreDp: List<Int>, lineDp: Int, barDp: Int): RowPlan {
+    fun rowPlan(heightDp: Int, scoreDp: List<Int>, lineDp: Int, barDp: Int, ageDp: Int = 0): RowPlan {
         if (scoreDp.isEmpty()) return RowPlan(0, false)
         val room = heightDp - barDp
-        if (lineDp > 0) scoreDp.indexOfFirst { it + lineDp <= room }.takeIf { it >= 0 }?.let { return RowPlan(it, true) }
+        if (lineDp > 0) scoreDp.indexOfFirst { it + maxOf(lineDp, ageDp) <= room }.takeIf { it >= 0 }
+            ?.let { return RowPlan(it, true, age = ageDp > 0) }
         val alone = scoreDp.indexOfFirst { it <= room }
-        return RowPlan(if (alone >= 0) alone else scoreDp.lastIndex, line = false)
+        val score = if (alone >= 0) alone else scoreDp.lastIndex
+        val age = ageDp > 0 && lineDp == 0 && alone >= 0 && scoreDp[alone] + ageDp <= room
+        return RowPlan(score, line = false, age = age)
     }
 
     /**

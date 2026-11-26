@@ -190,7 +190,9 @@ private const val PINNED_SHARE = 0.4f
  *   twin of one before it ([WidgetColors.offered]).
  * - Shape: in the Shape look, for a card with a choice of shape ([hasShapeChoice]), its own first,
  *   then the shapes it may take ([shapesFor]).
- * - What shows: a switch for each part the card has to hide ([WidgetParts.offered]).
+ * - What shows: a switch for each part the card has to hide or show ([WidgetParts.offered]). A
+ *   script's card has Last updated, off until turned on; at a size or in a look with no room for
+ *   it, a line under it says so ([UpdatedLine.why]).
  *   The Now playing card has one more: album art as background ([MediaArt]).
  *   Last, Scene: a still of one of Kolahal's scenes behind the card ([CardScenes], [SceneDialog]).
  * - Reset to the card's own: color, shape and what shows. A script's options keep their values.
@@ -279,7 +281,15 @@ fun WidgetSettingsScreen(vm: TerminalViewModel) {
                             PartsGroup(
                                 widgets,
                                 w,
-                                WidgetParts.offered(kind, spec, look),
+                                WidgetParts.offered(kind, spec, look, script = ref != null),
+                                updatedWhy = UpdatedLine.why(
+                                    spec,
+                                    kind,
+                                    look,
+                                    WidgetLayout.widthDp(pageDp, w.span),
+                                    w.heightDp,
+                                    widgets.sizeOf(w)?.label.orEmpty()
+                                ),
                                 art = MediaArt.offered(builtin),
                                 scene = SceneRow(look, script = (spec as? WidgetSpec.Stat)?.scene),
                             )
@@ -585,25 +595,36 @@ private fun ShapeGroup(widgets: WidgetHost, w: PlacedWidget, choices: ShapeChoic
 private data class SceneRow(val look: WidgetLook, val script: String?)
 
 /**
- * What shows: a switch for each part of [offered], on while the card shows it. With [art] (the Now
- * playing card, [MediaArt.offered]), a switch for album art as background, off until turned on.
+ * What shows: a switch for each part of [offered], on while the card shows it ([WidgetParts.shows]).
+ * Last updated says under its words why the card leaves it out at its size or in its look
+ * ([updatedWhy]). With [art] (the Now playing card, [MediaArt.offered]), a switch for album art as
+ * background, off until turned on.
  * Last, Scene ([CardScenes]): what the card has, and why it doesn't show in a look that keeps its
  * own ground. A tap opens the choice ([SceneDialog]).
  */
 @Composable
-private fun PartsGroup(widgets: WidgetHost, w: PlacedWidget, offered: List<String>, art: Boolean, scene: SceneRow) {
+private fun PartsGroup(
+    widgets: WidgetHost,
+    w: PlacedWidget,
+    offered: List<String>,
+    updatedWhy: String?,
+    art: Boolean,
+    scene: SceneRow
+) {
     val rows = offered.size + (if (art) 1 else 0) + 1
     var choosing by remember { mutableStateOf(false) }
     GroupHeader("What shows")
     offered.forEachIndexed { i, part ->
-        val shown = part !in w.hidden
+        val shown = WidgetParts.shows(w, part)
+        // Last updated where the card has no room for it: why, on a line of its own.
+        val why = updatedWhy?.takeIf { part == WidgetParts.UPDATED }
         Box(Modifier.padding(bottom = ListItemDefaults.SegmentedGap)) {
             SegmentedListItem(
                 checked = shown,
                 onCheckedChange = { widgets.setShown(w.key, part, it) },
                 colors = segColors(),
                 shapes = segShapes(i, rows),
-                supportingContent = { Text(WidgetParts.detail(part)) },
+                supportingContent = { Text(if (why == null) WidgetParts.detail(part) else WidgetParts.detail(part) + "\n" + why) },
                 trailingContent = { Switch(checked = shown, onCheckedChange = null) },
                 modifier = Modifier.testTag("part $part"),
             ) { Text(WidgetParts.label(part)) }
@@ -751,11 +772,13 @@ private fun ResetOwn(widgets: WidgetHost, w: PlacedWidget, hasOptions: Boolean, 
                 widgets.setColor(before.key, before.color)
                 widgets.setShape(before.key, before.shape)
                 before.hidden.forEach { widgets.setShown(before.key, it, false) }
+                before.shown.forEach { widgets.setShown(before.key, it, true) }
                 widgets.setArtBackground(before.key, before.artBackground)
                 widgets.setScene(before.key, before.scene)
             }
         },
-        enabled = w.color != null || w.shape != null || w.hidden.isNotEmpty() || w.artBackground || w.scene != null,
+        enabled = w.color != null || w.shape != null || w.hidden.isNotEmpty() || w.artBackground || w.scene != null ||
+                w.shown.isNotEmpty(),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)

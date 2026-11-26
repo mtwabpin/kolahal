@@ -1019,8 +1019,12 @@ internal object WidgetWords {
     fun tooSoon(last: Long?, now: Long): Boolean =
         last != null && now - last in 0 until TAP_WINDOW_MS
 
-    /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
-    data class Footer(val text: String, val said: String, val failed: Boolean)
+    /**
+     * The small line of a card about its content. [said] is the same for a screen reader, with whole
+     * words. [asked]: the card's Last updated is on ([com.mtwabpin.kolahal.widgets.WidgetParts.UPDATED]),
+     * so the line shows wherever the card has room for it ([UpdatedLine]), not only on a large card.
+     */
+    data class Footer(val text: String, val said: String, val failed: Boolean, val asked: Boolean = false)
 
 
     /**
@@ -1040,11 +1044,33 @@ internal object WidgetWords {
     }
 
     /**
-     * The footer of a card at [now] (milliseconds), or null for a card with nothing to say.
+     * When content set at [then] was last updated, seen at [now], both in milliseconds: the [age]
+     * under a day ("Updated just now", "Updated 3 min ago", "Updated 2 h ago"), then the day it was
+     * ("Updated yesterday", "Updated Tue 20 Oct", with the year when it was another year). With
+     * [whole], the age in whole words for a screen reader: "Updated 3 minutes ago".
+     */
+    fun updated(
+        then: Long,
+        now: Long,
+        zone: ZoneId,
+        whole: Boolean = false,
+        locale: Locale = Locale.getDefault()
+    ): String {
+        if (now - then < DAY * 1000) return "Updated ${age(then, now, whole)}"
+        val day = Instant.ofEpochMilli(then).atZone(zone).toLocalDate()
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        return "Updated " + if (day == today.minusDays(1)) "yesterday"
+        else day.format(TimeFormats.dayFormat(day.year, today.year, locale))
+    }
+
+    /**
+     * The footer of a card at [now] (milliseconds), or null for a card with nothing to say. There is
+     * one line at most, whatever applies.
      * - The last run failed: "Failed 10:42", or "Failed 2 d ago" when that was not today. The content
      *   that was there stays on the card.
-     * - The content is [old]: its age, "2 h ago".
-     * - Current content has no footer.
+     * - The content is [old], or the card's Last updated is on ([always]): when it was set ([updated]),
+     *   "Updated 2 h ago".
+     * - Else, current content has no footer.
      */
     fun footer(
         hasContent: Boolean,
@@ -1054,24 +1080,27 @@ internal object WidgetWords {
         failed: Boolean,
         now: Long,
         zone: ZoneId,
-        clock24: Boolean
+        clock24: Boolean,
+        always: Boolean = false
     ): Footer? {
         if (failed) {
             val at = Instant.ofEpochMilli(triedAt).atZone(zone)
             // The time of day as the clock setting writes it, as everywhere else.
             val time = TimeFormats.clockFormat(clock24).format(at)
             val today = at.toLocalDate() == Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-            return if (today) Footer("Failed $time", "Failed at $time", failed = true)
+            return if (today) Footer("Failed $time", "Failed at $time", failed = true, asked = always)
             else Footer(
                 "Failed ${age(triedAt, now)}",
                 "Failed ${age(triedAt, now, whole = true)}",
-                failed = true
+                failed = true,
+                asked = always
             )
         }
-        return if (hasContent && old) Footer(
-            age(setAt, now).replaceFirstChar { it.titlecase() },
-            "Updated ${age(setAt, now, whole = true)}",
-            failed = false
+        return if (hasContent && (old || always)) Footer(
+            updated(setAt, now, zone),
+            updated(setAt, now, zone, whole = true),
+            failed = false,
+            asked = always
         ) else null
     }
 

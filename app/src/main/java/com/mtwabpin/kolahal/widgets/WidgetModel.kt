@@ -218,6 +218,11 @@ data class PlacedWidget(
      * [CardScenes.NONE] for none over its script's own. Null: the card's own. Only a widget Kolahal draws has one.
      */
     val scene: String? = null,
+    /**
+     * The parts of the card that are off until turned on ([WidgetParts.OFF]) that it shows, chosen on
+     * its settings page under What shows: Last updated. Empty: none. Only a widget Kolahal draws has any.
+     */
+    val shown: Set<String> = emptySet(),
 ) {
     /** Whether it has a place on the page: a [column] and a [topDp]. */
     val positioned: Boolean get() = column >= 0 && topDp >= 0
@@ -413,7 +418,7 @@ object WidgetOrder {
 
 /**
  * Stores one record per line in SharedPreferences:
- * `id|provider|serial|height|order|location|span|look|column|top|shape|color|hidden|art|scene`.
+ * `id|provider|serial|height|order|location|span|look|column|top|shape|color|hidden|art|scene|shown`.
  * - A pending entry has `-` as its id. So has a widget Kolahal draws itself: its provider field holds
  *   its source (`script:weather`, see [WidgetSource]).
  * - The location is the widget's page: `panel` for page 1, `panel:<id>` for a later one
@@ -423,9 +428,10 @@ object WidgetOrder {
  *   [WidgetLook.PLAIN], and [start] gives each widget the place it had ([WidgetPlacement.placeMissing]).
  *   An older Kolahal reads fields by position and ignores the last three.
  * - The shape, the color, the hidden parts ([WidgetParts.write]), the Now playing card's album
- *   art as background ([MediaArt.STORED]) and the scene ([CardScenes]) are
- *   written only when set ([PlacedWidget.shape], [PlacedWidget.color], [PlacedWidget.hidden],
- *   [PlacedWidget.artBackground], [PlacedWidget.scene]): a later one leaves
+ *   art as background ([MediaArt.STORED]), the scene ([CardScenes]) and the parts shown that are
+ *   off by default are written only when set ([PlacedWidget.shape], [PlacedWidget.color],
+ *   [PlacedWidget.hidden], [PlacedWidget.artBackground], [PlacedWidget.scene],
+ *   [PlacedWidget.shown]): a later one leaves
  *   the fields before it empty. A line without one, or with one this version doesn't know, has the
  *   card's own.
  * - [PlacedWidget.order] is still written, in reading order, so an older Kolahal shows the widgets
@@ -452,14 +458,15 @@ object WidgetCodec {
         ) + choices(it)).joinToString("|")
     }
 
-    /** The fields after the place: the shape, the color, the hidden parts, the album art and the scene, each empty when not set, none at all when none is. */
+    /** The fields after the place: the shape, the color, the hidden parts, the album art, the scene and the shown parts, each empty when not set, none at all when none is. */
     private fun choices(w: PlacedWidget): List<String> =
         listOf(
             w.shape?.id.orEmpty(),
             w.color?.role.orEmpty(),
             WidgetParts.write(w.hidden),
             if (w.artBackground) MediaArt.STORED else "",
-            w.scene.orEmpty()
+            w.scene.orEmpty(),
+            WidgetParts.write(w.shown)
         )
             .dropLastWhile { it.isEmpty() }
 
@@ -471,7 +478,7 @@ object WidgetCodec {
     private fun shapeOf(raw: Any?, sourced: Boolean): WidgetShape? =
         if (sourced) WidgetShape.named(raw?.toString()) else null
 
-    /** The parts a widget hides ([WidgetParts.read]), as its look ([lookOf]): none for an app's widget. */
+    /** The parts a widget hides or shows ([WidgetParts.read]), as its look ([lookOf]): none for an app's widget. */
     private fun hiddenOf(raw: Any?, sourced: Boolean): Set<String> =
         if (sourced) WidgetParts.read(raw) else emptySet()
 
@@ -520,6 +527,7 @@ object WidgetCodec {
                 hidden = hiddenOf(f.getOrNull(12), source),
                 artBackground = source && MediaArt.read(f.getOrNull(13)),
                 scene = if (source) CardScenes.read(f.getOrNull(14)) else null,
+                shown = hiddenOf(f.getOrNull(15), source),
             )
         }.toList()
 
@@ -556,7 +564,7 @@ object WidgetCodec {
             get() = if (statusCards > 0) "Status cards are gone: $statusCards removed from the widgets page. Status lines still show at the top of home." else null
     }
 
-    /** The backup form. Ids are device-specific, so they are left out. A shape, a color, hidden parts, album art as background or a scene are there only once set. */
+    /** The backup form. Ids are device-specific, so they are left out. A shape, a color, hidden parts, album art as background, a scene or shown parts are there only once set. */
     fun export(all: List<PlacedWidget>): List<Map<String, Any?>> = WidgetOrder.sorted(all).map {
         mapOf(
             "provider" to it.provider,
@@ -574,6 +582,7 @@ object WidgetCodec {
             it.hidden.takeIf { h -> h.isNotEmpty() }?.let { h -> "hidden" to h.sorted() },
             if (it.artBackground) MediaArt.BACKUP to true else null,
             it.scene?.let { scene -> CardScenes.BACKUP to scene },
+            it.shown.takeIf { s -> s.isNotEmpty() }?.let { s -> "shown" to s.sorted() },
         )
     }
 
@@ -622,6 +631,7 @@ object WidgetCodec {
             hidden = hiddenOf(m["hidden"], sourced),
             artBackground = sourced && MediaArt.read(m[MediaArt.BACKUP]),
             scene = if (sourced) CardScenes.read(m[CardScenes.BACKUP]) else null,
+            shown = hiddenOf(m["shown"], sourced),
         )
     }
 

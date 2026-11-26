@@ -308,8 +308,9 @@ script tells it. For example the weather, a feed's headlines, or your unlocks of
 - A tap does what the script chose: it runs the script again, opens a link, or refreshes the card.
 - A long-press opens **Arrange widgets**. There you move and resize the card like any other widget,
   and choose its [look](#looks). It can be as small as a quarter of the page wide.
-- Under old content, the card says its age ("2 h ago"). After a run that failed, it says "Failed 10:42"
-  and keeps what it had.
+- Under old content, a large card says its age ("Updated 2 h ago"); with **Last updated** on, on
+  its [settings page](#a-widgets-settings-page), it always does. After a run that failed, it says
+  "Failed 10:42" and keeps what it had.
 
 A few of the library's widgets:
 
@@ -441,6 +442,15 @@ the rest. Back returns to Arrange widgets, with the widget still chosen.
 - **Shape**: in the Shape look, for a widget that is one shape, its shapes ([below](#looks)).
 - **What shows**: switches for the widget's **Name**, wherever its look writes it, and its **Icon**,
   where its look draws one. Each shows only for a widget that has that part.
+  A script's widget also has **Last updated**, off at first: the card then says when its content
+  was last refreshed, always, under it: "Updated just now", "Updated 3 min ago", "Updated 2 h ago",
+  then "Updated yesterday" or the day. It changes on its own as the minutes pass and never runs the
+  script. It shows on a large card; on a 2×1 or 4×1 card in Plain and Tonal when the content
+  leaves a line free under it (a number, a text, a bar, a countdown, a picture); and on a match's
+  score (`versus`) from 4×1 in each of its looks. A card whose content fills it (a chart, a list,
+  a clock, buttons), a 1×1 card, and a look that is all value (Bold, Split, Shape, Poster) leave it
+  out rather than shrink what they show, and the switch says so. TalkBack says it either way.
+  Kolahal's own widgets show what is on the phone now, so they don't have it.
   Now playing also has **Album art as background**, off at first.
 - **Scene**, under What shows: a still of one of Kolahal's [scene shaders](/scripting/shaders/)
   behind the card, such as the pond, the dunes or rain. **None** at first; tap the row to choose one.
@@ -451,8 +461,8 @@ the rest. Back returns to Arrange widgets, with the widget still chosen.
   shows while there is one, and the scene when there isn't. A script's number card that names its
   own scene has **As the script sets** first; your choice, **None** too, takes its place. Without it
   the card is plain: on Android 12 and older, and with TalkBack on.
-- **Reset to the card's own**: its own color, shape, name and icon again, album art off
-  and its own scene. A
+- **Reset to the card's own**: its own color, shape, name and icon again, Last updated and album
+  art off, and its own scene. A
   script's options keep their values; its look and size stay. **Undo** in the message that follows
   puts them back.
 

@@ -393,6 +393,59 @@ class WidgetSettingsScreenTest {
         compose.waitFor("Undo didn't turn album art as background on again") { on() == true }
     }
 
+    /**
+     * Last updated: a script's card has it under What shows, off until turned on. On, the card above
+     * says when its content was set; Reset turns it off, and Undo on again. At 1×1 a line under it
+     * says the card leaves it out. One of Kolahal's own cards reads live data, and has none.
+     */
+    @Test
+    fun lastUpdatedIsOfferedOnAScriptsCard() {
+        val s = t.place(
+            t.create(
+                "-match",
+                "-- @title Wopts Match\n-- @widget versus 4x1\nwidget.show{ kind = \"versus\", score = \"2–1\", badge = \"67'\", sides = { { name = \"Harbor\" }, { name = \"Ridge\" } } }"
+            )
+        )
+        val tiny = t.place(t.create("-tiny", "-- @title Wopts Tiny\n-- @widget stat 1x1\nwidget.show{ value = 42 }"))
+        val vm = show(s, tiny)
+        open(vm, "Wopts Match")
+        val part = "part ${WidgetParts.UPDATED}"
+        compose.onNodeWithTag(part).performScrollTo().assertIsOff()
+        compose.onNodeWithText(WidgetParts.label(WidgetParts.UPDATED)).assertExists()
+        compose.onNodeWithText(WidgetParts.detail(WidgetParts.UPDATED)).assertExists()
+        compose.onNodeWithTag("reset-own").performScrollTo().assertIsNotEnabled()
+
+        compose.onNodeWithTag(part).performScrollTo().performClick()
+        compose.waitFor("Last updated isn't kept") { t.entry(s.name)?.shown == setOf(WidgetParts.UPDATED) }
+        compose.onNodeWithTag(part).assertIsOn()
+        assertTrue(t.entry(s.name)!!.hidden.isEmpty())
+        // The card above says when its content was set, a versus card at 4×1 too.
+        compose.waitForNode(hasText("Updated ", substring = true) and hasAnyAncestor(hasTestTag("widget-preview")))
+
+        compose.onNodeWithTag("reset-own").performScrollTo().assertIsEnabled().performClick()
+        compose.waitFor("Reset didn't turn Last updated off") { t.entry(s.name)?.shown?.isEmpty() == true }
+        compose.onNodeWithTag(part).performScrollTo().assertIsOff()
+        compose.waitForText(WidgetSettingsWords.resetDone("Wopts Match"))
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitFor("Undo didn't turn Last updated on again") { t.entry(s.name)?.shown == setOf(WidgetParts.UPDATED) }
+
+        // A 1×1 card has no room for it: the switch says so.
+        back()
+        open(vm, "Wopts Tiny")
+        compose.onNodeWithTag(part).performScrollTo()
+        compose.waitForNode(hasText("Not at 1×1", substring = true))
+        back()
+
+        // One of Kolahal's own: no Last updated.
+        assumeTrue(
+            "Battery and network was on the widgets page before the test",
+            t.host.placeBuiltin(WidgetSource.BATTERY, WidgetSize.S2X1)
+        )
+        open(vm, WidgetSource.builtinTitle(WidgetSource.BATTERY)!!)
+        compose.waitForNode(hasTestTag("part ${WidgetParts.NAME}"))
+        compose.onNodeWithTag(part).assertDoesNotExist()
+    }
+
     /** Out of the Shape look, the page has no shapes; Back returns to Arrange widgets. */
     @Test
     fun noShapesOutOfTheShapeLook() {

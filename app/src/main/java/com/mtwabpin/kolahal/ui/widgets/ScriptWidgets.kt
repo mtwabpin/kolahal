@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -204,8 +205,9 @@ internal fun rememberCardCorners(): CardCorners? {
  * - It draws [spec] for the box it gets ([WidgetSizes.box]), with no title line ([CardLayout]):
  *   the content names the card small where it needs to.
  * - With a [note], it shows that and not the content. [failure] is the text of [CardNote.FAILED].
- * - [footer] is the content's age, or "Failed 10:42": a large card's last line. Wide and small have
- *   no room for it.
+ * - [footer] is the content's age, or "Failed 10:42": a large card's last line. With Last updated on
+ *   ([WidgetWords.Footer.asked]) a wide card has it too where there is room ([UpdatedLine]).
+ *   A small card has none.
  * - [description] is the whole card for a screen reader, in one item. Rows with their own tap are
  *   items of their own inside it.
  * - [onClick] is a tap on the card and [onLongClick] a long-press. With a long-press and no tap, a
@@ -302,6 +304,8 @@ internal fun WidgetCard(
         // The corners widgets.corners gives every card, where its look takes them ([CardCorners]); else its own.
         val corners = rememberCardCorners()?.takeIf { CardCorners.takenIn(look) }
         val small = box == WidgetSizes.Box.SMALL
+        // Where the content's age goes: under the body, in it (a versus card), or nowhere ([UpdatedLine]).
+        val footPlace = UpdatedLine.place(shown, look, widthDp, heightDp, footer?.asked == true)
         // The scene chosen on its settings page, else a stat's own ([CardScenes.shown]).
         val scene = CardScenes.shown(LocalChosenScene.current, (shown as? WidgetSpec.Stat)?.scene)
         // On Now playing the cover wins while there is one: album art and a scene are one choice ([CardScenes.overArt]).
@@ -331,7 +335,8 @@ internal fun WidgetCard(
                     LocalWidgetLook provides look,
                     LocalCardShape provides shape,
                     LocalCardCorners provides corners,
-                    LocalCardColor provides shown?.base?.color
+                    LocalCardColor provides shown?.base?.color,
+                    LocalCardFooter provides footer?.takeIf { footPlace == UpdatedLine.Place.BODY && note == null }
                 ) {
                     if (body != null && note == null && shown != null) {
                         body(box, onTap)
@@ -345,6 +350,7 @@ internal fun WidgetCard(
                             note,
                             failure,
                             footer.takeUnless { look.untitled() },
+                            footPlace == UpdatedLine.Place.CARD,
                             box,
                             onTap,
                             stamp,
@@ -424,8 +430,9 @@ private fun ShapedCard(
  * card small where it needs to ([LocalUntitled]), as the looks without one have always done.
  * - Large: the content, and under it the foot line ([FootLine]): the script's note and the age of
  *   the content, or "Failed 10:42".
- * - Wide and small: the content alone. There is no room for the foot line; a screen reader still
- *   hears the note and the age.
+ * - Wide: the content alone, or with Last updated on and room for it ([footed], [UpdatedLine]) the
+ *   age under it, in the room the card's edges had. There is no room for the script's note.
+ * - Small: the content alone. A screen reader still hears the note and the age.
  * - A cropped picture, large or wide, covers the whole card ([BleedImageCard]).
  */
 @Composable
@@ -435,6 +442,7 @@ private fun CardLayout(
     note: CardNote?,
     failure: String?,
     footer: WidgetWords.Footer?,
+    footed: Boolean,
     box: WidgetSizes.Box,
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long,
@@ -472,10 +480,34 @@ private fun CardLayout(
                     )
                 }
             }
-            FootLine(spec?.base?.takeIf { note == null }, footer, colors.muted)
+            FootLine(spec?.base?.takeIf { note == null }, footer.takeIf { footed }, colors.muted)
         }
 
-        WidgetSizes.Box.WIDE -> Box(
+        // Last updated: the age under the content, which keeps its height but for the card's own
+        // edges: 10 dp over it and 8 dp under the line, where it has 12 dp.
+        WidgetSizes.Box.WIDE -> if (footer != null && footed && note == null) Column(
+            Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp)
+        ) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                CompositionLocalProvider(LocalUntitled provides title) {
+                    CardBody(
+                        spec,
+                        note,
+                        failure,
+                        box,
+                        onTap,
+                        stamp
+                    )
+                }
+            }
+            FooterLine(footer, color = colors.muted)
+        } else Box(
             Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -658,22 +690,34 @@ private fun BleedImageCard(
 
 /**
  * The card's small line: the age of its content, or "Failed 10:42". A failure is in the error
- * color, and its words say it too. An age is in the card's quiet text [color].
+ * color, and its words say it too. An age is in the card's quiet text [color]. [style] is the
+ * small label's, or one a body gives it where room is short.
  */
 @Composable
-private fun FooterLine(
+internal fun FooterLine(
     footer: WidgetWords.Footer,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.onSurfaceVariant
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    style: TextStyle = MaterialTheme.typography.labelSmall
 ) {
     Text(
         footer.text,
-        style = MaterialTheme.typography.labelSmall,
+        style = style,
         color = if (footer.failed) MaterialTheme.colorScheme.error else color,
         maxLines = 1,
-        modifier = modifier,
+        modifier = modifier.testTag(FOOTER_TAG),
     )
 }
+
+/** The tag of a card's small line ([FooterLine]), for tests. */
+internal const val FOOTER_TAG = "widget-footer"
+
+/**
+ * The line about the content ([WidgetWords.Footer]) for a body that places it itself
+ * ([UpdatedLine.Place.BODY]): a versus card writes it with its last line. Null for any other.
+ * [WidgetCard] provides it.
+ */
+internal val LocalCardFooter = staticCompositionLocalOf<WidgetWords.Footer?> { null }
 
 /** The content, or what the card says without any. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -800,6 +844,7 @@ internal fun SourceWidget(
             LocalChosenShape provides w.shape,
             LocalChosenColor provides w.color,
             LocalHiddenParts provides w.hidden,
+            LocalShownParts provides w.shown,
             LocalArtBackground provides w.artBackground,
             LocalChosenScene provides w.scene
         ) {
@@ -1000,7 +1045,9 @@ private fun ScriptWidget(
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
-    val footer = remember(s, minute, zone, clock24) {
+    // Last updated, on the card's settings page: when the content was set shows always, not only once it is old.
+    val always = WidgetParts.UPDATED in LocalShownParts.current
+    val footer = remember(s, minute, zone, clock24, always) {
         s?.let {
             WidgetWords.footer(
                 it.hasContent,
@@ -1015,7 +1062,8 @@ private fun ScriptWidget(
                 it.error != null,
                 minute.time,
                 zone,
-                clock24
+                clock24,
+                always
             )
         }
     }

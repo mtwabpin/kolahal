@@ -746,11 +746,18 @@ class WidgetHost private constructor(context: Context) {
         all.map { if (it.key == key && it.source != null && it.color != color) it.copy(color = color) else it }
     }
 
-    /** Hides the part [part] ([WidgetParts]) of the widget [key], or shows it again ([shown]). Only a widget Kolahal draws has parts. */
+    /**
+     * Shows the part [part] ([WidgetParts]) of the widget [key], or hides it ([shown] false). A part that
+     * is off by default ([WidgetParts.OFF]) is kept in [PlacedWidget.shown], any other in
+     * [PlacedWidget.hidden]. Only a widget Kolahal draws has parts.
+     */
     fun setShown(key: String, part: String, shown: Boolean) = update { all ->
         all.map {
-            if (it.key != key || it.source == null) it
-            else it.copy(hidden = if (shown) it.hidden - part else it.hidden + part)
+            when {
+                it.key != key || it.source == null -> it
+                part in WidgetParts.OFF -> it.copy(shown = if (shown) it.shown + part else it.shown - part)
+                else -> it.copy(hidden = if (shown) it.hidden - part else it.hidden + part)
+            }
         }
     }
 
@@ -766,7 +773,7 @@ class WidgetHost private constructor(context: Context) {
 
     /** Gives the widget [key] its own color, shape and parts again, and album art off and its own scene: what its settings page's Reset does. Its look and size stay. */
     fun resetOwn(key: String) = update { all ->
-        all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet(), artBackground = false, scene = null) else it }
+        all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet(), artBackground = false, scene = null, shown = emptySet()) else it }
     }
 
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */

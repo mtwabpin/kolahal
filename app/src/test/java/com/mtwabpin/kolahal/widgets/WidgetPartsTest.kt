@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -99,6 +100,53 @@ class WidgetPartsTest {
         // A built-in card's look of its own writes no name.
         listOf(WidgetLook.NEXT, WidgetLook.STACK, WidgetLook.NOW)
             .forEach { assertEquals(it.id, emptyList<String>(), WidgetParts.offered(WidgetKind.LIST, null, it)) }
+    }
+
+    /**
+     * Last updated is off until turned on: a card keeps it among the parts it shows, the line's last
+     * field after the scene's, and a backup's "shown". Hidden parts stay as they were. An app's widget has none.
+     */
+    @Test
+    fun lastUpdatedIsKeptAmongTheShownParts() {
+        val on = script("a").copy(shown = setOf(WidgetParts.UPDATED))
+        val both = script("b", column = 6, hidden = setOf(WidgetParts.NAME)).copy(shown = setOf(WidgetParts.UPDATED))
+        val all = listOf(on, both, script("c").copy(topDp = 96))
+        val text = WidgetCodec.encode(all)
+        assertEquals(
+            listOf(
+                "-|script:a|0|88|0|panel|6|plain|0|0||||||updated",
+                "-|script:b|0|88|0|panel|6|plain|6|0|||name|||updated",
+                "-|script:c|0|88|0|panel|6|plain|0|96",
+            ),
+            text.lines()
+        )
+        assertEquals(all, WidgetCodec.decode(text))
+        assertEquals(emptySet<String>(), WidgetCodec.decode("5|com.a/.W|0|88|0|panel|6|plain|0|0||||||updated").single().shown)
+        val exported = WidgetCodec.export(all)
+        assertEquals(listOf("updated"), exported[0]["shown"])
+        assertFalse(exported[2].containsKey("shown"))
+        @Suppress("UNCHECKED_CAST")
+        val read = Json.parse(Json.stringify(exported)) as List<Map<String, Any?>>
+        assertEquals(all, WidgetCodec.fromExport(read))
+        // Off by default; on once shown. The name shows until it is hidden.
+        assertFalse(WidgetParts.shows(script("d"), WidgetParts.UPDATED))
+        assertTrue(WidgetParts.shows(on, WidgetParts.UPDATED))
+        assertTrue(WidgetParts.shows(on, WidgetParts.NAME))
+        assertFalse(WidgetParts.shows(both, WidgetParts.NAME))
+        assertFalse("Last updated is never hidden", WidgetParts.shows(script("e", hidden = setOf(WidgetParts.UPDATED)), WidgetParts.UPDATED))
+    }
+
+    /** Last updated is offered on a script's card in every look, and never on one of Kolahal's own. */
+    @Test
+    fun lastUpdatedIsOfferedOnAScriptsCard() {
+        val stat = WidgetSpec.Stat(WidgetBase(icon = "sun"), value = "27°")
+        WidgetLook.entries.forEach {
+            assertTrue(it.id, WidgetParts.UPDATED in WidgetParts.offered(WidgetKind.STAT, stat, it, script = true))
+            assertFalse(it.id, WidgetParts.UPDATED in WidgetParts.offered(WidgetKind.STAT, stat, it))
+        }
+        assertEquals(listOf(WidgetParts.NAME, WidgetParts.UPDATED), WidgetParts.offered(WidgetKind.VERSUS, null, WidgetLook.PLAIN, script = true))
+        assertEquals("Last updated", WidgetParts.label(WidgetParts.UPDATED))
+        assertEquals("When the card's content was last refreshed", WidgetParts.detail(WidgetParts.UPDATED))
     }
 
     /** A hidden icon leaves the description; nothing else changes, and a card with nothing to hide is the same. */
