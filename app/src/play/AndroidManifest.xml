@@ -2,8 +2,6 @@
 <!--
   The play build type, for Google Play: the app without what Play's policy rules out, or would
   want a declaration and a video for.
-  - No accessibility service: Play doesn't count a launcher as an accessibility tool. No
-    double-tap lock, no `lock`.
   - No call log: Play allows it only to phone, SMS and assistant apps. No calls in the log, no `calls`.
   - No contacts: Play's Contacts policy wants the contact picker where it will do. `call`, `sms` and
     `contacts` open Android's contact picker and remember who you pick.
@@ -13,6 +11,11 @@
   Drawing over other apps (SYSTEM_ALERT_WINDOW) stays too, for a one-off shader over the app in front: off until
   the user turns it on, and Kolahal says what it draws and asks before Android's page opens. To take it out if
   Google refuses it, see SHADER_OVER_APPS in app/build.gradle.kts.
+  The screen lock's accessibility service (LockService) stays too: it only locks the screen when asked, reads
+  nothing, and is off until the user turns it on. A launcher is not an accessibility tool, so Play wants its
+  accessibility declaration and a video, and `allow lock` says what the service does and asks before Android's
+  accessibility settings open (docs/release/google-play.org). To take it out if Google refuses it, see LOCK_SERVICE
+  in app/build.gradle.kts.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
@@ -22,9 +25,6 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
 
     <application>
-        <service
-            android:name=".gesture.LockService"
-            tools:node="remove" />
         <provider
             android:name="androidx.core.content.FileProvider"
             tools:node="remove" />

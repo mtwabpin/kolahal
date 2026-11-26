@@ -180,7 +180,7 @@ object Fetch {
             add(
                 Row(
                     "Kolahal",
-                    BuildConfig.VERSION_NAME + if (BuildConfig.LOCK_SERVICE) "" else " · Play build"
+                    BuildConfig.VERSION_NAME + if (BuildConfig.SELF_UPDATE) "" else " · Play build"
                 )
             )
             val apps = AppRepository.get(context).apps.value

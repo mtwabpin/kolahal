@@ -1481,7 +1481,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             "quick" -> _events.tryEmit(UiEvent.ShowQuick)
             // Locking needs no log line. Report only when the accessibility service is off.
             // Without the service, explain once per session, not on every accidental double-tap.
-            // This is behind the build switch, so the Play build also drops the service's code.
+            // This is behind the build switch, so a build without the service also drops its code.
             g.LOCK -> if (!(com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE && com.mtwabpin.kolahal.gesture.LockService.lock()) && !lockHintShown) {
                 lockHintShown = true
                 runCommand("lock")
@@ -1687,6 +1687,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val overlayAccessAsk: StateFlow<Boolean> get() = requests.overlayAccessAsk
     override fun askOverlayAccess() = requests.askOverlayAccess()
     fun answerOverlayAccess(allow: Boolean) = requests.answerOverlayAccess(allow)
+    val lockAccessAsk: StateFlow<Boolean> get() = requests.lockAccessAsk
+    override fun askLockAccess() = requests.askLockAccess()
+    fun answerLockAccess(allow: Boolean) = requests.answerLockAccess(allow)
     override fun requestCalendarPermission() = requests.requestCalendarPermission()
     fun onCalendarPermission(granted: Boolean) {
         requests.onCalendarPermission(granted)

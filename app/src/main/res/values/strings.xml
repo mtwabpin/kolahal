@@ -3,7 +3,7 @@
     <!-- The text editor's name in Recents and in other apps' "Open with" list. -->
     <string name="editor_name">Kolahal Editor</string>
     <string name="lock_service_label">Kolahal screen lock</string>
-    <string name="lock_service_description">Lets Kolahal lock the screen when you double-tap the home screen or run the lock command. It does not observe or read anything on screen.</string>
+    <string name="lock_service_description">Locks the screen when you ask Kolahal to: with the lock command or the gesture you set to lock, such as a double-tap on the home screen. It does not read the screen, what you type or other apps, and it collects and sends nothing.</string>
     <string name="channel_scripts">Script notifications</string>
     <string name="channel_scripts_desc">Notifications posted by your timer scripts</string>
     <string name="channel_reminders">Reminders</string>

@@ -58,14 +58,15 @@ class AccessesTest {
     }
 
     /**
-     * The Play build has no screen lock service, no call log and no contacts permission. It draws over other apps, behind
-     * a switch of its own that can take it out again (BuildFeature.SHADER_OVER_APPS): without it, it leaves four out.
+     * The Play build has no call log and no contacts permission. It has the screen lock and draws over other apps, each
+     * behind a switch of its own that can take it out again (BuildFeature.LOCK_SERVICE, BuildFeature.SHADER_OVER_APPS):
+     * without them, it leaves four out.
      */
     @Test
-    fun thePlayBuildLeavesThreeOut() {
-        val play = { f: BuildFeature -> f == BuildFeature.SHADER_OVER_APPS }
+    fun thePlayBuildLeavesTwoOut() {
+        val play = { f: BuildFeature -> f == BuildFeature.SHADER_OVER_APPS || f == BuildFeature.LOCK_SERVICE }
         assertEquals(
-            listOf("usage", "send-notifications", "read-notifications", "dnd", "settings", "calendar", "alarms", "battery", "overlay"),
+            listOf("usage", "send-notifications", "read-notifications", "lock", "dnd", "settings", "calendar", "alarms", "battery", "overlay"),
             Accesses.offered(34, has = play).map { it.word },
         )
         assertEquals(
@@ -74,6 +75,7 @@ class AccessesTest {
         )
         assertTrue(Accesses.inBuild(Accesses.find("overlay")!!, play))
         val lock = Accesses.find("lock")!!
+        assertTrue(Accesses.inBuild(lock, play))
         assertFalse(Accesses.inBuild(lock) { false })
         assertTrue(Accesses.inBuild(lock) { true })
         assertTrue(Accesses.inBuild(Accesses.find("usage")!!) { false })
@@ -219,5 +221,7 @@ class AccessesTest {
         assertTrue(notify.contains("Settings.ACTION_APP_NOTIFICATION_SETTINGS"))
         // `overlay` opens Android's page once it is given; before that Kolahal says what it is for and asks, as for `read-notifications`.
         assertTrue(asks.getValue("overlay").contains("ui.askOverlayAccess()"))
+        // `lock` too: while the service is off, Kolahal says what it is for and asks before Android's page opens.
+        assertTrue(asks.getValue("lock").contains("ui.askLockAccess()"))
     }
 }

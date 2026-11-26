@@ -55,6 +55,12 @@ interface TerminalUi {
      */
     fun askOverlayAccess()
 
+    /**
+     * For `allow lock` while the screen lock's accessibility service is off. Says what the service is for and what it
+     * doesn't touch, and lets the user choose, before Android's accessibility settings open.
+     */
+    fun askLockAccess()
+
     /** Sets the lines the log shows: `log only …` ([filter]) or `log all` (null). */
     fun filterLog(filter: LogFilter?)
 

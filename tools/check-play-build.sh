@@ -31,14 +31,46 @@ for p in READ_CALL_LOG WRITE_CALL_LOG PROCESS_OUTGOING_CALLS READ_SMS SEND_SMS R
         problems=1
     fi
 done
-# A service Play wants a declaration, consent screens and a video for: an accessibility service (a
-# launcher is not an accessibility tool). The notification listener may stay: Kolahal asks first.
-for s in BIND_ACCESSIBILITY_SERVICE; do
-    if grep -q "\"android.permission.$s\"" <<<"$manifest"; then
-        echo "$(basename "$apk") has a service bound by $s."
+# The screen lock's accessibility service (gesture/LockService.kt) is in the Play build, with Play's accessibility
+# declaration and the disclosure `allow lock` shows first (docs/release/google-play.org). Any other accessibility
+# service fails (a launcher is not an accessibility tool), and so does the lock's if it is marked isAccessibilityTool
+# or can retrieve window content: it only locks the screen. LOCK_SERVICE in app/build.gradle.kts says how to take it
+# out if Google refuses it.
+lock=com.mtwabpin.kolahal.gesture.LockService
+services=$(awk '
+    /^ *E: / { element = $2; if (element == "service") name = "" }
+    element == "service" && /android:name\(/ { name = $0; sub(/.*android:name\([^)]*\)="/, "", name); sub(/".*/, "", name) }
+    element == "service" && /android:permission\(/ && /"android.permission.BIND_ACCESSIBILITY_SERVICE"/ { print name }
+' <<<"$manifest")
+for s in $services; do
+    if [ "$s" != "$lock" ]; then
+        echo "$(basename "$apk") has an accessibility service other than the screen lock: $s."
         problems=1
     fi
 done
+if grep -qx "$lock" <<<"$services"; then
+    # The service's configuration: the XML whose root is <accessibility-service> (resource names may be shortened).
+    configs=0; marked=0
+    while read -r f; do
+        tree=$("$aapt2" dump xmltree --file "$f" "$apk" 2>/dev/null) || continue
+        grep -q '^ *E: accessibility-service ' <<<"$tree" || continue
+        configs=$((configs + 1))
+        if grep -q 'isAccessibilityTool(.*)=\(true\|(type 0x12)0xffffffff\)' <<<"$tree"; then
+            echo "$(basename "$apk")'s screen lock is marked isAccessibilityTool ($f)."
+            problems=1; marked=1
+        fi
+        if grep -q 'canRetrieveWindowContent(.*)=\(true\|(type 0x12)0xffffffff\)' <<<"$tree"; then
+            echo "$(basename "$apk")'s screen lock can retrieve window content ($f)."
+            problems=1; marked=1
+        fi
+    done < <(unzip -Z1 "$apk" | grep '^res/.*\.xml$')
+    if [ "$configs" != 1 ]; then
+        echo "$(basename "$apk") has $configs accessibility service configurations, not 1."
+        problems=1
+    elif [ "$marked" = 0 ]; then
+        echo "$(basename "$apk") has the screen lock's accessibility service, off until turned on: not an accessibility tool, no window content."
+    fi
+fi
 
 # An app on Play may update itself only through Play: the updater's code must be gone, not just switched off.
 for c in androidx.core.content.FileProvider com.mtwabpin.kolahal.terminal.UpdateCleanupReceiver; do

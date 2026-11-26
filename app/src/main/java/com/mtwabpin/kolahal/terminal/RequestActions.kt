@@ -301,6 +301,35 @@ class RequestActions(private val context: Context, private val host: Host) {
         }
     }
 
+    private val _lockAccessAsk = MutableStateFlow(false)
+
+    /** True while Kolahal asks before Android's accessibility settings open for the screen lock ([askLockAccess]). */
+    val lockAccessAsk: StateFlow<Boolean> = _lockAccessAsk.asStateFlow()
+
+    fun askLockAccess() {
+        _lockAccessAsk.value = true
+    }
+
+    /**
+     * The user's answer ([com.mtwabpin.kolahal.gesture.LockAccess.onAnswer]). Allow opens Android's accessibility
+     * settings. Not now opens nothing and leaves a line to ask again.
+     */
+    fun answerLockAccess(allow: Boolean) {
+        _lockAccessAsk.value = false
+        when (com.mtwabpin.kolahal.gesture.LockAccess.onAnswer(allow)) {
+            com.mtwabpin.kolahal.gesture.LockAccess.Step.OPEN_SETTINGS ->
+                host.startActivity(com.mtwabpin.kolahal.gesture.LockService.settingsIntent())
+
+            else -> io {
+                logs.add(
+                    LogKind.INFO,
+                    "The screen lock is off\nTap to turn it on",
+                    ctx = LogContext.of(LogContext.RUN to "allow lock")
+                )
+            }
+        }
+    }
+
     // ---- calendar and call log ------------------------------------------------------------
 
     fun requestCalendarPermission() {

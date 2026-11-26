@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The screen lock (gesture/LockService.kt): it only calls performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN).
+  No events (no accessibilityEventTypes), no window content, no flags, and not an accessibility tool
+  (no isAccessibilityTool): tools/check-play-build.sh fails on window content or the tool mark.
+-->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="false"
-    android:notificationTimeout="1000"
-    android:packageNames="com.mtwabpin.kolahal.none"
     android:description="@string/lock_service_description" />

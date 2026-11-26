@@ -46,9 +46,9 @@ android {
         versionCode = 45
         versionName = "0.5.19-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // The accessibility service (double-tap / `lock`), the call log, READ_CONTACTS and
-        // REQUEST_INSTALL_PACKAGES (`update`) are in the manifest; the play build leaves them out.
-        // SYSTEM_ALERT_WINDOW (a one-off shader over other apps) is in both builds: see SHADER_OVER_APPS under play.
+        // The call log, READ_CONTACTS and REQUEST_INSTALL_PACKAGES (`update`) are in the manifest; the play build
+        // leaves them out. The accessibility service (double-tap / `lock`) and SYSTEM_ALERT_WINDOW (a one-off shader
+        // over other apps) are in both builds: see LOCK_SERVICE and SHADER_OVER_APPS under play.
         buildConfigField("boolean", "LOCK_SERVICE", "true")
         buildConfigField("boolean", "CALL_LOG", "true")
         buildConfigField("boolean", "CONTACTS", "true")
@@ -96,9 +96,9 @@ android {
             enableUnitTestCoverage = coverage
             enableAndroidTestCoverage = coverage
         }
-        // Google Play (`bundlePlay`): the release build without the accessibility service and the call
-        // log (src/play removes them), which Play's policy rules out or wants a declaration and a video
-        // for. No `lock` or double-tap lock, no calls in the log. No READ_CONTACTS either (Play's
+        // Google Play (`bundlePlay`): the release build without the call log (src/play removes it), which Play's
+        // policy keeps for phone, SMS and assistant apps: no calls in the log. The screen lock stays, with Play's
+        // accessibility declaration (see LOCK_SERVICE below). No READ_CONTACTS either (Play's
         // Contacts policy): call, sms and contacts use Android's contact picker. No `update`: an app on Play updates
         // only through Play (src/play removes what it declares, R8 its code). Notification access stays: `notifs
         // enable` says what it reads and asks first, as Play's User Data policy wants. The bundle is signed with the
@@ -113,7 +113,6 @@ android {
             initWith(getByName("release"))
             matchingFallbacks += listOf("release")
             if (!providers.gradleProperty("playApk").isPresent) signingConfig = signingConfigs.findByName("upload")
-            buildConfigField("boolean", "LOCK_SERVICE", "false")
             buildConfigField("boolean", "CALL_LOG", "false")
             buildConfigField("boolean", "CONTACTS", "false")
             buildConfigField("boolean", "SELF_UPDATE", "false")
@@ -124,6 +123,13 @@ android {
             // tools:node="remove" />. Nothing else: every place that reads the switch hides the setting, `allow
             // overlay` and the window, and R8 drops the window's code.
             buildConfigField("boolean", "SHADER_OVER_APPS", "true")
+            // The screen lock (LockService, an accessibility service that only locks the screen) is in the Play build
+            // too, with Play's accessibility declaration and the disclosure `allow lock` shows first. The switch stays
+            // so it can be taken out again if Google refuses it: set this to "false" and add to
+            // src/play/AndroidManifest.xml <service android:name=".gesture.LockService" tools:node="remove" /> inside
+            // <application>. Nothing else: every place that reads the switch hides `lock`, the double-tap choice, the
+            // quick action, the setup row and `allow lock`, and R8 drops the service's code.
+            buildConfigField("boolean", "LOCK_SERVICE", "true")
         }
     }
 

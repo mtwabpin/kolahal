@@ -59,6 +59,7 @@ import com.mtwabpin.kolahal.ui.hideBars
 import com.mtwabpin.kolahal.ui.home.HomeClock
 import com.mtwabpin.kolahal.ui.home.HomeScreenOverlay
 import com.mtwabpin.kolahal.ui.home.LocalTerminalShown
+import com.mtwabpin.kolahal.ui.home.LockAccessDialog
 import com.mtwabpin.kolahal.ui.home.NotificationAccessDialog
 import com.mtwabpin.kolahal.ui.home.OverlayAccessDialog
 import com.mtwabpin.kolahal.ui.home.ResumeProfileDialog
@@ -489,6 +490,12 @@ class MainActivity : ComponentActivity(), HidesBars {
                 if (askingOverlay) OverlayAccessDialog(
                     onAllow = { vm.answerOverlayAccess(true) },
                     onDismiss = { vm.answerOverlayAccess(false) },
+                )
+                // `allow lock` from the prompt, Setup, the tour or the line a lock leaves, while the service is off.
+                val askingLock by vm.lockAccessAsk.collectAsStateWithLifecycle()
+                if (askingLock) LockAccessDialog(
+                    onAllow = { vm.answerLockAccess(true) },
+                    onDismiss = { vm.answerLockAccess(false) },
                 )
                 // A tap on an app whose profile is paused or locked, on any page of home: resume it and open the app?
                 val resuming by vm.resumeAsk.collectAsStateWithLifecycle()

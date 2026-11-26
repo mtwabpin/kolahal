@@ -92,6 +92,7 @@ class BuiltInCommandsTest {
     private val screens = CopyOnWriteArrayList<Screen>()
     private val backupFolderAsked = CopyOnWriteArrayList<Boolean>()
     private var notificationsAsked = 0
+    private var lockAsked = 0
     private var widgetsPageTurns = 0
 
     /** The pages `widget page <n>` turned to, from 1. */
@@ -104,6 +105,10 @@ class BuiltInCommandsTest {
 
         override fun requestNotificationPermission() {
             notificationsAsked++
+        }
+
+        override fun askLockAccess() {
+            lockAsked++
         }
 
         override fun askBackupFolder(thenBackUp: Boolean) {
@@ -233,14 +238,23 @@ class BuiltInCommandsTest {
         }
     }
 
-    /** Without its accessibility service `lock` says how to allow it; `allow lock` opens that page. */
+    /**
+     * Without its accessibility service `lock` says how to allow it, and `allow lock` first says what the service is for
+     * and asks, opening nothing (LockAccessDialog). With the service on, `allow lock` opens Android's page at once.
+     */
     @Test
     fun lockWithoutTheServiceSaysHowToAllowIt() {
-        assumeTrue("the Play build has no lock", BuildConfig.LOCK_SERVICE)
-        assertEquals(emptyList<String>(), run("allow lock"))
-        assertEquals(Settings.ACTION_ACCESSIBILITY_SETTINGS, opened.single().action)
-        // With the service on, this would lock the emulator's screen.
+        assumeTrue("a build without the lock", BuildConfig.LOCK_SERVICE)
+        if (LockService.isEnabled(context)) {
+            assertEquals(emptyList<String>(), run("allow lock"))
+            assertEquals(Settings.ACTION_ACCESSIBILITY_SETTINGS, opened.single().action)
+            assertEquals(0, lockAsked)
+        }
+        // With the service on, `lock` would lock the emulator's screen.
         assumeFalse("the screen lock service is on", LockService.isEnabled(context))
+        assertEquals(emptyList<String>(), run("allow lock"))
+        assertEquals(1, lockAsked)
+        assertEquals(emptyList<Intent>(), opened.toList())
         assertEquals(
             listOf("Locking needs an accessibility service\nTap to allow Kolahal screen lock"),
             run("lock")

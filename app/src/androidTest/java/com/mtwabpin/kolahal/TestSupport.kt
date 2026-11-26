@@ -111,6 +111,7 @@ open class TerminalUiStub : TerminalUi {
     override fun requestCallLogPermission() = Unit
     override fun askNotificationAccess() = Unit
     override fun askOverlayAccess() = Unit
+    override fun askLockAccess() = Unit
     override fun filterLog(filter: com.mtwabpin.kolahal.commands.LogFilter?) = Unit
     override fun logWidthPx(): Int? = null
     override fun askBackupFolder(thenBackUp: Boolean) = Unit

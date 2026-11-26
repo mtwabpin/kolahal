@@ -80,7 +80,13 @@ class AllowCommands(context: Context, private val ui: TerminalUi) : CommandGroup
                 if (actions.isEnabled(context)) startActivity(actions.settingsIntent(context)) else ui.askNotificationAccess()
             }
 
-            Accesses.LOCK -> startActivity(com.mtwabpin.kolahal.gesture.LockService.settingsIntent())
+            // As for notification access: while the service is off, Kolahal first says what it is for and asks
+            // (Play's prominent disclosure for an accessibility service). Once it is on, Android's page opens at once.
+            Accesses.LOCK -> when (com.mtwabpin.kolahal.gesture.LockAccess.onAllow(SetupChecks.given(context, access))) {
+                com.mtwabpin.kolahal.gesture.LockAccess.Step.ASK -> ui.askLockAccess()
+                else -> startActivity(com.mtwabpin.kolahal.gesture.LockService.settingsIntent())
+            }
+
             Accesses.DND -> open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS), "Do Not Disturb access")
             Accesses.SETTINGS -> open(
                 Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:" + context.packageName)),

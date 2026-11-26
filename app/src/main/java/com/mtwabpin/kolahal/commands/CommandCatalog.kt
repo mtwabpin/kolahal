@@ -933,7 +933,7 @@ object CommandCatalog {
     val RESERVED_NAMES: Set<String> = COMMAND_NAMES + SYNONYMS.keys
 
     /**
-     * For each feature that the Play build leaves out (screen lock, call log, self-update):
+     * For each feature that a build can leave out (screen lock, call log, self-update):
      * whether this build has it, and its commands.
      */
     internal val FEATURE_COMMANDS = listOf(

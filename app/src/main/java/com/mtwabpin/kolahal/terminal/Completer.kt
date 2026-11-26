@@ -266,7 +266,7 @@ class Completer(private val context: Context, private val data: Data) {
                 apps.first().copy(enter = true)
             ) + cmds.take(3) + apps.drop(1) + about else whole + options + cmds.take(3) + apps + about).distinctBy { it.key }
         }
-        // Commands that this build leaves out (Play build: the call log, the screen lock, `update`) and
+        // Commands that this build leaves out (Play build: the call log, `update`) and
         // those offered to nobody (`skill.md`; in the gui style `screen` and the screen scripts) get no suggestions.
         if (cmd in CommandCatalog.UNAVAILABLE || cmd in TtyCommands.hidden(tty) || cmd in off || unofferedScript(cmd, tty)) return emptyList()
         val specific = argSuggestions(cmd, head, parts, scriptList)
