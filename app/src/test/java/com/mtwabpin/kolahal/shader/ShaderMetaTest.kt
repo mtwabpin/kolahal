@@ -500,12 +500,23 @@ class ShaderMetaTest {
                 calls.any { it in code }
             }
             .toList()
+        // A Material page has an opaque ground of its own, and the only shader over it is a one-off that
+        // plays there, which paints over everything: there is no bare page to mark. Such a surface may
+        // make that one call and no other.
+        val onlyAOneOffOverIt = setOf("ShadersScreen.kt")
         for (file in surfaces) {
             val code = file.readText()
+            if (file.name in onlyAOneOffOverIt) {
+                for (call in calls - "rememberPlayedShader(") {
+                    assertFalse("${file.name} is exempt for a played one-off only, but calls $call", call in code)
+                }
+                continue
+            }
             assertTrue("${file.name} hands its page to a shader without the mark", "marked =" in code || "PAGE_ALPHA" in code)
         }
         assertEquals(
-            setOf("GuiHome.kt", "TtyHome.kt", "TtyScreenHost.kt", "ShaderPreview.kt", "WidgetStatScene.kt", "ShaderWallpaper.kt"),
+            setOf("GuiHome.kt", "TtyHome.kt", "TtyScreenHost.kt", "ShaderPreview.kt", "WidgetStatScene.kt", "ShaderWallpaper.kt") +
+                onlyAOneOffOverIt,
             surfaces.map { it.name }.toSet(),
         )
     }
