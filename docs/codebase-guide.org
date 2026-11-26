@@ -1139,7 +1139,7 @@ included. [[file:developing.org][docs/developing.org]] has the rest of the build
 |------------+----------------+----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | =debug=    | =.debug=       | no       | installs beside a release build; =-Pcoverage= turns on test coverage                                                                                                                                                      |
 | =release=  | none           | yes      | =isMinifyEnabled= and =isShrinkResources=                                                                                                                                                                                 |
-| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.LOCK_SERVICE=, =CALL_LOG=, =CONTACTS= and =SELF_UPDATE= are false (=SHADER_OVER_APPS= stays true); the manifest drops the accessibility service, the call log, contacts and the updater |
+| =play=     | none           | yes      | release for Google Play, signed with the upload key: =BuildConfig.LOCK_SERVICE=, =CALL_LOG=, =CONTACTS=, =SELF_UPDATE= and =ASSISTANT= are false (=SHADER_OVER_APPS= stays true); the manifest drops the accessibility service, the call log, contacts and the updater |
 
 Code checks =BuildConfig.LOCK_SERVICE= / =CALL_LOG= / =CONTACTS= / =SELF_UPDATE= wherever
 behavior differs in =play=. Without =CONTACTS=, =ContactsRepository.picker= is on: names come from
@@ -1149,7 +1149,10 @@ Without =SELF_UPDATE=, =update= is never built, so R8 drops the updater
 Play build can drop the feature if Google refuses it (=app/build.gradle.kts= says how). Without it, a
 word's one-off never reaches =ShaderOverApps= and home never sets its window, so R8 drops =ShaderOverlay=
 (the script checks that its window's name and =SYSTEM_ALERT_WINDOW= come together); the setting isn't in
-=Keys.ALL=, and =allow overlay= isn't offered.
+=Keys.ALL=, and =allow overlay= isn't offered. Without =ASSISTANT=, R8 drops =assistant/=, =ui/assistant/= and A2UI
+only if nothing that always runs names them: each entry point reads the switch first, and its settings are built
+on first read (=AssistantConfig=, the Settings page by a function), never by =Keys= itself.
+=tools/check-play-build.sh= proves it: the Play APK fails if it holds a service's host, one of its models or A2UI.
 
 ** How the tests are organized
 

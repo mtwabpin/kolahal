@@ -772,41 +772,14 @@ object Keys {
         "How much of the phone's wallpaper shows behind the widgets page (%).\n0 is none. Higher shows less of the theme's color"
     )
     // The Assistant (assistant/, ui/assistant): only in a build that has it (BuildConfig.ASSISTANT, [ALL]).
-    // Its services and their models come from Services.ALL.
-    val ASSISTANT_PAGE = ConfigKey.Bool(
-        "assistant.page",
-        false,
-        "Show the Assistant's page after the widgets pages, to chat with ${Services.ALL.joinToString { it.name }}.\nNeeds your own API key for the service"
-    )
-    val ASSISTANT_SERVICE = ConfigKey.Choice(
-        "assistant.service",
-        Services.ALL.first().id,
-        Services.ALL.map { it.id },
-        "The service the Assistant asks. Each needs its own API key",
-        notes = Services.ALL.associate { it.id to "${it.name}, by ${it.company}" },
-    )
-    val ASSISTANT_MODEL = ConfigKey.Text(
-        "assistant.model",
-        "",
-        "The model the Assistant asks: one the service offers, or another of its models by name.\nEmpty: the service's default",
-        { it.trim().takeIf { m -> Regex("[A-Za-z0-9._:-]*").matches(m) } },
-    )
-    val ASSISTANT_RICH = ConfigKey.Bool(
-        "assistant.rich",
-        true,
-        "Answers drawn as cards, lists and rows (A2UI).\nOff: answers in plain text"
-    )
-    val ASSISTANT_INSTRUCTIONS = ConfigKey.Text(
-        "assistant.instructions",
-        "",
-        "Your own instructions, added to every conversation. For example: answer in Spanish",
-        { it.trim().takeIf { t -> t.length <= 2000 } },
-    )
-    val ASSISTANT_HISTORY = ConfigKey.Bool(
-        "assistant.history",
-        true,
-        "Keep conversations on this phone, the newest ${ConversationStore.CAP}, to open them again.\nOff: new ones aren't kept and the list is hidden. They're never in a backup"
-    )
+    // Getters, not fields: the keys live in [AssistantConfig], built only when something reads them, so
+    // a build without the Assistant names nothing of it here and R8 leaves it all out.
+    val ASSISTANT_PAGE: ConfigKey.Bool get() = AssistantConfig.PAGE
+    val ASSISTANT_SERVICE: ConfigKey.Choice get() = AssistantConfig.SERVICE
+    val ASSISTANT_MODEL: ConfigKey.Text get() = AssistantConfig.MODEL
+    val ASSISTANT_RICH: ConfigKey.Bool get() = AssistantConfig.RICH
+    val ASSISTANT_INSTRUCTIONS: ConfigKey.Text get() = AssistantConfig.INSTRUCTIONS
+    val ASSISTANT_HISTORY: ConfigKey.Bool get() = AssistantConfig.HISTORY
     val AGENDA_WIDGET_DAYS = ConfigKey.Choice(
         "widgets.agenda-days",
         "auto",
@@ -934,14 +907,7 @@ object Keys {
         WIDGETS_START,
         WIDGETS_WALLPAPER,
         AGENDA_WIDGET_DAYS,
-        *listOf(
-            ASSISTANT_PAGE,
-            ASSISTANT_SERVICE,
-            ASSISTANT_MODEL,
-            ASSISTANT_RICH,
-            ASSISTANT_INSTRUCTIONS,
-            ASSISTANT_HISTORY,
-        ).filter { com.mtwabpin.kolahal.BuildConfig.ASSISTANT }.toTypedArray(),
+        *(if (com.mtwabpin.kolahal.BuildConfig.ASSISTANT) AssistantConfig.all() else emptyArray()),
         // Last, so they never take the place of another setting when the prompt suggests settings by what
         // they do (Completer): these matter only with home.style tty.
         TTY_SUGGESTIONS,
@@ -1163,3 +1129,47 @@ private const val DEFAULT_KEYBAR2 = ""
 // The Play build has no screen lock to offer.
 private val GESTURE_ACTIONS =
     if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "a command, lock, shade" else "a command, shade"
+
+/**
+ * The Assistant's settings, as [Keys.ASSISTANT_PAGE] and the others name them. Its services and their
+ * models come from Services.ALL. Read only behind BuildConfig.ASSISTANT (or through those getters): the
+ * Play build never builds this object, and R8 drops it with the services and A2UI.
+ */
+internal object AssistantConfig {
+    val PAGE = ConfigKey.Bool(
+        "assistant.page",
+        false,
+        "Show the Assistant's page after the widgets pages, to chat with ${Services.ALL.joinToString { it.name }}.\nNeeds your own API key for the service"
+    )
+    val SERVICE = ConfigKey.Choice(
+        "assistant.service",
+        Services.ALL.first().id,
+        Services.ALL.map { it.id },
+        "The service the Assistant asks. Each needs its own API key",
+        notes = Services.ALL.associate { it.id to "${it.name}, by ${it.company}" },
+    )
+    val MODEL = ConfigKey.Text(
+        "assistant.model",
+        "",
+        "The model the Assistant asks: one the service offers, or another of its models by name.\nEmpty: the service's default",
+        { it.trim().takeIf { m -> Regex("[A-Za-z0-9._:-]*").matches(m) } },
+    )
+    val RICH = ConfigKey.Bool(
+        "assistant.rich",
+        true,
+        "Answers drawn as cards, lists and rows (A2UI).\nOff: answers in plain text"
+    )
+    val INSTRUCTIONS = ConfigKey.Text(
+        "assistant.instructions",
+        "",
+        "Your own instructions, added to every conversation. For example: answer in Spanish",
+        { it.trim().takeIf { t -> t.length <= 2000 } },
+    )
+    val HISTORY = ConfigKey.Bool(
+        "assistant.history",
+        true,
+        "Keep conversations on this phone, the newest ${ConversationStore.CAP}, to open them again.\nOff: new ones aren't kept and the list is hidden. They're never in a backup"
+    )
+
+    fun all(): Array<ConfigKey<*>> = arrayOf(PAGE, SERVICE, MODEL, RICH, INSTRUCTIONS, HISTORY)
+}

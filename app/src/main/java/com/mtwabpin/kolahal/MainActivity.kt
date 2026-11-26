@@ -835,7 +835,7 @@ private fun HomePages(
         ) { page ->
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
                 val index = pageAt(page)
-                if (index == ASSISTANT_PAGE) {
+                if (BuildConfig.ASSISTANT && index == ASSISTANT_PAGE) {
                     com.mtwabpin.kolahal.ui.assistant.AssistantPage(vm.config, onSettings = {
                         vm.settingsCategory.value = com.mtwabpin.kolahal.ui.settings.ASSISTANT_CATEGORY
                         vm.openScreen(com.mtwabpin.kolahal.terminal.Screen.SETTINGS)

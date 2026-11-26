@@ -261,7 +261,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     { PeekFade(peek) { HeaderPreview(vm) } }
                 } else null,
             ) {
-                if (open?.id == ASSISTANT_CATEGORY) {
+                if (com.mtwabpin.kolahal.BuildConfig.ASSISTANT && open?.id == ASSISTANT_CATEGORY) {
                     assistantSettings(vm, version, undo, say)
                     return@GuiListPage
                 }

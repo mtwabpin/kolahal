@@ -57,6 +57,22 @@ elif grep -aq 'repos/mtwabpin/kolahal/releases' "$dex"; then
     echo "$(basename "$apk") has the self-updater's code in it."
     problems=1
 fi
+# The Assistant (BuildConfig.ASSISTANT, false in play) sends what you type to AI services: its code and A2UI must
+# be gone, not just switched off. Its services' hosts, the models of their lists (read from assistant/, so a new
+# one is checked too) and A2UI's packages.
+if [ -s "$dex" ]; then
+    models=$(sed -n 's/.*Model("[^"]*", "\([^"]*\)".*/\1/p' "$root"/app/src/main/java/com/mtwabpin/kolahal/assistant/*.kt 2>/dev/null || true)
+    found=""
+    for s in api.anthropic.com generativelanguage.googleapis.com api.openai.com $models androidx/a2ui material3/a2ui; do
+        if grep -aqF "$s" "$dex"; then found="$found $s"; fi
+    done
+    if [ -n "$found" ]; then
+        echo "$(basename "$apk") has the Assistant's code in it:$found."
+        problems=1
+    else
+        echo "$(basename "$apk") leaves out the Assistant."
+    fi
+fi
 # A one-off shader over other apps: SYSTEM_ALERT_WINDOW and the window that uses it (ui/shaders/ShaderOverlay.kt,
 # found by its name) come together or not at all. The Play build has both; SHADER_OVER_APPS in app/build.gradle.kts
 # says how to take both out if Google refuses it. One without the other means the switch and the manifest disagree.

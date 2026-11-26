@@ -386,7 +386,8 @@ internal const val FEEDS_CATEGORY = "feeds"
 /** The Assistant's page: its rows are drawn by ui/assistant (assistantSettings), these keys are what search finds. */
 const val ASSISTANT_CATEGORY = "assistant"
 
-private val ASSISTANT = Category(
+// A function, not a value: only called behind BuildConfig.ASSISTANT, so a build without it names none of its keys.
+private fun assistantCategory() = Category(
     ASSISTANT_CATEGORY,
     "Assistant",
     "Service, model, API keys, history",
@@ -403,7 +404,7 @@ private val ASSISTANT = Category(
  * Every settings page. Each setting is on one, except the [Keys.CONFIG_ONLY] ones: a test checks this.
  * A build without the Assistant (BuildConfig.ASSISTANT) has no page for it.
  */
-internal fun allCategories() = CATEGORIES + listOfNotNull(ASSISTANT.takeIf { BuildConfig.ASSISTANT }) + BACKUP
+internal fun allCategories() = CATEGORIES + (if (BuildConfig.ASSISTANT) listOf(assistantCategory()) else emptyList()) + BACKUP
 
 /**
  * Whether Settings search for [q] finds [key]: each word of [q], in any order, is in the setting's
