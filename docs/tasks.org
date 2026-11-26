@@ -843,10 +843,16 @@ maintainer, or need a choice first:
 - The idea: a script that asks an AI service may hand its A2UI answer to Kolahal, which draws a small, safe part
   of it as a card in the log or a widget, with the components scripts' cards already have. TTY could follow.
 - Why it waits: the protocol's 1.0 came out on 11 November 2026, but Android's renderer
-  (=androidx.a2ui.compose=) is at 1.0.0-alpha01 and supports 0.9.1. Look again when it supports 1.0.
+  (=androidx.a2ui.compose=) is at 1.0.0-alpha02 and supports 0.9.1. Look again when it supports 1.0.
 - To settle then: a button in an answer must not run a command unasked, and what is sent to the service is the
   script's and the user's choice.
-- Remark:
+- Looked at again on 27 November 2026 (progress and what people who used it report): a model that
+  writes A2UI directly spends many times the tokens of plain text or of a small format of the app's
+  own, and the fix for that (A2UI Express) exists only in server SDKs. No model is tuned for it,
+  and everyone validates, retries and falls back to text.
+- Remark: decided 27 November 2026. The Assistant's Rich answers stay as built, an optional switch;
+  nothing more is built on A2UI (no own catalog or theming, no A2UI from scripts), because of the
+  token cost. Only what a new library version forces is done.
 
 ** WAITING [#C] A shader and the script it needs, as one download  :shaders:scripts:project:
 - A shader's parameter can follow a value that a script gives (=@follow weather.rain=, 22 November 2026), but
