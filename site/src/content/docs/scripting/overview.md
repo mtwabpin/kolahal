@@ -612,6 +612,9 @@ The `@option` line gives:
 The script reads `options.city`. The value is always text, so convert it with `tonumber` or
 `Number()` if you need a number.
 
+An option named `icon`, or whose name ends in `_icon` or `Icon`, offers the [icon names](/scripting/api/#icons)
+as you type its value, each with its icon, and `script set` completes them. An emoji still works.
+
 To change an option:
 
 - in the script's sheet: Scripts → tap the script → **Options**, or

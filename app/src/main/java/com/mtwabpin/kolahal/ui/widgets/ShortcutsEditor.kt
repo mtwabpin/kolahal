@@ -318,6 +318,7 @@ private fun ShortcutDialog(
                         .fillMaxWidth()
                         .testTag("shortcut-icon"),
                 )
+                IconPicks(icon) { icon = it }
             }
         },
         confirmButton = {

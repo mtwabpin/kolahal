@@ -3,13 +3,25 @@
  */
 package com.mtwabpin.kolahal.ui.widgets
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -117,3 +129,37 @@ internal fun WidgetIconText(
         modifier = modifier
     )
 }
+
+/**
+ * The icon names to pick from under a box where an icon is typed ([WidgetIcons.suggest]): each its
+ * drawn icon and its name, in a row that scrolls sideways, as the shortcut dialog offers commands
+ * under its box. A tap gives [onPick] the name. Nothing shows once a whole name or other text (an
+ * emoji) is typed, and whatever is typed can still be saved.
+ */
+@Composable
+internal fun IconPicks(typed: String, onPick: (String) -> Unit) {
+    val picks = remember(typed) { WidgetIcons.suggest(typed) }
+    if (picks.isEmpty()) return
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .testTag(ICON_PICKS_TAG),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        picks.forEach { name ->
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = { onPick(name) },
+                modifier = Modifier.testTag("$ICON_PICKS_TAG $name"),
+            ) {
+                WidgetIconText(name, MaterialTheme.typography.labelLarge, size = ButtonDefaults.IconSize)
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(name)
+            }
+        }
+    }
+}
+
+/** The test tag of [IconPicks]' row, and of each name's button after a space. */
+internal const val ICON_PICKS_TAG = "icon-picks"

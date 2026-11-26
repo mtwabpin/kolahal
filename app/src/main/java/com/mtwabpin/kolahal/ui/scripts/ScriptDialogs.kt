@@ -65,6 +65,8 @@ import com.mtwabpin.kolahal.ui.IconLabel
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.SwitchRow
 import com.mtwabpin.kolahal.ui.fieldColors
+import com.mtwabpin.kolahal.ui.widgets.IconPicks
+import com.mtwabpin.kolahal.widgets.WidgetIcons
 
 /** A dialog about a library or shared copy: the question before Update or Reset, or Compare. */
 internal enum class CopyDialog { CONFIRM, COMPARE }
@@ -456,6 +458,10 @@ internal fun OptionDialog(
                             .fillMaxWidth()
                             .testTag("option-value"),
                     )
+                    // An icon's option offers the icon names as you type.
+                    if (WidgetIcons.isIconOption(option.name)) IconPicks(value.text) {
+                        value = TextFieldValue(it, TextRange(it.length))
+                    }
                 }
                 Text(
                     "Default: " + option.default.ifEmpty { "empty" },

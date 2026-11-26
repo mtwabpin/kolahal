@@ -557,6 +557,43 @@ class ScriptSheetTest {
         }
     }
 
+    /**
+     * An `icon` option offers the icon names under its box: all while it is empty, those with the text
+     * as you type; a tap fills the box. An emoji, which no name has, is still saved.
+     */
+    @Test
+    fun anIconOptionOffersTheIconNames() {
+        create("-- @option icon drop The card's icon\nlocal i = options.icon")
+        val declared = ScriptMeta.options(script().code)
+        fun value() = ScriptOptions(app).values("sstest", declared)["icon"]
+        fun pick(name: String) = compose.onNodeWithTag("icon-picks $name", useUnmergedTree = true)
+        openSheet()
+        val row = hasText("icon") and hasText("The card's icon")
+        compose.onNode(row and hasText("drop")).performScrollTo().performClick()
+        compose.onNodeWithText("icon for sstest").assertExists()
+        // The whole name is typed: nothing to offer.
+        compose.onNodeWithTag("icon-picks").assertDoesNotExist()
+        compose.onNodeWithTag("option-value").performTextReplacement("")
+        compose.onNodeWithTag("icon-picks").assertExists()
+        pick("alarm").assertExists()
+        compose.onNodeWithTag("option-value").performTextReplacement("co")
+        pick("coffee").assertExists()
+        pick("code").assertExists()
+        pick("sun").assertDoesNotExist()
+        pick("coffee").performClick()
+        compose.onNodeWithTag("option-value").assert(hasText("coffee"))
+        compose.onNodeWithTag("icon-picks").assertDoesNotExist()
+        inDialog("Save").performClick()
+        compose.waitFor("coffee") { value() == "coffee" }
+
+        compose.waitUntil(5_000) { compose.onAllNodes(row and hasText("coffee")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(row).performScrollTo().performClick()
+        compose.onNodeWithTag("option-value").performTextReplacement("☕")
+        compose.onNodeWithTag("icon-picks").assertDoesNotExist()
+        inDialog("Save").performClick()
+        compose.waitFor("the emoji") { value() == "☕" }
+    }
+
     /** An edited library copy offers the library version back, and asks first, as your edits go. */
     @Test
     fun anEditedLibraryCopyResetsAfterAsking() {

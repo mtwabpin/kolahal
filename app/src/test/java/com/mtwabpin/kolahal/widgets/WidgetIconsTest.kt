@@ -102,4 +102,33 @@ class WidgetIconsTest {
         )
         assertEquals("abcd", Shortcuts.clean(listOf(Shortcut("X", "x", "abcdefg"))).single().icon)
     }
+
+    /** An option takes an icon when it is named `icon`, or its name ends in it, perhaps with a number after. */
+    @Test
+    fun anIconOptionIsKnownByItsName() {
+        for (name in listOf("icon", "Icon", "icon2", "left_icon", "leftIcon", "rightIcon3", "LEFT_ICON"))
+            assertTrue(name, WidgetIcons.isIconOption(name))
+        for (name in listOf("lexicon", "iconic", "icons", "Icon_left", "city", "color", "Icona"))
+            assertFalse(name, WidgetIcons.isIconOption(name))
+    }
+
+    /** The names offered while typing: A to Z, those that start with the text, then those that contain it. */
+    @Test
+    fun suggestionsStartWithThePrefix() {
+        assertEquals(WidgetIcons.NAMES.sorted(), WidgetIcons.suggest(""))
+        assertEquals(WidgetIcons.NAMES.sorted(), WidgetIcons.suggest("  "))
+        assertEquals(listOf("code", "coffee"), WidgetIcons.suggest("co"))
+        // "lock" starts with "loc"; "clock" and "unlock" contain it.
+        assertEquals(listOf("lock", "clock", "unlock"), WidgetIcons.suggest("loc"))
+        // "rain" starts with "ra", then "train" contains it.
+        assertEquals(listOf("rain", "train"), WidgetIcons.suggest("ra"))
+        // Typed in any case, and with spaces around.
+        assertEquals(listOf("code", "coffee"), WidgetIcons.suggest(" Co "))
+        // A whole name, an emoji, or a word that is in no name gets none.
+        assertTrue(WidgetIcons.suggest("coffee").isEmpty())
+        assertTrue(WidgetIcons.suggest("☕").isEmpty())
+        assertTrue(WidgetIcons.suggest("zz").isEmpty())
+        // Every row it gives is a name.
+        assertTrue(WidgetIcons.suggest("a").all(WidgetIcons::isName))
+    }
 }

@@ -36,6 +36,7 @@ import com.mtwabpin.kolahal.terminal.commands.ActivityMatch
 import com.mtwabpin.kolahal.terminal.commands.ProductivityCommands
 import com.mtwabpin.kolahal.terminal.commands.ScriptCommands
 import com.mtwabpin.kolahal.terminal.commands.ShaderCommands
+import com.mtwabpin.kolahal.widgets.WidgetIcons
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -740,7 +741,9 @@ class Completer(private val context: Context, private val data: Data) {
                     } else if (parts.size == 5 && sub == "set") {
                         val o = scriptList.firstOrNull { it.name == parts[2] }
                             ?.let { wordsOf(it).options }?.firstOrNull { it.name == parts[3] }
-                        words(o?.choices.orEmpty() + listOf("--reset"))
+                        // An icon's option (`icon`, `left_icon`) gets the icon names, A to Z.
+                        val icons = if (o != null && WidgetIcons.isIconOption(o.name)) WidgetIcons.NAMES.sorted() else emptyList()
+                        words(o?.choices.orEmpty() + icons + listOf("--reset"))
                     } else if (parts.size == 4 && (sub == "secret" || sub == "secrets")) {
                         // The script's @secret names.
                         val s = scriptList.firstOrNull { it.name == parts[2] }

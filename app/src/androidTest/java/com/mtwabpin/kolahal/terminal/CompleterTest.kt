@@ -447,7 +447,7 @@ class CompleterReviewTest {
                 2,
                 "offb",
                 com.mtwabpin.kolahal.data.ScriptLang.LUA,
-                "return 1",
+                "-- @option icon drop The icon\n-- @option units metric|imperial\nreturn 1",
                 0,
                 false,
                 false,
@@ -674,6 +674,16 @@ class CompleterReviewTest {
                 )
             )
         )
+    }
+
+    /** `script set` offers an icon option's icon names, as it offers a choice's words; other options get none. */
+    @Test
+    fun scriptSetOffersTheIconNames() {
+        val co = lines("script set offb icon co")
+        assertTrue(co.toString(), co.containsAll(listOf("script set offb icon code", "script set offb icon coffee")))
+        assertTrue(co.toString(), co.all { it.startsWith("script set offb icon co") })
+        assertTrue(lines("script set offb icon ").toString(), "script set offb icon alarm" in lines("script set offb icon "))
+        assertEquals(listOf("script set offb units metric", "script set offb units imperial", "script set offb units --reset"), lines("script set offb units "))
     }
 
     /**

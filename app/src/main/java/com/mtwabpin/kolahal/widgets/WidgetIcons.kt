@@ -71,4 +71,28 @@ object WidgetIcons {
     /** Whether [icon] looks like a name but is none: a typo, such as "sunn". Such an icon is an error. */
     fun looksLikeName(icon: String): Boolean =
         icon.length > 4 && NAME_LIKE.matches(icon) && !isName(icon)
+
+    /**
+     * Whether a script's `@option` [name] takes an icon, so the places that set it offer the names
+     * ([suggest]): `icon`, or a name that ends in it (`left_icon`, `leftIcon`), perhaps with a number
+     * after (`icon2`). `lexicon` is none. A script reads such an option as `icon = options.icon`.
+     */
+    fun isIconOption(name: String): Boolean {
+        val n = name.trimEnd { it.isDigit() }
+        return n.equals("icon", ignoreCase = true) || n.endsWith("_icon", ignoreCase = true) ||
+            (n.length > 4 && n.endsWith("Icon"))
+    }
+
+    /**
+     * The names to offer for what is [typed] in an icon's box, A to Z: those that start with it,
+     * then those that contain it. Every name while the box is empty, none once a whole name is typed
+     * alone. Other text (an emoji) gets none, and stays allowed.
+     */
+    fun suggest(typed: String): List<String> {
+        val t = typed.trim().lowercase()
+        val sorted = NAMES.sorted()
+        if (t.isEmpty()) return sorted
+        if (t in SET) return emptyList()
+        return sorted.filter { it.startsWith(t) } + sorted.filter { t in it && !it.startsWith(t) }
+    }
 }
