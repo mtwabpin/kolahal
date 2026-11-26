@@ -48,6 +48,7 @@ import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.AccessNeeded
 import com.mtwabpin.kolahal.ui.Action
+import com.mtwabpin.kolahal.ui.assistant.assistantSettings
 import com.mtwabpin.kolahal.ui.ActionGroup
 import com.mtwabpin.kolahal.ui.FEATURE_TABS
 import com.mtwabpin.kolahal.ui.FeatureTabs
@@ -260,6 +261,10 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     { PeekFade(peek) { HeaderPreview(vm) } }
                 } else null,
             ) {
+                if (open?.id == ASSISTANT_CATEGORY) {
+                    assistantSettings(vm, version, undo, say)
+                    return@GuiListPage
+                }
                 if (open != null) {
                     open.manage?.let { (title, subtitle, screen) ->
                         item(key = "manage:${open.id}") {

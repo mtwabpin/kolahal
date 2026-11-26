@@ -3,6 +3,8 @@
  */
 package com.mtwabpin.kolahal.data
 
+import com.mtwabpin.kolahal.assistant.ConversationStore
+import com.mtwabpin.kolahal.assistant.Services
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.Shaders
 
@@ -769,18 +771,41 @@ object Keys {
         0..100,
         "How much of the phone's wallpaper shows behind the widgets page (%).\n0 is none. Higher shows less of the theme's color"
     )
-    // The A2UI trial (ui/a2ui): only in a build that has it (BuildConfig.A2UI, [ALL]).
-    val A2UI_PAGE = ConfigKey.Bool(
-        "a2ui.page",
+    // The Assistant (assistant/, ui/assistant): only in a build that has it (BuildConfig.ASSISTANT, [ALL]).
+    // Its services and their models come from Services.ALL.
+    val ASSISTANT_PAGE = ConfigKey.Bool(
+        "assistant.page",
         false,
-        "A trial page after the widgets pages: ask Claude, and its answer is drawn with A2UI.\nNeeds your own Anthropic API key, typed on the page"
+        "Show the Assistant's page after the widgets pages, to chat with ${Services.ALL.joinToString { it.name }}.\nNeeds your own API key for the service"
     )
-    val A2UI_MODEL = ConfigKey.Text(
-        "a2ui.model",
-        // The first of the page's choices (ui/a2ui/Claude.MODELS).
-        "claude-sonnet-5-5",
-        "The Claude model the A2UI trial page asks",
-        { it.trim().takeIf { m -> Regex("[A-Za-z0-9.-]+").matches(m) } },
+    val ASSISTANT_SERVICE = ConfigKey.Choice(
+        "assistant.service",
+        Services.ALL.first().id,
+        Services.ALL.map { it.id },
+        "The service the Assistant asks. Each needs its own API key",
+        notes = Services.ALL.associate { it.id to "${it.name}, by ${it.company}" },
+    )
+    val ASSISTANT_MODEL = ConfigKey.Text(
+        "assistant.model",
+        "",
+        "The model the Assistant asks: one the service offers, or another of its models by name.\nEmpty: the service's default",
+        { it.trim().takeIf { m -> Regex("[A-Za-z0-9._:-]*").matches(m) } },
+    )
+    val ASSISTANT_RICH = ConfigKey.Bool(
+        "assistant.rich",
+        true,
+        "Answers drawn as cards, lists and rows (A2UI).\nOff: answers in plain text"
+    )
+    val ASSISTANT_INSTRUCTIONS = ConfigKey.Text(
+        "assistant.instructions",
+        "",
+        "Your own instructions, added to every conversation. For example: answer in Spanish",
+        { it.trim().takeIf { t -> t.length <= 2000 } },
+    )
+    val ASSISTANT_HISTORY = ConfigKey.Bool(
+        "assistant.history",
+        true,
+        "Keep conversations on this phone, the newest ${ConversationStore.CAP}, to open them again.\nOff: new ones aren't kept and the list is hidden. They're never in a backup"
     )
     val AGENDA_WIDGET_DAYS = ConfigKey.Choice(
         "widgets.agenda-days",
@@ -909,7 +934,14 @@ object Keys {
         WIDGETS_START,
         WIDGETS_WALLPAPER,
         AGENDA_WIDGET_DAYS,
-        *listOf(A2UI_PAGE, A2UI_MODEL).filter { com.mtwabpin.kolahal.BuildConfig.A2UI }.toTypedArray(),
+        *listOf(
+            ASSISTANT_PAGE,
+            ASSISTANT_SERVICE,
+            ASSISTANT_MODEL,
+            ASSISTANT_RICH,
+            ASSISTANT_INSTRUCTIONS,
+            ASSISTANT_HISTORY,
+        ).filter { com.mtwabpin.kolahal.BuildConfig.ASSISTANT }.toTypedArray(),
         // Last, so they never take the place of another setting when the prompt suggests settings by what
         // they do (Completer): these matter only with home.style tty.
         TTY_SUGGESTIONS,
@@ -949,8 +981,6 @@ object Keys {
         TTY_MENU,
         SCREEN_SHADER,
         SHADER_OVER_APPS,
-        A2UI_PAGE,
-        A2UI_MODEL,
     )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
@@ -1012,6 +1042,8 @@ object Keys {
         "header.icons" to "the header shows icons",
         "header.status" to "a script's status line shows at the top once you pin it (script pin <name>)",
         "header.compact-carried" to "the header is one line",
+        "a2ui.page" to "the trial page is now the Assistant (assistant.page)",
+        "a2ui.model" to "the Assistant asks the model in assistant.model",
     )
 
     // These are getters because [REMOVED], which is created first, reads them.

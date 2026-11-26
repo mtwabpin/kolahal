@@ -649,9 +649,9 @@ private fun HomePager(
 ) {
     val version by vm.config.version.collectAsStateWithLifecycle()
     val side = androidx.compose.runtime.remember(version) { vm.config[Keys.WIDGETS_PAGE] }
-    // The A2UI trial's page (`a2ui.page`, full build only) comes after the widgets pages.
-    val a2ui = androidx.compose.runtime.remember(version) { BuildConfig.A2UI && vm.config[Keys.A2UI_PAGE] }
-    if (side == "off" && !a2ui) {
+    // The Assistant's page (`assistant.page`, full build only) comes after the widgets pages.
+    val assistant = androidx.compose.runtime.remember(version) { BuildConfig.ASSISTANT && vm.config[Keys.ASSISTANT_PAGE] }
+    if (side == "off" && !assistant) {
         terminal()
         return
     }
@@ -660,8 +660,8 @@ private fun HomePager(
     val widgetPages by widgets.pages.collectAsStateWithLifecycle()
     val pages = if (side == "off") emptyList() else widgetPages
     // A page added or removed (a backup's) lays home out again: each page's place on the pager moves.
-    androidx.compose.runtime.key(pages.size, a2ui) {
-        HomePages(vm, widgets, pages, if (side == "off") "right" else side, a2ui, terminal)
+    androidx.compose.runtime.key(pages.size, assistant) {
+        HomePages(vm, widgets, pages, if (side == "off") "right" else side, assistant, terminal)
     }
 }
 
@@ -673,23 +673,23 @@ private fun HomePages(
     widgets: WidgetHost,
     pages: List<com.mtwabpin.kolahal.widgets.WidgetPage>,
     side: String,
-    a2ui: Boolean,
+    assistant: Boolean,
     terminal: @androidx.compose.runtime.Composable () -> Unit
 ) {
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // The A2UI trial's page is the outermost one ([A2UI_PAGE] in pageAt).
-    val extra = if (a2ui) 1 else 0
+    // The Assistant's page is the outermost one ([ASSISTANT_PAGE] in pageAt).
+    val extra = if (assistant) 1 else 0
     val count = pages.size + 1 + extra
     val left = side == "left"
     val shift = if (left) extra else 0
-    val a2uiPlace = if (!a2ui) -1 else if (left) 0 else count - 1
+    val assistantPlace = if (!assistant) -1 else if (left) 0 else count - 1
     // The log sits at the end nearest home's side; page 1 is next to it, the others further out.
     val terminalPage = if (left) pages.size + shift else 0
     // The pager's place of the widgets page at [index] (from 0), and the other way round (null: the log).
     fun placeOf(index: Int): Int = if (left) shift + pages.size - 1 - index else index + 1
     fun pageAt(place: Int): Int? = when (place) {
         terminalPage -> null
-        a2uiPlace -> A2UI_PAGE
+        assistantPlace -> ASSISTANT_PAGE
         else -> if (left) shift + pages.size - 1 - place else place - 1
     }
     val widgetsFirst = androidx.compose.runtime.remember(version) { Keys.widgetsFirst(vm.config) }
@@ -749,7 +749,7 @@ private fun HomePages(
     val rtl =
         androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
     fun nameOf(place: Int): String = pageAt(place)?.let {
-        if (it == A2UI_PAGE) "A2UI" else if (pages.size == 1) "Widgets" else com.mtwabpin.kolahal.widgets.WidgetPages.title(pages, it)
+        if (it == ASSISTANT_PAGE) "Assistant" else if (pages.size == 1) "Widgets" else com.mtwabpin.kolahal.widgets.WidgetPages.title(pages, it)
     } ?: "Log"
     val before = (pager.currentPage - 1).takeIf { it >= 0 }
     val after = (pager.currentPage + 1).takeIf { it < count }
@@ -835,15 +835,18 @@ private fun HomePages(
         ) { page ->
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
                 val index = pageAt(page)
-                if (index == A2UI_PAGE) {
-                    com.mtwabpin.kolahal.ui.a2ui.A2uiPage(androidx.compose.runtime.remember(version) { vm.config[Keys.A2UI_MODEL] }) { vm.config.set(Keys.A2UI_MODEL, it) }
+                if (index == ASSISTANT_PAGE) {
+                    com.mtwabpin.kolahal.ui.assistant.AssistantPage(vm.config, onSettings = {
+                        vm.settingsCategory.value = com.mtwabpin.kolahal.ui.settings.ASSISTANT_CATEGORY
+                        vm.openScreen(com.mtwabpin.kolahal.terminal.Screen.SETTINGS)
+                    })
                 } else if (index == null) {
                     // The prompt and the header measure the screen's corners from where they are on this page,
                     // which slides while home turns, not from where they are in the window.
                     val homePage = androidx.compose.runtime.remember { HomePage() }
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalTerminalShown provides (pager.currentPage == terminalPage),
-                        com.mtwabpin.kolahal.ui.home.LocalPageTypes provides (pager.currentPage == a2uiPlace),
+                        com.mtwabpin.kolahal.ui.home.LocalPageTypes provides (pager.currentPage == assistantPlace),
                         LocalHomePage provides homePage,
                     ) {
                         androidx.compose.foundation.layout.Box(
@@ -864,8 +867,8 @@ private fun HomePages(
     }
 }
 
-/** HomePages' pageAt for the A2UI trial's page. */
-private const val A2UI_PAGE = -1
+/** HomePages' pageAt for the Assistant's page. */
+private const val ASSISTANT_PAGE = -1
 
 /** Home's pager never scrolls to bring something into view: it moves only when Kolahal turns it. */
 private object StayOnPage : androidx.compose.foundation.gestures.BringIntoViewSpec {

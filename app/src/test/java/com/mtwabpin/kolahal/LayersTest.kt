@@ -35,6 +35,7 @@ class LayersTest {
         "gesture",
         "documents",
         "usage",
+        "assistant",
     )
 
     /** Lines in [packages] that name something matching [above], outside comments. */

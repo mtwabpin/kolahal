@@ -109,6 +109,19 @@ class SettingsCatalogTest {
         assertTrue(Keys.SCREEN_SHADER in Keys.CONFIG_ONLY)
     }
 
+    /** The full build has a page for the Assistant with all its settings, each with a title; search finds them by service. */
+    @Test
+    fun theAssistantHasItsPage() {
+        val page = allCategories().single { it.id == ASSISTANT_CATEGORY }
+        val keys = Keys.ALL.filter { it.key.startsWith("assistant.") }
+        assertEquals(keys.toSet(), page.keys.toSet())
+        assertTrue(keys.size >= 6)
+        for (key in keys) assertNotNull(key.key, SettingTitles[key.key])
+        assertTrue(matches(Keys.ASSISTANT_SERVICE, "gemini"))
+        assertTrue(matches(Keys.ASSISTANT_SERVICE, "chatgpt"))
+        assertEquals("Claude", ChoiceLabels.of(Keys.ASSISTANT_SERVICE, "anthropic"))
+    }
+
     /** Settings search finds each word in any order, in a setting's title, name, help or choices. */
     @Test
     fun searchFindsWordsInAnyOrder() {

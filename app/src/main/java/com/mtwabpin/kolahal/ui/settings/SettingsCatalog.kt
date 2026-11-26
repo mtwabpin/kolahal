@@ -383,8 +383,27 @@ private val BACKUP = Category(
 /** The feeds category. It shows in the Feeds tab ([categorySettings]), not in the Settings list. */
 internal const val FEEDS_CATEGORY = "feeds"
 
-/** Every settings page. Each setting is on one, except the [Keys.CONFIG_ONLY] ones: a test checks this. */
-internal fun allCategories() = CATEGORIES + BACKUP
+/** The Assistant's page: its rows are drawn by ui/assistant (assistantSettings), these keys are what search finds. */
+const val ASSISTANT_CATEGORY = "assistant"
+
+private val ASSISTANT = Category(
+    ASSISTANT_CATEGORY,
+    "Assistant",
+    "Service, model, API keys, history",
+    R.drawable.ic_forum,
+    listOf(
+        null to listOf(Keys.ASSISTANT_PAGE),
+        "Service" to listOf(Keys.ASSISTANT_SERVICE, Keys.ASSISTANT_MODEL),
+        "Answers" to listOf(Keys.ASSISTANT_RICH, Keys.ASSISTANT_INSTRUCTIONS),
+        "History" to listOf(Keys.ASSISTANT_HISTORY),
+    ),
+)
+
+/**
+ * Every settings page. Each setting is on one, except the [Keys.CONFIG_ONLY] ones: a test checks this.
+ * A build without the Assistant (BuildConfig.ASSISTANT) has no page for it.
+ */
+internal fun allCategories() = CATEGORIES + listOfNotNull(ASSISTANT.takeIf { BuildConfig.ASSISTANT }) + BACKUP
 
 /**
  * Whether Settings search for [q] finds [key]: each word of [q], in any order, is in the setting's

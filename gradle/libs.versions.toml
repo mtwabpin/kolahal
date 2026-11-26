@@ -49,7 +49,7 @@ androidx-test-runner = { module = "androidx.test:runner", version.ref = "android
 androidx-benchmark-macro = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
-# A2UI trial (full build only): Google's agent-to-UI renderer and its Material 3 basic catalog.
+# The Assistant (full build only): Google's agent-to-UI renderer and its Material 3 basic catalog.
 androidx-a2ui-compose-ui = { module = "androidx.a2ui.compose:compose-ui", version.ref = "a2ui" }
 androidx-material3-a2ui = { module = "androidx.compose.material3:material3-a2ui", version.ref = "a2ui" }
 

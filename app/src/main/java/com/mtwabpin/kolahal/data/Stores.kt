@@ -197,6 +197,12 @@ object Stores {
     /** The one-off shader that a script asked for, until home takes it ([com.mtwabpin.kolahal.shader.ShaderPlay]). This phone only. */
     const val SHADER_PLAY = "shader.play"
 
+    /**
+     * The Assistant's conversations ([com.mtwabpin.kolahal.assistant.ConversationStore]): what you asked and
+     * what came back, kept only while `assistant.history` is on. This phone only.
+     */
+    const val ASSISTANT = "assistant"
+
     /** Exchange rates for `fx`. */
     const val FX = "fx"
 
@@ -237,7 +243,8 @@ object Stores {
         WIDGET_META,
         WIDGET_PLACED,
         SHADER_VALUES,
-        SHADER_PLAY
+        SHADER_PLAY,
+        ASSISTANT,
     )
 
     val SCOPES = THIS_PHONE + listOf(STATUS, STATUS_EXTRAS, FX, UNLOCKS, LOG_MARKS, OLD_PINS)

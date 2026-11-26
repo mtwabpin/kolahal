@@ -19,6 +19,8 @@ internal object ChoiceLabels {
         Keys.SCREEN_HIDE_BARS.key to mapOf("status" to "Status bar"),
         Keys.FONT_SANS.key to mapOf("prompt" to "Prompt only"),
         Keys.SEARCH_ENGINE.key to mapOf("duckduckgo" to "DuckDuckGo"),
+        // The services by the names the Assistant shows (Claude, Gemini, ChatGPT).
+        Keys.ASSISTANT_SERVICE.key to com.mtwabpin.kolahal.assistant.Services.ALL.associate { it.id to it.name },
     )
 
     /**

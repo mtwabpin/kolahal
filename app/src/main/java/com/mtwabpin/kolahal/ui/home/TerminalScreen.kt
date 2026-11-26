@@ -115,7 +115,7 @@ internal fun HomeAppSelector(
 val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
 
 /**
- * Whether the page that is showing beside the terminal has text fields of its own (the A2UI trial's
+ * Whether the page that is showing beside the terminal has text fields of its own (the Assistant's
  * page): the on-screen keyboard is then that page's, and the terminal leaves it up.
  */
 val LocalPageTypes = androidx.compose.runtime.compositionLocalOf { false }
