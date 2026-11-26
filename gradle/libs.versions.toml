@@ -20,6 +20,7 @@ androidxTestRunner = "1.7.0"
 benchmark = "1.5.0"
 profileinstaller = "1.4.1"
 uiautomator = "2.4.1"
+a2ui = "1.0.0-alpha02"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -48,6 +49,9 @@ androidx-test-runner = { module = "androidx.test:runner", version.ref = "android
 androidx-benchmark-macro = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
+# A2UI trial (full build only): Google's agent-to-UI renderer and its Material 3 basic catalog.
+androidx-a2ui-compose-ui = { module = "androidx.a2ui.compose:compose-ui", version.ref = "a2ui" }
+androidx-material3-a2ui = { module = "androidx.compose.material3:material3-a2ui", version.ref = "a2ui" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

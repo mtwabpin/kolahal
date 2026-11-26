@@ -54,6 +54,8 @@ android {
         buildConfigField("boolean", "CONTACTS", "true")
         buildConfigField("boolean", "SELF_UPDATE", "true")
         buildConfigField("boolean", "SHADER_OVER_APPS", "true")
+        // The A2UI trial page (`a2ui.page`): full build only.
+        buildConfigField("boolean", "A2UI", "true")
     }
 
     signingConfigs {
@@ -115,6 +117,7 @@ android {
             buildConfigField("boolean", "CALL_LOG", "false")
             buildConfigField("boolean", "CONTACTS", "false")
             buildConfigField("boolean", "SELF_UPDATE", "false")
+            buildConfigField("boolean", "A2UI", "false")
             // A one-off shader over other apps (SYSTEM_ALERT_WINDOW) is in the Play build too. The switch
             // stays so it can be taken out again if Google refuses it: set this to "false" and add to
             // src/play/AndroidManifest.xml <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"
@@ -167,6 +170,10 @@ dependencies {
     implementation(libs.luajava.lua54)
     runtimeOnly(variantOf(libs.luajava.android) { classifier("lua54"); artifactType("aar") })
     implementation(libs.quickjs)
+
+    // A2UI trial: the page is in the full build only (BuildConfig.A2UI); R8 drops it from Play.
+    implementation(libs.androidx.a2ui.compose.ui)
+    implementation(libs.androidx.material3.a2ui)
 
     testImplementation(libs.junit)
     // The real org.json for JVM tests: android.jar has only stubs of it.

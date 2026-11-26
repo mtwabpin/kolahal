@@ -769,6 +769,19 @@ object Keys {
         0..100,
         "How much of the phone's wallpaper shows behind the widgets page (%).\n0 is none. Higher shows less of the theme's color"
     )
+    // The A2UI trial (ui/a2ui): only in a build that has it (BuildConfig.A2UI, [ALL]).
+    val A2UI_PAGE = ConfigKey.Bool(
+        "a2ui.page",
+        false,
+        "A trial page after the widgets pages: ask Gemini, and its answer is drawn with A2UI.\nNeeds your own Gemini API key, typed on the page"
+    )
+    val A2UI_MODEL = ConfigKey.Text(
+        "a2ui.model",
+        // A current Flash model of the free tier.
+        "gemini-3.8-flash",
+        "The Gemini model the A2UI trial page asks",
+        { it.trim().takeIf { m -> Regex("[A-Za-z0-9.-]+").matches(m) } },
+    )
     val AGENDA_WIDGET_DAYS = ConfigKey.Choice(
         "widgets.agenda-days",
         "auto",
@@ -896,6 +909,7 @@ object Keys {
         WIDGETS_START,
         WIDGETS_WALLPAPER,
         AGENDA_WIDGET_DAYS,
+        *listOf(A2UI_PAGE, A2UI_MODEL).filter { com.mtwabpin.kolahal.BuildConfig.A2UI }.toTypedArray(),
         // Last, so they never take the place of another setting when the prompt suggests settings by what
         // they do (Completer): these matter only with home.style tty.
         TTY_SUGGESTIONS,
@@ -935,6 +949,8 @@ object Keys {
         TTY_MENU,
         SCREEN_SHADER,
         SHADER_OVER_APPS,
+        A2UI_PAGE,
+        A2UI_MODEL,
     )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
