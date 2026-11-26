@@ -26,37 +26,6 @@ ships (the release notes then say what changed).
 
 * Tasks
 
-** TODO [#B] Bold and Shape charts: the older bars are nearly invisible /(checked)/  :cards:
-- =ui/widgets/WidgetChartLooks.kt= (=BoldChart=, and =ShapeBesideChart='s call of =PillChart=): =val rest =
-  MaterialTheme.colorScheme.surfaceContainerHighest=.
-- On the card's own surface that is about 1.1:1 in every theme, so Unlocks, Screen time and Habit
-  show one coloured pill and a ghost of the week.
-- Fix: the role colour at 40%, as Plain's older bars already are. Small.
-- Checked 23 November 2026: Plain's choice, the role colour at 40 %, is still only about 1.6:1 on
-  a Bold card in a light theme. To decide: which colour.
-- Remark:
-
-** TODO [#B] Small role-coloured text is too faint in light themes  :cards:
-- =ui/widgets/WidgetAgenda.kt= (=DayHeading=, the agenda's day headings), =ui/widgets/WidgetStat.kt= (=StatBody='s
-  =ChangeText=, a stat's change), =ui/widgets/WidgetListLooks.kt= (=BoldRows='s title).
-- On a Tonal card in Green light, "TODAY" and "Up 2.4%" are about 3.2:1, and 2.6:1 on Tonal's tiles.
-- Fix: on Tonal, the words in the content colour with only the arrow or dot in the role colour, as
-  the ring's label already does. Small.
-- Checked 23 November 2026: the same small text on Plain and Bold cards is about 3.9:1, also
-  under 4.5:1.
-- To decide: the words in the content colour with only the arrow or dot in the role's, or a darker
-  tone of the role's colour; and on Plain and Bold too?
-- Remark:
-
-** TODO [#B] Tappable rows drop under 44 dp in Shape and Bold  :cards:
-- =ui/widgets/WidgetListLooks.kt= (=BoldRows=; =ShapeRows= and its =rowHeight=).
-- Shape packs Todos at 1×1 into two 30 dp rows with no gap, so a near miss ticks the next todo. In
-  Bold at 1×1 only the row's text is tappable.
-- Fix: rows with a tap are at least 44 dp in every look, and fewer fit. Small.
-- To decide: fewer rows (a 1×1 Shape then shows one todo, not two), or the same rows with the
-  touch area widened into the gaps?
-- Remark:
-
 ** TODO [#B] No way to refresh a card that has its own tap  :cards:
 - =ui/widgets/ScriptWidgets.kt= (=ScriptWidget='s =onClick=: a card with a =tap= of its own has no refresh).
 - A card that opens a link has no way to fetch now; typing the script's name fills only the first
@@ -97,35 +66,11 @@ ships (the release notes then say what changed).
 - Fix: show "Script's value: Pune" for a further widget, titled with the widget's name. Small.
 - Remark:
 
-** TODO [#B] Close gaps, a move and a resize can't be undone  :arrange:
-- =ui/widgets/WidgetsScreen.kt= (=WidgetsScreen='s Close gaps), =ui/widgets/WidgetsArrangedPage.kt= (=ArrangedPage='s
-  drop, =widgets.moveTo=).
-- One tap on Close gaps packs the whole page with no way back; a drop that pushed widgets down can't
-  be reversed by dragging back.
-- Fix: a snackbar with Undo after each of them. Medium.
-- To decide: Undo after Close gaps only, or after every move and resize too?
-- Remark:
-
 ** TODO [#B] The picker has no preview of Kolahal's own widgets  :arrange:
 - =ui/widgets/WidgetPickerScreen.kt= (=KolahalWidgetCard=).
 - App widgets show a picture; Battery, Todos, Agenda and every script widget show only a name.
 - Fix: draw a small card at its starting size, from the user's data or the reference's sample.
   Medium.
-- Remark:
-
-** TODO [#B] A locked private space's widget is still named in two places  :profiles:
-- Done on 23 November 2026: the widgets page, =widgets ls= and Arrange widgets say "Private space
-  locked" and name neither the app nor the widget.
-- Left: an entry under "Restored from backup" that belongs to a private space still shows its
-  package and class (=ui/widgets/WidgetsScreen.kt=, =PendingRow=). And where Android hides a locked
-  private space altogether, its profile isn't among the known ones, so the widget's place reads
-  "[Widget unavailable] com.example.app" (=ui/widgets/HostedWidgets.kt=, the placeholder).
-- Fix: leave the name out wherever the widget's profile is a private space, or can't be found.
-- Found by the release review of 23 November 2026, not seen on a device: when Android hides a
-  locked private space altogether, the space is missing from the list of profiles, so
-  =pausedKind= (=ui/widgets/HostedWidgets.kt=) is null and its widget is shown live, or as
-  "Widget unavailable", on the widgets page. Widget settings is no longer offered for it since
-  that review (=isRunning=). Fix: ask =WidgetHost.isLockedPrivate=, which asks Android directly.
 - Remark:
 
 ** TODO [#B] App widgets are built on the main thread in home's first frame  :perf:
@@ -263,6 +208,14 @@ ships (the release notes then say what changed).
 - Remark:
 
 ** TODO [#C] Smaller bugs  :cards:
+- Bold's Todos at 2×1: a tap on the "Todos" title ticks the first todo. Compose widens the row's
+  small tap target to 48 dp, and there the widened area reaches up over the title
+  (=ui/widgets/WidgetListLooks.kt=, =BoldRows=). Measured on 26 November 2026 by tapping every 1 dp
+  down the card. Fix: give the row its 44 dp inside its own bounds, so nothing is widened.
+- The older bars of Bold's and Shape's charts are the role color at 40 %, as Plain's
+  (the maintainer's choice, 26 November 2026): about 1.6:1 on the card in a light theme and 2.6:1
+  in a dark one, under the 3:1 wanted for graphics. Left so by choice; =olderBars= in
+  =ui/widgets/WidgetChart.kt= is the one place to change it.
 - Pressing a Split or shaped card shades a sharp rectangle around its tiles or shape
   (=ui/widgets/ScriptWidgets.kt=, =WidgetCard= and =ShapedCard=): clip the press to the shape.
 - Right to left: chart labels sit under the wrong ends, and the skip buttons point inward
@@ -294,6 +247,14 @@ ships (the release notes then say what changed).
 - Remark:
 
 ** TODO [#C] Smaller ease-of-use items  :arrange:
+- Undo in Arrange widgets (since 0.5.20, after Close gaps, a move and a resize) isn't offered after a
+  move or a resize made through a screen reader's actions, nor after removing a widget or moving
+  it to another page (=widgets/ArrangeUndo.kt=, =OFFERED=).
+- A private space's widget restored from another phone's backup, or from a private space since
+  removed, is still named under "Restored from backup": the entry keeps only the profile's serial
+  number, which then matches nothing here, as a work profile from another phone does (their names
+  are kept by the maintainer's choice, 26 November 2026). Storing the profile's kind with the
+  entry would tell them apart (=ui/widgets/HostedWidgets.kt=, =namesApp=).
 - One screen has three names: "Arrange widgets", "Edit widgets" and "Widgets"; use "Arrange widgets".
 - App widgets' toolbar says "Looks are for Kolahal's own widgets." where the drag hint would help.
 - A paused app widget's placeholder is one line with blank space under it; draw it at full height.
