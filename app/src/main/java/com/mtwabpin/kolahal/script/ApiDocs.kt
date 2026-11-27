@@ -475,7 +475,7 @@ object ApiDocs {
         ApiDoc(
             "web.open",
             "web.open(url) -> bool",
-            "Open a web link (http or https, up to 2000 characters) in your browser or the app for it; true when it went to open. Only in a run you started, at most 3 per run; needs the internet"
+            "Open a web link (http or https, up to 2000 characters) in your browser or the app for it; true when it went to open. Only in a run you started (not by another script), at most 3 per run, never with one of its secrets; needs the internet"
         ),
 
         ApiDoc("json", "json", "JSON: encode, decode", LUA, NS),

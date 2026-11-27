@@ -141,13 +141,15 @@ class ShaderActions(
     }
 
     /**
-     * Plays the one-off shader [name] over home, once it is in front. One that was turned off is on again by
-     * this tap, as a shader over home is by the tap that uses it. False when another plays: this one is left out.
+     * Plays the one-off shader [name] over the Shaders screen, or home once it is in front. One that was turned off
+     * is on again by this tap, as a shader over home is by the tap that uses it, but only when it plays. False when
+     * another plays: this one is left out, and stays off if it was.
      */
     fun play(name: String): Boolean {
         val safety = ShaderSafety.get(context)
-        if (safety.tripped()?.let(ShaderSafety::nameOf) == name) safety.turnedOn()
-        return ShaderPlay.play(name, null)
+        return ShaderPlay.play(name, null) {
+            if (safety.tripped()?.let(ShaderSafety::nameOf) == name) safety.turnedOn()
+        }
     }
 
     /**

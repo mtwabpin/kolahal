@@ -37,6 +37,31 @@ class ShaderPlayTest {
         assertTrue(ShaderPlay.play("confetti", null, at = ShaderPlay.WAIT_MS + 1))
     }
 
+    /** `ShaderActions.play` turns a shader that was turned off on again in [ShaderPlay.play]'s first: only when it plays. */
+    @Test
+    fun firstRunsOnlyWhenItStarts() {
+        var ran = 0
+        assertTrue(ShaderPlay.play("hearts", null, at = 1_000) { ran++ })
+        assertEquals(1, ran)
+        assertFalse(ShaderPlay.play("confetti", null, at = 2_000) { ran++ })
+        assertEquals(1, ran)
+        assertEquals("hearts", ShaderPlay.current.value?.name)
+    }
+
+    /** How far it has played goes with the play, for the next screen to draw it to go on from; it isn't part of what it equals. */
+    @Test
+    fun itKeepsHowFarItHasPlayed() {
+        assertTrue(ShaderPlay.play("hearts", 4f, at = 1_000))
+        val playing = ShaderPlay.current.value!!
+        assertEquals(0f, playing.elapsed)
+        playing.elapsed = 2.5f
+        assertEquals(2.5f, ShaderPlay.current.value?.elapsed)
+        assertEquals(ShaderPlay.Playing("hearts", 4f, 1_000), playing)
+        // Done with an equal one ends it all the same.
+        ShaderPlay.done(ShaderPlay.Playing("hearts", 4f, 1_000))
+        assertNull(ShaderPlay.current.value)
+    }
+
     @Test
     fun itsTimeIsBounded() {
         ShaderPlay.play("hearts", 600f, at = 0)

@@ -404,7 +404,8 @@ private fun playedLayer(playing: ShaderPlay.Playing, grid: TtyGrid, cols: Int, l
     val shader = loaded?.takeIf { it.name == playing.name } ?: return Modifier
     val seconds = playing.seconds ?: shader.meta.once ?: return Modifier
     val touch = remember(playing) { ShaderTouch() }
-    val clock = remember(playing) { ShaderTime() }
+    // It goes on from where it was, when it was drawn elsewhere before (home, the Shaders screen).
+    val clock = remember(playing) { ShaderTime().apply { this.seconds = playing.elapsed } }
     val sources = LocalShaderSources.current
     val shown = LocalTerminalShown.current
     val focused = LocalWindowInfo.current.isWindowFocused
@@ -421,6 +422,7 @@ private fun playedLayer(playing: ShaderPlay.Playing, grid: TtyGrid, cols: Int, l
                     val now = withFrameNanos { it } / 1_000_000L
                     // A long gap (a pause) counts as one frame, so it goes on where it was.
                     if (last >= 0) clock.seconds += (now - last).coerceIn(0L, 100L) / 1000f
+                    playing.elapsed = clock.seconds
                     last = now
                 }
             }

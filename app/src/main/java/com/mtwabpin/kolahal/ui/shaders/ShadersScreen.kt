@@ -189,12 +189,13 @@ fun ShadersScreen(
     GuiTheme {
       Box(Modifier.fillMaxSize().then(played)) {
         val snackbar = rememberNoticeSnackbar(notice)
-        val sayHold: () -> Unit = {
+        val say: (String) -> Unit = { text ->
             scope.launch {
                 snackbar.currentSnackbarData?.dismiss()
-                snackbar.showSnackbar("Tap and hold the eye to see the home screen")
+                snackbar.showSnackbar(text)
             }
         }
+        val sayHold: () -> Unit = { say("Tap and hold the eye to see the home screen") }
 
         GuiListPage(
             title = { Text("Shaders") },
@@ -299,7 +300,11 @@ fun ShadersScreen(
                 ShaderChoice(
                     r, inUse, problems[r.name], i, once.size,
                     wallpaper = false,
-                    onUse = { if (ShaderPage.rowPlays(r, play, problems[r.name], Shaders.supported)) actions.playHere(r.name) },
+                    onUse = {
+                        if (ShaderPage.rowPlays(r, play, problems[r.name], Shaders.supported)) actions.playHere(r.name)
+                        // With a screen reader on, nothing plays: the tap says so, rather than doing nothing.
+                        else if (screenReader) say(ShaderPage.NO_PLAY_WITH_SCREEN_READER)
+                    },
                     play = play,
                     onPlay = { actions.playHere(r.name) },
                     onDetails = { details = r.name },

@@ -187,7 +187,7 @@ object ScriptMeta {
     /** Whether the code opens a screen of its own (`tty.screen`): its run may go on as long as the screen does. */
     fun opensScreen(code: String) = screenCall.containsMatchIn(code)
 
-    private val internetRef = Regex("""\b(http|rss|url|image)\b|\blauncher\s*\.\s*run\b|\bweb\s*\.\s*open\b""")
+    private val internetRef = Regex("""\b(http|rss|url|image|web)\b|\blauncher\s*(\.\s*run\b|\?\.|\[)|[=(,]\s*launcher\b""")
     private val statusRef = Regex("""(?<![.:\w])status\b""")
     private val notifyRef = Regex("""(?<![.:\w@])notify\b""")
 
@@ -195,12 +195,14 @@ object ScriptMeta {
      * What a script uses beyond `@uses`, read from the names in its code. [ScriptAccess] switches and
      * allows only these:
      * - the internet, for `http` and `rss`, for the links and pictures its lines carry (`url`,
-     *   `image`), for `launcher.run` (a search sends its words to a site), and for `web.open` (an
+     *   `image`), for `launcher.run` (a search sends its words to a site), and for `web` (`web.open`: an
      *   address can carry data to its site),
      * - its header line, for `status`,
      * - posting notifications, for `notify`.
-     * Any mention of the name counts (a comment, `local status`), so a script that calls one by name
-     * always has it. A field such as `res.status`, or the `@notify` line, doesn't count.
+     * Any mention of the name counts (a comment, `local status`, `const {open} = web`), so a script that
+     * calls one by name always has it. A field such as `res.status`, or the `@notify` line, doesn't count.
+     * `launcher` is a word in prose too: it counts as `launcher.run`, `launcher?.`, `launcher[`, or
+     * after `=`, `(` or `,` (`const {run} = launcher`).
      */
     fun usesInternet(code: String) = internetRef.containsMatchIn(code)
 
@@ -432,6 +434,7 @@ object ScriptMeta {
      * `@on` lines, `@on notification com.example.chat org.example.mail, unlock`. Null when every app's
      * do: an `@on notification` names none, or the script has no such line.
      * - Several lines add up. One `@on notification` without names means every app.
+     * - After a comma, a word with a dot is one more name of the last `notification` ([readOn]).
      * - A word after `notification` that is not a package name matches no app: such a line runs for
      *   none of them until it is fixed. The editor's check names the word ([ScriptCheck]).
      */
@@ -465,20 +468,29 @@ object ScriptMeta {
 
     /**
      * Reads the text after `@on`. Commas and spaces separate events. The words after `notification`,
-     * up to the next comma or event, are the package names of the apps it is for. Events are read in any
-     * case; package names are kept as written, as Android's are.
+     * up to the next comma or event, are the package names of the apps it is for. A word with a dot at the
+     * start of a later comma part is one too, of the last `notification`: `@on notification com.a, com.b`
+     * is for both apps, `@on notification, com.a` for that one. Events are read in any case; package names
+     * are kept as written, as Android's are.
      */
     internal fun readOn(rest: String): OnLine {
         val events = ArrayList<Pair<String, List<String>>>()
         val problems = ArrayList<Pair<String, String>>()
+        // The names of the last `notification` on the line, over commas.
+        var last: MutableList<String>? = null
         for (part in rest.split(',')) {
             // The names after `notification` in this part, while there is one. Its pair in events holds this same list.
             var apps: MutableList<String>? = null
+            // Before this part's first event, a word with a dot goes to the last `notification`.
+            var lead = true
             for (word in part.split(spaces).filter { it.isNotEmpty() }) {
                 val name = word.lowercase()
+                if (lead && name !in EVENTS && last != null && '.' in word) apps = last
                 when {
                     name in EVENTS -> {
-                        apps = if (name == "notification") ArrayList() else null
+                        lead = false
+                        apps = if (name == "notification") ArrayList<String>() else null
+                        if (name == "notification") last = apps
                         events += name to (apps ?: emptyList())
                     }
                     // A word without a dot is more likely a misspelled event than a package.

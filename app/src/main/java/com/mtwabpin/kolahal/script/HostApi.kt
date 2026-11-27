@@ -1136,8 +1136,8 @@ class HostApi(
      * with the address alone. True when the link went to home to open.
      * - A link that isn't an http or https address of at most [WebOpen.MAX_LENGTH] characters is an error.
      * - Like every link, it needs the internet: without it, the run stops as at a request.
-     * - Only in a run you started, at most [WebOpen.MAX_PER_RUN] a run, and never with a secret in it.
-     *   Otherwise it logs why, once a run, and returns false.
+     * - Only in a run you started, not one another script started, at most [WebOpen.MAX_PER_RUN] a run, and
+     *   never with a secret in it. Otherwise it logs why (once a run, but a secret each time) and returns false.
      */
     fun webOpen(url: String): Boolean {
         live()

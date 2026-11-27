@@ -78,10 +78,13 @@ internal object ShaderPage {
     /**
      * Whether a tap on a one-off's row plays it, over the page: where its [play] can be pressed, and also for one that was
      * turned off, which plays and is on again, as a tap on any other turns it on again. Not with a screen reader on, where
-     * shaders aren't drawn, or for one that couldn't be used: the page says why.
+     * shaders aren't drawn, or for one that couldn't be used: the page says why ([NO_PLAY_WITH_SCREEN_READER]).
      */
     fun rowPlays(row: ShaderRow, play: Boolean?, problem: String?, supported: Boolean): Boolean =
         play == true || (play == false && row.turnedOff && supported && problem == null)
+
+    /** What a tap on a one-off's row says with a screen reader on, where it doesn't play. */
+    const val NO_PLAY_WITH_SCREEN_READER = "One-off shaders don't play while a screen reader is on"
 
     /** That the safe mode turned it off, with the reason when it is known. */
     fun turnedOff(row: ShaderRow): String = row.why?.let { "Turned off: $it" } ?: "Turned off"

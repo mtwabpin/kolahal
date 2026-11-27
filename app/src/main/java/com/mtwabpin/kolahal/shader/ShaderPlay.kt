@@ -14,14 +14,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * One-off shaders (`@once`): they run once for some seconds over home, on top of the shader that is on, and
- * go. `shader play hearts` starts one, and so does a script's `shader.play` ([request]).
+ * One-off shaders (`@once`): they run once for some seconds over home or the Shaders screen, on top of the
+ * shader that is on, and go. `shader play hearts` starts one, and so does a script's `shader.play` ([request]).
  * - One plays at a time: another that comes meanwhile is left out.
- * - It waits for home to be in front, for [WAIT_MS] at most.
+ * - It waits for home or the Shaders screen to be in front, for [WAIT_MS] at most.
+ * - It keeps how far it has played ([Playing.elapsed]): when the screen that draws it changes, it goes on.
  */
 object ShaderPlay {
     /** One that plays, or waits for home. [seconds]: how long, or null for the shader's own time. */
-    data class Playing(val name: String, val seconds: Float?, val at: Long)
+    data class Playing(val name: String, val seconds: Float?, val at: Long) {
+        /**
+         * How far it has played, in seconds. The screen that draws it sets it, and the next one starts there,
+         * so it ends when it would have. Not part of what it equals.
+         */
+        @Volatile
+        var elapsed: Float = 0f
+    }
 
     /** A one-off shader runs this long at least and at most, in seconds. */
     const val MIN_SECONDS = 1f
@@ -37,7 +45,7 @@ object ShaderPlay {
 
     private val _current = MutableStateFlow<Playing?>(null)
 
-    /** The one that plays, if any. Home draws it. */
+    /** The one that plays, if any. Home draws it, or a full-screen screen over home that draws one ([covered]). */
     val current: StateFlow<Playing?> = _current.asStateFlow()
 
     private val _covered = MutableStateFlow(0)
@@ -47,12 +55,20 @@ object ShaderPlay {
 
     fun cover(on: Boolean) = _covered.update { (it + if (on) 1 else -1).coerceAtLeast(0) }
 
-    /** Plays [name], unless one plays already. Main process. False when one does. */
-    fun play(name: String, seconds: Float?, at: Long = System.currentTimeMillis()): Boolean {
+    /**
+     * Plays [name], unless one plays already. Main process. False when one does.
+     * [first] runs just before it starts, and only when it does: no other can start in between.
+     */
+    @Synchronized
+    fun play(name: String, seconds: Float?, at: Long = System.currentTimeMillis(), first: () -> Unit = {}): Boolean {
         val next = Playing(name, seconds?.coerceIn(MIN_SECONDS, MAX_SECONDS), at)
         // One that home never got to show doesn't keep others out.
         _current.value?.let { if (stale(it, at)) _current.compareAndSet(it, null) }
-        return _current.compareAndSet(null, next)
+        // Only this, under the lock, starts one: [done] only ends one, so none can start between the look and the set.
+        if (_current.value != null) return false
+        first()
+        _current.value = next
+        return true
     }
 
     private fun stale(p: Playing, now: Long) = now - p.at > WAIT_MS

@@ -177,7 +177,7 @@ A network failure raises an error (JS: rejects); an HTTP error status doesn't, s
 | `apps.list()` | → `[{ label, pkg, profile }]`, the launchable apps; `profile` is `"personal"` or `"other"`. `@uses apps`. |
 | `notifications.recent(n?)` | → `[{ pkg, app, title, text, time }]`, newest first, 20 (up to 50); `time` in ms. `@uses notifications`. |
 | `launcher.run(command)` | → bool. Runs a built-in or another script's command, as typed. Only in a run started from the prompt (a command, `script run`), at most 10 a run; commands that change things (`clear`, `uninstall`, `work`, `script`…) are refused. `@uses commands`. |
-| `web.open(url)` | → bool. Opens an http(s) link in a run the user started; 3 a run. |
+| `web.open(url)` | → bool. Opens an http(s) link in a user-started run; 3 a run, no secret |
 | `device.work()` | → `"on"`, `"paused"`, or nil without a work profile. `@uses work`. |
 | `device.setWork(on)` | Resumes (true) or pauses (false) the work profile; → false when Android refuses (only in the foreground). `@uses work`. |
 
@@ -217,7 +217,7 @@ The usage calls return nil without usage access. With an `@uses` switch off, the
 
 ### What a script may use
 
-Internet has no `@uses` line: a script whose code mentions `http`, `rss`, `url`, `image`, `launcher.run` or `web.open` has it, unless the user switches it off. Each `@uses` item is a switch of its own.
+Internet has no `@uses` line: a script whose code mentions `http`, `rss`, `url`, `image`, `web` or `launcher.run` has it, unless the user switches it off. Each `@uses` item is a switch of its own.
 
 | `@uses` | Allows | Also needs |
 | --- | --- | --- |

@@ -97,15 +97,13 @@ class ScriptCheckTest {
             "@on chat isn't an event or a package name: ${ScriptMeta.EVENTS.joinToString(", ")}",
             lua("-- @on notification chat").single().text
         )
-        // A package after another event, or after a comma, belongs to no notification.
+        // A package after another event belongs to no notification; after a comma it goes to the last one.
         assertEquals(
             "@on com.example.chat: only notification takes package names, as in @on notification com.example.chat",
             lua("-- @on unlock com.example.chat").single().text
         )
-        assertEquals(
-            "@on com.example.chat: only notification takes package names, as in @on notification com.example.chat",
-            lua("-- @on notification, com.example.chat").single().text
-        )
+        assertTrue(lua("-- @uses notifications\n-- @on notification, com.example.chat\nlog(1)").isEmpty())
+        assertTrue(lua("-- @uses notifications\n-- @on notification com.example.chat, org.example.mail\nlog(1)").isEmpty())
     }
 
     /** A comment isn't a call, and a table of the script's own by that name is its own. */

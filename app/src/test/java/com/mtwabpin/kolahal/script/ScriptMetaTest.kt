@@ -79,13 +79,45 @@ class ScriptMetaTest {
         assertEquals(listOf("notification"), ScriptMeta.events(code))
         assertEquals(emptyList<String>(), ScriptMeta.notificationApps(code))
         assertEquals(listOf("com.example/chat", "chat"), ScriptMeta.unknownEvents(code))
-        // A package after another event, or alone after a comma, is no event and names no app.
+        // A package after another event is no event and names no app.
         assertEquals(listOf("com.example.chat"), ScriptMeta.unknownEvents("-- @on unlock com.example.chat"))
-        assertNull(ScriptMeta.notificationApps("-- @on notification, com.example.chat"))
+        assertEquals(listOf("com.example.chat"), ScriptMeta.unknownEvents("-- @on unlock, com.example.chat"))
+        assertNull(ScriptMeta.notificationApps("-- @on unlock, com.example.chat"))
         assertTrue(ScriptMeta.PACKAGE.matches("com.example.chat_2"))
         assertFalse(ScriptMeta.PACKAGE.matches("chat"))
         assertFalse(ScriptMeta.PACKAGE.matches("com..chat"))
         assertFalse(ScriptMeta.PACKAGE.matches("com.2chat"))
+    }
+
+    /**
+     * After a comma, a word with a dot is one more app of the last `notification`, so a comma never makes the line
+     * run for every app or for fewer than it names; a malformed one still matches no app.
+     */
+    @Test
+    fun namesAfterAComma() {
+        val both = listOf("com.example.chat", "org.example.mail")
+        assertEquals(both, ScriptMeta.notificationApps("-- @on notification com.example.chat, org.example.mail"))
+        assertEquals(listOf("com.example.chat"), ScriptMeta.notificationApps("-- @on notification, com.example.chat"))
+        assertEquals(both, ScriptMeta.notificationApps("// @on notification,com.example.chat,org.example.mail"))
+        assertTrue(ScriptMeta.unknownEvents("-- @on notification com.example.chat, org.example.mail").isEmpty())
+        // Names before an event in a later part go with the last notification, and the event is read as one.
+        val code = "-- @on notification com.example.chat, unlock, org.example.mail"
+        assertEquals(both, ScriptMeta.notificationApps(code))
+        assertEquals(listOf("unlock", "notification"), ScriptMeta.events(code))
+        // Names then an event, as before.
+        assertEquals(both, ScriptMeta.notificationApps("-- @on notification com.example.chat org.example.mail, unlock"))
+        // With two notifications on a line, a name after a comma goes with the later one.
+        assertEquals(
+            listOf("com.example.chat", "org.example.mail"),
+            ScriptMeta.notificationApps("-- @on notification com.example.chat, charger, notification, org.example.mail"),
+        )
+        // A malformed name after a comma matches no app: never every app.
+        val bad = "-- @on notification, com.example/chat"
+        assertEquals(emptyList<String>(), ScriptMeta.notificationApps(bad))
+        assertEquals(listOf("com.example/chat"), ScriptMeta.unknownEvents(bad))
+        assertFalse(ScriptMeta.runsFor(ScriptMeta.notificationApps(bad), "com.example.chat"))
+        // A word without a dot after a comma is read as a misspelled event, as anywhere else.
+        assertEquals(listOf("chat"), ScriptMeta.unknownEvents("-- @on notification, chat"))
     }
 
     /** A notification runs a script for every app, or only for the apps it names. */
@@ -345,6 +377,16 @@ class ScriptMetaTest {
         assertFalse(ScriptMeta.usesInternet("-- @uses dnd\ndevice.setDnd('on')\nlog('see https://example.com')"))
         // Commands can hand words to a site (a search).
         assertTrue(ScriptMeta.usesInternet("-- @uses commands\nlauncher.run('yt ' .. args[1])"))
+        // However launcher.run is reached, as it would be refused a search otherwise, with no switch to allow it.
+        for (code in listOf(
+            "const { run } = launcher; run(\"yt cats\");",
+            "local l = launcher\nl.run('yt cats')",
+            "launcher[\"run\"](\"yt cats\");",
+            "launcher?.run(\"yt cats\");",
+            "go(launcher)",
+        )) assertTrue(code, ScriptMeta.usesInternet(code))
+        // But launcher is a word in prose too.
+        assertFalse(ScriptMeta.usesInternet("-- Only the default launcher can pause the work profile\nlog('Kolahal must be the default launcher (type home)')"))
 
         assertTrue(ScriptMeta.setsStatus("status(\"HN: 3 new\")"))
         assertTrue(ScriptMeta.setsStatus("status(nil)"))
