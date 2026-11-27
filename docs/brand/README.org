@@ -13,6 +13,8 @@ Each drawing is an SVG, 512 × 512, with PNG exports at 512 and 1024 px (=-512.p
 - [[file:avatar-peak.svg][avatar-peak.svg]]: The prompt as a peak. A cream prompt chevron drawn as a mountain peak under the sun.
 - [[file:avatar-seedling.svg][avatar-seedling.svg]]: A seedling at dusk. A two-leaf seedling against the sun.
 - [[file:avatar-lantern.svg][avatar-lantern.svg]]: A sky lantern. A glowing lantern rising over the ridge, with two small ones behind.
+- [[file:avatar-log-on-the-chest.svg][avatar-log-on-the-chest.svg]]: The log on the chest. The sun as a head on rounded ridge shoulders, with two log lines on the chest: it reads as a person's profile picture.
+- [[file:avatar-night.svg][avatar-night.svg]]: At night. A moon as the head over dark shoulders, the prompt's chevron as an amber collar, a few stars.
 
 * Colors
 

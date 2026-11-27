@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- At night, the prompt as a collar -->
+  <defs>
+    <radialGradient id="glowCream" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F2E2C4" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#F2E2C4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15121F"/>
+      <stop offset="0.6" stop-color="#262038"/>
+      <stop offset="1" stop-color="#2F2845"/>
+    </linearGradient>
+    <clipPath id="moon"><circle cx="256" cy="228" r="90"/></clipPath>
+  </defs>
+  <rect width="512" height="512" fill="url(#night)"/>
+  <g fill="#F2E2C4">
+    <circle cx="96" cy="170" r="5"/><circle cx="410" cy="128" r="5"/>
+    <circle cx="150" cy="96" r="3.5" opacity="0.6"/><circle cx="380" cy="230" r="3.5" opacity="0.6"/>
+    <circle cx="440" cy="196" r="3" opacity="0.5"/>
+  </g>
+  <path d="M-20 380 L50 350 L118 366 L170 344 L210 360 V540 H-20 Z M532 380 L462 348 L398 366 L344 342 L302 360 V540 H532 Z" fill="#1F1A2B"/>
+  <circle cx="256" cy="228" r="160" fill="url(#glowCream)"/>
+  <circle cx="256" cy="228" r="90" fill="#F2E2C4"/>
+  <circle cx="272" cy="220" r="84" fill="#E6D5B8" clip-path="url(#moon)"/>
+  <path d="M24 540 V472 C24 382 130 320 256 314 C382 320 488 382 488 472 V540 Z" fill="#14111C"/>
+  <path d="M194 346 L256 412 L318 346" fill="none" stroke="#F0A868" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
