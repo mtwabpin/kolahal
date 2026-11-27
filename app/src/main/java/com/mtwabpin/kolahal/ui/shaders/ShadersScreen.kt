@@ -109,8 +109,9 @@ import kotlinx.coroutines.launch
  * - Details, on each row, opens its sheet ([ShaderSheet]). Its Edit opens the shader's code in the editor ([onEdit]).
  * - Add shader: Get more shaders, Import a file, Read the script folder again, Start from a template
  *   ([TemplateSheet]).
- * - A one-off's Play, on its row and in its sheet, plays it over this screen, which stays ([ShaderActions.playHere]); a
- *   tap on its row plays it on home.
+ * - A one-off plays over this screen, which stays ([ShaderActions.playHere]): a tap on its row, its Play and the Play in
+ *   its sheet do the same. Where Play can't be pressed, a tap on the row plays nothing either, but one that was turned
+ *   off plays and is on again, as a tap turns any other on again.
  * - Under the one-off shaders, Play over other apps ([OverAppsSwitch]), in a build that has it.
  * - On Android 12 and older the shaders are listed, but can't be used.
  * - While it is open, the values from the phone's use that any listed shader follows are worked out ([UsageWatch.list]),
@@ -166,10 +167,6 @@ fun ShadersScreen(
     val bundled = remember(found) { found.filter { it.bundled && it.meta.once == null } }
     val mine = remember(found) { found.filter { !it.bundled && it.meta.once == null } }
     val once = remember(found) { found.filter { it.meta.once != null } }
-    val play: (String) -> Unit = {
-        actions.play(it)
-        open(Screen.TERMINAL)
-    }
     val screenReader = rememberScreenReader()
     var adding by rememberSaveable { mutableStateOf(false) }
     var templates by rememberSaveable { mutableStateOf(false) }
@@ -296,13 +293,14 @@ fun ShadersScreen(
                     onDetails = { details = r.name },
                 )
             }
-            if (once.isNotEmpty()) item(key = "once") { GroupHeader("One-off: played once over home") }
+            if (once.isNotEmpty()) item(key = "once") { GroupHeader("One-off: plays once") }
             itemsIndexed(once, key = { _, r -> "shader:" + r.name }) { i, r ->
+                val play = ShaderPage.play(r, problems[r.name], Shaders.supported, screenReader)
                 ShaderChoice(
                     r, inUse, problems[r.name], i, once.size,
                     wallpaper = false,
-                    onUse = { play(r.name) },
-                    play = ShaderPage.play(r, problems[r.name], Shaders.supported, screenReader),
+                    onUse = { if (ShaderPage.rowPlays(r, play, problems[r.name], Shaders.supported)) actions.playHere(r.name) },
+                    play = play,
                     onPlay = { actions.playHere(r.name) },
                     onDetails = { details = r.name },
                 )
@@ -372,13 +370,15 @@ private fun ShaderChoice(
         shapes = segShapes(index, count),
         colors = segColors(),
         enabled = Shaders.supported,
-        leadingContent = {
-            if (row.meta.once != null) Icon(painterResource(R.drawable.ic_play), null, tint = colors.primary)
-            else RadioButton(
-                selected = selected,
-                onClick = null,
-                enabled = Shaders.supported
-            )
+        // A one-off isn't chosen, but played: its Play is at the end, and nothing marks it at the start.
+        leadingContent = if (row.meta.once != null) null else {
+            {
+                RadioButton(
+                    selected = selected,
+                    onClick = null,
+                    enabled = Shaders.supported
+                )
+            }
         },
         overlineContent = {
             Text(

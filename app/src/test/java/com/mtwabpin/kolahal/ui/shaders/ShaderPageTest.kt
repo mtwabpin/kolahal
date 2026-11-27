@@ -146,4 +146,19 @@ class ShaderPageTest {
         assertEquals(false, ShaderPage.play(once.copy(turnedOff = true), null, supported = true, screenReader = false))
         assertNull(ShaderPage.play(once, null, supported = true, screenReader = true))
     }
+
+    /** A tap on a one-off's row plays it where Play can be pressed, and a turned-off one too, which is on again. */
+    @Test
+    fun aRowTapPlaysAsPlayDoes() {
+        val once = bundled.copy(name = "hearts", code = "// @once 6\n$code")
+        fun tap(row: ShaderRow, problem: String? = null, supported: Boolean = true, screenReader: Boolean = false) =
+            ShaderPage.rowPlays(row, ShaderPage.play(row, problem, supported, screenReader), problem, supported)
+        assertTrue(tap(once))
+        assertTrue(tap(once.copy(turnedOff = true)))
+        assertFalse(tap(once, screenReader = true))
+        assertFalse(tap(once.copy(turnedOff = true), screenReader = true))
+        assertFalse(tap(once, supported = false))
+        assertFalse(tap(once.copy(turnedOff = true), supported = false))
+        assertFalse(tap(once, problem = "it doesn't compile"))
+    }
 }

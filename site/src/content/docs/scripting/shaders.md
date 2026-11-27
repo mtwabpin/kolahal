@@ -151,8 +151,8 @@ To see it behind the log, use [`log.wallpaper`](/reference/config/#log).
 ## One-off shaders
 
 A one-off shader runs once for some seconds, over the shader that is on, and goes. It draws over everything on the
-screen, text and the shader that is on included. Tap one under **One-off** in the **Shaders** tab, or type
-`shader play hearts`. It can't be turned on to stay. **Play** on its row or in its details plays it right there, over the **Shaders** tab.
+screen, text and the shader that is on included. Tap one under **One-off** in the **Shaders** tab, or its **Play**, and it plays
+right there, over the tab; **Play** in its details does the same. On home, type `shader play hearts`. It can't be turned on to stay.
 
 **On a notification.** In its details, under **Plays on a notification**, type words with commas between, such as a name. It
 plays when a notification's title or text has one of them: whole words, in any case. Kolahal needs notification access for

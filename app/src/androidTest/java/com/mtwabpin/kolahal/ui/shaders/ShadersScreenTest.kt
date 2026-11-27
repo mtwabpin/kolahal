@@ -189,17 +189,20 @@ class ShadersScreenTest {
         compose.waitForNode(hasTestTag("shader off"))
     }
 
-    /** A one-off shader is played from its row, on home; it isn't turned on. */
+    /** A tap on a one-off's row plays it over this page, as its Play does: the page stays, and it isn't turned on. */
     @Test
-    fun aOneOffShaderIsPlayed() {
+    fun aRowTapPlaysItOverThisPage() {
         needsAndroid13()
         val vm = show()
+        // As in the app, the Shaders screen is open: a tap that went home would change it.
+        vm.openScreen(Screen.SHADERS)
         compose.onNodeWithTag("shader-search").performTextInput("hearts")
         compose.waitForNode(hasTestTag("shader hearts"))
         try {
             row("hearts").performClick()
-            compose.waitFor("not played") { ShaderPlay.current.value?.name == "hearts" }
-            assertEquals(Screen.TERMINAL, vm.screen.value)
+            compose.waitFor("not played") { "hearts" in ActiveShaders.names.value }
+            row("hearts").assertExists()
+            assertEquals(Screen.SHADERS, vm.screen.value)
             assertEquals(ShaderCatalog.OFF, config[Keys.SCREEN_SHADER])
         } finally {
             ShaderPlay.current.value?.let(ShaderPlay::done)
@@ -576,21 +579,27 @@ class ShadersScreenTest {
         assertNull(ShaderSafety.get(app).tripped())
     }
 
-    /** A one-off that was turned off says why, and the tap that plays it turns it on again. */
+    /** A one-off that was turned off says why, and the tap that plays it turns it on again, over this page. */
     @Test
     fun aOneOffThatWasTurnedOffTurnsOnAgain() {
         needsAndroid13()
         val id = ShaderSafety.id("hearts", Shaders.bundled(app, "hearts"))
         ShaderSafety.get(app).trip(id, "Kolahal stopped while it played over an app")
-        show()
+        val vm = show()
+        vm.openScreen(Screen.SHADERS)
         compose.onNodeWithTag("shader-search").performTextInput("hearts")
         compose.waitForNode(
             hasTestTag("shader hearts") and hasText("Turned off: Kolahal stopped while it played over an app", substring = true)
         )
-        row("hearts").performClick()
-        compose.waitFor("hearts is still turned off") { ShaderSafety.get(app).tripped() == null }
-        compose.waitFor("its row still says so") {
-            compose.onAllNodes(hasTestTag("shader hearts") and hasText("Turned off", substring = true)).fetchSemanticsNodes().isEmpty()
+        try {
+            row("hearts").performClick()
+            compose.waitFor("hearts is still turned off") { ShaderSafety.get(app).tripped() == null }
+            assertEquals(Screen.SHADERS, vm.screen.value)
+            compose.waitFor("its row still says so") {
+                compose.onAllNodes(hasTestTag("shader hearts") and hasText("Turned off", substring = true)).fetchSemanticsNodes().isEmpty()
+            }
+        } finally {
+            ShaderPlay.current.value?.let(ShaderPlay::done)
         }
     }
 
