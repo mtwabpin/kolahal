@@ -1,0 +1,171 @@
+---
+title: "How Kolahal counts screen time"
+description: "Why usage and Digital Wellbeing can show different numbers for the same day: what usage shows, where its numbers come from, what counts as time in an app, the other places in Kolahal that show usage, and what to check when a number looks wrong."
+date: 2026-11-27
+prev: false
+---
+
+If `usage` and Digital Wellbeing show different screen time for the same day, both can be right: they count different things. `usage` counts every app that was in front with the screen on since midnight, Kolahal itself and the phone's call screen included, in your personal profile only. Google doesn't publish what Digital Wellbeing counts, so the two aren't expected to match to the minute. To find the difference, compare the two lists app by app and look for the lines one has and the other doesn't. Kolahal's own line is the first to look for: it is the time you spent on home.
+
+The rest of this post explains how `usage` works, what it leaves out, and the other places in Kolahal that show usage.
+
+## What usage shows
+
+Type `usage` at the prompt and press Enter.
+
+```sh title="At the prompt"
+usage
+```
+
+- The large number is today's screen time: the time of all apps together since midnight. With a [daily limit](/guides/apps/#daily-limits), it is in the warning color from the limit, and a line under it says how far over you are.
+- Then a line for each app, the most used first: its name, a bar and its time. The bars share one scale, so the most used app fills its bar. A tap on a line opens that app.
+- The list has up to 12 apps used for a minute or more. **Other apps** holds the rest: apps past the first 12, apps under a minute, and apps Android gives no name for. So the lines add up to the total.
+- Every time is rounded down to whole minutes. That is why the lines can add up to a minute or two less than the large number.
+
+{/* Picture: usage on the phone, the large number over a line for each app with its bar, Kolahal's line among them and Other apps last. */}
+
+`usage 7` shows the last 7 days (any number from 1 to 30). The large numbers are the time **a day**, which is the average of the finished days (today has only its hours so far), and the total **in 7 days**, today included. If Android has fewer days, a line such as `5 of 7 days` says so.
+
+`usage maps` shows one app: its time today, how often you opened it, and its longest session; when you last used it; a column for each hour of today (or of the last day you used it); and a line for each of the last 7 days with their average. An app counts as opened when it comes to the front after another app, after the screen was off, or after it was away for more than 5 seconds. Going from one screen of an app to another is not an open.
+
+`unlocks` counts how often the phone was unlocked: each time the lock screen goes away.
+
+## Where the numbers come from
+
+Android keeps a record of app use: each time a screen of an app comes to the front or goes away, the screen turns on or off, the phone locks or unlocks, and the phone shuts down or starts. Kolahal reads that record with the **Usage access** permission, which you grant in Android's settings (`allow usage` opens the page).
+
+`usage` doesn't use the daily totals that Android also keeps. Android's stored totals start where the one before ended, which on many phones is not your midnight. So `usage` reads the record itself and works out each app's sessions: when it came to the front and when it went away. Then it cuts the sessions at midnight in the phone's time zone.
+
+Android keeps this record for a few days only, about 10 on many phones. The oldest of those days starts partway through, so `usage` leaves it out. `usage 30` shows only the days that have data, and its average is over those days.
+
+## What counts as time in an app
+
+A session starts when a screen of an app comes to the front. It ends when another app comes to the front, the screen goes off, the phone locks, or the phone shuts down.
+
+Counted:
+
+- Every app in front with the screen on, Kolahal itself too. Time on home is Kolahal's time, and it has its own line.
+- The phone's call screen, while it is in front with the screen on. On some phones that screen belongs to a part of Android that has no name Kolahal can read: its time is then in **Other apps**.
+- Hidden apps, under their names.
+- Apps you have since uninstalled: their time stays in the total, in **Other apps**.
+
+Not counted:
+
+- The lock screen and the always-on display: the session ends when the phone locks or the screen goes off.
+- A video in picture-in-picture: Android pauses an app when it goes into that small window, so the time goes to the app in front, or to home.
+- In split screen, Kolahal counts one app at a time: the one that came to the front last.
+- A stretch of more than six hours in which nothing at all happens: no app changes, the screen doesn't go off. Kolahal takes it as a phone left on its own (for example, one that died with a flat battery), and that whole stretch counts nothing. A video or a map that keeps the screen on for more than six hours with nothing else happening counts no time for that stretch.
+- Apps in a work profile or a private space: Android gives Kolahal the usage of the personal profile only.
+
+## Why the total differs from Digital Wellbeing
+
+Each of these can make the two totals differ. They can add up.
+
+### Time on home
+
+`usage` counts the time on Kolahal's home like any other app. Google doesn't say whether Digital Wellbeing counts the time on your home screen.
+
+Example: `usage` shows **Kolahal 25m**, and Digital Wellbeing's list has no line for your home app. Then 25 minutes of the difference are time on home.
+
+### Phone calls
+
+`usage` counts the call screen while it is in front with the screen on. If its package has no name Kolahal can read, that time is in **Other apps**, not on a line of its own.
+
+Example: a 15-minute call with the call screen on adds up to 15 minutes to today's total in `usage`, under the phone app's name or in **Other apps**.
+
+### Picture-in-picture and split screen
+
+Example: you watch a video in Music's small window over home for 20 minutes. `usage` gives those 20 minutes to Kolahal, because home is the app in front, and none to Music.
+
+Example: Maps and Browser share the screen in split screen for 30 minutes, and Browser came to the front last. `usage` gives the 30 minutes to Browser.
+
+### Where the day starts
+
+`usage` starts each day at midnight in the phone's time zone at the moment you run it. A session over midnight is cut in two.
+
+Example: you read in Browser from 23:40 to 00:15. `usage` gives 20 minutes to yesterday and 15 minutes to today, and today's part is not an open.
+
+Google's help says only that Digital Wellbeing's chart shows your device use today, and that its app timers reset at midnight.
+
+When the time zone changes, `usage` cuts every day again at the new midnight, the past days too.
+
+Example: you fly from Lisbon to Tokyo. From then on, `usage 7` cuts each day at Tokyo's midnight, so yesterday's figure changes.
+
+On the day the clock changes for summer time, that day is 23 or 25 hours long, and in `usage maps` one hour's column can hold two hours' time, or none.
+
+### Right after a restart
+
+Android writes its record to storage from time to time. When the phone shuts down, what happened after the last write is lost.
+
+Example: you use Maps for 10 minutes and restart the phone. Some or all of those minutes can be missing from `usage`. If the battery ran flat, the app's session ends at the last thing Android wrote down.
+
+### Rounding and how recent
+
+`usage` rounds each time down to whole minutes, and it counts up to the moment you run it. The Screen time card can be up to 15 minutes older ([below](#other-places-in-kolahal-that-show-usage)).
+
+### Work profile and private space
+
+Android gives Kolahal no usage of a work profile or a private space. `usage` leaves their apps out, and `usage` with a work app's name says so.
+
+Example: you spend an hour in a work profile's Browser. `usage` counts none of it.
+
+## The same day, three places
+
+| | `usage` | Screen time card | Digital Wellbeing |
+| --- | --- | --- | --- |
+| What it shows | each app's time in front with the screen on | the same, with a bar for each of the last 7 days | "What apps you've had on screen and for how long" (Google's words) |
+| Where the day starts | midnight in the phone's time zone | the same | not published; app timers reset at midnight |
+| Counted up to | the moment you run it | its last run: up to 15 minutes before | not published |
+| Time on home (Kolahal) | counted, on its own line | counted | not published |
+| Lock screen, always-on display | not counted | not counted | not published |
+| Video in picture-in-picture | not counted; the app in front gets the time | the same | not published |
+| Split screen | one app: the one that came to the front last | the same | not published |
+| Rounding | down to whole minutes | the same | not published |
+| Work profile, private space | not counted | not counted | not published |
+
+## Other places in Kolahal that show usage
+
+These count screen time the same way as `usage`, from the same record and the same midnight:
+
+- The library's **Screen time** card (`script install screen-time`), and the `usage.today` and `usage.days` calls that scripts use. The card runs again when it shows and its content is 15 minutes old or more, so it can be up to 15 minutes behind `usage`. A tap on it runs it again and logs today's apps. Its top app line uses Android's name for an app, while `usage` uses the name you gave it with `rename`.
+- `top`, which asks again for today's screen time once a minute.
+- Shaders that follow `screen` values, such as `candle` and `hourglass`.
+
+These use Android's own totals, so they can differ from `usage`:
+
+- `usage summary`, `usage week`, `usage month`, `usage year` and `usage full`, the **Screen time by month** card and the `usage.summary` call. Android keeps coarser totals for about 4 weeks, 6 months and 2 years, each starting where the one before ended, not on a Monday or the 1st. A `≈` marks these numbers: about right, not exact. For the same days, they won't match `usage` to the minute.
+- The apps "not opened for 30 days" in `storage`, which use the last time Android's totals saw each app.
+
+Unlocks are counted on their own:
+
+- `unlocks`, the header's unlocks part, `fetch`, the **Unlocks** card and `device.unlocks` show the same count: each time the lock screen went away, from Android's record. Without Usage access, Kolahal counts the unlocks it sees while it runs, and misses the rest.
+- Kolahal saves each finished day's count, so `unlocks 30` goes back further than `usage 30` as the weeks go by. A saved count keeps the midnight it was counted with: after the trip from Lisbon to Tokyo, the days saved before it stay cut at Lisbon's midnight, while `usage 7` cuts them at Tokyo's.
+
+The suggestions under the prompt are a separate thing. They rank apps by the times you opened them from Kolahal, with older launches counting less each week. An app you open from Android's notifications or its recent apps screen counts in `usage` but not there.
+
+## What usage can't count
+
+- Use in a work profile or a private space.
+- Days before the oldest one Android keeps.
+- Time lost before a restart, or a session that ended with a flat battery, past the last thing Android wrote down.
+- Whether you looked at the screen: an app in front with the screen on counts, whether you used it or not.
+- Use on your other devices.
+
+## Privacy
+
+Kolahal reads usage on the phone and sends none of it anywhere.
+
+A script can read your screen time per app, your data use and the apps you don't open (`usage.today`, `usage.days`, `usage.summary`, `usage.data`, `usage.unused`) only when three things are true: its code declares `@uses usage`, you turned on its **Your app usage** switch, and Kolahal has Usage access. Otherwise these calls give nothing. Unlock counts (`device.unlocks`) need no access item: any script can read them.
+
+A script that can read your usage and also has internet access could send what it reads off the phone. Its page and the dialogs that grant access warn of that pair; Kolahal doesn't block it. You can switch either access off on the script's page. Shaders get numbers only: they have no network and no files. [Privacy](/reference/privacy/) says what each permission is for.
+
+## When the numbers look wrong
+
+1. **Check Usage access.** Without it, `usage` says it needs usage access, and a tap on that line opens Android's page. `allow usage` opens it too.
+2. **For a card, check its switch.** The Screen time card also needs its **Your app usage** switch on its script's page. A tap on the card runs it again.
+3. **Compare app by app.** Look for lines that only one of the two has, such as Kolahal, the phone app or **Other apps**.
+4. **After a restart,** expect the minutes just before it to be missing.
+5. **After travel,** remember that every day is cut at the midnight of the phone's time zone now.
+6. **Check the profile.** Work profile and private space apps don't count in `usage`.
+
+The [Apps guide](/guides/apps/#screen-time-and-unlocks) lists every `usage` and `unlocks` command.

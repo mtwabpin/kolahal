@@ -184,7 +184,7 @@ export default defineConfig({
 				},
 				{
 					label: 'Blog',
-					items: [{ slug: 'blog/0-5-17' }],
+					items: [{ slug: 'blog/how-usage-counts' }, { slug: 'blog/0-5-17' }],
 				},
 			],
 		}),
