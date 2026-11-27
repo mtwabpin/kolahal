@@ -775,7 +775,7 @@ object Keys {
         "widgets.corners",
         "own",
         listOf("own", "square", "slight", "rounded", "very"),
-        "How round the corners of Kolahal's widgets are.\nSplit's tiles and Shape's shapes keep their own",
+        "How round the corners of Kolahal's widgets are.\nA card drawn as a shape in the Shape look keeps its shape",
         notes = mapOf(
             "own" to "As each widget has them: 24 dp on a 1×1, 28 dp on a larger one",
             "square" to "No rounding",

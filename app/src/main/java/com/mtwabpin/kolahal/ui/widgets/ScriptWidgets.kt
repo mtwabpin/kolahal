@@ -27,6 +27,7 @@ import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -181,10 +182,17 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
 }
 
 /**
- * The corners widgets.corners gives the card being drawn, in a look that takes them ([CardCorners.takenIn]);
- * null for the cards' own. [WidgetCard] provides it, for a surface inside that fills the card ([CardCorners.inner]).
+ * The corners widgets.corners gives the card being drawn, where it takes them ([CardCorners.takenIn]);
+ * null for the cards' own. [WidgetCard] provides it, for a surface inside that fills the card
+ * ([CardCorners.inner]) and for Split's tiles ([SplitCorners]).
  */
 internal val LocalCardCorners = staticCompositionLocalOf<CardCorners?> { null }
+
+/**
+ * Where a card tells whether it is one Material shape ([cardPolygon]): Arrange widgets draws the
+ * outline of a card that is one with its own corners, not the ones widgets.corners gives.
+ */
+internal val LocalOneShape = staticCompositionLocalOf<((Boolean) -> Unit)?> { null }
 
 /**
  * The corners of every card, from `widgets.corners` ([CardCorners]): null for the cards' own. A card is
@@ -301,8 +309,9 @@ internal fun WidgetCard(
         // Split's tiles and Shape's shape are the card: the frame itself draws nothing there.
         val bare = look == WidgetLook.SPLIT || polygon != null
         val side = min(maxWidth, maxHeight)
-        // The corners widgets.corners gives every card, where its look takes them ([CardCorners]); else its own.
-        val corners = rememberCardCorners()?.takeIf { CardCorners.takenIn(look) }
+        // The corners widgets.corners gives every card ([CardCorners]), else its own. A card that is one shape keeps it.
+        val corners = rememberCardCorners()?.takeIf { CardCorners.takenIn(look, oneShape = polygon != null) }
+        LocalOneShape.current?.let { tell -> SideEffect { tell(polygon != null) } }
         val small = box == WidgetSizes.Box.SMALL
         // Where the content's age goes: under the body, in it (a versus card), or nowhere ([UpdatedLine]).
         val footPlace = UpdatedLine.place(shown, look, widthDp, heightDp, footer?.asked == true)
@@ -310,53 +319,55 @@ internal fun WidgetCard(
         val scene = CardScenes.shown(LocalChosenScene.current, (shown as? WidgetSpec.Stat)?.scene)
         // On Now playing the cover wins while there is one: album art and a scene are one choice ([CardScenes.overArt]).
         val art = shown is WidgetSpec.Media && MediaArt.ground(LocalArtBackground.current, shown.cover != null, look, box)
-        Surface(
-            color = if (bare) Color.Transparent else colors.card,
-            contentColor = colors.content,
-            shape = if (bare) RectangleShape else RoundedCornerShape(CardCorners.dp(corners, small).dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .testTag("widget-card"),
-        ) {
-            Box(
-                Modifier
+        // Split's tiles take the corners too, and so does what is cut to them: the cover under Now playing's tiles.
+        CompositionLocalProvider(LocalCardCorners provides corners) {
+            Surface(
+                color = if (bare) Color.Transparent else colors.card,
+                contentColor = colors.content,
+                shape = if (bare) RectangleShape else RoundedCornerShape(CardCorners.dp(corners, small).dp),
+                modifier = Modifier
                     .fillMaxSize()
-                    .then(press)
-                    .semantics { contentDescription = description }) {
-                // A scene is the card's ground, under its body ([CardScene]).
-                if (scene != null && shown != null && note == null && polygon == null && CardScenes.overArt(art)) {
-                    CardScene(scene, look, WidgetJson.kindOf(shown), colors.card)
-                }
-                // With album art as background, the track's cover is the Now playing card's ground ([MediaArtGround]).
-                if (shown is WidgetSpec.Media && note == null && polygon == null) MediaArtGround(shown, look, box, colors.card)
-                // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
-                CompositionLocalProvider(
-                    LocalCardLongPress provides onLongClick,
-                    LocalWidgetLook provides look,
-                    LocalCardShape provides shape,
-                    LocalCardCorners provides corners,
-                    LocalCardColor provides shown?.base?.color,
-                    LocalCardFooter provides footer?.takeIf { footPlace == UpdatedLine.Place.BODY && note == null }
-                ) {
-                    if (body != null && note == null && shown != null) {
-                        body(box, onTap)
-                    } else if (polygon != null && shown != null) {
-                        ShapedCard(named, shown, polygon, side, box, onTap, stamp)
-                    } else {
-                        // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
-                        CardLayout(
-                            named,
-                            shown,
-                            note,
-                            failure,
-                            footer.takeUnless { look.untitled() },
-                            footPlace == UpdatedLine.Place.CARD,
-                            box,
-                            onTap,
-                            stamp,
-                            look,
-                            colors
-                        )
+                    .testTag("widget-card"),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .then(press)
+                        .semantics { contentDescription = description }) {
+                    // A scene is the card's ground, under its body ([CardScene]).
+                    if (scene != null && shown != null && note == null && polygon == null && CardScenes.overArt(art)) {
+                        CardScene(scene, look, WidgetJson.kindOf(shown), colors.card)
+                    }
+                    // With album art as background, the track's cover is the Now playing card's ground ([MediaArtGround]).
+                    if (shown is WidgetSpec.Media && note == null && polygon == null) MediaArtGround(shown, look, box, colors.card)
+                    // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
+                    CompositionLocalProvider(
+                        LocalCardLongPress provides onLongClick,
+                        LocalWidgetLook provides look,
+                        LocalCardShape provides shape,
+                        LocalCardColor provides shown?.base?.color,
+                        LocalCardFooter provides footer?.takeIf { footPlace == UpdatedLine.Place.BODY && note == null }
+                    ) {
+                        if (body != null && note == null && shown != null) {
+                            body(box, onTap)
+                        } else if (polygon != null && shown != null) {
+                            ShapedCard(named, shown, polygon, side, box, onTap, stamp)
+                        } else {
+                            // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
+                            CardLayout(
+                                named,
+                                shown,
+                                note,
+                                failure,
+                                footer.takeUnless { look.untitled() },
+                                footPlace == UpdatedLine.Place.CARD,
+                                box,
+                                onTap,
+                                stamp,
+                                look,
+                                colors
+                            )
+                        }
                     }
                 }
             }

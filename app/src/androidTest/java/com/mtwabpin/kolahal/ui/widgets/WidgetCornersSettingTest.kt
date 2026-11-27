@@ -21,6 +21,7 @@ import com.mtwabpin.kolahal.ui.theme.KolahalTheme
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.widgets.TestWidgets
 import com.mtwabpin.kolahal.widgets.WidgetLocation
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import org.junit.After
@@ -104,5 +105,32 @@ class WidgetCornersSettingTest {
             (0 until own.height step 2).count { y -> own[x, y] != again[x, y] }
         }
         assertTrue("Its own left $left pixels changed", left < differ / 4)
+    }
+
+    /** Now playing in Split: its tiles are the card's outline, and Square changes them in the preview too. */
+    @Test
+    fun splitsTilesChangeInThePreview() {
+        assumeTrue(
+            "widgets page 1 had widgets before the test",
+            t.host.widgets.value.none { it.location == WidgetLocation.PANEL }
+        )
+        assumeTrue("Now playing was placed before the test", t.host.placeBuiltin(WidgetSource.MEDIA, WidgetSize.S4X1))
+        val placed = t.host.widgets.value.single { it.source == WidgetSource.builtin(WidgetSource.MEDIA) }
+        t.host.setLook(placed.key, WidgetLook.SPLIT)
+        show()
+        compose.waitFor("the preview has no card") {
+            compose.onAllNodes(androidx.compose.ui.test.hasText(NO_WIDGETS_YET), useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
+        }
+        compose.waitForIdle()
+        val own = preview()
+
+        compose.onNodeWithText("Square").performClick()
+        compose.waitFor("the setting isn't kept") { config[Keys.WIDGET_CORNERS] == "square" }
+        compose.waitForIdle()
+        val square = preview()
+        val differ = (0 until own.width step 2).sumOf { x ->
+            (0 until own.height step 2).count { y -> own[x, y] != square[x, y] }
+        }
+        assertTrue("Square changed only $differ pixels of Split's tiles in the preview", differ > 20)
     }
 }

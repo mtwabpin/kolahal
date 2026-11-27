@@ -374,9 +374,6 @@ private val SHAPE_TEXT_CONTROL = 80.dp
 /** The outline of a whole Shape button or switch, label and all: what a press's ripple fills. */
 private val SHAPE_ITEM = RoundedCornerShape(16.dp)
 
-/** A Split tile while pressed: its outside corners go in to the inside ones. */
-private val SPLIT_PRESSED = RoundedCornerShape(SplitCorners.INNER)
-
 /**
  * The shapes Shape's buttons take, one after the other, as the mockup draws a card of eight:
  * a cookie, a clover, a sunny, a wavy circle, a four-sided cookie, a circle, a burst and a square.
@@ -487,8 +484,8 @@ private fun lookGrid(count: Int, widthDp: Int, heightDp: Int, maxColumns: Int): 
 }
 
 /**
- * Split's grid of buttons or switches:[count] tiles that fill the box, 4 dp apart, with 28 dp
- * corners where they touch the card's edge and 8 dp inside ([SplitCorners.inGrid]). The rows are
+ * Split's grid of buttons or switches:[count] tiles that fill the box, 4 dp apart, with the card's
+ * corners where they touch its edge and smaller ones inside ([SplitCorners.inGrid]). The rows are
  * as [WidgetWords.grid] lays them out; a short last row has wider tiles, so the grid stays a
  * rectangle. [cell] draws item `index` in its `tile` shape, `width` by `height`. A tile held down
  * widens, and the ones beside it narrow ([giveWayWeight]).
@@ -670,7 +667,7 @@ private fun CardButton(
     val container = if (plain) (color ?: cardRoleColor()).copy(alpha = 0.2f) else looks.tile
     val content = if (plain) color ?: MaterialTheme.colorScheme.onSurface else looks.content
     val shapes = when {
-        tile != null -> ButtonDefaults.shapes(shape = tile, pressedShape = SPLIT_PRESSED)
+        tile != null -> ButtonDefaults.shapes(shape = tile, pressedShape = SplitCorners.pressed())
         look == WidgetLook.TONAL -> ButtonDefaults.shapes(shape = TONAL_BUTTON)
         else -> ButtonDefaults.shapes()
     }
@@ -939,7 +936,7 @@ private fun CardToggle(
             onCheckedChange = { press.click { onClick?.invoke() } },
             modifier = semantics,
             enabled = onClick != null,
-            shapes = ToggleButtonShapes(tile, SPLIT_PRESSED, tile),
+            shapes = ToggleButtonShapes(tile, SplitCorners.pressed(), tile),
             colors = colors,
             contentPadding = PaddingValues(horizontal = 12.dp),
             interactionSource = source,

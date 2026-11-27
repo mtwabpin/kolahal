@@ -210,7 +210,7 @@ See [Widgets](/guides/widgets/).
 | `widgets.start` | bool | `off` | start on widgets page 1. Home opens on it, and Home and Back return to it. Swipe sideways to see the log. Needs the app selector (`selector.rail`) |
 | `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent. `0` is none. A higher number shows less of the theme's color |
 | `widgets.agenda-days` | choice: `auto` `1` `3` `7` `14` | `auto` | the days the Agenda widget shows from today. `auto` looks up to 14 days ahead and shows as many events as the card fits. Also under Days on the Agenda card's settings page |
-| `widgets.corners` | choice: `own` `square` `slight` `rounded` `very` | `own` | how round the corners of Kolahal's widgets are: their own (24 dp on a 1×1, 28 dp on a larger one), 0, 8, 16 or 40 dp. Split's tiles, Shape's shapes and other apps' widgets keep their own. In Settings → Widgets, with the widgets page shown under it |
+| `widgets.corners` | choice: `own` `square` `slight` `rounded` `very` | `own` | how round the corners of Kolahal's widgets are: their own (24 dp on a 1×1, 28 dp on a larger one), 0, 8, 16 or 40 dp. Split's tiles take it on the widget's outside corners, and a smaller one where they meet. A widget drawn as a shape in the Shape look, and other apps' widgets, keep their own. In Settings → Widgets, with the widgets page shown under it |
 
 ## Assistant
 

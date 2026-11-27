@@ -34,6 +34,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -395,6 +396,8 @@ internal fun ArrangedPage(
     ) {
         // The cards' corners (widgets.corners): the held card's shadow and where it lands follow them.
         val corners = rememberCardCorners()
+        // The cards that are one shape (Shape in a square box), by key, as each card tells: their outline keeps 28 dp.
+        val oneShape = remember { mutableStateMapOf<String, Boolean>() }
         // Room under the lowest widget, for the lower half of its bottom handle.
         WidgetGrid(
             WidgetLayout.GAP_DP.dp, Modifier
@@ -449,7 +452,7 @@ internal fun ArrangedPage(
                                 if (lifted && dragged != null) Modifier.lifted(
                                     dragged,
                                     page,
-                                    arrangedCorner(w, corners)
+                                    arrangedCorner(w, corners, oneShape[w.key] == true)
                                 ) else Modifier
                             )
                             .bringIntoViewRequester(bring)
@@ -460,6 +463,8 @@ internal fun ArrangedPage(
                         lifted = lifted,
                         pausedKind = profiles(w),
                         feed = feed,
+                        oneShape = oneShape[w.key] == true,
+                        onOneShape = remember(w.key) { { one: Boolean -> if (oneShape[w.key] != one) oneShape[w.key] = one } },
                         actions = screenReaderActions(
                             w,
                             widgets,
@@ -480,9 +485,13 @@ internal fun ArrangedPage(
                         .height(d.w.heightDp.dp)
                         .background(
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            RoundedCornerShape(arrangedCorner(d.w, corners))
+                            RoundedCornerShape(arrangedCorner(d.w, corners, oneShape[d.w.key] == true))
                         )
-                        .dashedBorder(MaterialTheme.colorScheme.primary, 2.dp, arrangedCorner(d.w, corners)),
+                        .dashedBorder(
+                            MaterialTheme.colorScheme.primary,
+                            2.dp,
+                            arrangedCorner(d.w, corners, oneShape[d.w.key] == true)
+                        ),
                 )
             }
         }
@@ -637,11 +646,13 @@ private fun ArrangedCard(
     lifted: Boolean,
     pausedKind: ProfileKind?,
     feed: WidgetFeed,
+    oneShape: Boolean,
+    onOneShape: (Boolean) -> Unit,
     actions: List<CustomAccessibilityAction>,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(arrangedCorner(w, rememberCardCorners()))
+    val shape = RoundedCornerShape(arrangedCorner(w, rememberCardCorners(), oneShape))
     Box(
         modifier
             .fillMaxWidth()
@@ -661,7 +672,7 @@ private fun ArrangedCard(
         ) {
             if (w.source != null) {
                 // A shape chosen in the toolbar settles here as it does on the widgets page.
-                CompositionLocalProvider(LocalArranging provides true) {
+                CompositionLocalProvider(LocalArranging provides true, LocalOneShape provides onOneShape) {
                     SourceWidget(w, w.heightDp.dp, actions = null, feed = feed)
                 }
             } else {
@@ -716,11 +727,11 @@ internal const val EDGE_HOLD_MS = 700L
 
 /**
  * The corner of [w]'s outline in Arrange widgets (its shadow while held, where it lands, its border):
- * one of Kolahal's cards has the corners widgets.corners gives ([corners]) in a look that takes them,
- * else 28 dp, as an app's widget always has.
+ * one of Kolahal's cards has the corners widgets.corners gives ([corners]), Split's tiles too, unless
+ * it is one shape ([oneShape], as the card tells: [LocalOneShape]). Else 28 dp, as an app's widget always has.
  */
-private fun arrangedCorner(w: PlacedWidget, corners: CardCorners?): Dp =
-    (if (w.source != null && CardCorners.takenIn(drawnLookOf(w))) CardCorners.dp(corners, small = false) else 28).dp
+private fun arrangedCorner(w: PlacedWidget, corners: CardCorners?, oneShape: Boolean): Dp =
+    (if (w.source != null && CardCorners.takenIn(drawnLookOf(w), oneShape)) CardCorners.dp(corners, small = false) else 28).dp
 
 /** The look [w] is drawn in, as far as its place tells: a built-in card draws a look it doesn't offer as Plain ([WidgetLook.drawnFor]). */
 private fun drawnLookOf(w: PlacedWidget): WidgetLook =

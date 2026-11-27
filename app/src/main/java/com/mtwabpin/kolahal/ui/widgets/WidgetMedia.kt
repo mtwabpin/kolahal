@@ -575,7 +575,9 @@ private fun MediaButton(
                     disabledContentColor = it.contentColor
                 )
             }
-        val shapes = IconButtonDefaults.shapes(shape = tile ?: IconButtonDefaults.mediumSquareShape)
+        // A Split tile pressed goes in to its inside corners, which follow the card's ([SplitCorners.pressed]).
+        val shapes = if (tile != null) IconButtonDefaults.shapes(shape = tile, pressedShape = SplitCorners.pressed())
+        else IconButtonDefaults.shapes(shape = IconButtonDefaults.mediumSquareShape)
         FilledIconButton(
             onClick = onClick,
             shapes = shapes,
@@ -601,7 +603,7 @@ private fun MediaButton(
                 )
             }
         val shapes =
-            if (tile != null) IconButtonDefaults.shapes(shape = tile) else IconButtonDefaults.shapes()
+            if (tile != null) IconButtonDefaults.shapes(shape = tile, pressedShape = SplitCorners.pressed()) else IconButtonDefaults.shapes()
         FilledTonalIconButton(
             onClick = onClick,
             shapes = shapes,
@@ -1108,8 +1110,10 @@ private fun SplitMedia(
                     .height(SPLIT_MEDIA_ROW),
                 horizontalArrangement = Arrangement.spacedBy(gap)
             ) {
+                val corners = LocalCardCorners.current
                 val bottom = { first: Boolean, last: Boolean ->
                     SplitCorners.tile(
+                        corners,
                         topStart = false,
                         topEnd = false,
                         bottomEnd = last,

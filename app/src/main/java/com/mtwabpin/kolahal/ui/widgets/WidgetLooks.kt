@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
@@ -15,9 +16,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
@@ -28,11 +31,14 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.graphics.shapes.RoundedPolygon
+import com.mtwabpin.kolahal.widgets.CardCorners
+import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetShape
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -200,31 +206,63 @@ private fun midway(a: Color, b: Color, from: Color, toward: Color): Color {
     return lerp(from, toward, (low + high) / 2)
 }
 
-/** Split's corners: 28 dp on the card's outside edges, 8 dp inside. */
+/**
+ * Split's corners. Its tiles are the card's outline, so they follow widgets.corners ([CardCorners]),
+ * read from the card they are drawn in ([LocalCardCorners]):
+ * - With the cards' own: 28 dp on the card's outside corners, 8 dp where tiles meet, as Split has always had.
+ * - With a corner chosen: that corner outside ([CardCorners.splitOuter]), and inside the chosen one
+ *   less the gap, 8 dp at most ([CardCorners.splitInner]): Square is square everywhere. No corner is more than half
+ *   the tile's shorter side ([CappedCorner]), so Very rounded can't swallow a small tile.
+ */
 object SplitCorners {
-    val OUTER: Dp = 28.dp
-    val INNER: Dp = 8.dp
+    val OUTER: Dp = CardCorners.SPLIT_OUTER.dp
+    val INNER: Dp = CardCorners.SPLIT_INNER.dp
 
     /** Space between two tiles. */
-    val GAP: Dp = 4.dp
+    val GAP: Dp = CardCorners.SPLIT_GAP.dp
 
     /**
-     * The shape of one tile, by which of the card's outside corners it touches: top start, top
-     * end, bottom end, bottom start.
+     * The shape of one tile in a card with [corners], by which of the card's outside corners it
+     * touches: top start, top end, bottom end, bottom start.
      */
-    fun tile(topStart: Boolean, topEnd: Boolean, bottomEnd: Boolean, bottomStart: Boolean): Shape =
-        RoundedCornerShape(
-            topStart = if (topStart) OUTER else INNER,
-            topEnd = if (topEnd) OUTER else INNER,
-            bottomEnd = if (bottomEnd) OUTER else INNER,
-            bottomStart = if (bottomStart) OUTER else INNER,
+    fun tile(corners: CardCorners?, topStart: Boolean, topEnd: Boolean, bottomEnd: Boolean, bottomStart: Boolean): Shape {
+        val outer = CardCorners.splitOuter(corners).dp
+        val inner = CardCorners.splitInner(corners).dp
+        // The cards' own: the corners as they have always been.
+        if (corners == null) return RoundedCornerShape(
+            topStart = if (topStart) outer else inner,
+            topEnd = if (topEnd) outer else inner,
+            bottomEnd = if (bottomEnd) outer else inner,
+            bottomStart = if (bottomStart) outer else inner,
         )
+        return RoundedCornerShape(
+            topStart = CappedCorner(if (topStart) outer else inner),
+            topEnd = CappedCorner(if (topEnd) outer else inner),
+            bottomEnd = CappedCorner(if (bottomEnd) outer else inner),
+            bottomStart = CappedCorner(if (bottomStart) outer else inner),
+        )
+    }
+
+    /** The shape of one tile in the card being drawn ([LocalCardCorners]), by which of its outside corners it touches. */
+    @Composable
+    @ReadOnlyComposable
+    fun tile(topStart: Boolean, topEnd: Boolean, bottomEnd: Boolean, bottomStart: Boolean): Shape =
+        tile(LocalCardCorners.current, topStart, topEnd, bottomEnd, bottomStart)
+
+    /** A tile held down: its outside corners go in to the inside ones. */
+    @Composable
+    @ReadOnlyComposable
+    fun pressed(): Shape = tile(topStart = false, topEnd = false, bottomEnd = false, bottomStart = false)
 
     /** Tile [index] of [count] in a column that fills the card: the first takes the top corners, the last the bottom. */
+    @Composable
+    @ReadOnlyComposable
     fun inColumn(index: Int, count: Int): Shape =
         tile(index == 0, index == 0, index == count - 1, index == count - 1)
 
     /** Tile [index] of [count] in a row that fills the card: the first takes the start corners, the last the end. */
+    @Composable
+    @ReadOnlyComposable
     fun inRow(index: Int, count: Int): Shape =
         tile(index == 0, index == count - 1, index == count - 1, index == 0)
 
@@ -232,6 +270,8 @@ object SplitCorners {
      * Tile [index] of a grid [columns] wide and [count] long that fills the card: only the four
      * corner tiles take an outside corner.
      */
+    @Composable
+    @ReadOnlyComposable
     fun inGrid(index: Int, count: Int, columns: Int): Shape {
         val rows = (count + columns - 1) / columns
         val row = index / columns
@@ -246,16 +286,22 @@ object SplitCorners {
     }
 }
 
+/** A corner of [size], or half the shorter side of what it rounds where that is less ([CardCorners.capped]). */
+@Immutable
+internal data class CappedCorner(val size: Dp) : CornerSize {
+    override fun toPx(shapeSize: Size, density: Density): Float =
+        CardCorners.capped(with(density) { size.toPx() }, shapeSize.minDimension)
+}
+
 /**
  * The Material shape of a card that is one shape: the Shape look in a square box ([squareBox]),
  * drawn as [shape], the one the frame resolved for it ([cardShapeOf]). Null for a kind that keeps its
- * card there, and for a progress with several bars: its body draws the shape inside ([cardShape]).
+ * card there ([CardCorners.ONE_SHAPE]), and for a progress with several bars: its body draws the shape inside ([cardShape]).
  */
-internal fun cardPolygon(spec: WidgetSpec?, shape: WidgetShape): RoundedPolygon? = when (spec) {
-    is WidgetSpec.Stat, is WidgetSpec.Countdown, is WidgetSpec.Clock, is WidgetSpec.Chart, is WidgetSpec.Sky ->
-        polygonOf(shape)
-    is WidgetSpec.Progress -> if (spec.items.isEmpty()) polygonOf(shape) else null
-    else -> null
+internal fun cardPolygon(spec: WidgetSpec?, shape: WidgetShape): RoundedPolygon? = when {
+    spec == null || WidgetJson.kindOf(spec) !in CardCorners.ONE_SHAPE -> null
+    spec is WidgetSpec.Progress && spec.items.isNotEmpty() -> null
+    else -> polygonOf(shape)
 }
 
 /** The small shape of rank [index] in a list, in turn: a cookie, a clover, a sun. */

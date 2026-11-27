@@ -9,7 +9,10 @@ package com.mtwabpin.kolahal.widgets
  * small card, 28 dp on a larger one, as cards have always had.
  * - It rounds a card's outline and what is clipped to it: a scene, album art, the shade of a press.
  *   Tiles, rows and pills inside keep their own corners.
- * - Split's tiles and Shape's shape are an outline of their own: they keep it ([takenIn]).
+ * - Split's tiles are the card's outline: they take the chosen corner where they meet the card's
+ *   corners, and one that fits across the gaps between them ([splitOuter], [splitInner]).
+ * - A card in Shape that is one Material shape keeps its shape ([takenIn]). Shape's other cards are
+ *   rounded cards, and follow it.
  * - An app's widget draws itself, and keeps its own corners.
  * Pure: the card, Arrange widgets and the setting ask here.
  */
@@ -33,8 +36,39 @@ enum class CardCorners(val id: String, val dp: Int) {
          */
         fun inner(chosen: CardCorners?, inset: Int, own: Int): Int = chosen?.let { (it.dp - inset).coerceAtLeast(0) } ?: own
 
-        /** Whether a card in [look] takes the setting: every look but Split and Shape, whose outline is their own. */
-        fun takenIn(look: WidgetLook): Boolean = look != WidgetLook.SPLIT && look != WidgetLook.SHAPE
+        /**
+         * Whether a card in [look] takes the setting: every card but one in Shape that is one Material
+         * shape ([oneShape]: a scallop, a clover, a circle), whose shape is the one chosen with the look.
+         */
+        fun takenIn(look: WidgetLook, oneShape: Boolean): Boolean = !(look == WidgetLook.SHAPE && oneShape)
+
+        /**
+         * The kinds whose card can be one Material shape: in Shape, in a square box (a 1×1, a 2×2), and
+         * for a progress only with one level. Every other card in Shape is a rounded card with a shape in it.
+         */
+        val ONE_SHAPE: Set<WidgetKind> =
+            setOf(WidgetKind.STAT, WidgetKind.COUNTDOWN, WidgetKind.CLOCK, WidgetKind.CHART, WidgetKind.SKY, WidgetKind.PROGRESS)
+
+        /** Split's corners with the cards' own: 28 dp where a tile meets the card's corner, 8 dp where tiles meet. */
+        const val SPLIT_OUTER = 28
+        const val SPLIT_INNER = 8
+
+        /** The room between two of Split's tiles, in dp. */
+        const val SPLIT_GAP = 4
+
+        /** The corner, in dp, of a Split tile where it meets the card's corner: the [chosen] one, else 28. */
+        fun splitOuter(chosen: CardCorners?): Int = chosen?.dp ?: SPLIT_OUTER
+
+        /**
+         * The corner, in dp, of a Split tile where it meets another across the gap: the [chosen] one
+         * less the gap ([inner]), so Square is square there too, and never more than Split's own 8.
+         * The tiles stay one group with the card's corners outside: a larger one would open a wedge
+         * between round tiles, where Now playing's cover shows through.
+         */
+        fun splitInner(chosen: CardCorners?): Int = minOf(inner(chosen, SPLIT_GAP, SPLIT_INNER), SPLIT_INNER)
+
+        /** A chosen corner of [corner] on a tile whose shorter side is [side]: half of [side] at most, so it can't swallow a small tile. */
+        fun capped(corner: Float, side: Float): Float = minOf(corner, side / 2)
 
         /** The setting's value [id] as corners: null for `own`, and for anything else. */
         fun named(id: Any?): CardCorners? {
