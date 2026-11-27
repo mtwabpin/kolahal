@@ -1,0 +1,6 @@
+What's new:
+• The top of a widgets page takes less room: its name and the page marks in one thin line, beside the camera when the status bar is hidden.
+• An empty widgets page stays until you remove it, with a button to add a widget.
+• App shortcuts in the menu show their own icons.
+• A widget can be placed at the bottom of its page.
+• Fixes for notifications, line swipes, home's pages and scripts.
