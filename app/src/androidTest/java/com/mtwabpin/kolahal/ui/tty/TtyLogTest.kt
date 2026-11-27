@@ -205,6 +205,21 @@ class TtyLogTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isNotEmpty() }
     }
 
+    /** The notice band is drawn over the grid's bottom rows: no row moves when "Copied" or Undo comes and goes. */
+    @Test
+    fun theUndoOfferFloatsOverTheGrid() {
+        config.set(Keys.HOME_STYLE, "tty")
+        val token = "grid overlay ${System.nanoTime()}"
+        val ids = (0 until 3).map { logs.add(LogKind.OUTPUT, "$token $it") }
+        val vm = show()
+        try {
+            com.mtwabpin.kolahal.ui.home.assertNoticeFloats(compose, vm, ids)
+        } finally {
+            compose.runOnIdle { vm.undo() }
+            ids.forEach { logs.delete(it) }
+        }
+    }
+
     /** What a screen reader offers on the line [id] after its links, buttons and fold: its swipes, by name. */
     private fun actions(id: Long): List<String> =
         compose.onNodeWithTag("line-$id").fetchSemanticsNode().config

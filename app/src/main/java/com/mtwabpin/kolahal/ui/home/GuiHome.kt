@@ -426,51 +426,104 @@ internal fun GuiHome(
                         }
                     }
                 }
-                // When scrolled away from the newest lines, a small chip above the prompt jumps back down with
-                // one tap. It sits in the middle, so it covers little of a line, and its tap area is a full
-                // 48dp tall though the chip itself is small.
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = state.scroll.awayFromBottom && results == null && decode == null,
-                    enter = androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.fadeOut(),
+                // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy ("Starred"
+                // after a star). It floats over the bottom of the log and fades in and out, so no line moves when it
+                // comes or goes; the newest line under it is covered for those seconds. Only Undo takes touches: every
+                // other touch goes through to the log under it, so the covered line can still be swiped, tapped and
+                // scrolled right after a delete, a star or a copy. The jump chip sits right above it.
+                val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
+                val held = remember { HeldNotice() }
+                val noticeShown = held.update(notice, undo = undoOffer != null) && decode == null
+                // Read here, so the overlay's content is built again when they change (it would skip for the same holder).
+                val noticeText = held.text
+                val noticeUndo = held.undo
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .graphicsLayer { alpha = 1f - selectorFade.floatValue },
+                        .fillMaxWidth(),
                 ) {
-                    val scope = rememberCoroutineScope()
-                    Box(
-                        contentAlignment = Alignment.Center,
+                    // When scrolled away from the newest lines, a small chip above the prompt jumps back down with
+                    // one tap. It sits in the middle, so it covers little of a line, and its tap area is a full
+                    // 48dp tall though the chip itself is small.
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = state.scroll.awayFromBottom && results == null && decode == null,
+                        enter = androidx.compose.animation.fadeIn(),
+                        exit = androidx.compose.animation.fadeOut(),
                         modifier = Modifier
-                            .testTag("jump-latest")
-                            .heightIn(min = 48.dp)
-                            .clickable(onClickLabel = "scroll to the bottom") {
-                                state.scroll.followNewest =
-                                    true; scope.launch { state.scroll.list.animateScrollToItem(0) }
-                            }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                            .graphicsLayer { alpha = 1f - selectorFade.floatValue },
                     ) {
-                        // The chip: a soft pill, no border, lifted off the log by a shadow. Its color is the
-                        // surface's, a touch toward the text color, so it stands out on a dark theme too, where
-                        // the surface is close to the background. About 40 dp tall at font size 14.
+                        val scope = rememberCoroutineScope()
                         Box(
-                            Modifier
-                                .shadow(6.dp, RoundedCornerShape(50))
-                                .background(
-                                    lerp(Term.surface, Term.fg, 0.06f),
-                                    RoundedCornerShape(50)
-                                )
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .testTag("jump-latest")
+                                .heightIn(min = 48.dp)
+                                .clickable(onClickLabel = "scroll to the bottom") {
+                                    state.scroll.followNewest =
+                                        true; scope.launch { state.scroll.list.animateScrollToItem(0) }
+                                }
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                         ) {
-                            // In the system font: it is a button over the log, not a line of it. One size
-                            // up from the log's text, so it is easy to see and to hit.
+                            // The chip: a soft pill, no border, lifted off the log by a shadow. Its color is the
+                            // surface's, a touch toward the text color, so it stands out on a dark theme too, where
+                            // the surface is close to the background. About 40 dp tall at font size 14.
+                            Box(
+                                Modifier
+                                    .shadow(6.dp, RoundedCornerShape(50))
+                                    .background(
+                                        lerp(Term.surface, Term.fg, 0.06f),
+                                        RoundedCornerShape(50)
+                                    )
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                            ) {
+                                // In the system font: it is a button over the log, not a line of it. One size
+                                // up from the log's text, so it is easy to see and to hit.
+                                Text(
+                                    "↓ Scroll to bottom",
+                                    style = Term.text.copy(
+                                        color = Term.prompt,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Default,
+                                        fontSize = (Term.fontSize + 1).sp
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    // A polite live region: TalkBack reads it when it appears, after what it is saying. It comes
+                    // right after the log in TalkBack's order, as it is drawn over the log's bottom.
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = noticeShown,
+                        enter = androidx.compose.animation.fadeIn(),
+                        exit = androidx.compose.animation.fadeOut(),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Term.surface)
+                                .heightIn(min = 44.dp)
+                                .padding(start = 12.dp)
+                                .testTag("undo-row")
+                                .semantics { liveRegion = LiveRegionMode.Polite },
+                        ) {
                             Text(
-                                "↓ Scroll to bottom",
-                                style = Term.text.copy(
-                                    color = Term.prompt,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Default,
-                                    fontSize = (Term.fontSize + 1).sp
-                                ),
+                                noticeText,
+                                style = Term.text.copy(color = Term.dim),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 44.dp)
+                                    .wrapContentHeight()
+                            )
+                            if (noticeUndo) Text(
+                                "Undo",
+                                style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+                                modifier = Modifier
+                                    .clickable(onClick = calls.onUndo)
+                                    .heightIn(min = 44.dp)
+                                    .wrapContentHeight()
+                                    .padding(horizontal = 16.dp),
                             )
                         }
                     }
@@ -491,39 +544,6 @@ internal fun GuiHome(
             // suggestions.auto: hidden on an idle home. Shown while typing, or whenever there is input
             // (so typing on a hardware keyboard still shows them).
             val suggestionsAuto = remember(configVersion) { config[Keys.SUGGESTIONS_AUTO] }
-            // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy ("Starred" after a star).
-            // A polite live region: TalkBack reads it when it appears, after what it is saying.
-            val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
-            if (notice != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Term.surface)
-                        .heightIn(min = 44.dp)
-                        .padding(start = 12.dp)
-                        .testTag("undo-row")
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-                ) {
-                    Text(
-                        notice,
-                        style = Term.text.copy(color = Term.dim),
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 44.dp)
-                            .wrapContentHeight()
-                    )
-                    if (undoOffer != null) Text(
-                        "Undo",
-                        style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-                        modifier = Modifier
-                            .clickable(onClick = calls.onUndo)
-                            .heightIn(min = 44.dp)
-                            .wrapContentHeight()
-                            .padding(horizontal = 16.dp),
-                    )
-                }
-            }
             // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
             suggestions(!suggestionsAuto || typing)
             // [/selector]

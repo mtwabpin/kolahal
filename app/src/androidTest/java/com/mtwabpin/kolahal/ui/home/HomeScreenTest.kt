@@ -534,7 +534,10 @@ class HomeScreenTest {
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Screen cleared").assertDoesNotExist()
+            // The notice fades out over the log.
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("Screen cleared").fetchSemanticsNodes().isEmpty()
+            }
         } finally {
             // Failed before the tap: the log stays cleared for every later test unless it's undone.
             compose.runOnIdle { vm.undo() }
@@ -573,6 +576,24 @@ class HomeScreenTest {
             }
         } finally {
             logs.delete(id)
+        }
+    }
+
+    /**
+     * The notice floats over the bottom of the log: no line moves when "Copied" or "Line deleted" comes and when
+     * it goes, and the notice overlaps the log's box instead of taking room under it.
+     */
+    @Test
+    fun theUndoOfferFloatsOverTheLog() {
+        val logs = LogRepository.get(app)
+        val token = "overlay ${System.nanoTime()}"
+        val ids = (0 until 3).map { logs.add(LogKind.OUTPUT, "$token $it") }
+        val vm = show(360.dp, 700.dp)
+        try {
+            assertNoticeFloats(compose, vm, ids)
+        } finally {
+            compose.runOnIdle { vm.undo() }
+            ids.forEach { logs.delete(it) }
         }
     }
 

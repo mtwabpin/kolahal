@@ -69,6 +69,7 @@ import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UndoOffer
+import com.mtwabpin.kolahal.ui.home.HeldNotice
 import com.mtwabpin.kolahal.ui.home.HomeCalls
 import com.mtwabpin.kolahal.ui.home.HomeState
 import com.mtwabpin.kolahal.ui.home.LogArea
@@ -254,19 +255,40 @@ internal fun TtyHome(
                         .fillMaxSize()
                         .graphicsLayer { alpha = 1f - selectorFade.floatValue }
                     logArea(results, swipes, logModifier, resultsModifier)
-                    // Scrolled away from the newest lines: a chip over the log's bottom jumps back down.
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = state.scroll.awayFromBottom && results == null,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier
+                    // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy: a band
+                    // drawn over the log's bottom rows, not a row of its own, so the grid stays where it is when it
+                    // comes and goes. The jump chip sits right above it.
+                    val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
+                    val held = remember { HeldNotice() }
+                    val noticeShown = held.update(notice, undo = undoOffer != null)
+                    // Read here, so the band is built again when they change (it would skip for the same holder).
+                    val noticeText = held.text
+                    val noticeUndo = held.undo
+                    Column(
+                        Modifier
                             .align(Alignment.BottomStart)
-                            .graphicsLayer { alpha = 1f - selectorFade.floatValue },
+                            .fillMaxWidth(),
                     ) {
-                        val scope = rememberCoroutineScope()
-                        TtyJumpLatest {
-                            state.scroll.followNewest = true
-                            scope.launch { state.scroll.list.animateScrollToItem(0) }
+                        // Scrolled away from the newest lines: a chip over the log's bottom jumps back down.
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = state.scroll.awayFromBottom && results == null,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                            modifier = Modifier.graphicsLayer { alpha = 1f - selectorFade.floatValue },
+                        ) {
+                            val scope = rememberCoroutineScope()
+                            TtyJumpLatest {
+                                state.scroll.followNewest = true
+                                scope.launch { state.scroll.list.animateScrollToItem(0) }
+                            }
+                        }
+                        // After the log in TalkBack's order, as it is drawn over the log's bottom.
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = noticeShown,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                        ) {
+                            TtyNotice(noticeText, undo = noticeUndo, onUndo = calls.onUndo)
                         }
                     }
                     OverShaderBox(over) { selector() }
@@ -275,8 +297,6 @@ internal fun TtyHome(
                 if (BuildConfig.SELF_UPDATE && !preview) TtyUpdateProgress()
                 search?.let { TtySearchSummary(it) } ?: filter?.let { TtyFilterBar(it, filterCount, onClear = calls.onClearFilter) }
                 val suggestionsAuto = remember(configVersion) { config[Keys.SUGGESTIONS_AUTO] }
-                val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
-                if (notice != null) TtyNotice(notice, undo = undoOffer != null, onUndo = calls.onUndo)
                 suggestions(!suggestionsAuto || typing)
             }
             val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
