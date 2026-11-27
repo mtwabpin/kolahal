@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -46,6 +47,7 @@ import com.mtwabpin.kolahal.ui.home.lineZones
 import com.mtwabpin.kolahal.ui.theme.LocalTopCorners
 import com.mtwabpin.kolahal.ui.theme.Term
 import com.mtwabpin.kolahal.ui.theme.windowTopCorners
+import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetPage
 import kotlin.math.abs
 import kotlin.math.floor
@@ -124,45 +126,54 @@ internal object WidgetsStripLayout {
     /** What a screen reader hears: "Daily, page 3 of 4", for the page called [name] at [place] of [count]. */
     fun description(name: String, place: Int, count: Int): String = "$name, page ${place + 1} of $count"
 
-    /** Where the name and the marks go along the line: their x in the window's direction, and the width the name has. */
+    /** Where the name and the marks go along the line: their x in the window's direction, and the width the name has (0: left out). */
     data class Places(val nameX: Int, val nameWidth: Int, val marksX: Int)
 
     private fun room(zone: IntRange) = zone.last - zone.first + 1
 
     /**
      * Places the name ([name] wide as it would like) and the marks ([marks] wide) on a line [width]
-     * wide, in its free [zones] (left to right, [lineZones]):
-     * - With the camera between two zones and room in each: the name centered in the one at the
-     *   start, the marks centered in the one at the end.
-     * - Otherwise (no camera, a camera in a corner, a side too narrow): both together, the name first
-     *   and [gap] between them, centered in the widest zone. A name too long for it is cut.
+     * wide, in its free [zones] (left to right, [lineZones]: they already keep clear of the camera,
+     * the screen's rounded corners and the cards' side margin):
+     * - The name at the start corner: the start of the first zone. With a camera in that corner, that
+     *   is just inside the camera.
+     * - The marks at the end corner: the end of the last zone, or just inside a camera there.
+     * - A camera between them changes nothing: each keeps its own corner.
+     * - A name that doesn't fit its zone goes to the next zone toward the end that holds it whole,
+     *   never past the marks; failing that, it is cut short where it has the most room, to no less
+     *   than [minName] ([gap] before the marks); failing that, it is left out. The marks always show.
      * [rtl]: the start is the right, as the pager's pages and the marks run.
      */
-    fun place(width: Int, zones: List<IntRange>, name: Int, marks: Int, gap: Int, rtl: Boolean): Places {
+    fun place(width: Int, zones: List<IntRange>, name: Int, marks: Int, gap: Int, rtl: Boolean, minName: Int = name): Places {
         val z = if (!rtl) zones else zones.map { (width - 1 - it.last)..(width - 1 - it.first) }.reversed()
-        val p = placeFromStart(width, z, name, marks, gap)
+        val p = placeFromStart(width, z, name, marks, gap, minName)
         return if (!rtl) p else Places(width - p.nameX - p.nameWidth, p.nameWidth, width - p.marksX - marks)
     }
 
     /** [place], measured from the start. */
-    private fun placeFromStart(width: Int, zones: List<IntRange>, name: Int, marks: Int, gap: Int): Places {
-        fun centered(zone: IntRange, w: Int) = zone.first + (room(zone) - w) / 2
-        if (zones.size >= 2 && name <= room(zones.first()) && marks <= room(zones.last()))
-            return Places(centered(zones.first(), name), name, centered(zones.last(), marks))
-        val zone = zones.maxByOrNull { room(it) } ?: 0..<width
-        val between = if (name > 0 && marks > 0) gap else 0
-        val shown = name.coerceAtMost((room(zone) - marks - between).coerceAtLeast(0))
-        val sep = if (shown > 0 && marks > 0) gap else 0
-        val total = shown + sep + marks
-        val start = zone.first + ((room(zone) - total) / 2).coerceAtLeast(0)
-        return Places(start, shown, start + shown + sep)
+    private fun placeFromStart(width: Int, zones: List<IntRange>, name: Int, marks: Int, gap: Int, minName: Int): Places {
+        val free = zones.ifEmpty { listOf(0..<width) }
+        // The marks: at the end of the last zone that holds them (the last zone if none does).
+        val mi = free.indexOfLast { room(it) >= marks }.takeIf { it >= 0 } ?: free.lastIndex
+        val marksX = maxOf(free[mi].first, free[mi].last + 1 - marks)
+        // The name's room in each zone up to the marks' one; in theirs, up to the gap before them.
+        fun roomAt(i: Int) =
+            if (i < mi) room(free[i]) else marksX - (if (marks > 0) gap else 0) - free[i].first
+        val dropped = Places(free.first().first, 0, marksX)
+        if (name <= 0) return dropped
+        val whole = (0..mi).firstOrNull { roomAt(it) >= name }
+        if (whole != null) return Places(free[whole].first, name, marksX)
+        val most = (0..mi).maxBy { roomAt(it) }
+        val left = roomAt(most)
+        if (left <= 0 || left < minOf(minName, name)) return dropped
+        return Places(free[most].first, left, marksX)
     }
 }
 
 /** The strip's height under the status bar, and the least it is beside the camera. */
 private val STRIP_HEIGHT = 20.dp
 
-/** Space between the page's name and the marks when they sit together. */
+/** Space between the page's name and the marks when they share a zone. */
 private val NAME_GAP = 8.dp
 
 /** The page's name in the strip. */
@@ -200,9 +211,10 @@ internal fun Modifier.belowWidgetsStrip(): Modifier {
  * - It shows over the widgets pages and fades out over the log and the Assistant's page
  *   ([WidgetsStripLayout.alpha]). The name and the lit mark switch at the halfway point between two
  *   widgets pages ([WidgetsStripLayout.shownPlace]).
- * - With the status bar hidden on a phone with a camera strip, it sits in that strip, the name on one
- *   side of the camera and the marks on the other, clear of the cutout and the screen's rounded
- *   corners as the log's header measures them. Otherwise it is 20 dp under the status bar
+ * - The name sits at the start corner and the marks at the end corner ([WidgetsStripLayout.place]),
+ *   in line with the cards' sides, clear of the screen's rounded corners as the log's header
+ *   measures them and of a camera (just inside it when it takes a corner). With the status bar
+ *   hidden on a phone with a camera strip, it sits in that strip; otherwise it is 20 dp under the bar
  *   ([WidgetsStripLayout.span]). Each widgets page keeps its height free ([belowWidgetsStrip]).
  * - It takes no touches. A screen reader hears one node, "Daily, page 3 of 4", with Add a widget
  *   ([onAdd]) and Arrange widgets ([onArrange]) as its actions, each given the page's location.
@@ -241,6 +253,11 @@ internal fun WidgetsStrip(
     val givenCorners = LocalTopCorners.current
     val style = nameStyle()
     val lineHeight = with(density) { style.lineHeight.roundToPx() }
+    // The least of the name the line shows before it leaves the name out: three characters and the ellipsis.
+    val measurer = rememberTextMeasurer()
+    val minName = remember(name, style, measurer) {
+        if (name.length <= 3) null else measurer.measure(name.take(3) + "…", style, maxLines = 1).size.width
+    }
     // The line's x in the window, for the cutout's and the corners' x. Known after placement: the measure
     // reads it as state and measures again when it changes.
     val originX = remember { mutableFloatStateOf(0f) }
@@ -271,7 +288,11 @@ internal fun WidgetsStrip(
         val nameWidth = measurables[0].maxIntrinsicWidth(h)
         val contentHeight = maxOf(lineHeight, marksPlaced?.height ?: 0)
         val corners = givenCorners ?: windowTopCorners(view)
-        val zones = lineZones(width, originX.floatValue.toInt(), span.top, h, contentHeight, cutouts, corners)
+        // The cards' side margin is the least the line keeps at each end.
+        val zones = lineZones(
+            width, originX.floatValue.toInt(), span.top, h, contentHeight, cutouts, corners,
+            pad = WidgetLayout.GAP_DP.dp,
+        )
         val places = WidgetsStripLayout.place(
             width,
             zones,
@@ -279,6 +300,7 @@ internal fun WidgetsStrip(
             marksPlaced?.width ?: 0,
             NAME_GAP.roundToPx(),
             rtl = layoutDirection == LayoutDirection.Rtl,
+            minName = minName ?: nameWidth,
         )
         val namePlaced = measurables[0].measure(Constraints(maxWidth = places.nameWidth))
         layout(width, h) {
@@ -289,22 +311,27 @@ internal fun WidgetsStrip(
 }
 
 /**
- * The strip's line as it shows under the status bar: [name] and the [marks] together, centered, 20 dp
- * tall. For pictures of the widgets page, where there is no pager.
+ * The strip's line as it shows under the status bar: [name] at the start corner and the [marks] at the
+ * end corner, in line with the cards' sides, 20 dp tall. For pictures of the widgets page, where there
+ * is no pager.
  */
 @Composable
 internal fun WidgetsStripLine(name: String, marks: List<PageMark>, modifier: Modifier = Modifier) {
     androidx.compose.foundation.layout.Row(
         modifier
             .fillMaxWidth()
-            .height(STRIP_HEIGHT),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
-            NAME_GAP,
-            androidx.compose.ui.Alignment.CenterHorizontally
-        ),
+            .height(STRIP_HEIGHT)
+            .padding(horizontal = WidgetLayout.GAP_DP.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(NAME_GAP),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        Text(name, style = nameStyle(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            name,
+            Modifier.weight(1f, fill = true),
+            style = nameStyle(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (marks.isNotEmpty()) WidgetPageDots(marks)
     }
 }

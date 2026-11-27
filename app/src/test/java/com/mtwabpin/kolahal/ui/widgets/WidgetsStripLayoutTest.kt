@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import com.mtwabpin.kolahal.data.HomeOrder
+import com.mtwabpin.kolahal.ui.home.HeaderLayout
 import com.mtwabpin.kolahal.ui.widgets.WidgetsStripLayout.Case
 import com.mtwabpin.kolahal.ui.widgets.WidgetsStripLayout.Places
 import com.mtwabpin.kolahal.ui.widgets.WidgetsStripLayout.Span
@@ -45,32 +46,88 @@ class WidgetsStripLayoutTest {
         assertEquals(Span(Case.BELOW_BAR, 130, 55), WidgetsStripLayout.span(barTop = 110, cutoutTop = 130, line = line))
     }
 
+    /*
+     * A line 1000 px wide at 2.75 px a dp: the cards' 8 dp margin is 22 px, the gap before the marks
+     * 22 px. The zones are what lineZones gives: 22 px in at each end, 4 dp (11 px) clear of a camera.
+     * The name is 100 px wide, the marks 60.
+     */
+    private fun place(zones: List<IntRange>, name: Int = 100, rtl: Boolean = false, minName: Int = name) =
+        WidgetsStripLayout.place(1000, zones, name, 60, 22, rtl, minName)
+
     @Test
-    fun aCenteredCameraSplitsNameAndMarks() {
-        val zones = listOf(10..474, 526..989)
-        assertEquals(Places(192, 100, 728), WidgetsStripLayout.place(1000, zones, 100, 60, 20, rtl = false))
-        // Right to left: the name on the right, the marks on the left.
-        assertEquals(Places(708, 100, 213), WidgetsStripLayout.place(1000, zones, 100, 60, 20, rtl = true))
+    fun withNoCameraTheyGoToTheCorners() {
+        val zones = listOf(22..977)
+        // The name's start and the marks' end in line with the cards' sides.
+        assertEquals(Places(22, 100, 918), place(zones))
+        // Right to left: the name at the right corner, the marks at the left.
+        assertEquals(Places(878, 100, 22), place(zones, rtl = true))
     }
 
     @Test
-    fun aCornerCameraOrNoneKeepsThemTogether() {
-        // A camera at the left corner: both, centered on the free side.
-        assertEquals(Places(428, 100, 548), WidgetsStripLayout.place(1000, listOf(46..989), 100, 60, 20, rtl = false))
-        // A camera at the right corner.
-        assertEquals(Places(392, 100, 512), WidgetsStripLayout.place(1000, listOf(10..953), 100, 60, 20, rtl = false))
-        // No camera: centered across the line.
-        assertEquals(Places(410, 100, 530), WidgetsStripLayout.place(1000, listOf(10..989), 100, 60, 20, rtl = false))
-        // Right to left: the marks before the name, from the left.
-        assertEquals(Places(490, 100, 410), WidgetsStripLayout.place(1000, listOf(10..989), 100, 60, 20, rtl = true))
+    fun aCenteredHoleChangesNothing() {
+        val zones = listOf(22..474, 526..977)
+        assertEquals(Places(22, 100, 918), place(zones))
+        assertEquals(Places(878, 100, 22), place(zones, rtl = true))
     }
 
     @Test
-    fun aSideTooNarrowPutsBothOnTheOther() {
-        // A camera left of the middle: the name doesn't fit before it.
-        assertEquals(Places(455, 100, 575), WidgetsStripLayout.place(1000, listOf(10..59, 100..989), 100, 60, 20, rtl = false))
-        // A name too long for the line is cut; the marks keep their width.
-        assertEquals(Places(10, 120, 150), WidgetsStripLayout.place(1000, listOf(10..209), 300, 60, 20, rtl = false))
+    fun anOffCenterHoleChangesNothing() {
+        val zones = listOf(22..299, 351..977)
+        assertEquals(Places(22, 100, 918), place(zones))
+        assertEquals(Places(878, 100, 22), place(zones, rtl = true))
+    }
+
+    @Test
+    fun aCameraAtTheStartCornerHasTheNameJustInsideIt() {
+        // A camera at the left, 0 to 48: the name 11 px past it, the marks at the right corner.
+        assertEquals(Places(60, 100, 918), place(listOf(60..977)))
+        // Right to left the start is the right: a camera there, 951 to 999.
+        assertEquals(Places(840, 100, 22), place(listOf(22..939), rtl = true))
+    }
+
+    @Test
+    fun aCameraAtTheEndCornerHasTheMarksJustInsideIt() {
+        // A camera at the right, 951 to 999: the marks end 11 px before it.
+        assertEquals(Places(22, 100, 880), place(listOf(22..939)))
+        // Right to left the end is the left: a camera there, 0 to 48.
+        assertEquals(Places(878, 100, 60), place(listOf(60..977), rtl = true))
+    }
+
+    @Test
+    fun roundedCornersLargerThanTheCardsMarginPushThemIn() {
+        // Corners that hide 40 px: the line keeps 11 px past them, more than the cards' 22.
+        val zones = HeaderLayout.zones(1000, 22, emptyList(), 11, cornerLeft = 40, cornerRight = 40)
+        assertEquals(listOf(51..948), zones)
+        assertEquals(Places(51, 100, 889), place(zones))
+        assertEquals(Places(849, 100, 51), place(zones, rtl = true))
+        // Corners that hide 5 px: the cards' margin is the larger.
+        assertEquals(listOf(22..977), HeaderLayout.zones(1000, 22, emptyList(), 11, cornerLeft = 5, cornerRight = 5))
+    }
+
+    @Test
+    fun aNameTooLongIsShortened() {
+        // One zone, 22 to 309: the marks end at 310, the name stops 22 px before them.
+        assertEquals(Places(22, 206, 250), place(listOf(22..309), name = 400, minName = 50))
+        assertEquals(Places(772, 206, 690), WidgetsStripLayout.place(1000, listOf(690..977), 400, 60, 22, rtl = true, minName = 50))
+        // A centered hole: cut at the hole, in its own zone.
+        assertEquals(Places(22, 453, 918), place(listOf(22..474, 526..977), name = 600, minName = 50))
+    }
+
+    @Test
+    fun aNameThatCantFitIsLeftOut() {
+        // 26 px left for a name that needs at least 50: no name, the marks still at the end corner.
+        assertEquals(Places(22, 0, 70), place(listOf(22..129), name = 400, minName = 50))
+        assertEquals(Places(978, 0, 870), place(listOf(870..977), name = 400, rtl = true, minName = 50))
+        // A short name is whole or nothing.
+        assertEquals(Places(22, 0, 70), place(listOf(22..129), name = 40))
+    }
+
+    @Test
+    fun aNameWithNoRoomBeforeAHoleGoesPastIt() {
+        // A hole near the start leaves 38 px before it: the name goes just past the hole, whole.
+        assertEquals(Places(100, 100, 918), place(listOf(22..59, 100..977)))
+        // Marks too wide for the zone past a hole at the end corner: they go before it.
+        assertEquals(Places(22, 100, 415), place(listOf(22..474, 526..550)))
     }
 
     /** Default order with the Assistant and two pages: Assistant, page 2, page 1, log. */

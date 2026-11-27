@@ -193,7 +193,7 @@ internal fun bandCutouts(view: android.view.View, band: Int, barTop: Int): List<
 
 /**
  * The free stretches of a line [width] wide, its left end at [x] and its top at [y] in the window,
- * [height] tall with its content [contentHeight] tall centered in it ([HeaderLayout.zones]): 8 dp in
+ * [height] tall with its content [contentHeight] tall centered in it ([HeaderLayout.zones]): [pad] (8 dp unless given) in
  * from each end, clear of the camera's [cutouts] (window x ranges, [bandCutouts]) and of what the
  * screen's rounded [corners] hide over the content's rows.
  */
@@ -205,12 +205,13 @@ internal fun androidx.compose.ui.unit.Density.lineZones(
     contentHeight: Int,
     cutouts: List<IntRange>,
     corners: TopCorners,
+    pad: androidx.compose.ui.unit.Dp = 8.dp,
 ): List<IntRange> {
     val top = y + (height - contentHeight) / 2
     val bottom = top + contentHeight
     return HeaderLayout.zones(
         width,
-        8.dp.roundToPx(),
+        pad.roundToPx(),
         cutouts.map { (it.first - x)..(it.last - x) },
         CUTOUT_GAP.roundToPx(),
         cornerLeft = ScreenCorners.hiddenLeft(corners.left, top, bottom, edge = x),
