@@ -448,8 +448,7 @@ class LogLineActions(
         })
         // The app's own shortcuts (e.g. "New message"). They are available when Kolahal is the default launcher.
         appsRepo.shortcuts(app).take(5).forEach { s ->
-            // The shortcuts' own icons aren't loaded anywhere else, so each has the same plain one.
-            add(LogAction("${app.label} › ${s.shortLabel}", short = "${s.shortLabel}", icon = icon(R.drawable.ic_shortcut), place = group ?: ActionPlace.Group("shortcuts", "Shortcuts")) {
+            add(MenuLayout.shortcut(app.label, app.pkg, app.profile.serial, s.id, "${s.shortLabel}", group) {
                 host.io {
                     runCatching {
                         appsRepo.startShortcut(

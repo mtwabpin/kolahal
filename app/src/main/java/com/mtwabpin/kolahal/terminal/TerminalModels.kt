@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Script
@@ -164,4 +165,15 @@ sealed interface ActionIcon {
 
     /** The header's battery icon, filled to the battery level. */
     data class Battery(val pct: Int, val charging: Boolean) : ActionIcon
+
+    /**
+     * An app's shortcut's own picture, which the sheet loads: shortcut [id] of [pkg], in the profile
+     * with serial [profile]. It is drawn as it is, not tinted. Until it has loaded, and when there is
+     * none, the plain shortcut icon ([NEUTRAL]) shows.
+     */
+    data class Shortcut(val pkg: String, val id: String, val profile: Long) : ActionIcon {
+        companion object {
+            val NEUTRAL = R.drawable.ic_shortcut
+        }
+    }
 }

@@ -146,4 +146,20 @@ class MenuLayoutTest {
         assertEquals(36, long.length)
         assertTrue(long.endsWith("…"))
     }
+
+    /**
+     * An app's shortcut is a chip under Shortcuts (or the app's group) whose icon is the shortcut's
+     * own picture, keyed by package, shortcut and profile. The other actions keep their icons.
+     */
+    @Test
+    fun aShortcutCarriesItsOwnPicture() {
+        val s = MenuLayout.shortcut("Maps", "com.example.maps", 10L, "home", "Home") {}
+        assertEquals("Maps › Home", s.label)
+        assertEquals("Home", s.short)
+        assertEquals(ActionIcon.Shortcut("com.example.maps", "home", 10L), s.icon)
+        assertEquals("Shortcuts", (s.place as ActionPlace.Group).heading)
+        assertSame(app, MenuLayout.shortcut("Maps", "com.example.maps", 0L, "home", "Home", app) {}.place)
+        val fresh = MenuLayout.placeKnown(action(MenuLayout.FRESH, null))
+        assertEquals(ActionIcon.Drawable(com.mtwabpin.kolahal.R.drawable.ic_clear_all), fresh.icon)
+    }
 }

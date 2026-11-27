@@ -5,11 +5,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -29,10 +31,13 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.sheetAction
 import com.mtwabpin.kolahal.terminal.LogAction
+import com.mtwabpin.kolahal.terminal.MenuLayout
 import com.mtwabpin.kolahal.terminal.LogLineActions
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.terminal.commands.CommandProcessor
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
+import com.mtwabpin.kolahal.ui.home.AppIcons
+import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitUntil
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -207,7 +212,51 @@ class ActionSheetTest {
         assertTrue(heading("More").bottom <= bounds("Copy package name").top)
     }
 
+    /**
+     * A shortcut's chip shows the plain icon at once, and the shortcut's own picture when it has
+     * loaded, without moving; a shortcut without a picture keeps the plain icon. The sheet doesn't
+     * wait for the pictures.
+     */
+    @Test
+    fun aShortcutsChipShowsItsOwnPictureOnceLoaded() {
+        val release = java.util.concurrent.CountDownLatch(1)
+        val asked = java.util.concurrent.atomic.AtomicInteger()
+        val loader = AppIcons.shortcut
+        try {
+            AppIcons.shortcut = { _, icon, px ->
+                asked.incrementAndGet()
+                release.await(10, java.util.concurrent.TimeUnit.SECONDS)
+                if (icon.id == "llpicture") ImageBitmap(px, px) else null
+            }
+            show(
+                "Llsheet shortcuts",
+                listOf(
+                    MenuLayout.shortcut("Llapp", "com.example.llapp", 0L, "llpicture", "Llhome") {},
+                    MenuLayout.shortcut("Llapp", "com.example.llapp", 0L, "llnone", "Llwork") {},
+                ),
+            )
+            // The sheet is open with both chips while the pictures are still loading.
+            val before = bounds("Llapp › Llhome")
+            bounds("Llapp › Llwork")
+            assertTrue(compose.onAllNodesWithTag(PICTURE, useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+            waitUntil("both pictures asked for") { asked.get() == 2 }
+            release.countDown()
+            compose.waitFor("the picture isn't shown") {
+                compose.onAllNodesWithTag(PICTURE, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.waitForIdle()
+            assertEquals(1, compose.onAllNodesWithTag(PICTURE, useUnmergedTree = true).fetchSemanticsNodes().size)
+            assertEquals(before, bounds("Llapp › Llhome"))
+            val picture = compose.onAllNodesWithTag(PICTURE, useUnmergedTree = true).fetchSemanticsNodes().single()
+            assertTrue(before.contains(picture.boundsInRoot.center))
+        } finally {
+            release.countDown()
+            AppIcons.shortcut = loader
+        }
+    }
+
     private companion object {
+        const val PICTURE = "shortcut-picture"
         const val SETTINGS = "com.android.settings"
         const val SCRIPT = "llsheet"
     }

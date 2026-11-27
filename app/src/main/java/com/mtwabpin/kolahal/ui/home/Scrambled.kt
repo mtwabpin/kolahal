@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.terminal.ActionIcon
 import com.mtwabpin.kolahal.terminal.ActionPlace
 import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.Suggestion
@@ -80,6 +81,8 @@ internal fun scrambledMenu(menu: ActionMenu, s: Scramble): ActionMenu {
                 label = if (a.label in PLAIN_LABELS) a.label else s.text(a.label, MENU + 10 + i),
                 short = if (a.short in PLAIN_SHORTS) a.short else s.text(a.short, MENU + 500 + i),
                 place = place,
+                // A shortcut's own picture can be a person's photo: the plain icon shows, and nothing loads.
+                icon = if (a.icon is ActionIcon.Shortcut) ActionIcon.Drawable(ActionIcon.Shortcut.NEUTRAL) else a.icon,
             )
         },
     )

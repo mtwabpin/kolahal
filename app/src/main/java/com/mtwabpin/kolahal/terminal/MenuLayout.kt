@@ -62,6 +62,26 @@ class MenuLayout(
         }
 
         /**
+         * Shortcut [id] of the app [app] ([pkg], in the profile with serial [profile]), called [title]:
+         * "App › Title", a chip under Shortcuts (or the app's [group]) with the shortcut's own picture.
+         */
+        fun shortcut(
+            app: String,
+            pkg: String,
+            profile: Long,
+            id: String,
+            title: String,
+            group: ActionPlace.Group? = null,
+            run: () -> Unit,
+        ) = LogAction(
+            "$app › $title",
+            short = title,
+            icon = ActionIcon.Shortcut(pkg, id, profile),
+            place = group ?: ActionPlace.Group("shortcuts", "Shortcuts"),
+            run = run,
+        )
+
+        /**
          * A link's address, short enough for a heading: without `https://`, `www.` and a last `/`,
          * and cut to [max] characters with "…".
          */

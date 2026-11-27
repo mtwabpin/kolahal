@@ -55,6 +55,7 @@ import com.mtwabpin.kolahal.terminal.ActionPlace
 import com.mtwabpin.kolahal.terminal.LogAction
 import com.mtwabpin.kolahal.terminal.MenuLayout
 import com.mtwabpin.kolahal.ui.home.BatteryGlyph
+import com.mtwabpin.kolahal.ui.home.ShortcutIcon
 import com.mtwabpin.kolahal.ui.theme.Term
 
 /**
@@ -242,7 +243,10 @@ private fun IconRow(row: List<LogAction?>, run: (LogAction) -> Unit) {
     }
 }
 
-/** A chip: an outlined button 40 dp tall with the action's icon and its short words. A destructive one is red. */
+/**
+ * A chip: an outlined button 40 dp tall with the action's icon and its short words. A destructive one
+ * is red. A shortcut's chip shows the shortcut's own picture once it has loaded ([ShortcutIcon]).
+ */
 @Composable
 private fun ActionChip(action: LogAction, run: (LogAction) -> Unit) {
     val size = ButtonDefaults.MinHeight
@@ -257,12 +261,16 @@ private fun ActionChip(action: LogAction, run: (LogAction) -> Unit) {
             .heightIn(min = size)
             .semantics { contentDescription = action.label },
     ) {
-        (action.icon as? ActionIcon.Drawable)?.let {
-            Icon(
-                painterResource(it.id),
+        val icon = action.icon
+        if (icon is ActionIcon.Drawable || icon is ActionIcon.Shortcut) {
+            val iconSize = ButtonDefaults.iconSizeFor(size)
+            // A shortcut's own picture, in full color: not in the header's color.
+            if (icon is ActionIcon.Shortcut) ShortcutIcon(icon, iconSize, tint(action, Term.dim))
+            else if (icon is ActionIcon.Drawable) Icon(
+                painterResource(icon.id),
                 contentDescription = null,
                 tint = tint(action, Term.dim),
-                modifier = Modifier.size(ButtonDefaults.iconSizeFor(size)),
+                modifier = Modifier.size(iconSize),
             )
             Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(size)))
         }
@@ -330,6 +338,8 @@ private fun WordRows(actions: List<LogAction>, menuStyle: TextStyle, divided: Bo
                             },
                             iconSize,
                         )
+
+                        is ActionIcon.Shortcut -> ShortcutIcon(icon, iconSize, Term.dim)
 
                         null -> Unit
                     }

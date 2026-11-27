@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui.home
 
+import com.mtwabpin.kolahal.terminal.ActionIcon
 import com.mtwabpin.kolahal.terminal.ActionPlace
 import com.mtwabpin.kolahal.terminal.LogAction
 import com.mtwabpin.kolahal.terminal.Scramble
@@ -21,7 +22,7 @@ class ScrambledMenuTest {
                 LogAction("Run weather now", short = "Run now", place = script) {},
                 LogAction("Edit weather.lua", short = "Edit", place = script) {},
                 LogAction("Mark done", short = "Done", place = todo) {},
-                LogAction("Maps › Alex", short = "Alex", place = shortcuts) {},
+                LogAction("Maps › Alex", short = "Alex", icon = ActionIcon.Shortcut("com.example.maps", "alex", 0L), place = shortcuts) {},
                 LogAction("Star line", short = "Star", place = ActionPlace.STAR) {},
             ),
             1L,
@@ -34,6 +35,9 @@ class ScrambledMenuTest {
         assertEquals(listOf("Todo", "Shortcuts", null), headings.drop(2))
         assertEquals(listOf("Run now", "Edit", "Done"), shown.take(3).map { it.short })
         assertNotEquals("Alex", shown[3].short)
+        // A shortcut's own picture can be a photo: the plain icon shows instead, and the others keep theirs.
+        assertEquals(ActionIcon.Drawable(ActionIcon.Shortcut.NEUTRAL), shown[3].icon)
+        assertEquals(null, shown[0].icon)
         assertEquals("Star line", shown[4].label)
         assertNotEquals("Run weather now", shown[0].label)
     }
