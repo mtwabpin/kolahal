@@ -4,6 +4,7 @@ name: Release
 # - a GitHub release with the mapping zip, whose notes are docs/release/notes/X.Y.Z.md. With
 #   PUBLISH_APKS below "true", also kolahal-X.Y.Z.apk (the full build) and kolahal-X.Y.Z-play.apk (the
 #   Play build, for phones where Play Protect blocks the full one), both signed with the release key;
+# - both APKs kept with this run for 90 days (kolahal-X.Y.Z-apks), also when the release has none;
 # - kolahal-X.Y.Z-play.aab, signed with the upload key, kept with this run for Play Console, and,
 #   once the PLAY_ variables are set, uploaded to Google Play on a testing track: a draft, or sent
 #   for review with PLAY_SEND_FOR_REVIEW true.
@@ -198,6 +199,17 @@ jobs:
           jq -n --rawfile text out/discord.txt \
             '{content: ($text | rtrimstr("\n") | .[0:2000]), allowed_mentions: {parse: []}}' > out/discord.json
           curl -fsS -X POST -H 'Content-Type: application/json' --data @out/discord.json "$WEBHOOK" > /dev/null
+
+      # Both APKs, signed with the release key, kept with this run whether or not the release
+      # carries them (PUBLISH_APKS): gh run download <run id> -n kolahal-X.Y.Z-apks.
+      - name: Keep the APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: kolahal-${{ env.VERSION }}-apks
+          path: |
+            out/kolahal-${{ env.VERSION }}.apk
+            out/kolahal-${{ env.VERSION }}-play.apk
+          retention-days: 90
 
       # For Play Console (Test and release → a track → Create new release → upload).
       - name: Keep the Play bundle

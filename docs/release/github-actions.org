@@ -112,6 +112,7 @@ git tag -s vX.Y.Z -m "Version X.Y.Z"   # on the version commit, with docs/releas
 git push --atomic origin X.Y.Z X.Y.Z:master vX.Y.Z
 gh run watch                           # pick the Release run
 gh run download <run id> -n kolahal-X.Y.Z-play    # the Play bundle and its mapping.txt
+gh run download <run id> -n kolahal-X.Y.Z-apks    # both APKs, signed with the release key (kept 90 days)
 #+end_src
 
 * When a run fails
