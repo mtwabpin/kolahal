@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -117,8 +118,9 @@ private data class Drop(val w: PlacedWidget, val column: Int, val topDp: Int)
  *   ([WidgetHost.resizeTo]): [resizing] holds its key meanwhile.
  * - A long-press lifts a widget ([dragged]). It follows the finger, a dashed box shows where it
  *   lands, the widgets in the way move down to where they would go, and the page scrolls when the
- *   finger is near the top or bottom of [shown]. When it is let go, it moves there
- *   ([WidgetHost.moveTo]), or on the Remove target ([overRemove]) [onRemove] asks first.
+ *   finger is near the top or bottom of [shown]. It may land down to the foot of the page as home
+ *   shows it, or one gap under the lowest other widget ([WidgetPlacement.lowestDrop]). When it is let
+ *   go, it moves there ([WidgetHost.moveTo]), or on the Remove target ([overRemove]) [onRemove] asks first.
  * - Each widget has actions for a screen reader: Move up, Move down, Move left, Move right, Wider,
  *   Narrower, Taller, Shorter, what the widget itself holds ([editOf]: Settings or Widget settings,
  *   as in its toolbar) and Remove.
@@ -172,12 +174,15 @@ internal fun ArrangedPage(
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     // Where the held widget lands if it is let go now, and where the others would go then. It goes
-    // at most just under the lowest other widget: otherwise, held at the bottom, the page would grow
-    // and scroll for ever.
-    val lowest = remember(
-        panel,
-        dragged?.key
-    ) { WidgetPlacement.pageHeightDp(panel.filter { it.key != dragged?.key }) + WidgetLayout.GAP_DP }
+    // down to the foot of the page as home shows it, or just under the lowest other widget when that
+    // is further down ([WidgetPlacement.lowestDrop]): not further, or, held at the bottom, the page
+    // would grow and scroll for ever. Before home has laid the page out, the foot is this screen's.
+    val held = panel.firstOrNull { it.key == dragged?.key }
+    val lowest = remember(panel, held) {
+        val shownDp = widgets.measuredPageHeightDp.takeIf { it > 0 }
+            ?: with(density) { shown().height.toDp().value.toInt() } - 8
+        WidgetPlacement.lowestDrop(panel, held?.key, held?.heightDp ?: 0, shownDp)
+    }
     // Dropped near another widget's top or bottom, the held widget's top goes onto that line.
     val lines = remember(panel, dragged?.key) { WidgetPlacement.lines(panel, dragged?.key) }
 
@@ -399,11 +404,13 @@ internal fun ArrangedPage(
         val corners = rememberCardCorners()
         // The cards that are one shape (Shape in a square box), by key, as each card tells: their outline keeps 28 dp.
         val oneShape = remember { mutableStateMapOf<String, Boolean>() }
-        // Room under the lowest widget, for the lower half of its bottom handle.
+        // Room under the lowest widget, for the lower half of its bottom handle. While a widget is held,
+        // the page reaches down to where it may land at the lowest, so the page scrolls that far.
         WidgetGrid(
             WidgetLayout.GAP_DP.dp, Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
+                .heightIn(min = held?.let { (lowest + it.heightDp).dp } ?: 0.dp)
         ) {
             // Room the bars leave, read when it scrolls, not when the scroll starts: the toolbar comes up as a widget is chosen.
             val topRoomPx by rememberUpdatedState(with(density) { (topRoom + 8.dp).toPx() })

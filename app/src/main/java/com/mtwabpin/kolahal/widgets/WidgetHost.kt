@@ -1064,6 +1064,14 @@ class WidgetHost private constructor(context: Context) {
     @Volatile
     var measuredPageDp: Int = 0
 
+    /**
+     * How tall the widgets page's widgets show without scrolling, in dp, as last laid out: the page's
+     * room under its strip, less the space above and below the widgets. 0 if it was never laid out.
+     * Arrange widgets lets a widget be dropped down to its foot ([WidgetPlacement.lowestDrop]).
+     */
+    @Volatile
+    var measuredPageHeightDp: Int = 0
+
     /** The widgets page's width inside its margins: the measured value, else computed from the screen. */
     private fun pageWidthDp(): Int =
         measuredPageDp.takeIf { it > 0 }

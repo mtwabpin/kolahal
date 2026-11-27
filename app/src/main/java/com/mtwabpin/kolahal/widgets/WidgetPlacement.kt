@@ -42,6 +42,23 @@ object WidgetPlacement {
     fun pageHeightDp(all: List<PlacedWidget>, location: String? = null): Int =
         all.filter { onPage(it) && (location == null || it.location == location) }.maxOfOrNull(::bottomDp) ?: 0
 
+    /**
+     * The lowest top a dragged widget may land at on its page, [page] being that page's widgets: the
+     * widget [key], [heightDp] tall, on a page that shows [shownDp] of height without scrolling (as
+     * home lays it out). The larger of:
+     * - the foot of what shows: the last [STEP_DP] step where all of it still shows. So a lone widget,
+     *   or a few, can sit at the bottom of the screen with empty space above them;
+     * - one gap under the lowest other widget. So there is always room further down, and a full page
+     *   grows by scrolling, one widget at a time, not for ever while it is held at the bottom.
+     * Only a drag is bound by it: a top is stored in dp whatever the screen, and a page laid out on a
+     * shorter screen scrolls.
+     */
+    fun lowestDrop(page: List<PlacedWidget>, key: String?, heightDp: Int, shownDp: Int): Int {
+        val underOthers = pageHeightDp(page.filter { it.key != key }) + GAP
+        val atFoot = (shownDp - heightDp).coerceAtLeast(0) / STEP_DP * STEP_DP
+        return maxOf(underOthers, atFoot).coerceAtMost(MAX_TOP_DP)
+    }
+
     private fun columnsMeet(a: PlacedWidget, b: PlacedWidget): Boolean =
         a.column < b.column + b.span && b.column < a.column + a.span
 

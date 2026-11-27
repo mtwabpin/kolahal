@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.os.Process
 import android.os.UserManager
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.Role
@@ -635,6 +636,55 @@ class WidgetsScreenTest {
         assertEquals(6, t.get(w.key)!!.column)
         compose.onNode(isChosen()).assertExists()
         compose.onNodeWithText("Remove").assertDoesNotExist()
+    }
+
+    /**
+     * A lone widget dragged far down lands at the foot of the page as home shows it, with empty space
+     * above it, not just under where it was; and home shows it there, at the bottom, with nothing scrolled.
+     */
+    @Test
+    fun aLoneWidgetDropsAtTheFootOfThePage() {
+        assumeTrue("widgets were on page 1 before the test", panel().isEmpty())
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        widgets.moveTo(w.key, 0, 0)
+        widgets.chosen()
+        val measured = widgets.measuredPageHeightDp
+        try {
+            lateinit var vm: TerminalViewModel
+            compose.runOnUiThread { vm = vms.terminal(app) }
+            val home = mutableStateOf(true)
+            // Home lays the page out first: Arrange widgets reads how tall it shows.
+            widgets.measuredPageHeightDp = 0
+            compose.setContent { if (home.value) WidgetPanel(vm) else WidgetsScreen(vm, onReAdd = { _, _ -> }) }
+            compose.waitFor("home didn't lay the page out") { widgets.measuredPageHeightDp > 0 }
+            val shownDp = widgets.measuredPageHeightDp
+            compose.runOnUiThread {
+                vm.openScreen(Screen.WIDGETS)
+                home.value = false
+            }
+            compose.waitForIdle()
+            card(label).performTouchInput {
+                down(center)
+                advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+                // Far below the screen: it lands at the foot, no further.
+                repeat(20) { moveBy(Offset(0f, 100.dp.toPx())) }
+                up()
+            }
+            compose.waitForText("Widget moved")
+            val foot = WidgetPlacement.lowestDrop(panel(), w.key, w.heightDp, shownDp)
+            assertTrue("the foot $foot is under where it was", foot > WidgetLayout.GAP_DP)
+            assertEquals(0 to foot, t.get(w.key)!!.let { it.column to it.topDp })
+            compose.runOnUiThread { home.value = true }
+            compose.waitForIdle()
+            val page = compose.onNodeWithTag("widgets-page").getUnclippedBoundsInRoot()
+            val card = compose.onNodeWithTag("widget:" + WidgetSource.builtin(WidgetSource.BATTERY), useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            assertTrue("card $card on page $page", card.bottom <= page.bottom && card.top > page.top + page.height / 2)
+            // Only the navigation bar and a step at most under it.
+            assertTrue("card $card on page $page", page.bottom - card.bottom < 96.dp)
+        } finally {
+            widgets.measuredPageHeightDp = measured
+        }
     }
 
     /** Dragging the chosen widget's end edge makes it wider by columns; its bottom edge, taller by 8 dp steps. */

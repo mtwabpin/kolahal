@@ -359,7 +359,12 @@ private fun WidgetPanelContent(
         Modifier
             .fillMaxSize()
             .belowWidgetsStrip()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            // How tall the widgets show without scrolling, less the grid's 4 dp above and below: in Arrange
+            // widgets, a widget can be dropped down to there (WidgetHost.measuredPageHeightDp).
+            .onSizeChanged {
+                widgets.measuredPageHeightDp = with(density) { it.height.toDp().value.toInt() } - 2 * 4
+            },
     ) {
         if (PageEnd.of(panel.size) == PageEnd.EMPTY_PAGE) {
             EmptyWidgetsPage(onAdd)
