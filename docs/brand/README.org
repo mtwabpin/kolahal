@@ -14,6 +14,8 @@ Each drawing is an SVG, 512 × 512, with PNG exports at 512 and 1024 px (=-512.p
 - [[file:avatar-seedling.svg][avatar-seedling.svg]]: A seedling at dusk. A two-leaf seedling against the sun.
 - [[file:avatar-lantern.svg][avatar-lantern.svg]]: A sky lantern. A glowing lantern rising over the ridge, with two small ones behind.
 - [[file:avatar-log-on-the-chest.svg][avatar-log-on-the-chest.svg]]: The log on the chest. The sun as a head on rounded ridge shoulders, with two log lines on the chest: it reads as a person's profile picture.
+- [[file:avatar-log-on-the-chest-horizon.svg][avatar-log-on-the-chest-horizon.svg]]: The same figure over a horizon: three layers of ridges behind it, each lighter with distance.
+- [[file:avatar-log-on-the-chest-stars.svg][avatar-log-on-the-chest-stars.svg]]: The same figure under a few early stars, over one far range.
 - [[file:avatar-night.svg][avatar-night.svg]]: At night. A moon as the head over dark shoulders, the prompt's chevron as an amber collar, a few stars.
 
 * Colors

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- The log on the chest, under early stars -->
+  <defs>
+    <radialGradient id="glowAmber" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F0A868" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#F0A868" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2C2740"/>
+      <stop offset="0.5" stop-color="#3A3350"/>
+      <stop offset="0.78" stop-color="#5A4562"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#dusk)"/>
+  <g fill="#F2E2C4">
+    <circle cx="104" cy="112" r="5"/><circle cx="398" cy="92" r="5"/>
+    <circle cx="160" cy="64" r="3.5" opacity="0.7"/><circle cx="64" cy="200" r="3.5" opacity="0.45"/>
+    <circle cx="446" cy="176" r="3.5" opacity="0.5"/><circle cx="330" cy="52" r="3" opacity="0.6"/>
+    <circle cx="470" cy="250" r="2.5" opacity="0.3"/>
+  </g>
+  <circle cx="256" cy="228" r="170" fill="url(#glowAmber)"/>
+  <path d="M-20 332 L60 300 L120 314 L190 292 L256 304 L322 290 L392 312 L452 296 L532 330 V540 H-20 Z" fill="#2E2740"/>
+  <circle cx="256" cy="228" r="90" fill="#F0A868"/>
+  <path d="M24 540 V472 C24 382 130 320 256 314 C382 320 488 382 488 472 V540 Z" fill="#231D2C"/>
+  <rect x="180" y="372" width="152" height="26" rx="13" fill="#F2E2C4"/>
+  <rect x="180" y="416" width="92" height="26" rx="13" fill="#F2E2C4" opacity="0.6"/>
+</svg>
