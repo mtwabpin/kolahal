@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import com.mtwabpin.kolahal.assistant.SurfaceShapes
 
 /*
  * The catalog an answer is drawn with: Google's Material 3 basic catalog, with Kolahal's look where its
@@ -211,16 +212,33 @@ private object AnswerList : A2uiBasicCatalogV1.List {
     }
 }
 
-/** A child component: drawn, or a small error in its place; nothing while it loads. */
+/** How many of this file's containers (cards, lists) hold the one being drawn. */
+private val LocalChildDepth = compositionLocalOf { 0 }
+
+/**
+ * A child component: drawn, or a small error in its place; nothing while it loads. Past
+ * [SurfaceShapes.MAX_DEPTH] containers deep it isn't drawn: an answer is checked for circles before it
+ * is drawn ([SurfaceShapes]), and this stops one that got past it from recursing without end.
+ */
 @Composable
 private fun Child(state: A2uiComponentState, modifier: Modifier) {
-    when (state) {
-        is A2uiComponentState.Success -> A2uiComponent(component = state.component, modifier = modifier)
-        is A2uiComponentState.Error -> Surface(
-            modifier,
-            color = MaterialTheme.colorScheme.errorContainer,
-            shape = MaterialTheme.shapes.small,
-        ) { Text(state.exception.message.orEmpty(), Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall) }
-        is A2uiComponentState.Loading -> Box(modifier)
+    val depth = LocalChildDepth.current
+    if (depth >= SurfaceShapes.MAX_DEPTH) {
+        ChildError("Nested too deep to draw", modifier)
+        return
+    }
+    CompositionLocalProvider(LocalChildDepth provides depth + 1) {
+        when (state) {
+            is A2uiComponentState.Success -> A2uiComponent(component = state.component, modifier = modifier)
+            is A2uiComponentState.Error -> ChildError(state.exception.message.orEmpty(), modifier)
+            is A2uiComponentState.Loading -> Box(modifier)
+        }
     }
 }
+
+@Composable
+private fun ChildError(message: String, modifier: Modifier) = Surface(
+    modifier,
+    color = MaterialTheme.colorScheme.errorContainer,
+    shape = MaterialTheme.shapes.small,
+) { Text(message, Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall) }

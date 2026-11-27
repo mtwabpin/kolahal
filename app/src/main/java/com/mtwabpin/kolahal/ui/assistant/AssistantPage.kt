@@ -39,7 +39,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -47,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -59,7 +60,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.assistant.Asker
 import com.mtwabpin.kolahal.assistant.AssistantKeys
 import com.mtwabpin.kolahal.assistant.ConversationStore
-import com.mtwabpin.kolahal.assistant.HttpAsker
+import com.mtwabpin.kolahal.assistant.KeyRule
 import com.mtwabpin.kolahal.assistant.KvShelf
 import com.mtwabpin.kolahal.assistant.Problem
 import com.mtwabpin.kolahal.assistant.Service
@@ -72,6 +73,7 @@ import com.mtwabpin.kolahal.ui.GuiSheet
 import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.EmptyNote
 import com.mtwabpin.kolahal.ui.fieldColors
+import com.mtwabpin.kolahal.ui.produceIo
 import com.mtwabpin.kolahal.ui.settings.ChipChoices
 import com.mtwabpin.kolahal.ui.theme.GuiTheme
 import com.mtwabpin.kolahal.ui.theme.segColors
@@ -102,7 +104,8 @@ fun AssistantPage(config: Config, onSettings: () -> Unit, asker: Asker? = null) 
     val scope = rememberCoroutineScope { Dispatchers.Main.immediate }
     val keys = remember { AssistantKeys(app) }
     val store = remember { ConversationStore(KvShelf(app)) }
-    val session = remember { AssistantSession(app, asker ?: HttpAsker(keys), store) }
+    // Kept while the app runs: the conversation, and a question waiting, outlive the page.
+    val session = remember(asker) { AssistantSessions.get(app, asker) }
     val version by config.version.collectAsStateWithLifecycle()
     val service = remember(version) { Services.byId(config[Keys.ASSISTANT_SERVICE]) }
     val model = remember(version, service) { service.modelFor(config[Keys.ASSISTANT_MODEL]) }
@@ -115,7 +118,7 @@ fun AssistantPage(config: Config, onSettings: () -> Unit, asker: Asker? = null) 
 
     // Whether this service has a key, read again after one is saved.
     var keyReads by remember { mutableIntStateOf(0) }
-    val hasKey by produceState<Boolean?>(null, service, keyReads) { value = withContext(Dispatchers.IO) { keys.has(service) } }
+    val hasKey by produceIo<Boolean?>(null, service, keyReads, what = "Reading the API key") { keys.has(service) }
     var enterKey by remember { mutableStateOf(false) }
     var history by remember { mutableStateOf(false) }
 
@@ -128,12 +131,14 @@ fun AssistantPage(config: Config, onSettings: () -> Unit, asker: Asker? = null) 
         } catch (e: Exception) {
             // The renderer stopped on an answer: say so, and start it again without losing the page.
             session.restart(e.message ?: e.javaClass.simpleName)
+        } catch (e: StackOverflowError) {
+            session.restart("The components are nested too deep")
         }
     }
     LaunchedEffect(processor) {
         processor.outboundEvents.collect { event ->
             when (event) {
-                is A2uiClientEventMessage -> session.tapped(scope, askWith(), event)
+                is A2uiClientEventMessage -> session.tapped(askWith(), event)
                 is A2uiClientErrorMessage -> session.rendererError(errorJson(event), event.message)
             }
         }
@@ -152,7 +157,8 @@ fun AssistantPage(config: Config, onSettings: () -> Unit, asker: Asker? = null) 
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Assistant", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    if (keep) LabeledIconButton(R.drawable.ic_schedule, "Earlier conversations", { history = true })
+                    // Not while a question waits: its answer belongs to the conversation shown.
+                    if (keep) LabeledIconButton(R.drawable.ic_schedule, "Earlier conversations", { history = true }, enabled = !session.busy)
                     LabeledIconButton(R.drawable.ic_add, "New conversation", { session.newConversation() }, enabled = !session.busy)
                     LabeledIconButton(R.drawable.ic_settings, "Assistant settings", onSettings)
                 }
@@ -204,12 +210,12 @@ fun AssistantPage(config: Config, onSettings: () -> Unit, asker: Asker? = null) 
                         }
                         item(key = "end") {
                             if (session.busy) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                LoadingIndicator(Modifier.testTag("assistant-busy"))
+                                LoadingIndicator(Modifier.testTag("assistant-busy").semantics { contentDescription = "Waiting for the answer" })
                             }
                         }
                     }
                 }
-                AskBar(enabled = !session.busy) { session.ask(scope, askWith(), it) }
+                AskBar(enabled = !session.busy) { session.ask(askWith(), it) }
             }
         }
         if (history) HistorySheet(
@@ -217,12 +223,13 @@ fun AssistantPage(config: Config, onSettings: () -> Unit, asker: Asker? = null) 
             session.conversationId,
             onDismiss = { history = false },
             // The one open, deleted: the page starts a new one, so it isn't kept again.
-            onDeleted = { if (it == session.conversationId) session.newConversation() },
+            onDeleted = { session.deleted(it) },
         ) { c ->
             history = false
-            config.set(Keys.ASSISTANT_SERVICE, c.service)
-            config.set(Keys.ASSISTANT_MODEL, c.model)
-            session.open(c)
+            if (session.open(c)) {
+                config.set(Keys.ASSISTANT_SERVICE, c.service)
+                config.set(Keys.ASSISTANT_MODEL, c.model)
+            }
         }
     }
 }
@@ -311,7 +318,8 @@ private fun Failure(message: String, raw: String?, problem: Problem?, onKey: () 
 @Composable
 private fun KeyEntry(service: Service, onSave: (String) -> Unit) {
     var key by remember(service) { mutableStateOf("") }
-    val ok = key.length >= AssistantKeys.MIN_LENGTH
+    val fits = key.isEmpty() || KeyRule.fits(key)
+    val ok = key.length >= AssistantKeys.MIN_LENGTH && fits
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("${service.company} API key", style = MaterialTheme.typography.titleMedium)
@@ -328,6 +336,8 @@ private fun KeyEntry(service: Service, onSave: (String) -> Unit) {
                     onValueChange = { key = it.trim() },
                     label = { Text("API key") },
                     singleLine = true,
+                    isError = !fits,
+                    supportingText = if (!fits) { { Text(KeyRule.UNFIT) } } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { if (ok) onSave(key) }),
                     visualTransformation = PasswordVisualTransformation(),
@@ -375,13 +385,14 @@ private fun HistorySheet(
 ) {
     val scope = rememberCoroutineScope { Dispatchers.Main.immediate } // As the page's: on the main thread.
     var reads by remember { mutableIntStateOf(0) }
-    val list by produceState<List<Summary>?>(null, reads) { value = withContext(Dispatchers.IO) { store.list() } }
+    val list by produceIo<List<Summary>?>(null, reads, what = "Reading the conversations") { store.list() }
     GuiSheet(onDismiss = onDismiss, scroll = true) {
         Text("Earlier conversations", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 12.dp))
         val rows = list ?: return@GuiSheet
         if (rows.isEmpty()) EmptyNote("No conversations kept yet")
         Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
             rows.forEachIndexed { i, s ->
+                val title = s.title.ifEmpty { "(no question)" }
                 SegmentedListItem(
                     colors = segColors(),
                     shapes = segShapes(i, rows.size),
@@ -394,7 +405,7 @@ private fun HistorySheet(
                         Text("${dateOf(s.updated)} · ${Services.byId(s.service).name}${if (s.id == current) " · open now" else ""}")
                     },
                     trailingContent = {
-                        LabeledIconButton(R.drawable.ic_delete, "Delete", {
+                        LabeledIconButton(R.drawable.ic_delete, "Delete $title", {
                             scope.launch {
                                 withContext(Dispatchers.IO) { store.delete(s.id) }
                                 onDeleted(s.id)
@@ -403,7 +414,7 @@ private fun HistorySheet(
                         }, modifier = Modifier.testTag("delete ${s.id}"))
                     },
                     modifier = Modifier.testTag("conversation ${s.id}"),
-                ) { Text(s.title.ifEmpty { "(no question)" }, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                ) { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) }
             }
         }
     }

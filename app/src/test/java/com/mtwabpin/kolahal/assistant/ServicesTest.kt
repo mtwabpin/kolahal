@@ -94,13 +94,21 @@ class ServicesTest {
         }
     }
 
-    /** Every problem reads as a sentence, with the hint on a line of its own: no key is ever in it. */
+    /**
+     * Every problem reads as a sentence, with the hint on a line of its own. None is made from the key
+     * (HttpAskerTest checks that an unfit key's error never carries it).
+     */
     @Test
     fun problemsAreSaidPlainly() {
         for (s in Services.ALL) for (p in Problem.entries) {
             val message = s.fail(p, "m-1", 418, "detail").message.orEmpty()
             val lines = message.split('\n')
             assertTrue("$p: '$message'", lines.all { it.isNotBlank() && !it.endsWith(".") && " · " !in it })
+        }
+        for (s in Services.ALL) {
+            val message = s.unfitKey().message.orEmpty()
+            assertTrue("'$message'", message.split('\n').all { it.isNotBlank() && !it.endsWith(".") && " · " !in it })
+            assertEquals(Problem.BAD_KEY, s.unfitKey().problem)
         }
         assertEquals("Anthropic didn't accept the API key\nReplace it in Settings → Assistant", Anthropic.fail(Problem.BAD_KEY).message)
         assertEquals("Gemini has no model called x-1\nChoose another in Settings → Assistant", Google.fail(Problem.NO_MODEL, "x-1").message)

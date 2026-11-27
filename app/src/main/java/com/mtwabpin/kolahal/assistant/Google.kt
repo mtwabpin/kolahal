@@ -57,6 +57,7 @@ object Google : Service(
             throw when {
                 code == 401 || code == 403 || badKey -> fail(Problem.BAD_KEY)
                 code == 402 -> fail(Problem.NO_CREDIT)
+                (code == 429 || status == "RESOURCE_EXHAUSTED") && usedUp(error, message) -> fail(Problem.NO_CREDIT)
                 code == 429 || status == "RESOURCE_EXHAUSTED" -> fail(Problem.RATE_LIMIT)
                 code == 404 || status == "NOT_FOUND" -> fail(Problem.NO_MODEL, model)
                 code >= 500 -> fail(Problem.BUSY)
@@ -77,6 +78,22 @@ object Google : Service(
         }
         if (text.isBlank()) throw fail(Problem.EMPTY)
         return text
+    }
+
+    /**
+     * Whether a quota error says the quota is used up, not just reached for the moment: a daily quota
+     * (its `QuotaFailure` names one "PerDay"), or none at all for this model ("limit: 0", a quota of 0).
+     * A per-minute quota is a momentary limit.
+     */
+    internal fun usedUp(error: JSONObject?, message: String): Boolean {
+        if (Regex("""limit:\s*0\b""").containsMatchIn(message)) return true
+        val details = error?.optJSONArray("details") ?: return false
+        return (0 until details.length()).mapNotNull { details.optJSONObject(it) }.any { d ->
+            val violations = d.optJSONArray("violations") ?: JSONArray()
+            (0 until violations.length()).mapNotNull { violations.optJSONObject(it) }.any { v ->
+                "PerDay" in v.optString("quotaId") || v.optString("quotaValue") == "0"
+            }
+        }
     }
 
     private val MODEL_ID = Regex("[A-Za-z0-9._-]+")

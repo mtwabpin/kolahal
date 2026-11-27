@@ -7,7 +7,13 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -46,6 +52,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /** The Assistant's page with a fake service: the thread, rich and plain answers, rejected ones, history and keys. */
 @RunWith(AndroidJUnit4::class)
@@ -78,11 +86,14 @@ class AssistantPageTest {
 
     // Without the keyboard's inset: the keyboard comes up in an animation, which moves the key card's Save
     // as a click lands, and the click is missed.
-    private fun show(asker: FakeAsker) {
+    // [visible] false takes the page away, as leaving it does.
+    private fun show(asker: FakeAsker, visible: () -> Boolean = { true }) {
         compose.setContent {
             focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             KolahalTheme {
-                Box(Modifier.size(360.dp, 720.dp).consumeWindowInsets(WindowInsets.ime)) { AssistantPage(config, onSettings = { settingsOpened++ }, asker = asker) }
+                Box(Modifier.size(360.dp, 720.dp).consumeWindowInsets(WindowInsets.ime)) {
+                    if (visible()) AssistantPage(config, onSettings = { settingsOpened++ }, asker = asker)
+                }
             }
         }
     }
@@ -255,6 +266,51 @@ class AssistantPageTest {
         compose.waitFor("not deleted") { store.list().isEmpty() }
         assertNull(store.load(kept.id))
         compose.waitForText("No conversations kept yet")
+    }
+
+    /** Leaving the page and coming back finds the conversation as it was, its answer drawn again. */
+    @Test
+    fun theConversationOutlivesThePage() {
+        val asker = FakeAsker({ Answers.DASHBOARD })
+        var visible by mutableStateOf(true)
+        show(asker) { visible }
+        ask("How much energy did we use?")
+        waitIdle(asker, 1)
+        compose.waitForText("Home energy this week")
+
+        compose.runOnUiThread { visible = false }
+        compose.waitFor("the page is still there") { compose.onAllNodesWithTag("assistant-thread").fetchSemanticsNodes().isEmpty() }
+        compose.runOnUiThread { visible = true }
+        compose.waitForText("Home energy this week", ms = 10_000)
+        thread.performScrollToIndex(0)
+        compose.onNodeWithText("How much energy did we use?").assertExists()
+    }
+
+    /** While a question waits, no earlier conversation can be opened and no new one started: the answer belongs to this one. */
+    @Test
+    fun nothingElseOpensWhileAQuestionWaits() {
+        val gate = CountDownLatch(1)
+        val asker = FakeAsker({ Answers.COMPARISON }, {
+            gate.await(20, TimeUnit.SECONDS)
+            Answers.DASHBOARD
+        })
+        show(asker)
+        ask("Train or car?")
+        waitIdle(asker, 1)
+        compose.waitFor("not kept") { store.list().size == 1 }
+
+        ask("And by bus?")
+        compose.waitFor("not asked") { asker.asked.size == 2 }
+        compose.waitForNode(hasContentDescription("Waiting for the answer"), ms = 10_000)
+        compose.onNodeWithContentDescription("Earlier conversations").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("New conversation").assertIsNotEnabled()
+
+        gate.countDown()
+        waitIdle(asker, 2)
+        compose.waitFor("still waiting") { compose.onAllNodes(hasContentDescription("Waiting for the answer")).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithContentDescription("Earlier conversations").assertIsEnabled()
+        // Kept as one conversation: both questions and both answers, under the first one's id.
+        compose.waitFor("not saved with the answer") { store.list().singleOrNull()?.let { store.load(it.id)?.entries?.size } == 4 }
     }
 
     /** With history off, nothing is kept and the list is hidden. */

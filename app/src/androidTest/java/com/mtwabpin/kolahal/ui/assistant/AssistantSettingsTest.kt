@@ -16,6 +16,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
@@ -103,6 +104,8 @@ class AssistantSettingsTest {
         compose.waitFor("not switched") { config[Keys.ASSISTANT_SERVICE] == Google.id }
         assertEquals("", config[Keys.ASSISTANT_MODEL])
         compose.waitForText(Google.models[1].name)
+        // The line asking for the service's key, once read, moves the models down: bring the chip into view.
+        compose.onNodeWithText(Google.models[1].name).performScrollTo()
         compose.onNodeWithText(Google.models[1].name).performClick()
         compose.waitFor("model not set") { config[Keys.ASSISTANT_MODEL] == Google.models[1].id }
         // A model typed by hand, applied with Enter.

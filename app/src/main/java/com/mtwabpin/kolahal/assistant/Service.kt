@@ -68,6 +68,13 @@ abstract class Service(
     fun fail(problem: Problem, model: String = "", code: Int = 0, detail: String = ""): AssistantException =
         AssistantException(problem, words(problem, model, code, detail))
 
+    /**
+     * The exception for a saved key no request can carry (a character a header can't hold). Its words
+     * are fixed: the key, or any part of it, is never in them.
+     */
+    fun unfitKey(): AssistantException =
+        AssistantException(Problem.BAD_KEY, "The saved $company API key has a character a key can't have\nReplace it in Settings → Assistant")
+
     private fun words(problem: Problem, model: String, code: Int, detail: String): String = when (problem) {
         Problem.NO_KEY -> "No $company API key saved\nAdd one in Settings → Assistant"
         Problem.BAD_KEY -> "$company didn't accept the API key\nReplace it in Settings → Assistant"

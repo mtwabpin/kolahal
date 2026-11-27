@@ -80,6 +80,14 @@ class GoogleTest {
         )
         assertProblem(Problem.BAD_KEY, 403, error(403, "PERMISSION_DENIED", "Your project has been denied access."))
         assertProblem(Problem.RATE_LIMIT, 429, error(429, "RESOURCE_EXHAUSTED", "Resource has been exhausted (e.g. check quota)."))
+        // A per-minute quota is a moment's wait; a daily one, or none for this model, is used up.
+        fun quota(id: String, value: String) =
+            """[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"$id","quotaValue":"$value"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"20s"}]"""
+        val exceeded = "You exceeded your current quota, please check your plan and billing details."
+        assertProblem(Problem.RATE_LIMIT, 429, error(429, "RESOURCE_EXHAUSTED", exceeded, quota("GenerateRequestsPerMinutePerProjectPerModel-FreeTier", "15")))
+        assertProblem(Problem.NO_CREDIT, 429, error(429, "RESOURCE_EXHAUSTED", exceeded, quota("GenerateRequestsPerDayPerProjectPerModel-FreeTier", "50")))
+        assertProblem(Problem.NO_CREDIT, 429, error(429, "RESOURCE_EXHAUSTED", exceeded, quota("GenerateRequestsPerMinutePerProjectPerModel-FreeTier", "0")))
+        assertProblem(Problem.NO_CREDIT, 429, error(429, "RESOURCE_EXHAUSTED", "Quota exceeded for metric: generate_content_free_tier_requests, limit: 0, model: gemini-x"))
         assertProblem(Problem.NO_MODEL, 404, error(404, "NOT_FOUND", "models/gemini-x is not found for API version v1beta"))
         assertProblem(Problem.BUSY, 503, error(503, "UNAVAILABLE", "The model is overloaded. Please try again later."))
         assertProblem(Problem.BUSY, 500, error(500, "INTERNAL", "An internal error has occurred."))
