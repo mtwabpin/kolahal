@@ -340,12 +340,5 @@ internal fun EmptyPage(title: String, onAdd: () -> Unit, onRemove: () -> Unit, m
             Button(shapes = ButtonDefaults.shapes(), onClick = onAdd) { Text("Add a widget") }
             OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = onRemove) { Text("Remove page") }
         }
-        Text(
-            "An empty page also goes by itself when you leave Arrange widgets.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 16.dp),
-        )
     }
 }

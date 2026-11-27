@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.widgets
 
+import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -273,20 +274,58 @@ class WidgetPagesTest {
 
     /**
      * A backup made with two pages, imported after page 2 was removed: page 2's widgets are on page
-     * 1 now, and none of them comes again. So the page the import would add stays out: home shows
-     * no empty page.
+     * 1 now, and none of them comes again. Page 2 comes back all the same, empty: a backup brings
+     * every page it has.
      */
     @Test
-    fun anImportAddsNoEmptyPage() {
+    fun anImportBringsEveryPageOfTheBackup() {
         val backupPages = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(two))
         val backup = listOf(script("a", column = 0, top = 0), script("b", two, column = 0, top = 0))
         val here = listOf(script("a", column = 0, top = 0), script("b", column = 6, top = 0))
         val (pages, all) = WidgetPages.imported(WidgetPages.ONE, here, backupPages, backup)
-        assertEquals(WidgetPages.ONE, pages)
+        assertEquals(listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(two)), pages)
         assertEquals(WidgetPlacement.renumber(here), all)
         // A page that was here stays, with or without widgets.
         val mine = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(three, "Empty"))
         assertEquals(mine, WidgetPages.imported(mine, here, backupPages, backup).first)
+    }
+
+    // ---- empty pages stay -----------------------------------------------------------------
+
+    /**
+     * A page the person added stays empty: after its last widget moves away, through a restart (the
+     * stored form, read with widgets that name no such page), and when Arrange widgets closes, since
+     * nothing in it removes a page but Remove page.
+     */
+    @Test
+    fun anEmptyPageStays() {
+        val pages = WidgetPages.added(WidgetPages.added(WidgetPages.ONE)!!)!!
+        val widgets = listOf(script("a", two, column = 0, top = 0))
+        // Its last widget moves to page 1: the pages don't change.
+        val moved = WidgetPlacement.moveToPage(widgets, named(widgets, "a").key, WidgetLocation.PANEL)
+        assertTrue(moved.none { it.location == two })
+        // A restart reads the stored pages again, with widgets on page 1 only.
+        assertEquals(pages, WidgetPages.of(WidgetPages.decode(WidgetPages.encode(pages)), moved))
+        assertEquals(moved, WidgetPages.homeless(moved, pages))
+        // Closing Arrange widgets runs no clean-up of pages.
+        val closing = listOf("ui/widgets/WidgetsScreen.kt", "widgets/WidgetHost.kt").joinToString("\n") {
+            sourceFile("src/main/java/com/mtwabpin/kolahal/$it").readText()
+        }
+        assertFalse(closing.contains("removeEmptyPages"))
+        assertFalse(closing.contains("keepsEmptyPages"))
+    }
+
+    /** A backup carries empty pages, and an import brings them, onto page 1 alone or onto pages that are here. */
+    @Test
+    fun aBackupKeepsEmptyPages() {
+        val pages = listOf(WidgetPage(WidgetLocation.PANEL), WidgetPage(two, "Work"), WidgetPage(three))
+        val back = WidgetPages.fromExport(WidgetPages.export(pages))
+        assertEquals(pages, back)
+        val widgets = listOf(script("a", column = 0, top = 0))
+        assertEquals(pages, WidgetPages.imported(WidgetPages.ONE, emptyList(), back, widgets).first)
+        assertEquals(pages, WidgetPages.imported(pages, widgets, back, widgets).first)
+        // An older backup lists no pages: the pages here stay as they are, the empty ones too.
+        assertEquals(pages, WidgetPages.imported(pages, widgets, WidgetPages.fromExport(emptyList()), widgets).first)
     }
 
     // ---- placed per page ------------------------------------------------------------------

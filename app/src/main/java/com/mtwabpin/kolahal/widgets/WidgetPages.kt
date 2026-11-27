@@ -126,7 +126,7 @@ object WidgetPages {
      * - Its widgets ([backup], as [WidgetCodec.fromExport] reads them) are added
      *   ([WidgetCodec.mergePending]), each on the page its own page joined, or on page 1 when that
      *   page found no room. Each keeps its place when it is free ([WidgetPlacement.placeImported]).
-     * - A page the backup added that got no widget is left out again: its widgets were all here.
+     * - Every page of the backup comes, an empty one too: a page stays until the person removes it.
      */
     fun imported(
         pages: List<WidgetPage>,
@@ -137,9 +137,7 @@ object WidgetPages {
         val (merged, into) = merge(pages, backupPages)
         val incoming = WidgetOrder.onePage(backup)
             .map { it.copy(location = into[it.location] ?: WidgetLocation.PANEL) }
-        val all = WidgetPlacement.placeImported(widgets, WidgetCodec.mergePending(widgets, incoming))
-        val used = all.map { it.location }.toSet()
-        return merged.filterIndexed { i, p -> i < pages.size || p.location in used } to all
+        return merged to WidgetPlacement.placeImported(widgets, WidgetCodec.mergePending(widgets, incoming))
     }
 
     /** [pages] with the page at [index] called [name] ([clean]); an empty name takes its name away. */

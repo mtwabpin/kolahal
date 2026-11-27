@@ -54,11 +54,11 @@ class WidgetPanelTest {
     }
 
     /** The page, with nothing chosen yet. */
-    private fun show(): TerminalViewModel {
+    private fun show(location: String = com.mtwabpin.kolahal.widgets.WidgetLocation.PANEL): TerminalViewModel {
         widgets.chosen()
         lateinit var vm: TerminalViewModel
         compose.runOnUiThread { vm = vms.terminal(app) }
-        compose.setContent { WidgetPanel(vm) }
+        compose.setContent { WidgetPanel(vm, location) }
         return vm
     }
 
@@ -124,6 +124,8 @@ class WidgetPanelTest {
         assumeTrue("widgets were placed before the test", widgets.widgets.value.isEmpty())
         val vm = show()
         compose.onNodeWithText("No widgets yet").assertExists()
+        // Page 1 always stays.
+        compose.onNodeWithText(REMOVE_PAGE).assertDoesNotExist()
         compose.onNodeWithContentDescription(ARRANGE_WIDGETS).assertDoesNotExist()
         compose.onNodeWithText(ADD_WIDGET).performScrollTo().performClick()
         compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
@@ -145,5 +147,24 @@ class WidgetPanelTest {
         }
         compose.onNodeWithContentDescription(ARRANGE_WIDGETS).performScrollTo().performClick()
         compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+    }
+
+    /**
+     * A page added and left empty stays, with the empty page: "No widgets yet", Add a widget for that
+     * page, and Remove page, which removes it at once.
+     */
+    @Test
+    fun anAddedPageLeftEmptyStaysAndCanBeRemoved() {
+        val location = widgets.addPage()
+        assumeTrue("there are as many pages as there may be", location != null)
+        val vm = show(location!!)
+        compose.onNodeWithText("No widgets yet").assertExists()
+        compose.onNodeWithText(ADD_WIDGET).performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(Screen.WIDGET_PICKER, vm.screen.value)
+            assertEquals(location, widgets.addTo)
+        }
+        compose.onNodeWithText(REMOVE_PAGE).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(-1, com.mtwabpin.kolahal.widgets.WidgetPages.indexOf(widgets.pages.value, location)) }
     }
 }

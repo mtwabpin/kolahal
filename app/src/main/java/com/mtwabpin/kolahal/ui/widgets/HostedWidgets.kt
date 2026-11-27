@@ -51,6 +51,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -339,7 +340,8 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
 /**
  * A widgets page's content, under the strip ([belowWidgetsStrip]): the widgets, then the pencil that opens
  * Arrange widgets ([PageEndAction]); or, when there are none, the empty page ([EmptyWidgetsPage]) with its
- * Add a widget. Both work on this page ([location]): a new widget goes on it, and Arrange widgets opens on it.
+ * Add a widget, and Remove page on a page other than page 1. They work on this page ([location]): a new widget
+ * goes on it, Arrange widgets opens on it, and Remove page removes it.
  */
 @Composable
 private fun WidgetPanelContent(
@@ -355,6 +357,17 @@ private fun WidgetPanelContent(
     LaunchedEffect(scroll, location) { snapshotFlow { scroll.value }.collect { vm.widgetsScroll[location] = it } }
     val onAdd = remember(location) { { widgets.addTo = location; vm.openScreen(Screen.WIDGET_PICKER) } }
     val onArrange = remember(location) { { widgets.addTo = location; vm.openScreen(Screen.WIDGETS) } }
+    // An empty page other than page 1 can be removed from here. Home then opens on the widgets page before it.
+    val onRemove: (() -> Unit)? = remember(location) {
+        if (location == WidgetLocation.PANEL) null else {
+            {
+                val pages = widgets.pages.value
+                pages.getOrNull(WidgetPages.indexOf(pages, location) - 1)
+                    ?.let { vm.homePageShown = HomeOrder.idOf(it.location) }
+                widgets.removePage(location)
+            }
+        }
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -367,7 +380,7 @@ private fun WidgetPanelContent(
             },
     ) {
         if (PageEnd.of(panel.size) == PageEnd.EMPTY_PAGE) {
-            EmptyWidgetsPage(onAdd)
+            EmptyWidgetsPage(onAdd, onRemove = onRemove)
             return@Column
         }
         Column(

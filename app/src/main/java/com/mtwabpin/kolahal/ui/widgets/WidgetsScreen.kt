@@ -40,7 +40,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -146,14 +145,6 @@ internal fun offersWidgetSettings(w: PlacedWidget, running: Boolean, setUpAgain:
     w.source == null && w.id != null && running && setUpAgain
 
 /**
- * Whether Arrange widgets keeps its empty pages as it gives way to the screen [next]. The picker and
- * a card's settings page return to it, so the person has not left it. Any other screen leaves it,
- * and every empty page but page 1 goes ([WidgetHost.removeEmptyPages]).
- */
-internal fun keepsEmptyPages(next: Screen): Boolean =
-    next == Screen.WIDGETS || next == Screen.WIDGET_PICKER || next == Screen.WIDGET_SETTINGS
-
-/**
  * The Widgets screen (Material 3 Expressive). It shows the widgets page as it is, live, each widget
  * where it was put ([WidgetGrid]), to arrange it.
  * - A tap chooses a widget: an outline, handles on its end and bottom edges, and its toolbar at the
@@ -175,7 +166,7 @@ internal fun keepsEmptyPages(next: Screen): Boolean =
  *   of the widget it is asked to choose. A long-press on a tab names or removes its page
  *   ([PageDialog]). With more than one page, a widget moves to another one by the toolbar's Page row,
  *   or held at the screen's edge ([ArrangedPage]'s onEdge). An empty page other than page 1 says so
- *   ([EmptyPage]), and goes by itself when the screen is left.
+ *   ([EmptyPage]), and stays until it is removed.
  * Entries restored from a backup show an "Add again" row.
  */
 @Composable
@@ -201,12 +192,6 @@ fun WidgetsScreen(
     val location = pages[pageIndex].location
     // A widget added now goes on this page.
     LaunchedEffect(location) { widgets.addTo = location }
-    // An empty page other than page 1 goes when the screen is left ([keepsEmptyPages]).
-    DisposableEffect(Unit) {
-        onDispose {
-            if (!keepsEmptyPages(vm.screen.value)) widgets.removeEmptyPages()
-        }
-    }
     // A widget just placed, or long-pressed on the widgets page, is chosen as the screen shows, on its page.
     val toChoose by widgets.toChoose.collectAsStateWithLifecycle()
     LaunchedEffect(toChoose) {

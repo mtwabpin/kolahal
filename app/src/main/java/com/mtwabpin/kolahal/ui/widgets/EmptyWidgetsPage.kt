@@ -22,6 +22,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,12 +79,13 @@ internal object EmptyPageArt {
 
 /**
  * A widgets page with no widgets: the app icon's dusk scene with outlines where widgets would go, the
- * title "No widgets yet", one line, and Add a widget ([onAdd]: the picker, for this page), centered. The
- * picture is left out on a short page ([EmptyPageArt.showsPicture]). The same on every widgets page; the
- * strip above names the page.
+ * title "No widgets yet", one line, and Add a widget ([onAdd]: the picker, for this page), centered. A
+ * page other than page 1 has Remove page under it too ([onRemove]), a quieter text button: the page is
+ * empty, so it goes at once, with nothing to undo. The picture is left out on a short page
+ * ([EmptyPageArt.showsPicture]). The same on every widgets page; the strip above names the page.
  */
 @Composable
-internal fun EmptyWidgetsPage(onAdd: () -> Unit, modifier: Modifier = Modifier) {
+internal fun EmptyWidgetsPage(onAdd: () -> Unit, modifier: Modifier = Modifier, onRemove: (() -> Unit)? = null) {
     GuiTheme {
         BoxWithConstraints(
             modifier
@@ -124,6 +126,10 @@ internal fun EmptyWidgetsPage(onAdd: () -> Unit, modifier: Modifier = Modifier) 
                     Icon(painterResource(R.drawable.ic_add), null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text(ADD_WIDGET)
+                }
+                onRemove?.let {
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = it, shapes = ButtonDefaults.shapes()) { Text(REMOVE_PAGE) }
                 }
             }
         }

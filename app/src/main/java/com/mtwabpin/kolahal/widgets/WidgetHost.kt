@@ -737,15 +737,6 @@ class WidgetHost private constructor(context: Context) {
         }
     }
 
-    /** Removes every page but page 1 that has no widget, not even one waiting to be added again: when Arrange widgets closes. */
-    fun removeEmptyPages() {
-        synchronized(this) {
-            val used = _widgets.value.map { it.location }.toSet()
-            val kept = _pages.value.filterIndexed { i, p -> i == 0 || p.location in used }
-            if (kept.size != _pages.value.size) savePages(kept)
-        }
-    }
-
     /** Moves the widget [key] to the page [location], into the first free place from its top ([WidgetPlacement.moveToPage]). */
     fun moveToPage(key: String, location: String) {
         if (WidgetPages.indexOf(_pages.value, location) < 0) return
