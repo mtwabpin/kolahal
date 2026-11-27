@@ -9,9 +9,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.apps.ProfileWords
 import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
@@ -143,7 +146,11 @@ class LogLineActions(
         }
     }
 
-    /** Long-press: returns every action that makes sense for the saved context. Destructive ones come last. */
+    /**
+     * Long-press: returns every action that makes sense for the saved context. Destructive ones come
+     * last. Each has its place on the GUI sheet ([ActionPlace]): what every line has goes in the row
+     * of icons, and each thing the line names (a script, an app, a link…) has a group of its own.
+     */
     fun actionsFor(entry: LogEntry): List<LogAction> {
         val ctx = entry.ctx
         val actions = ArrayList<LogAction>()
@@ -151,7 +158,8 @@ class LogLineActions(
         // An activity line (`activity`): open it, or copy the command that opens it (for an alias).
         ctx.values[LogContext.ACTIVITY]?.let { cls ->
             val pkg = ctx.pkg ?: return@let
-            actions += LogAction("Open activity") {
+            val activity = ActionPlace.Group("activity", "Activity")
+            actions += LogAction("Open activity", short = "Open", icon = icon(R.drawable.ic_open_in_new), place = activity) {
                 host.io {
                     ActivityCommands.openFromLine(
                         context,
@@ -161,7 +169,7 @@ class LogLineActions(
                 }
             }
             appFor(ctx)?.let { app ->
-                actions += LogAction("Copy command") {
+                actions += LogAction("Copy command", icon = icon(R.drawable.ic_content_copy), place = activity) {
                     copy(
                         ActivityCommands.commandFor(
                             context,
@@ -173,14 +181,16 @@ class LogLineActions(
             }
         }
         val command = ctx.command ?: entry.text.takeIf { entry.kind == LogKind.COMMAND }
+        val commandGroup = ActionPlace.Group(COMMAND_GROUP, "Command")
         if (command != null) {
-            actions += LogAction("Run again") { host.setText(command); host.submit() }
-            actions += LogAction("Edit in prompt") { host.setText(command); host.emit(UiEvent.FocusPrompt) }
+            actions += LogAction("Run again", icon = icon(R.drawable.ic_restart), place = commandGroup) { host.setText(command); host.submit() }
+            actions += LogAction("Edit in prompt", icon = icon(R.drawable.ic_edit), place = commandGroup) { host.setText(command); host.emit(UiEvent.FocusPrompt) }
         } else if (entry.kind != LogKind.SCRIPT || LogContext.FROM in ctx.values) {
             // For output (also a script's output, when a command started the run), offer the command that printed it.
             producingCommand(entry)?.let { cmd ->
-                actions += LogAction("Run '${cmd.text}' again") { host.setText(cmd.text); host.submit() }
-                actions += LogAction("Edit '${cmd.text}' in prompt") {
+                val printed = ActionPlace.Group(COMMAND_GROUP, "Command · ${clip(cmd.text)}", own = true)
+                actions += LogAction("Run '${cmd.text}' again", short = "Run again", icon = icon(R.drawable.ic_restart), place = printed) { host.setText(cmd.text); host.submit() }
+                actions += LogAction("Edit '${cmd.text}' in prompt", short = "Edit in prompt", icon = icon(R.drawable.ic_edit), place = printed) {
                     host.setText(cmd.text); host.emit(
                     UiEvent.FocusPrompt
                 )
@@ -188,12 +198,19 @@ class LogLineActions(
             }
         }
         appFor(ctx)?.let { app ->
-            val (safe, destructive) = appActions(app).partition { !it.destructive }
+            // A line made up for an app (an apps line's chip) has nothing of a line: its menu is the app's alone.
+            val group = if (entry.id < 0) null else ActionPlace.Group(
+                "app",
+                if (app.profile.kind == ProfileKind.PERSONAL) app.label else "${app.label} · ${ProfileWords.title(app.profile.kind)}",
+                own = true,
+            )
+            val (safe, destructive) = appActions(app, group).partition { !it.destructive }
             actions += safe
             danger += destructive
         }
         ctx.values[NOTIF]?.let { key ->
-            actions += LogAction("Open notification") {
+            val notification = ActionPlace.Group("notification", "Notification")
+            actions += LogAction("Open notification", short = "Open", icon = icon(R.drawable.ic_notifications), place = notification) {
                 if (!NotificationActions.open(
                         context,
                         key
@@ -201,7 +218,7 @@ class LogLineActions(
                 ) appFor(ctx)?.let { app -> host.io { processor.launch(app) } }
             }
             ctx.pkg?.let { pkg ->
-                actions += LogAction("Mute this app's notifications") {
+                actions += LogAction("Mute this app's notifications", short = "Mute app", icon = icon(R.drawable.ic_notifications_off), place = notification) {
                     host.io {
                         NotifPrefs.get(
                             context
@@ -214,11 +231,16 @@ class LogLineActions(
             }
             danger += LogAction(
                 "Dismiss notification",
-                destructive = true
+                destructive = true,
+                short = "Dismiss",
+                icon = icon(R.drawable.ic_close),
+                place = notification,
             ) { NotificationActions.dismiss(key) }
         }
         ctx.values[LogContext.PHONE]?.let { number ->
-            actions += LogAction("Call $number") {
+            // The person's name when the line has it, else the number.
+            val person = ActionPlace.Group("phone", ctx.values[LogContext.PERSON] ?: number, own = true)
+            actions += LogAction("Call $number", short = "Call", icon = icon(R.drawable.ic_call), place = person) {
                 host.startActivity(
                     Intent(
                         Intent.ACTION_DIAL,
@@ -226,7 +248,7 @@ class LogLineActions(
                     )
                 )
             }
-            actions += LogAction("Send a message") {
+            actions += LogAction("Send a message", short = "Message", icon = icon(R.drawable.ic_forum), place = person) {
                 host.startActivity(
                     Intent(
                         Intent.ACTION_SENDTO,
@@ -235,7 +257,7 @@ class LogLineActions(
                 )
             }
             ctx.values[LogContext.CONTACT]?.let { uri ->
-                actions += LogAction("Open contact") {
+                actions += LogAction("Open contact", short = "Contact", icon = icon(R.drawable.ic_person), place = person) {
                     host.startActivity(
                         Intent(
                             Intent.ACTION_VIEW,
@@ -244,30 +266,35 @@ class LogLineActions(
                     )
                 }
             }
-            actions += LogAction("Copy number") { copy(number) }
+            actions += LogAction("Copy number", short = "Copy", icon = icon(R.drawable.ic_content_copy), place = person) { copy(number) }
         }
         ctx.url?.let { url ->
-            actions += LogAction("Open link") { openLink(ctx) }
-            actions += LogAction("Share link") { share(StyledText.plain(entry.text), url) }
-            actions += LogAction("Copy link") { copy(url) }
+            val link = ActionPlace.Group("link", "Link · ${MenuLayout.shortAddress(url)}", own = true)
+            actions += LogAction("Open link", short = "Open", icon = icon(R.drawable.ic_public), place = link) { openLink(ctx) }
+            actions += LogAction("Share link", short = "Share", icon = icon(R.drawable.ic_share), place = link) { share(StyledText.plain(entry.text), url) }
+            actions += LogAction("Copy link", short = "Copy", icon = icon(R.drawable.ic_content_copy), place = link) { copy(url) }
         }
         ctx.image?.takeIf { it != ctx.url }
-            ?.let { image -> actions += LogAction("Open image") { openUrl(image) } }
+            ?.let { image ->
+                actions += LogAction("Open image", short = "Open", icon = icon(R.drawable.ic_image), place = ActionPlace.Group("image", "Image")) { openUrl(image) }
+            }
         // Links in the text (fmt.link), by what each one shows. A script checked them when it logged the line.
         if (entry.kind == LogKind.SCRIPT) {
             val links = StyledText.linkTexts(listOfNotNull(entry.text, ctx.body).joinToString("\n"))
                 .filter { it.second != ctx.url }
-            for ((text, url) in links.take(MAX_LINK_ACTIONS)) {
+            links.take(MAX_LINK_ACTIONS).forEachIndexed { i, (text, url) ->
                 val name =
                     text.ifEmpty { url }.let { if (it.length > 40) it.take(39) + "…" else it }
-                actions += LogAction("Open “$name”") {
+                val link = ActionPlace.Group("link $i", "Link · ${MenuLayout.shortAddress(url)}", own = true)
+                actions += LogAction("Open “$name”", short = "Open", icon = icon(R.drawable.ic_public), place = link) {
                     com.mtwabpin.kolahal.script.Net.webUrl(url)?.let(::openUrl)
                 }
             }
         }
         ctx.script?.let { name ->
             host.scripts.firstOrNull { it.name == name }?.let { s ->
-                actions += LogAction("Run $name now") {
+                val script = ActionPlace.Group("script", name, own = true)
+                actions += LogAction("Run $name now", short = "Run now", icon = icon(R.drawable.ic_play), place = script) {
                     host.io {
                         ScriptScheduler.runNow(
                             context,
@@ -278,7 +305,12 @@ class LogLineActions(
                 // For a script with a status line: pin it to the top of home, or unpin it.
                 if (ScriptMeta.setsStatus(s.code)) {
                     val pinned = s.grants.allows(ScriptAccess.HEADER)
-                    actions += LogAction(if (pinned) "Unpin $name" else "Pin $name to the top") {
+                    actions += LogAction(
+                        if (pinned) "Unpin $name" else "Pin $name to the top",
+                        short = if (pinned) "Unpin" else "Pin to top",
+                        icon = icon(R.drawable.ic_vertical_align_top),
+                        place = script,
+                    ) {
                         host.io {
                             scripts.setAccess(s.id, ScriptAccess.HEADER, !pinned)
                             logs.onStatusChanged()
@@ -291,18 +323,23 @@ class LogLineActions(
                     }
                 }
                 ctx.values[LogContext.LINE]?.toIntOrNull()?.let { line ->
-                    actions += LogAction("Edit $name at line $line") {
+                    actions += LogAction("Edit $name at line $line", short = "Edit at line $line", icon = icon(R.drawable.ic_bug), place = script) {
                         host.io {
                             scripts.byId(s.id)?.let { host.openEditorAt(it, line) }
                         }
                     }
                 }
-                actions += LogAction("Edit $name.${s.lang.ext}") {
+                actions += LogAction("Edit $name.${s.lang.ext}", short = "Edit", icon = icon(R.drawable.ic_code), place = script) {
                     host.io {
                         scripts.byId(s.id)?.let { host.openEditorAt(it, null) }
                     }
                 }
-                actions += LogAction(if (s.enabled) "Turn off $name" else "Turn on $name") {
+                actions += LogAction(
+                    if (s.enabled) "Turn off $name" else "Turn on $name",
+                    short = if (s.enabled) "Turn off" else "Turn on",
+                    icon = icon(R.drawable.ic_power),
+                    place = script,
+                ) {
                     host.io {
                         scripts.setEnabled(s.id, !s.enabled)
                         scripts.byId(s.id)?.let {
@@ -316,7 +353,12 @@ class LogLineActions(
                         )
                     }
                 }
-                actions += LogAction(if (s.notify) "Mute notifications" else "Notify on new items") {
+                actions += LogAction(
+                    if (s.notify) "Mute notifications" else "Notify on new items",
+                    short = if (s.notify) "Mute" else "Notify",
+                    icon = icon(if (s.notify) R.drawable.ic_notifications_off else R.drawable.ic_notifications),
+                    place = script,
+                ) {
                     host.io {
                         scripts.setNotify(s.id, !s.notify)
                         logs.add(
@@ -333,20 +375,33 @@ class LogLineActions(
         if (entry.id < 0) return actions + danger // synthetic entry (e.g. an app chip): nothing to copy or delete
         val block = if (entry.kind == LogKind.COMMAND) blockOf(entry) else emptyList()
         if (block.size > 1) {
-            actions += LogAction("Copy output") {
+            actions += LogAction("Copy output", icon = icon(R.drawable.ic_clipboard), place = commandGroup) {
                 copy(
                     block.drop(1).joinToString("\n") { it.shownText })
             }
-            danger += LogAction("Delete command and output", destructive = true) {
+            danger += LogAction(
+                "Delete command and output",
+                destructive = true,
+                short = "Delete with output",
+                icon = icon(R.drawable.ic_delete),
+                place = commandGroup,
+            ) {
                 val ids = block.map { it.id }
                 host.io { ids.forEach(logs::delete) }
             }
         }
         // Shows only this line's script, feed or app (or its kind), until the user taps ✕ on the filter bar.
         LogFilter.forLine(entry)
-            ?.let { f -> actions += LogAction("Show only ${f.label}") { host.filterLog(f) } }
+            ?.let { f ->
+                actions += LogAction("Show only ${f.label}", short = "Only this", icon = icon(R.drawable.ic_filter_list), place = ActionPlace.ONLY) { host.filterLog(f) }
+            }
         // A starred line is kept forever, beyond the log's limits and through a clear. `/@starred` finds it.
-        actions += LogAction(if (entry.starred) "Unstar line" else "Star line") {
+        actions += LogAction(
+            if (entry.starred) "Unstar line" else "Star line",
+            short = if (entry.starred) "Unstar" else "Star",
+            icon = icon(if (entry.starred) R.drawable.ic_star else R.drawable.ic_star_border),
+            place = ActionPlace.STAR,
+        ) {
             host.io {
                 logs.setStarred(
                     entry.id,
@@ -354,13 +409,13 @@ class LogLineActions(
                 )
             }
         }
-        actions += LogAction("Copy text") {
+        actions += LogAction("Copy text", short = "Copy", icon = icon(R.drawable.ic_content_copy), place = ActionPlace.COPY) {
             copy(
                 ctx.copy?.let(StyledText::plain) ?: entry.shownText, sensitive(entry)
             )
         }
         // No Undo follows, so a notification's line dismisses its notification at once ([DismissOnDelete]).
-        danger += LogAction("Delete line", destructive = true) {
+        danger += LogAction("Delete line", destructive = true, short = "Delete", icon = icon(R.drawable.ic_delete), place = ActionPlace.DELETE) {
             host.io {
                 logs.delete(entry.id)
                 DismissOnDelete.keyOf(ctx, Config.get(context)[Keys.NOTIFS_DISMISS_ON_DELETE]) {
@@ -368,12 +423,19 @@ class LogLineActions(
                 }?.let(NotificationActions::dismissIfClearable)
             }
         }
-        return actions + danger
+        return (actions + danger).map(MenuLayout::placeKnown)
     }
 
-    /** The actions for one app, for log lines and grid chips. */
-    fun appActions(app: AppEntry): List<LogAction> = buildList {
-        add(LogAction("Launch ${app.label} [${app.profile.kind.tag}]") {
+    /**
+     * The actions for one app, for log lines and grid chips.
+     * - Held in a list ([group] null), the five every app has go in the sheet's row (Open, App
+     *   info, Favorite, Hide, Uninstall), the shortcuts under "Shortcuts", the rest under "More".
+     * - Named by a line, all of them go in the line's [group] for the app.
+     */
+    fun appActions(app: AppEntry, group: ActionPlace.Group? = null): List<LogAction> = buildList {
+        fun at(row: ActionPlace.Row) = group ?: row
+        val more = group ?: ActionPlace.Group("more", "More")
+        add(LogAction("Launch ${app.label} [${app.profile.kind.tag}]", short = "Open", icon = icon(R.drawable.ic_open_in_new), place = at(ActionPlace.OPEN)) {
             host.io {
                 processor.launch(
                     app
@@ -382,7 +444,8 @@ class LogLineActions(
         })
         // The app's own shortcuts (e.g. "New message"). They are available when Kolahal is the default launcher.
         appsRepo.shortcuts(app).take(5).forEach { s ->
-            add(LogAction("${app.label} › ${s.shortLabel}") {
+            // The shortcuts' own icons aren't loaded anywhere else, so each has the same plain one.
+            add(LogAction("${app.label} › ${s.shortLabel}", short = "${s.shortLabel}", icon = icon(R.drawable.ic_shortcut), place = group ?: ActionPlace.Group("shortcuts", "Shortcuts")) {
                 host.io {
                     runCatching {
                         appsRepo.startShortcut(
@@ -395,7 +458,20 @@ class LogLineActions(
         }
         appsRepo.apps.value.firstOrNull { it.pkg == app.pkg && it.profile.serial != app.profile.serial }
             ?.let { twin ->
-                add(LogAction("Launch in ${com.mtwabpin.kolahal.apps.ProfileWords.name(twin.profile.kind)}") {
+                add(LogAction(
+                    "Launch in ${ProfileWords.name(twin.profile.kind)}",
+                    short = ProfileWords.title(twin.profile.kind),
+                    icon = ActionIcon.Drawable(
+                        when (twin.profile.kind) {
+                            ProfileKind.WORK -> R.drawable.ic_work
+                            ProfileKind.PRIVATE -> R.drawable.ic_lock
+                            ProfileKind.PERSONAL -> R.drawable.ic_person
+                            else -> R.drawable.ic_apps
+                        },
+                        profile = twin.profile.kind,
+                    ),
+                    place = more,
+                ) {
                     host.io {
                         processor.launch(
                             twin
@@ -403,22 +479,32 @@ class LogLineActions(
                     }
                 })
             }
-        add(LogAction("App info") { host.io { appsRepo.openAppInfo(app) } })
-        add(LogAction("Copy package name") { copy(app.pkg) })
+        add(LogAction("App info", icon = icon(R.drawable.ic_info), place = at(ActionPlace.APP_INFO)) { host.io { appsRepo.openAppInfo(app) } })
+        add(LogAction("Copy package name", short = "Copy package", icon = icon(R.drawable.ic_content_copy), place = more) { copy(app.pkg) })
         val pinned = appPrefs.isPinned(app.key)
-        add(LogAction(if (pinned) "Unpin from favorites" else "Pin to favorites") {
+        add(LogAction(
+            if (pinned) "Unpin from favorites" else "Pin to favorites",
+            short = if (pinned) "Unfavorite" else "Favorite",
+            icon = icon(if (pinned) R.drawable.ic_favorite else R.drawable.ic_favorite_border),
+            place = at(ActionPlace.FAVORITE),
+        ) {
             appPrefs.setPinned(
                 app.key,
                 !pinned
             )
         })
-        add(LogAction(if (app.hidden) "Unhide" else "Hide from lists") {
+        add(LogAction(
+            if (app.hidden) "Unhide" else "Hide from lists",
+            short = if (app.hidden) "Unhide" else "Hide",
+            icon = icon(if (app.hidden) R.drawable.ic_visibility else R.drawable.ic_visibility_off),
+            place = at(ActionPlace.HIDE),
+        ) {
             host.io {
                 appPrefs.setHidden(app.key, !app.hidden)
                 appsRepo.refresh()
             }
         })
-        add(LogAction("Uninstall", destructive = true) { host.io { appsRepo.uninstall(app) } })
+        add(LogAction("Uninstall", destructive = true, icon = icon(R.drawable.ic_delete), place = at(ActionPlace.UNINSTALL)) { host.io { appsRepo.uninstall(app) } })
     }
 
     /**
@@ -491,6 +577,12 @@ class LogLineActions(
             )
         }
 
+    /** An action's icon, in the header's style. */
+    private fun icon(id: Int) = ActionIcon.Drawable(id)
+
+    /** A command, short enough for a heading. */
+    private fun clip(text: String) = if (text.length > 32) text.take(31) + "…" else text
+
     private fun openUrl(url: String) = host.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
 
     /** Opens a line's link. A feed item is marked as read once you open it. */
@@ -534,37 +626,55 @@ class LogLineActions(
         danger: MutableList<LogAction>
     ) {
         ctx.values[LogContext.TODO]?.let { id ->
+            val todo = ActionPlace.Group("todo", "Todo")
             val done = ctx.values[LogContext.TODO_DONE] == "1"
-            actions += LogAction(if (done) "Mark not done" else "Mark done") { host.runCommand("todo ${if (done) "undo" else "done"} #$id") }
-            actions += LogAction("Edit in prompt") {
+            actions += LogAction(
+                if (done) "Mark not done" else "Mark done",
+                short = if (done) "Not done" else "Done",
+                icon = icon(if (done) R.drawable.ic_undo else R.drawable.ic_check),
+                place = todo,
+            ) { host.runCommand("todo ${if (done) "undo" else "done"} #$id") }
+            actions += LogAction("Edit in prompt", short = "Edit", icon = icon(R.drawable.ic_edit), place = todo) {
                 host.setText("todo edit #$id ${ctx.copy.orEmpty()}")
                 host.emit(UiEvent.FocusPrompt)
             }
             danger += LogAction(
                 "Delete todo",
-                destructive = true
+                destructive = true,
+                short = "Delete",
+                icon = icon(R.drawable.ic_delete),
+                place = todo,
             ) { host.runCommand("todo rm #$id") }
         }
         ctx.values[LogContext.NOTE]?.let { id ->
             danger += LogAction(
                 "Delete note",
-                destructive = true
+                destructive = true,
+                short = "Delete",
+                icon = icon(R.drawable.ic_delete),
+                place = ActionPlace.Group("note", "Note"),
             ) { host.runCommand("notes rm #$id") }
         }
         ctx.values[LogContext.REMINDER]?.let { id ->
             danger += LogAction(
                 "Cancel reminder",
-                destructive = true
+                destructive = true,
+                short = "Cancel",
+                icon = icon(R.drawable.ic_close),
+                place = ActionPlace.Group("reminder", "Reminder"),
             ) { host.runCommand("remind rm #$id") }
         }
         if (ctx.values[LogContext.EVENT] != null) {
-            actions += LogAction("Open event") {
+            actions += LogAction("Open event", short = "Open", icon = icon(R.drawable.ic_calendar), place = ActionPlace.Group("event", "Event")) {
                 ProductivityCommands.eventIntent(ctx)?.let(host::startActivity)
             }
         }
     }
 
     companion object {
+        /** The key of a command's group: its Run again and its Delete with output go together. */
+        private const val COMMAND_GROUP = "command"
+
         private const val NOTIF =
             com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY
 

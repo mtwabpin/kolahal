@@ -76,6 +76,14 @@ fun ComposeTestRule.waitForText(text: String, substring: Boolean = false, ms: Lo
     }
 
 /**
+ * An action on a long-press sheet, by its full words ("Star line", "Run weather now"): what a
+ * screen reader hears, on its icon or chip ([com.mtwabpin.kolahal.ui.ActionSheet]), which shows
+ * shorter words.
+ */
+fun ComposeTestRule.sheetAction(label: String) =
+    onNode(androidx.compose.ui.test.hasContentDescription(label) and androidx.compose.ui.test.hasClickAction())
+
+/**
  * Runs [command] as the shell user and returns what it printed; with [errors], what it printed to
  * stderr after. No shell runs it: arguments are split at spaces, and quotes are kept as they are.
  */

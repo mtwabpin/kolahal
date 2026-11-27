@@ -20,8 +20,8 @@ todo all                  # include finished items
 todo clear                # delete all finished items
 ```
 
-- Tap an item in the log to tick or untick it. Long-press it for **Mark done**, **Edit in prompt** and
-  **Delete todo**.
+- Tap an item in the log to tick or untick it. Long-press it for **Done**, **Edit** (in the prompt) and
+  **Delete**, under **Todo**.
 - `<n>` is the number that `todo` shows. After you type `todo done `, the suggestion strip lists the open items.
   So you rarely need to remember numbers.
 - If your todo starts with a subcommand word (`all`, `done`, `clear`, …), use `todo add …`.
@@ -37,7 +37,7 @@ notes grep gate           # search
 notes rm 2                # delete
 ```
 
-Tap a note to copy it. Long-press it for **Delete note**.
+Tap a note to copy it. Long-press it for **Delete**, under **Note**.
 
 ## Reminders
 
@@ -97,7 +97,7 @@ More about reminders:
 - If notifications are off, the reminder still shows up in the log. Run `allow send-notifications` to allow
   them.
 - In a reminder list, tap a line to put `remind rm …` in the prompt. Long-press it for
-  **Cancel reminder**.
+  **Cancel**, under **Reminder**.
 
 ## Timers and alarms
 

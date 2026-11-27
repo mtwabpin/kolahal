@@ -24,6 +24,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -138,6 +139,16 @@ class TtyHomeTest {
 
     /** Whether a node that reads exactly [text] shows. */
     private fun hasWords(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+
+    /**
+     * An action on a long-press sheet, by its full words: the grid's sheet writes them, and the GUI's
+     * sheet, which shows shorter words on its icons and chips, says them to a screen reader.
+     */
+    private fun action(label: String) = hasText(label) or hasContentDescription(label)
+
+    private fun hasAction(label: String) = compose.onAllNodes(action(label)).fetchSemanticsNodes().isNotEmpty()
+
+    private fun tapAction(label: String) = compose.onAllNodes(action(label))[0].performClick()
 
     /** Puts [text] in the prompt, the cursor at its end. */
     private fun type(vm: TerminalViewModel, text: String) {
@@ -368,9 +379,9 @@ class TtyHomeTest {
     /** Long-presses an app in the open selector: its actions open, and one of them closes them. */
     private fun openAnAppsActions() {
         compose.onAllNodes(selectorRow)[0].performSemanticsAction(SemanticsActions.OnLongClick)
-        compose.waitUntil(5_000) { hasWords("Copy package name") }
-        compose.onNodeWithText("Copy package name").performClick()
-        compose.waitUntil(5_000) { !hasWords("Copy package name") }
+        compose.waitUntil(5_000) { hasAction("Copy package name") }
+        tapAction("Copy package name")
+        compose.waitUntil(5_000) { !hasAction("Copy package name") }
     }
 
     /** `tty.keybar`: the GUI's bar under the grid's prompt by default, the grid's once set. A key works in both. */
@@ -434,10 +445,10 @@ class TtyHomeTest {
         show()
         compose.waitUntil(5_000) { hasTag("line-$id") }
         compose.onNodeWithTag("line-$id").performTouchInput { longClick() }
-        compose.waitUntil(5_000) { hasWords("Copy text") }
+        compose.waitUntil(5_000) { hasAction("Copy text") }
         assertFalse("the grid's box shows", hasTag("tty-sheet"))
-        compose.onNodeWithText("Copy text").performClick()
-        compose.waitUntil(5_000) { !hasWords("Copy text") }
+        tapAction("Copy text")
+        compose.waitUntil(5_000) { !hasAction("Copy text") }
 
         compose.runOnIdle { config.set(Keys.TTY_MENU, "tty") }
         compose.onNodeWithTag("line-$id").performTouchInput { longClick() }

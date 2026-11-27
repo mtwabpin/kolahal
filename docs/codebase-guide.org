@@ -962,9 +962,11 @@ Notice that the ViewModel never "receives" =hi=. Steps 3 to 5 write to the datab
    with =launch.instant all=), a notification line opens the notification, an app line
    launches the app, ...
 4. A long-press calls =state.showMenu(...) { vm.actionsFor(e) }= ([[src:ui/home/HomeState.kt::fun showMenu(][HomeState.showMenu]]): the
-   ViewModel returns a list of =LogAction=s (label + lambda), built off the main thread, and the
-   View draws them as an =ActionSheet= (or a =TtySheet= on the grid). The ViewModel decides /what/
-   actions exist; the View decides /how/ they look.
+   ViewModel returns a list of =LogAction=s (full words, short words, icon, place + lambda), built
+   off the main thread, and the View draws them as an =ActionSheet= (or a =TtySheet= on the grid).
+   The ViewModel decides /what/ actions exist and where each belongs (the row every line has, or
+   the group of the script, app or link it is about: =ActionPlace=); the View decides /how/ they
+   look (=MenuLayout=: the row of icons, a heading and chips for each group).
 
 This is why the =LogContext= written in step 5 of Trace 1 matters: it is how a line remembers
 what it's about, long after the command that wrote it has finished.

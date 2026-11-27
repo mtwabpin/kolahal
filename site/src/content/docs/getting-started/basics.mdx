@@ -289,20 +289,20 @@ the prompt ends the search. Long-press and swipes work the same as in the log.
 
 ### Starring lines
 
-To keep a line, long-press it and pick **Star line**. A starred line looks the same as other lines, but:
+To keep a line, long-press it and tap **Star**. A starred line looks the same as other lines, but:
 
 - `log.keep-days` and `log.keep-lines` don't delete it.
 - `clear` removes it from the screen but doesn't delete it.
 - `/@starred` finds your starred lines. You can add words to search among them (`/@starred wifi`).
 - `log only starred` shows only starred lines.
 
-**Unstar line** puts it back under the usual limits. **Delete line**, a swipe that deletes and `clear all` still delete a starred line.
+**Unstar** puts it back under the usual limits. **Delete**, a swipe that deletes and `clear all` still delete a starred line.
 
 ### Filtering by source
 
 To show only the lines from one source, do one of these:
 
-- Long-press a line and pick **Show only xkcd** (its script, feed or app). On a command line, pick **Show only commands**.
+- Long-press a line and tap **Only this**: it shows only that line's script, feed or app (xkcd, say). On a command line, it shows only commands.
 - Type `log only xkcd` or `log only feeds`.
 
 The log then shows only those lines, including new ones. A bar above the prompt tells you the filter is on. The filter stays on, even
@@ -352,7 +352,20 @@ Rules:
 | A setup or hint line | runs its fix command |
 | A script error | opens the editor at the line that failed |
 
-**Long-press** a line to open an action sheet with every action that applies to it. For example:
+**Long-press** a line to open an action sheet with every action that applies to it. The line is at the top, with
+where it came from and when. Under it:
+
+- A row of icons, each with a word under it, for what every line has: **Copy**, **Star**, **Only this** and
+  **Delete**. Each keeps its place on every line; one the line doesn't have leaves its place empty.
+- Then a group for each thing the line is about, under a heading that names it: the command, the script, the
+  app, the notification, the person, each link, the todo. Its actions are chips (**Run now**, **Edit**,
+  **Mute app**…). A red chip at the end of a group removes something: **Uninstall**, **Dismiss**, **Delete with output**.
+
+Long-press an app in a list and the row has the app's own five: **Open**, **App info**, **Favorite**, **Hide**
+and **Uninstall**. Its shortcuts and the rest come under it. A screen reader reads each action in full ("Delete
+command and output").
+
+What the sheet offers, for example:
 
 - run again, edit in the prompt, copy the output
 - open, share or copy a link
@@ -434,7 +447,7 @@ What it shows:
 A script never pins itself. Its [status line](/scripting/overview/#status-lines) shows on its card in Scripts and in `status`.
 To show it at the top, pin the script in one of these ways:
 
-- long-press a line it logged and pick **Pin cricket to the top**
+- long-press a line it logged and tap **Pin to top** under its name
 - turn on **Pinned at the top** on its card in Scripts
 - type `script pin cricket` (`script unpin cricket` removes it)
 

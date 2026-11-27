@@ -230,7 +230,7 @@ status clear weather  # remove one (or: status clear all)
 ```
 
 Tap a line at the top to run its script again. Long-press it for Run, Unpin and Edit. Every line
-that a script logged also has **Pin to the top** (or **Unpin**) in its long-press menu.
+that a script logged also has **Pin to top** (or **Unpin**) in its long-press sheet, under the script's name.
 
 ## Widgets
 
@@ -364,7 +364,7 @@ other events can follow:
 - **Run with…** in the editor simulates a notification from the first app on the line.
 
 To find an app's package name, long-press the app in the [apps grid](/guides/apps/) and choose
-**Copy package name**.
+**Copy package**.
 
 ## Describing a script
 

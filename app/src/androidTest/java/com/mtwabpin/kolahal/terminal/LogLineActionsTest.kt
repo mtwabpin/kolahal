@@ -876,6 +876,103 @@ class LogLineActionsTest {
         })
     }
 
+    /**
+     * The GUI sheet's layout, per kind of line: every action has a place, its short words and an
+     * icon; each is in exactly one place of the sheet ([MenuLayout]); the row is Copy, Fresh, Star,
+     * Only this, Delete; each thing the line names has its group, under its heading; a group's
+     * destructive action is its last chip.
+     */
+    @Test
+    fun everyActionHasOnePlaceOnTheSheet() {
+        val s = settings()
+        val script = scripts.create(SCRIPT, ScriptLang.LUA, "status('x')\nlog('llat ran')")
+        home.scriptList = listOf(script)
+        // The command last: a line logged soon after a command is taken as its output.
+        val others = mapOf(
+            "plain" to line(LogKind.INFO, "Llat plain"),
+            "app" to line(LogKind.INFO, "Llat launched Settings", *appCtx(s)),
+            "notification" to line(
+                LogKind.SCRIPT, "Llat ping", *appCtx(s),
+                KolahalNotificationListener.CTX_KEY to "0|$SETTINGS|1|null|0", source = "Settings",
+            ),
+            "person" to line(
+                LogKind.OUTPUT, "Llat Alex", LogContext.PHONE to "5550100", LogContext.PERSON to "Alex",
+                LogContext.CONTACT to "content://com.android.contacts/contacts/lookup/x/1",
+            ),
+            "link" to line(
+                LogKind.SCRIPT, "Llat ${StyledText.link("https://b.example/2", "two")} links", LogContext.URL to "https://www.a.example/1/",
+                LogContext.IMAGE to "https://a.example/i.png", LogContext.SCRIPT to SCRIPT,
+                LogContext.LINE to "4", *appCtx(s), source = SCRIPT,
+            ),
+            "todo" to line(LogKind.OUTPUT, "Llat todo", LogContext.TODO to "7"),
+            "note" to line(LogKind.OUTPUT, "Llat note", LogContext.NOTE to "7"),
+            "reminder" to line(LogKind.OUTPUT, "Llat reminder", LogContext.REMINDER to "7"),
+            "event" to line(LogKind.OUTPUT, "Llat event", LogContext.EVENT to "7"),
+            "activity" to line(
+                LogKind.OUTPUT, "Llat activity", LogContext.ACTIVITY to "com.android.settings.Settings", *appCtx(s),
+            ),
+        )
+        val command = line(LogKind.COMMAND, "echo llat sheet", LogContext.COMMAND to "echo llat sheet")
+        val output = line(LogKind.OUTPUT, "llat sheet", LogContext.FROM to command.id.toString())
+        val lines = others + mapOf("command" to command, "output" to output)
+        home.lines = lines.values.sortedBy { it.id }
+        val headings = HashMap<String, List<String>>()
+        val fresh = LogAction(MenuLayout.FRESH) {}
+        for ((kind, e) in lines) {
+            // Fresh from here, which another change adds as plain words, may be there too.
+            for (list in listOf(actions.actionsFor(e), actions.actionsFor(e) + fresh)) {
+                val shown = list.map(MenuLayout::placeKnown)
+                shown.forEach { a ->
+                    assertTrue("$kind: ${a.label} has a place", a.place != null)
+                    assertTrue("$kind: ${a.label} has an icon", a.icon != null)
+                    assertTrue("$kind: ${a.label} has short words", a.short.isNotBlank() && a.short.length <= 20)
+                }
+                val layout = MenuLayout.of(shown)
+                assertEquals(kind, shown.size, layout.all.size)
+                shown.forEach { a -> assertEquals("$kind: ${a.label}", 1, layout.all.count { it === a }) }
+                assertTrue(kind, layout.words.isEmpty())
+                val row = layout.row!!.map { it?.label }
+                assertEquals(kind, "Copy text", row[0])
+                assertTrue(kind, row[2] == "Star line" || row[2] == "Unstar line")
+                assertEquals(kind, "Delete line", row[4])
+                layout.groups.forEach { (g, chips) ->
+                    val firstRed = chips.indexOfFirst { it.destructive }
+                    assertTrue("$kind: ${g.heading}", firstRed < 0 || chips.drop(firstRed).all { it.destructive })
+                }
+                headings[kind] = layout.groups.map { it.first.heading }
+            }
+        }
+        assertEquals(emptyList<String>(), headings["plain"])
+        assertEquals(listOf("Command"), headings["command"])
+        assertEquals(listOf("Command · echo llat sheet"), headings["output"])
+        assertEquals(listOf("Settings"), headings["app"])
+        assertEquals(listOf("Settings", "Notification"), headings["notification"])
+        assertEquals(listOf("Alex"), headings["person"])
+        assertEquals(
+            listOf("Settings", "Link · a.example/1", "Image", "Link · b.example/2", SCRIPT),
+            headings["link"],
+        )
+        assertEquals(listOf("Todo"), headings["todo"])
+        assertEquals(listOf("Note"), headings["note"])
+        assertEquals(listOf("Reminder"), headings["reminder"])
+        assertEquals(listOf("Event"), headings["event"])
+        assertEquals(listOf("Activity", "Settings"), headings["activity"])
+        // A command's Copy output and Delete with output are in its group, with Run again.
+        assertEquals(
+            listOf("Run again", "Edit in prompt", "Copy output", "Delete command and output"),
+            MenuLayout.of(actions.actionsFor(command)).groups.single().second.map { it.label },
+        )
+        // An app held in a list: its five in the row, in their order, and the rest in groups.
+        val list = MenuLayout.of(actions.appActions(s))
+        assertEquals(
+            listOf("Launch Settings [P]", "App info", "Pin to favorites", "Hide from lists", "Uninstall"),
+            list.row!!.map { it?.label },
+        )
+        assertTrue(list.groups.all { it.first.heading == "Shortcuts" || it.first.heading == "More" })
+        assertTrue(list.groups.last().second.any { it.label == "Copy package name" })
+        assertEquals(actions.appActions(s).size, list.all.size)
+    }
+
     private companion object {
         const val SETTINGS = "com.android.settings"
         const val SCRIPT = "llatest"

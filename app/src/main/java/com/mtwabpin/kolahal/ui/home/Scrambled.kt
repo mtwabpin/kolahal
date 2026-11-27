@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.terminal.ActionPlace
 import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.Suggestion
 import com.mtwabpin.kolahal.terminal.tty.screens.DecodeScreen
@@ -62,16 +63,27 @@ internal fun scrambledMedia(np: NowPlaying, s: Scramble): NowPlaying = np.copy(
 /**
  * A sheet as it shows while home is scrambled: its title, the line's source and time, its link and
  * its actions scrambled. An action that names nothing of the user's keeps its label
- * ([PLAIN_LABELS]), so the sheet can still be used; the actions themselves are the line's own.
+ * ([PLAIN_LABELS]) and its short words ([PLAIN_SHORTS]), so the sheet can still be used; the
+ * actions themselves are the line's own. A group's heading that holds the user's words (a script,
+ * an app, an address: [ActionPlace.Group.own]) is scrambled too, the same for each of its actions.
  */
-internal fun scrambledMenu(menu: ActionMenu, s: Scramble): ActionMenu = menu.copy(
-    title = s.text(menu.title, MENU),
-    detail = menu.detail?.let { s.text(it, MENU + 1) },
-    url = menu.url?.let { s.text(it, MENU + 2) },
-    actions = menu.actions.mapIndexed { i, a ->
-        if (a.label in PLAIN_LABELS) a else a.copy(label = s.text(a.label, MENU + 10 + i))
-    },
-)
+internal fun scrambledMenu(menu: ActionMenu, s: Scramble): ActionMenu {
+    val keys = menu.actions.mapNotNull { (it.place as? ActionPlace.Group)?.key }.distinct()
+    return menu.copy(
+        title = s.text(menu.title, MENU),
+        detail = menu.detail?.let { s.text(it, MENU + 1) },
+        url = menu.url?.let { s.text(it, MENU + 2) },
+        actions = menu.actions.mapIndexed { i, a ->
+            val place = (a.place as? ActionPlace.Group)?.takeIf { it.own }
+                ?.let { it.copy(heading = s.text(it.heading, MENU + 1_000 + keys.indexOf(it.key))) } ?: a.place
+            a.copy(
+                label = if (a.label in PLAIN_LABELS) a.label else s.text(a.label, MENU + 10 + i),
+                short = if (a.short in PLAIN_SHORTS) a.short else s.text(a.short, MENU + 500 + i),
+                place = place,
+            )
+        },
+    )
+}
 
 /** The sheets' labels that hold nothing of the user's: the same words on every line. */
 private val PLAIN_LABELS = setOf(
@@ -82,8 +94,18 @@ private val PLAIN_LABELS = setOf(
     "Mark done", "Mark not done", "Delete todo", "Delete note", "Cancel reminder", "Open event",
     "App info", "Copy package name", "Pin to favorites", "Unpin from favorites", "Hide from lists",
     "Unhide", "Uninstall", "Mute notifications", "Notify on new items", "Next track",
-    "Previous track", "Clear this line",
+    "Previous track", "Clear this line", "Fresh from here",
 )
+
+/** The words on the chips and under the icons that hold nothing of the user's. */
+private val PLAIN_SHORTS = setOf(
+    "Copy", "Copy output", "Fresh", "Star", "Unstar", "Only this", "Delete", "Delete with output", "Run again",
+    "Edit in prompt", "Open", "Copy command", "App info", "Copy package", "Favorite", "Unfavorite",
+    "Hide", "Unhide", "Uninstall", "Personal profile", "Work profile", "Private space",
+    "Clone profile", "Mute app", "Dismiss", "Call", "Message", "Contact", "Share", "Run now",
+    "Pin to top", "Unpin", "Edit", "Turn off", "Turn on", "Mute", "Notify", "Done", "Not done",
+    "Cancel",
+) + PLAIN_LABELS
 
 /** The kinds of completion that name something of the user's: a contact, a todo, a note or a file, a reminder, a feed. */
 private val OWN_ICONS = setOf(

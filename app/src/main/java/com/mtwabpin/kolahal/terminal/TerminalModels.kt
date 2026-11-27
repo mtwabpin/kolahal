@@ -101,15 +101,56 @@ sealed interface Suggestion {
 class UndoOffer(val text: String, val expire: () -> Unit = {}, val undo: () -> Unit)
 
 /**
- * One entry of a log line's long-press menu. [icon] is drawn in a fixed-width column,
- * so the labels line up whatever the icon's width.
+ * One entry of a log line's long-press menu.
+ * - [label]: the full words. A screen reader hears them, the TTY sheet shows them, and a sheet
+ *   without [place] shows them in a row, with [icon] in a fixed-width column so the labels line up.
+ * - [short]: the word or two on its chip, or under its icon in the sheet's row. The group's heading
+ *   already names the thing, so it doesn't repeat it: "Run now" for "Run weather now".
+ * - [place]: where the GUI sheet puts it ([ActionPlace]). Without one, the sheet is a list of words
+ *   (quick actions, the editor's menu).
  */
 data class LogAction(
     val label: String,
     val destructive: Boolean = false,
     val icon: ActionIcon? = null,
+    val short: String = label,
+    val place: ActionPlace? = null,
     val run: () -> Unit
 )
+
+/** Where a line's or an app's sheet (ActionSheet) puts an action. */
+sealed interface ActionPlace {
+    /**
+     * In the row of icons at the top, at [slot] (0 to [SLOTS] - 1). A slot is the same on every
+     * line, and stays empty when the line hasn't its action, so the thumb learns the row.
+     */
+    data class Row(val slot: Int) : ActionPlace
+
+    /**
+     * Among the chips under [heading], which names the thing the line names: a script, an app, a
+     * link. [key] tells two groups apart (two links); [own]: the heading holds the user's words (a
+     * name, an address), which `scramble` hides.
+     */
+    data class Group(val key: String, val heading: String, val own: Boolean = false) : ActionPlace
+
+    companion object {
+        const val SLOTS = 5
+
+        /** A line's row: Copy, Fresh (from here), Star, Only this, Delete. */
+        val COPY = Row(0)
+        val FRESH = Row(1)
+        val STAR = Row(2)
+        val ONLY = Row(3)
+        val DELETE = Row(4)
+
+        /** An app's row, when it is held in a list: Open, App info, Favorite, Hide, Uninstall. */
+        val OPEN = Row(0)
+        val APP_INFO = Row(1)
+        val FAVORITE = Row(2)
+        val HIDE = Row(3)
+        val UNINSTALL = Row(4)
+    }
+}
 
 /** A menu icon in the header's style and size. */
 sealed interface ActionIcon {
